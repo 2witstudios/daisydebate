@@ -601,3 +601,117 @@ test('the first document load preserves an active Files menu and Recent paints w
     await accounts.closeContexts();
   }
 });
+
+test('the last tab and Escape from every menu step return narrow keyboard focus', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Files focus handoffs',
+    );
+    const doc = await createTestDocument(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/prep?open=${doc.id}`);
+    await expect(
+      page.getByRole('textbox', { name: doc.title, exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: `Close ${doc.title}`, exact: true })
+      .click();
+    await expect(
+      files(page).getByRole('button', { name: 'New', exact: true }),
+    ).toBeFocused();
+    const trigger = files(page).getByRole('button', {
+      name: `Actions for ${doc.title}`,
+      exact: true,
+    });
+    for (const step of [null, 'Move to…', 'Delete']) {
+      await trigger.click();
+      if (step)
+        await page.getByRole('menuitem', { name: step, exact: true }).click();
+      await page.keyboard.press('Escape');
+      await expect(trigger).toBeFocused();
+    }
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('a removed move destination leaves its existing source in its expanded folder', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Move destination disappeared',
+    );
+    const source = await folder(page, 'Source');
+    const destination = await folder(page, 'Destination');
+    const doc = await createTestDocument(page, source);
+    await page.goto(`${origin}/prep`);
+    await files(page)
+      .getByRole('button', { name: 'Source', exact: true })
+      .click();
+    const sourceRow = files(page)
+      .getByRole('region', { name: 'My drive' })
+      .getByRole('button', { name: doc.title, exact: true });
+    await expect(sourceRow).toBeVisible();
+    await files(page)
+      .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Move to…' }).click();
+    await expect(
+      page.getByRole('menuitem', { name: 'Destination', exact: true }),
+    ).toBeVisible();
+    const removed = await page.request.post('/api/documents/folders/delete', {
+      headers: { origin },
+      data: { id: destination },
+    });
+    expect(removed.status()).toBe(200);
+    await page
+      .getByRole('menuitem', { name: 'Destination', exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole('region', { name: 'Your files', exact: true })
+        .getByRole('alert'),
+    ).toContainText('That destination is no longer');
+    await expect(sourceRow).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Save as a new document' }),
+    ).toHaveCount(0);
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('shrinking Prep hands hidden Files focus to the visible document pane', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Responsive Files focus',
+    );
+    const doc = await createTestDocument(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(`${origin}/prep?open=${doc.id}`);
+    await expect(
+      page.getByRole('textbox', { name: doc.title, exact: true }),
+    ).toBeVisible();
+    await files(page).getByRole('button', { name: 'Search files' }).focus();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.getByRole('button', { name: 'Back to Files' }),
+    ).toBeFocused();
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});

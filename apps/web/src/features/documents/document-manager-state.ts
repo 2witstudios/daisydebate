@@ -23,11 +23,17 @@ import {
   closeTab,
   findOpen,
   loadOpenDocuments,
+  loadedDocuments,
   openId,
   openTab,
   type OpenDocument,
   type TabsState,
 } from './open-documents';
+
+/** A pane choice and its optional focus effect, decided by one pure transition. */
+export type ManagerNavigation =
+  | { readonly pane: 'unselected' | 'files'; readonly focus: 'files' | null }
+  | { readonly pane: 'document'; readonly focus: 'document' | null };
 
 /** A viewer's choice of page for a document; null follows their theme. */
 export type PageTone = 'light' | 'dark';
@@ -46,7 +52,7 @@ export type ManagerState = {
   /** The row whose name is being typed. */
   readonly renaming: string | null;
   /** The one panel a narrow screen shows. */
-  readonly pane: 'pending' | 'files' | 'document';
+  readonly navigation: ManagerNavigation;
 };
 
 export const initialManagerState = (
@@ -58,7 +64,7 @@ export const initialManagerState = (
   pages: {},
   palette: 'closed',
   renaming: null,
-  pane: 'pending',
+  navigation: { pane: 'unselected', focus: null },
 });
 
 export type ManagerAction =
@@ -89,6 +95,8 @@ export type ManagerAction =
       readonly title: string;
     }
   | { readonly type: 'doc/failed'; readonly id: string }
+  /** A confirmed missing response can close only a tab that still has no body. */
+  | { readonly type: 'doc/missing'; readonly id: string }
   /** Off this page's tabs and memory, still in the drive; opening it reads afresh. */
   | { readonly type: 'doc/closed'; readonly id: string }
   /** The owner closed, so no document stays on screen. */
@@ -154,6 +162,7 @@ const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
   'doc/add': true,
   'doc/opening': true,
   'doc/failed': true,
+  'doc/missing': true,
   'doc/closed': true,
   'doc/withdrawn': true,
   'palette/open': true,
@@ -177,12 +186,31 @@ export const isManagerAction = (action: {
   readonly type: string;
 }): action is ManagerAction => Object.hasOwn(MANAGER_ACTIONS, action.type);
 
-/** The tabs that remain; with none left, a narrow screen goes back to Files. */
-const withTabs = <T extends ManagerState>(state: T, tabs: TabsState): T => ({
-  ...state,
-  tabs,
-  pane: tabs.open.length === 0 ? 'files' : state.pane,
-});
+const withNavigation = <T extends ManagerState>(
+  state: T,
+  pane: ManagerNavigation['pane'],
+  requested: boolean,
+): T => {
+  if (pane === state.navigation.pane) return state;
+  const wasDocument = state.navigation.pane === 'document';
+  const navigation: ManagerNavigation =
+    pane === 'document'
+      ? { pane, focus: requested && !wasDocument ? 'document' : null }
+      : { pane, focus: requested && wasDocument ? 'files' : null };
+  return { ...state, navigation };
+};
+
+/** The tabs that remain; a deliberate last close hands focus back to Files. */
+const withTabs = <T extends ManagerState>(
+  state: T,
+  tabs: TabsState,
+  requested = true,
+): T => {
+  const next = { ...state, tabs };
+  return tabs.open.length === 0
+    ? withNavigation(next, 'files', requested)
+    : next;
+};
 
 /** Tabs that remain, with no body kept for one closed by a removal. */
 const withoutDocument = <T extends ManagerState>(state: T, id: string): T => ({
@@ -209,39 +237,59 @@ export function reduceManager<T extends ManagerState>(
   });
   switch (action.type) {
     case 'tabs/open':
-      return {
-        ...state,
-        tabs: openTab(state.tabs, action.id),
-        pane: 'document',
-      };
+      return withNavigation(
+        { ...state, tabs: openTab(state.tabs, action.id) },
+        'document',
+        true,
+      );
     case 'tabs/close':
       return withTabs(state, closeTab(state.tabs, action.id));
     case 'tabs/activate':
-      return {
-        ...state,
-        tabs: activateTab(state.tabs, action.id),
-        pane: 'document',
-      };
+      return withNavigation(
+        { ...state, tabs: activateTab(state.tabs, action.id) },
+        'document',
+        true,
+      );
     case 'doc/loaded': {
       const loaded = loadOpenDocuments(state, action.documents);
-      // Only the untouched initial pane follows arrival. Any use of Files
-      // commits that choice before a slow first load can answer.
-      return state.pane === 'pending'
-        ? {
-            ...loaded,
-            pane: loaded.tabs.open.length > 0 ? 'document' : 'files',
-          }
+      // A default pane follows arrival; any use of Files commits that choice.
+      return state.navigation.pane === 'unselected' &&
+        loaded.tabs.open.length > 0
+        ? withNavigation(loaded, 'document', false)
         : loaded;
     }
     case 'doc/withdrawn':
-      return { ...withTabs(state, { open: [], active: null }), opened: [] };
-    case 'doc/add':
       return {
-        ...addOpenDocument(state, action.document),
-        pane: findOpen(state.opened, action.document.id)
-          ? state.pane
-          : 'document',
+        ...withTabs(state, { open: [], active: null }, false),
+        opened: [],
       };
+    case 'doc/add': {
+      const added = addOpenDocument(state, action.document);
+      return findOpen(state.opened, action.document.id)
+        ? added
+        : withNavigation(added, 'document', true);
+    }
+    case 'doc/missing': {
+      if (findOpen(state.opened, action.id)?.kind === 'loaded') return state;
+      const closed = {
+        ...state,
+        tabs: closeTab(state.tabs, action.id),
+        opened: state.opened.filter((open) => openId(open) !== action.id),
+      };
+      // A fresh page can receive its initial load before or after an old URL's
+      // missing response. Either order lands on an existing loaded copy.
+      const fallback = loadOpenDocuments(
+        closed,
+        loadedDocuments(closed.opened),
+      );
+      return state.navigation.pane === 'document'
+        ? withNavigation(
+            fallback,
+            fallback.tabs.open.length > 0 ? 'document' : 'unselected',
+            true,
+          )
+        : fallback;
+    }
     case 'doc/opening': {
       const known = findOpen(state.opened, action.id);
       const opened: readonly OpenDocument[] =
@@ -257,13 +305,16 @@ export function reduceManager<T extends ManagerState>(
                 ...state.opened,
                 { kind: 'loading', id: action.id, title: action.title },
               ];
-      return {
-        ...state,
-        opened,
-        tabs: openTab(state.tabs, action.id),
-        palette: 'closed',
-        pane: 'document',
-      };
+      return withNavigation(
+        {
+          ...state,
+          opened,
+          tabs: openTab(state.tabs, action.id),
+          palette: 'closed',
+        },
+        'document',
+        true,
+      );
     }
     case 'doc/closed':
       return {
@@ -294,9 +345,11 @@ export function reduceManager<T extends ManagerState>(
     case 'palette/close':
       return { ...state, palette: 'closed' };
     case 'files/used':
-      return state.pane === 'pending' ? { ...state, pane: 'files' } : state;
+      return state.navigation.pane === 'unselected'
+        ? withNavigation(state, 'files', false)
+        : state;
     case 'pane/files':
-      return { ...state, pane: 'files' };
+      return withNavigation(state, 'files', true);
     case 'drive/renaming':
       return { ...state, renaming: action.id };
     case 'page/tone':

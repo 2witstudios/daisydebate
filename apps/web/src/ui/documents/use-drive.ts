@@ -18,15 +18,6 @@ import type {
 import type { DocumentSync } from './document-sync';
 import type { SaveState } from './document-pane';
 
-type DriveProblem =
-  | {
-      readonly kind: 'read';
-      readonly resourceId: string | null;
-      readonly message: string;
-    }
-  | { readonly kind: 'change'; readonly message: string };
-const statusOf = (error: unknown) =>
-  (error as { readonly status?: unknown } | null)?.status;
 import {
   driveApi,
   type DriveChange,
@@ -34,6 +25,16 @@ import {
   type RecentDocument,
 } from './drive-api';
 import { useRecentDocuments } from './use-recent-documents';
+
+type DriveProblem =
+  | {
+      readonly kind: 'read';
+      readonly resourceId: string | null;
+      readonly message: string;
+    }
+  | { readonly kind: 'change' | 'missing'; readonly message: string };
+const statusOf = (error: unknown) =>
+  (error as { readonly status?: unknown } | null)?.status;
 
 export type DriveActions = {
   readonly problem: string | null;
@@ -110,8 +111,8 @@ export function useDrive({
       // Recheck server truth without throwing away anyone's unsaved text.
       void sync
         ?.recheck(
-          known.current.map((open) =>
-            open.kind === 'loaded' ? open.document.id : open.id,
+          known.current.flatMap((open) =>
+            open.kind === 'loaded' ? [open.document.id] : [],
           ),
         )
         .catch(() => {});
@@ -119,13 +120,20 @@ export function useDrive({
     [dispatch, sync],
   );
   const readFailed = useCallback(
-    (error: unknown, resourceId: string | null, message: string) => {
+    (
+      error: unknown,
+      resourceId: string | null,
+      message: string,
+      passive = false,
+    ) => {
       if (statusOf(error) === 404 && resourceId !== null) missing(resourceId);
-      setProblem({
-        kind: 'read',
-        resourceId,
-        message: statusOf(error) === 404 ? driveNotices.missing : message,
-      });
+      setProblem((current) =>
+        passive && current?.kind === 'change'
+          ? current
+          : statusOf(error) === 404
+            ? { kind: 'missing', message: driveNotices.missing }
+            : { kind: 'read', resourceId, message },
+      );
     },
     [missing],
   );
@@ -133,7 +141,11 @@ export function useDrive({
     generation.current++;
     const answer = await run();
     generation.current++;
-    setProblem((current) => (current?.kind === 'change' ? null : current));
+    setProblem((current) =>
+      current?.kind === 'change' || current?.kind === 'missing'
+        ? null
+        : current,
+    );
     return answer;
   };
 
@@ -152,7 +164,8 @@ export function useDrive({
         // replace an acknowledged change with a page read before it committed.
         if (started !== generation.current) return request();
         setProblem((current) =>
-          current?.kind === 'read' && current.resourceId === folderId
+          current?.kind === 'missing' ||
+          (current?.kind === 'read' && current.resourceId === folderId)
             ? null
             : current,
         );
@@ -176,12 +189,23 @@ export function useDrive({
     if (!sync) return;
     if (listRoot)
       listFolder(null, null).catch((error) =>
-        readFailed(error, null, 'Your drive did not load. Reload the page.'),
+        readFailed(
+          error,
+          null,
+          'Your drive did not load. Reload the page.',
+          true,
+        ),
       );
-    // Another tab may have changed the drive; a failed look changes nothing.
+    // Another tab may have changed the drive. A passive failure reports a
+    // read problem without displacing a still-actionable change failure.
     const refresh = () => {
       void listFolder(null, null).catch((error) =>
-        readFailed(error, null, 'Your drive did not load. Reload the page.'),
+        readFailed(
+          error,
+          null,
+          'Your drive did not load. Reload the page.',
+          true,
+        ),
       );
       readRecent();
     };
@@ -205,12 +229,8 @@ export function useDrive({
         if (document) dispatch({ type: 'doc/add', document });
         else {
           missing(id);
-          dispatch({ type: 'doc/failed', id });
-          setProblem({
-            kind: 'read',
-            resourceId: id,
-            message: driveNotices.missing,
-          });
+          dispatch({ type: 'doc/missing', id });
+          setProblem({ kind: 'missing', message: driveNotices.missing });
         }
       },
       () => dispatch({ type: 'doc/failed', id }),
@@ -237,7 +257,7 @@ export function useDrive({
       .catch((error: unknown) => {
         if (statusOf(error) === 404 && folderId !== null) missing(folderId);
         setProblem({
-          kind: 'change',
+          kind: statusOf(error) === 404 ? 'missing' : 'change',
           message:
             statusOf(error) === 409
               ? DRIVE_FULL_NOTICE
@@ -309,12 +329,40 @@ export function useDrive({
         }
         readRecent();
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
+        if (
+          statusOf(error) === 404 &&
+          (path === 'move' || path === 'folders/move')
+        ) {
+          try {
+            const found = await driveApi.folders();
+            setFolders(found);
+            setFolderProblem(null);
+            const sourceExists =
+              path === 'folders/move'
+                ? found.some((folder) => folder.id === id)
+                : await driveApi.hasDocument(id);
+            if (!sourceExists) missing(id);
+            setProblem({
+              kind: 'missing',
+              message: sourceExists
+                ? 'That destination is no longer in your drive. Choose another folder.'
+                : driveNotices.missing,
+            });
+          } catch {
+            setProblem({
+              kind: 'change',
+              message:
+                'That move could not be checked. Your file stays here. Reload before trying again.',
+            });
+          }
+          return;
+        }
         const staleId =
           path === 'folders/create' ? orNull(fields.parentFolderId) : id;
         if (statusOf(error) === 404 && staleId) missing(staleId);
         setProblem({
-          kind: 'change',
+          kind: statusOf(error) === 404 ? 'missing' : 'change',
           message:
             statusOf(error) === 409
               ? driveNotices.conflict

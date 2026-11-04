@@ -56,6 +56,12 @@ export const driveApi = {
   recent: async () =>
     (await post<{ documents: readonly RecentDocument[] }>('recent', {}))
       .documents,
+  hasDocument: async (id: string) =>
+    (
+      await post<{ documents: readonly { readonly id: string }[] }>('read', {
+        ids: [id],
+      })
+    ).documents.some((document) => document.id === id),
   folderCount: async (id: string) =>
     (await post<{ count: number }>('folders/count', { id })).count,
   search: async (text: string) =>

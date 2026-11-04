@@ -392,3 +392,86 @@ test('closed or forgotten owners never turn a null open into a missing-document 
     await fixture.close();
   }
 });
+
+test('a missing destination never unlists a move source that still exists', async () => {
+  const fixture = await mount(async (path) =>
+    path.endsWith('/folders')
+      ? Response.json({
+          folders: [
+            { id: 'source-folder', name: 'Source', parentFolderId: null },
+          ],
+        })
+      : path.endsWith('/read')
+        ? Response.json({ documents: [doc] })
+        : new Response('{}', { status: 404 }),
+  );
+  try {
+    await fixture.act(async () =>
+      fixture.drive().change('move', { id: doc.id, folderId: 'gone-target' }),
+    );
+    await fixture.act(async () =>
+      fixture
+        .drive()
+        .change('folders/move', {
+          id: 'source-folder',
+          parentFolderId: 'gone-target',
+        }),
+    );
+    assert({
+      given:
+        'document and folder moves whose destination vanished while their sources remain owned',
+      should: 'keep both sources and refresh the available destinations',
+      actual: [
+        fixture.actions.some((action) => action.type === 'drive/unlist'),
+        fixture.drive().folders.map((folder) => folder.id),
+        fixture.drive().problem,
+      ],
+      expected: [
+        false,
+        ['source-folder'],
+        'That destination is no longer in your drive. Choose another folder.',
+      ],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('missing notices end on later success while unrelated read errors survive a change', async () => {
+  let status = 404;
+  const fixture = await mount(async (path) =>
+    path.endsWith('/list')
+      ? new Response(JSON.stringify({ entries: [], next: null }), { status })
+      : Response.json({}),
+  );
+  try {
+    await fixture.act(async () => {
+      await fixture.drive().toggle('gone', true, false);
+    });
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'Notes' }),
+    );
+    assert({
+      given: 'a missing row followed by a successful rename',
+      should: 'clear the completed missing-item notice',
+      actual: fixture.drive().problem,
+      expected: null,
+    });
+    status = 503;
+    await fixture.act(async () => {
+      await fixture.drive().toggle('offline', true, false);
+    });
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'Notes' }),
+    );
+    assert({
+      given:
+        'a different unread folder that is still unavailable after a successful rename',
+      should: 'keep its unrelated read failure',
+      actual: fixture.drive().problem,
+      expected: 'That folder did not open. Try again.',
+    });
+  } finally {
+    await fixture.close();
+  }
+});

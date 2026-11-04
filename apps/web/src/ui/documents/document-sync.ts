@@ -87,8 +87,9 @@ export type DocumentSyncResources = {
 export type DocumentSync = {
   readonly load: () => Promise<readonly StoredDocument[]>;
   readonly create: (folderId?: string | null) => Promise<StoredDocument>;
-  /** Reads a document into this owner, with any draft it has here; null when gone. */
+  /** Whether this owner is open and has not intentionally forgotten this id. */
   readonly canOpen: (id: string) => boolean;
+  /** Reads a document into this owner, with any draft it has here; null when unavailable. */
   readonly open: (id: string) => Promise<StoredDocument | null>;
   /** Marks open documents the server no longer has. */
   readonly recheck: (ids: readonly string[]) => Promise<void>;
@@ -289,7 +290,7 @@ export function createDocumentSync({
     for (const listener of listeners) listener();
   };
   const markGone = (id: string) => {
-    if (isForgotten(doc(id))) return;
+    if (isForgotten(doc(id)) || doc(id).revision === undefined) return;
     update(id, (d) => ({ ...d, hold: { kind: 'gone' } }));
     publish();
     notify();

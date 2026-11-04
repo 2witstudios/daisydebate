@@ -170,14 +170,18 @@ export function FileMenu({
         aria-label={`Actions for ${label}`}
         className="file-menu w-file-menu flex-col rounded-md border border-border-strong bg-surface-raised p-1 text-ink shadow-3"
         onKeyDown={moveMenuFocus}
+        onToggle={(event) => {
+          // Keep the focused item mounted until native closing has restored
+          // focus to the trigger, including Escape and light-dismiss paths.
+          if (event.newState === 'closed') {
+            setIsOpen(false);
+            setView('main');
+          }
+        }}
         onBeforeToggle={(event) => {
           if (openingFrame.current !== null)
             cancelAnimationFrame(openingFrame.current);
-          if (event.newState !== 'open') {
-            setIsOpen(false);
-            setView('main');
-            return;
-          }
+          if (event.newState !== 'open') return;
           // Native opening must not paint an empty shell while toggle waits in
           // its event queue. Commit the contents before entering the top layer.
           flushSync(() => setIsOpen(true));

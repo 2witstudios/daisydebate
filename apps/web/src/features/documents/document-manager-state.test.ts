@@ -213,11 +213,11 @@ describe('reduceManager: the panel a narrow screen shows', () => {
       given: 'nothing open, then a document opening, then the back button',
       should: 'show Files, the document, then Files',
       actual: [
-        initialManagerState().pane,
-        runActions([opening]).pane,
-        runActions([opening, { type: 'pane/files' }]).pane,
+        initialManagerState().navigation.pane,
+        runActions([opening]).navigation.pane,
+        runActions([opening, { type: 'pane/files' }]).navigation.pane,
       ],
-      expected: ['pending', 'document', 'files'],
+      expected: ['unselected', 'document', 'files'],
     });
   });
 
@@ -226,12 +226,13 @@ describe('reduceManager: the panel a narrow screen shows', () => {
       given: 'a stored document loading with nothing open',
       should: 'show it, and leave someone already in Files where they are',
       actual: [
-        runActions([{ type: 'doc/loaded', documents: [document] }]).pane,
+        runActions([{ type: 'doc/loaded', documents: [document] }]).navigation
+          .pane,
         runActions([
           { type: 'doc/loaded', documents: [document] },
           { type: 'pane/files' },
           { type: 'doc/loaded', documents: [document] },
-        ]).pane,
+        ]).navigation.pane,
       ],
       expected: ['document', 'files'],
     });
@@ -241,7 +242,8 @@ describe('reduceManager: the panel a narrow screen shows', () => {
     assert({
       given: 'the only open tab closed',
       should: 'go back to Files rather than an empty panel',
-      actual: runActions([opening, { type: 'tabs/close', id: 'a' }]).pane,
+      actual: runActions([opening, { type: 'tabs/close', id: 'a' }]).navigation
+        .pane,
       expected: 'files',
     });
   });
@@ -256,14 +258,15 @@ test('choosing a cached document returns to its pane', () => {
     given: 'Files after opening or closing a cached document',
     should: 'show its editor when chosen again',
     actual: [
-      reduceManager(cached, { type: 'tabs/open', id: document.id }).pane,
+      reduceManager(cached, { type: 'tabs/open', id: document.id }).navigation
+        .pane,
       runActions(
         [
           { type: 'tabs/close', id: document.id },
           { type: 'tabs/open', id: document.id },
         ],
         cached,
-      ).pane,
+      ).navigation.pane,
     ],
     expected: ['document', 'document'],
   });
@@ -277,7 +280,7 @@ test('a late body preserves Files navigation', () => {
       { type: 'doc/opening', id: document.id, title: document.title },
       { type: 'pane/files' },
       { type: 'doc/add', document },
-    ]).pane,
+    ]).navigation.pane,
     expected: 'files',
   });
 });
@@ -303,7 +306,7 @@ test('the first body load never interrupts someone already using Files', () => {
     actual: runActions([
       { type: 'files/used' },
       { type: 'doc/loaded', documents: [document] },
-    ]).pane,
+    ]).navigation.pane,
     expected: 'files',
   });
 });
@@ -314,7 +317,7 @@ test('withdrawing the owner returns a narrow manager to Files', () => {
     actual: runActions([
       { type: 'doc/add', document },
       { type: 'doc/withdrawn' },
-    ]).pane,
+    ]).navigation.pane,
     expected: 'files',
   });
 });
@@ -340,5 +343,74 @@ test('a folder deletion closes its documents in one transition and preserves oth
       ),
     ],
     expected: [{ open: ['other'], active: 'other' }, ['other']],
+  });
+});
+
+test('the pure navigation transition requests focus only for an explicit pane handoff', () => {
+  const opening = {
+    type: 'doc/opening',
+    id: document.id,
+    title: document.title,
+  } as const;
+  assert({
+    given:
+      'a passive first load, an explicit open, the last tab closed, and a passive owner withdrawal',
+    should: 'leave passive focus alone and request the right explicit handoffs',
+    actual: [
+      runActions([{ type: 'doc/loaded', documents: [document] }]).navigation
+        .focus,
+      runActions([opening]).navigation.focus,
+      runActions([opening, { type: 'tabs/close', id: document.id }]).navigation
+        .focus,
+      runActions([opening, { type: 'doc/withdrawn' }]).navigation.focus,
+    ],
+    expected: [null, 'document', 'files', null],
+  });
+});
+
+test('a missing unloaded tab falls back to the loaded recent document in either arrival order', () => {
+  const recent = {
+    ...document,
+    id: 'new-copy',
+    html: '<p>Saved recovered text</p>',
+  };
+  const opening = {
+    type: 'doc/opening',
+    id: 'gone',
+    title: 'Old notes',
+  } as const;
+  const loaded = { type: 'doc/loaded', documents: [recent] } as const;
+  const missing = { type: 'doc/missing', id: 'gone' } as const;
+  const outcomes = [
+    runActions([opening, loaded, missing]),
+    runActions([opening, missing, loaded]),
+  ];
+  assert({
+    given:
+      'an old missing URL and the saved recovered copy arriving before or after its missing response',
+    should: 'show the saved copy with no dead retry tab',
+    actual: outcomes.map((state) => [state.tabs, state.navigation.pane]),
+    expected: [
+      [{ open: ['new-copy'], active: 'new-copy' }, 'document'],
+      [{ open: ['new-copy'], active: 'new-copy' }, 'document'],
+    ],
+  });
+  const typed = runActions([
+    opening,
+    { type: 'doc/loaded', documents: [{ ...document, id: 'gone' }] },
+    {
+      type: 'doc/update',
+      id: 'gone',
+      html: '<p>Typing before the older read answers</p>',
+      now: document.updatedAt,
+    },
+    missing,
+  ]);
+  assert({
+    given:
+      'a body supplied by the initial load and typed into before an older null answer',
+    should: 'retain the active tab and typed text',
+    actual: [typed.tabs.active, loadedDocuments(typed.opened)[0]?.html],
+    expected: ['gone', '<p>Typing before the older read answers</p>'],
   });
 });

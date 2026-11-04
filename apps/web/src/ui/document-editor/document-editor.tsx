@@ -10,6 +10,11 @@ import { EditorToolbar } from './editor-toolbar';
 import { outsideTextTransaction } from './outside-text';
 import { DEFAULT_TEXT_SIZE, type TextSize } from './editor-view';
 
+const editorAttributes = (title: string) => ({
+  class: 'room-doc min-h-full',
+  'aria-label': title,
+});
+
 /** The page surface a document is edited on. */
 export type { PageTone };
 
@@ -51,10 +56,7 @@ export function DocumentEditor({
       extensions: documentExtensions,
       content: document.html,
       editorProps: {
-        attributes: {
-          class: 'room-doc min-h-full',
-          'aria-label': document.title,
-        },
+        attributes: editorAttributes(document.title),
       },
       onUpdate: ({ editor: current }) => onChange(current.getHTML()),
     },
@@ -67,10 +69,7 @@ export function DocumentEditor({
     editor?.setOptions({
       editorProps: {
         ...editor.options.editorProps,
-        attributes: {
-          class: 'room-doc min-h-full',
-          'aria-label': document.title,
-        },
+        attributes: editorAttributes(document.title),
       },
     });
   }, [editor, document.title]);

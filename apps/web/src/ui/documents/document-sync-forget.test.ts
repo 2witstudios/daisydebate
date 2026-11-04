@@ -79,3 +79,44 @@ test('one folder deletion forgets a full drive in one publication and retains ou
     sync.dispose();
   }
 });
+
+test('rechecking a never-loaded id cannot fabricate deleted text while loaded typing stays recoverable', async () => {
+  let documents = [stored('a', 3)];
+  const sync = createDocumentSync({
+    principalId: 'p',
+    api: documentApi(
+      async () => ({ status: 'saved', revision: 4 }),
+      () => documents,
+    ),
+    ...manualDraftResources('p', { storage: memoryStorage() }),
+    onConflict: () => {},
+  });
+  try {
+    await sync.recheck(['never-loaded']);
+    assert({
+      given: 'an absent id whose body was never read',
+      should: 'offer no phantom deleted document or recovery action',
+      actual: [sync.firstGone(), sync.firstNeedingCopy()],
+      expected: [null, null],
+    });
+    await sync.load();
+    sync.change('a', '<p>Typed text survives deletion</p>');
+    documents = [];
+    await sync.recheck(['never-loaded', 'a']);
+    assert({
+      given: 'a loaded and edited document deleted elsewhere',
+      should: 'offer only that real text for recovery',
+      actual: [sync.firstGone(), sync.firstNeedingCopy()],
+      expected: ['a', 'a'],
+    });
+    const copied = await sync.saveAsNew('a');
+    assert({
+      given: 'the explicit recovery choice',
+      should: 'carry the typed text into the new document',
+      actual: copied?.html,
+      expected: '<p>Typed text survives deletion</p>',
+    });
+  } finally {
+    sync.dispose();
+  }
+});

@@ -10,7 +10,6 @@ import {
 import {
   initialManagerState,
   reduceManager,
-  type ManagerAction,
 } from '../../features/documents/document-manager-state';
 import {
   emptyDrive,
@@ -90,32 +89,13 @@ export function ManagerWorkspace({
   readonly initial?: InitialDrive | null;
   readonly pageNotice?: string | null;
 }) {
-  const [state, transition] = useReducer(
+  const [state, dispatch] = useReducer(
     reduceManager,
     initial
       ? withPage(emptyDrive, null, { ...initial, first: true })
       : emptyDrive,
     initialManagerState,
   );
-  const focusIntent = useRef<'files' | 'document' | null>(null);
-  const known = useRef(state.opened);
-  useLayoutEffect(() => {
-    known.current = state.opened;
-  }, [state.opened]);
-  const dispatch = useCallback((action: ManagerAction) => {
-    if (action.type === 'pane/files') focusIntent.current = 'files';
-    else if (
-      action.type === 'doc/opening' ||
-      action.type === 'tabs/open' ||
-      action.type === 'tabs/activate' ||
-      (action.type === 'doc/add' &&
-        !known.current.some(
-          (open) => openDocumentId(open) === action.document.id,
-        ))
-    )
-      focusIntent.current = 'document';
-    transition(action);
-  }, []);
   const { problem } = useDocumentSync(sync, dispatch, state.tabs.open);
   const drive = useDrive({
     sync,
@@ -128,25 +108,63 @@ export function ManagerWorkspace({
     save,
   });
   usePaletteShortcut(dispatch);
+  const workspace = useRef<HTMLElement>(null);
   const filesPane = useRef<HTMLDivElement>(null);
+  const documentPane = useRef<HTMLDivElement>(null);
+  const lastFocused = useRef<HTMLElement | null>(null);
   const backToFiles = useRef<HTMLButtonElement>(null);
-  const previousPane = useRef(state.pane);
-  useLayoutEffect(() => {
-    if (previousPane.current === state.pane) return;
-    previousPane.current = state.pane;
-    const intended = focusIntent.current;
-    focusIntent.current = null;
-    if (
-      intended !== state.pane ||
-      !window.matchMedia('(width < 901px)').matches
-    )
-      return;
+  const focusPane = useCallback((pane: 'files' | 'document') => {
     const target =
-      state.pane === 'files'
+      pane === 'files'
         ? filesPane.current?.querySelector<HTMLButtonElement>('button')
         : backToFiles.current;
     target?.focus({ preventScroll: true });
-  }, [state.pane]);
+  }, []);
+  useLayoutEffect(() => {
+    if (
+      state.navigation.focus !== null &&
+      window.matchMedia('(width < 901px)').matches
+    )
+      focusPane(state.navigation.focus);
+  }, [state.navigation, focusPane]);
+  useEffect(() => {
+    const narrow = window.matchMedia('(width < 901px)');
+    const remember = (event: FocusEvent) => {
+      if (event.target === document.body) return;
+      lastFocused.current = workspace.current?.contains(event.target as Node)
+        ? (event.target as HTMLElement)
+        : null;
+    };
+    const outside = (event: PointerEvent) => {
+      if (!workspace.current?.contains(event.target as Node))
+        lastFocused.current = null;
+    };
+    const crossed = () => {
+      if (!narrow.matches) return;
+      const visible =
+        state.navigation.pane === 'document' ? 'document' : 'files';
+      const hidden =
+        visible === 'document' ? filesPane.current : documentPane.current;
+      const active = document.activeElement;
+      // CSS may already have blurred the hidden control to BODY before this
+      // media-query event. Remember only focus this manager actually owned.
+      if (
+        hidden?.contains(active) ||
+        (active === document.body &&
+          lastFocused.current !== null &&
+          hidden?.contains(lastFocused.current))
+      )
+        focusPane(visible);
+    };
+    document.addEventListener('focusin', remember);
+    document.addEventListener('pointerdown', outside);
+    narrow.addEventListener('change', crossed);
+    return () => {
+      document.removeEventListener('focusin', remember);
+      document.removeEventListener('pointerdown', outside);
+      narrow.removeEventListener('change', crossed);
+    };
+  }, [state.navigation.pane, focusPane]);
   const opened = useRef(false);
   useEffect(() => {
     if (openId === null || opened.current) return;
@@ -161,7 +179,11 @@ export function ManagerWorkspace({
   };
 
   return (
-    <section aria-label="Your files" className="flex min-h-0 flex-1 flex-col">
+    <section
+      ref={workspace}
+      aria-label="Your files"
+      className="flex min-h-0 flex-1 flex-col"
+    >
       {[...new Set([problem ?? notice, drive.problem, pageNotice])]
         .filter(Boolean)
         .map((message) => (
@@ -187,7 +209,7 @@ export function ManagerWorkspace({
           onKeyDownCapture={() => dispatch({ type: 'files/used' })}
           className={cn(
             'flex w-drive shrink-0 flex-col border-r border-border bg-surface max-compact:w-full max-compact:border-r-0',
-            state.pane === 'document' && 'max-compact:hidden',
+            state.navigation.pane === 'document' && 'max-compact:hidden',
           )}
         >
           <FileTree
@@ -200,9 +222,10 @@ export function ManagerWorkspace({
           />
         </div>
         <div
+          ref={documentPane}
           className={cn(
             'flex min-w-0 flex-1 flex-col bg-surface-raised',
-            state.pane !== 'document' && 'max-compact:hidden',
+            state.navigation.pane !== 'document' && 'max-compact:hidden',
           )}
         >
           <DocumentPane
