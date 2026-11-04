@@ -102,10 +102,15 @@ export function addOpenDocument<
     readonly paletteOpen: boolean;
   },
 >(state: T, document: MemberDocument): T {
+  // A body answering a tab already there leaves the person where they are now:
+  // they may have moved on and be typing, or closed it while it loaded.
+  const awaited = state.opened.some(
+    (open) => open.kind === 'loading' && open.id === document.id,
+  );
   return {
     ...state,
     opened: withBodies(state.opened, [document]),
-    tabs: openTab(state.tabs, document.id),
+    tabs: awaited ? state.tabs : openTab(state.tabs, document.id),
     paletteOpen: false,
   };
 }

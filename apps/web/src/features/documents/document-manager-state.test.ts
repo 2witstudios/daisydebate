@@ -134,3 +134,28 @@ test('a document opening keeps its place when a load answers for another', () =>
     expected: [[], []],
   });
 });
+
+test('a body arriving leaves the person where they are', () => {
+  const other = { ...document, id: 'b'.repeat(24), title: 'Other' };
+  const reading = reduceManager(
+    reduceManager(initialManagerState(), { type: 'doc/add', document: other }),
+    { type: 'doc/opening', id: document.id, title: 'Notes' },
+  );
+  const movedBack = reduceManager(reading, {
+    type: 'tabs/activate',
+    id: other.id,
+  });
+  const arrived = reduceManager(movedBack, { type: 'doc/add', document });
+  const closed = reduceManager(reading, {
+    type: 'tabs/close',
+    id: document.id,
+  });
+  const late = reduceManager(closed, { type: 'doc/add', document });
+  assert({
+    given:
+      'a person back on another tab, and one who closed the tab, when the read answers',
+    should: 'not move them, and not reopen the tab',
+    actual: [arrived.tabs.active, late.tabs.open.includes(document.id)],
+    expected: [other.id, false],
+  });
+});

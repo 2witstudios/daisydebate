@@ -41,6 +41,8 @@ export type SavingHold =
   | { readonly kind: 'gone' }
   /** This person deleted it here, so no late answer may bring it back. */
   | { readonly kind: 'forgotten' }
+  /** Its text went to a new document, and what stays is offers from elsewhere. */
+  | { readonly kind: 'copied' }
   | { readonly kind: 'refused'; readonly generation: string };
 
 /** Everything one owner knows about saving one document. */
@@ -92,6 +94,8 @@ const unread: SavingDocument = {
   unanswered: [],
   storageProblem: false,
 };
+
+export const unreadDocument = unread;
 
 export const savingDocument = (
   state: SavingState,
@@ -148,7 +152,7 @@ export const serverRead = (
   document: SavingDocument,
   { html, revision }: Omit<ServerDocument, 'id'>,
 ): SavingDocument =>
-  document.revision === undefined
+  document.revision === undefined && !isForgotten(document)
     ? { ...document, revision, serverHtml: html }
     : document;
 
@@ -172,6 +176,15 @@ export const adoptsLateCommit = (
 ): boolean =>
   (settled || (offeredAtLoad && draftCopies(record).length === 0)) &&
   server.revision > (document.revision ?? -1);
+
+/** Text that exists only on this page: reloading would lose it. */
+export const holdsUnstoredEdit = (document: SavingDocument): boolean =>
+  document.pending !== undefined &&
+  document.durableGeneration !== document.pending.generation;
+
+/** Whether this document's text can only be kept by saving it as a new one. */
+export const needsNewDocument = (document: SavingDocument): boolean =>
+  isGone(document) || (isConflicted(document) && holdsUnstoredEdit(document));
 
 /** The text a deleted document still has here: what was typed, or else what was read. */
 export const keptText = (document: SavingDocument): string | undefined =>

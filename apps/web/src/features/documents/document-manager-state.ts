@@ -82,6 +82,8 @@ export type ManagerAction =
       readonly title: string;
     }
   | { readonly type: 'doc/failed'; readonly id: string }
+  /** Off this page's tabs and memory, still in the drive; opening it reads afresh. */
+  | { readonly type: 'doc/closed'; readonly id: string }
   /** The owner closed, so no document stays on screen. */
   | { readonly type: 'doc/withdrawn' }
   | { readonly type: 'palette/open' }
@@ -119,7 +121,9 @@ export type ManagerAction =
       readonly id: string;
       readonly folderId: string | null;
     }
-  | { readonly type: 'drive/remove'; readonly id: string };
+  | { readonly type: 'drive/remove'; readonly id: string }
+  /** Gone from the tree, while an offer of its text still needs its entry. */
+  | { readonly type: 'drive/unlist'; readonly id: string };
 
 /** A record, so a new action cannot be left out and silently dropped by a frame. */
 const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
@@ -132,6 +136,7 @@ const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
   'doc/add': true,
   'doc/opening': true,
   'doc/failed': true,
+  'doc/closed': true,
   'doc/withdrawn': true,
   'palette/open': true,
   'palette/close': true,
@@ -142,6 +147,7 @@ const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
   'drive/rename': true,
   'drive/move': true,
   'drive/remove': true,
+  'drive/unlist': true,
 };
 
 /** Whether an action is the manager's, for a frame that has actions of its own. */
@@ -208,6 +214,14 @@ export function reduceManager<T extends ManagerState>(
         paletteOpen: false,
       };
     }
+    case 'doc/closed':
+      return {
+        ...state,
+        opened: state.opened.filter((open) => openId(open) !== action.id),
+        tabs: closeTab(state.tabs, action.id),
+      };
+    case 'drive/unlist':
+      return { ...state, drive: removeEntry(state.drive, action.id) };
     case 'doc/failed':
       return {
         ...state,

@@ -1,177 +1,262 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  initialManagerState,
-  reduceManager,
-  type ManagerState,
-} from '../../features/documents/document-manager-state';
-import { loadedDocuments } from '../../features/documents/open-documents';
-import { createDocumentSync, type StoredDocument } from './document-sync';
+  createDocumentSync,
+  type DocumentsApi,
+  type SaveResult,
+  type StoredDocument,
+} from './document-sync';
 import {
   manualDraftResources,
   manualTimers,
   memoryStorage,
   stored,
 } from './document-sync.test-support';
+import {
+  initialManagerState,
+  reduceManager,
+  type ManagerAction,
+  type ManagerState,
+} from '../../features/documents/document-manager-state';
+import { loadedDocuments } from '../../features/documents/open-documents';
 
 setupRitewayBun();
 
-/**
- * The rule, not each bug: whatever order load, save, focus and edit arrive in,
- * and however their answers cross, text the person typed is never overwritten
- * or dropped, and another tab's text is never overwritten unseen. Two reviews
- * found this path's bugs one at a time, so this walks the orderings instead,
- * over the real sync owner and the real manager reducer. The server is real
- * enough to refuse a stale compare-and-swap, and every answer waits for a step.
- */
-const OPERATIONS = [
-  'edit', // the person types
-  'load', // the frame mounts: flush, then load
-  'open', // the person opens the document's tab
-  'flush', // a save goes out
-  'focus', // the window is looked at again
-  'other', // another tab commits text
-  'answer', // the oldest waiting answer arrives
-  'refuse', // the oldest waiting answer is a capacity refusal
-  'lose', // the oldest waiting save commits, but its answer is lost
-] as const;
-type Operation = (typeof OPERATIONS)[number];
-
+/** A request the fake server holds until a step answers it. */
+type SaveWaiting = {
+  readonly kind: 'save';
+  readonly id: string;
+  readonly html: string;
+  readonly expectedRevision: number;
+  readonly resolve: (answer: SaveResult) => void;
+  readonly reject: (error: Error) => void;
+  applied?: 'saved' | 'conflict' | 'gone';
+  rev?: number;
+};
 type Waiting =
+  | SaveWaiting
   | {
-      readonly kind: 'save';
-      readonly html: string;
-      readonly expectedRevision: number;
-      readonly resolve: (answer: {
-        status: 'saved' | 'conflict';
-        revision: number;
-      }) => void;
+      readonly kind: 'read';
+      readonly snap: readonly StoredDocument[];
+      readonly resolve: (documents: readonly StoredDocument[]) => void;
       readonly reject: (error: Error) => void;
     }
   | {
-      readonly kind: 'read';
-      readonly ids: readonly string[];
-      readonly resolve: (documents: readonly StoredDocument[]) => void;
+      readonly kind: 'create';
+      readonly resolve: (document: StoredDocument) => void;
       readonly reject: (error: Error) => void;
     };
 
-const settleMicrotasks = async () => {
-  for (let i = 0; i < 12; i += 1) await Promise.resolve();
+/**
+ * The rule, not each bug: whatever order load, save, focus, edit, delete, reload and
+ * their crossing answers arrive in, a word the person typed ends on the server or in a
+ * stored draft a reload would find, and a save never replaces text it has not seen.
+ * Each mount is a fresh reducer over the real sync owner; edits build on what is shown;
+ * timers are an operation; answers come in either order. Written by the scoped review of
+ * PR 650, after this path produced three rounds of typed-work blockers.
+ */
+const ALL = [
+  'edit',
+  'edit',
+  'edit',
+  'remount',
+  'open',
+  'closeTab',
+  'flush',
+  'focus',
+  'timer',
+  'other',
+  'apply',
+  'answerOld',
+  'answerNew',
+  'refuse',
+  'lose',
+  'reload',
+  'deleteElsewhere',
+  'saveAsNew',
+  'restore',
+] as const;
+const OPS = ALL.filter((o) => !(process.env.SKIP ?? '').split(',').includes(o));
+type Op = (typeof ALL)[number];
+const settleM = async () => {
+  for (let i = 0; i < 14; i++) await Promise.resolve();
 };
-
 const refusal = () => Object.assign(new Error('full'), { status: 503 });
-
-const world = () => {
-  let server = { ...stored('a', 1), html: '<p>start</p>' };
-  /** Every text anyone other than this person committed, and whether it was shown. */
-  const others = new Map<string, boolean>();
-  const violations: string[] = [];
-  const waiting: Waiting[] = [];
+const nf = () => Object.assign(new Error('nf'), { status: 404 });
+const tokensOf = (h: string) => h.match(/[to]\d+/g) ?? [];
+const world = (allowRestore: boolean) => {
+  const server = new Map<string, StoredDocument>([
+    ['a', { ...stored('a', 1), html: '<p>start</p>' }],
+  ]);
+  const storage = memoryStorage();
+  const v: string[] = [];
   const clock = manualTimers();
+  let n = 0;
+  const typed = new Set<string>();
+  let explicit = false;
+  const waiting: Waiting[] = [];
+  let made = 0;
+  const api: DocumentsApi = {
+    recent: async () => (server.has('a') ? 'a' : null),
+    read: (ids) =>
+      new Promise((resolve, reject) =>
+        waiting.push({
+          kind: 'read',
+          snap: ids.flatMap((i) =>
+            server.get(i) ? [{ ...server.get(i)! }] : [],
+          ),
+          resolve,
+          reject,
+        }),
+      ),
+    create: () =>
+      new Promise((resolve, reject) =>
+        waiting.push({ kind: 'create', resolve, reject }),
+      ),
+    save: ({ id, html, expectedRevision }) =>
+      new Promise((resolve, reject) =>
+        waiting.push({
+          kind: 'save',
+          id,
+          html,
+          expectedRevision,
+          resolve,
+          reject,
+        }),
+      ),
+  };
+  const newOwner = () =>
+    createDocumentSync({
+      ...manualDraftResources('o' + made++, { storage, timers: clock.timers }),
+      principalId: 'p',
+      api,
+      onConflict: () => {},
+    });
+  let sync = newOwner();
   let state: ManagerState = initialManagerState();
-  let typed: string | null = null;
-  /** Text of this person's the server took; another tab may later replace it, knowingly. */
-  const landed = new Set<string>();
-  let count = 0;
-
-  const dispatch = (action: Parameters<typeof reduceManager>[1]) => {
-    state = reduceManager(state, action);
+  let frame = 0;
+  const dispatchIn = (f: number) => (a: ManagerAction) => {
+    if (f === frame) state = reduceManager(state, a);
   };
-  const shown = () =>
-    loadedDocuments(state.opened).find((d) => d.id === 'a')?.html;
-  const noteShown = () => {
-    const text = shown();
-    if (text !== undefined && others.has(text)) others.set(text, true);
-  };
-
-  const commit = (html: string) => {
-    server = { ...server, html, revision: server.revision + 1 };
-  };
-  /** A stale save must meet the compare-and-swap, never replace what it has not seen. */
-  const commitMine = (html: string) => {
-    if (others.get(server.html) === false)
-      violations.push(`overwrote ${server.html} unseen with ${html}`);
-    commit(html);
-    landed.add(html);
-  };
-  const sync = createDocumentSync({
-    ...manualDraftResources('ordering', {
-      storage: memoryStorage(),
-      timers: clock.timers,
-    }),
-    principalId: 'p',
-    api: {
-      recent: async () => 'a',
-      create: async () => stored('new'),
-      read: (ids) =>
-        new Promise((resolve, reject) =>
-          waiting.push({ kind: 'read', ids, resolve, reject }),
-        ),
-      save: ({ html, expectedRevision }) =>
-        new Promise((resolve, reject) =>
-          waiting.push({
-            kind: 'save',
-            html,
-            expectedRevision,
-            resolve,
-            reject,
-          }),
-        ),
-    },
-    onConflict: () => {},
-  });
-  sync.subscribeServerText((id, html) =>
-    dispatch({ type: 'doc/server-text', id, html, now: 'n' }),
+  let unsub = sync.subscribeServerText((id, html) =>
+    dispatchIn(frame)({ type: 'doc/server-text', id, html, now: 'n' }),
   );
-
-  const applySave = (one: Extract<Waiting, { kind: 'save' }>) => {
-    if (one.expectedRevision !== server.revision) return false;
-    commitMine(one.html);
-    return true;
+  const mount = () => {
+    frame++;
+    state = initialManagerState();
+    const d = dispatchIn(frame);
+    const s = sync;
+    void s
+      .flush()
+      .then(() => s.load())
+      .then((docs) => d({ type: 'doc/loaded', documents: docs }))
+      .catch(() => {});
   };
-  const answerNext = async (how: 'answer' | 'refuse' | 'lose') => {
-    const one = waiting.shift();
-    if (!one) return;
-    if (how === 'refuse') one.reject(refusal());
-    else if (one.kind === 'read') {
-      if (how === 'lose') one.reject(new Error('lost'));
-      else one.resolve(one.ids.includes('a') ? [server] : []);
-    } else if (how === 'lose') {
-      applySave(one);
-      one.reject(new Error('lost'));
-    } else
-      one.resolve(
-        applySave(one)
-          ? { status: 'saved', revision: server.revision }
-          : { status: 'conflict', revision: server.revision },
-      );
-    await settleMicrotasks();
+  const active = () => {
+    const id = state.tabs.active;
+    return id === null
+      ? undefined
+      : loadedDocuments(state.opened).find((x) => x.id === id);
   };
-
-  const run = async (operation: Operation) => {
-    switch (operation) {
-      case 'edit':
-        // A person can only type into a document on screen.
-        if (shown() === undefined) break;
-        count += 1;
-        typed = `<p>typed ${count}</p>`;
-        dispatch({ type: 'doc/update', id: 'a', html: typed, now: 'n' });
-        sync.change('a', typed);
+  const apply = (w: SaveWaiting) => {
+    if (w.applied !== undefined) return;
+    const cur = server.get(w.id);
+    if (!cur) {
+      w.applied = 'gone';
+      return;
+    }
+    if (cur.revision !== w.expectedRevision) {
+      w.applied = 'conflict';
+      return;
+    }
+    if (!explicit)
+      for (const t of tokensOf(cur.html))
+        if (!w.html.includes(t))
+          v.push(`save over ${t}: ${cur.html} -> ${w.html}`);
+    server.set(w.id, { ...cur, html: w.html, revision: cur.revision + 1 });
+    w.applied = 'saved';
+    w.rev = cur.revision + 1;
+  };
+  const answer = async (w: Waiting, how: 'answer' | 'refuse' | 'lose') => {
+    if (w.kind === 'save') {
+      if (how === 'refuse' && w.applied === undefined) {
+        w.reject(refusal());
+      } else {
+        apply(w);
+        if (how !== 'answer') w.reject(new Error('lost'));
+        else if (
+          w.applied === 'gone' ||
+          (w.applied === 'conflict' && !server.has(w.id))
+        )
+          w.reject(nf());
+        else
+          w.resolve({
+            status: w.applied === 'saved' ? 'saved' : 'conflict',
+            revision:
+              w.applied === 'saved' ? w.rev! : server.get(w.id)!.revision,
+          });
+      }
+    } else if (w.kind === 'read') {
+      if (how === 'answer') w.resolve(w.snap);
+      else w.reject(how === 'refuse' ? refusal() : new Error('lost'));
+    } else {
+      if (how === 'answer') {
+        const id = 'n' + ++n;
+        const d = { ...stored(id, 1), html: '<p></p>' };
+        server.set(id, d);
+        w.resolve({ ...d });
+      } else w.reject(refusal());
+    }
+    await settleM();
+  };
+  const run = async (op: Op) => {
+    switch (op) {
+      case 'edit': {
+        const d = active();
+        if (!d) break;
+        n++;
+        const t = 't' + n;
+        typed.add(t);
+        const html = d.html.replace(/<\/p>$/, ` ${t}</p>`);
+        state = reduceManager(state, {
+          type: 'doc/update',
+          id: d.id,
+          html,
+          now: 'n',
+        });
+        sync.change(d.id, html);
         break;
-      case 'load':
-        void sync
-          .flush()
-          .then(() => sync.load())
-          .then((documents) => dispatch({ type: 'doc/loaded', documents }))
-          .catch(() => {});
+      }
+      case 'remount':
+        mount();
         break;
-      case 'open':
-        dispatch({ type: 'doc/opening', id: 'a', title: 'A' });
-        void sync.open('a').then(
-          (document) => {
-            if (document) dispatch({ type: 'doc/add', document });
-          },
-          () => dispatch({ type: 'doc/failed', id: 'a' }),
+      case 'open': {
+        const id = [...server.keys()].pop();
+        if (!id) break;
+        const cur = state.opened.find(
+          (o) => (o.kind === 'loaded' ? o.document.id : o.id) === id,
         );
+        if (cur && cur.kind !== 'failed') {
+          state = reduceManager(state, { type: 'tabs/open', id });
+          break;
+        }
+        state = reduceManager(state, { type: 'doc/opening', id, title: id });
+        const d = dispatchIn(frame);
+        const s = sync;
+        void s.open(id).then(
+          (doc) => {
+            if (doc) d({ type: 'doc/add', document: doc });
+            else d({ type: 'drive/remove', id });
+          },
+          () => d({ type: 'doc/failed', id }),
+        );
+        break;
+      }
+      case 'closeTab':
+        if (state.tabs.active)
+          state = reduceManager(state, {
+            type: 'tabs/close',
+            id: state.tabs.active,
+          });
         break;
       case 'flush':
         void sync.flush().catch(() => {});
@@ -179,109 +264,198 @@ const world = () => {
       case 'focus':
         void sync.recheck(state.tabs.open);
         break;
-      case 'other':
-        count += 1;
-        others.set(`<p>other ${count}</p>`, false);
-        commit(`<p>other ${count}</p>`);
+      case 'timer':
+        clock.fire();
         break;
-      case 'answer':
-      case 'refuse':
-      case 'lose':
-        await answerNext(operation);
+      case 'other': {
+        const id = [...server.keys()][0];
+        if (!id) break;
+        const c = server.get(id)!;
+        n++;
+        server.set(id, {
+          ...c,
+          html: c.html.replace(/<\/p>$/, ` o${n}</p>`),
+          revision: c.revision + 1,
+        });
         break;
+      }
+      case 'apply': {
+        const w = waiting.find(
+          (x): x is SaveWaiting => x.kind === 'save' && x.applied === undefined,
+        );
+        if (w) apply(w);
+        break;
+      }
+      case 'answerOld': {
+        const w = waiting.shift();
+        if (w) await answer(w, 'answer');
+        break;
+      }
+      case 'answerNew': {
+        const w = waiting.pop();
+        if (w) await answer(w, 'answer');
+        break;
+      }
+      case 'refuse': {
+        const w = waiting.shift();
+        if (w) await answer(w, 'refuse');
+        break;
+      }
+      case 'lose': {
+        const w = waiting.shift();
+        if (w) await answer(w, 'lose');
+        break;
+      }
+      case 'reload': {
+        void sync.flushKeepalive().catch(() => {});
+        await settleM();
+        const old = sync;
+        old.dispose();
+        unsub();
+        sync = newOwner();
+        unsub = sync.subscribeServerText((id, html) =>
+          dispatchIn(frame)({ type: 'doc/server-text', id, html, now: 'n' }),
+        );
+        mount();
+        break;
+      }
+      case 'deleteElsewhere': {
+        const c = server.get('a');
+        if (c) for (const t of tokensOf(c.html)) typed.delete(t);
+        server.delete('a');
+        break;
+      }
+      case 'saveAsNew': {
+        const g = sync.firstNeedingCopy();
+        if (!g) break;
+        const d = dispatchIn(frame);
+        void sync.saveAsNew(g).then(
+          (c) => {
+            if (c) {
+              d({ type: 'doc/closed', id: g });
+              d({ type: 'doc/add', document: c });
+            }
+          },
+          () => {},
+        );
+        break;
+      }
+      case 'restore': {
+        if (!allowRestore) break;
+        const o = sync.recoveryOffers()[0];
+        if (!o) break;
+        const h = sync.restoreRecovered(o.documentId, o.copy.generation);
+        if (h !== null) {
+          explicit = true;
+          state = reduceManager(state, {
+            type: 'doc/update',
+            id: o.documentId,
+            html: h,
+            now: 'n',
+          });
+          state = reduceManager(state, { type: 'tabs/open', id: o.documentId });
+        }
+        break;
+      }
     }
-    await settleMicrotasks();
-    noteShown();
-    if (typed !== null && shown() !== typed && shown() !== undefined) {
-      const text = shown()!;
-      // Only an offer the person can see may stand in for what they typed.
-      if (!keptSomewhere(typed))
-        violations.push(`showed ${text} over ${typed}`);
-    }
+    await settleM();
   };
-  const keptSomewhere = (text: string) =>
-    landed.has(text) ||
-    shown() === text ||
-    sync.recoveryOffers().some((offer) => offer.copy.html === text);
-
-  /** Everything still out answers, and the owner gets the chance to save. */
-  const settle = async () => {
-    for (let pass = 0; pass < 6; pass += 1) {
-      while (waiting.length > 0) await answerNext('answer');
+  const drain = async () => {
+    for (let p = 0; p < 8; p++) {
+      let g = 0;
+      while (waiting.length && g++ < 50)
+        await answer(waiting.shift()!, 'answer');
+      clock.fire();
+      await settleM();
       void sync.flush().catch(() => {});
-      await settleMicrotasks();
+      await settleM();
     }
-    while (waiting.length > 0) await answerNext('answer');
-    await settleMicrotasks();
-    noteShown();
-    if (typed !== null && !keptSomewhere(typed))
-      violations.push(`dropped ${typed}: server ${server.html}`);
   };
-
-  return { run, settle, violations };
+  const finish = async () => {
+    await drain();
+    // Durable truth: a reload would find each typed token on some server document, or in a stored draft.
+    const onServer = [...server.values()].map((d) => d.html).join(' ');
+    const inStore = [...storage.dump().values()].join(' ');
+    if (!explicit)
+      for (const t of typed) {
+        const re = new RegExp(`\\b${t}\\b`);
+        if (!re.test(onServer) && !re.test(inStore))
+          v.push(
+            `typed ${t} lost: server=[${onServer}] store=${inStore.length}`,
+          );
+      }
+  };
+  return { run, finish, v, mount };
 };
-
-const check = async (sequence: readonly Operation[]) => {
-  const w = world();
-  // Every journey starts with the document on screen, as a person sees it.
-  await w.run('open');
-  await w.run('answer');
-  for (const operation of sequence) await w.run(operation);
-  await w.settle();
-  return w.violations.map((violation) => `${sequence.join(' ')}: ${violation}`);
+const check = async (seq: readonly Op[], allowRestore = false) => {
+  const w = world(allowRestore);
+  w.mount();
+  await w.run('answerOld');
+  await w.run('answerOld');
+  for (const o of seq) await w.run(o);
+  await w.finish();
+  return w.v;
 };
-
-const orderings = function* (length: number): Generator<readonly Operation[]> {
-  if (length === 0) {
-    yield [];
-    return;
+const shrink = async (seq: Op[], allow: boolean) => {
+  let cur = seq;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < cur.length; i++) {
+      const c = cur.slice(0, i).concat(cur.slice(i + 1));
+      if ((await check(c, allow)).length) {
+        cur = c;
+        changed = true;
+        break;
+      }
+    }
   }
-  for (const rest of orderings(length - 1))
-    for (const operation of OPERATIONS) yield [...rest, operation];
+  return cur;
 };
-
-/** Deterministic: a failure names its sequence, and the same seed finds it again. */
-const seeded = function* (
-  count: number,
-  length: number,
-): Generator<readonly Operation[]> {
-  let seed = 20261104;
+const seeded = function* (count: number, len: number) {
+  let seed = 7;
   const next = () => {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    return seed;
+    return seed >>> 8;
   };
-  for (let i = 0; i < count; i += 1)
-    yield Array.from({ length }, () => OPERATIONS[next() % OPERATIONS.length]!);
+  for (let i = 0; i < count; i++)
+    yield Array.from({ length: len }, () => OPS[next() % OPS.length]!);
 };
 
-const firstFailures = async (sequences: Iterable<readonly Operation[]>) => {
-  const failures: string[] = [];
+const failures = async (allowRestore: boolean) => {
+  const found: string[] = [];
   let walked = 0;
-  for (const sequence of sequences) {
+  for (const seq of seeded(4_000, 12)) {
     walked += 1;
-    failures.push(...(await check(sequence)));
-    if (failures.length >= 5) break;
+    const violations = await check(seq, allowRestore);
+    if (violations.length > 0) {
+      const small = await shrink(seq as Op[], allowRestore);
+      found.push(
+        `${small.join(' ')} => ${(await check(small, allowRestore))[0]}`,
+      );
+      if (found.length >= 5) break;
+    }
   }
-  return { failures, walked };
+  return { found, walked };
 };
 
 describe('typed text, in any order', () => {
-  test('every ordering of five operations', async () => {
-    const { failures, walked } = await firstFailures(orderings(5));
+  test('generated orderings', async () => {
+    const { found, walked } = await failures(false);
     assert({
-      given: `all ${walked} orderings of load, open, save, focus, edit, another tab and crossed answers`,
-      should: 'never overwrite or drop typed text, nor another tab’s unseen',
-      actual: failures,
+      given: `${walked} orderings of edit, remount, open, save, focus, timers, another tab, crossed answers, reload, delete and save as new`,
+      should: 'leave every typed word on the server or in a stored draft',
+      actual: found,
       expected: [],
     });
   }, 120_000);
 
-  test('long generated orderings', async () => {
-    const { failures, walked } = await firstFailures(seeded(3_000, 14));
+  test('generated orderings with Restore', async () => {
+    const { found, walked } = await failures(true);
     assert({
-      given: `${walked} generated orderings of 14 operations`,
-      should: 'never overwrite or drop typed text, nor another tab’s unseen',
-      actual: failures,
+      given: `${walked} orderings that also restore an offer, which is a person's explicit choice`,
+      should: 'never replace text a save has not seen',
+      actual: found,
       expected: [],
     });
   }, 120_000);

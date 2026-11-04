@@ -34,7 +34,7 @@ describe('reduceSave', () => {
         after({ type: 'edit' }),
         after({ type: 'edit' }, { type: 'retrying' }),
         after({ type: 'refused', status: 413 }),
-        after({ type: 'conflict' }).save,
+        after({ type: 'conflict', unstored: false }).save,
         after({ type: 'retrying' }, { type: 'saved' }),
       ],
       expected: [

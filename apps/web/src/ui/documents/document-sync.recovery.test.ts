@@ -1,3 +1,10 @@
+import { newDraftCopy } from '../../features/documents/document-draft';
+import {
+  documentSaving,
+  initialSaveStatus,
+  reduceSave,
+  type SaveEvent,
+} from './use-document-saving';
 import { DOCUMENT_READ_MAX } from '@daisy/db/documents';
 import { listed } from './document-sync.test-support';
 import {
@@ -465,6 +472,147 @@ describe('a deletion here', () => {
       should: 'create one document',
       actual: creates,
       expected: 1,
+    });
+  });
+});
+
+describe('typing while a copy is being made', () => {
+  test('what is typed during the create goes with it', async () => {
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    let answer!: () => void;
+    let present = true;
+    const sync = createOwner({
+      ...manualDraftResources('during', { storage: memoryStorage() }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        read: async (ids) => (present ? server.api.read(ids) : []),
+        recent: async () => 'a',
+        create: () =>
+          new Promise((resolve) => {
+            answer = () => resolve(stored('copy', 1));
+          }),
+        save: async ({ id, html, expectedRevision }) =>
+          id === 'a'
+            ? Promise.reject(Object.assign(new Error('x'), { status: 404 }))
+            : { status: 'saved', revision: expectedRevision + 1, html },
+      },
+      onConflict: () => {},
+    });
+    await sync.load();
+    sync.change('a', '<p>brief</p>');
+    present = false;
+    await sync.recheck(['a']);
+    const copying = sync.saveAsNew('a');
+    await Promise.resolve();
+    sync.change('a', '<p>brief and more</p>');
+    answer();
+    const created = await copying;
+    assert({
+      given: 'typing while the new document is being created',
+      should: 'carry the latest text',
+      actual: created?.html,
+      expected: '<p>brief and more</p>',
+    });
+  });
+
+  test('an offer from elsewhere survives saving as new', async () => {
+    const store = memoryStorage();
+    store.setItem(
+      keyOf('p1', 'a'),
+      recoveryRecord({
+        html: '<p>earlier session</p>',
+        baseRevision: 1,
+        generation: 'earlier',
+        savedAt: 100,
+      }),
+    );
+    let present = true;
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const sync = createOwner({
+      ...manualDraftResources('offer', { storage: store }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        read: async (ids) => (present ? server.api.read(ids) : []),
+        recent: async () => 'a',
+        create: async () => stored('copy', 1),
+      },
+      onConflict: () => {},
+    });
+    await sync.load();
+    present = false;
+    await sync.recheck(['a']);
+    await sync.saveAsNew('a');
+    assert({
+      given:
+        'a recovery offer on a document deleted elsewhere, then Save as new',
+      should: 'keep the offer and its stored copy, and clear the notice',
+      actual: [
+        sync.recoveryOffers().map((offer) => offer.copy.html),
+        store.getItem(keyOf('p1', 'a'))?.includes('earlier session'),
+        sync.firstNeedingCopy(),
+      ],
+      expected: [['<p>earlier session</p>'], true, null],
+    });
+  });
+});
+
+describe('a conflict with full draft slots', () => {
+  test('never says reload, and offers a way out that keeps the text', async () => {
+    const store = memoryStorage();
+    const copy = (generation: string, html: string) =>
+      newDraftCopy({ generation, html, baseRevision: 1, now: 100 });
+    store.setItem(
+      keyOf('p1', 'a'),
+      JSON.stringify({
+        active: copy('foreign-a', '<p>tab one</p>'),
+        recovery: copy('foreign-b', '<p>tab two</p>'),
+      }),
+    );
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const events: SaveEvent[] = [];
+    const sync = documentSaving(
+      'p1',
+      {
+        ...server.api,
+        create: async () => stored('copy', 1),
+      },
+      (event) => events.push(event),
+      manualDraftResources('full-slots', {
+        storage: store,
+        wallClock: () => 200,
+      }),
+    );
+    await sync.load();
+    sync.change('a', '<p>typed now</p>');
+    await server.api.save({
+      id: 'a',
+      html: '<p>other</p>',
+      expectedRevision: 1,
+    });
+    await sync.flush();
+    const conflict = events.filter((event) => event.type === 'conflict').at(-1);
+    const held = sync.firstNeedingCopy();
+    const created = await sync.saveAsNew('a');
+    assert({
+      given: 'typing that could not be stored, then a commit elsewhere',
+      should:
+        'name it unstored, not say reload, and save it as new on the page',
+      actual: {
+        unstored: conflict,
+        says: reduceSave(initialSaveStatus, conflict!).notice?.includes(
+          'Reload',
+        ),
+        held,
+        copied: created?.html,
+      },
+      expected: {
+        unstored: { type: 'conflict', unstored: true },
+        says: false,
+        held: 'a',
+        copied: '<p>typed now</p>',
+      },
     });
   });
 });

@@ -130,21 +130,26 @@ function RecoveredDraft({
   );
 }
 
-/** A document deleted elsewhere while open here: the text stays until the person chooses. */
+/** Text that can only be kept as a new document: its own was deleted, or moved on. */
 function DeletedDocumentNotice({
   title,
+  deleted,
   saveAsNew,
   failed,
 }: {
   readonly title: string;
+  readonly deleted: boolean;
   readonly saveAsNew: () => void;
   readonly failed: boolean;
 }) {
   return (
     <div role="alert" className="flex items-center gap-3 p-3 text-sm">
       <p className="min-w-0 flex-1">
-        {title} was deleted. Your text is still here.
-        {failed ? ' It was not saved as a new document. Try again.' : ''}
+        {deleted
+          ? `${title} was deleted. Your text is still here.`
+          : `${title} changed somewhere else. Your typing is still here.`}{' '}
+        It becomes a new Untitled document.
+        {failed ? ' It was not saved. Try again.' : ''}
       </p>
       <button
         type="button"
@@ -177,35 +182,46 @@ export function RecoveredDrafts({
     sync.recoveryOffers,
     () => noOffers,
   );
-  const gone = useSyncExternalStore(sync.subscribe, sync.firstGone, () => null);
+  const needing = useSyncExternalStore(
+    sync.subscribe,
+    sync.firstNeedingCopy,
+    () => null,
+  );
   const [copyFailed, setCopyFailed] = useState(false);
+  const saveAsNew = (id: string) => {
+    const wasDeleted = sync.firstGone() === id;
+    sync.saveAsNew(id).then(
+      (created) => {
+        if (!created) return;
+        setCopyFailed(false);
+        const offerStays = sync
+          .recoveryOffers()
+          .some((offer) => offer.documentId === id);
+        if (offerStays) dispatch({ type: 'tabs/close', id });
+        else if (wasDeleted) dispatch({ type: 'drive/remove', id });
+        else dispatch({ type: 'doc/closed', id });
+        if (offerStays && wasDeleted) dispatch({ type: 'drive/unlist', id });
+        dispatch({ type: 'doc/add', document: created });
+        if (inFolderPage) return;
+        dispatch({
+          type: 'drive/add',
+          folderId: null,
+          entry: { kind: 'document', id: created.id, title: created.title },
+        });
+      },
+      () => setCopyFailed(true),
+    );
+  };
   return (
     <>
-      {gone ? (
+      {needing ? (
         <DeletedDocumentNotice
           title={
-            documents.find((one) => one.id === gone)?.title ?? 'This document'
+            documents.find((one) => one.id === needing)?.title ??
+            'This document'
           }
-          saveAsNew={() => {
-            sync.saveAsNew(gone).then(
-              (created) => {
-                if (!created) return;
-                dispatch({ type: 'drive/remove', id: gone });
-                dispatch({ type: 'doc/add', document: created });
-                if (inFolderPage) return;
-                dispatch({
-                  type: 'drive/add',
-                  folderId: null,
-                  entry: {
-                    kind: 'document',
-                    id: created.id,
-                    title: created.title,
-                  },
-                });
-              },
-              () => setCopyFailed(true),
-            );
-          }}
+          deleted={sync.firstGone() === needing}
+          saveAsNew={() => saveAsNew(needing)}
           failed={copyFailed}
         />
       ) : null}

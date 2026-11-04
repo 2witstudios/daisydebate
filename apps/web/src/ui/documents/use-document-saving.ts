@@ -31,7 +31,7 @@ export type SaveStatus = {
 export type SaveEvent =
   | { readonly type: 'edit' }
   | { readonly type: 'saved' }
-  | { readonly type: 'conflict' }
+  | { readonly type: 'conflict'; readonly unstored: boolean }
   | { readonly type: 'gone' }
   | { readonly type: 'retrying' }
   | { readonly type: 'refused'; readonly status: number }
@@ -68,6 +68,10 @@ export const browserDraftResources = (): DocumentSyncResources => ({
 const GONE_NOTICE =
   'This document was deleted. Your text is kept here: save it as a new document to keep it.';
 
+/** A reload would lose this text, so the way out is on the page. */
+const CONFLICT_UNSTORED_NOTICE =
+  'A newer save of this document arrived, and your latest typing is only on this page. Do not reload: save it as a new document below.';
+
 const CONFLICT_NOTICE =
   'A newer save of this document arrived. Reload before editing it again.';
 
@@ -85,7 +89,10 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
     case 'saved':
       return initialSaveStatus;
     case 'conflict':
-      return { save: 'unsaved', notice: CONFLICT_NOTICE };
+      return {
+        save: 'unsaved',
+        notice: event.unstored ? CONFLICT_UNSTORED_NOTICE : CONFLICT_NOTICE,
+      };
     case 'gone':
       return { save: 'unsaved', notice: GONE_NOTICE };
     case 'retrying':
@@ -113,7 +120,8 @@ export function documentSaving(
     api,
     ...resources,
     onChanged: () => report({ type: 'edit' }),
-    onConflict: () => report({ type: 'conflict' }),
+    onConflict: (id) =>
+      report({ type: 'conflict', unstored: stored.holdsUnstored(id) }),
     onGone: () => report({ type: 'gone' }),
     onSaveFailed: () => report({ type: 'retrying' }),
     onSaveRefused: (_id, status) => {

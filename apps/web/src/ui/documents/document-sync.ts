@@ -15,6 +15,9 @@ import {
   acknowledged,
   activeOffered,
   forgotten,
+  holdsUnstoredEdit,
+  needsNewDocument,
+  unreadDocument,
   isForgotten,
   bodyToShow,
   adoptsLateCommit,
@@ -90,6 +93,10 @@ export type DocumentSync = {
   readonly recheck: (ids: readonly string[]) => Promise<void>;
   /** The kept text of a deleted document, as a new document. */
   readonly saveAsNew: (id: string) => Promise<StoredDocument | null>;
+  /** A document whose text can only be kept by saving it as a new one, or null. */
+  readonly firstNeedingCopy: () => string | null;
+  /** Whether this document holds text that exists only on this page. */
+  readonly holdsUnstored: (id: string) => boolean;
   /** A document open here that the server no longer has, or null. */
   readonly firstGone: () => string | null;
   /** This person deleted it here, so nothing of it stays. */
@@ -273,10 +280,14 @@ export function createDocumentSync({
     publish();
     idle(id);
   };
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
   const markGone = (id: string) => {
+    if (isForgotten(doc(id))) return;
     update(id, (d) => ({ ...d, hold: { kind: 'gone' } }));
     publish();
-    for (const listener of listeners) listener();
+    notify();
     onGone(id);
   };
   const conflict = async (id: string, sent: DraftCopy, revision: number) => {
@@ -301,6 +312,7 @@ export function createDocumentSync({
       hold: { kind: 'conflict', latestRevision: outcome.latestRevision },
     }));
     publish();
+    notify();
     onConflict(id);
   };
   const failed = (id: string, sent: DraftCopy, error: unknown) => {
@@ -474,8 +486,9 @@ export function createDocumentSync({
       const ids = [
         ...new Set([...drafts.documentIds(), ...(recent ? [recent] : [])]),
       ];
-      const documents = await readAll(ids);
+      const answered = await readAll(ids);
       if (isClosed()) return [];
+      const documents = answered.filter((one) => !isForgotten(doc(one.id)));
       adopt(documents);
       publish();
       const shown = documents.map((one) => ({
@@ -498,7 +511,7 @@ export function createDocumentSync({
     open: async (id) => {
       if (isClosed()) return null;
       const [opened] = await api.read([id]);
-      if (isClosed() || !opened) return null;
+      if (isClosed() || !opened || isForgotten(doc(id))) return null;
       adopt([opened]);
       publish();
       return { ...opened, html: bodyToShow(doc(id), opened.html) };
@@ -512,13 +525,17 @@ export function createDocumentSync({
         if (!present.has(id) && !isGone(doc(id))) markGone(id);
     },
     saveAsNew: async (id) => {
-      if (isClosed() || !isGone(doc(id)) || copying.has(id)) return null;
-      const text = keptText(doc(id));
+      const canCopy = () => isGone(doc(id)) || isConflicted(doc(id));
+      if (isClosed() || !canCopy() || copying.has(id)) return null;
       copying.add(id);
       const created = await api
         .create({ folderId: null })
         .finally(() => copying.delete(id));
-      if (isClosed()) return null;
+      if (isClosed() || !canCopy()) return null;
+      // Read here, after the answer: the editor took keystrokes while it was out.
+      const text = keptText(doc(id));
+      const wasGone = isGone(doc(id));
+      const generation = doc(id).pending?.generation;
       remember([created]);
       if (text !== undefined) {
         const copy = newDraftCopy({
@@ -532,10 +549,32 @@ export function createDocumentSync({
         onChanged(created.id);
         schedule(created.id, 0);
       }
-      forgetDocument(id);
+      // Only the copy just saved goes: offers wait for the person's choice, and
+      // another tab's copy is never touched.
+      timers.clear(handles.get(id));
+      handles.delete(id);
+      const now = wallClock();
+      const previous = read(id, now);
+      const left = generation
+        ? discardDraftRecord(previous.record, generation)
+        : { status: 'unchanged' as const, record: previous.record };
+      if (left.status === 'changed') write(id, previous, left.record, now);
+      update(id, (d) =>
+        draftCopies(left.record).length > 0
+          ? { ...d, pending: undefined, hold: { kind: 'copied' } }
+          : wasGone
+            ? forgotten
+            : unreadDocument,
+      );
+      publish();
+      notify();
+      idle(id);
       return { ...created, html: text ?? created.html };
     },
     forget: (id) => forgetDocument(id),
+    firstNeedingCopy: () =>
+      [...state.documents].find(([, d]) => needsNewDocument(d))?.[0] ?? null,
+    holdsUnstored: (id) => holdsUnstoredEdit(doc(id)),
     firstGone: () =>
       [...state.documents].find(([, d]) => isGone(d))?.[0] ?? null,
     create: async (folderId = null) => {
@@ -562,7 +601,12 @@ export function createDocumentSync({
       persist(id, copy);
       if (isConflicted(doc(id))) {
         // Nothing sends until the conflict resolves, so never claim "saving".
+        notify();
         onConflict(id);
+        return;
+      }
+      if (isGone(doc(id))) {
+        onGone(id);
         return;
       }
       onChanged(id);
