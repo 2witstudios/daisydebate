@@ -113,7 +113,10 @@ const journey = async (
     await expect(
       page.getByRole('textbox', { name: 'Untitled', exact: true }),
     ).toContainText(answer);
-    expect(violations()).toEqual([]);
+    expect(await violations.read()).toEqual({
+      eventViolations: [],
+      consoleViolations: [],
+    });
   } finally {
     if (roundId)
       await forfeitOwnSeat(
@@ -122,7 +125,7 @@ const journey = async (
         (seat) => seat.role === 'affirmative' && seat.slot === 0,
       );
     await settledLaunchAuth();
-    await accounts.close();
+    await accounts.closeContexts();
   }
 };
 
