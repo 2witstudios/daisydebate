@@ -18,3 +18,7 @@ GRANT SELECT ON broadcasts, rounds, round_participants, actors, bot_profiles, re
 GRANT SELECT (id, username, deleted_at) ON users TO daisy_audience_publisher;
 --> statement-breakpoint
 GRANT UPDATE (audience_state_withdrawn_at) ON broadcasts TO daisy_audience_publisher;
+--> statement-breakpoint
+-- The hold worker's reads name every column it may see, so it may see this one; it says
+-- only that a Broadcast's published state is gone.
+GRANT SELECT (audience_state_withdrawn_at) ON broadcasts TO daisy_broadcast_worker;
