@@ -110,8 +110,9 @@ is never assumed to be a participant.
   (`betaDmPolicy` moved to `@daisy/auth/social-policy`). Before this,
   production realtime had no reading policy and refused every channel
   subscription.
-- Reaction counts and the inbox are not observed yet: the reactions page is
-  an HTTP read, and the inbox keeps its actor-scoped doorbell.
+- The channel window carries shared reaction counts
+  ([ADR 0115](0115-messages-page-reader-state.md)). The inbox is not observed:
+  it keeps its actor-scoped doorbell, and a ring now reads the inbox API.
 - Redis now holds protected expendable bodies (at most 60s) and uses one
   Pub/Sub subscriber connection per process (ADR 0008, amended).
 

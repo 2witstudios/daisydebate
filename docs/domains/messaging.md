@@ -98,13 +98,17 @@ association IDs only. Each entry then obtains a fresh channel read, recipient
 request read, or sender status grant while canonical account/pair/channel fences
 are held. A removed entitlement omits its entry; an infrastructure refusal does
 not become empty history. Pagination and transport limits are explicit injected
-policy inputs.
+policy inputs. Entries order by newest activity across pages on a composite
+cursor, invitations first. A bounded literal search matches only what a rendered
+row shows, rechecked on the final entries (ADR 0115).
 
 DM creation and authority changes append an owner-only `messaging.inbox.changed`
 bell in their transaction. Its payload is only `kind`; it contains no actor/channel association, request
 content or fabricated entity revision. The existing owner inbox topic provides
 the routing address, selected from the current locked DM pair. The
-browser clears its stale snapshot and refetches the protected inbox. Generic
+conversation list keeps what it shows and reads the protected inbox API again:
+rings coalesce, stale search answers are dropped, and the router is never asked
+to refresh, so an open conversation and its draft are untouched (ADR 0115). Generic
 outbox position orders delivery; an uncertifiable reconnect requires HTTP
 resynchronization. The kind marker carries no personal data, and no personal payload is inferred
 from an owner-only topic. Messaging's lawful basis and retention are the

@@ -7,13 +7,15 @@ import {
 import { notFound } from 'next/navigation';
 import { systemClock, systemId } from '@daisy/clock';
 import {
-  channelMessagesWindow,
   createMessagingInboxSchemas,
   idSchema,
   messagingBetaLimits,
 } from '@daisy/protocol';
 import { requireAccess } from '../../../../lib/access';
-import { messagingFilesAvailable } from '../../../../lib/request-session';
+import {
+  messagingFilesAvailable,
+  messagingLatestPageItems,
+} from '../../../../lib/request-session';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   readConversationResponse,
@@ -183,7 +185,7 @@ async function readPageConversation(channelId: string, query: SearchParams) {
   if (searchQuery !== undefined) input.set('query', searchQuery);
   // The latest page reads the live window, so a snapshot never shrinks it.
   else if (typeof query.before !== 'string')
-    input.set('limit', String(channelMessagesWindow.limit));
+    input.set('limit', String(messagingLatestPageItems()));
   const response = await (searchQuery === undefined ? GET : SEARCH)(
     new Request(
       `http://in-process.invalid/api/messaging/channels/${channelId}/messages${searchQuery === undefined ? '' : '/search'}?${input}`,

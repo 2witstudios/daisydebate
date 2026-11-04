@@ -17,6 +17,7 @@ import type { ServerMessage } from '@daisy/protocol';
 import { manageNativePreferences } from './support/messaging-preferences';
 import { attachNativeMessageFile } from './support/messaging-attachments';
 import { testProfileMessageEntry } from './support/messaging-profile-entry';
+import { testMessagesPage } from './support/messages-page';
 import { serverMessageSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import {
@@ -39,6 +40,7 @@ testEditCompletionWindow();
 testMessagingHistoryCompletion();
 testMessagingUnknownCommit();
 testProfileMessageEntry();
+testMessagesPage();
 
 test('an authenticated DM message reaches the other real browser as an observed snapshot', async ({
   browser,

@@ -23,6 +23,16 @@ because a refresh would cost the room for less than its controls. Any other
 failure, a genuinely unavailable identity included, stays on the error boundary:
 it is not known to pass and must not say so (ISSUE-927).
 
+## Messages fills the height between the rails
+
+`/messages` has no page scroll. `.area-main:has(.messages-frame)` makes `main` a
+column of `100dvh` (less the phone's tab bar), so the room bar and notices take
+their own height and each pane scrolls alone (`theme/messages.css`). Below compact
+one pane shows: a route with something to read marks it `data-open-pane`, so CSS
+chooses before any script runs. Every route renders through `ConversationPane`,
+and none adds its own `main`. The list refreshes through the inbox API, never
+`router.refresh()` (ADR 0115).
+
 ## Mutating forms work without JavaScript
 
 Owner decision, 2026-09-23 (ISSUE-18). Every form that changes state is a
