@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { requireAccess } from '../../../lib/access';
 import type { SearchParams } from '../../../features/access/decision';
+import { inboxPageHref } from '../../../features/messaging/inbox-view';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';
 import { ConversationPane } from '../../../ui/messaging/conversation-pane';
 import { InboxPrompt } from '../../../ui/messaging/inbox-prompt';
@@ -31,12 +32,9 @@ async function InboxResults({
   ).catch(() => null);
   const now = systemClock.now();
   const title = q === undefined ? 'More conversations' : 'Search results';
-  const next =
-    inbox?.nextAfter &&
-    new URLSearchParams({
-      ...(q === undefined ? {} : { q }),
-      after: inbox.nextAfter,
-    });
+  const next = inbox?.nextAfter
+    ? inboxPageHref(inbox.nextAfter, q ?? null)
+    : null;
   return (
     <ConversationPane title={title}>
       {inbox === null ? (
@@ -56,7 +54,7 @@ async function InboxResults({
           ))}
         </ul>
       )}
-      {next ? <Link href={`/messages?${next}`}>Next page</Link> : null}
+      {next ? <Link href={next}>Next page</Link> : null}
     </ConversationPane>
   );
 }

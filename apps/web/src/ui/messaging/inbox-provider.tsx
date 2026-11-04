@@ -27,6 +27,7 @@ type Inbox = InboxState & {
   /** False while the member's own inbox could not be read at all. */
   readonly available: boolean;
   readonly search: string;
+  readonly appliedSearch: string | null;
   readonly searching: boolean;
   readonly setSearch: (value: string) => void;
   /** Whether the next page was read; a refused read leaves the native link. */
@@ -159,6 +160,7 @@ export function InboxProvider({
       ...view,
       available,
       search,
+      appliedSearch: searchedFor,
       searching: searchedFor !== null,
       setSearch,
       more,

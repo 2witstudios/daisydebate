@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   appendPage,
+  inboxPageHref,
   byAttention,
   type MessagingInboxEntry,
 } from './inbox-view';
@@ -51,5 +52,29 @@ describe('inbox view', () => {
         nextAfter: null,
       },
     });
+  });
+});
+
+test('native continuation preserves a refused filtered read without changing its question', () => {
+  const url = new URL(
+    inboxPageHref('withheld~channel', 'one & two…'),
+    'https://daisy.test',
+  );
+  assert({
+    given: 'a search cursor and a refused JavaScript page read',
+    should:
+      'continue the exact search with literal escaped text and the same cursor',
+    actual: [
+      url.pathname,
+      url.searchParams.get('after'),
+      url.searchParams.get('q'),
+      inboxPageHref('lead~channel', null),
+    ],
+    expected: [
+      '/messages',
+      'withheld~channel',
+      'one & two…',
+      '/messages?after=lead%7Echannel',
+    ],
   });
 });

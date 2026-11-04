@@ -58,3 +58,10 @@ export function appendPage(
     nextAfter: page.nextAfter,
   };
 }
+
+/** The native continuation and refused-fetch fallback ask the same inbox question. */
+export function inboxPageHref(after: string, q: string | null): string {
+  const params = new URLSearchParams({ after });
+  if (q !== null) params.set('q', q);
+  return `/messages?${params}`;
+}

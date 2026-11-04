@@ -10,6 +10,7 @@ import { usePathname } from 'next/navigation';
 import { Icon } from '../components/icon/icon';
 import { matchesRoute } from '../components/nav-item/nav-item';
 import { InboxRow, hrefOf } from './inbox-row';
+import { inboxPageHref } from '../../features/messaging/inbox-view';
 import { useInbox } from './inbox-provider';
 
 const tool =
@@ -38,13 +39,16 @@ export function ConversationList({
     inbox.setSearch(inbox.search);
   };
   const more = (after: string) => async (event: MouseEvent) => {
+    // The visible cursor belongs to the applied question, not text still waiting
+    // for its debounced result. Its native destination preserves that question.
+    if (inbox.search.trim() !== (inbox.appliedSearch ?? '')) return;
     event.preventDefault();
     setReading(true);
     const read = await inbox.more(after);
     setReading(false);
     // A refused read still has the link's native answer to offer.
     if (!read)
-      window.location.assign(`/messages?after=${encodeURIComponent(after)}`);
+      window.location.assign(inboxPageHref(after, inbox.appliedSearch));
   };
   return (
     <>
@@ -116,7 +120,7 @@ export function ConversationList({
         )}
         {inbox.nextAfter ? (
           <Link
-            href={`/messages?after=${encodeURIComponent(inbox.nextAfter)}`}
+            href={inboxPageHref(inbox.nextAfter, inbox.appliedSearch)}
             onClick={more(inbox.nextAfter)}
             aria-disabled={reading}
             className={`${footLink} justify-center`}

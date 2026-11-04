@@ -92,6 +92,7 @@ export function MessageHistory({
   filesAvailable = false,
   reactAction,
   latestLink = false,
+  observed = false,
 }: {
   readonly searchQuery?: string;
   readonly history: MessagingConversation;
@@ -105,6 +106,8 @@ export function MessageHistory({
   readonly reactAction?: ReactionPillAction;
   /** An older page offers the way back to the live one. */
   readonly latestLink?: boolean;
+  /** Whether this page actually receives shared count snapshots. */
+  readonly observed?: boolean;
 }) {
   const timeZone = useReaderTimeZone();
   // The reader's place as they opened this: marking read never moves it.
@@ -208,7 +211,7 @@ export function MessageHistory({
                     filesAvailable={filesAvailable}
                     reactAction={reactAction}
                     onReacted={reacted}
-                    observed={!latestLink}
+                    observed={observed}
                   />
                 )}
               </li>
