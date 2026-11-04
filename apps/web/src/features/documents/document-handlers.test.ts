@@ -3,7 +3,9 @@ import { noopErrorReporter } from '@daisy/observability';
 import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import { silentLogger } from '../../server/test-loggers.test-support';
+import { DRIVE_LIMITS } from '@daisy/db/documents';
 import { createDocumentHandlers } from './document-handlers';
+import { driveNoticeText } from './drive-return';
 import type { DocumentOperations } from './document-operations';
 
 setupRitewayBun();
@@ -32,7 +34,9 @@ const conflictAt = (revision: number) =>
 const handlersWith = ({
   identity = member,
   save = async () => ({ revision: 2 }),
+  create,
 }: {
+  create?: DocumentOperations['createDocument'];
   identity?: Identity;
   save?: DocumentOperations['saveDocument'];
 } = {}) => {
@@ -46,10 +50,12 @@ const handlersWith = ({
       calls.push(args);
       return [document];
     },
-    createDocument: async (...args: unknown[]) => {
-      calls.push(args);
-      return document;
-    },
+    createDocument:
+      create ??
+      (async (...args: unknown[]) => {
+        calls.push(args);
+        return document;
+      }),
     saveDocument: save,
     renameDocument: async (...args: unknown[]) => {
       calls.push(args);
@@ -167,6 +173,35 @@ describe('document routes', () => {
         'not read the first past its bound, and answer the second with a page',
       actual: [large.status, refused.status, refused.headers.get('location')],
       expected: [303, 303, '/prep?notice=refused'],
+    });
+  });
+
+  test('a full drive says so in plain words, at the real limit', async () => {
+    const { handlers } = handlersWith({
+      create: async () => {
+        throw createAppError('CONFLICT', 'This drive is full');
+      },
+    });
+    const answer = await handlers.create.POST(
+      new Request(`${ORIGIN}/api/documents/x`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: ORIGIN,
+        },
+        body: 'folderId=&back=%2Fprep',
+      }),
+    );
+    const location = answer.headers.get('location') ?? '';
+    const key = new URL(location, ORIGIN).searchParams.get('notice');
+    assert({
+      given: 'a form creating a document in a full drive',
+      should: 'return to the page with the notice naming the limit',
+      actual: [
+        location,
+        driveNoticeText(key)?.includes(String(DRIVE_LIMITS.documents)),
+      ],
+      expected: ['/prep?notice=drive-full', true],
     });
   });
 

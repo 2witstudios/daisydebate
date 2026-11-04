@@ -329,7 +329,7 @@ describe('a member’s documents over PostgreSQL', () => {
         given: 'a library at the limit, walked by cursor',
         should: 'reach each document exactly once',
         actual: [new Set(seen).size, seen.length, pages],
-        expected: [DRIVE_LIMITS.documents, DRIVE_LIMITS.documents, 20],
+        expected: [DRIVE_LIMITS.documents, DRIVE_LIMITS.documents, 5],
       });
       await assertRejects({
         given: 'one document past the limit',

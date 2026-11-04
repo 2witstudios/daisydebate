@@ -13,7 +13,12 @@ export const returnPath = (value: string | null): string =>
     : '/prep';
 
 /** The fixed answers a form refusal can show; a key never holds typed text. */
+/** What a member sees when their drive holds all it may; a test holds the number to the limit. */
+export const DRIVE_FULL_NOTICE =
+  'Your drive is full: it holds 500 documents, the most it can. Delete one to add another.';
+
 export const driveNotices = {
+  'drive-full': DRIVE_FULL_NOTICE,
   'name-length': 'A name needs between 1 and 120 characters.',
   missing: 'That is no longer in your drive.',
   conflict: 'That change is not possible: the drive is full or too deep.',

@@ -26,7 +26,7 @@ drive", with no row of its own. Foreign keys carry the owner, so an orphan or a
 cross-owner link cannot be stored. A nested value holds the tree in the browser, so
 it cannot represent a cycle. Postgres cannot state "no cycle" as a constraint, so a
 move checks it under the account fence, which runs one member's moves one at a time,
-and a trigger is the last guard. Limits: depth 8, 2,000 documents and 500 folders per
+and a trigger is the last guard. Limits: depth 8, 500 documents and 500 folders per
 member, and a 200,000-byte body as before. A later club drive replaces the owner
 column with a drive id behind the same owner check; nothing is built for it now.
 
@@ -81,6 +81,13 @@ works without JavaScript apart from editing, which needs script.
 - Renaming the browser storage prefix leaves any copy under the old
   `daisy:round-notes:draft:` prefix unswept and unreadable to the app, past the policy's
   seven days. Daisy has no real users yet; no sweep is kept (ADR 0023).
+- A drive holds 500 documents, set by the point guard on 2026-11-04, not the owner. An
+  export holds every body in memory inside a transaction that locks the account's row, on
+  the `control` lane, so no competitive or documents connection is taken. Measured locally
+  at the limit (500 documents, 96 MB): 581 ms, a writer on that account waiting 570 ms, and
+  269 MB of process memory growth. Nothing of another account waits. The limit can rise once
+  the export streams (ISSUE-1323), which would change the shared privacy contract. Reaching
+  it says so in plain words.
 - The connection total grows with web machines. The 33 is per process and is not a
   production limit.
 - Search under a burst refuses rather than queues for long; the palette keeps what it

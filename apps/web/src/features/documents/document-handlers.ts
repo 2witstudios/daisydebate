@@ -188,7 +188,12 @@ export function createDocumentHandlers(dependencies: Dependencies) {
           } catch (error) {
             if (!isAppError(error) || error.code === 'INFRASTRUCTURE')
               throw error;
-            return seeOther(`${back}?notice=${driveNoticeOf(error)}`);
+            // The only conflict a new document can meet is a full drive.
+            const notice =
+              name === 'create' && error.code === 'CONFLICT'
+                ? 'drive-full'
+                : driveNoticeOf(error);
+            return seeOther(`${back}?notice=${notice}`);
           }
         },
       );

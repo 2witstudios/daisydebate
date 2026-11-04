@@ -60,7 +60,7 @@ export type DriveAdmission = (
 
 /** The most a drive holds and how deep it nests (ADR 0111). */
 export const DRIVE_LIMITS = {
-  documents: 2_000,
+  documents: 500,
   folders: 500,
   depth: 8,
 } as const;

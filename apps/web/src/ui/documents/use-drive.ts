@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 import { systemClock } from '@daisy/clock';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
 import type { MemberDocument } from '../../features/documents/document';
+import { DRIVE_FULL_NOTICE } from '../../features/documents/drive-return';
 import type {
   DriveCursor,
   DriveEntryView,
@@ -120,7 +121,13 @@ export function useDrive({
           entry,
         });
       })
-      .catch(() => setProblem('That document was not created. Try again.'))
+      .catch((error: unknown) =>
+        setProblem(
+          (error as { readonly status?: unknown }).status === 409
+            ? DRIVE_FULL_NOTICE
+            : 'That document was not created. Try again.',
+        ),
+      )
       .finally(() => {
         creating.current = false;
       });
