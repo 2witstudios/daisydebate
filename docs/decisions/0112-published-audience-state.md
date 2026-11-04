@@ -17,17 +17,23 @@ snapshot and a pulse rate. The player and the audience panel poll it. The anonym
 `/timeline` and `/audience` reads are gone, with no fallback.
 
 - **Its own app and role.** `apps/audience-publisher` runs on its own small machine, and
-  `daisy_audience_publisher` reads released facts. The hold worker still reads no Round and
+  `daisy_audience_publisher` reads released facts. Its only reach into messaging is the view
+  `spectator_chat_messages`, so it can read no DM or private group. Which ballots and captions
+  are released stays the read's rule, as on web; those tables are narrowed to the columns named. The hold worker still reads no Round and
   holds no Redis (ADR 0099), and neither can slow the other.
 - **Key.** SHA3-256 of the feed key and, on an unlisted Round, the current link hash. Replacing
   a link moves the object, so the old link has no address for what follows (ADR 0109). The
   page hands the address out only past admission.
 - **Late, never early.** The state comes from the same horizon as before. If publishing stops,
   the object stands still and the tab, on its own clock, reports the Broadcast as interrupted.
-- **Lifetime.** The object stays while a viewer may wait for the Recording: 10 minutes past the
-  end once it has settled, 6 hours at most. It then goes, and the row records that.
+- **Lifetime.** The object stays while a viewer may wait for the Recording: 10 minutes after the
+  Round is over and its Recording has settled, so they read that final state, and 6 hours past
+  the Broadcast's end at most. It then goes, and the row records that. A tab that then reads
+  nothing asks the server again, which is also how a replaced link ends an old holder's page.
 - **Count.** Tabs pulse web. The state carries a rate that keeps the whole audience near 20
-  pulses a second. Each tab draws once and keeps its draw. The publisher scales a count by the
+  pulses a second. Each tab draws once and keeps its draw and sends nothing until it knows the
+  rate. A restart reads the rate back from the object, and the rate at most doubles per bucket,
+  since a falling count may only mean pulses were lost. The publisher scales a count by the
   rate in force while it gathered, and rounds it to two figures.
 - **Live room.** Someone in the live room still reads web, signed in, because what they may see
   is their own. That read carries no count, since only the publisher knows the sampling.

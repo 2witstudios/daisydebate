@@ -28,8 +28,9 @@ export const createAudiencePublisherStore = (url: string) => {
   const audience = audienceSnapshotReads({ database });
   return {
     /**
-     * Every Broadcast with state to publish, oldest first. A Broadcast's window
-     * closes once the Round's Recording has settled, or at `keepMs` past its end.
+     * Every Broadcast with state to publish, oldest first. A window closes `settledKeepMs`
+     * after the Round is over and its Recording has settled, so viewers read that final
+     * state, or at `keepMs` past the Broadcast's end.
      */
     readPublishing: async (input: {
       readonly now: Date;
@@ -47,12 +48,13 @@ export const createAudiencePublisherStore = (url: string) => {
         database,
         sql`select b.id,b.round_id,b.feed_key,r.audience_link_hash,
             coalesce(
-              coalesce(b.stopped_at,b.completed_at)
-                + make_interval(secs => case
-                    when rc.status is null or rc.status in ('ready','failed','taken_down','removing','removed')
-                    then ${input.settledKeepMs / 1000}::double precision
-                    else ${input.keepMs / 1000}::double precision end)
-                <= ${input.now.toISOString()}::timestamptz,
+              case when r.status in ('completed','abandoned')
+                  and (rc.status is null or rc.status in ('ready','failed','taken_down','removing','removed'))
+                then greatest(coalesce(b.stopped_at,b.completed_at),coalesce(rc.updated_at,b.created_at))
+                  + make_interval(secs => ${input.settledKeepMs / 1000}::double precision)
+                else coalesce(b.stopped_at,b.completed_at)
+                  + make_interval(secs => ${input.keepMs / 1000}::double precision)
+              end <= ${input.now.toISOString()}::timestamptz,
               false) as over
           from broadcasts b
           join rounds r on r.id=b.round_id

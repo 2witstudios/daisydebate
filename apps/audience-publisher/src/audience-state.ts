@@ -54,6 +54,8 @@ type Deps = {
       headers: Readonly<Record<string, string>>,
     ) => Promise<void>;
     readonly deletePublic: (key: string) => Promise<void>;
+    /** The object's text, or null with none. */
+    readonly readState: (key: string) => Promise<string | null>;
   };
   readonly counts: {
     readonly readViewerCount: (
@@ -99,11 +101,26 @@ export const createAudienceStatePublisher = (deps: Deps) => {
     }
   };
 
+  /** After a restart: tabs still hold the rate in the object, so counts gather at it. */
+  const restored = async (key: string) => {
+    const body = await deps.objects.readState(key);
+    const parsed = audienceStateSchema.safeParse(
+      body === null ? null : JSON.parse(body),
+    );
+    return parsed.success
+      ? {
+          key,
+          bucket: viewerBucketOf(parsed.data.publishedAtMs),
+          rate: parsed.data.pulseRate,
+          previousRate: parsed.data.pulseRate,
+        }
+      : undefined;
+  };
+
   const publish = async (broadcast: PublishingBroadcast) => {
     const key = audienceStatePath(
       deps.keyOf(broadcast.feedKey, broadcast.linkHash),
     );
-    const was = held.get(broadcast.broadcastId);
     if (broadcast.over) {
       await deps.objects.deletePublic(key);
       await deps.store.recordStateWithdrawn({
@@ -113,6 +130,7 @@ export const createAudienceStatePublisher = (deps: Deps) => {
       held.delete(broadcast.broadcastId);
       return;
     }
+    const was = held.get(broadcast.broadcastId) ?? (await restored(key));
     if (was && was.key !== key) await deps.objects.deletePublic(was.key);
     const nowMs = deps.now();
     const [timeline, audience] = await Promise.all([
@@ -130,10 +148,11 @@ export const createAudienceStatePublisher = (deps: Deps) => {
     const viewers = audience.open
       ? await countOf(broadcast.roundId, gatheredAt, nowMs)
       : null;
-    // A lost count says nothing about the crowd: the rate in force stands.
+    // A lost count says nothing about the crowd, and a count that fell may only mean
+    // pulses were lost, so the rate rises slowly: it is what brings tabs back to web.
     const rate =
       viewers !== null && (was === undefined || moved)
-        ? pulseRateFor(viewers)
+        ? Math.min(pulseRateFor(viewers), (was?.rate ?? 0.5) * 2)
         : (was?.rate ?? 1);
     const body = JSON.stringify(
       audienceStateSchema.parse({

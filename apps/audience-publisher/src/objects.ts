@@ -36,6 +36,15 @@ export const createPublicObjects = (config: {
       );
       if (!response.ok) throw new Error(`public put ${response.status}`);
     },
+    readState: async (key: string) => {
+      const response = await fetch(
+        bucket.presign(key, { method: 'GET', expiresIn: 60 }),
+        { signal: AbortSignal.timeout(timeoutMs) },
+      );
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`public get ${response.status}`);
+      return response.text();
+    },
     deletePublic: async (key: string) => {
       const response = await fetch(
         bucket.presign(key, { method: 'DELETE', expiresIn: 60 }),

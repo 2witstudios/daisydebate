@@ -181,11 +181,15 @@ export function BroadcastViewer({
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [settledNow, setSettledNow] = useState(viewerSettled(initial));
-  const published = usePublishedState(stateUrl, !settledNow);
-  const timeline = timelineAsOf(
-    published.state?.timeline ?? initial,
-    published.sinceMovedMs,
-  );
+  const [gone, setGone] = useState(false);
+  const published = usePublishedState(stateUrl, !settledNow && !gone);
+  if (published.gone && !gone) setGone(true);
+  const timeline = gone
+    ? initial
+    : timelineAsOf(
+        published.state?.timeline ?? initial,
+        published.sinceMovedMs,
+      );
   const settled = viewerSettled(timeline);
   if (settled !== settledNow) setSettledNow(settled);
   const { broadcast, roundId } = timeline;
@@ -196,6 +200,10 @@ export function BroadcastViewer({
     setStream(playing);
   const switchToRecording =
     screen.kind === 'ended' && screen.recording === 'ready';
+  // Withdrawn, or a replaced link: the server says what this reader may still see.
+  useEffect(() => {
+    if (gone) router.refresh();
+  }, [gone, router]);
   useEffect(() => {
     if (switchToRecording) router.replace(replayHref(roundId));
   }, [switchToRecording, router, roundId]);

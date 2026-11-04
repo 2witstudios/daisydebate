@@ -4,44 +4,64 @@ import { audienceStateSchema, type AudienceState } from '@daisy/protocol';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
 import { startBrowserPoll } from './browser-poll';
+import {
+  firstPublishedReads,
+  nextPublishedReads,
+  type PublishedRead,
+} from './published-state-model';
+
+const READ_TIMEOUT_MS = 5_000;
 
 /**
- * Polls a Round's published state from the public bucket. No cookie goes with it. A
- * missing object is not an answer about the Round: it may not be out yet, so the poll
- * keeps going and the last state stands. How long the object has stood still is
- * measured here, on the tab's own clock.
+ * Polls a Round's published state from the public bucket. No cookie goes with it. Every
+ * attempt, answered or not, updates how long the object has stood still, measured here
+ * on the tab's own clock. `gone` asks the page to read the server again.
  */
 export function usePublishedState(url: string | null, polling: boolean) {
   const [state, setState] = useState<AudienceState | null>(null);
   const [sinceMovedMs, setSinceMovedMs] = useState(0);
+  const [gone, setGone] = useState(false);
   useEffect(() => {
     if (!url || !polling) return;
     let stopped = false;
-    let lastPublished = -1;
-    let movedAt = performance.now();
+    let reads = firstPublishedReads(performance.now());
+    const settle = (read: PublishedRead) => {
+      if (stopped) return;
+      const now = performance.now();
+      reads = nextPublishedReads(reads, read, now);
+      setState(reads.state);
+      setGone(reads.gone);
+      setSinceMovedMs(now - reads.movedAtMs);
+    };
     const stop = startBrowserPoll(async () => {
-      const response = await fetch(url, {
-        cache: 'no-store',
-        credentials: 'omit',
-      });
-      const parsed = audienceStateSchema.safeParse(
-        response.ok ? await response.json() : null,
-      );
-      if (stopped) return answerOfResponse(response);
-      if (parsed.success && parsed.data.publishedAtMs !== lastPublished) {
-        lastPublished = parsed.data.publishedAtMs;
-        movedAt = performance.now();
-        setState(parsed.data);
+      try {
+        const response = await fetch(url, {
+          cache: 'no-store',
+          credentials: 'omit',
+          signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+        });
+        const parsed = audienceStateSchema.safeParse(
+          response.ok ? await response.json() : null,
+        );
+        settle(
+          parsed.success
+            ? { kind: 'state', state: parsed.data }
+            : response.status === 404 || response.status === 403
+              ? { kind: 'missing' }
+              : { kind: 'failed' },
+        );
+        return answerOfResponse(response);
+      } catch (error) {
+        settle({ kind: 'failed' });
+        throw error;
       }
-      setSinceMovedMs(performance.now() - movedAt);
-      return answerOfResponse(response);
     });
     return () => {
       stopped = true;
       stop();
     };
   }, [url, polling]);
-  return { state, sinceMovedMs };
+  return { state, sinceMovedMs, gone };
 }
 
 /** The published state for what sits beside the player; null with none. */

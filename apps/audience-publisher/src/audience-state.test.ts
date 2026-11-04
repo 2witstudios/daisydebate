@@ -2,6 +2,7 @@ import {
   VIEWER_BUCKET_MS,
   audienceStateSchema,
   type AudienceState,
+  viewersFromSample,
 } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -57,6 +58,7 @@ const harness = (over: {
   readonly read?: () => Promise<unknown>;
   readonly put?: (key: string) => Promise<void>;
   readonly now?: () => number;
+  readonly published?: string;
 }) => {
   const puts: { key: string; body: string; headers: unknown }[] = [];
   const deletes: string[] = [];
@@ -86,6 +88,7 @@ const harness = (over: {
         await over.put?.(key);
         puts.push({ key, body, headers });
       },
+      readState: async () => over.published ?? null,
       deletePublic: async (key) => {
         deletes.push(key);
       },
@@ -107,6 +110,12 @@ const harness = (over: {
     },
   };
 };
+const firstState = async () => {
+  const h = harness({});
+  await h.publisher.pass();
+  return h.puts.at(-1)!.body;
+};
+
 const stateOf = (body: string): AudienceState =>
   audienceStateSchema.parse(JSON.parse(body));
 
@@ -215,6 +224,44 @@ test('a lost count on a new bucket keeps the rate in force', async () => {
     should: 'keep the lowered rate, not ask every tab to pulse',
     actual: [lowered < 1, JSON.parse(h.puts.at(-1)!.body).pulseRate],
     expected: [true, lowered],
+  });
+});
+
+test('a restart keeps the sampling tabs already hold', async () => {
+  const rate = 0.005;
+  const h = harness({
+    count: async () => 500,
+    now: () => NOW + 60_000,
+    published: JSON.stringify({
+      ...stateOf(await firstState()),
+      publishedAtMs: NOW,
+      pulseRate: rate,
+    }),
+  });
+  await h.publisher.pass();
+  const state = stateOf(h.puts.at(-1)!.body);
+  assert({
+    given: 'a new process finding a state published at a low rate',
+    should: 'scale by that rate and keep it for the same crowd',
+    actual: [state.audience.viewers, state.pulseRate],
+    expected: [viewersFromSample(500, rate), rate],
+  });
+});
+
+test('a count that collapses raises the rate only by double', async () => {
+  let nowMs = NOW;
+  let count = 400_000;
+  const h = harness({ count: async () => count, now: () => nowMs });
+  await h.publisher.pass();
+  const lowered = stateOf(h.puts.at(-1)!.body).pulseRate;
+  count = 0;
+  nowMs += 60_000;
+  await h.publisher.pass();
+  assert({
+    given: 'an emptied count across a bucket move',
+    should: 'double the rate, not ask every tab to pulse',
+    actual: stateOf(h.puts.at(-1)!.body).pulseRate,
+    expected: lowered * 2,
   });
 });
 

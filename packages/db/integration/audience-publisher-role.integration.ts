@@ -33,12 +33,14 @@ test('the publisher reads what it publishes, and writes nothing else', async () 
       actual: [
         await can('rounds', 'SELECT'),
         await can('rounds', 'UPDATE'),
-        await can('messaging_messages', 'INSERT'),
+        await can('messaging_messages', 'SELECT'),
+        await can('messaging_channels', 'SELECT'),
+        await can('spectator_chat_messages', 'SELECT'),
         await can('broadcasts', 'INSERT'),
         await column('username'),
         await column('email'),
       ],
-      expected: [true, false, false, false, true, false],
+      expected: [true, false, false, false, true, false, true, false],
     });
   } finally {
     await sql.close();
@@ -89,21 +91,35 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
     const now = new Date('2026-11-04T12:00:00.000Z');
     const stopped = new Date(now.getTime() - 20 * 60_000);
     try {
-      const overWith = async (status: RecordingStatus | null) => {
+      const overWith = async (
+        status: RecordingStatus | null,
+        settledAt: Date = stopped,
+        roundStatus: 'active' | 'completed' = 'completed',
+      ) => {
         const roundId = await f.round({
           room_id: await f.room(actor, format, { visibility: 'public' }),
           room_config_snapshot: validConfig,
           visibility: 'public',
           format_id: format,
           rules_snapshot: validRules,
+          ...(roundStatus === 'completed'
+            ? {
+                status: 'completed',
+                current_stage: null,
+                outcome: 'affirmative',
+                started_at: stopped.toISOString(),
+                completed_at: stopped.toISOString(),
+                resolution: 'A resolution',
+              }
+            : {}),
         });
         const broadcastId = createId();
         await f.sql`insert into broadcasts (id,round_id,feed_key,release_policy,stopped_at,stop_reason)
           values (${broadcastId},${roundId},${createId()},${JSON.stringify({ kind: 'delay', delayMs: 15_000 })}::text::jsonb,${stopped},'moderation')`;
         if (status)
-          await f.sql`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+          await f.sql`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle,updated_at)
             values (${createId()},${roundId},'ranked',${status},
-              jsonb_build_object('kind','ranked'),${JSON.stringify({ status })}::text::jsonb)`;
+              jsonb_build_object('kind','ranked'),${JSON.stringify({ status })}::text::jsonb,${settledAt})`;
         const rows = await store.readPublishing({
           now,
           keepMs: 6 * 3_600_000,
@@ -114,6 +130,7 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
         await f.sql`delete from broadcasts where id=${broadcastId}`;
         return rows.find((row) => row.broadcastId === broadcastId)?.over;
       };
+      const justNow = new Date(now.getTime() - 60_000);
       assert({
         given: 'a Broadcast stopped 20 minutes ago, by its Recording status',
         should: 'keep it only while the Recording may still arrive',
@@ -135,6 +152,17 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
           removing: true,
           removed: true,
         },
+      });
+      assert({
+        given:
+          'a Recording settling after the window, and a Round still running',
+        should:
+          'leave time to read the final state, and keep the running Round',
+        actual: [
+          await overWith('ready', justNow),
+          await overWith(null, stopped, 'active'),
+        ],
+        expected: [false, false],
       });
     } finally {
       await store.close();
