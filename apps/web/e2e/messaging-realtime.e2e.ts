@@ -1,4 +1,5 @@
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
+import { STEP_LIMIT_MS } from './support/bounded-step';
 import { testPeopleList } from './support/people-list-live';
 import { testMessagingHistoryCompletion } from './support/messaging-history-completion';
 import { testMessagingNavigationOverlap } from './support/messaging-navigation-overlap';
@@ -132,6 +133,17 @@ const inboxHasNoUnread = (sender: Page) =>
     );
   }).toPass();
 /**
+ * Opens a conversation. A page refused by a full lane says "Refresh to try again",
+ * and a person does (ISSUE-1333); any other failure stays a failure.
+ */
+const openConversation = (page: Page, channelId: string) =>
+  expect(async () => {
+    await page.goto(`/messages/${channelId}`);
+    await expect(
+      page.getByText('This conversation is unavailable.'),
+    ).toHaveCount(0);
+  }).toPass({ timeout: STEP_LIMIT_MS });
+/**
  * Opens the conversation for the sender. With a script, the page marks it read
  * once on screen, and leaving first can lose that POST, so this waits for it.
  */
@@ -140,19 +152,16 @@ const viewDm = async (
   channelId: string,
   javaScriptEnabled: boolean,
 ) => {
-  // A refused read says "Refresh to try again", and a person does.
-  await expect(async () => {
-    const marked = javaScriptEnabled
-      ? sender.waitForResponse(
-          (response) =>
-            response.request().method() === 'POST' &&
-            new URL(response.url()).pathname === '/api/messaging/read' &&
-            response.ok(),
-          { timeout: 5_000 },
-        )
-      : undefined;
-    await Promise.all([sender.goto(`/messages/${channelId}`), marked]);
-  }).toPass();
+  const marked = javaScriptEnabled
+    ? sender.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === '/api/messaging/read' &&
+          response.ok(),
+        { timeout: STEP_LIMIT_MS },
+      )
+    : undefined;
+  await Promise.all([openConversation(sender, channelId), marked]);
 };
 /** That DM, read by the sender, whose page is back on the conversation. */
 const readDm = async (journey: DmJourney, javaScriptEnabled: boolean) => {
@@ -164,7 +173,7 @@ const readDm = async (journey: DmJourney, javaScriptEnabled: boolean) => {
       .getByRole('button', { name: 'Mark as read', exact: true })
       .click();
   await inboxHasNoUnread(sender);
-  await sender.goto(`/messages/${journey.channelId}`);
+  await openConversation(sender, journey.channelId);
   return { recipient, sender };
 };
 

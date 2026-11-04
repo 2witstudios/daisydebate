@@ -162,11 +162,10 @@ test.describe('dashboard shell chrome', () => {
     await page.goto('/');
     const grid = page.getByRole('list', { name: 'Debate destinations' });
     await expect(grid.locator('li > a')).toHaveCount(8);
-    // Layout widths: each note leans a little, which widens its bounding box.
     const tileWidths = await grid
       .locator('li > a')
       .evaluateAll((links) =>
-        links.map((link) => (link as HTMLElement).offsetWidth),
+        links.map((link) => link.getBoundingClientRect().width),
       );
     const spread = Math.max(...tileWidths) - Math.min(...tileWidths);
     expect(tileWidths.length).toBe(8);
