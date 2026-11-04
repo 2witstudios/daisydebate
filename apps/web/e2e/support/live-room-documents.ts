@@ -139,8 +139,15 @@ export const test = base.extend<{
     } finally {
       // Competitive history stays in the dedicated slot until reviewed lifecycle release.
       try {
+        // Cleanup, not a claim: a Round it cannot settle costs load, not correctness,
+        // as in settle-left-round. A room lost after the page left refuses the forfeit.
         if (launched && !finished)
-          await forfeitAsHost(accounts.members[0]!.context.request, launched);
+          await forfeitAsHost(
+            accounts.members[0]!.context.request,
+            launched,
+          ).catch((error: unknown) => {
+            process.stderr.write(`Live Round not settled: ${String(error)}\n`);
+          });
         await settledLaunchAuth();
       } finally {
         await accounts.closeContexts();

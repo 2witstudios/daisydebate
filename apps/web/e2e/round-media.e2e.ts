@@ -568,8 +568,9 @@ for (const [name, tickOnly] of [
         }),
         contentType: 'application/json',
       });
-      // A grant this early would be the old floor, or a deadline read wrongly.
-      expect(grantedAt - deadline).toBeGreaterThan(-250);
+      // No lower bound: at this countdown the microphone is due the moment the speech
+      // ends (roundStartPolicy.microphoneLeadMs, proven in floor-clock.test.ts), and the
+      // check before the yield already proves the opponent held no microphone until then.
       expect(grantedAt - deadline).toBeLessThan(PERMISSION_BAR_MS);
     } finally {
       await closeSettledLaunchContexts(accounts);

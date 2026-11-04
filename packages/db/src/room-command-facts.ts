@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   RoomAssemblyState,
@@ -176,7 +176,8 @@ const hydrateRoom = async (
   const seats = await tx
     .select()
     .from(roomParticipants)
-    .where(eq(roomParticipants.roomId, row.id));
+    .where(eq(roomParticipants.roomId, row.id))
+    .orderBy(asc(roomParticipants.role), asc(roomParticipants.slot));
   const participants = await Promise.all(
     seats.map(async (seat) => {
       const actor = await actorFact(tx, seat.actorId);
