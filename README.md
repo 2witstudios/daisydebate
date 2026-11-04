@@ -40,12 +40,12 @@ when `bun slot:up` has already run; integration tests need nothing more.
 | Ephemeral coordination               | `packages/redis`                                           |
 | Cross-cutting platform concerns      | `config`, `errors`, `logger`, `observability`, `auth`      |
 
-Agents: read `AGENTS.md` first — it is the binding engineering contract.
+Agents: read `AGENTS.md` first — it is the index to the binding rules.
 
 ## Verification
 
 ```sh
-bun check              # the blocking gates, as in CI: static, policy, invariants, unit, and build (catalog: AGENTS.md)
+bun check              # the blocking gates, as in CI: static, policy, invariants, unit, and build (catalog: docs/development/local-development.md)
 bun run duplication    # copy-paste report: lists clones not in .jscpd-baseline.json (ADR 0026, advisory)
 bun invariants         # execute every registered domain invariant fixture
 bun verify             # bun check plus migration, integration, and browser gates

@@ -1,9 +1,10 @@
 # The slice process
 
 An owner instruction to implement an outcome authorizes agents to carry that
-outcome through discovery, planning, building, review and convergence. A
-request only to investigate or plan stays in that scope. The owner steers
-product intent; agents own routine execution
+outcome through discovery, planning, task administration, PurePoint delegation,
+building, review and convergence. Do not turn routine work into repeated owner
+or parent approval. A request only to investigate or plan stays in that scope.
+The owner steers product intent; agents own routine execution
 ([ADR 0083](../decisions/0083-lean-gates-and-slice-process.md)).
 
 ## The six steps
@@ -26,7 +27,7 @@ product intent; agents own routine execution
    the planning dialogue live in [the task skill](../../.claude/skills/task/SKILL.md).
    Every task is a `Given X, should Y` criterion with a code. The builder
    posts the plan's link on the PageSpace Delivery channel. The
-   [architecture rules](../../AGENTS.md#architecture-rules) block a plan that
+   [architecture rules](../architecture/rules.md#architecture-rules) block a plan that
    breaks them.
 
 3. **One confirmation, after a dialogue.** The architecture reviewer and the
@@ -93,10 +94,16 @@ touched. CI holds the blocking gates. Heavy commands queue machine-wide through
   `bun metrics:check` are reports. CI runs them in its non-blocking
   "Advisory reports" job, and knip blocks only the nightly main run.
 - CI runs the quick check once per PR or main push; a branch push without a
-  PR runs no CI, so open the slice PR early. The only required check is CI
-  gate. Browser E2E runs on main after merge, and a PR may dispatch it by
-  choice ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)). The
-  nightly run on main adds every Playwright project.
+  PR runs no CI, so open the slice PR early. On a PR it then runs `policy`,
+  `invariants` and `build`, plus image, audit, migrations and Infrastructure
+  contracts. The only required check is CI gate.
+- Browser E2E (Chromium Playwright and Isolated Room Launch) runs on main after
+  merge, and a PR may dispatch it by choice; a builder proves the specs its
+  change touches, locally or by that dispatch. Staging deploys on a green CI
+  gate without waiting for it. A red browser run on main gets an owner at once,
+  who fixes forward or reverts. The nightly run on main adds every Playwright
+  project. Strict gating returns before real users
+  ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)).
 - Run `bun migrations:check` whenever migrations change.
 
 Treat a failing check as review input: fix it, or record why it is

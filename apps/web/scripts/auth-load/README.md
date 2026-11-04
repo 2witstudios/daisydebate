@@ -41,7 +41,8 @@ afterward.
 Defaults (`bun --cwd apps/web run load:local` with no flags) are the leaf's
 documented baseline: 600 seconds, 50 clients, 20 admitted requests/second,
 50 pre-signed-in session accounts, 10 pre-enrolled passkey accounts. **This
-machine is heavily shared** (AGENTS.md): running the full ten-minute
+machine is heavily shared** (see the heavy queue in
+[local development](../../../../docs/development/local-development.md#verification)): running the full ten-minute
 baseline, or anything sustained, needs the same go-ahead as a staging run
 below — a short `--duration-seconds` dry run is safe to run freely.
 
@@ -97,4 +98,4 @@ admitted and the rest answer 429 with `Retry-After`.
   extracted from `e2e/support/server.ts` (behavior-preserving) so this
   harness and the browser suite share one implementation of "a self-signed
   TLS edge in front of a production app" and "a private mail sink", per
-  AGENTS.md's shared-abstractions rule (two real consumers).
+  the engineering rules' shared-abstractions rule (two real consumers).

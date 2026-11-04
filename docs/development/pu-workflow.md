@@ -30,7 +30,7 @@ pu status | pu logs <agent> | pu attach <agent>
 pu kill --agent <agent> && pu clean
 ```
 
-AGENTS.md ("Channels") names the Delivery and Incidents channel ids.
+[AGENTS.md](../../AGENTS.md#addresses) names the Delivery and Incidents channel ids.
 
 - **One builder per slice.** The point guard spawns one Claude builder for
   each semantic slice, in its own worktree. Claude is required because its
@@ -42,9 +42,8 @@ AGENTS.md ("Channels") names the Delivery and Incidents channel ids.
   - the autonomy rules.
 - **Reviewers join the builder's worktree** with `-w`. They stay read-only
   and are killed once they have posted.
-- **Code-writing help** is a `pu` child in its own worktree.
-  Worktree-isolated subagents and forks are for read-only research and
-  review.
+- **Code-writing help** is a `pu` child in its own worktree, never a
+  worktree-isolated subagent or fork. Subagents and forks do read-only work.
 - **Services.** Run `bun install --frozen-lockfile` and `bun slot:up` in a
   worktree when the work needs dependencies or services
   ([ADR 0034](../decisions/0034-shared-stack-slots.md)).
@@ -52,6 +51,8 @@ AGENTS.md ("Channels") names the Delivery and Incidents channel ids.
   point guard's confirmations go through the PageSpace Delivery channel;
   incidents go to Incidents. The pu channel is retired. Agents report to
   whoever spawned them, so the owner never relays status.
+- **Decisions on the owner's behalf** are recorded with `bun decision:record`
+  and stay open until confirmed or overruled.
 
 ## Pull requests and merges
 

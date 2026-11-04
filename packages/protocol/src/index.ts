@@ -11,8 +11,8 @@ export {
   type StageInterval,
 } from './public-interval';
 /**
- * Named re-exports, not `export *` (AGENTS.md: explicit exports, no
- * barrels). This is `@daisy/protocol`'s only public entry point: every
+ * Named re-exports, not `export *` (docs/architecture/rules.md: explicit exports,
+ * no barrels). This is `@daisy/protocol`'s only public entry point: every
  * symbol here has a consumer outside the package, and a contract piece is
  * added in the same change as its first consumer (knip's
  * `includeEntryExports` fails an export nobody imports).

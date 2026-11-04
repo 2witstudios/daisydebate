@@ -66,7 +66,7 @@ export type AudienceRead = {
 /**
  * Near real time, through moderation alone, for everyone on the shared feed (ADR
  * 0108). A count only while a Broadcast is on. A lost count must not take the rest
- * with it: Redis is expendable (AGENTS.md), and a count drives nothing. Null when
+ * with it: Redis is expendable (docs/architecture/rules.md), and a count drives nothing. Null when
  * the Round has no audience. Never answer one without `admitAudience`.
  */
 export const readAudienceSnapshot = async (
