@@ -163,8 +163,8 @@ Every shell page is one navigation rail beside the page. The rail defaults
 to extended at desktop widths: each destination's name shows as text beside
 its icon. Top to bottom: the logo (home) with the "Daisy Debate" wordmark
 beside it; the destinations (Home, Play, Tournaments, Leaderboard,
-Watch, Judge, Train, Prep); a divider; then a member's Messages,
-Notifications and Friends (with the online count), with
+Watch, Judge, Train, Prep); a divider; then a member's Notifications,
+Messages and Friends (with the online count), with
 Minimize as the group's last row (Expand when mini). The foot is the
 account: a member's avatar and username open an account menu to the right.
 The menu lists their ratings on each ladder under the season's name, each
