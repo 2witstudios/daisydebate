@@ -238,7 +238,7 @@ test('an active area keeps native navigation without speculative ancestor reads'
     if (
       !isValidElement<{
         href: string;
-        prefetch?: boolean;
+        prefetch?: boolean | null;
         'aria-current'?: string;
       }>(link)
     )
@@ -252,7 +252,7 @@ test('an active area keeps native navigation without speculative ancestor reads'
     actual: links,
     expected: [
       ['/messages', 'page', false],
-      ['/messages', undefined, undefined],
+      ['/messages', undefined, null],
     ],
   });
 });
