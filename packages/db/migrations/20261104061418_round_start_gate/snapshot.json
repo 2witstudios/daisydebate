@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "3f5046d2-cb9f-4037-8d67-e4e65b79fa33",
+  "id": "14d095a5-3e4d-45a6-95d1-e3ee371058d7",
   "prevIds": [
-    "64051cb9-f86b-4532-832a-b4020a1a5db5"
+    "be97bf94-7782-4372-bba9-4995d1806932"
   ],
   "ddl": [
     {
@@ -153,6 +153,12 @@
     {
       "isRlsEnabled": false,
       "name": "debater_follows",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "document_folders",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3356,6 +3362,84 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "parent_folder_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "documents"
     },
     {
@@ -3367,6 +3451,19 @@
       "generated": null,
       "identity": null,
       "name": "owner_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "folder_id",
       "entityType": "columns",
       "schema": "public",
       "table": "documents"
@@ -3406,6 +3503,22 @@
       "generated": null,
       "identity": null,
       "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "type": "tsvector",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "setweight(to_tsvector('simple'::regconfig, title), 'A') || setweight(to_tsvector('simple'::regconfig, html), 'B')",
+        "type": "stored"
+      },
+      "identity": null,
+      "name": "search",
       "entityType": "columns",
       "schema": "public",
       "table": "documents"
@@ -13591,7 +13704,21 @@
           "opclass": null
         },
         {
-          "value": "created_at",
+          "value": "parent_folder_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "name",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -13603,7 +13730,98 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "documents_owner_created_idx",
+      "name": "document_folders_listing_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "owner_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "folder_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "title",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "documents_listing_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "owner_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "updated_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "documents_owner_edited_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "search",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "gin",
+      "concurrently": false,
+      "name": "documents_search_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "documents"
@@ -19276,7 +19494,62 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
+      "name": "document_folders_owner_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "owner_actor_id",
+        "parent_folder_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "document_folders",
+      "columnsTo": [
+        "owner_actor_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "document_folders_parent_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "owner_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "name": "documents_owner_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "owner_actor_id",
+        "folder_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "document_folders",
+      "columnsTo": [
+        "owner_actor_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "documents_folder_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "documents"
@@ -22762,6 +23035,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "document_folders_pkey",
+      "schema": "public",
+      "table": "document_folders",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "documents_pkey",
       "schema": "public",
       "table": "documents",
@@ -23445,6 +23728,18 @@
     {
       "nameExplicit": true,
       "columns": [
+        "owner_actor_id",
+        "id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "document_folders_owner_id_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
         "id",
         "kind"
       ],
@@ -24019,6 +24314,20 @@
       "entityType": "checks",
       "schema": "public",
       "table": "content_reports"
+    },
+    {
+      "value": "char_length(\"name\") between 1 and 120",
+      "name": "document_folders_name_length",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "value": "\"parent_folder_id\" is distinct from \"id\"",
+      "name": "document_folders_not_own_parent",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "document_folders"
     },
     {
       "value": "char_length(\"title\") between 1 and 120",

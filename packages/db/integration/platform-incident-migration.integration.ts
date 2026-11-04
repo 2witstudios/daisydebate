@@ -45,7 +45,7 @@ test(
   ddlTimeoutMs,
 );
 
-const roundStartGate = '20261104023126_round_start_gate';
+const roundStartGate = '20261104061418_round_start_gate';
 const gateScratch = scratchDatabase(databaseUrl, 'roundstartgate');
 afterAll(() => gateScratch.drop());
 
