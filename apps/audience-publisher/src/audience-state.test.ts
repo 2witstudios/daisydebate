@@ -4,7 +4,10 @@ import {
   type AudienceState,
 } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAudienceStatePublisher } from './audience-state';
+import {
+  createAudienceStatePublisher,
+  type AudienceStateFailure,
+} from './audience-state';
 
 setupRitewayBun();
 
@@ -58,7 +61,7 @@ const harness = (over: {
   const puts: { key: string; body: string; headers: unknown }[] = [];
   const deletes: string[] = [];
   const withdrawn: string[] = [];
-  const failures: string[] = [];
+  const failures: AudienceStateFailure[] = [];
   let publishing = over.publishing ?? [
     { broadcastId, roundId, feedKey: 'feed', linkHash: null, over: false },
   ];
@@ -91,7 +94,7 @@ const harness = (over: {
     keyOf: (feed, link) => `${feed}-${link ?? 'public'}`,
     feedUrlOf: (feed) => `https://feed.invalid/live/${feed}/master.m3u8`,
     now: over.now ?? (() => NOW),
-    report: (event) => failures.push(event),
+    report: (failure) => failures.push(failure),
   });
   return {
     publisher,
@@ -194,7 +197,29 @@ test('one failed Broadcast does not hold the others', async () => {
     given: 'one write failing',
     should: 'report it and still publish the other',
     actual: [h.puts.map((put) => put.key), h.failures],
-    expected: [['state/good-public.json'], ['audience.state_failed']],
+    expected: [['state/good-public.json'], [{ cause: 'publish', failed: 1 }]],
+  });
+});
+
+test('many failures in one pass report once, with their count', async () => {
+  const h = harness({
+    publishing: ['bad-one', 'bad-two'].map((feedKey) => ({
+      broadcastId: `${feedKey}-broadcast`,
+      roundId,
+      feedKey,
+      linkHash: null,
+      over: false,
+    })),
+    put: async () => {
+      throw new Error('storage');
+    },
+  });
+  await h.publisher.pass();
+  assert({
+    given: 'every write in a pass failing',
+    should: 'report one failure naming the count and no error text',
+    actual: h.failures,
+    expected: [{ cause: 'publish', failed: 2 }],
   });
 });
 

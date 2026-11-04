@@ -124,16 +124,12 @@ export const readWatchRound = async (
   const snapshot = await deps.snapshots(input.roundId);
   if (!snapshot || !(await admitAudience(deps.store, snapshot, input)))
     return null;
-  const link =
-    snapshot.visibility === 'unlisted'
-      ? await deps.store.readRoundAudienceLink(input.roundId)
-      : null;
   return {
     timeline: snapshot.timeline,
     stateUrl: publishedStateUrl(
       deps.publicOrigin,
       snapshot.feedKey,
-      link?.audienceLinkHash ?? null,
+      snapshot.visibility === 'unlisted' ? input.presentedHash : null,
     ),
   };
 };

@@ -35,8 +35,11 @@ snapshot and a pulse rate. The player and the audience panel poll it. The anonym
 
 ## Consequences
 
-- A viewer's first page load still reaches web, and so does a sampled pulse. `fly.toml` limits
-  how many requests run at once as the floor (ISSUE-1306); an edge per-address limit may follow.
+- A viewer's first page load still reaches web and reads the database, and so does a sampled
+  pulse. `fly.toml` limits how many requests run at once (ISSUE-1306), and that did not protect
+  a live debate from 1,000 page loads a second (proof page). This decision accepts that limit
+  for invited testers. A static shell for the anonymous page, and a rerun at a lower rate, are
+  owed before a tournament.
 - A signed-in poster reads their own message from the next published state or a fresh render.
 - Chat and usernames sit in a public object under an unguessable key for that lifetime.
 - A host no longer sees a live viewer count in the live room.

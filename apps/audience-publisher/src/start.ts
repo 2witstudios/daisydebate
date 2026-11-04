@@ -8,6 +8,7 @@ import { createRedis } from '@daisy/redis';
 import {
   createAudienceStatePublisher,
   runAudienceStatePublisher,
+  type AudienceStateFailure,
 } from './audience-state';
 import { readPublisherConfig } from './config';
 import { createPublicObjects } from './objects';
@@ -23,8 +24,8 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const)
   process.on(signal, () => {
     stopping = true;
   });
-const report = (event: 'audience.state_failed') =>
-  logger.log(event, {}, 'Audience publisher');
+const report = (failure: AudienceStateFailure) =>
+  logger.log('audience.state_failed', failure, 'Audience publisher');
 await runAudienceStatePublisher({
   publisher: createAudienceStatePublisher({
     store,

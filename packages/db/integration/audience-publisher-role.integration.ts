@@ -1,9 +1,13 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
+import type { RecordingStatus } from '@daisy/protocol';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { audienceStateKey } from '../src/audience-publisher-store';
+import {
+  audienceStateKey,
+  createAudiencePublisherStore,
+} from '../src/audience-publisher-store';
 import { audienceSnapshotReads } from '../src/audience-snapshot-reads';
 import { spectatorTimelineReads } from '../src/spectator-timeline-reads';
 import { withFixture } from './constraint-helpers';
@@ -73,6 +77,67 @@ test('the publisher role can run both of its reads', async () => {
     } finally {
       await client`reset role`;
       await client.close();
+    }
+  });
+});
+
+test('the state stays while a viewer may wait for the Recording, no longer', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const format = await f.format();
+    const actor = await f.actor();
+    const store = createAudiencePublisherStore(databaseUrl);
+    const now = new Date('2026-11-04T12:00:00.000Z');
+    const stopped = new Date(now.getTime() - 20 * 60_000);
+    try {
+      const overWith = async (status: RecordingStatus | null) => {
+        const roundId = await f.round({
+          room_id: await f.room(actor, format, { visibility: 'public' }),
+          room_config_snapshot: validConfig,
+          visibility: 'public',
+          format_id: format,
+          rules_snapshot: validRules,
+        });
+        const broadcastId = createId();
+        await f.sql`insert into broadcasts (id,round_id,feed_key,release_policy,stopped_at,stop_reason)
+          values (${broadcastId},${roundId},${createId()},${JSON.stringify({ kind: 'delay', delayMs: 15_000 })}::text::jsonb,${stopped},'moderation')`;
+        if (status)
+          await f.sql`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+            values (${createId()},${roundId},'ranked',${status},
+              jsonb_build_object('kind','ranked'),${JSON.stringify({ status })}::text::jsonb)`;
+        const rows = await store.readPublishing({
+          now,
+          keepMs: 6 * 3_600_000,
+          settledKeepMs: 10 * 60_000,
+          limit: 10_000,
+        });
+        await f.sql`delete from recordings where round_id=${roundId}`;
+        await f.sql`delete from broadcasts where id=${broadcastId}`;
+        return rows.find((row) => row.broadcastId === broadcastId)?.over;
+      };
+      assert({
+        given: 'a Broadcast stopped 20 minutes ago, by its Recording status',
+        should: 'keep it only while the Recording may still arrive',
+        actual: {
+          none: await overWith(null),
+          processing: await overWith('processing'),
+          ready: await overWith('ready'),
+          failed: await overWith('failed'),
+          taken_down: await overWith('taken_down'),
+          removing: await overWith('removing'),
+          removed: await overWith('removed'),
+        },
+        expected: {
+          none: true,
+          processing: false,
+          ready: true,
+          failed: true,
+          taken_down: true,
+          removing: true,
+          removed: true,
+        },
+      });
+    } finally {
+      await store.close();
     }
   });
 });

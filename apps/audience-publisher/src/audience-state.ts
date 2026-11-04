@@ -36,6 +36,15 @@ type Store = Pick<
   | 'recordStateWithdrawn'
 >;
 
+/**
+ * Why a pass did not publish everything. `read` lost the whole pass, `publish` lost
+ * `failed` Broadcasts in it. Closed values, so no error text reaches a log.
+ */
+export type AudienceStateFailure = {
+  readonly cause: 'read' | 'publish';
+  readonly failed: number;
+};
+
 type Deps = {
   readonly store: Store;
   readonly objects: {
@@ -55,7 +64,7 @@ type Deps = {
   readonly keyOf: typeof audienceStateKey;
   readonly feedUrlOf: (feedKey: string) => string | null;
   readonly now: () => number;
-  readonly report: (event: 'audience.state_failed') => void;
+  readonly report: (failure: AudienceStateFailure) => void;
 };
 
 /**
@@ -154,8 +163,10 @@ export const createAudienceStatePublisher = (deps: Deps) => {
         limit: STATE_BROADCASTS,
       });
       const results = await Promise.allSettled(publishing.map(publish));
-      for (const result of results)
-        if (result.status === 'rejected') deps.report('audience.state_failed');
+      const failed = results.filter(
+        (result) => result.status === 'rejected',
+      ).length;
+      if (failed > 0) deps.report({ cause: 'publish', failed });
     },
   };
 };
@@ -166,13 +177,13 @@ export const runAudienceStatePublisher = async (input: {
   readonly now: () => number;
   readonly sleep: (ms: number) => Promise<void>;
   readonly stopped: () => boolean;
-  readonly report: (event: 'audience.state_failed') => void;
+  readonly report: (failure: AudienceStateFailure) => void;
 }) => {
   while (!input.stopped()) {
     const startedAt = input.now();
     await input.publisher
       .pass()
-      .catch(() => input.report('audience.state_failed'));
+      .catch(() => input.report({ cause: 'read', failed: 1 }));
     await input.sleep(
       Math.max(0, STATE_PUBLISH_EVERY_MS - (input.now() - startedAt)),
     );

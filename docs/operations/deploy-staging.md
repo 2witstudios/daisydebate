@@ -833,27 +833,26 @@ never stops a Broadcast.
 the Recording worker after the migration, each with its own app-scoped token. Before the
 first such deploy, once:
 
-1. Create the three tokens with `fly tokens create deploy -a <app>` and store them as the
-   repository secrets `FLY_EGRESS_API_TOKEN`, `FLY_BROADCAST_WORKER_API_TOKEN` and
-   `FLY_RECORDING_WORKER_API_TOKEN`, never printing them.
+1. Create the four tokens with `fly tokens create deploy -a <app>` and store them as the
+   repository secrets `FLY_EGRESS_API_TOKEN`, `FLY_BROADCAST_WORKER_API_TOKEN`,
+   `FLY_RECORDING_WORKER_API_TOKEN` and `FLY_AUDIENCE_PUBLISHER_API_TOKEN`, never printing them.
 2. As the operator, before the merge that adds them (ADR 0080: the migrator has no
    `CREATEROLE`, and a migration whose guarded `CREATE ROLE` finds no role fails the deploy),
-   create `daisy_broadcast_worker` and `daisy_recording_worker` with `LOGIN` and a generated
-   password, and grant each `CONNECT` on `daisy_debate_staging`, as step 2 of section 3 does
+   create `daisy_broadcast_worker`, `daisy_recording_worker` and `daisy_audience_publisher`
+   with `LOGIN` and a generated password, and grant each `CONNECT` on `daisy_debate_staging`, as step 2 of section 3 does
    for the other logins. Store the matching URL as the secret
    `BROADCAST_WORKER_DATABASE_URL` on the encoder or `RECORDING_WORKER_DATABASE_URL` on the
-   recorder. A worker refuses to start without its URL.
+   recorder, or `AUDIENCE_PUBLISHER_DATABASE_URL` on the publisher. A worker refuses to start without its URL.
 3. On `daisy-debate-staging-encoder`, set `BROADCAST_STORAGE_ENDPOINT` and the
    `BROADCAST_HOLD_*` and `BROADCAST_PUBLIC_*` secrets. On
    `daisy-debate-staging-recorder`, set `RECORDING_HOLD_*`; `fly storage create` already
    gave it `RECORDING_BUCKET_*`. On `daisy-debate-staging`, set the `RECORDING_BUCKET_*`
    secrets for signed playback.
    On `daisy-debate-staging-publisher`, set `AUDIENCE_PUBLISHER_DATABASE_URL` for the login
-   `daisy_audience_publisher` (ADR 0080: created with CONNECT before the migration runs),
+   `daisy_audience_publisher` from step 2,
    `REDIS_URL` and `REDIS_NAMESPACE` matching web, `BROADCAST_STORAGE_ENDPOINT`,
    `BROADCAST_PUBLIC_BUCKET`, `BROADCAST_PUBLIC_KEY`, `BROADCAST_PUBLIC_SECRET` and
-   `BROADCAST_PUBLIC_ORIGIN`. It refuses to start without them. The repository secret
-   `FLY_AUDIENCE_PUBLISHER_API_TOKEN` deploys only that app.
+   `BROADCAST_PUBLIC_ORIGIN`. It refuses to start without them.
 4. `BROADCAST_CAPTURE` and `RECORDING_CAPTURE` go `on` in `fly.toml`'s `[env]`, read by the web app, with the commit that turns Watch on. Until that commit they are unset and a green deploy captures nothing.
    Start the capture machines. Nothing starts them for you, a deploy leaves a stopped machine
    stopped, and with them stopped a green deploy captures nothing (Stopping capture, below).

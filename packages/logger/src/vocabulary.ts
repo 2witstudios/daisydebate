@@ -197,6 +197,7 @@ export const loggableFields = {
   topics: 'count',
   oldestAgeMs: 'count',
   pending: 'count',
+  failed: 'count',
   windows: 'count',
   captureStartMs: 'count',
   scope: 'code',

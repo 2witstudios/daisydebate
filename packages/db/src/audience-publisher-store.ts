@@ -49,7 +49,7 @@ export const createAudiencePublisherStore = (url: string) => {
             coalesce(
               coalesce(b.stopped_at,b.completed_at)
                 + make_interval(secs => case
-                    when rc.status is null or rc.status in ('ready','failed')
+                    when rc.status is null or rc.status in ('ready','failed','taken_down','removing','removed')
                     then ${input.settledKeepMs / 1000}::double precision
                     else ${input.keepMs / 1000}::double precision end)
                 <= ${input.now.toISOString()}::timestamptz,

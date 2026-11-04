@@ -135,6 +135,7 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       topics: 3,
       oldestAgeMs: 1500,
       pending: 68,
+      failed: 2,
       windows: 2,
       captureStartMs: 115,
       scope: 'ipv6_48',

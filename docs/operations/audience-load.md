@@ -1,7 +1,7 @@
 # Audience load against a live debate
 
-The promise this checks: viewers can never hurt the debate. A viewer's polls read the
-publisher's state from the public bucket (ADR 0112), so they never reach web.
+The promise this checks: viewers can never hurt the debate. It holds for polls and not yet
+for a burst of page loads (below). A viewer's polls read the publisher's state from the public bucket (ADR 0112), so they never reach web.
 What still reaches web is the first page load, one sampled pulse, and anyone's direct
 request, and `fly.toml` limits how many of those run at once.
 
@@ -39,5 +39,11 @@ Read seat audio and rejoin from the seats' own browsers. The floor logs cannot s
 ## What the limit does not cover
 
 The connection limit in `fly.toml` protects the process by turning traffic away, and a
-seat's requests share those slots with everyone's. If a burst refuses a seat, the limit
-alone is not enough: the remedy is an edge per-address limit in front of web (ISSUE-1306).
+seat's requests share those slots with everyone's. It does not stop a page-load crowd from
+hurting a debate. The one rerun, with 1,000 page loads a second from three regions for
+150 s, broke the promise above (the proof page, Page loads beside a live debate).
+
+Polls no longer reach web. A flash crowd of first page loads still does, because each one
+renders on web and reads the database. This release accepts that limit. The fix and a rerun
+at a lower rate, to find where harm begins, are on the Before a tournament checklist. An edge
+per-address limit does not cover it, because a real crowd comes from many addresses.

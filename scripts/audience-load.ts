@@ -45,8 +45,14 @@ export const parseLoadPlan = (args: readonly string[]): LoadPlan => {
   if (!URL.canParse(origin) || !LOADABLE_HOSTS.has(new URL(origin).hostname))
     throw new Error(`Refusing to load ${origin}: only local and staging`);
   if (roundId === '') throw new Error('--round is required');
-  if (!(viewers > 0) || !(seconds > 0))
-    throw new Error('--viewers and --seconds must be positive');
+  if (
+    !(viewers > 0) ||
+    !(seconds > 0) ||
+    !(every > 0 && Number.isFinite(every))
+  )
+    throw new Error(
+      '--viewers, --seconds and --every-seconds must be positive',
+    );
   return {
     origin,
     roundId,
