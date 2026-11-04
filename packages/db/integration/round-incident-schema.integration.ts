@@ -124,6 +124,7 @@ test('a fresh Round reads the strict checkpoint', async () => {
       ),
       expected: {
         incident: { phase: 'none' },
+        start_gate: null,
         clock_stops: [],
       },
     });
