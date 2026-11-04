@@ -41,6 +41,9 @@
 @utility grid-shell-extended {
   @media (width >= 1101px) {
     --shell-left: var(--spacing-nav-rail-extended);
+    &:has([data-workspace]) {
+      --shell-left: var(--spacing-nav-rail);
+    }
   }
 }
 
@@ -104,12 +107,28 @@
   }
 }
 
+/* The rail is dark in either theme: its tokens resolve in a dark scheme here. */
 @utility area-rail {
   grid-area: rail;
+  color-scheme: dark;
+  background: var(--surface-stage);
 }
 
+/* A page that marks itself [data-workspace] fills the viewport and scrolls its
+   own panes, under the active room's bar when there is one. */
 @utility area-main {
   grid-area: main;
+  &:has([data-workspace]) {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+    @media (width < 641px) {
+      height: calc(
+        100dvh - var(--spacing-tab-bar) - env(safe-area-inset-bottom)
+      );
+    }
+  }
 }
 
 /* An overlay beside its row: the row's offset, set from script. On a phone the

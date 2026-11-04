@@ -385,11 +385,20 @@ image lacks (ISSUE-92).
 ## UI component tests
 
 UI under `apps/web/src/ui/` is Tier 1: tests sit next to the component as
-`<name>.test.tsx`, render with `react-dom/server`'s `renderToString`, and
-assert behavior (landmarks, accessible names, link targets, store-driven
-content) rather than markup snapshots. No DOM library is installed or needed.
-`bun test src` runs them, and `bun evidence` counts them in the unit tier
-and orphan-checks them like any `*.test.ts` suite.
+`<name>.test.tsx`. Pure functions and `react-dom/server`'s `renderToString`
+are the default: assert behavior (landmarks, accessible names, link targets,
+store-driven content) rather than markup snapshots. `bun test src` runs them,
+and `bun evidence` counts them in the unit tier and orphan-checks them like
+any `*.test.ts` suite.
+
+For asynchronous client lifecycles that need mounted React, use
+`ui/test-support/browser-client.test-support.ts`: it bundles the real client
+into an isolated VM with its own `happy-dom` window and React root. Inject
+fetch, timers and other resources into that realm; never replace the test
+runner's globals. Use React `act`, unmount the root and dispose the window
+in `finally`. This narrow harness proves request/effect ordering, cleanup and
+DOM state changes. It does not prove native focus, layout, popovers, selection,
+CSP or browser behavior; those still need the real browser journeys below.
 
 - Styling is Tailwind utilities written in the markup (ADR 0028), so
   `renderToString` output contains the literal classes. Variant props (button

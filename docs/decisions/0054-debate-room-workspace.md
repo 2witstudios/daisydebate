@@ -9,7 +9,7 @@ bots. Amended 2026-11-02 by [ADR 0097](0097-round-workspace.md), which replaces
 the room's layout (§1), the document templates (§3), the resizable video (§5),
 the debate marks (§7) and the fair-play rule (§8). Extends
 [ADR 0028](0028-tailwind-v4.md) and [ADR 0045](0045-daisy-brand-system.md)
-for two narrow styling cases.
+for two narrow styling cases. Amended by [ADR 0113](0113-document-without-page-layout.md), which replaces point 7 with a document without page layout.
 
 ## Context
 
@@ -83,10 +83,9 @@ document. Daisy builds this itself rather than embedding another product.
    scheme.** A debater can choose a dark page in a light app or the reverse. `[data-room-page]` joins
    the selector list in `globals.css` that re-declares the tokens, the same
    mechanism ADR 0045 gave the brand sheet's preview panels.
-7. **Page layout.** A document may open with a
-   page setting, `<div data-page="landscape" data-columns="N">` (N from 2
-   to 6), that lays it out in columns; without one it is portrait. Text
-   size (A−/A+) is the viewer's own and never stored.
+7. **Document layout.** A document is text without page, orientation or column
+   settings ([ADR 0113](0113-document-without-page-layout.md)). Text size
+   (A−/A+) is the viewer's own and never stored.
 8. **Help.** Every Round offers the same help (ADR 0097).
 
 ## Consequences

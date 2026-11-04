@@ -156,6 +156,7 @@ const openDrafts = async (page: Page, roundId: string, title = 'Untitled') => {
   await page.goto(`${origin}/rounds/${roundId}`);
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: title, exact: true })
     .click();
   await expect(page.getByRole('textbox', { name: title })).toBeVisible();
@@ -182,6 +183,7 @@ const typePendingEdit = async (
 const expectSecondRoundOffer = async (page: Page, title: string) => {
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: title, exact: true })
     .click();
   await expect(
@@ -844,6 +846,7 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   await page.reload();
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: 'Untitled', exact: true })
     .click();
   await expect(
@@ -865,6 +868,7 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   await edit(page, '界'.repeat(14000));
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: second.title, exact: true })
     .click();
   await page
@@ -1427,6 +1431,7 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
   );
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: 'Untitled', exact: true })
     .click();
   await typePendingEdit(page, documentId, 'First Round pending NEW');
@@ -1498,4 +1503,43 @@ test('end-user navigation: leaving a Round through the account menu saves pendin
   expect(await draftFor(page, second.documentId)).toEqual({
     recovery: secondRecovery,
   });
+});
+
+test('tall recovered comparisons at Prep scroll without consuming the editor', async ({
+  liveRoom,
+}) => {
+  const { page, documentId } = liveRoom;
+  await page.route(`**${documentsPath}save`, (route) => route.abort());
+  await offeredAfterReload(
+    page,
+    documentId,
+    'Long recovered comparison '.repeat(300).trim(),
+  );
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.goto(`${origin}/prep?open=${documentId}`);
+  const draft = page.getByRole('region', { name: /^Recovered Untitled/ });
+  await draft.getByText('Compare recovered and server copies').click();
+  const recovery = page.getByRole('region', {
+    name: 'Draft recovery',
+    exact: true,
+  });
+  const bounds = (await recovery.boundingBox())!;
+  expect(bounds.height).toBeLessThanOrEqual(300);
+  expect(
+    await recovery.evaluate((node) => node.scrollHeight > node.clientHeight),
+  ).toBe(true);
+  const editor = page.getByRole('textbox', { name: untitled });
+  expect((await editor.boundingBox())!.height).toBeGreaterThan(20);
+  const restore = draft.getByRole('button', { name: /^Restore Untitled/ });
+  await restore.scrollIntoViewIfNeeded();
+  const control = (await restore.boundingBox())!;
+  expect(control.y).toBeGreaterThanOrEqual(bounds.y);
+  expect(control.y + control.height).toBeLessThanOrEqual(
+    bounds.y + bounds.height + 1,
+  );
+  await draft
+    .getByRole('button', { name: /^Discard recovered Untitled/ })
+    .click();
+  await expect(draft).toHaveCount(0);
+  await expect(editor).toBeVisible();
 });

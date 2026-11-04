@@ -30,6 +30,7 @@ export default defineConfig({
     '**/round-command-recovery.e2e.ts',
     '**/document-draft-recovery.e2e.ts',
     '**/document-manager.e2e.ts',
+    '**/document-file-actions.e2e.ts',
     '**/resolution-strike.e2e.ts',
     '**/attendance.e2e.ts',
     '**/round-media.e2e.ts',

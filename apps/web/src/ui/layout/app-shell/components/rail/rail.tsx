@@ -49,7 +49,7 @@ function ToggleItem({
 }) {
   const name = extended ? 'Minimize' : 'Expand';
   return (
-    <li className="max-rail:hidden">
+    <li className="icon-rail:hidden">
       <form action={toggleRail}>
         <button
           type="submit"
@@ -57,7 +57,7 @@ function ToggleItem({
           className={navItemClass(false, extended)}
         >
           <Icon name={extended ? 'railMinimize' : 'railExpand'} size={20} />
-          <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
+          <span className={extended ? 'icon-rail:sr-only' : 'sr-only'}>
             {name}
           </span>
         </button>
@@ -102,16 +102,16 @@ export function Rail({
   const extended = rail === 'extended';
   const group = cn(
     'flex list-none flex-col gap-1',
-    extended && 'w-full items-stretch max-rail:items-center',
+    extended && 'w-full items-stretch icon-rail:items-center',
   );
   return (
-    <div className="z-20 self-stretch border-r border-border bg-surface area-rail max-narrow:hidden">
+    <div className="z-20 self-stretch text-ink area-rail max-narrow:hidden">
       <nav
         aria-label="Primary"
         className={cn(
           'sticky top-0 flex h-dvh flex-col gap-2 py-2 short-viewport:overflow-y-auto',
           extended
-            ? 'items-stretch px-2 max-rail:items-center max-rail:px-0'
+            ? 'items-stretch px-2 icon-rail:items-center icon-rail:px-0'
             : 'items-center',
         )}
       >
@@ -122,12 +122,12 @@ export function Rail({
           className={cn(
             'flex items-center no-underline hover:no-underline',
             extended
-              ? 'h-nav-target w-full gap-2 px-2 text-md font-strong text-ink max-rail:w-nav-target max-rail:justify-center max-rail:gap-0 max-rail:px-0'
+              ? 'h-nav-target w-full gap-2 px-2 text-md font-strong text-ink icon-rail:w-nav-target icon-rail:justify-center icon-rail:gap-0 icon-rail:px-0'
               : 'size-nav-target justify-center',
           )}
         >
           <DaisyLogo />
-          <span className={extended ? 'max-rail:hidden' : 'hidden'}>
+          <span className={extended ? 'icon-rail:hidden' : 'hidden'}>
             Daisy Debate
           </span>
         </Link>
@@ -142,7 +142,7 @@ export function Rail({
           className={cn(
             'my-1 border-border',
             extended
-              ? 'mx-2 max-rail:mx-auto max-rail:w-nav-target'
+              ? 'mx-2 icon-rail:mx-auto icon-rail:w-nav-target'
               : 'w-nav-target',
           )}
         />

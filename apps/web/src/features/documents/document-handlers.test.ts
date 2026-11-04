@@ -57,6 +57,10 @@ const handlersWith = ({
         return document;
       }),
     saveDocument: save,
+    folderDocumentCount: async (...args: unknown[]) => {
+      calls.push(args);
+      return 3;
+    },
     renameDocument: async (...args: unknown[]) => {
       calls.push(args);
     },
@@ -337,5 +341,26 @@ describe('document routes', () => {
       ],
       expected: [403, 401, 403, 403, 403, 403, 403, 403, 400, 400, 400, 0],
     });
+  });
+});
+
+test('folder deletion preview is an owner-authorized count read', async () => {
+  const { handlers, calls } = handlersWith();
+  assert({
+    given: 'a member previewing a folder deletion',
+    should: 'return its recursive document count through the member boundary',
+    actual: await read(await handlers.folderCount.POST(post({ id: DOC }))),
+    expected: [200, { count: 3 }],
+  });
+  assert({
+    given: 'the count operation',
+    should: 'receive only the authenticated principal and validated id',
+    actual: calls,
+    expected: [
+      [
+        { userId: member.principal.userId, actorId: member.principal.actorId },
+        { id: DOC },
+      ],
+    ],
   });
 });

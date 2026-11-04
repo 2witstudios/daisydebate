@@ -6,6 +6,10 @@
   /* The round room's fixed metrics: a touch target, the round bar, the
      Files sidebar and the leave confirm. */
   --spacing-room-target: 44px;
+  /* A file row or writing tool under a fine pointer; see the media rule below. */
+  --spacing-dense-target: 28px;
+  --spacing-tab-strip: 36px;
+  --spacing-file-menu: 224px;
   --spacing-round-bar: 56px;
   --spacing-drive: 260px;
   --spacing-room-details: 288px;
@@ -122,12 +126,52 @@
   }
 }
 
-@utility room-doc-column {
-  max-width: 760px;
-}
-
 @utility room-palette {
   max-width: 36rem;
+}
+
+/* A row's actions show when the row is in use, and always under a finger. */
+@utility file-row {
+  position: relative;
+}
+@utility file-row-idle {
+  &:has(:popover-open) {
+    background: var(--surface-overlay);
+  }
+}
+@utility file-action {
+  opacity: 0;
+  .file-row:hover &,
+  .file-row:has(:popover-open) &,
+  &:focus-visible {
+    opacity: 1;
+  }
+  @media (pointer: coarse), (width < 641px) {
+    opacity: 1;
+  }
+}
+@utility file-rename {
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+}
+
+/* A file row's menu, in the top layer so the tree's scrolling cannot clip it.
+   The place is set from script when it opens; a style attribute would be refused. */
+@utility file-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  max-height: calc(100dvh - 4px);
+  overflow-y: auto;
+  top: var(--file-menu-top, 0);
+  left: var(--file-menu-left, 0);
+
+  &:popover-open {
+    display: flex;
+  }
 }
 
 @utility room-palette-list {
@@ -187,6 +231,21 @@ img.ProseMirror-separator {
 
 .ProseMirror-focused .ProseMirror-gapcursor {
   display: block;
+}
+
+/* A finger needs the full target, on any screen. */
+@media (pointer: coarse), (width < 641px) {
+  :root {
+    --spacing-dense-target: var(--spacing-room-target);
+    --spacing-tab-strip: var(--spacing-room-target);
+  }
+}
+
+/* A document shows the caret while someone types, and no box around it. */
+.room-doc:focus,
+.room-doc:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 /* The document: type, lists and checklists. */
@@ -280,53 +339,6 @@ img.ProseMirror-separator {
   font-size: var(--text-xl);
 }
 
-/* A landscape page: the document opens with its page setting, an empty
-   leaf the editor never shows, and flows into that many columns. Each
-   section heading after the first starts a column; the title spans them. */
-.room-doc > [data-page] {
-  display: none;
-}
-
-.room-doc-column:has(> * > .room-doc > [data-page='landscape']) {
-  max-width: none;
-}
-
-.room-doc:has(> [data-page='landscape']) {
-  column-count: var(--room-columns);
-  column-gap: var(--spacing-8);
-  column-rule: 1px solid var(--border);
-  /* Narrow screens scroll the page sideways rather than crush columns. */
-  min-width: calc(var(--room-columns) * var(--spacing-room-column));
-}
-
-.room-doc:has(> [data-columns='2']) {
-  --room-columns: 2;
-}
-
-.room-doc:has(> [data-columns='3']) {
-  --room-columns: 3;
-}
-
-.room-doc:has(> [data-columns='4']) {
-  --room-columns: 4;
-}
-
-.room-doc:has(> [data-columns='5']) {
-  --room-columns: 5;
-}
-
-.room-doc:has(> [data-columns='6']) {
-  --room-columns: 6;
-}
-
-.room-doc:has(> [data-page='landscape']) > h1 {
-  column-span: all;
-}
-
-.room-doc:has(> [data-page='landscape']) > h2 ~ h2 {
-  break-before: column;
-}
-
 /* A page follows the viewer's theme unless they choose otherwise: then it
    carries its own scheme so light-dark() tokens resolve for it alone. */
 [data-room-page='light'] {
@@ -342,7 +354,6 @@ img.ProseMirror-separator {
 @theme {
   --spacing-room-avatar: 6rem;
   --aspect-room-preview: 16 / 9;
-  --spacing-room-column: 10rem;
 }
 
 @utility room-page {

@@ -86,10 +86,10 @@ describe('a member’s documents over PostgreSQL', () => {
         actual: [
           (await operations.listDrive(stranger, page)).entries,
           await operations.readDocuments(stranger, { ids: [mine.id] }),
-          await operations.lastEdited(stranger),
+          await operations.recent(stranger),
           await operations.listFolders(stranger),
         ],
-        expected: [[], [], { id: null }, []],
+        expected: [[], [], { id: null, documents: [] }, []],
       });
       for (const [given, attempt] of [
         [
@@ -196,10 +196,20 @@ describe('a member’s documents over PostgreSQL', () => {
       const count = await operations.folderDocumentCount(me, { id: a.id });
       await operations.moveFolder(me, { id: c.id, parentFolderId: null });
       const root = await operations.listDrive(me, page);
-      await operations.deleteFolder(me, { id: a.id });
+      const emptyDeletion = await operations.deleteFolder(me, { id: a.id });
       const kept = await operations.readDocuments(me, { ids: [doc.id] });
-      await operations.deleteFolder(me, { id: c.id });
+      const documentDeletion = await operations.deleteFolder(me, { id: c.id });
       const gone = await operations.readDocuments(me, { ids: [doc.id] });
+      assert({
+        given: 'intentional deletion of an empty and a populated subtree',
+        should:
+          'identify exactly the deleted documents, including unread descendants',
+        actual: [emptyDeletion, documentDeletion],
+        expected: [
+          { deletedDocumentIds: [] },
+          { deletedDocumentIds: [doc.id] },
+        ],
+      });
       assert({
         given: 'a subtree moved out, then each folder deleted',
         should:
@@ -401,6 +411,41 @@ describe('a member’s documents over PostgreSQL', () => {
           actual: attempt,
           code: 'AUTHORIZATION',
         });
+    });
+  });
+});
+
+test('Recent orders only the owners newest edits first', async () => {
+  await withDrive(async ({ operations, me, stranger }) => {
+    const docs = await Promise.all(
+      Array.from({ length: 4 }, () =>
+        operations.createDocument(me, { folderId: null }),
+      ),
+    );
+    await operations.createDocument(stranger, { folderId: null });
+    await withSql(async (sql) => {
+      for (const [index, doc] of docs.entries())
+        await sql`update documents set updated_at = ${new Date(Date.parse(NOW) + index * 1000)} where id = ${doc.id}`;
+    });
+    assert({
+      given:
+        'four differently timed owned documents and another owners document',
+      should: 'return only the three newest owned documents newest first',
+      actual: (await operations.recent(me)).documents.map((doc) => doc.id),
+      expected: [docs[3]!.id, docs[2]!.id, docs[1]!.id],
+    });
+    await withSql(async (sql) => {
+      await sql`update documents set updated_at = ${new Date(NOW)} where owner_actor_id = ${me.actorId}`;
+    });
+    assert({
+      given: 'owned documents with the same edit time',
+      should: 'break ties by descending id',
+      actual: (await operations.recent(me)).documents.map((doc) => doc.id),
+      expected: docs
+        .map((doc) => doc.id)
+        .sort()
+        .reverse()
+        .slice(0, 3),
     });
   });
 });

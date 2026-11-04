@@ -38,7 +38,7 @@ export function AccountMenu({
     return (
       <Link href={href} title={label} className={navItemClass(false, extended)}>
         <Icon name="person" size={20} />
-        <span className={extended ? 'max-rail:sr-only' : 'sr-only'}>
+        <span className={extended ? 'icon-rail:sr-only' : 'sr-only'}>
           {label}
         </span>
       </Link>
@@ -57,7 +57,7 @@ export function AccountMenu({
           {extended ? (
             <span
               aria-hidden="true"
-              className="min-w-0 flex-1 truncate text-sm font-semibold text-ink max-rail:hidden"
+              className="min-w-0 flex-1 truncate text-sm font-semibold text-ink icon-rail:hidden"
             >
               {username}
             </span>

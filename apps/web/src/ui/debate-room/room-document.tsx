@@ -17,8 +17,10 @@ export function RoomDocument({
   onRetry,
   save,
   sync,
+  saveRecovered,
 }: {
   readonly sync?: DocumentSync;
+  readonly saveRecovered: DocumentSync['saveAsNew'];
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
   readonly onEdit: ((id: string, html: string) => void) | undefined;
@@ -32,13 +34,12 @@ export function RoomDocument({
       className="flex min-h-0 flex-1 flex-col bg-surface-raised"
     >
       {sync ? (
-        <div className="max-h-1/2 shrink-0 overflow-y-auto empty:hidden">
-          <RecoveredDrafts
-            documents={loadedDocuments(state.opened)}
-            sync={sync}
-            dispatch={dispatch}
-          />
-        </div>
+        <RecoveredDrafts
+          documents={loadedDocuments(state.opened)}
+          sync={sync}
+          saveRecovered={saveRecovered}
+          dispatch={dispatch}
+        />
       ) : null}
       <DocumentPane
         opened={state.opened}
@@ -47,6 +48,7 @@ export function RoomDocument({
         pages={state.pages}
         dispatch={dispatch}
         onEdit={onEdit}
+        onNew={onNew}
         save={save}
         leading={<ShowFiles state={state} dispatch={dispatch} />}
         empty={

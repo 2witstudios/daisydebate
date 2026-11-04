@@ -1,3 +1,4 @@
+import { BoundedDocuments } from '../../../../ui/documents/bounded-documents';
 import { documentPrincipalOf } from '../../../../features/documents/document-principal';
 import {
   requestHostedAudienceLink,
@@ -162,10 +163,9 @@ export default async function RoundPage({
         ) : null}
       </RoundReceipt>
       {ownsFiles && filePrincipal !== null ? (
-        <DocumentManager
-          principalId={filePrincipal.userId}
-          back={`/rounds/${result.round.id}`}
-        />
+        <BoundedDocuments>
+          <DocumentManager principalId={filePrincipal.userId} />
+        </BoundedDocuments>
       ) : null}
     </>
   );

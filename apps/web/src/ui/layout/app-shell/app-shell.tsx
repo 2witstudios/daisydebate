@@ -71,7 +71,7 @@ export function AppShell({
         toggleRail={toggleRail}
         statusControl={statusControl}
       />
-      <main className="min-w-0 area-main">
+      <main className="area-main min-w-0">
         {account.state === 'member' ? (
           <ActiveRoomBar room={activeRoom} />
         ) : null}
