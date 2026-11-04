@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { $ } from 'bun';
 import {
@@ -14,6 +15,7 @@ import {
 } from './web-gate.test-support';
 
 setupRitewayBun();
+requireTestServices(process.env);
 
 test("an anonymous Watch page is web's work once, however many load it", async () => {
   await loadMany(30, '/watch/cached', undefined, '203.0.113.2');

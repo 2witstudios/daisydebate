@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { afterAll, beforeAll } from 'bun:test';
 import { $, type Subprocess } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -13,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 setupRitewayBun();
+requireTestServices(process.env);
 
 // Real Next produces special prefetch answers that an HTML stand-in cannot model.
 const root = resolve(import.meta.dir, '../../..');
