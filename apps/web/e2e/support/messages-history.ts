@@ -80,6 +80,9 @@ export function testMessagesHistory() {
     try {
       const page = await acceptMessagingJourney(journey);
       const origin = new URL(page.url()).origin;
+      // Leave the live reader before creating unread content; otherwise its
+      // mark-read effect races the explicit reopen this proof is exercising.
+      await page.goto('/messages');
       await post(journey.sender, journey, origin, 'First unread line');
       await page.goto(`/messages/${journey.channelId}`);
       await effectsRan(page);
