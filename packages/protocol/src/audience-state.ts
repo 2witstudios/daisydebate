@@ -23,7 +23,7 @@ export const VIEWER_PULSES_PER_SECOND = 20;
 
 /**
  * A Round's released public state, as the player reads it from the public bucket
- * (DEC-350). Published by the worker, so no viewer's read reaches web.
+ * (DEC-350). Published by `apps/audience-publisher`, so no viewer's read reaches web.
  */
 export const audienceStateSchema = z.strictObject({
   version: z.literal(1),

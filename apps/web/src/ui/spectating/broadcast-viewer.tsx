@@ -156,7 +156,7 @@ const playerNotices = {
 } as const;
 
 /**
- * The public Round page after its first render: the worker's published state, read
+ * The public Round page after its first render: the publisher's published state, read
  * from the public bucket every couple of seconds the way the player reads segments,
  * so no viewer's read reaches web (DEC-350). No socket and no account. A failed read
  * keeps the last released facts. With nothing published the page does not poll, and

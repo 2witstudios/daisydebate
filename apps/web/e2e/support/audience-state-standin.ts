@@ -10,9 +10,9 @@ import {
 import { audienceStatePath, officialFeedPath } from '@daisy/protocol';
 
 /**
- * What the worker publishes, for a suite with no worker: the same reads and the same
+ * What the publisher writes, for a suite with no publisher: the same reads and the same
  * projections, written to the feed server's memory instead of a bucket. The publish
- * loop and its sampling are proven in apps/broadcast-worker and on staging.
+ * loop and its sampling are proven in apps/audience-publisher and on staging.
  */
 export const startAudienceStateStandIn = (input: {
   readonly url: string;
