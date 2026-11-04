@@ -7,6 +7,7 @@ import { roundTranscriptReadSchema } from '@daisy/protocol';
 import type { Page } from '@playwright/test';
 import {
   ballotRoundCommand,
+  postRoundCommand,
   readBallotRound,
 } from './support/human-ballot-round';
 import { oneOnOneChoice } from './support/human-round-selection';
@@ -56,11 +57,13 @@ const ALL_CASES: readonly {
 const CASES = ALL_CASES.filter(({ name }) =>
   name.startsWith(process.env.FIRST_WORD_CASES ?? ''),
 );
-/** The speeches each prep case prepares for: one per side, since a side's budget is spent. */
+/** The speeches each prep case prepares for. Running out spends a side's whole budget. */
 const PREPARED: Readonly<Record<'button' | 'ran-out', readonly string[]>> = {
   button: ['1AR', 'NR', '2AR'],
-  'ran-out': ['1AR'],
+  'ran-out': ['1AR', 'NR'],
 };
+/** Short, so prep running out costs little: the button comes well before it. */
+const PREP_BUDGET_MS = 15_000;
 const PREP_BEFORE_BUTTON_MS = 3_000;
 const HOLD_SPEECH_MS = 11_000;
 const PLAY_OUT_LIMIT_MS = 420_000;
@@ -188,7 +191,12 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
     try {
       const { round } = await grantedDebaters(
         accounts.members,
-        oneOnOneChoice,
+        prep
+          ? {
+              ...oneOnOneChoice,
+              inRoundPrep: { enabled: true, budgetMsPerSide: PREP_BUDGET_MS },
+            }
+          : oneOnOneChoice,
         oneOnOneSettings.speechTiming.countdownMs,
       );
       const { segments } = oneOnOneChoice.definition;
@@ -218,8 +226,7 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
           return { role, member, id: own.id, page };
         }),
       );
-      const deadline =
-        nowMs() + PLAY_OUT_LIMIT_MS + (prep === 'ran-out' ? 240_000 : 0);
+      const deadline = nowMs() + PLAY_OUT_LIMIT_MS;
       const prepared = new Map<string, number>();
       const request = accounts.members[0]!.context.request;
       while (nowMs() < deadline) {
@@ -241,11 +248,18 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
           const running = view.checkpoint?.active_prep != null;
           if (!running && !prepared.has(next.key)) {
             if (PREPARED[prep].includes(next.key)) {
-              await ballotRoundCommand(nextSeat.member.context.request, view, {
-                ...command,
-                type: 'start_prep',
-              });
-              prepared.set(next.key, nowMs());
+              // Maintenance moves the Round on, so a held view can go stale: the next read retries.
+              const taken = await postRoundCommand(
+                nextSeat.member.context.request,
+                view.id,
+                view.version,
+                { ...command, type: 'start_prep' },
+              );
+              if (taken.ok()) prepared.set(next.key, nowMs());
+              else
+                console.log(
+                  `prep for ${next.key}: ${taken.status()} ${await taken.text()}`,
+                );
             }
           } else if (
             running &&
@@ -273,6 +287,7 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
         }
         await pause(1000);
       }
+      if (prep) expect([...prepared.keys()]).toEqual(PREPARED[prep].slice());
       await expect
         .poll(async () => (await readBallotRound(request, round.id)).status, {
           timeout: 60_000,
