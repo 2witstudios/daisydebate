@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useSyncExternalStore, type Dispatch } from 'react';
+import { flushSync } from 'react-dom';
 import { generateJSON, generateText } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { systemClock } from '@daisy/clock';
 import { documentExtensions } from '../../features/documents/document-schema';
 import type { MemberDocument } from '../../features/documents/document';
+import { DRIVE_FULL_NOTICE } from '../../features/documents/drive-return';
 import type { DocumentSync, DraftOffer } from './document-sync';
 import type { DraftCopy } from '../../features/documents/document-draft';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
@@ -135,12 +137,14 @@ function DeletedDocumentNotice({
   title,
   deleted,
   saveAsNew,
-  failed,
+  discard,
+  problem,
 }: {
   readonly title: string;
   readonly deleted: boolean;
   readonly saveAsNew: () => void;
-  readonly failed: boolean;
+  readonly discard: () => void;
+  readonly problem: string | null;
 }) {
   return (
     <div role="alert" className="flex items-center gap-3 p-3 text-sm">
@@ -149,7 +153,7 @@ function DeletedDocumentNotice({
           ? `${title} was deleted. Your text is still here.`
           : `${title} changed somewhere else. Your typing is still here.`}{' '}
         It becomes a new Untitled document.
-        {failed ? ' It was not saved. Try again.' : ''}
+        {problem ? ` ${problem}` : ''}
       </p>
       <button
         type="button"
@@ -158,6 +162,15 @@ function DeletedDocumentNotice({
       >
         Save as a new document
       </button>
+      {deleted ? (
+        <button
+          type="button"
+          onClick={discard}
+          className="h-room-target cursor-pointer px-3 underline"
+        >
+          Discard
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -187,29 +200,35 @@ export function RecoveredDrafts({
     sync.firstNeedingCopy,
     () => null,
   );
-  const [copyFailed, setCopyFailed] = useState(false);
+  const [copyProblem, setCopyProblem] = useState<string | null>(null);
   const saveAsNew = (id: string) => {
     const wasDeleted = sync.firstGone() === id;
     sync.saveAsNew(id).then(
       (created) => {
         if (!created) return;
-        setCopyFailed(false);
-        const offerStays = sync
-          .recoveryOffers()
-          .some((offer) => offer.documentId === id);
-        if (offerStays) dispatch({ type: 'tabs/close', id });
-        else if (wasDeleted) dispatch({ type: 'drive/remove', id });
-        else dispatch({ type: 'doc/closed', id });
-        if (offerStays && wasDeleted) dispatch({ type: 'drive/unlist', id });
-        dispatch({ type: 'doc/add', document: created });
-        if (inFolderPage) return;
-        dispatch({
-          type: 'drive/add',
-          folderId: null,
-          entry: { kind: 'document', id: created.id, title: created.title },
+        setCopyProblem(null);
+        // In this task, so no keystroke can land in the old document's editor.
+        flushSync(() => {
+          if (!wasDeleted) dispatch({ type: 'doc/closed', id });
+          else if (sync.firstGone() === id) {
+            dispatch({ type: 'doc/closed', id });
+            dispatch({ type: 'drive/unlist', id });
+          } else dispatch({ type: 'drive/remove', id });
+          dispatch({ type: 'doc/add', document: created });
+          if (inFolderPage) return;
+          dispatch({
+            type: 'drive/add',
+            folderId: null,
+            entry: { kind: 'document', id: created.id, title: created.title },
+          });
         });
       },
-      () => setCopyFailed(true),
+      (error: unknown) =>
+        setCopyProblem(
+          (error as { readonly status?: unknown }).status === 409
+            ? DRIVE_FULL_NOTICE
+            : 'It was not saved. Try again.',
+        ),
     );
   };
   return (
@@ -217,12 +236,15 @@ export function RecoveredDrafts({
       {needing ? (
         <DeletedDocumentNotice
           title={
-            documents.find((one) => one.id === needing)?.title ??
-            'This document'
+            documents.find((one) => one.id === needing)?.title ?? 'A document'
           }
           deleted={sync.firstGone() === needing}
           saveAsNew={() => saveAsNew(needing)}
-          failed={copyFailed}
+          discard={() => {
+            sync.forget(needing);
+            dispatch({ type: 'drive/remove', id: needing });
+          }}
+          problem={copyProblem}
         />
       ) : null}
       {offers.map((offer) => {

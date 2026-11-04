@@ -307,6 +307,13 @@ const world = (allowRestore: boolean) => {
         break;
       }
       case 'reload': {
+        // With text nowhere else the browser asks first (beforeunload), and a person
+        // who confirms has chosen to lose it, so it no longer counts against the rule.
+        if (sync.holdsAnyUnstored()) {
+          const safe = `${[...server.values()].map((d) => d.html).join(' ')} ${[...storage.dump().values()].join(' ')}`;
+          for (const t of [...typed])
+            if (!new RegExp(`\\b${t}\\b`).test(safe)) typed.delete(t);
+        }
         void sync.flushKeepalive().catch(() => {});
         await settleM();
         const old = sync;
@@ -373,6 +380,13 @@ const world = (allowRestore: boolean) => {
   };
   const finish = async () => {
     await drain();
+    // The way out the page offers: the person saves what only it holds.
+    for (let pass = 0; pass < 4; pass += 1) {
+      const needing = sync.firstNeedingCopy();
+      if (!needing) break;
+      await run('saveAsNew');
+      await drain();
+    }
     // Durable truth: a reload would find each typed token on some server document, or in a stored draft.
     const onServer = [...server.values()].map((d) => d.html).join(' ');
     const inStore = [...storage.dump().values()].join(' ');
@@ -422,10 +436,27 @@ const seeded = function* (count: number, len: number) {
     yield Array.from({ length: len }, () => OPS[next() % OPS.length]!);
 };
 
+/** Orders earlier reviews named: each lost text on its way to a fix. */
+const NAMED: readonly (readonly Op[])[] = [
+  ['edit', 'reload', 'answerNew', 'edit', 'reload', 'answerNew', 'edit'],
+  [
+    'edit',
+    'reload',
+    'answerNew',
+    'edit',
+    'reload',
+    'answerNew',
+    'edit',
+    'reload',
+  ],
+  ['deleteElsewhere', 'edit', 'flush', 'answerOld', 'saveAsNew', 'edit'],
+  ['edit', 'other', 'flush', 'answerOld', 'answerOld', 'saveAsNew', 'edit'],
+];
+
 const failures = async (allowRestore: boolean) => {
   const found: string[] = [];
   let walked = 0;
-  for (const seq of seeded(4_000, 12)) {
+  for (const seq of [...NAMED, ...seeded(20_000, 14)]) {
     walked += 1;
     const violations = await check(seq, allowRestore);
     if (violations.length > 0) {

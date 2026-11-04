@@ -61,6 +61,11 @@ export function useDocumentSync(
     // A document deleted in another tab or device shows when this one is next
     // looked at, as well as at its next save.
     const recheck = () => void sync.recheck(open.current);
+    // Text with no stored copy and no server copy: a reload would lose it, so ask.
+    const guardExit = (event: BeforeUnloadEvent) => {
+      if (sync.holdsAnyUnstored()) event.preventDefault();
+    };
+    window.addEventListener('beforeunload', guardExit);
     window.addEventListener('focus', recheck);
     window.addEventListener('storage', refresh);
     const flush = () => void sync.flushKeepalive();
@@ -69,6 +74,7 @@ export function useDocumentSync(
       live = false;
       unsubscribe();
       adopted();
+      window.removeEventListener('beforeunload', guardExit);
       window.removeEventListener('focus', recheck);
       window.removeEventListener('storage', refresh);
       window.removeEventListener('pagehide', flush);

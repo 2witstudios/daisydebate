@@ -545,15 +545,13 @@ describe('typing while a copy is being made', () => {
     await sync.recheck(['a']);
     await sync.saveAsNew('a');
     assert({
-      given:
-        'a recovery offer on a document deleted elsewhere, then Save as new',
-      should: 'keep the offer and its stored copy, and clear the notice',
+      given: 'a stored copy on a document deleted elsewhere, then Save as new',
+      should: 'keep that copy stored and go on offering it',
       actual: [
-        sync.recoveryOffers().map((offer) => offer.copy.html),
         store.getItem(keyOf('p1', 'a'))?.includes('earlier session'),
         sync.firstNeedingCopy(),
       ],
-      expected: [['<p>earlier session</p>'], true, null],
+      expected: [true, 'a'],
     });
   });
 });
@@ -613,6 +611,123 @@ describe('a conflict with full draft slots', () => {
         held: 'a',
         copied: '<p>typed now</p>',
       },
+    });
+  });
+});
+
+describe('after Save as new', () => {
+  test('a deleted document offers each remaining copy, then is gone', async () => {
+    const store = memoryStorage();
+    store.setItem(
+      keyOf('p1', 'a'),
+      recoveryRecord({
+        html: '<p>earlier session</p>',
+        baseRevision: 1,
+        generation: 'earlier',
+        savedAt: 100,
+      }),
+    );
+    let present = true;
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const sync = createOwner({
+      ...manualDraftResources('each', { storage: store }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        read: async (ids) => (present ? server.api.read(ids) : []),
+        recent: async () => 'a',
+        create: async () => stored('copy', 1),
+      },
+      onConflict: () => {},
+    });
+    await sync.load();
+    present = false;
+    await sync.recheck(['a']);
+    const first = await sync.saveAsNew('a');
+    const stillOffered = sync.firstNeedingCopy();
+    const second = await sync.saveAsNew('a');
+    assert({
+      given: 'a deleted document with its text and one stored copy',
+      should: 'carry the text, then the copy, then have nothing left',
+      actual: [
+        first?.html === stored('a', 1).html,
+        stillOffered,
+        second?.html,
+        sync.firstNeedingCopy(),
+        store.getItem(keyOf('p1', 'a')),
+      ],
+      expected: [true, 'a', '<p>earlier session</p>', null, null],
+    });
+  });
+
+  test('the old copy stays until the new one is stored', async () => {
+    const store = memoryStorage();
+    for (let i = 0; i < 15; i += 1)
+      store.setItem(
+        keyOf('p1', `other${i}`),
+        recoveryRecord({
+          html: '<p>x</p>',
+          baseRevision: 1,
+          generation: `g${i}`,
+          savedAt: 100,
+        }),
+      );
+    store.setItem(
+      keyOf('p1', 'a'),
+      recoveryRecord({
+        html: '<p>only copy</p>',
+        baseRevision: 1,
+        generation: 'only',
+        savedAt: 100,
+      }),
+    );
+    let present = true;
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const sync = createOwner({
+      ...manualDraftResources('store-full', { storage: store }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        read: async (ids) =>
+          present ? server.api.read(ids.filter((id) => id === 'a')) : [],
+        recent: async () => 'a',
+        create: async () => stored('copy', 1),
+      },
+      onConflict: () => {},
+    });
+    await sync.load();
+    present = false;
+    await sync.recheck(['a']);
+    await sync.saveAsNew('a');
+    await sync.saveAsNew('a');
+    assert({
+      given: 'a browser with no room to store the new document’s copy',
+      should: 'keep the only stored copy of the old text',
+      actual: store.getItem(keyOf('p1', 'a'))?.includes('only copy'),
+      expected: true,
+    });
+  });
+
+  test('a fresh frame shows the text its revision belongs to', async () => {
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const sync = createOwner({
+      ...manualDraftResources('fresh-frame', { storage: memoryStorage() }),
+      principalId: 'p1',
+      api: server.api,
+      onConflict: () => {},
+    });
+    const [first] = await sync.load();
+    await server.api.save({
+      id: 'a',
+      html: '<p>elsewhere</p>',
+      expectedRevision: 1,
+    });
+    const [again] = await sync.load();
+    assert({
+      given: 'a commit elsewhere, then a fresh frame on the same owner',
+      should: 'show what the next save is based on, not the newer text',
+      actual: again?.html,
+      expected: first?.html,
     });
   });
 });

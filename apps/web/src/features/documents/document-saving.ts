@@ -41,8 +41,6 @@ export type SavingHold =
   | { readonly kind: 'gone' }
   /** This person deleted it here, so no late answer may bring it back. */
   | { readonly kind: 'forgotten' }
-  /** Its text went to a new document, and what stays is offers from elsewhere. */
-  | { readonly kind: 'copied' }
   | { readonly kind: 'refused'; readonly generation: string };
 
 /** Everything one owner knows about saving one document. */
@@ -186,9 +184,24 @@ export const holdsUnstoredEdit = (document: SavingDocument): boolean =>
 export const needsNewDocument = (document: SavingDocument): boolean =>
   isGone(document) || (isConflicted(document) && holdsUnstoredEdit(document));
 
-/** The text a deleted document still has here: what was typed, or else what was read. */
-export const keptText = (document: SavingDocument): string | undefined =>
-  document.pending?.html ?? document.serverHtml;
+/**
+ * The next text to carry to a new document: what was typed, then what was read,
+ * then any copy still stored. A generation names the stored copy it came from,
+ * which is the only one a save as new may clear.
+ */
+export const keptCopy = (
+  document: SavingDocument,
+  record: DraftRecord,
+): { readonly html: string; readonly generation?: string } | undefined => {
+  if (document.pending)
+    return {
+      html: document.pending.html,
+      generation: document.pending.generation,
+    };
+  if (document.serverHtml !== undefined) return { html: document.serverHtml };
+  const [stored] = draftCopies(record);
+  return stored && { html: stored.html, generation: stored.generation };
+};
 
 const owned = (document: SavingDocument, generation: string) =>
   document.pending?.generation === generation ||

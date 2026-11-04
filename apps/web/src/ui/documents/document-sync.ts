@@ -23,7 +23,7 @@ import {
   adoptsLateCommit,
   isConflicted,
   isGone,
-  keptText,
+  keptCopy,
   attemptFailed,
   closed,
   conflictOutcome,
@@ -97,6 +97,8 @@ export type DocumentSync = {
   readonly firstNeedingCopy: () => string | null;
   /** Whether this document holds text that exists only on this page. */
   readonly holdsUnstored: (id: string) => boolean;
+  /** Whether leaving the page now would lose text, so the browser should ask. */
+  readonly holdsAnyUnstored: () => boolean;
   /** A document open here that the server no longer has, or null. */
   readonly firstGone: () => string | null;
   /** This person deleted it here, so nothing of it stays. */
@@ -533,48 +535,52 @@ export function createDocumentSync({
         .finally(() => copying.delete(id));
       if (isClosed() || !canCopy()) return null;
       // Read here, after the answer: the editor took keystrokes while it was out.
-      const text = keptText(doc(id));
+      const now = wallClock();
+      const previous = read(id, now);
+      const kept = keptCopy(doc(id), previous.record);
       const wasGone = isGone(doc(id));
-      const generation = doc(id).pending?.generation;
       remember([created]);
-      if (text !== undefined) {
+      let stored = true;
+      if (kept) {
         const copy = newDraftCopy({
-          html: text,
+          html: kept.html,
           baseRevision: created.revision,
           generation: nextGeneration(),
-          now: wallClock(),
+          now,
         });
         update(created.id, (d) => edited(d, copy));
-        persist(created.id, copy);
+        stored = persist(created.id, copy);
         onChanged(created.id);
         schedule(created.id, 0);
       }
-      // Only the copy just saved goes: offers wait for the person's choice, and
-      // another tab's copy is never touched.
+      // Only the copy carried across goes, and only once the new one is safe.
       timers.clear(handles.get(id));
       handles.delete(id);
-      const now = wallClock();
-      const previous = read(id, now);
-      const left = generation
-        ? discardDraftRecord(previous.record, generation)
-        : { status: 'unchanged' as const, record: previous.record };
+      const left =
+        stored && kept?.generation
+          ? discardDraftRecord(previous.record, kept.generation)
+          : { status: 'unchanged' as const, record: previous.record };
       if (left.status === 'changed') write(id, previous, left.record, now);
+      // The old document leaves the screen either way, so nothing can be typed
+      // into it. A deleted one with copies left stays gone, offering the next;
+      // one that moved on elsewhere reads afresh when next opened.
       update(id, (d) =>
-        draftCopies(left.record).length > 0
-          ? { ...d, pending: undefined, hold: { kind: 'copied' } }
-          : wasGone
-            ? forgotten
-            : unreadDocument,
+        !wasGone
+          ? unreadDocument
+          : draftCopies(left.record).length > 0
+            ? { ...d, pending: undefined, serverHtml: undefined }
+            : forgotten,
       );
       publish();
       notify();
       idle(id);
-      return { ...created, html: text ?? created.html };
+      return { ...created, html: kept?.html ?? created.html };
     },
     forget: (id) => forgetDocument(id),
     firstNeedingCopy: () =>
       [...state.documents].find(([, d]) => needsNewDocument(d))?.[0] ?? null,
     holdsUnstored: (id) => holdsUnstoredEdit(doc(id)),
+    holdsAnyUnstored: () => holdsUnstoredText(state),
     firstGone: () =>
       [...state.documents].find(([, d]) => isGone(d))?.[0] ?? null,
     create: async (folderId = null) => {
