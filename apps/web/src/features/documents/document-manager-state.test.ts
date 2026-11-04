@@ -217,7 +217,7 @@ describe('reduceManager: the panel a narrow screen shows', () => {
         runActions([opening]).pane,
         runActions([opening, { type: 'pane/files' }]).pane,
       ],
-      expected: ['files', 'document', 'files'],
+      expected: ['pending', 'document', 'files'],
     });
   });
 
@@ -293,5 +293,52 @@ test('a late body preserves newer search', () => {
       { type: 'doc/add', document },
     ]).palette,
     expected: 'search',
+  });
+});
+
+test('the first body load never interrupts someone already using Files', () => {
+  assert({
+    given: 'a folder or menu used before the first bodies arrive',
+    should: 'keep Files selected',
+    actual: runActions([
+      { type: 'files/used' },
+      { type: 'doc/loaded', documents: [document] },
+    ]).pane,
+    expected: 'files',
+  });
+});
+test('withdrawing the owner returns a narrow manager to Files', () => {
+  assert({
+    given: 'a document visible when its owner closes',
+    should: 'show Files rather than an empty editor pane',
+    actual: runActions([
+      { type: 'doc/add', document },
+      { type: 'doc/withdrawn' },
+    ]).pane,
+    expected: 'files',
+  });
+});
+test('a folder deletion closes its documents in one transition and preserves others', () => {
+  const other = { ...document, id: 'other' };
+  const state = runActions([
+    { type: 'doc/add', document },
+    { type: 'doc/add', document: other },
+    { type: 'tabs/activate', id: document.id },
+  ]);
+  const after = reduceManager(state, {
+    type: 'drive/folder-deleted',
+    id: 'folder',
+    documentIds: [document.id],
+  });
+  assert({
+    given: 'one open document in a deleted folder and another outside it',
+    should: 'close only the deleted document and select its surviving neighbor',
+    actual: [
+      after.tabs,
+      after.opened.map((one) =>
+        one.kind === 'loaded' ? one.document.id : one.id,
+      ),
+    ],
+    expected: [{ open: ['other'], active: 'other' }, ['other']],
   });
 });

@@ -69,6 +69,24 @@ test('Move scrolls long destinations, displays nesting and excludes the moving s
     await expect(
       menu.getByRole('menuitem', { name: 'My drive' }),
     ).toBeFocused();
+    await menu
+      .getByRole('menuitem', { name: 'My drive', exact: true })
+      .dispatchEvent('click', { detail: 2 });
+    await expect(menu).toBeVisible();
+    expect(
+      await menu
+        .getByRole('menuitem', { name: 'My drive', exact: true })
+        .evaluate((button) => {
+          const repeated = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            repeat: true,
+            bubbles: true,
+            cancelable: true,
+          });
+          button.dispatchEvent(repeated);
+          return repeated.defaultPrevented;
+        }),
+    ).toBe(true);
     const bounds = (await menu.boundingBox())!;
     expect(bounds.y).toBeGreaterThanOrEqual(0);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(500);
@@ -517,6 +535,67 @@ test('failed document search says it did not run rather than no matches', async 
     await expect(palette.getByText('No matches', { exact: true })).toHaveCount(
       0,
     );
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('the first document load preserves an active Files menu and Recent paints with the tree', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Initial Files intent',
+    );
+    const doc = await createTestDocument(page);
+    await folder(page, 'Cases');
+    const html = await page.request
+      .get('/prep')
+      .then((response) => response.text());
+    expect(html.includes('<section aria-label="Recent"')).toBe(true);
+    await page.setViewportSize({ width: 390, height: 844 });
+    let release!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reads = 0;
+    page.on('request', (request) => {
+      if (request.url().endsWith('/api/documents/recent')) reads++;
+    });
+    const loaded = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/documents/read') && response.ok(),
+    );
+    await page.route('**/api/documents/read', async (route) => {
+      const response = await route.fetch();
+      await waiting;
+      await route.fulfill({ response });
+    });
+    await page.goto(`${origin}/prep`);
+    await files(page)
+      .getByRole('button', { name: 'Actions for Cases', exact: true })
+      .click();
+    const menu = page.getByRole('menu', {
+      name: 'Actions for Cases',
+      exact: true,
+    });
+    await expect(menu).toBeVisible();
+    release();
+    await loaded;
+    await expect(menu).toBeVisible();
+    await expect(files(page)).toBeVisible();
+    expect(reads).toBe(1);
+    await page.keyboard.press('Escape');
+    await files(page)
+      .getByRole('region', { name: 'My drive' })
+      .getByRole('button', { name: doc.title, exact: true })
+      .click();
+    await expect(
+      page.getByRole('textbox', { name: doc.title, exact: true }),
+    ).toBeVisible();
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();

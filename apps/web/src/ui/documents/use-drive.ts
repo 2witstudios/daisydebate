@@ -74,6 +74,7 @@ export function useDrive({
   listRoot = true,
   showRecent = false,
   save,
+  initialRecent,
 }: {
   readonly sync: DocumentSync | undefined;
   readonly opened: readonly OpenDocument[];
@@ -84,6 +85,7 @@ export function useDrive({
   /** True when the frame lists what was edited last. */
   readonly showRecent?: boolean;
   readonly save?: SaveState;
+  readonly initialRecent?: readonly RecentDocument[];
 }): DriveActions {
   const [folders, setFolders] = useState(initialFolders);
   const [problem, setProblem] = useState<DriveProblem | null>(null);
@@ -91,6 +93,7 @@ export function useDrive({
   const { documents: recent, refresh: readRecent } = useRecentDocuments(
     showRecent,
     save,
+    initialRecent,
   );
   const generation = useRef(0);
   const creating = useRef(false);
@@ -187,6 +190,7 @@ export function useDrive({
   }, [sync, listRoot, listFolder, readFailed, readRecent]);
 
   const open = (id: string, title: string) => {
+    if (sync && !sync.canOpen(id)) return;
     const current = findOpen(known.current, id);
     if (!sync || current?.kind === 'loaded' || current?.kind === 'loading') {
       dispatch({ type: 'tabs/open', id });
@@ -197,6 +201,7 @@ export function useDrive({
     dispatch({ type: 'doc/opening', id, title });
     sync.open(id).then(
       (document) => {
+        if (!sync.canOpen(id)) return;
         if (document) dispatch({ type: 'doc/add', document });
         else {
           missing(id);
@@ -213,7 +218,7 @@ export function useDrive({
   };
 
   const createDocument = (folderId: string | null) => {
-    if (!sync || creating.current) return;
+    if (!sync || !sync.available() || creating.current) return;
     creating.current = true;
     mutate(() => sync.create(folderId))
       .then((document) => {
@@ -291,11 +296,9 @@ export function useDrive({
           sync?.forget(id);
           dispatch({ type: 'drive/remove', id });
         } else if (path === 'folders/delete') {
-          dispatch({ type: 'drive/remove', id });
-          for (const removed of answer.deletedDocumentIds ?? []) {
-            sync?.forget(removed);
-            dispatch({ type: 'drive/remove', id: removed });
-          }
+          const documentIds = answer.deletedDocumentIds ?? [];
+          sync?.forgetAll(documentIds);
+          dispatch({ type: 'drive/folder-deleted', id, documentIds });
         } else if (path === 'folders/create' && answer.folder) {
           dispatch({
             type: 'drive/add',

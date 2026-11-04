@@ -62,12 +62,7 @@ export function FileDeleteStep({
         icon="trash"
         danger
         disabled={preview.kind !== 'ready'}
-        onKeyDown={(event) => {
-          if (event.repeat && (event.key === 'Enter' || event.key === ' '))
-            event.preventDefault();
-        }}
-        onClick={(event) => {
-          if (event.detail > 1) return;
+        onClick={() => {
           run(() =>
             change(node.kind === 'folder' ? 'folders/delete' : 'delete', {
               id: node.id,

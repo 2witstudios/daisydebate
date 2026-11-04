@@ -88,6 +88,7 @@ export type DocumentSync = {
   readonly load: () => Promise<readonly StoredDocument[]>;
   readonly create: (folderId?: string | null) => Promise<StoredDocument>;
   /** Reads a document into this owner, with any draft it has here; null when gone. */
+  readonly canOpen: (id: string) => boolean;
   readonly open: (id: string) => Promise<StoredDocument | null>;
   /** Marks open documents the server no longer has. */
   readonly recheck: (ids: readonly string[]) => Promise<void>;
@@ -103,6 +104,8 @@ export type DocumentSync = {
   readonly firstGone: () => string | null;
   /** This person deleted it here, so nothing of it stays. */
   readonly forget: (id: string) => void;
+  /** One intentional subtree deletion clears its local copies and publishes once. */
+  readonly forgetAll: (ids: readonly string[]) => void;
   readonly change: (id: string, html: string) => void;
   readonly flush: () => Promise<void>;
   readonly flushKeepalive: () => Promise<void>;
@@ -471,15 +474,21 @@ export function createDocumentSync({
       chunks.push(ids.slice(at, at + READ_CHUNK));
     return (await Promise.all(chunks.map((chunk) => api.read(chunk)))).flat();
   }
-  const forgetDocument = (id: string) => {
-    timers.clear(handles.get(id));
-    handles.delete(id);
+  const forgetDocuments = (ids: readonly string[]) => {
+    if (ids.length === 0) return;
     const now = wallClock();
-    const previous = read(id, now);
-    if (draftCopies(previous.record).length > 0) write(id, previous, {}, now);
-    update(id, () => forgotten);
+    const documents = new Map(state.documents);
+    for (const id of new Set(ids)) {
+      timers.clear(handles.get(id));
+      handles.delete(id);
+      const previous = drafts.read(id, now);
+      if (draftCopies(previous.record).length > 0)
+        drafts.write(id, previous, {}, now);
+      documents.set(id, forgotten);
+    }
+    state = { ...state, documents };
     publish();
-    idle(id);
+    idle(ids[ids.length - 1]!);
   };
   return {
     load: async () => {
@@ -510,6 +519,7 @@ export function createDocumentSync({
       }
       return shown;
     },
+    canOpen: (id) => !isClosed() && !isForgotten(doc(id)),
     open: async (id) => {
       if (isClosed()) return null;
       const [opened] = await api.read([id]);
@@ -576,7 +586,8 @@ export function createDocumentSync({
       idle(id);
       return { ...created, html: kept?.html ?? created.html };
     },
-    forget: (id) => forgetDocument(id),
+    forget: (id) => forgetDocuments([id]),
+    forgetAll: forgetDocuments,
     firstNeedingCopy: () =>
       [...state.documents].find(([, d]) => needsNewDocument(d))?.[0] ?? null,
     holdsUnstored: (id) => holdsUnstoredEdit(doc(id)),

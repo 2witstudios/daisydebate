@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useReducer, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+} from 'react';
 import {
   initialManagerState,
   reduceManager,
+  type ManagerAction,
 } from '../../features/documents/document-manager-state';
 import {
   emptyDrive,
@@ -21,7 +28,7 @@ import { Icon } from '../components/icon/icon';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
 import type { DocumentSync } from './document-sync';
-import { driveApi, type FolderRow } from './drive-api';
+import { driveApi, type FolderRow, type RecentDocument } from './drive-api';
 import { FileTree } from './file-tree';
 import { RecoveredDrafts } from './recovered-drafts';
 import { useDocumentSaving } from './use-document-saving';
@@ -35,6 +42,7 @@ export type InitialDrive = {
   readonly entries: readonly DriveEntryView[];
   readonly next: DriveCursor | null;
   readonly folders: readonly FolderRow[];
+  readonly recent: readonly RecentDocument[];
 };
 
 /**
@@ -82,19 +90,39 @@ export function ManagerWorkspace({
   readonly initial?: InitialDrive | null;
   readonly pageNotice?: string | null;
 }) {
-  const [state, dispatch] = useReducer(
+  const [state, transition] = useReducer(
     reduceManager,
     initial
       ? withPage(emptyDrive, null, { ...initial, first: true })
       : emptyDrive,
     initialManagerState,
   );
+  const focusIntent = useRef<'files' | 'document' | null>(null);
+  const known = useRef(state.opened);
+  useLayoutEffect(() => {
+    known.current = state.opened;
+  }, [state.opened]);
+  const dispatch = useCallback((action: ManagerAction) => {
+    if (action.type === 'pane/files') focusIntent.current = 'files';
+    else if (
+      action.type === 'doc/opening' ||
+      action.type === 'tabs/open' ||
+      action.type === 'tabs/activate' ||
+      (action.type === 'doc/add' &&
+        !known.current.some(
+          (open) => openDocumentId(open) === action.document.id,
+        ))
+    )
+      focusIntent.current = 'document';
+    transition(action);
+  }, []);
   const { problem } = useDocumentSync(sync, dispatch, state.tabs.open);
   const drive = useDrive({
     sync,
     opened: state.opened,
     dispatch,
     initialFolders: initial?.folders ?? [],
+    ...(initial ? { initialRecent: initial.recent } : {}),
     listRoot: initial === null,
     showRecent: true,
     save,
@@ -106,12 +134,18 @@ export function ManagerWorkspace({
   useLayoutEffect(() => {
     if (previousPane.current === state.pane) return;
     previousPane.current = state.pane;
-    if (!window.matchMedia('(width < 901px)').matches) return;
+    const intended = focusIntent.current;
+    focusIntent.current = null;
+    if (
+      intended !== state.pane ||
+      !window.matchMedia('(width < 901px)').matches
+    )
+      return;
     const target =
       state.pane === 'files'
         ? filesPane.current?.querySelector<HTMLButtonElement>('button')
         : backToFiles.current;
-    target?.focus();
+    target?.focus({ preventScroll: true });
   }, [state.pane]);
   const opened = useRef(false);
   useEffect(() => {
@@ -148,6 +182,9 @@ export function ManagerWorkspace({
       <div className="flex min-h-0 flex-1">
         <div
           ref={filesPane}
+          onFocusCapture={() => dispatch({ type: 'files/used' })}
+          onPointerDownCapture={() => dispatch({ type: 'files/used' })}
+          onKeyDownCapture={() => dispatch({ type: 'files/used' })}
           className={cn(
             'flex w-drive shrink-0 flex-col border-r border-border bg-surface max-compact:w-full max-compact:border-r-0',
             state.pane === 'document' && 'max-compact:hidden',
@@ -165,7 +202,7 @@ export function ManagerWorkspace({
         <div
           className={cn(
             'flex min-w-0 flex-1 flex-col bg-surface-raised',
-            state.pane === 'files' && 'max-compact:hidden',
+            state.pane !== 'document' && 'max-compact:hidden',
           )}
         >
           <DocumentPane

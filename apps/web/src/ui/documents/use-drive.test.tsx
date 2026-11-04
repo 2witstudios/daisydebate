@@ -45,6 +45,9 @@ const mount = async (
   let drive!: DriveActions;
   const sync = {
     create: async () => doc,
+    available: () => true,
+    canOpen: () => true,
+    forgetAll: () => {},
     forget: () => {},
     recheck: async () => {},
     ...options.sync,
@@ -346,6 +349,44 @@ test('saving recovered text as new participates in first-page ordering', async (
         ),
       ],
       expected: [true, false],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('closed or forgotten owners never turn a null open into a missing-document claim', async () => {
+  let available = false;
+  let resolve!: (value: null) => void;
+  const fixture = await mount(async () => Response.json({}), {
+    sync: {
+      canOpen: () => available,
+      open: () =>
+        new Promise<null>((done) => {
+          resolve = done;
+        }),
+    },
+  });
+  try {
+    await fixture.act(async () => fixture.drive().open('a', 'Notes'));
+    assert({
+      given: 'a row chosen after the owner closed',
+      should: 'leave its tree, tabs and notices unchanged',
+      actual: fixture.actions.length,
+      expected: 0,
+    });
+    available = true;
+    await fixture.act(async () => fixture.drive().open('a', 'Notes'));
+    available = false;
+    await fixture.act(async () => resolve(null));
+    assert({
+      given: 'an outstanding open forgotten or closed before its response',
+      should: 'avoid claiming deletion or unlisting it',
+      actual: [
+        fixture.drive().problem,
+        fixture.actions.some((action) => action.type === 'drive/unlist'),
+      ],
+      expected: [null, false],
     });
   } finally {
     await fixture.close();

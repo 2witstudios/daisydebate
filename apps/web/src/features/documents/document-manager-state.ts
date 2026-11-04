@@ -46,7 +46,7 @@ export type ManagerState = {
   /** The row whose name is being typed. */
   readonly renaming: string | null;
   /** The one panel a narrow screen shows. */
-  readonly pane: 'files' | 'document';
+  readonly pane: 'pending' | 'files' | 'document';
 };
 
 export const initialManagerState = (
@@ -58,7 +58,7 @@ export const initialManagerState = (
   pages: {},
   palette: 'closed',
   renaming: null,
-  pane: 'files',
+  pane: 'pending',
 });
 
 export type ManagerAction =
@@ -98,6 +98,12 @@ export type ManagerAction =
       readonly mode: Exclude<PaletteMode, 'closed'>;
     }
   | { readonly type: 'pane/files' }
+  | { readonly type: 'files/used' }
+  | {
+      readonly type: 'drive/folder-deleted';
+      readonly id: string;
+      readonly documentIds: readonly string[];
+    }
   | { readonly type: 'drive/renaming'; readonly id: string | null }
   | { readonly type: 'palette/close' }
   | {
@@ -152,6 +158,8 @@ const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
   'doc/withdrawn': true,
   'palette/open': true,
   'pane/files': true,
+  'files/used': true,
+  'drive/folder-deleted': true,
   'drive/renaming': true,
   'palette/close': true,
   'page/tone': true,
@@ -216,13 +224,17 @@ export function reduceManager<T extends ManagerState>(
       };
     case 'doc/loaded': {
       const loaded = loadOpenDocuments(state, action.documents);
-      // A document reopened on arrival shows; a later load moves no one.
-      return state.tabs.open.length === 0 && loaded.tabs.open.length > 0
-        ? { ...loaded, pane: 'document' }
+      // Only the untouched initial pane follows arrival. Any use of Files
+      // commits that choice before a slow first load can answer.
+      return state.pane === 'pending'
+        ? {
+            ...loaded,
+            pane: loaded.tabs.open.length > 0 ? 'document' : 'files',
+          }
         : loaded;
     }
     case 'doc/withdrawn':
-      return { ...state, opened: [], tabs: { open: [], active: null } };
+      return { ...withTabs(state, { open: [], active: null }), opened: [] };
     case 'doc/add':
       return {
         ...addOpenDocument(state, action.document),
@@ -281,6 +293,8 @@ export function reduceManager<T extends ManagerState>(
       return { ...state, palette: action.mode };
     case 'palette/close':
       return { ...state, palette: 'closed' };
+    case 'files/used':
+      return state.pane === 'pending' ? { ...state, pane: 'files' } : state;
     case 'pane/files':
       return { ...state, pane: 'files' };
     case 'drive/renaming':
@@ -317,6 +331,28 @@ export function reduceManager<T extends ManagerState>(
         ...state,
         drive: moveEntry(state.drive, action.id, action.folderId),
       };
+    case 'drive/folder-deleted': {
+      const removed = new Set(action.documentIds);
+      const active = state.tabs.active;
+      const at = active === null ? -1 : state.tabs.open.indexOf(active);
+      const tabs = {
+        open: state.tabs.open.filter((id) => !removed.has(id)),
+        active:
+          active === null || !removed.has(active)
+            ? active
+            : (state.tabs.open.slice(at + 1).find((id) => !removed.has(id)) ??
+              state.tabs.open
+                .slice(0, at)
+                .reverse()
+                .find((id) => !removed.has(id)) ??
+              null),
+      };
+      return {
+        ...withTabs(state, tabs),
+        drive: removeEntry(state.drive, action.id),
+        opened: state.opened.filter((open) => !removed.has(openId(open))),
+      };
+    }
     case 'drive/remove':
       return withoutDocument(state, action.id);
   }

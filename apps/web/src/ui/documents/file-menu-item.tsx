@@ -28,9 +28,17 @@ export function FileMenuItem({
       disabled={disabled}
       role="menuitem"
       data-menu-initial-focus={initialFocus || undefined}
-      onKeyDown={onKeyDown}
+      onKeyDown={(event) => {
+        if (event.repeat && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          return;
+        }
+        onKeyDown?.(event);
+      }}
       className={danger ? dangerClass : itemClass}
-      onClick={onClick}
+      onClick={(event) => {
+        if (event.detail <= 1) onClick(event);
+      }}
     >
       {icon ? <Icon name={icon} size={14} /> : null}
       <span className="min-w-0 flex-1 truncate">{children}</span>

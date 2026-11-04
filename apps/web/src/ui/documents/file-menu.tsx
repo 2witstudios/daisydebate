@@ -9,6 +9,7 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
+import { flushSync } from 'react-dom';
 import {
   folderChoices,
   type DriveNode,
@@ -92,6 +93,14 @@ export function FileMenu({
   const menu = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>('main');
   const [isOpen, setIsOpen] = useState(false);
+  const openingFrame = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (openingFrame.current !== null)
+        cancelAnimationFrame(openingFrame.current);
+    },
+    [],
+  );
   const isFolder = node.kind === 'folder';
   const close = () => {
     menu.current?.hidePopover();
@@ -161,11 +170,41 @@ export function FileMenu({
         aria-label={`Actions for ${label}`}
         className="file-menu w-file-menu flex-col rounded-md border border-border-strong bg-surface-raised p-1 text-ink shadow-3"
         onKeyDown={moveMenuFocus}
-        onToggle={(event) => {
-          const opened = event.newState === 'open';
-          setIsOpen(opened);
-          if (!opened) return setView('main');
-          drive.loadFolders();
+        onBeforeToggle={(event) => {
+          if (openingFrame.current !== null)
+            cancelAnimationFrame(openingFrame.current);
+          if (event.newState !== 'open') {
+            setIsOpen(false);
+            setView('main');
+            return;
+          }
+          // Native opening must not paint an empty shell while toggle waits in
+          // its event queue. Commit the contents before entering the top layer.
+          flushSync(() => setIsOpen(true));
+          if (menu.current && trigger.current) {
+            const initial = menuPlace(
+              trigger.current.getBoundingClientRect(),
+              {
+                width: parseFloat(getComputedStyle(menu.current).width),
+                height: 0,
+              },
+              { width: window.innerWidth, height: window.innerHeight },
+            );
+            menu.current.style.setProperty(
+              '--file-menu-left',
+              `${initial.left}px`,
+            );
+            menu.current.style.setProperty(
+              '--file-menu-top',
+              `${initial.top}px`,
+            );
+          }
+          openingFrame.current = requestAnimationFrame(() => {
+            openingFrame.current = null;
+            if (!menu.current?.matches(':popover-open')) return;
+            place();
+            focusMenuStart(menu.current);
+          });
         }}
       >
         {isOpen && view === 'main' ? (
@@ -194,7 +233,13 @@ export function FileMenu({
             <Item icon="pencil" onClick={() => run(onRename)}>
               Rename
             </Item>
-            <Item icon="folder" onClick={() => setView('move')}>
+            <Item
+              icon="folder"
+              onClick={() => {
+                drive.loadFolders();
+                setView('move');
+              }}
+            >
               Move to…
             </Item>
             <hr className="m-1 border-border" />

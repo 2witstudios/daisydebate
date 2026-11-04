@@ -13,9 +13,13 @@ const REFRESH_INTERVAL_MS = 3_000;
 export function useRecentDocuments(
   enabled: boolean,
   save: SaveState | undefined,
+  initial?: readonly RecentDocument[],
 ) {
-  const [documents, setDocuments] = useState<readonly RecentDocument[]>([]);
+  const [documents, setDocuments] = useState<readonly RecentDocument[]>(
+    initial ?? [],
+  );
   const generation = useRef(0);
+  const first = useRef(initial !== undefined);
   const lastStarted = useRef(-Infinity);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refresh = useCallback(() => {
@@ -43,6 +47,10 @@ export function useRecentDocuments(
     } else if (timer.current === null) timer.current = setTimeout(read, delay);
   }, [enabled]);
   useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
     if (save === undefined || save === 'saved') refresh();
   }, [refresh, save]);
   useEffect(

@@ -6,6 +6,14 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { documentFolders } from './schema/document-folders';
 import { documents } from './schema/documents';
 
+/** One owned folder's recursive subtree, shared by confirmation and deletion. */
+const folderSubtree = (id: string) => sql`
+  with recursive down(id) as (
+    select id from document_folders where id = ${id}
+    union all
+    select f.id from document_folders f join down on f.parent_folder_id = down.id
+  ) select id from down`;
+
 export type DocumentRecord = {
   readonly id: string;
   readonly ownerActorId: string;
@@ -589,13 +597,8 @@ export const documentOperations = ({
         return countOf(
           tx,
           sql`
-          with recursive down(id) as (
-            select id from document_folders where id = ${input.id}
-            union all
-            select f.id from document_folders f join down on f.parent_folder_id = down.id
-          )
           select count(*) as count from documents
-          where folder_id in (select id from down)`,
+          where folder_id in (${folderSubtree(input.id)})`,
         );
       }),
     );
@@ -616,11 +619,7 @@ export const documentOperations = ({
         const removed = await tx.select({ id: documents.id }).from(documents)
           .where(sql`
           ${documents.folderId} in (
-            with recursive down(id) as (
-              select id from document_folders where id = ${input.id}
-              union all
-              select f.id from document_folders f join down on f.parent_folder_id = down.id
-            ) select id from down
+            ${folderSubtree(input.id)}
           )`);
         const rows = await tx
           .delete(documentFolders)
