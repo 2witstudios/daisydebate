@@ -29,9 +29,13 @@ export type SpectatorTimelineRead = {
     };
     readonly outcome: string | null;
     readonly startedAt: Date | null;
+    readonly completedAt: Date | null;
+    readonly roomId: string | null;
   };
   readonly broadcast: null | {
+    readonly id: string;
     readonly feedKey: string;
+    readonly deliveryPath: string;
     readonly policy: { readonly seconds: number };
     readonly releasedThroughAt: Date | null;
     readonly completedAt: Date | null;
