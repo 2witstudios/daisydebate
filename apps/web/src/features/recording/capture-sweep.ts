@@ -356,6 +356,7 @@ export const createRecordingCaptureSweep = (deps: {
             history.segments,
             history.knownThroughMs,
             history.captureFromMs,
+            history.prepStartsAtMs,
           ),
           ceilingMs: answer.ceilingMs,
         });
@@ -391,6 +392,7 @@ export const createRecordingCaptureSweep = (deps: {
             history.segments,
             history.knownThroughMs,
             history.captureFromMs,
+            history.prepStartsAtMs,
           ),
         });
         return;

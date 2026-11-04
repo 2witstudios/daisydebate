@@ -28,6 +28,15 @@ const START_EDGE_STAMP_LAG_MS_PER_MINUTE = 6;
 const END_EDGE_STAMP_LAG_MS = 0;
 
 /**
+ * Before prep the end gives up this much, and elsewhere nothing. At the smaller Egress
+ * machine (performance-2x) stamps ran as much as 655 ms early, so a debater's first
+ * words in prep could carry a stamp before prep began. Prep is the owner's hard line, and
+ * losing this much public speech before it is accepted. The cause of the early stamps is
+ * not found (ISSUE-1303).
+ */
+const BEFORE_PREP_MARGIN_MS = 700;
+
+/**
  * The lag a start allows for. `captureFromMs` is when the capture was opened, which is
  * before any Egress attempt of it, so age can only be overstated: a restarted attempt
  * loses a little more speech, and nothing private gets through.
@@ -60,19 +69,33 @@ export const publicIntervals = (
   segments: readonly CommittedSegment[],
   knownThroughMs: number | null,
   captureFromMs: number,
+  /** When each prep began. Whatever is public stops short of it. */
+  prepStartsAtMs: readonly number[],
 ): readonly PublicInterval[] =>
   segments
-    .map((segment) => ({
-      fromMs:
-        segment.startedAtMs +
-        startEdgeLagMs(segment.startedAtMs, captureFromMs),
-      toMs:
+    .map((segment) => {
+      const toMs =
         (segment.endedAtMs ??
           Math.min(
             segment.startedAtMs + segment.durationMs,
             knownThroughMs ?? segment.startedAtMs,
-          )) + END_EDGE_STAMP_LAG_MS,
-    }))
+          )) + END_EDGE_STAMP_LAG_MS;
+      return {
+        fromMs:
+          segment.startedAtMs +
+          startEdgeLagMs(segment.startedAtMs, captureFromMs),
+        toMs: Math.min(
+          toMs,
+          ...prepStartsAtMs
+            .filter(
+              (startMs) =>
+                startMs >= segment.startedAtMs &&
+                startMs < toMs + BEFORE_PREP_MARGIN_MS,
+            )
+            .map((startMs) => startMs - BEFORE_PREP_MARGIN_MS),
+        ),
+      };
+    })
     .filter(({ fromMs, toMs }) => toMs > fromMs)
     .sort((a, b) => a.fromMs - b.fromMs);
 
@@ -169,7 +192,10 @@ export const stageTimeline = (history: {
   const known = history.knownThroughMs;
   const privates = history.privateSpans.map((span) => ({
     kind: 'private' as const,
-    fromMs: span.startedAtMs + END_EDGE_STAMP_LAG_MS,
+    fromMs:
+      span.kind === 'prep'
+        ? span.startedAtMs - BEFORE_PREP_MARGIN_MS
+        : span.startedAtMs + END_EDGE_STAMP_LAG_MS,
     toMs:
       span.endedAtMs === null
         ? (known ?? span.startedAtMs)
@@ -180,6 +206,9 @@ export const stageTimeline = (history: {
     history.segments,
     known,
     history.captureFromMs,
+    history.privateSpans
+      .filter((span) => span.kind === 'prep')
+      .map((span) => span.startedAtMs),
   ).map((interval) => ({
     ...interval,
     kind: 'speech' as const,
