@@ -47,7 +47,7 @@ const post = async <T>(path: string, body: unknown): Promise<T> => {
   return (await response.json()) as T;
 };
 
-/** The drive's reads and changes over the document routes; bodies never come this way. */
+/** Drive metadata and changes; an existence probe reads the owner's body without adopting it. */
 export const driveApi = {
   list: (folderId: string | null, after: DriveCursor | null) =>
     post<DrivePage>('list', { folderId, after }),

@@ -41,7 +41,7 @@ export type DriveActions = {
   readonly folderProblem: string | null;
   readonly folders: readonly FolderRow[];
   readonly loadFolders: () => void;
-  readonly open: (id: string, title: string) => void;
+  readonly open: (id: string, title: string, origin?: 'link') => void;
   /** What was edited last, when the frame shows it. */
   readonly recent: readonly RecentDocument[];
   readonly createDocument: (folderId: string | null) => void;
@@ -107,6 +107,7 @@ export function useDrive({
     (id: string) => {
       generation.current++;
       dispatch({ type: 'drive/unlist', id });
+      readRecent();
       // A stale row may be an open document, or a folder with open descendants.
       // Recheck server truth without throwing away anyone's unsaved text.
       void sync
@@ -117,7 +118,7 @@ export function useDrive({
         )
         .catch(() => {});
     },
-    [dispatch, sync],
+    [dispatch, sync, readRecent],
   );
   const readFailed = useCallback(
     (
@@ -213,7 +214,7 @@ export function useDrive({
     return () => window.removeEventListener('focus', refresh);
   }, [sync, listRoot, listFolder, readFailed, readRecent]);
 
-  const open = (id: string, title: string) => {
+  const open = (id: string, title: string, origin?: 'link') => {
     if (sync && !sync.canOpen(id)) return;
     const current = findOpen(known.current, id);
     if (!sync || current?.kind === 'loaded' || current?.kind === 'loading') {
@@ -222,7 +223,7 @@ export function useDrive({
       return;
     }
     // A tab with no editor until the body arrives, so nothing can be typed early.
-    dispatch({ type: 'doc/opening', id, title });
+    dispatch({ type: 'doc/opening', id, title, ...(origin ? { origin } : {}) });
     sync.open(id).then(
       (document) => {
         if (!sync.canOpen(id)) return;

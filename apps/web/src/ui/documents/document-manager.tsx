@@ -112,13 +112,21 @@ export function ManagerWorkspace({
   const filesPane = useRef<HTMLDivElement>(null);
   const documentPane = useRef<HTMLDivElement>(null);
   const lastFocused = useRef<HTMLElement | null>(null);
+  const movingFocus = useRef(false);
   const backToFiles = useRef<HTMLButtonElement>(null);
   const focusPane = useCallback((pane: 'files' | 'document') => {
     const target =
       pane === 'files'
         ? filesPane.current?.querySelector<HTMLButtonElement>('button')
         : backToFiles.current;
-    target?.focus({ preventScroll: true });
+    // This handoff is not a new Files choice; only the person can cancel an
+    // outstanding initial link fallback through the Files focus handler.
+    movingFocus.current = true;
+    try {
+      target?.focus({ preventScroll: true });
+    } finally {
+      movingFocus.current = false;
+    }
   }, []);
   useLayoutEffect(() => {
     if (
@@ -169,7 +177,7 @@ export function ManagerWorkspace({
   useEffect(() => {
     if (openId === null || opened.current) return;
     opened.current = true;
-    drive.open(openId, 'your document');
+    drive.open(openId, 'your document', 'link');
   });
   const choose = (choice: PaletteChoice) => {
     dispatch({ type: 'palette/close' });
@@ -204,7 +212,9 @@ export function ManagerWorkspace({
       <div className="flex min-h-0 flex-1">
         <div
           ref={filesPane}
-          onFocusCapture={() => dispatch({ type: 'files/used' })}
+          onFocusCapture={() => {
+            if (!movingFocus.current) dispatch({ type: 'files/used' });
+          }}
           onPointerDownCapture={() => dispatch({ type: 'files/used' })}
           onKeyDownCapture={() => dispatch({ type: 'files/used' })}
           className={cn(

@@ -29,7 +29,6 @@ export function FileMenuItem({
       onKeyDown={(event) => {
         if (event.repeat && (event.key === 'Enter' || event.key === ' ')) {
           event.preventDefault();
-          return;
         }
       }}
       className={danger ? dangerClass : itemClass}

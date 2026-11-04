@@ -715,3 +715,48 @@ test('shrinking Prep hands hidden Files focus to the visible document pane', asy
     await accounts.closeContexts();
   }
 });
+
+test('opening a missing stale row leaves a deliberately closed cached document closed', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Closed documents stay closed',
+    );
+    const stale = await createTestDocument(page);
+    const cached = await createTestDocument(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/prep?open=${cached.id}`);
+    await expect(
+      page.getByRole('textbox', { name: cached.title, exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: `Close ${cached.title}`, exact: true })
+      .click();
+    await expect(files(page)).toBeVisible();
+    const deleted = await page.request.post('/api/documents/delete', {
+      headers: { origin },
+      data: { id: stale.id },
+    });
+    expect(deleted.status()).toBe(200);
+    await files(page)
+      .getByRole('region', { name: 'My drive' })
+      .getByRole('button', { name: stale.title, exact: true })
+      .click();
+    await expect(files(page)).toBeVisible();
+    await expect(
+      files(page).getByRole('button', { name: 'New', exact: true }),
+    ).toBeFocused();
+    await expect(
+      page.getByRole('button', { name: `Close ${cached.title}`, exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: `Close ${stale.title}`, exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});

@@ -376,6 +376,7 @@ test('a missing unloaded tab falls back to the loaded recent document in either 
   };
   const opening = {
     type: 'doc/opening',
+    origin: 'link',
     id: 'gone',
     title: 'Old notes',
   } as const;
@@ -412,5 +413,71 @@ test('a missing unloaded tab falls back to the loaded recent document in either 
     should: 'retain the active tab and typed text',
     actual: [typed.tabs.active, loadedDocuments(typed.opened)[0]?.html],
     expected: ['gone', '<p>Typing before the older read answers</p>'],
+  });
+});
+
+test('a missing row never reopens a document deliberately closed in this manager', () => {
+  const stale = {
+    type: 'doc/opening',
+    id: 'gone',
+    title: 'Stale row',
+  } as const;
+  const after = runActions([
+    { type: 'doc/add', document },
+    { type: 'tabs/close', id: document.id },
+    stale,
+    { type: 'doc/missing', id: stale.id },
+  ]);
+  assert({
+    given: 'open A, close A, then open a stale row that has no body',
+    should: 'close that missing tab to Files and leave A deliberately closed',
+    actual: [
+      after.tabs,
+      after.navigation,
+      loadedDocuments(after.opened).map((one) => one.id),
+    ],
+    expected: [
+      { open: [], active: null },
+      { pane: 'files', focus: 'files' },
+      [document.id],
+    ],
+  });
+});
+
+test('Files use and explicit tab choices cancel an outstanding link fallback', () => {
+  const linked: ManagerAction = {
+    type: 'doc/opening',
+    id: 'gone-link',
+    title: 'Old link',
+    origin: 'link',
+  };
+  const choices: readonly (readonly ManagerAction[])[] = [
+    [{ type: 'files/used' }],
+    [{ type: 'pane/files' }],
+    [
+      { type: 'tabs/open', id: document.id },
+      { type: 'tabs/close', id: document.id },
+    ],
+    [{ type: 'tabs/close', id: 'gone-link' }],
+  ];
+  assert({
+    given:
+      'a link read pending while someone chooses Files, uses a row menu, or closes a tab',
+    should: 'honor that later choice rather than reopening the cached body',
+    actual: choices.map((choice) => {
+      const state = runActions([
+        linked,
+        { type: 'doc/loaded', documents: [document] },
+        ...choice,
+        { type: 'doc/missing', id: 'gone-link' },
+      ]);
+      return [state.tabs.open, state.navigation.pane];
+    }),
+    expected: [
+      [[], 'files'],
+      [[], 'files'],
+      [[], 'files'],
+      [[], 'files'],
+    ],
   });
 });

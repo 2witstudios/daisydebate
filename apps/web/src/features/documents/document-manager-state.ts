@@ -33,7 +33,11 @@ import {
 /** A pane choice and its optional focus effect, decided by one pure transition. */
 export type ManagerNavigation =
   | { readonly pane: 'unselected' | 'files'; readonly focus: 'files' | null }
-  | { readonly pane: 'document'; readonly focus: 'document' | null };
+  | {
+      readonly pane: 'document';
+      readonly focus: 'document' | null;
+      readonly onMissing: 'recent' | 'files';
+    };
 
 /** A viewer's choice of page for a document; null follows their theme. */
 export type PageTone = 'light' | 'dark';
@@ -93,6 +97,8 @@ export type ManagerAction =
       readonly type: 'doc/opening';
       readonly id: string;
       readonly title: string;
+      /** Only the initial URL opening may fall back to the last edited body. */
+      readonly origin?: 'link';
     }
   | { readonly type: 'doc/failed'; readonly id: string }
   /** A confirmed missing response can close only a tab that still has no body. */
@@ -190,12 +196,27 @@ const withNavigation = <T extends ManagerState>(
   state: T,
   pane: ManagerNavigation['pane'],
   requested: boolean,
+  onMissing: 'recent' | 'files' = 'files',
 ): T => {
-  if (pane === state.navigation.pane) return state;
+  if (pane === state.navigation.pane) {
+    if (
+      state.navigation.pane === 'document' &&
+      state.navigation.onMissing !== onMissing
+    )
+      return {
+        ...state,
+        navigation: { ...state.navigation, focus: null, onMissing },
+      };
+    return state;
+  }
   const wasDocument = state.navigation.pane === 'document';
   const navigation: ManagerNavigation =
     pane === 'document'
-      ? { pane, focus: requested && !wasDocument ? 'document' : null }
+      ? {
+          pane,
+          focus: requested && !wasDocument ? 'document' : null,
+          onMissing,
+        }
       : { pane, focus: requested && wasDocument ? 'files' : null };
   return { ...state, navigation };
 };
@@ -209,7 +230,9 @@ const withTabs = <T extends ManagerState>(
   const next = { ...state, tabs };
   return tabs.open.length === 0
     ? withNavigation(next, 'files', requested)
-    : next;
+    : requested && next.navigation.pane === 'document'
+      ? withNavigation(next, 'document', true)
+      : next;
 };
 
 /** Tabs that remain, with no body kept for one closed by a removal. */
@@ -276,8 +299,14 @@ export function reduceManager<T extends ManagerState>(
         tabs: closeTab(state.tabs, action.id),
         opened: state.opened.filter((open) => openId(open) !== action.id),
       };
-      // A fresh page can receive its initial load before or after an old URL's
-      // missing response. Either order lands on an existing loaded copy.
+      if (
+        state.navigation.pane !== 'document' ||
+        state.navigation.onMissing !== 'recent'
+      )
+        return withTabs(closed, closed.tabs);
+      // Only an initial link may fall back. A row chosen after closing a cached
+      // document must not reopen the body the person deliberately left behind.
+      // Either initial-load arrival order still lands on a saved recent copy.
       const fallback = loadOpenDocuments(
         closed,
         loadedDocuments(closed.opened),
@@ -314,6 +343,7 @@ export function reduceManager<T extends ManagerState>(
         },
         'document',
         true,
+        action.origin === 'link' ? 'recent' : 'files',
       );
     }
     case 'doc/closed':
@@ -347,7 +377,9 @@ export function reduceManager<T extends ManagerState>(
     case 'files/used':
       return state.navigation.pane === 'unselected'
         ? withNavigation(state, 'files', false)
-        : state;
+        : state.navigation.pane === 'document'
+          ? withNavigation(state, 'document', false)
+          : state;
     case 'pane/files':
       return withNavigation(state, 'files', true);
     case 'drive/renaming':
