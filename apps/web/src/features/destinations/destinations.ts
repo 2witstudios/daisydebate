@@ -1,3 +1,5 @@
+import { leaderboardDestinations } from '../leaderboard/actions';
+
 /** The eight product destinations, in landing order. */
 export const destinationSlugs = [
   'lobby',
@@ -12,19 +14,17 @@ export const destinationSlugs = [
 
 export type DestinationSlug = (typeof destinationSlugs)[number];
 
-/** What the public explainer says about one destination that is not open yet. */
+/** What Home says about one destination. */
 export type Destination = {
   readonly slug: DestinationSlug;
   readonly title: string;
-  /** One line, shown on the landing tile and under the explainer title. */
+  /** One line, shown on the landing tile. */
   readonly tagline: string;
 };
 
-/**
- * Explainer copy for every destination. Ranked play shares the normal Room lifecycle.
- */
+/** Copy for every destination. Ranked play shares the normal Room lifecycle. */
 export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
-  // The slug names the route it opens; the tile, rail and preview call it Play.
+  // The slug names the route it opens; the tile and rail call it Play.
   lobby: {
     slug: 'lobby',
     title: 'Play',
@@ -43,7 +43,7 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   tournaments: {
     slug: 'tournaments',
     title: 'Tournaments',
-    tagline: 'Bracket and round-robin events.',
+    tagline: 'Weekly round robins to season championships.',
   },
   seasons: {
     slug: 'seasons',
@@ -67,8 +67,6 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
   },
 };
 
-/** The destination for an untrusted route segment, or null when unknown. */
-export const findDestination = (slug: string): Destination | null =>
-  (destinationSlugs as readonly string[]).includes(slug)
-    ? destinations[slug as DestinationSlug]
-    : null;
+/** Where a destination lives; Seasons lives under the Leaderboard. */
+export const destinationHref = (slug: DestinationSlug): string =>
+  slug === 'seasons' ? leaderboardDestinations.seasons : `/${slug}`;

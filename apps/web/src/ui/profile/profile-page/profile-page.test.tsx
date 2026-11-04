@@ -32,24 +32,22 @@ const profile = (overrides: Partial<MemberProfile> = {}): MemberProfile => ({
 });
 
 const render = (value: MemberProfile, paged = false) =>
-  renderToString(h(ProfilePage, { profile: value, paged, watchOpen: true }));
+  renderToString(h(ProfilePage, { profile: value, paged }));
 
 describe('ProfilePage', () => {
-  test('a history row opens only a page its reader may open', () => {
+  test('a history row opens the page its reader may open', () => {
     const roundId = 'r'.repeat(24);
     const own = render(profile({ me: true }));
-    const closed = renderToString(
-      h(ProfilePage, { profile: profile(), paged: false, watchOpen: false }),
-    );
+    const stranger = render(profile());
     assert({
-      given: 'their own row, and a stranger\u2019s row before Watch opens',
-      should: 'link the seat to the Round, and give the stranger a title alone',
+      given: 'their own row, and a stranger\u2019s row',
+      should: 'link the seat to the Round, and the stranger to its public page',
       actual: [
         own.includes(`href="/rounds/${roundId}"`),
-        closed.includes(`href="/rounds/${roundId}"`),
-        closed.includes(`href="/watch/${roundId}"`),
+        stranger.includes(`href="/rounds/${roundId}"`),
+        stranger.includes(`href="/watch/${roundId}"`),
       ],
-      expected: [true, false, false],
+      expected: [true, false, true],
     });
   });
 

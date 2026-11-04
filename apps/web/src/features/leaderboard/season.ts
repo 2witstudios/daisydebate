@@ -75,3 +75,35 @@ export const seasonDates = (season: Season): string =>
   season.endsAt === null
     ? `Since ${day(season.startsAt)}`
     : `${day(season.startsAt)} to ${day(season.endsAt)}`;
+
+/** What the Seasons note reveals on hover: the running season's number and time. */
+export type SeasonGlance = {
+  readonly number: number;
+  readonly line: string;
+};
+
+const timeLine = (season: Season, now: string): string => {
+  const { day, length } = seasonProgress(season, now);
+  if (season.endsAt === null) return `Day ${day}`;
+  const left = length - day;
+  if (left === 0) return 'Ends today';
+  return `${left} ${left === 1 ? 'day' : 'days'} left`;
+};
+
+/**
+ * The running season at a glance, or null when none runs. Seasons store no
+ * number, so its number is how many seasons have started up to and including it.
+ */
+export function seasonGlance(
+  seasons: readonly Season[],
+  now: string,
+): SeasonGlance | null {
+  const running = seasons.find((season) => season.status === 'active');
+  if (running === undefined) return null;
+  const started = Date.parse(running.startsAt);
+  return {
+    number: seasons.filter(({ startsAt }) => Date.parse(startsAt) <= started)
+      .length,
+    line: timeLine(running, now),
+  };
+}

@@ -1,5 +1,5 @@
 'use client';
-import { roomWatchHref } from '../../../features/coming-soon/launch';
+import { roomWatchHref } from '../../../features/watch/routes';
 import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 import { roundLinkOf } from '../../../features/room-runtime/round-link';

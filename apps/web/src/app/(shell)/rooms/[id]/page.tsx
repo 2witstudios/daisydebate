@@ -5,10 +5,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
 import { roomCommandIds } from '../../../../features/rooms/room-command-ids';
-import {
-  launched,
-  roomWatchHref,
-} from '../../../../features/coming-soon/launch';
+import { roomWatchHref } from '../../../../features/watch/routes';
 import { requireAccess } from '../../../../lib/access';
 import {
   requestIdentity,
@@ -44,7 +41,6 @@ export default async function RoomRoute({
   // Watching needs no account: someone who cannot enter the Room still reaches
   // its released Round. A member's own read below says the same (WATCH-6).
   if (
-    launched.watch &&
     idSchema.safeParse(id).success &&
     (await requestIdentity()).state !== 'member'
   ) {

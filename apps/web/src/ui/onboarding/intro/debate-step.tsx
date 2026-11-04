@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { destinationHref } from '../../../features/coming-soon/launch';
+import { destinationHref } from '../../../features/destinations/destinations';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { catalogFormats } from '@daisy/db/catalog-formats';
 import { cn } from '../../cn';

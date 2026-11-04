@@ -1,8 +1,10 @@
+import { join } from 'node:path';
+import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  destinationHref,
   destinations,
   destinationSlugs,
-  findDestination,
 } from './destinations';
 
 setupRitewayBun();
@@ -52,7 +54,7 @@ describe('destinations', () => {
   test('never names a format', () => {
     const copy = JSON.stringify(destinations);
     assert({
-      given: 'all explainer copy',
+      given: 'all destination copy',
       should: 'not mention debate formats: there is one debate, Ranked',
       actual: /lincoln|douglas|public forum|parliamentary|format/i.test(copy),
       expected: false,
@@ -60,29 +62,36 @@ describe('destinations', () => {
   });
 });
 
-describe('findDestination', () => {
-  test('resolves a known slug', () => {
+describe('destinationHref', () => {
+  test('names each destination by its slug, with Seasons under the Leaderboard', () => {
     assert({
-      given: 'the slug "judge"',
-      should: 'return the judge copy',
-      actual: findDestination('judge')?.title,
-      expected: 'Judge',
+      given: 'Play, Tournaments and Seasons',
+      should: 'link to the Lobby, the info page and the seasons page',
+      actual: [
+        destinationHref('lobby'),
+        destinationHref('tournaments'),
+        destinationHref('seasons'),
+      ],
+      expected: ['/lobby', '/tournaments', '/leaderboard/seasons'],
     });
   });
+});
 
-  test('refuses anything else', () => {
+describe('sample data', () => {
+  test('no page reads it', async () => {
+    const app = join(import.meta.dir, '../../app');
+    const readers: string[] = [];
+    let scanned = 0;
+    for await (const file of new Glob('**/page.tsx').scan(app)) {
+      scanned += 1;
+      if ((await Bun.file(join(app, file)).text()).includes('/ui/mock/'))
+        readers.push(file);
+    }
     assert({
-      given: 'unknown, inherited and oddly cased segments',
-      should: 'return null',
-      actual: [
-        'unknown',
-        'ranked',
-        'Lobby',
-        '',
-        'constructor',
-        '__proto__',
-      ].map(findDestination),
-      expected: [null, null, null, null, null, null],
+      given: 'every page in the app',
+      should: 'pass no sample data to a feature',
+      actual: { readers, scannedPages: scanned > 0 },
+      expected: { readers: [], scannedPages: true },
     });
   });
 });

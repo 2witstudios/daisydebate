@@ -1,34 +1,32 @@
 import {
+  destinationHref,
   destinations,
   destinationSlugs,
   type DestinationSlug,
-} from '../../features/coming-soon/destinations';
-import { destinationHref, launched } from '../../features/coming-soon/launch';
-import { destinationGlyph } from '../coming-soon/destination-glyph';
+} from '../../features/destinations/destinations';
 import type { ActionTileProps } from './action-tile/action-tile';
 
-type TileConfig = ActionTileProps;
+type TileLook = Pick<ActionTileProps, 'note' | 'tilt'>;
 
-/**
- * The status line of a launched destination. It says only that the
- * destination is open: live counts come back when a real data source exists,
- * never as sample numbers.
- */
-const launchedStatus = { tone: 'online', text: 'Open' } as const;
-
-/** One tile per destination, from the launch config and the explainer copy. */
-export const tileFor = (
-  slug: DestinationSlug,
-  config: Readonly<Record<DestinationSlug, boolean>> = launched,
-): TileConfig => ({
-  href: destinationHref(slug, { config }),
-  title: destinations[slug].title,
-  description: destinations[slug].tagline,
-  ...destinationGlyph[slug],
-  ...(config[slug] ? { status: launchedStatus } : { comingSoon: true }),
-});
+/** How each destination's note looks. Only Play is emphasised. */
+const tileLooks: Readonly<Record<DestinationSlug, TileLook>> = {
+  lobby: { note: 'action', tilt: 'slight-left' },
+  watch: { note: 'yellow', tilt: 'slight-right' },
+  judge: { note: 'sage', tilt: 'left' },
+  tournaments: { note: 'yellow', tilt: 'right' },
+  seasons: { note: 'yellow', tilt: 'slight-right' },
+  leaderboard: { note: 'sage', tilt: 'slight-left' },
+  train: { note: 'yellow', tilt: 'right' },
+  prep: { note: 'sage', tilt: 'left' },
+};
 
 /** The eight destinations, in display order. */
-export const tiles: readonly TileConfig[] = destinationSlugs.map((slug) =>
-  tileFor(slug),
+export const tiles: readonly ActionTileProps[] = destinationSlugs.map(
+  (slug) => ({
+    destination: slug,
+    href: destinationHref(slug),
+    title: destinations[slug].title,
+    description: destinations[slug].tagline,
+    ...tileLooks[slug],
+  }),
 );

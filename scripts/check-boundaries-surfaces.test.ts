@@ -309,7 +309,7 @@ describe('features never import ui (ISSUE-1005)', () => {
           'apps/web/src/ui/theme/theme-provider.tsx',
         ),
         featureUiIssue(
-          '../coming-soon/launch',
+          '../destinations/destinations',
           'apps/web/src/features/play/options.ts',
         ),
       ],

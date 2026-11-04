@@ -3,7 +3,6 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { sequentialId } from '@daisy/clock';
-import { launched } from '../features/coming-soon/launch';
 import { handleProxy, type ProxySettings } from './proxy-handler';
 
 setupRitewayBun();
@@ -276,44 +275,10 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
-  /** Watch is the only destination with API routes, so it proves the closed answers. */
-  const watchClosed = { launchConfig: { ...launched, watch: false } };
-  const closedAt = (path: string) =>
-    proxy(new NextRequest(`https://internal.invalid${path}`), watchClosed);
-
-  test('a closed destination answers an API call as if it did not exist', async () => {
-    const closed = closedAt('/api/rounds/round/timeline');
-    assert({
-      given: 'an API route of a closed destination, with no cookie',
-      should: 'answer 404 with the public error body and no explainer redirect',
-      actual: {
-        status: closed.status,
-        location: closed.headers.get('location'),
-        cache: closed.headers.get('Cache-Control'),
-        code: ((await closed.json()) as { error: { code: string } }).error.code,
-      },
-      expected: {
-        status: 404,
-        location: null,
-        cache: 'no-store',
-        code: 'NOT_FOUND',
-      },
-    });
-    assert({
-      given: 'a page of the same closed destination',
-      should: 'still go to its explainer',
-      actual: [
-        closedAt('/audience/round').status,
-        closedAt('/audience/round').headers.get('location'),
-      ],
-      expected: [307, 'https://daisy.invalid/coming-soon/watch'],
-    });
-  });
-
-  test('Watch answers from its own routes under the real launch config', () => {
+  test('Watch answers from its own routes', () => {
     assert({
       given: 'a Watch API route, a Watch page and a Room link, with no cookie',
-      should: 'reach the route and the page, with no explainer or sign-in hint',
+      should: 'reach the route and the page, with no sign-in hint',
       actual: ['/api/rounds/round/timeline', '/watch', '/rooms/abc'].map(
         (path) => [at(path).status, at(path).headers.get('location')],
       ),
@@ -325,47 +290,17 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
-  test('a Room link is an ordinary guarded page while Watch is closed', () => {
+  test('Tournaments is public and the areas under it stay guarded', () => {
     assert({
-      given: 'a cookie-less Room link with Watch closed',
-      should: 'send the sign-in hint, since no Watch page lies behind it',
-      actual: closedAt('/rooms/abc').headers.get('location'),
-      expected: 'https://daisy.invalid/sign-in?next=%2Frooms%2Fabc',
-    });
-  });
-
-  test('the proxy lets a Recording removal through with Watch closed', () => {
-    const response = closedAt('/api/recordings/rec/removal');
-    assert({
-      given: 'the removal route with Watch closed',
-      should: 'reach its handler, which applies sign-in and its own rules',
-      actual: [response.status, response.headers.get('location')],
-      expected: [200, null],
-    });
-  });
-
-  test('sends a closed destination to its explainer before any sign-in', () => {
-    const locations = [
-      '/tournaments',
-      '/tournaments/organize',
-      '/tournaments/mine/abc/certificate',
-      '/tournaments/organize',
-      '//tournaments',
-    ].map((path) => [at(path).status, at(path).headers.get('location')]);
-    const explainer = (slug: string) => [
-      307,
-      `https://daisy.invalid/coming-soon/${slug}`,
-    ];
-    assert({
-      given: 'cookie-less requests under destinations that are not launched',
-      should: 'redirect each to the explainer its flag names',
-      actual: locations,
+      given: 'cookie-less requests for the info page and an area under it',
+      should: 'reach the page, and send the area the sign-in hint',
+      actual: ['/tournaments', '/tournaments/organize'].map((path) => [
+        at(path).status,
+        at(path).headers.get('location'),
+      ]),
       expected: [
-        explainer('tournaments'),
-        explainer('tournaments'),
-        explainer('tournaments'),
-        explainer('tournaments'),
-        explainer('tournaments'),
+        [200, null],
+        [307, 'https://daisy.invalid/sign-in?next=%2Ftournaments%2Forganize'],
       ],
     });
   });

@@ -4,7 +4,6 @@ import {
   reportAnswerText,
   reportNotice,
 } from '../../../../features/content-moderation/submit-report';
-import { redirectUnlessLaunched } from '../../../../features/coming-soon/launch-gate';
 import { accountOf } from '../../../../features/access/account-of';
 import {
   requestIdentity,
@@ -31,7 +30,6 @@ export default async function WatchRoundPage({
   params: Promise<{ roundId: string }>;
   searchParams: Promise<SearchParams>;
 }) {
-  redirectUnlessLaunched('watch');
   const { roundId } = await params;
   const timeline = await requestWatchRound(roundId);
   const reported = reportNotice((await searchParams)['report']);

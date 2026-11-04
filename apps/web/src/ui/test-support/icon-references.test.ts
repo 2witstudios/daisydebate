@@ -51,12 +51,12 @@ describe('extractIconNames', () => {
       given: 'a Panel icon prop, a glyph prop, and nav/tile data entries',
       should: 'extract each name',
       actual: [
-        extractIconNames('<Panel icon="bolt" title="Recent" />'),
+        extractIconNames('<Panel icon="brain" title="Recent" />'),
         extractIconNames('<ActionTile glyph="gavel" href="/judge" />'),
         extractIconNames("[{ href: '/', icon: 'home', label: 'Home' }]"),
         extractIconNames("{\n  glyph: 'trophy',\n  title: 'Tournaments',\n}"),
       ],
-      expected: [['bolt'], ['gavel'], ['home'], ['trophy']],
+      expected: [['brain'], ['gavel'], ['home'], ['trophy']],
     });
   });
 

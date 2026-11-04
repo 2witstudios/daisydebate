@@ -169,16 +169,15 @@ describe('the browser holding a link', () => {
 });
 
 describe('shareLinkHref', () => {
-  test('offers the page only with a link and Watch open', () => {
+  test('offers the page only with a link', () => {
     assert({
-      given: 'a host with a link and without, with Watch open and closed',
-      should: 'name the page only for a host with a link while Watch is open',
+      given: 'a host with a link and without',
+      should: 'name the page only for a host with a link',
       actual: [
-        shareLinkHref({ state: 'set' }, 'round', true),
-        shareLinkHref(null, 'round', true),
-        shareLinkHref({ state: 'set' }, 'round', false),
+        shareLinkHref({ state: 'set' }, 'round'),
+        shareLinkHref(null, 'round'),
       ],
-      expected: ['/rounds/round/audience-link', null, null],
+      expected: ['/rounds/round/audience-link', null],
     });
   });
 });

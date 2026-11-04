@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
 import { ActionTile } from './action-tile/action-tile';
 import { tiles } from './tiles';
+import type { SeasonGlance } from '../../features/leaderboard/season';
 import { BetaOpenTeaser } from './beta-open-teaser/beta-open-teaser';
-import { ComingSoonCard } from './coming-soon-card/coming-soon-card';
-import { explainerHref, launched } from '../../features/coming-soon/launch';
 
 /**
  * Main-column composition of the home dashboard. Pure layout: owns the
@@ -13,10 +12,13 @@ import { explainerHref, launched } from '../../features/coming-soon/launch';
 export function Dashboard({
   hero,
   liveNow,
+  seasonGlance = null,
 }: {
   readonly hero: ReactNode;
-  /** Who is live, once Watch is open; the page reads it. */
+  /** Who is live; the page reads it. */
   readonly liveNow: ReactNode;
+  /** The Seasons note's reveal; null when no season is running. */
+  readonly seasonGlance?: SeasonGlance | null;
 }) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8">
@@ -27,17 +29,18 @@ export function Dashboard({
       >
         {tiles.map((tile) => (
           <li key={tile.href} className="min-w-0">
-            <ActionTile {...tile} />
+            <ActionTile
+              {...tile}
+              seasonGlance={
+                tile.destination === 'seasons' ? seasonGlance : null
+              }
+            />
           </li>
         ))}
       </ul>
       <div className="grid grid-cols-dash-lower gap-4 max-compact:grid-cols-1">
         <BetaOpenTeaser />
-        {launched.watch ? (
-          liveNow
-        ) : (
-          <ComingSoonCard title="Live now" href={explainerHref('watch')} />
-        )}
+        {liveNow}
       </div>
     </div>
   );

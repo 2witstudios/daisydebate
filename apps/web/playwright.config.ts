@@ -1,6 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 import { OPENROUTER_E2E_PLACEHOLDER } from '@daisy/ai-voice/testing';
-import { launched } from './src/features/coming-soon/launch';
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -120,17 +119,6 @@ const ports = resolveE2EPorts(process.env);
 const origin = resolveE2EOrigin(process.env);
 const browserEndpoint = resolveBrowserEndpoint(process.env);
 
-/**
- * These read Watch as a visitor reads it, so they can pass only once it is open. They
- * follow the launch flag, so turning Watch on runs them with no change here.
- */
-const WATCH_SPECS = [
-  '**/watch-open.e2e.ts',
-  '**/watch-broadcast.e2e.ts',
-  '**/recording-replay.e2e.ts',
-  '**/audience.e2e.ts',
-];
-
 export default defineConfig({
   testDir: './e2e',
   // `*.e2e.ts` keeps these files out of Bun's `*.spec.ts` test discovery.
@@ -201,7 +189,6 @@ export default defineConfig({
         '**/resolution-strike.e2e.ts',
         '**/realtime-room-delivery.e2e.ts',
         '**/messaging-realtime.e2e.ts',
-        ...(launched.watch ? [] : WATCH_SPECS),
       ],
     },
     {

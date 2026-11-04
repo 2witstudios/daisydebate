@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { destinationHref } from '../../features/coming-soon/launch';
+import { destinationHref } from '../../features/destinations/destinations';
 import { cn } from '../cn';
 import { OnboardingFrame } from '../onboarding/frame/frame';
 import {

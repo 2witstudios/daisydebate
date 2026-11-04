@@ -1,19 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { destinationSlugs } from '../coming-soon/destinations';
-import { liveHref } from '../coming-soon/launch';
-import { openRoomHref, playOptions, playOptionsFor } from './options';
+import { destinationHref } from '../destinations/destinations';
+import { openRoomHref, playOptions } from './options';
 
 setupRitewayBun();
-
-const allOpen = Object.fromEntries(
-  destinationSlugs.map((slug) => [slug, true]),
-) as Parameters<typeof playOptionsFor>[0];
-
-const betaConfig = {
-  ...allOpen,
-  train: false,
-  tournaments: false,
-};
 
 describe('playOptions', () => {
   test('every way to play leads somewhere of its own', () => {
@@ -28,40 +17,30 @@ describe('playOptions', () => {
     });
   });
 
-  test('ranked first once open, the room form one option, and neither Play nor the Lobby', () => {
-    const options = playOptionsFor(allOpen);
+  test('ranked first, the room form one option, and neither Play nor the Lobby', () => {
     assert({
-      given: 'every destination launched',
+      given: 'the options',
       should:
-        'lead with ranked, send Open a room to its form, tag nothing, and leave the Lobby to its own link',
+        'lead with ranked, send Open a room to its form, and leave the Lobby to its own link',
       actual: [
-        options[0]?.id,
-        options.find((option) => option.id === 'room')?.href,
-        options.some((option) => option.comingSoon),
-        options.some((option) =>
-          ['/play', liveHref('lobby')].includes(option.href),
+        playOptions[0]?.id,
+        playOptions.find((option) => option.id === 'room')?.href,
+        playOptions.some((option) =>
+          ['/play', destinationHref('lobby')].includes(option.href),
         ),
       ],
-      expected: ['ranked', openRoomHref, false, false],
+      expected: ['ranked', openRoomHref, false],
     });
   });
 
-  test('a way to play that is not open goes to its explainer, after the open ones', () => {
+  test('promises no registration from the Tournaments info page', () => {
     assert({
-      given: 'train and tournaments not launched',
-      should:
-        'lead with rated and Open a room, then tag the rest Coming soon and link their explainers',
-      actual: playOptionsFor(betaConfig).map(({ id, href, comingSoon }) => [
-        id,
-        href,
-        comingSoon,
-      ]),
-      expected: [
-        ['ranked', '/ranked', false],
-        ['room', openRoomHref, false],
-        ['bot', '/coming-soon/train', true],
-        ['events', '/coming-soon/tournaments', true],
-      ],
+      given: 'the events choice, which leads to an info page',
+      should: 'link there and not offer to register',
+      actual: (({ href, blurb }) => [href, /register/i.test(blurb)])(
+        playOptions.find((option) => option.id === 'events')!,
+      ),
+      expected: ['/tournaments', false],
     });
   });
 });
