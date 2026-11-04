@@ -49,6 +49,20 @@ http {
     8089 $http_fly_client_ip;
     default $remote_addr;
   }
+  # nginx treats the string "0" as false in cache predicates. Map presence explicitly.
+  map $args $gate_has_query {
+    "" "";
+    default 1;
+  }
+  map "$http_rsc|$http_next_router_prefetch|$http_x_middleware_prefetch|$http_next_router_segment_prefetch" $gate_client_navigation {
+    "|||" "";
+    default 1;
+  }
+  # Ignoring Next's private Cache-Control is safe only for an actual HTML document.
+  map $upstream_http_content_type $gate_not_document {
+    "~*^text/html(;|$)" "";
+    default 1;
+  }
   # One cached copy of a Watch page, whichever encodings its viewers accept.
   map $uri $gate_accept_encoding {
     "~^/watch(/[^/]+)?$" gzip;
@@ -153,12 +167,12 @@ http {
       proxy_cache web_gate;
       proxy_cache_methods GET HEAD;
       proxy_cache_key "$request_uri|$http_cookie";
-      proxy_cache_bypass $gate_holds_session $args $http_rsc $http_next_router_prefetch;
-      proxy_no_cache $gate_holds_session $args $http_rsc $http_next_router_prefetch;
+      proxy_cache_bypass $gate_holds_session $gate_has_query $gate_client_navigation;
+      proxy_no_cache $gate_holds_session $gate_has_query $gate_client_navigation $gate_not_document;
       proxy_ignore_headers Cache-Control Expires Vary;
       proxy_cache_valid 200 5s;
       proxy_cache_lock on;
-      proxy_cache_use_stale updating;
+      # Expired access never survives a slow refresh; other viewers wait on the fill.
       gunzip on;
       add_header X-Gate-Cache $upstream_cache_status always;
       proxy_pass http://$gate_upstream;

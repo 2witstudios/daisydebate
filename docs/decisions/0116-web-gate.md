@@ -17,11 +17,13 @@ no always-on machine is added.
 holds Fly's port, and web moves to loopback. `apps/web/gate/` holds its configuration and start
 script.
 
-- **Anonymous Watch is cached.** `/watch` and `/watch/:id` are cached for 5 s, one fill at a time,
-  and the old copy answers while one fill runs. The key is the full path and query and the whole
-  Cookie header, so a copy reaches only a request asking for the same thing. A request holding a
-  session or an audience link, a query, a client navigation and a response with `Set-Cookie` are
-  never cached. A copy is older than the state it could show, so it can be late and never early.
+- **Anonymous Watch is cached.** `/watch` and `/watch/:id` HTML documents are cached for at
+  most 5 s. Cold fills are coalesced; expired copies are never served during a slow refresh.
+  Refresh misses still pass the paced anonymous lane. The key is the full path and query and
+  the whole Cookie header, so a copy reaches only a request asking for the same thing.
+  A request holding a session or an audience link, any nonempty query, a client navigation or
+  prefetch, and a response with `Set-Cookie` are never cached. Only HTML can populate the
+  document cache. A copy is older than the state it could show, so it can be late and never early.
 - **Refusal per address.** Each kind of traffic has its own budget: Watch pages, anonymous
   requests, a member's pages, a member's API, machine callers and capture stages. Past it the gate
   answers 429 with `Retry-After`. The address is `Fly-Client-IP` only when the peer is the machine's
@@ -43,7 +45,8 @@ sockets and slow clients, and refusing in C costs least beside a debate.
 
 ## Consequences
 
-- A cached page still reads the database once per Round per 5 s, not per load.
+- Cache hits do not read the database. A cold fill does; concurrent refresh misses are
+  bounded by the anonymous lane, rather than extending an expired page’s access.
 - Viewers of one copy share a CSP nonce for up to 5 s. A query string bypasses the cache, so a
   cached page reflects nothing from a request.
 - A takedown or a replaced link can leave a cached page up to 5 s old. The state object it reads

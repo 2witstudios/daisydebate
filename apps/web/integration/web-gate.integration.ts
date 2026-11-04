@@ -1,117 +1,19 @@
-import { afterAll, beforeAll } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { $ } from 'bun';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import {
+  container,
+  containers,
+  startContainer,
+  master,
+  killMaster,
+  replacementMaster,
+  exited,
+  seen,
+  load,
+  loadMany,
+} from './web-gate.test-support';
 
 setupRitewayBun();
-
-/**
- * The real gate, script and nginx in the Dockerfile's stage, in front of a stand-in web that
- * counts what reaches it. The container's peer is its default gateway, as fly-proxy is on Fly.
- */
-const standInWeb = `
-const seen = {};
-process.on('SIGINT', () => {
-  console.log('stand-in draining');
-  setTimeout(() => {
-    console.log('stand-in drained');
-    process.exit(0);
-  }, 250);
-});
-Bun.serve({
-  hostname: '127.0.0.1',
-  port: 8090,
-  fetch(request) {
-    const url = new URL(request.url);
-    if (url.pathname === '/__seen') return Response.json(seen);
-    const key = url.pathname + url.search;
-    seen[key] = (seen[key] ?? 0) + 1;
-    seen['client:' + request.headers.get('fly-client-ip')] = true;
-    const headers = { 'content-type': 'text/html', 'cache-control': 'private, no-store', 'x-web-process': String(process.pid) };
-    if (url.pathname === '/watch/sets-cookie') headers['set-cookie'] = 'a=b';
-    return new Response('page ' + key + ' ' + seen[key], { headers });
-  },
-});
-`;
-
-const container = `daisy-web-gate-proof-${process.pid}`;
-let origin = '';
-let web = '';
-const containers = [container, `${container}-shutdown`, `${container}-deaths`];
-const startContainer = async (name: string) => {
-  await $`docker run -d --name ${name} --user 1001:1001 -p 127.0.0.1::8080 -e PORT=8090 -v ${web}/src:/app/apps/web/src:ro -w /app/apps/web daisy-web-gate-proof bash gate/start.sh`.quiet();
-  const mapped = (await $`docker port ${name} 8080`.text()).trim();
-  const address = `http://${mapped.split('\n')[0]}`;
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const ready = await fetch(`${address}/api/health/live`).catch(() => null);
-    if (ready?.ok) return address;
-    await Bun.sleep(100);
-  }
-  throw new Error('The web gate did not start');
-};
-const master = async (name = container) =>
-  (
-    await $`docker exec ${name} cat /tmp/web-gate/nginx.pid`.quiet().text()
-  ).trim();
-const killMaster = async (name: string, pid: string) => {
-  await $`docker exec ${name} bash -c 'kill -9 "$1"' bash ${pid}`.quiet();
-};
-const replacementMaster = async (name: string, previous: string) => {
-  for (let attempt = 0; attempt < 30; attempt++) {
-    await Bun.sleep(100);
-    const next = await master(name).catch(() => '');
-    if (next !== '' && next !== previous) return next;
-  }
-  return '';
-};
-const exited = async (name: string) => {
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const running = (
-      await $`docker inspect -f '{{.State.Running}}' ${name}`.text()
-    ).trim();
-    if (running === 'false')
-      return (await $`docker wait ${name}`.text()).trim();
-    await Bun.sleep(100);
-  }
-  return 'still running';
-};
-
-beforeAll(async () => {
-  web = mkdtempSync(join(tmpdir(), 'web-gate-'));
-  mkdirSync(join(web, 'src/server'), { recursive: true });
-  writeFileSync(join(web, 'src/server/start.ts'), standInWeb);
-  await $`docker build -q -f apps/web/Dockerfile --target web-gate -t daisy-web-gate-proof .`
-    .cwd(join(import.meta.dir, '../../..'))
-    .quiet();
-  origin = await startContainer(container);
-}, 300_000);
-
-afterAll(async () => {
-  await $`docker rm -f ${containers}`.quiet().nothrow();
-  rmSync(web, { recursive: true, force: true });
-});
-
-const seen = async (key: string) => {
-  const read =
-    "console.log(await (await fetch('http://127.0.0.1:8090/__seen')).text())";
-  const counts = JSON.parse(
-    await $`docker exec ${container} bun -e ${read}`.text(),
-  ) as Record<string, number | boolean>;
-  return counts[key] ?? 0;
-};
-const load = (path: string, init: RequestInit = {}, client = '203.0.113.1') =>
-  fetch(`${origin}${path}`, {
-    ...init,
-    headers: { 'fly-client-ip': client, ...init.headers },
-  });
-const loadMany = (
-  count: number,
-  path: string,
-  init?: RequestInit,
-  client?: string,
-) => Promise.all(Array.from({ length: count }, () => load(path, init, client)));
 
 test("an anonymous Watch page is web's work once, however many load it", async () => {
   await loadMany(30, '/watch/cached', undefined, '203.0.113.2');
@@ -181,6 +83,72 @@ test('nothing private or different is served from the cache', async () => {
     expected: [true, true],
   });
 });
+
+test('query and navigation hints never prime the Watch cache', async () => {
+  const query = '/watch/zero-query?0';
+  const navigation = '/watch/zero-prefetch';
+  await load(query, {}, '203.0.113.21');
+  await load(query, {}, '203.0.113.21');
+  await load(
+    navigation,
+    { headers: { 'next-router-prefetch': '0' } },
+    '203.0.113.22',
+  );
+  const document = await load(navigation, {}, '203.0.113.22');
+  assert({
+    given: 'a nonempty query or navigation hint whose value is zero',
+    should: 'bypass storage and let the next document reach web',
+    actual: [
+      await seen(query),
+      document.headers.get('x-gate-cache'),
+      await seen(navigation),
+    ],
+    expected: [2, 'MISS', 2],
+  });
+});
+
+test('middleware prefetch cannot poison an ordinary Watch document', async () => {
+  const path = '/watch/middleware-prefetch';
+  const variant = await load(
+    path,
+    { headers: { 'x-middleware-prefetch': '1' } },
+    '203.0.113.24',
+  );
+  const document = await load(path, {}, '203.0.113.24');
+  assert({
+    given: 'a middleware prefetch before the first ordinary document',
+    should: 'keep the non-document response out of the document cache',
+    actual: [
+      await variant.text(),
+      (await document.text()).startsWith('page '),
+      document.headers.get('x-gate-cache'),
+    ],
+    expected: ['{}', true, 'MISS'],
+  });
+});
+
+test('an expired Watch page cannot outlive the five-second access bound', async () => {
+  const path = '/watch/slow-refresh';
+  await load(path, {}, '203.0.113.23');
+  await Bun.sleep(6100);
+  const refreshing = load(path, {}, '203.0.113.23');
+  for (let attempt = 0; attempt < 30 && (await seen(path)) !== 2; attempt++)
+    await Bun.sleep(20);
+  const concurrent = await load(path, {}, '203.0.113.23');
+  const body = await concurrent.text();
+  await refreshing;
+  assert({
+    given: 'an expired Watch copy while its replacement is being read',
+    should: 'wait for the replacement instead of serving expired access',
+    actual: [
+      ['STALE', 'UPDATING'].includes(
+        concurrent.headers.get('x-gate-cache') ?? '',
+      ),
+      !body.endsWith(' 1'),
+    ],
+    expected: [false, true],
+  });
+}, 20_000);
 
 test('one address past its budget is refused before web', async () => {
   const refused = (
