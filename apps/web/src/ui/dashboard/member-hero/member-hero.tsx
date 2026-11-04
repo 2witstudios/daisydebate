@@ -6,6 +6,7 @@ import {
   activeRoomPhaseLabel,
   type ActiveRoomSummary,
 } from '../../active-room/your-room';
+import { cn } from '../../cn';
 import { buttonClass } from '../../components/button/button-class';
 import { HeroPhoto } from '../hero-banner/hero-photo';
 import { MediaPageLink } from '../../round-media/media-page-link';
@@ -16,7 +17,8 @@ const secondaryClass = `${buttonClass('on-media')} no-underline hover:no-underli
 /**
  * A member's Home hero: the way back into their Room while they hold one,
  * otherwise the way into the Lobby. It keeps the Home photograph the visitor
- * hero shows. Visitors get the waitlist hero instead.
+ * hero shows. Visitors get the waitlist hero instead. On a phone the menu is
+ * the way in, so the hero stays only while it holds the way back to a Room.
  */
 export function MemberHero({
   username,
@@ -25,8 +27,13 @@ export function MemberHero({
   readonly username: string;
   readonly activeRoom: ActiveRoomSummary | null;
 }) {
-  return (
-    <section className="relative isolate flex min-h-hero-min items-end overflow-hidden rounded-xl p-10 text-ink-on-media max-tiles:min-h-hero-min-compact max-tiles:p-6 max-tiny:min-h-hero-min-tiny max-tiny:p-5">
+  const hero = (
+    <section
+      className={cn(
+        'relative isolate flex min-h-hero-min items-end overflow-hidden rounded-xl p-10 text-ink-on-media max-tiles:min-h-hero-min-compact max-tiles:p-6 max-tiny:min-h-hero-min-tiny max-tiny:p-5',
+        activeRoom === null ? 'max-narrow:hidden' : '',
+      )}
+    >
       <HeroPhoto />
       <div className="relative flex max-w-hero-content flex-col items-start gap-5">
         {activeRoom ? (
@@ -70,5 +77,15 @@ export function MemberHero({
         </div>
       </div>
     </section>
+  );
+  if (activeRoom !== null) return hero;
+  return (
+    <>
+      {/* The hero holds the page's heading, so a phone keeps one of its own. */}
+      <h1 className="sr-only hidden max-narrow:block">
+        Welcome back, {username}
+      </h1>
+      {hero}
+    </>
   );
 }

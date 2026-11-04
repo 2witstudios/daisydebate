@@ -62,7 +62,7 @@ export function HeroJoin({
   const copy =
     state.notice === undefined ? undefined : signInNotices[state.notice];
   return (
-    <section className="relative isolate flex min-h-hero-min items-end justify-between gap-8 overflow-hidden rounded-xl p-10 max-tiles:min-h-hero-min-compact max-tiles:p-6 max-tiny:min-h-hero-min-tiny max-tiny:p-5">
+    <section className="relative isolate flex min-h-hero-min items-end justify-between gap-8 overflow-hidden rounded-xl p-10 max-tiles:min-h-hero-min-compact max-tiles:p-6 max-narrow:min-h-0 max-narrow:overflow-visible max-narrow:rounded-none max-narrow:p-0 max-narrow:pt-10">
       {backdrop}
       <div className="relative flex max-w-hero-content flex-col items-start gap-4">
         {children}
@@ -106,13 +106,19 @@ export function HeroJoin({
             </Button>
           </div>
           <CopyNotice id={NOTICE_ID} copy={copy} />
-          <p className="text-sm text-ink-on-media/80">
+          <p className="text-sm text-ink-on-media/80 max-narrow:text-ink-muted">
             By joining you agree to our{' '}
-            <a href="/terms" className="text-ink-on-media underline">
+            <a
+              href="/terms"
+              className="text-ink-on-media underline max-narrow:text-ink"
+            >
               Terms
             </a>{' '}
             and{' '}
-            <a href="/privacy" className="text-ink-on-media underline">
+            <a
+              href="/privacy"
+              className="text-ink-on-media underline max-narrow:text-ink"
+            >
               Privacy Policy
             </a>
             .

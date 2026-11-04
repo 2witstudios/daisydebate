@@ -159,6 +159,36 @@
   }
 }
 
+/*
+ * On a phone a note stops being paper and becomes a menu row: straight, plainly
+ * rounded, with no curl, shadow or peel. Its specificity matches the note's hover
+ * rules so it wins them too.
+ */
+@utility note-menu-row {
+  rotate: none;
+
+  &:hover,
+  &:focus-visible {
+    transform: none;
+  }
+
+  &::before {
+    content: none;
+  }
+
+  &::after,
+  &:hover::after,
+  &:focus-visible::after {
+    border-radius: var(--radius-lg);
+    background-image: none;
+  }
+}
+
+/* Every row but Play wears this one colour. */
+@utility note-paper-menu {
+  --note-paper: var(--surface-overlay);
+}
+
 @utility note-paper-action {
   --note-paper: var(--accent);
 }

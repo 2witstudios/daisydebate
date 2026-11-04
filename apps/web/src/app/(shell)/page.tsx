@@ -36,6 +36,7 @@ export default async function HomePage() {
   if (identity.state !== 'member') {
     return (
       <Dashboard
+        audience="visitor"
         liveNow={liveNow}
         seasonGlance={seasonGlance}
         hero={<HeroBanner requestLink={requestLinkAction.bind(null, '/')} />}
@@ -45,6 +46,7 @@ export default async function HomePage() {
   const activeRoom = await requestActiveRoom();
   return (
     <Dashboard
+      audience="member"
       liveNow={liveNow}
       seasonGlance={seasonGlance}
       hero={

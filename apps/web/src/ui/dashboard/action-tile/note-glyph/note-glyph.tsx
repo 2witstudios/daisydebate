@@ -183,7 +183,7 @@ export function NoteGlyph({
         {artOf(destination, seasonGlance?.number)}
       </svg>
       {seasonGlance === null ? null : (
-        <span className="text-sm whitespace-nowrap note-glyph-reveal">
+        <span className="text-sm whitespace-nowrap note-glyph-reveal max-narrow:hidden">
           {seasonGlance.line}
         </span>
       )}

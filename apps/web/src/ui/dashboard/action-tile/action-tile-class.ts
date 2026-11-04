@@ -4,8 +4,8 @@ export type NoteTilt = 'left' | 'slight-left' | 'slight-right' | 'right';
 
 const notePaper: Readonly<Record<NoteColor, string>> = {
   action: 'note-paper-action text-accent-ink',
-  yellow: 'note-paper-yellow text-note-ink',
-  sage: 'note-paper-sage text-note-ink',
+  yellow: 'note-paper-yellow max-narrow:note-paper-menu text-note-ink',
+  sage: 'note-paper-sage max-narrow:note-paper-menu text-note-ink',
 };
 
 const noteCopy: Readonly<Record<NoteColor, string>> = {

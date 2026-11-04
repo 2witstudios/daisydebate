@@ -48,6 +48,36 @@ describe('ActionTile', () => {
     });
   });
 
+  test('becomes a menu row on a phone', () => {
+    const html = renderToString(h(ActionTile, tile));
+    assert({
+      given: 'a note on a phone',
+      should:
+        'lay its icon and title in one straight centred row, without the tagline',
+      actual: [
+        html.includes('max-narrow:note-menu-row'),
+        html.includes('max-narrow:flex-row'),
+        html.includes('max-narrow:justify-center'),
+        /<p class="[^"]*max-narrow:hidden/.test(html),
+      ],
+      expected: [true, true, true, true],
+    });
+  });
+
+  test('keeps only Play coloured in the phone menu', () => {
+    const paperOf = (note: ActionTileProps['note']) =>
+      renderToString(h(ActionTile, { ...tile, note })).includes(
+        'max-narrow:note-paper-menu',
+      );
+    assert({
+      given: 'the three note colours',
+      should:
+        'give yellow and sage the one menu colour, and leave Play its own',
+      actual: [paperOf('yellow'), paperOf('sage'), paperOf('action')],
+      expected: [true, true, false],
+    });
+  });
+
   test('reverses the ink on the emphasised note', () => {
     const html = renderToString(h(ActionTile, { ...tile, note: 'action' }));
     assert({
