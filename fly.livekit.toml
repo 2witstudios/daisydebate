@@ -1,4 +1,4 @@
-# Staging LiveKit SFU (ISSUE-528): self-hosted, single node. Fly secrets
+# Staging LiveKit SFU (ISSUE-528): self-hosted, first of two nodes (SFU-5). Fly secrets
 # REDIS_HOST and REDIS_PASSWORD join it to daisy-debate-staging-media-redis,
 # the bus Egress needs (BCAST-2, superseding DEC-228). It joins the org's default 6PN (DEC-230, revising DEC-229): native
 # clients inside Fly reach its media over 6PN, browsers over the public IPv4.
@@ -55,6 +55,6 @@ kill_timeout = 30
     port = 7881
 
 [[vm]]
-  # Go SFU for a handful of staging participants.
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  # Dedicated CPU, as the spike measured (SFU-5).
+  size = "performance-1x"
+  memory = "2gb"

@@ -237,3 +237,51 @@ test('drillKillPlan', () => {
     expected: true,
   });
 });
+
+test('staging is only ever its two LiveKit nodes, by name', () => {
+  const stagingNodes = JSON.stringify([
+    fly('daisy-debate-staging-livekit'),
+    fly('daisy-debate-staging-livekit-b'),
+  ]);
+  assert({
+    given: 'the two staging nodes, asked for by name',
+    should: 'accept them',
+    actual: readDrillTarget(
+      env({ DRILL_NODES: stagingNodes, DRILL_ON_STAGING: 'staging-livekit' }),
+    ).nodes.map((node) => node.app),
+    expected: [
+      'daisy-debate-staging-livekit',
+      'daisy-debate-staging-livekit-b',
+    ],
+  });
+  for (const [given, overrides] of [
+    ['the two staging nodes, not asked for', { DRILL_NODES: stagingNodes }],
+    [
+      'any other staging app, asked for',
+      {
+        DRILL_NODES: JSON.stringify([fly('daisy-debate-staging')]),
+        DRILL_ON_STAGING: 'staging-livekit',
+      },
+    ],
+    [
+      'production, asked for',
+      {
+        DRILL_NODES: JSON.stringify([fly('daisy-debate-livekit')]),
+        DRILL_ON_STAGING: 'staging-livekit',
+      },
+    ],
+  ] as const)
+    assert({
+      given,
+      should: 'refuse',
+      actual: (() => {
+        try {
+          readDrillTarget(env(overrides));
+          return 'accepted';
+        } catch {
+          return 'refused';
+        }
+      })(),
+      expected: 'refused',
+    });
+});
