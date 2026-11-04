@@ -79,9 +79,7 @@ as the platform's fault.
 
 An AI judge rules unless unheard speech passes `maxUnheardShare`, with each platform gap in
 its prompt in plain words. A shortfall nobody measured cannot be proven small. Past the
-limit, an AI-only Round ends as `platform_ending = capture_shortfall`, refunds and alerts once
-only if the platform's own loss is past that limit too, in the transaction that completes the
-Round once attendance has settled. Otherwise it takes the
+limit, an AI-only Round ends as `platform_ending = capture_shortfall`, and refunds only if the platform's own loss is past that limit too, in the transaction that completes the Round once attendance has settled. The alert follows that commit, once. Otherwise it takes the
 transcript-incomplete path: not blamed on the platform and no refund, but the Round ends with no outcome and no rating, as a silent seat always could. A platform loss under the limit that silence tips over takes that same path. One exception: silence inside a stream taken over mid-speech counts as the platform's, because gaps carry no capture epoch (ISSUE-1317). A human judge heard
 the Round live and still rules.
 

@@ -61,9 +61,9 @@ type Request = LockedRoundTickInput & {
   readonly commandId: string;
   readonly freezeRevision: number;
   /** Once per AI job this completion ended without a ballot. */
+  readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   /** The platform lost more than can be judged and ended this Round; once, for the operator. */
   readonly platformEnded?: () => void;
-  readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
   readonly judgingEndReason: JudgingEndRule;
   readonly attendanceSettled: AttendanceSettledRule;
   /** The engine decides; the caller supplies the ruling it decided with the projection. */
@@ -184,7 +184,6 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
   // ended it: a freeze cannot know that attendance will not end it another way.
   const platformEnded =
     completion.ruling === 'transcript-incomplete' &&
-    projection.round?.outcome === null &&
     platformLostTooMuch(frozenCaptureOf(freeze));
   if (platformEnded) {
     await tx

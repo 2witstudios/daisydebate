@@ -1,3 +1,4 @@
+import { readRoundIncidentRate } from '../src/round-incident-rate';
 import { requireTestServices } from '@daisy/config';
 import { runtimeCheckpointSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -122,6 +123,55 @@ test('a fresh Round reads the strict checkpoint', async () => {
         runtimeCheckpointSchema.parse(row.runtime_state),
       ),
       expected: { incident: { phase: 'none' }, clock_stops: [] },
+    });
+  });
+});
+
+test('the rate counts only what was measured, and the row holds only real kinds', async () => {
+  await withFixture(url, async (fixture) => {
+    // A period nothing else in the run touches, so only these rows are in it.
+    const frozenAt = new Date('2001-03-01T00:00:00.000Z');
+    const period = {
+      from: new Date('2001-03-01T00:00:00.000Z'),
+      until: new Date('2001-03-02T00:00:00.000Z'),
+    };
+    const freeze = async (over: {
+      readonly capture_gap_ms: number | null;
+      readonly unheard_ms: number | null;
+    }) =>
+      fixture.insert('round_transcript_freezes', {
+        round_id: await fixture.round(),
+        revision: 1,
+        frontier: 0,
+        frozen_at: frozenAt,
+        completeness: 'incomplete',
+        expected_speech_ms: 1000,
+        ...over,
+      });
+    await freeze({ capture_gap_ms: 100, unheard_ms: 200 });
+    await freeze({ capture_gap_ms: 100, unheard_ms: null });
+    await freeze({ capture_gap_ms: null, unheard_ms: null });
+    const rate = await readRoundIncidentRate(fixture.sql, period);
+    assert({
+      given: 'one freeze of each capture kind',
+      should: 'put only the measured one in coverage, and count the others',
+      actual: [rate.captureCoverage, rate.unmeasuredRounds],
+      expected: [0.9, 2],
+    });
+    assert({
+      given:
+        'less unheard than the platform lost, and unheard with no platform measure',
+      should: 'be refused by the check',
+      actual: [
+        await rejectedBy(() =>
+          freeze({ capture_gap_ms: 500, unheard_ms: 100 }),
+        ),
+        await rejectedBy(() => freeze({ capture_gap_ms: null, unheard_ms: 0 })),
+      ],
+      expected: [
+        'round_transcript_freezes_capture_kinds_check',
+        'round_transcript_freezes_capture_kinds_check',
+      ],
     });
   });
 });
