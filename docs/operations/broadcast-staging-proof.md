@@ -93,6 +93,30 @@ neither public nor private and not a leak. The speech after prep was still open 
 run was measured, so its start and end loss are not in the table. Three casual
 withdrawals were checked and each left no hold objects.
 
+## At the smaller sizes
+
+Egress and the Broadcast worker at performance-2x, the Recording worker at performance-1x, 3 Rounds, with nothing else on both LiveKit nodes. Staging ships these sizes.
+
+| Measure                   | Result                                                    |
+| ------------------------- | --------------------------------------------------------- |
+| Private audio onsets      | 0, 0, 0                                                   |
+| Private video             | 0, 0, 0                                                   |
+| Spill past a speech's end | One, 51 ms into judging, from a beep that began in public |
+| Egress offset, audio      | -643, -655, +651 ms                                       |
+| Longest player stall      | 1, 0, 0 s                                                 |
+| Dropped frames            | 11 of 3025, 0 of 2197, 0 of 4126                          |
+| Peak CPU                  | Broadcast worker 49%, Egress 43%                          |
+
+The same 3 Rounds at performance-4x had offsets of +81, +827 and +67 ms, and the same 3 on a warm Egress at the smaller size +683, +604 and +619 ms. The negative offsets have only been seen at the smaller size, and on a cold Egress; the cause is not found. Because of them, public speech stops 700 ms short of a prep's start. That margin has unit tests, and no Round has had a negative offset going into prep.
+
+## The first Round after a boot
+
+On a freshly booted Egress machine, Chrome's first launch took 15.0 s and its next 0.87 s, while GStreamer's registry took 1.1 s and fonts 21 ms. A first capture took 17 to 20 s, and viewers lost about 20 s of the first speech. Egress now launches Chrome once at boot, before its service starts. On that image, with this Round as the machine's first capture, request to `START_RECORDING` took 1.95 s and held media began 6.35 s before the first speech. One sample. What inside Chrome's first launch takes the time is not known.
+
+## A Recording on the smaller recorder
+
+A Round of about 6.8 minutes went from queued to ready in 7 minutes 46 s on performance-1x, with CPU at 100%: about 1.1 times real time, against 0.31 times at performance-4x. One short sample. At that rate an 80-minute Round would take about 90 minutes against its 45-minute bound.
+
 ## Audience polls beside a live debate
 
 One run on 2026-11-03: a live public Round on the rig (performance-4x, 4 GB, with its
