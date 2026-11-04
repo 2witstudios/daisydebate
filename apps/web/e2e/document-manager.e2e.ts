@@ -44,7 +44,7 @@ const journey = async (
 
     await page.goto(`${origin}/prep`);
     await expect(page.getByRole('heading', { name: 'Prep' })).toHaveCount(0);
-    if (viewport.width >= 1440) {
+    if (viewport.width >= 901) {
       const main = await page.getByRole('main').boundingBox();
       const files = await page
         .getByRole('region', { name: 'Your files' })
@@ -88,6 +88,10 @@ const journey = async (
         return [style.outlineStyle, style.boxShadow];
       });
     expect(typing).toEqual(['none', 'none']);
+    await testInfo.attach(`prep-document-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
     // A + at the end of the tabs starts another.
     await page
       .getByRole('button', { name: 'New document', exact: true })
