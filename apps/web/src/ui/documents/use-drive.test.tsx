@@ -410,12 +410,10 @@ test('a missing destination never unlists a move source that still exists', asyn
       fixture.drive().change('move', { id: doc.id, folderId: 'gone-target' }),
     );
     await fixture.act(async () =>
-      fixture
-        .drive()
-        .change('folders/move', {
-          id: 'source-folder',
-          parentFolderId: 'gone-target',
-        }),
+      fixture.drive().change('folders/move', {
+        id: 'source-folder',
+        parentFolderId: 'gone-target',
+      }),
     );
     assert({
       given:
