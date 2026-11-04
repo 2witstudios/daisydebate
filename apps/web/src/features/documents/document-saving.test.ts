@@ -105,10 +105,7 @@ describe('conflictOutcome', () => {
         }),
         conflictOutcome(read, sent, 5, undefined),
       ],
-      expected: [
-        { kind: 'conflicted', latestRevision: 6 },
-        { kind: 'gone' },
-      ],
+      expected: [{ kind: 'conflicted', latestRevision: 6 }, { kind: 'gone' }],
     });
   });
 });
@@ -148,11 +145,7 @@ describe('attemptFailed', () => {
     assert({
       given: 'a save answered 404',
       should: 'mark it gone, keep the edit, and send nothing more',
-      actual: [
-        result.kind,
-        result.document.pending,
-        nextSend(result.document),
-      ],
+      actual: [result.kind, result.document.pending, nextSend(result.document)],
       expected: ['gone', sent, null],
     });
   });

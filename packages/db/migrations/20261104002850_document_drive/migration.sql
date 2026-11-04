@@ -19,4 +19,28 @@ CREATE INDEX "documents_owner_edited_idx" ON "documents" ("owner_actor_id","upda
 CREATE INDEX "documents_search_idx" ON "documents" USING gin ("search");--> statement-breakpoint
 ALTER TABLE "document_folders" ADD CONSTRAINT "document_folders_owner_actor_id_actors_id_fkey" FOREIGN KEY ("owner_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "document_folders" ADD CONSTRAINT "document_folders_parent_fk" FOREIGN KEY ("owner_actor_id","parent_folder_id") REFERENCES "document_folders"("owner_actor_id","id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "documents" ADD CONSTRAINT "documents_folder_fk" FOREIGN KEY ("owner_actor_id","folder_id") REFERENCES "document_folders"("owner_actor_id","id") ON DELETE CASCADE;
+ALTER TABLE "documents" ADD CONSTRAINT "documents_folder_fk" FOREIGN KEY ("owner_actor_id","folder_id") REFERENCES "document_folders"("owner_actor_id","id") ON DELETE CASCADE;--> statement-breakpoint
+-- Hand-written: Postgres cannot state "no cycle" as a constraint (ADR 0111). A folder's
+-- ancestors never include itself. The operations refuse this first; this is the last guard.
+CREATE FUNCTION document_folders_refuse_cycle() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.parent_folder_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  IF EXISTS (
+    WITH RECURSIVE up(id, parent_folder_id) AS (
+      SELECT id, parent_folder_id FROM document_folders WHERE id = NEW.parent_folder_id
+      UNION
+      SELECT f.id, f.parent_folder_id FROM document_folders f JOIN up ON f.id = up.parent_folder_id
+    )
+    SELECT 1 FROM up WHERE id = NEW.id
+  ) THEN
+    RAISE EXCEPTION 'A folder cannot sit inside itself'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'document_folders_no_cycle';
+  END IF;
+  RETURN NEW;
+END $$;
+--> statement-breakpoint
+CREATE TRIGGER document_folders_no_cycle
+  BEFORE UPDATE OF parent_folder_id ON document_folders
+  FOR EACH ROW EXECUTE FUNCTION document_folders_refuse_cycle();

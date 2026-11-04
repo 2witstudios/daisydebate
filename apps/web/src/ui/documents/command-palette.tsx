@@ -14,7 +14,6 @@ import {
   type PaletteCommand,
   type RankedCommand,
 } from '../../features/documents/command-palette';
-import type { MemberDocument } from '../../features/documents/document';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 
@@ -22,10 +21,31 @@ export type PaletteChoice =
   | { readonly kind: 'new' }
   | { readonly kind: 'open'; readonly documentId: string };
 
-/** Every command the palette can run: a new document, then each file. */
+/** A document the palette can open; a search hit also says where the words were. */
+export type PaletteDocument = {
+  readonly id: string;
+  readonly title: string;
+  readonly snippet?: string;
+};
+
+type Command = PaletteCommand & {
+  readonly choice: PaletteChoice;
+  readonly snippet?: string;
+};
+
+const openCommand = (doc: PaletteDocument): Command => ({
+  id: `open:${doc.id}`,
+  title: doc.title,
+  group: 'Open',
+  keywords: ['open', 'go'],
+  choice: { kind: 'open', documentId: doc.id },
+  ...(doc.snippet ? { snippet: doc.snippet } : {}),
+});
+
+/** Every command the palette can run: a new document, then each document. */
 export function paletteCommands(
-  documents: readonly MemberDocument[],
-): readonly (PaletteCommand & { readonly choice: PaletteChoice })[] {
+  documents: readonly PaletteDocument[],
+): readonly Command[] {
   return [
     {
       id: 'new:document',
@@ -34,15 +54,31 @@ export function paletteCommands(
       keywords: ['new', 'create', 'blank', 'flow', 'notes'],
       choice: { kind: 'new' } as const,
     },
-    ...documents.map((doc) => ({
-      id: `open:${doc.id}`,
-      title: doc.title,
-      group: 'Open',
-      keywords: ['open', 'go'],
-      choice: { kind: 'open', documentId: doc.id } as const,
-    })),
+    ...documents.map(openCommand),
   ];
 }
+
+const SEARCH_DELAY_MS = 150;
+
+/**
+ * The server searches titles and bodies from one index, so a hit stays even when
+ * its title does not match the words; the palette only ranks what it can see.
+ */
+const rankedWithHits = (
+  query: string,
+  commands: readonly Command[],
+  hits: boolean,
+): readonly RankedCommand[] => {
+  const ranked = rankCommands(query, commands);
+  if (!hits) return ranked;
+  const seen = new Set(ranked.map((one) => one.command.id));
+  return [
+    ...ranked,
+    ...commands
+      .filter((command) => !seen.has(command.id) && command.group === 'Open')
+      .map((command) => ({ command, score: 0, matches: [] })),
+  ];
+};
 
 /** The title with the matched letters drawn strong. */
 function Highlighted({ ranked }: { readonly ranked: RankedCommand }) {
@@ -71,20 +107,53 @@ function Highlighted({ ranked }: { readonly ranked: RankedCommand }) {
 
 type Props = {
   readonly open: boolean;
-  readonly documents: readonly MemberDocument[];
+  /** Offered with nothing typed: the documents open here. */
+  readonly documents: readonly PaletteDocument[];
+  /** Searches the member's own documents; without it only those above are offered. */
+  readonly search?: (text: string) => Promise<readonly PaletteDocument[]>;
   readonly onChoose: (choice: PaletteChoice) => void;
   readonly onClose: () => void;
 };
 
 /** Raycast-style: type to filter, arrows to move, Enter to run, Esc to close. */
-export function CommandPalette({ open, documents, onChoose, onClose }: Props) {
+export function CommandPalette({
+  open,
+  documents,
+  search,
+  onChoose,
+  onClose,
+}: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
-  const commands = useMemo(() => paletteCommands(documents), [documents]);
+  const [hits, setHits] = useState<readonly PaletteDocument[] | null>(null);
+  useEffect(() => {
+    if (!search || query.trim() === '') {
+      setHits(null);
+      return;
+    }
+    let live = true;
+    const wait = setTimeout(() => {
+      // A failed search keeps what is shown; the next keystroke asks again.
+      search(query).then(
+        (found) => {
+          if (live) setHits(found);
+        },
+        () => {},
+      );
+    }, SEARCH_DELAY_MS);
+    return () => {
+      live = false;
+      clearTimeout(wait);
+    };
+  }, [query, search]);
+  const commands = useMemo(
+    () => paletteCommands(hits ?? documents),
+    [hits, documents],
+  );
   const groups = useMemo(
-    () => groupRanked(rankCommands(query, commands)),
-    [query, commands],
+    () => groupRanked(rankedWithHits(query, commands, hits !== null)),
+    [query, commands, hits],
   );
   // Arrows walk the list in the order it is drawn: group by group.
   const ranked = useMemo(
@@ -92,6 +161,7 @@ export function CommandPalette({ open, documents, onChoose, onClose }: Props) {
     [groups],
   );
   const choiceOf = (id: string) => commands.find((c) => c.id === id)?.choice;
+  const snippetOf = (id: string) => commands.find((c) => c.id === id)?.snippet;
 
   useEffect(() => {
     const node = dialog.current;
@@ -172,14 +242,21 @@ export function CommandPalette({ open, documents, onChoose, onClose }: Props) {
                   onMouseMove={() => setSelected(index)}
                   onClick={() => run(item)}
                   className={cn(
-                    'flex h-10 cursor-pointer items-center gap-3 rounded-sm px-2 text-sm',
+                    'flex min-h-10 cursor-pointer items-center gap-3 rounded-sm px-2 text-sm',
                     index === selected
                       ? 'bg-surface-overlay text-ink'
                       : 'text-ink-muted',
                   )}
                 >
                   <Icon name={isNew ? 'plus' : 'file'} size={16} />
-                  <Highlighted ranked={item} />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <Highlighted ranked={item} />
+                    {snippetOf(item.command.id) ? (
+                      <span className="truncate text-xs text-ink-faint">
+                        {snippetOf(item.command.id)}
+                      </span>
+                    ) : null}
+                  </span>
                   {index === selected ? (
                     <kbd className="text-xs text-ink-faint">↵</kbd>
                   ) : null}

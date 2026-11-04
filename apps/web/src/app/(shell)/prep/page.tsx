@@ -1,0 +1,35 @@
+import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import type { SearchParams } from '../../../features/access/decision';
+import { driveNoticeText } from '../../../features/documents/drive-return';
+import { requireAccess } from '../../../lib/access';
+import { DocumentManager } from '../../../ui/documents/document-manager';
+import { memberDrive } from './read-drive';
+
+export const metadata: Metadata = { title: 'Prep' };
+
+/** Prep is where a member's documents open: one tree, the same as in a Round. */
+export default async function PrepPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const identity = await requireAccess('/prep', searchParams);
+  const drive = memberDrive(identity);
+  if (drive === null) redirect('/');
+  const { principal, operations } = drive;
+  const [page, folders, params] = await Promise.all([
+    operations.listDrive(principal, { folderId: null, after: null }),
+    operations.listFolders(principal),
+    searchParams,
+  ]);
+  return (
+    <DocumentManager
+      principalId={principal.userId}
+      back="/prep"
+      title="Prep"
+      initial={{ folderId: null, ...page, folders }}
+      notice={driveNoticeText(params.notice)}
+    />
+  );
+}

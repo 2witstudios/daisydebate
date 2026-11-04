@@ -12,88 +12,81 @@ setupRitewayBun();
 const me = { userId: 'user-me', actorId: 'actor-me' };
 const stranger = { userId: 'user-x', actorId: 'actor-x' };
 
-describe('listDocuments', () => {
-  test('the person’s own debate lists their documents', async () => {
-    const { operations } = operationsOver([stored()]);
-    const listed = await operations.listDocuments(me, {
-      roundId: 'debate-1',
-    });
+describe('listDrive', () => {
+  test('a member lists only their own, with no bodies', async () => {
+    const { operations } = operationsOver([
+      stored(),
+      stored({ id: 'doc-x', ownerActorId: 'actor-x' }),
+    ]);
     assert({
-      given: 'one stored document',
-      should: 'return it as a workspace document with its revision',
-      actual: listed,
-      expected: [
-        {
-          id: 'doc-1',
-          title: 'Notes',
-          html: '<p>a</p>',
-          createdAt: NOW,
-          updatedAt: NOW,
-          revision: 1,
-        },
-      ],
+      given: 'documents of two members',
+      should: 'list the caller’s, as entries with no text',
+      actual: await operations.listDrive(me, { folderId: null, after: null }),
+      expected: {
+        entries: [{ kind: 'document', id: 'doc-1', title: 'Notes' }],
+        next: null,
+      },
+    });
+  });
+});
+
+describe('readDocuments', () => {
+  test('another person’s body reads as absent', async () => {
+    const { operations } = operationsOver([stored()]);
+    assert({
+      given: 'a stranger asking for a member’s document by id',
+      should: 'read nothing',
+      actual: await operations.readDocuments(stranger, { ids: ['doc-1'] }),
+      expected: [],
     });
   });
 
-  test('another person’s or an unknown debate is not found', async () => {
+  test('a read is bounded', async () => {
     const { operations } = operationsOver();
     await assertRejects({
-      given: 'a debate that belongs to another actor',
-      should: 'refuse it as not found',
-      actual: () => operations.listDocuments(stranger, { roundId: 'debate-1' }),
-      code: 'NOT_FOUND',
-    });
-    await assertRejects({
-      given: 'an unknown debate',
-      should: 'refuse it as not found',
-      actual: () => operations.listDocuments(me, { roundId: 'missing' }),
-      code: 'NOT_FOUND',
+      given: 'more ids than one read may ask for',
+      should: 'refuse it as invalid',
+      actual: () =>
+        operations.readDocuments(me, {
+          ids: Array.from({ length: 17 }, (_, i) => `doc-${i}`),
+        }),
+      code: 'VALIDATION',
     });
   });
 });
 
 describe('createDocument', () => {
   test('a new document is plain, untitled and stored normalized', async () => {
-    const { operations, documents } = operationsOver([
-      stored({ title: 'Untitled' }),
-    ]);
-    const created = await operations.createDocument(me, {
-      roundId: 'debate-1',
-    });
+    const { operations } = operationsOver();
+    const created = await operations.createDocument(me, { folderId: null });
     assert({
-      given: 'a stored "Untitled" and a request for a new document',
-      should: 'title it "Untitled 2", with nothing pre-filled',
-      actual: {
-        title: created.title,
-        revision: created.revision,
-        text: created.html.replace(/<[^>]+>|\s/g, ''),
-        stored: documents.get('doc-new')?.html === created.html,
-      },
-      expected: {
-        title: 'Untitled 2',
-        revision: 1,
-        text: '',
-        stored: true,
-      },
+      given: 'a member creating with no Round involved',
+      should: 'store an empty Untitled document at the first revision',
+      actual: [created.id, created.title, created.revision, created.createdAt],
+      expected: ['doc-new', 'Untitled', 1, NOW],
     });
   });
 
-  test('another person’s debate is not found', async () => {
-    const { operations, documents } = operationsOver();
-    await assertRejects({
-      given: 'a debate that belongs to another actor',
-      should: 'refuse it and store nothing',
-      actual: () =>
-        operations.createDocument(stranger, {
-          roundId: 'debate-1',
-        }),
-      code: 'NOT_FOUND',
-    });
+  test('the name stays unique among what it finds', async () => {
+    const { operations } = operationsOver([stored({ title: 'Untitled' })]);
+    const created = await operations.createDocument(me, { folderId: null });
     assert({
-      given: 'the refused create',
-      should: 'leave the store empty',
-      actual: documents.size,
-      expected: 0,
+      given: 'an Untitled document already there',
+      should: 'name the next one Untitled 2',
+      actual: created.title,
+      expected: 'Untitled 2',
+    });
+  });
+});
+
+describe('search', () => {
+  test('nothing to search for asks nothing', async () => {
+    const { operations } = operationsOver([stored()]);
+    assert({
+      given: 'words that are only punctuation',
+      should: 'find nothing without a query',
+      actual: await operations.search(me, { text: '!?', page: 0 }),
+      expected: [],
     });
   });
 });
@@ -181,15 +174,12 @@ describe('saveDocument', () => {
 
 describe('renameDocument', () => {
   test('a trimmed title within bounds renames', async () => {
-    const { operations } = operationsOver([stored()]);
-    const renamed = await operations.renameDocument(me, {
-      id: 'doc-1',
-      title: '  Plan  ',
-    });
+    const { operations, documents } = operationsOver([stored()]);
+    await operations.renameDocument(me, { id: 'doc-1', title: '  Plan  ' });
     assert({
       given: 'a padded title',
       should: 'store it trimmed and keep the revision',
-      actual: [renamed.title, renamed.revision],
+      actual: [documents.get('doc-1')?.title, documents.get('doc-1')?.revision],
       expected: ['Plan', 1],
     });
   });
@@ -215,6 +205,32 @@ describe('renameDocument', () => {
       should: 'refuse it as not found',
       actual: () => rename('Mine', stranger),
       code: 'NOT_FOUND',
+    });
+  });
+});
+
+describe('moveDocument and deleteDocument', () => {
+  test('reach only the caller’s own', async () => {
+    const { operations, documents } = operationsOver([stored()]);
+    await assertRejects({
+      given: 'a stranger moving a member’s document',
+      should: 'refuse it as not found',
+      actual: () =>
+        operations.moveDocument(stranger, { id: 'doc-1', folderId: null }),
+      code: 'NOT_FOUND',
+    });
+    await assertRejects({
+      given: 'a stranger deleting a member’s document',
+      should: 'refuse it as not found',
+      actual: () => operations.deleteDocument(stranger, { id: 'doc-1' }),
+      code: 'NOT_FOUND',
+    });
+    await operations.deleteDocument(me, { id: 'doc-1' });
+    assert({
+      given: 'the owner deleting it',
+      should: 'delete it',
+      actual: documents.has('doc-1'),
+      expected: false,
     });
   });
 });

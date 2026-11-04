@@ -168,10 +168,10 @@ describe('a draft follows its document', () => {
       api,
       onConflict: () => {},
     });
-    const first = await loadDraftSync({ ...resources(), roundId: 'first' });
+    const first = await loadDraftSync(resources());
     first.change('a', '<p>typed in the first place</p>');
     first.dispose();
-    const second = await loadDraftSync({ ...resources(), roundId: 'second' });
+    const second = await loadDraftSync(resources());
     assert({
       given: 'an unsaved edit made while the document was opened elsewhere',
       should: 'offer it where the document opens next',

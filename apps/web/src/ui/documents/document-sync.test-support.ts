@@ -1,4 +1,7 @@
-import { newDraftCopy, type DraftCopy } from '../../features/documents/document-draft';
+import {
+  newDraftCopy,
+  type DraftCopy,
+} from '../../features/documents/document-draft';
 import { createKeepaliveBudget } from './keepalive-budget';
 import type { DraftStorage } from './document-draft-storage';
 import { createDocumentSync as createOwner } from './document-sync';
@@ -103,7 +106,7 @@ export const draftHtml = (size: number): string =>
 export const listed = (documents: () => readonly StoredDocument[]) => ({
   read: async (ids: readonly string[]) =>
     documents().filter((one) => ids.includes(one.id)),
-  recent: async () => documents().at(-1)?.id ?? null,
+  recent: async () => documents()[0]?.id ?? null,
   allIds: () => documents().map((one) => one.id),
 });
 

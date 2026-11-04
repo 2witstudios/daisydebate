@@ -11,7 +11,7 @@ import {
 } from '@daisy/db/documents';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Database } from '@daisy/db';
-import { participantAccess } from '@daisy/auth';
+import { participantAccess } from '@daisy/auth/authorization';
 import { createAppError, isAppError, type AppError } from '@daisy/errors';
 import {
   createDocument as buildDocument,
@@ -155,7 +155,9 @@ export function createDocumentOperations({
       return {
         entries: page.map(toEntryView),
         next:
-          rows.length > DRIVE_PAGE_SIZE ? cursorOf(page[page.length - 1]!) : null,
+          rows.length > DRIVE_PAGE_SIZE
+            ? cursorOf(page[page.length - 1]!)
+            : null,
       };
     },
 

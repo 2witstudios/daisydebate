@@ -260,6 +260,7 @@ describe('guarded pages', () => {
         '/messages',
         '/notifications',
         '/play',
+        '/prep',
         '/ranked',
         '/rooms',
         '/rounds',

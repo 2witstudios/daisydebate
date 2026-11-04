@@ -1,9 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  initialPersistedWorkspace,
-  reducePersistedWorkspace,
-} from './persisted-workspace';
-import type { MemberDocument } from '../../features/documents/document';
+import { initialManagerState, reduceManager } from './document-manager-state';
+import type { MemberDocument } from './document';
 
 setupRitewayBun();
 const document: MemberDocument = {
@@ -14,11 +11,11 @@ const document: MemberDocument = {
   updatedAt: '2026-10-09T00:00:00.000Z',
 };
 test('persisted workspace loads actual documents and keeps valid active tabs', () => {
-  const loaded = reducePersistedWorkspace(initialPersistedWorkspace, {
+  const loaded = reduceManager(initialManagerState(), {
     type: 'doc/loaded',
     documents: [document],
   });
-  const next = reducePersistedWorkspace(loaded, {
+  const next = reduceManager(loaded, {
     type: 'doc/loaded',
     documents: [{ ...document, html: '<p>latest</p>' }],
   });
@@ -27,17 +24,5 @@ test('persisted workspace loads actual documents and keeps valid active tabs', (
     should: 'open actual identity and adopt stored content',
     actual: [next.tabs.active, next.documents[0]?.html],
     expected: [document.id, '<p>latest</p>'],
-  });
-});
-test('opening workspace ignores competitive floor and fabricated chat actions', () => {
-  const unchanged = reducePersistedWorkspace(initialPersistedWorkspace, {
-    type: 'files/toggle',
-  });
-  assert({
-    given: 'a document workspace in the opening',
-    should:
-      'keep document state unchanged for an unsupported live-round action',
-    actual: unchanged === initialPersistedWorkspace,
-    expected: true,
   });
 });

@@ -82,6 +82,8 @@ export type DocumentSync = {
   readonly recheck: (ids: readonly string[]) => Promise<void>;
   /** The kept text of a deleted document, as a new document. */
   readonly saveAsNew: (id: string) => Promise<StoredDocument | null>;
+  /** A document open here that the server no longer has, or null. */
+  readonly firstGone: () => string | null;
   /** This person deleted it here, so nothing of it stays. */
   readonly forget: (id: string) => void;
   readonly change: (id: string, html: string) => void;
@@ -262,6 +264,7 @@ export function createDocumentSync({
   const markGone = (id: string) => {
     update(id, (d) => ({ ...d, gone: true }));
     publish();
+    for (const listener of listeners) listener();
     onGone(id);
   };
   const conflict = async (id: string, sent: DraftCopy, revision: number) => {
@@ -293,8 +296,7 @@ export function createDocumentSync({
     const result = attemptFailed(doc(id), sent, statusOf(error), delayMs);
     update(id, () => result.document);
     if (result.kind === 'gone') {
-      publish();
-      onGone(id);
+      markGone(id);
       return;
     }
     if (result.kind === 'refused') {
@@ -483,8 +485,7 @@ export function createDocumentSync({
       const documents = await api.read(ids).catch(() => null);
       if (isClosed() || documents === null) return;
       const present = new Set(documents.map((one) => one.id));
-      for (const id of ids)
-        if (!present.has(id) && !doc(id).gone) markGone(id);
+      for (const id of ids) if (!present.has(id) && !doc(id).gone) markGone(id);
     },
     saveAsNew: async (id) => {
       if (isClosed() || !doc(id).gone) return null;
@@ -508,6 +509,7 @@ export function createDocumentSync({
       return { ...created, html: text ?? created.html };
     },
     forget: (id) => forgetDocument(id),
+    firstGone: () => [...state.documents].find(([, d]) => d.gone)?.[0] ?? null,
     create: async (folderId = null) => {
       if (isClosed())
         throw new Error('The document owner is no longer active.');

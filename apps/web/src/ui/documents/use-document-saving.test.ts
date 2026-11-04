@@ -60,7 +60,6 @@ describe('documentSaving', () => {
     const events: SaveEvent[] = [];
     const { timers, fire } = manualTimers();
     const sync = documentSaving(
-      'r',
       'user',
       api(async () => ({ status: 'saved', revision: 2 })),
       (event) => events.push(event),
@@ -87,7 +86,6 @@ describe('documentSaving', () => {
     const events: SaveEvent[] = [];
     const { timers, fire } = manualTimers();
     const sync = documentSaving(
-      'r',
       'user',
       api(async () => {
         throw new Error('offline');
@@ -121,7 +119,8 @@ test('browser resource composition shares exact serialized exit capacity across 
   const api = (id: string) =>
     createDocumentsApi({
       send: async (path, init) => {
-        if (path.endsWith('/list'))
+        if (path.endsWith('/recent')) return Response.json({ id: id });
+        if (path.endsWith('/read'))
           return Response.json({ documents: [stored(id)] });
         sent.push(String(init.body));
         await gate.promise;
@@ -136,8 +135,8 @@ test('browser resource composition shares exact serialized exit capacity across 
   });
   const oneResources = resources(),
     twoResources = resources();
-  const one = documentSaving('r1', 'p', api('a'), () => {}, oneResources);
-  const two = documentSaving('r2', 'p', api('b'), () => {}, twoResources);
+  const one = documentSaving('p', api('a'), () => {}, oneResources);
+  const two = documentSaving('p', api('b'), () => {}, twoResources);
   await one.load();
   await two.load();
   one.change('a', 'é'.repeat(20_000));
@@ -174,7 +173,7 @@ test('refused edits and absent recovery choices leave the real owner state uncha
     create: async () => stored('b'),
     save: async () => ({ status: 'saved', revision: 2 }),
   };
-  const sync = documentSaving('r', 'p', api, (event) => events.push(event), {
+  const sync = documentSaving('p', api, (event) => events.push(event), {
     ...manualDraftResources('use-round-sync.test:3', {
       storage: memoryStorage(),
     }),
@@ -215,7 +214,7 @@ test('a recovery choice remains actionable after newer typing is acknowledged', 
     },
     () => [document],
   );
-  const sync = documentSaving('r', 'p', api, () => {}, {
+  const sync = documentSaving('p', api, () => {}, {
     ...manualDraftResources('use-round-sync.test:4', { storage }),
   });
   await sync.load();
@@ -257,7 +256,7 @@ for (const status of [401, 403] as const)
       () => [stored('a')],
     );
     const events: SaveEvent[] = [];
-    const sync = documentSaving('r', 'p', api, (event) => events.push(event), {
+    const sync = documentSaving('p', api, (event) => events.push(event), {
       ...manualDraftResources(`use-round-sync.test:${status}`, { storage }),
     });
     await sync.load();

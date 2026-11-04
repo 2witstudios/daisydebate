@@ -28,9 +28,11 @@ for (const body of [
 
       api: createDocumentsApi({
         send: async (path) =>
-          path.endsWith('/list')
-            ? Response.json({ documents: [stored('a', 3)] })
-            : Response.json(body),
+          path.endsWith('/recent')
+            ? Response.json({ id: 'a' })
+            : path.endsWith('/read')
+              ? Response.json({ documents: [stored('a', 3)] })
+              : Response.json(body),
       }),
       principalId: 'p',
       onConflict: () => {},
@@ -82,7 +84,8 @@ for (const [index, receipt] of malformed.entries())
 
       api: createDocumentsApi({
         send: async (path, init) => {
-          if (path.endsWith('/list'))
+          if (path.endsWith('/recent')) return Response.json({ id: 'a' });
+          if (path.endsWith('/read'))
             return Response.json({ documents: [stored('a', 3)] });
           requests.push(JSON.parse(String(init.body)).expectedRevision);
           const response = Response.json({});
@@ -118,9 +121,11 @@ test('a valid fresh acknowledgement clears only its active generation', async ()
 
     api: createDocumentsApi({
       send: async (path) =>
-        path.endsWith('/list')
-          ? Response.json({ documents: [stored('a', 3)] })
-          : Response.json({ revision: 4 }),
+        path.endsWith('/recent')
+          ? Response.json({ id: 'a' })
+          : path.endsWith('/read')
+            ? Response.json({ documents: [stored('a', 3)] })
+            : Response.json({ revision: 4 }),
     }),
     principalId: 'p',
     onConflict: () => {},
@@ -151,7 +156,8 @@ test('an invalid acknowledgement after a real commit uses original CAS then rere
 
     api: createDocumentsApi({
       send: async (path, init) => {
-        if (path.endsWith('/list'))
+        if (path.endsWith('/recent')) return Response.json({ id: 'a' });
+        if (path.endsWith('/read'))
           return Response.json({ documents: [server] });
         const input = JSON.parse(String(init.body));
         sent.push(input.expectedRevision);
@@ -221,9 +227,11 @@ for (const body of [
 
       api: createDocumentsApi({
         send: async (path) =>
-          path.endsWith('/list')
-            ? Response.json({ documents: [stored('a', 3)] })
-            : Response.json(body, { status: 409 }),
+          path.endsWith('/recent')
+            ? Response.json({ id: 'a' })
+            : path.endsWith('/read')
+              ? Response.json({ documents: [stored('a', 3)] })
+              : Response.json(body, { status: 409 }),
       }),
       principalId: 'p',
       onConflict: () => {

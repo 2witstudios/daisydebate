@@ -7,7 +7,7 @@ import type { TabsState } from '../../features/documents/open-documents';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import { DocumentEditor } from '../document-editor/document-editor';
-import type { RoomAction } from '../debate-room/room-state';
+import type { ManagerAction } from '../../features/documents/document-manager-state';
 import type { PageTone } from '../document-editor/document-editor';
 
 /** Whether the open files are stored; null where nothing saves. */
@@ -22,7 +22,7 @@ const saveLabels: Readonly<Record<SaveState, string>> = {
 type TabsProps = {
   readonly tabs: readonly { readonly id: string; readonly title: string }[];
   readonly active: string | null;
-  readonly dispatch: Dispatch<RoomAction>;
+  readonly dispatch: Dispatch<ManagerAction>;
   readonly save: SaveState | null;
   readonly leading?: ReactNode;
 };
@@ -99,7 +99,7 @@ export function DocumentPane({
   readonly documents: readonly MemberDocument[];
   readonly tabs: TabsState;
   readonly pages: Readonly<Record<string, PageTone | null>>;
-  readonly dispatch: Dispatch<RoomAction>;
+  readonly dispatch: Dispatch<ManagerAction>;
   readonly onEdit?: ((id: string, html: string) => void) | undefined;
   readonly leading?: ReactNode;
   readonly empty?: ReactNode;

@@ -7,10 +7,7 @@ import {
 } from './document-sync.test-support';
 
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  type DocumentSync,
-  type DocumentsApi,
-} from './document-sync';
+import { type DocumentSync, type DocumentsApi } from './document-sync';
 
 import { createKeepaliveBudget } from './keepalive-budget';
 import { newDraftCopy } from '../../features/documents/document-draft';

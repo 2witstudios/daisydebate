@@ -8,10 +8,7 @@ import {
 } from './document-sync.test-support';
 
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  type DocumentsApi,
-  type SaveResult,
-} from './document-sync';
+import { type DocumentsApi, type SaveResult } from './document-sync';
 
 setupRitewayBun();
 

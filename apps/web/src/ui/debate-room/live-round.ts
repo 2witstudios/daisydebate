@@ -214,7 +214,6 @@ export function liveRoundOf(
     speeches: speechesOf(view),
     ...clocks,
     micLive: phase === 'own-speech' || phase === 'cross-ex',
-    documents: [],
     channels: [{ id: 'round', title: 'round' }],
     messages: [],
     agents: [{ id: 'assistant', title: 'Assistant' }],

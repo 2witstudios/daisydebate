@@ -29,7 +29,8 @@ const stallingServer = () => {
     arrived = resolve;
   });
   const send = async (path: string, init: RequestInit) => {
-    if (path.endsWith('/list'))
+    if (path.endsWith('/recent')) return Response.json({ id: 'a' });
+    if (path.endsWith('/read'))
       return json({ documents: [{ id: 'a', revision: 1 }] });
     const input = JSON.parse(String(init.body)) as {
       html: string;

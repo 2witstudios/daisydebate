@@ -8,7 +8,7 @@ import { documentExtensions } from '../../features/documents/document-schema';
 import type { MemberDocument } from '../../features/documents/document';
 import type { DocumentSync, DraftOffer } from './document-sync';
 import type { DraftCopy } from '../../features/documents/document-draft';
-import type { RoomAction } from '../debate-room/room-state';
+import type { ManagerAction } from '../../features/documents/document-manager-state';
 
 /** The same constrained schema as the editor; stored HTML is never injected into the page. */
 function RecoveryPreview({
@@ -130,6 +130,30 @@ function RecoveredDraft({
   );
 }
 
+/** A document deleted elsewhere while open here: the text stays until the person chooses. */
+function DeletedDocumentNotice({
+  title,
+  saveAsNew,
+}: {
+  readonly title: string;
+  readonly saveAsNew: () => void;
+}) {
+  return (
+    <div role="alert" className="flex items-center gap-3 p-3 text-sm">
+      <p className="min-w-0 flex-1">
+        {title} was deleted. Your text is still here.
+      </p>
+      <button
+        type="button"
+        onClick={saveAsNew}
+        className="h-room-target cursor-pointer rounded-sm bg-accent px-3 font-strong text-accent-ink"
+      >
+        Save as a new document
+      </button>
+    </div>
+  );
+}
+
 const noOffers: readonly DraftOffer[] = [];
 
 /** The sync owner projects the durable offers; UI state cannot retain a consumed copy. */
@@ -140,15 +164,39 @@ export function RecoveredDrafts({
 }: {
   readonly documents: readonly MemberDocument[];
   readonly sync: DocumentSync;
-  readonly dispatch: Dispatch<RoomAction>;
+  readonly dispatch: Dispatch<ManagerAction>;
 }) {
   const offers = useSyncExternalStore(
     sync.subscribe,
     sync.recoveryOffers,
     () => noOffers,
   );
+  const gone = useSyncExternalStore(sync.subscribe, sync.firstGone, () => null);
   return (
     <>
+      {gone ? (
+        <DeletedDocumentNotice
+          title={
+            documents.find((one) => one.id === gone)?.title ?? 'This document'
+          }
+          saveAsNew={() => {
+            void sync.saveAsNew(gone).then((created) => {
+              if (!created) return;
+              dispatch({ type: 'drive/remove', id: gone });
+              dispatch({ type: 'doc/add', document: created });
+              dispatch({
+                type: 'drive/add',
+                folderId: null,
+                entry: {
+                  kind: 'document',
+                  id: created.id,
+                  title: created.title,
+                },
+              });
+            });
+          }}
+        />
+      ) : null}
       {offers.map((offer) => {
         const document = documents.find((item) => item.id === offer.documentId);
         if (!document) return null;

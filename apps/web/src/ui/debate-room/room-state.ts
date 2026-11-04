@@ -1,20 +1,18 @@
 import { markRead, type ChatMessage } from '../../features/debate-room/chat';
-import type { PageTone } from '../document-editor/document-editor';
 import { applyProposal } from '../../features/documents/document-edits';
 import {
-  createDocument,
-  adoptServerText,
   updateDocumentHtml,
   type MemberDocument,
 } from '../../features/documents/document';
+import { openTab } from '../../features/documents/open-documents';
 import {
-  activateTab,
-  loadWorkspaceDocuments,
-  appendWorkspaceDocument,
-  closeTab,
-  openTab,
-  type TabsState,
-} from '../../features/documents/open-documents';
+  initialManagerState,
+  isManagerAction,
+  reduceManager,
+  type ManagerAction,
+  type ManagerState,
+  type PageTone,
+} from '../../features/documents/document-manager-state';
 import {
   sidebarTabs,
   type PhonePanel,
@@ -25,9 +23,7 @@ import type { RoundSnapshot } from './round';
 
 export type EditOutcome = 'applied' | 'discarded';
 
-export type RoomState = {
-  readonly tabs: TabsState;
-  readonly documents: readonly MemberDocument[];
+export type RoomState = ManagerState & {
   /** The right sidebar's tab; it never closes on its own. */
   readonly sidebar: SidebarTab;
   /** The Files sidebar on a wide screen; open by default. */
@@ -40,37 +36,10 @@ export type RoomState = {
   readonly messages: readonly ChatMessage[];
   readonly readMarkers: Readonly<Record<string, string>>;
   readonly edits: Readonly<Record<string, EditOutcome>>;
-  readonly paletteOpen: boolean;
-  /** A viewer's page tone per document; one not listed follows their theme. */
-  readonly pages: Readonly<Record<string, PageTone | null>>;
 };
 
 export type RoomAction =
-  | { readonly type: 'tabs/open'; readonly id: string }
-  | { readonly type: 'tabs/activate'; readonly id: string }
-  | { readonly type: 'tabs/close'; readonly id: string }
-  | {
-      readonly type: 'doc/create';
-      readonly id: string;
-      readonly now: string;
-    }
-  | {
-      readonly type: 'doc/update';
-      readonly id: string;
-      readonly html: string;
-      readonly now: string;
-    }
-  | {
-      readonly type: 'doc/server-text';
-      readonly id: string;
-      readonly html: string;
-      readonly now: string;
-    }
-  | {
-      readonly type: 'doc/loaded';
-      readonly documents: readonly MemberDocument[];
-    }
-  | { readonly type: 'doc/add'; readonly document: MemberDocument }
+  | ManagerAction
   | { readonly type: 'sidebar/tab'; readonly tab: SidebarTab }
   | { readonly type: 'files/toggle' }
   | { readonly type: 'phone/panel'; readonly panel: PhonePanel }
@@ -89,19 +58,11 @@ export type RoomAction =
       readonly removed: readonly string[];
       readonly added: readonly string[];
       readonly now: string;
-    }
-  | { readonly type: 'palette/open' }
-  | { readonly type: 'palette/close' }
-  | {
-      readonly type: 'page/tone';
-      readonly documentId: string;
-      readonly tone: PageTone | null;
     };
 
 export function initialRoomState(round: RoundSnapshot): RoomState {
   return {
-    tabs: { open: [], active: null },
-    documents: round.documents,
+    ...initialManagerState(),
     sidebar: 'transcript',
     filesOpen: true,
     phone: 'doc',
@@ -110,8 +71,6 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
     messages: round.messages,
     readMarkers: {},
     edits: {},
-    paletteOpen: false,
-    pages: {},
   };
 }
 
@@ -143,37 +102,9 @@ type Reducer<T extends RoomAction['type']> = (
   action: Extract<RoomAction, { type: T }>,
 ) => RoomState;
 
-const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
-  'tabs/open': (s, a) => ({
-    ...s,
-    tabs: openTab(s.tabs, a.id),
-    phone: fromFiles(s.phone),
-  }),
-  'tabs/activate': (s, a) => ({ ...s, tabs: activateTab(s.tabs, a.id) }),
-  'tabs/close': (s, a) => ({ ...s, tabs: closeTab(s.tabs, a.id) }),
-  'doc/create': (s, a) => {
-    const doc = createDocument({
-      id: a.id,
-      now: a.now,
-      existingTitles: s.documents.map((d) => d.title),
-    });
-    return {
-      ...s,
-      documents: [...s.documents, doc],
-      tabs: openTab(s.tabs, doc.id),
-      phone: fromFiles(s.phone),
-      paletteOpen: false,
-    };
-  },
-  'doc/update': (s, a) =>
-    withDocument(s, a.id, (doc) => updateDocumentHtml(doc, a.html, a.now)),
-  'doc/server-text': (s, a) =>
-    withDocument(s, a.id, (doc) => adoptServerText(doc, a.html, a.now)),
-  'doc/loaded': (s, a) => loadWorkspaceDocuments(s, a.documents),
-  'doc/add': (s, a) => ({
-    ...appendWorkspaceDocument(s, a.document),
-    phone: fromFiles(s.phone),
-  }),
+type RoundAction = Exclude<RoomAction, ManagerAction>;
+
+const reducers: { readonly [T in RoundAction['type']]: Reducer<T> } = {
   'sidebar/tab': (s, a) => ({ ...s, sidebar: a.tab }),
   'files/toggle': (s) => ({ ...s, filesOpen: !s.filesOpen }),
   'phone/panel': (s, a) => {
@@ -197,17 +128,17 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     );
     return { ...applied, tabs: openTab(applied.tabs, a.documentId) };
   },
-  'palette/open': (s) => ({ ...s, paletteOpen: true }),
-  'palette/close': (s) => ({ ...s, paletteOpen: false }),
-  'page/tone': (s, a) => ({
-    ...s,
-    pages: { ...s.pages, [a.documentId]: a.tone },
-  }),
 };
 
 /** The room's one transition: every change a debater makes goes through it. */
 export function reduceRoom(state: RoomState, action: RoomAction): RoomState {
-  return (reducers[action.type] as Reducer<typeof action.type>)(
+  if (isManagerAction(action)) {
+    const next = reduceManager(state, action);
+    return action.type === 'tabs/open' || action.type === 'doc/add'
+      ? { ...next, phone: fromFiles(next.phone) }
+      : next;
+  }
+  return (reducers[action.type] as Reducer<RoundAction['type']>)(
     state,
     action as never,
   );

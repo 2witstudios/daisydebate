@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import { FileTree } from '../documents/file-tree';
+import type { DriveActions } from '../documents/use-drive';
 import { RoomDetails } from './room-details';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
@@ -50,12 +51,14 @@ export function FilesSidebar({
   state,
   dispatch,
   onNew,
+  drive,
   phoneClass,
 }: {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
   readonly onNew: () => void;
+  readonly drive: DriveActions;
   /** Hides the sidebar on a phone unless its tab is showing. */
   readonly phoneClass: string | false;
 }) {
@@ -93,9 +96,10 @@ export function FilesSidebar({
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-3">
         <FileTree
-          documents={state.documents}
+          tree={state.drive}
           active={state.tabs.active}
           dispatch={dispatch}
+          drive={drive}
         />
       </div>
       <details className="shrink-0 border-t border-border max-compact:hidden">

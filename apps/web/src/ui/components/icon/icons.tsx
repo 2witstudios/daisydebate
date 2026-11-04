@@ -221,6 +221,9 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
     </>
   ),
+  folder: (
+    <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
+  ),
   file: (
     <>
       <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
