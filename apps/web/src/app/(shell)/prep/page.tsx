@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { idSchema } from '@daisy/protocol';
 import { redirect } from 'next/navigation';
 import type { SearchParams } from '../../../features/access/decision';
 import { driveNoticeText } from '../../../features/documents/drive-return';
@@ -30,6 +31,12 @@ export default async function PrepPage({
       title="Prep"
       initial={{ folderId: null, ...page, folders }}
       notice={driveNoticeText(params.notice)}
+      openId={
+        typeof params.open === 'string' &&
+        idSchema.safeParse(params.open).success
+          ? params.open
+          : null
+      }
     />
   );
 }

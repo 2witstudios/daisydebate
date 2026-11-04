@@ -475,7 +475,7 @@ test('an exit save landing after the next page listed moves the editor, with no 
       html: expect.stringMatching(/Landed after the list[\s\S]*First:/),
       revision: revision + 2,
     });
-  await expect(page.getByText('A newer save of this file')).toHaveCount(0);
+  await expect(page.getByText('A newer save of this document')).toHaveCount(0);
 });
 
 test('adopted text keeps the caret in its words and Undo cannot leave it', async ({
@@ -556,7 +556,7 @@ test('typing while a late commit lands keeps the text and the caret, and overwri
   await page.clock.runFor(3_000);
   await page.keyboard.type(' still here');
   await expect(editor).toContainText('Typing live still here');
-  await expect(page.getByText('A newer save of this file')).toBeVisible();
+  await expect(page.getByText('A newer save of this document')).toBeVisible();
   const server = await serverDocument(page, roundId, documentId);
   expect(server.revision).toBe(revision + 1);
   expect(server.html).toContain('Landed under the typing');
@@ -633,7 +633,7 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
   const shell = await openPage(
     page.context(),
-    'native sign-out for Round notes',
+    'native sign-out for document drafts',
   );
   await shell.goto(`${origin}/settings`);
   await shell.getByLabel(/^Your account,/).click();
@@ -780,7 +780,7 @@ test('after a lost exit save, conflict state stays true through typing, Restore 
   expect(elsewhere.status()).toBe(200);
   const conflict = page
     .getByRole('alert')
-    .filter({ hasText: 'A newer save of this file arrived.' });
+    .filter({ hasText: 'A newer save of this document arrived.' });
   await edit(page, 'Typed into the conflict');
   await expect(conflict).toBeVisible();
   await edit(page, 'Typed again into the conflict');
@@ -1059,7 +1059,7 @@ test('two real editor tabs preserve a stale conflict until explicit recovery', a
   await expect(
     other
       .getByRole('alert')
-      .filter({ hasText: 'A newer save of this file arrived.' }),
+      .filter({ hasText: 'A newer save of this document arrived.' }),
   ).toBeVisible();
   expect((await serverDocument(page, roundId, documentId)).html).toContain(
     'Accepted first-tab text',

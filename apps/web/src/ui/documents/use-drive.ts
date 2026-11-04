@@ -127,6 +127,11 @@ export function useDrive({
   };
 
   const treeFolder = (id: string | null) => (id === rootFolderId ? null : id);
+  /** A move leaves this page's tree when it goes above the folder the page opened at. */
+  const moved = (id: string, target: string | null) =>
+    target === null && rootFolderId !== null
+      ? dispatch({ type: 'drive/remove', id })
+      : dispatch({ type: 'drive/move', id, folderId: treeFolder(target) });
 
   const change: DriveActions['change'] = (path, fields) => {
     if (path === 'create') return createDocument(orNull(fields.folderId));
@@ -152,24 +157,13 @@ export function useDrive({
             label: (fields.title ?? fields.name ?? '').trim(),
             now: systemClock.now(),
           });
-        else if (path === 'move')
-          dispatch({
-            type: 'drive/move',
-            id,
-            folderId: treeFolder(orNull(fields.folderId)),
-          });
+        else if (path === 'move') moved(id, orNull(fields.folderId));
         else if (path === 'folders/move')
-          dispatch({
-            type: 'drive/move',
-            id,
-            folderId: treeFolder(orNull(fields.parentFolderId)),
-          });
+          moved(id, orNull(fields.parentFolderId));
         else if (path === 'delete') {
           sync?.forget(id);
           dispatch({ type: 'drive/remove', id });
-        } else if (path === 'folders/delete')
-          dispatch({ type: 'drive/remove', id });
-        else if (path === 'folders/create' && answer.folder) {
+        } else if (path === 'folders/create' && answer.folder) {
           dispatch({
             type: 'drive/add',
             folderId: treeFolder(orNull(fields.parentFolderId)),

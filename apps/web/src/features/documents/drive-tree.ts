@@ -52,13 +52,13 @@ const labelOf = (node: DriveNode) =>
   node.kind === 'folder' ? node.name : node.title;
 
 /** Folders first, then documents, each by name, as the server lists them. */
+const compare = (a: DriveNode, b: DriveNode) =>
+  Number(a.kind === 'document') - Number(b.kind === 'document') ||
+  (labelOf(a) < labelOf(b) ? -1 : labelOf(a) > labelOf(b) ? 1 : 0) ||
+  (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const ordered = (entries: readonly DriveNode[]): readonly DriveNode[] =>
-  [...entries].sort(
-    (a, b) =>
-      Number(a.kind === 'document') - Number(b.kind === 'document') ||
-      (labelOf(a) < labelOf(b) ? -1 : labelOf(a) > labelOf(b) ? 1 : 0) ||
-      (a.id < b.id ? -1 : 1),
-  );
+  [...entries].sort(compare);
+const isAfter = (node: DriveNode, other: DriveNode) => compare(node, other) > 0;
 
 const inContents = (
   contents: FolderContents,
@@ -113,6 +113,12 @@ export const withPage = (
   changeFolder(tree, folderId, (contents) => {
     const held = contents.state === 'read' ? contents.entries : [];
     const known = page.first ? [] : held;
+    // Listing the first page again keeps what later pages showed beyond it.
+    const last = page.entries.at(-1);
+    const beyond =
+      page.first && page.next !== null && last && contents.state === 'read'
+        ? held.filter((node) => isAfter(node, nodeOf(last)))
+        : [];
     const seen = new Set(known.map((node) => node.id));
     // A folder listed again keeps what is read and open inside it.
     const listed = (entry: DriveEntryView): DriveNode => {
@@ -124,10 +130,14 @@ export const withPage = (
     };
     return {
       state: 'read',
-      next: page.next,
+      next:
+        beyond.length > 0 && contents.state === 'read'
+          ? contents.next
+          : page.next,
       entries: [
         ...known,
         ...page.entries.filter((e) => !seen.has(e.id)).map(listed),
+        ...beyond,
       ],
     };
   });

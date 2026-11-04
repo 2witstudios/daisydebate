@@ -138,3 +138,45 @@ test('a document made at /prep is found and edited during prep in a live Round',
 test('the same journey on a phone', async ({ browser }) => {
   await journey(browser, { width: 390, height: 844 });
 });
+
+test('a document deleted in another tab keeps its text and saves as new', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const context = accounts.members[0]!.context;
+  const text = `kept${createId().slice(0, 10)}`;
+  try {
+    const page = await openPage(context, 'the open document');
+    await page.goto(`${origin}/prep`);
+    await page
+      .getByRole('button', { name: 'New document', exact: true })
+      .click();
+    await typeInto(page, 'Untitled', text);
+    const id = (await page.request
+      .post('/api/documents/recent', { headers: { origin }, data: {} })
+      .then((response) => response.json())) as { id: string };
+    const deleted = await page.request.post('/api/documents/delete', {
+      headers: { origin },
+      data: { id: id.id },
+    });
+    expect(deleted.status()).toBe(200);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(page.getByText('was deleted', { exact: false })).toBeVisible();
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toContainText(text);
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/documents/save') && response.ok(),
+    );
+    await page.getByRole('button', { name: 'Save as a new document' }).click();
+    await saved;
+    await page.reload();
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toContainText(text);
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});

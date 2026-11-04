@@ -19,6 +19,7 @@ import {
   type MemberDocument,
 } from './document';
 import type { DriveCursor, DriveEntryView } from './drive-tree';
+import { blockText } from './document-edits';
 import { normalizeDocumentHtml } from './normalize-html';
 import { documentSearchQuery } from './search-query';
 
@@ -194,11 +195,13 @@ export function createDocumentOperations({
     ): Promise<readonly DocumentSearchHit[]> {
       const query = documentSearchQuery(input.text);
       if (query === null) return [];
-      return store.searchDocuments({
+      const hits = await store.searchDocuments({
         ownerActorId: principal.actorId,
         query,
         offset: input.page * DOCUMENT_SEARCH_PAGE,
       });
+      // The snippet is cut from stored HTML, so it shows as words, not markup.
+      return hits.map((hit) => ({ ...hit, snippet: blockText(hit.snippet) }));
     },
 
     async createDocument(

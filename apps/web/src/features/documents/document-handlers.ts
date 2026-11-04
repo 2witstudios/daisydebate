@@ -1,7 +1,7 @@
 import { idSchema } from '@daisy/protocol';
 import { isAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { parseValidated, readJson } from '../../server/http';
+import { parseValidated, readBytes, readJson } from '../../server/http';
 import {
   runMemberRoute,
   type BudgetedMemberBoundary,
@@ -25,7 +25,12 @@ const folderChoice = z.preprocess(
   (value) => (value === '' || value === undefined ? null : value),
   idSchema.nullable(),
 );
-const label = z.string().max(400);
+/** Postgres refuses U+0000 and no name needs a control character. */
+const label = z
+  .string()
+  .max(400)
+  // eslint-disable-next-line no-control-regex
+  .regex(/^[^\u0000-\u001f\u007f]*$/);
 
 const schemas = {
   list: z.object({
@@ -33,7 +38,7 @@ const schemas = {
     after: z
       .object({
         kind: z.enum(['folder', 'document']),
-        label: z.string().max(400),
+        label,
         id: idSchema,
       })
       .nullable(),
@@ -148,8 +153,8 @@ export function createDocumentHandlers(dependencies: Dependencies) {
       schema: z.ZodType<T>,
       run: (principal: DocumentPrincipal, body: T) => Promise<unknown>,
     ) =>
-    (request: Request) =>
-      runMemberRoute(
+    async (request: Request) => {
+      const response = await runMemberRoute(
         dependencies,
         request,
         {
@@ -169,7 +174,9 @@ export function createDocumentHandlers(dependencies: Dependencies) {
             });
           }
           const form = new URLSearchParams(
-            (await request.text()).slice(0, SMALL_BODY_BYTES),
+            new TextDecoder().decode(
+              await readBytes(request, SMALL_BODY_BYTES),
+            ),
           );
           const back = returnPath(form.get('back'));
           try {
@@ -185,6 +192,12 @@ export function createDocumentHandlers(dependencies: Dependencies) {
           }
         },
       );
+      // A gate or the rate limit refused a plain form before it was read: a person
+      // without script gets a page and a fixed notice, never raw JSON.
+      return isForm(request) && response.status >= 400 && response.status < 500
+        ? seeOther('/prep?notice=refused')
+        : response;
+    };
   const ops = () => dependencies.operations();
   return {
     list: {

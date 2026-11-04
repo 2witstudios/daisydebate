@@ -14,6 +14,10 @@ import {
 import {
   acknowledged,
   activeOffered,
+  adoptsLateCommit,
+  isConflicted,
+  isGone,
+  keptText,
   attemptFailed,
   closed,
   conflictOutcome,
@@ -109,6 +113,8 @@ const statusOf = (error: unknown): number | null => {
   return typeof status === 'number' ? status : null;
 };
 const LATE_COMMIT_RECHECK_MS = 2000;
+/** The most bodies one read may ask for; a test holds it to the route's. */
+export const READ_CHUNK = 16;
 const LONGEST_TIMER_MS = 2 ** 31 - 1;
 
 /**
@@ -262,7 +268,7 @@ export function createDocumentSync({
     idle(id);
   };
   const markGone = (id: string) => {
-    update(id, (d) => ({ ...d, gone: true }));
+    update(id, (d) => ({ ...d, hold: { kind: 'gone' } }));
     publish();
     for (const listener of listeners) listener();
     onGone(id);
@@ -286,7 +292,7 @@ export function createDocumentSync({
     if (settled !== previous.record) write(id, previous, settled, wallClock());
     update(id, (d) => ({
       ...d,
-      conflict: { latestRevision: outcome.latestRevision },
+      hold: { kind: 'conflict', latestRevision: outcome.latestRevision },
     }));
     publish();
     onConflict(id);
@@ -331,7 +337,7 @@ export function createDocumentSync({
     } finally {
       reservation?.release();
     }
-    if (answered && !isClosed() && doc(id).pending && !doc(id).conflict)
+    if (answered && !isClosed() && doc(id).pending && !isConflicted(doc(id)))
       await attempt(id, false);
   }
   function saveNow(id: string, keepalive = false): Promise<void> {
@@ -401,22 +407,24 @@ export function createDocumentSync({
   };
   const reconcileLateCommits = async (offeredAtLoad: ReadonlySet<string>) => {
     if (isClosed()) return;
-    const documents = await api.read([...offeredAtLoad]).catch(() => null);
+    const documents = await readAll([...offeredAtLoad]).catch(() => null);
     if (isClosed() || documents === null) return;
     const now = wallClock();
     for (const one of documents) {
-      if (doc(one.id).pending || doc(one.id).conflict) continue;
+      if (doc(one.id).pending || isConflicted(doc(one.id))) continue;
       const previous = read(one.id, now);
       const settled = settledBy(previous.record, one.html);
       if (settled !== previous.record) write(one.id, previous, settled, now);
       // The offered text committed late, or an acknowledgement already cleared
       // it, and nothing here is pending, so the editor adopts the server's text.
-      // The revision and the visible text only move together: moving the revision
-      // alone would let the next edit overwrite the commit.
-      const committed =
-        settled !== previous.record ||
-        (offeredAtLoad.has(one.id) && draftCopies(settled).length === 0);
-      if (committed && one.revision > (doc(one.id).revision ?? -1)) {
+      const committed = adoptsLateCommit(
+        doc(one.id),
+        one,
+        settled !== previous.record,
+        offeredAtLoad.has(one.id),
+        settled,
+      );
+      if (committed) {
         remember([one]);
         for (const listener of serverTextListeners) listener(one.id, one.html);
       }
@@ -434,6 +442,15 @@ export function createDocumentSync({
       if (offered !== previous.record) write(one.id, previous, offered, now);
     }
   };
+  /** A read holds at most READ_CHUNK ids; a browser's sixteen drafts plus the last edited do not fit. */
+  async function readAll(
+    ids: readonly string[],
+  ): Promise<readonly StoredDocument[]> {
+    const chunks: (readonly string[])[] = [];
+    for (let at = 0; at < ids.length; at += READ_CHUNK)
+      chunks.push(ids.slice(at, at + READ_CHUNK));
+    return (await Promise.all(chunks.map((chunk) => api.read(chunk)))).flat();
+  }
   const forgetDocument = (id: string) => {
     timers.clear(handles.get(id));
     handles.delete(id);
@@ -447,6 +464,7 @@ export function createDocumentSync({
       ),
     };
     publish();
+    idle(id);
   };
   return {
     load: async () => {
@@ -455,7 +473,7 @@ export function createDocumentSync({
       const ids = [
         ...new Set([...drafts.documentIds(), ...(recent ? [recent] : [])]),
       ];
-      const documents = ids.length > 0 ? await api.read(ids) : [];
+      const documents = await readAll(ids);
       if (isClosed()) return [];
       adopt(documents);
       publish();
@@ -482,14 +500,15 @@ export function createDocumentSync({
     },
     recheck: async (ids) => {
       if (isClosed() || ids.length === 0) return;
-      const documents = await api.read(ids).catch(() => null);
+      const documents = await readAll(ids).catch(() => null);
       if (isClosed() || documents === null) return;
       const present = new Set(documents.map((one) => one.id));
-      for (const id of ids) if (!present.has(id) && !doc(id).gone) markGone(id);
+      for (const id of ids)
+        if (!present.has(id) && !isGone(doc(id))) markGone(id);
     },
     saveAsNew: async (id) => {
-      if (isClosed() || !doc(id).gone) return null;
-      const text = doc(id).pending?.html;
+      if (isClosed() || !isGone(doc(id))) return null;
+      const text = keptText(doc(id));
       const created = await api.create({ folderId: null });
       if (isClosed()) return null;
       remember([created]);
@@ -509,7 +528,8 @@ export function createDocumentSync({
       return { ...created, html: text ?? created.html };
     },
     forget: (id) => forgetDocument(id),
-    firstGone: () => [...state.documents].find(([, d]) => d.gone)?.[0] ?? null,
+    firstGone: () =>
+      [...state.documents].find(([, d]) => isGone(d))?.[0] ?? null,
     create: async (folderId = null) => {
       if (isClosed())
         throw new Error('The document owner is no longer active.');
@@ -532,7 +552,7 @@ export function createDocumentSync({
       });
       update(id, (d) => edited(d, copy));
       persist(id, copy);
-      if (doc(id).conflict) {
+      if (isConflicted(doc(id))) {
         // Nothing sends until the conflict resolves, so never claim "saving".
         onConflict(id);
         return;
@@ -545,7 +565,9 @@ export function createDocumentSync({
       const previous = currentOffer(id, generation);
       // Restore is the explicit choice that resolves a conflict: it saves
       // against the fresh server revision, through the ordinary CAS.
-      const revision = doc(id).conflict?.latestRevision ?? doc(id).revision;
+      const held = doc(id).hold;
+      const revision =
+        held?.kind === 'conflict' ? held.latestRevision : doc(id).revision;
       if (!previous || revision === undefined) return null;
       const proposal = restoreDraftRecord(previous.record, {
         generation,

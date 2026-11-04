@@ -11,6 +11,7 @@ import {
   nextSend,
   offersOf,
   savingDocument,
+  serverRead,
   withDocument,
 } from './document-saving';
 
@@ -30,15 +31,35 @@ describe('nextSend', () => {
       actual: [
         nextSend(read),
         nextSend({ ...blank, pending: one }),
-        nextSend({ ...read, pending: one, refusedGeneration: 'one' }),
         nextSend({
           ...read,
           pending: one,
-          conflict: { latestRevision: 2 },
+          hold: { kind: 'refused', generation: 'one' },
+        }),
+        nextSend({
+          ...read,
+          pending: one,
+          hold: { kind: 'conflict', latestRevision: 2 },
         }),
         nextSend({ ...read, pending: one }),
       ],
       expected: [null, null, null, null, { sent: one, expectedRevision: 1 }],
+    });
+  });
+});
+
+describe('serverRead', () => {
+  test('a pending edit keeps the revision it was based on', () => {
+    const one = copy('one');
+    assert({
+      given: 'a read at a newer revision, with and without a pending edit',
+      should: 'move the revision only when nothing is pending',
+      actual: [
+        serverRead({ ...read, pending: one }, { html: 'x', revision: 9 })
+          .revision,
+        serverRead(read, { html: 'x', revision: 9 }).revision,
+      ],
+      expected: [1, 9],
     });
   });
 });
@@ -131,12 +152,8 @@ describe('attemptFailed', () => {
     assert({
       given: 'a save the server refuses for good',
       should: 'stop that generation and keep its text',
-      actual: [
-        result.kind,
-        result.document.refusedGeneration,
-        result.document.pending,
-      ],
-      expected: ['refused', 'sent', sent],
+      actual: [result.kind, result.document.hold, result.document.pending],
+      expected: ['refused', { kind: 'refused', generation: 'sent' }, sent],
     });
   });
 
@@ -193,7 +210,7 @@ describe('the whole state', () => {
         idleSignal(
           withDocument(typing, 'a', (d) => ({
             ...d,
-            conflict: { latestRevision: 2 },
+            hold: { kind: 'conflict', latestRevision: 2 },
           })),
         ).kind,
         idleSignal(initialSaving).kind,

@@ -26,8 +26,7 @@ export type DriveChange =
   | 'create'
   | 'folders/create'
   | 'folders/rename'
-  | 'folders/move'
-  | 'folders/delete';
+  | 'folders/move';
 
 const REQUEST_TIMEOUT_MS = 15_000;
 

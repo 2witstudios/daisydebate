@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import {
   initialManagerState,
   reduceManager,
@@ -42,8 +42,11 @@ export function DocumentManager({
   initial = null,
   title = 'Your files',
   notice: pageNotice = null,
+  openId = null,
 }: {
   readonly principalId: string;
+  /** A document a link asked to open. */
+  readonly openId?: string | null;
   readonly back: string;
   readonly initial?: InitialDrive | null;
   readonly title?: string;
@@ -58,6 +61,7 @@ export function DocumentManager({
       initial={initial}
       title={title}
       pageNotice={pageNotice}
+      openId={openId}
     />
   );
 }
@@ -71,7 +75,9 @@ export function ManagerWorkspace({
   initial = null,
   title,
   pageNotice = null,
+  openId = null,
 }: {
+  readonly openId?: string | null;
   readonly sync: DocumentSync;
   readonly notice: string | null;
   readonly save: SaveState;
@@ -107,6 +113,12 @@ export function ManagerWorkspace({
     listRoot: initial === null,
   });
   usePaletteShortcut(dispatch);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (openId === null || opened.current) return;
+    opened.current = true;
+    drive.open(openId);
+  });
   const choose = (choice: PaletteChoice) => {
     if (choice.kind === 'open') drive.open(choice.documentId);
     else drive.createDocument(initial?.folderId ?? null);
@@ -118,6 +130,12 @@ export function ManagerWorkspace({
       className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 pb-8"
     >
       <h2 className="text-lg font-bold">{title}</h2>
+      <noscript>
+        <p>
+          You can organize your documents here without JavaScript. Editing one
+          needs it.
+        </p>
+      </noscript>
       {(problem ?? notice ?? pageNotice) ? (
         <p role="alert">{problem ?? notice ?? pageNotice}</p>
       ) : null}
@@ -154,6 +172,7 @@ export function ManagerWorkspace({
             documents={state.documents}
             sync={sync}
             dispatch={dispatch}
+            inFolderPage={(initial?.folderId ?? null) !== null}
           />
           <DocumentPane
             documents={state.documents}

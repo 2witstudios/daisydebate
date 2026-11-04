@@ -26,3 +26,28 @@ test('persisted workspace loads actual documents and keeps valid active tabs', (
     expected: [document.id, '<p>latest</p>'],
   });
 });
+
+test('a document opened before the load answers keeps its tab', () => {
+  const clicked = { ...document, id: 'c'.repeat(24), title: 'Clicked' };
+  const opened = reduceManager(initialManagerState(), {
+    type: 'doc/add',
+    document: clicked,
+  });
+  const loaded = reduceManager(opened, {
+    type: 'doc/loaded',
+    documents: [document],
+  });
+  assert({
+    given: 'a click that beat the load',
+    should: 'keep the clicked document open and active',
+    actual: [loaded.tabs.active, loaded.documents.length],
+    expected: [clicked.id, 2],
+  });
+  const withdrawn = reduceManager(loaded, { type: 'doc/withdrawn' });
+  assert({
+    given: 'the owner closing',
+    should: 'leave nothing on screen',
+    actual: withdrawn.documents.length,
+    expected: 0,
+  });
+});

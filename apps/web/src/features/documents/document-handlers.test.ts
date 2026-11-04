@@ -145,6 +145,44 @@ describe('document routes', () => {
     });
   });
 
+  test('a form body is bounded as it is read, and a refused form gets a page', async () => {
+    const { handlers } = handlersWith();
+    const form = (body: string) =>
+      new Request(`${ORIGIN}/api/documents/x`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: ORIGIN,
+        },
+        body,
+      });
+    const large = await handlers.rename.POST(form('x'.repeat(4 * 1024 * 1024)));
+    const anonymous = handlersWith({
+      identity: { state: 'anonymous', principal: { kind: 'anonymous' } },
+    });
+    const refused = await anonymous.handlers.rename.POST(form(`id=${DOC}`));
+    assert({
+      given: 'a form far past the limit, and one with no session',
+      should:
+        'not read the first past its bound, and answer the second with a page',
+      actual: [large.status, refused.status, refused.headers.get('location')],
+      expected: [303, 303, '/prep?notice=refused'],
+    });
+  });
+
+  test('a control character in a name is refused as invalid', async () => {
+    const { handlers, calls } = handlersWith();
+    const answer = await handlers.rename.POST(
+      post({ id: DOC, title: 'a\u0000b' }),
+    );
+    assert({
+      given: 'a title holding U+0000',
+      should: 'refuse it before any operation',
+      actual: [answer.status, calls.length],
+      expected: [400, 0],
+    });
+  });
+
   test('a save answers its revision, or 409 with the current one', async () => {
     const saved = handlersWith();
     const stale = handlersWith({

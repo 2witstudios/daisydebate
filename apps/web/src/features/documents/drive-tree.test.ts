@@ -90,6 +90,33 @@ describe('the other transitions', () => {
     });
   });
 
+  test('listing the first page again keeps later pages', () => {
+    const after = { kind: 'document', label: 'b', id: 'b' } as const;
+    const two = withPage(
+      withPage(emptyDrive, null, {
+        entries: [doc('a')],
+        next: { kind: 'document', label: 'a', id: 'a' },
+        first: true,
+      }),
+      null,
+      { entries: [doc('b')], next: after, first: false },
+    );
+    const again = withPage(two, null, {
+      entries: [doc('a')],
+      next: { kind: 'document', label: 'a', id: 'a' },
+      first: true,
+    });
+    assert({
+      given: 'two pages read, then the first listed again on focus',
+      should: 'keep the second page and where it resumes',
+      actual: [
+        shapeOf(again),
+        again.contents.state === 'read' && again.contents.next,
+      ],
+      expected: [['a', 'b'], after],
+    });
+  });
+
   test('a later page extends and never repeats a row', () => {
     const first = page(emptyDrive, null, doc('a'));
     const later = withPage(first, null, {

@@ -31,6 +31,16 @@ export type DraftOffer = {
   readonly serverHtml: string;
 };
 
+/**
+ * What stops a document saving. A conflict holds the server's newest revision
+ * once read. Gone means the server no longer has it, and the text is kept. A
+ * refusal stops only that generation, so a newer edit may still send.
+ */
+export type SavingHold =
+  | { readonly kind: 'conflict'; readonly latestRevision: number }
+  | { readonly kind: 'gone' }
+  | { readonly kind: 'refused'; readonly generation: string };
+
 /** Everything one owner knows about saving one document. */
 export type SavingDocument = {
   /** Undefined until the server's revision is read; nothing saves before that. */
@@ -43,12 +53,8 @@ export type SavingDocument = {
   /** Generations this owner wrote that its next acknowledgement replaces. */
   readonly ownEarlier: readonly string[];
   readonly failures: number;
-  /** The generation the server refused; a newer edit may still send. */
-  readonly refusedGeneration: string | undefined;
-  /** A refused compare-and-swap, holding the server's newest revision once read. */
-  readonly conflict: { readonly latestRevision: number } | undefined;
-  /** The server no longer has this document; the typed text is kept. */
-  readonly gone: boolean;
+  /** Why nothing sends, if anything holds it; one reason at a time. */
+  readonly hold: SavingHold | undefined;
   /**
    * Recent uncertain requests since the last acknowledgement, bounded because
    * they hold private text; past the bound a false conflict is the safe failure.
@@ -80,9 +86,7 @@ const unread: SavingDocument = {
   durableGeneration: undefined,
   ownEarlier: [],
   failures: 0,
-  refusedGeneration: undefined,
-  conflict: undefined,
-  gone: false,
+  hold: undefined,
   unanswered: [],
   storageProblem: false,
 };
@@ -104,11 +108,40 @@ export const withDocument = (
   ),
 });
 
-/** The server's copy, as read. */
+export const isConflicted = (document: SavingDocument): boolean =>
+  document.hold?.kind === 'conflict';
+export const isGone = (document: SavingDocument): boolean =>
+  document.hold?.kind === 'gone';
+
+/**
+ * The server's copy, as read. A pending edit keeps the revision it was based
+ * on: moving it would let the save overwrite text this owner has not seen, so
+ * the compare-and-swap finds the conflict instead.
+ */
 export const serverRead = (
   document: SavingDocument,
   { html, revision }: Omit<ServerDocument, 'id'>,
-): SavingDocument => ({ ...document, revision, serverHtml: html });
+): SavingDocument =>
+  document.pending ? document : { ...document, revision, serverHtml: html };
+
+/**
+ * Whether a read shows a late commit of offered text, so the editor adopts the
+ * server's. The revision and the visible text only move together: moving the
+ * revision alone would let the next edit overwrite the commit.
+ */
+export const adoptsLateCommit = (
+  document: SavingDocument,
+  server: ServerDocument,
+  settled: boolean,
+  offeredAtLoad: boolean,
+  record: DraftRecord,
+): boolean =>
+  (settled || (offeredAtLoad && draftCopies(record).length === 0)) &&
+  server.revision > (document.revision ?? -1);
+
+/** The text a deleted document still has here: what was typed, or else what was read. */
+export const keptText = (document: SavingDocument): string | undefined =>
+  document.pending?.html ?? document.serverHtml;
 
 const owned = (document: SavingDocument, generation: string) =>
   document.pending?.generation === generation ||
@@ -190,7 +223,7 @@ export type IdleSignal =
 
 export const idleSignal = (state: SavingState): IdleSignal => {
   const documents = [...state.documents];
-  const conflicted = documents.find(([, document]) => document.conflict);
+  const conflicted = documents.find(([, document]) => isConflicted(document));
   if (conflicted) return { kind: 'conflict', id: conflicted[0] };
   if (
     documents.some(
@@ -222,13 +255,12 @@ export const nextSend = (
   readonly sent: DraftCopy;
   readonly expectedRevision: number;
 } | null => {
-  const { pending, revision, refusedGeneration, conflict, gone } = document;
+  const { pending, revision, hold } = document;
   if (
-    gone ||
     !pending ||
     revision === undefined ||
-    refusedGeneration === pending.generation ||
-    conflict
+    (hold &&
+      (hold.kind !== 'refused' || hold.generation === pending.generation))
   )
     return null;
   return { sent: pending, expectedRevision: revision };
@@ -333,12 +365,15 @@ export const attemptFailed = (
 ): AttemptFailure => {
   // Deleted elsewhere: no retry can land, and the text stays for the person.
   if (status === 404)
-    return { kind: 'gone', document: { ...document, gone: true } };
+    return { kind: 'gone', document: { ...document, hold: { kind: 'gone' } } };
   if (status !== null && !retryable(status))
     return {
       kind: 'refused',
       status,
-      document: { ...document, refusedGeneration: sent.generation },
+      document: {
+        ...document,
+        hold: { kind: 'refused', generation: sent.generation },
+      },
     };
   const earlier = document.unanswered;
   // Keep the oldest: it is the one most likely to have committed unanswered.
@@ -373,7 +408,7 @@ export const restored = (
     copy.generation,
   ],
   revision,
-  conflict: undefined,
+  hold: undefined,
 });
 
 /** Whether closing now would destroy text with no stored copy. */

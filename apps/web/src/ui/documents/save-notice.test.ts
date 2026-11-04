@@ -15,12 +15,12 @@ describe('refusedNotice', () => {
       should: 'say what to do, and never claim it is retrying',
       actual: [413, 422, 400, 401, 403, 404].map(refusedNotice),
       expected: [
-        'This file is too large to save. Shorten it.',
-        'This file is too large to save. Shorten it.',
-        'This file is too large to save. Shorten it.',
+        'This document is too large to save. Shorten it.',
+        'This document is too large to save. Shorten it.',
+        'This document is too large to save. Shorten it.',
         'Sign in again to save your changes.',
-        'This file can’t be saved with your current access. Your text stays here.',
-        'This file can no longer be saved. Reload the page.',
+        'This document can’t be saved with your current access. Your text stays here.',
+        'This document can no longer be saved. Reload the page.',
       ],
     });
   });

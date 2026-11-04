@@ -39,7 +39,7 @@ export function useDocumentSync(
       });
     const unsubscribe = sync.subscribe(() => {
       if (!live || sync.available()) return;
-      dispatch({ type: 'doc/loaded', documents: [] });
+      dispatch({ type: 'doc/withdrawn' });
       setProblem(closedFilesNotice(sync.closedBy()));
     });
     const adopted = sync.subscribeServerText((id, html) => {

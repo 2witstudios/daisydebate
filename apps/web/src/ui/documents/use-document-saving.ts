@@ -40,7 +40,7 @@ export type SaveEvent =
 
 export const initialSaveStatus: SaveStatus = { save: 'saved', notice: null };
 
-/** One browser page's shared keepalive body budget across every Round owner. */
+/** One browser page's shared keepalive body budget across every owner. */
 const browserKeepaliveBudget = createKeepaliveBudget();
 
 const browserTimers: Timers = {
@@ -69,7 +69,7 @@ const GONE_NOTICE =
   'This document was deleted. Your text is kept here: save it as a new document to keep it.';
 
 const CONFLICT_NOTICE =
-  'A newer save of this file arrived. Reload before editing it again.';
+  'A newer save of this document arrived. Reload before editing it again.';
 
 /** One saving event's effect on the room's save status. */
 export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
@@ -101,7 +101,7 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
   }
 }
 
-/** The Round's document sync, reporting every saving event it sees. */
+/** The member's document sync, reporting every saving event it sees. */
 export function documentSaving(
   principalId: string,
   api: DocumentsApi,

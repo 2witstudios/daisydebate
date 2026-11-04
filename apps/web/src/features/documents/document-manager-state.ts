@@ -72,6 +72,8 @@ export type ManagerAction =
       readonly documents: readonly MemberDocument[];
     }
   | { readonly type: 'doc/add'; readonly document: MemberDocument }
+  /** The owner closed, so no document stays on screen. */
+  | { readonly type: 'doc/withdrawn' }
   | { readonly type: 'palette/open' }
   | { readonly type: 'palette/close' }
   | {
@@ -109,29 +111,31 @@ export type ManagerAction =
     }
   | { readonly type: 'drive/remove'; readonly id: string };
 
-const MANAGER_ACTIONS: ReadonlySet<string> = new Set<ManagerAction['type']>([
-  'tabs/open',
-  'tabs/activate',
-  'tabs/close',
-  'doc/update',
-  'doc/server-text',
-  'doc/loaded',
-  'doc/add',
-  'palette/open',
-  'palette/close',
-  'page/tone',
-  'drive/page',
-  'drive/expand',
-  'drive/add',
-  'drive/rename',
-  'drive/move',
-  'drive/remove',
-]);
+/** A record, so a new action cannot be left out and silently dropped by a frame. */
+const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
+  'tabs/open': true,
+  'tabs/activate': true,
+  'tabs/close': true,
+  'doc/update': true,
+  'doc/server-text': true,
+  'doc/loaded': true,
+  'doc/add': true,
+  'doc/withdrawn': true,
+  'palette/open': true,
+  'palette/close': true,
+  'page/tone': true,
+  'drive/page': true,
+  'drive/expand': true,
+  'drive/add': true,
+  'drive/rename': true,
+  'drive/move': true,
+  'drive/remove': true,
+};
 
 /** Whether an action is the manager's, for a frame that has actions of its own. */
 export const isManagerAction = (action: {
   readonly type: string;
-}): action is ManagerAction => MANAGER_ACTIONS.has(action.type);
+}): action is ManagerAction => Object.hasOwn(MANAGER_ACTIONS, action.type);
 
 /** Tabs that remain, with no body kept for one closed by a removal. */
 const withoutDocument = <T extends ManagerState>(state: T, id: string): T => ({
@@ -162,8 +166,16 @@ export function reduceManager<T extends ManagerState>(
       return { ...state, tabs: closeTab(state.tabs, action.id) };
     case 'tabs/activate':
       return { ...state, tabs: activateTab(state.tabs, action.id) };
-    case 'doc/loaded':
-      return loadWorkspaceDocuments(state, action.documents);
+    case 'doc/loaded': {
+      // A document opened before the load answered keeps its tab.
+      const loaded = new Set(action.documents.map((doc) => doc.id));
+      return loadWorkspaceDocuments(state, [
+        ...action.documents,
+        ...state.documents.filter((doc) => !loaded.has(doc.id)),
+      ]);
+    }
+    case 'doc/withdrawn':
+      return loadWorkspaceDocuments(state, []);
     case 'doc/add':
       return state.documents.some((doc) => doc.id === action.document.id)
         ? {

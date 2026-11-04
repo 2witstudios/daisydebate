@@ -1,5 +1,7 @@
+import { DOCUMENT_READ_MAX } from '@daisy/db/documents';
 import { listed } from './document-sync.test-support';
 import {
+  createDocumentSync,
   loadDraftSync,
   recoveryRecord,
   manualDraftResources,
@@ -9,7 +11,11 @@ import {
 } from './document-sync.test-support';
 
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { type DocumentsApi } from './document-sync';
+import {
+  createDocumentSync as createOwner,
+  READ_CHUNK,
+  type DocumentsApi,
+} from './document-sync';
 
 setupRitewayBun();
 
@@ -197,6 +203,177 @@ describe('a draft follows its document', () => {
       should: 'offer nothing',
       actual: second.recoveryOffers().length,
       expected: 0,
+    });
+  });
+});
+
+describe('a stale edit never overwrites', () => {
+  test('a read while an edit is pending keeps its base revision', async () => {
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const refused = { value: true };
+    const sync = createDocumentSync({
+      ...manualDraftResources('stale-edit', { storage: memoryStorage() }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        save: (input) =>
+          refused.value
+            ? Promise.reject(Object.assign(new Error('x'), { status: 503 }))
+            : server.api.save(input),
+      },
+      onConflict: () => {},
+    });
+    await sync.load();
+    sync.change('a', '<p>this tab</p>');
+    await sync.flush();
+    // Another tab saves while this one's edit is still pending; the frame remounts.
+    await server.api.save({
+      id: 'a',
+      html: '<p>other tab</p>',
+      expectedRevision: 1,
+    });
+    await sync.load();
+    refused.value = false;
+    await sync.flush();
+    assert({
+      given: 'a pending edit at revision 1, another tab at 2, and a fresh read',
+      should:
+        'send against 1, so the server refuses it and keeps the other tab',
+      actual: server.state().find((one) => one.id === 'a')?.html,
+      expected: '<p>other tab</p>',
+    });
+  });
+});
+
+describe('a document deleted elsewhere', () => {
+  const deleted = () => {
+    const present = { value: true };
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const events: string[] = [];
+    const sync = createDocumentSync({
+      ...manualDraftResources('deleted', { storage: memoryStorage() }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        read: async (ids) => (present.value ? server.api.read(ids) : []),
+        create: async () => stored('copy', 1),
+        recent: async () => (present.value ? 'a' : null),
+        save: async (input) =>
+          input.id === 'copy'
+            ? { status: 'saved', revision: input.expectedRevision + 1 }
+            : server.api.save(input),
+      },
+      onConflict: () => {},
+      onGone: (id) => events.push(`gone:${id}`),
+      onSaved: () => events.push('saved'),
+    });
+    return { sync, present, events, server };
+  };
+
+  test('recheck marks it, and only once', async () => {
+    const { sync, present, events } = deleted();
+    await sync.load();
+    present.value = false;
+    await sync.recheck(['a']);
+    await sync.recheck(['a']);
+    assert({
+      given: 'an open document the server no longer has, looked at twice',
+      should: 'mark it gone and say so once',
+      actual: [sync.firstGone(), events.filter((e) => e.startsWith('gone'))],
+      expected: ['a', ['gone:a']],
+    });
+  });
+
+  test('saving it as new keeps the text with nothing pending', async () => {
+    const { sync, present, events } = deleted();
+    await sync.load();
+    await sync.flush();
+    present.value = false;
+    await sync.recheck(['a']);
+    const created = await sync.saveAsNew('a');
+    await sync.flush();
+    assert({
+      given: 'a saved document deleted elsewhere',
+      should: 'carry its text across, clear the mark and say saved',
+      actual: [
+        created?.id,
+        created?.html.includes('<p>'),
+        created?.html === stored('copy', 1).html,
+        sync.firstGone(),
+        events.at(-1),
+      ],
+      expected: ['copy', true, true, null, 'saved'],
+    });
+  });
+
+  test('saving it as new keeps what was typed', async () => {
+    const { sync, present } = deleted();
+    await sync.load();
+    sync.change('a', '<p>typed</p>');
+    present.value = false;
+    await sync.recheck(['a']);
+    const created = await sync.saveAsNew('a');
+    assert({
+      given: 'typed text on a document deleted elsewhere',
+      should: 'carry the typed text',
+      actual: created?.html,
+      expected: '<p>typed</p>',
+    });
+  });
+
+  test('forgetting it removes its draft', async () => {
+    const { sync } = deleted();
+    await sync.load();
+    sync.change('a', '<p>typed</p>');
+    sync.forget('a');
+    assert({
+      given: 'a person deleting a document here',
+      should: 'keep no offer of it',
+      actual: sync.recoveryOffers(),
+      expected: [],
+    });
+  });
+});
+
+describe('a browser full of drafts', () => {
+  test('sixteen drafts and the last edited all load', async () => {
+    const store = memoryStorage();
+    const ids = Array.from({ length: 17 }, (_, i) => `d${i}`);
+    const asked: number[] = [];
+    for (const id of ids.slice(0, 16))
+      store.setItem(
+        keyOf('p1', id),
+        recoveryRecord({
+          html: `<p>${id}</p>`,
+          baseRevision: 1,
+          generation: `gen-${id}`,
+          savedAt: 100,
+        }),
+      );
+    const sync = createOwner({
+      ...manualDraftResources('full', { storage: store }),
+      principalId: 'p1',
+      api: {
+        read: async (wanted) => {
+          asked.push(wanted.length);
+          return wanted.map((id) => stored(id, 1));
+        },
+        recent: async () => 'd16',
+        create: async () => stored('new'),
+        save: async () => ({ status: 'saved', revision: 2 }),
+      },
+      onConflict: () => {},
+    });
+    const loaded = await sync.load();
+    assert({
+      given: 'seventeen documents to read at load',
+      should: 'read them all, none in a request over the route’s limit',
+      actual: [
+        loaded.length,
+        Math.max(...asked) <= READ_CHUNK,
+        READ_CHUNK === DOCUMENT_READ_MAX,
+      ],
+      expected: [17, true, true],
     });
   });
 });

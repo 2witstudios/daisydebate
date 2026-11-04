@@ -22,6 +22,15 @@ test('a member’s words become a safe prefix query', () => {
   });
 });
 
+test('a word with combining marks stays one word', () => {
+  assert({
+    given: 'a Devanagari word, and a decomposed accent',
+    should: 'keep each word whole and composed',
+    actual: [documentSearchQuery('हिन्दी'), documentSearchQuery('cafe\u0301')],
+    expected: ['हिन्दी:*', 'café:*'],
+  });
+});
+
 test('a long search stays bounded', () => {
   assert({
     given: 'more words than the limit, and one very long word',
