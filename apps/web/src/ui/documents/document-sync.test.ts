@@ -1,3 +1,4 @@
+import { createDocumentSync, listed } from './document-sync.test-support';
 import {
   loadDraftSync,
   documentApi,
@@ -8,7 +9,6 @@ import {
 
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  createDocumentSync,
   type DocumentsApi,
   type SaveResult,
 } from './document-sync';
@@ -18,7 +18,7 @@ setupRitewayBun();
 const fakeApi = (answer: (revision: number) => SaveResult) => {
   const saves: { id: string; html: string; expectedRevision: number }[] = [];
   const api: DocumentsApi = {
-    list: async () => [stored('a', 3)],
+    ...listed(() => [stored('a', 3)]),
     create: async () => stored('new'),
     save: async (input) => {
       saves.push(input);
@@ -40,7 +40,6 @@ const quietSync = (api: DocumentsApi, timers = manualTimers().timers) =>
     ...manualDraftResources('document-sync.test:1', { timers }),
 
     api,
-    roundId: 'd',
     principalId: 'p1',
     onConflict: () => {},
   });
@@ -86,7 +85,6 @@ describe('createDocumentSync', () => {
       ...manualDraftResources('document-sync.test:2'),
 
       api,
-      roundId: 'd',
       principalId: 'p1',
       onConflict: (id) => conflicts.push(id),
     });
@@ -187,7 +185,6 @@ describe('createDocumentSync when a save fails', () => {
       ...manualDraftResources('document-sync.test:3', { timers }),
 
       api,
-      roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
       onSaveFailed: (_id, attempts) => failed.push(attempts),
@@ -226,7 +223,6 @@ describe('createDocumentSync when the server refuses a save', () => {
       ...manualDraftResources('document-sync.test:4', { timers }),
 
       api,
-      roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
       onSaveRefused: (_id, status) => refused.push(status),

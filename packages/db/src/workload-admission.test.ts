@@ -230,13 +230,13 @@ test('the deployed profiles are valid and sized as the plan states', () => {
   assert({
     given: 'the web, realtime and observer profiles',
     should:
-      'validate and hold 29, 7 and 11 connections, dedicated ones included',
+      'validate and hold 33, 7 and 11 connections, dedicated ones included',
     actual: [
       WORKLOAD_PROFILES.web,
       WORKLOAD_PROFILES.realtime,
       WORKLOAD_PROFILES['realtime-observer'],
     ].map((profile) => profileConnections(validateWorkloadProfile(profile))),
-    expected: [29, 7, 11],
+    expected: [33, 7, 11],
   });
 });
 

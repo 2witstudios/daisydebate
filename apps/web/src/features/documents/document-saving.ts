@@ -47,6 +47,8 @@ export type SavingDocument = {
   readonly refusedGeneration: string | undefined;
   /** A refused compare-and-swap, holding the server's newest revision once read. */
   readonly conflict: { readonly latestRevision: number } | undefined;
+  /** The server no longer has this document; the typed text is kept. */
+  readonly gone: boolean;
   /**
    * Recent uncertain requests since the last acknowledgement, bounded because
    * they hold private text; past the bound a false conflict is the safe failure.
@@ -80,6 +82,7 @@ const unread: SavingDocument = {
   failures: 0,
   refusedGeneration: undefined,
   conflict: undefined,
+  gone: false,
   unanswered: [],
   storageProblem: false,
 };
@@ -219,8 +222,9 @@ export const nextSend = (
   readonly sent: DraftCopy;
   readonly expectedRevision: number;
 } | null => {
-  const { pending, revision, refusedGeneration, conflict } = document;
+  const { pending, revision, refusedGeneration, conflict, gone } = document;
   if (
+    gone ||
     !pending ||
     revision === undefined ||
     refusedGeneration === pending.generation ||
@@ -276,7 +280,8 @@ export type ConflictOutcome =
       readonly copy: DraftCopy;
       readonly revision: number;
     }
-  | { readonly kind: 'conflicted'; readonly latestRevision: number };
+  | { readonly kind: 'conflicted'; readonly latestRevision: number }
+  | { readonly kind: 'gone' };
 
 export const conflictOutcome = (
   document: SavingDocument,
@@ -284,21 +289,19 @@ export const conflictOutcome = (
   reportedRevision: number,
   server: ServerDocument | undefined,
 ): ConflictOutcome => {
+  if (!server) return { kind: 'gone' };
   // The server already holds exactly this text, so nothing conflicts: an exit
   // save landed after the page's look, however late.
-  if (server && sameDocumentHtml(server.html, sent.html))
+  if (sameDocumentHtml(server.html, sent.html))
     return { kind: 'committed', copy: sent, revision: server.revision };
   const own =
-    server?.revision === reportedRevision
+    server.revision === reportedRevision
       ? ownUnansweredCommit(document.unanswered, reportedRevision, (html) =>
           sameDocumentHtml(server.html, html),
         )
       : undefined;
   if (own) return { kind: 'committed', copy: own, revision: reportedRevision };
-  return {
-    kind: 'conflicted',
-    latestRevision: server?.revision ?? reportedRevision,
-  };
+  return { kind: 'conflicted', latestRevision: server.revision };
 };
 
 const UNANSWERED_LIMIT = 8;
@@ -309,6 +312,7 @@ const retryable = (status: number | null) =>
 
 /** A failed request's effect: refused for good, or kept and retried with backoff. */
 export type AttemptFailure =
+  | { readonly kind: 'gone'; readonly document: SavingDocument }
   | {
       readonly kind: 'refused';
       readonly document: SavingDocument;
@@ -327,6 +331,9 @@ export const attemptFailed = (
   status: number | null,
   delayMs: number,
 ): AttemptFailure => {
+  // Deleted elsewhere: no retry can land, and the text stays for the person.
+  if (status === 404)
+    return { kind: 'gone', document: { ...document, gone: true } };
   if (status !== null && !retryable(status))
     return {
       kind: 'refused',

@@ -1,3 +1,4 @@
+import { createDocumentSync, listed } from './document-sync.test-support';
 import {
   recordingSave,
   manualDraftResources,
@@ -6,7 +7,6 @@ import {
 } from './document-sync.test-support';
 
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync } from './document-sync';
 
 import { newDraftCopy } from '../../features/documents/document-draft';
 
@@ -45,11 +45,10 @@ const fixture = () => {
     }),
 
     api: {
-      list: async () => ids.map((id) => stored(id, 3)),
+      ...listed(() => ids.map((id) => stored(id, 3))),
       create: async () => stored('new'),
       save: recordingSave(sent, { revision: 4 }),
     },
-    roundId: 'r',
     principalId: 'p',
     onConflict: () => {},
     onDraftStorageFailed: (id) => {

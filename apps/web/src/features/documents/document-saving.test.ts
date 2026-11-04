@@ -93,10 +93,10 @@ describe('conflictOutcome', () => {
     });
   });
 
-  test('other text is a conflict, even when the document is gone', () => {
+  test('other text is a conflict, and a missing document is gone', () => {
     assert({
       given: 'other text on the server, then no server copy at all',
-      should: 'report the newest revision known',
+      should: 'report the newest revision, then that it is gone',
       actual: [
         conflictOutcome(read, sent, 5, {
           id: 'a',
@@ -107,7 +107,7 @@ describe('conflictOutcome', () => {
       ],
       expected: [
         { kind: 'conflicted', latestRevision: 6 },
-        { kind: 'conflicted', latestRevision: 5 },
+        { kind: 'gone' },
       ],
     });
   });
@@ -140,6 +140,20 @@ describe('attemptFailed', () => {
         result.document.pending,
       ],
       expected: ['refused', 'sent', sent],
+    });
+  });
+
+  test('a deleted document stops saving and keeps the text', () => {
+    const result = attemptFailed({ ...read, pending: sent }, sent, 404, 1000);
+    assert({
+      given: 'a save answered 404',
+      should: 'mark it gone, keep the edit, and send nothing more',
+      actual: [
+        result.kind,
+        result.document.pending,
+        nextSend(result.document),
+      ],
+      expected: ['gone', sent, null],
     });
   });
 

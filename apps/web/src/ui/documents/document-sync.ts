@@ -47,9 +47,12 @@ export type SaveResult = {
   readonly revision: number;
 };
 export type DocumentsApi = {
-  readonly list: (roundId: string) => Promise<readonly StoredDocument[]>;
+  /** Only bodies asked for, and only the caller's; an absent id is simply left out. */
+  readonly read: (ids: readonly string[]) => Promise<readonly StoredDocument[]>;
+  /** The document edited last, to land on when nothing is open. */
+  readonly recent: () => Promise<string | null>;
   readonly create: (input: {
-    readonly roundId: string;
+    readonly folderId: string | null;
   }) => Promise<StoredDocument>;
   readonly save: (input: {
     readonly id: string;
@@ -72,7 +75,15 @@ export type DocumentSyncResources = {
 };
 export type DocumentSync = {
   readonly load: () => Promise<readonly StoredDocument[]>;
-  readonly create: () => Promise<StoredDocument>;
+  readonly create: (folderId?: string | null) => Promise<StoredDocument>;
+  /** Reads a document into this owner, with any draft it has here; null when gone. */
+  readonly open: (id: string) => Promise<StoredDocument | null>;
+  /** Marks open documents the server no longer has. */
+  readonly recheck: (ids: readonly string[]) => Promise<void>;
+  /** The kept text of a deleted document, as a new document. */
+  readonly saveAsNew: (id: string) => Promise<StoredDocument | null>;
+  /** This person deleted it here, so nothing of it stays. */
+  readonly forget: (id: string) => void;
   readonly change: (id: string, html: string) => void;
   readonly flush: () => Promise<void>;
   readonly flushKeepalive: () => Promise<void>;
@@ -105,7 +116,6 @@ const LONGEST_TIMER_MS = 2 ** 31 - 1;
  */
 export function createDocumentSync({
   api,
-  roundId,
   principalId,
   timers,
   storage,
@@ -113,6 +123,7 @@ export function createDocumentSync({
   wallClock,
   nextGeneration,
   onConflict,
+  onGone = () => {},
   onChanged = () => {},
   onSaved = () => {},
   onSaveFailed = () => {},
@@ -122,8 +133,8 @@ export function createDocumentSync({
   delayMs = 1000,
 }: DocumentSyncResources & {
   readonly api: DocumentsApi;
-  readonly roundId: string;
   readonly principalId: string;
+  readonly onGone?: (id: string) => void;
   readonly onConflict: (id: string) => void;
   readonly onChanged?: (id: string) => void;
   readonly onSaved?: (id: string) => void;
@@ -248,22 +259,28 @@ export function createDocumentSync({
     publish();
     idle(id);
   };
+  const markGone = (id: string) => {
+    update(id, (d) => ({ ...d, gone: true }));
+    publish();
+    onGone(id);
+  };
   const conflict = async (id: string, sent: DraftCopy, revision: number) => {
-    // A failed list establishes nothing, so it goes to the retry or refusal path.
-    const server = (await api.list(roundId)).find((one) => one.id === id);
+    // A failed read establishes nothing, so it goes to the retry or refusal path.
+    const [server] = await api.read([id]);
     if (isClosed()) return;
     const outcome = conflictOutcome(doc(id), sent, revision, server);
+    if (outcome.kind === 'gone') {
+      markGone(id);
+      return;
+    }
     if (outcome.kind === 'committed') {
       saved(id, outcome.copy, outcome.revision);
       return;
     }
-    if (server) {
-      update(id, (d) => ({ ...d, serverHtml: server.html }));
-      const previous = read(id, wallClock());
-      const settled = settledBy(previous.record, server.html);
-      if (settled !== previous.record)
-        write(id, previous, settled, wallClock());
-    }
+    update(id, (d) => ({ ...d, serverHtml: server!.html }));
+    const previous = read(id, wallClock());
+    const settled = settledBy(previous.record, server!.html);
+    if (settled !== previous.record) write(id, previous, settled, wallClock());
     update(id, (d) => ({
       ...d,
       conflict: { latestRevision: outcome.latestRevision },
@@ -275,6 +292,11 @@ export function createDocumentSync({
     if (isClosed()) return;
     const result = attemptFailed(doc(id), sent, statusOf(error), delayMs);
     update(id, () => result.document);
+    if (result.kind === 'gone') {
+      publish();
+      onGone(id);
+      return;
+    }
     if (result.kind === 'refused') {
       onSaveRefused(id, result.status);
       return;
@@ -377,7 +399,7 @@ export function createDocumentSync({
   };
   const reconcileLateCommits = async (offeredAtLoad: ReadonlySet<string>) => {
     if (isClosed()) return;
-    const documents = await api.list(roundId).catch(() => null);
+    const documents = await api.read([...offeredAtLoad]).catch(() => null);
     if (isClosed() || documents === null) return;
     const now = wallClock();
     for (const one of documents) {
@@ -399,22 +421,43 @@ export function createDocumentSync({
     }
     publish();
   };
+  const adopt = (documents: readonly StoredDocument[]) => {
+    remember(documents);
+    const now = wallClock();
+    for (const one of documents) {
+      const previous = read(one.id, now);
+      const offered = doc(one.id).pending
+        ? previous.record
+        : offerDraftRecord(settledBy(previous.record, one.html));
+      if (offered !== previous.record) write(one.id, previous, offered, now);
+    }
+  };
+  const forgetDocument = (id: string) => {
+    timers.clear(handles.get(id));
+    handles.delete(id);
+    const now = wallClock();
+    const previous = read(id, now);
+    if (draftCopies(previous.record).length > 0) write(id, previous, {}, now);
+    state = {
+      ...state,
+      documents: new Map(
+        [...state.documents].filter(([other]) => other !== id),
+      ),
+    };
+    publish();
+  };
   return {
     load: async () => {
       if (isClosed()) return [];
-      const documents = await api.list(roundId);
+      const recent = await api.recent();
+      const ids = [
+        ...new Set([...drafts.documentIds(), ...(recent ? [recent] : [])]),
+      ];
+      const documents = ids.length > 0 ? await api.read(ids) : [];
       if (isClosed()) return [];
-      remember(documents);
-      const now = wallClock();
-      for (const one of documents) {
-        const previous = read(one.id, now);
-        const offered = doc(one.id).pending
-          ? previous.record
-          : offerDraftRecord(settledBy(previous.record, one.html));
-        if (offered !== previous.record) write(one.id, previous, offered, now);
-      }
+      adopt(documents);
       publish();
-      // A previous page's exit save can commit after this list; check once.
+      // A previous page's exit save can commit after this read; check once.
       timers.clear(recheckHandle);
       if (state.offers.length > 0) {
         const offeredAtLoad = new Set(
@@ -427,10 +470,48 @@ export function createDocumentSync({
       }
       return documents;
     },
-    create: async () => {
+    open: async (id) => {
+      if (isClosed()) return null;
+      const [opened] = await api.read([id]);
+      if (isClosed() || !opened) return null;
+      adopt([opened]);
+      publish();
+      return opened;
+    },
+    recheck: async (ids) => {
+      if (isClosed() || ids.length === 0) return;
+      const documents = await api.read(ids).catch(() => null);
+      if (isClosed() || documents === null) return;
+      const present = new Set(documents.map((one) => one.id));
+      for (const id of ids)
+        if (!present.has(id) && !doc(id).gone) markGone(id);
+    },
+    saveAsNew: async (id) => {
+      if (isClosed() || !doc(id).gone) return null;
+      const text = doc(id).pending?.html;
+      const created = await api.create({ folderId: null });
+      if (isClosed()) return null;
+      remember([created]);
+      if (text !== undefined) {
+        const copy = newDraftCopy({
+          html: text,
+          baseRevision: created.revision,
+          generation: nextGeneration(),
+          now: wallClock(),
+        });
+        update(created.id, (d) => edited(d, copy));
+        persist(created.id, copy);
+        onChanged(created.id);
+        schedule(created.id, 0);
+      }
+      forgetDocument(id);
+      return { ...created, html: text ?? created.html };
+    },
+    forget: (id) => forgetDocument(id),
+    create: async (folderId = null) => {
       if (isClosed())
         throw new Error('The document owner is no longer active.');
-      const created = await api.create({ roundId });
+      const created = await api.create({ folderId });
       if (isClosed())
         throw new Error('The document owner is no longer active.');
       remember([created]);

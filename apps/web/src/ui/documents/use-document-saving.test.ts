@@ -1,3 +1,4 @@
+import { listed } from './document-sync.test-support';
 import {
   documentApi,
   recoveryRecord,
@@ -49,7 +50,7 @@ describe('reduceSave', () => {
 
 describe('documentSaving', () => {
   const api = (save: DocumentsApi['save']): DocumentsApi => ({
-    list: async () => [stored('a')],
+    ...listed(() => [stored('a')]),
     create: async () => stored('b'),
     save,
   });
@@ -169,7 +170,7 @@ test('browser resource composition shares exact serialized exit capacity across 
 test('refused edits and absent recovery choices leave the real owner state unchanged', async () => {
   const events: SaveEvent[] = [];
   const api: DocumentsApi = {
-    list: async () => [stored('a')],
+    ...listed(() => [stored('a')]),
     create: async () => stored('b'),
     save: async () => ({ status: 'saved', revision: 2 }),
   };

@@ -37,7 +37,6 @@ describe('keepalive exit budget', () => {
       ...manualDraftResources('document-sync.overlap.test:1'),
 
       api,
-      roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
     });

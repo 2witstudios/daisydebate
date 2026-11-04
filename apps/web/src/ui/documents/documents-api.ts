@@ -68,12 +68,14 @@ export function createDocumentsApi({
       keepalive,
     });
   return {
-    list: async (roundId) =>
+    read: async (ids) =>
       (
         await read<{ documents: readonly StoredDocument[] }>(
-          await post('list', JSON.stringify({ roundId })),
+          await post('read', JSON.stringify({ ids })),
         )
       ).documents,
+    recent: async () =>
+      (await read<{ id: string | null }>(await post('recent', '{}'))).id,
     create: async (input) =>
       (
         await read<{ document: StoredDocument }>(

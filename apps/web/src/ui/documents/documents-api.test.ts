@@ -61,7 +61,6 @@ describe('createDocumentsApi', () => {
         signal: () =>
           sent.length === 0 ? timeout.signal : new AbortController().signal,
       }),
-      roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
       onSaveFailed: (_, attempts) => failures.push(attempts),
@@ -91,7 +90,7 @@ describe('createDocumentsApi', () => {
         return json({ documents: [] });
       },
     });
-    await api.list('d');
+    await api.read(['d']);
     assert({
       given: 'a document request with the default signal',
       should: 'carry an abort signal that bounds the request',

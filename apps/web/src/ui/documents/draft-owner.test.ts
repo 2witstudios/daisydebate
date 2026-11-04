@@ -1,3 +1,4 @@
+import { createDocumentSync } from './document-sync.test-support';
 import {
   recordingSave,
   documentApi,
@@ -8,7 +9,6 @@ import {
 
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { releaseDraftOwner } from './draft-owner';
-import { createDocumentSync } from './document-sync';
 
 import { newDraftCopy } from '../../features/documents/document-draft';
 
@@ -43,7 +43,6 @@ const fixture = () => {
 
       api: documentApi(recordingSave(sent), () => [stored(documentId, 1)]),
       principalId,
-      roundId: 'r',
       onConflict: () => {},
     }),
   });

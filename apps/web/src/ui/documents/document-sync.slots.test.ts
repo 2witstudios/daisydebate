@@ -1,3 +1,4 @@
+import { createDocumentSync, listed } from './document-sync.test-support';
 import {
   documentApi,
   memoryStorage,
@@ -7,7 +8,6 @@ import {
 
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  createDocumentSync,
   type DocumentSync,
   type DocumentsApi,
 } from './document-sync';
@@ -45,7 +45,6 @@ const fixture = () => {
     createDocumentSync({
       api,
       storage,
-      roundId: 'r',
       principalId: 'p',
       timers: manualTimers().timers,
       budget: createKeepaliveBudget(),
@@ -527,7 +526,7 @@ const lateCommitFixture = async () => {
       },
       () => [server],
     ),
-    list: async () => {
+    read: async () => {
       lists += 1;
       return [server];
     },
@@ -803,7 +802,7 @@ test('a list failing during a 409 is retried, not reported as a conflict', async
       },
       () => [server],
     ),
-    list: async () => {
+    read: async () => {
       if (failList) {
         failList = false;
         throw new Error('list failed on the same bad network');

@@ -1,3 +1,4 @@
+import { listed } from './document-sync.test-support';
 import {
   loadDraftSync,
   recoveryRecord,
@@ -18,7 +19,7 @@ const savingApi = (
   let state = documents.map((one) => ({ ...stored(one.id, one.revision) }));
   const saves: { id: string; html: string; expectedRevision: number }[] = [];
   const api: DocumentsApi = {
-    list: async () => state,
+    ...listed(() => state),
     create: async () => stored('new'),
     save: async ({ id, html, expectedRevision }) => {
       saves.push({ id, html, expectedRevision });
@@ -58,7 +59,6 @@ const staleRecovery = async (owner: string) => {
     }),
 
     api,
-    roundId: 'd',
     principalId: 'p1',
     onConflict: () => {},
   });
@@ -79,7 +79,6 @@ describe('draft recovery', () => {
       }),
 
       api,
-      roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
     });
@@ -146,7 +145,6 @@ describe('draft recovery', () => {
       }),
 
       api,
-      roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
     });
@@ -188,7 +186,6 @@ describe('a draft follows its document', () => {
     const shared = {
       ...manualDraftResources('private', { storage: store }),
       api,
-      roundId: 'r',
       onConflict: () => {},
     };
     const first = await loadDraftSync({ ...shared, principalId: 'p1' });

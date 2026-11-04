@@ -32,6 +32,7 @@ export type SaveEvent =
   | { readonly type: 'edit' }
   | { readonly type: 'saved' }
   | { readonly type: 'conflict' }
+  | { readonly type: 'gone' }
   | { readonly type: 'retrying' }
   | { readonly type: 'refused'; readonly status: number }
   | { readonly type: 'unsaved' }
@@ -64,6 +65,9 @@ export const browserDraftResources = (): DocumentSyncResources => ({
   wallClock: () => Date.parse(systemClock.now()),
 });
 
+const GONE_NOTICE =
+  'This document was deleted. Your text is kept here: save it as a new document to keep it.';
+
 const CONFLICT_NOTICE =
   'A newer save of this file arrived. Reload before editing it again.';
 
@@ -82,6 +86,8 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
       return initialSaveStatus;
     case 'conflict':
       return { save: 'unsaved', notice: CONFLICT_NOTICE };
+    case 'gone':
+      return { save: 'unsaved', notice: GONE_NOTICE };
     case 'retrying':
       return { save: 'unsaved', notice: RETRYING_NOTICE };
     case 'refused':
@@ -97,19 +103,18 @@ export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
 
 /** The Round's document sync, reporting every saving event it sees. */
 export function documentSaving(
-  roundId: string,
   principalId: string,
   api: DocumentsApi,
   report: (event: SaveEvent) => void,
   resources: DocumentSyncResources,
 ): DocumentSync {
   const stored = createDocumentSync({
-    roundId,
     principalId,
     api,
     ...resources,
     onChanged: () => report({ type: 'edit' }),
     onConflict: () => report({ type: 'conflict' }),
+    onGone: () => report({ type: 'gone' }),
     onSaveFailed: () => report({ type: 'retrying' }),
     onSaveRefused: (_id, status) => {
       // An expired session stops and hides the drafts but keeps their copies for
@@ -124,9 +129,8 @@ export function documentSaving(
   return stored;
 }
 
-/** A participant's files on the persisted Round's document API. */
+/** A member's documents, wherever the manager opens. */
 export function useDocumentSaving(
-  roundId: string,
   principalId: string,
   socketUrl: string | null = null,
 ): SaveStatus & {
@@ -136,7 +140,6 @@ export function useDocumentSaving(
   const sync = useMemo(
     () =>
       documentSaving(
-        roundId,
         principalId,
         createDocumentsApi(),
         (event) => {
@@ -146,7 +149,7 @@ export function useDocumentSaving(
         },
         browserDraftResources(),
       ),
-    [roundId, principalId],
+    [principalId],
   );
   useEffect(() => {
     if (socketUrl === null) return;

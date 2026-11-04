@@ -184,5 +184,17 @@ export function createDraftStorage({
       return false;
     }
   };
-  return { read, write, purge };
+  /** The documents this person has a copy of; the browser holds at most sixteen. */
+  const documentIds = (): readonly string[] => {
+    if (!storage) return [];
+    try {
+      return draftKeys(storage)
+        .filter((key) => isPrincipalDraftKey(key, principalId))
+        .map((key) => key.slice(principalPrefix(principalId).length))
+        .slice(0, DRAFT_RECORD_MAX_COUNT);
+    } catch {
+      return [];
+    }
+  };
+  return { read, write, purge, documentIds };
 }

@@ -32,7 +32,6 @@ for (const body of [
             ? Response.json({ documents: [stored('a', 3)] })
             : Response.json(body),
       }),
-      roundId: 'r',
       principalId: 'p',
       onConflict: () => {},
       onSaved: () => {
@@ -91,7 +90,6 @@ for (const [index, receipt] of malformed.entries())
           return response;
         },
       }),
-      roundId: 'r',
       principalId: 'p',
       onConflict: () => {},
       onSaved: () => {
@@ -124,7 +122,6 @@ test('a valid fresh acknowledgement clears only its active generation', async ()
           ? Response.json({ documents: [stored('a', 3)] })
           : Response.json({ revision: 4 }),
     }),
-    roundId: 'r',
     principalId: 'p',
     onConflict: () => {},
     onSaved: () => {
@@ -166,7 +163,6 @@ test('an invalid acknowledgement after a real commit uses original CAS then rere
         );
       },
     }),
-    roundId: 'r',
     principalId: 'p',
     onConflict: () => {
       conflicts++;
@@ -229,7 +225,6 @@ for (const body of [
             ? Response.json({ documents: [stored('a', 3)] })
             : Response.json(body, { status: 409 }),
       }),
-      roundId: 'r',
       principalId: 'p',
       onConflict: () => {
         conflicts++;

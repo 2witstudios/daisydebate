@@ -1,3 +1,4 @@
+import { createDocumentSync, listed } from './document-sync.test-support';
 import {
   recordingSave,
   recoveryRecord,
@@ -8,7 +9,7 @@ import {
 
 import type { DraftStorage } from './document-draft-storage';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDocumentSync, type DocumentsApi } from './document-sync';
+import type { DocumentsApi } from './document-sync';
 import {
   createKeepaliveBudget,
   type KeepaliveBudget,
@@ -53,7 +54,7 @@ const api = (
   save: DocumentsApi['save'],
   documents: readonly string[] = ['a'],
 ): DocumentsApi => ({
-  list: async () => documents.map((id) => stored(id, 3)),
+  ...listed(() => documents.map((id) => stored(id, 3))),
   create: async () => stored('new'),
   save,
 });
@@ -77,7 +78,6 @@ const syncOf = (
     }),
 
     api: api(save, options.documents),
-    roundId: 'r',
     principalId: 'p',
     onConflict: () => {},
     ...(options.onSaved ? { onSaved: options.onSaved } : {}),

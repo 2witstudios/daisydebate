@@ -1,3 +1,4 @@
+import { listed } from './document-sync.test-support';
 import {
   overlappingDraftExit,
   loadDraftSync,
@@ -21,7 +22,7 @@ const keyOf = (principal: string, id: string) =>
   `daisy:document-drafts:copy:${principal}:${id}`;
 
 const alwaysSaving = (documents: readonly string[] = ['a']): DocumentsApi => ({
-  list: async () => documents.map((id) => stored(id, 1)),
+  ...listed(() => documents.map((id) => stored(id, 1))),
   create: async () => stored('new'),
   save: async ({ expectedRevision }) => ({
     status: 'saved',
@@ -52,7 +53,6 @@ describe('a durable draft', () => {
       }),
 
       api: alwaysSaving(),
-      roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
     });
@@ -96,7 +96,6 @@ describe('a durable draft', () => {
           return { status: 'saved', revision: 2 };
         },
       },
-      roundId: 'd',
       principalId: 'p1',
       onConflict: () => {},
     });
@@ -136,7 +135,6 @@ describe('the ordinary flush', () => {
       ...manualDraftResources('document-sync.durable.test:3'),
 
       api: documentApi(recordingSave(sent), () => [stored('a', 1)]),
-      roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
     });
@@ -166,7 +164,6 @@ describe('an overlapping exit flush', () => {
         stored('a', 1),
         stored('b', 1),
       ]),
-      roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
     });
@@ -193,7 +190,6 @@ describe('a bounded storage round', () => {
       }),
 
       api: alwaysSaving(ids),
-      roundId: 'r',
       principalId: 'p1',
       onConflict: () => {},
     });
