@@ -240,7 +240,7 @@ const redirectOf = async (file: string): Promise<string | null> => {
     const digest = String((error as { digest?: unknown }).digest);
     return digest.startsWith('NEXT_REDIRECT')
       ? (digest.split(';')[2] ?? null)
-      : null;
+      : `threw: ${digest}`;
   }
 };
 
