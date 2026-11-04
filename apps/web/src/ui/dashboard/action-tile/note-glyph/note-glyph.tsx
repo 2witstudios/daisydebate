@@ -97,9 +97,9 @@ const Calendar = ({ number }: { readonly number: number | undefined }) => (
 const Chart = () => (
   <>
     <path d="M3 3v16a2 2 0 0 0 2 2h16" />
-    <path d="M7 16v-3" className="note-glyph-bar note-glyph-bar-short" />
-    <path d="M12 16V8" className="note-glyph-bar note-glyph-bar-tall" />
-    <path d="M17 16v-5" className="note-glyph-bar note-glyph-bar-middle" />
+    <path d="M7 16v-3" className="note-glyph-bar-short" />
+    <path d="M12 16V8" className="note-glyph-bar-tall" />
+    <path d="M17 16v-5" className="note-glyph-bar-middle" />
   </>
 );
 
@@ -178,12 +178,12 @@ export function NoteGlyph({
         strokeWidth={1.6}
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="note-glyph block shrink-0"
+        className="block shrink-0 note-glyph"
       >
         {artOf(destination, seasonGlance?.number)}
       </svg>
       {seasonGlance === null ? null : (
-        <span className="note-glyph-reveal text-sm whitespace-nowrap">
+        <span className="text-sm whitespace-nowrap note-glyph-reveal">
           {seasonGlance.line}
         </span>
       )}

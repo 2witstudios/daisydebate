@@ -11,7 +11,7 @@
   --note-glyph-beat: 900ms;
 }
 
-.note-glyph {
+@utility note-glyph {
   overflow: visible;
 
   & * {
@@ -19,158 +19,193 @@
   }
 }
 
-.note-glyph-spark,
-.note-glyph-impact,
-.note-glyph-confetti,
-.note-glyph-page,
-.note-glyph-book-open {
+@utility note-glyph-spark {
   opacity: 0;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-flash var(--note-glyph-strike) linear;
+    }
+  }
 }
 
-.note-glyph-page {
+@utility note-glyph-impact {
+  opacity: 0;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-flash var(--note-glyph-strike) linear;
+    }
+  }
+}
+
+@utility note-glyph-sword-right {
+  transform-origin: 18px 18px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-sword-right var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-sword-left {
+  transform-origin: 6px 18px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-sword-left var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-eye {
+  transform-origin: 12px 12px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-blink var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-gavel {
+  transform-origin: 4px 20px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-slam var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-brain {
+  transform-origin: 12px 12px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-expand var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-book-cover {
+  transform-origin: 4px 12px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-book-cover var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-book-open {
+  opacity: 0;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-book-open var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-page {
+  opacity: 0;
   fill: currentColor;
   stroke: none;
   transform-origin: 12px 10px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-page-flip var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
 }
 
-.note-glyph-number {
+@utility note-glyph-number {
   fill: currentColor;
   stroke: none;
   font-size: 10px;
   font-weight: 700;
-}
-
-.note-glyph-number,
-.note-glyph-reveal {
   opacity: 0;
   transition: opacity var(--note-glyph-reveal-duration) var(--ease-standard)
     var(--note-glyph-reveal-delay);
+
+  .note:is(:hover, :focus-visible) & {
+    opacity: 1;
+  }
 }
 
-.note:is(:hover, :focus-visible) .note-glyph-number,
-.note:is(:hover, :focus-visible) .note-glyph-reveal {
-  opacity: 1;
+@utility note-glyph-reveal {
+  opacity: 0;
+  transition: opacity var(--note-glyph-reveal-duration) var(--ease-standard)
+    var(--note-glyph-reveal-delay);
+
+  .note:is(:hover, :focus-visible) & {
+    opacity: 1;
+  }
 }
 
-.note-glyph-sword-right {
-  transform-origin: 18px 18px;
-}
-
-.note-glyph-sword-left {
-  transform-origin: 6px 18px;
-}
-
-.note-glyph-eye {
-  transform-origin: 12px 12px;
-}
-
-.note-glyph-gavel {
-  transform-origin: 4px 20px;
-}
-
-.note-glyph-brain {
-  transform-origin: 12px 12px;
-}
-
-.note-glyph-book-cover {
-  transform-origin: 4px 12px;
-}
-
-.note-glyph-bar:nth-of-type(2) {
+@utility note-glyph-bar-short {
   transform-origin: 7px 16px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-bar-short var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
 }
 
-.note-glyph-bar:nth-of-type(3) {
+@utility note-glyph-bar-tall {
   transform-origin: 12px 16px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-bar-tall var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
 }
 
-.note-glyph-bar:nth-of-type(4) {
+@utility note-glyph-bar-middle {
   transform-origin: 17px 16px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-bar-middle var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
 }
 
-.note-glyph-confetti {
+@utility note-glyph-confetti {
+  opacity: 0;
   stroke-width: 2.4;
   transform-origin: 12px 8px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-confetti var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
 }
 
-.note-glyph-confetti-gold {
+@utility note-glyph-confetti-gold {
   stroke: var(--gold);
 }
 
-.note-glyph-confetti-clay {
+@utility note-glyph-confetti-clay {
   stroke: var(--hue-clay);
 }
 
-.note-glyph-confetti-sky {
+@utility note-glyph-confetti-sky {
   stroke: var(--hue-sky);
 }
 
-.note-glyph-confetti-teal {
+@utility note-glyph-confetti-teal {
   stroke: var(--hue-teal);
 }
 
-.note-glyph-confetti-plum {
+@utility note-glyph-confetti-plum {
   stroke: var(--hue-plum);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .note:is(:hover, :focus-visible) {
-    .note-glyph-sword-right {
-      animation: note-sword-right var(--note-glyph-strike) var(--ease-standard);
-    }
-
-    .note-glyph-sword-left {
-      animation: note-sword-left var(--note-glyph-strike) var(--ease-standard);
-    }
-
-    .note-glyph-spark {
-      animation: note-flash var(--note-glyph-strike) linear;
-    }
-
-    .note-glyph-eye {
-      animation: note-blink var(--note-glyph-strike) var(--ease-standard);
-    }
-
-    .note-glyph-gavel {
-      animation: note-slam var(--note-glyph-strike) var(--ease-standard);
-    }
-
-    .note-glyph-impact {
-      animation: note-flash var(--note-glyph-strike) linear;
-    }
-
-    .note-glyph-confetti {
-      animation: note-confetti var(--note-glyph-beat) var(--ease-standard);
-    }
-
-    .note-glyph-page {
-      animation: note-page-flip var(--note-glyph-strike) var(--ease-standard);
-    }
-
-    .note-glyph-bar-short {
-      animation: note-bar-short var(--note-glyph-beat) var(--ease-standard);
-    }
-
-    .note-glyph-bar-tall {
-      animation: note-bar-tall var(--note-glyph-beat) var(--ease-standard);
-    }
-
-    .note-glyph-bar-middle {
-      animation: note-bar-middle var(--note-glyph-beat) var(--ease-standard);
-    }
-
-    .note-glyph-brain {
-      animation: note-expand var(--note-glyph-strike) var(--ease-standard);
-    }
-
-    .note-glyph-book-cover {
-      animation: note-book-cover var(--note-glyph-beat) var(--ease-standard);
-    }
-
-    .note-glyph-book-open {
-      animation: note-book-open var(--note-glyph-beat) var(--ease-standard);
-    }
-  }
 }
 
 @keyframes note-sword-right {
