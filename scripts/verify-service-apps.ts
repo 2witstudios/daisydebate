@@ -32,6 +32,12 @@ export const SERVICE_APPS: readonly ServiceApp[] = [
     stop: null,
   },
   {
+    file: 'fly.livekit-b.toml',
+    token: 'FLY_LIVEKIT_B_API_TOKEN',
+    target: null,
+    stop: null,
+  },
+  {
     file: 'fly.realtime.toml',
     token: 'FLY_REALTIME_API_TOKEN',
     target: 'realtime',
