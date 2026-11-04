@@ -80,6 +80,7 @@ const activeSession = (row: ActiveSessionRow) => {
           }
         : null,
       stops: row.runtime_state.clock_stops,
+      prepEndedAt: row.runtime_state.prep_ended_at,
       startGateAt: row.runtime_state.start_gate
         ? startGateInstant(row.runtime_state.start_gate)
         : null,

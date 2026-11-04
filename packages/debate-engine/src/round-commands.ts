@@ -53,7 +53,6 @@ export type CommandContext = {
   readonly participants: readonly RoundParticipantSeat[];
   /** Seat completeness against `rules.seats`; a write-path invariant (ADR 0058 §8). */
   readonly assertSeatCompleteness: () => void;
-  readonly openRowAt: (at: number) => void;
   readonly closeRowAt: (sequence: number, at: number) => void;
 };
 
@@ -85,7 +84,10 @@ const startPrep = (c: CommandContext): void => {
   c.into.effects.push({ kind: 'prep_started', side, at: iso(c.now) });
 };
 
-/** A speech opens out of the prepping side's prep, folding elapsed into it. */
+/**
+ * Ending prep folds elapsed into it. The speech opens one microphone lead later, on the
+ * clock, so capture has the speaker before their first word and prep stays private.
+ */
 const startSpeech = (c: CommandContext): void => {
   const active = c.on.checkpoint().active_prep!;
   const side = active.side;
@@ -103,7 +105,7 @@ const startSpeech = (c: CommandContext): void => {
     ),
   );
   c.on.endPrep();
-  c.openRowAt(c.now);
+  c.on.setPrepEndedAt(iso(c.now));
 };
 
 const stateOf = (c: CommandContext) => ({
@@ -136,6 +138,7 @@ export function closePlayedRound(c: CommandContext): void {
   const open = c.on.openRow();
   if (open !== undefined) c.closeRowAt(open.sequence, c.now);
   c.on.endPrep();
+  c.on.setPrepEndedAt(null);
   const lastPlayed = c.on.rows().at(-1)?.endedAtMs;
   if (lastPlayed !== undefined && lastPlayed !== null)
     c.into.finalPlayedEnd = iso(lastPlayed);

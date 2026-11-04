@@ -129,12 +129,18 @@ test('native browser retry resubmits the original accepted command after a lost 
   try {
     const formPage = await openPage(native, 'native command replay');
     await formPage.goto(`/rounds/${roundId}/room`);
-    for (const name of [
-      'Take prep time',
-      'Start affirmative constructive',
-      'End speech',
-    ])
+    for (const name of ['Take prep time', 'Start affirmative constructive'])
       await formPage.getByRole('button', { name, exact: true }).click();
+    // The clock starts one microphone lead after prep ends, and this page has no script.
+    await expect(async () => {
+      await formPage.reload();
+      await expect(
+        formPage.getByRole('button', { name: 'End speech', exact: true }),
+      ).toBeEnabled({ timeout: 500 });
+    }).toPass({ timeout: 15_000 });
+    await formPage
+      .getByRole('button', { name: 'End speech', exact: true })
+      .click();
     const confirm = formPage.getByRole('button', {
       name: 'Confirm end speech',
       exact: true,

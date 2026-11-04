@@ -20,6 +20,7 @@ describe('round runtime hydration', () => {
         active_prep: { side: 'affirmative', started_at: at(945_000) },
         floor: null,
         incident: { phase: 'none' },
+        prep_ended_at: null,
         start_gate: null,
         clock_stops: [],
       },

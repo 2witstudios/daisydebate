@@ -148,6 +148,7 @@ const end = (
       checkpoint: {
         ...closed.state.checkpoint,
         active_prep: null,
+        prep_ended_at: null,
         incident: { phase: 'none' },
         clock_stops: [
           ...state.checkpoint.clock_stops,

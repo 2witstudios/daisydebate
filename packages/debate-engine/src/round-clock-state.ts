@@ -225,6 +225,15 @@ export const normalizeRoundClock = (input: {
       'Prep cannot coexist with a live segment',
     );
   if (
+    checkpoint.prep_ended_at !== null &&
+    (checkpoint.active_prep !== null ||
+      rows.some((row) => row.endedAtMs === null))
+  )
+    throw createInvariantError(
+      debateInvariantIds.liveOpenSegmentCount,
+      'The lead after prep is neither prep nor a live segment',
+    );
+  if (
     checkpoint.incident.phase !== 'none' &&
     (checkpoint.incident.resume_point !== null) !==
       rows.some((row) => row.endedAtMs === null)

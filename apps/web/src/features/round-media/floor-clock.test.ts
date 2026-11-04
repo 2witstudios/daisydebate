@@ -12,6 +12,7 @@ const clock = (lastSegment: FloorClock['lastSegment']): FloorClock => ({
   prepBudgetMs: null,
   activePrep: null,
   stops: [],
+  prepEndedAt: null,
   startGateAt: null,
   hold: null,
   segmentCount: 1,
@@ -62,6 +63,29 @@ test('the floor is due at the latest committed change, never a future one', () =
   });
 });
 
+test('prep ending moves the floor, so its lag is not counted from the last speech', () => {
+  assert({
+    given: 'prep that ended 100 ms ago, long after the last speech ended',
+    should: 'read the floor change at prep ending',
+    actual: floorDueAt(
+      {
+        ...clock(null),
+        lastSegment: {
+          startedAt: at(0),
+          endedAt: at(10_000),
+          durationMs: 10_000,
+          returnedMs: 0,
+        },
+        segmentCount: 1,
+        segmentTotal: 2,
+        prepEndedAt: at(60_000),
+      },
+      60_100,
+    ),
+    expected: 60_000,
+  });
+});
+
 test('a hold moves every wait', () => {
   const stop = { from: at(5_000), to: at(65_000) };
   const gap: FloorClock = {
@@ -85,6 +109,16 @@ test('a hold moves every wait', () => {
       activePrep: { startedAt: at(0), consumedMs: 0 },
     }),
     expected: [80_000],
+  });
+  assert({
+    given: 'prep that ended, with a hold after it ended',
+    should: 'read a move only at the clock, one lead and the hold later',
+    actual: floorBoundaries({
+      ...gap,
+      stops: [{ from: at(500), to: at(60_500) }],
+      prepEndedAt: at(0),
+    }),
+    expected: [60_000 + roundStartPolicy.microphoneLeadMs],
   });
   assert({
     given: 'a Round held, then counting down to resume',

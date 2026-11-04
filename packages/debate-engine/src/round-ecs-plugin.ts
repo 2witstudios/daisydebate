@@ -29,6 +29,7 @@ const plugin = Database.Plugin.create({
   resources: {
     lifecycle: { default: { status: 'opening' } as Lifecycle },
     incident: { default: { phase: 'none' } as RuntimeCheckpoint['incident'] },
+    prepEndedAt: { default: null as RuntimeCheckpoint['prep_ended_at'] },
     startGate: { default: null as RuntimeCheckpoint['start_gate'] },
     clockStops: { default: [] as RuntimeCheckpoint['clock_stops'] },
     prepConsumedAffirmativeMs: { type: 'number', default: 0 },
@@ -102,6 +103,9 @@ const plugin = Database.Plugin.create({
       store.resources.incident = input.incident;
       store.resources.clockStops = input.clock_stops;
     },
+    setPrepEndedAt: (store, at: RuntimeCheckpoint['prep_ended_at']) => {
+      store.resources.prepEndedAt = at;
+    },
     setStartGate: (store, gate: RuntimeCheckpoint['start_gate']) => {
       store.resources.startGate = gate;
     },
@@ -109,6 +113,7 @@ const plugin = Database.Plugin.create({
       store.resources.lifecycle = lifecycle;
     },
     setCheckpoint: (store, checkpoint: RuntimeCheckpoint) => {
+      store.resources.prepEndedAt = checkpoint.prep_ended_at;
       store.resources.startGate = checkpoint.start_gate;
       store.resources.incident = checkpoint.incident;
       store.resources.clockStops = checkpoint.clock_stops;

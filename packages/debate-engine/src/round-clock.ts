@@ -19,7 +19,7 @@ import {
   type ClockSegment,
 } from './round-clock-state';
 
-export const openClockSegment = (
+const openClockSegment = (
   state: ClockState,
   rules: RoundRules,
   atMs: number,
@@ -69,21 +69,33 @@ const gapOpening = (
           nowMs,
         );
   if (nowMs < due) return null;
+  // Prep ran out: it ends here, and the clock starts one microphone lead later.
   if (active !== null)
-    state = {
+    return {
+      state: {
+        ...state,
+        checkpoint: {
+          ...state.checkpoint,
+          active_prep: null,
+          prep_ended_at: new Date(due).toISOString(),
+          prep_consumed_ms: {
+            ...state.checkpoint.prep_consumed_ms,
+            [active.side]: budget,
+          },
+        },
+      },
+      changes: [],
+    };
+  // The gate and prep's lead are spent: the clock now starts, and nothing below reads them.
+  return openClockSegment(
+    {
       ...state,
       checkpoint: {
         ...state.checkpoint,
-        active_prep: null,
-        prep_consumed_ms: {
-          ...state.checkpoint.prep_consumed_ms,
-          [active.side]: budget,
-        },
+        start_gate: null,
+        prep_ended_at: null,
       },
-    };
-  // The gate is spent: the clock now starts, and nothing below reads it again.
-  return openClockSegment(
-    { ...state, checkpoint: { ...state.checkpoint, start_gate: null } },
+    },
     rules,
     due,
   );

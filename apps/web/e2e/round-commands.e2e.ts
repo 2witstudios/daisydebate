@@ -50,9 +50,13 @@ test('native Start affirmative constructive and enhanced round controls retain c
         exact: true,
       })
       .click();
-    await expect(
-      formPage.getByRole('button', { name: 'End speech', exact: true }),
-    ).toBeEnabled();
+    // The clock starts one microphone lead after prep ends, and this page has no script.
+    await expect(async () => {
+      await formPage.reload();
+      await expect(
+        formPage.getByRole('button', { name: 'End speech', exact: true }),
+      ).toBeEnabled({ timeout: 500 });
+    }).toPass({ timeout: 15_000 });
     const speaking = await read();
     const stalePage = await openPage(native, 'stale native Round command');
     await stalePage.goto(path);

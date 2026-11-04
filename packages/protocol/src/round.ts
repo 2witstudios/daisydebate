@@ -125,6 +125,11 @@ export const runtimeCheckpointSchema = z.strictObject({
     })
     .nullable(),
   incident: incidentSchema,
+  /**
+   * When in-round prep ended. The next clock starts the microphone lead after this, so no
+   * microphone opens during prep. Null outside that lead; never set while prep runs.
+   */
+  prep_ended_at: z.iso.datetime().nullable(),
   /** Whether capture is ready for the coming speech, which it may briefly hold. */
   start_gate: startGateSchema,
   /** Finished incidents' spans, so a countdown, a strike window or prep owes them back. */
@@ -141,6 +146,7 @@ export const emptyRuntimeCheckpoint: RuntimeCheckpoint = {
   active_prep: null,
   floor: null,
   incident: { phase: 'none' },
+  prep_ended_at: null,
   start_gate: null,
   clock_stops: [],
 };
