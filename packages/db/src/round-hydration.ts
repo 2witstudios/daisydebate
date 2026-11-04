@@ -8,7 +8,7 @@ import type {
   RuntimeCheckpoint,
   SegmentType,
 } from '@daisy/protocol';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
@@ -102,7 +102,8 @@ export async function hydrateRoundRows(
       slot: roundParticipants.slot,
     })
     .from(roundParticipants)
-    .where(eq(roundParticipants.roundId, id));
+    .where(eq(roundParticipants.roundId, id))
+    .orderBy(asc(roundParticipants.role), asc(roundParticipants.slot));
   const segments = await segmentRows(tx, id);
   return {
     opening: await loadRoundOpening(tx, row),
