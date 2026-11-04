@@ -3,6 +3,7 @@ import {
   dueAfterStops,
   roundStartPolicy,
   segmentDueAtMs,
+  startGateInstant,
   type ClockStop,
   type RoundIncident,
   type RoundStartGate,
@@ -60,9 +61,6 @@ type ClockedRound = {
   } | null;
   readonly segments: readonly NonNullable<FloorClock['lastSegment']>[];
 };
-/** The instant a start gate holds the coming segment to. */
-export const startGateAtOf = (gate: RoundStartGate): string | null =>
-  gate === null ? null : gate.phase === 'awaiting' ? gate.until : gate.at;
 export const floorClockOf = (round: ClockedRound): FloorClock => {
   const prep = round.checkpoint?.active_prep;
   const incident = round.checkpoint?.incident ?? { phase: 'none' as const };
@@ -78,7 +76,9 @@ export const floorClockOf = (round: ClockedRound): FloorClock => {
         }
       : null,
     stops: round.checkpoint?.clock_stops ?? [],
-    startGateAt: startGateAtOf(round.checkpoint?.start_gate ?? null),
+    startGateAt: round.checkpoint?.start_gate
+      ? startGateInstant(round.checkpoint.start_gate)
+      : null,
     hold:
       incident.phase === 'none'
         ? null

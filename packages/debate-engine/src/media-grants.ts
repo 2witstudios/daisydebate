@@ -100,22 +100,32 @@ const cameraOpen = (input: MediaGrantInput) =>
  * has it when the clock starts. Only the seat's own clock tells them to speak, and only
  * speech inside the interval is ever credited.
  */
-const opensForClock = (input: MediaGrantInput) => {
-  const { nextSegment: next, countdownDueInMs: left } = input.position;
+export const microphoneOpensForClock = (input: {
+  readonly rules: RoundRules;
+  readonly participants: RoundCommandAuthority['participants'];
+  readonly participantId: string;
+  readonly nextSequence: number;
+}) => {
   const seat = input.participants.find(
     (participant) => participant.id === input.participantId,
   );
   return (
-    next !== null &&
-    left !== null &&
-    left <= roundStartPolicy.microphoneLeadMs &&
     seat?.kind === 'human' &&
     speakingParticipants(
       input.rules,
       input.participants,
-      next.sequence,
+      input.nextSequence,
       null,
     ).includes(input.participantId)
+  );
+};
+const opensForClock = (input: MediaGrantInput) => {
+  const { nextSegment: next, countdownRemainingMs: left } = input.position;
+  return (
+    next !== null &&
+    left !== null &&
+    left <= roundStartPolicy.microphoneLeadMs &&
+    microphoneOpensForClock({ ...input, nextSequence: next.sequence })
   );
 };
 const publishSources = (

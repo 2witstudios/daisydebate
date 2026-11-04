@@ -12,7 +12,7 @@ setupRitewayBun();
 for (const mode of ['headers', 'body'] as const) {
   test(`a within-budget ${mode} read is superseded at the boundary and again by a newer view`, async () => {
     const view = ran(1);
-    const deadlineMs = nextMediaRefreshAt(view)!;
+    const deadlineMs = nextMediaRefreshAt(view, 0)!;
     const media = await compose(mode);
     const boundary = {
       kind: 'boundary',

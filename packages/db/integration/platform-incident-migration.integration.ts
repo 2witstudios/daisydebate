@@ -44,3 +44,38 @@ test(
   },
   ddlTimeoutMs,
 );
+
+const roundStartGate = '20261104023126_round_start_gate';
+const gateScratch = scratchDatabase(databaseUrl, 'roundstartgate');
+afterAll(() => gateScratch.drop());
+
+test(
+  'every stored checkpoint gains an empty start gate and keeps what it held',
+  async () => {
+    await gateScratch.create();
+    await gateScratch.migrate((folder) => folder < roundStartGate);
+    const client = new SQL(gateScratch.url);
+    const f = new Fixture(client);
+    try {
+      const active = await f.round();
+      const [before] =
+        await client`select runtime_state from rounds where id=${active}`;
+      await gateScratch.migrate((folder) => folder <= roundStartGate);
+      const [row] =
+        await client`select runtime_state from rounds where id=${active}`;
+      const { start_gate, ...rest } = row!.runtime_state as Record<
+        string,
+        unknown
+      >;
+      assert({
+        given: 'a Round stored before start gates',
+        should: 'gain an empty gate, and keep its checkpoint',
+        actual: [start_gate, rest],
+        expected: [null, before!.runtime_state],
+      });
+    } finally {
+      await client.close();
+    }
+  },
+  ddlTimeoutMs,
+);

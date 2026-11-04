@@ -38,10 +38,14 @@ const iso = (ms: number) => new Date(ms).toISOString();
 const openRow = (state: ClockState) =>
   state.rows.find((row) => row.endedAtMs === null);
 const stay = (state: ClockState): ClockTransition => ({ state, changes: [] });
+// A new room needs capture again, so a start gate from before the hold is spent.
 const withIncident = (
   state: ClockState,
   incident: RoundIncident,
-): ClockState => ({ ...state, checkpoint: { ...state.checkpoint, incident } });
+): ClockState => ({
+  ...state,
+  checkpoint: { ...state.checkpoint, incident, start_gate: null },
+});
 
 /** A speech resumes from confirmed audio, never before it started or after the pause. */
 const resumePointOf = (

@@ -26,6 +26,13 @@ const privatePhase = (phase: StagePhase) =>
   phase === 'prep' || phase === 'judging' || phase === 'slate';
 
 /**
+ * A voice reaches the stage only while a speech's clock runs. A next speaker's microphone
+ * opens before their clock so capture has it, and what they say then is nobody's to keep:
+ * it never reaches Egress, so no timing error at a speech's edge can publish it.
+ */
+const hearsVoices = (phase: StagePhase) => phase === 'speech';
+
+/**
  * Every publication the stage should hold right now. The server's revocation is
  * the privacy boundary. Letting go in a private phase is a second layer for as
  * long as this page can read the phase, as when the sweep that revokes has died.
@@ -41,9 +48,10 @@ export const applyStageSubscriptions = (
       subscribesTo(debaterIdentities, participant.identity) &&
       !privatePhase(phase);
     for (const publication of participant.trackPublications.values()) {
-      if (publication.isSubscribed !== wanted)
-        publication.setSubscribed(wanted);
-      if (wanted && publication.kind === 'video')
+      const holds =
+        wanted && (publication.kind !== 'audio' || hearsVoices(phase));
+      if (publication.isSubscribed !== holds) publication.setSubscribed(holds);
+      if (holds && publication.kind === 'video')
         publication.setVideoQuality(VideoQuality.HIGH);
     }
   }

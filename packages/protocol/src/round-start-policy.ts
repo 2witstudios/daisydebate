@@ -8,3 +8,10 @@ export const roundStartPolicy = {
   /** Past the due instant, how long a start waits for capture. A late start is the clock. */
   captureHoldBoundMs: 1_500,
 } as const;
+
+/** The instant a start gate holds its segment to, for every reader of the clock. */
+export const startGateInstant = (
+  gate:
+    | { readonly phase: 'awaiting'; readonly until: string }
+    | { readonly phase: 'ready'; readonly at: string },
+): string => (gate.phase === 'awaiting' ? gate.until : gate.at);

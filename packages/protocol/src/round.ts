@@ -91,8 +91,7 @@ const startGateSchema = z
       at: z.iso.datetime(),
     }),
   ])
-  .nullable()
-  .default(null);
+  .nullable();
 export type RoundStartGate = z.infer<typeof startGateSchema>;
 
 /**

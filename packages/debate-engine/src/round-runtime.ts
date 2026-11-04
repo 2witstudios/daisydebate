@@ -122,6 +122,7 @@ export function createRoundRuntime(input: {
     if (checkpoint.active_prep === null) on.endPrep();
     if (checkpoint.floor === null) on.clearFloor();
     on.setIncident(checkpoint);
+    on.setStartGate(checkpoint.start_gate);
     into.changes.push(...transition.changes);
     for (const change of transition.changes) {
       if (change.kind === 'close')

@@ -22,8 +22,8 @@ const WAIT_MS = 1_000;
 const MAX_WAITING_FRAMES = 400;
 /**
  * Private validation staging only. No WAV, coverage or text. A frame that arrives before
- * this worker's history shows its speech open waits, briefly and in memory, for the next
- * history, because the clock started before this worker could know: what that history does
+ * this worker's history shows its speech open waits, in memory only and about a second at
+ * most while history reads run, for the next history, because the clock started before this worker could know: what that history does
  * not admit is discarded and never stored. Unvalidated PCM is bounded by this cap, never by wall-clock age: a
  * frame waits for the next batch however long that batch's history read
  * takes, since dropping it would leave a hole in coverage (ISSUE-577).
@@ -126,6 +126,9 @@ export function createCaptureStaging(input: {
       waiting = stillWaiting;
     },
     closeTrack(trackId: string) {
+      const kept = waiting.filter(({ raw }) => raw.trackId !== trackId);
+      input.dropped(waiting.length - kept.length);
+      waiting = kept;
       clocks.close(trackId);
       edges.delete(trackId);
     },

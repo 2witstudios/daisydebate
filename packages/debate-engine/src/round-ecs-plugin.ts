@@ -97,11 +97,13 @@ const plugin = Database.Plugin.create({
     },
     setIncident: (
       store,
-      input: Pick<RuntimeCheckpoint, 'incident' | 'clock_stops' | 'start_gate'>,
+      input: Pick<RuntimeCheckpoint, 'incident' | 'clock_stops'>,
     ) => {
-      store.resources.startGate = input.start_gate;
       store.resources.incident = input.incident;
       store.resources.clockStops = input.clock_stops;
+    },
+    setStartGate: (store, gate: RuntimeCheckpoint['start_gate']) => {
+      store.resources.startGate = gate;
     },
     setLifecycle: (store, lifecycle: Lifecycle) => {
       store.resources.lifecycle = lifecycle;

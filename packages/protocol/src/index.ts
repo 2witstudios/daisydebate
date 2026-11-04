@@ -587,7 +587,7 @@ export {
 export { broadcastHoldPrefix } from './broadcast-hold';
 export { parseHoldPlaylist, type HoldEntry } from './egress-hold-playlist';
 export { roundIncidentPolicy } from './round-incident-policy';
-export { roundStartPolicy } from './round-start-policy';
+export { roundStartPolicy, startGateInstant } from './round-start-policy';
 export {
   captureWithinLimit,
   frozenCaptureColumns,

@@ -695,9 +695,9 @@ test('a speech starts when capture has its speaker, or a short bound passes', ()
   const position = awaiting().position(roundAt(due + 500));
   assert({
     given: 'a read during the hold',
-    should: 'still show the countdown, with the hold in it',
+    should: 'show zero: the countdown never jumps back up',
     actual: position.countdownRemainingMs,
-    expected: 1_000,
+    expected: 0,
   });
 });
 
@@ -719,7 +719,6 @@ test('a start gate does not move the microphone it waits for', () => {
       'hold the clock but keep the microphone open, on the lead from its due',
     actual: {
       startsIn: position.countdownRemainingMs,
-      dueIn: position.countdownDueInMs,
       microphone: mediaGrants({
         participants: oneOnOneSeats.map((row) => ({
           ...row,
@@ -735,7 +734,7 @@ test('a start gate does not move the microphone it waits for', () => {
         conversationHeld: true,
       }).publish.includes('microphone'),
     },
-    expected: { startsIn: 2_900, dueIn: 1_400, microphone: true },
+    expected: { startsIn: 1_400, microphone: true },
   });
 });
 

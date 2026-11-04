@@ -37,13 +37,13 @@ export type TranscriptEvidenceInput = {
   }[];
 };
 
-const seconds = (ms: number) => `${Math.round(ms / 1000)} seconds`;
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} seconds`;
 
 const gapStatement = {
   platform: (span: string) =>
     `The platform captured no audio ${span}. The speaker may have spoken then.`,
   edge: (span: string) =>
-    `Capture was not reading ${span}, at the speech's edge. Words there may be missing.`,
+    `No audio was captured ${span}, at the speech's edge. Words there may be missing, or the speaker may not have been speaking yet; draw nothing from it.`,
   unattributed: (span: string) =>
     `No audio was captured ${span}. This may be silence or a muted microphone; draw nothing from it.`,
 } as const;

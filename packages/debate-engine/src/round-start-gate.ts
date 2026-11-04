@@ -1,5 +1,5 @@
 import type { RoundStartGate } from '@daisy/protocol';
-import { clockStopsOf, dueAfterStops } from '@daisy/protocol';
+import { clockStopsOf, dueAfterStops, startGateInstant } from '@daisy/protocol';
 import {
   closedCount,
   countdownAnchor,
@@ -45,10 +45,7 @@ export const segmentStartsAt = (
   const due = countdownDue(state, countdownMs, nowMs);
   const gate = state.checkpoint.start_gate;
   if (gate === null || gate.sequence !== closedCount(state)) return due;
-  return Math.max(
-    due,
-    Date.parse(gate.phase === 'awaiting' ? gate.until : gate.at),
-  );
+  return Math.max(due, Date.parse(startGateInstant(gate)));
 };
 
 const awaitCapture = (

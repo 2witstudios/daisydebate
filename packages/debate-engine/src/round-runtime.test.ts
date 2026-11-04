@@ -51,7 +51,6 @@ describe('round runtime lifecycle', () => {
           sequence: 0,
         },
         countdownRemainingMs: null,
-        countdownDueInMs: null,
         prep: null,
         prepBudgetRemainingMs: { affirmative: 240_000, negative: 240_000 },
         incident: { phase: 'none' },
@@ -90,7 +89,6 @@ describe('round runtime lifecycle', () => {
           stage: 'countdown',
           startedAt: at(0),
           countdownRemainingMs: 9_000,
-          countdownDueInMs: 9_000,
         },
       },
     });

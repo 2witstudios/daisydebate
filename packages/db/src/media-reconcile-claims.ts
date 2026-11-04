@@ -1,8 +1,8 @@
 import { createAppError } from '@daisy/errors';
-import type {
-  RoundStartGate,
-  RoundStatus,
-  RuntimeCheckpoint,
+import {
+  startGateInstant,
+  type RoundStatus,
+  type RuntimeCheckpoint,
 } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -43,9 +43,6 @@ type ActiveSessionRow = {
   readonly last_returned_ms: number | null;
   readonly now: Date;
 };
-/** A raw row: a checkpoint stored before start gates has no such key. */
-const startGateInstant = (gate: RoundStartGate): string | null =>
-  gate === null ? null : gate.phase === 'awaiting' ? gate.until : gate.at;
 const activeSession = (row: ActiveSessionRow) => {
   const prep = row.runtime_state.active_prep;
   return {
@@ -83,7 +80,9 @@ const activeSession = (row: ActiveSessionRow) => {
           }
         : null,
       stops: row.runtime_state.clock_stops,
-      startGateAt: startGateInstant(row.runtime_state.start_gate ?? null),
+      startGateAt: row.runtime_state.start_gate
+        ? startGateInstant(row.runtime_state.start_gate)
+        : null,
       hold:
         row.runtime_state.incident.phase === 'none'
           ? null
