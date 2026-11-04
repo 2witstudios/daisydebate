@@ -78,6 +78,10 @@ export const receiptResponse = (roundId: string) => (response: Response) =>
   new URL(response.url()).pathname === `/api/rounds/${roundId}/check-in` &&
   response.request().method() === 'POST' &&
   response.status() === 200;
+/** A browser whose first reconcile fails leaves the vendor room, so the answer is what keeps it seated. */
+const mediaReconcileResponse = (roundId: string) => (response: Response) =>
+  new URL(response.url()).pathname ===
+    `/api/rounds/${roundId}/media/reconcile` && response.status() === 200;
 export const receiptFrom = async (
   response: Response,
 ): Promise<AttendanceReceipt> =>
@@ -111,8 +115,18 @@ export async function enterSpeech(
   const page = await openPage(context, label);
   const connections = observeAttendanceSockets(page);
   const response = page.waitForResponse(receiptResponse(roundId));
+  const mediaSettled = page
+    .waitForResponse(mediaReconcileResponse(roundId))
+    .then(() => undefined);
+  // A caller that never asks leaves this wait unawaited; only the asking matters.
+  mediaSettled.catch(() => undefined);
   await page.goto(`/rounds/${roundId}/room`);
-  return { page, connections, receipt: await receiptFrom(await response) };
+  return {
+    page,
+    connections,
+    mediaSettled,
+    receipt: await receiptFrom(await response),
+  };
 }
 /** The first receipt requested once `watch` starts counting. Its body is read as it arrives. */
 async function firstReceipt(
