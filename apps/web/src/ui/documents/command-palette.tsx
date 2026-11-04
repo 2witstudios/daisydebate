@@ -16,7 +16,7 @@ import {
   type RankedCommand,
 } from '../../features/documents/command-palette';
 import { cn } from '../cn';
-import { Icon } from '../components/icon/icon';
+import { Icon, type IconName } from '../components/icon/icon';
 
 export type PaletteChoice =
   | { readonly kind: 'new' }
@@ -64,6 +64,8 @@ export function paletteCommands(
   ];
 }
 
+const FOLDER_COMMAND = 'create:folder';
+
 /** What the + offers, and nothing else. */
 export const createCommands: readonly Command[] = [
   {
@@ -75,7 +77,7 @@ export const createCommands: readonly Command[] = [
     snippet: 'A page to write in',
   },
   {
-    id: 'create:folder',
+    id: FOLDER_COMMAND,
     title: 'Folder',
     group: 'Create',
     keywords: ['new', 'organize'],
@@ -83,6 +85,9 @@ export const createCommands: readonly Command[] = [
     snippet: 'Keep documents together',
   },
 ];
+
+const commandIcon = (id: string): IconName =>
+  id === FOLDER_COMMAND ? 'folder' : id.startsWith('new:') ? 'plus' : 'file';
 
 const SEARCH_DELAY_MS = 150;
 
@@ -269,7 +274,6 @@ export function CommandPalette({
             )}
             {group.items.map((item) => {
               const index = ranked.indexOf(item);
-              const isNew = item.command.id.startsWith('new:');
               return (
                 <div
                   key={item.command.id}
@@ -285,16 +289,7 @@ export function CommandPalette({
                       : 'text-ink-muted',
                   )}
                 >
-                  <Icon
-                    name={
-                      item.command.id === 'create:folder'
-                        ? 'folder'
-                        : isNew
-                          ? 'plus'
-                          : 'file'
-                    }
-                    size={16}
-                  />
+                  <Icon name={commandIcon(item.command.id)} size={16} />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <Highlighted ranked={item} />
                     {snippetOf(item.command.id) ? (

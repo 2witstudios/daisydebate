@@ -156,6 +156,7 @@ const openDrafts = async (page: Page, roundId: string, title = 'Untitled') => {
   await page.goto(`${origin}/rounds/${roundId}`);
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: title, exact: true })
     .click();
   await expect(page.getByRole('textbox', { name: title })).toBeVisible();
