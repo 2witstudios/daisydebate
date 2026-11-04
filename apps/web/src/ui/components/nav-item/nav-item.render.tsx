@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { destinationPrefetch } from '../../../features/destinations/destinations';
 import { Icon, type IconName } from '../icon/icon';
 import {
   navFlyoutClass,
@@ -84,6 +85,7 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
     <span className="group relative block">
       <Link
         href={href}
+        prefetch={destinationPrefetch(href)}
         // The tooltip stays at every width: CSS alone hides the extended
         // words below 1101px, and a hover name is the only discovery left.
         title={title ?? label}

@@ -1,5 +1,6 @@
 'use client';
 
+import { destinationPrefetch } from '../../../../../features/destinations/destinations';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
@@ -101,6 +102,7 @@ export function TabBar({
           <Link
             key={tab.href}
             href={tab.href}
+            prefetch={destinationPrefetch(tab.href)}
             aria-current={active ? 'page' : undefined}
             className={tabClass(active)}
           >
@@ -132,6 +134,7 @@ export function TabBar({
               <li key={link.href}>
                 <Link
                   href={link.href}
+                  prefetch={destinationPrefetch(link.href)}
                   aria-current={
                     itemActive(pathname, link.href) ? 'page' : undefined
                   }

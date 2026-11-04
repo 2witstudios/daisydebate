@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { cn } from '../../cn';
-import type { DestinationSlug } from '../../../features/destinations/destinations';
+import {
+  destinationPrefetch,
+  type DestinationSlug,
+} from '../../../features/destinations/destinations';
 import type { SeasonGlance } from '../../../features/leaderboard/season';
 import type { NoteColor, NoteTilt } from './action-tile-class';
 import {
@@ -35,6 +38,7 @@ export function ActionTile({
   return (
     <Link
       href={href}
+      prefetch={destinationPrefetch(href)}
       className={cn(
         'note flex h-full flex-col gap-4 p-6 no-underline hover:no-underline',
         notePaperClass(note),

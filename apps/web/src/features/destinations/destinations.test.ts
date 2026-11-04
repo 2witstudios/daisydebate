@@ -3,6 +3,7 @@ import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   destinationHref,
+  destinationPrefetch,
   destinations,
   destinationSlugs,
 } from './destinations';
@@ -73,6 +74,17 @@ describe('destinationHref', () => {
         destinationHref('seasons'),
       ],
       expected: ['/lobby', '/tournaments', '/leaderboard/seasons'],
+    });
+  });
+});
+
+describe('destinationPrefetch', () => {
+  test('turns prefetch off only for the destination with no page', () => {
+    assert({
+      given: 'Prep, another destination, and a page under neither',
+      should: 'refuse Prep and leave the rest to the default',
+      actual: ['/prep', '/lobby', '/settings'].map(destinationPrefetch),
+      expected: [false, null, null],
     });
   });
 });
