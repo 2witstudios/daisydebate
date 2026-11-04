@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "4ae55d77-a018-4545-8604-326dd2aaacec",
+  "id": "856e432d-63bb-4749-a93a-a035176900a7",
   "prevIds": [
-    "14d095a5-3e4d-45a6-95d1-e3ee371058d7"
+    "8bb630aa-be75-4438-af57-c4f3e76cb4a6"
   ],
   "ddl": [
     {
@@ -11435,7 +11435,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'{\"version\":1,\"prep_consumed_ms\":{\"affirmative\":0,\"negative\":0},\"active_prep\":null,\"floor\":null,\"incident\":{\"phase\":\"none\"},\"start_gate\":null,\"clock_stops\":[]}'",
+      "default": "'{\"version\":1,\"prep_consumed_ms\":{\"affirmative\":0,\"negative\":0},\"active_prep\":null,\"floor\":null,\"incident\":{\"phase\":\"none\"},\"prep_ended_at\":null,\"start_gate\":null,\"clock_stops\":[]}'",
       "generated": null,
       "identity": null,
       "name": "runtime_state",
