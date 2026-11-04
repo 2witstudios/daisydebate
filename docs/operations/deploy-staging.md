@@ -818,7 +818,7 @@ it runs, so the app is never stopped when idle. To detach, run
 
 **Egress and storage.** `daisy-debate-staging-egress` (`fly.egress.toml`) holds its whole
 config in the `EGRESS_CONFIG_BODY` secret and writes to the private Tigris bucket
-`daisy-debate-staging-broadcast`, created with `fly storage create`. Both machines stay on: nothing wakes a stopped one. Staging keeps two Egress machines always on (`fly scale count 2 -a daisy-debate-staging-egress`), since nothing wakes a stopped one, each fitting one Round at 4 CPU. Casual capture is capped at one Round, so one machine stays for ranked. Beyond two captured Rounds at once, ranked capture is not guaranteed: a start with no capacity retries and raises `broadcast.egress.start_failed`, that Round's audience sees no video, and the debate itself is untouched.
+`daisy-debate-staging-broadcast`, created with `fly storage create`. One machine, fitting one Round. Nothing wakes a stopped one, so start it before capturing (Stopping capture). Past it a Round runs uncaptured, and the debate is untouched.
 
 **Web restarts stop capture (hold).** A Broadcast's or own Recording's stage page ends
 its own Egress once the stage route has refused or failed for about 10 s, and media
@@ -849,14 +849,42 @@ first such deploy, once:
    gave it `RECORDING_BUCKET_*`. On `daisy-debate-staging`, set the `RECORDING_BUCKET_*`
    secrets for signed playback.
 4. `BROADCAST_CAPTURE` and `RECORDING_CAPTURE` go `on` in `fly.toml`'s `[env]`, read by the web app, with the commit that turns Watch on. Until that commit they are unset and a green deploy captures nothing.
+   Start the capture machines. Nothing starts them for you, a deploy leaves a stopped machine
+   stopped, and with them stopped a green deploy captures nothing (Stopping capture, below).
 5. Set each bucket's CORS: the public bucket `GET` and `HEAD` from any origin, the
    Recording bucket `GET` and `HEAD` from the app's origin.
 
+**Stopping capture.** Staging runs one Egress at performance-2x, the encoder at performance-2x
+and the recorder at performance-1x, about the cost of those machines while they run. The owner
+may stop them when not testing. Check first that no Round is live.
+
+```bash
+# Stop
+for app in egress encoder recorder; do
+  fly machine list -a daisy-debate-staging-$app --json | jq -r '.[].id' \
+    | xargs -n1 fly machine stop -a daisy-debate-staging-$app
+done
+# Start
+for app in egress encoder recorder; do
+  fly machine list -a daisy-debate-staging-$app --json | jq -r '.[].id' \
+    | xargs -n1 fly machine start -a daisy-debate-staging-$app
+done
+```
+
+While they are off, Rounds run and finish normally for everyone in them:
+
+| Off      | A Round's seats | The audience                                                                                                                                                            |
+| -------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Egress   | Unaffected      | No video. The reconciler retries and alerts `broadcast.egress.start_failed`; the page says the broadcast is starting, then interrupted or failed                        |
+| Encoder  | Unaffected      | No video, and **a Broadcast cannot complete, so a ranked Round's public result, ratings and standings stay held until the encoder is started again**, when they release |
+| Recorder | Unaffected      | A Recording stays processing until the recorder is started again                                                                                                        |
+
+Start them before anything public, and before relying on a ranked result on a public page.
+
 **Official feed.** The web app reads `BROADCAST_PUBLIC_ORIGIN`, the public bucket's
-read origin (`https://<bucket>.t3.tigrisfiles.io`). The value is not secret, but
-`fly.toml` does not name it and the workflow passes no `--env`, so it has to be set
-with `fly secrets set` on `daisy-debate-staging` to survive a deploy. Unset, no Round
-offers Stream this Round.
+read origin (`https://<bucket>.t3.tigrisfiles.io`). The value is not secret, so
+`fly.toml`'s `[env]` names it, beside `BROADCAST_CAPTURE` and `RECORDING_CAPTURE`, which
+turn capture on for staging. Unset, no Round offers Stream this Round.
 
 The Recording worker (`fly.recording-worker.toml`, app
 `daisy-debate-staging-recorder`) writes to its own private bucket,
@@ -877,12 +905,12 @@ player on another origin is the only check that shows this; `curl` does not.
 **Adding capacity (BCAST-2).** Each pressure has its own step. None of them changes
 a Round already running, except where noted.
 
-| Pressure                | Step                                                                                                                         | Limit and what shows it                                                                                     |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| More Broadcasts at once | `fly scale count <n> -a daisy-debate-staging-egress`, with `fly machine start` first if stopped                              | One Round per machine at 4 CPU. A start with no capacity retries and raises `broadcast.egress.start_failed` |
-| More releases to encode | `fly scale count <n> -a daisy-debate-staging-encoder`, or raise `BROADCAST_WORKER_SLOTS` (default 4, at most 32) per machine | `broadcast.release_failed`, or viewers falling behind the Round's delay                                     |
-| More Recording builds   | `fly scale count <n> -a daisy-debate-staging-recorder`                                                                       | Builds queue durably, so the cost of too few is a later Ready                                               |
-| More people in Rounds   | `fly scale vm <size> -a daisy-debate-staging-livekit`, under the hold below                                                  | It restarts the machine, which ends every live call                                                         |
+| Pressure                | Step                                                                                                                         | Limit and what shows it                                                                                                                                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| More Broadcasts at once | `fly scale count <n> -a daisy-debate-staging-egress`, with `fly machine start` first if stopped                              | One Round per machine at 2 CPU, with `cpu_cost.web_cpu_cost: 2` in `EGRESS_CONFIG_BODY`; at Egress's default of 4 a 2-CPU machine admits nothing. A start with no capacity retries and raises `broadcast.egress.start_failed` |
+| More releases to encode | `fly scale count <n> -a daisy-debate-staging-encoder`, or raise `BROADCAST_WORKER_SLOTS` (default 4, at most 32) per machine | `broadcast.release_failed`, or viewers falling behind the Round's delay                                                                                                                                                       |
+| More Recording builds   | `fly scale count <n> -a daisy-debate-staging-recorder`                                                                       | Builds queue durably, so the cost of too few is a later Ready                                                                                                                                                                 |
+| More people in Rounds   | `fly scale vm <size> -a daisy-debate-staging-livekit`, under the hold below                                                  | It restarts the machine, which ends every live call                                                                                                                                                                           |
 
 Egress machines join through the shared media Redis and need nothing else. New
 machines hold the app's existing secrets, since Fly secrets are app-wide.

@@ -195,10 +195,10 @@ describe('closedDestinationOf', () => {
     assert({
       given: 'the launch config',
       should: 'close the areas with no real screens',
-      actual: ['/tournaments', '/watch', '/recordings'].map((path) =>
+      actual: ['/tournaments', '/prep', '/watch', '/recordings'].map((path) =>
         closedDestinationOf(path),
       ),
-      expected: ['tournaments', 'watch', 'watch'],
+      expected: ['tournaments', null, null, null],
     });
   });
 });
@@ -216,9 +216,10 @@ describe('launch config', () => {
   test('opens only the destinations with real screens', () => {
     assert({
       given: 'the launch config for the three-ladder beta',
-      should: 'open Play, Judge, Seasons, the real leaderboard, Train and Prep',
+      should:
+        'open Play, Watch, Judge, Seasons, the real leaderboard, Train and Prep',
       actual: destinationSlugs.filter((slug) => launched[slug]),
-      expected: ['lobby', 'judge', 'seasons', 'leaderboard', 'train', 'prep'],
+      expected: ['lobby', 'watch', 'judge', 'seasons', 'leaderboard', 'train', 'prep'],
     });
   });
 });

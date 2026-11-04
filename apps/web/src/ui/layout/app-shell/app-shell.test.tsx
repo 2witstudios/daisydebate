@@ -125,6 +125,9 @@ describe('AppShell', () => {
           '/',
           '/lobby',
           '/leaderboard',
+          '/watch',
+          '/watch',
+          '/recordings',
           '/judge',
           '/train',
           '/prep',
@@ -254,6 +257,8 @@ describe('AppShell', () => {
       actual: sheet,
       expected: [
         '/leaderboard',
+        '/watch',
+        '/recordings',
         '/train',
         '/prep',
         '/notifications',

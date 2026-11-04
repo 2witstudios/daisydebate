@@ -90,6 +90,14 @@ kill_timeout = 35
   ROUND_JUDGING_POLICY = '{"scanBatch":16,"scanMs":250,"leaseMs":15000,"renewMs":3000,"callTimeoutMs":30000,"model":"anthropic/claude-sonnet-5.5"}'
   # Round analysis (DEC-247) has its own policy and provider budget.
   ROUND_ANALYSIS_POLICY = '{"concurrency":1,"scanBatch":8,"scanMs":5000,"leaseMs":30000,"callTimeoutMs":60000,"model":"anthropic/claude-sonnet-5.5"}'
+  # Watch (ADR 0099, ADR 0107): staging captures, and a Round offers its
+  # official feed from the public bucket's read origin, which every feed URL
+  # names. These lines are staging's alone: this file is the staging app, and
+  # production never activates capture. Search stays closed: SEARCH_INDEXING
+  # is unset (docs/operations/production.md "Search indexing").
+  BROADCAST_CAPTURE = "on"
+  RECORDING_CAPTURE = "on"
+  BROADCAST_PUBLIC_ORIGIN = "https://daisy-debate-staging-broadcast-public.t3.tigrisfiles.io"
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.

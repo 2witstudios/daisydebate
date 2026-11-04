@@ -55,13 +55,13 @@ describe('Dashboard', () => {
     assert({
       given: 'the home dashboard with ranked play and real standings launched',
       should:
-        'carry four Coming soon tags and no sample event, with Watch real',
+        'carry two Coming soon tags and no sample event, with Watch real',
       actual: [
         occurrences(html, 'Coming soon'),
         html.includes('href="/coming-soon/tournaments"'),
         html.includes('Live Now'),
       ],
-      expected: [4, true, false],
+      expected: [2, true, false],
     });
   });
 });
