@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "b61f4c45-35a0-41a5-a535-5413e4fb9db7",
+  "id": "4ae55d77-a018-4545-8604-326dd2aaacec",
   "prevIds": [
-    "cfbdc3ef-f492-454f-96ed-78471979d127"
+    "14d095a5-3e4d-45a6-95d1-e3ee371058d7"
   ],
   "ddl": [
     {
@@ -153,6 +153,12 @@
     {
       "isRlsEnabled": false,
       "name": "debater_follows",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "document_folders",
       "entityType": "tables",
       "schema": "public"
     },
@@ -591,6 +597,18 @@
     {
       "isRlsEnabled": false,
       "name": "round_finalizations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_incident_watches",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_incidents",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3357,6 +3375,84 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "parent_folder_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "documents"
     },
     {
@@ -3368,6 +3464,19 @@
       "generated": null,
       "identity": null,
       "name": "owner_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "folder_id",
       "entityType": "columns",
       "schema": "public",
       "table": "documents"
@@ -3407,6 +3516,22 @@
       "generated": null,
       "identity": null,
       "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "type": "tsvector",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "setweight(to_tsvector('simple'::regconfig, title), 'A') || setweight(to_tsvector('simple'::regconfig, html), 'B')",
+        "type": "stored"
+      },
+      "identity": null,
+      "name": "search",
       "entityType": "columns",
       "schema": "public",
       "table": "documents"
@@ -4342,6 +4467,19 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "cause",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_room_rotations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -4551,6 +4689,32 @@
       "generated": null,
       "identity": null,
       "name": "deletion_requested_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "room_saw_capture",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "room_occupied_sid",
       "entityType": "columns",
       "schema": "public",
       "table": "media_sessions"
@@ -9971,6 +10135,149 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incident_watches"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unreachable_since",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incident_watches"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "retirement_taken_up_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incident_watches"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cause",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "detected_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "resume_point",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "resumed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "returned_ms",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "agent_run_id",
       "entityType": "columns",
       "schema": "public",
@@ -10562,6 +10869,35 @@
       "table": "round_segments"
     },
     {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "returned_ms",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_segments"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "round_segment_due_at(\"round_segments\".\"started_at\", \"round_segments\".\"duration_ms\", \"round_segments\".\"returned_ms\")",
+        "type": "stored"
+      },
+      "identity": null,
+      "name": "due_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_segments"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -10752,6 +11088,58 @@
       "generated": null,
       "identity": null,
       "name": "completeness",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "expected_speech_ms",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "capture_gap_ms",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unheard_ms",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{\"gaps\":[]}'",
+      "generated": null,
+      "identity": null,
+      "name": "capture_gaps",
       "entityType": "columns",
       "schema": "public",
       "table": "round_transcript_freezes"
@@ -11047,10 +11435,23 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'{\"version\":1,\"prep_consumed_ms\":{\"affirmative\":0,\"negative\":0},\"active_prep\":null,\"floor\":null}'",
+      "default": "'{\"version\":1,\"prep_consumed_ms\":{\"affirmative\":0,\"negative\":0},\"active_prep\":null,\"floor\":null,\"incident\":{\"phase\":\"none\"},\"start_gate\":null,\"clock_stops\":[]}'",
       "generated": null,
       "identity": null,
       "name": "runtime_state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "platform_ending",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -13316,7 +13717,21 @@
           "opclass": null
         },
         {
-          "value": "created_at",
+          "value": "parent_folder_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "name",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -13328,7 +13743,98 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "documents_owner_created_idx",
+      "name": "document_folders_listing_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "owner_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "folder_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "title",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "documents_listing_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "owner_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "updated_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "documents_owner_edited_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "search",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "gin",
+      "concurrently": false,
+      "name": "documents_search_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "documents"
@@ -16751,6 +17257,69 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"resumed_at\" is null and \"ended_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_incidents_single_open",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_incidents_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "detected_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_incidents_detected_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
         },
         {
           "value": "judge_participant_id",
@@ -18938,7 +19507,62 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
+      "name": "document_folders_owner_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "owner_actor_id",
+        "parent_folder_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "document_folders",
+      "columnsTo": [
+        "owner_actor_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "document_folders_parent_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "owner_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "name": "documents_owner_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "documents"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "owner_actor_id",
+        "folder_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "document_folders",
+      "columnsTo": [
+        "owner_actor_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "documents_folder_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "documents"
@@ -21189,6 +21813,40 @@
       "table": "round_finalizations"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_incident_watches_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_incident_watches"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_incidents_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
       "nameExplicit": true,
       "columns": [
         "round_id",
@@ -22390,6 +23048,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "document_folders_pkey",
+      "schema": "public",
+      "table": "document_folders",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "documents_pkey",
       "schema": "public",
       "table": "documents",
@@ -22877,6 +23545,26 @@
     },
     {
       "columns": [
+        "round_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_incident_watches_pkey",
+      "schema": "public",
+      "table": "round_incident_watches",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "round_incidents_pkey",
+      "schema": "public",
+      "table": "round_incidents",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "agent_run_id"
       ],
       "nameExplicit": false,
@@ -23049,6 +23737,18 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "agreement_signatures"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "owner_actor_id",
+        "id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "document_folders_owner_id_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "document_folders"
     },
     {
       "nameExplicit": true,
@@ -23629,6 +24329,20 @@
       "table": "content_reports"
     },
     {
+      "value": "char_length(\"name\") between 1 and 120",
+      "name": "document_folders_name_length",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
+      "value": "\"parent_folder_id\" is distinct from \"id\"",
+      "name": "document_folders_not_own_parent",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "document_folders"
+    },
+    {
       "value": "char_length(\"title\") between 1 and 120",
       "name": "documents_title_length",
       "entityType": "checks",
@@ -23837,6 +24551,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "mail_intents"
+    },
+    {
+      "value": "\"cause\" in ('absent', 'unreachable', 'seat-revoked', 'lost')",
+      "name": "media_room_rotations_cause_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_room_rotations"
     },
     {
       "value": "\"reconcile_epoch\" >= 0 and \"reconcile_served_version\" >= 0 and \"reconcile_running_version\" >= \"reconcile_served_version\" and \"reconcile_request_version\" >= \"reconcile_running_version\"",
@@ -25064,6 +25785,27 @@
       "table": "round_finalizations"
     },
     {
+      "value": "\"cause\" in ('vendor_unreachable', 'room_retired')",
+      "name": "round_incidents_cause_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "value": "\"returned_ms\" >= 0",
+      "name": "round_incidents_returned_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
+      "value": "\"resumed_at\" is null or \"ended_at\" is null",
+      "name": "round_incidents_one_ending_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_incidents"
+    },
+    {
       "value": "jsonb_typeof(\"diagnostic\") = 'object'",
       "name": "round_judging_attempts_diagnostic_is_object",
       "entityType": "checks",
@@ -25183,6 +25925,13 @@
       "table": "round_segments"
     },
     {
+      "value": "\"returned_ms\" >= 0",
+      "name": "round_segments_returned_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_segments"
+    },
+    {
       "value": "\"ended_at\" is null or \"ended_at\" >= \"started_at\"",
       "name": "round_speaking_intervals_time_check",
       "entityType": "checks",
@@ -25211,6 +25960,13 @@
       "table": "round_speaking_intervals"
     },
     {
+      "value": "\"unheard_ms\" is null or (\"capture_gap_ms\" is not null and \"unheard_ms\" >= \"capture_gap_ms\")",
+      "name": "round_transcript_freezes_capture_kinds_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
       "value": "\"revision\" > 0 and \"frontier\" >= 0",
       "name": "round_transcript_freezes_revision_check",
       "entityType": "checks",
@@ -25225,8 +25981,22 @@
       "table": "round_transcript_freezes"
     },
     {
+      "value": "jsonb_typeof(\"capture_gaps\") = 'object'",
+      "name": "round_transcript_freezes_capture_gaps_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_transcript_freezes"
+    },
+    {
       "value": "\"version\" > 0",
       "name": "rounds_version_positive",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "\"platform_ending\" is null or (\"platform_ending\" = 'recovery_bound' and \"status\" = 'abandoned') or (\"platform_ending\" = 'capture_shortfall' and \"status\" = 'completed' and \"outcome\" is null)",
+      "name": "rounds_platform_ending_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"
