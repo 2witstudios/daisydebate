@@ -8,9 +8,13 @@ import {
 } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { readRoundIncidentRate } from '@daisy/db/round-incident-rate';
+import { Room } from '@livekit/rtc-node';
 import { createRoundIncidentObserver } from '../src/features/round-incidents/observe';
+import { createRoundStartGate } from '../src/features/round-start-gate/gate';
+import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import {
   captureWorkerScope,
+  mediaDependencies,
   startCaptureSpeech,
   withMediaRound,
 } from './round-media.test-support';
@@ -545,3 +549,43 @@ test('a platform ending agrees with the status', async () => {
     });
   });
 });
+
+test('the pass opens the next speaker with the gate, and capture releases it', async () => {
+  await withMediaRound(async (f) => {
+    const seatRoom = new Room();
+    const gate = createRoundStartGate({
+      store: f.store.roundStartGates,
+      nextId: createId,
+    });
+    const operations = createRoundMediaOperations({
+      ...mediaDependencies(f),
+      awaitCapture: gate.awaitCapture,
+    });
+    try {
+      const round = (await f.store.getRound(f.roundId))!;
+      // The countdown's last moment: inside the lead, with the clock still due.
+      await f.sql`update rounds set started_at=clock_timestamp()-${round.rules.countdownMs - 1_000}*interval '1 millisecond' where id=${f.roundId}`;
+      const admitted = await operations.session(f.roundId, f.host.actorId);
+      await seatRoom.connect('ws://127.0.0.1:7880', admitted.token, {
+        autoSubscribe: false,
+        dynacast: false,
+      });
+      await operations.reconcile(f.roundId).catch(() => undefined);
+      const [held] =
+        await f.sql`select runtime_state->'start_gate' as gate from rounds where id=${f.roundId}`;
+      const seats: readonly string[] =
+        held!.gate?.phase === 'awaiting' ? held!.gate.seats : [];
+      for (const seat of seats) await gate.heard({ roundId: f.roundId, seat });
+      const [released] =
+        await f.sql`select runtime_state->'start_gate' as gate from rounds where id=${f.roundId}`;
+      assert({
+        given: 'a pass inside the lead, then capture reporting each speaker',
+        should: 'wait on the speakers, then be ready',
+        actual: [seats.length > 0, released!.gate?.phase],
+        expected: [true, 'ready'],
+      });
+    } finally {
+      await seatRoom.disconnect();
+    }
+  });
+}, 40_000);

@@ -1,4 +1,4 @@
-import { segmentStartsAt } from './round-start-gate';
+import { countdownDue, segmentStartsAt } from './round-start-gate';
 import { clockStopsOf, runningMs, segmentDueAtMs } from '@daisy/protocol';
 import type {
   DebateSide,
@@ -113,6 +113,7 @@ const countdownOf = (
   upcoming: RoundPosition['nextSegment'],
   now: number,
   countdownMs: number,
+  endsAt: typeof segmentStartsAt,
 ): number | null => {
   if (
     state.lifecycle.status !== 'active' ||
@@ -121,7 +122,7 @@ const countdownOf = (
     upcoming === null
   )
     return null;
-  return Math.max(0, segmentStartsAt(state, countdownMs, now) - now);
+  return Math.max(0, endsAt(state, countdownMs, now) - now);
 };
 
 /**
@@ -207,6 +208,16 @@ export const roundPositionOf = (
       upcoming,
       now,
       rules.countdownMs,
+      segmentStartsAt,
+    ),
+    countdownDueInMs: countdownOf(
+      on,
+      open,
+      active !== null,
+      upcoming,
+      now,
+      rules.countdownMs,
+      countdownDue,
     ),
     prep: prepOf(active, checkpoint, inRoundPrep?.budgetMsPerSide ?? 0, now),
     prepBudgetRemainingMs: prepBudgetOf(inRoundPrep, checkpoint, now),

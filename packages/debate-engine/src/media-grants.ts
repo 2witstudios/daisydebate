@@ -101,7 +101,7 @@ const cameraOpen = (input: MediaGrantInput) =>
  * speech inside the interval is ever credited.
  */
 const opensForClock = (input: MediaGrantInput) => {
-  const { nextSegment: next, countdownRemainingMs: left } = input.position;
+  const { nextSegment: next, countdownDueInMs: left } = input.position;
   const seat = input.participants.find(
     (participant) => participant.id === input.participantId,
   );

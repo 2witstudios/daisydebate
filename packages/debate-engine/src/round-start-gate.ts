@@ -24,7 +24,11 @@ const withGate = (state: ClockState, gate: RoundStartGate): ClockTransition =>
   stay({ ...state, checkpoint: { ...state.checkpoint, start_gate: gate } });
 
 /** When the countdown to the next segment ends, with no gate. */
-const countdownDue = (state: ClockState, countdownMs: number, nowMs: number) =>
+export const countdownDue = (
+  state: ClockState,
+  countdownMs: number,
+  nowMs: number,
+) =>
   dueAfterStops(
     countdownAnchor(state),
     countdownMs,

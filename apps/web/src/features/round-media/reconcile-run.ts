@@ -372,8 +372,8 @@ export function createMediaReconcileRun(
     if (
       position.nextSegment === null ||
       position.openSegment !== null ||
-      position.countdownRemainingMs === null ||
-      position.countdownRemainingMs > roundStartPolicy.microphoneLeadMs ||
+      position.countdownDueInMs === null ||
+      position.countdownDueInMs > roundStartPolicy.microphoneLeadMs ||
       state.round.checkpoint.start_gate?.sequence ===
         position.nextSegment.sequence
     )

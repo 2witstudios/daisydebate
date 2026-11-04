@@ -701,6 +701,44 @@ test('a speech starts when capture has its speaker, or a short bound passes', ()
   });
 });
 
+test('a start gate does not move the microphone it waits for', () => {
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const due = rules.countdownMs;
+  const run = runtimeOf([]);
+  run.applyStartGate({
+    kind: 'await',
+    atMs: Date.parse(roundAt(due - 1_500)),
+    seats: [seat.id],
+    boundMs: 1_500,
+  });
+  const now = roundAt(due - 1_400);
+  const position = run.position(now);
+  assert({
+    given: 'the gate the pass opens in the same breath as the microphone',
+    should:
+      'hold the clock but keep the microphone open, on the lead from its due',
+    actual: {
+      startsIn: position.countdownRemainingMs,
+      dueIn: position.countdownDueInMs,
+      microphone: mediaGrants({
+        participants: oneOnOneSeats.map((row) => ({
+          ...row,
+          eligible: true,
+          kind: 'human' as const,
+        })),
+        participantId: seat.id,
+        rules,
+        position,
+        now,
+        finalSegmentEndedAt: null,
+        inPreRoundPrep: false,
+        conversationHeld: true,
+      }).publish.includes('microphone'),
+    },
+    expected: { startsIn: 2_900, dueIn: 1_400, microphone: true },
+  });
+});
+
 test('the microphone opens just before the clock, for the next human speaker only', () => {
   const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
   const other = oneOnOneSeats.find(

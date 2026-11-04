@@ -187,6 +187,8 @@ export type RoundPosition = {
     readonly sequence: number;
   } | null;
   readonly countdownRemainingMs: number | null;
+  /** The countdown left to its due instant, ignoring any start gate's hold. */
+  readonly countdownDueInMs: number | null;
   readonly prep: {
     readonly side: DebateSide;
     readonly remainingMs: number;
