@@ -65,6 +65,7 @@ export function transcriptEvidenceInput(input: {
       sequence: segmentSequence(gap.segmentId),
       fromOffsetMs: gap.fromOffsetMs,
       untilOffsetMs: gap.untilOffsetMs,
+      cause: gap.cause,
     })),
     utterances: frozen.utterances.map((line) => ({
       ...seatLabel(line.roundParticipantId),

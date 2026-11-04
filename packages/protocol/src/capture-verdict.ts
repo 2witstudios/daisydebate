@@ -98,6 +98,14 @@ export type CaptureRule = {
   /** Whether a bot's grant owes no stream. The seal and the freeze both ask it. */
   readonly botGrantUnused: (facts: SeatGrantFacts) => boolean;
   /** Where a closed stream's required speech has no capture. */
+  /**
+   * What the tolerances forgave at a speech's edges: unheard all the same, so it is stated,
+   * though it never decides a verdict or what a judge may rule on.
+   */
+  readonly edges: (
+    coverage: StreamCoverage,
+    observed: readonly CaptureInterval[],
+  ) => readonly CaptureGap[];
   readonly gaps: (
     coverage: StreamCoverage,
     observed: readonly CaptureInterval[],

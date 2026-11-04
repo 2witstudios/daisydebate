@@ -121,7 +121,15 @@ function clockOf(
   if (position.openSegment) return segmentClock(position.openSegment, side);
   if (position.prep) return prepClock(position.prep, side);
   if (position.countdownRemainingMs !== null)
-    return { label: 'Starts in', remainingMs: position.countdownRemainingMs };
+    return {
+      label: 'Starts in',
+      remainingMs: position.countdownRemainingMs,
+      // Before it opens, because the other side can hear it from then.
+      ...(position.nextSegment?.side === side &&
+      position.nextSegment.type === 'speech'
+        ? { note: 'Your microphone goes live just before your clock starts.' }
+        : {}),
+    };
   const first = view.rules.segments[0];
   if (view.status !== 'opening' || !first) return null;
   return {

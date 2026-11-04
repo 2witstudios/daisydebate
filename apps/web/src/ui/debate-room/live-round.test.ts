@@ -140,7 +140,11 @@ describe('liveRoundOf during the round', () => {
       expected: [
         'waiting',
         0,
-        { label: 'Starts in', remainingMs: countdown - 4_000 },
+        {
+          label: 'Starts in',
+          remainingMs: countdown - 4_000,
+          note: 'Your microphone goes live just before your clock starts.',
+        },
       ],
     });
   });

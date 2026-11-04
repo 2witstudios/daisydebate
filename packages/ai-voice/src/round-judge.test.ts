@@ -88,6 +88,7 @@ test('a capture gap reaches the judge in plain words', () => {
         slot: 0,
         fromOffsetMs: 40_000,
         untilOffsetMs: 52_000,
+        cause: 'platform',
       },
     ],
     utterances: [],

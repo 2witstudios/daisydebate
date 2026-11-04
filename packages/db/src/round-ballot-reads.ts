@@ -36,9 +36,10 @@ export async function audienceTranscript(
   const partial = frozen.coverage.filter(
     (stream) => stream.state === 'partial',
   );
-  const found = await closedStreamGaps(tx, roundId, partial, captureRule);
-  const gaps = partial.flatMap((stream) =>
-    (found.get(streamKey(stream)) ?? []).map((gap) => ({
+  const closed = frozen.coverage.filter((stream) => stream.state !== 'open');
+  const found = await closedStreamGaps(tx, roundId, closed, captureRule);
+  const gaps = closed.flatMap((stream) =>
+    (found.get(streamKey(stream)) ?? []).map(({ edge: _edge, ...gap }) => ({
       segmentId: stream.segmentId,
       roundParticipantId: stream.roundParticipantId,
       ...gap,
