@@ -84,6 +84,7 @@ export const historyAnswer = (input: {
       startedAt: input.startedAt,
       endedAt: input.endedAt,
       durationMs: 3_600_000,
+      returnedMs: 0,
     },
     intervals: input.seats.map((seat, index) => ({
       id: String(index + 1).repeat(24),

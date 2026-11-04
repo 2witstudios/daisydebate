@@ -42,6 +42,7 @@ describe('competitive schema child tables', () => {
         segments: {
           checks: [
             'round_segments_duration_positive',
+            'round_segments_returned_check',
             'round_segments_sequence_check',
             'round_segments_type_check',
           ],

@@ -108,6 +108,7 @@ export async function launchedRoundRows(
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
     outcome: row.outcome,
+    platformEnding: row.platformEnding,
     panelRuling: recordedPanelRuling(
       await tx
         .select()

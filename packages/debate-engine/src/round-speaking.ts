@@ -4,7 +4,7 @@ import type {
   RoundSpeakingChange,
   RoundProjection,
 } from '@daisy/protocol';
-import type { ClockChange } from './round-clock';
+import type { ClockChange } from './round-clock-transition';
 
 /** Open questioning grants speaking permission without transferring the scheduled floor. */
 export const hasOpenQuestioning = (rules: RoundRules): boolean =>
@@ -47,24 +47,41 @@ export function speakingChangesOf(input: {
     readonly holder: string | null;
   } | null;
 }): NonNullable<RoundProjection['speakingChanges']> {
-  const result: RoundSpeakingChange[] = input.changes.map((change) =>
-    change.kind === 'close'
-      ? {
-          kind: 'close',
-          segmentId: input.segmentIds.get(change.sequence)!,
-          at: new Date(change.atMs).toISOString(),
-        }
-      : {
-          kind: 'open',
-          segmentId: input.segmentIds.get(change.row.sequence)!,
-          at: new Date(change.row.startedAtMs).toISOString(),
-          participantIds: speakingParticipants(
-            input.rules,
-            input.participants,
-            change.row.sequence,
-            null,
-          ),
-        },
+  const opened = (
+    sequence: number,
+    atMs: number,
+    holder: string | null,
+  ): RoundSpeakingChange => ({
+    kind: 'open',
+    segmentId: input.segmentIds.get(sequence)!,
+    at: new Date(atMs).toISOString(),
+    participantIds: speakingParticipants(
+      input.rules,
+      input.participants,
+      sequence,
+      holder,
+    ),
+  });
+  const result: RoundSpeakingChange[] = input.changes.flatMap(
+    (change): RoundSpeakingChange[] => {
+      switch (change.kind) {
+        case 'open':
+          return [opened(change.row.sequence, change.row.startedAtMs, null)];
+        case 'resume':
+          return [opened(change.sequence, change.atMs, change.holder)];
+        case 'close':
+        case 'stop':
+          return [
+            {
+              kind: 'close',
+              segmentId: input.segmentIds.get(change.sequence)!,
+              at: new Date(change.atMs).toISOString(),
+            },
+          ];
+        case 'incident':
+          return [];
+      }
+    },
   );
   const floor = input.floorChange;
   if (floor && !sharesSpeaking(input.rules, floor.sequence)) {

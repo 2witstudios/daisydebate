@@ -26,14 +26,15 @@ const withClaimedFloor = (
     await work({
       fixture,
       target,
-      credit: (before, after) =>
-        operations.verifyBotPublication(
+      credit: async (before, after) => {
+        await operations.verifyBotPublication(
           claim.scope,
           claim.token,
           before === undefined
             ? undefined
             : { beforeMs: start + before, afterMs: start + after! },
-        ),
+        );
+      },
       credited: async () =>
         (
           await fixture.sql`select credited_from,credited_until from round_bot_publication_windows where round_id=${target.roundId} and segment_id=${target.segmentId} and round_participant_id=${target.roundParticipantId} order by credited_from`

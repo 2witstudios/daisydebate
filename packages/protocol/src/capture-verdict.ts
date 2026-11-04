@@ -11,6 +11,14 @@ export const capturePartialReasons = [
   'coverage-gap',
   'never-sealed',
 ] as const;
+/**
+ * Whether a partial stream lost audio. Any other reason can mean nothing was
+ * said, which is a silent seat and never the platform's failure.
+ */
+export const partialReasonsStateLoss = (reasons: readonly string[]): boolean =>
+  reasons.some(
+    (reason) => reason === 'frames-lost' || reason === 'session-interrupted',
+  );
 export const capturePartialReasonSchema = z.enum(capturePartialReasons);
 export type CapturePartialReason = z.infer<typeof capturePartialReasonSchema>;
 

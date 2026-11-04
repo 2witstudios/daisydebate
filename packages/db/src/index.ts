@@ -1,3 +1,5 @@
+import { createRoundIncidentStore } from './round-incident-store';
+export type { RoundHydration } from './round-hydration';
 import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
@@ -219,6 +221,9 @@ export function createDatabase({
     }),
     ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
     ...roundAnalysisReads({ database }),
+    roundIncidents: namedLaneOperations(
+      createRoundIncidentStore({ run: transcriptTransaction }),
+    ),
     broadcasts: createBroadcastStore(database),
     recordingCaptures: createRecordingCaptureStore(database),
     mediaSessions: namedLaneOperations(
@@ -252,6 +257,8 @@ export function createDatabase({
     listenRealtimeHints(handlers: RealtimeHintHandlers) {
       return subscribeRealtimeHints(dedicated, handlers);
     },
+    laneGauges: workload.laneGauges,
+    drainLaneHolds: workload.drainLaneHolds,
     async close() {
       await workload.close();
       if (dedicated !== injectedClient) await dedicated.close({ timeout: 5 });

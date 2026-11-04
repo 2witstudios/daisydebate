@@ -4,6 +4,7 @@ import type { Database } from '@daisy/db';
 import {
   attendanceSettled,
   botGrantUnused,
+  captureRule,
   createRoundRuntime,
   decidePanelCompletion,
   judgingEndIsReported,
@@ -77,6 +78,8 @@ export function createRoundMaintenanceOperations(input: {
   readonly ratingFailed: (roundId: string, error: unknown) => void;
   /** An AI judge's job ended at completion, with no worker there to report it. */
   readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
+  /** A freeze ended this Round as a platform incident; called once, for the operator. */
+  readonly platformEnded?: (roundId: string) => void;
   readonly ids: IdGenerator;
   readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   /**
@@ -135,6 +138,7 @@ export function createRoundMaintenanceOperations(input: {
         buildProjection,
         planJudging,
         botGrantUnused,
+        captureRule,
       });
       if (result.status !== 'frozen') return result;
       try {
@@ -147,6 +151,7 @@ export function createRoundMaintenanceOperations(input: {
           buildCompletion: panelCompletion(() => input.ids.next()),
           judgingEndReason: judgingJobEndReason,
           attendanceSettled,
+          platformEnded: () => input.platformEnded?.(roundId),
           judgingEnded: (reason) => {
             if (judgingEndIsReported(reason)) input.judgingEnded?.(reason);
           },

@@ -25,3 +25,5 @@ A debater's record is a pure function too (ISSUE-600). `recordResult` decides wh
 Run `bun test packages/debate-engine/src` for deterministic runtime and rating tests. Service-backed persistence proof lives in `packages/db/integration/` and runs with `bun test:integration`.
 
 The resolution draw is part of a Round's opening ([ADR 0104](../decisions/0104-round-owns-its-opening.md)). `drawResolutions`, `settleDraw` and `preRoundPhase` are pure: the seed and salt come from the OS CSPRNG at the web edge, strikes carry their own due instants, and the Room projection delivers drawn texts only to seated debaters.
+
+A platform incident holds the Round's clock through one checkpoint state and a table of pure transitions; no player reaches them. See [platform incident](../architecture/round-platform-incident.md).

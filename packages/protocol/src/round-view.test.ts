@@ -20,6 +20,7 @@ const segment = (sequence: number) => ({
   startedAt: at(sequence * 5),
   endedAt: at(sequence * 5 + 5),
   durationMs: rules.segments[sequence]!.durationMs,
+  returnedMs: 0,
 });
 const debater = {
   id: id('p'),
@@ -52,6 +53,7 @@ const view = {
   completedAt: null,
   outcome: null,
   panelRuling: null,
+  platformEnding: null,
   waitingOn: null,
   transcriptCompleteness: null,
   resolutionAudit: null,
@@ -100,6 +102,7 @@ describe('roundViewSchema', () => {
           status: 'completed',
           completedAt: at(9),
           panelRuling: 'transcript-incomplete',
+          platformEnding: null,
         }),
         parses({ ...view, panelRuling: 'media-failed' }),
         parses((({ panelRuling: _u, ...rest }) => rest)(view)),

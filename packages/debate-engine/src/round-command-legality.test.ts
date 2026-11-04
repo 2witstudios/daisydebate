@@ -52,6 +52,7 @@ const speechFacts = (
         startedAt: at(0),
         endedAt: null,
         durationMs: rules.segments[0]!.durationMs,
+        returnedMs: 0,
       },
     ],
   }),

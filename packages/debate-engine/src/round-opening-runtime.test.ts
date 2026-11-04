@@ -41,7 +41,7 @@ const hydrated = (
 
 const noDraw = (prepMs: number | null) => ({
   ...roundFacts,
-  opening: { startedAt: edges.now, draw: null, prepMs },
+  opening: { startedAt: edges.now, draw: null, prepMs, stops: [] },
   seed: null,
 });
 
@@ -236,7 +236,12 @@ test('a forfeit after prep ended invents no played segment, whatever the countdo
 });
 
 test('inPreRoundPrep is true only while prep runs', () => {
-  const opening = { startedAt: edges.now, draw: null, prepMs: PREP_MS };
+  const opening = {
+    startedAt: edges.now,
+    draw: null,
+    prepMs: PREP_MS,
+    stops: [],
+  };
   assert({
     given: 'the first minute, the last millisecond and the end of prep',
     should: 'report prep until the instant it ends',

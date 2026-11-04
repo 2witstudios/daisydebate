@@ -10,6 +10,7 @@ import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail'
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
 import { startRoomLifecycleMaintenance } from './room-maintenance';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
+import { startLaneGauges } from './lane-gauges';
 import { startRoundMediaRecovery } from './round-media-recovery';
 import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
@@ -96,6 +97,16 @@ const mediaRecovery = mediaRuntime
       },
     })
   : null;
+const laneGauges = startLaneGauges({
+  gauges: app.database.laneGauges,
+  drainHolds: app.database.drainLaneHolds,
+  log: (event, fields) =>
+    app.logger.log(event, fields, 'One window of database lane use'),
+  every: (ms, run) => {
+    const handle = setInterval(run, ms).unref();
+    return { stop: () => clearInterval(handle) };
+  },
+});
 /** Process timers for the async worker loops; `unref` never holds the process open. */
 const workerTimers: WorkerTimers = {
   setInterval: (tick, ms) =>
@@ -244,6 +255,7 @@ async function shutdown() {
   const recordingCaptureStopped = recordingCapture?.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
+  laneGauges.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
   const roundMaintenanceStopped = roundMaintenance.stop();
   const roomMaintenanceStopped = roomMaintenance.stop();

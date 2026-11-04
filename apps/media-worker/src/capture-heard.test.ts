@@ -26,7 +26,7 @@ function harness(refuse = new Set<string>()) {
 }
 const signal = new AbortController().signal;
 
-test("capture reports each bot track it starts hearing once, and never a human's (ISSUE-514-r2)", async () => {
+test("capture reports each seat's track it starts hearing, once (ISSUE-514-r2)", async () => {
   const { reporter, reports } = harness();
   reporter.started({ identity: 'bot-id', trackId: 'TR_bot' });
   reporter.started({ identity: 'human-id', trackId: 'TR_human' });
@@ -34,9 +34,9 @@ test("capture reports each bot track it starts hearing once, and never a human's
   await reporter.report(open, 3, signal);
   assert({
     given: 'a bot track and a human track that capture started reading',
-    should: 'report the bot seat for its track once, in the open segment',
+    should: 'report each seat for its track once, in the open segment',
     actual: reports,
-    expected: ['3/seg/bot-seat/TR_bot'],
+    expected: ['3/seg/bot-seat/TR_bot', '3/seg/human-seat/TR_human'],
   });
 });
 

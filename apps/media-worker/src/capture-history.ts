@@ -1,4 +1,4 @@
-import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol';
+import { CAPTURE_HISTORY_READ_MS, speakingEndMs } from '@daisy/protocol';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import { createAppError } from '@daisy/errors';
 import {
@@ -16,10 +16,13 @@ export function contained(state: CaptureState, seat: string, window: Window) {
     !segment ||
     window.beforeMs < Date.parse(segment.startedAt) ||
     window.afterMs >=
-      Math.min(
-        segment.endedAt === null ? Infinity : Date.parse(segment.endedAt),
-        Date.parse(segment.startedAt) + segment.durationMs,
-      )
+      speakingEndMs({
+        startedAtMs: Date.parse(segment.startedAt),
+        endedAtMs:
+          segment.endedAt === null ? null : Date.parse(segment.endedAt),
+        durationMs: segment.durationMs,
+        returnedMs: segment.returnedMs,
+      })
   )
     return false;
   return (

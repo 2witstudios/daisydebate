@@ -42,6 +42,7 @@ const closedWith = (overrides: Parameters<typeof runtimeWorld>[0]) => {
     status: 'active',
     segments: projected.segmentInserts.map((row) => ({
       ...row,
+      returnedMs: 0,
       endedAt: projected.segmentCloses.find((close) => close.id === row.id)!
         .endedAt,
     })),

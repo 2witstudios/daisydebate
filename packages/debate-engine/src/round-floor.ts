@@ -1,3 +1,4 @@
+import { segmentDueAtMs } from '@daisy/protocol';
 import type { CommandContext } from './round-commands';
 
 const iso = (ms: number): string => new Date(ms).toISOString();
@@ -21,7 +22,7 @@ export const yieldFloor = (c: CommandContext): void => {
     };
     return;
   }
-  const unused = open.startedAtMs + open.durationMs - c.now;
+  const unused = segmentDueAtMs(open) - c.now;
   if (returnsTime && c.rules.inRoundPrep !== null && unused > 0)
     c.on.setPrepConsumed(
       scheduled.side,

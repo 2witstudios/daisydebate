@@ -10,6 +10,7 @@ const evidence = {
   resolution: 'Transit should be free',
   revision: 1,
   completeness: 'complete' as const,
+  gaps: [],
   coverage: [],
   utterances: [
     {

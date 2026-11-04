@@ -40,6 +40,24 @@ export function startRoundCompetitiveMaintenance(input: {
       ids: app.ids,
       evaluate: attendance.evaluate,
       judgingEnded,
+      platformEnded: (roundId) => {
+        app.logger.log(
+          'round.incident.ended',
+          { roundId },
+          'A platform incident ended this Round',
+        );
+        input.reporter?.capture(
+          createAppError(
+            'INFRASTRUCTURE',
+            'A Round lost more speech than can be judged',
+          ),
+          {
+            requestId: app.ids.next(),
+            route: 'round.incident.ended',
+            errorCode: 'INFRASTRUCTURE',
+          },
+        );
+      },
       ratingFailed: (_roundId, error) =>
         workerFailures(app, input.reporter)(
           'round.maintenance.failed',

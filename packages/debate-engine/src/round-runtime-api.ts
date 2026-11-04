@@ -1,4 +1,5 @@
 import type { RoundAdjudication } from './round-adjudication';
+import type { IncidentEvent } from './round-incident';
 import type {
   RoundCommand,
   RoundPosition,
@@ -28,6 +29,8 @@ export type RoundRuntime = {
     readonly at: string;
     readonly now: string;
   }) => RoundProjection;
+  /** A server-detected platform incident moving the Round's hold; no player reaches this. */
+  readonly applyIncident: (event: IncidentEvent) => RoundProjection;
   /** Advances time alone, projecting whatever the clock moved. */
   readonly tick: (now: string) => RoundProjection;
   /** The current checkpoint. */

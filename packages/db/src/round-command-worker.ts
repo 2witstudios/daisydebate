@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { RoundCommandPrincipal } from '@daisy/protocol';
+import { segmentDueAtMs, type RoundCommandPrincipal } from '@daisy/protocol';
 import type { RoundHydration } from './round-hydration';
 import type { RoundWriteTransaction } from './round-write-authority';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -15,7 +15,7 @@ type Claim = Pick<
 type WorkerRound = Pick<RoundHydration, 'id' | 'status'> & {
   readonly segments: readonly Pick<
     RoundHydration['segments'][number],
-    'id' | 'startedAt' | 'endedAt' | 'durationMs'
+    'id' | 'startedAt' | 'endedAt' | 'durationMs' | 'returnedMs'
   >[];
 };
 export async function lockRoundCommandWorker(
@@ -75,8 +75,16 @@ function currentWorkerSegment(
   if (!segment || segment.id !== segmentId || segment.endedAt !== null)
     return false;
   const at = Date.parse(now),
-    start = Date.parse(segment.startedAt);
-  return at >= start && at < start + segment.durationMs;
+    startedAtMs = Date.parse(segment.startedAt);
+  return (
+    at >= startedAtMs &&
+    at <
+      segmentDueAtMs({
+        startedAtMs,
+        durationMs: segment.durationMs,
+        returnedMs: segment.returnedMs,
+      })
+  );
 }
 
 function currentLease(

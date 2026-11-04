@@ -1,3 +1,4 @@
+import type { ClockStop } from '@daisy/protocol';
 import {
   drawCapableBounds,
   plainFormatSettings,
@@ -105,7 +106,12 @@ export const opened = (room = drawRoom(), prepMs: number | null = null) => {
   const draw = begin(room).draw;
   return {
     seats: seatsOf(room),
-    opening: { startedAt: edges.now, draw: draw?.state ?? null, prepMs },
+    opening: {
+      startedAt: edges.now,
+      draw: draw?.state ?? null,
+      prepMs,
+      stops: [] as readonly ClockStop[],
+    },
   };
 };
 

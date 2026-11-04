@@ -83,6 +83,14 @@ export function requestId(incoming: string | null): string {
     ? incoming
     : crypto.randomUUID();
 }
+/** The deadline passed before the operation answered. */
+export class OperationTimedOut extends Error {
+  constructor() {
+    super('Operation timed out');
+    this.name = 'OperationTimedOut';
+  }
+}
+
 export async function withTimeout<T>(
   operation: Promise<T>,
   timeoutMs: number,
@@ -92,10 +100,7 @@ export async function withTimeout<T>(
     return await Promise.race([
       operation,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error('Operation timed out')),
-          timeoutMs,
-        );
+        timer = setTimeout(() => reject(new OperationTimedOut()), timeoutMs);
       }),
     ]);
   } finally {

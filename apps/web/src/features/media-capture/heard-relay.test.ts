@@ -48,7 +48,7 @@ const heard = (segmentId = segment) => ({
   segmentId,
   trackId: 'TR_bot',
 });
-test("capture's report that it hears a bound bot seat's track names that seat for the track (ISSUE-514-r2)", async () => {
+test("capture's report that it hears a bound seat's track names that seat for the track (ISSUE-514-r2)", async () => {
   const f = heardHarness('bot');
   await f.relay({ ...identity, epoch: 1 }, heard());
   assert({
@@ -57,10 +57,17 @@ test("capture's report that it hears a bound bot seat's track names that seat fo
     actual: f.writes,
     expected: [{ roundId: identity.roundId, trackId: 'TR_bot', seat }],
   });
+  const human = heardHarness('human');
+  await human.relay({ ...identity, epoch: 1 }, heard());
+  assert({
+    given: 'a report for a bound human seat, which a held Round waits on',
+    should: 'write the seat for that Round and track',
+    actual: human.writes,
+    expected: [{ roundId: identity.roundId, trackId: 'TR_bot', seat }],
+  });
 });
-test('a heard report is admitted only for a bound bot seat, the current segment and a current lease', async () => {
+test('a heard report is admitted only for a bound seat, the current segment and a current lease', async () => {
   for (const [given, f, body, code] of [
-    ['a human seat', heardHarness('human'), heard(), 'AUTHORIZATION'],
     [
       'an unbound bot seat',
       heardHarness('bot', false),

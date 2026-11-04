@@ -20,6 +20,7 @@ const segment = {
   startedAtMs: base,
   endedAtMs: base + 180000,
   durationMs: 180000,
+  returnedMs: 0,
 };
 const grant = {
   segmentId,

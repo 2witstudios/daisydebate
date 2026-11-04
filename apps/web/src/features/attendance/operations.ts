@@ -1,7 +1,6 @@
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import {
   createRoundRuntime,
-  deriveOutageIntervals,
   adjudicateAttendance,
   nextAttendanceSegment,
   type RoundEndingDecision,
@@ -19,7 +18,6 @@ import type {
   AttendanceReceiptFacts,
   AttendanceResolution,
   AttendancePrincipal,
-  LockedAttendanceCheckIn,
 } from '@daisy/db/attendance';
 import {
   attendanceEnvelopeSchema,
@@ -29,15 +27,9 @@ import {
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { acceptAttendanceReceipt } from './receipt-window';
+import { availabilityOf } from './availability-of';
 import { attendanceWindowFor } from './windows';
 import { attendanceReceiptTime, attendanceTimestamp } from './receipt-time';
-const availabilityFor = (facts: Pick<LockedAttendanceCheckIn, 'samples'>) =>
-  deriveOutageIntervals(
-    facts.samples.map((sample) => ({
-      atMs: attendanceReceiptTime(sample.at),
-      healthy: sample.healthy,
-    })),
-  );
 const windowOf = (facts: AttendanceReceiptFacts) => {
   const target = nextAttendanceSegment({
     ruleSegments: facts.round.rules.segments,
@@ -89,7 +81,7 @@ function resolveAttendanceWindow(
   const next = windowOf(facts);
   if (!next) return null;
   const { target, window, checkIns } = next;
-  const availability = availabilityFor(facts);
+  const availability = availabilityOf(facts);
   const evidence = {
     window,
     availability,
@@ -156,7 +148,7 @@ export function createAttendanceFeature(deps: {
       admits: admitsPrincipalAccess,
     });
     const nowMs = Date.parse(facts.now);
-    const availability = availabilityFor(facts);
+    const availability = availabilityOf(facts);
     const targets = facts.round.segments
       .filter(
         (segment) =>
