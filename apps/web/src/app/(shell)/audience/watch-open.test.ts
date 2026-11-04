@@ -10,7 +10,7 @@ import { SeatedSpectatorChat } from './seated-spectator-chat';
 
 setupRitewayBun();
 
-/** Where a call was redirected, or what it threw when it was not. */
+/** Where a call was redirected, or null when it failed or finished in place. */
 const redirectedTo = async (run: () => Promise<unknown>) => {
   try {
     await run();
@@ -29,35 +29,35 @@ const follow = {
 const previous = { values: {} };
 const form = new FormData();
 
-/** The builder's launch flip replaces this suite, as it does launch-gate's. */
-describe('while Watch is closed', () => {
-  test('the flag is closed', () => {
+describe('with Watch open', () => {
+  test('the flag is open', () => {
     assert({
-      given: 'the launch config before WATCH-4 passes',
-      should: 'keep Watch closed, which this suite relies on',
+      given: 'the launch config once WATCH-4 passes',
+      should: 'open Watch, which this suite relies on',
       actual: launched.watch,
-      expected: false,
+      expected: true,
     });
   });
 
-  test('every audience server action answers with the explainer', async () => {
+  test('no audience server action answers with the explainer', async () => {
     const actions = [
       () => postSpectatorChatAction(target, previous, form),
       () => reactToRoundAction(target, previous, form),
       () => setDebaterFollowAction(follow, previous, form),
       () => reportFromPageAction('/watch/round', form),
     ];
+    const destinations = await Promise.all(actions.map(redirectedTo));
     assert({
-      given: 'a forged call to each action, bound to no open page',
-      should: 'redirect before any route or request is read',
-      actual: await Promise.all(actions.map(redirectedTo)),
-      expected: actions.map(() => '/coming-soon/watch'),
+      given: 'a call to each action, outside any request',
+      should: 'pass the launch gate and go on to read the request',
+      actual: destinations.filter((path) => path === '/coming-soon/watch'),
+      expected: [],
     });
   });
 
-  test('a debater Room mounts no spectator chat', async () => {
+  test('a closed flag still mounts no spectator chat in a debater Room', async () => {
     assert({
-      given: 'the seated chat with Watch closed',
+      given: 'the seated chat told Watch is closed',
       should: 'render nothing and read nothing of the audience',
       actual: await SeatedSpectatorChat({
         roundId: 'round',

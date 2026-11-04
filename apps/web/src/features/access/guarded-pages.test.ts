@@ -240,7 +240,7 @@ const redirectOf = async (file: string): Promise<string | null> => {
     const digest = String((error as { digest?: unknown }).digest);
     return digest.startsWith('NEXT_REDIRECT')
       ? (digest.split(';')[2] ?? null)
-      : null;
+      : `threw: ${digest}`;
   }
 };
 
@@ -308,10 +308,10 @@ describe('guarded pages', () => {
     const destinations: Array<string | null> = [];
     for (const file of files) destinations.push(await redirectOf(file));
     assert({
-      given: 'every Watch page while Watch is not launched',
-      should: 'answer with the explainer, never a screen',
+      given: 'every Watch page with Watch launched',
+      should: 'answer with its own screen, never the explainer',
       actual: destinations,
-      expected: files.map(() => '/coming-soon/watch'),
+      expected: files.map(() => null),
     });
   });
 });

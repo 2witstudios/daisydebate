@@ -310,6 +310,21 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
+  test('Watch answers from its own routes under the real launch config', () => {
+    assert({
+      given: 'a Watch API route, a Watch page and a Room link, with no cookie',
+      should: 'reach the route and the page, with no explainer or sign-in hint',
+      actual: ['/api/rounds/round/timeline', '/watch', '/rooms/abc'].map(
+        (path) => [at(path).status, at(path).headers.get('location')],
+      ),
+      expected: [
+        [200, null],
+        [200, null],
+        [200, null],
+      ],
+    });
+  });
+
   test('a Room link is an ordinary guarded page while Watch is closed', () => {
     assert({
       given: 'a cookie-less Room link with Watch closed',

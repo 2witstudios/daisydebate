@@ -118,9 +118,9 @@ stopped and counted as a failed attempt, and it retries. Nothing is discarded.
 ## Casual capture limits
 
 A casual Launch with a broadcast or recording chosen is refused while its host already has two
-running (`capture-host-limit`), or eight run fleet-wide (`capture-capacity`). Ranked is never
-refused or counted, so what the Egress machines hold above eight is ranked's. Raise
-`CASUAL_CAPTURES_AT_ONCE` with the machines.
+running (`capture-host-limit`), or one runs fleet-wide (`capture-capacity`). Ranked is never
+refused or counted. With one Egress machine, a casual Round holding it leaves a ranked Round
+uncaptured, and the debate is untouched. Raise `CASUAL_CAPTURES_AT_ONCE` with the machines.
 
 ## Coverage
 
