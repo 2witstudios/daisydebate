@@ -1,34 +1,31 @@
 import {
+  destinationHref,
   destinations,
   destinationSlugs,
   type DestinationSlug,
-} from '../../features/coming-soon/destinations';
-import { destinationHref, launched } from '../../features/coming-soon/launch';
-import { destinationGlyph } from '../coming-soon/destination-glyph';
+} from '../../features/destinations/destinations';
 import type { ActionTileProps } from './action-tile/action-tile';
 
-type TileConfig = ActionTileProps;
+type TileLook = Pick<ActionTileProps, 'glyph' | 'note' | 'tilt'>;
 
-/**
- * The status line of a launched destination. It says only that the
- * destination is open: live counts come back when a real data source exists,
- * never as sample numbers.
- */
-const launchedStatus = { tone: 'online', text: 'Open' } as const;
-
-/** One tile per destination, from the launch config and the explainer copy. */
-export const tileFor = (
-  slug: DestinationSlug,
-  config: Readonly<Record<DestinationSlug, boolean>> = launched,
-): TileConfig => ({
-  href: destinationHref(slug, { config }),
-  title: destinations[slug].title,
-  description: destinations[slug].tagline,
-  ...destinationGlyph[slug],
-  ...(config[slug] ? { status: launchedStatus } : { comingSoon: true }),
-});
+/** How each destination's note looks. Only Play is emphasised. */
+const tileLooks: Readonly<Record<DestinationSlug, TileLook>> = {
+  lobby: { glyph: 'swords', note: 'action', tilt: 'slight-left' },
+  watch: { glyph: 'eye', note: 'yellow', tilt: 'slight-right' },
+  judge: { glyph: 'gavel', note: 'sage', tilt: 'left' },
+  tournaments: { glyph: 'trophy', note: 'yellow', tilt: 'right' },
+  seasons: { glyph: 'calendar', note: 'yellow', tilt: 'slight-right' },
+  leaderboard: { glyph: 'chart', note: 'sage', tilt: 'slight-left' },
+  train: { glyph: 'brain', note: 'yellow', tilt: 'right' },
+  prep: { glyph: 'book', note: 'sage', tilt: 'left' },
+};
 
 /** The eight destinations, in display order. */
-export const tiles: readonly TileConfig[] = destinationSlugs.map((slug) =>
-  tileFor(slug),
+export const tiles: readonly ActionTileProps[] = destinationSlugs.map(
+  (slug) => ({
+    href: destinationHref(slug),
+    title: destinations[slug].title,
+    description: destinations[slug].tagline,
+    ...tileLooks[slug],
+  }),
 );

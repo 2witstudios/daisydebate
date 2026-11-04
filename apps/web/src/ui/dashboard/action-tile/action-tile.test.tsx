@@ -1,98 +1,63 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ActionTile } from './action-tile';
+import { ActionTile, type ActionTileProps } from './action-tile';
 
 setupRitewayBun();
 
+const tile: ActionTileProps = {
+  href: '/ranked',
+  glyph: 'swords',
+  title: 'Ranked',
+  description: 'Climb the ladder. Prove yourself.',
+  note: 'yellow',
+  tilt: 'left',
+};
+
 describe('ActionTile', () => {
   test('links to its route with glyph, title, and description', () => {
-    const html = renderToString(
-      h(ActionTile, {
-        href: '/ranked',
-        glyph: 'swords',
-        title: 'Ranked',
-        description: 'Climb the ladder. Prove yourself.',
-      }),
-    );
+    const html = renderToString(h(ActionTile, tile));
     assert({
       given: 'an action tile',
-      should: 'link to its route carrying the copy',
+      should: 'link to its route carrying the copy and an icon',
       actual: [
         html.includes('href="/ranked"'),
         html.includes('Ranked'),
         html.includes('Climb the ladder. Prove yourself.'),
+        html.includes('<svg'),
       ],
-      expected: [true, true, true],
+      expected: [true, true, true, true],
     });
   });
 
-  test('renders its status line when provided', () => {
-    const withStatus = renderToString(
-      h(ActionTile, {
-        href: '/ranked',
-        glyph: 'swords',
-        title: 'Ranked',
-        description: 'd',
-        status: { tone: 'online', text: 'Open' },
-      }),
-    );
-    const withoutStatus = renderToString(
-      h(ActionTile, {
-        href: '/ranked',
-        glyph: 'swords',
-        title: 'Ranked',
-        description: 'd',
-      }),
-    );
+  test('is a note of its colour and tilt, with nothing but its copy', () => {
+    const html = renderToString(h(ActionTile, tile));
     assert({
-      given: 'tiles with and without a status',
-      should: 'render the status text only when provided',
-      actual: [withStatus.includes('Open'), withoutStatus.includes('Open')],
-      expected: [true, false],
-    });
-  });
-
-  test('marks a destination that is not open yet', () => {
-    const html = renderToString(
-      h(ActionTile, {
-        href: '/coming-soon/watch',
-        glyph: 'eye',
-        title: 'Watch',
-        description: 'd',
-        comingSoon: true,
-        status: { tone: 'online', text: 'Open' },
-      }),
-    );
-    assert({
-      given: 'a coming-soon tile',
+      given: 'a yellow note leaning left',
       should:
-        'link to the explainer with a Coming soon tag and Learn more, and no status line',
+        'wear that paper and tilt, with no status, arrow, clamp or icon background',
       actual: [
-        html.includes('href="/coming-soon/watch"'),
-        html.includes('Coming soon'),
-        html.includes('Learn more'),
+        html.includes('note-paper-yellow'),
+        html.includes('note-tilt-left'),
         html.includes('Open'),
+        html.includes('›'),
+        html.includes('line-clamp'),
+        html.includes('bg-accent-soft'),
       ],
-      expected: [true, true, true, false],
+      expected: [true, true, false, false, false, false],
     });
   });
 
-  test('does not tag a launched destination', () => {
-    const html = renderToString(
-      h(ActionTile, {
-        href: '/ranked',
-        glyph: 'swords',
-        title: 'Ranked',
-        description: 'd',
-        status: { tone: 'online', text: 'Open' },
-      }),
-    );
+  test('reverses the ink on the emphasised note', () => {
+    const html = renderToString(h(ActionTile, { ...tile, note: 'action' }));
     assert({
-      given: 'a launched tile',
-      should: 'show neither the tag nor Learn more',
-      actual: [html.includes('Coming soon'), html.includes('Learn more')],
-      expected: [false, false],
+      given: 'the action note',
+      should: 'draw its copy in the accent ink, never the note ink',
+      actual: [
+        html.includes('text-accent-ink'),
+        html.includes('text-note-ink'),
+      ],
+      expected: [true, false],
     });
   });
 });

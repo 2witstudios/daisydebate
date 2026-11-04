@@ -117,6 +117,12 @@ const declaredPairs: readonly Pair[] = [
     TEXT,
   ),
   { fg: '--accent-text', bg: '--accent', min: TEXT },
+  // Home's notes.
+  ...on(
+    ['--note-ink', '--note-ink-muted'],
+    ['--note-yellow', '--note-sage'],
+    TEXT,
+  ),
   { fg: '--accent-text', bg: '--accent-strong', min: TEXT },
   // Tinted badges and the active nav item.
   ...on(['--accent', '--accent-strong'], ['--accent-soft'], TEXT).flatMap(

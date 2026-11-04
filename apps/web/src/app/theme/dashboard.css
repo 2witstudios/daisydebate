@@ -9,8 +9,12 @@
   --spacing-teaser-min: 160px;
   --spacing-teaser-body: 58%;
   --spacing-teaser-art: 42%;
-  --spacing-tile-footer-min: 22px;
-  --spacing-tile-nudge: 2px;
+  --spacing-note-curl-x: 28px;
+  --spacing-note-curl-y: 12px;
+  --spacing-note-curl-peeled-x: 44px;
+  --spacing-note-curl-peeled-y: 22px;
+  --spacing-note-curl-shade: 34%;
+  --spacing-note-curl-shade-peeled: 52%;
   --spacing-activity-icon: 28px;
   --spacing-activity-inset: 2px;
   --spacing-roster-inset: 1px;
@@ -22,6 +26,12 @@
   --leading-quote-body: 1.55;
   --leading-tile-title: 1.2;
   --leading-tile-copy: 1.45;
+
+  --radius-note: 3px;
+  --note-peel: perspective(900px) rotateX(7deg);
+  --note-peel-duration: 280ms;
+  --note-tilt-wide: 1deg;
+  --note-tilt-slight: 0.5deg;
 
   --text-shadow-hero-headline: 0 2px 20px
     color-mix(in srgb, var(--scrim) 45%, transparent);
@@ -72,4 +82,107 @@
       color-mix(in srgb, var(--scrim) 78%, transparent),
       transparent 48%
     );
+}
+
+/*
+ * A note on Home: a stuck-down square of paper with a curled bottom-right corner.
+ * The link holds the tilt and the peel, so its paper and shadow must sit in its
+ * own stacking context, behind its content: the shadow first, the paper over it.
+ */
+@utility note {
+  position: relative;
+  isolation: isolate;
+  rotate: var(--note-tilt);
+  transform-origin: top;
+  transition: transform var(--note-peel-duration) var(--ease-standard);
+
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    right: var(--spacing-note-curl-y);
+    bottom: var(--spacing-note-curl-y);
+    width: 45%;
+    height: var(--spacing-note-curl-y);
+    rotate: 3deg;
+    box-shadow: 0 var(--spacing-note-curl-y) var(--spacing-note-curl-y)
+      var(--note-shadow);
+    transition: box-shadow var(--note-peel-duration) var(--ease-standard);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: var(--radius-note) var(--radius-note)
+      var(--spacing-note-curl-x) var(--radius-note) / var(--radius-note)
+      var(--radius-note) var(--spacing-note-curl-y) var(--radius-note);
+    background-color: var(--note-paper);
+    background-image: linear-gradient(
+      to top left,
+      var(--note-curl-shade),
+      transparent
+    );
+    background-position: bottom right;
+    background-repeat: no-repeat;
+    background-size: var(--spacing-note-curl-shade)
+      var(--spacing-note-curl-shade);
+    box-shadow: var(--elevation-1);
+    transition:
+      border-radius var(--note-peel-duration) var(--ease-standard),
+      background-size var(--note-peel-duration) var(--ease-standard);
+  }
+
+  /* The peel: the top edge stays stuck and the bottom lifts toward the viewer. */
+  @media (prefers-reduced-motion: no-preference) {
+    &:hover,
+    &:focus-visible {
+      transform: var(--note-peel);
+    }
+
+    &:hover::before,
+    &:focus-visible::before {
+      box-shadow: 0 var(--spacing-note-curl-peeled-y)
+        var(--spacing-note-curl-peeled-x) var(--note-shadow);
+    }
+
+    &:hover::after,
+    &:focus-visible::after {
+      border-radius: var(--radius-note) var(--radius-note)
+        var(--spacing-note-curl-peeled-x) var(--radius-note) /
+        var(--radius-note) var(--radius-note) var(--spacing-note-curl-peeled-y)
+        var(--radius-note);
+      background-size: var(--spacing-note-curl-shade-peeled)
+        var(--spacing-note-curl-shade-peeled);
+    }
+  }
+}
+
+@utility note-paper-action {
+  --note-paper: var(--accent);
+}
+
+@utility note-paper-yellow {
+  --note-paper: var(--note-yellow);
+}
+
+@utility note-paper-sage {
+  --note-paper: var(--note-sage);
+}
+
+@utility note-tilt-left {
+  --note-tilt: calc(var(--note-tilt-wide) * -1);
+}
+
+@utility note-tilt-slight-left {
+  --note-tilt: calc(var(--note-tilt-slight) * -1);
+}
+
+@utility note-tilt-slight-right {
+  --note-tilt: var(--note-tilt-slight);
+}
+
+@utility note-tilt-right {
+  --note-tilt: var(--note-tilt-wide);
 }

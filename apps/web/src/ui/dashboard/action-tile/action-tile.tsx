@@ -1,11 +1,13 @@
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { cn } from '../../cn';
 import type { IconName } from '../../components/icon/icon';
-import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
-import { StatusLine } from '../../components/status-line/status-line';
-import type { ActionTileTint } from './action-tile-class';
-import { actionTileTintClass } from './action-tile-class';
+import type { NoteColor, NoteTilt } from './action-tile-class';
+import {
+  noteCopyClass,
+  notePaperClass,
+  noteTiltClass,
+} from './action-tile-class';
 
 export type ActionTileProps = {
   readonly href: string;
@@ -13,68 +15,36 @@ export type ActionTileProps = {
   readonly glyph: IconName;
   readonly title: string;
   readonly description: string;
-  /** Icon tint; defaults to neutral. */
-  readonly tint?: ActionTileTint;
-  readonly status?: {
-    readonly tone: 'online' | 'live' | 'neutral';
-    readonly text: ReactNode;
-  };
-  /**
-   * The destination is not open yet: the tile carries a "Coming soon" tag and
-   * "Learn more" in place of a status line, and `href` is its explainer.
-   */
-  readonly comingSoon?: boolean;
+  readonly note: NoteColor;
+  readonly tilt: NoteTilt;
 };
 
+/** One destination on Home, as a curled note stuck to the page. */
 export function ActionTile({
   href,
   glyph,
   title,
   description,
-  tint = 'neutral',
-  status,
-  comingSoon = false,
+  note,
+  tilt,
 }: ActionTileProps) {
   return (
     <Link
       href={href}
-      className="group flex h-full flex-col gap-4 rounded-xl bg-surface p-6 text-ink no-underline shadow-1 transition duration-140 ease-standard hover:bg-surface-raised hover:no-underline"
+      className={cn(
+        'note flex h-full flex-col gap-4 p-6 no-underline hover:no-underline',
+        notePaperClass(note),
+        noteTiltClass(tilt),
+      )}
     >
-      <span className="inline-flex size-10 items-center justify-center rounded-lg bg-accent-soft">
-        <Icon
-          name={glyph}
-          size={28}
-          strokeWidth={1.6}
-          className={actionTileTintClass(tint)}
-        />
-      </span>
+      <Icon name={glyph} size={28} strokeWidth={1.6} className="shrink-0" />
       <div className="flex flex-1 flex-col gap-1">
         <h2 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
           {title}
         </h2>
-        <p className="line-clamp-2 text-base leading-tile-copy text-ink-muted">
+        <p className={cn('text-base leading-tile-copy', noteCopyClass(note))}>
           {description}
         </p>
-      </div>
-      <div className="flex min-h-tile-footer-min items-center justify-between gap-3">
-        {comingSoon ? (
-          <Badge tone="accent">Coming soon</Badge>
-        ) : status ? (
-          <StatusLine tone={status.tone}>{status.text}</StatusLine>
-        ) : (
-          <span />
-        )}
-        {comingSoon ? (
-          <span className="ml-auto text-sm text-ink-muted transition duration-140 ease-standard group-hover:text-ink">
-            Learn more
-          </span>
-        ) : null}
-        <span
-          className="text-xl leading-none text-ink-faint transition duration-140 ease-standard group-hover:translate-x-tile-nudge group-hover:text-ink"
-          aria-hidden="true"
-        >
-          ›
-        </span>
       </div>
     </Link>
   );
