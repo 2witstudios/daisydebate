@@ -105,7 +105,7 @@ export function Rail({
     extended && 'w-full items-stretch icon-rail:items-center',
   );
   return (
-    <div className="z-20 self-stretch text-ink area-rail max-narrow:hidden">
+    <div className="z-20 self-stretch border-r border-border text-ink area-rail max-narrow:hidden">
       <nav
         aria-label="Primary"
         className={cn(
