@@ -14,10 +14,13 @@ import { tileHeightFor } from '../../features/debate-room/layout';
 import type { PhonePanel } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { BallotStatus } from './ballot-status';
-import { CommandPalette, type PaletteChoice } from './command-palette';
+import {
+  CommandPalette,
+  type PaletteChoice,
+} from '../documents/command-palette';
 import { PhoneActions, RoundControls } from './controls';
-import type { DocumentSync } from './document-sync';
-import type { SaveState } from './document-pane';
+import type { DocumentSync } from '../documents/document-sync';
+import type { SaveState } from '../documents/document-pane';
 import { RoomDetails } from './room-details';
 import {
   FILES_ID,
@@ -44,8 +47,8 @@ import {
   ROUND_TAB_BAR,
   RoundTabs,
 } from './round-tabs';
-import { usePaletteShortcut } from './use-palette-shortcut';
-import { useDocumentSync } from './use-document-sync';
+import { usePaletteShortcut } from '../documents/use-palette-shortcut';
+import { useDocumentSync } from '../documents/use-document-sync';
 
 /** Writes the tile height as a custom property (CSSOM, so the CSP allows it). */
 function useTileHeight(height: number) {
@@ -56,7 +59,7 @@ function useTileHeight(height: number) {
   return root;
 }
 
-const DOCUMENT_ID = 'round-document';
+const DOCUMENT_ID = 'open-document';
 const PHONE_ROOM_ID = 'round-phone-room';
 
 const noSubscribe = () => () => {};

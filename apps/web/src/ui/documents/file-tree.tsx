@@ -1,0 +1,64 @@
+'use client';
+
+import type { Dispatch } from 'react';
+import type { MemberDocument } from '../../features/documents/document';
+import { driveDocuments } from '../../features/documents/open-documents';
+import { cn } from '../cn';
+import { Icon } from '../components/icon/icon';
+import type { RoomAction } from '../debate-room/room-state';
+
+const row = (current: boolean) =>
+  cn(
+    'flex h-room-target w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-left text-sm transition-colors',
+    current
+      ? 'bg-surface-overlay font-strong text-ink'
+      : 'text-ink hover:bg-surface-raised',
+  );
+
+type Props = {
+  readonly documents: readonly MemberDocument[];
+  readonly active: string | null;
+  readonly dispatch: Dispatch<RoomAction>;
+};
+
+/** Open or create, then the viewer's drive. */
+export function FileTree({ documents, active, dispatch }: Props) {
+  const open = (id: string) => dispatch({ type: 'tabs/open', id });
+  return (
+    <nav aria-label="Files" className="flex min-h-0 flex-1 flex-col gap-4">
+      <button
+        type="button"
+        aria-keyshortcuts="Meta+K Control+K"
+        className="flex h-room-target cursor-pointer items-center gap-2 rounded-sm border border-border px-3 text-sm text-ink-muted hover:text-ink"
+        onClick={() => dispatch({ type: 'palette/open' })}
+      >
+        <Icon name="search" size={16} />
+        <span className="min-w-0 flex-1 text-left">Open or create</span>
+        <kbd className="rounded-sm border border-border-strong px-1 font-body text-xs">
+          ⌘K
+        </kbd>
+      </button>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        <section aria-label="My drive" className="flex flex-col gap-px">
+          <h2 className="px-2 pb-1 text-xs font-strong tracking-wider text-ink-muted uppercase">
+            My drive
+          </h2>
+          <ul className="flex flex-col gap-px">
+            {driveDocuments(documents).map((doc) => (
+              <li key={doc.id}>
+                <button
+                  type="button"
+                  aria-current={active === doc.id ? 'page' : undefined}
+                  className={row(active === doc.id)}
+                  onClick={() => open(doc.id)}
+                >
+                  <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </nav>
+  );
+}

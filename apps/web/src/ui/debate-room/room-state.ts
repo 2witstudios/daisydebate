@@ -1,23 +1,25 @@
 import { markRead, type ChatMessage } from '../../features/debate-room/chat';
 import type { PageTone } from '../document-editor/document-editor';
-import { applyProposal } from '../../features/debate-room/documents/document-edits';
+import { applyProposal } from '../../features/documents/document-edits';
 import {
   createDocument,
   adoptServerText,
   updateDocumentHtml,
-  type WorkspaceDocument,
-} from '../../features/debate-room/documents/documents';
+  type MemberDocument,
+} from '../../features/documents/document';
 import {
   activateTab,
   loadWorkspaceDocuments,
   appendWorkspaceDocument,
   closeTab,
-  sidebarTabs,
   openTab,
+  type TabsState,
+} from '../../features/documents/open-documents';
+import {
+  sidebarTabs,
   type PhonePanel,
   type PhoneView,
   type SidebarTab,
-  type TabsState,
 } from '../../features/debate-room/workspace';
 import type { RoundSnapshot } from './round';
 
@@ -25,7 +27,7 @@ export type EditOutcome = 'applied' | 'discarded';
 
 export type RoomState = {
   readonly tabs: TabsState;
-  readonly documents: readonly WorkspaceDocument[];
+  readonly documents: readonly MemberDocument[];
   /** The right sidebar's tab; it never closes on its own. */
   readonly sidebar: SidebarTab;
   /** The Files sidebar on a wide screen; open by default. */
@@ -66,9 +68,9 @@ export type RoomAction =
     }
   | {
       readonly type: 'doc/loaded';
-      readonly documents: readonly WorkspaceDocument[];
+      readonly documents: readonly MemberDocument[];
     }
-  | { readonly type: 'doc/add'; readonly document: WorkspaceDocument }
+  | { readonly type: 'doc/add'; readonly document: MemberDocument }
   | { readonly type: 'sidebar/tab'; readonly tab: SidebarTab }
   | { readonly type: 'files/toggle' }
   | { readonly type: 'phone/panel'; readonly panel: PhonePanel }
@@ -130,7 +132,7 @@ const fromFiles = (phone: PhoneView): PhoneView =>
 const withDocument = (
   state: RoomState,
   id: string,
-  change: (doc: WorkspaceDocument) => WorkspaceDocument,
+  change: (doc: MemberDocument) => MemberDocument,
 ): RoomState => ({
   ...state,
   documents: state.documents.map((doc) => (doc.id === id ? change(doc) : doc)),

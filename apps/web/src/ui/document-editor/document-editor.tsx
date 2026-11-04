@@ -30,7 +30,7 @@ type Props = {
 };
 
 /**
- * A rich document (a Round document or a prep brief): Tiptap on a page surface. One editor per
+ * A rich document (any member document): Tiptap on a page surface. One editor per
  * document id, kept in step with the stored HTML; base CSS comes from the stylesheet (injectCSS off, the CSP
  * refuses its un-nonced style tag). The text size is the viewer's own and
  * never saved; the page layout is part of the document.

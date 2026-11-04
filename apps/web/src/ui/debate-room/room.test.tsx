@@ -140,7 +140,7 @@ describe('DebateRoom', () => {
       actual: [
         html.includes('room-stacked'),
         /id="round-sidebar"[^>]*max-compact:hidden/.test(html),
-        /id="round-document"[^>]*max-compact:hidden/.test(html),
+        /id="open-document"[^>]*max-compact:hidden/.test(html),
         html.includes('the line'),
       ],
       expected: [true, false, false, true],

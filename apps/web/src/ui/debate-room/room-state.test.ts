@@ -279,7 +279,7 @@ describe('reduceRoom page/tone', () => {
 
 test('adopted server text is marked until the next ordinary change', async () => {
   const { adoptServerText, updateDocumentHtml } =
-    await import('../../features/debate-room/documents/documents');
+    await import('../../features/documents/document');
   const start: Parameters<typeof adoptServerText>[0] = {
     id: 'd',
     title: 'Flow',

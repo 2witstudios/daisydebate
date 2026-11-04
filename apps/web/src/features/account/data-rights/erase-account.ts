@@ -13,7 +13,7 @@ import {
 import {
   ACCOUNT_CLOSED_QUERY,
   ERASE_ACCOUNT_QUERY,
-  notesErasedCookie,
+  draftsErasedCookie,
 } from './notices-keys';
 import { dataRightsPolicy } from './request-policy';
 
@@ -27,8 +27,8 @@ const seeOther = (location: string) =>
   });
 
 /** Readable by the next page's script, which erases this browser's note copies. */
-const erasingNoteCopies = (response: Response) => {
-  response.headers.append('set-cookie', notesErasedCookie('1', 60));
+const erasingDraftCopies = (response: Response) => {
+  response.headers.append('set-cookie', draftsErasedCookie('1', 60));
   return response;
 };
 
@@ -89,7 +89,7 @@ export function createEraseAccountHandler({
       if (identity.state === 'anonymous')
         return (await readConfirmation(request).catch(() => null)) ===
           'confirmed'
-          ? erasingNoteCopies(seeOther('/sign-in'))
+          ? erasingDraftCopies(seeOther('/sign-in'))
           : seeOther('/sign-in');
       const account = requireSignedIn(identity);
       if (!evaluatedIdentity(account)) throw createAppError('AUTHORIZATION');
@@ -113,7 +113,7 @@ export function createEraseAccountHandler({
         { operation: 'privacy.erase' },
         'Account erasure completed',
       );
-      return erasingNoteCopies(seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`));
+      return erasingDraftCopies(seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`));
     } catch (error) {
       const code = isAppError(error) ? error.code : 'INTERNAL';
       logger.log(

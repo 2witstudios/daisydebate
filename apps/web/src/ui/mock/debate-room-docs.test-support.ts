@@ -1,5 +1,5 @@
 import { escapeHtml } from '../../lib/escape-html';
-import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
+import type { MemberDocument } from '../../features/documents/document';
 
 /** Inline text: plain or bold (`**x**`). */
 const inline = (source: string): string =>
@@ -31,11 +31,7 @@ const doc = (...blocks: string[]) => blocks.join('');
 
 const at = '2026-10-05T18:00:00.000Z';
 
-const sample = (
-  id: string,
-  title: string,
-  html: string,
-): WorkspaceDocument => ({
+const sample = (id: string, title: string, html: string): MemberDocument => ({
   id,
   title,
   html,
@@ -44,7 +40,7 @@ const sample = (
 });
 
 /** The debater's files for the sample round, their library and their club's. */
-export const sampleRoomDocuments: readonly WorkspaceDocument[] = [
+export const sampleRoomDocuments: readonly MemberDocument[] = [
   sample(
     'doc-flow',
     'Flow',
