@@ -266,6 +266,9 @@ for (const javaScriptEnabled of [true, false]) {
       );
       expect([403, 404]).toContain(foreignSearch.status());
       await sender
+        .getByLabel('Search this conversation', { exact: true })
+        .click();
+      await sender
         .getByRole('searchbox', { name: 'Search messages' })
         .fill('browser');
       await sender.getByRole('button', { name: 'Search', exact: true }).click();
@@ -404,7 +407,12 @@ for (const javaScriptEnabled of [true, false]) {
           .getByRole('list', { name: 'Message history' })
           .getByText(text, { exact: true }),
       ).toHaveCount(1);
-      await creator.goto('/messages');
+      await creator
+        .getByRole('list', { name: 'Conversations' })
+        .getByRole('link', { name: /^Group / })
+        .first()
+        .click();
+      await creator.getByLabel('Conversation options', { exact: true }).click();
       await creator
         .getByRole('link', { name: 'Group membership', exact: true })
         .click();

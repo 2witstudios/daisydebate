@@ -6,6 +6,8 @@ import {
   type ComponentPropsWithoutRef,
 } from 'react';
 
+import { cn } from '../cn';
+
 const units = new Intl.NumberFormat('en-US');
 
 /**
@@ -33,6 +35,7 @@ export function CountedTextarea({
   maxUnits,
   defaultValue,
   describedBy,
+  countClassName,
   onInput,
   ...field
 }: Omit<
@@ -43,6 +46,8 @@ export function CountedTextarea({
   readonly maxUnits: number;
   readonly defaultValue: string;
   readonly describedBy?: string | undefined;
+  /** Where the count sits in the field's own layout. */
+  readonly countClassName?: string;
 }) {
   const [count, setCount] = useState(defaultValue.length);
   const text = characterCountText(count, maxUnits);
@@ -70,7 +75,12 @@ export function CountedTextarea({
           onInput?.(event);
         }}
       />
-      <p className="flex flex-wrap justify-between gap-2 text-xs text-ink-muted">
+      <p
+        className={cn(
+          'flex flex-wrap justify-between gap-2 text-xs text-ink-muted',
+          countClassName,
+        )}
+      >
         <span
           id={`${id}-over`}
           aria-live="polite"

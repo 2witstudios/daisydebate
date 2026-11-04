@@ -1,5 +1,5 @@
+import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
 import { messagingGroupInvitationResultSchema } from '@daisy/protocol';
@@ -7,7 +7,6 @@ import {
   readMessagingPageChannel,
   type MessagingPageScope,
 } from '../../../../../../features/messaging/page-scope';
-import { PageHeader } from '../../../../../../ui/components/page-header/page-header';
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';
 import { GET } from '../../../../../api/messaging/groups/[channelId]/invitation/route';
 import { decideInvitationAction } from './actions';
@@ -35,13 +34,9 @@ export default async function GroupInvitationPage({
       ? result.data
       : null;
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <PageHeader
-        title="Group invitation"
-        actions={<Link href="/messages">Back to messages</Link>}
-      />
+    <ConversationPane title="Group invitation">
       {invitation ? (
-        <section className="flex flex-col gap-6 rounded-lg border border-border bg-surface-raised p-5">
+        <section className="flex max-w-reading flex-col gap-6">
           <p>
             {privateGroupsOffered()
               ? 'You have been invited to a private group. Accept to join, or decline.'
@@ -63,6 +58,6 @@ export default async function GroupInvitationPage({
           This invitation is unavailable. Refresh to try again.
         </p>
       )}
-    </main>
+    </ConversationPane>
   );
 }

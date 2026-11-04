@@ -1,3 +1,4 @@
+import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
 import { systemId } from '@daisy/clock';
@@ -26,8 +27,7 @@ export default async function MessageReactionsPage({
   );
   const current = await readReactionResponse(response, channelId, messageId);
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <h1>Message reactions</h1>
+    <ConversationPane title="Message reactions">
       {current === null ? (
         <p role="status">Reactions are unavailable. Refresh to try again.</p>
       ) : (
@@ -67,6 +67,6 @@ export default async function MessageReactionsPage({
         </>
       )}
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
-    </main>
+    </ConversationPane>
   );
 }

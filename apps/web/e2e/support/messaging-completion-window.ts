@@ -20,12 +20,15 @@ async function clickEditWhenAnswerCommits(page: Page) {
   await page.evaluate(() => {
     const observer = new MutationObserver(() => {
       const sending = [...document.querySelectorAll('button')].some(
-        (button) => button.textContent === 'Sending…',
+        (button) => button.getAttribute('aria-label') === 'Sending…',
       );
       if (sending) return;
       observer.disconnect();
       [...document.querySelectorAll('a')]
-        .filter((link) => link.textContent === 'Edit or remove your message')
+        .filter(
+          (link) =>
+            link.getAttribute('aria-label') === 'Edit or remove your message',
+        )
         .at(-1)
         ?.click();
     });

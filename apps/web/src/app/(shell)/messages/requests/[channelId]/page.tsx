@@ -1,5 +1,5 @@
+import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
 import {
@@ -7,7 +7,6 @@ import {
   type MessagingPageScope,
 } from '../../../../../features/messaging/page-scope';
 import { readRequestPreviewResponse } from '../../../../../features/messaging/request-preview';
-import { PageHeader } from '../../../../../ui/components/page-header/page-header';
 import { RequestDecision } from '../../../../../ui/messaging/request-decision';
 import { GET } from '../../../../api/messaging/requests/[channelId]/route';
 import { decideDmAction } from './actions';
@@ -25,13 +24,9 @@ export default async function MessageRequestPage({
   if (response.status === 404) notFound();
   const preview = await readRequestPreviewResponse(response);
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <PageHeader
-        title="Message request"
-        actions={<Link href="/messages">Back to messages</Link>}
-      />
+    <ConversationPane title="Message request">
       {preview ? (
-        <section className="flex flex-col gap-6 rounded-lg border border-border bg-surface-raised p-5">
+        <section className="flex max-w-reading flex-col gap-6">
           <p className="whitespace-pre-wrap text-ink">
             {preview.introduction ?? 'No introduction.'}
           </p>
@@ -45,6 +40,6 @@ export default async function MessageRequestPage({
           This request is unavailable. Refresh to try again.
         </p>
       )}
-    </main>
+    </ConversationPane>
   );
 }

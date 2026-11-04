@@ -45,6 +45,7 @@ test('authorized conversation carries only the explicitly supplied typing recove
     changeVersion: 0,
     messages: [],
     nextBefore: null,
+    viewer: { readSequence: 0, firstUnreadSequence: null, ownReactions: [] },
   };
   const response = (interval?: string) =>
     Response.json(history, {
@@ -97,6 +98,7 @@ test('only the live first page marks a conversation read', () => {
         text: 'Hello',
         createdAt: '2026-10-26T18:00:00.000Z',
         editedAt: null,
+        reactions: [],
       },
     ],
   };
@@ -137,10 +139,25 @@ test('a conversation page names its counterpart, not "Participant" (ISSUE-605)',
       conversationNames(null),
     ],
     expected: [
-      { title: '@ada', otherAuthor: '@ada' },
-      { title: 'Deleted account', otherAuthor: 'Deleted account' },
-      { title: 'Debate club', otherAuthor: 'Member' },
-      { title: 'Conversation', otherAuthor: 'Member' },
+      { title: '@ada', otherAuthor: '@ada', username: 'ada', isGroup: false },
+      {
+        title: 'Deleted account',
+        otherAuthor: 'Deleted account',
+        username: null,
+        isGroup: false,
+      },
+      {
+        title: 'Debate club',
+        otherAuthor: 'Member',
+        username: null,
+        isGroup: true,
+      },
+      {
+        title: 'Conversation',
+        otherAuthor: 'Member',
+        username: null,
+        isGroup: false,
+      },
     ],
   });
 });

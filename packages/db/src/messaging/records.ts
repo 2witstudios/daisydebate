@@ -1,4 +1,7 @@
-import type { ChannelMessageRecord } from '@daisy/protocol';
+import type {
+  ChannelHistoryRecord,
+  ChannelMessageRecord,
+} from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import type { MessagingChannelFact } from './social';
 import type { authorizationAccountFact } from '../authorization-account';
@@ -61,12 +64,21 @@ export type MessagingAuthorizationFence = (
   authority: Pick<MessagingLockedFrame, 'fact' | 'accounts'>,
 ) => Promise<void>;
 type MessagingHistoryPage = {
-  readonly messages: readonly MessagingMessageRecord[];
+  readonly messages: readonly ChannelHistoryRecord[];
   readonly changeVersion: number;
   readonly nextBefore: {
     readonly channelId: string;
     readonly sequence: number;
   } | null;
+  /** This reader's own: never part of a page every member shares. */
+  readonly viewer: {
+    readonly readSequence: number;
+    readonly firstUnreadSequence: number | null;
+    readonly ownReactions: readonly {
+      readonly messageId: string;
+      readonly reactions: readonly string[];
+    }[];
+  };
 };
 type MessagingChangesPage = {
   readonly messages: readonly MessagingMessageRecord[];

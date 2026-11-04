@@ -1,11 +1,13 @@
 import Link from 'next/link';
-import type { MessagingInboxEntry } from '../../features/messaging/inbox';
+import type { MouseEvent } from 'react';
+import { cn } from '../cn';
+import type { MessagingInboxEntry } from '../../features/messaging/inbox-view';
 import { formatInboxTime } from '../../features/messaging/inbox-time';
 import { Avatar } from '../components/avatar/avatar';
 import { Badge } from '../components/badge/badge';
 import type { BadgeTone } from '../components/badge/badge-class';
 
-const hrefOf = (entry: MessagingInboxEntry) =>
+export const hrefOf = (entry: MessagingInboxEntry) =>
   entry.kind === 'incoming_invitation'
     ? `/messages/groups/invitations/${entry.channelId}`
     : entry.kind === 'incoming_request'
@@ -64,37 +66,66 @@ const kinds: Readonly<
   },
 };
 
-const cardClass =
-  'relative flex items-center gap-3 rounded-lg border border-border bg-surface-raised p-4';
-const coverLink = 'after:absolute after:inset-0';
+const rowClass = (current: boolean) =>
+  cn(
+    'relative flex min-h-nav-target items-center gap-3 rounded-md p-2 hover:bg-surface-overlay',
+    current && 'bg-accent-soft',
+  );
+const coverLink = 'after:absolute after:inset-0 hover:no-underline';
+
+/** Already here: following the link again would only undo a page of history. */
+const stayHere = (event: MouseEvent) => event.preventDefault();
 
 /**
- * One inbox entry: the whole card opens the conversation, request or
- * invitation; group membership stays a separate, stacked link.
+ * One inbox entry, a flat row whose whole width opens the conversation,
+ * request or invitation. The open one says so; its link goes nowhere new.
  */
 export function InboxRow({
   entry,
   now,
+  current = false,
+  inert = false,
 }: {
   readonly entry: MessagingInboxEntry;
   readonly now: string;
+  /** This conversation is open beside the list. */
+  readonly current?: boolean;
+  /** The reader is on this exact route. */
+  readonly inert?: boolean;
 }) {
+  const link = {
+    href: hrefOf(entry),
+    ...(current ? { 'aria-current': 'page' as const } : {}),
+    ...(inert ? { onClick: stayHere } : {}),
+  };
   return entry.kind === 'incoming_invitation' ? (
-    <InvitationRow href={hrefOf(entry)} />
+    <InvitationRow link={link} current={current} />
   ) : (
-    <SummaryRow entry={entry} now={now} />
+    <SummaryRow entry={entry} now={now} link={link} current={current} />
   );
 }
 
-function InvitationRow({ href }: { readonly href: string }) {
+type RowLink = {
+  readonly href: string;
+  readonly 'aria-current'?: 'page';
+  readonly onClick?: (event: MouseEvent) => void;
+};
+
+function InvitationRow({
+  link,
+  current,
+}: {
+  readonly link: RowLink;
+  readonly current: boolean;
+}) {
   return (
-    <li className={cardClass}>
+    <li className={rowClass(current)}>
       <Avatar name="Group" nameVisible />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <Link href={href} className={`font-semibold text-ink ${coverLink}`}>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Link {...link} className={`font-semibold text-ink ${coverLink}`}>
           Group invitation
         </Link>
-        <p className="text-sm text-ink-muted">
+        <p className="truncate text-sm text-ink-muted">
           Open it to see the group and decide.
         </p>
       </div>
@@ -106,20 +137,24 @@ function InvitationRow({ href }: { readonly href: string }) {
 function SummaryRow({
   entry,
   now,
+  link,
+  current,
 }: {
   readonly entry: Summarized;
   readonly now: string;
+  readonly link: RowLink;
+  readonly current: boolean;
 }) {
   const kind = kinds[entry.kind];
   const title = entry.title ?? kind.unnamed;
   return (
-    <li className={cardClass}>
+    <li className={rowClass(current)}>
       <Avatar name={title} nameVisible />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-baseline gap-2">
           {/* An explicit name: hidden spans around the title join unpredictably. */}
           <Link
-            href={hrefOf(entry)}
+            {...link}
             aria-label={`${kind.spoken}${title}${entry.unread ? ', unread' : ''}`}
             className={`min-w-0 truncate text-ink ${coverLink} ${entry.unread ? 'font-heavy' : 'font-semibold'}`}
           >
@@ -137,21 +172,15 @@ function SummaryRow({
             {formatInboxTime(entry.activityAt, now)}
           </time>
         </div>
-        <p
-          className={`truncate text-sm ${entry.unread ? 'text-ink' : 'text-ink-muted'}`}
-        >
-          {previewLine(entry, kind.empty)}
-        </p>
+        <div className="flex items-center gap-2">
+          <p
+            className={`min-w-0 flex-1 truncate text-sm ${entry.unread ? 'text-ink' : 'text-ink-muted'}`}
+          >
+            {previewLine(entry, kind.empty)}
+          </p>
+          {entry.unread ? <UnreadMark /> : null}
+        </div>
       </div>
-      {entry.unread ? <UnreadMark /> : null}
-      {entry.kind === 'group_conversation' ? (
-        <Link
-          className="relative z-10 shrink-0 text-sm"
-          href={`/messages/groups/${entry.channelId}/manage`}
-        >
-          Group membership
-        </Link>
-      ) : null}
     </li>
   );
 }

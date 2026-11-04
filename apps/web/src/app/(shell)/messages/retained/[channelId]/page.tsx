@@ -1,10 +1,9 @@
+import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { idSchema, messagingRetainedSchemas } from '@daisy/protocol';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
-import { PageHeader } from '../../../../../ui/components/page-header/page-header';
 import { RetainedDeleteForm } from '../../../../../ui/messaging/retained-delete-form';
 import { GET } from '../../../../api/messaging/retained/[channelId]/route';
 import { deleteRetainedAction } from './actions';
@@ -34,12 +33,8 @@ export default async function RetainedConversationPage({
     : null;
   if (!conversation?.success) notFound();
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <PageHeader
-        title="Conversation with a deleted account"
-        lede="The other person's account was deleted. Only your own messages remain, and only you can see them."
-        actions={<Link href="/messages">Back to messages</Link>}
-      />
+    <ConversationPane title="Conversation with a deleted account"
+        lede="The other person's account was deleted. Only your own messages remain, and only you can see them.">
       <ol aria-label="Your messages" className="flex flex-col gap-3">
         {conversation.data.messages.map((message) => (
           <li
@@ -57,6 +52,6 @@ export default async function RetainedConversationPage({
         ))}
       </ol>
       <RetainedDeleteForm action={deleteRetainedAction.bind(null, id.data)} />
-    </main>
+    </ConversationPane>
   );
 }

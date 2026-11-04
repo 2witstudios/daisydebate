@@ -18,24 +18,15 @@ import {
   messagingInboxPreviewMax,
   messagingInboxTitleMax,
 } from '@daisy/protocol';
-type SummarizedKind =
-  | 'conversation'
-  | 'group_conversation'
-  | 'incoming_request'
-  | 'outgoing_request';
-export type MessagingInboxEntry =
-  | {
-      readonly channelId: string;
-      readonly kind: SummarizedKind;
-      readonly title: string | null;
-      readonly preview: {
-        readonly text: string;
-        readonly fromSelf: boolean;
-      } | null;
-      readonly activityAt: string;
-      readonly unread: boolean;
-    }
-  | { readonly channelId: string; readonly kind: 'incoming_invitation' };
+import {
+  byAttention,
+  type MessagingInboxEntry,
+} from './inbox-view';
+export type { MessagingInboxEntry } from './inbox-view';
+type SummarizedKind = Exclude<
+  MessagingInboxEntry['kind'],
+  'incoming_invitation'
+>;
 
 type InboxAuthority =
   | {
@@ -136,12 +127,6 @@ export function messagingInboxEntryMatches(
   );
 }
 
-/** Invitations await a decision, so they lead; then newest activity first. */
-const byAttention = (a: MessagingInboxEntry, b: MessagingInboxEntry) =>
-  a.kind === 'incoming_invitation' || b.kind === 'incoming_invitation'
-    ? Number(b.kind === 'incoming_invitation') -
-      Number(a.kind === 'incoming_invitation')
-    : b.activityAt.localeCompare(a.activityAt);
 type InboxDecision = {
   readonly kind: MessagingInboxEntry['kind'];
   readonly summary: {

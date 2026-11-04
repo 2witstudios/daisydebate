@@ -13,7 +13,7 @@ export async function proveNativeTyping(
   const draft = 'A draft that never becomes a durable message';
   await typist.getByLabel('Your message').fill(draft);
   await expect(
-    sender.getByText('Someone is typing…', { exact: true }),
+    sender.getByText(/^@\S+ is typing…$/),
   ).toBeVisible();
   await expect.poll(() => hints.length).toBeGreaterThan(0);
   expect(
@@ -35,7 +35,7 @@ export async function proveNativeTyping(
   // Drop renewals, not authority or responses; expiry must clear the observer without a stop hint.
   await typist.route('**/api/messaging/typing', (route) => route.abort());
   await expect(
-    sender.getByText('Someone is typing…', { exact: true }),
+    sender.getByText(/^@\S+ is typing…$/),
   ).toHaveCount(0, { timeout: timing.ttlMs + timing.refetchMs * 2 });
   await typist.unroute('**/api/messaging/typing');
   await typist.getByLabel('Your message').fill('');

@@ -72,19 +72,34 @@ test('requests and groups say what they are', () => {
   });
   assert({
     given: 'a group whose title was erased and has no messages',
-    should: 'fall back to a neutral name and link its membership',
+    should: 'fall back to a neutral name, leaving membership to the conversation',
     actual: [
       group.includes('Untitled group'),
       group.includes('No messages yet.'),
-      group.includes(`href="/messages/groups/${channelId}/manage"`),
+      group.includes('/manage'),
     ],
-    expected: [true, true, true],
+    expected: [true, true, false],
   });
   assert({
     given: 'a conversation whose counterpart erased their account',
     should: 'never invent a name',
     actual: render({ ...entry, title: null }).includes('Deleted account'),
     expected: true,
+  });
+});
+test('the open conversation says so and goes nowhere new', () => {
+  const open = renderToStaticMarkup(
+    <InboxRow entry={entry} now={now} current inert />,
+  );
+  assert({
+    given: 'the row of the open conversation',
+    should: 'mark it current and fill it, while other rows stay plain',
+    actual: [
+      open.includes('aria-current="page"'),
+      open.includes('bg-accent-soft'),
+      render(entry).includes('aria-current'),
+    ],
+    expected: [true, true, false],
   });
 });
 test('a group invitation reveals nothing about the group', () => {

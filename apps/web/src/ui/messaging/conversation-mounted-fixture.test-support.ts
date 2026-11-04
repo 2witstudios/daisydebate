@@ -98,6 +98,7 @@ export function mountedConversationHistory(): MessagingConversation {
         changeVersion: 1,
         text: 'Committed message',
         createdAt: '2026-11-01T00:00:00.000Z',
+        reactions: [],
         editedAt: null,
       },
     ],

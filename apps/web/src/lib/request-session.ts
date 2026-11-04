@@ -56,6 +56,10 @@ const requestSession = cache(async () =>
 export const privateGroupsOffered = (): boolean =>
   processApp().messagingPolicy.privateGroups === 'isolated-test-fixture';
 
+/** Whether this deployment has a file runtime; without one no file control shows. */
+export const messagingFilesAvailable = (): boolean =>
+  processApp().messagingFiles !== undefined;
+
 /** One archive page for this viewer, and how many Recordings are public. */
 export const readRecordingArchive = async (
   query: RecordingsQuery,

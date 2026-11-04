@@ -38,7 +38,9 @@ async function proveProfileMessageEntry(
       new RegExp(`/messages/requests/${journey.channelId}$`),
     );
     await expect(
-      recipient.getByText(journey.introduction, { exact: true }),
+      recipient
+        .getByRole('region', { name: 'Conversation', exact: true })
+        .getByText(journey.introduction, { exact: true }),
     ).toBeVisible();
   } finally {
     await journey.close();

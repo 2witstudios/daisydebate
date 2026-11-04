@@ -12,7 +12,7 @@ import { cn } from '../../../../cn';
 import type { ShellAccount, ShellRatings } from '../../account';
 import { profileHref, wayIn } from '../destinations';
 import { AccountRatings, RatingsSkeleton } from './account-ratings';
-import { DismissibleDetails } from './dismissible-details';
+import { DismissibleDetails } from '../../../../components/dismissible-details/dismissible-details';
 
 /**
  * The foot's account control. A member's avatar, with the username beside it

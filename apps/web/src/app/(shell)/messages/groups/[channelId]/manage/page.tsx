@@ -1,3 +1,4 @@
+import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
@@ -5,7 +6,6 @@ import { idSchema } from '@daisy/protocol';
 import { requireAccess } from '../../../../../../lib/access';
 import { privateGroupsOffered } from '../../../../../../lib/request-session';
 import type { MessagingChannelPageProps } from '../../../../../../features/messaging/channel-page';
-import { PageHeader } from '../../../../../../ui/components/page-header/page-header';
 import { GroupManagementForm } from '../../../../../../ui/messaging/group-management-form';
 import { manageGroupAction } from './actions';
 const labels = {
@@ -39,13 +39,7 @@ export default async function GroupManagementPage({
       ? selected
       : 'leave';
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <PageHeader
-        title="Group membership"
-        actions={
-          <Link href={`/messages/${id.data}`}>Back to conversation</Link>
-        }
-      />
+    <ConversationPane title="Group membership">
       <nav
         aria-label="Group membership actions"
         className="flex flex-wrap gap-4"
@@ -70,6 +64,6 @@ export default async function GroupManagementPage({
         requestId={systemId.next()}
         action={manageGroupAction.bind(null, id.data, operation)}
       />
-    </main>
+    </ConversationPane>
   );
 }

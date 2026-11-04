@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
-import { cn } from '../../../../cn';
+import { cn } from '../../cn';
 
 /**
  * A native disclosure that also closes when the pointer lands outside it or

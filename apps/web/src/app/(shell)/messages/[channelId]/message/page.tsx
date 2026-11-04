@@ -1,3 +1,4 @@
+import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
@@ -36,8 +37,7 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
     notFound();
   const requestId = systemId.next();
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <h1>Your message</h1>
+    <ConversationPane title="Your message">
       <p>Revise your message or remove it from the conversation.</p>
       <MessageMutationForm
         action={changeMessageAction.bind(null, channelId, messageId)}
@@ -46,6 +46,6 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
         maxUnits={conversation.bounds.messageUnits}
       />
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
-    </main>
+    </ConversationPane>
   );
 }

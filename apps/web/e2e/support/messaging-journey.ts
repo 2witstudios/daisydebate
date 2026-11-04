@@ -142,7 +142,9 @@ export async function acceptMessagingJourney(
     })
     .click();
   await expect(
-    page.getByText(journey.introduction, { exact: true }),
+    page
+      .getByRole('region', { name: 'Conversation', exact: true })
+      .getByText(journey.introduction, { exact: true }),
   ).toBeVisible();
   await page
     .getByRole('button', { name: 'Accept request', exact: true })

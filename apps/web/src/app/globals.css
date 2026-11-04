@@ -12,6 +12,7 @@
 @import './theme/room.css';
 @import './theme/lobby.css';
 @import './theme/create-room.css';
+@import './theme/messages.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no
    tailwind.config.*, no arbitrary values, no default palette. Class names
