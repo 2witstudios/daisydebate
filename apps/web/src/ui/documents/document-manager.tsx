@@ -11,6 +11,11 @@ import {
   type DriveEntryView,
   type DriveCursor,
 } from '../../features/documents/drive-tree';
+import {
+  loadedDocuments,
+  openId as openDocumentId,
+  openTitle,
+} from '../../features/documents/open-documents';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { DocumentPane } from './document-pane';
 import type { DocumentSync } from './document-sync';
@@ -104,7 +109,7 @@ export function ManagerWorkspace({
   );
   const drive = useDrive({
     sync,
-    documents: state.documents,
+    opened: state.opened,
     dispatch,
     setProblem: report,
     back,
@@ -117,10 +122,10 @@ export function ManagerWorkspace({
   useEffect(() => {
     if (openId === null || opened.current) return;
     opened.current = true;
-    drive.open(openId);
+    drive.open(openId, 'your document');
   });
   const choose = (choice: PaletteChoice) => {
-    if (choice.kind === 'open') drive.open(choice.documentId);
+    if (choice.kind === 'open') drive.open(choice.documentId, choice.title);
     else drive.createDocument(initial?.folderId ?? null);
   };
 
@@ -169,13 +174,14 @@ export function ManagerWorkspace({
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
           <RecoveredDrafts
-            documents={state.documents}
+            documents={loadedDocuments(state.opened)}
             sync={sync}
             dispatch={dispatch}
             inFolderPage={(initial?.folderId ?? null) !== null}
           />
           <DocumentPane
-            documents={state.documents}
+            opened={state.opened}
+            onRetry={drive.open}
             tabs={state.tabs}
             pages={state.pages}
             dispatch={dispatch}
@@ -187,7 +193,10 @@ export function ManagerWorkspace({
       </div>
       <CommandPalette
         open={state.paletteOpen}
-        documents={state.documents}
+        documents={state.opened.map((open) => ({
+          id: openDocumentId(open),
+          title: openTitle(open),
+        }))}
         search={driveApi.search}
         onChoose={choose}
         onClose={() => dispatch({ type: 'palette/close' })}

@@ -1,4 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  loadedDocuments,
+  type OpenDocument,
+} from '../../features/documents/open-documents';
 import { sampleRoomDocuments } from '../mock/debate-room-docs.test-support';
 import { sampleRound } from '../mock/debate-room.test-support';
 import {
@@ -15,7 +19,10 @@ const casual = sampleRound('prep', 'casual');
 /** A room whose manager has opened the sample documents. */
 const withDocuments = () => ({
   ...initialRoomState(casual),
-  documents: sampleRoomDocuments,
+  opened: sampleRoomDocuments.map((document): OpenDocument => ({
+    kind: 'loaded',
+    document,
+  })),
 });
 const newDocument = {
   id: 'doc-new',
@@ -39,7 +46,7 @@ test('an accepted recovery uses the ordinary document and tab transitions', () =
     given: 'HTML accepted by the sync owner',
     should: 'update and open its document through ordinary editing actions',
     actual: [
-      opened.documents.find((d) => d.id === 'doc-flow')?.html,
+      loadedDocuments(opened.opened).find((d) => d.id === 'doc-flow')?.html,
       opened.tabs.active,
     ],
     expected: ['<p>recovered</p>', 'doc-flow'],
@@ -70,7 +77,7 @@ describe('reduceRoom a new document', () => {
       given: 'a new document',
       should: 'add it, open it and close the palette',
       actual: {
-        title: state.documents.at(-1)?.title,
+        title: loadedDocuments(state.opened).at(-1)?.title,
         active: state.tabs.active,
         paletteOpen: state.paletteOpen,
       },
@@ -97,7 +104,7 @@ describe('reduceRoom agent/edit', () => {
   test('applying an edit', () => {
     const before = withDocuments();
     const after = reduce(before, apply);
-    const doc = after.documents.find((d) => d.id === 'doc-nr');
+    const doc = loadedDocuments(after.opened).find((d) => d.id === 'doc-nr');
     assert({
       given: 'an agent edit applied to the NR plan',
       should:
@@ -139,8 +146,14 @@ describe('reduceRoom agent/edit', () => {
     assert({
       given: 'an agent edit discarded',
       should: 'record it and leave the documents untouched',
-      actual: { outcome: after.edits.a2, documents: after.documents },
-      expected: { outcome: 'discarded', documents: before.documents },
+      actual: {
+        outcome: after.edits.a2,
+        documents: loadedDocuments(after.opened),
+      },
+      expected: {
+        outcome: 'discarded',
+        documents: loadedDocuments(before.opened),
+      },
     });
   });
 });
@@ -245,7 +258,10 @@ describe('reduceRoom doc/loaded and doc/add', () => {
     assert({
       given: 'a room with no documents loading the server’s',
       should: 'hold them and open the one edited last',
-      actual: { ids: state.documents.map((d) => d.id), tabs: state.tabs },
+      actual: {
+        ids: loadedDocuments(state.opened).map((d) => d.id),
+        tabs: state.tabs,
+      },
       expected: {
         ids: ['doc-flow'],
         tabs: { open: ['doc-flow'], active: 'doc-flow' },

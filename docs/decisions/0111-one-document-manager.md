@@ -33,6 +33,16 @@ column with a drive id behind the same owner check; nothing is built for it now.
 **Bounded reads.** A folder lists by cursor, 100 rows a page, with no body. Bodies are
 read by id, at most 16 a request, for the documents opened or recovered.
 
+**Opening a document (owner, 2026-11-04).** An open document is loading, loaded or
+failed, and only loaded has a body or mounts the editor, so nobody can type into a
+document that has none, and no merge between a read and typed text exists. Loading is
+a quiet placeholder; failed says so and offers a retry; a draft offer appears after
+load. A read never replaces a loaded document and never moves the revision a save is
+based on: the two move only together, so a commit elsewhere reaches the compare-and-swap
+as a conflict rather than overwriting text nobody saw. A test walks every ordering of
+load, open, save, focus, edit, another tab's commit and crossed answers up to a set
+length, plus long generated ones, and states that rule.
+
 **Search.** One stored `tsvector` over title and body, with a GIN index, using the
 `simple` config: debaters need exact words and names back, in any language, and
 stemming to one language would fail them. The words travel in a POST body and are

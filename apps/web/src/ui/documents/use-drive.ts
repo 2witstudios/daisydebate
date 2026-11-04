@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react';
 import { systemClock } from '@daisy/clock';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
-import type { MemberDocument } from '../../features/documents/document';
+import {
+  findOpen,
+  type OpenDocument,
+} from '../../features/documents/open-documents';
 import { DRIVE_FULL_NOTICE } from '../../features/documents/drive-return';
 import type {
   DriveCursor,
@@ -17,7 +20,7 @@ export type DriveActions = {
   readonly back: string;
   readonly folders: readonly FolderRow[];
   readonly loadFolders: () => void;
-  readonly open: (id: string) => void;
+  readonly open: (id: string, title: string) => void;
   readonly createDocument: (folderId: string | null) => void;
   readonly toggle: (folderId: string, expanded: boolean, read: boolean) => void;
   readonly more: (folderId: string | null, after: DriveCursor) => void;
@@ -35,7 +38,7 @@ const orNull = (value: string | undefined) => (value ? value : null);
  */
 export function useDrive({
   sync,
-  documents,
+  opened,
   dispatch,
   setProblem,
   back,
@@ -44,7 +47,7 @@ export function useDrive({
   listRoot = true,
 }: {
   readonly sync: DocumentSync | undefined;
-  readonly documents: readonly MemberDocument[];
+  readonly opened: readonly OpenDocument[];
   readonly dispatch: Dispatch<ManagerAction>;
   readonly setProblem: (message: string) => void;
   readonly back: string;
@@ -55,10 +58,10 @@ export function useDrive({
 }): DriveActions {
   const [folders, setFolders] = useState(initialFolders);
   const creating = useRef(false);
-  const known = useRef(documents);
+  const known = useRef(opened);
   useEffect(() => {
-    known.current = documents;
-  }, [documents]);
+    known.current = opened;
+  }, [opened]);
 
   const listFolder = useCallback(
     async (folderId: string | null, after: DriveCursor | null) => {
@@ -85,22 +88,25 @@ export function useDrive({
     return () => window.removeEventListener('focus', refresh);
   }, [sync, listRoot, listFolder, rootFolderId, setProblem]);
 
-  const open = (id: string) => {
-    if (known.current.some((one) => one.id === id) || !sync) {
+  const open = (id: string, title: string) => {
+    const current = findOpen(known.current, id);
+    if (!sync || current?.kind === 'loaded' || current?.kind === 'loading') {
       dispatch({ type: 'tabs/open', id });
       dispatch({ type: 'palette/close' });
       return;
     }
-    sync
-      .open(id)
-      .then((document) => {
+    // A tab with no editor until the body arrives, so nothing can be typed early.
+    dispatch({ type: 'doc/opening', id, title });
+    sync.open(id).then(
+      (document) => {
         if (document) dispatch({ type: 'doc/add', document });
         else {
           dispatch({ type: 'drive/remove', id });
           setProblem('That document is no longer in your drive.');
         }
-      })
-      .catch(() => setProblem('That document did not open. Try again.'));
+      },
+      () => dispatch({ type: 'doc/failed', id }),
+    );
   };
 
   const createDocument = (folderId: string | null) => {

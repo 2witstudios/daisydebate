@@ -14,6 +14,9 @@ import {
 import {
   acknowledged,
   activeOffered,
+  forgotten,
+  isForgotten,
+  bodyToShow,
   adoptsLateCommit,
   isConflicted,
   isGone,
@@ -32,6 +35,7 @@ import {
   restored,
   sameOffers,
   savingDocument,
+  serverAdopted,
   serverRead,
   settledBy,
   withDocument,
@@ -165,6 +169,8 @@ export function createDocumentSync({
   };
   const serverTextListeners = new Set<(id: string, html: string) => void>();
   const handles = new Map<string, unknown>();
+  // A second click on Save as a new document while the first is in flight.
+  const copying = new Set<string>();
   const saving = new Map<string, Promise<void>>();
   const listeners = new Set<() => void>();
   const failedStorage = (id: string) => {
@@ -258,7 +264,7 @@ export function createDocumentSync({
     );
   };
   const saved = (id: string, sent: DraftCopy, revision: number) => {
-    if (isClosed()) return;
+    if (isClosed() || isForgotten(doc(id))) return;
     const previous = read(id, wallClock());
     const result = acknowledged(doc(id), sent, revision, previous.record);
     update(id, () => result.document);
@@ -276,7 +282,7 @@ export function createDocumentSync({
   const conflict = async (id: string, sent: DraftCopy, revision: number) => {
     // A failed read establishes nothing, so it goes to the retry or refusal path.
     const [server] = await api.read([id]);
-    if (isClosed()) return;
+    if (isClosed() || isForgotten(doc(id))) return;
     const outcome = conflictOutcome(doc(id), sent, revision, server);
     if (outcome.kind === 'gone') {
       markGone(id);
@@ -298,7 +304,7 @@ export function createDocumentSync({
     onConflict(id);
   };
   const failed = (id: string, sent: DraftCopy, error: unknown) => {
-    if (isClosed()) return;
+    if (isClosed() || isForgotten(doc(id))) return;
     const result = attemptFailed(doc(id), sent, statusOf(error), delayMs);
     update(id, () => result.document);
     if (result.kind === 'gone') {
@@ -425,7 +431,7 @@ export function createDocumentSync({
         settled,
       );
       if (committed) {
-        remember([one]);
+        update(one.id, (d) => serverAdopted(d, one));
         for (const listener of serverTextListeners) listener(one.id, one.html);
       }
     }
@@ -457,12 +463,7 @@ export function createDocumentSync({
     const now = wallClock();
     const previous = read(id, now);
     if (draftCopies(previous.record).length > 0) write(id, previous, {}, now);
-    state = {
-      ...state,
-      documents: new Map(
-        [...state.documents].filter(([other]) => other !== id),
-      ),
-    };
+    update(id, () => forgotten);
     publish();
     idle(id);
   };
@@ -477,6 +478,10 @@ export function createDocumentSync({
       if (isClosed()) return [];
       adopt(documents);
       publish();
+      const shown = documents.map((one) => ({
+        ...one,
+        html: bodyToShow(doc(one.id), one.html),
+      }));
       // A previous page's exit save can commit after this read; check once.
       timers.clear(recheckHandle);
       if (state.offers.length > 0) {
@@ -488,7 +493,7 @@ export function createDocumentSync({
           LATE_COMMIT_RECHECK_MS,
         );
       }
-      return documents;
+      return shown;
     },
     open: async (id) => {
       if (isClosed()) return null;
@@ -496,7 +501,7 @@ export function createDocumentSync({
       if (isClosed() || !opened) return null;
       adopt([opened]);
       publish();
-      return opened;
+      return { ...opened, html: bodyToShow(doc(id), opened.html) };
     },
     recheck: async (ids) => {
       if (isClosed() || ids.length === 0) return;
@@ -507,9 +512,12 @@ export function createDocumentSync({
         if (!present.has(id) && !isGone(doc(id))) markGone(id);
     },
     saveAsNew: async (id) => {
-      if (isClosed() || !isGone(doc(id))) return null;
+      if (isClosed() || !isGone(doc(id)) || copying.has(id)) return null;
       const text = keptText(doc(id));
-      const created = await api.create({ folderId: null });
+      copying.add(id);
+      const created = await api
+        .create({ folderId: null })
+        .finally(() => copying.delete(id));
       if (isClosed()) return null;
       remember([created]);
       if (text !== undefined) {

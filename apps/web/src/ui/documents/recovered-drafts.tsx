@@ -134,14 +134,17 @@ function RecoveredDraft({
 function DeletedDocumentNotice({
   title,
   saveAsNew,
+  failed,
 }: {
   readonly title: string;
   readonly saveAsNew: () => void;
+  readonly failed: boolean;
 }) {
   return (
     <div role="alert" className="flex items-center gap-3 p-3 text-sm">
       <p className="min-w-0 flex-1">
         {title} was deleted. Your text is still here.
+        {failed ? ' It was not saved as a new document. Try again.' : ''}
       </p>
       <button
         type="button"
@@ -175,6 +178,7 @@ export function RecoveredDrafts({
     () => noOffers,
   );
   const gone = useSyncExternalStore(sync.subscribe, sync.firstGone, () => null);
+  const [copyFailed, setCopyFailed] = useState(false);
   return (
     <>
       {gone ? (
@@ -183,22 +187,26 @@ export function RecoveredDrafts({
             documents.find((one) => one.id === gone)?.title ?? 'This document'
           }
           saveAsNew={() => {
-            void sync.saveAsNew(gone).then((created) => {
-              if (!created) return;
-              dispatch({ type: 'drive/remove', id: gone });
-              dispatch({ type: 'doc/add', document: created });
-              if (inFolderPage) return;
-              dispatch({
-                type: 'drive/add',
-                folderId: null,
-                entry: {
-                  kind: 'document',
-                  id: created.id,
-                  title: created.title,
-                },
-              });
-            });
+            sync.saveAsNew(gone).then(
+              (created) => {
+                if (!created) return;
+                dispatch({ type: 'drive/remove', id: gone });
+                dispatch({ type: 'doc/add', document: created });
+                if (inFolderPage) return;
+                dispatch({
+                  type: 'drive/add',
+                  folderId: null,
+                  entry: {
+                    kind: 'document',
+                    id: created.id,
+                    title: created.title,
+                  },
+                });
+              },
+              () => setCopyFailed(true),
+            );
           }}
+          failed={copyFailed}
         />
       ) : null}
       {offers.map((offer) => {

@@ -40,7 +40,7 @@ test('a purge never promises the notes back', () => {
     given: 'files closed by a purge and by an ended session',
     should: 'promise them back only for the ended session',
     actual: (['purge', 'fence'] as const).map((reason) =>
-      closedFilesNotice(reason).includes('get your notes back'),
+      closedFilesNotice(reason).includes('get your unsaved edits back'),
     ),
     expected: [false, true],
   });

@@ -19,6 +19,7 @@ import {
 } from '../documents/command-palette';
 import { PhoneActions, RoundControls } from './controls';
 import type { DocumentSync } from '../documents/document-sync';
+import { openId, openTitle } from '../../features/documents/open-documents';
 import { driveApi } from '../documents/drive-api';
 import { useDrive } from '../documents/use-drive';
 import type { SaveState } from '../documents/document-pane';
@@ -159,7 +160,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   );
   const drive = useDrive({
     sync,
-    documents: state.documents,
+    opened: state.opened,
     dispatch,
     setProblem: report,
     back: `/rounds/${round.id}/room`,
@@ -169,7 +170,9 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   const alert = problem ?? props.notice ?? null;
   const create = () => drive.createDocument(null);
   const choose = (choice: PaletteChoice) =>
-    choice.kind === 'new' ? create() : drive.open(choice.documentId);
+    choice.kind === 'new'
+      ? create()
+      : drive.open(choice.documentId, choice.title);
   // Until script runs the phone tabs cannot switch, so every panel stays
   // readable, stacked in one scrolling column.
   const phoneHides = (...panels: readonly PhonePanel[]) =>
@@ -217,6 +220,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             dispatch={dispatch}
             onEdit={sync?.change}
             onNew={create}
+            onRetry={drive.open}
             save={props.save ?? null}
           />
         </div>
@@ -246,7 +250,10 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
       />
       <CommandPalette
         open={state.paletteOpen}
-        documents={state.documents}
+        documents={state.opened.map((open) => ({
+          id: openId(open),
+          title: openTitle(open),
+        }))}
         search={driveApi.search}
         onChoose={choose}
         onClose={() => dispatch({ type: 'palette/close' })}

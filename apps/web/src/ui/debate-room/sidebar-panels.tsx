@@ -1,5 +1,6 @@
 'use client';
 
+import { loadedDocuments } from '../../features/documents/open-documents';
 import type { Dispatch } from 'react';
 import type { Clock } from '@daisy/clock';
 import { unreadByChannel } from '../../features/debate-room/chat';
@@ -63,7 +64,9 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
         turns={round.agentThreads[agent.id] ?? []}
         agentName={agent.title}
         edits={state.edits}
-        titleOf={(id) => state.documents.find((d) => d.id === id)?.title ?? ''}
+        titleOf={(id) =>
+          loadedDocuments(state.opened).find((d) => d.id === id)?.title ?? ''
+        }
         onDecide={(turn, outcome) =>
           turn.edit &&
           dispatch({

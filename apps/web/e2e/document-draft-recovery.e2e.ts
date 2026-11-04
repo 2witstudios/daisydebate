@@ -105,8 +105,9 @@ const offeredAfterReload = async (
     .toBe(true);
   await reload(page);
   // A draft follows its document, so another document's offer may sit beside it.
+  const { title } = await serverDocument(page, '', documentId);
   await expect(
-    page.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }).first(),
+    page.getByRole('button', { name: `Restore ${title}`, exact: true }),
   ).toBeVisible();
   const recovery = (await draftFor(page, documentId)).recovery;
   expect(recovery.generation).toMatch(/^[a-z0-9]{24}$/);
@@ -189,8 +190,12 @@ const expectSecondRoundOffer = async (page: Page, title: string) => {
   await expect(
     page.getByRole('textbox', { name: title, exact: true }),
   ).not.toContainText('First Round pending NEW');
-  await page.getByText('Compare recovered and server copies').click();
-  await expect(page.getByLabel('Recovered copy of Untitled')).toContainText(
+  const region = page.getByRole('region', {
+    name: `Recovered ${title}`,
+    exact: true,
+  });
+  await region.getByText('Compare recovered and server copies').click();
+  await expect(region.getByLabel('Recovered copy of')).toContainText(
     'Second Round REC',
   );
 };

@@ -39,6 +39,8 @@ export type DraftOffer = {
 export type SavingHold =
   | { readonly kind: 'conflict'; readonly latestRevision: number }
   | { readonly kind: 'gone' }
+  /** This person deleted it here, so no late answer may bring it back. */
+  | { readonly kind: 'forgotten' }
   | { readonly kind: 'refused'; readonly generation: string };
 
 /** Everything one owner knows about saving one document. */
@@ -112,17 +114,49 @@ export const isConflicted = (document: SavingDocument): boolean =>
   document.hold?.kind === 'conflict';
 export const isGone = (document: SavingDocument): boolean =>
   document.hold?.kind === 'gone';
+export const isForgotten = (document: SavingDocument): boolean =>
+  document.hold?.kind === 'forgotten';
 
 /**
- * The server's copy, as read. A pending edit keeps the revision it was based
- * on: moving it would let the save overwrite text this owner has not seen, so
- * the compare-and-swap finds the conflict instead.
+ * The body to show for a read: what this person typed, or else the text this
+ * owner's revision belongs to, so what is shown is always what the next save is
+ * based on. A first read has already been remembered, so it is that read's text.
+ */
+export const bodyToShow = (document: SavingDocument, html: string): string =>
+  document.pending?.html ?? document.serverHtml ?? html;
+
+/** Nothing of it stays, and what is still in flight lands nowhere. */
+export const forgotten: SavingDocument = {
+  revision: undefined,
+  serverHtml: undefined,
+  pending: undefined,
+  snapshot: undefined,
+  durableGeneration: undefined,
+  ownEarlier: [],
+  failures: 0,
+  hold: { kind: 'forgotten' },
+  unanswered: [],
+  storageProblem: false,
+};
+
+/**
+ * The server's copy, as first read. The revision and the text a person sees move
+ * only together, so a later read changes nothing: a newer commit elsewhere reaches
+ * the compare-and-swap as a conflict, never an overwrite of text nobody saw.
  */
 export const serverRead = (
   document: SavingDocument,
   { html, revision }: Omit<ServerDocument, 'id'>,
 ): SavingDocument =>
-  document.pending ? document : { ...document, revision, serverHtml: html };
+  document.revision === undefined
+    ? { ...document, revision, serverHtml: html }
+    : document;
+
+/** The server's text, shown to the person in the same step: a late commit of their own. */
+export const serverAdopted = (
+  document: SavingDocument,
+  { html, revision }: Omit<ServerDocument, 'id'>,
+): SavingDocument => ({ ...document, revision, serverHtml: html });
 
 /**
  * Whether a read shows a late commit of offered text, so the editor adopts the

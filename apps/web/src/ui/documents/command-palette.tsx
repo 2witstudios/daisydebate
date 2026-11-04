@@ -19,7 +19,11 @@ import { Icon } from '../components/icon/icon';
 
 export type PaletteChoice =
   | { readonly kind: 'new' }
-  | { readonly kind: 'open'; readonly documentId: string };
+  | {
+      readonly kind: 'open';
+      readonly documentId: string;
+      readonly title: string;
+    };
 
 /** A document the palette can open; a search hit also says where the words were. */
 export type PaletteDocument = {
@@ -38,7 +42,7 @@ const openCommand = (doc: PaletteDocument): Command => ({
   title: doc.title,
   group: 'Open',
   keywords: ['open', 'go'],
-  choice: { kind: 'open', documentId: doc.id },
+  choice: { kind: 'open', documentId: doc.id, title: doc.title },
   ...(doc.snippet ? { snippet: doc.snippet } : {}),
 });
 

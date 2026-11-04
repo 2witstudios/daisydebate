@@ -49,17 +49,18 @@ describe('nextSend', () => {
 });
 
 describe('serverRead', () => {
-  test('a pending edit keeps the revision it was based on', () => {
+  test('only the first read sets the revision', () => {
     const one = copy('one');
     assert({
-      given: 'a read at a newer revision, with and without a pending edit',
-      should: 'move the revision only when nothing is pending',
+      given:
+        'a newer read with a pending edit, and with none, and a first read',
+      should: 'move nothing once a revision is known',
       actual: [
         serverRead({ ...read, pending: one }, { html: 'x', revision: 9 })
           .revision,
         serverRead(read, { html: 'x', revision: 9 }).revision,
       ],
-      expected: [1, 9],
+      expected: [1, 1],
     });
   });
 });

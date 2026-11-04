@@ -237,7 +237,7 @@ function Contents({
               className={row(active === node.id)}
               onClick={(event) => {
                 event.preventDefault();
-                drive.open(node.id);
+                drive.open(node.id, node.title);
               }}
             >
               <span className="min-w-0 flex-1 truncate">{node.title}</span>
@@ -348,7 +348,7 @@ export function FileTree({
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         <section aria-label="My drive" className="flex flex-col gap-1">
           <h2 className="px-2 pb-1 text-xs font-strong tracking-wider text-ink-muted uppercase">
-            My drive
+            {rootFolderId === null ? 'My drive' : 'In this folder'}
           </h2>
           <Contents
             contents={tree.contents}

@@ -117,6 +117,31 @@ describe('the other transitions', () => {
     });
   });
 
+  test('a row renamed elsewhere to sort earlier shows once after a relist', () => {
+    const cursor = { kind: 'document', label: 'a', id: 'a' } as const;
+    const two = withPage(
+      withPage(emptyDrive, null, {
+        entries: [doc('a')],
+        next: cursor,
+        first: true,
+      }),
+      null,
+      { entries: [doc('z')], next: null, first: false },
+    );
+    const again = withPage(two, null, {
+      entries: [doc('z')],
+      next: cursor,
+      first: true,
+    });
+    const shape0 = shapeOf(again) as readonly string[];
+    assert({
+      given: 'a later row that now comes back on the first page',
+      should: 'list it once',
+      actual: shape0.filter((id) => id === 'z').length,
+      expected: 1,
+    });
+  });
+
   test('a later page extends and never repeats a row', () => {
     const first = page(emptyDrive, null, doc('a'));
     const later = withPage(first, null, {

@@ -377,3 +377,94 @@ describe('a browser full of drafts', () => {
     });
   });
 });
+
+describe('a mount on an owner still holding an edit', () => {
+  test('shows what was typed, not the older server text', async () => {
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const sync = createOwner({
+      ...manualDraftResources('mount', { storage: memoryStorage() }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        save: () =>
+          Promise.reject(Object.assign(new Error('x'), { status: 503 })),
+      },
+      onConflict: () => {},
+    });
+    await sync.load();
+    sync.change('a', '<p>typed</p>');
+    await sync.flush();
+    const [shown] = await sync.load();
+    const opened = await sync.open('a');
+    assert({
+      given: 'a save refused for capacity, then the frame remounting',
+      should: 'hand the editor the typed text from load and from open',
+      actual: [shown?.html, opened?.html],
+      expected: ['<p>typed</p>', '<p>typed</p>'],
+    });
+  });
+});
+
+describe('a deletion here', () => {
+  test('a save still in flight cannot bring the document back', async () => {
+    let answer!: (error: Error) => void;
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const sync = createOwner({
+      ...manualDraftResources('in-flight', { storage: memoryStorage() }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        save: () =>
+          new Promise((_, reject) => {
+            answer = reject;
+          }),
+      },
+      onConflict: () => {},
+    });
+    await sync.load();
+    sync.change('a', '<p>typed</p>');
+    const flushing = sync.flush();
+    await Promise.resolve();
+    sync.forget('a');
+    answer(Object.assign(new Error('gone'), { status: 404 }));
+    await flushing;
+    assert({
+      given: 'a 404 answering a save sent before the person deleted it here',
+      should: 'not say it was deleted elsewhere',
+      actual: sync.firstGone(),
+      expected: null,
+    });
+  });
+
+  test('two clicks on Save as a new document make one', async () => {
+    let creates = 0;
+    const server = savingApi([{ id: 'a', revision: 1 }]);
+    const sync = createOwner({
+      ...manualDraftResources('two-clicks', { storage: memoryStorage() }),
+      principalId: 'p1',
+      api: {
+        ...server.api,
+        read: async () => [],
+        recent: async () => 'a',
+        create: async () => {
+          creates += 1;
+          return stored('copy', 1);
+        },
+        save: async ({ expectedRevision }) => ({
+          status: 'saved',
+          revision: expectedRevision + 1,
+        }),
+      },
+      onConflict: () => {},
+    });
+    await sync.load();
+    await sync.recheck(['a']);
+    await Promise.all([sync.saveAsNew('a'), sync.saveAsNew('a')]);
+    assert({
+      given: 'a double click',
+      should: 'create one document',
+      actual: creates,
+      expected: 1,
+    });
+  });
+});

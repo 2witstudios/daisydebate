@@ -4,7 +4,10 @@ import {
   updateDocumentHtml,
   type MemberDocument,
 } from '../../features/documents/document';
-import { openTab } from '../../features/documents/open-documents';
+import {
+  openTab,
+  type OpenDocument,
+} from '../../features/documents/open-documents';
 import {
   initialManagerState,
   isManagerAction,
@@ -94,7 +97,11 @@ const withDocument = (
   change: (doc: MemberDocument) => MemberDocument,
 ): RoomState => ({
   ...state,
-  documents: state.documents.map((doc) => (doc.id === id ? change(doc) : doc)),
+  opened: state.opened.map((open): OpenDocument =>
+    open.kind === 'loaded' && open.document.id === id
+      ? { kind: 'loaded', document: change(open.document) }
+      : open,
+  ),
 });
 
 type Reducer<T extends RoomAction['type']> = (

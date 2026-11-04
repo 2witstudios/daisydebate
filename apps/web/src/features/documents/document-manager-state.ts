@@ -18,10 +18,13 @@ import {
 } from './drive-tree';
 import {
   activateTab,
-  appendWorkspaceDocument,
+  addOpenDocument,
   closeTab,
-  loadWorkspaceDocuments,
+  findOpen,
+  loadOpenDocuments,
+  openId,
   openTab,
+  type OpenDocument,
   type TabsState,
 } from './open-documents';
 
@@ -30,12 +33,12 @@ export type PageTone = 'light' | 'dark';
 
 /**
  * What one document manager holds, wherever it opens (ADR 0111): the drive as
- * this browser has read it, the bodies of the documents it has opened, and the
- * tabs over them. A Round or Prep supplies a frame around it and owns none of it.
+ * this browser has read it, the documents it has opened, each loading, loaded or
+ * failed, and the tabs over them. A Round or Prep supplies a frame around it and owns none of it.
  */
 export type ManagerState = {
   readonly drive: DriveTree;
-  readonly documents: readonly MemberDocument[];
+  readonly opened: readonly OpenDocument[];
   readonly tabs: TabsState;
   readonly pages: Readonly<Record<string, PageTone | null>>;
   readonly paletteOpen: boolean;
@@ -45,7 +48,7 @@ export const initialManagerState = (
   drive: DriveTree = emptyDrive,
 ): ManagerState => ({
   drive,
-  documents: [],
+  opened: [],
   tabs: { open: [], active: null },
   pages: {},
   paletteOpen: false,
@@ -72,6 +75,13 @@ export type ManagerAction =
       readonly documents: readonly MemberDocument[];
     }
   | { readonly type: 'doc/add'; readonly document: MemberDocument }
+  /** A person chose a document whose body has not arrived; its tab has no editor yet. */
+  | {
+      readonly type: 'doc/opening';
+      readonly id: string;
+      readonly title: string;
+    }
+  | { readonly type: 'doc/failed'; readonly id: string }
   /** The owner closed, so no document stays on screen. */
   | { readonly type: 'doc/withdrawn' }
   | { readonly type: 'palette/open' }
@@ -120,6 +130,8 @@ const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
   'doc/server-text': true,
   'doc/loaded': true,
   'doc/add': true,
+  'doc/opening': true,
+  'doc/failed': true,
   'doc/withdrawn': true,
   'palette/open': true,
   'palette/close': true,
@@ -141,7 +153,7 @@ export const isManagerAction = (action: {
 const withoutDocument = <T extends ManagerState>(state: T, id: string): T => ({
   ...state,
   drive: removeEntry(state.drive, id),
-  documents: state.documents.filter((doc) => doc.id !== id),
+  opened: state.opened.filter((open) => openId(open) !== id),
   tabs: closeTab(state.tabs, id),
 });
 
@@ -155,8 +167,10 @@ export function reduceManager<T extends ManagerState>(
     change: (doc: MemberDocument) => MemberDocument,
   ) => ({
     ...state,
-    documents: state.documents.map((doc) =>
-      doc.id === id ? change(doc) : doc,
+    opened: state.opened.map((open): OpenDocument =>
+      open.kind === 'loaded' && open.document.id === id
+        ? { kind: 'loaded', document: change(open.document) }
+        : open,
     ),
   });
   switch (action.type) {
@@ -166,24 +180,43 @@ export function reduceManager<T extends ManagerState>(
       return { ...state, tabs: closeTab(state.tabs, action.id) };
     case 'tabs/activate':
       return { ...state, tabs: activateTab(state.tabs, action.id) };
-    case 'doc/loaded': {
-      // A document opened before the load answered keeps its tab.
-      const loaded = new Set(action.documents.map((doc) => doc.id));
-      return loadWorkspaceDocuments(state, [
-        ...action.documents,
-        ...state.documents.filter((doc) => !loaded.has(doc.id)),
-      ]);
-    }
+    case 'doc/loaded':
+      return loadOpenDocuments(state, action.documents);
     case 'doc/withdrawn':
-      return loadWorkspaceDocuments(state, []);
+      return { ...state, opened: [], tabs: { open: [], active: null } };
     case 'doc/add':
-      return state.documents.some((doc) => doc.id === action.document.id)
-        ? {
-            ...state,
-            tabs: openTab(state.tabs, action.document.id),
-            paletteOpen: false,
-          }
-        : appendWorkspaceDocument(state, action.document);
+      return addOpenDocument(state, action.document);
+    case 'doc/opening': {
+      const known = findOpen(state.opened, action.id);
+      const opened: readonly OpenDocument[] =
+        known?.kind === 'failed'
+          ? state.opened.map((open) =>
+              openId(open) === action.id
+                ? { kind: 'loading', id: action.id, title: action.title }
+                : open,
+            )
+          : known
+            ? state.opened
+            : [
+                ...state.opened,
+                { kind: 'loading', id: action.id, title: action.title },
+              ];
+      return {
+        ...state,
+        opened,
+        tabs: openTab(state.tabs, action.id),
+        paletteOpen: false,
+      };
+    }
+    case 'doc/failed':
+      return {
+        ...state,
+        opened: state.opened.map((open) =>
+          open.kind === 'loading' && open.id === action.id
+            ? { kind: 'failed', id: open.id, title: open.title }
+            : open,
+        ),
+      };
     case 'doc/server-text':
       return changeDocument(action.id, (doc) =>
         adoptServerText(doc, action.html, action.now),

@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { initialManagerState, reduceManager } from './document-manager-state';
+import {
+  initialManagerState,
+  reduceManager,
+  type ManagerState,
+} from './document-manager-state';
+import { loadedDocuments } from './open-documents';
 import type { MemberDocument } from './document';
 
 setupRitewayBun();
@@ -10,44 +15,122 @@ const document: MemberDocument = {
   createdAt: '2026-10-09T00:00:00.000Z',
   updatedAt: '2026-10-09T00:00:00.000Z',
 };
-test('persisted workspace loads actual documents and keeps valid active tabs', () => {
+const shown = (state: ManagerState, id: string) =>
+  loadedDocuments(state.opened).find((doc) => doc.id === id)?.html;
+
+test('a load opens what was edited last, and never replaces a loaded document', () => {
   const loaded = reduceManager(initialManagerState(), {
     type: 'doc/loaded',
     documents: [document],
   });
-  const next = reduceManager(loaded, {
+  const typed = reduceManager(loaded, {
+    type: 'doc/update',
+    id: document.id,
+    html: '<p>typed</p>',
+    now: 'n',
+  });
+  const later = reduceManager(typed, {
     type: 'doc/loaded',
-    documents: [{ ...document, html: '<p>latest</p>' }],
+    documents: [{ ...document, html: '<p>an older read</p>' }],
   });
   assert({
-    given: 'a saved private document and a fresh server reread',
-    should: 'open actual identity and adopt stored content',
-    actual: [next.tabs.active, next.documents[0]?.html],
-    expected: [document.id, '<p>latest</p>'],
+    given: 'a loaded document, typing, then a read arriving',
+    should: 'open it, and keep what was typed',
+    actual: [later.tabs.active, shown(later, document.id)],
+    expected: [document.id, '<p>typed</p>'],
   });
 });
 
-test('a document opened before the load answers keeps its tab', () => {
-  const clicked = { ...document, id: 'c'.repeat(24), title: 'Clicked' };
-  const opened = reduceManager(initialManagerState(), {
-    type: 'doc/add',
-    document: clicked,
+test('no body exists until the document has loaded', () => {
+  const opening = reduceManager(initialManagerState(), {
+    type: 'doc/opening',
+    id: document.id,
+    title: 'Notes',
   });
-  const loaded = reduceManager(opened, {
+  const typedEarly = reduceManager(opening, {
+    type: 'doc/update',
+    id: document.id,
+    html: '<p>no editor exists</p>',
+    now: 'n',
+  });
+  const arrived = reduceManager(typedEarly, { type: 'doc/add', document });
+  assert({
+    given: 'a document opening, then its body arriving',
+    should: 'hold a tab with no body, then the server’s body',
+    actual: [
+      opening.tabs.active,
+      opening.opened[0]?.kind,
+      shown(typedEarly, document.id),
+      arrived.opened.map((open) => open.kind),
+      shown(arrived, document.id),
+    ],
+    expected: [document.id, 'loading', undefined, ['loaded'], '<p>saved</p>'],
+  });
+});
+
+test('a failed open says so and can be asked again', () => {
+  const opening = reduceManager(initialManagerState(), {
+    type: 'doc/opening',
+    id: document.id,
+    title: 'Notes',
+  });
+  const failed = reduceManager(opening, {
+    type: 'doc/failed',
+    id: document.id,
+  });
+  const again = reduceManager(failed, {
+    type: 'doc/opening',
+    id: document.id,
+    title: 'Notes',
+  });
+  assert({
+    given: 'an open that failed, then a retry',
+    should: 'go from failed back to loading, in one entry',
+    actual: [failed.opened[0]?.kind, again.opened.map((open) => open.kind)],
+    expected: ['failed', ['loading']],
+  });
+});
+
+test('asking for a loaded document again changes nothing about it', () => {
+  const loaded = reduceManager(initialManagerState(), {
+    type: 'doc/add',
+    document,
+  });
+  const again = reduceManager(loaded, {
+    type: 'doc/opening',
+    id: document.id,
+    title: 'Notes',
+  });
+  assert({
+    given: 'a loaded document opened again',
+    should: 'stay loaded',
+    actual: again.opened.map((open) => open.kind),
+    expected: ['loaded'],
+  });
+});
+
+test('a document opening keeps its place when a load answers for another', () => {
+  const clicked = { ...document, id: 'c'.repeat(24), title: 'Clicked' };
+  const opening = reduceManager(initialManagerState(), {
+    type: 'doc/opening',
+    id: clicked.id,
+    title: clicked.title,
+  });
+  const loaded = reduceManager(opening, {
     type: 'doc/loaded',
     documents: [document],
   });
   assert({
     given: 'a click that beat the load',
-    should: 'keep the clicked document open and active',
-    actual: [loaded.tabs.active, loaded.documents.length],
-    expected: [clicked.id, 2],
+    should: 'keep the clicked tab active, still loading',
+    actual: [loaded.tabs.active, loaded.opened.map((open) => open.kind)],
+    expected: [clicked.id, ['loading', 'loaded']],
   });
   const withdrawn = reduceManager(loaded, { type: 'doc/withdrawn' });
   assert({
     given: 'the owner closing',
     should: 'leave nothing on screen',
-    actual: withdrawn.documents.length,
-    expected: 0,
+    actual: [withdrawn.opened, withdrawn.tabs.open],
+    expected: [[], []],
   });
 });

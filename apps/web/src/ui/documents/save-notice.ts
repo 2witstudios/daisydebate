@@ -12,10 +12,10 @@ export function refusedNotice(status: number): string {
   return 'This document can no longer be saved. Reload the page.';
 }
 
-/** Why this Round's files left the screen. A purge must not promise them back. */
+/** Why the documents left the screen. A purge must not promise them back. */
 export const closedFilesNotice = (
   reason: 'released' | 'fence' | 'purge' | null,
 ) =>
   reason === 'purge'
-    ? 'This Round’s documents are closed. Reopen the Round to load them.'
-    : 'Your session ended. Sign in and reopen the Round to get your notes back.';
+    ? 'Your documents are closed. Reload the page to load them.'
+    : 'Your session ended. Sign in again to get your unsaved edits back.';

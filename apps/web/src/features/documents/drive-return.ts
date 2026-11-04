@@ -19,7 +19,8 @@ export const DRIVE_FULL_NOTICE =
 
 export const driveNotices = {
   'drive-full': DRIVE_FULL_NOTICE,
-  'name-length': 'A name needs between 1 and 120 characters.',
+  'name-length':
+    'A name needs 1 to 120 characters, with no tabs or line breaks.',
   missing: 'That is no longer in your drive.',
   conflict: 'That change is not possible: the drive is full or too deep.',
   refused: 'That change was refused.',

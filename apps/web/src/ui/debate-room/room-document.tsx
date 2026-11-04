@@ -1,6 +1,7 @@
 'use client';
 
 import type { Dispatch } from 'react';
+import { loadedDocuments } from '../../features/documents/open-documents';
 import { DocumentPane, type SaveState } from '../documents/document-pane';
 import type { DocumentSync } from '../documents/document-sync';
 import { ShowFiles } from './files-sidebar';
@@ -13,6 +14,7 @@ export function RoomDocument({
   dispatch,
   onEdit,
   onNew,
+  onRetry,
   save,
   sync,
 }: {
@@ -21,6 +23,7 @@ export function RoomDocument({
   readonly dispatch: Dispatch<RoomAction>;
   readonly onEdit: ((id: string, html: string) => void) | undefined;
   readonly onNew: () => void;
+  readonly onRetry: ((id: string, title: string) => void) | undefined;
   readonly save: SaveState | null;
 }) {
   return (
@@ -31,14 +34,15 @@ export function RoomDocument({
       {sync ? (
         <div className="max-h-1/2 shrink-0 overflow-y-auto empty:hidden">
           <RecoveredDrafts
-            documents={state.documents}
+            documents={loadedDocuments(state.opened)}
             sync={sync}
             dispatch={dispatch}
           />
         </div>
       ) : null}
       <DocumentPane
-        documents={state.documents}
+        opened={state.opened}
+        onRetry={onRetry}
         tabs={state.tabs}
         pages={state.pages}
         dispatch={dispatch}

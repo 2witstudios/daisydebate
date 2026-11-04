@@ -155,6 +155,11 @@ test('a document deleted in another tab keeps its text and saves as new', async 
     const id = (await page.request
       .post('/api/documents/recent', { headers: { origin }, data: {} })
       .then((response) => response.json())) as { id: string };
+    // A link to the document opens it.
+    await page.goto(`${origin}/prep?open=${id.id}`);
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toContainText(text);
     const deleted = await page.request.post('/api/documents/delete', {
       headers: { origin },
       data: { id: id.id },

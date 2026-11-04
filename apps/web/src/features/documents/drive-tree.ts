@@ -58,7 +58,6 @@ const compare = (a: DriveNode, b: DriveNode) =>
   (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const ordered = (entries: readonly DriveNode[]): readonly DriveNode[] =>
   [...entries].sort(compare);
-const isAfter = (node: DriveNode, other: DriveNode) => compare(node, other) > 0;
 
 const inContents = (
   contents: FolderContents,
@@ -113,13 +112,14 @@ export const withPage = (
   changeFolder(tree, folderId, (contents) => {
     const held = contents.state === 'read' ? contents.entries : [];
     const known = page.first ? [] : held;
-    // Listing the first page again keeps what later pages showed beyond it.
-    const last = page.entries.at(-1);
-    const beyond =
-      page.first && page.next !== null && last && contents.state === 'read'
-        ? held.filter((node) => isAfter(node, nodeOf(last)))
-        : [];
     const seen = new Set(known.map((node) => node.id));
+    // Listing the first page again keeps what later pages showed, by position, so
+    // no client order has to agree with the database's collation.
+    const fresh = new Set(page.entries.map((entry) => entry.id));
+    const beyond =
+      page.first && page.next !== null
+        ? held.slice(page.entries.length).filter((node) => !fresh.has(node.id))
+        : [];
     // A folder listed again keeps what is read and open inside it.
     const listed = (entry: DriveEntryView): DriveNode => {
       const node = nodeOf(entry);

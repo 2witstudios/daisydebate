@@ -15,7 +15,11 @@ export const documentSearchQuery = (text: string): string | null => {
   )
     .slice(0, MAX_WORDS)
     .map((word) => word.slice(0, MAX_WORD_LENGTH));
-  return words.length === 0
-    ? null
-    : words.map((word) => `${word}:*`).join(' & ');
+  // Stored text is as it was typed or pasted, so a word that composes both ways
+  // is looked for both ways.
+  const term = (word: string) => {
+    const decomposed = word.normalize('NFD');
+    return decomposed === word ? `${word}:*` : `(${word}:* | ${decomposed}:*)`;
+  };
+  return words.length === 0 ? null : words.map(term).join(' & ');
 };

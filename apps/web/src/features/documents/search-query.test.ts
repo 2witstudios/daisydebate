@@ -16,7 +16,7 @@ test('a member’s words become a safe prefix query', () => {
     expected: [
       'carbon:* & tax:*',
       'x:* & y:* & z:*',
-      'économie:* & 日本:*',
+      '(économie:* | e\u0301conomie:*) & 日本:*',
       null,
     ],
   });
@@ -27,7 +27,7 @@ test('a word with combining marks stays one word', () => {
     given: 'a Devanagari word, and a decomposed accent',
     should: 'keep each word whole and composed',
     actual: [documentSearchQuery('हिन्दी'), documentSearchQuery('cafe\u0301')],
-    expected: ['हिन्दी:*', 'café:*'],
+    expected: ['हिन्दी:*', '(café:* | cafe\u0301:*)'],
   });
 });
 

@@ -1,6 +1,11 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { conflictRevision } from './document-operations';
+import { fixedClock, fixedIds } from '@daisy/clock';
+import {
+  conflictRevision,
+  createDocumentOperations,
+  type DocumentStore,
+} from './document-operations';
 import {
   NOW,
   operationsOver,
@@ -80,6 +85,30 @@ describe('createDocument', () => {
 });
 
 describe('search', () => {
+  test('a snippet shows words, not markup', async () => {
+    const operations = createDocumentOperations({
+      store: {
+        searchDocuments: async () => [
+          {
+            id: 'a',
+            title: 'A',
+            folderId: null,
+            snippet: '<b>x</b> &lt;y&gt; &amp; z',
+          },
+        ],
+      } as unknown as DocumentStore,
+      clock: fixedClock(NOW),
+      ids: fixedIds(['unused']),
+    });
+    const [hit] = await operations.search(me, { text: 'x', page: 0 });
+    assert({
+      given: 'a snippet cut from stored HTML',
+      should: 'strip tags and decode entities',
+      actual: hit?.snippet,
+      expected: 'x <y> & z',
+    });
+  });
+
   test('nothing to search for asks nothing', async () => {
     const { operations } = operationsOver([stored()]);
     assert({
