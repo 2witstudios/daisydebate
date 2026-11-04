@@ -189,12 +189,7 @@ function routeRequest(request: NextRequest, settings: ProxySettings) {
     crypto.getRandomValues(new Uint8Array(16)),
   ).toString('base64');
   const policy = contentSecurityPolicy(pathname, settings, nonce);
-  const hint = signInHint(
-    request,
-    policy,
-    requestId,
-    settings.publicAppUrl,
-  );
+  const hint = signInHint(request, policy, requestId, settings.publicAppUrl);
   if (hint) return hint;
   const headers = new Headers(request.headers);
   // Never trust caller-supplied identifiers; proxy ingress establishes correlation.

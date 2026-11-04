@@ -300,10 +300,7 @@ describe('proxy early sign-in hint', () => {
       ]),
       expected: [
         [200, null],
-        [
-          307,
-          'https://daisy.invalid/sign-in?next=%2Ftournaments%2Forganize',
-        ],
+        [307, 'https://daisy.invalid/sign-in?next=%2Ftournaments%2Forganize'],
       ],
     });
   });
