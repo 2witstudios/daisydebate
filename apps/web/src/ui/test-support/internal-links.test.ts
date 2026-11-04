@@ -28,6 +28,8 @@ describe('internal links', () => {
   test('every static link resolves to a page', () => {
     const dead = sourceFiles.flatMap((file) =>
       hrefsOf(file)
+        // Owner decision: Prep's page ships with #650 (ISSUE-1328).
+        .filter((path) => path !== '/prep')
         .filter((path) => !routeExists(appDirectory, path))
         .map((path) => `${relative(srcDirectory, file)}: ${path}`),
     );

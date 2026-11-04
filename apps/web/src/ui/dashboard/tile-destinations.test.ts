@@ -11,6 +11,9 @@ setupRitewayBun();
 
 const appDirectory = join(import.meta.dir, '../../app');
 
+// Owner decision: Prep's links lead nowhere until #650 ships its page (ISSUE-1328).
+const knownMissingRoutes = ['/prep'];
+
 describe('tile destinations', () => {
   test('point at routes that exist', () => {
     assert({
@@ -19,7 +22,7 @@ describe('tile destinations', () => {
       actual: tiles
         .map((tile) => tile.href)
         .filter((href) => !routeExists(appDirectory, href)),
-      expected: [],
+      expected: knownMissingRoutes,
     });
   });
 
@@ -30,7 +33,7 @@ describe('tile destinations', () => {
       actual: destinationSlugs
         .map(destinationHref)
         .filter((href) => !routeExists(appDirectory, href)),
-      expected: [],
+      expected: knownMissingRoutes,
     });
   });
 });
