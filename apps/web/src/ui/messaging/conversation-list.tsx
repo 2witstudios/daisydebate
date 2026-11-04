@@ -57,6 +57,7 @@ export function ConversationList({
           Messages
         </h2>
         <Link
+          prefetch={false}
           href="/messages/new"
           aria-label="New message"
           title="New message"
@@ -120,6 +121,7 @@ export function ConversationList({
         )}
         {inbox.nextAfter ? (
           <Link
+            prefetch={false}
             href={inboxPageHref(inbox.nextAfter, inbox.appliedSearch)}
             onClick={more(inbox.nextAfter)}
             aria-disabled={reading}
@@ -135,12 +137,16 @@ export function ConversationList({
         className="flex shrink-0 flex-col border-t border-border p-2"
       >
         {groupsOffered ? (
-          <Link href="/messages/new?kind=group" className={footLink}>
+          <Link
+            prefetch={false}
+            href="/messages/new?kind=group"
+            className={footLink}
+          >
             <Icon name="users" size={16} />
             Create private group
           </Link>
         ) : null}
-        <Link href="/messages/contacts" className={footLink}>
+        <Link prefetch={false} href="/messages/contacts" className={footLink}>
           <Icon name="lock" size={16} />
           Contact safety
         </Link>

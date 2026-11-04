@@ -1,5 +1,10 @@
 import { renderToString } from 'react-dom/server';
-import { createElement as h } from 'react';
+import {
+  Children,
+  createElement as h,
+  isValidElement,
+  type ReactNode,
+} from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderNavItem } from './nav-item.render';
 
@@ -216,5 +221,38 @@ describe('nav-item presentation', () => {
       actual: html.includes('href="/recordings"'),
       expected: true,
     });
+  });
+});
+
+test('an active area keeps native navigation without speculative ancestor reads', () => {
+  const links = [true, false].map((active) => {
+    const item = renderNavItem({
+      href: '/messages',
+      icon: 'message',
+      label: 'Messages',
+      active,
+    });
+    if (!isValidElement<{ children: ReactNode }>(item))
+      throw new Error('Navigation item did not render');
+    const link = Children.toArray(item.props.children)[0];
+    if (
+      !isValidElement<{
+        href: string;
+        prefetch?: boolean;
+        'aria-current'?: string;
+      }>(link)
+    )
+      throw new Error('Navigation destination did not render');
+    return [link.props.href, link.props['aria-current'], link.props.prefetch];
+  });
+  assert({
+    given: 'the current Messages area and the same destination from elsewhere',
+    should:
+      'keep both native hrefs and active semantics, prefetching only the inactive destination by default',
+    actual: links,
+    expected: [
+      ['/messages', 'page', false],
+      ['/messages', undefined, undefined],
+    ],
   });
 });

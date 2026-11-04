@@ -83,6 +83,14 @@ export function testMessagesPage() {
     try {
       const page = await acceptMessagingJourney(journey);
       const origin = new URL(page.url()).origin;
+      const speculative: string[] = [];
+      page.on('request', (request) => {
+        if (
+          request.headers()['next-router-prefetch'] === '1' &&
+          new URL(request.url()).pathname.startsWith('/messages')
+        )
+          speculative.push(request.url());
+      });
       await page.goto(`/messages/${journey.channelId}`);
       await effectsRan(page);
       const refetches = watchRefetches(page);
@@ -93,6 +101,39 @@ export function testMessagesPage() {
       await expect(pane(page).getByText(text, { exact: true })).toBeVisible();
       await expect(composer(page)).toHaveValue('A draft that stays');
       expect(refetches).toEqual([]);
+      // Resizing exposes the phone's Inbox tab after the desktop rail: neither
+      // active ancestor may speculatively re-read the Messages layout.
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(list(page)).toBeHidden();
+      await effectsRan(page);
+      expect(speculative).toEqual([]);
+      // Force a real prefetch after the automatic-fanout assertion, so the
+      // observer's exception is exercised even with speculative links disabled.
+      const prefetch = page.waitForRequest(
+        (request) =>
+          new URL(request.url()).searchParams.has('refetch-guard') &&
+          request.headers()['next-router-prefetch'] === '1',
+      );
+      await page.evaluate(() => {
+        const app = window as unknown as {
+          next: { router: { prefetch: (href: string) => void } };
+        };
+        app.next.router.prefetch('/messages/contacts?refetch-guard=1');
+      });
+      await prefetch;
+      expect(refetches).toEqual([]);
+      // Negative control: the real production router refresh must still be
+      // detected, even though speculative RSC requests are not refreshes.
+      await page.evaluate(() => {
+        const app = window as unknown as {
+          next: { router: { refresh: () => void } };
+        };
+        app.next.router.refresh();
+      });
+      await expect.poll(() => refetches.length).toBeGreaterThan(0);
+      expect(new URL(refetches.at(-1)!).pathname).toBe(
+        `/messages/${journey.channelId}`,
+      );
     } finally {
       await journey.close();
     }

@@ -83,6 +83,8 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
   return (
     <span className="group relative block">
       <Link
+        // The current area's ancestor can re-run its protected layout reads.
+        prefetch={active ? false : undefined}
         href={href}
         // The tooltip stays at every width: CSS alone hides the extended
         // words below 1101px, and a hover name is the only discovery left.
