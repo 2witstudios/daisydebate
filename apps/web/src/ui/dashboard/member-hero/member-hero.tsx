@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { liveHref } from '../../../features/coming-soon/launch';
+import { destinationHref } from '../../../features/destinations/destinations';
 import { openRoomHref } from '../../../features/play/options';
 import {
   activeRoomDotClass,
@@ -53,13 +53,13 @@ export function MemberHero({
               <MediaPageLink href={activeRoom.href} className={primaryClass}>
                 Return to room
               </MediaPageLink>
-              <Link href={liveHref('lobby')} className={secondaryClass}>
+              <Link href={destinationHref('lobby')} className={secondaryClass}>
                 Lobby
               </Link>
             </>
           ) : (
             <>
-              <Link href={liveHref('lobby')} className={primaryClass}>
+              <Link href={destinationHref('lobby')} className={primaryClass}>
                 Go to the Lobby
               </Link>
               <Link href={openRoomHref} className={secondaryClass}>

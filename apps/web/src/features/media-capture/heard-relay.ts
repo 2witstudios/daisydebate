@@ -8,11 +8,11 @@ import {
 } from './admission';
 
 /**
- * Capture's own report that it subscribed to a bot seat's track and reads
- * it (DEC-226, ISSUE-514-r2). Each report takes the locked capture read (an
- * actually bound bot seat and the current open segment) and the lease check.
- * Redis carries only the seat for the track: no authority, just when the bot
- * may begin crediting speech.
+ * Capture's own report that it subscribed to a seat's track and reads it (DEC-226,
+ * ISSUE-514-r2). Each report takes the locked capture read (an actually bound seat and
+ * the current open segment) and the lease check. Redis carries only the seat for the
+ * track: no authority, just when a bot may credit speech, a held Round may resume and a
+ * waiting speech may start.
  */
 export function createCaptureHeardRelay(input: {
   readonly readCapture: (identity: CaptureIdentity) => Promise<CaptureRead>;
@@ -20,6 +20,11 @@ export function createCaptureHeardRelay(input: {
   readonly write: (heard: {
     readonly roundId: string;
     readonly trackId: string;
+    readonly seat: string;
+  }) => Promise<void>;
+  /** A speech waiting on capture for this seat may start; a no-op otherwise. */
+  readonly startGateHeard: (heard: {
+    readonly roundId: string;
     readonly seat: string;
   }) => Promise<void>;
 }) {
@@ -31,12 +36,15 @@ export function createCaptureHeardRelay(input: {
       await input.readCapture(identity),
       roundParticipantId,
       segmentId,
-      'bot',
     );
     await input.readLease({ ...identity, segmentId });
     await input.write({
       roundId: identity.roundId,
       trackId,
+      seat: roundParticipantId,
+    });
+    await input.startGateHeard({
+      roundId: identity.roundId,
       seat: roundParticipantId,
     });
   };

@@ -1,9 +1,10 @@
 import type {
   RoundCommandAuthority,
+  RoundParticipantSeat,
   RoundPosition,
   RoundRules,
 } from '@daisy/protocol';
-import { conversational } from '@daisy/protocol';
+import { conversational, roundStartPolicy } from '@daisy/protocol';
 import { broadcastPhase } from './broadcast-phase';
 import { mediaWindowClosed } from './media-window';
 import { speakingParticipants } from './round-speaking';
@@ -71,6 +72,20 @@ const speakingNow = (input: MediaGrantInput) => {
     ).includes(input.participantId)
   );
 };
+/** Who holds the floor of the open speech, whatever the clock says. */
+const holdsTheFloor = (input: MediaGrantInput) => {
+  const open = input.position.openSegment;
+  return (
+    open !== null &&
+    input.rules.segments[open.sequence]?.key === open.key &&
+    speakingParticipants(
+      input.rules,
+      input.participants,
+      open.sequence,
+      open.floorParticipantId,
+    ).includes(input.participantId)
+  );
+};
 /** Closed only while a private phase's video could still reach a Broadcast. */
 const cameraOpen = (input: MediaGrantInput) =>
   !(
@@ -80,6 +95,41 @@ const cameraOpen = (input: MediaGrantInput) =>
       Date.parse(input.now),
     )
   );
+/**
+ * The next human speaker, just before their clock. Their microphone opens now, so capture
+ * has it when the clock starts. Only the seat's own clock tells them to speak, and only
+ * speech inside the interval is ever credited.
+ */
+export const microphoneOpensForClock = (input: {
+  readonly rules: RoundRules;
+  readonly participants: readonly (RoundParticipantSeat & {
+    readonly kind: string;
+  })[];
+  readonly participantId: string;
+  readonly nextSequence: number;
+}) => {
+  const seat = input.participants.find(
+    (participant) => participant.id === input.participantId,
+  );
+  return (
+    seat?.kind === 'human' &&
+    speakingParticipants(
+      input.rules,
+      input.participants,
+      input.nextSequence,
+      null,
+    ).includes(input.participantId)
+  );
+};
+const opensForClock = (input: MediaGrantInput) => {
+  const { nextSegment: next, countdownRemainingMs: left } = input.position;
+  return (
+    next !== null &&
+    left !== null &&
+    left <= roundStartPolicy.microphoneLeadMs &&
+    microphoneOpensForClock({ ...input, nextSequence: next.sequence })
+  );
+};
 const publishSources = (
   camera: boolean,
   microphone: boolean,
@@ -110,10 +160,16 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
       hidden: false,
       capture: false,
     };
+  // In a platform incident the clock is stopped and only the speaker's microphone stays
+  // open: the Round resumes once capture confirms it hears that track, and only speech
+  // inside the reopened interval is ever credited.
   const microphone =
     position.prep === null &&
-    ((conversational(position) && input.conversationHeld !== true) ||
-      speakingNow(input));
+    (position.incident.phase === 'none'
+      ? (conversational(position) && input.conversationHeld !== true) ||
+        speakingNow(input) ||
+        opensForClock(input)
+      : holdsTheFloor(input));
   return {
     publish: publishSources(
       seat.kind === 'human' && cameraOpen(input),

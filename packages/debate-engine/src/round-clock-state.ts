@@ -76,6 +76,7 @@ export type ClockSegment = {
   readonly startedAtMs: number;
   readonly endedAtMs: number | null;
   readonly durationMs: number;
+  readonly returnedMs: number;
 };
 export type ClockState = {
   readonly lifecycle: Lifecycle;
@@ -154,6 +155,8 @@ const assertSegmentRules = (row: ClockSegment, rules: RoundRules): void => {
     row.key !== expected.key ||
     row.type !== expected.type ||
     row.durationMs !== expected.durationMs ||
+    !Number.isSafeInteger(row.returnedMs) ||
+    row.returnedMs < 0 ||
     !Number.isFinite(row.startedAtMs) ||
     (row.endedAtMs !== null &&
       (!Number.isFinite(row.endedAtMs) || row.endedAtMs < row.startedAtMs))
@@ -182,6 +185,7 @@ export const normalizeRoundClock = (input: {
       startedAtMs: Date.parse(segment.startedAt),
       endedAtMs: segment.endedAt === null ? null : Date.parse(segment.endedAt),
       durationMs: segment.durationMs,
+      returnedMs: segment.returnedMs,
     }))
     .sort((a, b) => a.sequence - b.sequence);
   rows.forEach((row, index) => {
@@ -219,6 +223,15 @@ export const normalizeRoundClock = (input: {
     throw createInvariantError(
       debateInvariantIds.liveOpenSegmentCount,
       'Prep cannot coexist with a live segment',
+    );
+  if (
+    checkpoint.incident.phase !== 'none' &&
+    (checkpoint.incident.resume_point !== null) !==
+      rows.some((row) => row.endedAtMs === null)
+  )
+    throw createInvariantError(
+      debateInvariantIds.liveOpenSegmentCount,
+      'A paused Round names a resume point exactly when a segment is open',
     );
   return { lifecycle, rows, checkpoint };
 };

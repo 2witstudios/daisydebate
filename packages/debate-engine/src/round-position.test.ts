@@ -31,6 +31,7 @@ const firstTwoSegments = (secondStartMs: number) =>
     type: segment.type,
     rulesSegmentKey: segment.key,
     durationMs: segment.durationMs,
+    returnedMs: 0,
     startedAt: roundAt(sequence === 0 ? 10_000 : secondStartMs),
     endedAt: sequence === 0 ? roundAt(310_000) : null,
   }));

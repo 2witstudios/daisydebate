@@ -1,3 +1,4 @@
+import { createRoundStartGate } from '../round-start-gate/gate';
 import { captureRule } from '@daisy/debate-engine';
 import {
   createAdmissionPriority,
@@ -12,9 +13,11 @@ import {
   withTimeout,
   type ErrorReporter,
 } from '@daisy/observability';
+import { createRoundIncidentObserver } from '../round-incidents/observe';
 import { createMediaWorkerTokenBroker } from './worker-token';
 import { mediaRuntime } from './projection';
 import type { MediaOperationInput } from './operation-context';
+import { observeFloor } from './floor-telemetry';
 import { createRoundMediaOperations } from './operations';
 import { MEDIA_RECOVERY_HEARTBEAT_MS } from './recovery-due';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
@@ -75,15 +78,34 @@ export function createRoundMediaRuntime(
       store: app.database.mediaSessions,
       media: nodes,
       urlsFor: nodes.urlsFor,
+      readCaptureHeard: app.redis.readCaptureHeard,
       nextId: () => app.ids.next(),
       reporter,
       logger: app.logger,
+      awaitCapture: createRoundStartGate({
+        store: app.database.roundStartGates,
+        nextId: () => app.ids.next(),
+      }).awaitCapture,
+      observeIncident: createRoundIncidentObserver({
+        store: app.database.roundIncidents,
+        reporter,
+        logger: app.logger,
+        nextId: () => app.ids.next(),
+      }),
       deadline: (work) => withTimeout(work, 2_000),
       wait: () => Bun.sleep(25),
       now: () => Date.parse(app.clock.now()),
       recoveryHeartbeatMs: MEDIA_RECOVERY_HEARTBEAT_MS,
     };
-    const operations = createRoundMediaOperations(resources);
+    const floor = observeFloor(resources);
+    const passes = createRoundMediaOperations(floor.input);
+    const operations: typeof passes = {
+      ...passes,
+      recoverActiveSessions: () =>
+        floor.asMover('tick', passes.recoverActiveSessions),
+      holdForCapture: (sessionId, work) =>
+        floor.asMover('capture', () => passes.holdForCapture(sessionId, work)),
+    };
     runtime = {
       operations,
       workerTokens: createMediaWorkerTokenBroker({
@@ -95,7 +117,7 @@ export function createRoundMediaRuntime(
           buildProjection: (context) =>
             mediaRuntime(context, resources.nextId).tick(context.now),
         }),
-        media: resources.media,
+        media: floor.input.media,
         deferred: (cause, sessionId) =>
           app.logger.log(
             'media.capture.token_deferred',

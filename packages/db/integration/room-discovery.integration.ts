@@ -73,8 +73,8 @@ test('discovery work is independent of historical Room and Round volume', async 
         select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,case when right(x,1) in ('0','2','4','6','8') then 'assembling' else 'started' end from unnest(${liveArray}::text[]) x`;
       await f.sql`insert into rounds(id,room_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility)
         select 'y'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'opening',${validConfig}::jsonb,'public' from unnest(${liveArray}::text[]) x where right(x,1) in ('1','3','5','7','9')`;
-      await f.sql`analyze rooms`;
-      await f.sql`analyze rounds`;
+      await f.sql`vacuum (analyze) rooms`;
+      await f.sql`vacuum (analyze) rounds`;
       const queries: { query: string; params: unknown[] }[] = [];
       const db = drizzle({
         client: f.sql,
@@ -137,8 +137,8 @@ test('discovery work is independent of historical Room and Round volume', async 
       };
       const before = await explain(1000);
       await addHistory(`{${historyIds.slice(1000).join(',')}}`);
-      await f.sql`analyze rooms`;
-      await f.sql`analyze rounds`;
+      await f.sql`vacuum (analyze) rooms`;
+      await f.sql`vacuum (analyze) rounds`;
       const after = await explain(2000);
       // Each branch has 102 active entries; live entries each join one Room.
       // Count filtered rows and loops too, so a history scan cannot hide behind LIMIT.

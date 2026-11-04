@@ -17,8 +17,6 @@ export type BotSpeechJob = {
   readonly pcm: Int16Array;
   readonly sampleRate: 24000;
   readonly channels: 1;
-  /** The segment end on the database clock, when the generation read it. */
-  readonly segmentEndsAt?: string;
 };
 const FRAME_SAMPLES = 240;
 /**
@@ -184,7 +182,11 @@ export function createBotPublisher(input: {
       )
         throw createAppError('VALIDATION');
       if (signal.aborted) throw createAppError('CONFLICT');
-      await input.store.verifyRoundBotPublication(job.scope, job.token);
+      // Read for each publish: a resumed speech ends later than when it was generated.
+      const { segmentDueAt } = await input.store.verifyRoundBotPublication(
+        job.scope,
+        job.token,
+      );
       const originalSamples = job.pcm.length;
       const frames = wholeFrames(job.pcm);
       const transportSamples = frames.length;
@@ -196,9 +198,7 @@ export function createBotPublisher(input: {
         channels: job.channels,
         // One union window per 100 ms (DEC-212): about 10 transactions a second.
         framesPerAuthorization: 10,
-        ...(job.segmentEndsAt
-          ? { segmentEndsAtMs: Date.parse(job.segmentEndsAt) }
-          : {}),
+        segmentEndsAtMs: Date.parse(segmentDueAt),
         nowMs: input.monotonicNowMs,
         waitUntilMs: input.waitUntilMs,
         refreshAfterMs: 15000,
@@ -234,6 +234,9 @@ export function createBotPublisher(input: {
           onSent?.(Math.min(originalSamples, sentSamples * job.channels)),
       });
       const result = await write(frames, signal);
+      // Says why: a hold is a wait, and must not spend one of the speech's attempts.
+      if (result.stop === 'refused')
+        await input.store.verifyRoundBotPublication(job.scope, job.token);
       return {
         originalSamples,
         transportSamples,

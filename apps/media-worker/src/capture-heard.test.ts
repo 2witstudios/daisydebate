@@ -14,7 +14,9 @@ const state = (segment: { id: string; endedAt: string | null } | null) =>
 const open = state({ id: 'seg', endedAt: null });
 function harness(refuse = new Set<string>()) {
   const reports: string[] = [];
+  let nowMs = 0;
   const reporter = createHeardReporter({
+    nowMs: () => nowMs,
     heard: async (track) => {
       if (refuse.has(track.trackId)) throw new Error('lost');
       reports.push(
@@ -22,11 +24,17 @@ function harness(refuse = new Set<string>()) {
       );
     },
   });
-  return { reporter, reports };
+  return {
+    reporter,
+    reports,
+    pass: (ms: number) => {
+      nowMs += ms;
+    },
+  };
 }
 const signal = new AbortController().signal;
 
-test("capture reports each bot track it starts hearing once, and never a human's (ISSUE-514-r2)", async () => {
+test("capture reports each seat's track it starts hearing, once (ISSUE-514-r2)", async () => {
   const { reporter, reports } = harness();
   reporter.started({ identity: 'bot-id', trackId: 'TR_bot' });
   reporter.started({ identity: 'human-id', trackId: 'TR_human' });
@@ -34,13 +42,13 @@ test("capture reports each bot track it starts hearing once, and never a human's
   await reporter.report(open, 3, signal);
   assert({
     given: 'a bot track and a human track that capture started reading',
-    should: 'report the bot seat for its track once, in the open segment',
+    should: 'report each seat for its track once, in the open segment',
     actual: reports,
-    expected: ['3/seg/bot-seat/TR_bot'],
+    expected: ['3/seg/bot-seat/TR_bot', '3/seg/human-seat/TR_human'],
   });
 });
 
-test('a lost report is sent again; a closed track or a closed segment reports nothing', async () => {
+test('a lost report is sent again; a closed track reports nothing', async () => {
   const refuse = new Set(['TR_bot']);
   const { reporter, reports } = harness(refuse);
   reporter.started({ identity: 'bot-id', trackId: 'TR_bot' });
@@ -56,6 +64,27 @@ test('a lost report is sent again; a closed track or a closed segment reports no
     should:
       'resend the refused report once the segment is open, and never report the closed track',
     actual: reports,
-    expected: ['1/seg/bot-seat/TR_bot'],
+    expected: ['1/null/bot-seat/TR_bot'],
+  });
+});
+
+test('capture reports a track before the clock, and again while it reads it', async () => {
+  const { reporter, reports, pass } = harness();
+  reporter.started({ identity: 'human-id', trackId: 'TR_human' });
+  await reporter.report(state(null), 1, signal);
+  assert({
+    given: 'a track capture reads during a countdown, no segment open',
+    should: 'report it with no segment, so the speech can start knowing',
+    actual: reports,
+    expected: ['1/null/human-seat/TR_human'],
+  });
+  await reporter.report(state(null), 1, signal);
+  pass(10_000);
+  await reporter.report(open, 1, signal);
+  assert({
+    given: 'the same track, soon after, then past its report life',
+    should: 'stay quiet, then report again against the open segment',
+    actual: reports,
+    expected: ['1/null/human-seat/TR_human', '1/seg/human-seat/TR_human'],
   });
 });

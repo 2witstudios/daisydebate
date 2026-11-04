@@ -14,6 +14,7 @@ import {
   featureUiIssue,
   reservedWordIssue,
   deepImportIssue,
+  documentManagerIssue,
   operatorApiIssue,
   runnerOnlyIssue,
   testSupportIssue,
@@ -133,6 +134,8 @@ for (const workspace of workspaces) {
       if (featureUi) issues.push(`${relative(root, file)}: ${featureUi}`);
       const coupling = conceptCouplingIssue(specifier, relative(root, file));
       if (coupling) issues.push(`${relative(root, file)}: ${coupling}`);
+      const manager = documentManagerIssue(specifier, relative(root, file));
+      if (manager) issues.push(manager);
       if (specifier.startsWith('.')) {
         const target = resolve(dirname(file), specifier);
         if (!target.startsWith(`${resolve(root, workspace.path)}/`))

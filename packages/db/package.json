@@ -42,6 +42,7 @@
     "./profile": "./src/profile.ts",
     "./outbox": "./src/outbox-api.ts",
     "./attendance": "./src/attendance.ts",
+    "./round-incident-rate": "./src/round-incident-rate.ts",
     "./broadcast-worker": "./src/broadcast-worker-store.ts",
     "./recording-worker": "./src/recording-worker-store.ts"
   },

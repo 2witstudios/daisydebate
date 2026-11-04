@@ -62,7 +62,7 @@ jobs:
   deploy:
     name: Deploy main to daisy-debate-staging
     runs-on: ubuntu-24.04
-    # Nine deploys (migrator, LiveKit, realtime, web, capture worker, log
+    # Ten deploys (migrator, LiveKit twice, realtime, web, capture worker, log
     # store, log shipper, admin migrator, admin) run
     # back to back, each building on this runner and pushing its image.
     timeout-minutes: 60
@@ -85,6 +85,7 @@ jobs:
         deploy.install-preflight=${{ steps.install-preflight.outcome }}
         deploy.migrate=${{ steps.migrate.outcome }}
         deploy.livekit=${{ steps.livekit.outcome }}
+        deploy.livekit-b=${{ steps.livekit-b.outcome }}
         deploy.realtime=${{ steps.realtime.outcome }}
         deploy.deploy=${{ steps.deploy.outcome }}
         deploy.media-worker=${{ steps.media-worker.outcome }}
@@ -153,6 +154,23 @@ jobs:
             exit 0
           fi
           flyctl deploy -c fly.livekit.toml --local-only --ha=false \
+            --env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"
+      - id: livekit-b
+        name: Deploy LiveKit node B
+        # The second node (SFU-5), under the same rule. Never the same run's restart as
+        # node A alone: each deploy ends the calls on its own node.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_LIVEKIT_B_API_TOKEN }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          deployed="$(flyctl machines list -a daisy-debate-staging-livekit-b --json | jq -r '.[0].config.env.LIVEKIT_SOURCE_COMMIT // empty')"
+          if [ "$MANUAL" != true ] && [ -n "$deployed" ] \
+            && git cat-file -e "$deployed^{commit}" 2>/dev/null \
+            && git diff --quiet "$deployed" HEAD -- infra/livekit fly.livekit-b.toml; then
+            echo "LiveKit unchanged since $deployed; not redeployed"
+            exit 0
+          fi
+          flyctl deploy -c fly.livekit-b.toml --local-only --ha=false \
             --env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"
       - id: realtime
         name: Deploy realtime

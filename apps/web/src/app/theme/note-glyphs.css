@@ -1,0 +1,390 @@
+/*
+ * The icons on Home's notes (ui/dashboard/action-tile/note-glyph). Every hidden
+ * part is invisible at rest. Each motion plays once when the note is hovered or
+ * focused, and none plays with reduced motion. The Seasons number and time are
+ * information, so they appear either way.
+ */
+@theme {
+  --note-glyph-reveal-duration: 200ms;
+  --note-glyph-reveal-delay: 150ms;
+  --note-glyph-strike: 640ms;
+  --note-glyph-beat: 900ms;
+}
+
+@utility note-glyph {
+  overflow: visible;
+
+  & * {
+    transform-box: view-box;
+  }
+}
+
+@utility note-glyph-spark {
+  opacity: 0;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-flash var(--note-glyph-strike) linear;
+    }
+  }
+}
+
+@utility note-glyph-impact {
+  opacity: 0;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-flash var(--note-glyph-strike) linear;
+    }
+  }
+}
+
+@utility note-glyph-sword-right {
+  transform-origin: 18px 18px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-sword-right var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-sword-left {
+  transform-origin: 6px 18px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-sword-left var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-eye {
+  transform-origin: 12px 12px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-blink var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-gavel {
+  transform-origin: 4px 20px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-slam var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-brain {
+  transform-origin: 12px 12px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-expand var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-book-cover {
+  transform-origin: 4px 12px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-book-cover var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-book-open {
+  opacity: 0;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-book-open var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-page {
+  opacity: 0;
+  fill: currentColor;
+  stroke: none;
+  transform-origin: 12px 10px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-page-flip var(--note-glyph-strike) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-number {
+  fill: currentColor;
+  stroke: none;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity var(--note-glyph-reveal-duration) var(--ease-standard)
+    var(--note-glyph-reveal-delay);
+
+  .note:is(:hover, :focus-visible) & {
+    opacity: 1;
+  }
+}
+
+@utility note-glyph-reveal {
+  opacity: 0;
+  transition: opacity var(--note-glyph-reveal-duration) var(--ease-standard)
+    var(--note-glyph-reveal-delay);
+
+  .note:is(:hover, :focus-visible) & {
+    opacity: 1;
+  }
+}
+
+@utility note-glyph-bar-short {
+  transform-origin: 7px 16px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-bar-short var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-bar-tall {
+  transform-origin: 12px 16px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-bar-tall var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-bar-middle {
+  transform-origin: 17px 16px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-bar-middle var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-confetti {
+  opacity: 0;
+  stroke-width: 2.4;
+  transform-origin: 12px 8px;
+
+  @media (prefers-reduced-motion: no-preference) {
+    .note:is(:hover, :focus-visible) & {
+      animation: note-confetti var(--note-glyph-beat) var(--ease-standard);
+    }
+  }
+}
+
+@utility note-glyph-confetti-gold {
+  stroke: var(--gold);
+}
+
+@utility note-glyph-confetti-clay {
+  stroke: var(--hue-clay);
+}
+
+@utility note-glyph-confetti-sky {
+  stroke: var(--hue-sky);
+}
+
+@utility note-glyph-confetti-teal {
+  stroke: var(--hue-teal);
+}
+
+@utility note-glyph-confetti-plum {
+  stroke: var(--hue-plum);
+}
+
+@keyframes note-sword-right {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  40% {
+    rotate: -24deg;
+  }
+  62% {
+    rotate: 5deg;
+  }
+  80% {
+    rotate: -2deg;
+  }
+}
+
+@keyframes note-sword-left {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  40% {
+    rotate: 24deg;
+  }
+  62% {
+    rotate: -5deg;
+  }
+  80% {
+    rotate: 2deg;
+  }
+}
+
+/* A flash at the moment of the hit, which falls at 62% of the strike. */
+@keyframes note-flash {
+  0%,
+  58%,
+  90%,
+  100% {
+    opacity: 0;
+  }
+  64%,
+  76% {
+    opacity: 1;
+  }
+}
+
+@keyframes note-blink {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+  45%,
+  55% {
+    scale: 1 0.08;
+  }
+}
+
+@keyframes note-slam {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  45% {
+    rotate: -30deg;
+  }
+  62% {
+    rotate: 5deg;
+  }
+  76% {
+    rotate: -2deg;
+  }
+}
+
+@keyframes note-confetti {
+  0% {
+    opacity: 0;
+    scale: 0.2;
+  }
+  25% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    scale: 1.35;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.5;
+    translate: 0 4px;
+  }
+}
+
+@keyframes note-page-flip {
+  0% {
+    opacity: 0.3;
+    scale: 1 1;
+  }
+  100% {
+    opacity: 0.3;
+    scale: 1 0;
+  }
+}
+
+@keyframes note-bar-short {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+  35% {
+    scale: 1 3;
+  }
+  70% {
+    scale: 1 0.5;
+  }
+}
+
+@keyframes note-bar-tall {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+  35% {
+    scale: 1 0.5;
+  }
+  70% {
+    scale: 1 1.5;
+  }
+}
+
+@keyframes note-bar-middle {
+  0%,
+  100% {
+    scale: 1 1;
+  }
+  35% {
+    scale: 1 2;
+  }
+  70% {
+    scale: 1 0.6;
+  }
+}
+
+@keyframes note-expand {
+  0%,
+  100% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.22;
+  }
+  75% {
+    scale: 0.97;
+  }
+}
+
+@keyframes note-book-cover {
+  0%,
+  100% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  35%,
+  70% {
+    opacity: 0;
+    scale: 0 1;
+  }
+}
+
+@keyframes note-book-open {
+  0%,
+  20%,
+  85%,
+  100% {
+    opacity: 0;
+  }
+  35%,
+  70% {
+    opacity: 1;
+  }
+}

@@ -16,6 +16,7 @@
         "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
+        "@livekit/rtc-node": "1.2.0",
         "zod": "4.6.6",
       },
       "devDependencies": {

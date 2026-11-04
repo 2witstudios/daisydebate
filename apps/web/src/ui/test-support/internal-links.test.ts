@@ -2,10 +2,6 @@ import { join, relative } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  closedDestinationOf,
-  liveHref,
-} from '../../features/coming-soon/launch';
 import { routeExists } from './route-exists';
 
 setupRitewayBun();
@@ -32,12 +28,6 @@ describe('internal links', () => {
   test('every static link resolves to a page', () => {
     const dead = sourceFiles.flatMap((file) =>
       hrefsOf(file)
-        // A closed destination's own link waits on its screens; the proxy answers
-        // it with the explainer. Deeper links under it still have to resolve.
-        .filter((path) => {
-          const closed = closedDestinationOf(path);
-          return closed === null || liveHref(closed) !== path;
-        })
         .filter((path) => !routeExists(appDirectory, path))
         .map((path) => `${relative(srcDirectory, file)}: ${path}`),
     );

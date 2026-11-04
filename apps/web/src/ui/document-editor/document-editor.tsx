@@ -1,5 +1,6 @@
 'use client';
 
+import type { PageTone } from '../../features/documents/document-manager-state';
 import { createDocument } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useState } from 'react';
@@ -10,7 +11,7 @@ import { outsideTextTransaction } from './outside-text';
 import { DEFAULT_TEXT_SIZE, type TextSize } from './editor-view';
 
 /** The page surface a document is edited on. */
-export type PageTone = 'dark' | 'light';
+export type { PageTone };
 
 /** What the editor needs of a document: debate-room documents and prep briefs both satisfy it. */
 type EditableDocument = {
@@ -30,7 +31,7 @@ type Props = {
 };
 
 /**
- * A rich document (a Round document or a prep brief): Tiptap on a page surface. One editor per
+ * A rich document (any member document): Tiptap on a page surface. One editor per
  * document id, kept in step with the stored HTML; base CSS comes from the stylesheet (injectCSS off, the CSP
  * refuses its un-nonced style tag). The text size is the viewer's own and
  * never saved; the page layout is part of the document.

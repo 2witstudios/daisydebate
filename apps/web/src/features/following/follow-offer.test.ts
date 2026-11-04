@@ -20,27 +20,20 @@ test('a provisional identity with no username is offered no Follow', () => {
   assert({
     given: 'a signed-in account that has not claimed a username',
     should: 'not offer what the route would refuse',
-    actual: followOfferedTo(
-      { state: 'member', username: null, principal } as never,
-      true,
-    ),
+    actual: followOfferedTo({
+      state: 'member',
+      username: null,
+      principal,
+    } as never),
     expected: false,
   });
 });
 
 test('a profile offers Follow only where the route would take it', () => {
   assert({
-    given: 'a member, a restricted account and a visitor, with Watch open',
+    given: 'a member, a restricted account and a visitor',
     should: 'offer it to the member alone',
-    actual: [member, restricted, visitor].map((who) =>
-      followOfferedTo(who, true),
-    ),
+    actual: [member, restricted, visitor].map((who) => followOfferedTo(who)),
     expected: [true, false, false],
-  });
-  assert({
-    given: 'a member with Watch closed',
-    should: 'not offer it',
-    actual: followOfferedTo(member, false),
-    expected: false,
   });
 });

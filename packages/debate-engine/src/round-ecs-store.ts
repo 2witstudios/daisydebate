@@ -32,7 +32,16 @@ export type RoundStore = {
     readonly key: string;
     readonly startedAtMs: number;
     readonly durationMs: number;
+    readonly returnedMs: number;
   }) => void;
+  readonly returnSegment: (input: {
+    readonly sequence: number;
+    readonly returnedMs: number;
+  }) => void;
+  readonly setIncident: (
+    input: Pick<RuntimeCheckpoint, 'incident' | 'clock_stops'>,
+  ) => void;
+  readonly setStartGate: (gate: RuntimeCheckpoint['start_gate']) => void;
   readonly closeSegment: (input: {
     readonly sequence: number;
     readonly endedAtMs: number;
@@ -66,6 +75,7 @@ const hydrate = (
       key: row.key,
       startedAtMs: row.startedAtMs,
       durationMs: row.durationMs,
+      returnedMs: row.returnedMs,
       endedAtMs: row.endedAtMs,
     });
   const readRows = (): readonly StoreRow[] =>
@@ -77,6 +87,7 @@ const hydrate = (
         'startedAtMs',
         'endedAtMs',
         'durationMs',
+        'returnedMs',
       ])
       .map((entity) => {
         const sequence = db.get(entity, 'sequence');
@@ -85,13 +96,15 @@ const hydrate = (
         const startedAtMs = db.get(entity, 'startedAtMs');
         const endedAtMs = db.get(entity, 'endedAtMs');
         const durationMs = db.get(entity, 'durationMs');
+        const returnedMs = db.get(entity, 'returnedMs');
         if (
           sequence === undefined ||
           segmentType === undefined ||
           segmentKey === undefined ||
           startedAtMs === undefined ||
           endedAtMs === undefined ||
-          durationMs === undefined
+          durationMs === undefined ||
+          returnedMs === undefined
         )
           throw new Error('ECS segment storage is incomplete');
         return {
@@ -101,6 +114,7 @@ const hydrate = (
           startedAtMs,
           endedAtMs,
           durationMs,
+          returnedMs,
         };
       })
       .sort((a, b) => a.sequence - b.sequence);
@@ -129,6 +143,9 @@ const hydrate = (
                 holder_participant_id: floorId,
                 granted_at: new Date(floorGrantedAtMs).toISOString(),
               },
+        incident: db.resources.incident,
+        start_gate: db.resources.startGate,
+        clock_stops: db.resources.clockStops,
       };
     },
     openRow: () => readRows().find((row) => row.endedAtMs === null),
@@ -139,7 +156,11 @@ const hydrate = (
         key: row.key,
         startedAtMs: row.startedAtMs,
         durationMs: row.durationMs,
+        returnedMs: row.returnedMs,
       }),
+    returnSegment: (input) => db.transactions.returnSegment(input),
+    setIncident: (input) => db.transactions.setIncident(input),
+    setStartGate: (gate) => db.transactions.setStartGate(gate),
     closeSegment: (input) => db.transactions.closeSegment(input),
     setLifecycle: (lifecycle) => db.transactions.setLifecycle(lifecycle),
     setPrepConsumed: (side, ms) =>

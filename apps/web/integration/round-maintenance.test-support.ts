@@ -1,4 +1,4 @@
-import { botGrantUnused } from '@daisy/debate-engine';
+import { botGrantUnused, captureRule } from '@daisy/debate-engine';
 import { judgingPolicy } from '@daisy/protocol';
 import type { SQL } from 'bun';
 import type { Database } from '@daisy/db';
@@ -39,6 +39,7 @@ export async function withWebFinalizer<T>(
         roundId,
         buildProjection: roundTickProjection(createId),
         botGrantUnused,
+        captureRule,
         planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
       }),
     );

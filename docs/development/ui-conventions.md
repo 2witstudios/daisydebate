@@ -146,6 +146,15 @@ the gaps it cannot.
   are the one place that teaches the product, shown once after sign-up and
   reopened from Help; every other onboarding step follows the rule.
 
+## Home notes
+
+Home's eight destinations are curled notes (owner, 2026-11-03). Hovering or
+keyboard-focusing one peels it and plays its icon's motion once, in CSS alone,
+so it needs no script. With reduced motion neither plays. The Seasons note is
+the one exception to "no live facts on tiles": on hover and focus only, it
+reveals the running season's number and time, which appear instantly with
+reduced motion. The rail and tab bar keep the static icons.
+
 ## App shell
 
 Owner decision, 2026-10-12 (the Round room redesign canvas, Proposal page;
@@ -153,9 +162,9 @@ RRD-1), amended 2026-10-29 by [ADR 0091](../decisions/0091-extended-nav-rail-def
 Every shell page is one navigation rail beside the page. The rail defaults
 to extended at desktop widths: each destination's name shows as text beside
 its icon. Top to bottom: the logo (home) with the "Daisy Debate" wordmark
-beside it; the launched destinations (Home, Play, Tournaments, Leaderboard,
+beside it; the destinations (Home, Play, Tournaments, Leaderboard,
 Watch, Judge, Train, Prep); a divider; then a member's Messages,
-Notifications (once launched) and Friends (with the online count), with
+Notifications and Friends (with the online count), with
 Minimize as the group's last row (Expand when mini). The foot is the
 account: a member's avatar and username open an account menu to the right.
 The menu lists their ratings on each ladder under the season's name, each
@@ -224,30 +233,11 @@ and facts on the left and its status and one action on the right.
   `any` narrows nothing; an unknown or repeated value is refused.
 - Play in the Lobby header is a link to `/play`. Once hydrated it opens the
   same choices (Open a room, Ranked match, Practice with a bot, Tournaments
-  and leagues, open ones first, then Just browse the Lobby) in a modal
+  and leagues, then Just browse the Lobby) in a modal
   dialog over the Lobby;
   without script `/play` lists them as a page.
 - A member's Home leads with the Lobby, or with Return to room while they
   hold a Room. Visitors keep the waitlist hero.
-
-## Unlaunched destinations
-
-`features/coming-soon/launch.ts` is the one switch for what is open. A
-destination that is not launched is never reached through a link to sample
-data:
-
-- The rail, the tab bar and More list only launched destinations.
-- Every other link into an unlaunched destination (a Home tile, a Play
-  choice, a link on a real page) goes to its explainer at
-  `/coming-soon/<slug>` through `destinationHref`, and a Play choice is
-  tagged Coming soon.
-- A sample action with no destination of its own (notifications, judge
-  resources and rating, settings export and deletion) is left out.
-
-Flipping a flag lists the destination, sends its links to the live route and
-redirects its explainer there. Two exceptions: `seasons` is a landing tile for
-a page under Leaderboard, so its flag changes only the tile and the explainer
-redirect; and the `/ranked` page has no flag.
 
 ## Pre-round Room
 
@@ -286,6 +276,14 @@ ballot`, and the sidebar's Transcript tab shows the completed transcript. The ju
 ballot completes the round (DEC-80), so round sync hands the
 debaters to the receipt at `/rounds/[id]`, which shows the result and keeps
 a human judge's seat unnamed.
+
+## Document manager
+
+One manager opens at `/prep` and inside a Round (ADR 0111): `ui/documents` draws the
+tree, search, tabs and editor, and a page supplies only its frame. Below 901px one
+panel shows at a time, and a row opens the document itself (DEC-141). Without script
+the tree renders on the server, and create, rename, move and delete are real form
+posts; a row says editing needs script rather than injecting stored HTML.
 
 ## Spectator view
 

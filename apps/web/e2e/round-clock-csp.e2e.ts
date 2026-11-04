@@ -31,6 +31,9 @@ test('the shared Round reader advances under the actual production nonce CSP', a
       prep_consumed_ms: { affirmative: 0, negative: 0 },
       active_prep: null,
       floor: null,
+      incident: { phase: 'none' },
+      start_gate: null,
+      clock_stops: [],
     },
     nowMs: Date.parse(origin) + 450_000,
   };

@@ -1,11 +1,12 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, segmentDueAtMs, speakingEndMs } from '@daisy/protocol';
 
 type Segment = {
   readonly id: string;
   readonly startedAtMs: number;
   readonly endedAtMs: number | null;
   readonly durationMs: number;
+  readonly returnedMs: number;
 };
 type Interval = {
   readonly segmentId: string;
@@ -74,7 +75,7 @@ const segmentValid = (s: Segment) =>
   instant(s.startedAtMs) &&
   Number.isSafeInteger(s.durationMs) &&
   s.durationMs > 0 &&
-  instant(s.startedAtMs + s.durationMs) &&
+  instant(segmentDueAtMs(s)) &&
   endValid(s.startedAtMs, s.endedAtMs);
 const intervalValid = (i: Interval) =>
   idSchema.safeParse(i.segmentId).success &&
@@ -123,11 +124,7 @@ function admit(input: Input, frame: Frame): Admitted | null {
     if (
       !segment ||
       segment.startedAtMs > frame.beforeMs ||
-      frame.afterMs >=
-        Math.min(
-          segment.endedAtMs ?? Infinity,
-          segment.startedAtMs + segment.durationMs,
-        )
+      frame.afterMs >= speakingEndMs(segment)
     )
       return [];
     const key = JSON.stringify([

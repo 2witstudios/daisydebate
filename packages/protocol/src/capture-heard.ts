@@ -9,6 +9,7 @@ import { idSchema } from './primitives';
 export const captureHeardReportSchema = z.strictObject({
   version: z.literal(1),
   roundParticipantId: idSchema,
-  segmentId: idSchema,
+  /** Null during a countdown: capture has the track before the clock starts. */
+  segmentId: idSchema.nullable(),
   trackId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
 });

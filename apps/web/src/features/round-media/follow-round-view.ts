@@ -24,7 +24,7 @@ export function createRoundViewFollower(input: {
     const { clock, reconcile } = input;
     reconcile({ kind: 'view', roundViewVersion: view.version });
     reconcile({ kind: 'wake' });
-    const deadlineMs = nextMediaRefreshAt(view);
+    const deadlineMs = nextMediaRefreshAt(view, clock.now());
     if (deadlineMs === null) return () => undefined;
     const boundary = {
       kind: 'boundary',

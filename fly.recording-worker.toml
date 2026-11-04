@@ -4,7 +4,8 @@
 # build is a bulk job that would take cores from a live release. Its image is the
 # `recording-worker` target of apps/web/Dockerfile, its database login reaches its
 # job table only, and its secrets are all Fly secrets. It has no public service.
-# Stop the machine when idle: there is no proxy to auto-stop it.
+# Nothing starts it: there is no proxy, and a deploy leaves a stopped machine stopped.
+# The owner may stop it when not testing (deploy-staging, Stopping capture).
 app = "daisy-debate-staging-recorder"
 primary_region = "ord"
 kill_timeout = 30
@@ -14,5 +15,5 @@ kill_timeout = 30
   build-target = "recording-worker"
 
 [[vm]]
-  size = "performance-4x"
-  memory = "8gb"
+  size = "performance-1x"
+  memory = "2gb"

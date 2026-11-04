@@ -69,12 +69,13 @@ kill_timeout = 35
   # authority, the private address only who can try.
   OPERATOR_AUDIENCE = "daisy-web:staging"
   OPERATOR_LISTEN_HOST = "fly-local-6pn"
-  # Live Rounds (ISSUE-528, DEC-228). The LiveKit SFU (fly.livekit.toml):
-  # the server API this app calls and the signalling URL browsers join.
+  # Live Rounds (ISSUE-528, DEC-228). The LiveKit SFU, two nodes on one Redis
+  # (fly.livekit.toml, fly.livekit-b.toml, SFU-5): the server APIs this app calls and
+  # the signalling URLs browsers join, paired by position.
   # LIVEKIT_API_KEY, LIVEKIT_API_SECRET and MEDIA_WORKER_SECRET are Fly
   # secrets. The realtime service (fly.realtime.toml) serves the sockets.
-  LIVEKIT_URL = "https://daisy-debate-staging-livekit.fly.dev"
-  LIVEKIT_PUBLIC_URL = "wss://daisy-debate-staging-livekit.fly.dev"
+  LIVEKIT_URL = "https://daisy-debate-staging-livekit.fly.dev,https://daisy-debate-staging-livekit-b.fly.dev"
+  LIVEKIT_PUBLIC_URL = "wss://daisy-debate-staging-livekit.fly.dev,wss://daisy-debate-staging-livekit-b.fly.dev"
   REALTIME_PUBLIC_URL = "wss://daisy-debate-staging-realtime.fly.dev/ws"
   # Bot opponents and AI judging (docs/architecture/round-bot-workers.md):
   # a small staging capacity on the OPENROUTER_API_KEY secret, with the
@@ -89,6 +90,14 @@ kill_timeout = 35
   ROUND_JUDGING_POLICY = '{"scanBatch":16,"scanMs":250,"leaseMs":15000,"renewMs":3000,"callTimeoutMs":30000,"model":"anthropic/claude-sonnet-5.5"}'
   # Round analysis (DEC-247) has its own policy and provider budget.
   ROUND_ANALYSIS_POLICY = '{"concurrency":1,"scanBatch":8,"scanMs":5000,"leaseMs":30000,"callTimeoutMs":60000,"model":"anthropic/claude-sonnet-5.5"}'
+  # Watch (ADR 0099, ADR 0107): staging captures, and a Round offers its
+  # official feed from the public bucket's read origin, which every feed URL
+  # names. These lines are staging's alone: this file is the staging app, and
+  # production never activates capture. Search stays closed: SEARCH_INDEXING
+  # is unset (docs/operations/production.md "Search indexing").
+  BROADCAST_CAPTURE = "on"
+  RECORDING_CAPTURE = "on"
+  BROADCAST_PUBLIC_ORIGIN = "https://daisy-debate-staging-broadcast-public.t3.tigrisfiles.io"
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.

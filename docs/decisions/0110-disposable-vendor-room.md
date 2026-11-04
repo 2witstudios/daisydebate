@@ -72,7 +72,39 @@ timeout from `@daisy/media` plus 1 s, derived where the rule is composed.
 - `capture-session-history` treats a room change inside a segment as an interruption, which
   the platform incident (SFU-12) must excuse.
 
-## Platform incident
+## A lost room
 
-Round pause, resume and the incident ending are added by SFU-12; see
-[the design](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/uoz563x4d98j4qpe41qkx4hw).
+LiveKit has no room migration, so a node's death ends its rooms. Through a surviving node,
+a dead node's room still lists as occupied under the same id for over 12 s (measured), so no
+listing shows the loss, and a seat signalling through the survivor hears nothing for about
+15 s, until ICE fails. While the node probe says a node is down, each pass makes a call only
+the room's node can serve: a same-value metadata update, 50 ms when live, `unavailable` from
+the moment it is dead (measured). A lost room rotates, which opens the platform incident,
+whose checkpoint change rings the doorbell, so every seat rejoins a fresh room at once.
+
+Nodes alone do not keep a Round alive. This does.
+
+**Limit:** each affected Round spends up to 2 s of a pass on this, at four passes at a time per
+process. Not measured at 50 Rounds.
+
+## A platform incident holds the Round
+
+A node outage the server detects holds the Round's clock. No player can cause, hold or end it. When the platform and every seat are back, or a grace ends, the Round resumes on an automatic countdown from the speaker's last confirmed audio. Past a recovery bound it ends as a platform incident: no outcome, no rating, no penalty, no charge.
+
+**The state is one value on the checkpoint:** `none`, `paused` or `resuming`, moved by a table of pure, total transitions, and at a countdown's end by the clock's own `resumeIfDue`, so a late tick cannot shorten anything. `advanceRoundClock` obeys it, so every caller and the browser's own engine do too.
+
+**A speech's rule duration never changes.** Hydration refuses a row that disagrees with its rules, so a row gains `returned_ms` beside it. A speech's end has one rule in TypeScript and one generated column in SQL.
+
+**Rejected: writing returned time onto every wait.** Closed segment rows and strike rows are immutable, so countdowns, strike windows and prep read finished stop spans from the checkpoint through one rule instead. This is also what attendance reads as not healthy, through the existing effective-deadline rule.
+
+**Rejected: `started_at + duration_ms * interval` as the generated column.** PostgreSQL 18.3 refuses it as not immutable. `due_at` reads an immutable function, which is true of whole milliseconds, and was measured correct across a daylight saving change in three session time zones.
+
+**Adjudication holds while an incident is open**, because its rows are immutable and a wrong forfeit cannot be undone. A moderator's restriction does not forfeit during a hold; the restriction stands and attendance decides the seat afterwards.
+
+**A small gap that survives is judged and stated.** The freeze measures what was owed and lost. The AI judge rules unless capture falls below a limit, and the gap reaches its prompt in plain words. This replaces the rule that any incomplete transcript withholds the AI judge (DEC-208 for AI panels). A shortfall nobody measured cannot be proven small. Unheard speech decides whether AI may rule; the platform's own loss decides whether it ended the Round. An AI-only Round whose platform loss is past the limit is marked `platform_ending = capture_shortfall`, stays `completed` with no outcome through the existing panel path, and refunds. A debater's silence past the limit takes the transcript-incomplete path: no blame and no refund, but no outcome and no rating either. So does a platform loss under the limit that silence tips over. The one exception is silence inside a stream taken over mid-speech, which counts as the platform's because gaps carry no capture epoch: it needs an outage in that speech and long silence, and gives a refund, never a false rating (ISSUE-1317).
+
+**A speech starts when capture has its speaker.** A later speech publishes a fresh microphone, so at the clock capture had nothing for up to 0.9 s on staging, and a person starting at once lost their first word. Three things close it, and no floor change grows when capture is on time. The next human speaker's microphone opens `roundStartPolicy.microphoneLeadMs` before the clock, the shortest that measures reliably, and the seat is told first because the other side can hear it. Capture reports a track on subscription, with no open segment needed, since a silent microphone may send no frames. The pass that opens the microphone records a start gate on the checkpoint naming who is awaited: at the due instant, if capture has not reported them, the clock holds until it does, bounded by `captureHoldBoundMs`, then starts anyway. Capture failing never stalls a debate. A late start is the clock's own anchor, so seats, judges and audience read one instant. Audio before the clock never enters the transcript: capture admits a frame only inside a speaking interval, and frames that beat its own history wait in memory for about a second while history reads run. It never reaches Egress either: the stage subscribes to a voice only while a speech's clock runs, so a Broadcast's start can lose what subscribing takes, and no timing error at a speech's edge can publish the lead.
+
+**Every gap capture can measure is stated.** Each closed stream's gaps reach the transcript, and reach the judge with a cause: `platform`, `edge` for a speech's start or end before or after capture was reading, or `unattributed`, worded neutrally because it may be a silent seat. Edges decide nothing, or a Round of short speeches would lose its AI judge to them.
+
+**Provisional:** every bound in `roundIncidentPolicy`: 5 s vendor-unreachable, 30 s seat grace, 90 s recovery, 5 s countdown, and `maxUnheardShare`, 5%. The drill sets them. None was measured.

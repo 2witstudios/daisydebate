@@ -3,6 +3,7 @@
 @import './theme/components.css';
 @import './theme/shell.css';
 @import './theme/dashboard.css';
+@import './theme/note-glyphs.css';
 @import './theme/auth.css';
 @import './theme/onboarding.css';
 @import './theme/brand.css';
@@ -142,6 +143,15 @@
   --scrim: light-dark(#060a08, #060a08);
   --text-on-media: light-dark(#fffdf8, #f5f0e4);
 
+  /* Home's notes: paper, ink, and the shade and shadow of the curl. Play's note
+     is the accent pair. */
+  --note-yellow: light-dark(#fbf2c4, #3a3722);
+  --note-sage: light-dark(#e1e9d5, #21382b);
+  --note-ink: light-dark(#173b2a, #f5f0e4);
+  --note-ink-muted: light-dark(#4a5f51, #cfd3bd);
+  --note-curl-shade: light-dark(rgba(23, 59, 42, 0.14), rgba(0, 0, 0, 0.34));
+  --note-shadow: light-dark(rgba(23, 59, 42, 0.32), rgba(0, 0, 0, 0.72));
+
   /* Feedback */
   --focus-ring: 0 0 0 2px var(--background), 0 0 0 4px var(--accent);
 
@@ -191,6 +201,8 @@
   --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
   --color-accent-ink: var(--accent-text);
+  --color-note-ink: var(--note-ink);
+  --color-note-ink-muted: var(--note-ink-muted);
   --color-online: var(--online);
   --color-live: var(--live);
   --color-live-soft: var(--live-soft);

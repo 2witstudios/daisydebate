@@ -1,3 +1,4 @@
+import { clockStopsOf, runningMs } from '@daisy/protocol';
 import type {
   DebateSide,
   RoundCommand,
@@ -13,7 +14,7 @@ import {
   type RoundCommandRefusal,
 } from './round-command-legality';
 import type { RoundStore } from './round-ecs-store';
-import type { ClockChange } from './round-clock';
+import type { ClockChange } from './round-clock-transition';
 import { interrupt, yieldFloor } from './round-floor';
 import { invariant, refuse } from './round-refusals';
 
@@ -79,6 +80,8 @@ const startPrep = (c: CommandContext): void => {
   // Prep supersedes the rest of the countdown: the gap anchor hands over to
   // the prep clock anchored now.
   c.on.startPrep({ side, startedAtMs: c.now });
+  // Prep closes the microphone the gate waited for: the next start gates afresh.
+  c.on.setStartGate(null);
   c.into.effects.push({ kind: 'prep_started', side, at: iso(c.now) });
 };
 
@@ -86,7 +89,11 @@ const startPrep = (c: CommandContext): void => {
 const startSpeech = (c: CommandContext): void => {
   const active = c.on.checkpoint().active_prep!;
   const side = active.side;
-  const elapsed = c.now - Date.parse(active.started_at);
+  const elapsed = runningMs(
+    Date.parse(active.started_at),
+    c.now,
+    clockStopsOf(c.on.checkpoint()),
+  );
   const budget = c.rules.inRoundPrep?.budgetMsPerSide ?? 0;
   c.on.setPrepConsumed(
     side,

@@ -1,3 +1,4 @@
+import { transcriptEvidence } from './transcript-evidence';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundJudgeMessages } from './round-judge';
 setupRitewayBun();
@@ -17,6 +18,7 @@ test('shared judging prompt uses only scoped sides and honest frozen coverage', 
     resolution: 'Transit should be free',
     revision: 2,
     completeness: 'incomplete',
+    gaps: [],
     coverage: [
       {
         sequence: 1,
@@ -70,5 +72,74 @@ test('shared judging prompt uses only scoped sides and honest frozen coverage', 
       /private-actor-identity|actorKind/.test(messages[1]!.content),
     ],
     expected: [true, true, false, false],
+  });
+});
+
+test('a capture gap reaches the judge in plain words', () => {
+  const evidence = transcriptEvidence({
+    resolution: 'A resolution',
+    revision: 1,
+    completeness: 'incomplete',
+    coverage: [],
+    gaps: [
+      {
+        sequence: 2,
+        side: 'negative',
+        slot: 0,
+        fromOffsetMs: 40_000,
+        untilOffsetMs: 52_000,
+        cause: 'platform',
+      },
+    ],
+    utterances: [],
+  });
+  assert({
+    given: 'a stretch of speech with no transcript',
+    should: 'state it to the judge, naming the seat and the time',
+    actual: evidence.captureGaps,
+    expected: [
+      {
+        sequence: 2,
+        side: 'negative',
+        slot: 0,
+        statement:
+          'The platform captured no audio from 40.0 seconds to 52.0 seconds into this speech. The speaker may have spoken then.',
+      },
+    ],
+  });
+});
+
+test('a gap says what is known about it', () => {
+  const statements = (['platform', 'edge', 'unattributed'] as const).map(
+    (cause) =>
+      transcriptEvidence({
+        revision: 1,
+        completeness: 'complete',
+        coverage: [],
+        utterances: [],
+        gaps: [
+          {
+            sequence: 0,
+            side: 'affirmative',
+            slot: 0,
+            fromOffsetMs: 0,
+            untilOffsetMs: 700,
+            cause,
+          },
+        ],
+      } as never).captureGaps[0]!.statement,
+  );
+  assert({
+    given: 'a sub-second gap of each cause',
+    should: 'state its span, and blame the platform only when it is known',
+    actual: statements.map((line) => [
+      line.includes('from 0.0 seconds to 0.7 seconds'),
+      line.startsWith('The platform'),
+    ]),
+    expected: [
+      [true, true],
+      [true, false],
+      [true, false],
+    ],
   });
 });

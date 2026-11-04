@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { speakingEndMs } from '@daisy/protocol';
 import { CAPTURE_BATCH_INTERVAL_MS } from './capture-batch';
 import type { CaptureState } from './capture-history';
 
@@ -68,8 +69,12 @@ export function createStreamTracker(ceiling: number) {
       for (const interval of state.intervals) {
         const end = Math.min(
           Date.parse(interval.endedAt ?? state.serverNow),
-          Date.parse(segment.endedAt ?? state.serverNow),
-          Date.parse(segment.startedAt) + segment.durationMs,
+          speakingEndMs({
+            startedAtMs: Date.parse(segment.startedAt),
+            endedAtMs: Date.parse(segment.endedAt ?? state.serverNow),
+            durationMs: segment.durationMs,
+            returnedMs: segment.returnedMs,
+          }),
         );
         if (Date.parse(interval.startedAt) < end)
           forClip({

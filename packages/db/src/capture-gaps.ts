@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { grantWindows } from './capture-history';
-import type { CaptureRule } from '@daisy/protocol';
+import { speakingEndMs, type CaptureRule } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';
@@ -36,7 +36,12 @@ export async function closedStreamGaps(
 ) {
   const found = new Map<
     string,
-    readonly { readonly fromOffsetMs: number; readonly untilOffsetMs: number }[]
+    readonly {
+      readonly fromOffsetMs: number;
+      readonly untilOffsetMs: number;
+      /** Forgiven at the speech's edge: stated, but it decides nothing. */
+      readonly edge: boolean;
+    }[]
   >();
   if (!streams.length) return found;
   const segmentIds = [...new Set(streams.map((stream) => stream.segmentId))];
@@ -98,10 +103,12 @@ export async function closedStreamGaps(
     const segment = segments.find((row) => row.id === stream.segmentId);
     if (!segment) continue;
     const startMs = segment.startedAt.getTime();
-    const speakingEndMs = Math.min(
-      segment.endedAt?.getTime() ?? Infinity,
-      startMs + segment.durationMs,
-    );
+    const speakingEnd = speakingEndMs({
+      startedAtMs: segment.startedAt.getTime(),
+      endedAtMs: segment.endedAt?.getTime() ?? null,
+      durationMs: segment.durationMs,
+      returnedMs: segment.returnedMs,
+    });
     const kind = seats.find(
       (seat) => seat.id === stream.roundParticipantId,
     )?.kind;
@@ -110,7 +117,7 @@ export async function closedStreamGaps(
       grantWindows(grantsOf.get(streamKey(stream)) ?? [], segment).map(
         (grant) => ({
           start: grant.start,
-          end: grant.end ?? speakingEndMs,
+          end: grant.end ?? speakingEnd,
         }),
       ),
       (windowsOf.get(streamKey(stream)) ?? []).map((row) => ({
@@ -118,21 +125,21 @@ export async function closedStreamGaps(
         end: row.end.getTime(),
       })),
     );
-    found.set(
-      streamKey(stream),
-      rule
-        .gaps(
-          coverage,
-          (observedOf.get(streamKey(stream)) ?? []).map((row) => ({
-            start: row.start.getTime(),
-            end: row.end.getTime(),
-          })),
-        )
-        .map((gap) => ({
-          fromOffsetMs: Math.max(0, gap.start - startMs),
-          untilOffsetMs: Math.max(0, gap.end - startMs),
-        })),
-    );
+    const heard = (observedOf.get(streamKey(stream)) ?? []).map((row) => ({
+      start: row.start.getTime(),
+      end: row.end.getTime(),
+    }));
+    const offsets =
+      (edge: boolean) =>
+      (gap: { readonly start: number; readonly end: number }) => ({
+        fromOffsetMs: Math.max(0, gap.start - startMs),
+        untilOffsetMs: Math.max(0, gap.end - startMs),
+        edge,
+      });
+    found.set(streamKey(stream), [
+      ...rule.gaps(coverage, heard).map(offsets(false)),
+      ...rule.edges(coverage, heard).map(offsets(true)),
+    ]);
   }
   return found;
 }

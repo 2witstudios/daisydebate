@@ -56,23 +56,20 @@ test('guarded areas send visitors to sign-in and render for a member', async ({
     await expectShell(page, route, title);
 });
 
-test('a closed destination answers every address with its explainer', async ({
+test('a visitor reads the Tournaments page, and its areas stay guarded', async ({
+  page,
   request,
 }) => {
-  const closed: Record<string, string> = {
-    '/tournaments': 'tournaments',
-    '/tournaments/organize': 'tournaments',
-    '/tournaments/mine/any/certificate': 'tournaments',
-    '/prep': 'prep',
-    '/prep/cards/any': 'prep',
-  };
-  for (const [route, slug] of Object.entries(closed)) {
-    const response = await request.get(route, { maxRedirects: 0 });
-    expect(response.status()).toBe(307);
-    expect(new URL(response.headers()['location'] ?? '').pathname).toBe(
-      `/coming-soon/${slug}`,
-    );
-  }
+  await page.goto('/tournaments');
+  await expect(page.locator('main h1')).toHaveText('Tournaments');
+  await expect(page.getByText('Coming soon')).toHaveCount(0);
+  const organize = await request.get('/tournaments/organize', {
+    maxRedirects: 0,
+  });
+  expect(organize.status()).toBe(307);
+  expect(new URL(organize.headers()['location'] ?? '').pathname).toBe(
+    '/sign-in',
+  );
 });
 
 test('a profile shows the real member, their record and history', async ({

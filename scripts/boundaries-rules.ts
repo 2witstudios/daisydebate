@@ -277,6 +277,27 @@ export const conceptCouplingIssue = (
 };
 
 /**
+ * ADR 0111: one document manager, which a Round and Prep open. It may not know
+ * either of them, so the dependency only ever points into it.
+ */
+const DOCUMENT_MANAGER = /^apps\/web\/src\/(features|ui)\/documents\//;
+const OUTSIDE_THE_MANAGER =
+  /^apps\/web\/src\/(app\/|(features|ui)\/(debate-room|rooms|prep|round[^/]*)\/)/;
+export const documentManagerIssue = (
+  specifier: string,
+  importer: string,
+): string | null => {
+  if (!specifier.startsWith('.') || !DOCUMENT_MANAGER.test(importer))
+    return null;
+  const target = posix.normalize(
+    posix.join(posix.dirname(importer), specifier),
+  );
+  return OUTSIDE_THE_MANAGER.test(target)
+    ? `${importer}: the document manager imports ${specifier} (ADR 0111)`
+    : null;
+};
+
+/**
  * "Coach" and "coaching" are reserved for future human coaches (owner,
  * 2026-10-27): no AI feature may use the words. Product code is checked
  * (tests may name the word to prove it is absent); the only current users

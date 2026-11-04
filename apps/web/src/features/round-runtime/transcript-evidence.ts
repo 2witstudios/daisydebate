@@ -60,6 +60,13 @@ export function transcriptEvidenceInput(input: {
         sealedChunkCount: stream.sealedChunkCount,
       };
     }),
+    gaps: frozen.captureGaps.gaps.map((gap) => ({
+      ...seatLabel(gap.roundParticipantId),
+      sequence: segmentSequence(gap.segmentId),
+      fromOffsetMs: gap.fromOffsetMs,
+      untilOffsetMs: gap.untilOffsetMs,
+      cause: gap.cause,
+    })),
     utterances: frozen.utterances.map((line) => ({
       ...seatLabel(line.roundParticipantId),
       segmentSequence: segmentSequence(line.segmentId),

@@ -22,6 +22,7 @@ const state = {
     startedAt: at(0),
     endedAt: null,
     durationMs: 60_000,
+    returnedMs: 0,
   },
   intervals: [{ roundParticipantId: seat, startedAt: at(0), endedAt: null }],
 };
@@ -32,7 +33,13 @@ function openSpeechCarry(): ClipCarries {
     roundParticipantId: seat,
     serverNowMs: base + 9000,
     segments: [
-      { id: segmentId, startedAtMs: base, endedAtMs: null, durationMs: 60_000 },
+      {
+        id: segmentId,
+        startedAtMs: base,
+        endedAtMs: null,
+        durationMs: 60_000,
+        returnedMs: 0,
+      },
     ],
     intervals: [
       {

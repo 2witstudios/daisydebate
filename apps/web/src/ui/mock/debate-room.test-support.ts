@@ -4,7 +4,6 @@ import type { SpeechSlot } from '../../features/debate-room/speeches';
 import { judgingClockOf } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { Debater, RoundSnapshot } from '../debate-room/round';
-import { sampleRoomDocuments } from './debate-room-docs.test-support';
 
 const minutes = (n: number) => n * 60_000;
 
@@ -198,7 +197,6 @@ export function sampleRound(
     clock: at.clock,
     prepMs: { neg: at.prepMs, aff: 120_000 },
     micLive: at.micLive,
-    documents: sampleRoomDocuments,
     channels: [
       { id: 'round', title: 'round' },
       { id: 'prep', title: 'prep' },

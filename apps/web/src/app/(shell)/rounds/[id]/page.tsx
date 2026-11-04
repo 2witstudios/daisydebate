@@ -1,4 +1,4 @@
-import { roundDocumentPrincipal } from '../../../../features/debate-room/documents/document-principal';
+import { documentPrincipalOf } from '../../../../features/documents/document-principal';
 import {
   requestHostedAudienceLink,
   requestRoundRatings,
@@ -13,7 +13,7 @@ import { idSchema, type RoundView } from '@daisy/protocol';
 import type { SearchParams } from '../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
-import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
+import { DocumentManager } from '../../../../ui/documents/document-manager';
 import { reconnectingRoundPage } from '../../../../ui/debate-room/round-reconnecting';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 import { RoundResult } from '../../../../ui/round-result/round-result';
@@ -91,7 +91,7 @@ export default async function RoundPage({
     isLiveDebater(result.round, identity.principal.actorId)
   )
     redirect(`/rounds/${id}/room`);
-  const filePrincipal = roundDocumentPrincipal(identity);
+  const filePrincipal = documentPrincipalOf(identity);
   const ownsFiles =
     filePrincipal !== null &&
     result.round.participants.some(
@@ -162,9 +162,9 @@ export default async function RoundPage({
         ) : null}
       </RoundReceipt>
       {ownsFiles && filePrincipal !== null ? (
-        <RoundDocuments
-          roundId={result.round.id}
+        <DocumentManager
           principalId={filePrincipal.userId}
+          back={`/rounds/${result.round.id}`}
         />
       ) : null}
     </>

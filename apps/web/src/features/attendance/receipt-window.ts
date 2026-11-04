@@ -1,7 +1,5 @@
-import {
-  requireAttendanceWindow,
-  deriveOutageIntervals,
-} from '@daisy/debate-engine';
+import { availabilityOf } from './availability-of';
+import { requireAttendanceWindow } from '@daisy/debate-engine';
 import { createRefusal, isAppError } from '@daisy/errors';
 import { attendanceTimingPolicy } from '@daisy/protocol';
 import type { LockedAttendanceCheckIn } from '@daisy/db/attendance';
@@ -22,12 +20,7 @@ export function acceptAttendanceReceipt(
     requireAttendanceWindow({
       window,
       receivedAtMs,
-      availability: deriveOutageIntervals(
-        facts.samples.map((s) => ({
-          atMs: attendanceReceiptTime(s.at),
-          healthy: s.healthy,
-        })),
-      ),
+      availability: availabilityOf(facts),
       finalized: facts.finalizedSegmentIds.includes(segmentId),
       terminal: facts.round.status !== 'active',
     });

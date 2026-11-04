@@ -123,6 +123,8 @@ export function createMediaWorld(
     if (actorId !== undefined && !caller) throw createAppError('AUTHORIZATION');
     return {
       session: {
+        roomOccupiedSid: null,
+        roomSawCapture: false,
         id: sessionId,
         roundId,
         roomName,
@@ -144,6 +146,9 @@ export function createMediaWorld(
           prep_consumed_ms: { affirmative: 0, negative: 0 },
           active_prep: null,
           floor: null,
+          incident: { phase: 'none' },
+          start_gate: null,
+          clock_stops: [],
         },
         segments: [],
       },
@@ -245,6 +250,9 @@ export function createMediaWorld(
         absenceProven: request.absenceProof?.mutationHorizon === mutations,
         seatRevoked: kept.length !== bindings.length,
         uncertainSinceMs: unsafeAt !== null || pending.size > 0 ? 0 : null,
+        lastOccupiedSid: null,
+        sawCapture: false,
+        seen: null,
       });
       const uncertain = unsafeAt !== null || pending.size > 0;
       if (fate.kind !== 'keep') {
@@ -327,10 +335,13 @@ export function createMediaWorld(
   } as unknown as Store;
   const media = createMediaVendor({ journal, rooms, connected, fail });
   const input: MediaOperationInput = {
+    observeIncident: async () => undefined,
+    awaitCapture: async () => undefined,
     recoveryHeartbeatMs: 0,
     priority,
     store,
     media,
+    readCaptureHeard: async () => null,
     urlsFor: () => ({
       publicUrl: 'wss://media.daisy.invalid',
       workerUrl: 'ws://worker.daisy.invalid',

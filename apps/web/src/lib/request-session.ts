@@ -22,6 +22,7 @@ import { presentedLinkHash } from '../features/audience-link/audience-link';
 import { readHostedAudienceLink } from '../features/audience-link/issue-link';
 import { readWatchRound } from '../features/spectating/read-timeline';
 import { readUnlessRefused } from '../features/spectating/refused-read';
+import { seasonGlance } from '../features/leaderboard/season';
 import { followingOf } from '../features/watch/following';
 import type { HubCounts } from '../features/watch/hub-counts';
 import { liveRoundsOf } from '../features/watch/list-live';
@@ -29,6 +30,8 @@ import type { LiveQuery } from '../features/watch/live-query';
 import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
+import { createDocumentOperations } from '../features/documents/document-operations';
+import { documentPrincipalOf } from '../features/documents/document-principal';
 import { ARCHIVE_PAGE_SIZE } from '../features/recording/archive';
 import type { RecordingsQuery } from '../features/recording/archive-query';
 import type { RecordingViewer } from '../features/recording/audience';
@@ -82,6 +85,21 @@ export const readRecordingHistory = (
 export const requestRestrictionEnd = (userId: string) => {
   const app = processApp();
   return app.database.readRestrictionEnd({ userId, now: app.clock.now() });
+};
+
+/** The member's own drive as a server page reads it; null for anyone else. */
+export const requestMemberDrive = (identity: Identity) => {
+  const principal = documentPrincipalOf(identity);
+  if (principal === null) return null;
+  const app = processApp();
+  return {
+    principal,
+    operations: createDocumentOperations({
+      store: app.database,
+      clock: app.clock,
+      ids: app.ids,
+    }),
+  };
 };
 
 /** Who is asking in this server-component render. */
@@ -238,6 +256,17 @@ export const requestLiveListing = (query: LiveQuery) =>
 /** The newest live Rounds, for the home page. */
 export const requestLeadingLive = () =>
   readUnlessRefused(() => processApp().liveReads.leading(), []);
+
+/** The running season at a glance, for the Seasons note on Home. */
+export const requestSeasonGlance = () =>
+  readUnlessRefused(
+    async () =>
+      seasonGlance(
+        await processApp().database.listLadderSeasons(),
+        processApp().clock.now(),
+      ),
+    null,
+  );
 
 /** The live Round of each named debater, for a profile or the Friends list. */
 export const requestLiveRoundsOf = (usernames: readonly string[]) =>

@@ -52,6 +52,7 @@ export function ran(count: number, closed = false): RoundView {
     endedAt:
       sequence === count - 1 && !closed ? null : at(startOf(sequence + 1)),
     durationMs: segment.durationMs,
+    returnedMs: 0,
   }));
   return { ...view, status: 'active', startedAt: at(0), segments };
 }

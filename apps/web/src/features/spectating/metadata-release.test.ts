@@ -20,7 +20,7 @@ describe('page metadata', () => {
       should:
         'build metadata only where no Round is read, so a title or social card cannot state an outcome before release',
       actual: dynamic.sort(),
-      expected: ['(shell)/coming-soon/[destination]/page.tsx', 'layout.tsx'],
+      expected: ['layout.tsx'],
     });
   });
 });

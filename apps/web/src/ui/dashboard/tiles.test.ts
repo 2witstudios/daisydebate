@@ -1,9 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { destinationSlugs } from '../../features/coming-soon/destinations';
-import { launched } from '../../features/coming-soon/launch';
-import { tileFor, tiles } from './tiles';
+import { tiles } from './tiles';
 
 setupRitewayBun();
+
+const looksOf = (titles: readonly string[]) =>
+  tiles.filter(({ title }) => titles.includes(title)).map(({ note }) => note);
 
 describe('tiles config', () => {
   test('exposes the eight destinations exactly once', () => {
@@ -36,7 +37,7 @@ describe('tiles config', () => {
 
   test('sends Play to the Lobby and Seasons to its page', () => {
     assert({
-      given: 'the launched Play and Seasons tiles',
+      given: 'the Play and Seasons tiles',
       should: 'link them to the Lobby and the seasons page',
       actual: tiles
         .filter(({ title }) => title === 'Play' || title === 'Seasons')
@@ -45,53 +46,31 @@ describe('tiles config', () => {
     });
   });
 
-  test('gives every tile an icon, title, and description', () => {
-    const complete = tiles.every(
-      (tile) => tile.glyph && tile.title && tile.description,
-    );
+  test('emphasises only Play', () => {
     assert({
-      given: 'the tile configuration',
-      should: 'keep every card renderable without optional data',
-      actual: complete,
-      expected: true,
-    });
-  });
-
-  test('tags every unlaunched destination and carries no fake counts', () => {
-    assert({
-      given: 'the tile configuration',
-      should:
-        'link each unlaunched tile to its explainer, tagged Coming soon, without a status',
-      actual: tiles
-        .filter((_, index) => !launched[destinationSlugs[index]!])
-        .map((tile) => [
-          tile.href.startsWith('/coming-soon/'),
-          tile.comingSoon,
-          tile.status,
-        ]),
-      expected: destinationSlugs
-        .filter((slug) => !launched[slug])
-        .map(() => [true, true, undefined]),
-    });
-  });
-
-  test('flipping one destination to launched is one config change', () => {
-    const config = Object.fromEntries(
-      destinationSlugs.map((slug) => [slug, slug === 'lobby']),
-    ) as Parameters<typeof tileFor>[1];
-    assert({
-      given: 'a config where only lobby is launched',
-      should: 'link lobby to /lobby with a status line, untagged',
-      actual: (({ href, comingSoon, status }) => ({
-        href,
-        comingSoon,
-        status,
-      }))(tileFor('lobby', config)),
-      expected: {
-        href: '/lobby',
-        comingSoon: undefined,
-        status: { tone: 'online', text: 'Open' },
+      given: 'the tile colours',
+      should: 'make Play the one action note, then yellow and sage as settled',
+      actual: {
+        action: tiles
+          .filter(({ note }) => note === 'action')
+          .map(({ title }) => title),
+        yellow: looksOf(['Watch', 'Tournaments', 'Seasons', 'Train']),
+        sage: looksOf(['Judge', 'Leaderboard', 'Prep']),
       },
+      expected: {
+        action: ['Play'],
+        yellow: ['yellow', 'yellow', 'yellow', 'yellow'],
+        sage: ['sage', 'sage', 'sage'],
+      },
+    });
+  });
+
+  test('says what Tournaments plans', () => {
+    assert({
+      given: 'the Tournaments tile',
+      should: 'carry the settled tagline',
+      actual: tiles.find(({ title }) => title === 'Tournaments')?.description,
+      expected: 'Weekly round robins to season championships.',
     });
   });
 });

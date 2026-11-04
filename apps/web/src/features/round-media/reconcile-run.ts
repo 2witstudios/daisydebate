@@ -1,15 +1,18 @@
 import { createAppError, isRefusal } from '@daisy/errors';
-import { MEDIA_CALL_TIMEOUT_MS } from '@daisy/media';
+import { MEDIA_CALL_TIMEOUT_MS, type MediaVendor } from '@daisy/media';
 import {
   changedMediaGrants,
   mediaRoomFate,
+  mediaRoomLost,
   mediaWindowClosed,
+  type MediaObservation,
   type RoundMediaGrants,
 } from '@daisy/debate-engine';
 import {
   admissionRevoked,
   conversationHeldOverdue,
   mediaEnded,
+  mediaRuntime,
   seatGrants,
   type MediaSnapshot,
 } from './projection';
@@ -19,6 +22,8 @@ import type {
   Store,
   MediaOperationInput,
 } from './operation-context';
+import { OperationTimedOut } from '@daisy/observability';
+import { roundStartPolicy, type MediaRoomRead } from '@daisy/protocol';
 import { createMediaMutations } from './mutation';
 
 /** What a vendor mutation's authorization reads, under its locks. */
@@ -30,6 +35,11 @@ type KnownPublisher = {
   participantId: string;
   grants: RoundMediaGrants;
   restricted: boolean;
+};
+type KnownPublishers = {
+  readonly known: KnownPublisher[];
+  readonly state: MediaSnapshot;
+  readonly current: Awaited<ReturnType<MediaVendor['publicationPermissions']>>;
 };
 const differs = (
   identity: string,
@@ -46,6 +56,12 @@ const differs = (
  * leave an empty room under the old name, which closes itself by `empty_timeout`.
  */
 const roomFate = mediaRoomFate(MEDIA_CALL_TIMEOUT_MS + 1_000);
+/** One pass's read of the room, in the two views its readers need. */
+type RoomRead = {
+  readonly vendor: MediaRoomRead;
+  readonly observation: MediaObservation;
+  readonly publishers: KnownPublishers | null;
+};
 const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
   Boolean(
     claim.unsafe ||
@@ -56,6 +72,35 @@ const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
   );
 const uncertain = (state: MediaSnapshot) =>
   Boolean(state.session.unsafeAt || state.unresolved);
+/** The room as this pass read it, for the platform-incident hook. */
+const roomObservation = (
+  listed: readonly {
+    readonly identity: string;
+    readonly capture: boolean;
+  }[],
+  state: MediaSnapshot,
+  speakerHeard: boolean | null = null,
+): MediaObservation => {
+  const seatOf = (identity: string) =>
+    state.bindings.find((binding) => binding.identity === identity);
+  return {
+    kind: 'room',
+    captureListed: listed.some((entry) => entry.capture),
+    seatsListed: state.participants
+      .filter(
+        (seat) =>
+          seat.kind === 'human' &&
+          seat.eligible &&
+          (seat.role === 'affirmative' || seat.role === 'negative'),
+      )
+      .every((seat) =>
+        listed.some(
+          (entry) => seatOf(entry.identity)?.roundParticipantId === seat.id,
+        ),
+      ),
+    speakerHeard,
+  };
+};
 
 /**
  * Whether the room's creation admits `admission`'s own seat. A human
@@ -98,6 +143,20 @@ export function createMediaReconcileRun(
     return state;
   };
   const { deferred, mutate } = createMediaMutations(input, buildProjection);
+  /** Tells the incident hook what this pass saw of the room. */
+  const reportToIncident = (
+    state: MediaSnapshot,
+    observation: MediaObservation,
+  ) =>
+    input.observeIncident({
+      roundId: state.round.id,
+      observation,
+      nowMs: input.now(),
+      known: {
+        incident: state.round.checkpoint.incident,
+        status: state.round.status,
+      },
+    });
   const removeRoom = async (claim: Claim) => {
     if (await input.deadline(input.media.exists(claim.roomName))) {
       await mutate(
@@ -158,7 +217,7 @@ export function createMediaReconcileRun(
       throw error;
     }
   };
-  const knownPublishers = async (claim: Claim) => {
+  const knownPublishers = async (claim: Claim): Promise<KnownPublishers> => {
     const current = await input.deadline(
       input.media.publicationPermissions(claim.roomName),
     );
@@ -171,7 +230,7 @@ export function createMediaReconcileRun(
         ? [{ ...entry, participantId: binding.roundParticipantId }]
         : [];
     });
-    return { known, state };
+    return { known, state, current };
   };
   /**
    * Closes against the snapshot the publishers were read with: nothing was
@@ -257,17 +316,141 @@ export function createMediaReconcileRun(
    * Reconciles the room. The admission's own refusal, if met, is returned;
    * otherwise whether every vendor write this needed was acknowledged.
    */
+  /** The human seats with a microphone open now, and whether capture reads each. */
+  const speakersHeard = async (
+    current: readonly {
+      readonly identity: string;
+      readonly microphoneTrack: string | null;
+    }[],
+    state: MediaSnapshot,
+  ) => {
+    const speakers = state.bindings.flatMap((binding) => {
+      const seat = state.participants.find(
+        (row) => row.id === binding.roundParticipantId,
+      );
+      return seat?.kind === 'human' &&
+        seatGrants(state, seat.id, input.nextId).publish.includes('microphone')
+        ? [{ seatId: seat.id, identity: binding.identity }]
+        : [];
+    });
+    return Promise.all(
+      speakers.map(async ({ seatId, identity }) => {
+        const track = current.find(
+          (entry) => entry.identity === identity,
+        )?.microphoneTrack;
+        // A failed read is not yet heard, and the next pass asks again.
+        const heard =
+          Boolean(track) &&
+          (await input
+            .readCaptureHeard(state.round.id, track!)
+            .catch(() => null)) === seatId;
+        return { seatId, heard };
+      }),
+    );
+  };
+  /**
+   * While a Round is held: whether capture reads the speaker's microphone in this room.
+   * Null when no human holds the floor.
+   */
+  const speakerHeard = async (
+    current: Parameters<typeof speakersHeard>[0],
+    state: MediaSnapshot,
+  ) => {
+    if (state.round.checkpoint.incident.phase !== 'paused') return null;
+    const speakers = await speakersHeard(current, state);
+    return speakers.length === 0 ? null : speakers.every(({ heard }) => heard);
+  };
+  /**
+   * Before opening the next speaker's microphone, say capture is awaited for them, so its
+   * report can never arrive first. A failure here only means the clock does not wait.
+   */
+  const awaitCapture = async (
+    current: Parameters<typeof speakersHeard>[0],
+    state: MediaSnapshot,
+  ) => {
+    const position = mediaRuntime(state, input.nextId).position(state.now);
+    if (
+      position.nextSegment === null ||
+      position.openSegment !== null ||
+      position.countdownRemainingMs === null ||
+      position.countdownRemainingMs > roundStartPolicy.microphoneLeadMs ||
+      state.round.checkpoint.start_gate?.sequence ===
+        position.nextSegment.sequence
+    )
+      return;
+    const seats = (await speakersHeard(current, state))
+      .filter(({ heard }) => !heard)
+      .map(({ seatId }) => seatId);
+    // Everyone heard, or a bot speaks: nothing to wait for, so the Round's lock stays free.
+    if (seats.length === 0) return;
+    await input.awaitCapture(state.round.id, seats).catch(() => undefined);
+  };
+  /** Whether the room's node answers; only its own answer or its silence says it is gone. */
+  const roomAnswers = (room: string) =>
+    input.media.someNodeDown()
+      ? input
+          .deadline(input.media.roomAnswers(room))
+          .catch((error) => (error instanceof OperationTimedOut ? false : null))
+      : Promise.resolve(null);
+  /** What this pass reads of the room before it changes anything. */
+  const readRoom = async (
+    claim: Claim,
+    before: MediaSnapshot,
+  ): Promise<RoomRead> => {
+    const sid = await input.deadline(input.media.roomSid(claim.roomName));
+    if (sid === null)
+      return {
+        vendor: { kind: 'absent' },
+        observation: roomObservation([], before),
+        publishers: null,
+      };
+    const publishers = await knownPublishers(claim);
+    const { current, state } = publishers;
+    const observation = roomObservation(
+      current,
+      state,
+      await speakerHeard(current, state),
+    );
+    return {
+      vendor: {
+        kind: 'read',
+        sid,
+        empty: current.length === 0,
+        captureListed: observation.kind === 'room' && observation.captureListed,
+        answered: await roomAnswers(claim.roomName),
+      },
+      observation,
+      publishers,
+    };
+  };
   const reconcileRoom = async (
     claim: Claim,
-    admission?: Principal,
-  ): Promise<{ readonly refused: unknown } | { readonly settled: boolean }> => {
-    if (!(await input.deadline(input.media.exists(claim.roomName)))) {
+    admission: Principal | undefined,
+    before: MediaSnapshot,
+    read: RoomRead,
+  ): Promise<
+    | { readonly refused: unknown }
+    | { readonly settled: boolean }
+    | { readonly lost: true }
+  > => {
+    // Nothing is written to a room the session is about to leave.
+    if (
+      mediaRoomLost({
+        lastOccupiedSid: before.session.roomOccupiedSid,
+        sawCapture: before.session.roomSawCapture,
+        seen: read.vendor,
+      })
+    )
+      return { lost: true };
+    if (read.publishers === null) {
       if (!admission) return { settled: true };
       const created = await createRoom(claim, admission);
       if ('refused' in created) return created;
       if (!created.acknowledged) return { settled: false };
     }
-    const { known, state } = await knownPublishers(claim);
+    const { known, state, current } =
+      read.publishers ?? (await knownPublishers(claim));
+    await awaitCapture(current, state);
     return {
       settled:
         (await closeStale(claim, known, state)) &&
@@ -309,16 +492,20 @@ export function createMediaReconcileRun(
     let refusal: unknown;
     let failure: { readonly error: unknown } | null = null;
     let clean = false;
+    let read: RoomRead | null = null;
+    let known: MediaSnapshot | null = null;
     try {
       const state = await snapshot(claim.roundId);
+      known = state;
       if (needsCleanup(state, claim)) {
         cleanupAttempted = true;
         absenceProof = await removeRoom(claim);
         clean = absenceProof !== null;
       } else {
-        const room = await reconcileRoom(claim, admission);
+        read = await readRoom(claim, state);
+        const room = await reconcileRoom(claim, admission, state, read);
         if ('refused' in room) refusal = room.refused;
-        else {
+        else if ('settled' in room) {
           clean = room.settled;
           held = await runHeld(whileHeld);
         }
@@ -342,12 +529,25 @@ export function createMediaReconcileRun(
         absenceProof,
         clean,
         roomFate,
+        seen: read?.vendor ?? null,
       });
+      // Best effort, outside the journal: no token names this room any more, and a create
+      // inside the delete clears what a dead node left listed in LiveKit's Redis.
+      if (finished.fate.kind === 'rotate' && finished.fate.cause === 'lost')
+        void input.media.deleteRoom(claim.roomName).catch(() => undefined);
       if (finished.fate.kind === 'rotate')
         input.logger.log(
           'round.media.room_retired',
           { roundId: claim.roundId, cause: finished.fate.cause },
           'The session left its room for a fresh one',
+        );
+      if (known)
+        await reportToIncident(
+          known,
+          // Only a real failure before any read means the vendor was not reached.
+          read?.observation ?? {
+            kind: failure && !cleanupAttempted ? 'unreachable' : 'unread',
+          },
         );
     }
     if (failure) {

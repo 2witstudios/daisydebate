@@ -70,6 +70,7 @@
     "test:e2e": "bun scripts/heavy.ts bun --env-file=.env run turbo run test:e2e",
     "test:e2e:qualify": "bun --env-file=.env scripts/e2e-release-qualification.ts",
     "check": "bun scripts/heavy.ts sh -c 'bun format:check && bun lint && bun run policy && bun run invariants && bun typecheck && bun run test && bun run build'",
+    "incident:rate": "bun --env-file=.env scripts/incident-rate.ts",
     "db:generate": "bun run --cwd packages/db db:generate",
     "db:migrate": "bun --env-file=.env packages/db/scripts/migrate.ts",
     "db:seed": "bun --env-file=.env scripts/seed.ts",
@@ -87,7 +88,11 @@
     "slot:prune": "bun scripts/slot.ts prune",
     "infra:logs": "docker compose -f infra/compose.yaml logs -f",
     "audit": "bun scripts/audit.ts",
+    "floor:driver": "bun --env-file=.env scripts/floor-driver.ts",
+    "floor:local": "bun --env-file=.env scripts/heavy.ts bun apps/web/e2e/support/floor-local-stack.ts bun scripts/floor-driver.ts",
     "test:e2e:room-launch": "bun --env-file=.env apps/web/e2e/support/room-launch-runner.ts",
+    "drill:node-kill": "bun --env-file=.env apps/web/e2e/support/node-kill-drill-runner.ts",
+    "drill:first-word": "bun --env-file=.env apps/web/e2e/support/first-word-runner.ts",
     "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
     "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging",
     "proof:round-judging": "bun scripts/heavy.ts bun scripts/prove-round-judging.ts",
@@ -122,6 +127,7 @@
     "@daisy/media": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
+    "@livekit/rtc-node": "1.2.0",
     "zod": "4.6.6"
   }
 }

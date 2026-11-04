@@ -5,10 +5,11 @@ import type { BoundedTransactionContext } from './transaction-context';
 /** One host's casual Rounds broadcast or recorded at once. */
 export const CASUAL_CAPTURES_PER_HOST = 2;
 /**
- * Casual Rounds broadcast or recorded at once, fleet-wide. Each takes one Egress and
- * staging runs two machines, each fitting one Round, so one is always left for ranked.
- * A ranked Round is never refused: past the machines it runs uncaptured, and the debate
- * itself is never touched. Raise this with them (deploy-staging, Adding capacity).
+ * Casual Rounds broadcast or recorded at once, fleet-wide. Each takes one Egress, and
+ * staging runs one machine fitting one Round, so a casual Round can hold it while a
+ * ranked Round starts. A ranked Round is never refused: past the machine it runs
+ * uncaptured, and the debate itself is never touched. Raise this with the machines
+ * (deploy-staging, Adding capacity).
  */
 export const CASUAL_CAPTURES_AT_ONCE = 1;
 

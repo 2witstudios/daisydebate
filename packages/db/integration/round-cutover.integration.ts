@@ -16,6 +16,9 @@ const checkpoint = {
   prep_consumed_ms: { affirmative: 0, negative: 0 },
   active_prep: null,
   floor: null,
+  incident: { phase: 'none' as const },
+  start_gate: null,
+  clock_stops: [],
 };
 
 test('two ranked rooms may pin the same approved preset', async () => {

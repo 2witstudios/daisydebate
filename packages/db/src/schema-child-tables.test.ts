@@ -42,6 +42,7 @@ describe('competitive schema child tables', () => {
         segments: {
           checks: [
             'round_segments_duration_positive',
+            'round_segments_returned_check',
             'round_segments_sequence_check',
             'round_segments_type_check',
           ],
@@ -166,9 +167,13 @@ describe('competitive schema child tables', () => {
         },
         documents: {
           checks: ['documents_revision_positive', 'documents_title_length'],
-          indexes: ['documents_owner_created_idx'],
+          indexes: [
+            'documents_listing_idx',
+            'documents_owner_edited_idx',
+            'documents_search_idx',
+          ],
           uniques: [],
-          namedKeys: [],
+          namedKeys: ['documents_folder_fk'],
         },
         bots: {
           checks: ['bot_profiles_difficulty_check'],

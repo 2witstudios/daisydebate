@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { redirectUnlessLaunched } from '../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../features/access/decision';
 import { accountOf } from '../../../features/access/account-of';
 import { signInHref } from '../../../features/access/decision';
@@ -23,7 +22,6 @@ export default async function WatchPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  redirectUnlessLaunched('watch');
   const query = parseLiveQuery(await searchParams);
   const account = accountOf(await requestIdentity());
   const listing =

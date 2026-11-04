@@ -37,6 +37,34 @@ const participant = (
 });
 
 describe('applyStageSubscriptions', () => {
+  test('a voice reaches the stage only while a speech runs', () => {
+    const during = (phase: 'between' | 'speech') => {
+      const log: string[] = [];
+      applyStageSubscriptions(
+        [
+          participant(
+            'aff',
+            [
+              { kind: 'video', isSubscribed: true },
+              { kind: 'audio', isSubscribed: phase === 'between' },
+            ],
+            log,
+          ),
+        ],
+        ['aff'],
+        phase,
+      );
+      return log.filter((line) => line.includes('audio'));
+    };
+    assert({
+      given:
+        'a microphone open for the clock, between speeches, then the speech',
+      should:
+        'let go of the voice, then hold it, and keep the picture throughout',
+      actual: [during('between'), during('speech')],
+      expected: [['aff audio off'], ['aff audio on']],
+    });
+  });
   test('a human judge never reaches the stage', () => {
     const log: string[] = [];
     applyStageSubscriptions(

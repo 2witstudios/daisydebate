@@ -1,4 +1,9 @@
-import type { CaptureRule } from '@daisy/protocol';
+import { readCaptureShortfall } from './capture-shortfall';
+import {
+  frozenCaptureColumns,
+  type CaptureRule,
+  type FrozenCapture,
+} from '@daisy/protocol';
 import {
   appendRoundPhaseChanged,
   lockedRoundVersion,
@@ -41,9 +46,11 @@ export type FreezeRequest = LockedRoundTickInput & {
    * The caller's judging rule for this freeze (DEC-201, DEC-207, DEC-208): how
    * long judges may rule after it, and whether AI judges are dispatched.
    */
+  readonly captureRule: CaptureRule;
   readonly planJudging: (facts: {
     readonly completeness: 'complete' | 'incomplete';
     readonly humanJudges: boolean;
+    readonly capture: FrozenCapture;
   }) => {
     /** Null when no human judge sits: no human window exists. */
     readonly ballotDeadlineMs: number | null;
@@ -60,6 +67,7 @@ async function planFrozenJudging(
   tx: BoundedTransactionContext,
   request: FreezeRequest,
   completeness: 'complete' | 'incomplete',
+  capture: FrozenCapture,
 ) {
   const [judges] =
     (await tx.execute(sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
@@ -69,6 +77,7 @@ async function planFrozenJudging(
   const plan = request.planJudging({
     completeness,
     humanJudges: judges!.humanJudges,
+    capture,
   });
   if (plan.ballotDeadlineMs !== null) {
     if (
@@ -129,6 +138,11 @@ export async function finalizeLockedRoundTranscript(
     .from(roundTranscripts)
     .where(eq(roundTranscripts.roundId, request.roundId));
   const revision = frontier?.revision ?? 0;
+  const shortfall = await readCaptureShortfall(
+    tx,
+    request.roundId,
+    request.captureRule,
+  );
   const [freeze] = await tx
     .insert(roundTranscriptFreezes)
     .values({
@@ -136,9 +150,11 @@ export async function finalizeLockedRoundTranscript(
       revision: 1,
       frontier: revision,
       completeness: state,
+      ...frozenCaptureColumns(shortfall.capture),
+      captureGaps: shortfall.captureGaps,
     })
     .returning();
-  await planFrozenJudging(tx, request, state);
+  await planFrozenJudging(tx, request, state, shortfall.capture);
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
   // What the Round waits on changes here, so the room must read it: a new version
   // and a ring, as with any other change the server records.

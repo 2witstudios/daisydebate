@@ -3,6 +3,7 @@ import {
   roundPositionAt,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
+import { microphoneOpensForClock } from '@daisy/debate-engine/media-grants';
 import type { DebateSide, RoundView } from '@daisy/protocol';
 import {
   floorSideOf,
@@ -117,11 +118,26 @@ function clockOf(
   view: RoundView,
   position: RoundPosition,
   side: DebateSide,
+  seatId: string,
 ): RoundSnapshot['clock'] {
   if (position.openSegment) return segmentClock(position.openSegment, side);
   if (position.prep) return prepClock(position.prep, side);
   if (position.countdownRemainingMs !== null)
-    return { label: 'Starts in', remainingMs: position.countdownRemainingMs };
+    return {
+      label: 'Starts in',
+      remainingMs: position.countdownRemainingMs,
+      // Before it opens, because the other side can hear it from then. The same decision
+      // that opens it, so a cross-examination's two seats are both told.
+      ...(position.nextSegment !== null &&
+      microphoneOpensForClock({
+        rules: view.rules,
+        participants: view.participants.filter(isSeat),
+        participantId: seatId,
+        nextSequence: position.nextSegment.sequence,
+      })
+        ? { note: 'Your microphone goes live just before your clock starts.' }
+        : {}),
+    };
   const first = view.rules.segments[0];
   if (view.status !== 'opening' || !first) return null;
   return {
@@ -153,6 +169,7 @@ const prepOf = (position: RoundPosition): RoundSnapshot['prepMs'] => {
 function liveParts(
   view: RoundView,
   side: DebateSide,
+  seatId: string,
   nowMs: number,
 ): Pick<RoundSnapshot, 'phase' | 'liveIndex' | 'clock' | 'prepMs'> {
   if (view.status === 'active' && view.checkpoint === null)
@@ -175,7 +192,7 @@ function liveParts(
     liveIndex: liveIndexOf(view, position),
     clock:
       phase !== 'judging'
-        ? clockOf(view, position, side)
+        ? clockOf(view, position, side, seatId)
         : judgingClockOf(view.waitingOn, nowMs),
     prepMs: prepOf(position),
   };
@@ -198,7 +215,7 @@ export function liveRoundOf(
     .filter(isSeat)
     .find((p) => p.role !== seat.role);
   if (!opponent) return null;
-  const { phase, ...clocks } = liveParts(view, seat.role, nowMs);
+  const { phase, ...clocks } = liveParts(view, seat.role, seat.id, nowMs);
   return {
     id: view.id,
     resolution: view.topic ?? drawnTopicLabel,
@@ -214,7 +231,6 @@ export function liveRoundOf(
     speeches: speechesOf(view),
     ...clocks,
     micLive: phase === 'own-speech' || phase === 'cross-ex',
-    documents: [],
     channels: [{ id: 'round', title: 'round' }],
     messages: [],
     agents: [{ id: 'assistant', title: 'Assistant' }],

@@ -31,6 +31,7 @@ const segment = {
   startedAt: iso(openedAtMs),
   endedAt: null,
   durationMs: firstSpeech.durationMs,
+  returnedMs: 0,
 };
 const speaker = firstSpeech.side === 'affirmative' ? 'aff' : 'neg';
 const opponent = speaker === 'aff' ? 'neg' : 'aff';
@@ -226,6 +227,7 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
         startedAt: iso(openedAtMs + sequence * 1000),
         endedAt: iso(openedAtMs + (sequence + 1) * 1000),
         durationMs: rule.durationMs,
+        returnedMs: 0,
       })),
     },
     now: iso(cutoffMs),

@@ -27,9 +27,14 @@ export type { SpectatorHorizonFacts } from './spectator-horizon';
 export { plannedBroadcast, plannedRecording } from './room-capture';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
+export {
+  incidentDecision,
+  observationMatters,
+} from './round-incident-decision';
+export type { MediaObservation } from './round-incident-decision';
 export { mediaGrants, changedMediaGrants } from './media-grants';
 export { mediaWindowClosed } from './media-window';
-export { mediaRoomFate } from './media-room-fate';
+export { mediaRoomFate, mediaRoomLost } from './media-room-fate';
 export type { RoundMediaGrants } from './media-grants';
 export type { RoundCommand, RoundPosition } from '@daisy/protocol';
 export { resolveRoomConfiguration } from './resolve-room-configuration';
@@ -85,6 +90,7 @@ export {
 export type { AttendanceDecision, AttendanceWindow } from './attendance';
 export {
   deriveOutageIntervals,
+  withClockStops,
   effectiveAttendanceDeadline,
 } from './availability';
 

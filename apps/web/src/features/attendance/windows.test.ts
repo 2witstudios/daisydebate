@@ -1,3 +1,4 @@
+import { emptyRuntimeCheckpoint } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   oneOnOneDefinition,
@@ -34,6 +35,7 @@ const actual = {
   startedAt: '2026-10-22T00:02:15.000Z',
   endedAt: '2026-10-22T00:02:30.000Z',
   durationMs: rules.segments[0]!.durationMs,
+  returnedMs: 0,
 };
 test('attendance uses actual opening and scheduled speaker slot after later runtime movement', () => {
   const result = attendanceWindowFor(
@@ -73,6 +75,7 @@ test('last speech classification comes from frozen rules not latest currently pe
           id: 'actual-last',
           rulesSegmentKey: last.key,
           durationMs: last.durationMs,
+          returnedMs: 0,
         },
       ],
     },
@@ -103,6 +106,7 @@ const receipt = (
 ) => {
   const facts = {
     round: {
+      checkpoint: emptyRuntimeCheckpoint,
       rules,
       participants,
       segments: [actual],

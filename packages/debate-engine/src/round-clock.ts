@@ -1,51 +1,24 @@
 import { createInvariantError } from '@daisy/errors';
-import type { RoundRules } from '@daisy/protocol';
+import {
+  clockStopsOf,
+  dueAfterStops,
+  segmentDueAtMs,
+  type RoundRules,
+} from '@daisy/protocol';
+import { resumeIfDue } from './round-incident';
+import {
+  closeClockSegment,
+  type ClockChange,
+  type ClockTransition,
+} from './round-clock-transition';
 import { debateInvariantIds } from './invariant-ids';
+import { segmentStartsAt } from './round-start-gate';
 import {
   closedCount,
-  countdownAnchor,
   type ClockState,
   type ClockSegment,
 } from './round-clock-state';
 
-export type ClockChange =
-  | { readonly kind: 'open'; readonly row: ClockSegment }
-  | {
-      readonly kind: 'close';
-      readonly sequence: number;
-      readonly key: string;
-      readonly atMs: number;
-    };
-export type ClockTransition = {
-  readonly state: ClockState;
-  readonly changes: readonly ClockChange[];
-};
-
-/** Shared interval primitives for clock and command execution. Sequence is calculation identity. */
-export const closeClockSegment = (
-  state: ClockState,
-  sequence: number,
-  atMs: number,
-): ClockTransition => {
-  const row = state.rows.find(
-    (row) => row.sequence === sequence && row.endedAtMs === null,
-  );
-  if (!row)
-    throw createInvariantError(
-      debateInvariantIds.liveOpenSegmentCount,
-      'No open segment remains to close',
-    );
-  return {
-    state: {
-      ...state,
-      rows: state.rows.map((row) =>
-        row.sequence === sequence ? { ...row, endedAtMs: atMs } : row,
-      ),
-      checkpoint: { ...state.checkpoint, floor: null },
-    },
-    changes: [{ kind: 'close', sequence, key: row.key, atMs }],
-  };
-};
 export const openClockSegment = (
   state: ClockState,
   rules: RoundRules,
@@ -70,6 +43,7 @@ export const openClockSegment = (
     startedAtMs: atMs,
     endedAtMs: null,
     durationMs: expected.durationMs,
+    returnedMs: 0,
   };
   return {
     state: { ...state, rows: [...state.rows, row] },
@@ -84,11 +58,16 @@ const gapOpening = (
 ): ClockTransition | null => {
   const active = state.checkpoint.active_prep;
   const budget = rules.inRoundPrep?.budgetMsPerSide ?? 0;
+  const stops = clockStopsOf(state.checkpoint);
   const due =
     active === null
-      ? countdownAnchor(state) + rules.countdownMs
-      : Date.parse(active.started_at) +
-        Math.max(0, budget - state.checkpoint.prep_consumed_ms[active.side]);
+      ? segmentStartsAt(state, rules.countdownMs, nowMs)
+      : dueAfterStops(
+          Date.parse(active.started_at),
+          Math.max(0, budget - state.checkpoint.prep_consumed_ms[active.side]),
+          stops,
+          nowMs,
+        );
   if (nowMs < due) return null;
   if (active !== null)
     state = {
@@ -102,7 +81,12 @@ const gapOpening = (
         },
       },
     };
-  return openClockSegment(state, rules, due);
+  // The gate is spent: the clock now starts, and nothing below reads it again.
+  return openClockSegment(
+    { ...state, checkpoint: { ...state.checkpoint, start_gate: null } },
+    rules,
+    due,
+  );
 };
 
 /** Time alone, without mutation, I/O, IDs or server storage. */
@@ -111,14 +95,20 @@ export const advanceRoundClock = (
   rules: RoundRules,
   nowMs: number,
 ): ClockTransition => {
-  let state = initial;
-  const changes: ClockChange[] = [];
-  if (state.lifecycle.status !== 'active') return { state, changes };
+  const resumed = resumeIfDue(initial, nowMs);
+  let state = resumed.state;
+  const changes: ClockChange[] = [...resumed.changes];
+  // While a platform incident holds the clock, time alone moves nothing.
+  if (
+    state.lifecycle.status !== 'active' ||
+    state.checkpoint.incident.phase !== 'none'
+  )
+    return { state, changes };
   for (;;) {
     const open = state.rows.find((row) => row.endedAtMs === null);
     let transition: ClockTransition;
     if (open) {
-      const due = open.startedAtMs + open.durationMs;
+      const due = segmentDueAtMs(open);
       if (nowMs < due) break;
       transition = closeClockSegment(state, open.sequence, due);
     } else {

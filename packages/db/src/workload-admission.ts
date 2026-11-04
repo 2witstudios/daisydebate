@@ -1,6 +1,7 @@
 import { currentLaneOperation } from './lane-operation';
 import { createAppError } from '@daisy/errors';
 import { refuseCapacity } from './capacity-refusal';
+import { createHoldLedger, type LaneHoldSummary } from './lane-holds';
 import { RUNTIME_SESSION } from './session-bounds';
 
 /**
@@ -11,6 +12,7 @@ import { RUNTIME_SESSION } from './session-bounds';
  */
 const WORKLOAD_LANES = [
   'competitive',
+  'documents',
   'social',
   'search',
   'audience',
@@ -70,6 +72,11 @@ export const WORKLOAD_PROFILES = {
     dedicated: 1,
     lanes: {
       competitive: COMPETITIVE,
+      // A member's documents, a live debater's saves included (ADR 0111). A save
+      // waits out a burst; refused, it stays in draft recovery and retries.
+      documents: lane(3, 64, 1000),
+      // One at a time, so a slow search can never hold up a save.
+      search: lane(1, 8, 250),
       social: lane(4, 16, 100),
       // The Watch audience: viewers read a per-Round cached answer, so a read here
       // is rare and a queue only delays a viewer who can keep what they have. A
@@ -145,6 +152,8 @@ export type LaneGate = {
     readonly active: number;
     readonly waiting: number;
   };
+  /** How long each operation held this lane's connections since the last drain. */
+  readonly drainHolds: () => readonly LaneHoldSummary[];
 };
 export type LaneTimer = (ms: number, fire: () => void) => () => void;
 export type LaneClock = () => number;
@@ -188,6 +197,7 @@ export function createLaneGate(
     readonly operation: string;
     readonly weight: number;
   }>();
+  const holds = createHoldLedger();
   const queues = new Map<string, Waiter[]>();
   const order: string[] = [];
   const refuse = (reason: 'unconfigured' | 'saturated' | 'expired') =>
@@ -211,6 +221,7 @@ export function createLaneGate(
       if (released) return;
       released = true;
       held.delete(hold);
+      holds.record(operation, clock() - hold.since);
       active -= weight;
       pump();
     };
@@ -279,5 +290,6 @@ export function createLaneGate(
       });
     },
     stats: () => ({ active, waiting }),
+    drainHolds: holds.drain,
   };
 }

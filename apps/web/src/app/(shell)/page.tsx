@@ -1,13 +1,16 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { betaHref, RESTRICTED_HREF } from '../../features/access/decision';
-import { launched } from '../../features/coming-soon/launch';
 import { Dashboard } from '../../ui/dashboard/dashboard';
 import { HeroBanner } from '../../ui/dashboard/hero-banner/hero-banner';
 import { MemberHero } from '../../ui/dashboard/member-hero/member-hero';
 import { requestActiveRoom } from './active-room';
 import { ResumeRound } from '../../ui/active-room/resume-round';
-import { requestIdentity, requestLeadingLive } from '../../lib/request-session';
+import {
+  requestIdentity,
+  requestLeadingLive,
+  requestSeasonGlance,
+} from '../../lib/request-session';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 
@@ -25,13 +28,16 @@ export default async function HomePage() {
   // a restricted one goes to its own.
   if (identity.state === 'waitlisted') redirect(betaHref('/'));
   if (identity.state === 'restricted') redirect(RESTRICTED_HREF);
-  const liveNow = launched.watch ? (
-    <LiveNow rounds={await requestLeadingLive()} />
-  ) : null;
+  const [rounds, seasonGlance] = await Promise.all([
+    requestLeadingLive(),
+    requestSeasonGlance(),
+  ]);
+  const liveNow = <LiveNow rounds={rounds} />;
   if (identity.state !== 'member') {
     return (
       <Dashboard
         liveNow={liveNow}
+        seasonGlance={seasonGlance}
         hero={<HeroBanner requestLink={requestLinkAction.bind(null, '/')} />}
       />
     );
@@ -40,6 +46,7 @@ export default async function HomePage() {
   return (
     <Dashboard
       liveNow={liveNow}
+      seasonGlance={seasonGlance}
       hero={
         <>
           <ResumeRound room={activeRoom} actorId={identity.principal.actorId} />

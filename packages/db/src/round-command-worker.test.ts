@@ -31,6 +31,7 @@ const segment = {
   startedAt: '2026-10-22T12:00:00.000Z',
   endedAt: null,
   durationMs: 60_000,
+  returnedMs: 0,
 };
 const round = { id: 'round', status: 'active' as const, segments: [segment] };
 const input = {

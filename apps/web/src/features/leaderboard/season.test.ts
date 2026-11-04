@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   isClosed,
+  seasonGlance,
   seasonDates,
   seasonLabel,
   seasonProgress,
@@ -43,6 +44,56 @@ describe('season', () => {
         { day: 15, length: 28, percent: 54 },
         { day: 28, length: 28, percent: 100 },
       ],
+    });
+  });
+});
+
+describe('seasonGlance', () => {
+  const closed: Season = {
+    id: '3',
+    name: 'Earlier',
+    startsAt: '2026-06-01T00:00:00.000Z',
+    endsAt: '2026-07-01T00:00:00.000Z',
+    status: 'closed',
+  };
+
+  test('numbers the running season by how many have started', () => {
+    assert({
+      given: 'a closed season, then the running one, listed either way round',
+      should: 'call the running one the second season',
+      actual: [
+        seasonGlance([closed, season], '2026-09-10T00:00:00.000Z')?.number,
+        seasonGlance([season, closed], '2026-09-10T00:00:00.000Z')?.number,
+      ],
+      expected: [2, 2],
+    });
+  });
+
+  test('says how long is left', () => {
+    const lineAt = (now: string) => seasonGlance([season], now)?.line;
+    assert({
+      given: 'mid-season, the last two days, and a season with no end',
+      should: 'count the days left, end today, or give the day',
+      actual: [
+        lineAt('2026-09-01T12:00:00.000Z'),
+        lineAt('2026-09-27T12:00:00.000Z'),
+        lineAt('2026-09-28T12:00:00.000Z'),
+        seasonGlance([{ ...season, endsAt: null }], '2026-09-12T12:00:00.000Z')
+          ?.line,
+      ],
+      expected: ['27 days left', '1 day left', 'Ends today', 'Day 12'],
+    });
+  });
+
+  test('says nothing with no running season', () => {
+    assert({
+      given: 'only closed seasons, and no seasons',
+      should: 'give no glance',
+      actual: [
+        seasonGlance([closed], '2026-09-10T00:00:00.000Z'),
+        seasonGlance([], '2026-09-10T00:00:00.000Z'),
+      ],
+      expected: [null, null],
     });
   });
 });

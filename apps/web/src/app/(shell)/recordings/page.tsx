@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { redirectUnlessLaunched } from '../../../features/coming-soon/launch-gate';
 import type { SearchParams } from '../../../features/access/decision';
 import { archiveEntries } from '../../../features/recording/archive';
 import { parseRecordingsQuery } from '../../../features/recording/archive-query';
@@ -20,7 +19,6 @@ export default async function RecordingsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  redirectUnlessLaunched('watch');
   const viewer = recordingViewerOf(await requestIdentity());
   const query = parseRecordingsQuery(await searchParams);
   const [{ page }, counts] = await Promise.all([

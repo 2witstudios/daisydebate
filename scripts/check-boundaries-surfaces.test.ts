@@ -1,6 +1,7 @@
 import {
   adminSurfaceIssue,
   conceptCouplingIssue,
+  documentManagerIssue,
   featureUiIssue,
   reservedWordIssue,
   runnerOnlyIssue,
@@ -308,11 +309,57 @@ describe('features never import ui (ISSUE-1005)', () => {
           'apps/web/src/ui/theme/theme-provider.tsx',
         ),
         featureUiIssue(
-          '../coming-soon/launch',
+          '../destinations/destinations',
           'apps/web/src/features/play/options.ts',
         ),
       ],
       expected: [null, null, null, null],
+    });
+  });
+});
+
+describe('the document manager', () => {
+  test('imports nothing from the places it opens', () => {
+    assert({
+      given: 'the manager importing a Round room, its feature, and a page',
+      should: 'name each',
+      actual: [
+        documentManagerIssue(
+          '../debate-room/room-state',
+          'apps/web/src/ui/documents/file-tree.tsx',
+        ),
+        documentManagerIssue(
+          '../../features/round-runtime/read-round',
+          'apps/web/src/ui/documents/file-tree.tsx',
+        ),
+        documentManagerIssue(
+          '../../app/x/page',
+          'apps/web/src/features/documents/document.ts',
+        ),
+      ].map((issue) => issue !== null),
+      expected: [true, true, true],
+    });
+  });
+
+  test('a Round may import it, and it may import its own and shared code', () => {
+    assert({
+      given: 'a Round importing the manager, and the manager its own parts',
+      should: 'pass',
+      actual: [
+        documentManagerIssue(
+          '../documents/file-tree',
+          'apps/web/src/ui/debate-room/room.tsx',
+        ),
+        documentManagerIssue(
+          '../../features/documents/drive-tree',
+          'apps/web/src/ui/documents/file-tree.tsx',
+        ),
+        documentManagerIssue(
+          '../components/icon/icon',
+          'apps/web/src/ui/documents/file-tree.tsx',
+        ),
+      ],
+      expected: [null, null, null],
     });
   });
 });

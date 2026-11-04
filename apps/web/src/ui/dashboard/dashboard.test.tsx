@@ -9,6 +9,15 @@ import { occurrences, renderInStore } from '../test-support/render-in-store';
 
 setupRitewayBun();
 
+const renderWithGlance = (): string =>
+  renderInStore(
+    h(Dashboard, {
+      hero: null,
+      liveNow: null,
+      seasonGlance: { number: 7, line: '12 days left' },
+    }),
+  );
+
 const render = (): string =>
   renderInStore(
     h(Dashboard, {
@@ -35,6 +44,22 @@ describe('Dashboard', () => {
     });
   });
 
+  test('reveals the season on the Seasons note alone', () => {
+    const html = renderWithGlance();
+    const noteOf = (href: string) =>
+      html.slice(html.indexOf(`href="${href}"`)).split('</a>')[0] ?? '';
+    assert({
+      given: 'a running season',
+      should: 'put its number and time on the Seasons note and no other',
+      actual: [
+        noteOf('/leaderboard/seasons').includes('12 days left'),
+        occurrences(html, '12 days left'),
+        occurrences(html, '>7</text>'),
+      ],
+      expected: [true, 1, 1],
+    });
+  });
+
   test('keeps the page outline valid inside the shell-owned <main>', () => {
     const html = render();
     assert({
@@ -50,18 +75,18 @@ describe('Dashboard', () => {
     });
   });
 
-  test('shows coming-soon cards instead of sample tournament and live data', () => {
+  test('shows every destination as a note, with Live now and nothing closed', () => {
     const html = render();
     assert({
-      given: 'the home dashboard with ranked play and real standings launched',
+      given: 'the home dashboard',
       should:
-        'carry five Coming soon tags and no sample event, with Watch real',
+        'carry no Coming soon tag, link the Beta Open to its page, and show Live now',
       actual: [
         occurrences(html, 'Coming soon'),
-        html.includes('href="/coming-soon/tournaments"'),
-        html.includes('Live Now'),
+        html.includes('href="/tournaments"'),
+        html.includes('Live now') || html.includes('Live Now'),
       ],
-      expected: [5, true, false],
+      expected: [0, true, true],
     });
   });
 });

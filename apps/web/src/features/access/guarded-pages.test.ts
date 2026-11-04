@@ -36,6 +36,7 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
   requestIdentity: async () => ({ state: 'anonymous' }),
+  requestMemberDrive: () => null,
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,
@@ -45,6 +46,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestFollowing: async () => ({ people: [], history: [] }),
   requestHubCounts: async () => ({ live: 0, recordings: 0 }),
   requestLeadingLive: async () => [],
+  requestSeasonGlance: async () => null,
   requestLiveRoundsOf: async () => new Map(),
   requestLiveListing: async () => ({
     featured: null,
@@ -168,6 +170,11 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/recordings/page'),
     '(shell)/recordings/[roundId]/page.tsx': () =>
       import('../../app/(shell)/recordings/[roundId]/page'),
+    '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
+    '(shell)/prep/folders/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/folders/[id]/page'),
+    '(shell)/prep/folders/[id]/delete/page.tsx': () =>
+      import('../../app/(shell)/prep/folders/[id]/delete/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
     '(shell)/settings/page.tsx': () =>
       import('../../app/(shell)/settings/page'),
@@ -195,7 +202,7 @@ const guardRequestsOf = async (file: string) => {
     });
   } catch (error) {
     // A page may answer 404 for the placeholder id, once the guard ran, or
-    // redirect a closed destination to its explainer before any guard.
+    // redirect before any guard.
     const digest = String((error as { digest?: unknown }).digest);
     if (
       guardCalls.length === 0 &&
@@ -240,7 +247,7 @@ const redirectOf = async (file: string): Promise<string | null> => {
     const digest = String((error as { digest?: unknown }).digest);
     return digest.startsWith('NEXT_REDIRECT')
       ? (digest.split(';')[2] ?? null)
-      : null;
+      : `threw: ${digest}`;
   }
 };
 
@@ -260,6 +267,7 @@ describe('guarded pages', () => {
         '/messages',
         '/notifications',
         '/play',
+        '/prep',
         '/ranked',
         '/rooms',
         '/rounds',
@@ -298,7 +306,7 @@ describe('guarded pages', () => {
     });
   });
 
-  test('Watch and Recordings open with their launch flag', async () => {
+  test('Watch and Recordings answer with their own screens', async () => {
     const files = [
       '(shell)/watch/page.tsx',
       '(shell)/watch/[roundId]/page.tsx',
@@ -308,10 +316,10 @@ describe('guarded pages', () => {
     const destinations: Array<string | null> = [];
     for (const file of files) destinations.push(await redirectOf(file));
     assert({
-      given: 'every Watch page while Watch is not launched',
-      should: 'answer with the explainer, never a screen',
+      given: 'every Watch page',
+      should: 'answer with its own screen, never a redirect',
       actual: destinations,
-      expected: files.map(() => '/coming-soon/watch'),
+      expected: files.map(() => null),
     });
   });
 });

@@ -1,5 +1,6 @@
 import {
   botGrantUnused,
+  captureRule,
   judgingJobEndReason,
   attendanceSettled,
 } from '@daisy/debate-engine';
@@ -38,6 +39,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       judgingEndReason: judgingJobEndReason,
       attendanceSettled,
       botGrantUnused,
+      captureRule,
       planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
     };
     try {
@@ -156,6 +158,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       judgingEndReason: judgingJobEndReason,
       attendanceSettled,
       botGrantUnused,
+      captureRule,
       planJudging: judgingPlan(judgingPolicy.humanBallotWindowMs),
     };
     try {

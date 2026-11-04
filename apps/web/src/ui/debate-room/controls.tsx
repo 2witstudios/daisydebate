@@ -134,6 +134,9 @@ function MainClock({ round }: { readonly round: RoundSnapshot }) {
           {formatCountdown(clock.remainingMs)}
         </span>
       </div>
+      {clock.note ? (
+        <p className="text-xs text-ink-muted">{clock.note}</p>
+      ) : null}
       <p aria-live="polite" className="sr-only">
         {clockMilestone(clock.remainingMs)}
       </p>

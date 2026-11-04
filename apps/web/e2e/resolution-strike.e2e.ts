@@ -156,6 +156,10 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     for (const page of [negative.page, stale]) {
       await page.goto(roundPath);
       await expect(page.getByRole('heading', { name: yourTurn })).toBeVisible();
+      // A strike has no workspace: the document manager is not on this screen.
+      await expect(page.getByRole('navigation', { name: 'Files' })).toHaveCount(
+        0,
+      );
     }
     // Without scripts the timer is the server read's own count: within the 15 s window.
     // Anchored: the clock ends the timer, and no digit may precede its 0.

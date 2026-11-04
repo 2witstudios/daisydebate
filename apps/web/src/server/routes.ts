@@ -36,8 +36,8 @@ import { composeDataRightsRoutes } from '../features/account/data-rights/composi
 import { createConfirmEmailHandlers } from '../features/auth/email-change/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirmation/confirm';
 import { createAuthRouteHandlers } from '../features/auth/handlers';
-import { createDebateRoomDocumentHandlers } from '../features/debate-room/documents/document-handlers';
-import { createDebateDocumentOperations } from '../features/debate-room/documents/document-operations';
+import { createDocumentHandlers } from '../features/documents/document-handlers';
+import { createDocumentOperations } from '../features/documents/document-operations';
 import { createProofHandlers } from '../features/foundation/handlers';
 import { runningWorkers } from '../features/ops/alert-state';
 import { createAlertsHandler } from '../features/ops/alerts';
@@ -58,7 +58,7 @@ import { createReadinessHandler } from '../features/ops/readiness';
  */
 export function createRoutes(app: App) {
   const { logger, database } = app;
-  const documentOperations = createDebateDocumentOperations({
+  const documentOperations = createDocumentOperations({
     store: database,
     clock: app.clock,
     ids: app.ids,
@@ -213,7 +213,7 @@ export function createRoutes(app: App) {
           ),
       }),
     },
-    debateRoomDocuments: createDebateRoomDocumentHandlers({
+    documents: createDocumentHandlers({
       ...memberBoundary,
       operations: () => documentOperations,
     }),

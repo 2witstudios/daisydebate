@@ -17,6 +17,17 @@ const segment = (id: string): string => encodeURIComponent(id);
 export const liveHref = (id: string): string =>
   `${watchRoutes.hub}/${segment(id)}`;
 
+/**
+ * A Room link, which a visitor may follow to Watch once the Round's start is
+ * released: its page decides, so the proxy sends no sign-in hint ahead of it.
+ */
+export const roomLinkReachesWatch = (pathname: string): boolean =>
+  /^\/rooms\/[^/]+$/.test(pathname);
+
+/** Where a Room's link sends someone outside it; null until the start is released. */
+export const roomWatchHref = (roundId: string | null): string | null =>
+  roundId === null ? null : liveHref(roundId);
+
 /** The replay of a recorded Round, optionally with its query. */
 export const replayHref = (id: string, search = ''): string =>
   `${watchRoutes.recordings}/${segment(id)}${search === '' ? '' : `?${search}`}`;

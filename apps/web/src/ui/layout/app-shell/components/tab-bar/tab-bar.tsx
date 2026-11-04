@@ -13,7 +13,6 @@ import {
   friendsLabel,
   memberDestinations,
   moreDestination,
-  notificationsDestination,
   primaryDestinations,
   profileHref,
   wayIn,
@@ -63,7 +62,7 @@ const moreLinksFor = (
     ),
   ...(account.state === 'member'
     ? [
-        ...[notificationsDestination()].filter((item) => item !== null),
+        memberDestinations.notifications,
         {
           href: memberDestinations.friends.href,
           label: friendsLabel(online),

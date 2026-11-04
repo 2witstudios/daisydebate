@@ -16,7 +16,8 @@ import { useLiveRoundView } from './use-live-round-view';
 import type { LeaveLinks } from './leave-room';
 import { liveRoundOf } from './live-round';
 import { DebateRoom } from './room';
-import { useRoundSync } from './use-round-sync';
+import { useDocumentSaving } from '../documents/use-document-saving';
+import { ManagerWorkspace } from '../documents/document-manager';
 import {
   roundCommandIds,
   type RoundCommandIds,
@@ -30,6 +31,7 @@ import { RoundEndedNotice } from './round-ended';
 import { useSecond } from './use-second';
 import { useRoundTime } from './use-round-time';
 import { ConversationHeldNotice } from './conversation-held-notice';
+import { RoundIncidentBanner } from './round-incident-banner';
 import { RoundTimeNotice } from './round-time-notice';
 
 /**
@@ -129,7 +131,7 @@ export function LiveRoundRoom({
     },
     [driver],
   );
-  const { sync, notice, save } = useRoundSync(view.id, principalId, socketUrl);
+  const { sync, notice, save } = useDocumentSaving(principalId, socketUrl);
   const intent = leaveIntent(view, actorId, now);
   const leaving: LeaveLinks =
     intent.kind === 'forfeit'
@@ -152,6 +154,7 @@ export function LiveRoundRoom({
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <ConversationHeldNotice view={view} nowMs={now} />
       <RoundTimeNotice roundTime={roundTime} />
+      <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
       {outcome ? (
         <p role="status" className="sr-only">
           {outcome}
@@ -216,6 +219,14 @@ export function LiveRoundRoom({
               roundId={view.id}
               actorId={actorId}
               roomId={view.roomId}
+            />
+            {/* A document is not the Round's, so its end stops no one typing. */}
+            <ManagerWorkspace
+              sync={sync}
+              notice={notice}
+              save={save}
+              back={`/rounds/${view.id}`}
+              title="Your files"
             />
           </>
         )

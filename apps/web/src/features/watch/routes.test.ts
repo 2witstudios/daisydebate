@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { liveHref, replayHref } from './routes';
+import {
+  liveHref,
+  replayHref,
+  roomLinkReachesWatch,
+  roomWatchHref,
+} from './routes';
 
 setupRitewayBun();
 
@@ -19,6 +24,28 @@ describe('watch routes', () => {
       should: 'encode it into one segment',
       actual: liveHref('a/b c'),
       expected: '/watch/a%2Fb%20c',
+    });
+  });
+});
+
+describe('a Room link and Watch', () => {
+  test('reaches Watch only for a released Round', () => {
+    assert({
+      given: 'a released Round, and none',
+      should: 'name the Watch page only for the released Round',
+      actual: [roomWatchHref('round'), roomWatchHref(null)],
+      expected: ['/watch/round', null],
+    });
+  });
+
+  test('only the Room page itself skips the sign-in hint', () => {
+    assert({
+      given: 'the Room page and its neighbours',
+      should: 'let the page decide for the Room alone',
+      actual: ['/rooms/abc', '/rooms', '/rooms/abc/rematch', '/rounds/abc'].map(
+        roomLinkReachesWatch,
+      ),
+      expected: [true, false, false, false],
     });
   });
 });

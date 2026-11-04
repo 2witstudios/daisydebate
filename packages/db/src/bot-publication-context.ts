@@ -1,5 +1,5 @@
 import { and, eq, ne, sql, type SQL } from 'drizzle-orm';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockRoundAgentContext, roundAgentNow } from './round-agent-runs';
 import { requireAgentLeaseToken } from './round-agent-lease';
@@ -31,7 +31,28 @@ const intervalOpen = (before: SQL, after: SQL) =>
  * publication's speaking window and hearing alike.
  */
 const segmentInProgress = (before: SQL, after: SQL) =>
-  sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.started_at+s.duration_ms*interval '1 millisecond')`;
+  sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.due_at)`;
+/** A platform incident holds every microphone, and no answer is bought for a held speech. */
+async function refuseDuringIncident(
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  roundId: string,
+) {
+  const rows = await tx.execute(
+    sql`select 1 from rounds where id=${roundId} and runtime_state->'incident'->>'phase'<>'none'`,
+  );
+  if (rows.length > 0) throw createRefusal('CONFLICT', 'platform-incident');
+}
+/** When the segment a bot speaks in is due now; a resumed speech is due later than it was. */
+export async function botSegmentDueAt(
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
+): Promise<string> {
+  const rows = (await tx.execute(
+    sql`select due_at from round_segments where round_id=${target.roundId} and id=${target.segmentId}`,
+  )) as unknown as { due_at: Date | string }[];
+  if (!rows[0]) throw createAppError('CONFLICT');
+  return new Date(rows[0].due_at).toISOString();
+}
 /** Latest actual played scope authenticates control, including unresolved historical attendance. */
 export async function requireBotControlSegment(
   tx: Pick<BoundedTransactionContext, 'execute'>,
@@ -53,6 +74,7 @@ export async function requireBotSpeakingWindow(
   >,
   window?: PublicationWindow,
 ) {
+  await refuseDuringIncident(tx, target.roundId);
   if (
     window &&
     (!Number.isFinite(window.beforeMs) ||

@@ -16,6 +16,7 @@ import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
 import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
+import { writeRoundIncidentChanges } from './round-incident-rows';
 import { releaseRoundRoomMembers } from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
 import { isUniqueViolation } from './unique-violation';
@@ -53,7 +54,8 @@ const projectionChanged = (
   if (
     addedStrikes > 0 ||
     projection.segmentInserts.length > 0 ||
-    projection.segmentCloses.length > 0
+    projection.segmentCloses.length > 0 ||
+    (projection.segmentReturns?.length ?? 0) > 0
   )
     return true;
   if (projected === null) return false;
@@ -106,6 +108,11 @@ export async function writeProjectionWithPhaseSignal(
   const changed = projectionChanged(current, projection, addedStrikes);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
+  await writeRoundIncidentChanges(
+    tx,
+    roundId,
+    projection.incidentChanges ?? [],
+  );
   await writePrivateSpans(tx, roundId, current, projection, now);
   if (endsRound(current, projection))
     await refundUnservedPracticeLocked(tx, roundId);
@@ -335,6 +342,13 @@ async function writeProjection(
         and(eq(roundSegments.id, close.id), eq(roundSegments.roundId, roundId)),
       );
   }
+  for (const back of projection.segmentReturns ?? [])
+    await tx
+      .update(roundSegments)
+      .set({ returnedMs: back.returnedMs })
+      .where(
+        and(eq(roundSegments.id, back.id), eq(roundSegments.roundId, roundId)),
+      );
   for (const insert of projection.segmentInserts) {
     try {
       await tx.insert(roundSegments).values({

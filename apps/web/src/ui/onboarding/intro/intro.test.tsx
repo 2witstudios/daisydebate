@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { destinationHref } from '../../../features/coming-soon/launch';
+import { destinationHref } from '../../../features/destinations/destinations';
 import { routeExists } from '../../test-support/route-exists';
 import { stageColourClasses } from '../../test-support/stage-palette';
 import { StylesStep } from './styles-step';

@@ -230,13 +230,13 @@ test('the deployed profiles are valid and sized as the plan states', () => {
   assert({
     given: 'the web, realtime and observer profiles',
     should:
-      'validate and hold 29, 7 and 11 connections, dedicated ones included',
+      'validate and hold 33, 7 and 11 connections, dedicated ones included',
     actual: [
       WORKLOAD_PROFILES.web,
       WORKLOAD_PROFILES.realtime,
       WORKLOAD_PROFILES['realtime-observer'],
     ].map((profile) => profileConnections(validateWorkloadProfile(profile))),
-    expected: [29, 7, 11],
+    expected: [33, 7, 11],
   });
 });
 
@@ -294,4 +294,34 @@ test('a refusal says what the lane was waiting on', async () => {
     },
   });
   void queued;
+});
+
+test('a lane reports how long each operation held its connections', async () => {
+  let now = 0;
+  const gate = createLaneGate(
+    'competitive',
+    { connections: 2, queue: 0, maxWaitMs: 100 },
+    undefined,
+    () => now,
+  );
+  const release = await withLaneOperation('claimMediaReconcile', () =>
+    gate.admit(),
+  );
+  now = 30;
+  release();
+  release();
+  assert({
+    given: 'one hold of 30 ms released twice',
+    should: 'count it once under the operation that asked',
+    actual: gate.drainHolds(),
+    expected: [
+      {
+        operation: 'claimMediaReconcile',
+        count: 1,
+        totalMs: 30,
+        maxMs: 30,
+        p95Ms: 30,
+      },
+    ],
+  });
 });

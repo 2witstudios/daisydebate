@@ -8,6 +8,7 @@ const segment = {
   startedAt: '2026-10-22T12:00:00.000Z',
   endedAt: '2026-10-22T12:00:40.000Z',
   durationMs: 40000,
+  returnedMs: 0,
 };
 const interval = (
   roundParticipantId: string,
