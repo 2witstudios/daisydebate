@@ -1,9 +1,5 @@
-import {
-  clockStopsOf,
-  dueAfterStops,
-  runningMs,
-  segmentDueAtMs,
-} from '@daisy/protocol';
+import { segmentStartsAt } from './round-start-gate';
+import { clockStopsOf, runningMs, segmentDueAtMs } from '@daisy/protocol';
 import type {
   DebateSide,
   RoundPosition,
@@ -13,7 +9,6 @@ import type {
 } from '@daisy/protocol';
 import { advanceRoundClock } from './round-clock';
 import {
-  countdownAnchor,
   debateHasEnded,
   startedAtOf,
   type ClockState,
@@ -126,15 +121,7 @@ const countdownOf = (
     upcoming === null
   )
     return null;
-  return Math.max(
-    0,
-    dueAfterStops(
-      countdownAnchor(state),
-      countdownMs,
-      clockStopsOf(state.checkpoint),
-      now,
-    ) - now,
-  );
+  return Math.max(0, segmentStartsAt(state, countdownMs, now) - now);
 };
 
 /**

@@ -5,6 +5,7 @@ import type {
 } from '@daisy/protocol';
 import { conversational } from '@daisy/protocol';
 import { broadcastPhase } from './broadcast-phase';
+import { roundStartPolicy } from '@daisy/protocol';
 import { mediaWindowClosed } from './media-window';
 import { speakingParticipants } from './round-speaking';
 import { phasePrivateAt } from './stage-capture';
@@ -94,6 +95,29 @@ const cameraOpen = (input: MediaGrantInput) =>
       Date.parse(input.now),
     )
   );
+/**
+ * The next human speaker, just before their clock. Their microphone opens now, so capture
+ * has it when the clock starts. Only the seat's own clock tells them to speak, and only
+ * speech inside the interval is ever credited.
+ */
+const opensForClock = (input: MediaGrantInput) => {
+  const { nextSegment: next, countdownRemainingMs: left } = input.position;
+  const seat = input.participants.find(
+    (participant) => participant.id === input.participantId,
+  );
+  return (
+    next !== null &&
+    left !== null &&
+    left <= roundStartPolicy.microphoneLeadMs &&
+    seat?.kind === 'human' &&
+    speakingParticipants(
+      input.rules,
+      input.participants,
+      next.sequence,
+      null,
+    ).includes(input.participantId)
+  );
+};
 const publishSources = (
   camera: boolean,
   microphone: boolean,
@@ -131,7 +155,8 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
     position.prep === null &&
     (position.incident.phase === 'none'
       ? (conversational(position) && input.conversationHeld !== true) ||
-        speakingNow(input)
+        speakingNow(input) ||
+        opensForClock(input)
       : holdsTheFloor(input));
   return {
     publish: publishSources(

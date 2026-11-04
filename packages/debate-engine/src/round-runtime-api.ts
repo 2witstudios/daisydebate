@@ -1,3 +1,4 @@
+import type { StartGateEvent } from './round-start-gate';
 import type { RoundAdjudication } from './round-adjudication';
 import type { IncidentEvent } from './round-incident';
 import type {
@@ -31,6 +32,8 @@ export type RoundRuntime = {
   }) => RoundProjection;
   /** A server-detected platform incident moving the Round's hold; no player reaches this. */
   readonly applyIncident: (event: IncidentEvent) => RoundProjection;
+  /** Capture's readiness for the coming speech; a late start is the clock's own. */
+  readonly applyStartGate: (event: StartGateEvent) => RoundProjection;
   /** Advances time alone, projecting whatever the clock moved. */
   readonly tick: (now: string) => RoundProjection;
   /** The current checkpoint. */

@@ -42,6 +42,7 @@ import {
   stageOf,
 } from './round-position-projection';
 import { incidentTransition } from './round-incident';
+import { startGateTransition } from './round-start-gate';
 import { debateInvariantIds } from './invariant-ids';
 import {
   captureRoundStore,
@@ -332,6 +333,19 @@ export function createRoundRuntime(input: {
       const c = contextOn(scratch, into, null, Date.parse(at));
       startRound(c);
       advance(scratch, into, Date.parse(now));
+      store = scratch;
+      return project(into);
+    },
+    applyStartGate(event): RoundProjection {
+      const scratch = restoreRoundStore(capture(store));
+      const into = queues();
+      advance(scratch, into, event.atMs);
+      transitionOn(
+        scratch,
+        into,
+        startGateTransition(capture(scratch), rules.countdownMs, event),
+      );
+      advance(scratch, into, event.atMs);
       store = scratch;
       return project(into);
     },

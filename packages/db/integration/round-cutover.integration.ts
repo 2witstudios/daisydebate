@@ -17,6 +17,7 @@ const checkpoint = {
   active_prep: null,
   floor: null,
   incident: { phase: 'none' as const },
+  start_gate: null,
   clock_stops: [],
 };
 
