@@ -81,6 +81,9 @@ test('physical paused TCP reader closes4005, preserves healthy delivery and catc
     // Transport-only pressure, never a second authority predicate or synthetic buffer.
     // The subsequent real durable row takes the actual authorization/drain/sink path.
     await fillNativeBuffer(native, pressureFrame);
+    // A real durable write yields to the transport. Pressure must survive that gap,
+    // not disappear into the paused reader's kernel receive queue (PR 667 CI).
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
     const physicalBuffered = native.getBufferedAmount();
     position = await insertOutboxRow(fixture.client, {
       topic,
