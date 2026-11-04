@@ -14,27 +14,16 @@ import {
 } from './authorization-fence';
 import { groupInvitationAuthorizationInput } from './group-invitation-composition';
 import {
+  messagingInboxSearchLine,
   messagingInboxPreviewMax,
   messagingInboxTitleMax,
 } from '@daisy/protocol';
-type SummarizedKind =
-  | 'conversation'
-  | 'group_conversation'
-  | 'incoming_request'
-  | 'outgoing_request';
-export type MessagingInboxEntry =
-  | {
-      readonly channelId: string;
-      readonly kind: SummarizedKind;
-      readonly title: string | null;
-      readonly preview: {
-        readonly text: string;
-        readonly fromSelf: boolean;
-      } | null;
-      readonly activityAt: string;
-      readonly unread: boolean;
-    }
-  | { readonly channelId: string; readonly kind: 'incoming_invitation' };
+import { byAttention, type MessagingInboxEntry } from './inbox-view';
+export type { MessagingInboxEntry } from './inbox-view';
+type SummarizedKind = Exclude<
+  MessagingInboxEntry['kind'],
+  'incoming_invitation'
+>;
 
 type InboxAuthority =
   | {
@@ -119,12 +108,22 @@ export function summarizeMessagingInboxEntry(
   };
 }
 
-/** Invitations await a decision, so they lead; then newest activity first. */
-const byAttention = (a: MessagingInboxEntry, b: MessagingInboxEntry) =>
-  a.kind === 'incoming_invitation' || b.kind === 'incoming_invitation'
-    ? Number(b.kind === 'incoming_invitation') -
-      Number(a.kind === 'incoming_invitation')
-    : b.activityAt.localeCompare(a.activityAt);
+/**
+ * Whether a final rendered entry shows the search: its title or its one-line
+ * preview, exactly as a reader sees them, clipped tail and all. An invitation
+ * shows nothing to find.
+ */
+export function messagingInboxEntryMatches(
+  entry: MessagingInboxEntry,
+  search: string,
+): boolean {
+  if (entry.kind === 'incoming_invitation') return false;
+  const needle = messagingInboxSearchLine(search).toLowerCase();
+  return [entry.title, entry.preview?.text].some(
+    (shown) => shown?.toLowerCase().includes(needle) === true,
+  );
+}
+
 type InboxDecision = {
   readonly kind: MessagingInboxEntry['kind'];
   readonly summary: {

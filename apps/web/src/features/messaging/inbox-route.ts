@@ -59,14 +59,17 @@ export function composeMessagingInboxRoute(app: App) {
       readInput: async () => {
         const params = new URL(request.url).searchParams;
         if (
-          [...params.keys()].some((key) => key !== 'after') ||
-          params.getAll('after').length > 1
+          [...params.keys()].some((key) => key !== 'after' && key !== 'q') ||
+          params.getAll('after').length > 1 ||
+          params.getAll('q').length > 1
         )
           throw createAppError('VALIDATION');
         const after = params.get('after');
+        const q = params.get('q');
         return parseValidated(schemas.query, {
           version: 1,
           ...(after === null ? {} : { after }),
+          ...(q === null ? {} : { q }),
         });
       },
       operation: async (value, principal) => {
@@ -75,6 +78,7 @@ export function composeMessagingInboxRoute(app: App) {
         const result = await inboxOf(app, principal).read({
           limit: policy.bounds.pageItems,
           ...(query.after === undefined ? {} : { after: query.after }),
+          ...(query.q === undefined ? {} : { search: query.q }),
         });
         return schemas.result.parse({ version: 1, ...result });
       },

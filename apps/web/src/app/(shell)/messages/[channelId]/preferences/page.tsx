@@ -1,3 +1,4 @@
+import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -29,8 +30,7 @@ export default async function PreferencePage({
     : null;
   const state = result?.success ? result.data.state : null;
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <h1>Conversation preferences</h1>
+    <ConversationPane title="Conversation preferences">
       {result?.success ? (
         <>
           <p>Unread messages: {result.data.unread}</p>
@@ -47,6 +47,6 @@ export default async function PreferencePage({
         action={changePreferenceAction.bind(null, channelId)}
       />
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
-    </main>
+    </ConversationPane>
   );
 }

@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   channelMessagesWindow,
   createChannelMessagesProjector,
-  type ChannelMessageRecord,
+  type ChannelHistoryRecord,
 } from './channel-messages';
 
 setupRitewayBun();
@@ -10,7 +10,7 @@ const channelId = 'c'.repeat(24);
 const record = (
   sequence: number,
   text: string | null = `m${sequence}`,
-): ChannelMessageRecord => ({
+): ChannelHistoryRecord => ({
   id: `m${String(sequence).padStart(23, '0')}`,
   channelId,
   authorActorId: 'a'.repeat(24),
@@ -20,6 +20,7 @@ const record = (
   createdAt: '2026-10-28T00:00:00.000Z',
   editedAt: null,
   removedAt: null,
+  reactions: [],
 });
 const project = createChannelMessagesProjector({
   messageUnits: 4000,
@@ -63,6 +64,60 @@ describe('channel messages projector', () => {
         changeVersion: 1,
         unavailable: true,
       },
+    });
+  });
+  test('shared reaction counts', () => {
+    const reactions = [{ reaction: '\u{1F44D}', count: 2 }];
+    const page = project({
+      channelId,
+      changeVersion: 3,
+      records: [
+        { ...record(2), reactions },
+        { ...record(1), reactions, removedAt: '2026-10-28T00:00:01.000Z' },
+      ],
+      limit: 50,
+    });
+    assert({
+      given: 'a live and a removed message with reactions',
+      should: 'share counts on the live one and nothing on the removed one',
+      actual: page.messages.map((message) =>
+        'reactions' in message ? message.reactions : 'bare',
+      ),
+      expected: [reactions, 'bare'],
+    });
+    assert({
+      given: 'the shared body',
+      should: 'name no reactor and no own mark',
+      actual: /own|actorId/.test(
+        JSON.stringify(
+          page.messages.map((message) =>
+            'reactions' in message ? message.reactions : [],
+          ),
+        ),
+      ),
+      expected: false,
+    });
+  });
+  test('reactions count against the byte budget', () => {
+    const reactions = Array.from({ length: 200 }, (_, n) => ({
+      reaction: `r${n}`,
+      count: 1,
+    }));
+    const page = project({
+      channelId,
+      changeVersion: 60,
+      records: newestFirst(50).map((item) => ({ ...item, reactions })),
+      ...channelMessagesWindow,
+      byteBudget: 16 * 1024,
+    });
+    assert({
+      given: 'more reactions than the budget holds',
+      should: 'end the page at a complete message and continue from it',
+      actual: [
+        page.messages.length < 50,
+        page.nextBefore?.sequence === page.messages.at(-1)?.sequence,
+      ],
+      expected: [true, true],
     });
   });
   test('byte budget', () => {

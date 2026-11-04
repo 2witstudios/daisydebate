@@ -4,8 +4,19 @@ import { InboxEmpty } from './inbox-empty';
 
 setupRitewayBun();
 
+test('nothing open prompts for a conversation', () => {
+  assert({
+    given: 'conversations in the list and none open',
+    should: 'prompt for one',
+    actual: renderToStaticMarkup(<InboxEmpty hasConversations />).includes(
+      'Pick a conversation</h2>',
+    ),
+    expected: true,
+  });
+});
+
 test('an empty inbox offers one clear way to start a conversation', () => {
-  const html = renderToStaticMarkup(<InboxEmpty />);
+  const html = renderToStaticMarkup(<InboxEmpty hasConversations={false} />);
   assert({
     given: 'an inbox with no conversations',
     should: 'title the state and link the one action that fills it',

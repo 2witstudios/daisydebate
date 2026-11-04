@@ -12,7 +12,7 @@ export async function durableMessages(page: Page, channelId: string) {
   return createMessagingCoreSchemas({
     messageUnits: messagingBetaLimits.messageUnits,
     pageItems: 100,
-  }).historyResult.parse(await response.json());
+  }).viewedHistoryResult.parse(await response.json());
 }
 
 export async function durableMessage(
@@ -30,7 +30,7 @@ export async function durableMessage(
 
 export async function composerRequestId(page: Page) {
   return page
-    .getByLabel('Your message')
+    .getByRole('textbox', { name: 'Your message', exact: true })
     .locator('xpath=ancestor::form')
     .locator('input[name="requestId"]')
     .inputValue();
@@ -60,11 +60,15 @@ export async function completedSend(
   await expect(page).toHaveURL(
     `${new URL(page.url()).origin}/messages/${channelId}?sent=${id}`,
   );
-  await expect(page.getByLabel('Your message')).toBeEnabled();
+  await expect(
+    page.getByRole('textbox', { name: 'Your message', exact: true }),
+  ).toBeEnabled();
   await expect(
     page.getByRole('button', { name: 'Send message', exact: true }),
   ).toBeEnabled();
-  await expect(page.getByLabel('Your message')).toHaveValue('');
+  await expect(
+    page.getByRole('textbox', { name: 'Your message', exact: true }),
+  ).toHaveValue('');
   expect(await composerRequestId(page)).not.toBe(requestId);
   const message = await durableMessage(page, channelId, text);
   expect(message.id).toBe(id);

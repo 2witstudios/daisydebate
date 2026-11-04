@@ -1,11 +1,10 @@
+import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { systemId } from '@daisy/clock';
 import { idSchema, messagingDmResultSchema } from '@daisy/protocol';
 import { requireAccess } from '../../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../../features/messaging/channel-page';
-import { PageHeader } from '../../../../../../ui/components/page-header/page-header';
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';
 import { GET } from '../../../../../api/messaging/requests/[channelId]/status/route';
 import { GET as PREVIEW } from '../../../../../api/messaging/requests/[channelId]/route';
@@ -37,11 +36,7 @@ export default async function SentRequestPage({
   if (!pending && (await recipientCanOpen(id.data)))
     redirect(`/messages/requests/${id.data}`);
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-      <PageHeader
-        title="Sent request"
-        actions={<Link href="/messages">Back to messages</Link>}
-      />
+    <ConversationPane title="Sent request">
       {pending ? (
         <>
           <p>Your message request is waiting for a response.</p>
@@ -57,7 +52,7 @@ export default async function SentRequestPage({
           messages for its current status.
         </p>
       )}
-    </main>
+    </ConversationPane>
   );
 }
 

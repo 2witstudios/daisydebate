@@ -69,9 +69,17 @@ function readWire() {
     history: async (query) => {
       calls.push(['history', query]);
       return {
-        messages: [messages[0]!, messages[2]!, messages[1]!],
+        messages: [messages[0]!, messages[2]!, messages[1]!].map((message) => ({
+          ...message,
+          reactions: [],
+        })),
         changeVersion: 20,
         nextBefore: { channelId: f.channel.channelId, sequence: 2 },
+        viewer: {
+          readSequence: 0,
+          firstUnreadSequence: null,
+          ownReactions: [],
+        },
       };
     },
     changes: async (query) => {
@@ -162,6 +170,7 @@ test('history and search preserve protected adapter scope while removed records 
         sequence: 9,
         changeVersion: 11,
         text: 'Current reply',
+        reactions: [],
         createdAt: f.now,
         editedAt: null,
         replyToMessageId: 'r'.repeat(24),

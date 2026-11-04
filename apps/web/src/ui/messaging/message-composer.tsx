@@ -13,7 +13,7 @@ import {
   useConversationCommand,
   useConversationCompletion,
 } from './conversation-navigation';
-import { Button } from '../components/button/button';
+import { Icon } from '../components/icon/icon';
 import {
   messageFormUnavailable,
   type MessageFormState,
@@ -25,6 +25,8 @@ type ComposerProps = {
   readonly maxUnits: number;
   /** The last message the reader saw; a native send marks it read (ISSUE-606). */
   readonly readThrough?: number | null;
+  /** The field's empty line: who this goes to. */
+  readonly placeholder?: string;
 };
 
 /**
@@ -33,9 +35,14 @@ type ComposerProps = {
  * and every server render issues a new ID.
  */
 export function MessageComposer(props: ComposerProps) {
-  const { requestId, generation } = useConversationCommand();
+  const { requestId, generation, restoreFocus } = useConversationCommand();
   return (
-    <MessageComposerForm {...props} key={generation} requestId={requestId} />
+    <MessageComposerForm
+      {...props}
+      key={generation}
+      requestId={requestId}
+      restoreFocus={restoreFocus}
+    />
   );
 }
 
@@ -45,7 +52,12 @@ function MessageComposerForm({
   channelId,
   maxUnits,
   readThrough,
-}: ComposerProps & { readonly requestId: string }) {
+  placeholder,
+  restoreFocus,
+}: ComposerProps & {
+  readonly requestId: string;
+  readonly restoreFocus: boolean;
+}) {
   const dispatch = useConversationAction(action);
   const [answer, post, pending] = useFormAction(
     dispatch,
@@ -75,39 +87,60 @@ function MessageComposerForm({
   return (
     <form
       action={post}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4"
+      className="flex shrink-0 flex-col gap-1 px-6 pb-4 max-narrow:px-4"
     >
       <input type="hidden" name="requestId" value={answer.requestId} />
       {readThrough == null ? null : (
         <input type="hidden" name="readThrough" value={readThrough} />
       )}
-      <label htmlFor="message-text" className="text-sm font-semibold">
-        Your message
-      </label>
-      <CountedTextarea
-        key={answer.text}
-        id="message-text"
-        name="text"
-        defaultValue={answer.text}
-        maxUnits={maxUnits}
-        required
-        disabled={pending || answer.next !== undefined}
-        rows={4}
-        onInput={(event) => {
-          void typing.current?.activity(event.currentTarget.value.length > 0);
-        }}
-        onBlur={() => {
-          void typing.current?.activity(false);
-        }}
-        className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink disabled:opacity-60"
-        describedBy={answer.notice ? 'message-notice' : undefined}
-      />
-      <DraftNotice id="message-notice" notice={answer.notice} />
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending || answer.next !== undefined}>
-          {pending ? 'Sending…' : 'Send message'}
-        </Button>
+      <div className="flex flex-wrap items-end gap-1 rounded-md border border-border bg-surface-raised p-1 focus-within:border-border-strong hover:border-border-strong">
+        <label htmlFor="message-text" className="sr-only">
+          Your message
+        </label>
+        <CountedTextarea
+          key={answer.text}
+          id="message-text"
+          name="text"
+          defaultValue={answer.text}
+          maxUnits={maxUnits}
+          required
+          autoFocus={restoreFocus}
+          disabled={pending || answer.next !== undefined}
+          rows={1}
+          placeholder={placeholder}
+          onKeyDown={(event) => {
+            // Enter sends; Shift+Enter is a new line, and Enter confirming an
+            // input method's composition belongs to that composition.
+            if (
+              event.key !== 'Enter' ||
+              event.shiftKey ||
+              event.nativeEvent.isComposing
+            )
+              return;
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+          }}
+          onInput={(event) => {
+            void typing.current?.activity(event.currentTarget.value.length > 0);
+          }}
+          onBlur={() => {
+            void typing.current?.activity(false);
+          }}
+          className="field-sizing-content max-h-composer-max min-w-0 flex-1 resize-none bg-transparent px-2 py-2 leading-normal text-ink placeholder:text-ink-muted disabled:opacity-60"
+          describedBy={answer.notice ? 'message-notice' : undefined}
+          countClassName="order-last basis-full px-2 pb-1"
+        />
+        <button
+          type="submit"
+          disabled={pending || answer.next !== undefined}
+          aria-label={pending ? 'Sending…' : 'Send message'}
+          title="Send message"
+          className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-sm bg-accent text-accent-ink hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Icon name="send" />
+        </button>
       </div>
+      <DraftNotice id="message-notice" notice={answer.notice} />
     </form>
   );
 }

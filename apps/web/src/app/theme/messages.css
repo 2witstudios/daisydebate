@@ -1,0 +1,89 @@
+/* Messages' own sizes (ADR 0028). The page takes the whole viewport between the
+   rails: `main` becomes a column, whatever sits above the frame (the room bar,
+   notices) takes its own height, and the frame takes the rest. Panes scroll on
+   their own; the page does not. */
+@theme {
+  --spacing-conversation-list: 300px;
+  --spacing-pane-header: 56px;
+  --spacing-typing-row: 24px;
+  --spacing-message-gutter: 36px;
+  --spacing-composer-max: 160px;
+  --container-message: 72ch;
+  --text-message-time: 0.625rem;
+}
+
+.area-main:has(.messages-frame) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+
+  @media (width < 641px) {
+    height: calc(100dvh - var(--spacing-tab-bar) - env(safe-area-inset-bottom));
+  }
+}
+
+@utility messages-frame {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Below compact one pane shows, chosen by what the route rendered, so it is
+   right before any script runs. A route with something to read marks it. */
+@utility messages-list-pane {
+  @media (width < 901px) {
+    .messages-frame:has([data-open-pane]) & {
+      display: none;
+    }
+    .messages-frame:not(:has([data-open-pane])) & {
+      flex: 1 1 0;
+      width: auto;
+    }
+  }
+}
+
+@utility messages-open-pane {
+  @media (width < 901px) {
+    .messages-frame:not(:has([data-open-pane])) & {
+      display: none;
+    }
+  }
+}
+
+/* A message's tools stay in the tree and reachable: they appear on hover or
+   focus, and stay shown where a pointer cannot hover. */
+@utility message-tools {
+  opacity: 0;
+
+  .message-row:hover &,
+  .message-row:focus-within &,
+  &:focus-within {
+    opacity: 1;
+  }
+
+  @media (pointer: coarse) {
+    opacity: 1;
+  }
+}
+
+@utility message-row {
+  position: relative;
+}
+
+@utility message-run-time {
+  opacity: 0;
+
+  .message-row:hover &,
+  .message-row:focus-within & {
+    opacity: 1;
+  }
+}
+
+/* Newest stays in view with no script: the reversed column starts at its end. */
+@utility message-scroller {
+  display: flex;
+  flex-direction: column-reverse;
+  overflow-anchor: none;
+}

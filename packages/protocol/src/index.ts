@@ -246,6 +246,7 @@ export type {
 // Persistent messaging contracts; bounds come from the owning policy.
 export {
   createMessagingCoreSchemas,
+  messagingReactionMaxUnits,
   messagingBetaLimits,
 } from './messaging/core';
 export type { MessagingCoreBounds } from './messaging/core';
@@ -303,6 +304,9 @@ export { createMessagingFileSchemas } from './messaging/files';
 
 export {
   createMessagingInboxSchemas,
+  decodeMessagingInboxCursor,
+  encodeMessagingInboxCursor,
+  messagingInboxSearchLine,
   messagingInboxPreviewMax,
   messagingInboxTitleMax,
 } from './messaging/inbox';
@@ -319,6 +323,7 @@ export { messagingTypingSchemas } from './messaging/typing';
 
 export {
   createMessagingReactionSchemas,
+  createMessagingReactionResultSchema,
   type MessagingReactionPolicy,
 } from './messaging/reactions';
 
@@ -479,11 +484,15 @@ export type {
   ObservationResourceKind,
 } from './observation';
 export {
+  channelHistoryView,
   channelMessageView,
   channelMessagesWindow,
   createChannelMessagesProjector,
 } from './messaging/channel-messages';
-export type { ChannelMessageRecord } from './messaging/channel-messages';
+export type {
+  ChannelHistoryRecord,
+  ChannelMessageRecord,
+} from './messaging/channel-messages';
 export {
   analyticsConsentSchema,
   type AnalyticsConsent,

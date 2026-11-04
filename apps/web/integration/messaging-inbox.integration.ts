@@ -145,9 +145,13 @@ test('real own collection projects pending direction through fresh request grant
     );
     assert({
       given: 'a full page whose only candidate is now denied',
-      should: 'show nothing yet continue after the scanned candidate',
+      should:
+        'show nothing and continue without disclosing the denied activity',
       actual: await inbox(recipient).read({ limit: 1 }),
-      expected: { entries: [], nextAfter: fixture.channelId },
+      expected: {
+        entries: [],
+        nextAfter: `withheld~${fixture.channelId}`,
+      },
     });
     await fixture.eraseSubject(sender.actorId);
     assert({

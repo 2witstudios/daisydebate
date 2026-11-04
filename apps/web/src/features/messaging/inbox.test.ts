@@ -4,6 +4,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import {
   decideMessagingInboxCandidate,
   messagingInboxEntries,
+  messagingInboxEntryMatches,
   messagingInboxExcerpt,
   messagingInboxView,
   summarizeMessagingInboxEntry,
@@ -263,5 +264,51 @@ test("a reader's own grant decides the entry kind, fence and content", () => {
     should: 'name the low actor as the counterpart',
     actual: messagingInboxView(dm('accepted', me), them).counterpartActorId,
     expected: me,
+  });
+});
+
+test('a search matches only what a rendered row shows', () => {
+  const entry = (title: string | null, text: string | null) =>
+    ({
+      channelId: 'c'.repeat(24),
+      kind: 'conversation',
+      title,
+      preview: text === null ? null : { text, fromSelf: false },
+      activityAt: '2026-11-04T10:00:00.000Z',
+      unread: false,
+    }) as const;
+  const clipped = messagingInboxExcerpt(`${'a'.repeat(119)}TAIL`)!;
+  for (const [given, shown, search, expected] of [
+    ['the title', entry('mara_quinn', null), 'QUINN', true],
+    ['the preview', entry('x', 'Hungary card'), 'hungary', true],
+    [
+      'collapsed whitespace',
+      entry('x', 'Hungary card'),
+      ' hungary \n card',
+      true,
+    ],
+    ['a clipped tail', entry('x', clipped), 'TAIL', false],
+    [
+      'the character behind the ellipsis',
+      entry('x', clipped),
+      `${'a'.repeat(119)}T`,
+      false,
+    ],
+    ['nothing shown', entry(null, null), 'x', false],
+  ] as const)
+    assert({
+      given,
+      should: expected ? 'match' : 'not match',
+      actual: messagingInboxEntryMatches(shown, search),
+      expected,
+    });
+  assert({
+    given: 'an invitation, which shows nothing',
+    should: 'never match',
+    actual: messagingInboxEntryMatches(
+      { channelId: 'c'.repeat(24), kind: 'incoming_invitation' },
+      'group',
+    ),
+    expected: false,
   });
 });

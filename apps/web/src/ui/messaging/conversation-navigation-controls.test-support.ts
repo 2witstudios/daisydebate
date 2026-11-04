@@ -10,7 +10,8 @@ async function clickLink(
   ctrlKey = false,
 ) {
   const link = [...host.querySelectorAll('a')].find(
-    (candidate) => candidate.textContent === text,
+    (candidate) =>
+      (candidate.getAttribute('aria-label') ?? candidate.textContent) === text,
   )!;
   await act(async () => {
     link.dispatchEvent(

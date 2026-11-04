@@ -94,7 +94,11 @@ export async function runMessagingNavigationProbe(
       <StrictMode>
         <AppRouterContext.Provider value={route}>
           <ConversationNavigation key={key} requestId={requestId}>
-            <MessageHistory history={history} actorId="actor" />
+            <MessageHistory
+              history={history}
+              actorId="actor"
+              now="2026-11-01T00:00:00.000Z"
+            />
             <ConversationLink
               href="/messages/channel/preferences"
               target={scenario === 'new-tab' ? '_blank' : undefined}
@@ -137,7 +141,12 @@ export async function runMessagingNavigationProbe(
         }
       : undefined;
   await submitComposer(field, started.promise);
-  const pending = field.disabled && host.textContent!.includes('Sending…');
+  const pending =
+    field.disabled &&
+    host
+      .querySelector('button[type="submit"]')!
+      .getAttribute('aria-label')!
+      .includes('Sending…');
   if (scenario === 'search-disposed' || scenario === 'search-replaced') {
     await act(async () => {
       host.querySelector('form')!.requestSubmit();

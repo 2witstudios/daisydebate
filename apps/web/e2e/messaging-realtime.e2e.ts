@@ -17,6 +17,7 @@ import type { ServerMessage } from '@daisy/protocol';
 import { manageNativePreferences } from './support/messaging-preferences';
 import { attachNativeMessageFile } from './support/messaging-attachments';
 import { testProfileMessageEntry } from './support/messaging-profile-entry';
+import { testMessagesPage } from './support/messages-page';
 import { serverMessageSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import {
@@ -39,6 +40,7 @@ testEditCompletionWindow();
 testMessagingHistoryCompletion();
 testMessagingUnknownCommit();
 testProfileMessageEntry();
+testMessagesPage();
 
 test('an authenticated DM message reaches the other real browser as an observed snapshot', async ({
   browser,
@@ -91,7 +93,9 @@ test('an authenticated DM message reaches the other real browser as an observed 
     await expect.poll(() => ready).toBe(true);
     await proveNativeTyping(sender, recipient, journey.channelId, typingHints);
     const text = 'Delivered through a real authenticated socket';
-    await recipient.getByLabel('Your message').fill(text);
+    await recipient
+      .getByRole('textbox', { name: 'Your message', exact: true })
+      .fill(text);
     await recipient
       .getByRole('button', { name: 'Send message', exact: true })
       .click();
@@ -117,7 +121,9 @@ const replyText = 'Native browser DM history';
 /** An accepted DM whose recipient has replied, with the sender's page open. */
 const repliedDm = async (journey: DmJourney) => {
   const recipient = await acceptMessagingJourney(journey);
-  await recipient.getByLabel('Your message').fill(replyText);
+  await recipient
+    .getByRole('textbox', { name: 'Your message', exact: true })
+    .fill(replyText);
   await recipient
     .getByRole('button', { name: 'Send message', exact: true })
     .click();
@@ -266,6 +272,9 @@ for (const javaScriptEnabled of [true, false]) {
       );
       expect([403, 404]).toContain(foreignSearch.status());
       await sender
+        .getByLabel('Search this conversation', { exact: true })
+        .click();
+      await sender
         .getByRole('searchbox', { name: 'Search messages' })
         .fill('browser');
       await sender.getByRole('button', { name: 'Search', exact: true }).click();
@@ -304,14 +313,14 @@ for (const javaScriptEnabled of [true, false]) {
         'Contact blocked.',
       );
       await sender
-        .getByLabel('Your message')
+        .getByRole('textbox', { name: 'Your message', exact: true })
         .fill('Retained retry after unblock');
       await sender
         .getByRole('button', { name: 'Send message', exact: true })
         .click();
-      await expect(sender.getByLabel('Your message')).toHaveValue(
-        'Retained retry after unblock',
-      );
+      await expect(
+        sender.getByRole('textbox', { name: 'Your message', exact: true }),
+      ).toHaveValue('Retained retry after unblock');
       await expect(sender.getByRole('status')).toHaveText(
         'You cannot send to this conversation now. Your draft is kept.',
       );
@@ -363,7 +372,9 @@ for (const javaScriptEnabled of [true, false]) {
         new RegExp(`/messages/${journey.channelId}$`),
       );
       const text = 'Native admitted private group history';
-      await invited.getByLabel('Your message').fill(text);
+      await invited
+        .getByRole('textbox', { name: 'Your message', exact: true })
+        .fill(text);
       await invited
         .getByRole('button', { name: 'Send message', exact: true })
         .click();
@@ -404,7 +415,12 @@ for (const javaScriptEnabled of [true, false]) {
           .getByRole('list', { name: 'Message history' })
           .getByText(text, { exact: true }),
       ).toHaveCount(1);
-      await creator.goto('/messages');
+      await creator
+        .getByRole('list', { name: 'Conversations' })
+        .getByRole('link', { name: /^Group / })
+        .first()
+        .click();
+      await creator.getByLabel('Conversation options', { exact: true }).click();
       await creator
         .getByRole('link', { name: 'Group membership', exact: true })
         .click();

@@ -1,10 +1,15 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type ChannelMessageRecord } from '@daisy/protocol';
+import { idSchema, type ChannelHistoryRecord } from '@daisy/protocol';
 
 /** The owner's header batch ceiling, matching the SQL function's slice. */
 const OBSERVATION_HEADER_BATCH = 1024;
+/** Shared counts only: the function returns no reactor, so none can be sent. */
+const reactionCounts = z.array(
+  z.object({ reaction: z.string(), count: z.number().int().positive() }),
+);
 const revision = (value: unknown) => {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < 0)
@@ -67,7 +72,7 @@ export function channelObservationReads(
       )) as unknown as Array<Record<string, unknown>>;
       const header = rows[0];
       if (!header) return null;
-      const records: ChannelMessageRecord[] = rows.flatMap((row) =>
+      const records: ChannelHistoryRecord[] = rows.flatMap((row) =>
         row.id === null || row.id === undefined
           ? []
           : [
@@ -81,6 +86,7 @@ export function channelObservationReads(
                 createdAt: iso(row.created_at)!,
                 editedAt: iso(row.edited_at),
                 removedAt: iso(row.removed_at),
+                reactions: reactionCounts.parse(row.reactions ?? []),
                 ...(row.reply_to_message_id === null
                   ? {}
                   : { replyToMessageId: String(row.reply_to_message_id) }),

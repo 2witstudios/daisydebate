@@ -244,6 +244,14 @@ export const iconPaths: Record<string, ReactNode> = {
   ),
   hash: <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  edit: <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />,
+  smile: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+      <path d="M9 9h.01M15 9h.01" />
+    </>
+  ),
   close: <path d="M18 6 6 18M6 6l12 12" />,
   'chevron-down': <path d="m6 9 6 6 6-6" />,
   send: (

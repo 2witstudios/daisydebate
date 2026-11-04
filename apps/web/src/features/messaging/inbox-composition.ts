@@ -15,6 +15,7 @@ import { readMessagingInboxSummary } from '@daisy/db/messaging';
 import {
   decideMessagingInboxCandidate,
   messagingInboxEntries,
+  messagingInboxEntryMatches,
   messagingInboxView,
   summarizeMessagingInboxEntry,
   type MessagingInboxEntry,
@@ -53,6 +54,7 @@ export function composeMessagingInbox(input: {
   const read = async (page: {
     readonly limit: number;
     readonly after?: string;
+    readonly search?: string;
   }) => {
     const now = input.clock.now();
     const result = await input.database.messagingInboxPage(
@@ -73,8 +75,16 @@ export function composeMessagingInbox(input: {
         summaryOf: (decision) => decision.summary,
       },
     );
+    const entries = messagingInboxEntries(result.entries);
+    const { search } = page;
     return {
-      entries: messagingInboxEntries(result.entries),
+      // The answer rechecks what it will render, from this page's fenced read.
+      entries:
+        search === undefined
+          ? entries
+          : entries.filter((entry) =>
+              messagingInboxEntryMatches(entry, search),
+            ),
       nextAfter: result.nextAfter,
     };
   };

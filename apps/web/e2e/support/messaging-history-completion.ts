@@ -43,7 +43,9 @@ async function openEarlierMessages(journey: Journey, from: 'page' | 'sent') {
     await page.goto(`/messages/${journey.channelId}`);
     await effectsRan(page);
     const landedId = await composerRequestId(page);
-    await page.getByLabel('Your message').fill('Landed on sent');
+    await page
+      .getByRole('textbox', { name: 'Your message', exact: true })
+      .fill('Landed on sent');
     await page
       .getByRole('button', { name: 'Send message', exact: true })
       .click();
@@ -91,7 +93,9 @@ export function testMessagingHistoryCompletion() {
         const text = `Send before Earlier messages ${first}`;
         await beginHeldSend(page, held, text);
         const sent = await durableMessage(page, journey.channelId, text);
-        await expect(page.getByLabel('Your message')).toBeDisabled();
+        await expect(
+          page.getByRole('textbox', { name: 'Your message', exact: true }),
+        ).toBeDisabled();
         const earlier = page.getByRole('link', {
           name: 'Earlier messages',
           exact: true,
@@ -102,7 +106,9 @@ export function testMessagingHistoryCompletion() {
         ).toString();
         await earlier.click();
         await expect.poll(() => held!.state.navigationReady).toBe(true);
-        await expect(page.getByLabel('Your message')).toBeDisabled();
+        await expect(
+          page.getByRole('textbox', { name: 'Your message', exact: true }),
+        ).toBeDisabled();
         if (first === 'send') {
           await held.releaseSend();
           await held.releaseNavigation();
@@ -121,10 +127,14 @@ export function testMessagingHistoryCompletion() {
         await expect(send).toBeEnabled();
         await expect(page).toHaveURL(destination);
         expect(held.state.sentDestinations).toBe(0);
-        await expect(page.getByLabel('Your message')).toHaveValue('');
+        await expect(
+          page.getByRole('textbox', { name: 'Your message', exact: true }),
+        ).toHaveValue('');
         const freshId = await composerRequestId(page);
         expect(freshId).not.toBe(oldId);
-        await page.getByLabel('Your message').fill('NEW');
+        await page
+          .getByRole('textbox', { name: 'Your message', exact: true })
+          .fill('NEW');
         await expect(send).toBeEnabled();
         // Only hold the first send; the second is an ordinary real Next completion.
         await page.unroute('**/messages/**', held.intercept);
@@ -181,7 +191,9 @@ export function testMessagingHistoryCompletion() {
       await expect(page.locator('#message-notice')).toHaveText(
         'Message could not be sent. Your draft is kept; try again.',
       );
-      await expect(page.getByLabel('Your message')).toHaveValue(text);
+      await expect(
+        page.getByRole('textbox', { name: 'Your message', exact: true }),
+      ).toHaveValue(text);
       expect(await composerRequestId(page)).toBe(requestId);
       expect(held.state.sentDestinations).toBe(0);
       // Its retry is the same command: one durable message, then a fresh composer.
@@ -189,7 +201,9 @@ export function testMessagingHistoryCompletion() {
       await page
         .getByRole('button', { name: 'Send message', exact: true })
         .click();
-      await expect(page.getByLabel('Your message')).toHaveValue('');
+      await expect(
+        page.getByRole('textbox', { name: 'Your message', exact: true }),
+      ).toHaveValue('');
       // The answer empties the field before the fresh command replaces the form.
       await expect(
         page.getByRole('button', { name: 'Send message', exact: true }),

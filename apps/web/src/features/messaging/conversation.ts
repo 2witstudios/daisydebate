@@ -22,10 +22,12 @@ export async function readConversationResponse(response: Response) {
     });
   if (!parsedBounds.success) throw createAppError('INFRASTRUCTURE');
   const bounds = parsedBounds.data;
-  const history = createMessagingCoreSchemas(bounds).historyResult.safeParse(
-    await response.json(),
-  );
-  if (!history.success) throw createAppError('INFRASTRUCTURE');
+  const viewed = createMessagingCoreSchemas(
+    bounds,
+  ).viewedHistoryResult.safeParse(await response.json());
+  if (!viewed.success) throw createAppError('INFRASTRUCTURE');
+  // The reader's own state stays apart from the page every member shares.
+  const { viewer, ...history } = viewed.data;
   const endpoint = response.headers.get('x-realtime-socket-url');
   const socketUrl =
     endpoint === null ? null : realtimePublicUrlSchema.parse(endpoint);
@@ -40,7 +42,8 @@ export async function readConversationResponse(response: Response) {
   if (recovery !== null && !recovery.success)
     throw createAppError('INFRASTRUCTURE');
   return {
-    history: history.data,
+    history,
+    viewer,
     bounds,
     socketUrl,
     typingRefetchMs: recovery?.data ?? null,
@@ -75,11 +78,29 @@ type ChannelEntry = ReturnType<
 export function conversationNames(entry: ChannelEntry | null): {
   readonly title: string;
   readonly otherAuthor: string;
+  /** The counterpart's public username: a DM's only, and never an erased one. */
+  readonly username: string | null;
+  readonly isGroup: boolean;
 } {
   if (entry === null || entry.kind === 'incoming_invitation')
-    return { title: 'Conversation', otherAuthor: 'Member' };
+    return {
+      title: 'Conversation',
+      otherAuthor: 'Member',
+      username: null,
+      isGroup: false,
+    };
   if (entry.kind === 'group_conversation')
-    return { title: entry.title ?? 'Untitled group', otherAuthor: 'Member' };
+    return {
+      title: entry.title ?? 'Untitled group',
+      otherAuthor: 'Member',
+      username: null,
+      isGroup: true,
+    };
   const name = entry.title === null ? 'Deleted account' : `@${entry.title}`;
-  return { title: name, otherAuthor: name };
+  return {
+    title: name,
+    otherAuthor: name,
+    username: entry.title,
+    isGroup: false,
+  };
 }

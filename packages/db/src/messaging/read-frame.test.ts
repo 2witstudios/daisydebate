@@ -25,10 +25,17 @@ const pageRow = (sequence: number, changeVersion: number, current = 8) => [
   ...row(sequence, changeVersion),
   current,
 ];
+/** A history row also carries its reactions from the same statement. */
+const historyRow = (
+  sequence: number,
+  changeVersion: number,
+  reactions: unknown = [],
+) => [...pageRow(sequence, changeVersion), reactions];
 
 test('protected history and changes preserve bounded pagination and authority-only cursor advancement', async () => {
   const { client, queries } = fakeSql([
-    [pageRow(3, 4), pageRow(2, 3), pageRow(1, 2)],
+    [historyRow(3, 4), historyRow(2, 3), historyRow(1, 2)],
+    [[1, 2]], // the reader's read position and first unread
     [pageRow(2, 6), pageRow(3, 7)],
     [pageRow(3, 7)],
     [[3]],
@@ -77,10 +84,10 @@ test('protected history and changes preserve bounded pagination and authority-on
       queries[0]?.query.includes('strpos(lower('),
       queries[0]?.params.includes(channelId),
       queries[0]?.query.includes('from "messaging_channel_streams"'),
-      queries[3]?.query.includes(
+      queries[4]?.query.includes(
         'where "messaging_actor_states"."read_sequence" <',
       ),
-      queries[3]?.query
+      queries[4]?.query
         .split('do update set')[1]
         ?.includes('notification_level'),
     ],
@@ -103,12 +110,73 @@ test('a page takes its high-water mark from the same statement as its rows (MSG-
       changesPage(empty, 2, 5, channelId),
     ],
     expected: [
-      { messages: [], changeVersion: 5, nextBefore: null },
+      { messages: [], ownReactions: [], changeVersion: 5, nextBefore: null },
       {
         messages: [],
         changeVersion: 5,
         nextAfter: { channelId, changeVersion: 5 },
       },
+    ],
+  });
+});
+test('a history page keeps own reactions apart from its shared counts', () => {
+  const page = historyPage(
+    [
+      {
+        message: {
+          id: 'm'.repeat(24),
+          channelId,
+          authorActorId: actorId,
+          sequence: 2,
+          changeVersion: 2,
+          text: 'Live',
+          replyToMessageId: null,
+          createdAt: new Date('2026-10-09T18:00:00Z'),
+          editedAt: null,
+          removedAt: null,
+        },
+        changeVersion: 3,
+        reactions: [
+          { reaction: 'A', count: 2, own: true },
+          { reaction: 'B', count: 1, own: false },
+        ],
+      },
+      {
+        message: {
+          id: 'n'.repeat(24),
+          channelId,
+          authorActorId: actorId,
+          sequence: 1,
+          changeVersion: 1,
+          text: null,
+          replyToMessageId: null,
+          createdAt: new Date('2026-10-09T18:00:00Z'),
+          editedAt: null,
+          removedAt: new Date('2026-10-09T18:00:01Z'),
+        },
+        changeVersion: 3,
+        reactions: [{ reaction: 'A', count: 1, own: true }],
+      },
+    ],
+    2,
+    channelId,
+  );
+  assert({
+    given: 'a live and a removed message the reader reacted to',
+    should: 'share counts only, and own marks only for the live one',
+    actual: [
+      page.messages.map((message) => message.reactions),
+      page.ownReactions,
+    ],
+    expected: [
+      [
+        [
+          { reaction: 'A', count: 2 },
+          { reaction: 'B', count: 1 },
+        ],
+        [],
+      ],
+      [{ messageId: 'm'.repeat(24), reactions: ['A'] }],
     ],
   });
 });

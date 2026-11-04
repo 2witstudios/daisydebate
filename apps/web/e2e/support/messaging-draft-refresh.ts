@@ -40,7 +40,10 @@ export function testDraftSurvivesRefresh() {
           refetches.push(request.url());
       });
       const draft = 'A reply still being written';
-      const composer = page.getByLabel('Your message');
+      const composer = page.getByRole('textbox', {
+        name: 'Your message',
+        exact: true,
+      });
       await composer.fill(draft);
       const form = composer.locator('xpath=ancestor::form');
       const requestId = await form
@@ -49,7 +52,9 @@ export function testDraftSurvivesRefresh() {
       const other = await openPage(journey.sender, 'the other member');
       await other.goto(`/messages/${channelId}`);
       const text = 'A message that arrives live';
-      await other.getByLabel('Your message').fill(text);
+      await other
+        .getByRole('textbox', { name: 'Your message', exact: true })
+        .fill(text);
       await other
         .getByRole('button', { name: 'Send message', exact: true })
         .click();

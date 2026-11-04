@@ -125,7 +125,7 @@ const historyEntry = {
 };
 
 test('history envelopes reject foreign channels and invalid sequence order', () => {
-  const message = historyEntry;
+  const message = { ...historyEntry, reactions: [] };
   const valid = {
     version: 1,
     channelId,
@@ -204,6 +204,47 @@ test('removed history entries carry cursor continuity without private content', 
       messages: [{ ...entry, text: 'Leaked' }],
     }).success,
     expected: false,
+  });
+});
+
+test('a shared history page refuses reader state; only an HTTP read carries it', () => {
+  const page = {
+    version: 1,
+    channelId,
+    changeVersion: 2,
+    messages: [{ ...historyEntry, reactions: [{ reaction: 'A', count: 2 }] }],
+    nextBefore: null,
+  };
+  const viewer = {
+    readSequence: 0,
+    firstUnreadSequence: 1,
+    ownReactions: [{ messageId: historyEntry.id, reactions: ['A'] }],
+  };
+  assert({
+    given: 'the viewer block on a shared page',
+    should: 'refuse it',
+    actual: schemas.historyResult.safeParse({ ...page, viewer }).success,
+    expected: false,
+  });
+  assert({
+    given: 'an own mark inside shared counts',
+    should: 'refuse it',
+    actual: schemas.historyResult.safeParse({
+      ...page,
+      messages: [
+        {
+          ...historyEntry,
+          reactions: [{ reaction: 'A', count: 2, own: true }],
+        },
+      ],
+    }).success,
+    expected: false,
+  });
+  assert({
+    given: 'the viewer block on an HTTP read',
+    should: 'accept it',
+    actual: schemas.viewedHistoryResult.safeParse({ ...page, viewer }).success,
+    expected: true,
   });
 });
 

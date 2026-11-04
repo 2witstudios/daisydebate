@@ -1,3 +1,4 @@
+import { channelMessagesWindow } from '@daisy/protocol';
 import { readAudienceForViewer } from '../features/spectating/audience-snapshot';
 import { readNotificationItems } from '../features/notifications/read-notifications';
 import { browserCaptureAttributes } from '../features/telemetry/browser-capture';
@@ -55,6 +56,17 @@ const requestSession = cache(async () =>
  */
 export const privateGroupsOffered = (): boolean =>
   processApp().messagingPolicy.privateGroups === 'isolated-test-fixture';
+
+/** The latest page a conversation reads: the live window, within this policy's page. */
+export const messagingLatestPageItems = (): number =>
+  Math.min(
+    channelMessagesWindow.limit,
+    processApp().messagingPolicy.bounds.pageItems,
+  );
+
+/** Whether this deployment has a file runtime; without one no file control shows. */
+export const messagingFilesAvailable = (): boolean =>
+  processApp().messagingFiles !== undefined;
 
 /** One archive page for this viewer, and how many Recordings are public. */
 export const readRecordingArchive = async (

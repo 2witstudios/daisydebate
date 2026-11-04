@@ -4,6 +4,7 @@ import type {
   MessagingReadFrame,
 } from '@daisy/db/messaging';
 import {
+  channelHistoryView,
   channelMessageView,
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
@@ -42,11 +43,11 @@ export function createMessagingReadOperations({
           : { before: command.before.sequence }),
         ...(command.query === undefined ? {} : { query: command.query }),
       });
-      return schemas.historyResult.parse({
+      return schemas.viewedHistoryResult.parse({
         version: 1,
         channelId: command.channelId,
         ...page,
-        messages: page.messages.map(channelMessageView),
+        messages: page.messages.map(channelHistoryView),
       });
     });
   return {

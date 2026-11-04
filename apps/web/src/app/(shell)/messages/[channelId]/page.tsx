@@ -5,13 +5,17 @@ import {
   ConversationSearchForm,
 } from '../../../../ui/messaging/conversation-navigation';
 import { notFound } from 'next/navigation';
-import { systemId } from '@daisy/clock';
+import { systemClock, systemId } from '@daisy/clock';
 import {
   createMessagingInboxSchemas,
   idSchema,
   messagingBetaLimits,
 } from '@daisy/protocol';
 import { requireAccess } from '../../../../lib/access';
+import {
+  messagingFilesAvailable,
+  messagingLatestPageItems,
+} from '../../../../lib/request-session';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   readConversationResponse,
@@ -20,7 +24,13 @@ import {
 } from '../../../../features/messaging/conversation';
 import { markReadUnavailableNotice } from '../../../../features/messaging/mark-read';
 import { Button } from '../../../../ui/components/button/button';
-import { PageHeader } from '../../../../ui/components/page-header/page-header';
+import { Icon } from '../../../../ui/components/icon/icon';
+import { ConversationOptions } from '../../../../ui/messaging/conversation-options';
+import { ConversationPane } from '../../../../ui/messaging/conversation-pane';
+import {
+  ConversationAvatar,
+  ConversationStatus,
+} from '../../../../ui/messaging/conversation-presence';
 import { ConversationLive } from '../../../../ui/messaging/conversation-live';
 import { MessageHistory } from '../../../../ui/messaging/message-history';
 import { MessageComposer } from '../../../../ui/messaging/message-composer';
@@ -28,6 +38,7 @@ import { GET } from '../../../api/messaging/channels/[channelId]/messages/route'
 import { GET as SEARCH } from '../../../api/messaging/channels/[channelId]/messages/search/route';
 import { GET as ENTRY } from '../../../api/messaging/channels/[channelId]/entry/route';
 import { markReadAction, sendMessageAction } from './actions';
+import { reactToMessageAction } from './reactions/actions';
 export const metadata = { title: 'Messages' };
 export default async function ConversationPage({
   params,
@@ -55,35 +66,41 @@ export default async function ConversationPage({
           searching: searchQuery !== undefined,
           paging: typeof query.before === 'string',
         });
+  const now = systemClock.now();
+  const filesAvailable = messagingFilesAvailable();
+  const paging = typeof query.before === 'string';
   return (
     <ConversationNavigation key={id.data} requestId={requestId}>
-      <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
-        <PageHeader
-          title={names.title}
-          lede="Private messages"
-          actions={<Link href="/messages">Back to messages</Link>}
-        />
-        <Link href={`/messages/${id.data}/preferences`}>
-          Conversation preferences
-        </Link>
+      <ConversationPane
+        bare
+        title={names.title}
+        lede={<ConversationStatus username={names.username} />}
+        leading={
+          <ConversationAvatar name={names.title} username={names.username} />
+        }
+        actions={
+          <>
+            {conversation === null ? null : (
+              <ConversationSearch
+                channelId={id.data}
+                maxUnits={conversation.bounds.messageUnits}
+                searchQuery={searchQuery ?? null}
+              />
+            )}
+            <ConversationOptions channelId={id.data} isGroup={names.isGroup} />
+          </>
+        }
+      >
         {conversation === null ? (
-          <p
-            role="status"
-            className="rounded-lg border border-border p-5 text-ink-muted"
-          >
+          <p role="status" className="flex-1 p-6 text-ink-muted">
             This conversation is unavailable. Refresh to try again.
           </p>
         ) : (
           <>
-            <ConversationSearch
-              channelId={id.data}
-              maxUnits={conversation.bounds.messageUnits}
-              searchQuery={searchQuery ?? null}
-            />
             {query.notice === markReadUnavailableNotice ? (
               // Only a no-JS reader posts the native form, so only they see it.
               <noscript>
-                <p role="status" className="text-ink-muted">
+                <p role="status" className="px-6 pt-2 text-ink-muted">
                   This conversation could not be marked read. Try again.
                 </p>
               </noscript>
@@ -94,6 +111,7 @@ export default async function ConversationPage({
                 <noscript>
                   <form
                     action={markReadAction.bind(null, id.data, readThrough)}
+                    className="px-6 pt-2"
                   >
                     <button type="submit" className="text-accent underline">
                       Mark as read
@@ -102,7 +120,7 @@ export default async function ConversationPage({
                 </noscript>
               </>
             )}
-            {searchQuery === undefined && typeof query.before !== 'string' ? (
+            {searchQuery === undefined && !paging ? (
               // The latest page is live on the tab's socket (ADR 0089).
               <ConversationLive
                 channelId={id.data}
@@ -111,6 +129,11 @@ export default async function ConversationPage({
                 otherAuthor={names.otherAuthor}
                 socketUrl={conversation.socketUrl}
                 typingRefetchMs={conversation.typingRefetchMs}
+                viewer={conversation.viewer}
+                now={now}
+                typingName={names.isGroup ? 'Someone' : names.otherAuthor}
+                filesAvailable={filesAvailable}
+                reactAction={reactToMessageAction}
               />
             ) : (
               // Search results and older pages are explicit HTTP reads.
@@ -118,6 +141,11 @@ export default async function ConversationPage({
                 history={conversation.history}
                 actorId={actorId}
                 otherAuthor={names.otherAuthor}
+                viewer={viewerFrom(conversation.viewer, query.unread)}
+                now={now}
+                filesAvailable={filesAvailable}
+                reactAction={reactToMessageAction}
+                latestLink={paging || searchQuery !== undefined}
                 {...(searchQuery === undefined ? {} : { searchQuery })}
               />
             )}
@@ -126,12 +154,27 @@ export default async function ConversationPage({
               action={sendMessageAction.bind(null, id.data)}
               maxUnits={conversation.bounds.messageUnits}
               readThrough={readThrough}
+              placeholder={`Message ${names.title}`}
             />
           </>
         )}
-      </main>
+      </ConversationPane>
     </ConversationNavigation>
   );
+}
+
+/**
+ * The place a jump carried from the latest page, whose showing already moved the
+ * server's. It only places a divider in the reader's own view and grants nothing.
+ */
+function viewerFrom<V extends { readonly readSequence: number }>(
+  viewer: V,
+  carried: SearchParams[string],
+) {
+  const sequence = typeof carried === 'string' ? Number(carried) : 0;
+  return Number.isSafeInteger(sequence) && sequence > 0
+    ? { ...viewer, readSequence: sequence - 1, firstUnreadSequence: sequence }
+    : viewer;
 }
 
 /** This conversation's own inbox entry, or null when it cannot be read. */
@@ -154,6 +197,9 @@ async function readPageConversation(channelId: string, query: SearchParams) {
   const input = new URLSearchParams();
   if (typeof query.before === 'string') input.set('before', query.before);
   if (searchQuery !== undefined) input.set('query', searchQuery);
+  // The latest page reads the live window, so a snapshot never shrinks it.
+  else if (typeof query.before !== 'string')
+    input.set('limit', String(messagingLatestPageItems()));
   const response = await (searchQuery === undefined ? GET : SEARCH)(
     new Request(
       `http://in-process.invalid/api/messaging/channels/${channelId}/messages${searchQuery === undefined ? '' : '/search'}?${input}`,
@@ -165,6 +211,10 @@ async function readPageConversation(channelId: string, query: SearchParams) {
     conversation: await readConversationResponse(response),
   };
 }
+const searchTool =
+  'flex size-10 cursor-pointer list-none items-center justify-center rounded-sm text-ink-muted hover:bg-surface-overlay hover:text-ink';
+
+/** Search within this conversation: a native disclosure over a GET form. */
 function ConversationSearch({
   channelId,
   maxUnits,
@@ -175,31 +225,40 @@ function ConversationSearch({
   readonly searchQuery: string | null;
 }) {
   return (
-    <ConversationSearchForm
-      action={`/messages/${channelId}`}
-      method="get"
-      className="flex flex-wrap items-end gap-3"
-    >
-      <label className="flex flex-1 flex-col gap-2 text-sm font-semibold">
-        Search messages
-        <input
-          name="query"
-          type="search"
-          defaultValue={searchQuery ?? ''}
-          maxLength={Math.min(maxUnits, messagingBetaLimits.queryUnits)}
-          required
-          className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink"
-        />
-      </label>
-      <Button
-        type="submit"
-        className="rounded-md border border-border px-4 py-2"
+    <details open={searchQuery !== null}>
+      <summary
+        aria-label="Search this conversation"
+        title="Search this conversation"
+        className={searchTool}
       >
-        Search
-      </Button>
-      {searchQuery === null ? null : (
-        <Link href={`/messages/${channelId}`}>Clear search</Link>
-      )}
-    </ConversationSearchForm>
+        <Icon name="search" />
+      </summary>
+      <div className="absolute inset-x-0 top-pane-header z-20 border-b border-border bg-surface px-6 py-2 max-narrow:px-4">
+        <ConversationSearchForm
+          action={`/messages/${channelId}`}
+          method="get"
+          className="flex items-center gap-3"
+        >
+          <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface-raised px-3 text-ink-muted focus-within:border-border-strong">
+            <Icon name="search" size={16} />
+            <span className="sr-only">Search messages</span>
+            <input
+              name="query"
+              type="search"
+              defaultValue={searchQuery ?? ''}
+              maxLength={Math.min(maxUnits, messagingBetaLimits.queryUnits)}
+              required
+              className="h-full w-full min-w-0 bg-transparent text-sm text-ink"
+            />
+          </label>
+          <Button type="submit" variant="secondary">
+            Search
+          </Button>
+          {searchQuery === null ? null : (
+            <Link href={`/messages/${channelId}`}>Clear search</Link>
+          )}
+        </ConversationSearchForm>
+      </div>
+    </details>
   );
 }

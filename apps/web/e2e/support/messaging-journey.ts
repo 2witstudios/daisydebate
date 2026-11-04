@@ -11,6 +11,7 @@ async function openJourney(
   browser: Browser,
   javaScriptEnabled: boolean,
   kind: 'dm' | 'private_group',
+  retainCompetitiveRecords = false,
 ) {
   const signup = await createRoomAccounts(browser, 3);
   const contexts: BrowserContext[] = [];
@@ -20,7 +21,14 @@ async function openJourney(
       runEveryStep([
         ...contexts.map((context) => () => context.close()),
         async () => data?.close(),
-        () => signup.dispose(),
+        // A Room proof retains its competitive record and account, as the
+        // native Room launch fixture does; deleting the actor would break it.
+        () =>
+          retainCompetitiveRecords
+            ? Promise.all(
+                signup.members.map((member) => member.context.close()),
+              ).then(() => undefined)
+            : signup.dispose(),
       ]),
     // Soft: the test still fails, and its primary failure stays reported.
     (teardown) =>
@@ -83,8 +91,14 @@ async function openJourney(
 export function openMessagingJourney(
   browser: Browser,
   javaScriptEnabled = true,
+  retainCompetitiveRecords = false,
 ) {
-  return openJourney(browser, javaScriptEnabled, 'dm');
+  return openJourney(
+    browser,
+    javaScriptEnabled,
+    'dm',
+    retainCompetitiveRecords,
+  );
 }
 export function openMessagingGroupJourney(
   browser: Browser,
@@ -142,13 +156,17 @@ export async function acceptMessagingJourney(
     })
     .click();
   await expect(
-    page.getByText(journey.introduction, { exact: true }),
+    page
+      .getByRole('region', { name: 'Conversation', exact: true })
+      .getByText(journey.introduction, { exact: true }),
   ).toBeVisible();
   await page
     .getByRole('button', { name: 'Accept request', exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/messages/${journey.channelId}$`));
-  await expect(page.getByLabel('Your message')).toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Your message', exact: true }),
+  ).toBeVisible();
   return page;
 }
 

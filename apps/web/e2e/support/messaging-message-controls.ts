@@ -33,7 +33,9 @@ export async function editNativeMessage(page: Page, channelId: string) {
   const original = 'Temporary native cleanup contribution';
   const edited = 'Revised native cleanup contribution';
   const requestId = await composerRequestId(page);
-  await page.getByLabel('Your message').fill(original);
+  await page
+    .getByRole('textbox', { name: 'Your message', exact: true })
+    .fill(original);
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
   const { edit, message } = await completedSend(
     page,

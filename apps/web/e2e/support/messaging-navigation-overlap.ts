@@ -141,7 +141,9 @@ export async function beginHeldSend(
   held: ReturnType<typeof holdConversationResponses>,
   text: string,
 ) {
-  await page.getByLabel('Your message').fill(text);
+  await page
+    .getByRole('textbox', { name: 'Your message', exact: true })
+    .fill(text);
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect.poll(() => held.state.sendReady).toBe(true);
 }
@@ -191,7 +193,9 @@ export function testMessagingNavigationOverlap() {
           const requestId = await composerRequestId(page);
           const text = `Overlap contribution ${first}`;
           await beginHeldSend(page, held, text);
-          await expect(page.getByLabel('Your message')).toBeDisabled();
+          await expect(
+            page.getByRole('textbox', { name: 'Your message', exact: true }),
+          ).toBeDisabled();
           await expect(
             page.getByRole('button', { name: 'Sending…', exact: true }),
           ).toBeDisabled();
@@ -207,7 +211,9 @@ export function testMessagingNavigationOverlap() {
           await edit.click();
           await expect.poll(() => held.state.navigationReady).toBe(true);
           // Neither response has reached Next; origin really remains mounted.
-          await expect(page.getByLabel('Your message')).toBeDisabled();
+          await expect(
+            page.getByRole('textbox', { name: 'Your message', exact: true }),
+          ).toBeDisabled();
           expect(new URL(page.url()).pathname).toBe(`/messages/${channelId}`);
           if (first === 'send') {
             await held.releaseSend();

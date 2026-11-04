@@ -1,6 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { createBrowserTypingReader } from './typing-browser';
 import { tabConnection } from '../../features/realtime/browser-adapters';
 import { useRealtime } from '../../features/realtime/use-realtime';
@@ -10,8 +9,8 @@ import {
   type MessagingConversation,
 } from '../../features/messaging/conversation';
 import { MarkConversationRead } from './mark-read';
-import { attachMessagingInboxDoorbells } from '../../features/messaging/doorbells';
-import { MessageHistory } from './message-history';
+import { MessageHistory, type MessagingViewer } from './message-history';
+import type { ReactionPillAction } from './reaction-pill';
 
 /**
  * The conversation's latest page, live (ADR 0089): snapshots replace the
@@ -25,6 +24,11 @@ export function ConversationLive({
   otherAuthor,
   socketUrl,
   typingRefetchMs,
+  viewer,
+  now,
+  typingName,
+  filesAvailable,
+  reactAction,
 }: {
   readonly channelId: string;
   readonly history: MessagingConversation;
@@ -32,6 +36,12 @@ export function ConversationLive({
   readonly otherAuthor: string;
   readonly socketUrl: string | null;
   readonly typingRefetchMs: number | null;
+  readonly viewer: MessagingViewer;
+  readonly now: string;
+  /** Who a typing line names: a DM's @username; a group says Someone. */
+  readonly typingName: string;
+  readonly filesAvailable: boolean;
+  readonly reactAction: ReactionPillAction;
 }) {
   const descriptor = useMemo(() => channelMessages(channelId), [channelId]);
   const view = useRealtime(descriptor, history, socketUrl);
@@ -53,7 +63,7 @@ export function ConversationLive({
   }, [channelId, socketUrl, typingRefetchMs]);
   if (view.status === 'hidden')
     return (
-      <p role="status" className="text-ink-muted">
+      <p role="status" className="flex-1 p-6 text-ink-muted">
         This conversation is no longer available to you.
       </p>
     );
@@ -72,64 +82,16 @@ export function ConversationLive({
         history={shown}
         actorId={actorId}
         otherAuthor={otherAuthor}
+        viewer={viewer}
+        now={now}
+        filesAvailable={filesAvailable}
+        reactAction={reactAction}
+        observed={socketUrl !== null}
       />
-      {typing === true ? <p role="status">Someone is typing…</p> : null}
+      {/* Reserved, so a typing line never moves the conversation. */}
+      <div className="h-typing-row shrink-0 px-6 pt-1 text-xs text-ink-muted max-narrow:px-4">
+        {typing === true ? <p role="status">{typingName} is typing…</p> : null}
+      </div>
     </>
-  );
-}
-
-/** The inbox stays on its actor-scoped doorbell until it adopts observation. */
-export function InboxLive({
-  actorId,
-  socketUrl,
-  snapshotId,
-  children,
-}: {
-  readonly actorId: string;
-  readonly socketUrl: string | null;
-  readonly snapshotId: string;
-  readonly children: ReactNode;
-  readonly typingRefetchMs?: number | null;
-}) {
-  const router = useRouter();
-  const [invalidated, invalidate] = useState<string | null>(null);
-  const currentSnapshot = useRef(snapshotId);
-  const reader = useRef<ReturnType<
-    typeof attachMessagingInboxDoorbells
-  > | null>(null);
-  useEffect(() => {
-    currentSnapshot.current = snapshotId;
-    reader.current?.authorizedSnapshot();
-  }, [snapshotId]);
-  useEffect(() => {
-    if (socketUrl === null) return;
-    const connection = tabConnection(socketUrl);
-    const attached = attachMessagingInboxDoorbells({
-      connection,
-      actorId,
-      invalidate: () => invalidate(currentSnapshot.current),
-      refetch: () => router.refresh(),
-    });
-    reader.current = attached;
-    const unsubscribe = connection.subscribe((state) => {
-      if (state.terminal !== null) {
-        invalidate(currentSnapshot.current);
-        router.refresh();
-      }
-    });
-    connection.connect();
-    return () => {
-      attached.close();
-      unsubscribe();
-      connection.dispose();
-      reader.current = null;
-    };
-  }, [actorId, socketUrl, router]);
-  return invalidated === snapshotId ? (
-    <p role="status" className="text-ink-muted">
-      Refreshing messages…
-    </p>
-  ) : (
-    <>{children}</>
   );
 }

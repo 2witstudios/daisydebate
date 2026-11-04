@@ -22,8 +22,6 @@
         "scripts/verify.ts",
         "scripts/prove-round-judging.ts",
         "scripts/prove-media-worker.ts",
-        // Spawned by the isolated messaging completion caller tests.
-        "apps/web/scripts/messaging-navigation-realm.test-support.ts",
         // Bundled by the staging-only manual workflow and piped to Fly stdin.
         "scripts/staging-transcript-proof.ts",
       ],
@@ -39,6 +37,9 @@
         // `test` runs `bun test src scripts` through the heavy queue.
         "src/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
+        // Spawned by isolated messaging caller tests; paths belong to this workspace.
+        "scripts/messaging-navigation-realm.test-support.ts",
+        "scripts/messaging-reaction-realm.test-support.ts",
         "e2e/support/server.ts",
         // Bundled by the media-stage browser proof via the Bun CLI.
         "e2e/support/media-stage-fixture.tsx",

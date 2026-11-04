@@ -1,3 +1,4 @@
+import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
 import { systemId } from '@daisy/clock';
@@ -24,22 +25,21 @@ export default async function MessageAttachmentsPage({
   );
   if (!response.ok)
     return (
-      <main>
-        <h1>Attachments unavailable</h1>
+      <ConversationPane title="Attachments unavailable">
         <Link href={`/messages/${channelId}`}>Back to conversation</Link>
-      </main>
+      </ConversationPane>
     );
   const parsed = messagingFileResponseSchemas(response).listResult.safeParse(
     await response.json(),
   );
   if (!parsed.success)
     return (
-      <main>
-        <h1>Attachments unavailable</h1>
-      </main>
+      <ConversationPane title="Attachments unavailable">
+        <Link href={`/messages/${channelId}`}>Back to conversation</Link>
+      </ConversationPane>
     );
   return (
-    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
+    <ConversationPane title="Message attachments">
       <h1>Message attachments</h1>
       <ul>
         {parsed.data.files.map((file) => (
@@ -61,6 +61,6 @@ export default async function MessageAttachmentsPage({
         />
       ) : null}
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
-    </main>
+    </ConversationPane>
   );
 }
