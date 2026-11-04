@@ -32,6 +32,7 @@ export function ConversationPane({
     <div data-open-pane className="relative flex min-h-0 flex-1 flex-col">
       <header className="flex h-pane-header shrink-0 items-center gap-3 border-b border-border px-6 max-compact:px-2">
         <ConversationLink
+          prefetch={false}
           href="/messages"
           aria-label="Back to messages"
           className={backClass}

@@ -110,7 +110,7 @@ content or fabricated entity revision. The existing owner inbox topic provides
 the routing address, selected from the current locked DM pair. The
 conversation list keeps what it shows and reads the protected inbox API again:
 rings coalesce and revalidate every loaded page, stale search answers are dropped, and the router is never asked
-to refresh, so an open conversation and its draft are untouched (ADR 0115). Conversation-list tools and pagination disable speculative Next prefetch: opening
+to refresh, so an open conversation and its draft are untouched (ADR 0115). Conversation-list tools, pagination and the pane’s Back link disable speculative Next prefetch: opening
 another destination is an explicit navigation, rather than extra protected reads
 competing with the conversation's own history. The shell also avoids prefetching
 its already-active destination, including the Messages ancestor, on rail and phone.
