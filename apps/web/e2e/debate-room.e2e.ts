@@ -256,6 +256,24 @@ test('the round editor’s targets, the phone toolbar row and focus return', asy
 
   await page.setViewportSize({ width: 390, height: 844 });
   await targetsAre(fingerTarget);
+  // Reserving classic scrollbar space must not clip the dense controls.
+  await page.evaluate(() =>
+    document.styleSheets[0]!.insertRule(
+      '::-webkit-scrollbar { width: 15px; height: 15px; }',
+    ),
+  );
+  expect(
+    await formatting.evaluate(
+      (node) =>
+        node.parentElement!.scrollHeight <= node.parentElement!.clientHeight,
+    ),
+  ).toBe(true);
+  expect(
+    await page
+      .getByRole('group', { name: 'Open files' })
+      .evaluate((node) => node.scrollHeight <= node.clientHeight),
+  ).toBe(true);
+
   const row = await formatting.evaluate((node) => {
     const bar = node.parentElement!;
     const tops = new Set(

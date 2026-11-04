@@ -7,7 +7,10 @@ import {
   findOpen,
   type OpenDocument,
 } from '../../features/documents/open-documents';
-import { DRIVE_FULL_NOTICE } from '../../features/documents/drive-return';
+import {
+  DRIVE_FULL_NOTICE,
+  driveNotices,
+} from '../../features/documents/drive-return';
 import type {
   DriveCursor,
   DriveEntryView,
@@ -19,8 +22,11 @@ import {
   type FolderRow,
   type RecentDocument,
 } from './drive-api';
+import { useRecentDocuments } from './use-recent-documents';
 
 export type DriveActions = {
+  readonly problem: string | null;
+  readonly folderProblem: string | null;
   readonly folders: readonly FolderRow[];
   readonly loadFolders: () => void;
   readonly open: (id: string, title: string) => void;
@@ -52,7 +58,6 @@ export function useDrive({
   sync,
   opened,
   dispatch,
-  setProblem,
   initialFolders = [],
   listRoot = true,
   showRecent = false,
@@ -61,7 +66,6 @@ export function useDrive({
   readonly sync: DocumentSync | undefined;
   readonly opened: readonly OpenDocument[];
   readonly dispatch: Dispatch<ManagerAction>;
-  readonly setProblem: (message: string) => void;
   readonly initialFolders?: readonly FolderRow[];
   /** False when the page already rendered the root's first page. */
   readonly listRoot?: boolean;
@@ -70,15 +74,13 @@ export function useDrive({
   readonly save?: 'saved' | 'saving' | 'unsaved';
 }): DriveActions {
   const [folders, setFolders] = useState(initialFolders);
-  const [recent, setRecent] = useState<readonly RecentDocument[]>([]);
-  const readRecent = useCallback(() => {
-    if (!showRecent) return;
-    // A failed look keeps what is shown; the next change asks again.
-    driveApi.recent().then(setRecent, () => {});
-  }, [showRecent]);
-  useEffect(() => {
-    if (save === undefined || save === 'saved') readRecent();
-  }, [save, readRecent]);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [folderProblem, setFolderProblem] = useState<string | null>(null);
+  const { documents: recent, refresh: readRecent } = useRecentDocuments(
+    showRecent,
+    save,
+  );
+  const generation = useRef(0);
   const creating = useRef(false);
   const known = useRef(opened);
   useEffect(() => {
@@ -93,14 +95,20 @@ export function useDrive({
       const pending =
         after === null ? firstPages.current.get(folderId) : undefined;
       if (pending) return pending;
-      const read = driveApi.list(folderId, after).then((page) => {
+      const request = async (): Promise<void> => {
+        const started = generation.current;
+        const page = await driveApi.list(folderId, after);
+        // A focus refresh may race a create, rename, move or deletion. Never
+        // replace an acknowledged change with a page read before it committed.
+        if (started !== generation.current) return request();
         dispatch({
           type: 'drive/page',
           folderId,
           first: after === null,
           ...page,
         });
-      });
+      };
+      const read = request();
       if (after !== null) return read;
       const tracked = read.finally(() => firstPages.current.delete(folderId));
       firstPages.current.set(folderId, tracked);
@@ -148,9 +156,12 @@ export function useDrive({
   const createDocument = (folderId: string | null) => {
     if (!sync || creating.current) return;
     creating.current = true;
+    generation.current++;
     sync
       .create(folderId)
       .then((document) => {
+        generation.current++;
+        setProblem(null);
         dispatch({ type: 'doc/add', document });
         const entry: DriveEntryView = {
           kind: 'document',
@@ -178,6 +189,7 @@ export function useDrive({
 
   const change: DriveActions['change'] = (path, fields) => {
     if (path === 'create') return createDocument(orNull(fields.folderId));
+    generation.current++;
     const id = fields.id ?? '';
     const body =
       path === 'move'
@@ -196,6 +208,8 @@ export function useDrive({
         deletedDocumentIds?: readonly string[];
       }>(path, body)
       .then((answer) => {
+        generation.current++;
+        setProblem(null);
         if (path === 'rename' || path === 'folders/rename')
           dispatch({
             type: 'drive/rename',
@@ -232,17 +246,33 @@ export function useDrive({
           });
           dispatch({ type: 'drive/renaming', id: answer.folder.id });
         }
-        setFolders([]);
         readRecent();
       })
-      .catch(() => setProblem('That change did not save. Try again.'));
+      .catch((error: unknown) =>
+        setProblem(
+          (error as { readonly status?: number }).status === 409
+            ? driveNotices.conflict
+            : 'That change did not save. Try again.',
+        ),
+      );
   };
 
   return {
+    problem,
+    folderProblem,
     folders,
     recent,
     loadFolders: () => {
-      driveApi.folders().then(setFolders, () => {});
+      driveApi.folders().then(
+        (found) => {
+          setFolders(found);
+          setFolderProblem(null);
+        },
+        () =>
+          setFolderProblem(
+            'Folder destinations did not load. Close this menu and try again.',
+          ),
+      );
     },
     open,
     createDocument,

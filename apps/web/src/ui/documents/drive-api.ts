@@ -40,7 +40,10 @@ const post = async <T>(path: string, body: unknown): Promise<T> => {
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!response.ok) throw new Error(`Drive request ${response.status}`);
+  if (!response.ok)
+    throw Object.assign(new Error('Drive request failed'), {
+      status: response.status,
+    });
   return (await response.json()) as T;
 };
 

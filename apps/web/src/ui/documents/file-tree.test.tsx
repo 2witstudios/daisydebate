@@ -8,6 +8,8 @@ import type { DriveActions } from './use-drive';
 setupRitewayBun();
 
 const drive: DriveActions = {
+  problem: null,
+  folderProblem: null,
   folders: [{ id: 'folder-a', name: 'Cases', parentFolderId: null }],
   recent: [{ id: 'doc-b', title: 'Last night' }],
   loadFolders: () => {},
@@ -90,7 +92,7 @@ describe('FileTree', () => {
         html.includes('aria-label="Actions for Cases"'),
         html.includes('role="menuitem"'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, false],
     });
   });
 

@@ -3,7 +3,6 @@
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import {
   useLayoutEffect,
-  useCallback,
   useReducer,
   useRef,
   useSyncExternalStore,
@@ -149,24 +148,17 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   usePaletteShortcut(dispatch);
   const phonePanel = phonePanelOf(state);
   useFocusReturn(state.filesOpen, phonePanel);
-  const { problem, setProblem } = useDocumentSync(
-    sync,
-    dispatch,
-    state.tabs.open,
-  );
-  const report = useCallback(
-    (message: string) => setProblem(message),
-    [setProblem],
-  );
+  const { problem } = useDocumentSync(sync, dispatch, state.tabs.open);
   const drive = useDrive({
     sync,
     opened: state.opened,
     dispatch,
-    setProblem: report,
   });
   const hydrated = useHydrated();
   const unread = chatUnread(round, state);
-  const alert = problem ?? props.notice ?? null;
+  const alerts = [...new Set([props.notice, problem, drive.problem])].filter(
+    Boolean,
+  );
   const create = () => drive.createDocument(null);
   const choose = (choice: PaletteChoice) => {
     dispatch({ type: 'palette/close' });
@@ -193,11 +185,15 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
           round={round}
         />
       </section>
-      {alert ? (
-        <p role="alert" className="shrink-0 px-4 py-1 text-sm text-live">
-          {alert}
+      {alerts.map((message) => (
+        <p
+          key={message}
+          role="alert"
+          className="shrink-0 px-4 py-1 text-sm text-live"
+        >
+          {message}
         </p>
-      ) : null}
+      ))}
       <BallotStatus round={round} />
       <div
         data-room-workspace

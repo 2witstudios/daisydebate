@@ -114,13 +114,22 @@ const journey = async (
       exact: true,
     });
     await expect(folder).toBeVisible();
-    await tree(page).getByLabel('Actions for Untitled').first().click();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Untitled', exact: true })
+      .first()
+      .click();
     await testInfo.attach(`menu-${viewport.width}`, {
       body: await page.screenshot(),
       contentType: 'image/png',
     });
     await page.getByRole('menuitem', { name: 'Move to…' }).click();
+    const moved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/documents/move') && response.ok(),
+    );
     await page.getByRole('menuitem', { name: 'Cases' }).click();
+    await moved;
+    await expect(folder).toHaveAttribute('aria-expanded', 'false');
     await folder.click();
     await expect(
       tree(page)
@@ -289,8 +298,16 @@ test('phone Files keeps notices visible and reopens cached documents', async ({
     );
     await tree(page).getByRole('button', { name: 'New', exact: true }).click();
     await page.getByRole('option', { name: /Document/ }).click();
-    await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('drive');
+    await expect(
+      page
+        .getByRole('region', { name: 'Your files', exact: true })
+        .getByRole('alert'),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole('region', { name: 'Your files', exact: true })
+        .getByRole('alert'),
+    ).toContainText('drive');
     await expect(tree(page)).toBeVisible();
   } finally {
     await settledLaunchAuth();
@@ -313,7 +330,9 @@ test('row actions keep focus and confirm folder deletion in place', async ({
     });
     const { folder } = (await created.json()) as { folder: { id: string } };
     await page.reload();
-    await tree(page).getByLabel('Actions for Cases').click();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Cases', exact: true })
+      .click();
     await expect(
       page.getByRole('menuitem', { name: 'New document here' }),
     ).toBeFocused();
@@ -326,7 +345,9 @@ test('row actions keep focus and confirm folder deletion in place', async ({
     await expect(
       row.getByRole('button', { name: 'Untitled', exact: true }),
     ).toBeVisible();
-    await tree(page).getByLabel('Actions for Untitled').click();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Untitled', exact: true })
+      .click();
     await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
     const naming = tree(page).getByLabel('Rename Untitled');
     await naming.fill('Evidence');
@@ -337,14 +358,18 @@ test('row actions keep focus and confirm folder deletion in place', async ({
     await expect(
       row.getByRole('button', { name: 'Evidence', exact: true }),
     ).toBeFocused();
-    await tree(page).getByLabel('Actions for Evidence').click();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Evidence', exact: true })
+      .click();
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
     await expect(page.getByRole('menuitem', { name: 'Keep it' })).toBeFocused();
     await page.getByRole('menuitem', { name: 'Keep it' }).click();
     await expect(
       row.getByRole('button', { name: 'Evidence', exact: true }),
     ).toBeVisible();
-    await tree(page).getByLabel('Actions for Cases').click();
+    await tree(page)
+      .getByRole('button', { name: 'Actions for Cases', exact: true })
+      .click();
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
     await expect(page.getByText(/1 document for good/)).toBeVisible();
     await page.getByRole('menuitem', { name: 'Delete for good' }).click();

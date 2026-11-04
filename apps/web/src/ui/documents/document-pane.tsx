@@ -42,7 +42,7 @@ function DocumentTabs({
   onNew,
 }: TabsProps) {
   return (
-    <div className="flex h-tab-strip shrink-0 items-stretch border-b border-border bg-surface">
+    <div className="flex min-h-tab-strip shrink-0 items-stretch border-b border-border bg-surface">
       {leading}
       <div
         role="group"

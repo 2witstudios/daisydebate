@@ -159,15 +159,18 @@ export function CommandPalette({
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
-  const [hits, setHits] = useState<readonly PaletteDocument[] | null>(null);
+  const [hits, setHits] = useState<{
+    readonly query: string;
+    readonly documents: readonly PaletteDocument[];
+  } | null>(null);
   useEffect(() => {
-    if (creating || !search || query.trim() === '') return;
+    if (!open || creating || !search || query.trim() === '') return;
     let live = true;
     const wait = setTimeout(() => {
       // A failed search keeps what is shown; the next keystroke asks again.
       search(query).then(
         (found) => {
-          if (live) setHits(found);
+          if (live) setHits({ query, documents: found });
         },
         () => {},
       );
@@ -176,8 +179,11 @@ export function CommandPalette({
       live = false;
       clearTimeout(wait);
     };
-  }, [creating, query, search]);
-  const shown = creating || query.trim() === '' ? null : hits;
+  }, [open, creating, query, search]);
+  const shown =
+    creating || query.trim() === '' || hits?.query !== query
+      ? null
+      : hits.documents;
   const commands = useMemo(
     () => (creating ? createCommands : paletteCommands(shown ?? documents)),
     [creating, shown, documents],
@@ -203,6 +209,7 @@ export function CommandPalette({
 
   const closed = () => {
     setQuery('');
+    setHits(null);
     setSelected(0);
     onClose();
   };
@@ -210,6 +217,7 @@ export function CommandPalette({
     const choice = ranked && choiceOf(ranked.command.id);
     if (!choice) return;
     setQuery('');
+    setHits(null);
     setSelected(0);
     onChoose(choice);
   };

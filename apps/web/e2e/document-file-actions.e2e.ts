@@ -58,7 +58,12 @@ test('Move scrolls long destinations, displays nesting and excludes the moving s
     const doc = await createTestDocument(page);
     await page.goto(`${origin}/prep`);
     await page.getByRole('button', { name: 'Back to Files' }).click();
-    await files(page).getByLabel(`Actions for ${doc.title}`).click();
+    await expect(
+      files(page).getByRole('menuitem', { includeHidden: true }),
+    ).toHaveCount(0);
+    await files(page)
+      .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
+      .click();
     await page.getByRole('menuitem', { name: 'Move to…' }).click();
     const menu = page.getByRole('menu', { name: `Actions for ${doc.title}` });
     await expect(
@@ -84,7 +89,9 @@ test('Move scrolls long destinations, displays nesting and excludes the moving s
     ).toBeFocused();
     expect(await menu.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
     await page.keyboard.press('Escape');
-    await files(page).getByLabel('Actions for A', { exact: true }).click();
+    await files(page)
+      .getByRole('button', { name: 'Actions for A', exact: true })
+      .click();
     await page.getByRole('menuitem', { name: 'Move to…' }).click();
     const movingFolder = page.getByRole('menu', {
       name: 'Actions for A',
@@ -145,7 +152,9 @@ test('New folder here waits for an expansion already in flight', async ({
       .getByRole('button', { name: 'Cases', exact: true })
       .click();
     await firstRead;
-    await files(page).getByLabel('Actions for Cases').click();
+    await files(page)
+      .getByRole('button', { name: 'Actions for Cases', exact: true })
+      .click();
     await page.getByRole('menuitem', { name: 'New folder here' }).click();
     release();
     const naming = files(page).getByLabel('Rename New folder');
@@ -199,7 +208,7 @@ test('Recent refreshes after saves and focus; local Delete for good closes its t
     await expect(recent.getByRole('button').first()).toHaveText(newest.title);
     await files(page)
       .getByRole('region', { name: 'My drive' })
-      .getByLabel(`Actions for ${oldest.title}`)
+      .getByRole('button', { name: `Actions for ${oldest.title}`, exact: true })
       .click();
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Delete for good' }).click();
@@ -228,7 +237,7 @@ test('Delete keeps the safe choice through delayed counts and repeated gestures'
     await folder(page, 'Cases');
     await page.goto(`${origin}/prep`);
     await files(page)
-      .getByLabel(`Actions for ${doc.title}`, { exact: true })
+      .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
       .click();
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
     const keep = page.getByRole('menuitem', { name: 'Keep it' });
@@ -259,7 +268,9 @@ test('Delete keeps the safe choice through delayed counts and repeated gestures'
       await pending;
       await route.fulfill({ response });
     });
-    await files(page).getByLabel('Actions for Cases', { exact: true }).click();
+    await files(page)
+      .getByRole('button', { name: 'Actions for Cases', exact: true })
+      .click();
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
     await expect(keep).toBeFocused();
     await expect(confirm).toBeDisabled();
@@ -290,7 +301,7 @@ test('finishing rename by clicking the editor preserves the new typing target', 
     const editor = page.getByRole('textbox', { name: doc.title, exact: true });
     await expect(editor).toBeVisible();
     await files(page)
-      .getByLabel(`Actions for ${doc.title}`, { exact: true })
+      .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
       .click();
     await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
     await files(page).getByLabel(`Rename ${doc.title}`).fill('Renamed notes');
@@ -303,7 +314,7 @@ test('finishing rename by clicking the editor preserves the new typing target', 
       page.getByRole('textbox', { name: 'Renamed notes', exact: true }),
     ).toContainText('Typing stays in the editor');
     await files(page)
-      .getByLabel('Actions for Renamed notes', { exact: true })
+      .getByRole('button', { name: 'Actions for Renamed notes', exact: true })
       .click();
     await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
     await files(page).getByLabel('Rename Renamed notes').press('Escape');
@@ -312,6 +323,163 @@ test('finishing rename by clicking the editor preserves the new typing target', 
         .getByRole('region', { name: 'My drive' })
         .getByRole('button', { name: 'Renamed notes', exact: true }),
     ).toBeFocused();
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('new palette queries never open a hit from a previous query', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Search query ordering',
+    );
+    const current = await createTestDocument(page);
+    const oldHit = await createTestDocument(page);
+    await page.goto(`${origin}/prep?open=${current.id}`);
+    await expect(
+      page.getByRole('textbox', { name: current.title, exact: true }),
+    ).toBeVisible();
+    await page.route('**/api/documents/search', async (route) => {
+      const text = (route.request().postDataJSON() as { text: string }).text;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          hits:
+            text === 'inherency'
+              ? [
+                  {
+                    id: oldHit.id,
+                    title: oldHit.title,
+                    snippet: 'inherency evidence',
+                    folderId: null,
+                  },
+                ]
+              : [],
+        }),
+      });
+    });
+    await files(page).getByRole('button', { name: 'Search files' }).click();
+    const search = page.getByRole('combobox', { name: 'Search commands' });
+    await search.fill('inherency');
+    await expect(
+      page.getByRole('option', { name: new RegExp(oldHit.title) }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await files(page).getByRole('button', { name: 'Search files' }).click();
+    await search.fill('topicality');
+    await search.press('Enter');
+    await page.keyboard.press('Escape');
+    await expect(
+      page.getByRole('textbox', { name: current.title, exact: true }),
+    ).toBeVisible();
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('drive retries preserve save warnings and known folder destinations', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(accounts.members[0]!.context, 'Drive notices');
+    const doc = await createTestDocument(page);
+    await folder(page, 'Cases');
+    await page.goto(`${origin}/prep?open=${doc.id}`);
+    const workspace = page.getByRole('region', {
+      name: 'Your files',
+      exact: true,
+    });
+    await page.route('**/api/documents/rename', (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: '{}',
+      }),
+    );
+    await files(page)
+      .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+    const naming = files(page).getByLabel(`Rename ${doc.title}`);
+    await naming.fill('New title');
+    await naming.press('Enter');
+    await expect(
+      workspace
+        .getByRole('alert')
+        .filter({ hasText: 'That change did not save' }),
+    ).toBeVisible();
+    await page.route('**/api/documents/save', (route) =>
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: '{}',
+      }),
+    );
+    await page
+      .getByRole('textbox', { name: doc.title, exact: true })
+      .fill('Text requiring a visible save warning');
+    await expect(
+      workspace.getByRole('alert').filter({ hasText: 'current access' }),
+    ).toBeVisible();
+    await page.unroute('**/api/documents/rename');
+    await files(page)
+      .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+    await files(page).getByLabel(`Rename ${doc.title}`).fill('New title');
+    await files(page).getByLabel(`Rename ${doc.title}`).press('Enter');
+    await expect(
+      workspace
+        .getByRole('alert')
+        .filter({ hasText: 'That change did not save' }),
+    ).toHaveCount(0);
+    await expect(
+      workspace.getByRole('alert').filter({ hasText: 'current access' }),
+    ).toBeVisible();
+    await page.route('**/api/documents/folders', (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: '{}',
+      }),
+    );
+    await files(page)
+      .getByRole('button', { name: 'Actions for New title', exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Move to…' }).click();
+    const menu = page.getByRole('menu', {
+      name: 'Actions for New title',
+      exact: true,
+    });
+    await expect(
+      menu.getByRole('menuitem', { name: 'Cases', exact: true }),
+    ).toBeVisible();
+    await expect(menu.getByRole('alert')).toContainText(
+      'Folder destinations did not load',
+    );
+    await page.keyboard.press('Escape');
+    await page.route('**/api/documents/folders/create', (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: '{}',
+      }),
+    );
+    await files(page).getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('option', { name: /Folder/ }).click();
+    await expect(
+      workspace
+        .getByRole('alert')
+        .filter({ hasText: 'drive is full or too deep' }),
+    ).toBeVisible();
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();

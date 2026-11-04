@@ -91,6 +91,7 @@ export function FileMenu({
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>('main');
+  const [isOpen, setIsOpen] = useState(false);
   const isFolder = node.kind === 'folder';
   const close = () => {
     menu.current?.hidePopover();
@@ -120,10 +121,10 @@ export function FileMenu({
   useLayoutEffect(() => {
     place();
     if (menu.current?.matches(':popover-open')) focusMenuStart(menu.current);
-  }, [view, place]);
+  }, [isOpen, view, place]);
   useEffect(() => {
     const element = menu.current;
-    if (!element) return;
+    if (!element || !isOpen) return;
     const observer = new ResizeObserver(place);
     observer.observe(element);
     window.addEventListener('resize', place);
@@ -131,7 +132,7 @@ export function FileMenu({
       observer.disconnect();
       window.removeEventListener('resize', place);
     };
-  }, [place]);
+  }, [isOpen, place]);
   const moveTo = (target: string | null) =>
     run(() =>
       drive.change(
@@ -161,13 +162,15 @@ export function FileMenu({
         className="file-menu w-file-menu flex-col rounded-md border border-border-strong bg-surface-raised p-1 text-ink shadow-3"
         onKeyDown={moveMenuFocus}
         onToggle={(event) => {
-          if (event.newState !== 'open') return setView('main');
+          const opened = event.newState === 'open';
+          setIsOpen(opened);
+          if (!opened) return setView('main');
           drive.loadFolders();
           place();
           focusMenuStart(menu.current);
         }}
       >
-        {view === 'main' ? (
+        {isOpen && view === 'main' ? (
           <>
             {isFolder ? (
               <>
@@ -202,11 +205,16 @@ export function FileMenu({
             </Item>
           </>
         ) : null}
-        {view === 'move' ? (
+        {isOpen && view === 'move' ? (
           <>
             <p className="truncate px-2 py-1 text-xs text-ink-muted">
               Move {label} to
             </p>
+            {drive.folderProblem ? (
+              <p role="alert" className="px-2 py-1 text-xs text-live">
+                {drive.folderProblem}
+              </p>
+            ) : null}
             <Item icon="folder" onClick={() => moveTo(null)}>
               My drive
             </Item>
@@ -223,7 +231,7 @@ export function FileMenu({
             )}
           </>
         ) : null}
-        {view === 'delete' ? (
+        {isOpen && view === 'delete' ? (
           <FileDeleteStep
             node={node}
             label={label}

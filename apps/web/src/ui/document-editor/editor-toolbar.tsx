@@ -110,7 +110,7 @@ export function EditorToolbar({
     tools.current[next]?.focus();
   };
   return (
-    <div className="flex h-tab-strip shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-surface-raised px-2">
+    <div className="flex min-h-tab-strip shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-surface-raised px-2">
       <div
         role="toolbar"
         aria-label="Formatting"

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useReducer,
-  useRef,
-} from 'react';
+import { useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import {
   initialManagerState,
   reduceManager,
@@ -95,20 +89,11 @@ export function ManagerWorkspace({
       : emptyDrive,
     initialManagerState,
   );
-  const { problem, setProblem } = useDocumentSync(
-    sync,
-    dispatch,
-    state.tabs.open,
-  );
-  const report = useCallback(
-    (message: string) => setProblem(message),
-    [setProblem],
-  );
+  const { problem } = useDocumentSync(sync, dispatch, state.tabs.open);
   const drive = useDrive({
     sync,
     opened: state.opened,
     dispatch,
-    setProblem: report,
     initialFolders: initial?.folders ?? [],
     listRoot: initial === null,
     showRecent: true,
@@ -143,11 +128,17 @@ export function ManagerWorkspace({
 
   return (
     <section aria-label="Your files" className="flex min-h-0 flex-1 flex-col">
-      {(problem ?? notice ?? pageNotice) ? (
-        <p role="alert" className="border-b border-border px-4 py-2 text-sm">
-          {problem ?? notice ?? pageNotice}
-        </p>
-      ) : null}
+      {[...new Set([notice, problem, drive.problem, pageNotice])]
+        .filter(Boolean)
+        .map((message) => (
+          <p
+            key={message}
+            role="alert"
+            className="border-b border-border px-4 py-2 text-sm"
+          >
+            {message}
+          </p>
+        ))}
       <RecoveredDrafts
         documents={loadedDocuments(state.opened)}
         sync={sync}
