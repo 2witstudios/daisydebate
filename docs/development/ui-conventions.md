@@ -287,6 +287,14 @@ ballot completes the round (DEC-80), so round sync hands the
 debaters to the receipt at `/rounds/[id]`, which shows the result and keeps
 a human judge's seat unnamed.
 
+## Document manager
+
+One manager opens at `/prep` and inside a Round (ADR 0111): `ui/documents` draws the
+tree, search, tabs and editor, and a page supplies only its frame. Below 901px one
+panel shows at a time, and a row opens the document itself (DEC-141). Without script
+the tree renders on the server, and create, rename, move and delete are real form
+posts; a row says editing needs script rather than injecting stored HTML.
+
 ## Spectator view
 
 The audience's view of a Round (`/watch/[roundId]`) stays inside the app

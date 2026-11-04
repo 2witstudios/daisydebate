@@ -70,6 +70,13 @@ export const DRIVE_PAGE_SIZE = 100;
 export const DOCUMENT_READ_MAX = 16;
 export const DOCUMENT_SEARCH_PAGE = 20;
 
+/**
+ * A snippet reads only the start of a body: building one from a whole document
+ * was most of a search's cost. A word further in still finds the document; its
+ * snippet then shows how the document begins.
+ */
+const SNIPPET_SOURCE_CHARS = 8_000;
+
 const documentColumns = {
   id: documents.id,
   ownerActorId: documents.ownerActorId,
@@ -173,10 +180,8 @@ const heightOf = async (tx: Transaction, folderId: string): Promise<number> =>
     select max(depth) as count from down`,
   );
 
-const driveFull = () =>
-  createAppError('CONFLICT', 'This drive is full');
-const tooDeep = () =>
-  createAppError('CONFLICT', 'Folders nest too deeply');
+const driveFull = () => createAppError('CONFLICT', 'This drive is full');
+const tooDeep = () => createAppError('CONFLICT', 'Folders nest too deeply');
 
 /**
  * A member's drive (ADR 0054, ADR 0058 §9, ADR 0111): documents and folders
@@ -250,9 +255,7 @@ export const documentOperations = ({
   },
 
   /** Every folder of a drive, bounded by `DRIVE_LIMITS.folders`. */
-  async listDocumentFolders(input: {
-    readonly ownerActorId: string;
-  }): Promise<
+  async listDocumentFolders(input: { readonly ownerActorId: string }): Promise<
     readonly {
       readonly id: string;
       readonly name: string;
@@ -330,7 +333,7 @@ export const documentOperations = ({
           limit ${DOCUMENT_SEARCH_PAGE} offset ${input.offset}
         )
         select id, title, folder_id as "folderId",
-          ts_headline('simple', html, to_tsquery('simple', ${input.query}),
+          ts_headline('simple', left(html, ${SNIPPET_SOURCE_CHARS}), to_tsquery('simple', ${input.query}),
             'StartSel="", StopSel="", MaxFragments=1, MaxWords=24, MinWords=8') as snippet
         from hits
         order by score desc, updated_at desc, id`)) as unknown as DocumentSearchHit[];
@@ -561,7 +564,10 @@ export const documentOperations = ({
         await ownFolder(tx, ownerActorId, parentFolderId);
         const above = await ancestors(tx, ownerActorId, parentFolderId);
         if (above.includes(id))
-          throw createAppError('CONFLICT', 'A folder cannot move inside itself');
+          throw createAppError(
+            'CONFLICT',
+            'A folder cannot move inside itself',
+          );
         if (above.length + (await heightOf(tx, id)) > DRIVE_LIMITS.depth)
           throw tooDeep();
         await tx

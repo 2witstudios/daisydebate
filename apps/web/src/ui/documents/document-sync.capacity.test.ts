@@ -1,12 +1,14 @@
-import { createDocumentSync, listed } from './document-sync.test-support';
 import {
+  createDocumentSync,
+  listed,
+  manualTimers,
   recordingSave,
   manualDraftResources,
   memoryStorage,
   stored,
 } from './document-sync.test-support';
 
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 
 import { newDraftCopy } from '../../features/documents/document-draft';
 
@@ -114,5 +116,52 @@ test('a failed overfull cleanup write retains both offers and online saving', as
       f.sent,
     ],
     expected: [false, before, ['REC', 'paused'], true, ['NEW']],
+  });
+});
+
+describe('a save the documents lane refuses (ADR 0111)', () => {
+  test('stays in draft recovery and retries', async () => {
+    const storage = memoryStorage();
+    const clock = manualTimers();
+    const sent: string[] = [];
+    let refuse = true;
+    const failures: number[] = [];
+    const sync = createDocumentSync({
+      ...manualDraftResources('capacity-lane', {
+        storage,
+        timers: clock.timers,
+      }),
+      api: {
+        ...listed(() => [stored('a', 1)]),
+        create: async () => stored('new'),
+        save: async ({ html, expectedRevision }) => {
+          sent.push(html);
+          if (refuse)
+            throw Object.assign(new Error('saturated'), { status: 503 });
+          return { status: 'saved', revision: expectedRevision + 1 };
+        },
+      },
+      principalId: 'p',
+      onConflict: () => {},
+      onSaveFailed: (_, attempts) => failures.push(attempts),
+    });
+    await sync.load();
+    sync.change('a', '<p>typed under load</p>');
+    await sync.flush();
+    const held = storage.getItem('daisy:document-drafts:copy:p:a');
+    refuse = false;
+    await sync.flush();
+    assert({
+      given: 'a save refused for capacity, then the lane clearing',
+      should:
+        'keep the text in draft storage, count one failure, and send it again until it lands',
+      actual: {
+        kept: held?.includes('typed under load'),
+        failures,
+        sends: sent.length,
+        afterwards: storage.getItem('daisy:document-drafts:copy:p:a'),
+      },
+      expected: { kept: true, failures: [1], sends: 2, afterwards: null },
+    });
   });
 });

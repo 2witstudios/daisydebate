@@ -6,7 +6,7 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import { driveNoticeText } from '../../../../../features/documents/drive-return';
 import { requireAccess } from '../../../../../lib/access';
 import { DocumentManager } from '../../../../../ui/documents/document-manager';
-import { memberDrive } from '../../read-drive';
+import { requestMemberDrive } from '../../../../../lib/request-session';
 
 export const metadata: Metadata = { title: 'Prep' };
 
@@ -19,9 +19,9 @@ export default async function PrepFolderPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
-  if (!idSchema.safeParse(id).success) notFound();
   const identity = await requireAccess('/prep', searchParams);
-  const drive = memberDrive(identity);
+  if (!idSchema.safeParse(id).success) notFound();
+  const drive = requestMemberDrive(identity);
   if (drive === null) redirect('/');
   const { principal, operations } = drive;
   const folders = await operations.listFolders(principal);

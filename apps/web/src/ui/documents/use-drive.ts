@@ -55,7 +55,9 @@ export function useDrive({
   const [folders, setFolders] = useState(initialFolders);
   const creating = useRef(false);
   const known = useRef(documents);
-  known.current = documents;
+  useEffect(() => {
+    known.current = documents;
+  }, [documents]);
 
   const listFolder = useCallback(
     async (folderId: string | null, after: DriveCursor | null) => {

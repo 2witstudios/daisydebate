@@ -10,9 +10,9 @@ import { RoomDetails } from './room-details';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
 
-export const FILES_ID = 'round-files';
-export const FILES_HIDE_ID = 'round-files-hide';
-export const FILES_SHOW_ID = 'round-files-show';
+export const FILES_ID = 'drive-files';
+export const FILES_HIDE_ID = 'drive-files-hide';
+export const FILES_SHOW_ID = 'drive-files-show';
 
 const headerButton =
   'flex size-room-target shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-raised';
@@ -67,7 +67,7 @@ export function FilesSidebar({
       id={FILES_ID}
       aria-label="Your files"
       className={cn(
-        'flex min-h-0 w-round-files shrink-0 flex-col border-r border-border bg-surface max-compact:w-full max-compact:flex-1 max-compact:border-r-0',
+        'flex min-h-0 w-drive shrink-0 flex-col border-r border-border bg-surface max-compact:w-full max-compact:flex-1 max-compact:border-r-0',
         !state.filesOpen && 'compact:hidden',
         phoneClass,
       )}

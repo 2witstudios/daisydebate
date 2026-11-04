@@ -1,10 +1,10 @@
 import { origin } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
 import { openPage } from './support/fixtures';
-import { documentsPath, expect, test } from './support/round-files';
+import { documentsPath, expect, test } from './support/live-room-documents';
 
-test('the round room: palette and editor', async ({ roundFiles }) => {
-  const { page, violations } = roundFiles;
+test('the round room: palette and editor', async ({ liveRoom }) => {
+  const { page, violations } = liveRoom;
   await page.keyboard.press('ControlOrMeta+k');
   const search = page.getByRole('combobox', { name: 'Search commands' });
   await expect(search).toBeFocused();
@@ -28,20 +28,20 @@ test('the round room: palette and editor', async ({ roundFiles }) => {
 });
 
 test('the round room has no serious or critical accessibility findings', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  await assertNoSeriousFindings(roundFiles.page);
-  await roundFiles.page.keyboard.press('ControlOrMeta+k');
+  await assertNoSeriousFindings(liveRoom.page);
+  await liveRoom.page.keyboard.press('ControlOrMeta+k');
   await expect(
-    roundFiles.page.getByRole('combobox', { name: 'Search commands' }),
+    liveRoom.page.getByRole('combobox', { name: 'Search commands' }),
   ).toBeFocused();
-  await assertNoSeriousFindings(roundFiles.page);
+  await assertNoSeriousFindings(liveRoom.page);
 });
 
 test('the participant’s persisted files survive editing and reload', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, violations } = roundFiles;
+  const { page, violations } = liveRoom;
   const saved = page.waitForResponse(
     (response) =>
       response.url().endsWith(`${documentsPath}save`) && response.ok(),
@@ -65,13 +65,13 @@ test('the participant’s persisted files survive editing and reload', async ({
 });
 
 test('private file rename and stale or cross-account refusal preserve the stored document', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, stranger, roundId, documentId } = roundFiles;
+  const { page, stranger, documentId } = liveRoom;
   const list = async () => {
-    const response = await page.request.post(`${documentsPath}list`, {
+    const response = await page.request.post(`${documentsPath}read`, {
       headers: { origin },
-      data: { roundId },
+      data: { ids: [documentId] },
     });
     expect(response.status()).toBe(200);
     return response.json();
@@ -92,7 +92,7 @@ test('private file rename and stale or cross-account refusal preserve the stored
   expect(saved.status()).toBe(200);
   const before = await list();
   for (const [request, path, data, status] of [
-    [stranger, 'list', { roundId }, 404],
+    [stranger, 'read', { ids: [documentId] }, 200],
     [stranger, 'rename', { id: documentId, title: 'Forbidden' }, 404],
     [
       stranger,
@@ -121,9 +121,9 @@ test('private file rename and stale or cross-account refusal preserve the stored
 });
 
 test('a resize across the phone breakpoint returns focus from the hidden Files', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page } = roundFiles;
+  const { page } = liveRoom;
   const phoneTab = page
     .getByRole('navigation', { name: 'Round' })
     .getByRole('button', { name: 'Doc', exact: true });
@@ -142,9 +142,9 @@ test('a resize across the phone breakpoint returns focus from the hidden Files',
 });
 
 test('the round room: no app shell, Files closes, the sidebar switches, Leave asks first', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId } = roundFiles;
+  const { page, roundId } = liveRoom;
   await expect(page.getByRole('navigation', { name: 'Primary' })).toHaveCount(
     0,
   );
@@ -190,9 +190,9 @@ test('the round room: no app shell, Files closes, the sidebar switches, Leave as
 });
 
 test('a landscape page and formatting from the keyboard', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, violations } = roundFiles;
+  const { page, violations } = liveRoom;
   const flow = page.getByRole('textbox', { name: 'Untitled', exact: true });
   const columns = () =>
     flow.evaluate((node) => getComputedStyle(node).columnCount);
@@ -235,9 +235,9 @@ test('a landscape page and formatting from the keyboard', async ({
 const targetSize = 44;
 
 test('the round editor’s targets, the phone toolbar row and focus return', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page } = roundFiles;
+  const { page } = liveRoom;
   const formatting = page.getByRole('toolbar', { name: 'Formatting' });
   const controls = [
     ...(await formatting.getByRole('button').all()),
@@ -297,9 +297,9 @@ test('the round editor’s targets, the phone toolbar row and focus return', asy
 });
 
 test('the round room fits the viewport and the workspace starts on one line', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page } = roundFiles;
+  const { page } = liveRoom;
   const frameFits = () =>
     page
       .locator('.room-frame')
@@ -333,9 +333,9 @@ test('the round room fits the viewport and the workspace starts on one line', as
 });
 
 test('an open document survives every sidebar and phone tab switch', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page } = roundFiles;
+  const { page } = liveRoom;
   const editor = page.getByRole('textbox', { name: 'Untitled', exact: true });
   await editor.locator('p').first().click();
   await page.keyboard.type('still here');
@@ -352,10 +352,10 @@ test('an open document survives every sidebar and phone tab switch', async ({
 });
 
 test('without JavaScript a phone reads the transcript and keeps Leave', async ({
-  roundFiles,
+  liveRoom,
   browser,
 }) => {
-  const { page } = roundFiles;
+  const { page } = liveRoom;
   const native = await browser.newContext({
     baseURL: origin,
     javaScriptEnabled: false,

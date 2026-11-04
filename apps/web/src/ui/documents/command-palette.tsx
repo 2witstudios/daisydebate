@@ -128,10 +128,7 @@ export function CommandPalette({
   const [selected, setSelected] = useState(0);
   const [hits, setHits] = useState<readonly PaletteDocument[] | null>(null);
   useEffect(() => {
-    if (!search || query.trim() === '') {
-      setHits(null);
-      return;
-    }
+    if (!search || query.trim() === '') return;
     let live = true;
     const wait = setTimeout(() => {
       // A failed search keeps what is shown; the next keystroke asks again.
@@ -147,13 +144,14 @@ export function CommandPalette({
       clearTimeout(wait);
     };
   }, [query, search]);
+  const shown = query.trim() === '' ? null : hits;
   const commands = useMemo(
-    () => paletteCommands(hits ?? documents),
-    [hits, documents],
+    () => paletteCommands(shown ?? documents),
+    [shown, documents],
   );
   const groups = useMemo(
-    () => groupRanked(rankedWithHits(query, commands, hits !== null)),
-    [query, commands, hits],
+    () => groupRanked(rankedWithHits(query, commands, shown !== null)),
+    [query, commands, shown],
   );
   // Arrows walk the list in the order it is drawn: group by group.
   const ranked = useMemo(

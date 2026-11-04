@@ -57,10 +57,7 @@ export const documents = pgTable(
       table.title,
       table.id,
     ),
-    index('documents_owner_edited_idx').on(
-      table.ownerActorId,
-      table.updatedAt,
-    ),
+    index('documents_owner_edited_idx').on(table.ownerActorId, table.updatedAt),
     index('documents_search_idx').using('gin', table.search),
     check(
       'documents_title_length',

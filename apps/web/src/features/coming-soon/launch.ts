@@ -20,7 +20,7 @@ export const launched: LaunchConfig = {
   seasons: true,
   leaderboard: true,
   train: true,
-  prep: false,
+  prep: true,
 };
 
 /** A member's own places that wait on a real backend, like the destinations. */

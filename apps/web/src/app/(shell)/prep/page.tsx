@@ -4,7 +4,7 @@ import type { SearchParams } from '../../../features/access/decision';
 import { driveNoticeText } from '../../../features/documents/drive-return';
 import { requireAccess } from '../../../lib/access';
 import { DocumentManager } from '../../../ui/documents/document-manager';
-import { memberDrive } from './read-drive';
+import { requestMemberDrive } from '../../../lib/request-session';
 
 export const metadata: Metadata = { title: 'Prep' };
 
@@ -15,7 +15,7 @@ export default async function PrepPage({
   searchParams: Promise<SearchParams>;
 }) {
   const identity = await requireAccess('/prep', searchParams);
-  const drive = memberDrive(identity);
+  const drive = requestMemberDrive(identity);
   if (drive === null) redirect('/');
   const { principal, operations } = drive;
   const [page, folders, params] = await Promise.all([

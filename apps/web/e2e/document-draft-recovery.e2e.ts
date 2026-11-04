@@ -3,12 +3,12 @@ import { openPage } from './support/fixtures';
 import { origin } from './support/accounts';
 import { profileLink } from './support/shell-links';
 import {
-  createRoundFile,
-  createFinishedRoundFile,
+  createMemberDocument,
+  documentFromFinishedRound,
   documentsPath,
   expect,
   test,
-} from './support/round-files';
+} from './support/live-room-documents';
 
 const rawDraftFor = (page: Page, id: string) =>
   page.evaluate((documentId) => {
@@ -117,9 +117,9 @@ const serverDocument = async (
   roundId: string,
   documentId: string,
 ) => {
-  const response = await page.request.post(`${documentsPath}list`, {
+  const response = await page.request.post(`${documentsPath}read`, {
     headers: { origin },
-    data: { roundId },
+    data: { ids: [documentId] },
   });
   expect(response.status()).toBe(200);
   const { documents } = await response.json();
@@ -135,7 +135,7 @@ const secondRoundWithRecovery = async ({
   readonly finishRound: () => Promise<void>;
 }) => {
   await finishRound();
-  const second = await createFinishedRoundFile(page);
+  const second = await documentFromFinishedRound(page);
   const identity = await page.request.get('/api/auth/get-session');
   expect(identity.status()).toBe(200);
   const { user } = (await identity.json()) as {
@@ -176,7 +176,7 @@ const typePendingEdit = async (
   await edit(page, text);
   expect((await draftFor(page, documentId)).active.html).toContain(text);
 };
-/** The other Round offers its own document's copy, never the Round just left's. */
+/** Each document's copy follows it, so this one is offered as its own and never mixed. */
 const expectSecondRoundOffer = async (page: Page, title: string) => {
   await page
     .getByRole('navigation', { name: 'Files' })
@@ -195,9 +195,9 @@ const expectSecondRoundOffer = async (page: Page, title: string) => {
 };
 
 test('offline edit survives page loss and explicitly restores into the live editor and server', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, documentId, roundId } = roundFiles;
+  const { page, documentId, roundId } = liveRoom;
   const context = page.context();
   const url = page.url();
   await context.setOffline(true);
@@ -233,9 +233,9 @@ test('offline edit survives page loss and explicitly restores into the live edit
 });
 
 test('newer server copy stays intact until an informed Restore, with copy available', async ({
-  roundFiles,
+  liveRoom,
 }, testInfo) => {
-  const { page, documentId, roundId } = roundFiles;
+  const { page, documentId, roundId } = liveRoom;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Local conflict copy');
   await page.keyboard.press('Enter');
@@ -346,9 +346,9 @@ test('newer server copy stays intact until an informed Restore, with copy availa
 });
 
 test('after a lost exit save, Discard of a recovery offer preserves newer editor typing', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, documentId, roundId } = roundFiles;
+  const { page, documentId, roundId } = liveRoom;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Old recovered choice');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
@@ -374,9 +374,9 @@ test('after a lost exit save, Discard of a recovery offer preserves newer editor
 });
 
 test('after a lost exit save, Discard removes the recovered copy so neither page exit nor reload brings it back', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, documentId, roundId } = roundFiles;
+  const { page, documentId, roundId } = liveRoom;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await offeredAfterReload(page, documentId, 'Discarded private text');
   await page.unroute(`**${documentsPath}save`);
@@ -406,9 +406,9 @@ test('after a lost exit save, Discard removes the recovered copy so neither page
 });
 
 test('a real exit save with no failure double commits once and leaves no false recovery offer', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   const start = await serverDocument(page, roundId, documentId);
   // A paused page clock holds the debounce, so only the exit can send this edit.
   await page.clock.install({ time: '2026-11-01T18:00:00Z' });
@@ -436,9 +436,9 @@ test('a real exit save with no failure double commits once and leaves no false r
 });
 
 test('an exit save landing after the next page listed moves the editor, with no conflict', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   // The paused clock holds the recheck, so this commit lands after the page's
   // list and before its second look, which a real exit save cannot be made to do.
   await page.clock.install({ time: '2026-11-01T18:00:00Z' });
@@ -478,9 +478,9 @@ test('an exit save landing after the next page listed moves the editor, with no 
 });
 
 test('adopted text keeps the caret in its words and Undo cannot leave it', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   const editor = page.getByRole('textbox', { name: untitled });
   await edit(page, 'Alpha beta');
   await expect
@@ -529,9 +529,9 @@ test('adopted text keeps the caret in its words and Undo cannot leave it', async
 });
 
 test('typing while a late commit lands keeps the text and the caret, and overwrites nothing', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   await page.clock.install({ time: '2026-11-01T18:00:00Z' });
   await page.clock.pauseAt('2026-11-01T18:01:00Z');
   const recovery = await offeredAfterReload(
@@ -562,9 +562,9 @@ test('typing while a late commit lands keeps the text and the caret, and overwri
 });
 
 test('lost acknowledgement keeps newer typed notes through reload and explicit reconciliation', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   let committed = false;
   await page.route(`**${documentsPath}save`, async (route) => {
     if (!committed) {
@@ -595,9 +595,9 @@ test('lost acknowledgement keeps newer typed notes through reload and explicit r
 });
 
 test('unavailable browser storage warns while real online saves continue', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, documentId, roundId } = roundFiles;
+  const { page, documentId, roundId } = liveRoom;
   await page.evaluate(() => {
     const write = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
@@ -616,10 +616,10 @@ test('unavailable browser storage warns while real online saves continue', async
 });
 
 test('native logout erases recovery and a stale tab cannot recreate it', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  await roundFiles.finishRound();
-  const { page, roundId, documentId } = roundFiles;
+  await liveRoom.finishRound();
+  const { page, roundId, documentId } = liveRoom;
   await openDrafts(page, roundId);
   await page.clock.install();
   let loggedOut = false,
@@ -651,10 +651,10 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
 });
 
 test('observed session revocation fences editing and hides the notes, keeping the copy for the same person', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  await roundFiles.finishRound();
-  const { page, roundId, documentId } = roundFiles;
+  await liveRoom.finishRound();
+  const { page, roundId, documentId } = liveRoom;
   await openDrafts(page, roundId);
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Pending notes before revocation');
@@ -683,10 +683,10 @@ const endSession = async (page: Page) => {
 };
 
 test('a session ending mid-Round hides the notes with nothing readable, and the same person gets them back', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  await roundFiles.finishRound();
-  const { page, roundId, documentId } = roundFiles;
+  await liveRoom.finishRound();
+  const { page, roundId, documentId } = liveRoom;
   await openDrafts(page, roundId);
   const cookies = await endSession(page);
   await edit(page, 'Typed as the session ended');
@@ -711,10 +711,10 @@ test('a session ending mid-Round hides the notes with nothing readable, and the 
 });
 
 test('a session ending and then a different account signing in erases the copy without showing it', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  await roundFiles.finishRound();
-  const { page, roundId, documentId, stranger } = roundFiles;
+  await liveRoom.finishRound();
+  const { page, roundId, documentId, stranger } = liveRoom;
   await openDrafts(page, roundId);
   await endSession(page);
   await edit(page, 'Private to the expired account');
@@ -732,10 +732,10 @@ test('a session ending and then a different account signing in erases the copy w
 });
 
 test('a 403 refused save keeps the editor text and the draft', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  await roundFiles.finishRound();
-  const { page, roundId, documentId } = roundFiles;
+  await liveRoom.finishRound();
+  const { page, roundId, documentId } = liveRoom;
   await openDrafts(page, roundId);
   await page.route(`**${documentsPath}save`, (route) =>
     route.fulfill({
@@ -759,10 +759,10 @@ test('a 403 refused save keeps the editor text and the draft', async ({
 });
 
 test('after a lost exit save, conflict state stays true through typing, Restore and Discard', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  await roundFiles.finishRound();
-  const { page, roundId, documentId } = roundFiles;
+  await liveRoom.finishRound();
+  const { page, roundId, documentId } = liveRoom;
   await openDrafts(page, roundId);
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await offeredAfterReload(page, documentId, 'Offered before the conflict');
@@ -804,10 +804,10 @@ test('after a lost exit save, conflict state stays true through typing, Restore 
 });
 
 test('account switch purges old-principal recovery across tabs without revealing it to the next member', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId, stranger } = roundFiles;
-  await roundFiles.finishRound();
+  const { page, roundId, documentId, stranger } = liveRoom;
+  await liveRoom.finishRound();
   await openDrafts(page, roundId);
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Private notes from the former account');
@@ -831,10 +831,10 @@ test('account switch purges old-principal recovery across tabs without revealing
 });
 
 test('multibyte multi-document exit keeps overflow recoverable after a lost exit save and each choice targets its own file', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
-  const second = await createRoundFile(page.request, roundId);
+  const { page, roundId, documentId } = liveRoom;
+  const second = await createMemberDocument(page.request);
   await page.reload();
   await page
     .getByRole('navigation', { name: 'Files' })
@@ -900,9 +900,9 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
 });
 
 test('typing straight through the Round closing: every word the editor showed is offered on the result page the Room moves to', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, documentId } = roundFiles;
+  const { page, documentId } = liveRoom;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await page.getByRole('textbox', { name: untitled }).focus();
   // What a person last saw in the Room's editor. The observer stops when that
@@ -924,7 +924,7 @@ test('typing straight through the Round closing: every word the editor showed is
       await page.keyboard.insertText(`word${word} `);
   };
   const closeTheRound = async () => {
-    await roundFiles.forfeitRound();
+    await liveRoom.forfeitRound();
     // Coming back to the tab reads at once, so the Room's own move has no wait
     // on a doorbell, which carries no delivery guarantee.
     await page.evaluate(() =>
@@ -932,7 +932,7 @@ test('typing straight through the Round closing: every word the editor showed is
     );
   };
   await Promise.all([typeUntilTheRoomLeaves(), closeTheRound()]);
-  await expect(page).toHaveURL(`${origin}/rounds/${roundFiles.roundId}`);
+  await expect(page).toHaveURL(`${origin}/rounds/${liveRoom.roundId}`);
   const files = page.getByRole('region', { name: 'Your files' });
   await expect(
     files.getByRole('button', { name: /^Restore Untitled( \d+)?$/ }),
@@ -952,11 +952,11 @@ test('typing straight through the Round closing: every word the editor showed is
 });
 
 test('after a lost exit save, the Round receipt visibly restores a private draft through the same sync owner', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
-  await roundFiles.finishRound();
+  await liveRoom.finishRound();
   await openDrafts(page, roundId);
   await edit(page, 'Receipt recovery text');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
@@ -984,9 +984,9 @@ test('after a lost exit save, the Round receipt visibly restores a private draft
 });
 
 test('actual deferred A acknowledgement rebases B and leaves it unsaved until its own acknowledgement', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   const a = Promise.withResolvers<void>(),
     b = Promise.withResolvers<void>();
   let requests = 0;
@@ -1024,9 +1024,9 @@ test('actual deferred A acknowledgement rebases B and leaves it unsaved until it
 });
 
 test('two real editor tabs preserve a stale conflict until explicit recovery', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   const other = await openPage(
     page.context(),
     'concurrent private-note editor',
@@ -1069,9 +1069,9 @@ test('two real editor tabs preserve a stale conflict until explicit recovery', a
 
 for (const reloadBeforeRestore of [false, true])
   test(`after a lost exit save, recovery survives newer typing and acknowledgement${reloadBeforeRestore ? ' and another reload' : ''} before explicit Restore`, async ({
-    roundFiles,
+    liveRoom,
   }) => {
-    const { page, documentId, roundId } = roundFiles;
+    const { page, documentId, roundId } = liveRoom;
     await page.route(`**${documentsPath}save`, (route) => route.abort());
     const recovery = await offeredAfterReload(
       page,
@@ -1108,9 +1108,9 @@ for (const reloadBeforeRestore of [false, true])
   });
 
 test('after a lost exit save, Restore over pending NEW keeps NEW as an independent durable offer after REC saves', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, documentId, roundId } = roundFiles;
+  const { page, documentId, roundId } = liveRoom;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'REC for swap');
   await expect
@@ -1146,9 +1146,9 @@ test('after a lost exit save, Restore over pending NEW keeps NEW as an independe
 });
 
 test('after a lost exit save, denied clipboard permission exposes selectable recovered text without consuming the offer', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, documentId } = roundFiles;
+  const { page, documentId } = liveRoom;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await edit(page, 'Manual recovery copy');
   await expect
@@ -1206,9 +1206,9 @@ test('after a lost exit save, denied clipboard permission exposes selectable rec
 
 for (const refusal of ['denied storage', 'combined overflow'] as const)
   test(`${refusal === 'denied storage' ? 'after a lost exit save, denied storage' : 'a real exit with an edit over the budget stays unsent and combined overflow'} preserves the recovery offer and current editor while NEW still saves online`, async ({
-    roundFiles,
+    liveRoom,
   }) => {
-    const { page, documentId, roundId } = roundFiles;
+    const { page, documentId, roundId } = liveRoom;
     const rec =
       refusal === 'combined overflow' ? 'R'.repeat(140_000) : 'Retained REC';
     const next =
@@ -1283,9 +1283,9 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
   });
 
 test('after a lost exit save, Server copy comparison keeps showing the server text while newer typing is unsaved', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   await page.route(`**${documentsPath}save`, (route) => route.abort());
   await offeredAfterReload(page, documentId, 'Offered REC');
   const server = await serverDocument(page, roundId, documentId);
@@ -1304,10 +1304,10 @@ test('after a lost exit save, Server copy comparison keeps showing the server te
 });
 
 test('after lost exit saves, original copy expiry withdraws only that offer while later swapped recovery survives reload', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
-  await roundFiles.finishRound();
+  const { page, roundId, documentId } = liveRoom;
+  await liveRoom.finishRound();
   await openDrafts(page, roundId);
   const { revision: startRevision } = await serverDocument(
     page,
@@ -1369,11 +1369,11 @@ test('after lost exit saves, original copy expiry withdraws only that offer whil
 });
 
 test('controlled router-lifecycle proof, not end-user navigation: Round replacement flushes pending drafts without purging either Round recovery, the other Round seeded by a lost exit save', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   const { second, user, secondRecovery } =
-    await secondRoundWithRecovery(roundFiles);
+    await secondRoundWithRecovery(liveRoom);
   const principalId = user.id;
   expect(principalId).toMatch(/^[a-z0-9]{24}$/);
   await openDrafts(page, roundId);
@@ -1443,11 +1443,11 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
 });
 
 test('end-user navigation: leaving a Round through the account menu saves pending drafts and browser Back returns through both Rounds via the profile page, the other Round seeded by a lost exit save', async ({
-  roundFiles,
+  liveRoom,
 }) => {
-  const { page, roundId, documentId } = roundFiles;
+  const { page, roundId, documentId } = liveRoom;
   const { second, user, secondRecovery } =
-    await secondRoundWithRecovery(roundFiles);
+    await secondRoundWithRecovery(liveRoom);
   const { username } = user;
   await page.unroute(`**${documentsPath}save`);
   await openDrafts(page, roundId);

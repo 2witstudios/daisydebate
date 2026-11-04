@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../../features/access/decision';
 import { requireAccess } from '../../../../../../lib/access';
-import { memberDrive } from '../../../read-drive';
+import { requestMemberDrive } from '../../../../../../lib/request-session';
 
 export const metadata: Metadata = { title: 'Delete folder' };
 
@@ -17,9 +17,9 @@ export default async function DeleteFolderPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
-  if (!idSchema.safeParse(id).success) notFound();
   const identity = await requireAccess('/prep', searchParams);
-  const drive = memberDrive(identity);
+  if (!idSchema.safeParse(id).success) notFound();
+  const drive = requestMemberDrive(identity);
   if (drive === null) redirect('/');
   const { principal, operations } = drive;
   const folder = (await operations.listFolders(principal)).find(

@@ -166,9 +166,13 @@ describe('competitive schema child tables', () => {
         },
         documents: {
           checks: ['documents_revision_positive', 'documents_title_length'],
-          indexes: ['documents_owner_created_idx'],
+          indexes: [
+            'documents_listing_idx',
+            'documents_owner_edited_idx',
+            'documents_search_idx',
+          ],
           uniques: [],
-          namedKeys: [],
+          namedKeys: ['documents_folder_fk'],
         },
         bots: {
           checks: ['bot_profiles_difficulty_check'],

@@ -33,12 +33,7 @@ import { focusReturnTarget, firstShown } from './focus-return';
 import type { LeaveLinks } from './leave-room';
 import { usePhoneBreakpoint } from './phone-breakpoint';
 import { RoomDocument } from './room-document';
-import {
-  initialRoomState,
-  phonePanelOf,
-  reduceRoom,
-  type RoomAction,
-} from './room-state';
+import { initialRoomState, phonePanelOf, reduceRoom } from './room-state';
 import type { RoundSnapshot } from './round';
 import { RoundBar } from './round-bar';
 import { chatUnread, ROUND_SIDEBAR_ID, RoundSidebar } from './round-sidebar';

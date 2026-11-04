@@ -19,7 +19,9 @@ export function useDocumentSync(
 ) {
   const [problem, setProblem] = useState<string | null>(null);
   const open = useRef(openIds);
-  open.current = openIds;
+  useEffect(() => {
+    open.current = openIds;
+  }, [openIds]);
   useEffect(() => {
     if (!sync) return;
     let live = true;

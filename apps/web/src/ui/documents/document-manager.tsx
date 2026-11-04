@@ -122,7 +122,7 @@ export function ManagerWorkspace({
         <p role="alert">{problem ?? notice ?? pageNotice}</p>
       ) : null}
       <div className="flex room-workspace border-t border-border max-narrow:flex-col">
-        <div className="flex w-round-files shrink-0 flex-col gap-3 border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
+        <div className="flex w-drive shrink-0 flex-col gap-3 border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
           <form method="post" action="/api/documents/create">
             <input type="hidden" name="back" value={back} />
             <input

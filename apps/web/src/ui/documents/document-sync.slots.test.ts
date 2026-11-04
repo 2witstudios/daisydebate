@@ -1,4 +1,4 @@
-import { createDocumentSync, listed } from './document-sync.test-support';
+import { createDocumentSync } from './document-sync.test-support';
 import {
   documentApi,
   memoryStorage,

@@ -36,6 +36,7 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
   requestIdentity: async () => ({ state: 'anonymous' }),
+  requestMemberDrive: () => null,
   requestLadder: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,
@@ -168,6 +169,11 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/recordings/page'),
     '(shell)/recordings/[roundId]/page.tsx': () =>
       import('../../app/(shell)/recordings/[roundId]/page'),
+    '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
+    '(shell)/prep/folders/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/folders/[id]/page'),
+    '(shell)/prep/folders/[id]/delete/page.tsx': () =>
+      import('../../app/(shell)/prep/folders/[id]/delete/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
     '(shell)/settings/page.tsx': () =>
       import('../../app/(shell)/settings/page'),

@@ -46,8 +46,12 @@ function DriveForm({
         (entry): entry is [string, string] => typeof entry[1] === 'string',
       ),
     );
-    const { back: _back, ...rest } = typed;
-    drive.change(path, rest);
+    drive.change(
+      path,
+      Object.fromEntries(
+        Object.entries(typed).filter(([name]) => name !== 'back'),
+      ),
+    );
     event.currentTarget.closest('details')?.removeAttribute('open');
   };
   return (
@@ -127,7 +131,7 @@ function RowActions({
       >
         <Icon name="dots" size={16} />
       </summary>
-      <div className="w-56 absolute right-0 z-10 flex flex-col gap-3 rounded-sm border border-border-strong bg-surface-raised p-3 shadow-3">
+      <div className="absolute right-0 z-10 flex w-max flex-col gap-3 rounded-sm border border-border-strong bg-surface-raised p-3 shadow-3">
         <DriveForm
           drive={drive}
           path={isFolder ? 'folders/rename' : 'rename'}

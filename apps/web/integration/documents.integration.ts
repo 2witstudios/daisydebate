@@ -101,11 +101,13 @@ describe('a member’s documents over PostgreSQL', () => {
               expectedRevision: 1,
             }),
         ],
-        ['a delete', () => operations.deleteDocument(stranger, { id: mine.id })],
+        [
+          'a delete',
+          () => operations.deleteDocument(stranger, { id: mine.id }),
+        ],
         [
           'a create in their folder',
-          () =>
-            operations.createDocument(stranger, { folderId: folder.id }),
+          () => operations.createDocument(stranger, { folderId: folder.id }),
         ],
         [
           'a move into their folder',
