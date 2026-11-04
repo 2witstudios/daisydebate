@@ -16,6 +16,9 @@ export const messagingBetaLimits = {
   bodyBytes: 65536,
 } as const;
 
+/** The stored reaction column's bound; older values outside today's choices remain. */
+export const messagingReactionMaxUnits = 8;
+
 /** Refuses an injected bound that is not a positive integer within its beta limit. */
 export const parseMessagingBound = (value: number, limit: number) =>
   z.number().int().positive().max(limit).parse(value);
@@ -70,6 +73,15 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
     editedAt: z.iso.datetime().nullable(),
     replyToMessageId: idSchema.optional(),
   });
+  /** Shared counts only: who reacted never enters a shared body (ADR 0115). */
+  const reactionCount = z.strictObject({
+    reaction: z.string().min(1).max(messagingReactionMaxUnits),
+    count: z.number().int().positive().safe(),
+  });
+  const historyMessage = z.strictObject({
+    ...message.shape,
+    reactions: z.array(reactionCount),
+  });
   const unavailableMessage = z.strictObject({
     id: idSchema,
     channelId: idSchema,
@@ -102,31 +114,58 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
     channelId: idSchema,
     limit: z.number().int().min(1).max(bounds.pageItems),
   };
+  const historyPage = {
+    version: z.literal(1),
+    channelId: idSchema,
+    changeVersion: orderingNumber,
+    messages: z
+      .array(z.union([historyMessage, unavailableMessage]))
+      .max(bounds.pageItems),
+    nextBefore: sequenceCursor.nullable(),
+  };
+  const coherentHistory = (result: {
+    readonly channelId: string;
+    readonly changeVersion: number;
+    readonly messages: readonly {
+      readonly channelId: string;
+      readonly changeVersion: number;
+      readonly sequence: number;
+    }[];
+    readonly nextBefore: {
+      readonly channelId: string;
+      readonly sequence: number;
+    } | null;
+  }) =>
+    result.messages.every(
+      (item, index) =>
+        item.channelId === result.channelId &&
+        item.changeVersion <= result.changeVersion &&
+        (index === 0 || result.messages[index - 1]!.sequence > item.sequence),
+    ) &&
+    (result.nextBefore === null ||
+      (result.nextBefore.channelId === result.channelId &&
+        result.nextBefore.sequence === result.messages.at(-1)?.sequence));
   return {
     message,
-    historyResult: z
+    /** Every member's view of a page: the only shape a shared body carries. */
+    historyResult: z.strictObject(historyPage).refine(coherentHistory),
+    /** An authorized HTTP read: the same page plus this reader's own state. */
+    viewedHistoryResult: z
       .strictObject({
-        version: z.literal(1),
-        channelId: idSchema,
-        changeVersion: orderingNumber,
-        messages: z
-          .array(z.union([message, unavailableMessage]))
-          .max(bounds.pageItems),
-        nextBefore: sequenceCursor.nullable(),
+        ...historyPage,
+        viewer: z.strictObject({
+          readSequence: orderingNumber,
+          /** The first live message from someone else past the read position. */
+          firstUnreadSequence: positiveOrder.nullable(),
+          ownReactions: z.array(
+            z.strictObject({
+              messageId: idSchema,
+              reactions: z.array(reactionCount.shape.reaction).min(1),
+            }),
+          ),
+        }),
       })
-      .refine(
-        (result) =>
-          result.messages.every(
-            (item, index) =>
-              item.channelId === result.channelId &&
-              item.changeVersion <= result.changeVersion &&
-              (index === 0 ||
-                result.messages[index - 1]!.sequence > item.sequence),
-          ) &&
-          (result.nextBefore === null ||
-            (result.nextBefore.channelId === result.channelId &&
-              result.nextBefore.sequence === result.messages.at(-1)?.sequence)),
-      ),
+      .refine(coherentHistory),
     changesResult: z
       .strictObject({
         version: z.literal(1),

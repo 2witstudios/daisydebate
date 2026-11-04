@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
+import { messagingBetaLimits } from './core';
 /** Display bounds: a preview is a truncated excerpt, never the full message. */
 export const messagingInboxPreviewMax = 120;
 export const messagingInboxTitleMax = 200;
@@ -33,18 +34,68 @@ const messagingInboxEntrySchema = z.discriminatedUnion('kind', [
     kind: z.literal('incoming_invitation'),
   }),
 ]);
+const cursorTime = z.iso.datetime();
+
+/**
+ * Where an inbox page ended: invitations lead, then newest activity first with
+ * the channel as tie-break. It names only an entry its reader was already
+ * scanned, and it is a position, never a navigation grant.
+ */
+export type MessagingInboxCursor =
+  | { readonly lead: true; readonly channelId: string }
+  | {
+      readonly lead: false;
+      readonly activityAt: string;
+      readonly channelId: string;
+    };
+
+export const encodeMessagingInboxCursor = (
+  cursor: MessagingInboxCursor,
+): string =>
+  `${cursor.lead ? 'lead' : cursor.activityAt}~${cursor.channelId}`;
+
+/** The cursor a page handed out, or null for anything else. */
+export function decodeMessagingInboxCursor(
+  value: string,
+): MessagingInboxCursor | null {
+  const [position, channel, ...rest] = value.split('~');
+  if (position === undefined || channel === undefined || rest.length > 0)
+    return null;
+  const channelId = idSchema.safeParse(channel, { jitless: true });
+  if (!channelId.success) return null;
+  if (position === 'lead') return { lead: true, channelId: channelId.data };
+  const activityAt = cursorTime.safeParse(position, { jitless: true });
+  return activityAt.success
+    ? { lead: false, activityAt: activityAt.data, channelId: channelId.data }
+    : null;
+}
+
+const inboxCursorSchema = z
+  .string()
+  .refine((value) => decodeMessagingInboxCursor(value) !== null);
+
+/** One line, as a row shows it, so a search finds what its reader can see. */
+export const messagingInboxSearchLine = (text: string): string =>
+  text.replace(/\s+/g, ' ').trim();
+
 /** Pagination bounds are the explicit owning policy, never a navigation grant. */
 export function createMessagingInboxSchemas(maxItems: number) {
   z.number().int().positive().safe().parse(maxItems);
   return {
     query: z.strictObject({
       version: z.literal(1),
-      after: idSchema.optional(),
+      after: inboxCursorSchema.optional(),
+      /** A literal match on what a row shows; never message history. */
+      q: z
+        .string()
+        .max(messagingBetaLimits.queryUnits)
+        .refine((value) => messagingInboxSearchLine(value) !== '')
+        .optional(),
     }),
     result: z.strictObject({
       version: z.literal(1),
       entries: z.array(messagingInboxEntrySchema).max(maxItems),
-      nextAfter: idSchema.nullable(),
+      nextAfter: inboxCursorSchema.nullable(),
     }),
     /** One conversation's own entry: who it is with, for its page (ISSUE-605). */
     entry: z.strictObject({

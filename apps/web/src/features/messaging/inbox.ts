@@ -14,6 +14,7 @@ import {
 } from './authorization-fence';
 import { groupInvitationAuthorizationInput } from './group-invitation-composition';
 import {
+  messagingInboxSearchLine,
   messagingInboxPreviewMax,
   messagingInboxTitleMax,
 } from '@daisy/protocol';
@@ -117,6 +118,22 @@ export function summarizeMessagingInboxEntry(
       summary.createdAt,
     unread: summary.unread,
   };
+}
+
+/**
+ * Whether a final rendered entry shows the search: its title or its one-line
+ * preview, exactly as a reader sees them, clipped tail and all. An invitation
+ * shows nothing to find.
+ */
+export function messagingInboxEntryMatches(
+  entry: MessagingInboxEntry,
+  search: string,
+): boolean {
+  if (entry.kind === 'incoming_invitation') return false;
+  const needle = messagingInboxSearchLine(search).toLowerCase();
+  return [entry.title, entry.preview?.text].some(
+    (shown) => shown?.toLowerCase().includes(needle) === true,
+  );
 }
 
 /** Invitations await a decision, so they lead; then newest activity first. */

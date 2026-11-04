@@ -12,7 +12,7 @@ export async function durableMessages(page: Page, channelId: string) {
   return createMessagingCoreSchemas({
     messageUnits: messagingBetaLimits.messageUnits,
     pageItems: 100,
-  }).historyResult.parse(await response.json());
+  }).viewedHistoryResult.parse(await response.json());
 }
 
 export async function durableMessage(

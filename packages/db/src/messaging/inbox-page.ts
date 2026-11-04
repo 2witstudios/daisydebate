@@ -1,7 +1,14 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import {
+  decodeMessagingInboxCursor,
+  encodeMessagingInboxCursor,
+  idSchema,
+  messagingBetaLimits,
+  messagingInboxSearchLine,
+  messagingInboxPreviewMax,
+} from '@daisy/protocol';
 import {
   loadAuthorizationAccount,
   type AuthorizationTransaction,
@@ -33,6 +40,8 @@ type MessagingInboxScope = {
   readonly actorId: string;
   readonly limit: number;
   readonly after?: string;
+  /** A literal match on what a row shows: never invitations or older history. */
+  readonly search?: string;
   /** The caller's clock instant, for age facts read under the fences. */
   readonly now: string;
 };
@@ -84,42 +93,121 @@ function checkedScope(scope: MessagingInboxScope) {
     !Number.isSafeInteger(scope.limit) ||
     scope.limit < 1 ||
     scope.limit > 65535 ||
-    (scope.after !== undefined && !idSchema.safeParse(scope.after).success)
+    (scope.after !== undefined &&
+      decodeMessagingInboxCursor(scope.after) === null) ||
+    (scope.search !== undefined &&
+      (scope.search.length > messagingBetaLimits.queryUnits ||
+        messagingInboxSearchLine(scope.search) === ''))
   )
     throw createAppError('VALIDATION');
 }
+const LEAD_ACTIVITY = '1970-01-01T00:00:00.000Z';
+/** The whitespace JavaScript's `\\s` means, so both sides collapse the same runs. */
+const JS_WHITESPACE_RUN =
+  '[\\t\\n\\v\\f\\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+';
+
 /**
- * Own associations only. Hidden rows are scanned and counted, so the page
- * bound covers them and a hidden run still advances the continuation.
+ * Own associations only, newest activity first across every page (ISSUE-604):
+ * the same instant a row shows, to its millisecond, with the channel as
+ * tie-break. An invitation has no activity its invitee may learn, so it leads
+ * on a fixed instant. A search here is only a prefilter, never narrower than
+ * what a row shows: PostgreSQL counts characters and JavaScript UTF-16 units,
+ * so the caller rechecks each final rendered entry. The fenced decision still
+ * decides every match. Hidden rows are scanned
+ * and counted, so the page bound covers them and a hidden run still advances
+ * the continuation.
  */
 async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
-  const after = scope.after ?? null;
+  const cursor =
+    scope.after === undefined ? null : decodeMessagingInboxCursor(scope.after);
+  const afterRank = cursor === null ? null : cursor.lead ? 0 : 1;
+  const afterActivity =
+    cursor === null || cursor.lead ? LEAD_ACTIVITY : cursor.activityAt;
+  const afterChannel = cursor?.channelId ?? null;
+  const search =
+    scope.search === undefined ? null : messagingInboxSearchLine(scope.search);
   const rows = await tx.execute(sql`
-    select candidate.channel_id as "channelId", coalesce(saved.hidden, false) as hidden from (
-      select channel_id from public.messaging_dm_pairs
-      where (low_actor_id = ${scope.actorId} or high_actor_id = ${scope.actorId})
-        and (${after}::text is null or channel_id > ${after}::text)
-      union
-      select channel_id from public.messaging_group_grants
-      where actor_id = ${scope.actorId} and revoked_at is null
-        and (${after}::text is null or channel_id > ${after}::text)
-      union
-      select channel_id from public.messaging_group_invitations
-      where invitee_actor_id = ${scope.actorId} and state = 'pending'
-        and (${after}::text is null or channel_id > ${after}::text)
-      union
-      select channel_id from public.messaging_actor_states
-      where actor_id = ${scope.actorId}
-        and (${after}::text is null or channel_id > ${after}::text)
-    ) candidate
-    left join public.messaging_actor_states saved
-      on saved.actor_id = ${scope.actorId} and saved.channel_id = candidate.channel_id
-    order by candidate.channel_id limit ${scope.limit}`);
+    select ranked.channel_id as "channelId", ranked.hidden as hidden,
+      ranked.rank as rank,
+      to_char(ranked.activity at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as activity
+    from (
+      select candidate.channel_id, coalesce(saved.hidden, false) as hidden,
+        led.invited as lead,
+        case when led.invited then 0 else 1 end as rank,
+        case when led.invited then ${LEAD_ACTIVITY}::timestamptz
+          else date_trunc('milliseconds', coalesce(
+            case when pair.request_state = 'pending' then pair.requested_at end,
+            last.created_at, channel.created_at))
+        end as activity,
+        case when pair.channel_id is null then channel.title else counterpart.username end as title,
+        case when pair.request_state = 'pending' then pair.introduction else last.text end as line
+      from (
+        select channel_id from public.messaging_dm_pairs
+        where low_actor_id = ${scope.actorId} or high_actor_id = ${scope.actorId}
+        union
+        select channel_id from public.messaging_group_grants
+        where actor_id = ${scope.actorId} and revoked_at is null
+        union
+        select channel_id from public.messaging_group_invitations
+        where invitee_actor_id = ${scope.actorId} and state = 'pending'
+        union
+        select channel_id from public.messaging_actor_states
+        where actor_id = ${scope.actorId}
+      ) candidate
+      join public.messaging_channels channel on channel.id = candidate.channel_id
+      left join public.messaging_actor_states saved
+        on saved.actor_id = ${scope.actorId} and saved.channel_id = candidate.channel_id
+      left join public.messaging_dm_pairs pair on pair.channel_id = candidate.channel_id
+      left join lateral (
+        select u.username from public.actors a join public.users u on u.id = a.user_id
+        where a.id = case when pair.low_actor_id = ${scope.actorId} then pair.high_actor_id else pair.low_actor_id end
+          and u.deleted_at is null
+      ) counterpart on true
+      left join lateral (
+        select m.text, m.created_at from public.messaging_messages m
+        where m.channel_id = candidate.channel_id and m.removed_at is null
+        order by m.sequence desc limit 1
+      ) last on true
+      cross join lateral (
+        select pair.channel_id is null
+          and exists (select 1 from public.messaging_group_invitations i
+            where i.channel_id = candidate.channel_id and i.invitee_actor_id = ${scope.actorId} and i.state = 'pending')
+          and not exists (select 1 from public.messaging_group_grants g
+            where g.channel_id = candidate.channel_id and g.actor_id = ${scope.actorId} and g.revoked_at is null)
+          as invited
+      ) led
+    ) ranked
+    where (${afterChannel}::text is null
+        or ranked.rank > ${afterRank}::integer
+        or (ranked.rank = ${afterRank}::integer and (
+          ranked.activity < ${afterActivity}::timestamptz
+          or (ranked.activity = ${afterActivity}::timestamptz and ranked.channel_id > ${afterChannel}::text))))
+      and (${search}::text is null or (not ranked.lead and (
+        strpos(lower(coalesce(ranked.title, '')), lower(${search}::text)) > 0
+        or strpos(lower(left(btrim(regexp_replace(coalesce(ranked.line, ''), ${JS_WHITESPACE_RUN}::text, ' ', 'g')), ${messagingInboxPreviewMax}::integer)), lower(${search}::text)) > 0)))
+    order by ranked.rank, ranked.activity desc, ranked.channel_id
+    limit ${scope.limit}`);
   return rows.map((row) => {
     const channel = idSchema.safeParse(row.channelId);
-    if (!channel.success || typeof row.hidden !== 'boolean')
+    if (
+      !channel.success ||
+      typeof row.hidden !== 'boolean' ||
+      typeof row.activity !== 'string'
+    )
       throw createAppError('INFRASTRUCTURE');
-    return { channelId: channel.data, hidden: row.hidden };
+    return {
+      channelId: channel.data,
+      hidden: row.hidden,
+      cursor: encodeMessagingInboxCursor(
+        Number(row.rank) === 0
+          ? { lead: true, channelId: channel.data }
+          : {
+              lead: false,
+              activityAt: row.activity,
+              channelId: channel.data,
+            },
+      ),
+    };
   });
 }
 
@@ -218,9 +306,7 @@ async function readPage<D>(
       },
     ),
     nextAfter:
-      scanned.length === scope.limit
-        ? (scanned.at(-1)?.channelId ?? null)
-        : null,
+      scanned.length === scope.limit ? (scanned.at(-1)?.cursor ?? null) : null,
   };
 }
 /** Every fenced member account's age fact, in one statement. */

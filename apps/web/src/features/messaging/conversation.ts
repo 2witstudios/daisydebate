@@ -22,10 +22,12 @@ export async function readConversationResponse(response: Response) {
     });
   if (!parsedBounds.success) throw createAppError('INFRASTRUCTURE');
   const bounds = parsedBounds.data;
-  const history = createMessagingCoreSchemas(bounds).historyResult.safeParse(
-    await response.json(),
-  );
-  if (!history.success) throw createAppError('INFRASTRUCTURE');
+  const viewed = createMessagingCoreSchemas(
+    bounds,
+  ).viewedHistoryResult.safeParse(await response.json());
+  if (!viewed.success) throw createAppError('INFRASTRUCTURE');
+  // The reader's own state stays apart from the page every member shares.
+  const { viewer, ...history } = viewed.data;
   const endpoint = response.headers.get('x-realtime-socket-url');
   const socketUrl =
     endpoint === null ? null : realtimePublicUrlSchema.parse(endpoint);
@@ -40,7 +42,8 @@ export async function readConversationResponse(response: Response) {
   if (recovery !== null && !recovery.success)
     throw createAppError('INFRASTRUCTURE');
   return {
-    history: history.data,
+    history,
+    viewer,
     bounds,
     socketUrl,
     typingRefetchMs: recovery?.data ?? null,

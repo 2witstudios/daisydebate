@@ -13,6 +13,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { messagingMessages } from '../schema/messaging-messages';
 import {
@@ -34,16 +35,55 @@ type PageRow = {
   readonly message: typeof messagingMessages.$inferSelect | null;
   readonly changeVersion: number;
 };
-/** Pure: a history page from one statement's rows (descending sequence). */
+type ReactionRow = {
+  readonly reaction: string;
+  readonly count: number;
+  readonly own: boolean;
+};
+type HistoryRow = PageRow & { readonly reactions?: readonly ReactionRow[] };
+
+const reactionRowSchema = z.array(
+  z.object({
+    reaction: z.string(),
+    count: z.number().int().positive(),
+    own: z.boolean(),
+  }),
+);
+/**
+ * Pure: a history page from one statement's rows (descending sequence).
+ * Counts are shared; which reactions are the reader's own stays apart, and a
+ * removed message keeps neither.
+ */
 export function historyPage(
-  rows: readonly PageRow[],
+  rows: readonly HistoryRow[],
   limit: number,
   channelId: string,
 ) {
-  const found = rows.flatMap((row) => (row.message ? [row.message] : []));
-  const page = found.slice(0, limit).map(messageRecord);
+  const found = rows.flatMap((row) =>
+    row.message ? [{ message: row.message, reactions: row.reactions ?? [] }] : [],
+  );
+  const kept = found.slice(0, limit);
+  const live = (message: typeof messagingMessages.$inferSelect) =>
+    message.text !== null && message.removedAt === null;
+  const page = kept.map(({ message, reactions }) => ({
+    ...messageRecord(message),
+    reactions: live(message)
+      ? reactions.map(({ reaction, count }) => ({ reaction, count }))
+      : [],
+  }));
   return {
     messages: page,
+    ownReactions: kept.flatMap(({ message, reactions }) => {
+      const own = reactions.filter((item) => item.own);
+      return live(message) && own.length > 0
+        ? [
+            {
+              messageId: message.id,
+              reactions: own.map((item) => item.reaction),
+            },
+          ]
+        : [];
+    }),
     changeVersion: rows[0]!.changeVersion,
     nextBefore:
       found.length > limit
@@ -99,6 +139,30 @@ export function channelReadFrame(
         ),
       )
       .where(eq(messagingChannelStreams.channelId, input.channelId));
+  /** One MVCC snapshot: the page, its counts and this reader's own marks. */
+  const historyRows = (filter: SQL | undefined) =>
+    tx
+      .select({
+        message: messagingMessages,
+        changeVersion: messagingChannelStreams.changeVersion,
+        reactions: sql<unknown>`(select coalesce(jsonb_agg(jsonb_build_object(
+            'reaction', grouped.reaction, 'count', grouped.total, 'own', grouped.own
+          ) order by grouped.reaction), '[]'::jsonb) from (
+            select r.reaction, count(*)::integer as total, bool_or(r.actor_id = ${input.actorId}) as own
+            from public.messaging_reactions r
+            where r.channel_id = ${messagingMessages.channelId} and r.message_id = ${messagingMessages.id}
+            group by r.reaction
+          ) grouped)`,
+      })
+      .from(messagingChannelStreams)
+      .leftJoin(
+        messagingMessages,
+        and(
+          eq(messagingMessages.channelId, messagingChannelStreams.channelId),
+          filter,
+        ),
+      )
+      .where(eq(messagingChannelStreams.channelId, input.channelId));
   const required = <T extends readonly unknown[]>(rows: T) => {
     if (rows.length === 0) throw createAppError('NOT_FOUND');
     return rows;
@@ -121,7 +185,7 @@ export function channelReadFrame(
         (typeof query !== 'string' || query.trim().length === 0)
       )
         throw createAppError('VALIDATION');
-      const rows = await page(
+      const rows = await historyRows(
         and(
           query === undefined
             ? undefined
@@ -136,7 +200,39 @@ export function channelReadFrame(
       )
         .orderBy(desc(messagingMessages.sequence))
         .limit(limit + 1);
-      return historyPage(required(rows), limit, input.channelId);
+      const result = historyPage(
+        required(rows).map((row) => ({
+          ...row,
+          reactions: reactionRowSchema.parse(row.reactions ?? []),
+        })),
+        limit,
+        input.channelId,
+      );
+      const [position] = await tx
+        .select({
+          readSequence: sql<number>`coalesce((select ${messagingActorStates.readSequence} from ${messagingActorStates}
+            where ${messagingActorStates.channelId} = ${input.channelId} and ${messagingActorStates.actorId} = ${input.actorId}), 0)`,
+          firstUnreadSequence: sql<number | null>`(select min(unread.sequence) from ${messagingMessages} unread
+            where unread.channel_id = ${input.channelId} and unread.author_actor_id <> ${input.actorId}
+              and unread.removed_at is null
+              and unread.sequence > coalesce((select ${messagingActorStates.readSequence} from ${messagingActorStates}
+                where ${messagingActorStates.channelId} = ${input.channelId} and ${messagingActorStates.actorId} = ${input.actorId}), 0))`,
+        })
+        .from(messagingChannelStreams)
+        .where(eq(messagingChannelStreams.channelId, input.channelId));
+      if (!position) throw createAppError('NOT_FOUND');
+      const { ownReactions, ...shared } = result;
+      return {
+        ...shared,
+        viewer: {
+          readSequence: Number(position.readSequence),
+          firstUnreadSequence:
+            position.firstUnreadSequence === null
+              ? null
+              : Number(position.firstUnreadSequence),
+          ownReactions,
+        },
+      };
     },
     async changes({
       limit,
