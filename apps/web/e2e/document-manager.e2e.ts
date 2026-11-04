@@ -166,7 +166,7 @@ test('a document deleted in another tab keeps its text and saves as new', async 
     });
     expect(deleted.status()).toBe(200);
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect(page.getByText('was deleted', { exact: false })).toBeVisible();
+    await expect(page.getByText('Untitled was deleted', { exact: false })).toBeVisible();
     await expect(
       page.getByRole('textbox', { name: 'Untitled', exact: true }),
     ).toContainText(text);
