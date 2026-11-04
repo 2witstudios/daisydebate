@@ -134,8 +134,6 @@ const plugin = Database.Plugin.create({
       else store.resources.prepConsumedNegativeMs = input.ms;
     },
     startPrep: (store, input: { side: DebateSide; startedAtMs: number }) => {
-      // Prep closes the microphone the gate waited for: the next start gates afresh.
-      store.resources.startGate = null;
       store.resources.activePrepSide = input.side;
       store.resources.activePrepStartedAtMs = input.startedAtMs;
     },

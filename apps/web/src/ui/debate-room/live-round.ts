@@ -131,7 +131,7 @@ function clockOf(
       ...(position.nextSegment !== null &&
       microphoneOpensForClock({
         rules: view.rules,
-        participants: view.participants.filter(isSeat) as never,
+        participants: view.participants.filter(isSeat),
         participantId: seatId,
         nextSequence: position.nextSegment.sequence,
       })

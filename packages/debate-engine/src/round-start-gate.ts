@@ -90,7 +90,10 @@ const heard = (
   );
 };
 
-/** The one way a start gate changes; pure and total. */
+/**
+ * How capture's readiness changes a start gate; pure and total. Opening the segment, an
+ * incident and prep each spend the gate as part of their own transition.
+ */
 export const startGateTransition = (
   state: ClockState,
   countdownMs: number,

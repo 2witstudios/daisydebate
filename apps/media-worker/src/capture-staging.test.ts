@@ -129,6 +129,36 @@ test('a frame that beat the history showing its speech open waits for it', () =>
     expected: [7],
   });
 });
+test('closing a track lets go of its own waiting frames only', () => {
+  const f = fixture(),
+    segment = f.state.state.segment!;
+  f.state.state.segment = null;
+  f.observe(0, 10);
+  f.observe(1, 20.2);
+  f.staging.observe({
+    identity: 'i'.repeat(24),
+    trackId: 'other-track',
+    sequence: 0,
+    beforeMs: 30.4,
+    afterMs: 30.5,
+    pcm: new Int16Array(160).fill(9),
+  });
+  f.staging.closeTrack('real-track');
+  assert({
+    given: 'a track closing while its frames wait for history',
+    should: 'drop only that track, retaining nothing of it',
+    actual: f.counts(),
+    expected: { dropped: 2, retained: 0 },
+  });
+  f.state.state.segment = segment;
+  f.staging.refresh(f.state.calibration);
+  assert({
+    given: 'the next history',
+    should: 'admit the other track, and not bring the closed one back',
+    actual: f.staging.take().map(({ frame }) => frame.pcm[0]),
+    expected: [9],
+  });
+});
 test('audio before the clock never enters, however soon the speech opens', () => {
   const f = fixture(),
     interval = f.state.state.intervals[0]!,

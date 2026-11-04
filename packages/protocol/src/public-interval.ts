@@ -140,7 +140,8 @@ export const publicClips = <T extends Captured, I extends PublicInterval>(
 export type StageInterval = PublicInterval & {
   /**
    * `speech` is published as held. `between` is the stage's slate from the hold with
-   * its audio replaced by silence: mics are closed, and nothing can be heard. `private`
+   * its audio replaced by silence, so nothing can be heard, even from a next speaker's
+   * microphone opening just before their clock. `private`
    * reads nothing from the hold: a generated slate and silence, since a phase's first
    * moments can still hold a camera frame until the page and the revocation catch up.
    */

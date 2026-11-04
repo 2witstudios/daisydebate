@@ -80,6 +80,8 @@ const startPrep = (c: CommandContext): void => {
   // Prep supersedes the rest of the countdown: the gap anchor hands over to
   // the prep clock anchored now.
   c.on.startPrep({ side, startedAtMs: c.now });
+  // Prep closes the microphone the gate waited for: the next start gates afresh.
+  c.on.setStartGate(null);
   c.into.effects.push({ kind: 'prep_started', side, at: iso(c.now) });
 };
 

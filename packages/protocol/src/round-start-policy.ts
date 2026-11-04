@@ -1,7 +1,8 @@
 /**
  * How a speech's start waits for capture, held to the shortest that measures reliably
  * (ADR 0110). The next speaker's microphone opens this long before the clock, with the
- * seat told first, because the other side can hear it. MEASURED on staging: see the ADR.
+ * seat told first, because the other side can hear it. 1.5 s measured reliably on staging;
+ * 1.2 s is the candidate that staging's rerun still has to prove.
  */
 export const roundStartPolicy = {
   microphoneLeadMs: 1_200,

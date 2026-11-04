@@ -90,7 +90,9 @@ Live audio and video run through Daisy's self-hosted LiveKit
 keeps no audio. Broadcast and Recording are the only captures that store video,
 always on a ranked Round and by host opt-in elsewhere, and the Ranked content and
 Casual recordings rows above declare them. A seated human's microphone stays
-captured but unpublished between turns (ISSUE-575). A bot hears its peers only in its own process memory, one
+captured but unpublished between turns (ISSUE-575), except that the next speaker's microphone
+opens shortly before their clock and through any start hold, so capture has them. The seat is
+told first, the other side can hear it, and the Broadcast stage does not subscribe to it. A bot hears its peers only in its own process memory, one
 10 ms frame at a time, never written anywhere (ISSUE-764).
 
 ## Retained after erasure

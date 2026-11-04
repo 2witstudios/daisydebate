@@ -149,6 +149,73 @@ describe('liveRoundOf during the round', () => {
     });
   });
 
+  test('who is told their microphone is about to open', () => {
+    const NOTE = 'Your microphone goes live just before your clock starts.';
+    const human = { ...neg, kind: 'human' as const };
+    const partner = {
+      ...aff,
+      id: 'p4n6p8r2t4v6x8z1k3b5c7d9',
+      actorId: 'q4n6p8r2t4v6x8z1k3b5c7d9',
+      slot: 1,
+    };
+    const seated = (
+      closed: number,
+      over: Partial<RoundView> = {},
+    ): RoundView => ({
+      ...ran(closed, true),
+      participants: [{ ...aff, label: 'Sam Reyes' }, human, partner],
+      ...over,
+    });
+    const notes = (round: RoundView, sequence: number) =>
+      [aff, human, partner].map(
+        ({ actorId }) =>
+          liveRoundOf(round, actorId, origin + startOf(sequence) + 1_000)?.clock
+            ?.note === NOTE,
+      );
+    const types = rules.map(({ type }) => type);
+    const crossEx = types.indexOf('cross_ex');
+    const speech = types.indexOf('speech', crossEx);
+    assert({
+      given:
+        'the gap before a speech, in a team with a partner in another slot',
+      should: 'tell only the seat that speaks, never its partner',
+      actual: notes(seated(speech), speech),
+      expected: [
+        rules[speech]!.side === 'affirmative' && rules[speech]!.slot === 0,
+        rules[speech]!.side === 'negative',
+        false,
+      ],
+    });
+    assert({
+      given: 'the gap before a cross-examination',
+      should: 'tell every debater whose microphone opens, on both sides',
+      actual: notes(seated(crossEx), crossEx).slice(0, 2),
+      expected: [true, true],
+    });
+    const open = seated(speech);
+    assert({
+      given: 'the gap before a speech under open questioning',
+      should: 'tell both sides, because everyone may speak',
+      actual: notes(
+        {
+          ...open,
+          rules: {
+            ...open.rules,
+            interaction: {
+              ...open.rules.interaction,
+              interruptions: {
+                ...open.rules.interaction.interruptions,
+                allowed: 'open',
+              } as never,
+            },
+          },
+        },
+        speech,
+      ).slice(0, 2),
+      expected: [true, true],
+    });
+  });
+
   test('a speech, from both sides', () => {
     const now = origin + startOf(0) + 60_000;
     const mine = liveRoundOf(ran(1), aff.actorId, now);

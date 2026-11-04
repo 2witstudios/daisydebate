@@ -730,6 +730,30 @@ test('prep taken inside the lead leaves the next start to gate afresh', () => {
   });
 });
 
+test('an incident spends a start gate, so a stale report moves nothing', () => {
+  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const due = rules.countdownMs;
+  const run = runtimeOf([]);
+  run.applyStartGate({
+    kind: 'await',
+    atMs: Date.parse(roundAt(due - 1_500)),
+    seats: [seat.id],
+    boundMs: 1_500,
+  });
+  run.applyIncident(pause(due - 1_000, null));
+  const after = run.applyStartGate({
+    kind: 'heard',
+    atMs: Date.parse(roundAt(due - 900)),
+    seat: seat.id,
+  });
+  assert({
+    given: 'capture reporting the old room after an incident opened',
+    should: 'leave the gate spent',
+    actual: after.round?.checkpoint.start_gate,
+    expected: null,
+  });
+});
+
 test('a start gate does not move the microphone it waits for', () => {
   const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
   const due = rules.countdownMs;

@@ -26,9 +26,10 @@ const privatePhase = (phase: StagePhase) =>
   phase === 'prep' || phase === 'judging' || phase === 'slate';
 
 /**
- * A voice reaches the stage only while a speech's clock runs. A next speaker's microphone
- * opens before their clock so capture has it, and what they say then is nobody's to keep:
- * it never reaches Egress, so no timing error at a speech's edge can publish it.
+ * A voice reaches the stage only while a speech's segment is open. A next speaker's
+ * microphone opens before their clock so capture has it, and what they say then is nobody's
+ * to keep: it never reaches Egress, so no timing error at a speech's edge can publish it. A
+ * paused speech keeps its open segment, so its holder can still be heard here.
  */
 const hearsVoices = (phase: StagePhase) => phase === 'speech';
 

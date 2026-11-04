@@ -1,5 +1,6 @@
 import type {
   RoundCommandAuthority,
+  RoundParticipantSeat,
   RoundPosition,
   RoundRules,
 } from '@daisy/protocol';
@@ -101,7 +102,9 @@ const cameraOpen = (input: MediaGrantInput) =>
  */
 export const microphoneOpensForClock = (input: {
   readonly rules: RoundRules;
-  readonly participants: RoundCommandAuthority['participants'];
+  readonly participants: readonly (RoundParticipantSeat & {
+    readonly kind: string;
+  })[];
   readonly participantId: string;
   readonly nextSequence: number;
 }) => {
