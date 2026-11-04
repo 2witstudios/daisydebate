@@ -49,9 +49,11 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     },
     readDocuments: async ({ ownerActorId, ids }) =>
       ids.flatMap((id) => owned(id, ownerActorId) ?? []),
-    lastEditedDocument: async ({ ownerActorId }) =>
-      [...documents.values()].find((d) => d.ownerActorId === ownerActorId)
-        ?.id ?? null,
+    recentDocuments: async ({ ownerActorId, limit }) =>
+      [...documents.values()]
+        .filter((d) => d.ownerActorId === ownerActorId)
+        .slice(0, limit)
+        .map(({ id, title }) => ({ id, title })),
     listDriveEntries: async ({ ownerActorId, folderId, limit }) =>
       [...documents.values()]
         .filter(

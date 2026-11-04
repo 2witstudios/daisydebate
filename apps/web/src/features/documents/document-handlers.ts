@@ -219,7 +219,7 @@ export function createDocumentHandlers(dependencies: Dependencies) {
     },
     recent: {
       POST: route('recent', schemas.recent, 64, async (principal) =>
-        Response.json(await ops().lastEdited(principal)),
+        Response.json(await ops().recent(principal)),
       ),
     },
     folders: {

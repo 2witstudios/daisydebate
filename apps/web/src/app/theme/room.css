@@ -129,10 +129,17 @@
 @utility room-palette {
   max-width: 36rem;
   margin-top: 18vh;
+
+  & input:focus-visible {
+    box-shadow: none;
+  }
 }
 
 /* A row's actions show when the row is in use, and always under a finger. */
 @utility file-row {
+  position: relative;
+}
+@utility file-row-idle {
   &:has(:popover-open) {
     background: var(--surface-overlay);
   }

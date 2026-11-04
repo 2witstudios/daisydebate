@@ -15,6 +15,8 @@ export type SearchHit = {
   readonly folderId: string | null;
   readonly snippet: string;
 };
+/** A document edited lately, without its body. */
+export type RecentDocument = { readonly id: string; readonly title: string };
 export type DrivePage = {
   readonly entries: readonly DriveEntryView[];
   readonly next: DriveCursor | null;
@@ -47,6 +49,9 @@ export const driveApi = {
     post<DrivePage>('list', { folderId, after }),
   folders: async () =>
     (await post<{ folders: readonly FolderRow[] }>('folders', {})).folders,
+  recent: async () =>
+    (await post<{ documents: readonly RecentDocument[] }>('recent', {}))
+      .documents,
   search: async (text: string) =>
     (await post<{ hits: readonly SearchHit[] }>('search', { text, page: 0 }))
       .hits,

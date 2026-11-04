@@ -160,6 +160,10 @@ own page, `/friends`. Minimize is a form posting a server action, so it
 works without JavaScript; it is named Minimize when extended and Expand when
 mini.
 
+The rail is dark in either theme (DEC-359). A page that marks itself
+`data-workspace` fills the viewport and scrolls its own panes, and the rail is
+icon-only beside it whatever the saved choice says (ADR 0113), by CSS alone.
+
 The choice to minimize to the icon-only rail — names as screen-reader text
 with a tooltip, the 56px column — persists in a cookie the server reads per
 request (`daisy.rail=mini`; absent is extended), so the first HTML carries
@@ -256,11 +260,15 @@ a human judge's seat unnamed.
 
 ## Document manager
 
-One manager opens at `/prep` and inside a Round (ADR 0111): `ui/documents` draws the
-tree, search, tabs and editor, and a page supplies only its frame. Below 901px one
-panel shows at a time, and a row opens the document itself (DEC-141). Without script
-the tree renders on the server, and create, rename, move and delete are real form
-posts; a row says editing needs script rather than injecting stored HTML.
+One manager opens at `/prep` and inside a Round (ADR 0111, ADR 0113): `ui/documents`
+draws the tree, search, tabs and editor, fills the frame a page gives it and draws
+none of its own. At `/prep` the frame is the whole middle section. Files holds compact
+rows, Recent and My drive. `+` opens a palette in the middle of the screen to choose
+Document or Folder, search opens the same palette, and another `+` ends the tabs. A
+row's actions are one flat menu. A document has no page layout and no ring while
+someone types. Rows and tools take a dense target under a fine pointer and the 44px
+target under a finger. Below 901px one panel shows at a time, and a row opens the
+document itself (DEC-141).
 
 ## Spectator view
 

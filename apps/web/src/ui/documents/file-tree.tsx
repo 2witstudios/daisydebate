@@ -16,8 +16,10 @@ import type { DriveActions } from './use-drive';
 
 const row = (current: boolean) =>
   cn(
-    'flex h-dense-target min-w-0 items-center rounded-sm transition-colors file-row',
-    current ? 'bg-accent text-accent-ink' : 'text-ink hover:bg-surface-overlay',
+    'file-row flex h-dense-target min-w-0 items-center rounded-sm transition-colors',
+    current
+      ? 'bg-accent text-accent-ink'
+      : 'text-ink file-row-idle hover:bg-surface-overlay',
   );
 const rowMain =
   'flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1 pl-1 text-left text-sm';
@@ -284,6 +286,29 @@ export function FileTree({
         <kbd className="font-body text-xs">⌘K</kbd>
       </button>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-1 pb-3">
+        {heading && drive.recent.length > 0 ? (
+          <section aria-label="Recent" className="flex flex-col">
+            <h2 className="flex h-dense-target items-center px-2 text-xs font-strong tracking-wider text-ink-muted uppercase">
+              Recent
+            </h2>
+            <ul className="flex flex-col">
+              {drive.recent.map((document) => (
+                <li key={document.id}>
+                  <button
+                    type="button"
+                    className="flex h-dense-target w-full min-w-0 cursor-pointer items-center gap-1 rounded-sm px-2 text-left text-sm text-ink hover:bg-surface-overlay"
+                    onClick={() => drive.open(document.id, document.title)}
+                  >
+                    <Icon name="file" size={14} />
+                    <span className="min-w-0 flex-1 truncate">
+                      {document.title}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         <section aria-label="My drive" className="flex flex-col">
           <h2 className="flex h-dense-target items-center px-2 text-xs font-strong tracking-wider text-ink-muted uppercase">
             {rootFolderId === null ? 'My drive' : 'In this folder'}

@@ -13,7 +13,12 @@ import type {
   DriveEntryView,
 } from '../../features/documents/drive-tree';
 import type { DocumentSync } from './document-sync';
-import { driveApi, type DriveChange, type FolderRow } from './drive-api';
+import {
+  driveApi,
+  type DriveChange,
+  type FolderRow,
+  type RecentDocument,
+} from './drive-api';
 
 export type DriveActions = {
   /** The page a plain form returns to, without script. */
@@ -21,6 +26,8 @@ export type DriveActions = {
   readonly folders: readonly FolderRow[];
   readonly loadFolders: () => void;
   readonly open: (id: string, title: string) => void;
+  /** What was edited last, when the frame shows it. */
+  readonly recent: readonly RecentDocument[];
   readonly createDocument: (folderId: string | null) => void;
   /** A folder named for now, its row ready for its real name. */
   readonly createFolder: (parentFolderId: string | null) => void;
@@ -47,6 +54,7 @@ export function useDrive({
   initialFolders = [],
   rootFolderId = null,
   listRoot = true,
+  showRecent = false,
 }: {
   readonly sync: DocumentSync | undefined;
   readonly opened: readonly OpenDocument[];
@@ -57,8 +65,17 @@ export function useDrive({
   readonly rootFolderId?: string | null;
   /** False when the page already rendered the root's first page. */
   readonly listRoot?: boolean;
+  /** True when the frame lists what was edited last. */
+  readonly showRecent?: boolean;
 }): DriveActions {
   const [folders, setFolders] = useState(initialFolders);
+  const [recent, setRecent] = useState<readonly RecentDocument[]>([]);
+  const readRecent = useCallback(() => {
+    if (!showRecent) return;
+    // A failed look keeps what is shown; the next change asks again.
+    driveApi.recent().then(setRecent, () => {});
+  }, [showRecent]);
+  useEffect(readRecent, [readRecent]);
   const creating = useRef(false);
   const known = useRef(opened);
   useEffect(() => {
@@ -138,6 +155,7 @@ export function useDrive({
       )
       .finally(() => {
         creating.current = false;
+        readRecent();
       });
   };
 
@@ -187,6 +205,7 @@ export function useDrive({
           dispatch({ type: 'drive/renaming', id: answer.folder.id });
         }
         setFolders([]);
+        readRecent();
       })
       .catch(() => setProblem('That change did not save. Try again.'));
   };
@@ -194,6 +213,7 @@ export function useDrive({
   return {
     back,
     folders,
+    recent,
     loadFolders: () => {
       driveApi.folders().then(setFolders, () => {});
     },

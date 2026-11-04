@@ -10,6 +10,7 @@ setupRitewayBun();
 const drive: DriveActions = {
   back: '/prep',
   folders: [{ id: 'folder-a', name: 'Cases', parentFolderId: null }],
+  recent: [{ id: 'doc-b', title: 'Last night' }],
   loadFolders: () => {},
   open: () => {},
   createDocument: () => {},
@@ -53,6 +54,27 @@ describe('FileTree', () => {
         html.includes('<form'),
       ],
       expected: [true, true, true, true, false],
+    });
+  });
+
+  test('what was edited last', () => {
+    const inARound = renderToString(
+      <FileTree
+        tree={tree}
+        active={null}
+        renaming={null}
+        dispatch={() => {}}
+        drive={drive}
+      />,
+    );
+    assert({
+      given: 'recent documents, with and without a heading of its own',
+      should: 'list them in the sidebar, and leave a Round’s frame alone',
+      actual: [
+        render().includes('Last night'),
+        inARound.includes('Last night'),
+      ],
+      expected: [true, false],
     });
   });
 

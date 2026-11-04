@@ -210,8 +210,13 @@ export function reduceManager<T extends ManagerState>(
         tabs: activateTab(state.tabs, action.id),
         pane: 'document',
       };
-    case 'doc/loaded':
-      return loadOpenDocuments(state, action.documents);
+    case 'doc/loaded': {
+      const loaded = loadOpenDocuments(state, action.documents);
+      // A document reopened on arrival shows; a later load moves no one.
+      return state.tabs.open.length === 0 && loaded.tabs.open.length > 0
+        ? { ...loaded, pane: 'document' }
+        : loaded;
+    }
     case 'doc/withdrawn':
       return { ...state, opened: [], tabs: { open: [], active: null } };
     case 'doc/add':

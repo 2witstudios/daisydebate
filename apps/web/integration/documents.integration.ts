@@ -86,10 +86,10 @@ describe('a member’s documents over PostgreSQL', () => {
         actual: [
           (await operations.listDrive(stranger, page)).entries,
           await operations.readDocuments(stranger, { ids: [mine.id] }),
-          await operations.lastEdited(stranger),
+          await operations.recent(stranger),
           await operations.listFolders(stranger),
         ],
-        expected: [[], [], { id: null }, []],
+        expected: [[], [], { id: null, documents: [] }, []],
       });
       for (const [given, attempt] of [
         [

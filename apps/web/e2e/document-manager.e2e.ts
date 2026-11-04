@@ -107,7 +107,9 @@ const journey = async (
     await page.getByRole('menuitem', { name: 'Cases' }).click();
     await folder.click();
     await expect(
-      tree(page).getByRole('button', { name: 'Untitled', exact: true }),
+      tree(page)
+        .getByRole('region', { name: 'My drive' })
+        .getByRole('button', { name: 'Untitled', exact: true }),
     ).toBeVisible();
 
     // Into a live Round, in its timed prep.

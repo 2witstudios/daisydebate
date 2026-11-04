@@ -297,18 +297,18 @@ export const documentOperations = ({
   },
 
   /** The document edited last, so a load with nothing open lands on the work. */
-  async lastEditedDocument(input: {
+  async recentDocuments(input: {
     readonly ownerActorId: string;
-  }): Promise<string | null> {
-    return instrumented(eventSink, 'lastEditedDocument', async () => {
-      const [row] = await database
-        .select({ id: documents.id })
+    readonly limit: number;
+  }): Promise<readonly { readonly id: string; readonly title: string }[]> {
+    return instrumented(eventSink, 'recentDocuments', () =>
+      database
+        .select({ id: documents.id, title: documents.title })
         .from(documents)
         .where(eq(documents.ownerActorId, input.ownerActorId))
         .orderBy(desc(documents.updatedAt), desc(documents.id))
-        .limit(1);
-      return row?.id ?? null;
-    });
+        .limit(input.limit),
+    );
   },
 
   /**

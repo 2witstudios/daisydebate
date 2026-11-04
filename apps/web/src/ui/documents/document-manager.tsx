@@ -125,6 +125,7 @@ export function ManagerWorkspace({
     initialFolders: initial?.folders ?? [],
     rootFolderId: initial?.folderId ?? null,
     listRoot: initial === null,
+    showRecent: true,
   });
   usePaletteShortcut(dispatch);
   const opened = useRef(false);

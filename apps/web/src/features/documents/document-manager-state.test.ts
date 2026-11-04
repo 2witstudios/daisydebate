@@ -221,6 +221,22 @@ describe('reduceManager: the panel a narrow screen shows', () => {
     });
   });
 
+  test('a document reopened on arrival', () => {
+    assert({
+      given: 'a stored document loading with nothing open',
+      should: 'show it, and leave someone already in Files where they are',
+      actual: [
+        runActions([{ type: 'doc/loaded', documents: [document] }]).pane,
+        runActions([
+          { type: 'doc/loaded', documents: [document] },
+          { type: 'pane/files' },
+          { type: 'doc/loaded', documents: [document] },
+        ]).pane,
+      ],
+      expected: ['document', 'files'],
+    });
+  });
+
   test('the last tab closing', () => {
     assert({
       given: 'the only open tab closed',
