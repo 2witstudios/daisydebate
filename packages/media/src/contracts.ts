@@ -39,6 +39,9 @@ export const configSchema = z.strictObject({
 });
 export type MediaConfig = z.infer<typeof configSchema>;
 
+/** LiveKit's ParticipantInfo.Kind for an agent; the server SDK does not export the enum. */
+export const AGENT_PARTICIPANT_KIND = 4;
+
 /**
  * The Broadcast observer's one identity: hidden, subscribe-only, in no roster
  * (ADR 0099). It is no debater's participant, so a Room's roster leaves it out.
@@ -47,6 +50,11 @@ export const OBSERVER_IDENTITY = 'stage-observer';
 
 export const participantSchema = z.object({
   identity: idSchema,
+  /** What the participant's token says it is: only capture's token says agent. */
+  kind: z.number().default(0),
+  tracks: z
+    .array(z.object({ sid: z.string(), source: z.enum(TrackSource) }))
+    .default([]),
   permission: z.object({
     canPublish: z.boolean(),
     canSubscribe: z.boolean(),

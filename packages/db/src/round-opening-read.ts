@@ -1,5 +1,10 @@
 import { eq } from 'drizzle-orm';
-import type { LaunchedRound, RoundView } from '@daisy/protocol';
+import {
+  clockStopsOf,
+  type LaunchedRound,
+  type RoundView,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol';
 import type { RoundOpening } from '@daisy/protocol/resolution-draw';
 import { transactionNow, type Account, type Tx } from './room-command-facts';
 import { humanSeatEligible } from './seat-eligibility';
@@ -20,6 +25,7 @@ export const loadRoundOpening = async (
     readonly status: string;
     readonly createdAt: Date;
     readonly preRoundPrepMs: number | null;
+    readonly runtimeState: RuntimeCheckpoint;
   },
 ): Promise<StoredOpening | null> => {
   if (round.status !== 'opening') return null;
@@ -29,6 +35,7 @@ export const loadRoundOpening = async (
       startedAt: round.createdAt.toISOString(),
       draw: draw?.state ?? null,
       prepMs: round.preRoundPrepMs,
+      stops: clockStopsOf(round.runtimeState),
     },
     seed: draw?.seed ?? null,
   };
@@ -53,6 +60,7 @@ const openingNow = async (tx: Tx, roundId: string) => {
       status: rounds.status,
       createdAt: rounds.createdAt,
       preRoundPrepMs: rounds.preRoundPrepMs,
+      runtimeState: rounds.runtimeState,
     })
     .from(rounds)
     .where(eq(rounds.id, roundId));

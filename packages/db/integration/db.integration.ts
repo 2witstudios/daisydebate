@@ -47,6 +47,8 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
                       prep_consumed_ms: { affirmative: 0, negative: 0 },
                       active_prep: null,
                       floor: null,
+                      incident: { phase: 'none' },
+                      clock_stops: [],
                     },
                   },
                   segmentInserts: [],

@@ -69,6 +69,8 @@ export type AttendanceEvaluation =
   | { readonly kind: 'undecided' }
   /** An uncertain check-in writer holds every decision, including the cutoff. */
   | { readonly kind: 'held'; readonly reason: 'pending_writer' }
+  /** While a platform incident holds the Round, nobody's absence can be judged. */
+  | { readonly kind: 'held'; readonly reason: 'platform_incident' }
   | { readonly kind: 'decided'; readonly resolution: AttendanceResolution };
 /** One Round fence, immutable ordered receipts, and the SAME engine projection/history/outbox writer. */
 export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
@@ -107,6 +109,8 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
           null,
         );
         await requireCurrentWeb(tx, input.instanceId, true);
+        if (round.checkpoint.incident.phase !== 'none')
+          return { kind: 'held', reason: 'platform_incident' };
         const pending = await tx.execute(
           sql`select attempt_id from round_check_in_attempts where round_id=${round.id} and state='pending' limit 1`,
         );

@@ -81,6 +81,10 @@ export function createMediaNodes(input: {
   };
   return {
     exists: (room: string) => read((service) => service.exists(room)),
+    roomSid: (room: string) => read((service) => service.roomSid(room)),
+    roomAnswers: (room: string) => preferred().roomAnswers(room),
+    /** Asked before spending a call per room: nothing is lost while every node is up. */
+    someNodeDown: () => healthy.includes(false),
     publicationPermissions: (room: string) =>
       read((service) => service.publicationPermissions(room)),
     participants: (room: string) =>

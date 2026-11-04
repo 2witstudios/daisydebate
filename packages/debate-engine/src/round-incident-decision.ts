@@ -1,0 +1,134 @@
+import {
+  roundIncidentPolicy,
+  type PlatformIncidentCause,
+  type RoundIncident,
+} from '@daisy/protocol';
+
+/**
+ * What the server read from the vendor in one recovery pass. A browser cannot
+ * supply any of this, so no player can cause, hold or end an incident.
+ */
+export type MediaObservation =
+  /** The pass never reached the vendor. */
+  | { readonly kind: 'unreachable' }
+  /** The pass did other work and read nothing about the room. */
+  | { readonly kind: 'unread' }
+  | {
+      readonly kind: 'room';
+      /** The hidden capture agent is listed. */
+      readonly captureListed: boolean;
+      /** Every seated human debater is listed. */
+      readonly seatsListed: boolean;
+      /**
+       * Capture reports reading the speaker's microphone in this room. Null when no
+       * human speech is held, so there is nothing to confirm.
+       */
+      readonly speakerHeard: boolean | null;
+    };
+
+export type IncidentFacts = {
+  readonly incident: RoundIncident;
+  readonly nowMs: number;
+  readonly observation: MediaObservation;
+  /** A pass retired an uncertain room and no incident has taken it up yet. A revoked seat's rotation is not this. */
+  readonly roomRetired: boolean;
+  /** When the vendor first went unreachable, or null if it has answered since. */
+  readonly unreachableSinceMs: number | null;
+  /** A Round in its opening has no capture to wait for. */
+  readonly captureExpected: boolean;
+};
+
+export type IncidentDecision =
+  | { readonly kind: 'pause'; readonly cause: PlatformIncidentCause }
+  | { readonly kind: 'begin_resume' }
+  | { readonly kind: 'end' }
+  | null;
+
+/** The one reading of server evidence as a failure; a planned drain produces none. */
+const failureCause = (facts: IncidentFacts): PlatformIncidentCause | null => {
+  if (facts.roomRetired) return 'room_retired';
+  return facts.observation.kind === 'unreachable' &&
+    facts.unreachableSinceMs !== null &&
+    facts.nowMs - facts.unreachableSinceMs >=
+      roundIncidentPolicy.vendorUnreachableMs
+    ? 'vendor_unreachable'
+    : null;
+};
+
+const heldFacts = (
+  facts: IncidentFacts,
+  since: string,
+): {
+  readonly platformBack: boolean;
+  readonly seatsBack: boolean;
+  readonly speakerHeard: boolean;
+  readonly heldMs: number;
+} => {
+  const { observation } = facts;
+  const room = observation.kind === 'room' ? observation : null;
+  return {
+    platformBack:
+      room !== null && (room.captureListed || !facts.captureExpected),
+    seatsBack: room?.seatsListed ?? false,
+    speakerHeard: room?.speakerHeard !== false,
+    heldMs: facts.nowMs - Date.parse(since),
+  };
+};
+
+const decisions: {
+  readonly [P in RoundIncident['phase']]: (
+    facts: IncidentFacts,
+    incident: Extract<RoundIncident, { phase: P }>,
+  ) => IncidentDecision;
+} = {
+  none: (facts) => {
+    const cause = failureCause(facts);
+    return cause === null ? null : { kind: 'pause', cause };
+  },
+  paused: (facts, incident) => {
+    const { platformBack, seatsBack, speakerHeard, heldMs } = heldFacts(
+      facts,
+      incident.since,
+    );
+    if (
+      platformBack &&
+      ((seatsBack && speakerHeard) || heldMs >= roundIncidentPolicy.seatGraceMs)
+    )
+      return { kind: 'begin_resume' };
+    return heldMs >= roundIncidentPolicy.recoveryBoundMs
+      ? { kind: 'end' }
+      : null;
+  },
+  resuming: (facts, incident) => {
+    const cause = failureCause(facts);
+    if (cause === null) return null;
+    return heldFacts(facts, incident.since).heldMs >=
+      roundIncidentPolicy.recoveryBoundMs
+      ? { kind: 'end' }
+      : { kind: 'pause', cause };
+  },
+};
+
+/** What server evidence means for this Round now; pure and total. */
+export const incidentDecision = (facts: IncidentFacts): IncidentDecision => {
+  const { incident } = facts;
+  switch (incident.phase) {
+    case 'none':
+      return decisions.none(facts, incident);
+    case 'paused':
+      return decisions.paused(facts, incident);
+    case 'resuming':
+      return decisions.resuming(facts, incident);
+  }
+};
+
+/**
+ * Whether a pass needs the incident transaction at all. An ordinary pass on a
+ * healthy Round changes nothing, so it must not cost a Round lock.
+ */
+export const observationMatters = (facts: IncidentFacts): boolean => {
+  const { observation } = facts;
+  if (facts.incident.phase !== 'none' || facts.roomRetired) return true;
+  if (observation.kind === 'unreachable') return true;
+  return facts.unreachableSinceMs !== null;
+};

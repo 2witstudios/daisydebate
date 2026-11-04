@@ -35,6 +35,56 @@ import { botAdmissionForTests } from './bot-admission.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
+test('the platform ending is written when the Round ends, not at the freeze', async () => {
+  await withRoomRuntime(async (f) => {
+    const { roundId } = await frozenBotJudgeRound(f, false, true);
+    const [atFreeze] =
+      await f.sql`select platform_ending, status from rounds where id=${roundId}`;
+    const reservation = createId();
+    const [seat] =
+      await f.sql`select actor_id from round_participants where round_id=${roundId} and role<>'judge' limit 1`;
+    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, counted_at) values (${reservation}, ${seat!.actor_id}, ${roundId}, 'ai_round', clock_timestamp())`;
+    const [before] =
+      await f.sql`select refunded_at from usage_reservations where id=${reservation}`;
+    await seedSettledAttendanceLedger(f, roundId);
+    await finalizeByMaintenance(f, roundId);
+    const [refund] =
+      await f.sql`select refunded_at from usage_reservations where id=${reservation}`;
+    const [ended] =
+      await f.sql`select platform_ending, status, outcome from rounds where id=${roundId}`;
+    assert({
+      given: 'a freeze with platform loss past the limit, then completion',
+      should:
+        'say nothing at the freeze, and end on the platform at completion',
+      actual: [
+        atFreeze!.platform_ending,
+        before!.refunded_at,
+        ended!.platform_ending,
+        ended!.status,
+        ended!.outcome,
+        refund!.refunded_at !== null,
+      ],
+      expected: [null, null, 'capture_shortfall', 'completed', null, true],
+    });
+  });
+});
+
+test('a silent seat past the limit is not ended on the platform', async () => {
+  await withRoomRuntime(async (f) => {
+    const { roundId } = await frozenBotJudgeRound(f, false);
+    await seedSettledAttendanceLedger(f, roundId);
+    await finalizeByMaintenance(f, roundId);
+    const [ended] =
+      await f.sql`select platform_ending, status, outcome from rounds where id=${roundId}`;
+    assert({
+      given: 'an AI-only Round whose seat said nothing',
+      should: 'complete with no outcome, and blame nothing on the platform',
+      actual: [ended!.platform_ending, ended!.status, ended!.outcome],
+      expected: [null, 'completed', null],
+    });
+  });
+});
+
 test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', async () => {
   await withRoomRuntime(
     async (f) => {

@@ -172,6 +172,7 @@ describe('round runtime command refusals and seat order', () => {
         startedAt: at(index),
         endedAt: at(index + 1),
         durationMs: segment.durationMs,
+        returnedMs: 0,
       })),
     });
     await assertRejects({

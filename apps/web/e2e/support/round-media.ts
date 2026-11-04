@@ -93,8 +93,9 @@ export async function openGrantedRound(
 export async function grantedDebaters(
   members: Awaited<ReturnType<typeof createRoomLaunchAccounts>>['members'],
   choice?: ProofChoice,
+  countdownMs = 0,
 ) {
-  const round = await createHumanBallotRound(members, 0, 0, choice);
+  const round = await createHumanBallotRound(members, 0, countdownMs, choice);
   const [speaker, listener] = members;
   if (!speaker || !listener) throw new Error('Two actual members required');
   await grantMedia(members);

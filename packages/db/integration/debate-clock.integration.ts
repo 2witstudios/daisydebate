@@ -41,6 +41,7 @@ test('Round and interval stamps persist the injected PostgreSQL instant exactly 
                 rulesSegmentKey: rules.segments[0]!.key,
                 startedAt: now,
                 durationMs: rules.segments[0]!.durationMs,
+                returnedMs: 0,
               },
             ],
             segmentCloses: [],

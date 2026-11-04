@@ -16,6 +16,7 @@ import { createLaunchProcess } from './launch-process';
 import { createLaunchProbeResource } from './launch-probe-room';
 import { createLaunchSocketEdge } from './launch-socket-edge';
 import { createLaunchMail, launchMailPath } from './launch-mail';
+import { launchMediaEdgesSchema } from '../../scripts/node-kill-drill/local-ports';
 
 const checkout = resolve(import.meta.dir, '../../../..');
 const slot = requireLaunchSlot(checkout, process.env);
@@ -39,11 +40,15 @@ const edge = createSelfSignedTlsEdge({
     return null;
   },
 });
-const mediaEdge = createLaunchSocketEdge({
-  port: slot.port + 4,
-  upstreamPort: 7880,
-  tls,
-});
+// The local LiveKit by default; a node kill drill names its own scratch nodes.
+const mediaEdges = launchMediaEdgesSchema
+  .parse(
+    JSON.parse(
+      process.env.ROOM_LAUNCH_MEDIA_EDGES ||
+        JSON.stringify([{ port: slot.port + 4, upstreamPort: 7880 }]),
+    ),
+  )
+  .map((edge) => createLaunchSocketEdge({ ...edge, tls }));
 const realtimeEdge = createLaunchSocketEdge({
   port: slot.port + 6,
   upstreamPort: slot.port + 3,
@@ -184,7 +189,7 @@ const shutdown = () =>
     ]);
     await mail.stop();
     edge.stop(true);
-    mediaEdge.stop(true);
+    for (const mediaEdge of mediaEdges) mediaEdge.stop(true);
     realtimeEdge.stop(true);
     await new Promise<void>((accept) => {
       control.close(() => accept());

@@ -17,12 +17,13 @@ const listeners = ports.map((port) => {
   server.listen(port, '127.0.0.1');
   return server;
 });
+// One socket per LiveKit media port: 7882 for the local node, or a proof's own.
+const udpPorts = JSON.parse(process.env.DAISY_BROWSER_FORWARD_UDP_PORTS);
 const peers = new Map();
-let udp = null;
-if (!hostNetwork) {
-  udp = dgram.createSocket('udp4');
+const udpSockets = udpPorts.map((port) => {
+  const udp = dgram.createSocket('udp4');
   udp.on('message', (message, peer) => {
-    const id = `${peer.address}:${peer.port}`;
+    const id = `${port}:${peer.address}:${peer.port}`;
     let upstream = peers.get(id);
     if (!upstream) {
       upstream = dgram.createSocket('udp4');
@@ -35,10 +36,11 @@ if (!hostNetwork) {
       });
       peers.set(id, upstream);
     }
-    upstream.send(message, 7882, 'host.docker.internal');
+    upstream.send(message, port, 'host.docker.internal');
   });
-  udp.bind(7882, '127.0.0.1');
-}
+  udp.bind(port, '127.0.0.1');
+  return udp;
+});
 const browser = await chromium.launchServer({
   // Published container port when forwarded; a free host loopback port otherwise.
   port: hostNetwork ? 0 : 3400,
@@ -68,6 +70,6 @@ for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, async () => {
     await browser.close();
     for (const listener of listeners) listener.close();
-    udp?.close();
+    for (const udp of udpSockets) udp.close();
     for (const peer of peers.values()) peer.close();
   });

@@ -86,6 +86,7 @@ test('a session counts the silent clips it cut', async () => {
         startedAt: new Date(9000).toISOString(),
         endedAt: null,
         durationMs: 60000,
+        returnedMs: 0,
       },
       intervals: [
         {

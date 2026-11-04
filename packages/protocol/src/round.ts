@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ClockStop } from './clock-stops';
 import { debateSideSchema, idSchema } from './primitives';
 
 /**
@@ -27,6 +28,47 @@ export type RoundStatus = (typeof roundStatuses)[number];
 const roundStages = ['countdown', 'prep', 'live', 'awaiting_ballot'] as const;
 export const roundStageSchema = z.enum(roundStages);
 export type RoundStage = (typeof roundStages)[number];
+
+/** What the server saw that made it pause a Round. Never a player's request. */
+export const platformIncidentCauses = [
+  'vendor_unreachable',
+  'room_retired',
+] as const;
+export const platformIncidentCauseSchema = z.enum(platformIncidentCauses);
+
+/**
+ * Why the platform, not the debate, ended a Round: it never recovered within the bound,
+ * or the debate finished having lost more speech than can be judged.
+ */
+export const roundPlatformEndings = [
+  'recovery_bound',
+  'capture_shortfall',
+] as const;
+export type RoundPlatformEnding = (typeof roundPlatformEndings)[number];
+export type PlatformIncidentCause = (typeof platformIncidentCauses)[number];
+
+const incidentFields = {
+  since: z.iso.datetime(),
+  cause: platformIncidentCauseSchema,
+  /** The end of the holder's last confirmed audio; null when no speech was open. */
+  resume_point: z.iso.datetime().nullable(),
+};
+
+/**
+ * A platform incident's hold on the clock, as one state so that impossible
+ * combinations cannot be written. No player can cause it, hold it or end it.
+ */
+const incidentSchema = z.discriminatedUnion('phase', [
+  z.strictObject({ phase: z.literal('none') }),
+  z.strictObject({ phase: z.literal('paused'), ...incidentFields }),
+  z.strictObject({
+    phase: z.literal('resuming'),
+    ...incidentFields,
+    /** The instant the countdown ends and the clock runs. */
+    until: z.iso.datetime(),
+  }),
+]);
+export type RoundIncident = z.infer<typeof incidentSchema>;
 
 /**
  * The runtime checkpoint (ADR 0058 §4), version 1 — only what has no
@@ -58,6 +100,11 @@ export const runtimeCheckpointSchema = z.strictObject({
       granted_at: z.iso.datetime(),
     })
     .nullable(),
+  incident: incidentSchema,
+  /** Finished incidents' spans, so a countdown, a strike window or prep owes them back. */
+  clock_stops: z
+    .array(z.strictObject({ from: z.iso.datetime(), to: z.iso.datetime() }))
+    .readonly(),
 });
 export type RuntimeCheckpoint = z.infer<typeof runtimeCheckpointSchema>;
 
@@ -67,6 +114,23 @@ export const emptyRuntimeCheckpoint: RuntimeCheckpoint = {
   prep_consumed_ms: { affirmative: 0, negative: 0 },
   active_prep: null,
   floor: null,
+  incident: { phase: 'none' },
+  clock_stops: [],
+};
+
+/** Every stop the clock has had, with the one running now if there is one. */
+export const clockStopsOf = (
+  checkpoint: RuntimeCheckpoint,
+): readonly ClockStop[] => {
+  const { incident, clock_stops: finished } = checkpoint;
+  if (incident.phase === 'none') return finished;
+  return [
+    ...finished,
+    {
+      from: incident.since,
+      to: incident.phase === 'resuming' ? incident.until : null,
+    },
+  ];
 };
 
 /**

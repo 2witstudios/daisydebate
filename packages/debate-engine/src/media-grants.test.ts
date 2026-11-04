@@ -114,10 +114,14 @@ test('prep and closed between-segment floor keep cameras without speech rights',
     now: roundAt(20_000),
   });
   assert({
-    given: 'an early yield before the old scheduled end',
-    should: 'close the old speaker microphone',
-    actual: grants(world, seats[0]!.id, roundAt(20_000)).publish,
-    expected: ['camera'],
+    given: 'an early yield, in the countdown to the other side speaking',
+    should:
+      'close the old speaker and keep the next closed: nobody hears them before the clock',
+    actual: [
+      grants(world, seats[0]!.id, roundAt(20_000)).publish,
+      grants(world, seats[1]!.id, roundAt(20_000)).publish,
+    ],
+    expected: [['camera'], ['camera']],
   });
   const prep = runtimeWorld();
   prep.activate({ at: roundAt(0), now: roundAt(0) });

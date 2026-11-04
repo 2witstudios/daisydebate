@@ -42,6 +42,7 @@ export const captureStateReply = z.strictObject({
       startedAt: iso,
       endedAt: iso.nullable(),
       durationMs: z.number().int().positive(),
+      returnedMs: z.number().int().nonnegative(),
     })
     .nullable(),
   intervals: z

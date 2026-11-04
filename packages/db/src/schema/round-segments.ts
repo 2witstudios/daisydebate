@@ -1,5 +1,5 @@
 import { segmentTypes, type SegmentType } from '@daisy/protocol';
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import {
   check,
   index,
@@ -34,6 +34,15 @@ export const roundSegments = pgTable(
     startedAt: timestampColumn('started_at').notNull(),
     endedAt: timestampColumn('ended_at'),
     durationMs: integer('duration_ms').notNull(),
+    /** Airtime a platform incident gave back; the duration stays the rule's. */
+    returnedMs: integer('returned_ms').notNull().default(0),
+    /** When the segment is due to end: the one reading of that rule in SQL. */
+    dueAt: timestampColumn('due_at')
+      .notNull()
+      .generatedAlwaysAs(
+        (): SQL =>
+          sql`round_segment_due_at(${roundSegments.startedAt}, ${roundSegments.durationMs}, ${roundSegments.returnedMs})`,
+      ),
   },
   (table) => [
     uniqueIndex('round_segments_sequence_unique').on(
@@ -54,5 +63,6 @@ export const roundSegments = pgTable(
     check('round_segments_type_check', oneOf(table.type, segmentTypes)),
     check('round_segments_sequence_check', sql`${table.sequence} >= 0`),
     check('round_segments_duration_positive', sql`${table.durationMs} > 0`),
+    check('round_segments_returned_check', sql`${table.returnedMs} >= 0`),
   ],
 );

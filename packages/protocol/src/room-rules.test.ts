@@ -149,6 +149,8 @@ describe('runtime checkpoint', () => {
           prep_consumed_ms: { affirmative: 0, negative: 0 },
           active_prep: null,
           floor: null,
+          incident: { phase: 'none' },
+          clock_stops: [],
         },
       },
     });
@@ -166,6 +168,16 @@ describe('runtime checkpoint', () => {
         holder_participant_id: id,
         granted_at: '2026-01-01T00:04:30.000Z',
       },
+      incident: {
+        phase: 'resuming',
+        since: '2026-01-01T00:04:40.000Z',
+        cause: 'room_retired',
+        resume_point: null,
+        until: '2026-01-01T00:04:50.000Z',
+      },
+      clock_stops: [
+        { from: '2026-01-01T00:04:10.000Z', to: '2026-01-01T00:04:20.000Z' },
+      ],
     };
     assert({
       given: 'a checkpoint taken mid-prep after an accepted interruption',

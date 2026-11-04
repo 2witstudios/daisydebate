@@ -23,10 +23,10 @@ const eventColumns = migrations
       )?.[1] ?? ''
     )
       .split('\n')
-      .map((line) => /^\s*([a-z_]+)\s/.exec(line)?.[1]),
+      .map((line) => /^\s*([a-z0-9_]+)\s/.exec(line)?.[1]),
     ...[
       ...sql.matchAll(
-        /ALTER TABLE daisy_logs\.events ADD COLUMN IF NOT EXISTS ([a-z_]+)/g,
+        /ALTER TABLE daisy_logs\.events ADD COLUMN IF NOT EXISTS ([a-z0-9_]+)/g,
       ),
     ].map((match) => match[1]),
   ])

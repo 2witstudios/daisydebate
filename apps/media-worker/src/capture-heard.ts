@@ -8,9 +8,9 @@ type HeardTrack = {
 };
 const MAX_TRACKS = 64;
 /**
- * Reports each bot track capture has subscribed to and reads, once, so the
- * bot credits speech only after capture can hear it (ISSUE-514-r2). A lost
- * report is sent again on its independent loop; a human track needs none.
+ * Reports each seat's track capture has subscribed to and reads, once, so a bot
+ * credits speech only after capture can hear it (ISSUE-514-r2) and a held Round
+ * resumes only then. A lost report is sent again on its independent loop.
  */
 export function createHeardReporter(input: {
   readonly heard: (track: HeardTrack, signal: AbortSignal) => Promise<void>;
@@ -27,7 +27,7 @@ export function createHeardReporter(input: {
       await Promise.allSettled(
         [...pending].map(async ([trackId, identity]) => {
           const seat = state.participants.find((p) => p.identity === identity);
-          if (seat?.kind !== 'bot') {
+          if (!seat) {
             pending.delete(trackId);
             return;
           }

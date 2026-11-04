@@ -143,3 +143,19 @@ test('a read reaches a node the last probe called down, once the healthy ones fa
     expected: true,
   });
 });
+
+test('a node down is reported, and clears when its probe answers', async () => {
+  const up = ['b.invalid'];
+  const service = fixture({}, {}, up);
+  const before = service.someNodeDown();
+  await service.probe();
+  const during = service.someNodeDown();
+  up.push('a.invalid');
+  await service.probe();
+  assert({
+    given: 'all up, then node A down, then back',
+    should: 'say so each time',
+    actual: [before, during, service.someNodeDown()],
+    expected: [false, true, false],
+  });
+});

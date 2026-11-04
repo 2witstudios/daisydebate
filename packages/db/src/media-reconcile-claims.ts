@@ -36,6 +36,7 @@ type ActiveSessionRow = {
   readonly last_started_at: Date | null;
   readonly last_ended_at: Date | null;
   readonly last_duration_ms: number | null;
+  readonly last_returned_ms: number | null;
   readonly now: Date;
 };
 const activeSession = (row: ActiveSessionRow) => {
@@ -74,13 +75,26 @@ const activeSession = (row: ActiveSessionRow) => {
             consumedMs: row.runtime_state.prep_consumed_ms[prep.side],
           }
         : null,
+      stops: row.runtime_state.clock_stops,
+      hold:
+        row.runtime_state.incident.phase === 'none'
+          ? null
+          : {
+              resumesAt:
+                row.runtime_state.incident.phase === 'resuming'
+                  ? row.runtime_state.incident.until
+                  : null,
+            },
       segmentCount: row.last_sequence === null ? 0 : row.last_sequence + 1,
       lastSegment:
-        row.last_started_at && row.last_duration_ms !== null
+        row.last_started_at &&
+        row.last_duration_ms !== null &&
+        row.last_returned_ms !== null
           ? {
               startedAt: row.last_started_at.toISOString(),
               endedAt: row.last_ended_at?.toISOString() ?? null,
               durationMs: row.last_duration_ms,
+              returnedMs: row.last_returned_ms,
             }
           : null,
     },
@@ -197,12 +211,13 @@ export function createMediaReconcileClaims(deps: {
           last.started_at as last_started_at,
           last.ended_at as last_ended_at,
           last.duration_ms as last_duration_ms,
+          last.returned_ms as last_returned_ms,
           clock.now
         from ${mediaSessions} s
         cross join clock
         join ${rounds} r on r.id = s.round_id
         left join lateral (
-          select sequence, started_at, ended_at, duration_ms
+          select sequence, started_at, ended_at, duration_ms, returned_ms
           from ${roundSegments} seg
           where seg.round_id = s.round_id
           order by seg.sequence desc

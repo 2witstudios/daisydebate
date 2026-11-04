@@ -21,6 +21,7 @@ export async function createLaunchBrowserContainer(input: {
   readonly ca: string;
   readonly image: string;
   readonly ports: readonly number[];
+  readonly udpPorts?: readonly number[];
   readonly proofRepositoryHosts?: readonly string[];
 }) {
   const name = input.name ?? `daisy-browser-${createId()}`;
@@ -39,6 +40,7 @@ export async function createLaunchBrowserContainer(input: {
         ca: input.ca,
         seccomp: resolve(import.meta.dir, 'launch-browser-seccomp.json'),
         ports: input.ports,
+        ...(input.udpPorts ? { udpPorts: input.udpPorts } : {}),
         ...(input.proofRepositoryHosts
           ? { proofRepositoryHosts: input.proofRepositoryHosts }
           : {}),
@@ -139,6 +141,7 @@ export function launchBrowserDockerArgs(input: {
   readonly ca: string;
   readonly seccomp: string;
   readonly ports: readonly number[];
+  readonly udpPorts?: readonly number[];
   readonly proofRepositoryHosts?: readonly string[];
   readonly hostNetwork: boolean;
 }): readonly string[] {
@@ -175,6 +178,8 @@ export function launchBrowserDockerArgs(input: {
     `DAISY_BROWSER_NETWORK=${input.hostNetwork ? 'host' : 'forwarded'}`,
     '-e',
     `DAISY_BROWSER_FORWARD_PORTS=${JSON.stringify(input.hostNetwork ? [] : input.ports)}`,
+    '-e',
+    `DAISY_BROWSER_FORWARD_UDP_PORTS=${JSON.stringify(input.hostNetwork ? [] : (input.udpPorts ?? [7882]))}`,
     '-e',
     'NODE_EXTRA_CA_CERTS=/fixture/ca.crt',
     input.image,

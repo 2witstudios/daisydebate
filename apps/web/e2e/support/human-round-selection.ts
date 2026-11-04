@@ -1,10 +1,15 @@
-import { foundationDefinition } from '@daisy/db/reference-formats';
+import {
+  foundationDefinition,
+  oneOnOneDefinition,
+  oneOnOneSettings,
+} from '@daisy/db/reference-formats';
 import { foundationProofConfig } from '../../integration/foundation-selection.test-support';
 import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
 
 export type ProofChoice = {
   readonly definition: FormatDefinition;
   readonly preset: { readonly config: RoomConfig };
+  readonly segmentDurationOverrides?: Readonly<Record<string, number>>;
 };
 
 /**
@@ -48,6 +53,17 @@ export const floorReturnsChoice: ProofChoice = {
   },
 };
 
+/**
+ * The catalog's one-on-one, its speeches and its countdown, unjudged and with no prep so a
+ * journey can play it out. Cross-examination has no floor to yield, so it runs its shortest
+ * allowed clock.
+ */
+export const oneOnOneChoice: ProofChoice = {
+  definition: oneOnOneDefinition,
+  preset: { config: oneOnOneSettings },
+  segmentDurationOverrides: { CX1: 30_000, CX2: 30_000 },
+};
+
 export const humanRoundSelection = (
   choice: ProofChoice,
   judgeSeats: 0 | 1 | 2,
@@ -74,7 +90,10 @@ export const humanRoundSelection = (
     preRoundPrep: { enabled: false },
     resolutionDraw: { enabled: false },
     inRoundPrep: { enabled: false },
-    speechTiming: { countdownMs, segmentDurationOverrides: {} },
+    speechTiming: {
+      countdownMs,
+      segmentDurationOverrides: choice.segmentDurationOverrides ?? {},
+    },
     yielding: { allowed: true, returnsTime: false },
   },
 });

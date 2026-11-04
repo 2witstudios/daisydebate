@@ -183,19 +183,44 @@ test('an AI judge is refused an incomplete transcript and a human is not (DEC-20
     roundId,
   } as const;
   const human = { kind: 'human', actorId: 'actor' } as const;
+  const unmeasured = {
+    completeness: 'incomplete',
+    unheardMs: null,
+    expectedSpeechMs: 0,
+  };
   await assertRejects({
     given: 'an agent ballot on an incomplete freeze',
     should: 'refuse it as an invariant',
-    actual: async () => requireAgentBallotCapture(agent, 'incomplete'),
+    actual: async () => requireAgentBallotCapture(agent, unmeasured),
+    code: 'INVARIANT',
+  });
+  await assertRejects({
+    given: 'an agent ballot on a freeze whose gap is over the limit',
+    should: 'refuse it as an invariant',
+    actual: async () =>
+      requireAgentBallotCapture(agent, {
+        ...unmeasured,
+        unheardMs: 10_000,
+        expectedSpeechMs: 100_000,
+      }),
     code: 'INVARIANT',
   });
   assert({
-    given: 'an agent on a complete freeze, and a human on an incomplete one',
-    should: 'admit both',
+    given:
+      'an agent on a complete freeze, on a small stated gap, and a human on an incomplete one',
+    should: 'admit all three',
     actual: [
-      requireAgentBallotCapture(agent, 'complete'),
-      requireAgentBallotCapture(human, 'incomplete'),
+      requireAgentBallotCapture(agent, {
+        ...unmeasured,
+        completeness: 'complete',
+      }),
+      requireAgentBallotCapture(agent, {
+        ...unmeasured,
+        unheardMs: 1_000,
+        expectedSpeechMs: 100_000,
+      }),
+      requireAgentBallotCapture(human, unmeasured),
     ],
-    expected: [undefined, undefined],
+    expected: [undefined, undefined, undefined],
   });
 });

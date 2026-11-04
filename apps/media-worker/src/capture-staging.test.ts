@@ -36,6 +36,7 @@ function fixture() {
         startedAt: iso(9000),
         endedAt: null,
         durationMs: 60000,
+        returnedMs: 0,
       },
       intervals: [
         {
@@ -218,6 +219,7 @@ function jitteredRun(rttMs: number, missing: readonly number[] = []) {
         startedAtMs: 9000,
         endedAtMs: null,
         durationMs: 60000,
+        returnedMs: 0,
       },
     ],
     intervals: [

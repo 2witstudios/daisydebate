@@ -44,6 +44,7 @@ test('a history deadline restarts acquisition without mixing partial snapshot pa
             startedAt: new Date(0).toISOString(),
             endedAt: null,
             durationMs: 60000,
+            returnedMs: 0,
           },
           intervals: [count === 1 ? oldInterval : freshInterval],
           nextIntervalId: count === 1 ? 'next' : null,

@@ -83,6 +83,7 @@ for (const failure of [
         };
         await store.finishMediaReconcile({
           roomFate: mediaRoomFate(6_000),
+          seen: null,
           mediaWindowClosed,
           ...claim.fence,
           absenceProof,

@@ -195,6 +195,7 @@ test('the tick passes a Round only when its read shows one is due', async () => 
     const operations = createRoundMediaOperations({
       ...mediaDependencies(f),
       store: f.store.mediaSessions,
+      observeIncident: async () => undefined,
       recoveryHeartbeatMs: 60_000,
     });
     // Past the minimum interval, so only what the read shows decides.
@@ -301,6 +302,7 @@ test('a pass that fails leaves its Round due before the heartbeat', async () => 
         }),
       ),
       store: f.store.mediaSessions,
+      observeIncident: async () => undefined,
       recoveryHeartbeatMs: 60_000,
     });
     const passes = async () =>

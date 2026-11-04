@@ -1,3 +1,7 @@
+import {
+  mediaRoomRotationCauses,
+  type MediaRoomRotationCause,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -9,7 +13,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAtColumn, timestampColumn } from './columns';
+import { createdAtColumn, oneOf, timestampColumn } from './columns';
 import { rounds } from './rounds';
 import { roundParticipants } from './round-participants';
 
@@ -45,6 +49,10 @@ export const mediaSessions = pgTable(
     reconcileOwner: text('reconcile_owner'),
     unsafeAt: timestampColumn('unsafe_at'),
     deletionRequestedAt: timestampColumn('deletion_requested_at'),
+    /** The last pass that read the room saw the capture agent in it. */
+    roomSawCapture: boolean('room_saw_capture').notNull().default(false),
+    /** LiveKit's id for the room when last occupied: a new id means the node was lost. */
+    roomOccupiedSid: text('room_occupied_sid'),
   },
   (table) => [
     uniqueIndex('media_sessions_round_unique').on(table.roundId),
@@ -77,8 +85,16 @@ export const mediaRoomRotations = pgTable(
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
     rotatedAt: timestampColumn('rotated_at').notNull(),
+    /** Why the session moved, as its room's fate said. Read by the incident feature. */
+    cause: text('cause').$type<MediaRoomRotationCause>().notNull(),
   },
-  (table) => [index('media_room_rotations_round_idx').on(table.roundId)],
+  (table) => [
+    index('media_room_rotations_round_idx').on(table.roundId),
+    check(
+      'media_room_rotations_cause_check',
+      oneOf(table.cause, mediaRoomRotationCauses),
+    ),
+  ],
 );
 
 export const mediaParticipants = pgTable(

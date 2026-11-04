@@ -71,6 +71,20 @@ const speakingNow = (input: MediaGrantInput) => {
     ).includes(input.participantId)
   );
 };
+/** Who holds the floor of the open speech, whatever the clock says. */
+const holdsTheFloor = (input: MediaGrantInput) => {
+  const open = input.position.openSegment;
+  return (
+    open !== null &&
+    input.rules.segments[open.sequence]?.key === open.key &&
+    speakingParticipants(
+      input.rules,
+      input.participants,
+      open.sequence,
+      open.floorParticipantId,
+    ).includes(input.participantId)
+  );
+};
 /** Closed only while a private phase's video could still reach a Broadcast. */
 const cameraOpen = (input: MediaGrantInput) =>
   !(
@@ -110,10 +124,15 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
       hidden: false,
       capture: false,
     };
+  // In a platform incident the clock is stopped and only the speaker's microphone stays
+  // open: the Round resumes once capture confirms it hears that track, and only speech
+  // inside the reopened interval is ever credited.
   const microphone =
     position.prep === null &&
-    ((conversational(position) && input.conversationHeld !== true) ||
-      speakingNow(input));
+    (position.incident.phase === 'none'
+      ? (conversational(position) && input.conversationHeld !== true) ||
+        speakingNow(input)
+      : holdsTheFloor(input));
   return {
     publish: publishSources(
       seat.kind === 'human' && cameraOpen(input),

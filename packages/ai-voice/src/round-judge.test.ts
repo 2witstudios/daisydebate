@@ -1,3 +1,4 @@
+import { transcriptEvidence } from './transcript-evidence';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundJudgeMessages } from './round-judge';
 setupRitewayBun();
@@ -17,6 +18,7 @@ test('shared judging prompt uses only scoped sides and honest frozen coverage', 
     resolution: 'Transit should be free',
     revision: 2,
     completeness: 'incomplete',
+    gaps: [],
     coverage: [
       {
         sequence: 1,
@@ -70,5 +72,38 @@ test('shared judging prompt uses only scoped sides and honest frozen coverage', 
       /private-actor-identity|actorKind/.test(messages[1]!.content),
     ],
     expected: [true, true, false, false],
+  });
+});
+
+test('a capture gap reaches the judge in plain words', () => {
+  const evidence = transcriptEvidence({
+    resolution: 'A resolution',
+    revision: 1,
+    completeness: 'incomplete',
+    coverage: [],
+    gaps: [
+      {
+        sequence: 2,
+        side: 'negative',
+        slot: 0,
+        fromOffsetMs: 40_000,
+        untilOffsetMs: 52_000,
+      },
+    ],
+    utterances: [],
+  });
+  assert({
+    given: 'a stretch of speech with no transcript',
+    should: 'state it to the judge, naming the seat and the time',
+    actual: evidence.captureGaps,
+    expected: [
+      {
+        sequence: 2,
+        side: 'negative',
+        slot: 0,
+        statement:
+          'The platform captured no audio from 40 seconds to 52 seconds into this speech. The speaker may have spoken then.',
+      },
+    ],
   });
 });

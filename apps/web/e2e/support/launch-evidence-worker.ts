@@ -7,7 +7,8 @@ export async function executeLaunchEvidence(
   entry:
     | 'room-launch-evidence-process.ts'
     | 'attendance-evidence-process.ts'
-    | 'bot-speech-evidence-process.ts',
+    | 'bot-speech-evidence-process.ts'
+    | 'node-kill-drill-evidence-process.ts',
   scopeId: string,
 ) {
   try {

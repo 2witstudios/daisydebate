@@ -44,6 +44,7 @@ export const roundRefusalSchema = z.enum([
   'strike-conflict',
   'strike-unavailable',
   'not-your-turn',
+  'platform-incident',
 ]);
 export type RoundRefusal = z.infer<typeof roundRefusalSchema>;
 export type RoundCommandReceipt = {

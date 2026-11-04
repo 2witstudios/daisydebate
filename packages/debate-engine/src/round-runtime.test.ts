@@ -53,6 +53,7 @@ describe('round runtime lifecycle', () => {
         countdownRemainingMs: null,
         prep: null,
         prepBudgetRemainingMs: { affirmative: 240_000, negative: 240_000 },
+        incident: { phase: 'none' },
       },
     });
     const projection = world.activate({ at: at(0), now: at(0) });
@@ -76,6 +77,8 @@ describe('round runtime lifecycle', () => {
             prep_consumed_ms: { affirmative: 0, negative: 0 },
             active_prep: null,
             floor: null,
+            incident: { phase: 'none' },
+            clock_stops: [],
           },
         },
         effects: [{ kind: 'round_started', at: at(0) }],

@@ -1,3 +1,4 @@
+import { captureWithinLimit, type FrozenCapture } from '@daisy/protocol';
 import { createInvariantError } from '@daisy/errors';
 import type {
   DebateSide,
@@ -30,22 +31,30 @@ export type PanelDecision =
 
 type Completeness = { readonly completeness: 'complete' | 'incomplete' };
 /**
- * Who may rule on a frozen transcript (DEC-208). An AI judge never decides from
- * a transcript frozen incomplete, which only a media, capture or speech-to-text
- * gap produces, so no AI judging is dispatched. A ballot deadline exists only
+ * Who may rule on a frozen transcript (DEC-208, ADR 0110). An AI judge rules
+ * unless too much speech went unheard. A ballot deadline exists only
  * for a human judge to rule by: with none, nobody waits on it. An AI seat is
  * bounded by its own budget instead (DEC-275).
  */
 export function freezeJudgingPlan(
   input: Completeness & {
+    readonly capture: FrozenCapture;
     /** Whether any judge seat is a human, who heard the Round live. */
     readonly humanJudges: boolean;
     readonly ballotDeadlineMs: number;
     readonly aiJudgingBudgetMs: number;
   },
 ) {
+  const { capture } = input;
+  const judgeable =
+    input.completeness !== 'incomplete' ||
+    (capture.kind === 'measured' &&
+      captureWithinLimit({
+        gapMs: capture.unheardMs,
+        expectedMs: capture.expectedMs,
+      }));
   return {
-    dispatchAiJudges: input.completeness !== 'incomplete',
+    dispatchAiJudges: judgeable,
     ballotDeadlineMs: input.humanJudges ? input.ballotDeadlineMs : null,
     aiJudgingBudgetMs: input.aiJudgingBudgetMs,
   };

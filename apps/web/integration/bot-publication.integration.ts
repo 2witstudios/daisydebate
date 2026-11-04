@@ -11,7 +11,7 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 /** Publishes one 241-sample phrase on an owned speech claim, then reads its transcript after teardown. */
-async function publishOnce(segmentEndsAt?: string) {
+async function publishOnce(segmentDueAt?: string) {
   let outcome:
     | {
         readonly result: Awaited<
@@ -34,7 +34,16 @@ async function publishOnce(segmentEndsAt?: string) {
       claim.scope.roundParticipantId,
     );
     const claimed = createBotPublisher({
-      store: f.store,
+      store: segmentDueAt
+        ? {
+            ...f.store,
+            // The row's due instant as this test needs it, through the real check.
+            verifyRoundBotPublication: async (...args) => {
+              await f.store.verifyRoundBotPublication(...args);
+              return { segmentDueAt };
+            },
+          }
+        : f.store,
       botToken: media.botToken,
       connect: createAudioPublication,
       heard: capture.heard,
@@ -57,7 +66,6 @@ async function publishOnce(segmentEndsAt?: string) {
           pcm: new Int16Array(241),
           sampleRate: 24000,
           channels: 1,
-          ...(segmentEndsAt ? { segmentEndsAt } : {}),
         },
         AbortSignal.timeout(5000),
       );
@@ -103,9 +111,9 @@ test('a phrase whose known segment end has passed is not credited', async () => 
     new Date(Date.now() - 60_000).toISOString(),
   );
   assert({
-    given: 'a phrase carrying a segment end a minute ago',
+    given: 'a segment due a minute ago, as read when the phrase is published',
     should:
-      'reach the writer clamp and credit nothing, so the end is wired from job to writer (ISSUE-460-r1)',
+      'reach the writer clamp and credit nothing, so the end is wired from the read to the writer (ISSUE-460-r1)',
     actual: [result.eligibleSamples, result.complete],
     expected: [0, false],
   });

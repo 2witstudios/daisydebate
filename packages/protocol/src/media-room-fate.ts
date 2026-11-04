@@ -11,7 +11,40 @@ export type MediaRoomFacts = {
   readonly seatRevoked: boolean;
   /** When the room's state became unknown, or null when it is known. */
   readonly uncertainSinceMs: number | null;
+  /** LiveKit's id for the room as it stood when last occupied, or null. */
+  readonly lastOccupiedSid: string | null;
+  /** The last pass that read the room saw the capture agent in it. */
+  readonly sawCapture: boolean;
+  /** What this pass read of the room; null if it read nothing. */
+  readonly seen: MediaRoomRead | null;
 };
+
+/** One pass's read of the room: it was absent, or it stood like this. */
+export type MediaRoomRead =
+  | { readonly kind: 'absent' }
+  | {
+      readonly kind: 'read';
+      /** LiveKit's id for the room now. */
+      readonly sid: string;
+      readonly empty: boolean;
+      /** The capture agent is listed. */
+      readonly captureListed: boolean;
+      /**
+       * The room's node answered a call only it can serve; null when not asked or the
+       * asking itself failed. A dead node's room still reads as occupied, under the same
+       * id, through a surviving node.
+       */
+      readonly answered: boolean | null;
+    };
+
+/** Why a session left its room. Published on each rotation, for other features to read. */
+export const mediaRoomRotationCauses = [
+  'absent',
+  'unreachable',
+  'seat-revoked',
+  'lost',
+] as const;
+export type MediaRoomRotationCause = (typeof mediaRoomRotationCauses)[number];
 
 /** What happens to the room. Each variant is one outcome, with nothing left to derive. */
 export type MediaRoomFate =
@@ -21,7 +54,7 @@ export type MediaRoomFate =
   /** The session moves to a fresh room, with its remaining seats. */
   | {
       readonly kind: 'rotate';
-      readonly cause: 'absent' | 'unreachable' | 'seat-revoked';
+      readonly cause: MediaRoomRotationCause;
     }
   /** The room is proven gone and nothing requires a new one yet. */
   | { readonly kind: 'clear' };

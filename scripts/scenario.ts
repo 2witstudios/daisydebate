@@ -193,6 +193,8 @@ function startRun(scenario: DebateScenario): Run {
       prep_consumed_ms: { affirmative: 0, negative: 0 },
       active_prep: null,
       floor: null,
+      incident: { phase: 'none' },
+      clock_stops: [],
     },
     segments: [],
     nextSegmentId: () => ids.next(),

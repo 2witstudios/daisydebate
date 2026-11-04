@@ -1,5 +1,5 @@
 import { createInvariantError } from '@daisy/errors';
-import { availabilityRecoveryPolicy } from '@daisy/protocol';
+import { availabilityRecoveryPolicy, type ClockStop } from '@daisy/protocol';
 
 const { recoverySamples, maxSampleGapMs } = availabilityRecoveryPolicy;
 
@@ -67,6 +67,27 @@ export function deriveOutageIntervals(
     historyStartsAtMs: samples[0]?.atMs ?? null,
     settledHorizonMs: previous,
     intervals,
+  };
+}
+
+/**
+ * A platform incident's span is not healthy for its Round, whatever the samples
+ * say: they do not watch the media platform. An open stop never settles, so no
+ * deadline can pass through it, and no one can forfeit because of it.
+ */
+export function withClockStops(
+  availability: SettledAvailability,
+  stops: readonly ClockStop[],
+): SettledAvailability {
+  return {
+    ...availability,
+    intervals: [
+      ...availability.intervals,
+      ...stops.map((stop) => ({
+        startMs: Date.parse(stop.from),
+        endMs: stop.to === null ? null : Date.parse(stop.to),
+      })),
+    ].sort((a, b) => a.startMs - b.startMs),
   };
 }
 

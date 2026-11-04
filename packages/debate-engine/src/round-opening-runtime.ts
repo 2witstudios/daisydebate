@@ -95,7 +95,8 @@ export function forfeitInOpening(
 /**
  * The forfeit a restriction imposes on a seated debater (DEC-331), in the opening
  * or the debate. Null once the debate is over: the Round waits for its ballot,
- * with nothing left to forfeit. Any other refusal throws.
+ * with nothing left to forfeit; and null while a platform incident holds it. Any
+ * other refusal throws.
  */
 export function forfeitOfRestriction(
   input: RuntimeInput & {
@@ -108,6 +109,12 @@ export function forfeitOfRestriction(
   },
 ): RoundProjection | null {
   const { opening, ...hydrated } = input;
+  // A platform incident takes no commands. The restriction itself still stands;
+  // attendance decides the seat once the Round runs again.
+  if (
+    createRoundRuntime(hydrated).position(input.now).incident.phase !== 'none'
+  )
+    return null;
   if (opening)
     return forfeitInOpening({
       ...hydrated,

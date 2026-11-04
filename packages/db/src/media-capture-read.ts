@@ -64,6 +64,7 @@ const segmentView = (segment: typeof roundSegments.$inferSelect | undefined) =>
         startedAt: segment.startedAt.toISOString(),
         endedAt: segment.endedAt?.toISOString() ?? null,
         durationMs: segment.durationMs,
+        returnedMs: segment.returnedMs,
       }
     : null;
 

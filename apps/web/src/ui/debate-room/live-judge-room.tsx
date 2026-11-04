@@ -6,6 +6,7 @@ import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import Link from 'next/link';
 import { useCallback, useMemo, type ReactNode } from 'react';
 import { useRoundTime } from './use-round-time';
+import { RoundIncidentBanner } from './round-incident-banner';
 import { RoundTimeNotice } from './round-time-notice';
 import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/round-runtime/read-round';
@@ -94,6 +95,7 @@ export function LiveJudgeRoom({
       </p>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <RoundTimeNotice roundTime={roundTime} />
+      <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
       {media(view)}
       {transcript}
       <Link href={`/judge/ballot/${view.id}`} prefetch={false}>
