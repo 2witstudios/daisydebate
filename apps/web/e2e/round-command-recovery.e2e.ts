@@ -32,6 +32,18 @@ for (const command of ['yield', 'forfeit'] as const)
     const { page, roundId } = liveRoom;
     for (const name of ['Take prep time', 'Start affirmative constructive'])
       await page.getByRole('button', { name, exact: true }).click();
+    const read = async () => {
+      const response = await page.request.get(`/api/rounds/${roundId}`);
+      expect(response.status()).toBe(200);
+      return roundViewSchema.parse(await response.json());
+    };
+    // A post at a version the server has passed is refused, and this proves a post the
+    // server accepted. The floor's own moves settle just after a speech opens.
+    await expect(async () => {
+      const { version } = await read();
+      await page.waitForTimeout(1_500);
+      expect((await read()).version).toBe(version);
+    }).toPass();
     const label = command === 'yield' ? 'End speech' : 'Forfeit round';
     await page.getByRole('button', { name: label, exact: true }).click();
     const confirm = page.getByRole('button', {
@@ -67,11 +79,6 @@ for (const command of ['yield', 'forfeit'] as const)
       } else await route.continue();
     });
     await confirm.click();
-    const read = async () => {
-      const response = await page.request.get(`/api/rounds/${roundId}`);
-      expect(response.status()).toBe(200);
-      return roundViewSchema.parse(await response.json());
-    };
     await expect
       .poll(async () =>
         command === 'yield'
