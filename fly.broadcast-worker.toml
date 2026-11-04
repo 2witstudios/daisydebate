@@ -2,7 +2,8 @@
 # segments, encodes three renditions and writes public HLS. Its image is the
 # `broadcast-worker` target of apps/web/Dockerfile. Its database login reaches
 # broadcasts only, and its secrets are all Fly secrets. It has no public service.
-# Stop the machine when idle: there is no proxy to auto-stop it.
+# It runs always while Watch is open: there is no proxy to start it, and a deploy does
+# not start a stopped machine.
 app = "daisy-debate-staging-encoder"
 primary_region = "ord"
 kill_timeout = 30
