@@ -51,6 +51,11 @@ for (const command of ['yield', 'forfeit'] as const)
       exact: true,
     });
     await expect(confirm).toBeVisible();
+    // The form posts the version it rendered, which can lag the read above.
+    const { version } = await read();
+    await expect
+      .poll(async () => (await commandFields(confirm)).expectedVersion)
+      .toBe(String(version));
     const original = await commandFields(confirm);
     let committed = false;
     let postedVersion: string | undefined;
