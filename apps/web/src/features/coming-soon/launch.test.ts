@@ -219,7 +219,15 @@ describe('launch config', () => {
       should:
         'open Play, Watch, Judge, Seasons, the real leaderboard, Train and Prep',
       actual: destinationSlugs.filter((slug) => launched[slug]),
-      expected: ['lobby', 'watch', 'judge', 'seasons', 'leaderboard', 'train', 'prep'],
+      expected: [
+        'lobby',
+        'watch',
+        'judge',
+        'seasons',
+        'leaderboard',
+        'train',
+        'prep',
+      ],
     });
   });
 });
