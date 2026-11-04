@@ -20,14 +20,13 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
 });
 mock.module('next/link', () => ({
-  default: ({ children }: { children: import('react').ReactNode }) => (
-    <span>{children}</span>
-  ),
+  default: ({ children }: { children: import('react').ReactNode }) =>
+    createElement('span', null, children),
 }));
 mock.module('../src/ui/messaging/mark-read', () => ({
   MarkConversationRead: () => null,
 }));
-const { act } = await import('react');
+const { act, createElement } = await import('react');
 const { createRoot } = await import('react-dom/client');
 const { ConversationLive } =
   await import('../src/ui/messaging/conversation-live');
@@ -52,27 +51,27 @@ let calls = 0;
 try {
   await act(async () =>
     root.render(
-      <ConversationLive
-        channelId={channelId}
-        history={history}
-        actorId="reader"
-        otherAuthor="Member"
-        socketUrl={null}
-        typingRefetchMs={null}
-        now="2026-11-04T00:00:00.000Z"
-        viewer={{
+      createElement(ConversationLive, {
+        channelId,
+        history,
+        actorId: 'reader',
+        otherAuthor: 'Member',
+        socketUrl: null,
+        typingRefetchMs: null,
+        now: '2026-11-04T00:00:00.000Z',
+        viewer: {
           readSequence: 1,
           firstUnreadSequence: null,
           ownReactions: [],
-        }}
-        typingName="Member"
-        filesAvailable={false}
-        reactAction={async (_previous, form) => {
+        },
+        typingName: 'Member',
+        filesAvailable: false,
+        reactAction: async (_previous, form) => {
           calls++;
           const own = form.get('active') === 'true';
           return { own, count: own ? 2 : 1 };
-        }}
-      />,
+        },
+      }),
     ),
   );
   const labels: (string | null | undefined)[] = [];

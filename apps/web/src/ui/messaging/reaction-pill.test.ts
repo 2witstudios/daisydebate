@@ -5,7 +5,7 @@ test('latest history without realtime takes the authorized counts after adding a
   const child = Bun.spawn(
     [
       'bun',
-      `${import.meta.dir}/../../../scripts/messaging-reaction-realm.test-support.tsx`,
+      `${import.meta.dir}/../../../scripts/messaging-reaction-realm.test-support.ts`,
     ],
     {
       stdout: 'pipe',
