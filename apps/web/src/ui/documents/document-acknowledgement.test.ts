@@ -45,7 +45,7 @@ for (const body of [
 
     sync.change('a', '<p>PRIVATE</p>');
     await sync.flush();
-    const raw = storage.getItem('daisy:round-notes:draft:p:r:a');
+    const raw = storage.getItem('daisy:document-drafts:copy:p:a');
     assert({
       given: 'HTTP200 without the exact next revision acknowledgement',
       should:
@@ -55,7 +55,7 @@ for (const body of [
     });
   });
 
-const key = 'daisy:round-notes:draft:p:r:a';
+const key = 'daisy:document-drafts:copy:p:a';
 const recovery = {
   generation: 'REC',
   html: '<p>REC</p>',

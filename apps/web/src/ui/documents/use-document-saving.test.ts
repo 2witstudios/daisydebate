@@ -196,7 +196,7 @@ test('refused edits and absent recovery choices leave the real owner state uncha
 test('a recovery choice remains actionable after newer typing is acknowledged', async () => {
   const storage = memoryStorage();
   storage.setItem(
-    'daisy:round-notes:draft:p:r:a',
+    'daisy:document-drafts:copy:p:a',
     recoveryRecord({
       html: '<p>Recovered copy</p>',
       baseRevision: 1,
@@ -241,7 +241,7 @@ for (const status of [401, 403] as const)
   test(`a ${status} refused save keeps every private copy`, async () => {
     const storage = memoryStorage();
     storage.setItem(
-      'daisy:round-notes:draft:p:other-round:x',
+      'daisy:document-drafts:copy:p:other-round:x',
       recoveryRecord({
         html: '<p>Other Round</p>',
         baseRevision: 1,
@@ -270,9 +270,9 @@ for (const status of [401, 403] as const)
         sync.available(),
         events.at(-1),
         storage
-          .getItem('daisy:round-notes:draft:p:r:a')
+          .getItem('daisy:document-drafts:copy:p:a')
           ?.includes('Typed before'),
-        storage.getItem('daisy:round-notes:draft:p:other-round:x') !== null,
+        storage.getItem('daisy:document-drafts:copy:p:other-round:x') !== null,
       ],
       expected: [status === 403, { type: 'refused', status }, true, true],
     });

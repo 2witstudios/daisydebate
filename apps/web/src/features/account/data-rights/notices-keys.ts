@@ -10,6 +10,6 @@ export const ACCOUNT_CLOSED_QUERY = 'closed';
  * Set only when this browser confirmed closing its account, so its private note
  * copies are erased on the server's word. Holds no identity, and script reads it.
  */
-export const DRAFTS_ERASED_COOKIE = 'daisy-notes-erased';
+export const DRAFTS_ERASED_COOKIE = 'daisy-drafts-erased';
 export const draftsErasedCookie = (value: string, maxAgeSeconds: number) =>
   `${DRAFTS_ERASED_COOKIE}=${value}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax; Secure`;

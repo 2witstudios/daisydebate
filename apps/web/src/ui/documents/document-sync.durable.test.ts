@@ -17,8 +17,8 @@ import { type DocumentsApi } from './document-sync';
 
 setupRitewayBun();
 
-const keyOf = (principal: string, roundId: string, id: string) =>
-  `daisy:round-notes:draft:${principal}:${roundId}:${id}`;
+const keyOf = (principal: string, id: string) =>
+  `daisy:document-drafts:copy:${principal}:${id}`;
 
 const alwaysSaving = (documents: readonly string[] = ['a']): DocumentsApi => ({
   list: async () => documents.map((id) => stored(id, 1)),
@@ -34,7 +34,7 @@ describe('a durable draft', () => {
     const store = memoryStorage();
     const now = 1;
     store.setItem(
-      keyOf('p1', 'd', 'a'),
+      keyOf('p1', 'a'),
       JSON.stringify({
         recovery: {
           html: '<p>stale draft</p>',
@@ -65,7 +65,7 @@ describe('a durable draft', () => {
       should: 'be recoverable, not auto-saved over the server copy',
       actual: {
         html: draft?.html,
-        waiting: store.dump().has(keyOf('p1', 'd', 'a')),
+        waiting: store.dump().has(keyOf('p1', 'a')),
       },
       expected: { html: '<p>stale draft</p>', waiting: true },
     });
@@ -74,7 +74,7 @@ describe('a durable draft', () => {
   test('discarding a loaded recovery removes it without an exit save', async () => {
     const store = memoryStorage();
     store.setItem(
-      keyOf('p1', 'd', 'a'),
+      keyOf('p1', 'a'),
       recoveryRecord({
         html: '<p>recover</p>',
         baseRevision: 1,
@@ -105,7 +105,7 @@ describe('a durable draft', () => {
       given: 'a valid exact-base recovery before Discard',
       should: 'actually offer the stored recovery',
       actual: [
-        store.dump().has(keyOf('p1', 'd', 'a')),
+        store.dump().has(keyOf('p1', 'a')),
         sync.recoveryOffers().length,
       ],
       expected: [true, 1],
@@ -120,7 +120,7 @@ describe('a durable draft', () => {
       given: 'the participant discards that recovery then leaves',
       should: 'erase the record and offer without sending its HTML',
       actual: [
-        store.dump().has(keyOf('p1', 'd', 'a')),
+        store.dump().has(keyOf('p1', 'a')),
         sync.recoveryOffers().length,
         saves,
       ],
@@ -207,8 +207,8 @@ describe('a bounded storage round', () => {
       actual: {
         before,
         after: draftKeys(store).length,
-        first: store.getItem(keyOf('p1', 'r', 'd0')) !== null,
-        overflow: store.getItem(keyOf('p1', 'r', 'd16')),
+        first: store.getItem(keyOf('p1', 'd0')) !== null,
+        overflow: store.getItem(keyOf('p1', 'd16')),
       },
       expected: { before: 16, after: 16, first: true, overflow: null },
     });

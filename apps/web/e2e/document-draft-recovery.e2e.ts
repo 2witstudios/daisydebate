@@ -14,7 +14,7 @@ const rawDraftFor = (page: Page, id: string) =>
   page.evaluate((documentId) => {
     const key = Object.keys(localStorage).find(
       (one) =>
-        one.startsWith('daisy:round-notes:draft:') &&
+        one.startsWith('daisy:document-drafts:copy:') &&
         one.endsWith(`:${documentId}`),
     );
     return key ? localStorage.getItem(key) : null;
@@ -40,16 +40,12 @@ const leaveLosingExitSave = async (
   leave: () => Promise<unknown>,
 ) => {
   const roundId = new URL(page.url()).pathname.split('/')[2]!;
-  const unsaved = await page.evaluate((round) => {
-    const inRound = `:${round}:`;
-    return Object.keys(localStorage)
-      .filter(
-        (key) =>
-          key.startsWith('daisy:round-notes:draft:') && key.includes(inRound),
-      )
+  const unsaved = await page.evaluate(() =>
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('daisy:document-drafts:copy:'))
       .filter((key) => JSON.parse(localStorage.getItem(key)!).active)
-      .map((key) => key.slice(key.lastIndexOf(':') + 1));
-  }, roundId);
+      .map((key) => key.slice(key.lastIndexOf(':') + 1)),
+  );
   const revisions = await Promise.all(
     unsaved.map(async (id) => {
       const { revision } = await serverDocument(page, roundId, id);
@@ -211,7 +207,7 @@ test('offline edit survives page loss and explicitly restores into the live edit
     .toContain('Offline recovery text');
   await page.close();
   await context.setOffline(false);
-  const reopened = await openPage(context, 'reopen private Round notes');
+  const reopened = await openPage(context, 'reopen private drafts');
   await reopened.goto(url);
   const restore = reopened.getByRole('button', {
     name: /^Restore Untitled( \d+)?$/,
@@ -605,7 +601,7 @@ test('unavailable browser storage warns while real online saves continue', async
   await page.evaluate(() => {
     const write = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key.startsWith('daisy:round-notes:draft:'))
+      if (key.startsWith('daisy:document-drafts:copy:'))
         throw new DOMException('Denied', 'QuotaExceededError');
       return write.call(this, key, value);
     };
@@ -632,7 +628,7 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
     if (loggedOut) lateSends++;
     return route.abort();
   });
-  await edit(page, 'Private pending notes before logout');
+  await edit(page, 'Private pending drafts before logout');
   await expect.poll(() => draftFor(page, documentId)).not.toBeNull();
   const shell = await openPage(
     page.context(),
@@ -646,7 +642,7 @@ test('native logout erases recovery and a stale tab cannot recreate it', async (
   loggedOut = true;
   await expect(page.getByRole('textbox', { name: untitled })).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText(
-    'Private pending notes before logout',
+    'Private pending drafts before logout',
   );
   await page.clock.runFor(30_000);
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
@@ -1247,7 +1243,7 @@ for (const refusal of ['denied storage', 'combined overflow'] as const)
       await page.evaluate(() => {
         const set = Storage.prototype.setItem;
         Storage.prototype.setItem = function (key, value) {
-          if (key.startsWith('daisy:round-notes:draft:'))
+          if (key.startsWith('daisy:document-drafts:copy:'))
             throw new DOMException('Denied', 'QuotaExceededError');
           set.call(this, key, value);
         };
@@ -1372,7 +1368,7 @@ test('after lost exit saves, original copy expiry withdraws only that offer whil
   ).not.toContainText('Original expiring REC');
 });
 
-test('controlled router-lifecycle proof, not end-user navigation: Round replacement flushes pending notes without purging either Round recovery, the other Round seeded by a lost exit save', async ({
+test('controlled router-lifecycle proof, not end-user navigation: Round replacement flushes pending drafts without purging either Round recovery, the other Round seeded by a lost exit save', async ({
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;
@@ -1387,15 +1383,15 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
     'First Round REC',
   );
   const scopes = await page.evaluate(
-    ({ principalId, roundId, documentId, second }) => {
-      const firstKey = `daisy:round-notes:draft:${principalId}:${roundId}:${documentId}`;
-      const secondKey = `daisy:round-notes:draft:${principalId}:${second.roundId}:${second.documentId}`;
+    ({ principalId, documentId, second }) => {
+      const firstKey = `daisy:document-drafts:copy:${principalId}:${documentId}`;
+      const secondKey = `daisy:document-drafts:copy:${principalId}:${second.documentId}`;
       return [
         localStorage.getItem(firstKey),
         localStorage.getItem(secondKey),
       ].map((raw) => (raw === null ? null : JSON.parse(raw)));
     },
-    { principalId, roundId, documentId, second },
+    { principalId, documentId, second },
   );
   expect(scopes).toEqual([
     { recovery: firstRecovery },
@@ -1446,7 +1442,7 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
   });
 });
 
-test('end-user navigation: leaving a Round through the account menu saves pending notes and browser Back returns through both Rounds via the profile page, the other Round seeded by a lost exit save', async ({
+test('end-user navigation: leaving a Round through the account menu saves pending drafts and browser Back returns through both Rounds via the profile page, the other Round seeded by a lost exit save', async ({
   roundFiles,
 }) => {
   const { page, roundId, documentId } = roundFiles;

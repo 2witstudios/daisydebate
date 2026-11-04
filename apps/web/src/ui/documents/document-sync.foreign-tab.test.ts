@@ -53,7 +53,7 @@ test('a legitimate newer foreign-tab active copy is withheld without a false sto
   two.change('a', 'committed foreign text');
   await two.flush();
   two.change('a', 'new foreign text');
-  const foreign = storage.getItem('daisy:round-notes:draft:p:r:a');
+  const foreign = storage.getItem('daisy:document-drafts:copy:p:a');
   one.refreshRecovery();
   one.change('b', 'own edit');
   await one.flush();
@@ -66,7 +66,7 @@ test('a legitimate newer foreign-tab active copy is withheld without a false sto
       warnings,
       saved,
       one.recoveryOffers(),
-      storage.getItem('daisy:round-notes:draft:p:r:a'),
+      storage.getItem('daisy:document-drafts:copy:p:a'),
     ],
     expected: [[], ['b'], [], foreign],
   });

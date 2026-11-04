@@ -34,15 +34,15 @@ const savingApi = (
   return { api, saves, state: () => state };
 };
 
-/** The key for a round's draft under test. */
-const keyOf = (principal: string, roundId: string, id: string) =>
-  `daisy:round-notes:draft:${principal}:${roundId}:${id}`;
+/** The key for a document's draft under test. */
+const keyOf = (principal: string, id: string) =>
+  `daisy:document-drafts:copy:${principal}:${id}`;
 
 const staleRecovery = async (owner: string) => {
   const store = memoryStorage();
   const now = Date.parse('2026-10-05T18:00:00.000Z');
   store.setItem(
-    keyOf('p1', 'd', 'a'),
+    keyOf('p1', 'a'),
     recoveryRecord({
       html: '<p>stale draft</p>',
       baseRevision: 2,
@@ -88,7 +88,7 @@ describe('draft recovery', () => {
     await sync.flush();
     sync.change('a', '<p>newer B</p>');
     await sync.flush();
-    const draft = store.dump().get(keyOf('p1', 'd', 'a'));
+    const draft = store.dump().get(keyOf('p1', 'a'));
     assert({
       given: 'two edits saved sequentially',
       should: 'commit both edits in order',
@@ -129,7 +129,7 @@ describe('draft recovery', () => {
       given: 'a recovered draft the room refused',
       should: 'drop the stored draft and leave no recoverable copy',
       actual: [
-        store.dump().has(keyOf('p1', 'd', 'a')),
+        store.dump().has(keyOf('p1', 'a')),
         sync.recoveryOffers().length,
       ],
       expected: [false, 0],
@@ -138,7 +138,7 @@ describe('draft recovery', () => {
 
   test('rejects an invalid stored draft', async () => {
     const store = memoryStorage();
-    store.setItem(keyOf('p1', 'd', 'a'), '123');
+    store.setItem(keyOf('p1', 'a'), '123');
     const { api } = savingApi([{ id: 'a', revision: 3 }]);
     const sync = await loadDraftSync({
       ...manualDraftResources('document-sync.recovery.test:4', {
@@ -155,6 +155,50 @@ describe('draft recovery', () => {
       given: 'a persisted draft that is not a valid record',
       should: 'not be treated as a recoverable draft',
       actual: sync.recoveryOffers().length,
+      expected: 0,
+    });
+  });
+});
+
+describe('a draft follows its document', () => {
+  test('wherever the same person next opens it', async () => {
+    const store = memoryStorage();
+    const { api } = savingApi([{ id: 'a', revision: 1 }]);
+    const resources = () => ({
+      ...manualDraftResources('follow', { storage: store }),
+      principalId: 'p1',
+      api,
+      onConflict: () => {},
+    });
+    const first = await loadDraftSync({ ...resources(), roundId: 'first' });
+    first.change('a', '<p>typed in the first place</p>');
+    first.dispose();
+    const second = await loadDraftSync({ ...resources(), roundId: 'second' });
+    assert({
+      given: 'an unsaved edit made while the document was opened elsewhere',
+      should: 'offer it where the document opens next',
+      actual: second.recoveryOffers().map((offer) => offer.copy.html),
+      expected: ['<p>typed in the first place</p>'],
+    });
+  });
+
+  test('and never to another person', async () => {
+    const store = memoryStorage();
+    const { api } = savingApi([{ id: 'a', revision: 1 }]);
+    const shared = {
+      ...manualDraftResources('private', { storage: store }),
+      api,
+      roundId: 'r',
+      onConflict: () => {},
+    };
+    const first = await loadDraftSync({ ...shared, principalId: 'p1' });
+    first.change('a', '<p>private</p>');
+    first.dispose();
+    const second = await loadDraftSync({ ...shared, principalId: 'p2' });
+    assert({
+      given: 'a draft another account left in this browser',
+      should: 'offer nothing',
+      actual: second.recoveryOffers().length,
       expected: 0,
     });
   });

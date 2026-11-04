@@ -14,7 +14,7 @@ setupRitewayBun();
 const fixture = () => {
   const storage = memoryStorage(),
     ids = Array.from({ length: 17 }, (_, i) => `d${i}`);
-  const key = (id: string) => `daisy:round-notes:draft:p:r:${id}`;
+  const key = (id: string) => `daisy:document-drafts:copy:p:${id}`;
   const copy = (generation: string) =>
     newDraftCopy({ generation, html: generation, now: 100, baseRevision: 3 });
   for (const id of ids)

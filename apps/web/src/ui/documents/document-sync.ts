@@ -162,7 +162,6 @@ export function createDocumentSync({
   const drafts = createDraftStorage({
     storage,
     principalId,
-    roundId,
     failed: failedStorage,
   });
   const owned = (id: string, generation: string) =>

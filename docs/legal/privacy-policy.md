@@ -132,7 +132,7 @@ Note-erasing cookie: set when you confirm closing your account, so the next page
 
 For as long as a tab stays open, your browser keeps the ids of challenge rooms that tab has already taken you to, so it does not take you back.
 
-Your browser also keeps copies of your private Round notes in its local storage, not in a cookie, so unsaved work can be recovered. Each copy is deleted seven days after it was saved, or sooner when you sign out, close your account from this browser, or another account signs in here. If your session simply expires the copies stay in this browser, hidden, until you return or they expire. [COUNSEL: confirm this description and the retention for a shared computer; the owner's decision is DEC-290.]
+Your browser also keeps copies of unsaved edits to your documents in its local storage, not in a cookie, so unsaved work can be recovered. Each copy is deleted seven days after it was saved, or sooner when you sign out, close your account from this browser, or another account signs in here. If your session simply expires the copies stay in this browser, hidden, until you return or they expire. [COUNSEL: confirm this description and the retention for a shared computer; the owner's decision is DEC-290.]
 
 We use no advertising or analytics cookies and no other tracking technologies, and we do not set a cookie that carries a chosen username between pages. [COUNSEL: confirm that no consent banner is required for this set of cookies.]
 

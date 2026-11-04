@@ -15,7 +15,7 @@ import {
 import { createKeepaliveBudget } from './keepalive-budget';
 import { newDraftCopy } from './document-draft';
 setupRitewayBun();
-const key = 'daisy:round-notes:draft:p:r:a';
+const key = 'daisy:document-drafts:copy:p:a';
 const fixture = () => {
   const storage = memoryStorage();
   let now = 100,

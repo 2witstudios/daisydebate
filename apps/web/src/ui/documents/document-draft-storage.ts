@@ -19,13 +19,13 @@ export type DraftWrite = {
   readonly stored: boolean;
   readonly snapshot: DraftSnapshot;
 };
-const prefix = 'daisy:round-notes:draft:';
+const prefix = 'daisy:document-drafts:copy:';
 export const isDraftKey = (key: string) => key.startsWith(prefix);
 const principalPrefix = (principalId: string) => `${prefix}${principalId}:`;
 export const isPrincipalDraftKey = (key: string, principalId: string) =>
   key.startsWith(principalPrefix(principalId));
-const keyOf = (principalId: string, roundId: string, id: string) =>
-  `${principalPrefix(principalId)}${roundId}:${id}`;
+const keyOf = (principalId: string, id: string) =>
+  `${principalPrefix(principalId)}${id}`;
 export const draftKeys = (storage: DraftStorage): readonly string[] => {
   const keys: string[] = [];
   for (let i = 0; i < storage.length; i++) {
@@ -72,7 +72,7 @@ const withinBrowserBound = (
   );
 };
 
-/** Retention holds while a browser stays in use, not only for the Round reopened. */
+/** Retention holds while a browser stays in use, not only for the document reopened. */
 export function pruneExpiredDrafts(storage: DraftStorage, now: number) {
   for (const key of draftKeys(storage)) {
     const raw = storage.getItem(key);
@@ -88,18 +88,16 @@ export function pruneExpiredDrafts(storage: DraftStorage, now: number) {
 export function createDraftStorage({
   storage,
   principalId,
-  roundId,
   failed,
 }: {
   readonly storage: DraftStorage | null;
   readonly principalId: string;
-  readonly roundId: string;
   readonly failed: (id: string) => void;
 }) {
   const read = (id: string, now: number): DraftSnapshot => {
     if (!storage) return empty();
     try {
-      const key = keyOf(principalId, roundId, id);
+      const key = keyOf(principalId, id);
       const raw = storage.getItem(key);
       if (raw === null) return empty();
       const decoded = decodeDraftRecord(raw, now);
@@ -152,7 +150,7 @@ export function createDraftStorage({
       return { stored: true, snapshot: empty() };
     }
     try {
-      const key = keyOf(principalId, roundId, id);
+      const key = keyOf(principalId, id);
       const currentRaw = storage.getItem(key);
       if (currentRaw !== previous.raw) {
         failed(id);

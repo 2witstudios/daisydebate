@@ -11,7 +11,7 @@ test('retained private copies coalesce focus checks and cancel stale identity an
   const { user } = await response.json();
   expect(user.id).toMatch(/^[a-z0-9]{24}$/);
   await page.goto('/settings');
-  const retainedKey = `daisy:round-notes:draft:${user.id}:${'r'.repeat(24)}:${'d'.repeat(24)}`;
+  const retainedKey = `daisy:document-drafts:copy:${user.id}:${'d'.repeat(24)}`;
   await page.evaluate(
     (key) =>
       localStorage.setItem(
@@ -54,7 +54,7 @@ test('retained private copies coalesce focus checks and cancel stale identity an
     await page.evaluate(() =>
       window.dispatchEvent(
         new StorageEvent('storage', {
-          key: 'daisy:round-notes:principal',
+          key: 'daisy:document-drafts:principal',
           newValue: 'n'.repeat(24),
         }),
       ),
@@ -68,7 +68,7 @@ test('retained private copies coalesce focus checks and cancel stale identity an
       .toBeNull();
     expect(
       await page.evaluate(() =>
-        localStorage.getItem('daisy:round-notes:principal'),
+        localStorage.getItem('daisy:document-drafts:principal'),
       ),
     ).toBe('n'.repeat(24));
     expect(calls).toBe(1);
@@ -85,7 +85,7 @@ test('closing an account erases its private copies in this browser', async ({
   const response = await page.request.get('/api/auth/get-session');
   const { user } = await response.json();
   await page.goto('/settings');
-  const retainedKey = `daisy:round-notes:draft:${user.id}:${'r'.repeat(24)}:${'d'.repeat(24)}`;
+  const retainedKey = `daisy:document-drafts:copy:${user.id}:${'d'.repeat(24)}`;
   await page.evaluate(
     (key) =>
       localStorage.setItem(

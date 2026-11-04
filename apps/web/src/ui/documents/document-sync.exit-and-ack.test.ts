@@ -203,7 +203,7 @@ describe('replacement eviction', () => {
       actual: {
         before: before.size,
         after: store.dump().size,
-        oldestStillStored: store.dump().has('daisy:round-notes:draft:p:r:d0'),
+        oldestStillStored: store.dump().has('daisy:document-drafts:copy:p:d0'),
       },
       expected: { before: 16, after: 16, oldestStillStored: true },
     });
@@ -236,7 +236,7 @@ describe('an acknowledged older edit with a newer edit waiting', () => {
     sync.change('a', 'B');
     first.release();
     await tick();
-    const raw = store.dump().get('daisy:round-notes:draft:p:r:a');
+    const raw = store.dump().get('daisy:document-drafts:copy:p:a');
     const draft = raw ? JSON.parse(raw).active : null;
     assert({
       given: 'A acknowledges at revision 4 while B is still waiting',
@@ -260,7 +260,7 @@ describe('an acknowledged older edit with a newer edit waiting', () => {
       given: 'the rebased newer edit then acknowledges',
       should: 'clear its durable copy and report the room saved once',
       actual: {
-        stored: store.dump().has('daisy:round-notes:draft:p:r:a'),
+        stored: store.dump().has('daisy:document-drafts:copy:p:a'),
         savedEvents,
       },
       expected: { stored: false, savedEvents: 1 },
@@ -272,7 +272,7 @@ describe('a stored record outside DEC-271', () => {
   test('is not offered as a recovered draft', async () => {
     const store = memoryStorage();
     store.setItem(
-      'daisy:round-notes:draft:p:r:a',
+      'daisy:document-drafts:copy:p:a',
       JSON.stringify({
         recovery: {
           html: 'x'.repeat(300_000),
@@ -298,7 +298,7 @@ describe('a stored record outside DEC-271', () => {
         recovered:
           sync.recoveryOffers().find((offer) => offer.documentId === 'a')?.copy
             ?.html.length ?? 0,
-        stored: store.dump().has('daisy:round-notes:draft:p:r:a'),
+        stored: store.dump().has('daisy:document-drafts:copy:p:a'),
       },
       expected: { recovered: 0, stored: false },
     });
@@ -309,7 +309,7 @@ describe('discarding an older recovery after newer typing', () => {
   test('preserves and saves the newer typed edit', async () => {
     const store = memoryStorage();
     store.setItem(
-      'daisy:round-notes:draft:p:r:a',
+      'daisy:document-drafts:copy:p:a',
       recoveryRecord({
         html: '<p>recovered</p>',
         baseRevision: 3,
@@ -330,7 +330,7 @@ describe('discarding an older recovery after newer typing', () => {
     assert({
       given: 'a stale recovery choice and a newer edit typed after it',
       should: 'discard only the stale choice and save the newer edit',
-      actual: [sent, store.dump().has('daisy:round-notes:draft:p:r:a')],
+      actual: [sent, store.dump().has('daisy:document-drafts:copy:p:a')],
       expected: [['<p>newer typing</p>'], false],
     });
   });
@@ -353,7 +353,7 @@ describe('a storage operation that fails', () => {
     const refuse = () => {
       throw new Error(`storage ${failure} failed`);
     };
-    const target = 'daisy:round-notes:draft:p:r:a';
+    const target = 'daisy:document-drafts:copy:p:a';
     if (failure === 'removeItem' || failure === 'key' || failure === 'getItem')
       backing.setItem(
         failure === 'key' ? `${target}-other` : target,
@@ -415,7 +415,7 @@ describe('a storage operation that fails', () => {
     for (const [index, id] of documents.slice(0, 16).entries()) {
       const savedAt = index + 1;
       backing.setItem(
-        `daisy:round-notes:draft:p:r:${id}`,
+        `daisy:document-drafts:copy:p:${id}`,
         JSON.stringify({
           recovery: {
             html: id,
@@ -427,7 +427,7 @@ describe('a storage operation that fails', () => {
         }),
       );
     }
-    const target = 'daisy:round-notes:draft:p:r:d16';
+    const target = 'daisy:document-drafts:copy:p:d16';
     const warnings: string[] = [];
     const storage: DraftStorage & {
       readonly dump: () => ReadonlyMap<string, string>;
@@ -458,8 +458,8 @@ describe('a storage operation that fails', () => {
       should:
         'restore the oldest draft it tried to evict and keep every unrelated copy',
       actual: {
-        d0: after.has('daisy:round-notes:draft:p:r:d0'),
-        d15: after.has('daisy:round-notes:draft:p:r:d15'),
+        d0: after.has('daisy:document-drafts:copy:p:d0'),
+        d15: after.has('daisy:document-drafts:copy:p:d15'),
         d16: after.has(target),
         count: after.size,
       },
@@ -477,7 +477,7 @@ describe('explicit recovery ownership', () => {
   test('leaves an offered exact-base draft unsent until Restore', async () => {
     const store = memoryStorage();
     store.setItem(
-      'daisy:round-notes:draft:p:r:a',
+      'daisy:document-drafts:copy:p:a',
       recoveryRecord({
         html: '<p>recovery</p>',
         baseRevision: 3,
@@ -537,7 +537,7 @@ test('a refused replacement preserves its previous recovery value', async () => 
   const documents = Array.from({ length: 16 }, (_, index) => `d${index}`);
   for (const id of documents)
     backing.setItem(
-      `daisy:round-notes:draft:p:r:${id}`,
+      `daisy:document-drafts:copy:p:${id}`,
       recoveryRecord({
         html: id,
         baseRevision: 3,
@@ -573,7 +573,7 @@ test('a refused replacement preserves its previous recovery value', async () => 
 test('one document acknowledgement cannot clear another recovery offer', async () => {
   const store = memoryStorage();
   store.setItem(
-    'daisy:round-notes:draft:p:r:b',
+    'daisy:document-drafts:copy:p:b',
     recoveryRecord({
       html: '<p>recover B</p>',
       baseRevision: 3,
@@ -616,7 +616,7 @@ test('one document acknowledgement cannot clear another recovery offer', async (
 test('discard matches the recovery generation even when newer text is identical', async () => {
   const store = memoryStorage();
   store.setItem(
-    'daisy:round-notes:draft:p:r:a',
+    'daisy:document-drafts:copy:p:a',
     recoveryRecord({
       html: '<p>same text</p>',
       baseRevision: 3,
@@ -633,7 +633,7 @@ test('discard matches the recovery generation even when newer text is identical'
     sync.recoveryOffers().find((offer) => offer.documentId === 'a')!.copy
       .generation,
   );
-  const retained = store.dump().has('daisy:round-notes:draft:p:r:a');
+  const retained = store.dump().has('daisy:document-drafts:copy:p:a');
   await sync.flush();
   assert({
     given: 'new typing has the same HTML as an older recovery offer',
@@ -646,7 +646,7 @@ test('discard matches the recovery generation even when newer text is identical'
 test('failed Discard removal keeps its recovery offer and warns', async () => {
   const backing = memoryStorage();
   backing.setItem(
-    'daisy:round-notes:draft:p:r:a',
+    'daisy:document-drafts:copy:p:a',
     recoveryRecord({
       html: '<p>recover</p>',
       baseRevision: 3,
@@ -686,7 +686,7 @@ test('preexisting drafts over the count bound are all still offered', async () =
   const documents = Array.from({ length: 17 }, (_, i) => `d${i}`);
   for (const [i, id] of documents.entries())
     store.setItem(
-      `daisy:round-notes:draft:p:r:${id}`,
+      `daisy:document-drafts:copy:p:${id}`,
       recoveryRecord({
         html: '<p>copy</p>',
         baseRevision: 3,
@@ -705,7 +705,7 @@ test('preexisting drafts over the count bound are all still offered', async () =
     actual: [
       sync.recoveryOffers().length,
       store.dump().size,
-      store.dump().has('daisy:round-notes:draft:p:r:d0'),
+      store.dump().has('daisy:document-drafts:copy:p:d0'),
     ],
     expected: [17, 17, true],
   });

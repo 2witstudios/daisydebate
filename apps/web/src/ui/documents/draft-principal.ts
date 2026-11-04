@@ -8,14 +8,16 @@ import {
   type DraftStorage,
 } from './document-draft-storage';
 
-export const DRAFTS_PRINCIPAL_KEY = 'daisy:round-notes:principal';
-export const DRAFTS_PRINCIPAL_EVENT = 'daisy:round-notes:principal-changed';
+export const DRAFTS_PRINCIPAL_KEY = 'daisy:document-drafts:principal';
+export const DRAFTS_PRINCIPAL_EVENT = 'daisy:document-drafts:principal-changed';
 /** The session ended without proof of who is next: stop and hide, keep the copies. */
-export const DRAFTS_FENCE_EVENT = 'daisy:round-notes:fence';
+export const DRAFTS_FENCE_EVENT = 'daisy:document-drafts:fence';
 /** Something suggests the identity changed; only the session read may decide. */
-export const DRAFTS_IDENTITY_CHECK_EVENT = 'daisy:round-notes:check-identity';
+export const DRAFTS_IDENTITY_CHECK_EVENT =
+  'daisy:document-drafts:check-identity';
 /** Survives the sign-out form's navigation, so only a real sign-out purges. */
-export const DRAFTS_SIGN_OUT_INTENT_KEY = 'daisy:round-notes:sign-out-intent';
+export const DRAFTS_SIGN_OUT_INTENT_KEY =
+  'daisy:document-drafts:sign-out-intent';
 
 /** Identity markers only remove local data; they never authorize a document request. */
 export function retainPrincipalDrafts(
