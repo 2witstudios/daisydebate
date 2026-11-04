@@ -1,3 +1,5 @@
+import { botSpeechHoldSchema, type BotSpeechHold } from '@daisy/protocol';
+import { keepForRewind, rewoundPhrase } from './speech-rewind';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
@@ -19,6 +21,8 @@ type Progress = {
   synthesized: Answer<BotSpeechJob> | null;
   /** Samples of the held phrase already sent, so a refused publication resumes there. */
   sent: number;
+  /** Recent phrases already sent, by index, kept to say again after an incident. */
+  said: ReadonlyMap<number, BotSpeechJob>;
 };
 const freshProgress = (): Progress => ({
   generated: null,
@@ -26,10 +30,13 @@ const freshProgress = (): Progress => ({
   spoken: 0,
   synthesized: null,
   sent: 0,
+  said: new Map(),
 });
 const STOPPED = 'Bot publication stopped before the phrase was sent';
 const isPlatformIncidentRefusal = (error: unknown) =>
   isAppError(error) && error.reason === 'platform-incident';
+const holdOf = (error: unknown) =>
+  botSpeechHoldSchema.safeParse((error as Error).cause).data ?? null;
 export type PeerActivity =
   'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
 /**
@@ -93,7 +100,9 @@ export function createBotSpeaker(input: {
     /** The asker opens once; every seat then answers each ended peer turn once. */
     owed = !crossEx || opensExchange,
     /** A new peer turn makes a held cross-examination answer stale. */
-    stale = false;
+    stale = false,
+    /** The incident already rewound for: each is said again once, however often it refuses. */
+    rewoundFor: string | null = null;
   let stage = 'generate';
   let progress = freshProgress();
   /**
@@ -134,17 +143,22 @@ export function createBotSpeaker(input: {
     }
     const { phrases } = progress.generated.value;
     while (progress.spoken < phrases.length) {
-      stage = 'synthesize';
-      progress.synthesized ??= await input.synthesize(
-        scope,
-        token,
-        input.nextId(),
-        phrases[progress.spoken]!,
-        signal,
-      );
-      await progress.synthesized.settle();
+      let phrase = progress.said.get(progress.spoken);
+      if (!phrase) {
+        stage = 'synthesize';
+        progress.synthesized ??= await input.synthesize(
+          scope,
+          token,
+          input.nextId(),
+          phrases[progress.spoken]!,
+          signal,
+        );
+        await progress.synthesized.settle();
+        phrase = progress.synthesized.value;
+      }
       stage = 'publish';
-      if (!(await publishRest(progress.synthesized.value, signal))) return;
+      if (!(await publishRest(phrase, signal))) return;
+      progress.said = keepForRewind(progress.said, progress.spoken, phrase);
       progress.spoken += 1;
       progress.synthesized = null;
       progress.sent = 0;
@@ -158,6 +172,28 @@ export function createBotSpeaker(input: {
     attempts += 1;
     if (crossEx) owed = attempts < input.maxAttempts;
     input.failed(error, stage);
+  };
+  /** What went into a dead room is said again from a phrase's start; nothing is bought. */
+  const rewind = (hold: BotSpeechHold | null) => {
+    if (!hold || hold.since === rewoundFor) return;
+    rewoundFor = hold.since;
+    if (hold.unheardMs === 0) return;
+    const current = progress.synthesized?.value;
+    const said =
+      stage === 'publish' && current
+        ? keepForRewind(progress.said, progress.spoken, current)
+        : progress.said;
+    const to = rewoundPhrase({
+      spoken: progress.spoken,
+      sent: progress.sent,
+      said,
+      unheardSamples: (hold.unheardMs * 24000) / 1000,
+    });
+    if (to === progress.spoken && progress.sent === 0) return;
+    progress.said = said;
+    progress.spoken = to;
+    progress.sent = 0;
+    if (said.has(to)) progress.synthesized = null;
   };
   /** Settles one failed turn by the rule above; never rethrows. */
   const recover = (error: unknown, aborted: boolean) => {
@@ -173,6 +209,7 @@ export function createBotSpeaker(input: {
     // in cross-examination too, with nothing new bought and no attempt spent.
     if (isPlatformIncidentRefusal(error)) {
       if (crossEx) owed = true;
+      rewind(holdOf(error));
       return;
     }
     // One paid answer per speech: every other failure keeps it, and the

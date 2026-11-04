@@ -1,5 +1,6 @@
 import { and, eq, ne, sql, type SQL } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
+import type { BotSpeechHold } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockRoundAgentContext, roundAgentNow } from './round-agent-runs';
 import { requireAgentLeaseToken } from './round-agent-lease';
@@ -37,10 +38,22 @@ async function refuseDuringIncident(
   tx: Pick<BoundedTransactionContext, 'execute'>,
   roundId: string,
 ) {
-  const rows = await tx.execute(
-    sql`select 1 from rounds where id=${roundId} and runtime_state->'incident'->>'phase'<>'none'`,
-  );
-  if (rows.length > 0) throw createRefusal('CONFLICT', 'platform-incident');
+  const rows = (await tx.execute(
+    sql`select runtime_state->'incident'->>'since' as since, runtime_state->'incident'->>'resume_point' as resume_point from rounds where id=${roundId} and runtime_state->'incident'->>'phase'<>'none'`,
+  )) as unknown as { since: string; resume_point: string | null }[];
+  const incident = rows[0];
+  if (!incident) return;
+  const hold: BotSpeechHold = {
+    since: incident.since,
+    unheardMs:
+      incident.resume_point === null
+        ? 0
+        : Math.max(
+            0,
+            Date.parse(incident.since) - Date.parse(incident.resume_point),
+          ),
+  };
+  throw createRefusal('CONFLICT', 'platform-incident', undefined, hold);
 }
 /** When the segment a bot speaks in is due now; a resumed speech is due later than it was. */
 export async function botSegmentDueAt(
