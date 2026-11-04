@@ -37,6 +37,8 @@ export async function serviceAttendanceOutage(
       `opponent present before ${service} outage`,
     );
     await authenticatedAttendanceSocket(opponent.connections, round.id);
+    // Stopping sooner empties the vendor room, whose loss opens a platform incident that holds attendance.
+    await opponent.mediaSettled;
     await healthyAttendance(round.id);
     await controlLaunch(stop);
     stopped = true;
