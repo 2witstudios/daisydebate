@@ -187,7 +187,7 @@ test('each bar can fail', () => {
     ],
     ['a kill with no incident', { incidents: 0 }, 'everyKillPausedTheRound'],
     ['a table not there', { incidents: null }, 'everyKillPausedTheRound'],
-    ['speech not returned', { airtimeLostMs: 1_001 }, 'noAirtimeLost'],
+    ['speech not returned', { airtimeLostMs: 2_001 }, 'noAirtimeLost'],
     ['a forfeit', { penalties: 1 }, 'noAttendancePenalty'],
     ['a penalty never read', { penalties: null }, 'noAttendancePenalty'],
     ['a Round still active', { roundStatus: 'active' }, 'roundCompletes'],
