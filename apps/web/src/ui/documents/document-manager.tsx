@@ -128,7 +128,7 @@ export function ManagerWorkspace({
 
   return (
     <section aria-label="Your files" className="flex min-h-0 flex-1 flex-col">
-      {[...new Set([notice, problem, drive.problem, pageNotice])]
+      {[...new Set([problem ?? notice, drive.problem, pageNotice])]
         .filter(Boolean)
         .map((message) => (
           <p
@@ -142,6 +142,7 @@ export function ManagerWorkspace({
       <RecoveredDrafts
         documents={loadedDocuments(state.opened)}
         sync={sync}
+        saveRecovered={drive.saveRecovered}
         dispatch={dispatch}
       />
       <div className="flex min-h-0 flex-1">

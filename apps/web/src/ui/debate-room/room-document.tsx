@@ -17,8 +17,10 @@ export function RoomDocument({
   onRetry,
   save,
   sync,
+  saveRecovered,
 }: {
   readonly sync?: DocumentSync;
+  readonly saveRecovered: DocumentSync['saveAsNew'];
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
   readonly onEdit: ((id: string, html: string) => void) | undefined;
@@ -35,6 +37,7 @@ export function RoomDocument({
         <RecoveredDrafts
           documents={loadedDocuments(state.opened)}
           sync={sync}
+          saveRecovered={saveRecovered}
           dispatch={dispatch}
         />
       ) : null}

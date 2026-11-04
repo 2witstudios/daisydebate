@@ -156,7 +156,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   });
   const hydrated = useHydrated();
   const unread = chatUnread(round, state);
-  const alerts = [...new Set([props.notice, problem, drive.problem])].filter(
+  const alerts = [...new Set([problem ?? props.notice, drive.problem])].filter(
     Boolean,
   );
   const create = () => drive.createDocument(null);
@@ -217,6 +217,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             onEdit={sync?.change}
             onNew={create}
             onRetry={drive.open}
+            saveRecovered={drive.saveRecovered}
             save={props.save ?? null}
           />
         </div>

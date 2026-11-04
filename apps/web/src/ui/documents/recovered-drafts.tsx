@@ -181,10 +181,12 @@ const noOffers: readonly DraftOffer[] = [];
 export function RecoveredDrafts({
   documents,
   sync,
+  saveRecovered,
   dispatch,
 }: {
   readonly documents: readonly MemberDocument[];
   readonly sync: DocumentSync;
+  readonly saveRecovered: DocumentSync['saveAsNew'];
   readonly dispatch: Dispatch<ManagerAction>;
 }) {
   const offers = useSyncExternalStore(
@@ -200,7 +202,7 @@ export function RecoveredDrafts({
   const [copyProblem, setCopyProblem] = useState<string | null>(null);
   const saveAsNew = (id: string) => {
     const wasDeleted = sync.firstGone() === id;
-    sync.saveAsNew(id).then(
+    saveRecovered(id).then(
       (created) => {
         if (!created) return;
         setCopyProblem(null);
@@ -212,11 +214,6 @@ export function RecoveredDrafts({
             dispatch({ type: 'drive/unlist', id });
           } else dispatch({ type: 'drive/remove', id });
           dispatch({ type: 'doc/add', document: created });
-          dispatch({
-            type: 'drive/add',
-            folderId: null,
-            entry: { kind: 'document', id: created.id, title: created.title },
-          });
         });
       },
       (error: unknown) =>

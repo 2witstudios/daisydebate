@@ -1,9 +1,4 @@
-import type {
-  ReactNode,
-  Ref,
-  MouseEventHandler,
-  KeyboardEventHandler,
-} from 'react';
+import type { ReactNode, MouseEventHandler, KeyboardEventHandler } from 'react';
 import { Icon, type IconName } from '../components/icon/icon';
 
 const itemClass =
@@ -16,13 +11,11 @@ export function FileMenuItem({
   onClick,
   children,
   disabled = false,
-  ref,
   initialFocus = false,
   onKeyDown,
 }: {
   readonly initialFocus?: boolean;
   readonly onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
-  readonly ref?: Ref<HTMLButtonElement>;
   readonly disabled?: boolean;
   readonly icon?: IconName;
   readonly danger?: boolean;
@@ -31,7 +24,6 @@ export function FileMenuItem({
 }) {
   return (
     <button
-      ref={ref}
       type="button"
       disabled={disabled}
       role="menuitem"

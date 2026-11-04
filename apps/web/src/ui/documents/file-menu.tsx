@@ -166,8 +166,6 @@ export function FileMenu({
           setIsOpen(opened);
           if (!opened) return setView('main');
           drive.loadFolders();
-          place();
-          focusMenuStart(menu.current);
         }}
       >
         {isOpen && view === 'main' ? (

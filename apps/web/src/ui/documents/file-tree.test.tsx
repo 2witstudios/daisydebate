@@ -18,6 +18,7 @@ const drive: DriveActions = {
   createFolder: () => {},
   toggle: async () => true,
   folderCount: async () => 0,
+  saveRecovered: async () => null,
   more: () => {},
   change: () => {},
 };

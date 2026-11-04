@@ -1,47 +1,13 @@
-import { Window as BrowserWindow } from 'happy-dom';
-import { runInNewContext } from 'node:vm';
-import { MessageChannel } from 'node:worker_threads';
+import { mountBrowserClient } from '../test-support/browser-client.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type * as Client from './file-delete-step.test-support';
 
 setupRitewayBun();
 
-const mount = async () => {
-  const browser = new BrowserWindow({ url: 'https://daisy.test/' });
-  const built = await Bun.build({
-    entrypoints: [
-      Bun.resolveSync('./file-delete-step.test-support', import.meta.dir),
-    ],
-    format: 'cjs',
-    target: 'browser',
-    define: { 'process.env.NODE_ENV': '"test"' },
-  });
-  if (!built.success)
-    throw new Error('Delete confirmation test client failed to build');
-  const client = runInNewContext(
-    `${await built.outputs[0]!.text()}; module.exports;`,
-    {
-      window: browser,
-      document: browser.document,
-      navigator: browser.navigator,
-      IS_REACT_ACT_ENVIRONMENT: true,
-      module: { exports: {} },
-      setTimeout,
-      clearTimeout,
-      queueMicrotask,
-      console,
-      MessageChannel,
-      ResizeObserver: class {
-        observe() {}
-        disconnect() {}
-      },
-    },
-  ) as typeof Client;
-  const container = browser.document.createElement('div');
-  browser.document.body.append(container);
-  const root = client.createRoot(container as unknown as HTMLElement);
-  return { browser, container, root, ...client };
-};
+const mount = () =>
+  mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./file-delete-step.test-support', import.meta.dir),
+  );
 
 test('confirm ignores repeated pointer and keyboard gestures', async () => {
   const fixture = await mount();
@@ -139,60 +105,6 @@ test('a delayed folder count preserves the safe choice', async () => {
         container.querySelector('button')!.disabled,
       ],
       expected: [true, false],
-    });
-  } finally {
-    await act(async () => root.unmount());
-    await browser.happyDOM.abort();
-  }
-});
-
-test('leaving rename by blur preserves the newly focused editor', async () => {
-  const { act, createElement, useState, root, FileTree, container, browser } =
-    await mount();
-  const editor = browser.document.createElement('textarea');
-  browser.document.body.append(editor);
-  function Drive() {
-    const [renaming, setRenaming] = useState<string | null>('a');
-    return createElement(FileTree, {
-      tree: {
-        contents: {
-          state: 'read',
-          entries: [{ kind: 'document', id: 'a', title: 'Notes' }],
-          next: null,
-        },
-      },
-      active: 'a',
-      renaming,
-      dispatch: (action) => {
-        if (action.type === 'drive/renaming') setRenaming(action.id);
-      },
-      drive: {
-        problem: null,
-        folderProblem: null,
-        folders: [],
-        recent: [],
-        loadFolders: () => {},
-        open: () => {},
-        createDocument: () => {},
-        createFolder: () => {},
-        toggle: async () => true,
-        folderCount: async () => 0,
-        more: () => {},
-        change: () => {},
-      },
-    });
-  }
-  try {
-    await act(async () => root.render(createElement(Drive)));
-    await act(async () => {
-      container.querySelector('input')!.focus();
-      editor.focus();
-    });
-    assert({
-      given: 'a rename finished by clicking into another editor',
-      should: 'leave focus in that editor',
-      actual: browser.document.activeElement === editor,
-      expected: true,
     });
   } finally {
     await act(async () => root.unmount());

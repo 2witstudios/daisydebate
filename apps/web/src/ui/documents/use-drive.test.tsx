@@ -1,6 +1,4 @@
-import { Window as BrowserWindow } from 'happy-dom';
-import { runInNewContext } from 'node:vm';
-import { MessageChannel } from 'node:worker_threads';
+import { mountBrowserClient } from '../test-support/browser-client.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type * as Client from './use-drive.test-support';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
@@ -29,48 +27,32 @@ const mount = async (
     listRoot?: boolean;
     showRecent?: boolean;
     timer?: (run: () => void, ms: number) => unknown;
+    sync?: Partial<DocumentSync>;
+    opened?: readonly import('../../features/documents/open-documents').OpenDocument[];
   } = {},
 ) => {
-  const browser = new BrowserWindow({ url: 'https://daisy.test/' });
-  const built = await Bun.build({
-    entrypoints: [Bun.resolveSync('./use-drive.test-support', import.meta.dir)],
-    format: 'cjs',
-    target: 'browser',
-    define: { 'process.env.NODE_ENV': '"test"' },
-  });
-  if (!built.success) throw new Error('Drive test client failed to build');
-  const client = runInNewContext(
-    `${await built.outputs[0]!.text()}; module.exports;`,
+  const client = await mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./use-drive.test-support', import.meta.dir),
     {
-      window: browser,
-      document: browser.document,
-      navigator: browser.navigator,
-      IS_REACT_ACT_ENVIRONMENT: true,
-      module: { exports: {} },
-      setTimeout: options.timer ?? setTimeout,
-      clearTimeout: options.timer ? () => {} : clearTimeout,
-      queueMicrotask,
-      console,
-      MessageChannel,
       fetch,
       AbortSignal,
+      setTimeout: options.timer ?? setTimeout,
+      clearTimeout: options.timer ? () => {} : clearTimeout,
     },
-  ) as typeof Client;
-  const container = browser.document.createElement('div');
-  browser.document.body.append(container);
-  const root = client.createRoot(container as unknown as HTMLElement);
+  );
+  const { browser, root } = client;
   const actions: ManagerAction[] = [];
   let drive!: DriveActions;
-  const problems: (string | null)[] = [];
   const sync = {
     create: async () => doc,
     forget: () => {},
     recheck: async () => {},
+    ...options.sync,
   } as unknown as DocumentSync;
   function Hook({ save }: { save: 'saved' | 'saving' }) {
     drive = client.useDrive({
       sync,
-      opened: [],
+      opened: options.opened ?? [],
       dispatch: (action) => actions.push(action),
       initialFolders: [{ id: 'cases', name: 'Cases', parentFolderId: null }],
       listRoot: options.listRoot ?? false,
@@ -88,7 +70,6 @@ const mount = async (
   return {
     ...client,
     actions,
-    problems,
     browser,
     root,
     render,
@@ -228,6 +209,143 @@ test('Recent refreshes are bounded and ignore superseded responses', async () =>
       should: 'keep the newest result',
       actual: fixture.drive().recent.map((document) => document.id),
       expected: ['new'],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('failed folder reads roll back expansion and only clear their own notice', async () => {
+  let status = 503;
+  const fixture = await mount(async (path) =>
+    path.endsWith('/list')
+      ? new Response(JSON.stringify({ entries: [], next: null }), { status })
+      : new Response('{}', { status: 409 }),
+  );
+  try {
+    await fixture.act(async () => {
+      await fixture.drive().toggle('cases', true, false);
+    });
+    assert({
+      given: 'a folder whose first read failed',
+      should: 'roll back its expansion so one more click retries',
+      actual: fixture.actions.at(-1),
+      expected: { type: 'drive/expand', folderId: 'cases', expanded: false },
+    });
+    status = 200;
+    await fixture.act(async () => {
+      await fixture.drive().toggle('cases', true, false);
+    });
+    assert({
+      given: 'the same read succeeding on retry',
+      should: 'clear its stale error',
+      actual: fixture.drive().problem,
+      expected: null,
+    });
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'Notes' }),
+    );
+    await fixture.act(async () => {
+      await fixture.drive().toggle('cases', true, false);
+    });
+    assert({
+      given: 'a successful read after an unrelated mutation failure',
+      should: 'keep the mutation explanation',
+      actual: fixture.drive().problem,
+      expected: 'That change is not possible: the drive is full or too deep.',
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('external deletion unlists the stale row and rechecks open text without discarding it', async () => {
+  const rechecked: readonly string[][] = [];
+  let forgotten = 0;
+  const fixture = await mount(async () => new Response('{}', { status: 404 }), {
+    opened: [{ kind: 'loaded', document: doc }],
+    sync: {
+      forget: () => {
+        forgotten++;
+      },
+      recheck: async (ids) => {
+        (rechecked as string[][]).push([...ids]);
+      },
+    },
+  });
+  try {
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'New title' }),
+    );
+    assert({
+      given: 'rename reporting that an open document was deleted elsewhere',
+      should: 'unlist it with an accurate notice and recheck its retained text',
+      actual: [
+        fixture.drive().problem,
+        fixture.actions.some(
+          (action) => action.type === 'drive/unlist' && action.id === 'a',
+        ),
+        rechecked,
+        forgotten,
+        fixture.actions.some((action) => action.type === 'drive/remove'),
+      ],
+      expected: ['That is no longer in your drive.', true, [['a']], 0, false],
+    });
+    await fixture.act(async () => {
+      await fixture.drive().toggle('cases', true, false);
+    });
+    assert({
+      given: 'a missing folder',
+      should: 'unlist it without closing any open descendant text',
+      actual: [
+        fixture.actions.some(
+          (action) => action.type === 'drive/unlist' && action.id === 'cases',
+        ),
+        forgotten,
+      ],
+      expected: [true, 0],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('saving recovered text as new participates in first-page ordering', async () => {
+  const first = deferred<Response>();
+  let reads = 0;
+  const fixture = await mount(
+    async (path) =>
+      path.endsWith('/list')
+        ? ++reads === 1
+          ? first.promise
+          : Response.json({
+              entries: [{ kind: 'document', id: 'a', title: 'Notes' }],
+              next: null,
+            })
+        : Response.json({}),
+    { listRoot: true, sync: { saveAsNew: async () => doc } },
+  );
+  try {
+    await fixture.act(async () => {
+      await fixture.drive().saveRecovered('gone');
+    });
+    await fixture.act(async () =>
+      first.resolve(Response.json({ entries: [], next: null })),
+    );
+    assert({
+      given:
+        'a root read held across saving a recovered copy as a new document',
+      should: 'insert the recovered row and never publish the old empty page',
+      actual: [
+        fixture.actions.some(
+          (action) => action.type === 'drive/add' && action.entry.id === 'a',
+        ),
+        fixture.actions.some(
+          (action) =>
+            action.type === 'drive/page' && action.entries.length === 0,
+        ),
+      ],
+      expected: [true, false],
     });
   } finally {
     await fixture.close();

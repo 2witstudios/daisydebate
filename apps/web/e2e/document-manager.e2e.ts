@@ -382,11 +382,20 @@ test('row actions keep focus and confirm folder deletion in place', async ({
     await expect(
       page.getByText('Evidence was deleted', { exact: false }),
     ).toHaveCount(0);
-    const listed = await page.request.post('/api/documents/list', {
+    const count = await page.request.post('/api/documents/folders/count', {
       headers: { origin },
-      data: { folderId: folder.id, after: null },
+      data: { id: folder.id },
     });
-    expect(listed.status()).toBe(404);
+    expect(count.status()).toBe(404);
+    const folders = await page.request.post('/api/documents/folders', {
+      headers: { origin },
+      data: {},
+    });
+    expect(
+      ((await folders.json()) as { folders: { id: string }[] }).folders.some(
+        (one) => one.id === folder.id,
+      ),
+    ).toBe(false);
     expect(page.url()).toBe(`${origin}/prep`);
   } finally {
     await settledLaunchAuth();

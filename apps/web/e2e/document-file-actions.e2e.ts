@@ -300,6 +300,8 @@ test('finishing rename by clicking the editor preserves the new typing target', 
     await page.goto(`${origin}/prep?open=${doc.id}`);
     const editor = page.getByRole('textbox', { name: doc.title, exact: true });
     await expect(editor).toBeVisible();
+    const originalView = await editor.elementHandle();
+    await editor.fill('Text before rename');
     await files(page)
       .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
       .click();
@@ -309,6 +311,10 @@ test('finishing rename by clicking the editor preserves the new typing target', 
     await expect(
       page.getByRole('textbox', { name: 'Renamed notes', exact: true }),
     ).toBeFocused();
+    expect(await originalView!.evaluate((node) => node.isConnected)).toBe(true);
+    await expect(
+      page.getByRole('textbox', { name: 'Renamed notes', exact: true }),
+    ).toContainText('Text before rename');
     await page.keyboard.type('Typing stays in the editor');
     await expect(
       page.getByRole('textbox', { name: 'Renamed notes', exact: true }),
@@ -480,6 +486,37 @@ test('drive retries preserve save warnings and known folder destinations', async
         .getByRole('alert')
         .filter({ hasText: 'drive is full or too deep' }),
     ).toBeVisible();
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('failed document search says it did not run rather than no matches', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(accounts.members[0]!.context, 'Search failure');
+    await page.goto(`${origin}/prep`);
+    await page.route('**/api/documents/search', (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: '{}',
+      }),
+    );
+    await files(page).getByRole('button', { name: 'Search files' }).click();
+    await page
+      .getByRole('combobox', { name: 'Search commands' })
+      .fill('unreachable evidence');
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    await expect(palette.getByRole('alert')).toContainText(
+      'Search did not run',
+    );
+    await expect(palette.getByText('No matches', { exact: true })).toHaveCount(
+      0,
+    );
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();

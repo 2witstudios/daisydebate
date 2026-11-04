@@ -159,20 +159,27 @@ export function CommandPalette({
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
-  const [hits, setHits] = useState<{
-    readonly query: string;
-    readonly documents: readonly PaletteDocument[];
-  } | null>(null);
+  const [hits, setHits] = useState<
+    | {
+        readonly kind: 'ready';
+        readonly query: string;
+        readonly documents: readonly PaletteDocument[];
+      }
+    | { readonly kind: 'failed'; readonly query: string }
+    | null
+  >(null);
   useEffect(() => {
     if (!open || creating || !search || query.trim() === '') return;
     let live = true;
     const wait = setTimeout(() => {
-      // A failed search keeps what is shown; the next keystroke asks again.
+      // Results and failures belong to the query that produced them.
       search(query).then(
         (found) => {
-          if (live) setHits({ query, documents: found });
+          if (live) setHits({ kind: 'ready', query, documents: found });
         },
-        () => {},
+        () => {
+          if (live) setHits({ kind: 'failed', query });
+        },
       );
     }, SEARCH_DELAY_MS);
     return () => {
@@ -181,9 +188,13 @@ export function CommandPalette({
     };
   }, [open, creating, query, search]);
   const shown =
-    creating || query.trim() === '' || hits?.query !== query
+    creating ||
+    query.trim() === '' ||
+    hits?.query !== query ||
+    hits.kind !== 'ready'
       ? null
       : hits.documents;
+  const searchFailed = hits?.kind === 'failed' && hits.query === query;
   const commands = useMemo(
     () => (creating ? createCommands : paletteCommands(shown ?? documents)),
     [creating, shown, documents],
@@ -313,7 +324,12 @@ export function CommandPalette({
             })}
           </div>
         ))}
-        {ranked.length === 0 ? (
+        {searchFailed ? (
+          <p role="alert" className="px-2 py-6 text-center text-sm text-live">
+            Search did not run. Try another search or close and try again.
+          </p>
+        ) : null}
+        {ranked.length === 0 && !searchFailed ? (
           <p className="px-2 py-6 text-center text-sm text-ink-faint">
             No matches
           </p>

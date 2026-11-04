@@ -61,6 +61,20 @@ export function DocumentEditor({
     [document.id],
   );
 
+  // Renaming changes the accessible name on the existing view, preserving its
+  // content, history and selection rather than rebuilding the editor.
+  useEffect(() => {
+    editor?.setOptions({
+      editorProps: {
+        ...editor.options.editorProps,
+        attributes: {
+          class: 'room-doc min-h-full',
+          'aria-label': document.title,
+        },
+      },
+    });
+  }, [editor, document.title]);
+
   // A change from outside the editor (an applied agent edit, a server load)
   // goes into the open editor without echoing back as a local update.
   useEffect(() => {
