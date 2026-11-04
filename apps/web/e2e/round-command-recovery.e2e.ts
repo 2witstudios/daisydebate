@@ -41,6 +41,7 @@ for (const command of ['yield', 'forfeit'] as const)
     await expect(confirm).toBeVisible();
     const original = await commandFields(confirm);
     let committed = false;
+    let postedVersion: string | undefined;
     await page.route(`**/rounds/${roundId}/room`, async (route) => {
       // Only this command's own post loses its acknowledgement: the room's
       // other server actions (an attendance read after a refused check-in)
@@ -51,6 +52,10 @@ for (const command of ['yield', 'forfeit'] as const)
         route.request().headers()['next-action'] &&
         route.request().postData()?.includes(original.commandId!)
       ) {
+        // The live view may move the version before the post; the retry repeats the post.
+        postedVersion = /name="[^"]*expectedVersion"\s+(\d+)/.exec(
+          route.request().postData() ?? '',
+        )?.[1];
         const response = await route.fetch();
         expect(response.status()).toBe(200);
         committed = true;
@@ -103,7 +108,11 @@ for (const command of ['yield', 'forfeit'] as const)
         })
         .locator('..'),
     ).toBeFocused();
-    expect(await commandFields(retry)).toEqual(original);
+    expect(postedVersion).toBeDefined();
+    expect(await commandFields(retry)).toEqual({
+      ...original,
+      expectedVersion: postedVersion,
+    });
     const beforeRetry = await read();
     await retry.click();
     if (command === 'yield')

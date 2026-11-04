@@ -28,7 +28,12 @@ export const readBallotRound = async (
   request: APIRequestContext,
   roundId: string,
 ) => {
-  const response = await request.get(`/api/rounds/${roundId}`);
+  // A full lane answers 503 and the Round page asks again by itself; so does this.
+  let response = await request.get(`/api/rounds/${roundId}`);
+  for (let attempt = 0; attempt < 5 && response.status() === 503; attempt++) {
+    await new Promise((done) => setTimeout(done, 2_000));
+    response = await request.get(`/api/rounds/${roundId}`);
+  }
   expect(response.status()).toBe(200);
   return roundViewSchema.parse(await response.json());
 };
