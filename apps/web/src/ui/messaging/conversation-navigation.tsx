@@ -124,7 +124,11 @@ export function useConversationCommand() {
     owner.snapshot,
     owner.snapshot,
   );
-  return { requestId: command.id, generation };
+  return {
+    requestId: command.id,
+    generation,
+    restoreFocus: command.status === 'draft' && command.restoreFocus,
+  };
 }
 
 type Origin = { readonly scope: Scope; readonly id: number };

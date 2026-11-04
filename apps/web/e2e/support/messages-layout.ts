@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { THEME_COOKIE } from '../../src/features/theme/theme-preference';
 import { closeRoom } from './room-launch-flow';
 import { roomViewSchema } from '@daisy/protocol';
 import { expect, test } from './fixtures';
@@ -41,7 +42,17 @@ export function testMessagesLayout() {
           await page.setViewportSize({ width, height });
           for (const colorScheme of ['light', 'dark'] as const) {
             await page.emulateMedia({ colorScheme });
+            // The app defaults to light; exercise its real persisted preference.
+            await page
+              .context()
+              .addCookies([
+                { name: THEME_COOKIE, value: colorScheme, url: origin },
+              ]);
             await page.goto(`/messages/${journey.channelId}`);
+            await expect(page.locator('html')).toHaveAttribute(
+              'data-theme',
+              colorScheme,
+            );
             const bar = page.getByRole('link', {
               name: /^Return to room: Messages layout room/,
             });

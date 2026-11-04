@@ -45,6 +45,7 @@ export function testMessagesHistory() {
         return {
           text: paragraph.textContent!,
           top: paragraph.getBoundingClientRect().top,
+          lineHeight: Number.parseFloat(getComputedStyle(paragraph).lineHeight),
         };
       });
       await post(
@@ -59,15 +60,14 @@ export function testMessagesHistory() {
         }),
       ).toHaveCount(1);
       await expect
-        .poll(
-          async () =>
-            (
-              await pane(page)
-                .getByText(anchor.text, { exact: true })
-                .boundingBox()
-            )?.y,
-        )
-        .toBeCloseTo(anchor.top, 0);
+        .poll(async () => {
+          const box = await pane(page)
+            .getByText(anchor.text, { exact: true })
+            .boundingBox();
+          return box ? Math.abs(box.y - anchor.top) : Number.POSITIVE_INFINITY;
+        })
+        // Fractional layout rounding must not become a whole-line reading jump.
+        .toBeLessThan(anchor.lineHeight / 4);
     } finally {
       await journey.close();
     }

@@ -1,5 +1,9 @@
 type Command =
-  | { readonly status: 'draft' | 'spent'; readonly id: string }
+  | {
+      readonly status: 'draft' | 'spent';
+      readonly id: string;
+      readonly restoreFocus: boolean;
+    }
   | {
       readonly status: 'pending';
       readonly id: string;
@@ -34,7 +38,7 @@ export const initialCompletionOwnership = (
 ): CompletionOwnership => ({
   disposed: false,
   sequence: 0,
-  command: { id: requestId, status: 'draft' },
+  command: { id: requestId, status: 'draft', restoreFocus: false },
   generation: 0,
   offeredId: requestId,
   spentIds: [],
@@ -45,7 +49,11 @@ function nextCommand(state: CompletionOwnership): CompletionOwnership {
     !state.spentIds.includes(state.offeredId)
     ? {
         ...state,
-        command: { id: state.offeredId, status: 'draft' },
+        command: {
+          id: state.offeredId,
+          status: 'draft',
+          restoreFocus: state.command.restoreFocus,
+        },
         generation: state.generation + 1,
       }
     : state;
@@ -67,6 +75,8 @@ function beginCommand(state: CompletionOwnership): CompletionOwnership {
 }
 
 function supersedeCommand(state: CompletionOwnership): CompletionOwnership {
+  if (state.command.status !== 'pending' && state.command.restoreFocus)
+    return { ...state, command: { ...state.command, restoreFocus: false } };
   return state.command.status === 'pending' &&
     state.command.navigation === 'owned'
     ? { ...state, command: { ...state.command, navigation: 'superseded' } }
@@ -101,6 +111,8 @@ function settleCommand(
       command: {
         id: state.command.id,
         status: spent ? 'spent' : 'draft',
+        restoreFocus:
+          event.type === 'complete' && state.command.navigation === 'owned',
       },
       spentIds: spent ? [...state.spentIds, state.command.id] : state.spentIds,
     }),

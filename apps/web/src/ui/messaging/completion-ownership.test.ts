@@ -294,3 +294,33 @@ test('a retried unknown commit keeps identity until authoritative success', () =
     expected: [true, 'second'],
   });
 });
+
+test('only an owned successful send restores focus to its fresh composer', () => {
+  const fresh = (superseded: false | 'before' | 'after') => {
+    let state = completionOwnership(initialCompletionOwnership('request'), {
+      type: 'dispatch',
+    }).state;
+    if (superseded === 'before')
+      state = completionOwnership(state, { type: 'navigate' }).state;
+    state = completionOwnership(state, { type: 'complete', origin: 1 }).state;
+    if (superseded === 'after')
+      state = completionOwnership(state, { type: 'navigate' }).state;
+    return completionOwnership(state, { type: 'rendered', requestId: 'fresh' })
+      .state.command;
+  };
+  const owned = fresh(false);
+  const superseded = fresh('before');
+  const movedOn = fresh('after');
+  assert({
+    given:
+      'accepted sends, one still owning the page and one superseded by navigation',
+    should:
+      'return focus for the next reply only when the member stayed in that conversation',
+    actual: [
+      owned.status === 'draft' && owned.restoreFocus,
+      superseded.status === 'draft' && superseded.restoreFocus,
+      movedOn.status === 'draft' && movedOn.restoreFocus,
+    ],
+    expected: [true, false, false],
+  });
+});

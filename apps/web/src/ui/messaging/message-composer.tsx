@@ -35,9 +35,14 @@ type ComposerProps = {
  * and every server render issues a new ID.
  */
 export function MessageComposer(props: ComposerProps) {
-  const { requestId, generation } = useConversationCommand();
+  const { requestId, generation, restoreFocus } = useConversationCommand();
   return (
-    <MessageComposerForm {...props} key={generation} requestId={requestId} />
+    <MessageComposerForm
+      {...props}
+      key={generation}
+      requestId={requestId}
+      restoreFocus={restoreFocus}
+    />
   );
 }
 
@@ -48,7 +53,11 @@ function MessageComposerForm({
   maxUnits,
   readThrough,
   placeholder,
-}: ComposerProps & { readonly requestId: string }) {
+  restoreFocus,
+}: ComposerProps & {
+  readonly requestId: string;
+  readonly restoreFocus: boolean;
+}) {
   const dispatch = useConversationAction(action);
   const [answer, post, pending] = useFormAction(
     dispatch,
@@ -95,6 +104,7 @@ function MessageComposerForm({
           defaultValue={answer.text}
           maxUnits={maxUnits}
           required
+          autoFocus={restoreFocus}
           disabled={pending || answer.next !== undefined}
           rows={1}
           placeholder={placeholder}
