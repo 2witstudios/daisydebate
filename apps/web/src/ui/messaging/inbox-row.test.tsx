@@ -72,7 +72,8 @@ test('requests and groups say what they are', () => {
   });
   assert({
     given: 'a group whose title was erased and has no messages',
-    should: 'fall back to a neutral name, leaving membership to the conversation',
+    should:
+      'fall back to a neutral name, leaving membership to the conversation',
     actual: [
       group.includes('Untitled group'),
       group.includes('No messages yet.'),

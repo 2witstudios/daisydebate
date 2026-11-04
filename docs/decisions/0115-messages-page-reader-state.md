@@ -28,6 +28,10 @@ the inbox can honestly offer.
    browser holds its own marks as an overlay, seeded by HTTP and updated by its own
    actions. A reaction from the reader's other tab shows as a count at once and as
    their own on the next HTTP read.
+   Older history and search results use the authorized mutation's returned count
+   after an addition. A withdrawal discloses no aggregates (ADR 0075), so those
+   HTTP-only views separately reauthorize a summary read after removal. They never
+   wait for a snapshot they do not observe.
 3. **The divider is captured when a conversation opens.** The page reads the live
    window, so a snapshot never shrinks what it first drew. If the first unread
    message is older than that window, the page offers a jump to a page beginning at
@@ -40,6 +44,10 @@ the inbox can honestly offer.
    cursor of activity (to the millisecond a row shows) and channel; invitations lead
    on a fixed instant, because an invitee may learn nothing of a group's activity.
    The cursor shape replaces the channel-id cursor outright (ADR 0023).
+   DEC-361: if the last scanned candidate is withheld by policy or hidden, its continuation
+   carries only the known association's channel ID. The next bounded statement
+   resolves that anchor's activity privately. An anchor that disappeared restarts
+   the scan rather than exposing metadata or refusing access to the remaining list.
 6. **Inbox search finds what a row shows.** The scan prefilter is never narrower
    than a row. The answer is rechecked on each final rendered entry, from the
    page's fenced read, so a clipped tail, a concurrent edit or a character-counting

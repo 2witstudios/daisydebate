@@ -2,6 +2,9 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { processRoute } from '../../../../../server/process-app';
+import { inProcessFetch } from '../../../../../server/in-process-fetch';
+import { readReactionResponse } from '../../../../../features/messaging/reaction-response';
+import { readReactionChangeResponse } from '../../../../../features/messaging/reaction-change-response';
 import { submitMessagingForm } from '../../../../../server/messaging-form-submit';
 import { moveOn, stayOn } from '../../../../../server/form-action';
 import { parseReactionForm } from '../../../../../features/messaging/forms/reaction-form';
@@ -46,7 +49,8 @@ export async function changeReactionAction(
  * A pill's toggle in the conversation. Its fields are untrusted and the route
  * re-validates them. The desired state is in the form, so a repeat is harmless
  * and each post takes a fresh request. Hydrated, the answer updates the reader's
- * own mark and the count arrives by snapshot, so nothing refetches the page.
+ * own mark. Non-live history also uses the accepted count, without refetching
+ * the page; live history continues to take counts from shared snapshots.
  */
 export async function reactToMessageAction(
   _previous: ReactionPillState,
@@ -58,23 +62,58 @@ export async function reactToMessageAction(
   const message = idSchema.safeParse(form.get('messageId'));
   if (!channel.success || !message.success) return refused;
   form.set('requestId', systemId.next());
+  let aggregate: ReactionPillState;
   try {
     const command = parseReactionForm(channel.data, message.data, form);
-    if (
-      (await submitMessagingForm(
-        incoming,
-        change,
-        '/api/messaging/reactions',
-        command,
-        { field: 'messageId', value: command.messageId },
-      )) !== 'accepted'
-    )
-      return refused;
+    const result = await readReactionChangeResponse(
+      await inProcessFetch(change, incoming)('/api/messaging/reactions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(command),
+      }),
+      command,
+    );
+    if (result === null) return refused;
+    const accepted = result.reactions.find(
+      (item) => item.reaction === command.reaction,
+    );
+    aggregate = {
+      own: command.active,
+      ...(accepted ? { count: accepted.count } : {}),
+    };
+    // A withdrawal grants no read authority (ADR 0075). An HTTP-only view
+    // separately reauthorizes a fresh aggregate instead of inferring zero.
+    if (!command.active && form.get('observed') === 'false') {
+      const current = await readReactionResponse(
+        await inProcessFetch(
+          processRoute(
+            (routes) => (request) =>
+              routes.messaging.reactions(request, channel.data),
+          ),
+          incoming,
+        )(
+          `/api/messaging/channels/${channel.data}/reactions?messageId=${message.data}`,
+          { method: 'GET' },
+        ),
+        channel.data,
+        message.data,
+      );
+      aggregate =
+        current === null
+          ? {
+              own: false,
+              notice: 'Reaction removed. Reload to see the current count.',
+            }
+          : {
+              own: false,
+              count:
+                current.result.reactions.find(
+                  (item) => item.reaction === command.reaction,
+                )?.count ?? 0,
+            };
+    }
   } catch {
     return refused;
   }
-  return {
-    own: form.get('active') === 'true',
-    ...stayOn(incoming, `/messages/${channel.data}`),
-  };
+  return { ...aggregate, ...stayOn(incoming, `/messages/${channel.data}`) };
 }

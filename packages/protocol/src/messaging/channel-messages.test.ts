@@ -89,9 +89,11 @@ describe('channel messages projector', () => {
       given: 'the shared body',
       should: 'name no reactor and no own mark',
       actual: /own|actorId/.test(
-        JSON.stringify(page.messages.map((message) =>
-          'reactions' in message ? message.reactions : [],
-        )),
+        JSON.stringify(
+          page.messages.map((message) =>
+            'reactions' in message ? message.reactions : [],
+          ),
+        ),
       ),
       expected: false,
     });

@@ -18,10 +18,7 @@ import {
   messagingInboxPreviewMax,
   messagingInboxTitleMax,
 } from '@daisy/protocol';
-import {
-  byAttention,
-  type MessagingInboxEntry,
-} from './inbox-view';
+import { byAttention, type MessagingInboxEntry } from './inbox-view';
 export type { MessagingInboxEntry } from './inbox-view';
 type SummarizedKind = Exclude<
   MessagingInboxEntry['kind'],

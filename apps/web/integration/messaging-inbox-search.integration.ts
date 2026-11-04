@@ -1,10 +1,16 @@
 import { requireTestServices } from '@daisy/config';
-import { createMessagingTestFixture, seedMessagingTestDm } from '@daisy/db/testing';
+import {
+  createMessagingTestFixture,
+  seedMessagingTestDm,
+} from '@daisy/db/testing';
 import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
+import { expect } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { composeMessagingInbox } from '../src/features/messaging/inbox-composition';
+import { createInboxReads } from '../src/features/messaging/inbox-reads';
+import { appendPage } from '../src/features/messaging/inbox-view';
 import {
   messagingFixturePosting,
   messagingFixtureReading,
@@ -22,7 +28,9 @@ async function openReader(count: number) {
   );
   const reader = fixtures[0]!;
   const channels = [reader.channelId];
-  const others = [{ actorId: reader.otherActorId, username: reader.otherUserId }];
+  const others = [
+    { actorId: reader.otherActorId, username: reader.otherUserId },
+  ];
   for (const fixture of fixtures.slice(1)) {
     const channelId = createId();
     await seedMessagingTestDm(client, {
@@ -48,7 +56,12 @@ async function openReader(count: number) {
     postingPolicy: messagingFixturePosting,
     readingPolicy: messagingFixtureReading,
   });
-  const post = async (index: number, text: string, at: string, sequence = 1) => {
+  const post = async (
+    index: number,
+    text: string,
+    at: string,
+    sequence = 1,
+  ) => {
     await client.unsafe(
       'insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,$4,$4,$5,$6)',
       [createId(), channels[index], others[index]!.actorId, sequence, text, at],
@@ -114,6 +127,76 @@ test('the inbox reads newest activity first across pages, with a stable tie-brea
       actual: third,
       expected: { entries: [], nextAfter: null },
     });
+  } finally {
+    await world.close();
+  }
+});
+
+test('a refresh drops a conversation that left from a later page', async () => {
+  const world = await openReader(3);
+  try {
+    const { channels, others, reader, post, client, inbox } = world;
+    await post(0, 'newest', '2026-10-09T13:00:00.000Z');
+    await post(1, 'middle', '2026-10-09T12:00:00.000Z');
+    await post(2, 'oldest', '2026-10-09T11:00:00.000Z');
+    const readPage = ({ after }: { readonly after: string | null }) =>
+      inbox.read({ limit: 1, ...(after === null ? {} : { after }) });
+    let view: Awaited<ReturnType<typeof readPage>> = {
+      entries: [],
+      nextAfter: null,
+    };
+    const applied = Promise.withResolvers<void>();
+    const reads = createInboxReads({
+      readPage,
+      initialPages: 1,
+      scheduler: {
+        after: (work) => {
+          queueMicrotask(work);
+          return () => undefined;
+        },
+      },
+      onRefreshed: (page) => {
+        view = { ...page, entries: [...page.entries] };
+        applied.resolve();
+      },
+      onNextPage: (page) => {
+        view = {
+          ...appendPage(view, page),
+          entries: [...appendPage(view, page).entries],
+        };
+      },
+    });
+    const first = await readPage({ after: null });
+    view = first;
+    await reads.more(first.nextAfter ?? '');
+    await reads.more(view.nextAfter ?? '');
+    const shown = () => view.entries.map((entry) => entry.channelId);
+    assert({
+      given: 'three loaded pages of one conversation each',
+      should: 'show all three, newest first',
+      actual: shown(),
+      expected: channels,
+    });
+    // Revoke the one on page two: the reader's own hiding, then a decline on page three.
+    await client.unsafe(
+      "insert into messaging_actor_states(channel_id,actor_id,following,hidden,notification_level,read_sequence) values($1,$2,false,true,'none',0)",
+      [channels[1], reader.actorId],
+    );
+    await client.unsafe(
+      "update messaging_dm_pairs set request_state='declined', decided_at=$2 where channel_id=$1",
+      [channels[2], reader.now],
+    );
+    expect(others.length).toBe(3);
+    reads.ring();
+    await applied.promise;
+    assert({
+      given:
+        'a hidden conversation on page two and a declined one on page three',
+      should: 'drop both on the next ring, keeping page one',
+      actual: shown(),
+      expected: [channels[0]],
+    });
+    reads.close();
   } finally {
     await world.close();
   }
@@ -191,7 +274,8 @@ test('a search keeps the fenced decision, hidden rows and erased names out', asy
       at,
     ]);
     assert({
-      given: 'a blocked accepted DM, a hidden one and a blocked pending request',
+      given:
+        'a blocked accepted DM, a hidden one and a blocked pending request',
       should: 'find only the accepted DM the inbox still shows',
       actual: await found(world, 'findable'),
       expected: [channels[0]],
@@ -201,6 +285,64 @@ test('a search keeps the fenced decision, hidden rows and erased names out', asy
       should: 'not find its conversation',
       actual: await found(world, others[3]!.username),
       expected: [],
+    });
+  } finally {
+    await world.close();
+  }
+});
+
+test('a withheld pagination anchor discloses no hidden activity and still continues', async () => {
+  const world = await openReader(2);
+  try {
+    await world.post(0, 'Hidden newer activity', '2026-10-09T13:00:00.000Z');
+    await world.post(1, 'Visible older activity', '2026-10-09T12:00:00.000Z');
+    await world.client.unsafe(
+      "insert into messaging_actor_states(channel_id,actor_id,following,hidden,notification_level,read_sequence) values($1,$2,false,true,'none',0)",
+      [world.channels[0], world.reader.actorId],
+    );
+    const first = await world.inbox.read({ limit: 1 });
+    assert({
+      given: 'a hidden conversation occupying the scanned first page',
+      should: 'omit it and withhold its activity from the continuation',
+      actual: first,
+      expected: { entries: [], nextAfter: `withheld~${world.channels[0]}` },
+    });
+    const second = await world.inbox.read({
+      limit: 1,
+      after: first.nextAfter!,
+    });
+    assert({
+      given: 'the withheld anchor on the next bounded read',
+      should: 'continue to the visible older conversation',
+      actual: second.entries.map((entry) => entry.channelId),
+      expected: [world.channels[1]],
+    });
+    await world.client.unsafe('delete from messaging_channels where id=$1', [
+      world.channels[0],
+    ]);
+    assert({
+      given:
+        'the withheld association disappears before its continuation is used',
+      should: 'restart safely within the remaining own associations',
+      actual: (
+        await world.inbox.read({ limit: 1, after: first.nextAfter! })
+      ).entries.map((entry) => entry.channelId),
+      expected: [world.channels[1]],
+    });
+  } finally {
+    await world.close();
+  }
+});
+
+test('the displayed truncation mark is searchable', async () => {
+  const world = await openReader(1);
+  try {
+    await world.post(0, `${'x'.repeat(119)}TAIL`, world.reader.now);
+    assert({
+      given: 'a clipped preview ending in x and the displayed ellipsis',
+      should: 'match its visible suffix without matching hidden text',
+      actual: [await found(world, 'x…'), await found(world, 'TAIL')],
+      expected: [world.channels, []],
     });
   } finally {
     await world.close();

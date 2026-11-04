@@ -19,7 +19,10 @@ export function testComposerCharacterLimit() {
     try {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
-      const composer = page.getByLabel('Your message');
+      const composer = page.getByRole('textbox', {
+        name: 'Your message',
+        exact: true,
+      });
       // A supplementary character is two units: 3,999 + 2 is one over.
       const over = `${'x'.repeat(3999)}😀`;
       await composer.fill(over);

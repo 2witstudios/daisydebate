@@ -33,8 +33,10 @@ export default async function RetainedConversationPage({
     : null;
   if (!conversation?.success) notFound();
   return (
-    <ConversationPane title="Conversation with a deleted account"
-        lede="The other person's account was deleted. Only your own messages remain, and only you can see them.">
+    <ConversationPane
+      title="Conversation with a deleted account"
+      lede="The other person's account was deleted. Only your own messages remain, and only you can see them."
+    >
       <ol aria-label="Your messages" className="flex flex-col gap-3">
         {conversation.data.messages.map((message) => (
           <li

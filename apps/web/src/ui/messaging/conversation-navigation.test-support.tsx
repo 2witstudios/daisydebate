@@ -141,7 +141,12 @@ export async function runMessagingNavigationProbe(
         }
       : undefined;
   await submitComposer(field, started.promise);
-  const pending = field.disabled && host.querySelector('button[type="submit"]')!.getAttribute('aria-label')!.includes('Sending…');
+  const pending =
+    field.disabled &&
+    host
+      .querySelector('button[type="submit"]')!
+      .getAttribute('aria-label')!
+      .includes('Sending…');
   if (scenario === 'search-disposed' || scenario === 'search-replaced') {
     await act(async () => {
       host.querySelector('form')!.requestSubmit();

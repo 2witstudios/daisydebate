@@ -11,10 +11,10 @@ export async function proveNativeTyping(
   const timing = messagingBrowserPolicy.typing;
   if (!timing) throw new Error('Explicit typing fixture required');
   const draft = 'A draft that never becomes a durable message';
-  await typist.getByLabel('Your message').fill(draft);
-  await expect(
-    sender.getByText(/^@\S+ is typing…$/),
-  ).toBeVisible();
+  await typist
+    .getByRole('textbox', { name: 'Your message', exact: true })
+    .fill(draft);
+  await expect(sender.getByText(/^@\S+ is typing…$/)).toBeVisible();
   await expect.poll(() => hints.length).toBeGreaterThan(0);
   expect(
     hints.every(
@@ -34,11 +34,13 @@ export async function proveNativeTyping(
   expect((await own.json()).typing).toBe(false);
   // Drop renewals, not authority or responses; expiry must clear the observer without a stop hint.
   await typist.route('**/api/messaging/typing', (route) => route.abort());
-  await expect(
-    sender.getByText(/^@\S+ is typing…$/),
-  ).toHaveCount(0, { timeout: timing.ttlMs + timing.refetchMs * 2 });
+  await expect(sender.getByText(/^@\S+ is typing…$/)).toHaveCount(0, {
+    timeout: timing.ttlMs + timing.refetchMs * 2,
+  });
   await typist.unroute('**/api/messaging/typing');
-  await typist.getByLabel('Your message').fill('');
+  await typist
+    .getByRole('textbox', { name: 'Your message', exact: true })
+    .fill('');
   const history = await sender.request.get(
     `/api/messaging/channels/${channelId}/messages`,
   );

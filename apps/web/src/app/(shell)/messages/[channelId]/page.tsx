@@ -141,7 +141,7 @@ export default async function ConversationPage({
                 history={conversation.history}
                 actorId={actorId}
                 otherAuthor={names.otherAuthor}
-                viewer={conversation.viewer}
+                viewer={viewerFrom(conversation.viewer, query.unread)}
                 now={now}
                 filesAvailable={filesAvailable}
                 reactAction={reactToMessageAction}
@@ -161,6 +161,20 @@ export default async function ConversationPage({
       </ConversationPane>
     </ConversationNavigation>
   );
+}
+
+/**
+ * The place a jump carried from the latest page, whose showing already moved the
+ * server's. It only places a divider in the reader's own view and grants nothing.
+ */
+function viewerFrom<V extends { readonly readSequence: number }>(
+  viewer: V,
+  carried: SearchParams[string],
+) {
+  const sequence = typeof carried === 'string' ? Number(carried) : 0;
+  return Number.isSafeInteger(sequence) && sequence > 0
+    ? { ...viewer, readSequence: sequence - 1, firstUnreadSequence: sequence }
+    : viewer;
 }
 
 /** This conversation's own inbox entry, or null when it cannot be read. */

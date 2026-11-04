@@ -246,6 +246,7 @@ export type {
 // Persistent messaging contracts; bounds come from the owning policy.
 export {
   createMessagingCoreSchemas,
+  messagingReactionMaxUnits,
   messagingBetaLimits,
 } from './messaging/core';
 export type { MessagingCoreBounds } from './messaging/core';
@@ -323,6 +324,7 @@ export { messagingTypingSchemas } from './messaging/typing';
 
 export {
   createMessagingReactionSchemas,
+  createMessagingReactionResultSchema,
   type MessagingReactionPolicy,
 } from './messaging/reactions';
 

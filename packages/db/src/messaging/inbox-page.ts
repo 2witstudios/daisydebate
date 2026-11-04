@@ -120,17 +120,23 @@ const JS_WHITESPACE_RUN =
 async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
   const cursor =
     scope.after === undefined ? null : decodeMessagingInboxCursor(scope.after);
-  const afterRank = cursor === null ? null : cursor.lead ? 0 : 1;
+  const afterRank =
+    cursor === null || cursor.kind === 'withheld'
+      ? null
+      : cursor.kind === 'invitation'
+        ? 0
+        : 1;
   const afterActivity =
-    cursor === null || cursor.lead ? LEAD_ACTIVITY : cursor.activityAt;
+    cursor?.kind === 'activity'
+      ? cursor.activityAt
+      : cursor?.kind === 'invitation'
+        ? LEAD_ACTIVITY
+        : null;
   const afterChannel = cursor?.channelId ?? null;
   const search =
     scope.search === undefined ? null : messagingInboxSearchLine(scope.search);
   const rows = await tx.execute(sql`
-    select ranked.channel_id as "channelId", ranked.hidden as hidden,
-      ranked.rank as rank,
-      to_char(ranked.activity at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as activity
-    from (
+    with ranked as (
       select candidate.channel_id, coalesce(saved.hidden, false) as hidden,
         led.invited as lead,
         case when led.invited then 0 else 1 end as rank,
@@ -176,14 +182,21 @@ async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
             where g.channel_id = candidate.channel_id and g.actor_id = ${scope.actorId} and g.revoked_at is null)
           as invited
       ) led
-    ) ranked
-    where (${afterChannel}::text is null
-        or ranked.rank > ${afterRank}::integer
-        or (ranked.rank = ${afterRank}::integer and (
-          ranked.activity < ${afterActivity}::timestamptz
-          or (ranked.activity = ${afterActivity}::timestamptz and ranked.channel_id > ${afterChannel}::text))))
+    ), after_position as (
+      select ${afterChannel}::text as channel_id,
+        coalesce(${afterRank}::integer, (select rank from ranked where channel_id = ${afterChannel}::text)) as rank,
+        coalesce(${afterActivity}::timestamptz, (select activity from ranked where channel_id = ${afterChannel}::text)) as activity
+    )
+    select ranked.channel_id as "channelId", ranked.hidden as hidden, ranked.rank as rank,
+      to_char(ranked.activity at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as activity
+    from ranked cross join after_position position
+    where (position.channel_id is null or position.rank is null
+        or ranked.rank > position.rank
+        or (ranked.rank = position.rank and (
+          ranked.activity < position.activity
+          or (ranked.activity = position.activity and ranked.channel_id > position.channel_id))))
       and (${search}::text is null or (not ranked.lead and (
-        strpos(lower(coalesce(ranked.title, '')), lower(${search}::text)) > 0
+        strpos(${search}::text, '…') > 0 or strpos(lower(coalesce(ranked.title, '')), lower(${search}::text)) > 0
         or strpos(lower(left(btrim(regexp_replace(coalesce(ranked.line, ''), ${JS_WHITESPACE_RUN}::text, ' ', 'g')), ${messagingInboxPreviewMax}::integer)), lower(${search}::text)) > 0)))
     order by ranked.rank, ranked.activity desc, ranked.channel_id
     limit ${scope.limit}`);
@@ -200,9 +213,9 @@ async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
       hidden: row.hidden,
       cursor: encodeMessagingInboxCursor(
         Number(row.rank) === 0
-          ? { lead: true, channelId: channel.data }
+          ? { kind: 'invitation', channelId: channel.data }
           : {
-              lead: false,
+              kind: 'activity',
               activityAt: row.activity,
               channelId: channel.data,
             },
@@ -296,17 +309,27 @@ async function readPage<D>(
   const byChannel = new Map(
     wanted.map((request, index) => [request.channelId, summaries[index]]),
   );
+  const entries = decided.flatMap(
+    ({ channelId, decision }): MessagingInboxPage<D>['entries'] => {
+      if (!byChannel.has(channelId))
+        return [{ channelId, decision, summary: null }];
+      const summary = byChannel.get(channelId);
+      return summary ? [{ channelId, decision, summary }] : [];
+    },
+  );
+  const last = scanned.at(-1);
   return {
-    entries: decided.flatMap(
-      ({ channelId, decision }): MessagingInboxPage<D>['entries'] => {
-        if (!byChannel.has(channelId))
-          return [{ channelId, decision, summary: null }];
-        const summary = byChannel.get(channelId);
-        return summary ? [{ channelId, decision, summary }] : [];
-      },
-    ),
+    entries,
+    // A denied or hidden entry contributes no private activity to a public cursor.
     nextAfter:
-      scanned.length === scope.limit ? (scanned.at(-1)?.cursor ?? null) : null,
+      scanned.length === scope.limit && last
+        ? entries.some((entry) => entry.channelId === last.channelId)
+          ? last.cursor
+          : encodeMessagingInboxCursor({
+              kind: 'withheld',
+              channelId: last.channelId,
+            })
+        : null,
   };
 }
 /** Every fenced member account's age fact, in one statement. */

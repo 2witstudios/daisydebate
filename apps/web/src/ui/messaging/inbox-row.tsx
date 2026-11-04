@@ -122,7 +122,11 @@ function InvitationRow({
     <li className={rowClass(current)}>
       <Avatar name="Group" nameVisible />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Link {...link} className={`font-semibold text-ink ${coverLink}`}>
+        <Link
+          prefetch={false}
+          {...link}
+          className={`font-semibold text-ink ${coverLink}`}
+        >
           Group invitation
         </Link>
         <p className="truncate text-sm text-ink-muted">
@@ -154,6 +158,7 @@ function SummaryRow({
         <div className="flex items-baseline gap-2">
           {/* An explicit name: hidden spans around the title join unpredictably. */}
           <Link
+            prefetch={false}
             {...link}
             aria-label={`${kind.spoken}${title}${entry.unread ? ', unread' : ''}`}
             className={`min-w-0 truncate text-ink ${coverLink} ${entry.unread ? 'font-heavy' : 'font-semibold'}`}

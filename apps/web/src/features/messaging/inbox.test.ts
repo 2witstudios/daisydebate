@@ -281,9 +281,19 @@ test('a search matches only what a rendered row shows', () => {
   for (const [given, shown, search, expected] of [
     ['the title', entry('mara_quinn', null), 'QUINN', true],
     ['the preview', entry('x', 'Hungary card'), 'hungary', true],
-    ['collapsed whitespace', entry('x', 'Hungary card'), ' hungary \n card', true],
+    [
+      'collapsed whitespace',
+      entry('x', 'Hungary card'),
+      ' hungary \n card',
+      true,
+    ],
     ['a clipped tail', entry('x', clipped), 'TAIL', false],
-    ['the character behind the ellipsis', entry('x', clipped), `${'a'.repeat(119)}T`, false],
+    [
+      'the character behind the ellipsis',
+      entry('x', clipped),
+      `${'a'.repeat(119)}T`,
+      false,
+    ],
     ['nothing shown', entry(null, null), 'x', false],
   ] as const)
     assert({

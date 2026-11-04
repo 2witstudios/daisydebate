@@ -42,9 +42,10 @@ const cursorTime = z.iso.datetime();
  * scanned, and it is a position, never a navigation grant.
  */
 export type MessagingInboxCursor =
-  | { readonly lead: true; readonly channelId: string }
+  | { readonly kind: 'invitation'; readonly channelId: string }
+  | { readonly kind: 'withheld'; readonly channelId: string }
   | {
-      readonly lead: false;
+      readonly kind: 'activity';
       readonly activityAt: string;
       readonly channelId: string;
     };
@@ -52,7 +53,7 @@ export type MessagingInboxCursor =
 export const encodeMessagingInboxCursor = (
   cursor: MessagingInboxCursor,
 ): string =>
-  `${cursor.lead ? 'lead' : cursor.activityAt}~${cursor.channelId}`;
+  `${cursor.kind === 'invitation' ? 'lead' : cursor.kind === 'withheld' ? 'withheld' : cursor.activityAt}~${cursor.channelId}`;
 
 /** The cursor a page handed out, or null for anything else. */
 export function decodeMessagingInboxCursor(
@@ -63,10 +64,17 @@ export function decodeMessagingInboxCursor(
     return null;
   const channelId = idSchema.safeParse(channel, { jitless: true });
   if (!channelId.success) return null;
-  if (position === 'lead') return { lead: true, channelId: channelId.data };
+  if (position === 'lead')
+    return { kind: 'invitation', channelId: channelId.data };
+  if (position === 'withheld')
+    return { kind: 'withheld', channelId: channelId.data };
   const activityAt = cursorTime.safeParse(position, { jitless: true });
   return activityAt.success
-    ? { lead: false, activityAt: activityAt.data, channelId: channelId.data }
+    ? {
+        kind: 'activity',
+        activityAt: activityAt.data,
+        channelId: channelId.data,
+      }
     : null;
 }
 

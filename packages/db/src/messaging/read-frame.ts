@@ -60,7 +60,9 @@ export function historyPage(
   channelId: string,
 ) {
   const found = rows.flatMap((row) =>
-    row.message ? [{ message: row.message, reactions: row.reactions ?? [] }] : [],
+    row.message
+      ? [{ message: row.message, reactions: row.reactions ?? [] }]
+      : [],
   );
   const kept = found.slice(0, limit);
   const live = (message: typeof messagingMessages.$inferSelect) =>
@@ -212,7 +214,9 @@ export function channelReadFrame(
         .select({
           readSequence: sql<number>`coalesce((select ${messagingActorStates.readSequence} from ${messagingActorStates}
             where ${messagingActorStates.channelId} = ${input.channelId} and ${messagingActorStates.actorId} = ${input.actorId}), 0)`,
-          firstUnreadSequence: sql<number | null>`(select min(unread.sequence) from ${messagingMessages} unread
+          firstUnreadSequence: sql<
+            number | null
+          >`(select min(unread.sequence) from ${messagingMessages} unread
             where unread.channel_id = ${input.channelId} and unread.author_actor_id <> ${input.actorId}
               and unread.removed_at is null
               and unread.sequence > coalesce((select ${messagingActorStates.readSequence} from ${messagingActorStates}

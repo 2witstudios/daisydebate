@@ -93,7 +93,9 @@ test('an authenticated DM message reaches the other real browser as an observed 
     await expect.poll(() => ready).toBe(true);
     await proveNativeTyping(sender, recipient, journey.channelId, typingHints);
     const text = 'Delivered through a real authenticated socket';
-    await recipient.getByLabel('Your message').fill(text);
+    await recipient
+      .getByRole('textbox', { name: 'Your message', exact: true })
+      .fill(text);
     await recipient
       .getByRole('button', { name: 'Send message', exact: true })
       .click();
@@ -119,7 +121,9 @@ const replyText = 'Native browser DM history';
 /** An accepted DM whose recipient has replied, with the sender's page open. */
 const repliedDm = async (journey: DmJourney) => {
   const recipient = await acceptMessagingJourney(journey);
-  await recipient.getByLabel('Your message').fill(replyText);
+  await recipient
+    .getByRole('textbox', { name: 'Your message', exact: true })
+    .fill(replyText);
   await recipient
     .getByRole('button', { name: 'Send message', exact: true })
     .click();
@@ -309,14 +313,14 @@ for (const javaScriptEnabled of [true, false]) {
         'Contact blocked.',
       );
       await sender
-        .getByLabel('Your message')
+        .getByRole('textbox', { name: 'Your message', exact: true })
         .fill('Retained retry after unblock');
       await sender
         .getByRole('button', { name: 'Send message', exact: true })
         .click();
-      await expect(sender.getByLabel('Your message')).toHaveValue(
-        'Retained retry after unblock',
-      );
+      await expect(
+        sender.getByRole('textbox', { name: 'Your message', exact: true }),
+      ).toHaveValue('Retained retry after unblock');
       await expect(sender.getByRole('status')).toHaveText(
         'You cannot send to this conversation now. Your draft is kept.',
       );
@@ -368,7 +372,9 @@ for (const javaScriptEnabled of [true, false]) {
         new RegExp(`/messages/${journey.channelId}$`),
       );
       const text = 'Native admitted private group history';
-      await invited.getByLabel('Your message').fill(text);
+      await invited
+        .getByRole('textbox', { name: 'Your message', exact: true })
+        .fill(text);
       await invited
         .getByRole('button', { name: 'Send message', exact: true })
         .click();

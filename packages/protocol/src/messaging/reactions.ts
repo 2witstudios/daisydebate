@@ -10,6 +10,36 @@ export type MessagingReactionPolicy = {
   readonly distinctPerMessage: number;
 };
 
+const scope = {
+  version: z.literal(1),
+  channelId: idSchema,
+  messageId: idSchema,
+};
+
+/** A scoped aggregate's wire shape; validating it supplies no reaction authority. */
+export function createMessagingReactionResultSchema(reactionUnits: number) {
+  const reactions = z
+    .array(
+      z.strictObject({
+        reaction: messagingTextSchema(reactionUnits).refine(
+          (value) => value.trim() === value,
+        ),
+        count: z.number().int().positive().safe(),
+        own: z.boolean(),
+      }),
+    )
+    .refine(
+      (items) =>
+        new Set(items.map((item) => item.reaction)).size === items.length,
+    );
+  return z.strictObject({
+    ...scope,
+    changeVersion: z.number().int().nonnegative().safe(),
+    replayed: z.boolean(),
+    reactions,
+  });
+}
+
 export function createMessagingReactionSchemas(
   policy: MessagingReactionPolicy,
 ) {
@@ -22,22 +52,6 @@ export function createMessagingReactionSchemas(
     .refine((items) => new Set(items).size === items.length)
     .parse(policy.choices);
   z.number().int().positive().safe().parse(policy.distinctPerMessage);
-  const summary = z.strictObject({
-    reaction,
-    count: z.number().int().positive().safe(),
-    own: z.boolean(),
-  });
-  const reactions = z
-    .array(summary)
-    .refine(
-      (items) =>
-        new Set(items.map((item) => item.reaction)).size === items.length,
-    );
-  const scope = {
-    version: z.literal(1),
-    channelId: idSchema,
-    messageId: idSchema,
-  };
   return {
     scope: z.strictObject(scope),
     command: z
@@ -48,11 +62,6 @@ export function createMessagingReactionSchemas(
         active: z.boolean(),
       })
       .refine((intent) => !intent.active || choices.includes(intent.reaction)),
-    result: z.strictObject({
-      ...scope,
-      changeVersion: z.number().int().nonnegative().safe(),
-      replayed: z.boolean(),
-      reactions,
-    }),
+    result: createMessagingReactionResultSchema(policy.reactionUnits),
   };
 }

@@ -212,9 +212,7 @@ test('a shared history page refuses reader state; only an HTTP read carries it',
     version: 1,
     channelId,
     changeVersion: 2,
-    messages: [
-      { ...historyEntry, reactions: [{ reaction: 'A', count: 2 }] },
-    ],
+    messages: [{ ...historyEntry, reactions: [{ reaction: 'A', count: 2 }] }],
     nextBefore: null,
   };
   const viewer = {

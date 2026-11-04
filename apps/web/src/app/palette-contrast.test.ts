@@ -129,6 +129,10 @@ const declaredPairs: readonly Pair[] = [
     (pair) =>
       ['--surface', '--surface-raised'].map((base) => ({ ...pair, base })),
   ),
+  // Messages' active rows, hovered messages and the reader's reaction pills.
+  ...on(['--text', '--text-muted'], ['--accent-soft'], TEXT).flatMap((pair) =>
+    ['--surface', '--surface-raised'].map((base) => ({ ...pair, base })),
+  ),
   { fg: '--live', bg: '--live-soft', base: '--surface', min: TEXT },
   // The area hues (ADR 0051): ink on the page's cards, and on its own tint.
   ...on(

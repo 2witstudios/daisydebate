@@ -23,12 +23,16 @@ export function testMessagingUnknownCommit() {
         await beginHeldSend(page, held, text);
         const original = await durableMessage(page, channelId, text);
         await observed.heard(original.changeVersion);
-        await expect(page.getByLabel('Your message')).toBeDisabled();
+        await expect(
+          page.getByRole('textbox', { name: 'Your message', exact: true }),
+        ).toBeDisabled();
         await held.releaseSend();
         await expect(page.locator('#message-notice')).toHaveText(
           'Message could not be sent. Your draft is kept; try again.',
         );
-        await expect(page.getByLabel('Your message')).toHaveValue(text);
+        await expect(
+          page.getByRole('textbox', { name: 'Your message', exact: true }),
+        ).toHaveValue(text);
         expect(await composerRequestId(page)).toBe(requestId);
         const send = page.getByRole('button', {
           name: 'Send message',

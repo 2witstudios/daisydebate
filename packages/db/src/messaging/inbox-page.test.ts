@@ -168,7 +168,10 @@ test('a page whose candidates are all denied or hidden still advances', async ()
     given: 'a full scan where every candidate is denied',
     should: 'show nothing and continue after the last scanned candidate',
     actual: await denied.page({ ...self, limit: 3, now }, policy(false)),
-    expected: { entries: [], nextAfter: `${now}~${denied.channels[2]!.channelId}` },
+    expected: {
+      entries: [],
+      nextAfter: `withheld~${denied.channels[2]!.channelId}`,
+    },
   });
   const hidden = world(3, { hidden: true });
   assert({
@@ -179,7 +182,7 @@ test('a page whose candidates are all denied or hidden still advances', async ()
       hidden.statements.some((sql) => sql.includes('read_fence')),
     ],
     expected: [
-      { entries: [], nextAfter: `${now}~${hidden.channels[2]!.channelId}` },
+      { entries: [], nextAfter: `withheld~${hidden.channels[2]!.channelId}` },
       false,
     ],
   });

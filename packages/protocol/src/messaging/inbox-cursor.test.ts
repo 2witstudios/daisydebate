@@ -13,7 +13,7 @@ const query = createMessagingInboxSchemas(10).query;
 describe('inbox cursor', () => {
   test('round trip', () => {
     const activity = {
-      lead: false,
+      kind: 'activity',
       activityAt: '2026-11-04T10:00:00.000Z',
       channelId,
     } as const;
@@ -26,8 +26,18 @@ describe('inbox cursor', () => {
     assert({
       given: 'an invitation position',
       should: 'carry no activity',
-      actual: encodeMessagingInboxCursor({ lead: true, channelId }),
+      actual: encodeMessagingInboxCursor({ kind: 'invitation', channelId }),
       expected: `lead~${channelId}`,
+    });
+    const withheld = { kind: 'withheld', channelId } as const;
+    assert({
+      given: 'an omitted candidate whose activity is not disclosed',
+      should: 'carry only its known association ID and round-trip',
+      actual: [
+        encodeMessagingInboxCursor(withheld),
+        decodeMessagingInboxCursor(`withheld~${channelId}`),
+      ],
+      expected: [`withheld~${channelId}`, withheld],
     });
   });
   test('refusals', () => {

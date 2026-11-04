@@ -16,7 +16,7 @@ export const messagingBetaLimits = {
   bodyBytes: 65536,
 } as const;
 
-/** The stored reaction column's bound; older values outside today's choices remain. */
+/** The beta wire ceiling (DEC-257); retained values outside today's choices remain. */
 export const messagingReactionMaxUnits = 8;
 
 /** Refuses an injected bound that is not a positive integer within its beta limit. */

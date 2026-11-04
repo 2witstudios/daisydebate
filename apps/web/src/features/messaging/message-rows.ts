@@ -35,9 +35,13 @@ const dayKey = (at: string, timeZone: string) =>
 
 const dayLabel = (at: string, now: string, timeZone: string) => {
   const key = dayKey(at, timeZone);
-  if (key === dayKey(now, timeZone)) return 'Today';
-  const yesterday = new Date(Date.parse(now) - 24 * 60 * 60_000).toISOString();
-  if (key === dayKey(yesterday, timeZone)) return 'Yesterday';
+  const today = dayKey(now, timeZone);
+  if (key === today) return 'Today';
+  // Calendar dates remain a day apart even when a local day is 23 or 25 hours.
+  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  if (key === yesterday) return 'Yesterday';
   return new Intl.DateTimeFormat('en-US', {
     timeZone,
     month: 'long',
@@ -80,10 +84,6 @@ export function messageRows({
   let previous: LiveMessage | null = null;
   let day: string | null = null;
   for (const message of [...messages].reverse()) {
-    if (message.sequence === firstUnreadSequence) {
-      rows.push({ kind: 'unread', key: 'first-unread' });
-      previous = null;
-    }
     if ('unavailable' in message) {
       rows.push({ kind: 'unavailable', key: message.id, message });
       previous = null;
@@ -97,6 +97,10 @@ export function messageRows({
         label: dayLabel(message.createdAt, now, timeZone),
       });
       day = thisDay;
+      previous = null;
+    }
+    if (message.sequence === firstUnreadSequence) {
+      rows.push({ kind: 'unread', key: 'first-unread' });
       previous = null;
     }
     const continues: boolean =
@@ -120,17 +124,64 @@ export function messageRows({
 }
 
 /**
- * Where to read from when the first unread message is older than what is drawn:
- * a page that begins at it. Null when it is on screen or there is none.
+ * The reader's own place in a conversation, kept from when they opened it. Marking
+ * it read moves the server's position, never this one.
  */
-export function earlierUnreadSequence(
+export type UnreadBoundary = {
+  /** Where they had read to, as of opening. */
+  readonly readSequence: number;
+  /** The first unread message known so far, which may be older than the window. */
+  readonly firstUnreadSequence: number | null;
+};
+
+const eligibleUnread = (
   messages: readonly HistoryMessage[],
-  firstUnreadSequence: number | null,
-): number | null {
+  actorId: string | null,
+  readSequence: number,
+): number | null => {
+  const eligible = messages.flatMap((message) =>
+    !('unavailable' in message) &&
+    message.authorActorId !== actorId &&
+    message.sequence > readSequence
+      ? [message.sequence]
+      : [],
+  );
+  return eligible.length > 0 ? Math.min(...eligible) : null;
+};
+
+/**
+ * Pure: the first unread message as these messages stand, including one that
+ * arrived after opening. Once known it holds, so a window that slides past it
+ * still knows there is something older to read.
+ */
+export const knownFirstUnread = (
+  boundary: UnreadBoundary,
+  messages: readonly HistoryMessage[],
+  actorId: string | null,
+): number | null =>
+  boundary.firstUnreadSequence ??
+  eligibleUnread(messages, actorId, boundary.readSequence);
+
+/**
+ * Pure: where the divider goes, or where to jump for it. The divider sits at the
+ * actual first unread message, so when that is older than what is drawn there is
+ * no divider, only the jump. A first unread since removed gives way to the next.
+ */
+export function unreadPlacement(
+  boundary: UnreadBoundary,
+  messages: readonly HistoryMessage[],
+  actorId: string | null,
+): {
+  readonly dividerSequence: number | null;
+  readonly jumpToSequence: number | null;
+} {
+  const known = knownFirstUnread(boundary, messages, actorId);
   const oldest = messages.at(-1)?.sequence;
-  return firstUnreadSequence !== null &&
-    oldest !== undefined &&
-    firstUnreadSequence < oldest
-    ? firstUnreadSequence
-    : null;
+  if (known === null || oldest === undefined)
+    return { dividerSequence: null, jumpToSequence: null };
+  if (known < oldest) return { dividerSequence: null, jumpToSequence: known };
+  return {
+    dividerSequence: eligibleUnread(messages, actorId, known - 1),
+    jumpToSequence: null,
+  };
 }

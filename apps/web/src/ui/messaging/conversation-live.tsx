@@ -89,9 +89,7 @@ export function ConversationLive({
       />
       {/* Reserved, so a typing line never moves the conversation. */}
       <div className="h-typing-row shrink-0 px-6 pt-1 text-xs text-ink-muted max-narrow:px-4">
-        {typing === true ? (
-          <p role="status">{typingName} is typing…</p>
-        ) : null}
+        {typing === true ? <p role="status">{typingName} is typing…</p> : null}
       </div>
     </>
   );

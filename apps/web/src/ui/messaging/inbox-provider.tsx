@@ -13,7 +13,6 @@ import { systemClock } from '@daisy/clock';
 import { readMessagingInboxResponse } from '../../features/messaging/inbox-response';
 import {
   appendPage,
-  mergeFirstPage,
   type MessagingInboxPageAnswer,
 } from '../../features/messaging/inbox-view';
 import { createInboxReads } from '../../features/messaging/inbox-reads';
@@ -62,8 +61,9 @@ const readPage = async ({
 
 /**
  * The tab's one view of the conversation list. The layout seeds it, and a ring
- * asks for a fresh read through the inbox API, never the router, so the open
- * conversation, its draft and this list's scroll and loaded pages stay put.
+ * re-reads what is loaded through the inbox API, never the router, so the open
+ * conversation, its draft and this list's scroll stay put, and a conversation
+ * that left is gone whichever page it was on.
  * Rings say only that something changed: what shows is always an authorized read.
  */
 export function InboxProvider({
@@ -89,18 +89,6 @@ export function InboxProvider({
   const doorbell = useRef<ReturnType<
     typeof attachMessagingInboxDoorbells
   > | null>(null);
-  const [seenSeed, setSeenSeed] = useState(seed);
-  // A server render elsewhere (a native answer, a refresh) brought a fresh read.
-  if (seed !== seenSeed) {
-    setSeenSeed(seed);
-    if (seed !== null && searchedFor === null) {
-      setAvailable(true);
-      setView((current) => ({
-        ...mergeFirstPage(current, seed),
-        now: seed.now,
-      }));
-    }
-  }
   useEffect(() => {
     const reads = createInboxReads({
       readPage,
@@ -110,13 +98,10 @@ export function InboxProvider({
           return () => clearTimeout(timer);
         },
       },
-      onFirstPage: (page, { q, searchChanged }) => {
+      onRefreshed: (page, { q }) => {
         setAvailable(true);
         setSearchedFor(q);
-        setView((current) => ({
-          ...(searchChanged ? page : mergeFirstPage(current, page)),
-          now: systemClock.now(),
-        }));
+        setView({ ...page, now: systemClock.now() });
         doorbell.current?.authorizedSnapshot();
       },
       onNextPage: (page) =>
@@ -131,12 +116,20 @@ export function InboxProvider({
       reader.current = null;
     };
   }, []);
+  // A server render elsewhere (a native answer, a refresh) says something changed.
+  const seen = useRef(seed);
+  useEffect(() => {
+    if (seed === seen.current) return;
+    seen.current = seed;
+    reader.current?.ring();
+  }, [seed]);
   useEffect(() => {
     if (socketUrl === null) return;
     const connection = tabConnection(socketUrl);
     const attached = attachMessagingInboxDoorbells({
       connection,
       actorId,
+      catchUpOnSubscribe: true,
       invalidate: () => undefined,
       refetch: () => reader.current?.ring(),
     });

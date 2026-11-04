@@ -68,7 +68,7 @@ export async function seedControlMessage(
   const observed = await listenForChannelObservation(member, channelId);
   try {
     const requestId = await page
-      .getByLabel('Your message')
+      .getByRole('textbox', { name: 'Your message', exact: true })
       .locator('xpath=ancestor::form')
       .locator('input[name="requestId"]')
       .inputValue();

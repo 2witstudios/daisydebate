@@ -10,7 +10,9 @@ export async function readMessagingInboxResponse(response: Response) {
     .int()
     .positive()
     .safe()
-    .safeParse(response.headers.get('x-messaging-page-items'), { jitless: true });
+    .safeParse(response.headers.get('x-messaging-page-items'), {
+      jitless: true,
+    });
   if (!limit.success) throw createAppError('INFRASTRUCTURE');
   const result = createMessagingInboxSchemas(limit.data).result.safeParse(
     await response.json(),

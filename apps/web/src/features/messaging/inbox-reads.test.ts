@@ -12,7 +12,7 @@ const settle = async () => {
 };
 
 /** A world whose timers and reads the test releases one at a time. */
-function world() {
+function world(initialPages = 1) {
   const timers: { work: () => void; ms: number }[] = [];
   const reads: {
     q: string | null;
@@ -22,10 +22,16 @@ function world() {
   }[] = [];
   const firsts: (string | null)[] = [];
   const nexts: (string | null)[] = [];
+  let shown: readonly string[] = [];
   const reader = createInboxReads({
+    initialPages,
     readPage: (query) =>
       new Promise((resolve, reject) =>
-        reads.push({ ...query, answer: resolve, fail: () => reject(new Error('down')) }),
+        reads.push({
+          ...query,
+          answer: resolve,
+          fail: () => reject(new Error('down')),
+        }),
       ),
     scheduler: {
       after: (work, ms) => {
@@ -36,14 +42,27 @@ function world() {
         };
       },
     },
-    onFirstPage: (page) => firsts.push(page.nextAfter),
+    onRefreshed: (page) => {
+      firsts.push(page.nextAfter);
+      shown = page.entries.map((entry) => entry.channelId);
+    },
     onNextPage: (page) => nexts.push(page.nextAfter),
   });
   const tick = () => timers.shift()?.work();
-  return { reader, timers, reads, firsts, nexts, tick };
+  return { reader, timers, reads, firsts, nexts, tick, shown: () => shown };
 }
 
 describe('inbox reads', () => {
+  test('refresh spacing covers the loaded read work', () => {
+    const w = world(3);
+    w.reader.ring();
+    assert({
+      given: 'three loaded pages sharing the account read budget',
+      should: 'space refreshes by the work of all three pages',
+      actual: w.timers.map((timer) => timer.ms),
+      expected: [2250],
+    });
+  });
   test('rings coalesce', async () => {
     const w = world();
     w.reader.ring();
@@ -76,6 +95,74 @@ describe('inbox reads', () => {
       should: 'apply it and ask exactly once more',
       actual: [w.firsts, w.reads.length],
       expected: [['one'], 2],
+    });
+  });
+  test('a ring re-reads every loaded page, so one that left goes', async () => {
+    const entry = (channelId: string) =>
+      ({
+        channelId,
+        kind: 'conversation',
+        title: channelId,
+        preview: null,
+        activityAt: '2026-11-04T10:00:00.000Z',
+        unread: false,
+      }) as const;
+    const w = world(2);
+    w.reader.ring();
+    w.tick();
+    await settle();
+    w.reads[0]!.answer({ entries: [entry('page-one')], nextAfter: 'one' });
+    await settle();
+    assert({
+      given: 'a refresh of two loaded pages, the first answered',
+      should: 'apply nothing yet and read the second from its cursor',
+      actual: [w.firsts, w.reads[1]?.after],
+      expected: [[], 'one'],
+    });
+    // The conversation that was on page two was revoked: it is simply absent.
+    w.reads[1]!.answer({ entries: [], nextAfter: null });
+    await settle();
+    assert({
+      given: 'a second page no longer holding a revoked conversation',
+      should: 'replace everything shown with the authoritative answer',
+      actual: [w.shown(), w.firsts],
+      expected: [['page-one'], [null]],
+    });
+  });
+  test('one failed page keeps the whole list as shown', async () => {
+    const w = world(2);
+    w.reader.ring();
+    w.tick();
+    await settle();
+    w.reads[0]!.answer({ entries: [], nextAfter: 'one' });
+    await settle();
+    w.reads[1]!.fail();
+    await settle();
+    assert({
+      given: 'a refresh whose later page fails',
+      should: 'apply no part of it',
+      actual: w.firsts,
+      expected: [],
+    });
+  });
+  test('a page loaded during a refresh makes it ask again', async () => {
+    const w = world(1);
+    w.reader.ring();
+    w.tick();
+    await settle();
+    const more = w.reader.more('cursor');
+    await settle();
+    w.reads[1]!.answer(answer(null));
+    await more;
+    w.reads[0]!.answer(answer('stale-coverage'));
+    await settle();
+    w.tick();
+    await settle();
+    assert({
+      given: 'a refresh that began before a page was added',
+      should: 'discard it and re-read both pages',
+      actual: [w.firsts, w.reads.length],
+      expected: [[], 3],
     });
   });
   test('a stale search answer never applies', async () => {

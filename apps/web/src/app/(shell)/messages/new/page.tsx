@@ -17,7 +17,9 @@ export default async function NewConversationPage({
       ? 'private_group'
       : 'dm';
   return (
-    <ConversationPane title={kind === 'dm' ? 'Message someone' : 'Create private group'}>
+    <ConversationPane
+      title={kind === 'dm' ? 'Message someone' : 'Create private group'}
+    >
       <ConversationCreation
         kind={kind}
         requestId={systemId.next()}

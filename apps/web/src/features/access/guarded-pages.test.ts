@@ -68,6 +68,8 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   readRecordingHistory: async () => ({ kind: 'not-found' }),
   requestMemberStandings: async () => [],
   privateGroupsOffered: () => false,
+  messagingFilesAvailable: () => false,
+  messagingLatestPageItems: () => 50,
   // Settings reads the member's own onboarding answers (ISSUE-324); a
   // visitor has none admitted.
   requestOptionalAnswersAdmitted: async () => false,

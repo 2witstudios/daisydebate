@@ -3,181 +3,24 @@ import { useCallback, useMemo, useState } from 'react';
 import { ConversationLink as Link } from './conversation-navigation';
 import type { MessagingConversation } from '../../features/messaging/conversation';
 import {
-  earlierUnreadSequence,
+  knownFirstUnread,
   messageRows,
-  type MessageRow as Row,
+  unreadPlacement,
+  type UnreadBoundary,
 } from '../../features/messaging/message-rows';
-import { Avatar } from '../components/avatar/avatar';
-import { Icon, type IconName } from '../components/icon/icon';
-import { cn } from '../cn';
-import { ReactionPill, type ReactionPillAction } from './reaction-pill';
+import { MessageRow } from './message-row';
+import type { ReactionPillAction } from './reaction-pill';
+import { useHistoryScroll } from './history-scroll';
 import { useReaderTimeZone } from './time-zone';
 
 export type MessagingViewer = {
+  readonly readSequence: number;
   readonly firstUnreadSequence: number | null;
   readonly ownReactions: readonly {
     readonly messageId: string;
     readonly reactions: readonly string[];
   }[];
 };
-type LiveRow = Extract<Row, { readonly kind: 'message' }>;
-
-const toolClass =
-  'flex size-8 items-center justify-center rounded-sm text-ink-muted no-underline hover:bg-surface-overlay hover:text-ink hover:no-underline';
-
-function MessageTool({
-  href,
-  icon,
-  label,
-}: {
-  readonly href: string;
-  readonly icon: IconName;
-  readonly label: string;
-}) {
-  return (
-    <Link href={href} aria-label={label} title={label} className={toolClass}>
-      <Icon name={icon} size={16} />
-    </Link>
-  );
-}
-
-function MessageTools({
-  channelId,
-  row,
-  filesAvailable,
-}: {
-  readonly channelId: string;
-  readonly row: LiveRow;
-  readonly filesAvailable: boolean;
-}) {
-  const { message, mine } = row;
-  return (
-    <div className="absolute -top-1 right-6 z-10 flex gap-1 rounded-md border border-border bg-surface-raised p-1 message-tools max-narrow:right-4">
-      <MessageTool
-        href={`/messages/${channelId}/reactions?messageId=${message.id}`}
-        icon="smile"
-        label="Reactions"
-      />
-      {filesAvailable ? (
-        <MessageTool
-          href={`/messages/${channelId}/attachments?messageId=${message.id}`}
-          icon="file"
-          label="Attachments"
-        />
-      ) : null}
-      {mine && filesAvailable ? (
-        <MessageTool
-          href={`/messages/${channelId}/attachments?messageId=${message.id}&attach=1`}
-          icon="folder"
-          label="Attach file"
-        />
-      ) : null}
-      {mine ? (
-        <MessageTool
-          href={`/messages/${channelId}/message?messageId=${message.id}${message.sequence < Number.MAX_SAFE_INTEGER ? `&before=${message.sequence + 1}` : ''}`}
-          icon="edit"
-          label="Edit or remove your message"
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function MessageRow({
-  row,
-  channelId,
-  own,
-  filesAvailable,
-  reactAction,
-  onReacted,
-}: {
-  readonly row: LiveRow;
-  readonly channelId: string;
-  readonly own: readonly string[];
-  readonly filesAvailable: boolean;
-  readonly reactAction: ReactionPillAction | undefined;
-  readonly onReacted: (
-    messageId: string,
-    reaction: string,
-    own: boolean,
-  ) => void;
-}) {
-  const { message, leads, author, time } = row;
-  const changed = useCallback(
-    (reaction: string, mark: boolean) =>
-      onReacted(message.id, reaction, mark),
-    [message.id, onReacted],
-  );
-  return (
-    <div
-      className={cn(
-        'flex gap-3 px-6 py-px message-row hover:bg-accent-soft focus-within:bg-accent-soft max-narrow:px-4',
-        leads && 'mt-2',
-      )}
-    >
-      {leads ? (
-        <Avatar name={author} nameVisible />
-      ) : (
-        <time
-          dateTime={message.createdAt}
-          className="w-message-gutter shrink-0 pt-1 text-right text-message-time text-ink-muted tabular-nums message-run-time"
-        >
-          {time.replace(/\s.*$/, '')}
-        </time>
-      )}
-      <div className="min-w-0 flex-1">
-        {leads ? (
-          <p className="flex items-baseline gap-2 leading-tight">
-            <span className="text-sm font-strong">{author}</span>
-            <time
-              dateTime={message.createdAt}
-              className="text-xs text-ink-muted"
-            >
-              {time}
-            </time>
-          </p>
-        ) : null}
-        <p className="max-w-message leading-normal wrap-anywhere whitespace-pre-wrap text-ink">
-          <span>{message.text}</span>
-          {message.editedAt ? (
-            <span className="text-xs text-ink-muted"> (edited)</span>
-          ) : null}
-        </p>
-        {message.reactions.length > 0 ? (
-          <div className="flex flex-wrap gap-1 pt-1">
-            {message.reactions.map(({ reaction, count }) =>
-              reactAction ? (
-                <ReactionPill
-                  key={reaction}
-                  action={reactAction}
-                  channelId={channelId}
-                  messageId={message.id}
-                  reaction={reaction}
-                  count={count}
-                  own={own.includes(reaction)}
-                  onChanged={changed}
-                />
-              ) : (
-                <span
-                  key={reaction}
-                  className="inline-flex h-6 items-center gap-1 rounded-round border border-border px-2 text-xs font-semibold text-ink-muted tabular-nums"
-                >
-                  {reaction} {count}
-                </span>
-              ),
-            )}
-          </div>
-        ) : null}
-      </div>
-      <MessageTools
-        channelId={channelId}
-        row={row}
-        filesAvailable={filesAvailable}
-      />
-    </div>
-  );
-}
-
 function Separator({ label }: { readonly label: string }) {
   return (
     <div className="flex items-center gap-3 px-6 pt-3 pb-1 text-xs font-semibold text-ink-muted max-narrow:px-4">
@@ -190,7 +33,10 @@ function Separator({ label }: { readonly label: string }) {
 
 function UnreadDivider() {
   return (
-    <div className="flex items-center gap-2 px-6 pt-2 text-badge font-heavy tracking-wider text-accent uppercase max-narrow:px-4">
+    <div
+      id="first-unread"
+      className="flex items-center gap-2 px-6 pt-2 text-badge font-heavy tracking-wider text-accent uppercase max-narrow:px-4"
+    >
       <span className="flex-1 border-t border-accent" />
       New
     </div>
@@ -209,7 +55,8 @@ function useOwnReactions(viewer: MessagingViewer | undefined) {
       ),
     [viewer?.ownReactions],
   );
-  const [own, setOwn] = useState<ReadonlyMap<string, readonly string[]>>(seeded);
+  const [own, setOwn] =
+    useState<ReadonlyMap<string, readonly string[]>>(seeded);
   const [seen, setSeen] = useState(seeded);
   // A fresher HTTP read replaces the marks; a snapshot never carries any.
   if (seen !== seeded) {
@@ -260,8 +107,32 @@ export function MessageHistory({
   readonly latestLink?: boolean;
 }) {
   const timeZone = useReaderTimeZone();
-  const [firstUnread] = useState(
-    searchQuery === undefined ? (viewer?.firstUnreadSequence ?? null) : null,
+  // The reader's place as they opened this: marking read never moves it.
+  const [opened, setOpened] = useState<UnreadBoundary | null>(() =>
+    viewer
+      ? {
+          readSequence: viewer.readSequence,
+          firstUnreadSequence: viewer.firstUnreadSequence,
+        }
+      : null,
+  );
+  const boundary = searchQuery === undefined ? opened : null;
+  const known =
+    boundary === null
+      ? null
+      : knownFirstUnread(boundary, history.messages, actorId);
+  if (boundary !== null && known !== boundary.firstUnreadSequence)
+    setOpened({ ...boundary, firstUnreadSequence: known });
+  const { dividerSequence, jumpToSequence } = useMemo(
+    () =>
+      boundary === null
+        ? { dividerSequence: null, jumpToSequence: null }
+        : unreadPlacement(
+            { readSequence: boundary.readSequence, firstUnreadSequence: known },
+            history.messages,
+            actorId,
+          ),
+    [boundary?.readSequence, known, history.messages, actorId],
   );
   const [own, reacted] = useOwnReactions(viewer);
   const rows = useMemo(
@@ -270,18 +141,20 @@ export function MessageHistory({
         messages: history.messages,
         actorId,
         otherAuthor,
-        firstUnreadSequence: firstUnread,
+        firstUnreadSequence: dividerSequence,
         now,
         timeZone,
       }),
-    [history.messages, actorId, otherAuthor, firstUnread, now, timeZone],
+    [history.messages, actorId, otherAuthor, dividerSequence, now, timeZone],
   );
-  const earlier = latestLink
-    ? null
-    : earlierUnreadSequence(history.messages, firstUnread);
+  const { ref: historyRef, capture: captureScroll } = useHistoryScroll(rows);
   const channelId = history.channelId;
   return (
-    <div className="message-scroller min-h-0 flex-1 overflow-y-auto">
+    <div
+      ref={historyRef}
+      onScroll={captureScroll}
+      className="message-scroller min-h-0 flex-1 overflow-y-auto"
+    >
       <div className="py-4">
         <div className="flex flex-wrap justify-center gap-4 px-6 pb-2 text-sm font-semibold empty:hidden">
           {history.nextBefore ? (
@@ -291,10 +164,11 @@ export function MessageHistory({
               Earlier messages
             </Link>
           ) : null}
-          {earlier !== null ? (
-            // A page that begins at the first unread message, oldest first.
+          {jumpToSequence !== null ? (
+            // A page beginning at it. It carries the place along, because
+            // showing the latest page has already moved the server's.
             <Link
-              href={`/messages/${channelId}?before=${earlier + history.messages.length + 1}`}
+              href={`/messages/${channelId}?before=${jumpToSequence + history.messages.length}&unread=${jumpToSequence}#first-unread`}
             >
               Jump to first unread
             </Link>
@@ -312,7 +186,12 @@ export function MessageHistory({
         ) : (
           <ol aria-label="Message history" className="list-none">
             {rows.map((row) => (
-              <li key={row.key}>
+              <li
+                key={row.key}
+                data-message-id={
+                  row.kind === 'message' ? row.message.id : undefined
+                }
+              >
                 {row.kind === 'day' ? (
                   <Separator label={row.label} />
                 ) : row.kind === 'unread' ? (
@@ -329,6 +208,7 @@ export function MessageHistory({
                     filesAvailable={filesAvailable}
                     reactAction={reactAction}
                     onReacted={reacted}
+                    observed={!latestLink}
                   />
                 )}
               </li>
@@ -339,4 +219,3 @@ export function MessageHistory({
     </div>
   );
 }
-

@@ -1,5 +1,10 @@
 'use client';
-import { useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
+import {
+  useState,
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '../components/icon/icon';
@@ -38,7 +43,8 @@ export function ConversationList({
     const read = await inbox.more(after);
     setReading(false);
     // A refused read still has the link's native answer to offer.
-    if (!read) window.location.assign(`/messages?after=${encodeURIComponent(after)}`);
+    if (!read)
+      window.location.assign(`/messages?after=${encodeURIComponent(after)}`);
   };
   return (
     <>
@@ -62,7 +68,7 @@ export function ConversationList({
         onSubmit={submit}
         className="shrink-0 p-2"
       >
-        <label className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface-raised px-3 text-ink-muted hover:border-border-strong focus-within:border-border-strong">
+        <label className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface-raised px-3 text-ink-muted focus-within:border-border-strong hover:border-border-strong">
           <Icon name="search" size={16} />
           <span className="sr-only">Search conversations</span>
           <input
@@ -90,7 +96,10 @@ export function ConversationList({
                 : 'No conversations on this page.'}
           </p>
         ) : (
-          <ul aria-label="Conversations" className="flex list-none flex-col gap-1">
+          <ul
+            aria-label="Conversations"
+            className="flex list-none flex-col gap-1"
+          >
             {inbox.entries.map((entry) => {
               const href = hrefOf(entry);
               return (

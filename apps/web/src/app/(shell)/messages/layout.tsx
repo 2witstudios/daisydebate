@@ -73,7 +73,7 @@ export default async function MessagesLayout({
       <div className="messages-frame">
         <section
           aria-label="Conversation list"
-          className="flex w-conversation-list shrink-0 flex-col border-r border-border bg-surface messages-list-pane"
+          className="messages-list-pane flex w-conversation-list shrink-0 flex-col border-r border-border bg-surface"
         >
           <ConversationList
             groupsOffered={privateGroupsOffered()}
@@ -82,7 +82,7 @@ export default async function MessagesLayout({
         </section>
         <section
           aria-label="Conversation"
-          className="flex min-w-0 flex-1 flex-col messages-open-pane"
+          className="flex messages-open-pane min-w-0 flex-1 flex-col"
         >
           {children}
         </section>
