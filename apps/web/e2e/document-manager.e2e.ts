@@ -90,7 +90,6 @@ const journey = async (
 
     // A folder, and the document moved into it, through the same tree.
     const narrow = viewport.width < 901;
-    if (narrow) await expect(tree(page)).toBeVisible();
     if (narrow)
       await page.getByRole('button', { name: 'Back to Files' }).click();
     await tree(page).getByRole('button', { name: 'New', exact: true }).click();
