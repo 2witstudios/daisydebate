@@ -10,5 +10,5 @@ primary_region = "ord"
   image = "livekit/egress:v1.15.0"
 
 [[vm]]
-  size = "performance-4x"
-  memory = "8gb"
+  size = "performance-2x"
+  memory = "4gb"
