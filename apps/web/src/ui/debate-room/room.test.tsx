@@ -235,8 +235,7 @@ describe('DebateRoom', () => {
     const html = render('judging', 'casual');
     assert({
       given: 'the sidebars',
-      should:
-        'size Files controls for the input and keep text at 12px or more',
+      should: 'size Files controls for the input and keep text at 12px or more',
       actual: [
         /aria-label="New" class="[^"]*size-dense-target/.test(html),
         /aria-label="Hide files"[^>]*class="[^"]*size-dense-target/.test(html),
