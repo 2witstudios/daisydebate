@@ -122,6 +122,7 @@ export function createRoundRuntime(input: {
     if (checkpoint.active_prep === null) on.endPrep();
     if (checkpoint.floor === null) on.clearFloor();
     on.setIncident(checkpoint);
+    on.setPrepEndedAt(checkpoint.prep_ended_at);
     on.setStartGate(checkpoint.start_gate);
     into.changes.push(...transition.changes);
     for (const change of transition.changes) {
@@ -269,8 +270,6 @@ export function createRoundRuntime(input: {
     sideOf,
     participants: input.participants,
     assertSeatCompleteness,
-    openRowAt: (at) =>
-      transitionOn(on, into, openClockSegment(capture(on), rules, at)),
     closeRowAt: (sequence, at) =>
       transitionOn(on, into, closeClockSegment(capture(on), sequence, at)),
   });

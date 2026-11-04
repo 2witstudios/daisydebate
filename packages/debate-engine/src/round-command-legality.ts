@@ -124,6 +124,8 @@ const startPrepRefusal = (facts: RoundCommandFacts) => {
     return conflict('A segment is already live');
   if (state.checkpoint.active_prep !== null)
     return conflict('Prep is already running');
+  if (state.checkpoint.prep_ended_at !== null)
+    return conflict('Prep has ended and the speech is about to start');
   const { inRoundPrep } = rules;
   if (inRoundPrep === null)
     return violates(

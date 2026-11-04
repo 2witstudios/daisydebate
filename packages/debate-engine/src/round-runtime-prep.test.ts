@@ -1,10 +1,14 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { roundStartPolicy } from '@daisy/protocol';
+import { mediaGrants } from './media-grants';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import {
   emptyCheckpoint,
   oneOnOneDefinition,
   oneOnOneActors,
+  oneOnOneRules,
+  oneOnOneSeats,
   oneOnOneSettings,
   roundAt,
   runtimeWorld,
@@ -14,6 +18,7 @@ setupRitewayBun();
 
 const at = roundAt;
 const person = oneOnOneActors.affirmative;
+const lead = roundStartPolicy.microphoneLeadMs;
 
 describe('round runtime prep', () => {
   test('runs elective prep for the prepping side only, folding elapsed into the budget', async () => {
@@ -55,6 +60,7 @@ describe('round runtime prep', () => {
           active_prep: { side: 'affirmative', started_at: at(945_000) },
           floor: null,
           incident: { phase: 'none' },
+          prep_ended_at: null,
           start_gate: null,
           clock_stops: [],
         },
@@ -73,19 +79,38 @@ describe('round runtime prep', () => {
     });
     assert({
       given: 'start_speech sixty seconds into prep',
-      should: 'fold the elapsed prep and open the segment',
+      should: 'fold the elapsed prep and start no clock yet',
       actual: {
         consumed: spoken.round?.checkpoint.prep_consumed_ms,
-        insert: spoken.segmentInserts[0]?.rulesSegmentKey,
+        prepEndedAt: spoken.round?.checkpoint.prep_ended_at,
+        inserts: spoken.segmentInserts.length,
+        startsIn: world.position(at(1_005_000)).countdownRemainingMs,
       },
       expected: {
         consumed: { affirmative: 60_000, negative: 0 },
+        prepEndedAt: at(1_005_000),
+        inserts: 0,
+        startsIn: lead,
+      },
+    });
+    const opened = world.tick(at(1_005_000 + lead));
+    assert({
+      given: 'one microphone lead after prep ended',
+      should: 'start the clock and spend the lead',
+      actual: {
+        insert: opened.segmentInserts[0]?.rulesSegmentKey,
+        startedAt: opened.segmentInserts[0]?.startedAt,
+        prepEndedAt: opened.round?.checkpoint.prep_ended_at,
+      },
+      expected: {
         insert: '1AR',
+        startedAt: at(1_005_000 + lead),
+        prepEndedAt: null,
       },
     });
   });
 
-  test('expires running prep at its remaining budget and opens the segment', () => {
+  test('prep running out ends prep, then the clock starts one lead later', () => {
     const ready = runtimeWorld();
     ready.activate({ at: at(0), now: at(0) });
     ready.tick(at(940_000)); // AC, CX1, NC and CX2 closed; 1AR's countdown runs
@@ -94,20 +119,98 @@ describe('round runtime prep', () => {
       actorId: person,
       now: at(945_000),
     });
-    const expired = ready.tick(at(945_000 + 240_000));
+    const ranOut = at(945_000 + 240_000);
+    const expired = ready.tick(ranOut);
     assert({
       given: 'the instant the whole budget is consumed',
-      should: 'open the segment with the budget folded in full',
+      should: 'fold the budget in full, end prep and start no clock yet',
       actual: {
         consumed: expired.round?.checkpoint.prep_consumed_ms.affirmative,
-        open: ready.position(at(945_000 + 240_000)).openSegment?.key,
         activePrep: expired.round?.checkpoint.active_prep,
+        prepEndedAt: expired.round?.checkpoint.prep_ended_at,
+        open: ready.position(ranOut).openSegment,
+        startsIn: ready.position(ranOut).countdownRemainingMs,
       },
       expected: {
         consumed: 240_000,
-        open: '1AR',
         activePrep: null,
+        prepEndedAt: ranOut,
+        open: null,
+        startsIn: lead,
       },
+    });
+    assert({
+      given: 'one microphone lead later',
+      should: 'open the segment on the clock',
+      actual: ready.tick(at(945_000 + 240_000 + lead)).segmentInserts[0]
+        ?.startedAt,
+      expected: at(945_000 + 240_000 + lead),
+    });
+  });
+
+  test('no microphone opens during prep, and it opens for the lead after', () => {
+    const world = runtimeWorld();
+    world.activate({ at: at(0), now: at(0) });
+    world.tick(at(940_000));
+    world.execute({
+      command: { type: 'start_prep' },
+      actorId: person,
+      now: at(945_000),
+    });
+    const seat = oneOnOneSeats.find((row) => row.actorId === person)!;
+    const microphone = (ms: number) =>
+      mediaGrants({
+        participants: oneOnOneSeats.map((row) => ({
+          ...row,
+          eligible: true,
+          kind: 'human' as const,
+        })),
+        participantId: seat.id,
+        rules: oneOnOneRules(),
+        position: world.position(at(ms)),
+        now: at(ms),
+        finalSegmentEndedAt: null,
+        inPreRoundPrep: false,
+        conversationHeld: true,
+      }).publish.includes('microphone');
+    const inPrep = microphone(1_000_000);
+    world.execute({
+      command: { type: 'start_speech' },
+      actorId: person,
+      now: at(1_005_000),
+    });
+    assert({
+      given: 'a seat in its own prep, then the moment it ends prep',
+      should: 'keep the microphone shut in prep and open it for the lead',
+      actual: [inPrep, microphone(1_005_000)],
+      expected: [false, true],
+    });
+  });
+
+  test('prep cannot restart inside the lead after it ended', async () => {
+    const world = runtimeWorld();
+    world.activate({ at: at(0), now: at(0) });
+    world.tick(at(940_000));
+    world.execute({
+      command: { type: 'start_prep' },
+      actorId: person,
+      now: at(945_000),
+    });
+    world.execute({
+      command: { type: 'start_speech' },
+      actorId: person,
+      now: at(1_005_000),
+    });
+    await assertRejects({
+      given: 'start_prep inside the lead after prep ended',
+      should: 'refuse, so the microphone already open stays open',
+      actual: () =>
+        world.execute({
+          command: { type: 'start_prep' },
+          actorId: person,
+          now: at(1_005_100),
+        }),
+      code: 'CONFLICT',
     });
   });
 
@@ -184,6 +287,7 @@ describe('round runtime prep', () => {
         active_prep: null,
         floor: null,
         incident: { phase: 'none' },
+        prep_ended_at: null,
         start_gate: null,
         clock_stops: [],
       },

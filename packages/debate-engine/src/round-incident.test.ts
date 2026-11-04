@@ -385,6 +385,7 @@ test('commands are refused while held', () => {
   const held: RuntimeCheckpoint = {
     ...emptyCheckpoint,
     prep_consumed_ms: { affirmative: 0, negative: 0 },
+    prep_ended_at: null,
     start_gate: null,
     clock_stops: [],
     incident: {

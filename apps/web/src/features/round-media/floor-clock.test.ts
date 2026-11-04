@@ -12,6 +12,7 @@ const clock = (lastSegment: FloorClock['lastSegment']): FloorClock => ({
   prepBudgetMs: null,
   activePrep: null,
   stops: [],
+  prepEndedAt: null,
   startGateAt: null,
   hold: null,
   segmentCount: 1,
@@ -85,6 +86,16 @@ test('a hold moves every wait', () => {
       activePrep: { startedAt: at(0), consumedMs: 0 },
     }),
     expected: [80_000],
+  });
+  assert({
+    given: 'prep that ended, with a hold after it ended',
+    should: 'read a move only at the clock, one lead and the hold later',
+    actual: floorBoundaries({
+      ...gap,
+      stops: [{ from: at(500), to: at(60_500) }],
+      prepEndedAt: at(0),
+    }),
+    expected: [60_000 + roundStartPolicy.microphoneLeadMs],
   });
   assert({
     given: 'a Round held, then counting down to resume',

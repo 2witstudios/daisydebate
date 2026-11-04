@@ -37,13 +37,31 @@ const OPENING_WORDS: Readonly<Record<string, string>> = {
  * quick person's reaction to a visual cue, before any speech planning. 1500 ms is the
  * control: past every loss seen, so a wrong word there is the model mishearing this audio.
  */
-const CASES = [
+const ALL_CASES: readonly {
+  readonly name: string;
+  readonly reactionMs: number;
+  /** How a speech leaves prep: the seat's button, or prep running out. */
+  readonly prep?: 'button' | 'ran-out';
+}[] = [
   { name: 'zero', reactionMs: 0 },
   { name: 'zero', reactionMs: 0 },
   { name: 'realistic', reactionMs: 300 },
   { name: 'realistic', reactionMs: 300 },
   { name: 'control', reactionMs: 1500 },
-] as const;
+  { name: 'prep-button-zero', reactionMs: 0, prep: 'button' },
+  { name: 'prep-button-realistic', reactionMs: 300, prep: 'button' },
+  { name: 'prep-ran-out-realistic', reactionMs: 300, prep: 'ran-out' },
+];
+/** FIRST_WORD_CASES=prep runs only the cases whose name starts with it. */
+const CASES = ALL_CASES.filter(({ name }) =>
+  name.startsWith(process.env.FIRST_WORD_CASES ?? ''),
+);
+/** The speeches each prep case prepares for: one per side, since a side's budget is spent. */
+const PREPARED: Readonly<Record<'button' | 'ran-out', readonly string[]>> = {
+  button: ['1AR', 'NR', '2AR'],
+  'ran-out': ['1AR'],
+};
+const PREP_BEFORE_BUTTON_MS = 3_000;
 const HOLD_SPEECH_MS = 11_000;
 const PLAY_OUT_LIMIT_MS = 420_000;
 const RESULTS = resolve(import.meta.dirname, '../test-results/first-word');
@@ -152,7 +170,7 @@ const firstWordOf = (text: string) =>
     ?.replace(/[^\p{L}]/gu, '')
     .toLowerCase() ?? '';
 
-for (const [index, { name, reactionMs }] of CASES.entries())
+for (const [index, { name, reactionMs, prep }] of CASES.entries())
   test(`round ${index + 1}, ${name}: the first word at each floor change`, async ({
     browser,
   }) => {
@@ -200,7 +218,9 @@ for (const [index, { name, reactionMs }] of CASES.entries())
           return { role, member, id: own.id, page };
         }),
       );
-      const deadline = nowMs() + PLAY_OUT_LIMIT_MS;
+      const deadline =
+        nowMs() + PLAY_OUT_LIMIT_MS + (prep === 'ran-out' ? 240_000 : 0);
+      const prepared = new Map<string, number>();
       const request = accounts.members[0]!.context.request;
       while (nowMs() < deadline) {
         const view = await readBallotRound(request, round.id);
@@ -208,6 +228,35 @@ for (const [index, { name, reactionMs }] of CASES.entries())
         const open = view.segments.find(
           (segment) => segment.type === 'speech' && segment.endedAt === null,
         );
+        const next = segments[view.segments.length];
+        const nextSeat = seats.find((entry) => entry.role === next?.side);
+        if (
+          prep &&
+          next &&
+          nextSeat &&
+          view.status === 'active' &&
+          !view.segments.some((segment) => segment.endedAt === null)
+        ) {
+          const command = { participantId: nextSeat.id };
+          const running = view.checkpoint?.active_prep != null;
+          if (!running && !prepared.has(next.key)) {
+            if (PREPARED[prep].includes(next.key)) {
+              await ballotRoundCommand(nextSeat.member.context.request, view, {
+                ...command,
+                type: 'start_prep',
+              });
+              prepared.set(next.key, nowMs());
+            }
+          } else if (
+            running &&
+            prep === 'button' &&
+            nowMs() - prepared.get(next.key)! >= PREP_BEFORE_BUTTON_MS
+          )
+            await ballotRoundCommand(nextSeat.member.context.request, view, {
+              ...command,
+              type: 'start_speech',
+            }).catch(() => undefined);
+        }
         if (
           open?.startedAt &&
           nowMs() - Date.parse(open.startedAt) >= HOLD_SPEECH_MS
@@ -283,6 +332,7 @@ for (const [index, { name, reactionMs }] of CASES.entries())
           {
             key: rule.key,
             expected: OPENING_WORDS[rule.key]!.toLowerCase(),
+            afterPrep: prepared.has(rule.key),
             first: firstWordOf(lines[0]?.text ?? ''),
             /** The sentence's own later words open the line: the first word is gone. */
             wordLost: /^(is|the|first|word|of|this|speech|and)\b/i.test(

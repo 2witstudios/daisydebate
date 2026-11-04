@@ -45,6 +45,41 @@ test(
   ddlTimeoutMs,
 );
 
+const roundPrepEndedAt = '20261104062409_round_prep_ended_at';
+const prepScratch = scratchDatabase(databaseUrl, 'roundprependedat');
+afterAll(() => prepScratch.drop());
+
+test(
+  'every stored checkpoint gains an empty prep end and keeps what it held',
+  async () => {
+    await prepScratch.create();
+    await prepScratch.migrate((folder) => folder < roundPrepEndedAt);
+    const client = new SQL(prepScratch.url);
+    const f = new Fixture(client);
+    try {
+      const active = await f.round();
+      const [before] =
+        await client`select runtime_state from rounds where id=${active}`;
+      await prepScratch.migrate((folder) => folder <= roundPrepEndedAt);
+      const [row] =
+        await client`select runtime_state from rounds where id=${active}`;
+      const { prep_ended_at, ...rest } = row!.runtime_state as Record<
+        string,
+        unknown
+      >;
+      assert({
+        given: 'a Round stored before prep ended on its own instant',
+        should: 'gain an empty prep end, and keep its checkpoint',
+        actual: [prep_ended_at, rest],
+        expected: [null, before!.runtime_state],
+      });
+    } finally {
+      await client.close();
+    }
+  },
+  ddlTimeoutMs,
+);
+
 const roundStartGate = '20261104061418_round_start_gate';
 const gateScratch = scratchDatabase(databaseUrl, 'roundstartgate');
 afterAll(() => gateScratch.drop());
