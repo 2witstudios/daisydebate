@@ -95,6 +95,7 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
         status: RecordingStatus | null,
         settledAt: Date = stopped,
         roundStatus: 'active' | 'completed' = 'completed',
+        broadcastEnded = true,
       ) => {
         const roundId = await f.round({
           room_id: await f.room(actor, format, { visibility: 'public' }),
@@ -114,8 +115,8 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
             : {}),
         });
         const broadcastId = createId();
-        await f.sql`insert into broadcasts (id,round_id,feed_key,release_policy,stopped_at,stop_reason)
-          values (${broadcastId},${roundId},${createId()},${JSON.stringify({ kind: 'delay', delayMs: 15_000 })}::text::jsonb,${stopped},'moderation')`;
+        await f.sql`insert into broadcasts (id,round_id,feed_key,release_policy,stopped_at,stop_reason,created_at)
+          values (${broadcastId},${roundId},${createId()},${JSON.stringify({ kind: 'delay', delayMs: 15_000 })}::text::jsonb,${broadcastEnded ? stopped : null},${broadcastEnded ? 'moderation' : null},${stopped})`;
         if (status)
           await f.sql`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle,updated_at)
             values (${createId()},${roundId},'ranked',${status},
@@ -161,8 +162,10 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
         actual: [
           await overWith('ready', justNow),
           await overWith(null, stopped, 'active'),
+          await overWith(null, stopped, 'completed', false),
+          await overWith('failed', stopped, 'completed', false),
         ],
-        expected: [false, false],
+        expected: [false, false, false, false],
       });
     } finally {
       await store.close();

@@ -7,8 +7,7 @@ request, and `fly.toml` limits how many of those run at once.
 
 ## What the driver sends
 
-`scripts/audience-load.ts` sends `--viewers N` requests a second to the web routes it
-is told to, open loop, with no cookie, from one source. Run it from several machines
+`scripts/audience-load.ts` loads `/watch/:id` at `--viewers N` divided by `--every-seconds` (2 by default) requests a second, open loop, with no cookie, from one source. Run it from several machines
 to stand in for separate addresses. It refuses every origin but local and staging.
 
 ## The comparison

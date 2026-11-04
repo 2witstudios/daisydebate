@@ -49,6 +49,7 @@ export const createAudiencePublisherStore = (url: string) => {
         sql`select b.id,b.round_id,b.feed_key,r.audience_link_hash,
             coalesce(
               case when r.status in ('completed','abandoned')
+                  and coalesce(b.stopped_at,b.completed_at) is not null
                   and (rc.status is null or rc.status in ('ready','failed','taken_down','removing','removed'))
                 then greatest(coalesce(b.stopped_at,b.completed_at),coalesce(rc.updated_at,b.created_at))
                   + make_interval(secs => ${input.settledKeepMs / 1000}::double precision)

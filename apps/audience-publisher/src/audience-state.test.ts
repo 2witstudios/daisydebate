@@ -265,6 +265,17 @@ test('a count that collapses raises the rate only by double', async () => {
   });
 });
 
+test('an unreadable object is replaced', async () => {
+  const h = harness({ published: 'not json' });
+  await h.publisher.pass();
+  assert({
+    given: 'a stored object that is not JSON',
+    should: 'publish over it and report nothing',
+    actual: [h.puts.length, h.failures],
+    expected: [1, []],
+  });
+});
+
 test('many failures in one pass report once, with their count', async () => {
   const h = harness({
     publishing: ['bad-one', 'bad-two'].map((feedKey) => ({

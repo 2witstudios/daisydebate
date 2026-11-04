@@ -45,6 +45,14 @@ export type AudienceStateFailure = {
   readonly failed: number;
 };
 
+const jsonOrNull = (body: string | null): unknown => {
+  try {
+    return body === null ? null : JSON.parse(body);
+  } catch {
+    return null;
+  }
+};
+
 type Deps = {
   readonly store: Store;
   readonly objects: {
@@ -104,9 +112,7 @@ export const createAudienceStatePublisher = (deps: Deps) => {
   /** After a restart: tabs still hold the rate in the object, so counts gather at it. */
   const restored = async (key: string) => {
     const body = await deps.objects.readState(key);
-    const parsed = audienceStateSchema.safeParse(
-      body === null ? null : JSON.parse(body),
-    );
+    const parsed = audienceStateSchema.safeParse(jsonOrNull(body));
     return parsed.success
       ? {
           key,
