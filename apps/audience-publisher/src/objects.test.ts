@@ -3,9 +3,9 @@ import { createPublicObjects } from './objects';
 
 setupRitewayBun();
 
-const stalledObjects = (server: { readonly port?: number }) =>
+const stalledObjects = (port: number | undefined) =>
   createPublicObjects({
-    endpoint: `http://127.0.0.1:${server.port}`,
+    endpoint: `http://127.0.0.1:${port}`,
     bucket: 'public',
     key: 'key',
     secret: 'secret',
@@ -25,7 +25,7 @@ test('a stalled store releases the publisher', async () => {
     fetch: () => new Promise<Response>(() => undefined),
   });
   try {
-    const objects = stalledObjects(server);
+    const objects = stalledObjects(server.port);
     assert({
       given: 'a store that never answers a write or a delete',
       should: 'give up on each by its timeout',
