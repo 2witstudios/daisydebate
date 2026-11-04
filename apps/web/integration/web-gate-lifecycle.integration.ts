@@ -31,7 +31,7 @@ test('a gate that dies comes back without touching web', async () => {
         .nothrow()
     ).exitCode === 0;
   const back = (await load('/api/health/live').catch(() => null))?.status ?? 0;
-  const logs = await $`docker logs ${container}`.text();
+  const logs = await $`docker logs ${container} 2>&1`.text();
   assert({
     given: 'the real gate supervisor restart event',
     should: 'be admitted by the centralized log boundary',
@@ -62,7 +62,7 @@ test('stopping the machine lets web drain before the gate exits', async () => {
   await startContainer(name);
   await $`docker kill --signal=TERM ${name}`.quiet();
   const status = await exited(name);
-  const logs = await $`docker logs ${name}`.text();
+  const logs = await $`docker logs ${name} 2>&1`.text();
   assert({
     given: 'a machine shutdown signal',
     should: 'finish web draining and exit successfully',
@@ -80,7 +80,7 @@ test('repeated gate deaths drain web and fail the machine once', async () => {
     if (death < 5) pid = await replacementMaster(name, pid);
   }
   const status = await exited(name);
-  const logs = await $`docker logs ${name}`.text();
+  const logs = await $`docker logs ${name} 2>&1`.text();
   assert({
     given: 'restart and repeated-death events from the real supervisor',
     should: 'be admitted with valid severity and deployment metadata',
@@ -105,7 +105,7 @@ test('an unresolved gateway fails closed with an admitted deployment event', asy
   const name = containers[3]!;
   await $`docker run -d --name ${name} --network none --user 1001:1001 -e PORT=8090 -e APP_VERSION=gate-proof -e GIT_COMMIT=fixture-commit -w /app/apps/web daisy-web-gate-proof bash gate/start.sh`.quiet();
   const status = await exited(name);
-  const logs = await $`docker logs ${name}`.text();
+  const logs = await $`docker logs ${name} 2>&1`.text();
   assert({
     given: 'no default gateway and supplied deployment identity',
     should: 'refuse startup and retain the failure under that identity',
@@ -129,7 +129,7 @@ test('malformed deployment metadata is never interpolated into a log', async () 
     containers.push(name);
     await $`docker run -d --name ${name} --network none --user 1001:1001 -e PORT=8090 -e APP_VERSION=${invalid} -w /app/apps/web daisy-web-gate-proof bash gate/start.sh`.quiet();
     const status = await exited(name);
-    const logs = await $`docker logs ${name}`.text();
+    const logs = await $`docker logs ${name} 2>&1`.text();
     assert({
       given: `${label} deployment metadata outside the log-ingestion base contract`,
       should: 'fail startup without printing the rejected raw value',

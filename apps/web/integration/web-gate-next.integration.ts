@@ -124,7 +124,7 @@ beforeAll(async () => {
   const mapped = await $`docker port ${container} 8080`.quiet().nothrow();
   if (mapped.exitCode !== 0)
     throw new Error(
-      `Next gate failed: ${await $`docker logs ${container}`.text()}`,
+      `Next gate failed: ${await $`docker logs ${container} 2>&1`.text()}`,
     );
   origin = `http://${mapped.stdout.toString().trim().split('\n')[0]}`;
   for (let attempt = 0; attempt < 50; attempt++) {
