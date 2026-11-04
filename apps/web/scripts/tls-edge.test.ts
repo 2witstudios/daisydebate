@@ -1,18 +1,17 @@
-import { afterEach, describe, test } from 'bun:test';
-import { assert, setupRitewayBun } from 'riteway/bun';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createSelfSignedTlsEdge } from '../e2e/support/tls-edge';
 
 setupRitewayBun();
 
-/** A plain upstream offering keep-alive, as the app server does, counting its sockets. */
-const keepAliveUpstream = () => {
-  const state = { connections: 0 };
-  const server = Bun.listen({
+test('the TLS edge forwards each request on its own upstream socket', async () => {
+  let connections = 0;
+  // Offers keep-alive, as the app server does.
+  const upstream = Bun.listen({
     hostname: '127.0.0.1',
     port: 0,
     socket: {
       open() {
-        state.connections += 1;
+        connections += 1;
       },
       data(socket) {
         socket.write(
@@ -21,38 +20,26 @@ const keepAliveUpstream = () => {
       },
     },
   });
-  return { state, server };
-};
-
-describe('the loopback TLS edge', () => {
-  const stops: (() => void)[] = [];
-  afterEach(() => {
-    for (const stop of stops.splice(0)) stop();
-  });
-
-  test('forwards each request on its own upstream socket', async () => {
-    const { state, server } = keepAliveUpstream();
-    const edge = createSelfSignedTlsEdge({ appPort: server.port, edgePort: 0 });
-    stops.push(
-      () => server.stop(true),
-      () => edge.stop(true),
-    );
-    const through = async () =>
-      (
-        await fetch(`https://127.0.0.1:${edge.port}/room`, {
-          // Bun: the edge's certificate is its own throwaway CA's.
-          tls: { rejectUnauthorized: false },
-        })
-      ).text();
-
+  const edge = createSelfSignedTlsEdge({ appPort: upstream.port, edgePort: 0 });
+  const through = async () =>
+    (
+      await fetch(`https://127.0.0.1:${edge.port}/room`, {
+        // Bun: the edge's certificate is its own throwaway CA's.
+        tls: { rejectUnauthorized: false },
+      })
+    ).text();
+  try {
     const answers = [await through(), await through()];
 
     assert({
       given: 'two requests in a row to an upstream that offers keep-alive',
       should:
         'never reuse a socket the upstream may already be closing (ISSUE-1345)',
-      actual: { answers, connections: state.connections },
+      actual: { answers, connections },
       expected: { answers: ['ok', 'ok'], connections: 2 },
     });
-  });
+  } finally {
+    edge.stop(true);
+    upstream.stop(true);
+  }
 });
