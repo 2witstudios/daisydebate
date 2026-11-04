@@ -7,7 +7,7 @@ import { createEraseAccountHandler } from './erase-account';
 import {
   ACCOUNT_CLOSED_QUERY,
   ERASE_ACCOUNT_QUERY,
-  notesErasedCookie,
+  draftsErasedCookie,
 } from './notices-keys';
 
 setupRitewayBun();
@@ -79,7 +79,7 @@ test('a confirmed member erasure runs once with the session subject and closes t
       ],
       303,
       `/sign-in?${ACCOUNT_CLOSED_QUERY}=1`,
-      notesErasedCookie('1', 60),
+      draftsErasedCookie('1', 60),
     ],
   });
 });
@@ -136,7 +136,7 @@ test('an unconfirmed, cross-origin, rate-limited or anonymous erase never reache
       `/settings?${ERASE_ACCOUNT_QUERY}=rate-limited`,
       '/sign-in',
       [303, 303, 303, 303],
-      [null, null, null, notesErasedCookie('1', 60)],
+      [null, null, null, draftsErasedCookie('1', 60)],
     ],
   });
 });
@@ -171,7 +171,7 @@ test('a confirmed request with no session left still clears the note copies', as
       unconfirmed.headers.get('set-cookie'),
       crossOrigin.headers.get('set-cookie'),
     ],
-    expected: ['/sign-in', notesErasedCookie('1', 60), null, null],
+    expected: ['/sign-in', draftsErasedCookie('1', 60), null, null],
   });
 });
 

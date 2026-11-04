@@ -14,7 +14,7 @@ import { forfeitOwnSeat } from './settle-left-round';
 
 export { expect };
 
-export const documentsPath = '/api/debate-room/documents/';
+export const documentsPath = '/api/documents/';
 /** Create a real authenticated document through its canonical document API. */
 export const createRoundFile = async (
   request: APIRequestContext,

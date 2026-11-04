@@ -4,7 +4,7 @@ import type { Dispatch } from 'react';
 import { flushSync } from 'react-dom';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
-import { FileTree } from './file-tree';
+import { FileTree } from '../documents/file-tree';
 import { RoomDetails } from './room-details';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';

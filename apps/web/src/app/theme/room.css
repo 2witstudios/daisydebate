@@ -189,7 +189,7 @@ img.ProseMirror-separator {
   display: block;
 }
 
-/* The round document: type, lists and checklists. */
+/* The document: type, lists and checklists. */
 .room-doc {
   font-size: var(--text-md);
   line-height: var(--leading-normal);

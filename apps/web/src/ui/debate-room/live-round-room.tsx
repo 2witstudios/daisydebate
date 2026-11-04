@@ -16,7 +16,7 @@ import { useLiveRoundView } from './use-live-round-view';
 import type { LeaveLinks } from './leave-room';
 import { liveRoundOf } from './live-round';
 import { DebateRoom } from './room';
-import { useRoundSync } from './use-round-sync';
+import { useDocumentSaving } from '../documents/use-document-saving';
 import {
   roundCommandIds,
   type RoundCommandIds,
@@ -129,7 +129,11 @@ export function LiveRoundRoom({
     },
     [driver],
   );
-  const { sync, notice, save } = useRoundSync(view.id, principalId, socketUrl);
+  const { sync, notice, save } = useDocumentSaving(
+    view.id,
+    principalId,
+    socketUrl,
+  );
   const intent = leaveIntent(view, actorId, now);
   const leaving: LeaveLinks =
     intent.kind === 'forfeit'
