@@ -237,14 +237,14 @@ CMD ["bash", "src/server/private-ingress.sh"]
 
 # ---- web-gate: what stands in front of web (ADR 0116), and all its proof needs.
 FROM base AS web-gate
-RUN apt-get update && apt-get install -y --no-install-recommends nginx \
+RUN apt-get update && apt-get install -y --no-install-recommends nginx util-linux \
   && rm -rf /var/lib/apt/lists/*
 COPY --chown=root:root apps/web/gate apps/web/gate
 
 # ---- runtime: the web app, and the default target (the last stage).
 FROM server-source AS runtime
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends nginx \
+RUN apt-get update && apt-get install -y --no-install-recommends nginx util-linux \
   && rm -rf /var/lib/apt/lists/*
 USER daisy
 # The gate takes Fly's http_service.internal_port, 8080; web sits behind it on loopback.

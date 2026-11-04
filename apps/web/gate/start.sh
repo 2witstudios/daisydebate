@@ -31,13 +31,19 @@ nginx -e /dev/stderr -t -q -c /tmp/web-gate/nginx.conf
 
 web_pid=
 gate_pid=
+stopping=false
 start_gate() {
-  nginx -e /dev/stderr -c /tmp/web-gate/nginx.conf -g 'daemon off;' &
+  # Keep the master and every worker in a separate process group, including orphans.
+  setsid nginx -e /dev/stderr -c /tmp/web-gate/nginx.conf -g 'daemon off;' &
   gate_pid=$!
 }
-# Fly sends SIGINT. The gate keeps answering until web has drained.
+stop_gate() {
+  kill -QUIT -- "-$gate_pid" 2>/dev/null || true
+  wait "$gate_pid" 2>/dev/null || true
+  kill -KILL -- "-$gate_pid" 2>/dev/null || true
+}
 stop_web() {
-  trap - INT TERM
+  stopping=true
   kill -INT "$web_pid" 2>/dev/null || true
 }
 trap stop_web INT TERM
@@ -53,12 +59,17 @@ while true; do
   wait -n "$web_pid" "$gate_pid" || status=$?
   if ! kill -0 "$web_pid" 2>/dev/null; then
     wait "$web_pid" || status=$?
-    kill -QUIT "$gate_pid" 2>/dev/null || true
-    wait "$gate_pid" 2>/dev/null || true
+    stop_gate
     exit "$status"
   fi
   if kill -0 "$gate_pid" 2>/dev/null; then
-    continue # a signal woke the wait: web is draining
+    continue
+  fi
+  # A killed master does not terminate nginx's workers or close their sockets.
+  kill -KILL -- "-$gate_pid" 2>/dev/null || true
+  if "$stopping"; then
+    wait "$web_pid" || status=$?
+    exit "$status"
   fi
   now=$(date +%s)
   if [ $((now - window_started)) -gt 60 ]; then
@@ -69,7 +80,8 @@ while true; do
   if [ "$deaths" -ge 5 ]; then
     log_event 60 web_gate.gave_up 'The gate keeps dying: ending the machine'
     stop_web
-    continue
+    wait "$web_pid" || true
+    exit 1
   fi
   log_event 50 web_gate.restarted 'The gate died and is starting again'
   sleep 1

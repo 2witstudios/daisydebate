@@ -30,8 +30,11 @@ script.
   requests a second with a short queue, then 503 with `Retry-After`. That is what bounds a crowd from
   many addresses and any attempt to miss the cache on purpose. A request with a session cookie, a
   worker's call and a stage's load do not wait in it.
-- **Failure.** A gate that dies restarts without touching web and logs `web_gate.restarted`. Five
-  deaths in a minute end the machine, with `web_gate.gave_up`, so Fly restarts it. Web unreachable
+- **Failure.** The gate owns a separate process group; a dead master’s surviving workers are
+  killed before a replacement starts. A gate that dies restarts without touching web and logs
+  `web_gate.restarted`. Five
+  deaths in a minute drain web and end the machine unsuccessfully, with `web_gate.gave_up`,
+  so Fly restarts it. A normal shutdown drains web before stopping the gate. Web unreachable
   fails Fly's checks and the alert probe's readiness read, which posts to Incidents. That probe's
   cadence is best effort (ADR 0046).
 

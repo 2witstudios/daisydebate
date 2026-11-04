@@ -1,7 +1,7 @@
 import { afterAll, beforeAll } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { $ } from 'bun';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,6 +13,13 @@ setupRitewayBun();
  */
 const standInWeb = `
 const seen = {};
+process.on('SIGINT', () => {
+  console.log('stand-in draining');
+  setTimeout(() => {
+    console.log('stand-in drained');
+    process.exit(0);
+  }, 250);
+});
 Bun.serve({
   hostname: '127.0.0.1',
   port: 8090,
@@ -22,7 +29,7 @@ Bun.serve({
     const key = url.pathname + url.search;
     seen[key] = (seen[key] ?? 0) + 1;
     seen['client:' + request.headers.get('fly-client-ip')] = true;
-    const headers = { 'content-type': 'text/html', 'cache-control': 'private, no-store' };
+    const headers = { 'content-type': 'text/html', 'cache-control': 'private, no-store', 'x-web-process': String(process.pid) };
     if (url.pathname === '/watch/sets-cookie') headers['set-cookie'] = 'a=b';
     return new Response('page ' + key + ' ' + seen[key], { headers });
   },
@@ -31,27 +38,59 @@ Bun.serve({
 
 const container = `daisy-web-gate-proof-${process.pid}`;
 let origin = '';
+let web = '';
+const containers = [container, `${container}-shutdown`, `${container}-deaths`];
+const startContainer = async (name: string) => {
+  await $`docker run -d --name ${name} --user 1001:1001 -p 127.0.0.1::8080 -e PORT=8090 -v ${web}/src:/app/apps/web/src:ro -w /app/apps/web daisy-web-gate-proof bash gate/start.sh`.quiet();
+  const mapped = (await $`docker port ${name} 8080`.text()).trim();
+  const address = `http://${mapped.split('\n')[0]}`;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const ready = await fetch(`${address}/api/health/live`).catch(() => null);
+    if (ready?.ok) return address;
+    await Bun.sleep(100);
+  }
+  throw new Error('The web gate did not start');
+};
+const master = async (name = container) =>
+  (
+    await $`docker exec ${name} cat /tmp/web-gate/nginx.pid`.quiet().text()
+  ).trim();
+const killMaster = async (name: string, pid: string) => {
+  await $`docker exec ${name} bash -c 'kill -9 "$1"' bash ${pid}`.quiet();
+};
+const replacementMaster = async (name: string, previous: string) => {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    await Bun.sleep(100);
+    const next = await master(name).catch(() => '');
+    if (next !== '' && next !== previous) return next;
+  }
+  return '';
+};
+const exited = async (name: string) => {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const running = (
+      await $`docker inspect -f '{{.State.Running}}' ${name}`.text()
+    ).trim();
+    if (running === 'false')
+      return (await $`docker wait ${name}`.text()).trim();
+    await Bun.sleep(100);
+  }
+  return 'still running';
+};
 
 beforeAll(async () => {
-  const web = mkdtempSync(join(tmpdir(), 'web-gate-'));
+  web = mkdtempSync(join(tmpdir(), 'web-gate-'));
   mkdirSync(join(web, 'src/server'), { recursive: true });
   writeFileSync(join(web, 'src/server/start.ts'), standInWeb);
   await $`docker build -q -f apps/web/Dockerfile --target web-gate -t daisy-web-gate-proof .`
     .cwd(join(import.meta.dir, '../../..'))
     .quiet();
-  await $`docker run -d --rm --name ${container} -p 127.0.0.1::8080 -e PORT=8090 -v ${web}/src:/app/apps/web/src:ro -w /app/apps/web daisy-web-gate-proof bash gate/start.sh`.quiet();
-  const mapped = (await $`docker port ${container} 8080`.text()).trim();
-  origin = `http://${mapped.split('\n')[0]}`;
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const ready = await fetch(`${origin}/api/health/live`).catch(() => null);
-    if (ready?.ok) return;
-    await Bun.sleep(100);
-  }
-  throw new Error('The web gate did not start');
+  origin = await startContainer(container);
 }, 300_000);
 
 afterAll(async () => {
-  await $`docker rm -f ${container}`.quiet().nothrow();
+  await $`docker rm -f ${containers}`.quiet().nothrow();
+  rmSync(web, { recursive: true, force: true });
 });
 
 const seen = async (key: string) => {
@@ -225,17 +264,70 @@ test('web learns the caller from fly-proxy only', async () => {
 });
 
 test('a gate that dies comes back without touching web', async () => {
-  await $`docker exec ${container} bash -c 'kill -9 $(cat /tmp/web-gate/nginx.pid)'`.quiet();
-  let back = 0;
-  for (let attempt = 0; attempt < 50 && back !== 200; attempt++) {
-    await Bun.sleep(200);
-    back = (await load('/api/health/live').catch(() => null))?.status ?? 0;
-  }
+  const webPid = (await load('/api/health/live')).headers.get('x-web-process');
+  const previous = await master();
+  await killMaster(container, previous);
+  const replacement = await replacementMaster(container, previous);
+  // A failed bind retries for 2.5 seconds; orphan workers can still answer meanwhile.
+  await Bun.sleep(3000);
+  const alive =
+    replacement !== '' &&
+    (
+      await $`docker exec ${container} bash -c 'kill -0 "$1"' bash ${replacement}`
+        .quiet()
+        .nothrow()
+    ).exitCode === 0;
+  const back = (await load('/api/health/live').catch(() => null))?.status ?? 0;
   const logs = await $`docker logs ${container}`.text();
   assert({
-    given: 'the gate killed',
-    should: 'answer again and log the restart',
-    actual: [back, logs.includes('web_gate.restarted')],
-    expected: [200, true],
+    given: 'a killed nginx master whose workers held the listening sockets',
+    should:
+      'replace the master with a surviving process and keep web answering',
+    actual: [
+      replacement !== previous && replacement !== '',
+      alive,
+      back,
+      (await load('/api/health/live')).headers.get('x-web-process') === webPid,
+      logs.includes('Address already in use'),
+    ],
+    expected: [true, true, 200, true, false],
   });
-});
+}, 20_000);
+
+test('stopping the machine lets web drain before the gate exits', async () => {
+  const name = containers[1]!;
+  await startContainer(name);
+  await $`docker kill --signal=TERM ${name}`.quiet();
+  const status = await exited(name);
+  const logs = await $`docker logs ${name}`.text();
+  assert({
+    given: 'a machine shutdown signal',
+    should: 'finish web draining and exit successfully',
+    actual: [status, logs.includes('stand-in drained')],
+    expected: ['0', true],
+  });
+}, 20_000);
+
+test('repeated gate deaths drain web and fail the machine once', async () => {
+  const name = containers[2]!;
+  await startContainer(name);
+  let pid = await master(name);
+  for (let death = 1; death <= 5; death++) {
+    await killMaster(name, pid);
+    if (death < 5) pid = await replacementMaster(name, pid);
+  }
+  const status = await exited(name);
+  const logs = await $`docker logs ${name}`.text();
+  assert({
+    given: 'five gate master deaths within a minute',
+    should: 'recover four times, drain web once and exit unsuccessfully',
+    actual: [
+      status,
+      logs.split('web_gate.restarted').length - 1,
+      logs.split('web_gate.gave_up').length - 1,
+      logs.split('stand-in drained').length - 1,
+      logs.includes('Address already in use'),
+    ],
+    expected: ['1', 4, 1, 1, false],
+  });
+}, 30_000);
