@@ -222,13 +222,8 @@ export function LiveRoundRoom({
               roomId={view.roomId}
             />
             {/* A document is not the Round's, so its end stops no one typing. */}
-            <BoundedDocuments title="Your files">
-              <ManagerWorkspace
-                sync={sync}
-                notice={notice}
-                save={save}
-                back={`/rounds/${view.id}`}
-              />
+            <BoundedDocuments>
+              <ManagerWorkspace sync={sync} notice={notice} save={save} />
             </BoundedDocuments>
           </>
         )

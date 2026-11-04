@@ -8,14 +8,14 @@ import type { DriveActions } from './use-drive';
 setupRitewayBun();
 
 const drive: DriveActions = {
-  back: '/prep',
   folders: [{ id: 'folder-a', name: 'Cases', parentFolderId: null }],
   recent: [{ id: 'doc-b', title: 'Last night' }],
   loadFolders: () => {},
   open: () => {},
   createDocument: () => {},
   createFolder: () => {},
-  toggle: () => {},
+  toggle: async () => true,
+  folderCount: async () => 0,
   more: () => {},
   change: () => {},
 };
@@ -91,7 +91,7 @@ describe('FileTree', () => {
         html.includes('href="/prep/folders/folder-a/delete"'),
         html.includes('role="menuitem"'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, false, true],
     });
   });
 

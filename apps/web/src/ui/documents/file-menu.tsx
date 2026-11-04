@@ -1,12 +1,22 @@
 'use client';
 
-import { useId, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 import {
   folderChoices,
   type DriveNode,
 } from '../../features/documents/drive-tree';
-import { Icon, type IconName } from '../components/icon/icon';
+import { Icon } from '../components/icon/icon';
 import type { DriveActions } from './use-drive';
+import { FileMenuItem as Item } from './file-menu-item';
+import { FileDeleteStep } from './file-delete-step';
 
 type Box = { readonly width: number; readonly height: number };
 type Anchor = {
@@ -33,33 +43,29 @@ export const menuPlace = (
       : Math.max(MENU_GAP, anchor.top - menu.height - MENU_GAP),
 });
 
-const itemClass =
-  'flex min-h-dense-target w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-left text-sm text-ink no-underline hover:bg-surface-overlay hover:no-underline';
-const dangerClass = `${itemClass} text-live`;
-
-function Item({
-  icon,
-  danger = false,
-  onClick,
-  children,
-}: {
-  readonly icon?: IconName;
-  readonly danger?: boolean;
-  readonly onClick: () => void;
-  readonly children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      className={danger ? dangerClass : itemClass}
-      onClick={onClick}
-    >
-      {icon ? <Icon name={icon} size={14} /> : null}
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-    </button>
-  );
-}
+/** Menu keyboard behavior follows the same list in every step. */
+const moveMenuFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+  const items = [
+    ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+      '[role="menuitem"]:not(:disabled)',
+    ),
+  ];
+  const index = items.indexOf(document.activeElement as HTMLButtonElement);
+  const next =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? items.length - 1
+        : event.key === 'ArrowDown'
+          ? (index + 1) % items.length
+          : event.key === 'ArrowUp'
+            ? (index - 1 + items.length) % items.length
+            : null;
+  if (next !== null) {
+    event.preventDefault();
+    items[next]?.focus();
+  }
+};
 
 type View = 'main' | 'move' | 'delete';
 
@@ -80,15 +86,49 @@ export function FileMenu({
   const menu = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>('main');
   const isFolder = node.kind === 'folder';
-  const close = () => menu.current?.hidePopover();
+  const close = () => {
+    menu.current?.hidePopover();
+    trigger.current?.focus();
+  };
   const run = (action: () => void) => {
     close();
     action();
   };
-  const reveal = () => {
-    if (node.kind === 'folder' && !node.expanded)
-      drive.toggle(node.id, true, node.contents.state === 'read');
+  const reveal = async () =>
+    node.kind !== 'folder' ||
+    (await drive.toggle(node.id, true, node.contents.state === 'read'));
+  const createHere = async (create: () => void) => {
+    close();
+    if (await reveal()) create();
   };
+  const place = useCallback(() => {
+    if (!menu.current?.matches(':popover-open') || !trigger.current) return;
+    const location = menuPlace(
+      trigger.current.getBoundingClientRect(),
+      { width: menu.current.offsetWidth, height: menu.current.offsetHeight },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    menu.current.style.setProperty('--file-menu-left', `${location.left}px`);
+    menu.current.style.setProperty('--file-menu-top', `${location.top}px`);
+  }, []);
+  useLayoutEffect(() => {
+    place();
+    if (menu.current?.matches(':popover-open'))
+      menu.current
+        .querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
+        ?.focus();
+  }, [view, place]);
+  useEffect(() => {
+    const element = menu.current;
+    if (!element) return;
+    const observer = new ResizeObserver(place);
+    observer.observe(element);
+    window.addEventListener('resize', place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', place);
+    };
+  }, [place]);
   const moveTo = (target: string | null) =>
     run(() =>
       drive.change(
@@ -116,18 +156,16 @@ export function FileMenu({
         role="menu"
         aria-label={`Actions for ${label}`}
         className="file-menu w-file-menu flex-col rounded-md border border-border-strong bg-surface-raised p-1 text-ink shadow-3"
+        onKeyDown={moveMenuFocus}
         onToggle={(event) => {
-          const node_ = menu.current;
           if (event.newState !== 'open') return setView('main');
           drive.loadFolders();
-          if (!node_ || !trigger.current) return;
-          const place = menuPlace(
-            trigger.current.getBoundingClientRect(),
-            { width: node_.offsetWidth, height: node_.offsetHeight },
-            { width: window.innerWidth, height: window.innerHeight },
-          );
-          node_.style.setProperty('--file-menu-left', `${place.left}px`);
-          node_.style.setProperty('--file-menu-top', `${place.top}px`);
+          place();
+          menu.current
+            ?.querySelector<HTMLButtonElement>(
+              '[role="menuitem"]:not(:disabled)',
+            )
+            ?.focus();
         }}
       >
         {view === 'main' ? (
@@ -137,10 +175,7 @@ export function FileMenu({
                 <Item
                   icon="file"
                   onClick={() =>
-                    run(() => {
-                      reveal();
-                      drive.createDocument(node.id);
-                    })
+                    void createHere(() => drive.createDocument(node.id))
                   }
                 >
                   New document here
@@ -148,10 +183,7 @@ export function FileMenu({
                 <Item
                   icon="folder"
                   onClick={() =>
-                    run(() => {
-                      reveal();
-                      drive.createFolder(node.id);
-                    })
+                    void createHere(() => drive.createFolder(node.id))
                   }
                 >
                   New folder here
@@ -166,22 +198,9 @@ export function FileMenu({
               Move to…
             </Item>
             <hr className="m-1 border-border" />
-            {isFolder ? (
-              <a
-                role="menuitem"
-                href={`/prep/folders/${node.id}/delete`}
-                target={drive.back.startsWith('/rounds') ? '_blank' : undefined}
-                rel="noopener"
-                className={dangerClass}
-              >
-                <Icon name="trash" size={14} />
-                <span className="min-w-0 flex-1 truncate">Delete</span>
-              </a>
-            ) : (
-              <Item icon="trash" danger onClick={() => setView('delete')}>
-                Delete
-              </Item>
-            )}
+            <Item icon="trash" danger onClick={() => setView('delete')}>
+              Delete
+            </Item>
           </>
         ) : null}
         {view === 'move' ? (
@@ -199,26 +218,21 @@ export function FileMenu({
                   icon="folder"
                   onClick={() => moveTo(choice.id)}
                 >
-                  {`${'  '.repeat(choice.depth)}${choice.name}`}
+                  {`${'\u00a0\u00a0'.repeat(choice.depth)}${choice.name}`}
                 </Item>
               ),
             )}
           </>
         ) : null}
         {view === 'delete' ? (
-          <>
-            <p className="px-2 py-1 text-xs text-ink-muted">
-              This deletes {label} for good. It cannot be restored.
-            </p>
-            <Item
-              icon="trash"
-              danger
-              onClick={() => run(() => drive.change('delete', { id: node.id }))}
-            >
-              Delete for good
-            </Item>
-            <Item onClick={close}>Keep it</Item>
-          </>
+          <FileDeleteStep
+            node={node}
+            label={label}
+            folderCount={drive.folderCount}
+            change={drive.change}
+            close={close}
+            run={run}
+          />
         ) : null}
       </div>
     </>

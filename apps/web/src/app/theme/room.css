@@ -128,11 +128,6 @@
 
 @utility room-palette {
   max-width: 36rem;
-  margin-top: 18vh;
-
-  & input:focus-visible {
-    box-shadow: none;
-  }
 }
 
 /* A row's actions show when the row is in use, and always under a finger. */
@@ -169,6 +164,8 @@
   position: fixed;
   inset: auto;
   margin: 0;
+  max-height: calc(100dvh - 4px);
+  overflow-y: auto;
   top: var(--file-menu-top, 0);
   left: var(--file-menu-left, 0);
 
@@ -236,7 +233,6 @@ img.ProseMirror-separator {
   display: block;
 }
 
-/* The document: type, lists and checklists. */
 /* A finger needs the full target, on any screen. */
 @media (pointer: coarse), (width < 641px) {
   :root {
@@ -252,6 +248,7 @@ img.ProseMirror-separator {
   box-shadow: none;
 }
 
+/* The document: type, lists and checklists. */
 .room-doc {
   font-size: var(--text-md);
   line-height: var(--leading-normal);

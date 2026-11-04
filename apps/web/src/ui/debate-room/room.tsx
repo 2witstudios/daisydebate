@@ -163,7 +163,6 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
     opened: state.opened,
     dispatch,
     setProblem: report,
-    back: `/rounds/${round.id}/room`,
   });
   const hydrated = useHydrated();
   const unread = chatUnread(round, state);
@@ -250,8 +249,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
         hydrated={hydrated}
       />
       <CommandPalette
-        open={state.palette !== 'closed'}
-        mode={state.palette === 'create' ? 'create' : 'search'}
+        mode={state.palette}
         documents={state.opened.map((open) => ({
           id: openId(open),
           title: openTitle(open),

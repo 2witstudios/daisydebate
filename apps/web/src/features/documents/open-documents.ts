@@ -112,6 +112,6 @@ export function addOpenDocument<
     ...state,
     opened: withBodies(state.opened, [document]),
     tabs: awaited ? state.tabs : openTab(state.tabs, document.id),
-    palette: 'closed',
+    palette: awaited ? state.palette : 'closed',
   };
 }

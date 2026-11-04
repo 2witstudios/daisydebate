@@ -186,6 +186,7 @@ export default defineConfig({
         '**/round-command-recovery.e2e.ts',
         '**/document-draft-recovery.e2e.ts',
         '**/document-manager.e2e.ts',
+        '**/document-file-actions.e2e.ts',
         '**/resolution-strike.e2e.ts',
         '**/realtime-room-delivery.e2e.ts',
         '**/messaging-realtime.e2e.ts',

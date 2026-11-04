@@ -3,7 +3,7 @@ import type {
   DriveEntryView,
 } from '../../features/documents/drive-tree';
 
-/** A folder, for a Move form. */
+/** A folder offered as a move destination. */
 export type FolderRow = {
   readonly id: string;
   readonly name: string;
@@ -28,7 +28,8 @@ export type DriveChange =
   | 'create'
   | 'folders/create'
   | 'folders/rename'
-  | 'folders/move';
+  | 'folders/move'
+  | 'folders/delete';
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -52,6 +53,8 @@ export const driveApi = {
   recent: async () =>
     (await post<{ documents: readonly RecentDocument[] }>('recent', {}))
       .documents,
+  folderCount: async (id: string) =>
+    (await post<{ count: number }>('folders/count', { id })).count,
   search: async (text: string) =>
     (await post<{ hits: readonly SearchHit[] }>('search', { text, page: 0 }))
       .hits,

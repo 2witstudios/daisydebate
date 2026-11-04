@@ -163,11 +163,8 @@ export default async function RoundPage({
         ) : null}
       </RoundReceipt>
       {ownsFiles && filePrincipal !== null ? (
-        <BoundedDocuments title="Your files">
-          <DocumentManager
-            principalId={filePrincipal.userId}
-            back={`/rounds/${result.round.id}`}
-          />
+        <BoundedDocuments>
+          <DocumentManager principalId={filePrincipal.userId} />
         </BoundedDocuments>
       ) : null}
     </>

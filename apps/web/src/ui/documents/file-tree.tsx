@@ -1,7 +1,12 @@
 'use client';
 
-import { useRef, useState, type Dispatch, type ReactNode } from 'react';
-import Link from 'next/link';
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+} from 'react';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
 import type {
   DriveFolderNode,
@@ -79,6 +84,25 @@ function NodeRow({
   readonly drive: DriveActions;
   readonly onOpen: () => void;
 }) {
+  const rowElement = useRef<HTMLDivElement>(null);
+  const rowButton = useRef<HTMLButtonElement>(null);
+  const wasRenaming = useRef(renaming);
+  useLayoutEffect(() => {
+    if (wasRenaming.current && !renaming) rowButton.current?.focus();
+    wasRenaming.current = renaming;
+  }, [renaming]);
+  useLayoutEffect(() => {
+    const element = rowElement.current;
+    return () => {
+      if (!element?.contains(document.activeElement)) return;
+      const next = [
+        ...(element
+          .closest('nav')
+          ?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+      ].find((button) => !element.contains(button));
+      next?.focus();
+    };
+  }, []);
   const done = (name: string | null) => {
     dispatch({ type: 'drive/renaming', id: null });
     const typed = name?.trim();
@@ -88,7 +112,7 @@ function NodeRow({
     else drive.change('rename', { id: node.id, title: typed });
   };
   return (
-    <div className={row(current)}>
+    <div ref={rowElement} className={row(current)}>
       {renaming ? (
         <span className={cn(rowMain, 'cursor-auto')}>
           {leading}
@@ -98,6 +122,7 @@ function NodeRow({
         <>
           <button
             type="button"
+            ref={rowButton}
             aria-expanded={expanded}
             aria-current={current ? 'page' : undefined}
             className={rowMain}
@@ -223,8 +248,6 @@ function FolderRow({
 /** The sidebar's heading, for a frame that has none of its own. */
 export type FilesHeading = {
   readonly title: string;
-  /** A way back, on a page that opened at a folder. */
-  readonly parentHref?: string | null;
 };
 
 type Props = {
@@ -234,8 +257,6 @@ type Props = {
   readonly dispatch: Dispatch<ManagerAction>;
   readonly drive: DriveActions;
   readonly heading?: FilesHeading | null;
-  /** The folder this page opened at; null is the drive's root. */
-  readonly rootFolderId?: string | null;
 };
 
 /** Create, search, then the viewer's drive: one tree wherever it opens. */
@@ -246,21 +267,11 @@ export function FileTree({
   dispatch,
   drive,
   heading = null,
-  rootFolderId = null,
 }: Props) {
   return (
     <nav aria-label="Files" className="flex min-h-0 flex-1 flex-col">
       {heading ? (
         <div className="flex h-tab-strip shrink-0 items-center gap-1 pr-1 pl-3">
-          {heading.parentHref ? (
-            <Link
-              href={heading.parentHref}
-              aria-label="Back to My drive"
-              className="flex size-dense-target shrink-0 items-center justify-center rounded-sm text-ink-muted hover:bg-surface-overlay hover:text-ink"
-            >
-              <Icon name="chevronLeft" size={14} />
-            </Link>
-          ) : null}
           <h2 className="min-w-0 flex-1 truncate text-sm font-strong">
             {heading.title}
           </h2>
@@ -311,11 +322,11 @@ export function FileTree({
         ) : null}
         <section aria-label="My drive" className="flex flex-col">
           <h2 className="flex h-dense-target items-center px-2 text-xs font-strong tracking-wider text-ink-muted uppercase">
-            {rootFolderId === null ? 'My drive' : 'In this folder'}
+            My drive
           </h2>
           <Contents
             contents={tree.contents}
-            folderId={rootFolderId}
+            folderId={null}
             context={{ active, renaming, dispatch, drive }}
           />
         </section>

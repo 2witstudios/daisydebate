@@ -28,8 +28,8 @@ export default async function PrepPage({
     <div data-workspace className="flex min-h-0 flex-1 flex-col">
       <DocumentManager
         principalId={principal.userId}
-        back="/prep"
-        initial={{ folderId: null, ...page, folders }}
+
+        initial={{ ...page, folders }}
         notice={driveNoticeText(params.notice)}
         openId={
           typeof params.open === 'string' &&

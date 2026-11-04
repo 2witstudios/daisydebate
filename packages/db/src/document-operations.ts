@@ -296,7 +296,7 @@ export const documentOperations = ({
     );
   },
 
-  /** The document edited last, so a load with nothing open lands on the work. */
+  /** Newest edited documents, without bodies, for Recent and reopening. */
   async recentDocuments(input: {
     readonly ownerActorId: string;
     readonly limit: number;
@@ -606,10 +606,22 @@ export const documentOperations = ({
     readonly id: string;
     readonly ownerActorId: string;
     readonly admits: DriveAdmission;
-  }): Promise<boolean> {
+  }): Promise<readonly string[] | null> {
     return instrumented(eventSink, 'deleteDocumentFolder', () =>
       database.transaction(async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
+        await ownFolder(tx, input.ownerActorId, input.id);
+        // The account fence holds all document mutations until the cascade ends,
+        // so these are exactly the bodies removed by this confirmed deletion.
+        const removed = await tx.select({ id: documents.id }).from(documents)
+          .where(sql`
+          ${documents.folderId} in (
+            with recursive down(id) as (
+              select id from document_folders where id = ${input.id}
+              union all
+              select f.id from document_folders f join down on f.parent_folder_id = down.id
+            ) select id from down
+          )`);
         const rows = await tx
           .delete(documentFolders)
           .where(
@@ -619,7 +631,9 @@ export const documentOperations = ({
             ),
           )
           .returning({ id: documentFolders.id });
-        return rows.length === 1;
+        return rows.length === 1
+          ? removed.map((document) => document.id)
+          : null;
       }),
     );
   },

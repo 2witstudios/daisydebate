@@ -344,14 +344,14 @@ export function createDocumentOperations({
     async deleteFolder(
       principal: DocumentPrincipal,
       input: { readonly id: string },
-    ): Promise<void> {
-      found(
-        await store.deleteDocumentFolder({
-          id: input.id,
-          ownerActorId: principal.actorId,
-          admits,
-        }),
-      );
+    ): Promise<{ readonly deletedDocumentIds: readonly string[] }> {
+      const deletedDocumentIds = await store.deleteDocumentFolder({
+        id: input.id,
+        ownerActorId: principal.actorId,
+        admits,
+      });
+      if (deletedDocumentIds === null) throw createAppError('NOT_FOUND');
+      return { deletedDocumentIds };
     },
   };
 }

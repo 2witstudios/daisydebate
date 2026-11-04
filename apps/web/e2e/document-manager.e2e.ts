@@ -30,6 +30,7 @@ const typeInto = async (page: Page, title: string, text: string) => {
 const journey = async (
   browser: Parameters<typeof createRoomLaunchAccounts>[0],
   viewport: { readonly width: number; readonly height: number },
+  testInfo: import('@playwright/test').TestInfo,
 ) => {
   const accounts = await createRoomLaunchAccounts(browser, 2);
   let roundId: string | undefined;
@@ -59,6 +60,10 @@ const journey = async (
         }),
       ).toBeVisible();
     }
+    await testInfo.attach(`prep-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
     // The + opens a palette in the middle of the screen, not a menu beside it.
     await tree(page).getByRole('button', { name: 'New', exact: true }).click();
     const palette = page.getByRole('dialog', { name: 'Command palette' });
@@ -67,6 +72,13 @@ const journey = async (
     expect(
       Math.abs(box.x + box.width / 2 - viewport.width / 2),
     ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(box.y + box.height / 2 - viewport.height / 2),
+    ).toBeLessThanOrEqual(1);
+    await testInfo.attach(`palette-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
     await palette.getByRole('option', { name: /Document/ }).click();
     await typeInto(page, 'Untitled', `Strongest card ${word}`);
     const typing = await page
@@ -103,6 +115,10 @@ const journey = async (
     });
     await expect(folder).toBeVisible();
     await tree(page).getByLabel('Actions for Untitled').first().click();
+    await testInfo.attach(`menu-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
     await page.getByRole('menuitem', { name: 'Move to…' }).click();
     await page.getByRole('menuitem', { name: 'Cases' }).click();
     await folder.click();
@@ -151,6 +167,10 @@ const journey = async (
     const answer = `Answered in prep ${word}`;
     await typeInto(page, 'Untitled', answer);
 
+    await testInfo.attach(`round-${viewport.width}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
     // Back at /prep, it is the same document.
     await page.goto(`${origin}/prep`);
     await expect(
@@ -174,12 +194,12 @@ const journey = async (
 
 test('a document made at /prep is found and edited during prep in a live Round', async ({
   browser,
-}) => {
-  await journey(browser, { width: 1280, height: 800 });
+}, testInfo) => {
+  await journey(browser, { width: 1280, height: 800 }, testInfo);
 });
 
-test('the same journey on a phone', async ({ browser }) => {
-  await journey(browser, { width: 390, height: 844 });
+test('the same journey on a phone', async ({ browser }, testInfo) => {
+  await journey(browser, { width: 390, height: 844 }, testInfo);
 });
 
 test('a document deleted in another tab keeps its text and saves as new', async ({
@@ -225,6 +245,126 @@ test('a document deleted in another tab keeps its text and saves as new', async 
     await expect(
       page.getByRole('textbox', { name: 'Untitled', exact: true }),
     ).toContainText(text);
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('phone Files keeps notices visible and reopens cached documents', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const context = accounts.members[0]!.context;
+  try {
+    const page = await openPage(context, 'Files navigation and notices');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/prep`);
+    await tree(page).getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('option', { name: /Document/ }).click();
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Back to Files' }).click();
+    await expect(
+      tree(page).getByRole('button', { name: 'New', exact: true }),
+    ).toBeFocused();
+    await tree(page)
+      .getByRole('region', { name: 'My drive' })
+      .getByRole('button', { name: 'Untitled', exact: true })
+      .click();
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Back to Files' }),
+    ).toBeFocused();
+    await page.getByRole('button', { name: 'Back to Files' }).click();
+    await page.route('**/api/documents/create', (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: '{}',
+      }),
+    );
+    await tree(page).getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('option', { name: /Document/ }).click();
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText('drive');
+    await expect(tree(page)).toBeVisible();
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('row actions keep focus and confirm folder deletion in place', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const context = accounts.members[0]!.context;
+  try {
+    const page = await openPage(context, 'Folder actions');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/prep`);
+    const created = await page.request.post('/api/documents/folders/create', {
+      headers: { origin },
+      data: { name: 'Cases', parentFolderId: null },
+    });
+    const { folder } = (await created.json()) as { folder: { id: string } };
+    await page.reload();
+    await tree(page).getByLabel('Actions for Cases').click();
+    await expect(
+      page.getByRole('menuitem', { name: 'New document here' }),
+    ).toBeFocused();
+    await page.getByRole('menuitem', { name: 'New document here' }).click();
+    await expect(
+      page.getByRole('textbox', { name: 'Untitled', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Back to Files' }).click();
+    const row = tree(page).getByRole('region', { name: 'My drive' });
+    await expect(
+      row.getByRole('button', { name: 'Untitled', exact: true }),
+    ).toBeVisible();
+    await tree(page).getByLabel('Actions for Untitled').click();
+    await page.getByRole('menuitem', { name: 'Rename', exact: true }).click();
+    const naming = tree(page).getByLabel('Rename Untitled');
+    await naming.fill('Evidence');
+    await naming.press('Enter');
+    await expect(
+      row.getByRole('button', { name: 'Evidence', exact: true }),
+    ).toBeVisible();
+    await expect(
+      row.getByRole('button', { name: 'Evidence', exact: true }),
+    ).toBeFocused();
+    await tree(page).getByLabel('Actions for Evidence').click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    await expect(
+      page.getByRole('menuitem', { name: 'Delete for good' }),
+    ).toBeFocused();
+    await page.getByRole('menuitem', { name: 'Keep it' }).click();
+    await expect(
+      row.getByRole('button', { name: 'Evidence', exact: true }),
+    ).toBeVisible();
+    await tree(page).getByLabel('Actions for Cases').click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    await expect(page.getByText(/1 document for good/)).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Delete for good' }).click();
+    await expect(
+      tree(page).getByRole('button', { name: 'Cases', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Close Evidence', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText('Evidence was deleted', { exact: false }),
+    ).toHaveCount(0);
+    const listed = await page.request.post('/api/documents/list', {
+      headers: { origin },
+      data: { folderId: folder.id, after: null },
+    });
+    expect(listed.status()).toBe(404);
+    expect(page.url()).toBe(`${origin}/prep`);
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();

@@ -201,7 +201,11 @@ export function reduceManager<T extends ManagerState>(
   });
   switch (action.type) {
     case 'tabs/open':
-      return { ...state, tabs: openTab(state.tabs, action.id) };
+      return {
+        ...state,
+        tabs: openTab(state.tabs, action.id),
+        pane: 'document',
+      };
     case 'tabs/close':
       return withTabs(state, closeTab(state.tabs, action.id));
     case 'tabs/activate':
@@ -220,7 +224,12 @@ export function reduceManager<T extends ManagerState>(
     case 'doc/withdrawn':
       return { ...state, opened: [], tabs: { open: [], active: null } };
     case 'doc/add':
-      return { ...addOpenDocument(state, action.document), pane: 'document' };
+      return {
+        ...addOpenDocument(state, action.document),
+        pane: findOpen(state.opened, action.document.id)
+          ? state.pane
+          : 'document',
+      };
     case 'doc/opening': {
       const known = findOpen(state.opened, action.id);
       const opened: readonly OpenDocument[] =
@@ -246,7 +255,6 @@ export function reduceManager<T extends ManagerState>(
     }
     case 'doc/closed':
       return {
-        ...state,
         ...withTabs(state, closeTab(state.tabs, action.id)),
         opened: state.opened.filter((open) => openId(open) !== action.id),
       };

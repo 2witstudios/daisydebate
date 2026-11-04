@@ -15,7 +15,7 @@ export const FILES_HIDE_ID = 'drive-files-hide';
 export const FILES_SHOW_ID = 'drive-files-show';
 
 const headerButton =
-  'flex size-room-target shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-raised';
+  'flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-raised';
 
 /** The closed Files sidebar's way back, at the start of the document tabs. */
 export function ShowFiles({
@@ -74,7 +74,7 @@ export function FilesSidebar({
         <h2 className="flex-1 text-sm font-strong">Files</h2>
         <button
           type="button"
-          aria-label="New document"
+          aria-label="New"
           onClick={() => dispatch({ type: 'palette/open', mode: 'create' })}
           className={headerButton}
         >

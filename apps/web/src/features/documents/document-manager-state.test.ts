@@ -246,3 +246,52 @@ describe('reduceManager: the panel a narrow screen shows', () => {
     });
   });
 });
+
+test('choosing a cached document returns to its pane', () => {
+  const cached = runActions([
+    { type: 'doc/add', document },
+    { type: 'pane/files' },
+  ]);
+  assert({
+    given: 'Files after opening or closing a cached document',
+    should: 'show its editor when chosen again',
+    actual: [
+      reduceManager(cached, { type: 'tabs/open', id: document.id }).pane,
+      runActions(
+        [
+          { type: 'tabs/close', id: document.id },
+          { type: 'tabs/open', id: document.id },
+        ],
+        cached,
+      ).pane,
+    ],
+    expected: ['document', 'document'],
+  });
+});
+
+test('a late body preserves Files navigation', () => {
+  assert({
+    given: 'a slow document read after returning to Files',
+    should: 'keep Files visible when the body arrives',
+    actual: runActions([
+      { type: 'doc/opening', id: document.id, title: document.title },
+      { type: 'pane/files' },
+      { type: 'doc/add', document },
+    ]).pane,
+    expected: 'files',
+  });
+});
+
+test('a late body preserves newer search', () => {
+  assert({
+    given: 'a document read outstanding when search opens',
+    should: 'keep search open when its body arrives',
+    actual: runActions([
+      { type: 'doc/opening', id: document.id, title: document.title },
+      { type: 'pane/files' },
+      { type: 'palette/open', mode: 'search' },
+      { type: 'doc/add', document },
+    ]).palette,
+    expected: 'search',
+  });
+});

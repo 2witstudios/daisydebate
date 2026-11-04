@@ -72,9 +72,9 @@ export const createCommands: readonly Command[] = [
     id: 'create:document',
     title: 'Document',
     group: 'Create',
-    keywords: ['new', 'page', 'write', 'notes'],
+    keywords: ['new', 'document', 'write', 'notes'],
     choice: { kind: 'new' },
-    snippet: 'A page to write in',
+    snippet: 'A document to write in',
   },
   {
     id: FOLDER_COMMAND,
@@ -137,8 +137,7 @@ function Highlighted({ ranked }: { readonly ranked: RankedCommand }) {
 }
 
 type Props = {
-  readonly mode?: Exclude<PaletteMode, 'closed'>;
-  readonly open: boolean;
+  readonly mode: PaletteMode;
   /** Offered with nothing typed: the documents open here. */
   readonly documents: readonly PaletteDocument[];
   /** Searches the member's own documents; without it only those above are offered. */
@@ -149,14 +148,14 @@ type Props = {
 
 /** Raycast-style: type to filter, arrows to move, Enter to run, Esc to close. */
 export function CommandPalette({
-  open,
-  mode = 'search',
+  mode,
   documents,
   search,
   onChoose,
   onClose,
 }: Props) {
   const creating = mode === 'create';
+  const open = mode !== 'closed';
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -232,7 +231,7 @@ export function CommandPalette({
       aria-label="Command palette"
       onClose={closed}
       onClick={(event) => event.target === dialog.current && closed()}
-      className="m-auto room-palette w-full overflow-hidden rounded-lg border border-border-strong bg-surface-raised p-0 text-ink shadow-3 backdrop:bg-scrim/60"
+      className="m-auto w-full room-palette overflow-hidden rounded-lg border border-border-strong bg-surface-raised p-0 text-ink shadow-3 backdrop:bg-scrim/60"
     >
       <div className="flex items-center gap-2 border-b border-border px-4">
         {creating ? null : (

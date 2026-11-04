@@ -182,13 +182,10 @@ export function RecoveredDrafts({
   documents,
   sync,
   dispatch,
-  inFolderPage = false,
 }: {
   readonly documents: readonly MemberDocument[];
   readonly sync: DocumentSync;
   readonly dispatch: Dispatch<ManagerAction>;
-  /** This tree's root is a folder, and a saved copy lands in My drive above it. */
-  readonly inFolderPage?: boolean;
 }) {
   const offers = useSyncExternalStore(
     sync.subscribe,
@@ -215,7 +212,6 @@ export function RecoveredDrafts({
             dispatch({ type: 'drive/unlist', id });
           } else dispatch({ type: 'drive/remove', id });
           dispatch({ type: 'doc/add', document: created });
-          if (inFolderPage) return;
           dispatch({
             type: 'drive/add',
             folderId: null,
