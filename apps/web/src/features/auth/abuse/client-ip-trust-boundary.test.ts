@@ -18,6 +18,8 @@ const deployedEntries = (): readonly string[] => {
 
 /** fly-proxy's peer address measured on the staging machine (ISSUE-162). */
 const MEASURED_GATEWAY = '172.19.3.97';
+/** Web's only peer behind the gate (ADR 0116). */
+const WEB_GATE = '127.0.0.1';
 
 /** The deployed config as the server edge resolves it on that machine. */
 const deployedTrustedProxies = () =>
@@ -32,22 +34,50 @@ const resolveAgainstDeployed = (peer: string) =>
   });
 
 describe('AUTH_TRUSTED_PROXIES trust boundary (ISSUE-162/DEC-39)', () => {
-  test("the deployed AUTH_TRUSTED_PROXIES trusts only the machine's default gateway", () => {
+  test('the deployed AUTH_TRUSTED_PROXIES trusts only the gate on loopback', () => {
     assert({
       given:
         "fly.toml's real AUTH_TRUSTED_PROXIES, resolved on the measured machine",
-      should: 'trust exactly the one gateway address and no range',
+      should: 'trust exactly the web gate (ADR 0116) and no range',
       actual: deployedTrustedProxies(),
-      expected: [MEASURED_GATEWAY],
+      expected: [WEB_GATE],
     });
   });
 
-  test('fly-proxy connecting from the gateway', () => {
+  test("the gate believes only the machine's default gateway", () => {
+    const gate = readFileSync(
+      new URL('../../../../gate/nginx.conf.template', import.meta.url),
+      'utf8',
+    );
     assert({
-      given: 'a peer at the measured gateway carrying Fly-Client-IP',
-      should: "resolve to Fly's authoritative caller address",
-      actual: resolveAgainstDeployed(MEASURED_GATEWAY),
+      given: "the gate's real configuration",
+      should: 'read Fly-Client-IP only from the gateway start.sh resolves',
+      actual: [
+        gate.match(/^\s*set_real_ip_from .*$/gm)?.map((line) => line.trim()),
+        gate.match(/^\s*real_ip_header .*$/gm)?.map((line) => line.trim()),
+      ],
+      expected: [
+        ['set_real_ip_from GATEWAY_ADDRESS;'],
+        ['real_ip_header Fly-Client-IP;'],
+      ],
+    });
+  });
+
+  test('the gate connecting from loopback', () => {
+    assert({
+      given: 'a peer at the gate carrying Fly-Client-IP',
+      should: 'resolve to the caller the gate settled',
+      actual: resolveAgainstDeployed(WEB_GATE),
       expected: '203.0.113.9',
+    });
+  });
+
+  test('a peer at the gateway reaching web past the gate', () => {
+    assert({
+      given: 'a peer at the measured gateway forging Fly-Client-IP',
+      should: 'ignore the headers and resolve to the peer itself',
+      actual: resolveAgainstDeployed(MEASURED_GATEWAY),
+      expected: MEASURED_GATEWAY,
     });
   });
 
@@ -103,18 +133,18 @@ describe('AUTH_TRUSTED_PROXIES trust boundary (ISSUE-162/DEC-39)', () => {
     });
   });
 
-  test('an alternate spelling of the gateway in the forwarded chain is not a trusted hop', () => {
+  test('an alternate spelling of the gate in the forwarded chain is not a trusted hop', () => {
     assert({
       given:
-        'the trusted gateway forwarding a chain whose right-most hop spells the gateway ::172.19.3.97',
+        'the trusted gate forwarding a chain whose right-most hop spells it ::127.0.0.1',
       should:
         'take that hop as the client, never skip it as trusted and reach the spoofable hop left of it',
       actual: resolveClientIp({
-        peer: MEASURED_GATEWAY,
-        forwardedFor: '6.6.6.6, ::172.19.3.97',
+        peer: WEB_GATE,
+        forwardedFor: '6.6.6.6, ::127.0.0.1',
         trustedProxies: deployedTrustedProxies(),
       }),
-      expected: MEASURED_GATEWAY,
+      expected: WEB_GATE,
     });
   });
 });
