@@ -420,12 +420,21 @@ test('a missing destination never unlists a move source that still exists', asyn
         'document and folder moves whose destination vanished while their sources remain owned',
       should: 'keep both sources and refresh the available destinations',
       actual: [
-        fixture.actions.some((action) => action.type === 'drive/unlist'),
+        fixture.actions.some(
+          (action) =>
+            action.type === 'drive/unlist' &&
+            (action.id === doc.id || action.id === 'source-folder'),
+        ),
+        fixture.actions.some(
+          (action) =>
+            action.type === 'drive/unlist' && action.id === 'gone-target',
+        ),
         fixture.drive().folders.map((folder) => folder.id),
         fixture.drive().problem,
       ],
       expected: [
         false,
+        true,
         ['source-folder'],
         'That destination is no longer in your drive. Choose another folder.',
       ],
@@ -468,6 +477,86 @@ test('missing notices end on later success while unrelated read errors survive a
       should: 'keep its unrelated read failure',
       actual: fixture.drive().problem,
       expected: 'That folder did not open. Try again.',
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('passive root completion preserves missing guidance until an explicit successful read', async () => {
+  let status = 404;
+  let rootReads = 0;
+  const pendingRoot = deferred<Response>();
+  const fixture = await mount(async (path, init) => {
+    if (path.endsWith('/list')) {
+      const body = JSON.parse(String(init?.body)) as {
+        folderId: string | null;
+      };
+      if (body.folderId === null && ++rootReads === 1)
+        return pendingRoot.promise;
+      return Response.json({ entries: [], next: null });
+    }
+    return new Response('{}', { status });
+  });
+  try {
+    await fixture.act(async () =>
+      fixture.browser.dispatchEvent(new fixture.browser.Event('focus')),
+    );
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'Notes' }),
+    );
+    await fixture.act(async () =>
+      pendingRoot.resolve(Response.json({ entries: [], next: null })),
+    );
+    assert({
+      given:
+        'a focus read held across a missing-row response and reread after its generation changed',
+      should: 'retain the actionable missing notice after passive completion',
+      actual: fixture.drive().problem,
+      expected: 'That is no longer in your drive.',
+    });
+    status = 200;
+    await fixture.act(async () => {
+      await fixture.drive().toggle('existing-folder', true, false);
+    });
+    assert({
+      given: 'a later folder read explicitly requested by the person',
+      should: 'finish the missing notice',
+      actual: fixture.drive().problem,
+      expected: null,
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('an ambiguous failed move never calls a present destination missing', async () => {
+  const fixture = await mount(async (path) =>
+    path.endsWith('/folders')
+      ? Response.json({
+          folders: [{ id: 'target', name: 'Target', parentFolderId: null }],
+        })
+      : path.endsWith('/read')
+        ? Response.json({ documents: [doc] })
+        : new Response('{}', { status: 404 }),
+  );
+  try {
+    await fixture.act(async () =>
+      fixture.drive().change('move', { id: doc.id, folderId: 'target' }),
+    );
+    assert({
+      given:
+        'a move refused with404 but both source and destination still present',
+      should:
+        'preserve both rows and report an uncompleted move without claiming either is gone',
+      actual: [
+        fixture.actions.some((action) => action.type === 'drive/unlist'),
+        fixture.drive().problem,
+      ],
+      expected: [
+        false,
+        'That move could not be completed. Your file stays here. Try again.',
+      ],
     });
   } finally {
     await fixture.close();

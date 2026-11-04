@@ -5,6 +5,7 @@ import { systemClock } from '@daisy/clock';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
 import {
   findOpen,
+  loadedDocuments,
   type OpenDocument,
 } from '../../features/documents/open-documents';
 import {
@@ -111,11 +112,7 @@ export function useDrive({
       // A stale row may be an open document, or a folder with open descendants.
       // Recheck server truth without throwing away anyone's unsaved text.
       void sync
-        ?.recheck(
-          known.current.flatMap((open) =>
-            open.kind === 'loaded' ? [open.document.id] : [],
-          ),
-        )
+        ?.recheck(loadedDocuments(known.current).map((document) => document.id))
         .catch(() => {});
     },
     [dispatch, sync, readRecent],
@@ -129,7 +126,7 @@ export function useDrive({
     ) => {
       if (statusOf(error) === 404 && resourceId !== null) missing(resourceId);
       setProblem((current) =>
-        passive && current?.kind === 'change'
+        passive && (current?.kind === 'change' || current?.kind === 'missing')
           ? current
           : statusOf(error) === 404
             ? { kind: 'missing', message: driveNotices.missing }
@@ -150,26 +147,40 @@ export function useDrive({
     return answer;
   };
 
+  const readSucceeded = useCallback(
+    (folderId: string | null, explicit: boolean) => {
+      setProblem((current) =>
+        (current?.kind === 'missing' && explicit) ||
+        (current?.kind === 'read' && current.resourceId === folderId)
+          ? null
+          : current,
+      );
+    },
+    [],
+  );
+
   // Expansion and New here share the first read, so an older response cannot
   // arrive after the create and replace its newly inserted row.
   const firstPages = useRef(new Map<string | null, Promise<void>>());
   const listFolder = useCallback(
-    (folderId: string | null, after: DriveCursor | null): Promise<void> => {
+    (
+      folderId: string | null,
+      after: DriveCursor | null,
+      passive = false,
+    ): Promise<void> => {
       const pending =
         after === null ? firstPages.current.get(folderId) : undefined;
-      if (pending) return pending;
+      if (pending)
+        return passive
+          ? pending
+          : pending.then(() => readSucceeded(folderId, true));
       const request = async (): Promise<void> => {
         const started = generation.current;
         const page = await driveApi.list(folderId, after);
         // A focus refresh may race a create, rename, move or deletion. Never
         // replace an acknowledged change with a page read before it committed.
         if (started !== generation.current) return request();
-        setProblem((current) =>
-          current?.kind === 'missing' ||
-          (current?.kind === 'read' && current.resourceId === folderId)
-            ? null
-            : current,
-        );
+        readSucceeded(folderId, !passive);
         dispatch({
           type: 'drive/page',
           folderId,
@@ -183,13 +194,13 @@ export function useDrive({
       firstPages.current.set(folderId, tracked);
       return tracked;
     },
-    [dispatch],
+    [dispatch, readSucceeded],
   );
 
   useEffect(() => {
     if (!sync) return;
-    if (listRoot)
-      listFolder(null, null).catch((error) =>
+    const readRoot = () =>
+      void listFolder(null, null, true).catch((error) =>
         readFailed(
           error,
           null,
@@ -197,17 +208,11 @@ export function useDrive({
           true,
         ),
       );
-    // Another tab may have changed the drive. A passive failure reports a
-    // read problem without displacing a still-actionable change failure.
+    if (listRoot) readRoot();
+    // Automatic reads can recover their own read errors, but never consume
+    // the person's actionable missing-item or change message.
     const refresh = () => {
-      void listFolder(null, null).catch((error) =>
-        readFailed(
-          error,
-          null,
-          'Your drive did not load. Reload the page.',
-          true,
-        ),
-      );
+      readRoot();
       readRecent();
     };
     window.addEventListener('focus', refresh);
@@ -343,12 +348,21 @@ export function useDrive({
               path === 'folders/move'
                 ? found.some((folder) => folder.id === id)
                 : await driveApi.hasDocument(id);
+            const targetId = orNull(
+              path === 'move' ? fields.folderId : fields.parentFolderId,
+            );
+            const targetExists =
+              targetId === null ||
+              found.some((folder) => folder.id === targetId);
             if (!sourceExists) missing(id);
+            if (!targetExists && targetId !== null) missing(targetId);
             setProblem({
-              kind: 'missing',
-              message: sourceExists
-                ? 'That destination is no longer in your drive. Choose another folder.'
-                : driveNotices.missing,
+              kind: !sourceExists || !targetExists ? 'missing' : 'change',
+              message: !sourceExists
+                ? driveNotices.missing
+                : !targetExists
+                  ? 'That destination is no longer in your drive. Choose another folder.'
+                  : 'That move could not be completed. Your file stays here. Try again.',
             });
           } catch {
             setProblem({

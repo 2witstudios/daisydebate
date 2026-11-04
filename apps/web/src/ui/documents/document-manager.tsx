@@ -154,6 +154,12 @@ export function ManagerWorkspace({
       const hidden =
         visible === 'document' ? filesPane.current : documentPane.current;
       const active = document.activeElement;
+      // A top-layer menu survives display:none and otherwise reappears in its
+      // old step when Files returns. Close it before handing focus across.
+      for (const popover of hidden?.querySelectorAll<HTMLElement>(
+        ':popover-open',
+      ) ?? [])
+        popover.hidePopover();
       // CSS may already have blurred the hidden control to BODY before this
       // media-query event. Remember only focus this manager actually owned.
       if (
@@ -246,6 +252,7 @@ export function ManagerWorkspace({
             dispatch={dispatch}
             onEdit={sync.change}
             onNew={() => drive.createDocument(null)}
+            onLastTabClosed={() => focusPane('files')}
             save={save}
             leading={
               <button

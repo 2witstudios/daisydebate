@@ -602,7 +602,7 @@ test('the first document load preserves an active Files menu and Recent paints w
   }
 });
 
-test('the last tab and Escape from every menu step return narrow keyboard focus', async ({
+test('closing tabs at both widths and Escape from every menu step preserve keyboard focus', async ({
   browser,
 }) => {
   const accounts = await createRoomLaunchAccounts(browser, 1);
@@ -612,17 +612,40 @@ test('the last tab and Escape from every menu step return narrow keyboard focus'
       'Files focus handoffs',
     );
     const doc = await createTestDocument(page);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`${origin}/prep?open=${doc.id}`);
-    await expect(
-      page.getByRole('textbox', { name: doc.title, exact: true }),
-    ).toBeVisible();
-    await page
-      .getByRole('button', { name: `Close ${doc.title}`, exact: true })
-      .click();
-    await expect(
-      files(page).getByRole('button', { name: 'New', exact: true }),
-    ).toBeFocused();
+    const other = await createTestDocument(page);
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`${origin}/prep?open=${doc.id}`);
+      await expect(
+        page.getByRole('textbox', { name: doc.title, exact: true }),
+      ).toBeVisible();
+      if (width === 390)
+        await page.getByRole('button', { name: 'Back to Files' }).click();
+      await files(page)
+        .getByRole('region', { name: 'My drive' })
+        .getByRole('button', { name: other.title, exact: true })
+        .click();
+      const closeOther = page.getByRole('button', {
+        name: `Close ${other.title}`,
+        exact: true,
+      });
+      await closeOther.focus();
+      await closeOther.press('Enter');
+      await expect(
+        page
+          .getByRole('group', { name: 'Open files' })
+          .getByRole('button', { name: doc.title, exact: true }),
+      ).toBeFocused();
+      const closeLast = page.getByRole('button', {
+        name: `Close ${doc.title}`,
+        exact: true,
+      });
+      await closeLast.focus();
+      await closeLast.press('Enter');
+      await expect(
+        files(page).getByRole('button', { name: 'New', exact: true }),
+      ).toBeFocused();
+    }
     const trigger = files(page).getByRole('button', {
       name: `Actions for ${doc.title}`,
       exact: true,
@@ -682,6 +705,9 @@ test('a removed move destination leaves its existing source in its expanded fold
     ).toContainText('That destination is no longer');
     await expect(sourceRow).toBeVisible();
     await expect(
+      files(page).getByRole('button', { name: 'Destination', exact: true }),
+    ).toHaveCount(0);
+    await expect(
       page.getByRole('button', { name: 'Save as a new document' }),
     ).toHaveCount(0);
   } finally {
@@ -710,6 +736,22 @@ test('shrinking Prep hands hidden Files focus to the visible document pane', asy
     await expect(
       page.getByRole('button', { name: 'Back to Files' }),
     ).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await files(page)
+      .getByRole('button', { name: `Actions for ${doc.title}`, exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Keep it' })).toBeFocused();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator(':popover-open')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Back to Files' }),
+    ).toBeFocused();
+    await page.getByRole('button', { name: 'Back to Files' }).click();
+    await expect(page.locator(':popover-open')).toHaveCount(0);
+    await expect(
+      files(page).getByRole('menuitem', { includeHidden: true }),
+    ).toHaveCount(0);
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();
@@ -755,6 +797,151 @@ test('opening a missing stale row leaves a deliberately closed cached document c
     await expect(
       page.getByRole('button', { name: `Close ${stale.title}`, exact: true }),
     ).toHaveCount(0);
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('phone palette choices close the modal before handing focus to the document', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Palette pane focus',
+    );
+    const unread = await createTestDocument(page);
+    const cached = await createTestDocument(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${origin}/prep?open=${cached.id}`);
+    await expect(
+      page.getByRole('textbox', { name: cached.title, exact: true }),
+    ).toBeVisible();
+    for (const chosen of [cached, unread]) {
+      await page.getByRole('button', { name: 'Back to Files' }).click();
+      await files(page).getByRole('button', { name: 'Search files' }).click();
+      await page
+        .getByRole('combobox', { name: 'Search commands' })
+        .fill(chosen.title);
+      await page
+        .getByRole('option', { name: new RegExp(chosen.title) })
+        .click();
+      await expect(
+        page.getByRole('button', { name: 'Back to Files' }),
+      ).toBeFocused();
+      await expect(
+        page.getByRole('textbox', { name: chosen.title, exact: true }),
+      ).toBeVisible();
+    }
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('phone stale links honor both initial read orders and a later real Files choice', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'Initial link ordering',
+    );
+    const saved = await createTestDocument(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const order of [
+      'missing-first',
+      'initial-first',
+      'choose-files',
+    ] as const) {
+      const missingId = createId();
+      let allowMissing!: () => void;
+      let allowInitial!: () => void;
+      let sawMissing!: () => void;
+      let sawInitial!: () => void;
+      const missingGate = new Promise<void>((resolve) => {
+        allowMissing = resolve;
+      });
+      const initialGate = new Promise<void>((resolve) => {
+        allowInitial = resolve;
+      });
+      const missingRequested = new Promise<void>((resolve) => {
+        sawMissing = resolve;
+      });
+      const initialRequested = new Promise<void>((resolve) => {
+        sawInitial = resolve;
+      });
+      const missingResponse = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/documents/read') &&
+          (response.request().postDataJSON() as { ids: string[] }).ids.includes(
+            missingId,
+          ),
+      );
+      const initialResponse = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/documents/read') &&
+          (response.request().postDataJSON() as { ids: string[] }).ids.includes(
+            saved.id,
+          ),
+      );
+      await page.route('**/api/documents/read', async (route) => {
+        const ids = (route.request().postDataJSON() as { ids: string[] }).ids;
+        const response = await route.fetch();
+        if (ids.includes(missingId)) {
+          sawMissing();
+          await missingGate;
+        } else if (ids.includes(saved.id)) {
+          sawInitial();
+          await initialGate;
+        }
+        await route.fulfill({ response });
+      });
+      await page.goto(`${origin}/prep?open=${missingId}`);
+      await Promise.all([missingRequested, initialRequested]);
+      if (order === 'initial-first') {
+        allowInitial();
+        await initialResponse;
+        // Give the accepted initial response its render turn before the missing read.
+        await page.evaluate(
+          () =>
+            new Promise<void>((resolve) =>
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => resolve()),
+              ),
+            ),
+        );
+        allowMissing();
+        await missingResponse;
+      } else {
+        allowMissing();
+        await missingResponse;
+        await expect(
+          files(page).getByRole('button', { name: 'New', exact: true }),
+        ).toBeFocused();
+        if (order === 'choose-files') {
+          await page.keyboard.press('Tab');
+          await expect(
+            files(page).getByRole('button', { name: 'Search files' }),
+          ).toBeFocused();
+        }
+        allowInitial();
+        await initialResponse;
+      }
+      if (order === 'choose-files') {
+        await expect(files(page)).toBeVisible();
+        await expect(
+          page.getByRole('textbox', { name: saved.title, exact: true }),
+        ).toBeHidden();
+      } else
+        await expect(
+          page.getByRole('textbox', { name: saved.title, exact: true }),
+        ).toBeVisible();
+      await page.unroute('**/api/documents/read');
+    }
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();

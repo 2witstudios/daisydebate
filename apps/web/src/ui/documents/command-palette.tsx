@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -211,7 +212,7 @@ export function CommandPalette({
   const choiceOf = (id: string) => commands.find((c) => c.id === id)?.choice;
   const snippetOf = (id: string) => commands.find((c) => c.id === id)?.snippet;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = dialog.current;
     if (!node) return;
     if (open && !node.open) node.showModal();

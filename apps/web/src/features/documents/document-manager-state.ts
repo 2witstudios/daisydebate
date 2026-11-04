@@ -311,13 +311,11 @@ export function reduceManager<T extends ManagerState>(
         closed,
         loadedDocuments(closed.opened),
       );
-      return state.navigation.pane === 'document'
-        ? withNavigation(
-            fallback,
-            fallback.tabs.open.length > 0 ? 'document' : 'unselected',
-            true,
-          )
-        : fallback;
+      return withNavigation(
+        fallback,
+        fallback.tabs.open.length > 0 ? 'document' : 'unselected',
+        true,
+      );
     }
     case 'doc/opening': {
       const known = findOpen(state.opened, action.id);
