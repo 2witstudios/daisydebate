@@ -1,3 +1,4 @@
+import type { PaletteMode } from './command-palette';
 import type { MemberDocument } from './document';
 
 export type TabsState = {
@@ -99,7 +100,7 @@ export function addOpenDocument<
   T extends {
     readonly opened: readonly OpenDocument[];
     readonly tabs: TabsState;
-    readonly paletteOpen: boolean;
+    readonly palette: PaletteMode;
   },
 >(state: T, document: MemberDocument): T {
   // A body answering a tab already there leaves the person where they are now:
@@ -111,6 +112,6 @@ export function addOpenDocument<
     ...state,
     opened: withBodies(state.opened, [document]),
     tabs: awaited ? state.tabs : openTab(state.tabs, document.id),
-    paletteOpen: false,
+    palette: awaited ? state.palette : 'closed',
   };
 }

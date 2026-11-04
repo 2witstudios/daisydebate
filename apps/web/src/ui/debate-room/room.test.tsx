@@ -231,15 +231,14 @@ describe('DebateRoom', () => {
     });
   });
 
-  test('44px targets and 12px sidebar text', () => {
+  test('input-aware targets and 12px sidebar text', () => {
     const html = render('judging', 'casual');
     assert({
       given: 'the sidebars',
-      should:
-        'size the file and new-document controls at the target and keep text at 12px or more',
+      should: 'size Files controls for the input and keep text at 12px or more',
       actual: [
-        /aria-label="New document" class="[^"]*size-room-target/.test(html),
-        /aria-label="Hide files"[^>]*class="[^"]*size-room-target/.test(html),
+        /aria-label="New" class="[^"]*size-dense-target/.test(html),
+        /aria-label="Hide files"[^>]*class="[^"]*size-dense-target/.test(html),
         html.includes('text-2xs'),
       ],
       expected: [true, true, false],

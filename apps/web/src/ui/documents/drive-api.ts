@@ -3,7 +3,7 @@ import type {
   DriveEntryView,
 } from '../../features/documents/drive-tree';
 
-/** A folder, for a Move form. */
+/** A folder offered as a move destination. */
 export type FolderRow = {
   readonly id: string;
   readonly name: string;
@@ -15,6 +15,8 @@ export type SearchHit = {
   readonly folderId: string | null;
   readonly snippet: string;
 };
+/** A document edited lately, without its body. */
+export type RecentDocument = { readonly id: string; readonly title: string };
 export type DrivePage = {
   readonly entries: readonly DriveEntryView[];
   readonly next: DriveCursor | null;
@@ -26,7 +28,8 @@ export type DriveChange =
   | 'create'
   | 'folders/create'
   | 'folders/rename'
-  | 'folders/move';
+  | 'folders/move'
+  | 'folders/delete';
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -37,16 +40,30 @@ const post = async <T>(path: string, body: unknown): Promise<T> => {
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!response.ok) throw new Error(`Drive request ${response.status}`);
+  if (!response.ok)
+    throw Object.assign(new Error('Drive request failed'), {
+      status: response.status,
+    });
   return (await response.json()) as T;
 };
 
-/** The drive's reads and changes over the document routes; bodies never come this way. */
+/** Drive metadata and changes; an existence probe reads the owner's body without adopting it. */
 export const driveApi = {
   list: (folderId: string | null, after: DriveCursor | null) =>
     post<DrivePage>('list', { folderId, after }),
   folders: async () =>
     (await post<{ folders: readonly FolderRow[] }>('folders', {})).folders,
+  recent: async () =>
+    (await post<{ documents: readonly RecentDocument[] }>('recent', {}))
+      .documents,
+  hasDocument: async (id: string) =>
+    (
+      await post<{ documents: readonly { readonly id: string }[] }>('read', {
+        ids: [id],
+      })
+    ).documents.some((document) => document.id === id),
+  folderCount: async (id: string) =>
+    (await post<{ count: number }>('folders/count', { id })).count,
   search: async (text: string) =>
     (await post<{ hits: readonly SearchHit[] }>('search', { text, page: 0 }))
       .hits,

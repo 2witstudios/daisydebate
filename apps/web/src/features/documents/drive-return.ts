@@ -1,11 +1,7 @@
 import { isAppError } from '@daisy/errors';
 
 /** The pages a drive form may return to. Anything else goes to Prep. */
-const RETURN_PATHS = [
-  /^\/prep$/,
-  /^\/prep\/folders\/[a-z0-9]{24}$/,
-  /^\/rounds\/[a-z0-9]{24}(\/room)?$/,
-];
+const RETURN_PATHS = [/^\/prep$/, /^\/rounds\/[a-z0-9]{24}(\/room)?$/];
 
 export const returnPath = (value: string | null): string =>
   value !== null && RETURN_PATHS.some((path) => path.test(value))

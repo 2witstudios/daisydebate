@@ -445,13 +445,14 @@ describe('a deletion here', () => {
 
   test('two clicks on Save as a new document make one', async () => {
     let creates = 0;
+    let present = true;
     const server = savingApi([{ id: 'a', revision: 1 }]);
     const sync = createOwner({
       ...manualDraftResources('two-clicks', { storage: memoryStorage() }),
       principalId: 'p1',
       api: {
         ...server.api,
-        read: async () => [],
+        read: async (ids) => (present ? server.api.read(ids) : []),
         recent: async () => 'a',
         create: async () => {
           creates += 1;
@@ -465,6 +466,7 @@ describe('a deletion here', () => {
       onConflict: () => {},
     });
     await sync.load();
+    present = false;
     await sync.recheck(['a']);
     await Promise.all([sync.saveAsNew('a'), sync.saveAsNew('a')]);
     assert({

@@ -1,0 +1,919 @@
+import { mountBrowserClient } from '../test-support/browser-client.test-support';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type * as Client from './use-drive.test-support';
+import {
+  initialManagerState,
+  reduceManager,
+  type ManagerAction,
+} from '../../features/documents/document-manager-state';
+import { emptyDrive, withPage } from '../../features/documents/drive-tree';
+import type { DriveActions } from './use-drive';
+import type { DocumentSync } from './document-sync';
+setupRitewayBun();
+const doc = {
+  id: 'a',
+  title: 'Notes',
+  html: '<p></p>',
+  createdAt: '2026-11-04T00:00:00Z',
+  updatedAt: '2026-11-04T00:00:00Z',
+  revision: 1,
+};
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+};
+
+const mount = async (
+  fetch: (input: string, init?: RequestInit) => Promise<Response>,
+  options: {
+    listRoot?: boolean;
+    showRecent?: boolean;
+    timer?: (run: () => void, ms: number) => unknown;
+    sync?: Partial<DocumentSync>;
+    opened?: readonly import('../../features/documents/open-documents').OpenDocument[];
+  } = {},
+) => {
+  const client = await mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./use-drive.test-support', import.meta.dir),
+    {
+      fetch,
+      AbortSignal,
+      setTimeout: options.timer ?? setTimeout,
+      clearTimeout: options.timer ? () => {} : clearTimeout,
+    },
+  );
+  const { browser, root } = client;
+  const actions: ManagerAction[] = [];
+  let drive!: DriveActions;
+  const sync = {
+    create: async () => doc,
+    available: () => true,
+    canOpen: () => true,
+    forgetAll: () => {},
+    forget: () => {},
+    recheck: async () => {},
+    ...options.sync,
+  } as unknown as DocumentSync;
+  function Hook({
+    save,
+    owner,
+  }: {
+    save: 'saved' | 'saving';
+    owner: DocumentSync;
+  }) {
+    drive = client.useDrive({
+      sync: owner,
+      opened: options.opened ?? [],
+      dispatch: (action) => actions.push(action),
+      initialFolders: [{ id: 'cases', name: 'Cases', parentFolderId: null }],
+      listRoot: options.listRoot ?? false,
+      showRecent: options.showRecent ?? false,
+      save,
+    });
+    return null;
+  }
+  const render = async (save: 'saved' | 'saving' = 'saved', owner = sync) => {
+    await client.act(async () =>
+      root.render(client.createElement(Hook, { save, owner })),
+    );
+  };
+  await render();
+  return {
+    ...client,
+    actions,
+    owner: sync,
+    browser,
+    root,
+    render,
+    drive: () => drive,
+    close: async () => {
+      await client.act(async () => root.unmount());
+      await browser.happyDOM.abort();
+    },
+  };
+};
+
+test('a first listing cannot overwrite an acknowledged mutation', async () => {
+  const first = deferred<Response>();
+  let reads = 0;
+  const fixture = await mount(
+    async (path) => {
+      if (path.endsWith('/list'))
+        return ++reads === 1
+          ? first.promise
+          : Response.json({
+              entries: [{ kind: 'document', id: 'a', title: 'Notes' }],
+              next: null,
+            });
+      return Response.json({});
+    },
+    { listRoot: true },
+  );
+  try {
+    await fixture.act(async () => fixture.drive().createDocument(null));
+    await fixture.act(async () =>
+      first.resolve(Response.json({ entries: [], next: null })),
+    );
+    const pages = fixture.actions.filter(
+      (action) => action.type === 'drive/page',
+    );
+    assert({
+      given:
+        'a root read that began before creating a document and answered later',
+      should: 'never publish that stale empty page',
+      actual: pages.some(
+        (action) => action.type === 'drive/page' && action.entries.length === 0,
+      ),
+      expected: false,
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('drive failures preserve status, clear on success and keep known folder destinations', async () => {
+  let refuse = true;
+  const fixture = await mount(async (path) =>
+    path.endsWith('/folders')
+      ? new Response('{}', { status: 503 })
+      : new Response('{}', { status: refuse ? 409 : 200 }),
+  );
+  try {
+    await fixture.act(async () =>
+      fixture
+        .drive()
+        .change('folders/create', { name: 'New folder', parentFolderId: '' }),
+    );
+    assert({
+      given: 'a full or too-deep drive',
+      should: 'explain that retrying cannot fix it',
+      actual: fixture.drive().problem,
+      expected: 'That change is not possible: the drive is full or too deep.',
+    });
+    refuse = false;
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'New notes' }),
+    );
+    await fixture.act(async () => fixture.drive().loadFolders());
+    assert({
+      given: 'a successful retry followed by a failed destinations read',
+      should:
+        'clear the stale mutation notice and preserve known destinations with an explicit read failure',
+      actual: [
+        fixture.drive().problem,
+        fixture.drive().folders.map((folder) => folder.name),
+        Boolean(fixture.drive().folderProblem),
+      ],
+      expected: [null, ['Cases'], true],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('Recent refreshes are bounded and ignore superseded responses', async () => {
+  const first = deferred<Response>();
+  const second = deferred<Response>();
+  let reads = 0;
+  let trailing: (() => void) | null = null;
+  const fixture = await mount(
+    async (path) =>
+      path.endsWith('/recent')
+        ? ++reads === 1
+          ? first.promise
+          : second.promise
+        : Response.json({}),
+    {
+      showRecent: true,
+      timer: (run) => {
+        trailing = run;
+        return 1;
+      },
+    },
+  );
+  try {
+    for (let index = 0; index < 5; index++) {
+      await fixture.render('saving');
+      await fixture.render('saved');
+    }
+    assert({
+      given: 'five closely spaced autosaves',
+      should:
+        'share one trailing Recent refresh rather than spend five read requests',
+      actual: reads,
+      expected: 1,
+    });
+    await fixture.act(async () => {
+      trailing?.();
+    });
+    await fixture.act(async () =>
+      second.resolve(
+        Response.json({ documents: [{ id: 'new', title: 'New' }] }),
+      ),
+    );
+    await fixture.act(async () =>
+      first.resolve(
+        Response.json({ documents: [{ id: 'old', title: 'Old' }] }),
+      ),
+    );
+    assert({
+      given: 'an older Recent response arriving last',
+      should: 'keep the newest result',
+      actual: fixture.drive().recent.map((document) => document.id),
+      expected: ['new'],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('failed folder reads roll back expansion and only clear their own notice', async () => {
+  let status = 503;
+  const fixture = await mount(async (path) =>
+    path.endsWith('/list')
+      ? new Response(JSON.stringify({ entries: [], next: null }), { status })
+      : new Response('{}', { status: 409 }),
+  );
+  try {
+    await fixture.act(async () => {
+      await fixture.drive().toggle('cases', true, false);
+    });
+    assert({
+      given: 'a folder whose first read failed',
+      should: 'roll back its expansion so one more click retries',
+      actual: fixture.actions.at(-1),
+      expected: { type: 'drive/expand', folderId: 'cases', expanded: false },
+    });
+    status = 200;
+    await fixture.act(async () => {
+      await fixture.drive().toggle('cases', true, false);
+    });
+    assert({
+      given: 'the same read succeeding on retry',
+      should: 'clear its stale error',
+      actual: fixture.drive().problem,
+      expected: null,
+    });
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'Notes' }),
+    );
+    await fixture.act(async () => {
+      await fixture.drive().toggle('cases', true, false);
+    });
+    assert({
+      given: 'a successful read after an unrelated mutation failure',
+      should: 'keep the mutation explanation',
+      actual: fixture.drive().problem,
+      expected: 'That change is not possible: the drive is full or too deep.',
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('external deletion unlists the stale row and rechecks open text without discarding it', async () => {
+  const rechecked: readonly string[][] = [];
+  let forgotten = 0;
+  const fixture = await mount(async () => new Response('{}', { status: 404 }), {
+    opened: [{ kind: 'loaded', document: doc }],
+    sync: {
+      forget: () => {
+        forgotten++;
+      },
+      recheck: async (ids) => {
+        (rechecked as string[][]).push([...ids]);
+      },
+    },
+  });
+  try {
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'New title' }),
+    );
+    assert({
+      given: 'rename reporting that an open document was deleted elsewhere',
+      should: 'unlist it with an accurate notice and recheck its retained text',
+      actual: [
+        fixture.drive().problem,
+        fixture.actions.some(
+          (action) => action.type === 'drive/unlist' && action.id === 'a',
+        ),
+        rechecked,
+        forgotten,
+        fixture.actions.some((action) => action.type === 'drive/remove'),
+      ],
+      expected: ['That is no longer in your drive.', true, [['a']], 0, false],
+    });
+    await fixture.act(async () => {
+      await fixture.drive().toggle('cases', true, false);
+    });
+    assert({
+      given: 'a missing folder',
+      should: 'unlist it without closing any open descendant text',
+      actual: [
+        fixture.actions.some(
+          (action) => action.type === 'drive/unlist' && action.id === 'cases',
+        ),
+        forgotten,
+      ],
+      expected: [true, 0],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('saving recovered text as new participates in first-page ordering', async () => {
+  const first = deferred<Response>();
+  let reads = 0;
+  const fixture = await mount(
+    async (path) =>
+      path.endsWith('/list')
+        ? ++reads === 1
+          ? first.promise
+          : Response.json({
+              entries: [{ kind: 'document', id: 'a', title: 'Notes' }],
+              next: null,
+            })
+        : Response.json({}),
+    { listRoot: true, sync: { saveAsNew: async () => doc } },
+  );
+  try {
+    await fixture.act(async () => {
+      await fixture.drive().saveRecovered('gone');
+    });
+    await fixture.act(async () =>
+      first.resolve(Response.json({ entries: [], next: null })),
+    );
+    assert({
+      given:
+        'a root read held across saving a recovered copy as a new document',
+      should: 'insert the recovered row and never publish the old empty page',
+      actual: [
+        fixture.actions.some(
+          (action) => action.type === 'drive/add' && action.entry.id === 'a',
+        ),
+        fixture.actions.some(
+          (action) =>
+            action.type === 'drive/page' && action.entries.length === 0,
+        ),
+      ],
+      expected: [true, false],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('closed or forgotten owners never turn a null open into a missing-document claim', async () => {
+  let available = false;
+  let resolve!: (value: null) => void;
+  const fixture = await mount(async () => Response.json({}), {
+    sync: {
+      canOpen: () => available,
+      open: () =>
+        new Promise<null>((done) => {
+          resolve = done;
+        }),
+    },
+  });
+  try {
+    await fixture.act(async () => fixture.drive().open('a', 'Notes'));
+    assert({
+      given: 'a row chosen after the owner closed',
+      should: 'leave its tree, tabs and notices unchanged',
+      actual: fixture.actions.length,
+      expected: 0,
+    });
+    available = true;
+    await fixture.act(async () => fixture.drive().open('a', 'Notes'));
+    available = false;
+    await fixture.act(async () => resolve(null));
+    assert({
+      given: 'an outstanding open forgotten or closed before its response',
+      should: 'avoid claiming deletion or unlisting it',
+      actual: [
+        fixture.drive().problem,
+        fixture.actions.some((action) => action.type === 'drive/unlist'),
+      ],
+      expected: [null, false],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('a missing destination never unlists a move source that still exists', async () => {
+  const fixture = await mount(async (path) =>
+    path.endsWith('/folders')
+      ? Response.json({
+          folders: [
+            { id: 'source-folder', name: 'Source', parentFolderId: null },
+          ],
+        })
+      : path.endsWith('/read')
+        ? Response.json({ documents: [doc] })
+        : new Response('{}', { status: 404 }),
+  );
+  try {
+    await fixture.act(async () =>
+      fixture.drive().change('move', { id: doc.id, folderId: 'gone-target' }),
+    );
+    await fixture.act(async () =>
+      fixture.drive().change('folders/move', {
+        id: 'source-folder',
+        parentFolderId: 'gone-target',
+      }),
+    );
+    assert({
+      given:
+        'document and folder moves whose destination vanished while their sources remain owned',
+      should: 'keep both sources and refresh the available destinations',
+      actual: [
+        fixture.actions.some(
+          (action) =>
+            action.type === 'drive/unlist' &&
+            (action.id === doc.id || action.id === 'source-folder'),
+        ),
+        fixture.actions.some(
+          (action) =>
+            action.type === 'drive/unlist' && action.id === 'gone-target',
+        ),
+        fixture.drive().folders.map((folder) => folder.id),
+        fixture.drive().problem,
+      ],
+      expected: [
+        false,
+        true,
+        ['source-folder'],
+        'That destination is no longer in your drive. Choose another folder.',
+      ],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('missing notices end on later success while unrelated read errors survive a change', async () => {
+  let status = 404;
+  const fixture = await mount(async (path) =>
+    path.endsWith('/list')
+      ? new Response(JSON.stringify({ entries: [], next: null }), { status })
+      : Response.json({}),
+  );
+  try {
+    await fixture.act(async () => {
+      await fixture.drive().toggle('gone', true, false);
+    });
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'Notes' }),
+    );
+    assert({
+      given: 'a missing row followed by a successful rename',
+      should: 'clear the completed missing-item notice',
+      actual: fixture.drive().problem,
+      expected: null,
+    });
+    status = 503;
+    await fixture.act(async () => {
+      await fixture.drive().toggle('offline', true, false);
+    });
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'Notes' }),
+    );
+    assert({
+      given:
+        'a different unread folder that is still unavailable after a successful rename',
+      should: 'keep its unrelated read failure',
+      actual: fixture.drive().problem,
+      expected: 'That folder did not open. Try again.',
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('passive root completion preserves missing guidance until an explicit successful read', async () => {
+  let status = 404;
+  let rootReads = 0;
+  const pendingRoot = deferred<Response>();
+  const fixture = await mount(async (path, init) => {
+    if (path.endsWith('/list')) {
+      const body = JSON.parse(String(init?.body)) as {
+        folderId: string | null;
+      };
+      if (body.folderId === null && ++rootReads === 1)
+        return pendingRoot.promise;
+      return Response.json({ entries: [], next: null });
+    }
+    return new Response('{}', { status });
+  });
+  try {
+    await fixture.act(async () =>
+      fixture.browser.dispatchEvent(new fixture.browser.Event('focus')),
+    );
+    await fixture.act(async () =>
+      fixture.drive().change('rename', { id: 'a', title: 'Notes' }),
+    );
+    await fixture.act(async () =>
+      pendingRoot.resolve(Response.json({ entries: [], next: null })),
+    );
+    assert({
+      given:
+        'a focus read held across a missing-row response and reread after its generation changed',
+      should: 'retain the actionable missing notice after passive completion',
+      actual: fixture.drive().problem,
+      expected: 'That is no longer in your drive.',
+    });
+    status = 200;
+    await fixture.act(async () => {
+      await fixture.drive().toggle('existing-folder', true, false);
+    });
+    assert({
+      given: 'a later folder read explicitly requested by the person',
+      should: 'finish the missing notice',
+      actual: fixture.drive().problem,
+      expected: null,
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('an ambiguous failed move never calls a present destination missing', async () => {
+  const fixture = await mount(async (path) =>
+    path.endsWith('/folders')
+      ? Response.json({
+          folders: [{ id: 'target', name: 'Target', parentFolderId: null }],
+        })
+      : path.endsWith('/read')
+        ? Response.json({ documents: [doc] })
+        : new Response('{}', { status: 404 }),
+  );
+  try {
+    await fixture.act(async () =>
+      fixture.drive().change('move', { id: doc.id, folderId: 'target' }),
+    );
+    assert({
+      given:
+        'a move refused with404 but both source and destination still present',
+      should:
+        'preserve both rows and report an uncompleted move without claiming either is gone',
+      actual: [
+        fixture.actions.some((action) => action.type === 'drive/unlist'),
+        fixture.drive().problem,
+      ],
+      expected: [
+        false,
+        'That move could not be completed. Your file stays here. Try again.',
+      ],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+for (const delayed of ['response', 'commit'] as const)
+  test(`rapid renames stay in server and user order when the first ${delayed} is delayed`, async () => {
+    const first = deferred<void>();
+    const sent: string[] = [];
+    let serverTitle = 'Notes';
+    const fixture = await mount(async (path, init) => {
+      if (!path.endsWith('/rename')) return Response.json({});
+      const title = (JSON.parse(String(init?.body)) as { title: string }).title;
+      sent.push(title);
+      if (title === 'First' && delayed === 'commit') await first.promise;
+      serverTitle = title;
+      if (title === 'First' && delayed === 'response') await first.promise;
+      return Response.json({});
+    });
+    try {
+      await fixture.act(async () => {
+        fixture.drive().change('rename', { id: 'a', title: 'First' });
+        fixture.drive().change('rename', { id: 'a', title: 'Second' });
+      });
+      await fixture.act(async () => first.resolve());
+      const applied = fixture.actions.flatMap((action) =>
+        action.type === 'drive/rename' ? [action.label] : [],
+      );
+      assert({
+        given: `two rapid renames with the first ${delayed} held`,
+        should:
+          'apply both successful choices in order and finish matching server truth',
+        actual: [sent, applied, serverTitle],
+        expected: [['First', 'Second'], ['First', 'Second'], 'Second'],
+      });
+    } finally {
+      await fixture.close();
+    }
+  });
+
+test('the operation sequence includes a failed moves asynchronous verification', async () => {
+  const folders = deferred<Response>();
+  const fixture = await mount(async (path) =>
+    path.endsWith('/move')
+      ? new Response('{}', { status: 404 })
+      : path.endsWith('/folders')
+        ? folders.promise
+        : path.endsWith('/read')
+          ? Response.json({ documents: [doc] })
+          : Response.json({}),
+  );
+  try {
+    await fixture.act(async () => {
+      fixture.drive().change('move', { id: 'a', folderId: 'gone' });
+      fixture.drive().change('rename', { id: 'a', title: 'Later rename' });
+    });
+    await fixture.act(async () =>
+      folders.resolve(Response.json({ folders: [] })),
+    );
+    assert({
+      given:
+        'a failed move verifying its missing target before a later successful rename',
+      should:
+        'complete old failure handling before the successful change clears it',
+      actual: [
+        fixture.drive().problem,
+        fixture.actions.filter((action) => action.type === 'drive/rename')
+          .length,
+      ],
+      expected: [null, 1],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+for (const closed of ['owner', 'unmount', 'replacement'] as const)
+  test(`queued work never starts after its originating ${closed} closes`, async () => {
+    const first = deferred<Response>();
+    const sent: string[] = [];
+    let available = true;
+    const fixture = await mount(
+      async (path) => {
+        sent.push(path);
+        return sent.length === 1 ? first.promise : Response.json({});
+      },
+      { sync: { available: () => available } },
+    );
+    try {
+      await fixture.act(async () => {
+        fixture.drive().change('rename', { id: 'a', title: 'First' });
+        fixture.drive().change('folders/create', {
+          parentFolderId: '',
+          name: 'Belongs to old owner',
+        });
+      });
+      if (closed === 'owner') available = false;
+      else if (closed === 'replacement')
+        await fixture.render('saved', { ...fixture.owner });
+      else await fixture.act(async () => fixture.root.unmount());
+      await fixture.act(async () => first.resolve(Response.json({})));
+      assert({
+        given: `an old rename outstanding and a root create queued before ${closed} closes`,
+        should:
+          'never send the queued create with a later accounts cookie or apply old results',
+        actual: [sent.length, fixture.actions.length],
+        expected: [1, 0],
+      });
+    } finally {
+      await fixture.close();
+    }
+  });
+
+test('a move acknowledgement is applied before a later parent-folder deletion', async () => {
+  const moved = deferred<Response>();
+  const fixture = await mount(async (path) =>
+    path.endsWith('/move')
+      ? moved.promise
+      : Response.json({ deletedDocumentIds: [] }),
+  );
+  const page = (
+    entries: readonly import('../../features/documents/drive-tree').DriveEntryView[],
+  ) => ({ entries, next: null, first: true });
+  const root = withPage(
+    emptyDrive,
+    null,
+    page([
+      { kind: 'folder', id: 'source', name: 'Source' },
+      { kind: 'folder', id: 'target', name: 'Target' },
+    ]),
+  );
+  const tree = withPage(
+    withPage(
+      root,
+      'source',
+      page([{ kind: 'document', id: 'a', title: 'Notes' }]),
+    ),
+    'target',
+    page([]),
+  );
+  try {
+    await fixture.act(async () => {
+      fixture.drive().change('move', { id: 'a', folderId: 'target' });
+      fixture.drive().change('folders/delete', { id: 'source' });
+    });
+    await fixture.act(async () => moved.resolve(Response.json({})));
+    const state = fixture.actions.reduce(
+      reduceManager,
+      initialManagerState(tree),
+    );
+    const target =
+      state.drive.contents.state === 'read'
+        ? state.drive.contents.entries.find((node) => node.id === 'target')
+        : null;
+    assert({
+      given:
+        'a document moved out before its old folder is deleted, with the move response held',
+      should: 'keep the successfully moved document in its new folder',
+      actual:
+        target?.kind === 'folder' && target.contents.state === 'read'
+          ? target.contents.entries.map((node) => node.id)
+          : [],
+      expected: ['a'],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('a replacement owner has an independent queue and create guard', async () => {
+  const oldRename = deferred<Response>();
+  const created: string[] = [];
+  const fixture = await mount(async () => oldRename.promise, {
+    sync: {
+      create: async () => {
+        created.push('old');
+        return doc;
+      },
+    },
+  });
+  try {
+    await fixture.act(async () => {
+      fixture.drive().change('rename', { id: 'a', title: 'Old owner' });
+      fixture.drive().createDocument(null);
+    });
+    const next = {
+      ...fixture.owner,
+      create: async () => {
+        created.push('new');
+        return { ...doc, id: 'new-owner-doc' };
+      },
+    };
+    await fixture.render('saved', next);
+    await fixture.act(async () => fixture.drive().createDocument(null));
+    assert({
+      given:
+        'a new owner while the old owners rename and queued create are still pending',
+      should:
+        'let the new owner create immediately without executing the old create',
+      actual: created,
+      expected: ['new'],
+    });
+    await fixture.act(async () => oldRename.resolve(Response.json({})));
+    await fixture.act(async () => fixture.drive().createDocument(null));
+    assert({
+      given: 'the old rename eventually answering',
+      should:
+        'retain the new owners independent busy guard and ignore old labels',
+      actual: [
+        created,
+        fixture.actions.some((action) => action.type === 'drive/rename'),
+      ],
+      expected: [['new', 'new'], false],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('canceled recovered-copy work never consumes an old owners offer', async () => {
+  const first = deferred<Response>();
+  let available = true;
+  let copied = 0;
+  const fixture = await mount(async () => first.promise, {
+    sync: {
+      available: () => available,
+      saveAsNew: async () => {
+        copied++;
+        return doc;
+      },
+    },
+  });
+  try {
+    let copy!: Promise<import('./document-sync').StoredDocument | null>;
+    await fixture.act(async () => {
+      fixture.drive().change('rename', { id: 'a', title: 'Pending' });
+      copy = fixture.drive().saveRecovered('gone');
+    });
+    available = false;
+    await fixture.act(async () => first.resolve(Response.json({})));
+    const result = await copy;
+    assert({
+      given: 'a recovered-copy operation queued when its owner closes',
+      should: 'return null and leave the offer unconsumed',
+      actual: [result, copied],
+      expected: [null, 0],
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('a failed verification cannot publish after its owner closes', async () => {
+  const verification = deferred<Response>();
+  let available = true;
+  const fixture = await mount(
+    async (path) =>
+      path.endsWith('/move')
+        ? new Response('{}', { status: 404 })
+        : verification.promise,
+    { sync: { available: () => available } },
+  );
+  try {
+    await fixture.act(async () =>
+      fixture.drive().change('move', { id: 'a', folderId: 'target' }),
+    );
+    available = false;
+    await fixture.act(async () =>
+      verification.resolve(new Response('{}', { status: 503 })),
+    );
+    assert({
+      given: 'a move404 verification failing after the owner closes',
+      should: 'ignore its stale failure without publishing a notice',
+      actual: fixture.drive().problem,
+      expected: null,
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('a destructive folder count includes earlier queued moves', async () => {
+  const first = deferred<Response>();
+  let count = 0;
+  const fixture = await mount(async (path) => {
+    if (path.endsWith('/rename')) return first.promise;
+    if (path.endsWith('/move')) {
+      count = 1;
+      return Response.json({});
+    }
+    return Response.json({ count });
+  });
+  try {
+    let counted!: Promise<number>;
+    await fixture.act(async () => {
+      fixture.drive().change('rename', { id: 'a', title: 'Pending' });
+      fixture.drive().change('move', { id: 'a', folderId: 'target' });
+      counted = fixture.drive().folderCount('target');
+    });
+    await fixture.act(async () => first.resolve(Response.json({})));
+    assert({
+      given: 'a delete preview requested after a queued move into that folder',
+      should: 'count the moved document before confirmation is enabled',
+      actual: await counted,
+      expected: 1,
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('a canceled destructive count fails closed without fetching', async () => {
+  const first = deferred<Response>();
+  let available = true;
+  let sent = 0;
+  const fixture = await mount(
+    async () => {
+      sent++;
+      return first.promise;
+    },
+    { sync: { available: () => available } },
+  );
+  try {
+    let outcome!: Promise<string>;
+    await fixture.act(async () => {
+      fixture.drive().change('rename', { id: 'a', title: 'Pending' });
+      outcome = fixture
+        .drive()
+        .folderCount('target')
+        .then(
+          () => 'count',
+          () => 'unavailable',
+        );
+    });
+    available = false;
+    await fixture.act(async () => first.resolve(Response.json({})));
+    assert({
+      given: 'a queued folder count whose owner closes before it starts',
+      should:
+        'refuse confirmation instead of reporting an empty folder or fetching for a new account',
+      actual: [await outcome, sent],
+      expected: ['unavailable', 1],
+    });
+  } finally {
+    await fixture.close();
+  }
+});

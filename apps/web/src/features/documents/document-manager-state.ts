@@ -1,3 +1,4 @@
+import type { PaletteMode } from './command-palette';
 import {
   adoptServerText,
   renameDocument,
@@ -22,11 +23,21 @@ import {
   closeTab,
   findOpen,
   loadOpenDocuments,
+  loadedDocuments,
   openId,
   openTab,
   type OpenDocument,
   type TabsState,
 } from './open-documents';
+
+/** A pane choice and its optional focus effect, decided by one pure transition. */
+export type ManagerNavigation =
+  | { readonly pane: 'unselected' | 'files'; readonly focus: 'files' | null }
+  | {
+      readonly pane: 'document';
+      readonly focus: 'document' | null;
+      readonly onMissing: 'recent' | 'files';
+    };
 
 /** A viewer's choice of page for a document; null follows their theme. */
 export type PageTone = 'light' | 'dark';
@@ -41,7 +52,11 @@ export type ManagerState = {
   readonly opened: readonly OpenDocument[];
   readonly tabs: TabsState;
   readonly pages: Readonly<Record<string, PageTone | null>>;
-  readonly paletteOpen: boolean;
+  readonly palette: PaletteMode;
+  /** The row whose name is being typed. */
+  readonly renaming: string | null;
+  /** The one panel a narrow screen shows. */
+  readonly navigation: ManagerNavigation;
 };
 
 export const initialManagerState = (
@@ -51,7 +66,9 @@ export const initialManagerState = (
   opened: [],
   tabs: { open: [], active: null },
   pages: {},
-  paletteOpen: false,
+  palette: 'closed',
+  renaming: null,
+  navigation: { pane: 'unselected', focus: null },
 });
 
 export type ManagerAction =
@@ -80,13 +97,28 @@ export type ManagerAction =
       readonly type: 'doc/opening';
       readonly id: string;
       readonly title: string;
+      /** Only the initial URL opening may fall back to the last edited body. */
+      readonly origin?: 'link';
     }
   | { readonly type: 'doc/failed'; readonly id: string }
+  /** A confirmed missing response can close only a tab that still has no body. */
+  | { readonly type: 'doc/missing'; readonly id: string }
   /** Off this page's tabs and memory, still in the drive; opening it reads afresh. */
   | { readonly type: 'doc/closed'; readonly id: string }
   /** The owner closed, so no document stays on screen. */
   | { readonly type: 'doc/withdrawn' }
-  | { readonly type: 'palette/open' }
+  | {
+      readonly type: 'palette/open';
+      readonly mode: Exclude<PaletteMode, 'closed'>;
+    }
+  | { readonly type: 'pane/files' }
+  | { readonly type: 'files/used' }
+  | {
+      readonly type: 'drive/folder-deleted';
+      readonly id: string;
+      readonly documentIds: readonly string[];
+    }
+  | { readonly type: 'drive/renaming'; readonly id: string | null }
   | { readonly type: 'palette/close' }
   | {
       readonly type: 'page/tone';
@@ -136,9 +168,14 @@ const MANAGER_ACTIONS: Readonly<Record<ManagerAction['type'], true>> = {
   'doc/add': true,
   'doc/opening': true,
   'doc/failed': true,
+  'doc/missing': true,
   'doc/closed': true,
   'doc/withdrawn': true,
   'palette/open': true,
+  'pane/files': true,
+  'files/used': true,
+  'drive/folder-deleted': true,
+  'drive/renaming': true,
   'palette/close': true,
   'page/tone': true,
   'drive/page': true,
@@ -155,12 +192,54 @@ export const isManagerAction = (action: {
   readonly type: string;
 }): action is ManagerAction => Object.hasOwn(MANAGER_ACTIONS, action.type);
 
+const withNavigation = <T extends ManagerState>(
+  state: T,
+  pane: ManagerNavigation['pane'],
+  requested: boolean,
+  onMissing: 'recent' | 'files' = 'files',
+): T => {
+  if (pane === state.navigation.pane) {
+    if (
+      state.navigation.pane === 'document' &&
+      state.navigation.onMissing !== onMissing
+    )
+      return {
+        ...state,
+        navigation: { ...state.navigation, focus: null, onMissing },
+      };
+    return state;
+  }
+  const wasDocument = state.navigation.pane === 'document';
+  const navigation: ManagerNavigation =
+    pane === 'document'
+      ? {
+          pane,
+          focus: requested && !wasDocument ? 'document' : null,
+          onMissing,
+        }
+      : { pane, focus: requested && wasDocument ? 'files' : null };
+  return { ...state, navigation };
+};
+
+/** The tabs that remain; a deliberate last close hands focus back to Files. */
+const withTabs = <T extends ManagerState>(
+  state: T,
+  tabs: TabsState,
+  requested = true,
+): T => {
+  const next = { ...state, tabs };
+  return tabs.open.length === 0
+    ? withNavigation(next, 'files', requested)
+    : requested && next.navigation.pane === 'document'
+      ? withNavigation(next, 'document', true)
+      : next;
+};
+
 /** Tabs that remain, with no body kept for one closed by a removal. */
 const withoutDocument = <T extends ManagerState>(state: T, id: string): T => ({
-  ...state,
+  ...withTabs(state, closeTab(state.tabs, id)),
   drive: removeEntry(state.drive, id),
   opened: state.opened.filter((open) => openId(open) !== id),
-  tabs: closeTab(state.tabs, id),
 });
 
 /** The manager's one transition: total, with every other state unchanged. */
@@ -181,17 +260,63 @@ export function reduceManager<T extends ManagerState>(
   });
   switch (action.type) {
     case 'tabs/open':
-      return { ...state, tabs: openTab(state.tabs, action.id) };
+      return withNavigation(
+        { ...state, tabs: openTab(state.tabs, action.id) },
+        'document',
+        true,
+      );
     case 'tabs/close':
-      return { ...state, tabs: closeTab(state.tabs, action.id) };
+      return withTabs(state, closeTab(state.tabs, action.id));
     case 'tabs/activate':
-      return { ...state, tabs: activateTab(state.tabs, action.id) };
-    case 'doc/loaded':
-      return loadOpenDocuments(state, action.documents);
+      return withNavigation(
+        { ...state, tabs: activateTab(state.tabs, action.id) },
+        'document',
+        true,
+      );
+    case 'doc/loaded': {
+      const loaded = loadOpenDocuments(state, action.documents);
+      // A default pane follows arrival; any use of Files commits that choice.
+      return state.navigation.pane === 'unselected' &&
+        loaded.tabs.open.length > 0
+        ? withNavigation(loaded, 'document', false)
+        : loaded;
+    }
     case 'doc/withdrawn':
-      return { ...state, opened: [], tabs: { open: [], active: null } };
-    case 'doc/add':
-      return addOpenDocument(state, action.document);
+      return {
+        ...withTabs(state, { open: [], active: null }, false),
+        opened: [],
+      };
+    case 'doc/add': {
+      const added = addOpenDocument(state, action.document);
+      return findOpen(state.opened, action.document.id)
+        ? added
+        : withNavigation(added, 'document', true);
+    }
+    case 'doc/missing': {
+      if (findOpen(state.opened, action.id)?.kind === 'loaded') return state;
+      const closed = {
+        ...state,
+        tabs: closeTab(state.tabs, action.id),
+        opened: state.opened.filter((open) => openId(open) !== action.id),
+      };
+      if (
+        state.navigation.pane !== 'document' ||
+        state.navigation.onMissing !== 'recent'
+      )
+        return withTabs(closed, closed.tabs);
+      // Only an initial link may fall back. A row chosen after closing a cached
+      // document must not reopen the body the person deliberately left behind.
+      // Either initial-load arrival order still lands on a saved recent copy.
+      const fallback = loadOpenDocuments(
+        closed,
+        loadedDocuments(closed.opened),
+      );
+      return withNavigation(
+        fallback,
+        fallback.tabs.open.length > 0 ? 'document' : 'unselected',
+        true,
+      );
+    }
     case 'doc/opening': {
       const known = findOpen(state.opened, action.id);
       const opened: readonly OpenDocument[] =
@@ -207,18 +332,22 @@ export function reduceManager<T extends ManagerState>(
                 ...state.opened,
                 { kind: 'loading', id: action.id, title: action.title },
               ];
-      return {
-        ...state,
-        opened,
-        tabs: openTab(state.tabs, action.id),
-        paletteOpen: false,
-      };
+      return withNavigation(
+        {
+          ...state,
+          opened,
+          tabs: openTab(state.tabs, action.id),
+          palette: 'closed',
+        },
+        'document',
+        true,
+        action.origin === 'link' ? 'recent' : 'files',
+      );
     }
     case 'doc/closed':
       return {
-        ...state,
+        ...withTabs(state, closeTab(state.tabs, action.id)),
         opened: state.opened.filter((open) => openId(open) !== action.id),
-        tabs: closeTab(state.tabs, action.id),
       };
     case 'drive/unlist':
       return { ...state, drive: removeEntry(state.drive, action.id) };
@@ -240,9 +369,19 @@ export function reduceManager<T extends ManagerState>(
         updateDocumentHtml(doc, action.html, action.now),
       );
     case 'palette/open':
-      return { ...state, paletteOpen: true };
+      return { ...state, palette: action.mode };
     case 'palette/close':
-      return { ...state, paletteOpen: false };
+      return { ...state, palette: 'closed' };
+    case 'files/used':
+      return state.navigation.pane === 'unselected'
+        ? withNavigation(state, 'files', false)
+        : state.navigation.pane === 'document'
+          ? withNavigation(state, 'document', false)
+          : state;
+    case 'pane/files':
+      return withNavigation(state, 'files', true);
+    case 'drive/renaming':
+      return { ...state, renaming: action.id };
     case 'page/tone':
       return {
         ...state,
@@ -275,6 +414,28 @@ export function reduceManager<T extends ManagerState>(
         ...state,
         drive: moveEntry(state.drive, action.id, action.folderId),
       };
+    case 'drive/folder-deleted': {
+      const removed = new Set(action.documentIds);
+      const active = state.tabs.active;
+      const at = active === null ? -1 : state.tabs.open.indexOf(active);
+      const tabs = {
+        open: state.tabs.open.filter((id) => !removed.has(id)),
+        active:
+          active === null || !removed.has(active)
+            ? active
+            : (state.tabs.open.slice(at + 1).find((id) => !removed.has(id)) ??
+              state.tabs.open
+                .slice(0, at)
+                .reverse()
+                .find((id) => !removed.has(id)) ??
+              null),
+      };
+      return {
+        ...withTabs(state, tabs),
+        drive: removeEntry(state.drive, action.id),
+        opened: state.opened.filter((open) => !removed.has(openId(open))),
+      };
+    }
     case 'drive/remove':
       return withoutDocument(state, action.id);
   }

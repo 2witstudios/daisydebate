@@ -104,7 +104,7 @@ test('native format, resolution and speech editing create a room without JavaScr
     await form.getByText('Preparation and timing', { exact: true }).click();
     await prep.fill('1:23');
     await form
-      .getByRole('button', { name: 'Update preview', exact: true })
+      .getByRole('button', { name: 'Apply resolution', exact: true })
       .click();
     await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
     await form.locator('[name="format"][value="value"]').check();

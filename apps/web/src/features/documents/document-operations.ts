@@ -23,11 +23,14 @@ import { blockText } from './document-edits';
 import { normalizeDocumentHtml } from './normalize-html';
 import { documentSearchQuery } from './search-query';
 
+/** How many documents the sidebar's Recent shows. */
+const RECENT_DOCUMENTS = 3;
+
 export type DocumentStore = Pick<
   Database,
   | 'createDocument'
   | 'readDocuments'
-  | 'lastEditedDocument'
+  | 'recentDocuments'
   | 'listDriveEntries'
   | 'listDocumentFolders'
   | 'searchDocuments'
@@ -181,11 +184,13 @@ export function createDocumentOperations({
       return records.map(toStored);
     },
 
-    /** The document to land on when nothing is open. */
-    async lastEdited(principal: DocumentPrincipal) {
-      return {
-        id: await store.lastEditedDocument({ ownerActorId: principal.actorId }),
-      };
+    /** What was edited last, newest first; the first is where to land. */
+    async recent(principal: DocumentPrincipal) {
+      const documents = await store.recentDocuments({
+        ownerActorId: principal.actorId,
+        limit: RECENT_DOCUMENTS,
+      });
+      return { id: documents[0]?.id ?? null, documents };
     },
 
     /** Title and body from one index, paged. The words are never logged. */
@@ -339,14 +344,14 @@ export function createDocumentOperations({
     async deleteFolder(
       principal: DocumentPrincipal,
       input: { readonly id: string },
-    ): Promise<void> {
-      found(
-        await store.deleteDocumentFolder({
-          id: input.id,
-          ownerActorId: principal.actorId,
-          admits,
-        }),
-      );
+    ): Promise<{ readonly deletedDocumentIds: readonly string[] }> {
+      const deletedDocumentIds = await store.deleteDocumentFolder({
+        id: input.id,
+        ownerActorId: principal.actorId,
+        admits,
+      });
+      if (deletedDocumentIds === null) throw createAppError('NOT_FOUND');
+      return { deletedDocumentIds };
     },
   };
 }

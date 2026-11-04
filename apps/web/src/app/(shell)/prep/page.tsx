@@ -19,24 +19,25 @@ export default async function PrepPage({
   const drive = requestMemberDrive(identity);
   if (drive === null) redirect('/');
   const { principal, operations } = drive;
-  const [page, folders, params] = await Promise.all([
+  const [page, folders, params, recent] = await Promise.all([
     operations.listDrive(principal, { folderId: null, after: null }),
     operations.listFolders(principal),
     searchParams,
+    operations.recent(principal),
   ]);
   return (
-    <DocumentManager
-      principalId={principal.userId}
-      back="/prep"
-      title="Prep"
-      initial={{ folderId: null, ...page, folders }}
-      notice={driveNoticeText(params.notice)}
-      openId={
-        typeof params.open === 'string' &&
-        idSchema.safeParse(params.open).success
-          ? params.open
-          : null
-      }
-    />
+    <div data-workspace className="flex min-h-0 flex-1 flex-col">
+      <DocumentManager
+        principalId={principal.userId}
+        initial={{ ...page, folders, recent: recent.documents }}
+        notice={driveNoticeText(params.notice)}
+        openId={
+          typeof params.open === 'string' &&
+          idSchema.safeParse(params.open).success
+            ? params.open
+            : null
+        }
+      />
+    </div>
   );
 }

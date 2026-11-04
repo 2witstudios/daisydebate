@@ -49,9 +49,16 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     },
     readDocuments: async ({ ownerActorId, ids }) =>
       ids.flatMap((id) => owned(id, ownerActorId) ?? []),
-    lastEditedDocument: async ({ ownerActorId }) =>
-      [...documents.values()].find((d) => d.ownerActorId === ownerActorId)
-        ?.id ?? null,
+    recentDocuments: async ({ ownerActorId, limit }) =>
+      [...documents.values()]
+        .filter((d) => d.ownerActorId === ownerActorId)
+        .sort(
+          (a, b) =>
+            b.updatedAt.getTime() - a.updatedAt.getTime() ||
+            b.id.localeCompare(a.id),
+        )
+        .slice(0, limit)
+        .map(({ id, title }) => ({ id, title })),
     listDriveEntries: async ({ ownerActorId, folderId, limit }) =>
       [...documents.values()]
         .filter(
@@ -93,7 +100,7 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
     renameDocumentFolder: async () => true,
     moveDocumentFolder: async () => {},
     countFolderDocuments: async () => 0,
-    deleteDocumentFolder: async () => true,
+    deleteDocumentFolder: async () => [],
   };
   return { store, documents };
 };

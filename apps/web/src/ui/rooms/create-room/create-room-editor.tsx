@@ -409,15 +409,6 @@ export function CreateRoomEditor({
           <button
             type="submit"
             name="intent"
-            value="configure"
-            formNoValidate
-            className={buttonClass('secondary')}
-          >
-            Update preview
-          </button>
-          <button
-            type="submit"
-            name="intent"
             value="create"
             className={buttonClass('primary')}
             disabled={pending || missingPublication}

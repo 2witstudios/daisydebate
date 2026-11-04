@@ -189,13 +189,9 @@ test('the round room: no app shell, Files closes, the sidebar switches, Leave as
   await expect(page).toHaveURL(`/rounds/${roundId}`);
 });
 
-test('a landscape page and formatting from the keyboard', async ({
-  liveRoom,
-}) => {
+test('formatting from the keyboard', async ({ liveRoom }) => {
   const { page, violations } = liveRoom;
   const flow = page.getByRole('textbox', { name: 'Untitled', exact: true });
-  const columns = () =>
-    flow.evaluate((node) => getComputedStyle(node).columnCount);
   const saved = () =>
     page.waitForResponse(
       (response) =>
@@ -216,15 +212,7 @@ test('a landscape page and formatting from the keyboard', async ({
   await page.keyboard.press('Enter');
   await expect(flow.locator('strong')).toHaveText('Kenya');
   await marked;
-  const laidOut = saved();
-  await page.getByRole('combobox', { name: 'Page' }).selectOption({
-    label: 'Landscape · 3 columns',
-  });
-  await laidOut;
-  expect(await columns()).toBe('3');
   await page.reload();
-  await expect(page.getByRole('combobox', { name: 'Page' })).toHaveValue('3');
-  expect(await columns()).toBe('3');
   await expect(flow.locator('strong')).toHaveText('Kenya');
   expect(await violations.read()).toEqual({
     eventViolations: [],
@@ -232,7 +220,8 @@ test('a landscape page and formatting from the keyboard', async ({
   });
 });
 
-const targetSize = 44;
+const denseTarget = 28;
+const fingerTarget = 44;
 
 test('the round editor’s targets, the phone toolbar row and focus return', async ({
   liveRoom,
@@ -241,19 +230,21 @@ test('the round editor’s targets, the phone toolbar row and focus return', asy
   const formatting = page.getByRole('toolbar', { name: 'Formatting' });
   const controls = [
     ...(await formatting.getByRole('button').all()),
-    page.getByRole('combobox', { name: 'Page' }),
     page.getByRole('button', { name: 'Smaller text' }),
     page.getByRole('button', { name: 'Larger text' }),
     page.getByRole('button', { name: 'Dark page' }),
     page.getByRole('button', { name: 'Light page' }),
   ];
   await expect(page.locator('[data-room-page]')).toHaveCount(0);
-  expect(controls.length).toBe(10);
-  for (const control of controls) {
-    const box = await control.boundingBox();
-    expect(box?.height).toBeGreaterThanOrEqual(targetSize);
-    expect(box?.width).toBeGreaterThanOrEqual(targetSize);
-  }
+  expect(controls.length).toBe(9);
+  const targetsAre = async (size: number) => {
+    for (const control of controls) {
+      const box = await control.boundingBox();
+      expect(box?.height).toBeGreaterThanOrEqual(size);
+      expect(box?.width).toBeGreaterThanOrEqual(size);
+    }
+  };
+  await targetsAre(denseTarget);
 
   const toggle = page.getByRole('button', { name: 'Hide files' });
   await toggle.focus();
@@ -264,6 +255,25 @@ test('the round editor’s targets, the phone toolbar row and focus return', asy
   await expect(page.getByRole('button', { name: 'Show files' })).toBeFocused();
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await targetsAre(fingerTarget);
+  // Reserving classic scrollbar space must not clip the dense controls.
+  await page.evaluate(() =>
+    document.styleSheets[0]!.insertRule(
+      '::-webkit-scrollbar { width: 15px; height: 15px; }',
+    ),
+  );
+  expect(
+    await formatting.evaluate(
+      (node) =>
+        node.parentElement!.scrollHeight <= node.parentElement!.clientHeight,
+    ),
+  ).toBe(true);
+  expect(
+    await page
+      .getByRole('group', { name: 'Open files' })
+      .evaluate((node) => node.scrollHeight <= node.clientHeight),
+  ).toBe(true);
+
   const row = await formatting.evaluate((node) => {
     const bar = node.parentElement!;
     const tops = new Set(

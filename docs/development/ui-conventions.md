@@ -23,11 +23,11 @@ because a refresh would cost the room for less than its controls. Any other
 failure, a genuinely unavailable identity included, stays on the error boundary:
 it is not known to pass and must not say so (ISSUE-927).
 
-## Mutating forms work without JavaScript
+## Mutating forms
 
-Owner decision, 2026-09-23 (ISSUE-18). Every form that changes state is a
-real POST that works before hydration and with JavaScript off. Client
-JavaScript only enhances it.
+Daisy needs JavaScript: nobody can compete without it, so nothing is built or
+tested for JavaScript being off ([ADR 0114](../decisions/0114-daisy-requires-javascript.md)).
+The rule that remains is that a click before hydration never leaks what was typed.
 
 - The form posts to a Next server action (`<form action={serverAction}>`,
   usually through `useActionState`) or to a route that answers a form POST.
@@ -88,29 +88,6 @@ JavaScript only enhances it.
   prevent the default.
 - A choice that only navigates, such as "Not now", is a link (`<a href>`),
   not a button with an `onClick`, so it works before hydration too.
-- No `loading.tsx` or `<Suspense>` fallback sits above a page with a form.
-  Next streams such a page into a hidden node that only an inline script
-  reveals, so without JavaScript the page never appears (ISSUE-74).
-- Prove it in the browser suite with JavaScript actually off: a context
-  with `javaScriptEnabled: false` runs no script at all, inline or bundled.
-  Submit, then assert the outcome and a URL without the submitted values.
-  Aborting only the script chunks is not enough, because inline scripts
-  still run and reveal what a script-less browser never sees. See the
-  "with JavaScript off" block in `apps/web/e2e/journey.e2e.ts`.
-
-Recorded exceptions:
-
-- The planned media Ready check for a human debater needs JavaScript. It
-  must wait on a local microphone and camera check, which cannot run
-  without script. With JavaScript off, its server-rendered Ready control
-  must be disabled with the reason
-  ([ADR 0053](../decisions/0053-live-video-self-hosted-livekit.md) section 5,
-  DEC-109). Judge and server-operated bot seats need no human device check.
-  This exception specifies VIDEO-2.7; it does not claim that Ready or the
-  device check is already implemented.
-
-Forms that predate this rule are tracked as issues in the PageSpace `Issues`
-list. Bring each one into line when you next change it.
 
 ### Conversation completion ownership
 
@@ -191,6 +168,10 @@ reveal on hover and keyboard focus, badges are unchanged, and Friends is its
 own page, `/friends`. Minimize is a form posting a server action, so it
 works without JavaScript; it is named Minimize when extended and Expand when
 mini.
+
+The rail is dark in either theme (DEC-359). A page that marks itself
+`data-workspace` fills the viewport and scrolls its own panes, and the rail is
+icon-only beside it whatever the saved choice says (ADR 0113), by CSS alone.
 
 The choice to minimize to the icon-only rail — names as screen-reader text
 with a tooltip, the 56px column — persists in a cookie the server reads per
@@ -288,11 +269,15 @@ a human judge's seat unnamed.
 
 ## Document manager
 
-One manager opens at `/prep` and inside a Round (ADR 0111): `ui/documents` draws the
-tree, search, tabs and editor, and a page supplies only its frame. Below 901px one
-panel shows at a time, and a row opens the document itself (DEC-141). Without script
-the tree renders on the server, and create, rename, move and delete are real form
-posts; a row says editing needs script rather than injecting stored HTML.
+One manager opens at `/prep` and inside a Round (ADR 0111, ADR 0113): `ui/documents`
+draws the tree, search, tabs and editor, fills the frame a page gives it and draws
+none of its own. At `/prep` the frame is the whole middle section. Files holds compact
+rows, Recent and My drive. `+` opens a palette in the middle of the screen to choose
+Document or Folder, search opens the same palette, and another `+` ends the tabs. A
+row's actions are one flat menu. A document has no page layout and no ring while
+someone types. Rows and tools take a dense target under a fine pointer and the 44px
+target under a finger. Below 901px one panel shows at a time, and a row opens the
+document itself (DEC-141).
 
 ## Spectator view
 
