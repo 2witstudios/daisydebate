@@ -20,7 +20,8 @@ export const captureWorkerIdentitySchema = z
   })
   .strict();
 export const captureLeaseCheckSchema = captureWorkerIdentitySchema.safeExtend({
-  segmentId: idSchema,
+  /** Null during a countdown, when no segment is current to check against. */
+  segmentId: idSchema.nullable(),
 });
 export const captureReadSchema = captureWorkerIdentitySchema
   .safeExtend({

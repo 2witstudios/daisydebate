@@ -1,4 +1,5 @@
 import { createRoundIncidentStore } from './round-incident-store';
+import { createRoundStartGateStore } from './round-start-gate-store';
 export type { RoundHydration } from './round-hydration';
 import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
@@ -223,6 +224,9 @@ export function createDatabase({
     ...roundAnalysisReads({ database }),
     roundIncidents: namedLaneOperations(
       createRoundIncidentStore({ run: transcriptTransaction }),
+    ),
+    roundStartGates: namedLaneOperations(
+      createRoundStartGateStore({ run: transcriptTransaction }),
     ),
     broadcasts: createBroadcastStore(database),
     recordingCaptures: createRecordingCaptureStore(database),

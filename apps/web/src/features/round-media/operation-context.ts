@@ -42,6 +42,11 @@ export type MediaOperationInput = {
   readonly logger: Logger;
   /** What a recovery pass saw goes here; it owns what that means for the Round. */
   readonly observeIncident: (report: MediaPassReport) => Promise<void>;
+  /** These speakers' microphones are opening, and capture has not reported them. */
+  readonly awaitCapture: (
+    roundId: string,
+    seats: readonly string[],
+  ) => Promise<void>;
   readonly deadline: <T>(work: Promise<T>) => Promise<T>;
   readonly wait: () => Promise<void>;
   /** The longest a Round goes with no recovery pass when nothing is due. */

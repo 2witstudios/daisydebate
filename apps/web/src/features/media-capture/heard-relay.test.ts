@@ -12,6 +12,7 @@ const identity = { roundId: id('r'), sessionId: id('s'), workerId: id('w') };
 
 function heardHarness(kind: 'human' | 'bot', identityBound = true) {
   const writes: unknown[] = [];
+  const released: unknown[] = [];
   let leaseCurrent = true;
   const relay = createCaptureHeardRelay({
     readCapture: async () => ({
@@ -33,10 +34,14 @@ function heardHarness(kind: 'human' | 'bot', identityBound = true) {
     write: async (heard) => {
       writes.push(heard);
     },
+    startGateHeard: async (heard) => {
+      released.push(heard);
+    },
   });
   return {
     relay,
     writes,
+    released,
     expire: () => {
       leaseCurrent = false;
     },
@@ -106,5 +111,19 @@ test('a heard report is admitted only for a bound seat, the current segment and 
     should: 'write nothing',
     actual: stale.writes,
     expected: [],
+  });
+});
+
+test('a report during a countdown names the seat and releases a waiting speech', async () => {
+  const f = heardHarness('human');
+  await f.relay({ ...identity, epoch: 1 }, { ...heard(), segmentId: null });
+  assert({
+    given: 'a report with no segment open, for a bound seat',
+    should: 'write it and tell the start gate',
+    actual: [f.writes, f.released],
+    expected: [
+      [{ roundId: identity.roundId, trackId: 'TR_bot', seat }],
+      [{ roundId: identity.roundId, seat }],
+    ],
   });
 });

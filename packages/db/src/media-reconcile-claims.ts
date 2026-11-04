@@ -76,6 +76,12 @@ const activeSession = (row: ActiveSessionRow) => {
           }
         : null,
       stops: row.runtime_state.clock_stops,
+      startGateAt:
+        row.runtime_state.start_gate === null
+          ? null
+          : row.runtime_state.start_gate.phase === 'awaiting'
+            ? row.runtime_state.start_gate.until
+            : row.runtime_state.start_gate.at,
       hold:
         row.runtime_state.incident.phase === 'none'
           ? null

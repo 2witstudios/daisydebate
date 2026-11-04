@@ -1,3 +1,4 @@
+import { roundStartPolicy } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { at, ran } from '../../ui/debate-room/live-round.test-support';
 import { nextMediaRefreshAt } from './refresh-deadline';
@@ -9,13 +10,19 @@ test('media refresh follows actual countdown and early closure anchors', () => {
     given: 'an actual accepted start before any segment exists',
     should: 'request a server read at its countdown boundary',
     actual: nextMediaRefreshAt(starting),
-    expected: Date.parse(starting.startedAt!) + starting.rules.countdownMs,
+    expected:
+      Date.parse(starting.startedAt!) +
+      starting.rules.countdownMs -
+      Math.min(roundStartPolicy.microphoneLeadMs, starting.rules.countdownMs),
   });
   assert({
     given: 'an actual early segment close before the next opens',
     should: 'use that committed close as its next countdown anchor',
     actual: nextMediaRefreshAt(gap),
-    expected: Date.parse(gap.segments[0]!.endedAt!) + gap.rules.countdownMs,
+    expected:
+      Date.parse(gap.segments[0]!.endedAt!) +
+      gap.rules.countdownMs -
+      Math.min(roundStartPolicy.microphoneLeadMs, gap.rules.countdownMs),
   });
 });
 test('prep refresh overrides the ordinary gap and judging uses actual final close', () => {

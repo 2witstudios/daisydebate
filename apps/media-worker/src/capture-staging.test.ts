@@ -90,14 +90,60 @@ test('private staging never retains conversation or a closed-edge window for a f
   f.state.state.intervals[0]!.endedAt = iso(10010);
   f.observe(2, 30.4);
   f.observe(3, 40.6);
-  f.state.state.intervals[0]!.endedAt = null;
   assert({
     given:
       'conversation callbacks and full brackets crossing a closed grant edge',
     should: 'retain no PCM for a later grant',
     actual: { frames: f.staging.take().length, ...f.counts() },
+    expected: { frames: 0, dropped: 0, retained: 0 },
+  });
+  // Later histories cannot admit them: each frame's own time is outside any interval.
+  f.state.state.serverNow = iso(20_000);
+  f.staging.refresh(f.state.calibration);
+  assert({
+    given: 'a fresher history, past their wait',
+    should: 'let every one go, never having stored any',
+    actual: { frames: f.staging.take().length, ...f.counts() },
     expected: { frames: 0, dropped: 4, retained: 0 },
   });
+});
+test('a frame that beat the history showing its speech open waits for it', () => {
+  const f = fixture(),
+    segment = f.state.state.segment!;
+  f.state.state.segment = null;
+  f.observe(0, 10);
+  f.observe(1, 20.2);
+  assert({
+    given: 'frames arriving before this worker knows the speech is open',
+    should: 'retain nothing yet',
+    actual: f.staging.take().length,
+    expected: 0,
+  });
+  f.state.state.segment = segment;
+  f.staging.refresh(f.state.calibration);
+  assert({
+    given: 'the next history showing the speech open from before they arrived',
+    should:
+      'admit the frame inside the interval; the first straddles its start',
+    actual: f.staging.take().map(({ frame }) => frame.pcm[0]),
+    expected: [7],
+  });
+});
+test('audio before the clock never enters, however soon the speech opens', () => {
+  const f = fixture(),
+    interval = f.state.state.intervals[0]!,
+    { startedAt } = interval;
+  interval.startedAt = iso(10_500);
+  f.observe(0, 10);
+  f.observe(1, 20.2);
+  f.staging.refresh(f.state.calibration);
+  assert({
+    given: 'frames from just before an interval the next history shows',
+    should: 'never admit them',
+    actual: f.staging.take().length,
+    expected: 0,
+  });
+  interval.startedAt = startedAt;
 });
 test('private staged PCM is held until a batch takes it', () => {
   const f = fixture();
@@ -122,7 +168,7 @@ test('private staged PCM is held until a batch takes it', () => {
       segment: 'g'.repeat(24),
       pcm: 7,
       later: 1,
-      dropped: 1,
+      dropped: 0,
     },
   });
 });

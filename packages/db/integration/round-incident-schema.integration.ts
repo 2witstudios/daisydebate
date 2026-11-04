@@ -122,7 +122,10 @@ test('a fresh Round reads the strict checkpoint', async () => {
       actual: (({ incident, clock_stops }) => ({ incident, clock_stops }))(
         runtimeCheckpointSchema.parse(row.runtime_state),
       ),
-      expected: { incident: { phase: 'none' }, clock_stops: [] },
+      expected: {
+        incident: { phase: 'none' },
+        clock_stops: [],
+      },
     });
   });
 });

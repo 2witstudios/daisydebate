@@ -16,9 +16,15 @@ export type StagedFrame = {
   readonly segmentId: string;
   readonly frame: Parameters<typeof cutCaptureClips>[0]['frames'][number];
 };
+/** How long a frame waits for a history that admits it: a slow read, not a policy. */
+const WAIT_MS = 1_000;
+/** A second of audio for every seat a Round has at once, at 10 ms a frame. */
+const MAX_WAITING_FRAMES = 400;
 /**
- * Private validation staging only. No WAV, coverage, text or future-grant
- * replay. Unvalidated PCM is bounded by this cap, never by wall-clock age: a
+ * Private validation staging only. No WAV, coverage or text. A frame that arrives before
+ * this worker's history shows its speech open waits, briefly and in memory, for the next
+ * history, because the clock started before this worker could know: what that history does
+ * not admit is discarded and never stored. Unvalidated PCM is bounded by this cap, never by wall-clock age: a
  * frame waits for the next batch however long that batch's history read
  * takes, since dropping it would leave a hole in coverage (ISSUE-577).
  */
@@ -45,14 +51,15 @@ export function createCaptureStaging(input: {
     pending.splice(0, excess).forEach(input.lost);
     input.dropped(excess);
   };
-  const candidate = (raw: Raw): StagedFrame | null => {
+  type Window = NonNullable<ReturnType<typeof clocks.observe>>;
+  type Waiting = { readonly raw: Raw; readonly window: Window };
+  let waiting: Waiting[] = [];
+  const admit = ({ raw, window }: Waiting): StagedFrame | null => {
     const current = input.current();
     const peer = current.state.participants.find(
       (p) => p.identity === raw.identity,
     );
     if (!peer || !current.state.segment) return null;
-    const window = clocks.observe(raw, current.calibration);
-    if (!window) return null;
     const { beforeMs, afterMs, nominalStartMs } = window;
     if (
       !contained(current.state, peer.roundParticipantId, { beforeMs, afterMs })
@@ -78,21 +85,45 @@ export function createCaptureStaging(input: {
       },
     };
   };
+  const retain = (frame: StagedFrame) => {
+    pending.push(frame);
+    bound();
+    input.retained();
+  };
   return {
-    /** The frame it retained, or null when refused. */
+    /** The frame it retained, or null when it waits or is refused. */
     observe(raw: Raw): StagedFrame | null {
-      const frame = candidate(raw);
-      if (!frame) {
+      const window = clocks.observe(raw, input.current().calibration);
+      if (!window) {
         input.dropped(1);
         return null;
       }
-      pending.push(frame);
-      bound();
-      input.retained();
+      const frame = admit({ raw, window });
+      if (!frame) {
+        waiting.push({ raw, window });
+        const excess = waiting.length - MAX_WAITING_FRAMES;
+        if (excess > 0) {
+          waiting = waiting.slice(excess);
+          input.dropped(excess);
+        }
+        return null;
+      }
+      retain(frame);
       return frame;
     },
+    /** A fresher history: what waited for it is admitted, and the rest let go. */
     refresh(calibration: Snapshot['calibration']) {
       clocks.refresh(calibration);
+      const serverNow = Date.parse(input.current().state.serverNow);
+      const stillWaiting: Waiting[] = [];
+      for (const frame of waiting) {
+        const admitted = admit(frame);
+        if (admitted) retain(admitted);
+        else if (serverNow - frame.window.afterMs < WAIT_MS)
+          stillWaiting.push(frame);
+        else input.dropped(1);
+      }
+      waiting = stillWaiting;
     },
     closeTrack(trackId: string) {
       clocks.close(trackId);
@@ -127,6 +158,8 @@ export function createCaptureStaging(input: {
       input.dropped(pending.length);
       pending.forEach(input.lost);
       pending = [];
+      input.dropped(waiting.length);
+      waiting = [];
       clocks.clear();
       edges.clear();
     },

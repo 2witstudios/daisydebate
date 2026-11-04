@@ -12,6 +12,7 @@ import {
   admissionRevoked,
   conversationHeldOverdue,
   mediaEnded,
+  mediaRuntime,
   seatGrants,
   type MediaSnapshot,
 } from './projection';
@@ -22,7 +23,7 @@ import type {
   MediaOperationInput,
 } from './operation-context';
 import { OperationTimedOut } from '@daisy/observability';
-import type { MediaRoomRead } from '@daisy/protocol';
+import { roundStartPolicy, type MediaRoomRead } from '@daisy/protocol';
 import { createMediaMutations } from './mutation';
 
 /** What a vendor mutation's authorization reads, under its locks. */
@@ -315,19 +316,14 @@ export function createMediaReconcileRun(
    * Reconciles the room. The admission's own refusal, if met, is returned;
    * otherwise whether every vendor write this needed was acknowledged.
    */
-  /**
-   * While a Round is held: whether capture reads the speaker's microphone in this room.
-   * Null when no human holds the floor. A failed read is not yet heard, and the next pass
-   * asks again.
-   */
-  const speakerHeard = async (
+  /** The human seats with a microphone open now, and whether capture reads each. */
+  const speakersHeard = async (
     current: readonly {
       readonly identity: string;
       readonly microphoneTrack: string | null;
     }[],
     state: MediaSnapshot,
   ) => {
-    if (state.round.checkpoint.incident.phase !== 'paused') return null;
     const speakers = state.bindings.flatMap((binding) => {
       const seat = state.participants.find(
         (row) => row.id === binding.roundParticipantId,
@@ -337,21 +333,55 @@ export function createMediaReconcileRun(
         ? [{ seatId: seat.id, identity: binding.identity }]
         : [];
     });
-    if (speakers.length === 0) return null;
-    const heard = await Promise.all(
+    return Promise.all(
       speakers.map(async ({ seatId, identity }) => {
         const track = current.find(
           (entry) => entry.identity === identity,
         )?.microphoneTrack;
-        if (!track) return false;
-        return (
+        // A failed read is not yet heard, and the next pass asks again.
+        const heard =
+          Boolean(track) &&
           (await input
-            .readCaptureHeard(state.round.id, track)
-            .catch(() => null)) === seatId
-        );
+            .readCaptureHeard(state.round.id, track!)
+            .catch(() => null)) === seatId;
+        return { seatId, heard };
       }),
     );
-    return heard.every(Boolean);
+  };
+  /**
+   * While a Round is held: whether capture reads the speaker's microphone in this room.
+   * Null when no human holds the floor.
+   */
+  const speakerHeard = async (
+    current: Parameters<typeof speakersHeard>[0],
+    state: MediaSnapshot,
+  ) => {
+    if (state.round.checkpoint.incident.phase !== 'paused') return null;
+    const speakers = await speakersHeard(current, state);
+    return speakers.length === 0 ? null : speakers.every(({ heard }) => heard);
+  };
+  /**
+   * Before opening the next speaker's microphone, say capture is awaited for them, so its
+   * report can never arrive first. A failure here only means the clock does not wait.
+   */
+  const awaitCapture = async (
+    current: Parameters<typeof speakersHeard>[0],
+    state: MediaSnapshot,
+  ) => {
+    const position = mediaRuntime(state, input.nextId).position(state.now);
+    if (
+      position.nextSegment === null ||
+      position.openSegment !== null ||
+      position.countdownRemainingMs === null ||
+      position.countdownRemainingMs > roundStartPolicy.microphoneLeadMs ||
+      state.round.checkpoint.start_gate?.sequence ===
+        position.nextSegment.sequence
+    )
+      return;
+    const seats = (await speakersHeard(current, state))
+      .filter(({ heard }) => !heard)
+      .map(({ seatId }) => seatId);
+    await input.awaitCapture(state.round.id, seats).catch(() => undefined);
   };
   /** Whether the room's node answers; only its own answer or its silence says it is gone. */
   const roomAnswers = (room: string) =>
@@ -416,7 +446,9 @@ export function createMediaReconcileRun(
       if ('refused' in created) return created;
       if (!created.acknowledged) return { settled: false };
     }
-    const { known, state } = read.publishers ?? (await knownPublishers(claim));
+    const { known, state, current } =
+      read.publishers ?? (await knownPublishers(claim));
+    await awaitCapture(current, state);
     return {
       settled:
         (await closeStale(claim, known, state)) &&

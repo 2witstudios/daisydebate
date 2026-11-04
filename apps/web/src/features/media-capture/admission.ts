@@ -20,14 +20,15 @@ export type CaptureRead = {
   }[];
 };
 export type LeaseRead = (
-  identity: CaptureIdentity & { readonly segmentId: string },
+  identity: CaptureIdentity & { readonly segmentId: string | null },
 ) => Promise<{ readonly serverNow: string }>;
 
 /** An actually bound seat (of `kind`, when named) and the current open segment. */
 export function requireCurrentSeat(
   capture: CaptureRead,
   roundParticipantId: string,
-  segmentId: string,
+  /** Null during a countdown, when no segment is current to check against. */
+  segmentId: string | null,
   kind?: 'bot',
 ) {
   if (
@@ -39,6 +40,7 @@ export function requireCurrentSeat(
     )
   )
     throw createAppError('AUTHORIZATION');
+  if (segmentId === null) return;
   if (capture.segment?.id !== segmentId || capture.segment.endedAt !== null)
     throw createAppError('CONFLICT', 'Activity segment is not current');
 }
