@@ -11,7 +11,7 @@ setupRitewayBun();
 // IconName is an open string key, so a typo renders an empty <svg> silently.
 // Expected names come from the consumers, not a hand-kept list: string
 // literals passed to icon props in non-test source (forms and limits are
-// documented in test-support/icon-references.ts), plus the tile data itself.
+// documented in test-support/icon-references.ts).
 const sourceDirectory = join(import.meta.dir, '../../..');
 
 const sourceFiles = (directory: string): readonly string[] =>
@@ -29,7 +29,6 @@ const referencedIcons = (): readonly string[] => [
     ...sourceFiles(sourceDirectory).flatMap((file) =>
       extractIconNames(readFileSync(file, 'utf8')),
     ),
-    ...tiles.map((tile) => tile.glyph),
   ]),
 ];
 
@@ -42,12 +41,9 @@ describe('icon set', () => {
     assert({
       given: 'a scan of non-test source for literal icon references',
       should: 'see JSX literals, stat icon props, and nav/tile data alike',
-      actual: [
-        'chevronRight',
-        'key',
-        'home',
-        'brain',
-      ].filter((name) => !names.includes(name)),
+      actual: ['chevronRight', 'key', 'home', 'brain'].filter(
+        (name) => !names.includes(name),
+      ),
       expected: [],
     });
   });
