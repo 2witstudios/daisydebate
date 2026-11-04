@@ -183,6 +183,7 @@ const typePendingEdit = async (
 const expectSecondRoundOffer = async (page: Page, title: string) => {
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: title, exact: true })
     .click();
   await expect(
@@ -845,6 +846,7 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   await page.reload();
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: 'Untitled', exact: true })
     .click();
   await expect(
@@ -866,6 +868,7 @@ test('multibyte multi-document exit keeps overflow recoverable after a lost exit
   await edit(page, '界'.repeat(14000));
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: second.title, exact: true })
     .click();
   await page
@@ -1428,6 +1431,7 @@ test('controlled router-lifecycle proof, not end-user navigation: Round replacem
   );
   await page
     .getByRole('navigation', { name: 'Files' })
+    .getByRole('region', { name: 'My drive' })
     .getByRole('button', { name: 'Untitled', exact: true })
     .click();
   await typePendingEdit(page, documentId, 'First Round pending NEW');
