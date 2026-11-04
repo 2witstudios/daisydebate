@@ -48,6 +48,7 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
                       active_prep: null,
                       floor: null,
                       incident: { phase: 'none' },
+                      prep_ended_at: null,
                       start_gate: null,
                       clock_stops: [],
                     },

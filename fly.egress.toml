@@ -8,7 +8,7 @@ app = "daisy-debate-staging-egress"
 primary_region = "ord"
 
 [build]
-  image = "livekit/egress:v1.15.0"
+  dockerfile = "infra/egress/Dockerfile"
 
 [[vm]]
   size = "performance-2x"

@@ -108,9 +108,14 @@ const segmentClock = (
 const prepClock = (
   prep: NonNullable<RoundPosition['prep']>,
   side: DebateSide,
+  micOpens: boolean,
 ) => ({
   label: prep.side === side ? 'Your prep' : `${sideName[prep.side]} prep`,
   remainingMs: prep.remainingMs,
+  // Prep can run out while the seat talks to themselves, and the other side can hear them then.
+  ...(micOpens
+    ? { note: 'Your microphone goes live when this prep ends.' }
+    : {}),
 });
 
 /** The main clock: the open segment, prep, the countdown, or the first speech's length. */
@@ -121,20 +126,22 @@ function clockOf(
   seatId: string,
 ): RoundSnapshot['clock'] {
   if (position.openSegment) return segmentClock(position.openSegment, side);
-  if (position.prep) return prepClock(position.prep, side);
+  // Told before it opens, because the other side can hear it from then. The same decision
+  // that opens it, so a cross-examination's two seats are both told.
+  const micOpens =
+    position.nextSegment !== null &&
+    microphoneOpensForClock({
+      rules: view.rules,
+      participants: view.participants.filter(isSeat),
+      participantId: seatId,
+      nextSequence: position.nextSegment.sequence,
+    });
+  if (position.prep) return prepClock(position.prep, side, micOpens);
   if (position.countdownRemainingMs !== null)
     return {
       label: 'Starts in',
       remainingMs: position.countdownRemainingMs,
-      // Before it opens, because the other side can hear it from then. The same decision
-      // that opens it, so a cross-examination's two seats are both told.
-      ...(position.nextSegment !== null &&
-      microphoneOpensForClock({
-        rules: view.rules,
-        participants: view.participants.filter(isSeat),
-        participantId: seatId,
-        nextSequence: position.nextSegment.sequence,
-      })
+      ...(micOpens
         ? { note: 'Your microphone goes live just before your clock starts.' }
         : {}),
     };

@@ -32,7 +32,7 @@ export const readBallotRound = async (
   expect(response.status()).toBe(200);
   return roundViewSchema.parse(await response.json());
 };
-const postRoundCommand = (
+export const postRoundCommand = (
   request: APIRequestContext,
   roundId: string,
   expectedVersion: number,

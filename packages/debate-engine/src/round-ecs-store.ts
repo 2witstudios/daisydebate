@@ -41,6 +41,7 @@ export type RoundStore = {
   readonly setIncident: (
     input: Pick<RuntimeCheckpoint, 'incident' | 'clock_stops'>,
   ) => void;
+  readonly setPrepEndedAt: (at: RuntimeCheckpoint['prep_ended_at']) => void;
   readonly setStartGate: (gate: RuntimeCheckpoint['start_gate']) => void;
   readonly closeSegment: (input: {
     readonly sequence: number;
@@ -144,6 +145,7 @@ const hydrate = (
                 granted_at: new Date(floorGrantedAtMs).toISOString(),
               },
         incident: db.resources.incident,
+        prep_ended_at: db.resources.prepEndedAt,
         start_gate: db.resources.startGate,
         clock_stops: db.resources.clockStops,
       };
@@ -160,6 +162,7 @@ const hydrate = (
       }),
     returnSegment: (input) => db.transactions.returnSegment(input),
     setIncident: (input) => db.transactions.setIncident(input),
+    setPrepEndedAt: (at) => db.transactions.setPrepEndedAt(at),
     setStartGate: (gate) => db.transactions.setStartGate(gate),
     closeSegment: (input) => db.transactions.closeSegment(input),
     setLifecycle: (lifecycle) => db.transactions.setLifecycle(lifecycle),

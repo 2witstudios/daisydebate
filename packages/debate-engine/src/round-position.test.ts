@@ -1,3 +1,4 @@
+import { roundStartPolicy } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { roundControlsAt, roundPositionAt } from './round-position';
@@ -137,7 +138,7 @@ test('frozen input, multi-segment catchup, staged composition and repeated time'
   });
 });
 
-test('prep expiry opens directly and final segment closes awaiting ballot', () => {
+test('prep expiry ends prep, opens one lead later, and final segment closes awaiting ballot', () => {
   const prior = advanceRoundClock(state(), rules, origin + 940_000).state;
   const prep: ClockState = {
     ...prior,
@@ -147,7 +148,13 @@ test('prep expiry opens directly and final segment closes awaiting ballot', () =
       prep_consumed_ms: { affirmative: 60_000, negative: 0 },
     },
   };
-  for (const offset of [-1, 0, 1]) {
+  const lead = roundStartPolicy.microphoneLeadMs;
+  for (const [offset, expected] of [
+    [-1, [false, 'CX2', 60_000]],
+    [0, [true, 'CX2', 240_000]],
+    [lead - 1, [true, 'CX2', 240_000]],
+    [lead, [true, '1AR', 240_000]],
+  ] as const) {
     const advanced = advanceRoundClock(
       prep,
       rules,
@@ -155,13 +162,13 @@ test('prep expiry opens directly and final segment closes awaiting ballot', () =
     );
     assert({
       given: `prep expiry ${offset}ms`,
-      should: 'consume budget and open at expiry without countdown',
+      should: 'consume budget at expiry and open one lead after it',
       actual: [
         advanced.state.checkpoint.active_prep === null,
         advanced.state.rows.at(-1)?.key,
         advanced.state.checkpoint.prep_consumed_ms.affirmative,
       ],
-      expected: offset < 0 ? [false, 'CX2', 60_000] : [true, '1AR', 240_000],
+      expected: [...expected],
     });
   }
   const final = read(99_000_000);

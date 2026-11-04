@@ -21,6 +21,8 @@ export type FloorClock = {
   } | null;
   /** Spans the clock did not run, closed: every wait is due that much later. */
   readonly stops: readonly ClockStop[];
+  /** When prep ended: the next clock is one microphone lead after it. */
+  readonly prepEndedAt: string | null;
   /** A start gate's own instant for the coming segment; null when none holds it. */
   readonly startGateAt: string | null;
   /** A platform incident holds the clock: only its countdown's end moves anything. */
@@ -57,6 +59,7 @@ type ClockedRound = {
     readonly prep_consumed_ms: Readonly<Record<string, number>>;
     readonly clock_stops: readonly ClockStop[];
     readonly incident: RoundIncident;
+    readonly prep_ended_at: string | null;
     readonly start_gate: RoundStartGate;
   } | null;
   readonly segments: readonly NonNullable<FloorClock['lastSegment']>[];
@@ -76,6 +79,7 @@ export const floorClockOf = (round: ClockedRound): FloorClock => {
         }
       : null,
     stops: round.checkpoint?.clock_stops ?? [],
+    prepEndedAt: round.checkpoint?.prep_ended_at ?? null,
     startGateAt: round.checkpoint?.start_gate
       ? startGateInstant(round.checkpoint.start_gate)
       : null,
@@ -92,6 +96,19 @@ const dueThroughStops = (clock: FloorClock, anchorMs: number, waitMs: number) =>
   dueAfterStops(anchorMs, waitMs, clock.stops, anchorMs);
 const gapBoundaries = (clock: FloorClock): number[] => {
   if (clock.activePrep || clock.segmentCount >= clock.segmentTotal) return [];
+  const gated = (due: number) =>
+    clock.startGateAt ? Math.max(due, Date.parse(clock.startGateAt)) : due;
+  // The microphone opened when prep ended: only the clock's own start is ahead.
+  if (clock.prepEndedAt)
+    return [
+      gated(
+        dueThroughStops(
+          clock,
+          Date.parse(clock.prepEndedAt),
+          roundStartPolicy.microphoneLeadMs,
+        ),
+      ),
+    ];
   const anchor =
     clock.segmentCount === 0 ? clock.startedAt : clock.lastSegment?.endedAt;
   if (!anchor) return [];
@@ -101,7 +118,7 @@ const gapBoundaries = (clock: FloorClock): number[] => {
     ...(clock.countdownMs > 0
       ? [due - Math.min(roundStartPolicy.microphoneLeadMs, clock.countdownMs)]
       : []),
-    clock.startGateAt ? Math.max(due, Date.parse(clock.startGateAt)) : due,
+    gated(due),
   ];
 };
 const mediaCloseBoundaries = ({
@@ -135,8 +152,8 @@ export function floorBoundaries(clock: FloorClock): number[] {
 }
 /**
  * The committed instant the floor last changed, at or before `nowMs`: a clock
- * boundary that has passed, or the last segment's own start or end (a yield
- * commits an end ahead of its boundary). Null before anything has happened.
+ * boundary that has passed, the last segment's own start or end (a yield
+ * commits an end ahead of its boundary), or prep ending, which opens the microphone. Null before anything has happened.
  */
 export function floorDueAt(clock: FloorClock, nowMs: number): number | null {
   const last = clock.lastSegment;
@@ -148,6 +165,7 @@ export function floorDueAt(clock: FloorClock, nowMs: number): number | null {
           ...(last.endedAt ? [Date.parse(last.endedAt)] : []),
         ]
       : []),
+    ...(clock.prepEndedAt ? [Date.parse(clock.prepEndedAt)] : []),
   ].filter((at) => at <= nowMs);
   return passed.length ? Math.max(...passed) : null;
 }

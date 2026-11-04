@@ -215,7 +215,7 @@ jobs:
           deployed="$(flyctl machines list -a daisy-debate-staging-egress --json | jq -r '.[0].config.env.EGRESS_SOURCE_COMMIT // empty')"
           if [ "$MANUAL" != true ] && [ -n "$deployed" ] \
             && git cat-file -e "$deployed^{commit}" 2>/dev/null \
-            && git diff --quiet "$deployed" HEAD -- fly.egress.toml; then
+            && git diff --quiet "$deployed" HEAD -- infra/egress fly.egress.toml; then
             echo "Egress unchanged since $deployed; not redeployed"
             exit 0
           fi

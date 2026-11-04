@@ -1,5 +1,10 @@
 import type { RoundStartGate } from '@daisy/protocol';
-import { clockStopsOf, dueAfterStops, startGateInstant } from '@daisy/protocol';
+import {
+  clockStopsOf,
+  dueAfterStops,
+  roundStartPolicy,
+  startGateInstant,
+} from '@daisy/protocol';
 import {
   closedCount,
   countdownAnchor,
@@ -23,18 +28,23 @@ const stay = (state: ClockState): ClockTransition => ({ state, changes: [] });
 const withGate = (state: ClockState, gate: RoundStartGate): ClockTransition =>
   stay({ ...state, checkpoint: { ...state.checkpoint, start_gate: gate } });
 
-/** When the countdown to the next segment ends, with no gate. */
+/**
+ * When the wait for the next segment ends, with no gate: the countdown, or the microphone's
+ * lead once prep has ended, because the microphone stays shut through prep.
+ */
 export const countdownDue = (
   state: ClockState,
   countdownMs: number,
   nowMs: number,
-) =>
-  dueAfterStops(
-    countdownAnchor(state),
-    countdownMs,
+) => {
+  const prepEnded = state.checkpoint.prep_ended_at;
+  return dueAfterStops(
+    prepEnded === null ? countdownAnchor(state) : Date.parse(prepEnded),
+    prepEnded === null ? countdownMs : roundStartPolicy.microphoneLeadMs,
     clockStopsOf(state.checkpoint),
     nowMs,
   );
+};
 
 /** When the next segment's clock starts: one instant, for every reader of the clock. */
 export const segmentStartsAt = (

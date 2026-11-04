@@ -877,6 +877,8 @@ for app in egress encoder recorder; do
 done
 ```
 
+Egress's image launches Chrome once at boot, before its service starts (`infra/egress`), because a booted machine's first launch takes about 15 s and a Round's first speech would otherwise lose that long (ISSUE-1303). If that launch fails, Egress still starts, and only its first capture is slow.
+
 While they are off, Rounds run and finish normally for everyone in them:
 
 | Off      | A Round's seats | The audience                                                                                                                                                            |

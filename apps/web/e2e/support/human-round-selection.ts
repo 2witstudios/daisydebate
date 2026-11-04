@@ -10,6 +10,11 @@ export type ProofChoice = {
   readonly definition: FormatDefinition;
   readonly preset: { readonly config: RoomConfig };
   readonly segmentDurationOverrides?: Readonly<Record<string, number>>;
+  /** Proofs of the debate's own clock leave prep off, unless they are about prep. */
+  readonly inRoundPrep?: {
+    readonly enabled: true;
+    readonly budgetMsPerSide: number;
+  };
 };
 
 /**
@@ -89,7 +94,7 @@ export const humanRoundSelection = (
     ...choice.preset.config,
     preRoundPrep: { enabled: false },
     resolutionDraw: { enabled: false },
-    inRoundPrep: { enabled: false },
+    inRoundPrep: choice.inRoundPrep ?? { enabled: false },
     speechTiming: {
       countdownMs,
       segmentDurationOverrides: choice.segmentDurationOverrides ?? {},
