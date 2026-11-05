@@ -1,4 +1,10 @@
 import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
+import {
+  billingFields,
+  refineBillingConfig,
+  withBillingConfig,
+} from './billing-config';
+export type { BillingConfig } from './billing-config';
 import { z } from 'zod';
 import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
@@ -64,6 +70,7 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
     });
 };
 const serverFields = {
+  ...billingFields,
   NEXT_PUBLIC_POSTHOG_KEY: z
     .string()
     .regex(/^phc_[A-Za-z0-9_-]+$/)
@@ -189,6 +196,7 @@ function requireCompetitiveBudget(
 const serverConfigSchema = z
   .object(serverFields)
   .superRefine((config, ctx) => {
+    refineBillingConfig(config, ctx);
     refineOperatorConfig(config, ctx);
     requireCompetitiveBudget(config, ctx);
     if (
@@ -221,7 +229,8 @@ const serverConfigSchema = z
         message: 'Foundation proof is development-only',
       });
   })
-  .transform(withoutMigrationCredential);
+  .transform(withoutMigrationCredential)
+  .transform(withBillingConfig);
 export type ServerConfig = z.output<typeof serverConfigSchema>;
 /** Validation reports field names only: never echo secret values. */
 export function readServerConfig(
