@@ -160,10 +160,10 @@ export function roomCommandOperation({
               // Only the host's own grants speak for the host.
               hostHoldsCasualAiJudge:
                 state.hostActorId === caller.actorId &&
-                hostHoldsCasualAiJudge(grants, betaGrantsPremium),
+                hostHoldsCasualAiJudge(grants, betaGrantsPremium, now),
               hostHoldsCasualCapture:
                 state.hostActorId === caller.actorId &&
-                hostHoldsCasualCapture(grants, betaGrantsPremium),
+                hostHoldsCasualCapture(grants, betaGrantsPremium, now),
               formatFacts,
               resolutionPublication,
               target: target

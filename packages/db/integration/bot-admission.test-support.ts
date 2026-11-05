@@ -11,7 +11,13 @@ export const betaAllowance = (monthlyCap = 20) => ({
   allowance: (
     account: Parameters<typeof aiRoundAllowance>[0],
     grants: Parameters<typeof aiRoundAllowance>[1],
-  ) => aiRoundAllowance(account, grants, { monthlyCap }),
+    now: string,
+  ) =>
+    aiRoundAllowance(account, grants, {
+      monthlyCap,
+      betaGrantsPremium: true,
+      now,
+    }),
 });
 
 /** A canonical member, approved for the beta unless `beta` says otherwise, hosting `roundIds`. */

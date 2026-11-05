@@ -170,6 +170,7 @@ export function createRoomRuntimeOperations({
           hostHoldsCasualAiJudge(
             await store.readOwnEntitlementGrants(caller),
             betaGrantsPremium,
+            await store.databaseNow(),
           ),
       ),
       contentWaiver: await viewerContentWaiver(state, caller),
@@ -177,6 +178,7 @@ export function createRoomRuntimeOperations({
         hostHoldsCasualCapture(
           await store.readOwnEntitlementGrants(caller),
           betaGrantsPremium,
+          await store.databaseNow(),
         ),
       ),
       captureNotice: roomCaptureNotice(state),
@@ -224,6 +226,7 @@ export function createRoomRuntimeOperations({
       casualAiJudge: hostHoldsCasualAiJudge(
         await store.readOwnEntitlementGrants(caller),
         betaGrantsPremium,
+        await store.databaseNow(),
       ),
     };
   };
@@ -349,6 +352,7 @@ export function createRoomRuntimeOperations({
                   hostHoldsCasualAiJudge: hostHoldsCasualAiJudge(
                     grants,
                     betaGrantsPremium,
+                    now,
                   ),
                   // Seating never reads this; only set-capture and Launch do.
                   hostHoldsCasualCapture: false,

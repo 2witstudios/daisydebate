@@ -9,7 +9,9 @@ import type {
 export const hostHoldsCasualAiJudge = (
   grants: readonly EntitlementGrant[],
   betaGrantsPremium: boolean,
-): boolean => accountEntitlements(grants, { betaGrantsPremium }).casualAiJudge;
+  now: string,
+): boolean =>
+  accountEntitlements(grants, { betaGrantsPremium, now }).casualAiJudge;
 
 /**
  * What seating an AI judge means to this viewer, for display. Only the host

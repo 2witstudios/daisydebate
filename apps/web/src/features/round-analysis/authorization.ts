@@ -14,6 +14,7 @@ function canAnalyse(
   round: RoundAuthorizationFact,
   betaGrantsPremium: boolean,
   capability: 'round.analysis.read' | 'round.analysis.generate',
+  now: string,
 ) {
   if (!account?.actorId) return false;
   return authorize({
@@ -26,7 +27,7 @@ function canAnalyse(
     resource: round,
     context: {
       account,
-      entitlements: accountEntitlements(grants, { betaGrantsPremium }),
+      entitlements: accountEntitlements(grants, { betaGrantsPremium, now }),
     },
   }).allow;
 }
@@ -39,6 +40,7 @@ export const canUseRoundAnalysis = (
   access: RoundAnalysisAccess,
   betaGrantsPremium: boolean,
   capability: 'round.analysis.read' | 'round.analysis.generate',
+  now: string,
 ) =>
   canAnalyse(
     access.account,
@@ -46,4 +48,5 @@ export const canUseRoundAnalysis = (
     access.round,
     betaGrantsPremium,
     capability,
+    now,
   );

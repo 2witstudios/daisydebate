@@ -46,14 +46,70 @@ for `round_analysis`, `ai_rounds`, `casual_ai_judge`, `casual_capture` and
 No second usage ledger or provider-job lifecycle is introduced. Beta retirement
 must remove every beta-sourced benefit without disabling paid grants.
 
-## Outstanding policy and proof
+## Recorded implementation defaults
 
-The exact free-judge binding, subscriber analysis details, renewal failure,
-recoverable closure, cross-account anti-abuse identity and margin floor await
-the recorded point-guard/owner process in the plan. Original leaf criteria and
-the readiness-review remediation remain intact. In particular, local erasure
-surviving a vendor outage and cancellation completing before local closure need
-an explicit disposition; this ADR does not claim both happen atomically.
+The point guard's Delivery ruling `fekmvtormp4xa9qukvxac4mp` records
+DEC-362–366 as defaults open to owner confirmation or overrule:
+
+- The optional lifetime free judge binds to the exact free bot Round. Selecting
+  both reserves them atomically; their provider outcomes remain independent.
+- All analysis is requested, one report per own completed debater seat, with
+  one outstanding request per account and feature-specific capacity. Actual
+  authorized frozen evidence governs eligibility, including ranked retention
+  and all relevant participants' privacy authority. Content purge preserves
+  only justified minimal request/accounting identity; it cannot reopen generation.
+- Verified failed renewal of previously paid access gets seven days from its
+  previous verified paid-through boundary. No initial-payment grace, new bots
+  or allowance fallback during grace. Active vendor status alone is not paid
+  evidence. Every capability read uses the same injected-time validity check;
+  worker outage cannot extend paid or grace access.
+- Closure commits the local tombstone, revocation and durable vendor obligation
+  atomically. Vendor cancellation then deletion can retry through outages.
+  Late customer/session/subscription discovery enqueues cleanup. An in-flight
+  charge needs durable refund follow-through and private operator escalation.
+  This explicitly supersedes BILL-15's literal cancel-before-close wording via
+  BILL-15-r1; that original criterion must never be reported as a literal PASS.
+- Existing DEC-316 remains per-account lifetime identity, with no new digest.
+- Contribution-margin alerts use a provisional 30% completed UTC-month floor;
+  current month is an estimate, missing required measurements are unknown,
+  and nonpositive revenue has no ratio. Production economics and controlled
+  sandbox threshold proofs remain distinct.
+
+Synchronization applies only with current generation, exact claim identity,
+customer mapping and account authority. Duplicate receipts preserve pending
+work without continuously invalidating a healthy claim. Reclaimed leases and
+new hints invalidate older responses. No vendor I/O runs under account locks.
+
+## New-purchase admission and recovery
+
+The accepted Flags contract is recorded in Delivery
+`toqfjht5o6ezhvspgvbd084l` and `y6t63ad0nqflp2ma5ztbnn7g`.
+`isReleaseEnabled` is display-only. A new purchase intent uses the injected
+`releaseAdmission('premium-checkout')` pure synchronous policy and
+`requireFlagAdmission(tx, accountId, policy)` in its own bounded transaction.
+The lock order is command/idempotency gate, canonical account fence, shared
+transaction Flags lock, then Flags rows. No shared-to-exclusive upgrade.
+After locks, a separate READ COMMITTED statement samples bounded dependency
+and account-override facts plus `clock_timestamp()`. Persist that admittedAt;
+subsequent work is minimal. Lock waits and the whole transaction are bounded.
+Database code never imports web feature code. No lock spans Stripe I/O.
+
+A completed disable blocks later admissions. A matching already-admitted
+attempt can recover through a separate authenticated operation while the
+new-purchase route is dark, under current account authority. Recovery never
+creates another intent or changes its account, product, price or vendor key.
+The implementation bounds are five minutes for session creation and one hour
+for the same Checkout Session from admittedAt, subject to vendor proof.
+After the creation deadline, retrieve/reconcile only; after the checkout
+deadline, expire/clean up. Unknown outcomes block replacement even beyond
+vendor idempotency retention. A genuinely new attempt requires fresh admission.
+Erasure overrides continuation and late discovery requires cleanup.
+
+Flags core reaches main before Billing rebases and regenerates migrations.
+Billing owns real FLAGS-8/15 route, mutation, recovery and native-form evidence;
+core fixtures alone do not establish consumer acceptance.
+
+## Outstanding proof
 
 The BILL-18 matrix distinguishes deterministic adapter tests, real PostgreSQL
 race/crash evidence and genuine Stripe test-mode lifecycle evidence. Unit

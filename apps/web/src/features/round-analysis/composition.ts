@@ -20,14 +20,16 @@ export function composeRoundAnalysisRoutes(app: App) {
         roundId,
       });
       if (facts.status !== 'completed') throw createAppError('NOT_FOUND');
+      const now = app.clock.now();
       return roundAnalysisView({
         facts,
         entitled: canUseRoundAnalysis(
           access,
           app.config.PREMIUM_BETA_GRANT,
           'round.analysis.read',
+          now,
         ),
-        now: app.clock.now(),
+        now,
         enabled: app.config.ROUND_ANALYSIS_POLICY !== undefined,
       });
     },

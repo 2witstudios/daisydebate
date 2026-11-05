@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./authorization": "./src/authorization.ts",
+    "./billing": "./src/billing.ts",
     "./testing": "./src/format-fixtures.test-support.ts",
     "./format-bounds-testing": "./src/format-bounds.test-support.ts",
     "./capture-heard": "./src/capture-heard.ts",

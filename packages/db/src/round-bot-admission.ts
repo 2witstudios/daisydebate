@@ -30,6 +30,7 @@ type SponsorAccount = Awaited<
 export type AiRoundAllowance = (
   account: SponsorAccount,
   grants: readonly EntitlementGrant[],
+  now: string,
 ) => number | null;
 type Reservation = Target & { readonly id: string };
 /** Acquire before account/Room/Round locks in both admission and billable-call composition. */
@@ -203,6 +204,7 @@ export function createRoundBotAdmission(input: {
       limit: input.allowance(
         account,
         account ? await readEntitlementGrants(tx, account.userId) : [],
+        now.toISOString(),
       ),
       busyCap: input.busyCap,
       now,
@@ -230,14 +232,13 @@ export function createRoundBotAdmission(input: {
         });
         if (!account?.member || account.erased)
           throw createAppError('AUTHORIZATION');
+        const grants = await readEntitlementGrants(tx, account.userId);
+        const now = await roundAgentNow(tx);
         return admissionStatus(tx, {
           actorId,
-          limit: input.allowance(
-            account,
-            await readEntitlementGrants(tx, account.userId),
-          ),
+          limit: input.allowance(account, grants, now.toISOString()),
           busyCap: input.busyCap,
-          now: await roundAgentNow(tx),
+          now,
         });
       }),
     reserveLocked,

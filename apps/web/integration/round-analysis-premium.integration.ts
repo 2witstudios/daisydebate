@@ -50,11 +50,12 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       await finalizeAsWeb(f, roundId);
       await seedSettledAttendanceLedger(f, roundId);
       await finalizeByMaintenance(f, roundId);
-      const since = new Date(Date.now() - 60_000).toISOString();
+      const now = await f.store.databaseNow();
+      const since = new Date(Date.parse(now) - 60_000).toISOString();
       const scan = (grant: boolean) =>
         f.store
           .scanRoundAnalysisJobs(64, since, (access) =>
-            canUseRoundAnalysis(access, grant, 'round.analysis.generate'),
+            canUseRoundAnalysis(access, grant, 'round.analysis.generate', now),
           )
           .then((seats) => seats.map((s) => s.roundParticipantId));
       let calls = 0;

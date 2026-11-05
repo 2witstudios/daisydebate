@@ -11,8 +11,10 @@ export const holdsRecordingDownload =
       userId: string,
     ) => Promise<readonly EntitlementGrant[]>;
     readonly betaGrantsPremium: boolean;
+    readonly now: () => string;
   }) =>
   async (userId: string): Promise<boolean> =>
     accountEntitlements(await deps.readGrants(userId), {
       betaGrantsPremium: deps.betaGrantsPremium,
+      now: deps.now(),
     }).recordingDownload;

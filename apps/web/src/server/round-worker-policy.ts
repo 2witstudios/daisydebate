@@ -73,6 +73,7 @@ export function roundWorkerDatabaseOptions(
 export function botAdmissionOptions(config: {
   readonly AI_ROUND_BUSY_CAP?: number | undefined;
   readonly AI_ROUND_MONTHLY_CAP: number;
+  readonly PREMIUM_BETA_GRANT: boolean;
 }): Pick<DatabaseOptions, 'botAdmission'> {
   const busyCap = config.AI_ROUND_BUSY_CAP;
   if (busyCap === undefined) return {};
@@ -80,8 +81,12 @@ export function botAdmissionOptions(config: {
   return {
     botAdmission: {
       busyCap,
-      allowance: (account, grants) =>
-        aiRoundAllowance(account, grants, { monthlyCap }),
+      allowance: (account, grants, now) =>
+        aiRoundAllowance(account, grants, {
+          monthlyCap,
+          now,
+          betaGrantsPremium: config.PREMIUM_BETA_GRANT,
+        }),
     },
   };
 }

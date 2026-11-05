@@ -31,7 +31,7 @@ const customerReference = z
   .object({ customer: customerId })
   .transform((value) => value.customer);
 const deletedCustomer = z
-  .object({ id: customerId, deleted: z.literal(true) })
+  .object({ id: customerId, object: z.literal('customer') })
   .transform((value) => value.id);
 const eventType = z.enum(eventTypes);
 

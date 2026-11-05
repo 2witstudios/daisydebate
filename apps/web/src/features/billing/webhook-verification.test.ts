@@ -103,7 +103,7 @@ test('unrelated signed events are ignored and deletion names its own customer', 
     {
       ...event,
       type: 'customer.deleted',
-      data: { object: { id: 'cus_fixture', deleted: true } },
+      data: { object: { id: 'cus_fixture', object: 'customer', metadata: {} } },
     },
   ].map((value) => JSON.stringify(value));
   assert({
@@ -134,6 +134,28 @@ test('invalid time and oversized input are refused', async () => {
       verify('x'.repeat(256 * 1024 + 1)),
       verify(payload, 'x'.repeat(4097)),
     ]),
+    expected: [
+      { kind: 'rejected' },
+      { kind: 'rejected' },
+      { kind: 'rejected' },
+    ],
+  });
+});
+
+test('customer deletion requires a Customer event object, not a deletion API response', async () => {
+  const bodies = [
+    { id: 'cus_fixture', deleted: true },
+    { id: 'cus_fixture', object: 'invoice' },
+    { id: 'in_fixture', object: 'customer' },
+  ].map((object) =>
+    JSON.stringify({ ...event, type: 'customer.deleted', data: { object } }),
+  );
+  assert({
+    given:
+      'signed deletion-response, wrong discriminator and wrong identifier payloads',
+    should:
+      'refuse each without treating an unrelated object as a billing customer',
+    actual: await Promise.all(bodies.map((body) => verify(body, header(body)))),
     expected: [
       { kind: 'rejected' },
       { kind: 'rejected' },

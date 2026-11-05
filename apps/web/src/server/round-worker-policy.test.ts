@@ -138,18 +138,24 @@ test('bot-debater admission composes the busy cap with the flat beta quota', () 
   const configured = botAdmissionOptions({
     AI_ROUND_BUSY_CAP: 4,
     AI_ROUND_MONTHLY_CAP: 20,
+    PREMIUM_BETA_GRANT: true,
   }).botAdmission;
   assert({
     given: 'no busy cap, then a busy cap with the default monthly cap',
     should:
       'admit no bot debater without a bound, else apply the cap only to an account holding an ai_rounds grant',
     actual: [
-      botAdmissionOptions({ AI_ROUND_MONTHLY_CAP: 20 }),
+      botAdmissionOptions({
+        AI_ROUND_MONTHLY_CAP: 20,
+        PREMIUM_BETA_GRANT: true,
+      }),
       configured?.busyCap,
-      configured?.allowance(approved, [
-        { entitlement: 'ai_rounds', source: 'beta' },
-      ]),
-      configured?.allowance(approved, []),
+      configured?.allowance(
+        approved,
+        [{ entitlement: 'ai_rounds', source: 'beta' }],
+        '2026-11-05T00:00:00.000Z',
+      ),
+      configured?.allowance(approved, [], '2026-11-05T00:00:00.000Z'),
     ],
     expected: [{}, 4, 20, null],
   });

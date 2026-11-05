@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { hostHoldsCasualAiJudge, roomAiJudgeSeating } from './ai-judge-seating';
 
 setupRitewayBun();
+const now = '2026-11-05T00:00:00.000Z';
 
 const room = {
   hostActorId: 'host',
@@ -57,14 +58,15 @@ test('the casual AI judge entitlement comes from its own grant', () => {
     given: 'a beta grant with the switch on and off, and only other grants',
     should: 'hold it only for its own counted grant',
     actual: [
-      hostHoldsCasualAiJudge([beta], true),
-      hostHoldsCasualAiJudge([beta], false),
+      hostHoldsCasualAiJudge([beta], true, now),
+      hostHoldsCasualAiJudge([beta], false, now),
       hostHoldsCasualAiJudge(
         [
           { entitlement: 'round_analysis', source: 'beta' },
           { entitlement: 'ai_rounds', source: 'beta' },
         ],
         true,
+        now,
       ),
     ],
     expected: [true, false, false],

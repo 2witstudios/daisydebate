@@ -42,6 +42,7 @@ export function startRoundAnalysisWorkers(input: {
             access,
             app.config.PREMIUM_BETA_GRANT,
             'round.analysis.generate',
+            app.clock.now(),
           ),
       ),
     analyse: (seat, signal) =>

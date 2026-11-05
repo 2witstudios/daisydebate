@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { hostHoldsCasualCapture, roomCaptureOffer } from './capture-offer';
 
 setupRitewayBun();
+const now = '2026-11-05T00:00:00.000Z';
 
 const open = {
   hostActorId: 'host',
@@ -21,14 +22,17 @@ describe('What the host is offered', () => {
         hostHoldsCasualCapture(
           [{ entitlement: 'casual_capture', source: 'beta' }],
           true,
+          now,
         ),
         hostHoldsCasualCapture(
           [{ entitlement: 'casual_ai_judge', source: 'beta' }],
           true,
+          now,
         ),
         hostHoldsCasualCapture(
           [{ entitlement: 'casual_capture', source: 'beta' }],
           false,
+          now,
         ),
       ],
       expected: [true, false, false],

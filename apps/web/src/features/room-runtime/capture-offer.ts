@@ -9,7 +9,9 @@ import type {
 export const hostHoldsCasualCapture = (
   grants: readonly EntitlementGrant[],
   betaGrantsPremium: boolean,
-): boolean => accountEntitlements(grants, { betaGrantsPremium }).casualCapture;
+  now: string,
+): boolean =>
+  accountEntitlements(grants, { betaGrantsPremium, now }).casualCapture;
 
 /**
  * What this viewer can choose, for display: only the host of an open casual

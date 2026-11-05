@@ -49,15 +49,17 @@ export function createRoundAnalysisOperations(input: {
         const claim = await input.store.claimRoundAnalysisJob(
           seat,
           (facts, access) => {
+            const now = input.now();
             if (
               !canUseRoundAnalysis(
                 access,
                 input.betaGrantsPremium,
                 'round.analysis.generate',
+                now,
               )
             )
               return facts.analysis?.status === 'leased' ? 'fail' : 'skip';
-            return roundAnalysisClaimDecision(facts, input.now());
+            return roundAnalysisClaimDecision(facts, now);
           },
         );
         if (!claim) return;
