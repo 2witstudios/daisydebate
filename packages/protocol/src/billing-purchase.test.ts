@@ -117,3 +117,91 @@ test('a final-second claim cannot extend creation authority beyond the admitted 
     ],
   });
 });
+
+test('bounded discovery survives lost replies and full empty scans without releasing possible vendor execution', () => {
+  const original = started();
+  const page = {
+    kind: 'searched' as const,
+    beforeSessionId: null,
+    afterSessionId: 'cs_test_page1',
+  };
+  const searched = changed(original, page, 300);
+  assert({
+    given: 'a committed first search page whose application reply was lost',
+    should: 'retain its cursor and refuse the old page after restart',
+    actual: [searched.state, advancePurchase(searched, page, context(305))],
+    expected: [
+      {
+        kind: 'unknown',
+        startedAt: at(1),
+        retryAt: at(305),
+        afterSessionId: 'cs_test_page1',
+      },
+      { kind: 'refuse' },
+    ],
+  });
+  const empty = changed(
+    searched,
+    {
+      kind: 'searched',
+      beforeSessionId: 'cs_test_page1',
+      afterSessionId: null,
+    },
+    305,
+  );
+  assert({
+    given: 'a full vendor scan found no matching Session',
+    should:
+      'restart a later bounded scan while keeping the original uncertainty and blocking abandonment',
+    actual: [
+      empty.state,
+      nextPurchaseWork(empty, context(310)),
+      advancePurchase(empty, { kind: 'abandon' }, context(172800)),
+    ],
+    expected: [
+      {
+        kind: 'unknown',
+        startedAt: at(1),
+        retryAt: at(310),
+        afterSessionId: null,
+      },
+      'discover',
+      { kind: 'refuse' },
+    ],
+  });
+  assert({
+    given:
+      'a search response before retry, a nonprogressing cursor, or a foreign mode cursor',
+    should: 'refuse all without a durable cursor change',
+    actual: [
+      advancePurchase(
+        searched,
+        {
+          kind: 'searched',
+          beforeSessionId: 'cs_test_page1',
+          afterSessionId: null,
+        },
+        context(304),
+      ),
+      advancePurchase(
+        searched,
+        {
+          kind: 'searched',
+          beforeSessionId: 'cs_test_page1',
+          afterSessionId: 'cs_test_page1',
+        },
+        context(305),
+      ),
+      advancePurchase(
+        searched,
+        {
+          kind: 'searched',
+          beforeSessionId: 'cs_test_page1',
+          afterSessionId: 'cs_live_other',
+        },
+        context(305),
+      ),
+    ],
+    expected: Array.from({ length: 3 }, () => ({ kind: 'refuse' })),
+  });
+});

@@ -34,7 +34,12 @@ export const purchaseStateSchema = z.discriminatedUnion('kind', [
       expiresAt: instant,
     }),
   }),
-  z.strictObject({ kind: z.literal('unknown'), ...started, retryAt: instant }),
+  z.strictObject({
+    kind: z.literal('unknown'),
+    ...started,
+    retryAt: instant,
+    afterSessionId: sessionId.nullable(),
+  }),
   z.strictObject({ kind: z.literal('open'), ...session }),
   z.strictObject({ kind: z.literal('expired'), ...session }),
   z.strictObject({
@@ -61,6 +66,17 @@ function validClaimInterval(
         claimed + purchaseBounds.claimMs,
         admitted + purchaseBounds.creationMs,
       )
+  );
+}
+
+function validUnknown(
+  state: Extract<PurchaseState, { kind: 'unknown' }>,
+  mode: string,
+) {
+  return (
+    at(state.retryAt) >= at(state.startedAt) &&
+    (state.afterSessionId === null ||
+      state.afterSessionId.startsWith(`cs_${mode}_`))
   );
 }
 
@@ -93,8 +109,7 @@ export const purchaseSchema = z
     )
       return false;
     if (state.kind === 'abandoned') return at(state.abandonedAt) >= admitted;
-    if (state.kind === 'unknown')
-      return at(state.retryAt) >= at(state.startedAt);
+    if (state.kind === 'unknown') return validUnknown(state, purchase.mode);
     if (state.kind === 'creating') return validClaimInterval(state, admitted);
     return (
       !('sessionId' in state) ||
@@ -135,6 +150,11 @@ export type PurchaseObservation =
 export type PurchaseEvent =
   | { readonly kind: 'claim' | 'unknown'; readonly claimId: string }
   | { readonly kind: 'abandon' }
+  | {
+      readonly kind: 'searched';
+      readonly beforeSessionId: string | null;
+      readonly afterSessionId: string | null;
+    }
   | { readonly kind: 'observe'; readonly session: PurchaseObservation };
 export type PurchaseTransition =
   | { readonly kind: 'changed'; readonly state: PurchaseState }

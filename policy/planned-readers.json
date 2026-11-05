@@ -52,16 +52,7 @@
       "task": "BILL-7 / FLAGS-15",
       "owner": "billing (ag-glhq8ogr)",
       "adr": "docs/decisions/0118-release-and-ops-flags.md",
-      "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
-      "reviewBy": "2026-12-04"
-    },
-    {
-      "path": "apps/web/src/features/flags/admission.ts",
-      "export": "releaseAdmission",
-      "task": "BILL-7 / FLAGS-15",
-      "owner": "billing (ag-glhq8ogr)",
-      "adr": "docs/decisions/0118-release-and-ops-flags.md",
-      "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
+      "reason": "Merged Flags core is now consumed by the Billing durable admission operation. Display/new-purchase routes and native-form proof remain under BILL-7 / FLAGS-8/15; operation integration is not route acceptance.",
       "reviewBy": "2026-12-04"
     },
     {
@@ -70,16 +61,7 @@
       "task": "BILL-7 / FLAGS-15",
       "owner": "billing (ag-glhq8ogr)",
       "adr": "docs/decisions/0118-release-and-ops-flags.md",
-      "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
-      "reviewBy": "2026-12-04"
-    },
-    {
-      "path": "packages/db/src/flags.ts",
-      "export": "requireFlagAdmission",
-      "task": "BILL-7 / FLAGS-15",
-      "owner": "billing (ag-glhq8ogr)",
-      "adr": "docs/decisions/0118-release-and-ops-flags.md",
-      "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
+      "reason": "Merged Flags core is now consumed by the Billing durable admission operation. Display/new-purchase routes and native-form proof remain under BILL-7 / FLAGS-8/15; operation integration is not route acceptance.",
       "reviewBy": "2026-12-04"
     }
   ]

@@ -100,11 +100,13 @@ told first, the other side can hear it, and the Broadcast stage does not subscri
 ## Billing records (BILL-2, BILL-15-r1)
 
 Billing stores the account-to-Stripe mapping, local subscription identity,
-verified invoice IDs and periods, and bounded synchronization receipts. It does
+verified invoice IDs and periods, bounded synchronization receipts, and the
+account's immutable purchase offer/admission, possible execution and minimal
+Checkout identity. It does
 not store card details, invoice/customer contact payloads, webhook bodies or
 vendor error messages. The proposed lawful basis is performance of the paid
 service contract. These records are private and included in the subject's
-account export; internal claim identifiers are excluded.
+account export; internal claim identifiers and discovery cursors are excluded.
 
 Subscription facts last for the account's life. Local closure removes them
 and all grants in the same canonical account transaction. Only the minimal
@@ -115,6 +117,11 @@ confirmed, the identifying mapping is removed. Webhook receipt retention is
 proposed at 30 days; receipt replay still requires current vendor evidence and
 current account authority. Stripe's own financial-record obligations and live
 processor terms require the BILL-H owner/counsel activation review.
+
+Local erasure removes undispatched and positively expired purchase records;
+possibly executed or completed purchases remain only for outstanding vendor
+cleanup. Local closure excludes every ordinary member admission and completion
+write. It does not by itself claim cancellation, refund or vendor deletion.
 
 The privacy adopter and synchronization implementation are in progress on the
 Billing slice. Vendor cleanup delivery and receipt retention must be wired and

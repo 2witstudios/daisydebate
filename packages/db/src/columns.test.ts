@@ -61,6 +61,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.feedback',
         'ballots.scores',
         'billing_customers.synchronization',
+        'billing_purchases.state',
         'billing_subscriptions.evidence',
         'broadcasts.release_policy',
         'broadcasts.release_skips',

@@ -13,6 +13,7 @@ export {
 export type {
   Purchase,
   PurchaseContext,
+  PurchaseEvent,
   PurchaseObservation,
   PurchaseState,
 } from './billing-purchase';

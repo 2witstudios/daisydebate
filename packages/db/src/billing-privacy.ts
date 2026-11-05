@@ -13,6 +13,10 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
     await tx.execute(
       sql`delete from billing_subscriptions where user_id=${subject.userId}`,
     );
+    // A claimed or observed purchase may still have vendor effects. Preserve that
+    // cleanup obligation; never infer non-execution from an expired lease.
+    await tx.execute(sql`delete from billing_purchases where user_id=${subject.userId}
+      and state->>'kind' in ('admitted','abandoned','expired')`);
     // The minimal mapping remains an owed vendor-cleanup obligation; it never authorizes access.
     await tx.execute(sql`update billing_customers set closed_at=coalesce(closed_at,${now}),
       synchronization=jsonb_build_object('kind','settled','revision',synchronization->'revision',
@@ -32,6 +36,11 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as received_at
       from billing_webhook_events where (mode,vendor_customer_id) in
         (select mode,vendor_customer_id from billing_customers where user_id=${subject.userId}) order by received_at,id`);
+    const purchases =
+      await tx.execute(sql`select id,mode,price_id,vendor_customer_id,return_origin,
+      to_char(admitted_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as admitted_at,
+      state-'claim'-'afterSessionId' as state
+      from billing_purchases where user_id=${subject.userId} order by admitted_at,id`);
     return {
       billing_customers: customers as unknown as Record<string, unknown>[],
       billing_subscriptions: subscriptions as unknown as Record<
@@ -39,6 +48,7 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
         unknown
       >[],
       billing_webhook_events: receipts as unknown as Record<string, unknown>[],
+      billing_purchases: purchases as unknown as Record<string, unknown>[],
     };
   },
 };

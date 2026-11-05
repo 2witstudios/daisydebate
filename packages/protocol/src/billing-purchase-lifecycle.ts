@@ -129,6 +129,34 @@ function unknown(
     kind: 'unknown',
     startedAt: state.startedAt,
     retryAt: new Date(at(context.now) + purchaseBounds.retryMs).toISOString(),
+    afterSessionId: null,
+  });
+}
+
+/** Completing a scan resets its cursor; a continuation must actually move it. */
+const searchProgresses = (before: string | null, after: string | null) =>
+  after === null || after !== before;
+
+/** An empty bounded search page advances recovery, never proves non-execution. */
+function searched(
+  purchase: Purchase,
+  event: Extract<PurchaseEvent, { kind: 'searched' }>,
+  context: PurchaseContext,
+): PurchaseTransition {
+  const { state } = purchase;
+  if (state.kind !== 'unknown' && state.kind !== 'creating') return refuse;
+  const work = nextPurchaseWork(purchase, context);
+  if (work !== 'discover' && work !== 'cleanup') return refuse;
+  const before = state.kind === 'unknown' ? state.afterSessionId : null;
+  if (event.beforeSessionId !== before) return refuse;
+  if (state.kind === 'unknown' && at(context.now) < at(state.retryAt))
+    return refuse;
+  if (!searchProgresses(before, event.afterSessionId)) return refuse;
+  return changed(purchase, {
+    kind: 'unknown',
+    startedAt: state.startedAt,
+    retryAt: new Date(at(context.now) + purchaseBounds.retryMs).toISOString(),
+    afterSessionId: event.afterSessionId,
   });
 }
 
@@ -181,6 +209,8 @@ export function advancePurchase(
       return unknown(purchase, event.claimId, context);
     case 'observe':
       return observe(purchase, event.session);
+    case 'searched':
+      return searched(purchase, event, context);
     case 'abandon':
       return nextPurchaseWork(purchase, context) === 'abandon'
         ? changed(purchase, { kind: 'abandoned', abandonedAt: context.now })

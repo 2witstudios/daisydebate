@@ -1,4 +1,5 @@
 export { subscriptionAccess, subscriptionGrants } from './subscription-policy';
+export { canManageBilling, canPurchasePremium } from './billing-policy';
 export { admitAllowance, canUseAiAllowance } from './allowance';
 export { canReleaseFreeJudgeBinding } from './free-judge-binding';
 import { admitsCapability } from './participant-access';

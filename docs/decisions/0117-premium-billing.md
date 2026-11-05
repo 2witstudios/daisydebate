@@ -227,8 +227,10 @@ The accepted Flags contract is recorded in Delivery
 `isReleaseEnabled` is display-only. A new purchase intent uses the injected
 `releaseAdmission('premium-checkout')` pure synchronous policy and
 `requireFlagAdmission(tx, accountId, policy)` in its own bounded transaction.
-The lock order is command/idempotency gate, canonical account fence, shared
-transaction Flags lock, then Flags rows. No shared-to-exclusive upgrade.
+The purchase lock order is canonical account fence, customer/current
+subscription facts, existing purchase, then shared transaction Flags lock and
+Flags rows. Account serialization and the unique pending-account index resolve
+duplicate admission. No shared-to-exclusive upgrade.
 After locks, a separate READ COMMITTED statement samples bounded dependency
 and account-override facts plus `clock_timestamp()`. Persist that admittedAt;
 subsequent work is minimal. Lock waits and the whole transaction are bounded.
@@ -283,8 +285,27 @@ deadline remains within Stripe's 30-minute to 24-hour creation limits throughout
 our five-minute window. Stripe's [idempotency contract](https://docs.stripe.com/api/idempotent_requests)
 allows key removal after 24 hours; uncertainty therefore continues to block a
 replacement after that interval. Pure policy and isolated CLI test-object proof
-do not establish the still-required durable intent, Flags admission, paginated
-discovery, native route or vendor cleanup acceptance.
+do not establish native route or vendor cleanup acceptance.
+
+`billing_purchases` persists the frozen offer and semantic purchase state.
+Database guards preserve admission and first possible execution, known vendor
+identities, and terminal state; runtime SQL cannot rewrite them. The bounded
+control transaction samples time after the account and purchase lock waits.
+Verified completion commits the purchase and customer/subscription mapping
+atomically, initializing unpaid synchronization rather than grants. Duplicates
+and reversed open responses do not invalidate a healthy synchronization claim.
+
+Discovery uses Stripe's [Session list contract](https://docs.stripe.com/api/checkout/sessions/list),
+also checked at API2026-10-28.endive. One pass reads at most100 candidates inside
+the original creation interval and at most one fully validated matching Session.
+The unknown state persists cursor progress with compare-and-set semantics.
+An empty page or finished scan never proves non-execution; unresolved attempts
+continue to block replacement. Current member management survives participant
+withdrawal, but a new creation claim still requires participant admission.
+Local closure removes only undispatched/positively expired purchase records and
+retains possible vendor effects as cleanup obligations. Export omits internal
+claim IDs and scan cursors. Service cleanup and native routes remain separate
+required implementation work; these adapters do not activate purchases.
 
 Flags core reaches main before Billing rebases and regenerates migrations.
 Billing owns real FLAGS-8/15 route, mutation, recovery and native-form evidence;

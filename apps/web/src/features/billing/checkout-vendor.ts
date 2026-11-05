@@ -11,6 +11,7 @@ import {
   normalizeCheckoutSession,
   type CheckoutObservation,
 } from './checkout-session';
+import type { CheckoutSearchPort } from './checkout-discovery';
 
 export type CheckoutPort = {
   readonly create: (
@@ -22,7 +23,7 @@ export type CheckoutPort = {
 };
 export function stripeCheckoutPort(
   stripe: Pick<Stripe, 'checkout'>,
-): CheckoutPort {
+): CheckoutPort & CheckoutSearchPort {
   const options = {
     apiVersion: '2026-10-28.endive',
     timeout: 5_000,
@@ -30,6 +31,7 @@ export function stripeCheckoutPort(
   } as const;
   const expand = ['line_items.data.price'];
   return {
+    list: (parameters) => stripe.checkout.sessions.list(parameters, options),
     create: (parameters, idempotencyKey) =>
       stripe.checkout.sessions.create(parameters, {
         ...options,

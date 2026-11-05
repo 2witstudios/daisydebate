@@ -12,6 +12,7 @@ test('Checkout parameters are fully server-owned and stable across recovery', ()
     ...purchase,
     state: {
       kind: 'unknown',
+      afterSessionId: null,
       startedAt: '2026-11-05T00:00:01.000Z',
       retryAt: '2026-11-05T00:02:00.000Z',
     },
