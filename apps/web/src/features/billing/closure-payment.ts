@@ -24,6 +24,10 @@ const ownerSchema = z.strictObject({
   vendorSubscriptionId: vendorId('sub'),
   priceId: vendorId('price'),
 });
+export function readClosurePaymentOwner(value: unknown) {
+  const parsed = ownerSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 const allocationSchema = z
   .object({
     id: vendorId('inpay'),

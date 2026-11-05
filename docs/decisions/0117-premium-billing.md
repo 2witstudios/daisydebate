@@ -356,6 +356,29 @@ access. Subject export includes original financial facts but excludes execution
 claims/cursors. Production vendor-cleanup composition and genuine refund journey
 proof remain required before activation.
 
+Stripe cleanup execution belongs to nullable, Stripe-only `privacy_jobs.billing_cleanup`,
+not the customer mapping. Its pure state records one bounded scan lane, selected
+resource and retained page remainder, or deletion/acknowledgement. A new job ID
+atomically clears only execution state; durable purchases, refund actions,
+original keys and financial observations survive. Current service, canonical
+closed-account fence, exact job/claim/work and post-lock database time fence each
+commit. Durable progress consumes its claim, preserves failure attempts and
+schedules fixed bounded due time; failures preserve work and use ordinary
+backoff. Idle/stale replies change nothing. Invoice payment subpages retain their
+own cursor and cannot skip the remaining selected invoices.
+
+A missing customer mapping never proves completion. Positive current absence of
+mapping, possibly executed purchases and retained financial effects permits the
+separate `no-vendor-effects` acknowledgement. Verified vendor deletion follows
+completed scans and verified cancellation. Frozen offer recovery reads the
+original purchase mode/price/subscription, even without a mapping; runtime
+configuration selects transport only. Missing historical ownership stays owed.
+The Stripe delivery branch must own progress/completion before generic
+`Promise<void>` erasure dispatch; other vendors keep their existing contract.
+Independent refund reads continue after mapping deletion or job acknowledgement.
+The typed state and DB guards are implementation checkpoints; bounded vendor
+composition and full lifecycle proof remain unfinished.
+
 Flags core reaches main before Billing rebases and regenerates migrations.
 Billing owns real FLAGS-8/15 route, mutation, recovery and native-form evidence;
 core fixtures alone do not establish consumer acceptance.

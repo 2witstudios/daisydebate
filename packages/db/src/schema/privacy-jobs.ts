@@ -1,5 +1,13 @@
 import { check, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { oneOf, retriedJobChecks, retriedJobColumns } from './columns';
+import { sql } from 'drizzle-orm';
+import { billingCleanupSchema } from '@daisy/protocol/billing';
+import {
+  oneOf,
+  retriedJobChecks,
+  retriedJobColumns,
+  jsonbColumnNullable,
+  jsonbIsObject,
+} from './columns';
 import { users } from './users';
 import { privacyVendors } from '../privacy/planner';
 
@@ -12,6 +20,10 @@ export const privacyJobs = pgTable(
       .notNull()
       .references(() => users.id),
     vendor: text('vendor').notNull(),
+    billingCleanup: jsonbColumnNullable(
+      'billing_cleanup',
+      billingCleanupSchema,
+    ),
     ...retriedJobColumns(),
   },
   (table) => [
@@ -20,6 +32,17 @@ export const privacyJobs = pgTable(
       table.vendor,
     ),
     check('privacy_jobs_vendor_valid', oneOf(table.vendor, privacyVendors)),
+    jsonbIsObject('privacy_jobs', table.billingCleanup),
+    check(
+      'privacy_jobs_billing_cleanup_scope',
+      sql`${table.billingCleanup} is null or
+      coalesce((${table.vendor}='stripe' and ${table.billingCleanup}->>'jobId'=${table.id}
+        and case ${table.billingCleanup}->>'kind'
+          when 'acknowledged' then ${table.status}='succeeded'
+          when 'scanning' then ${table.status}='pending'
+          when 'deleting' then ${table.status}='pending'
+          else false end),false)`,
+    ),
     ...retriedJobChecks('privacy_jobs', table),
   ],
 );

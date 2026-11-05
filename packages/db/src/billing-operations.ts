@@ -5,6 +5,7 @@ import { createBillingDiscovery } from './billing-discovery';
 import { createBillingSynchronization } from './billing-synchronization';
 import { createBillingPurchaseRecovery } from './billing-purchase-recovery';
 import { createBillingRefundActions } from './billing-refund-actions';
+import { createBillingCleanup } from './billing-cleanup';
 import {
   createBillingPurchases,
   type BillingPurchasePolicies,
@@ -20,6 +21,12 @@ export function billingOperations(input: {
   readonly nextId: () => string;
 }) {
   return {
+    billingCleanup(instanceId: string) {
+      return createBillingCleanup({
+        run: currentWebTransaction(input.run, instanceId),
+        nextId: input.nextId,
+      });
+    },
     billingRefunds(instanceId: string) {
       return createBillingRefundActions({
         run: currentWebTransaction(input.run, instanceId),

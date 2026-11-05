@@ -72,6 +72,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'media_vendor_mutations.payload',
         'operator_command_receipts.result',
         'outbox.payload',
+        'privacy_jobs.billing_cleanup',
         'recording_processing_jobs.state',
         'recordings.eligibility',
         'recordings.lifecycle',
@@ -110,6 +111,7 @@ describe('jsonb columns (ISSUE-24)', () => {
           name === 'ballots.feedback' ||
           name === 'ballots.citations' ||
           name === 'billing_refund_actions.claim' ||
+          name === 'privacy_jobs.billing_cleanup' ||
           name === 'round_judging_attempts.diagnostic' ||
           name === 'rooms.capture' ||
           name === 'rounds.capture' ||

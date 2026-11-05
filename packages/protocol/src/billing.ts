@@ -1,4 +1,17 @@
 export { advanceUsage } from './usage-lifecycle';
+export { advanceCleanup, ownsCleanupClaim } from './billing-cleanup-lifecycle';
+export {
+  billingCleanupSchema,
+  cleanupBounds,
+  cleanupWork,
+  startCleanup,
+} from './billing-cleanup';
+export type {
+  CleanupContext,
+  CleanupEvent,
+  CleanupState,
+  CleanupWork,
+} from './billing-cleanup';
 export { advanceRefund, nextRefundWork } from './billing-refund-lifecycle';
 export {
   closurePaymentDisposition,
