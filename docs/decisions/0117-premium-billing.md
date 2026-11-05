@@ -382,6 +382,26 @@ Independent refund reads continue after mapping deletion or job acknowledgement.
 The typed state and DB guards are implementation checkpoints; bounded vendor
 composition and full lifecycle proof remain unfinished.
 
+Within one invoice lane, an ambiguous payment must not block later invoices.
+A capped deferred list or a single bookmark cannot preserve arbitrary exact
+unknowns without a lossless reconstruction guarantee. The required Billing-owned
+pre-refund observations therefore have their own minimal durable home, separate
+from both execution and money authority. Each actual owned invoice/payment has
+immutable owner/mode/customer/vendor identity and frozen source bindings; an
+invoice-only enumeration witness represents payment identities not yet known.
+Unknown allocation, charge, period or chronology remains explicit, never a
+fabricated refund. Only affirmative classification resolves an observation, or
+verified eligible facts link it to the existing unique original-charge action.
+
+Persisting an observation and advancing its current claimed cursor are one
+transaction. Existing privacy jobs remain the sole execution/claim host. Bounded
+indexed discovery alternates with owed-record revisits, retaining every exact
+unknown without capped eviction. Exhaustion, disappearance, job rotation and
+customer deletion cannot clear owed observations. Completion checks their current
+obligations and linked money actions; shared charges never gain multiple refund
+keys. This is the same BILL15r1 scope and pending-owner policy. Observation schema,
+atomic advancement, retention/export and adverse proof remain implementation work.
+
 Flags core reaches main before Billing rebases and regenerates migrations.
 Billing owns real FLAGS-8/15 route, mutation, recovery and native-form evidence;
 core fixtures alone do not establish consumer acceptance.

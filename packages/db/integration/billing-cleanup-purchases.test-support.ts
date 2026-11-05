@@ -12,6 +12,7 @@ type Fixture = Parameters<Parameters<typeof withBillingPurchases>[0]>[0];
 type CleanupFixture = Fixture & {
   readonly cleanup: ReturnType<typeof createBillingCleanup>;
   readonly instanceId: string;
+  readonly renew: () => Promise<unknown>;
   readonly jobId: string;
   readonly session: {
     readonly kind: 'complete';
@@ -70,6 +71,7 @@ export function withClosedPurchase(
       await work({
         ...input,
         instanceId,
+        renew: () => database.renewServiceInstance({ instanceId, role: 'web' }),
         jobId,
         session,
         cleanup: database.billingCleanup(instanceId),

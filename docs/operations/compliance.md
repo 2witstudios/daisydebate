@@ -138,6 +138,20 @@ is no automatic 30-day purge or assumption that elapsed time proves finality.
 Production lawful retention duration and erasure guarantees remain pending
 owner/counsel review at BILL-H; this is not a new claim of complete erasure.
 
+The required pre-refund observations are a distinct minimal private financial
+cleanup record: actual closed owner, mode, customer, invoice and known
+InvoicePayment identity, frozen source reference, positively verified facts and
+explicit unresolved/classified/original-refund linkage. An invoice enumeration
+witness uses the actual invoice ID when no payment ID is known. No charge,
+amount, chronology or eligibility is invented. These records hold no worker
+claim, card/contact payload or raw vendor response. Subject export includes the
+retained financial facts and omits execution authenticators/cursors. Unresolved
+observations and necessary routing survive closure, ordinary customer deletion,
+job rotation and vendor disappearance; only positive classification or valid
+original-action linkage changes their obligation. No elapsed finality purge or
+lawful-duration decision is introduced. The observation schema/adopter and
+persist-before-cursor delivery are pending implementation under BILL15r1.
+
 The privacy adopter and synchronization implementation are in progress on the
 Billing slice. Vendor cleanup delivery and receipt retention must be wired and
 proved before enabling the production billing writer; this section is not a

@@ -9,6 +9,7 @@ import {
   type CleanupWork,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
+import { createBillingCleanupResources } from './billing-cleanup-resources';
 import { privacyJobs } from './schema/privacy-jobs';
 import {
   cleanupContext,
@@ -22,6 +23,7 @@ export function createBillingCleanup(input: {
   readonly nextId: () => string;
 }) {
   return {
+    ...createBillingCleanupResources(input.run),
     frozenOffer(
       jobId: string,
       claimId: string,

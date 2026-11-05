@@ -2,6 +2,7 @@ export { advanceUsage } from './usage-lifecycle';
 export { advanceCleanup, ownsCleanupClaim } from './billing-cleanup-lifecycle';
 export {
   billingCleanupSchema,
+  cleanupWorkSchema,
   cleanupBounds,
   cleanupWork,
   startCleanup,
