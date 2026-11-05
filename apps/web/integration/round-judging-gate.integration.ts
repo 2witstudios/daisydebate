@@ -47,7 +47,7 @@ test('the platform ending is written when the Round ends, not at the freeze', as
     const countedAt = new Date().toISOString();
     await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, source, state)
       values (${reservation}, ${seat!.actor_id}, ${roundId}, 'ai_round', ${countedAt}::timestamptz,
-      '{"kind":"lifetime"}', ${{ kind: 'unknown', countedAt }}::jsonb)`;
+      '{"kind":"lifetime"}', ${{ kind: 'unknown', countedAt, countBasis: 'dispatch_record' }}::jsonb)`;
     const [before] =
       await f.sql`select state from usage_reservations where id=${reservation}`;
     await seedSettledAttendanceLedger(f, roundId);

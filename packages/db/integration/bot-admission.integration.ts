@@ -127,6 +127,7 @@ test('the month boundary counts only reservations made in the current UTC month'
       state: {
         kind: 'unknown',
         countedAt: new Date(start.getTime() - 1).toISOString(),
+        countBasis: 'dispatch_record',
       },
     });
     const admission = testBotAdmission(run, 4, 1);

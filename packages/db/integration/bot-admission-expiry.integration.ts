@@ -26,7 +26,11 @@ test('bot admission evaluates entitlement time after a blocked grant read', asyn
       reserved_at: reservedAt,
       source: { kind: 'lifetime' },
       binds_free_judge: true,
-      state: { kind: 'unknown', countedAt: reservedAt.toISOString() },
+      state: {
+        kind: 'unknown',
+        countedAt: reservedAt.toISOString(),
+        countBasis: 'dispatch_record',
+      },
     });
     await fixture.sql`delete from account_entitlement_grants where user_id=${userId}`;
     await fixture.sql`insert into account_entitlement_grants(user_id,entitlement,source,starts_at,expires_at)

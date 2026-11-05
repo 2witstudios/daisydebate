@@ -440,7 +440,7 @@ test('a platform-ended Round restores allowance once and preserves provider cost
     const countedAt = new Date().toISOString();
     await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, source, state)
       values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', ${countedAt}::timestamptz,
-      '{"kind":"lifetime"}', ${{ kind: 'dispatched', countedAt }}::jsonb)`;
+      '{"kind":"lifetime"}', ${{ kind: 'dispatched', countedAt, countBasis: 'dispatch_record' }}::jsonb)`;
     await f.sql`insert into agent_runs(id,round_participant_id,kind,provider,requests,input_tokens,output_tokens,configuration_snapshot,started_at)
       values (${createId()},${seat!.id},'speech','fixture',1,3,2,'{"providerOutcome":"received"}',${countedAt}::timestamptz)`;
     await observe(room({}));
