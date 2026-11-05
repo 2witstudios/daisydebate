@@ -83,6 +83,7 @@ import {
 import { notificationOperations } from './notifications';
 import { watchHistoryOperations } from './watch-history';
 import { operatorAccountOperations } from './operator-accounts';
+import { flagOperations } from './flags-operations';
 import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
@@ -325,6 +326,7 @@ export function createDatabase({
     ...mailIntentOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
+    ...flagOperations({ database: control, eventSink }),
     ...contentModerationOperations({
       database: control,
       eventSink,

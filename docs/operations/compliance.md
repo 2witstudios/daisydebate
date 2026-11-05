@@ -97,6 +97,41 @@ opens shortly before their clock and through any start hold, so capture has them
 told first, the other side can hear it, and the Broadcast stage does not subscribe to it. A bot hears its peers only in its own process memory, one
 10 ms frame at a time, never written anywhere (ISSUE-764).
 
+## Release-control targeting and audit (FLAGS)
+
+Release controls are not entitlements or authorization. `flag_account_overrides`
+contains account-linked rollout selection (account id, key, enabled, creation and
+expiry). Its purpose is controlled release testing; the proposed lawful basis is
+legitimate interests. It is inactive at its expiry even if maintenance stops.
+The bounded retention sweep removes it 24 hours after expiry (at most 500 rows per
+batch, 20 batches per pass); account erasure removes it immediately under the
+canonical account fence. The subject export includes only that subject's rows.
+
+`flag_change_events` holds key, revision, command id, change kind and time, without
+an account id or targeting values. It is linked through the shared
+`operator_command_receipts`: operator/service references, optional target account,
+request digest, result and admin audit head are personal or linkable security
+evidence, **not anonymous because they are hashed**. Their purpose is change
+accountability and safe command retries; the proposed lawful basis is legitimate
+interests. Flags evidence has a **proposed 90-day retention period**, pruned in
+bounded batches by the existing maintenance sweep. No audit payload retains
+arbitrary operator-supplied notes or the override values. Subject export includes
+its command id, action, result and timestamp; internal operator identifiers and
+digests are excluded.
+
+Normal runtime writes can append this audit but cannot update or delete it.
+Narrow security-definer functions are the only runtime erasure/retention path:
+account erasure clears the direct target-account link on Flags receipts atomically,
+while keeping command identity, digest and audit events as bounded security evidence;
+retention cannot delete evidence newer than 90 days or more than 500 commands per
+call. Global state commands have a null subject. Expired receipts may no longer
+replay, but every accepted change advances the retained flag revision, so an old
+expected revision cannot regain authority. Erased subjects cannot acquire targeting
+again, including when targeting races erasure. Erasure does not delete audit trails
+or touch receipts for any other command action. The remaining digest, command id
+and operator references are still classified as linkable evidence, not anonymous data. These periods and bases await the
+same counsel review as the other proposed classes; no new processor is added.
+
 ## Retained after erasure
 
 Erasure closes the account. It deletes everything in the classes marked

@@ -32,6 +32,8 @@ describe('retention targets', () => {
       sweeps,
       database: {
         purgeExpiredVerifications: record('verification'),
+        purgeExpiredFlagOverrides: record('flag_overrides'),
+        purgeExpiredFlagEvidence: record('flag_evidence'),
         purgeExpiredChallenges: ({ now, limit }: Instant) =>
           record('challenges')({ before: now, limit }),
         purgeErasedModeration: record('moderation'),
@@ -95,6 +97,8 @@ describe('retention targets', () => {
       },
       expected: {
         targets: [
+          { name: 'retention.flag_overrides', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.flag_evidence', batchSize: 500, maxBatches: 20 },
           { name: 'retention.verification', batchSize: 500, maxBatches: 20 },
           { name: 'retention.outbox', batchSize: 200, maxBatches: 200 },
           { name: 'retention.session', batchSize: 500, maxBatches: 20 },
@@ -146,6 +150,8 @@ describe('retention targets', () => {
           },
         ],
         calls: {
+          flag_overrides: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
+          flag_evidence: [{ before: '2026-06-22T12:00:00.000Z', limit: 500 }],
           challenges: [{ before: '2026-09-20T12:00:00.000Z', limit: 1000 }],
           reports: [{ before: '2026-09-20T12:00:00.000Z', limit: 1000 }],
           moderation: [{ before: '2025-09-20T12:00:00.000Z', limit: 1000 }],
@@ -211,6 +217,8 @@ describe('retention targets', () => {
       },
       expected: {
         ok: [
+          ['retention.flag_overrides', false],
+          ['retention.flag_evidence', false],
           ['retention.verification', false],
           ['retention.outbox', false],
           ['retention.session', false],
@@ -239,7 +247,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 24,
+        failed: 26,
       },
     });
   });

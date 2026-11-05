@@ -26,13 +26,13 @@ owes is delivered.
   admin app shows), `decided_at`, and `provenance` (`signup` or
   `grandfathered`). The state vocabulary lives in `@daisy/protocol`
   (`betaAccessStates`).
-- **It is not an entitlement.** An entitlement in the deferred FLAGS design
-  is a scoped feature toggle beneath an authorized participant. Beta access
+- **It is not an entitlement or a release flag.** Entitlements are durable
+  benefit grants (ADR 0085). Release and ops flags control rollout, never
+  access or grants ([ADR 0118](0118-release-and-ops-flags.md)). Beta access
   answers whether the person may use participant capabilities at all. It is
-  read with `member` and `erased` under the account fence (ADR 0048). Making
-  it the first `@daisy/features` entitlement would mean building that
-  platform for one consumer. DEC-19 stands, amended to say account access
-  states are authorization facts owned by `@daisy/auth` and `@daisy/db`.
+  read with `member` and `erased` under the account fence (ADR 0048).
+  Account access states are authorization facts owned by `@daisy/auth` and
+  `@daisy/db`.
 - **It is not a waitlist store (DEC-47).** Joining the waitlist is signing
   up. The row is created inside the username claim's transaction for an
   existing account. It holds no email, name or reservation.

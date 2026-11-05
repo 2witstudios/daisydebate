@@ -16,6 +16,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import { restrictionRules } from '../moderation/restriction-rules';
 import { REPORT_EVIDENCE_RETENTION_MS } from '../reports/operations';
 import { boundedBody, json, refusal, transportRefusal } from './http';
+import { changeFlag, mayControlFlags } from './flags';
 import {
   contentModerationRoute,
   type ContentModerationStore,
@@ -47,6 +48,9 @@ const operatorService = {
   serviceId: 'daisy-admin',
   capabilities: [
     'account.collection.read',
+    'flag.state.update',
+    'flag.override.update',
+    'flag.command.read',
     'account.beta_access.update',
     'content_report.queue.read',
     'content_report.resolve',
@@ -70,6 +74,7 @@ const operatorService = {
 type Store = Pick<
   Database,
   | 'listOperatorAccounts'
+  | 'runFlagCommand'
   | 'runBetaAccessCommand'
   | 'readOperatorCommand'
   | 'listOperatorReports'
@@ -210,6 +215,9 @@ function dispatch(
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
   switch (route.route) {
+    case 'setFlagState':
+    case 'setFlagOverride':
+      return changeFlag(deps, principal, route.route, route.id!, request);
     case 'listAccounts':
       return listAccounts(deps, principal, url);
     case 'setBetaAccess':
@@ -541,17 +549,20 @@ async function readCommand(
   principal: AuthorizationPrincipal,
   commandId: string,
 ): Promise<OperatorCommandState> {
-  // A read-back reveals one account's access state, as a listing does, so
-  // it needs the same capability, decided by the shared evaluator (ISSUE-683).
-  if (
-    principal.kind !== 'operator_service' ||
-    !requireCapability(principal, 'account.collection.read')
-  )
+  if (principal.kind !== 'operator_service')
     throw createAppError('AUTHORIZATION');
+  const readAccounts = requireCapability(principal, 'account.collection.read');
+  const readFlags = mayControlFlags(principal, 'flag.command.read');
+  if (!readAccounts && !readFlags) throw createAppError('AUTHORIZATION');
   const command = await deps.store.readOperatorCommand({
     commandId,
     serviceId: principal.serviceId,
   });
   if (!command) throw createAppError('NOT_FOUND');
+  const flags =
+    command.action === 'flag.state.update' ||
+    command.action === 'flag.override.update';
+  if (!(flags ? readFlags : readAccounts))
+    throw createAppError('AUTHORIZATION');
   return command;
 }

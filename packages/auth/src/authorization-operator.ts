@@ -8,7 +8,10 @@ import type {
 type Resource = AuthorizationInput['resource'];
 type OperatorResource = Extract<
   Resource,
-  { kind: 'account' | 'account_collection' | 'content_moderation' }
+  {
+    kind:
+      'account' | 'account_collection' | 'content_moderation' | 'flag_control';
+  }
 >;
 
 /** WATCH-7: decided on holding them alone; each store checks its own target. */
@@ -30,6 +33,9 @@ const contentModerationCapabilities: readonly AuthorizationCapability[] = [
 /** ADR 0079: capabilities only the operator service may hold. */
 const operatorCapabilities: readonly AuthorizationCapability[] = [
   'account.collection.read',
+  'flag.state.update',
+  'flag.override.update',
+  'flag.command.read',
   'account.beta_access.update',
   ...contentModerationCapabilities,
   'report.collection.read',
@@ -43,6 +49,7 @@ export const operatorResource = (
   resource: Resource,
 ): resource is OperatorResource =>
   resource.kind === 'account' ||
+  resource.kind === 'flag_control' ||
   resource.kind === 'account_collection' ||
   resource.kind === 'content_moderation';
 
@@ -70,6 +77,9 @@ export function operatorDecision(
         ? { allow: true }
         : { allow: false, reason: 'denied' };
     case 'account.collection.read':
+    case 'flag.state.update':
+    case 'flag.override.update':
+    case 'flag.command.read':
     case 'report.collection.read':
     case 'report.resolve':
     case 'moderation.collection.read':

@@ -242,6 +242,8 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
         expected: {
           before: null,
           failed: [
+            'retention.flag_overrides',
+            'retention.flag_evidence',
             'retention.verification',
             'retention.outbox',
             'retention.session',
@@ -267,7 +269,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.reports',
             'retention.moderation',
           ],
-          failuresByTarget: Array.from({ length: 24 }, () => 1),
+          failuresByTarget: Array.from({ length: 26 }, () => 1),
           lastSuccessDuringOutage: null,
           recoveredAfterOutage: true,
         },

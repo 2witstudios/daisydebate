@@ -53,6 +53,8 @@ export function retentionTargets({
   readonly provisionalLinks: ProvisionalLinkPurposes;
   readonly database: {
     readonly purgeExpiredVerifications: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredFlagOverrides: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredFlagEvidence: (batch: Batch) => Promise<number>;
     readonly purgeExpiredChallenges: (batch: {
       readonly now: string;
       readonly limit: number;
@@ -92,6 +94,26 @@ export function retentionTargets({
   };
 }): readonly RetentionTarget[] {
   return [
+    {
+      name: 'retention.flag_overrides',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredFlagOverrides({
+          before: cutoff(now, DAY_MS),
+          limit,
+        }),
+    },
+    {
+      name: 'retention.flag_evidence',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredFlagEvidence({
+          before: cutoff(now, 90 * DAY_MS),
+          limit,
+        }),
+    },
     /** AUTH-7.5a: expired rows are kept for a 24-hour grace before deletion. */
     {
       name: 'retention.verification',

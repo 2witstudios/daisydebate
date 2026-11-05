@@ -48,6 +48,10 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
       runModerationCommand: async () => ({ v: 1, outcome: 'applied' }),
     },
     store: {
+      runFlagCommand: async (input) => {
+        calls.commands.push(input);
+        return { commandId: input.commandId, key: input.key, revision: 1 };
+      },
       listOperatorReports: async () => [],
       listOperatorRestrictions: async () => [],
       resolveReport: async () => {

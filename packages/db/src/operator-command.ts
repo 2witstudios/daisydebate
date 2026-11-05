@@ -46,7 +46,7 @@ export async function writeReceipt(
     readonly requestDigest: string;
     readonly adminAuditHead: string;
   },
-  targetUserId: string,
+  targetUserId: string | null,
   body: unknown,
 ) {
   const receipt = operatorCommandReceiptSchema.parse(body);

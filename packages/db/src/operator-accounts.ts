@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { flagCommandActions } from '@daisy/protocol/flags';
 import {
   betaAccessCommandAction,
   betaAccessStates,
@@ -45,6 +46,7 @@ const commandStateReaders = new Map<
   ) => Promise<Omit<OperatorCommandState, 'action'>>
 >([
   [betaAccessCommandAction, readBetaAccessCommandState],
+  ...flagCommandActions.map((action) => [action, storedOnly] as const),
   // A content moderation command's readback is its stored result alone.
   ...contentModerationActions.map(
     (action) =>
