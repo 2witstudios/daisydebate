@@ -60,6 +60,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.citations',
         'ballots.feedback',
         'ballots.scores',
+        'billing_subscriptions.evidence',
         'broadcasts.release_policy',
         'broadcasts.release_skips',
         'format_presets.config',
@@ -87,6 +88,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
         'rounds.runtime_state',
+        'usage_reservations.source',
+        'usage_reservations.state',
       ],
     });
     assert({
