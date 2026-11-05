@@ -1,8 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 setupRitewayBun();
+requireTestServices(process.env);
 const selection = {
   kind: 'catalog',
   formatId: 'value',

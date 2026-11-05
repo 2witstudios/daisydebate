@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import {
@@ -7,6 +8,7 @@ import {
 } from './bot-admission.test-support';
 
 setupRitewayBun();
+requireTestServices(process.env);
 
 test('bot admission evaluates entitlement time after a blocked grant read', async () => {
   await withBoundedRound(async (fixture, run, roundId) => {
