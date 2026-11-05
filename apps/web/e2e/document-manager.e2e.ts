@@ -66,15 +66,30 @@ const journey = async (
         .getByRole('region', { name: 'Your files' })
         .boundingBox();
       expect(files).toEqual(main);
-      const rail = await page
-        .getByRole('navigation', { name: 'Primary' })
-        .boundingBox();
-      expect(rail?.width).toBe(56);
-      await expect(
-        page.getByRole('navigation', { name: 'Primary' }).getByRole('link', {
-          name: 'Prep',
-        }),
-      ).toBeVisible();
+      const rail = page.getByRole('navigation', { name: 'Primary' });
+      const column = await rail.evaluate((nav) => {
+        // The shell grid child owns the footprint, including its divider.
+        const outer = nav.parentElement!;
+        const bounds = outer.getBoundingClientRect();
+        const style = getComputedStyle(outer);
+        return {
+          width: bounds.width,
+          top: bounds.top,
+          bottom: bounds.bottom,
+          borderWidth: style.borderRightWidth,
+          borderStyle: style.borderRightStyle,
+        };
+      });
+      expect(column).toEqual({
+        width: 56,
+        top: 0,
+        bottom: viewport.height,
+        borderWidth: '1px',
+        borderStyle: 'solid',
+      });
+      const prep = rail.getByRole('link', { name: 'Prep', exact: true });
+      await expect(prep).toBeVisible();
+      expect(await prep.boundingBox()).toMatchObject({ width: 44, height: 44 });
     }
     await testInfo.attach(`prep-${viewport.width}`, {
       body: await page.screenshot(),
