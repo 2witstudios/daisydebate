@@ -159,6 +159,17 @@ replacement requires a fresh Round and admission. Source, period and provider
 evidence remain unchanged. BILL-9-r1/11 and BILL-18 own the truth table and real
 release/dispatch/judge-admission/replacement race and stale-worker proof.
 
+The web service recovers abandoned reservations on startup and every 30 seconds
+through its existing scheduler and bounded database control lane. Each tick
+reads at most 25 Round identities with a stable cursor; failures do not starve
+later identities and the next full cycle retries them. Discovery grants no
+authority. Each mutation rereads current account, frozen sponsor, selected cast
+and usage under the existing account/Round fences, with service liveness checked
+before work and before commit. Losing authority during a lock wait rolls back
+the entire release. Shutdown stops between identities and awaits in-flight work.
+No provider or payment-vendor availability is needed to restore unused local
+allowance; counted and unknown use retain their original lifecycle and binding.
+
 The usage state and its pure event transition live in protocol, following the
 existing Recording lifecycle boundary. The allowance and account authorization
 decisions remain in auth. The transition receives current feature dispatch

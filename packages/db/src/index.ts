@@ -37,6 +37,7 @@ import {
 import { roundAnalysisReads } from './round-analysis-reads';
 import { roundAnalysisRetention } from './round-analysis-retention';
 import type { AiAllowanceOptions } from './usage-ledger';
+import { usageRecoveryOperations } from './usage-recovery';
 import { createCasualJudgeAdmission } from './casual-judge-admission';
 import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
@@ -218,6 +219,12 @@ export function createDatabase({
       aiAllowance,
     });
   return namedLaneOperations({
+    ...usageRecoveryOperations(
+      createBoundedTransaction({
+        lane: controlLane,
+        now: performance.now,
+      }),
+    ),
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
     ...roundPanelCompletionOperations(transcriptTransaction),
