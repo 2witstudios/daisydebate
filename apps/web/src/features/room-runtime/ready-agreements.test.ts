@@ -129,3 +129,22 @@ describe('the notice a create form showed', () => {
     });
   });
 });
+
+test('initial casual recording records only the exact notice shown to its host', () => {
+  const notice = roundCaptureNotice('opted-in')!;
+  assert({
+    given:
+      'a seatless casual recording create with current, stale and absent notice',
+    should: 'record only the current shown words',
+    actual: [
+      createNoticeOf('casual', notice.version, false, optedIn.capture),
+      createNoticeOf('casual', 'casual-draft-0', false, optedIn.capture),
+      createNoticeOf('casual', undefined, false, optedIn.capture),
+    ],
+    expected: [
+      { kind: 'shown', notice },
+      { kind: 'refused' },
+      { kind: 'none' },
+    ],
+  });
+});

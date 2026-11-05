@@ -25,6 +25,7 @@ const formats = [
 
 /** Ranked always has this notice: creating records that its host was shown it. */
 const rankedNotice = roundCaptureNotice('ranked')!;
+const casualNotice = roundCaptureNotice('opted-in')!;
 
 export function CreateRoomEditor({
   choices,
@@ -68,6 +69,7 @@ export function CreateRoomEditor({
   const [query, setQuery] = useState('');
   const { values, draft } = model;
   const isCustom = values.format === 'custom' || draft.custom;
+  const isRanked = values.ranked === 'on' && !isCustom;
   const publication = resolutions.find(
     (resolution) => resolution.kind === values.resolutionMethod,
   );
@@ -213,7 +215,7 @@ export function CreateRoomEditor({
                 type="checkbox"
                 name="ranked"
                 value="on"
-                checked={values.ranked === 'on' && !isCustom}
+                checked={isRanked}
                 disabled={
                   isCustom ||
                   !draft.basis.preset.rankedEligible ||
@@ -237,6 +239,43 @@ export function CreateRoomEditor({
                   : 'Ranked unavailable'}
             </span>
           </div>
+          <div className="create-room-ranked">
+            <label>
+              <input
+                type="checkbox"
+                name="recording"
+                value="on"
+                disabled={isRanked}
+                checked={isRanked || values.recording === 'on'}
+                aria-describedby="create-recording-notice"
+                onChange={(event) =>
+                  metadata('recording', event.target.checked ? 'on' : '')
+                }
+              />
+              Record match
+            </label>
+            {!isRanked ? <span>Subscription required</span> : null}
+          </div>
+          {isRanked && values.recording === 'on' ? (
+            <input type="hidden" name="recording" value="on" />
+          ) : null}
+          <p id="create-recording-notice" role="status">
+            {isRanked
+              ? 'Recording is on for ranked matches.'
+              : values.recording === 'on'
+                ? 'Recording is subject to available capacity.'
+                : null}
+          </p>
+          {!isRanked && values.recording === 'on' ? (
+            <>
+              <p>{casualNotice.text}</p>
+              <input
+                type="hidden"
+                name="noticeVersion"
+                value={casualNotice.version}
+              />
+            </>
+          ) : null}
           {isCustom ? (
             <details className="create-room-library">
               <summary>Start from a league template</summary>

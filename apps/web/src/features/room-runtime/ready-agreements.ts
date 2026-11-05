@@ -45,6 +45,7 @@ export const createNoticeOf = (
   competitionType: RoomAssemblyState['competitionType'],
   noticeVersion: string | undefined,
   hostHoldsSeat: boolean,
+  capture: RoomAssemblyState['capture'] = null,
 ):
   | { readonly kind: 'none' }
   | { readonly kind: 'refused' }
@@ -53,7 +54,7 @@ export const createNoticeOf = (
     return competitionType === 'ranked' && !hostHoldsSeat
       ? { kind: 'refused' }
       : { kind: 'none' };
-  const notice = roomCaptureNotice({ competitionType, capture: null });
+  const notice = roomCaptureNotice({ competitionType, capture });
   return notice?.version === noticeVersion
     ? { kind: 'shown', notice }
     : { kind: 'refused' };

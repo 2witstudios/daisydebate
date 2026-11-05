@@ -78,3 +78,48 @@ test('the ranked create form explains why it is public and states the notice it 
     expected: [true, false],
   });
 });
+
+test('recording is a visible casual choice and automatically on for Ranked', () => {
+  const template = {
+    ...unequalTemplate,
+    role: 'standard' as const,
+    preset: { ...unequalTemplate.preset, rankedEligible: true },
+  };
+  const render = (initialRanked: boolean, values = {}) =>
+    renderToString(
+      h(CreateRoomEditor, {
+        choices: [template],
+        resolutions: [],
+        initialChoice: template,
+        values,
+        commandId: 'n'.repeat(24),
+        initialRanked,
+        pending: false,
+      }),
+    );
+  const casual = render(false);
+  const chosen = render(false, { recording: 'on' });
+  const ranked = render(true);
+  assert({
+    given: 'casual defaults, a retained recording selection, and Ranked',
+    should:
+      'offer Record match, retain its selection, and show automatic ranked recording',
+    actual: [
+      casual.includes('Record match'),
+      chosen.includes(
+        roundCaptureNotice('opted-in')!.text.replaceAll("'", '&#x27;'),
+      ),
+      /name="noticeVersion"[^>]*value="casual-draft-1"/.test(chosen),
+      casual.includes('name="noticeVersion"'),
+      /name="recording"[^>]*checked=""/.test(casual),
+      /name="recording"[^>]*checked=""/.test(chosen),
+      ranked.includes('Recording is on for ranked matches.'),
+      ['disabled=""', 'checked=""'].every((attribute) =>
+        (ranked.match(/<input[^>]*name="recording"[^>]*>/)?.[0] ?? '').includes(
+          attribute,
+        ),
+      ),
+    ],
+    expected: [true, true, true, false, false, true, true, true],
+  });
+});

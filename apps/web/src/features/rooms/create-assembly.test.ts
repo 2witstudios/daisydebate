@@ -173,3 +173,47 @@ test('a striking format leaves the resolution empty; its refusals name the setti
     ],
   });
 });
+
+test('a casual recording choice reaches canonical creation; ranked stays automatic', async () => {
+  const sent: Record<string, unknown>[] = [];
+  for (const ranked of [false, true]) {
+    const fields = form();
+    fields.set('recording', 'on');
+    if (!ranked) {
+      fields.set('competition', 'casual');
+      fields.set(
+        'selection',
+        JSON.stringify({
+          kind: 'catalog',
+          formatId: 'stored-format',
+          formatVersion: 2,
+          presetVersion: 3,
+          competitionType: 'casual',
+        }),
+      );
+    }
+    await createAssembly(async (_url, init) => {
+      sent.push(JSON.parse(String(init.body)));
+      return Response.json({ refusal: 'capture-premium' }, { status: 409 });
+    }, fields);
+  }
+  assert({
+    given: 'a casual recording selection followed by a Ranked form',
+    should: 'request recording only for casual, leaving Ranked automatic',
+    actual: sent.map((body) => body.recording ?? null),
+    expected: [true, null],
+  });
+});
+
+test('recording subscription refusal stays actionable on creation', async () => {
+  assert({
+    given: 'canonical creation refusing a recording subscription',
+    should: 'identify the capture entitlement refusal',
+    actual: await createAssembly(
+      async () =>
+        Response.json({ refusal: 'capture-premium' }, { status: 409 }),
+      form(),
+    ),
+    expected: { kind: 'refused', reason: 'capture-premium' },
+  });
+});

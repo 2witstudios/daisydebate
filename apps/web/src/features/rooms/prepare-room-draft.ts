@@ -8,6 +8,7 @@ import { formValues } from '../forms/form-state';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
 import { editRoomDraft, type CreateRoomDraft } from './create-room-draft';
 import { customRoomDefinition } from './custom-room-definition';
+import { roundCaptureNotice } from '../legal/agreements';
 
 /** Shared by native editing actions and the enhanced editor. */
 export function changeDraftSchedule(
@@ -116,8 +117,16 @@ export function prepareRoomDraft(
       kind: 'preview',
       values: { ...values, ...draftFormValues(draft), intent: '' },
     };
-  // A form with no script ticks Ranked with the notice still unseen: show it first.
-  if (draft.ranked && !values.noticeVersion)
+  // Native mode switches may carry the other mode's notice. Show the effective
+  // notice before claiming it; a casual form that showed none still owes none.
+  const notice = roundCaptureNotice(
+    draft.ranked ? 'ranked' : values.recording === 'on' ? 'opted-in' : 'none',
+  );
+  if (
+    notice &&
+    (draft.ranked || values.noticeVersion) &&
+    values.noticeVersion !== notice.version
+  )
     return {
       kind: 'preview',
       values: { ...values, ...draftFormValues(draft), intent: '' },
