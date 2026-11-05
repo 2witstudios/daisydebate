@@ -53,9 +53,10 @@ export function roundAnalysisClaimDecision(
 }
 
 /**
- * An entitled debater's view of their own analysis: the report, pending
+ * An authorized debater's view of their own analysis: the report, pending
  * while an analysis is running or will run in this deployment, else
- * unavailable. A debater without the entitlement sees `locked`.
+ * unavailable. A delivered report does not require a current entitlement.
+ * The caller must authorize the read before passing any private facts here.
  */
 export function roundAnalysisView(input: {
   readonly facts: RoundAnalysisFacts;
@@ -67,10 +68,10 @@ export function roundAnalysisView(input: {
 }): RoundAnalysisView {
   const { facts, now } = input;
   const bounds = input.bounds ?? roundAnalysisBounds;
-  if (!input.entitled) return { status: 'locked' };
   const { analysis } = facts;
   if (analysis?.status === 'succeeded' && analysis.report)
     return { status: 'ready', report: analysis.report };
+  if (!input.entitled) return { status: 'locked' };
   const runs = analysis
     ? analysis.status === 'leased' &&
       roundAnalysisClaimDecision(facts, now, bounds) !== 'fail'

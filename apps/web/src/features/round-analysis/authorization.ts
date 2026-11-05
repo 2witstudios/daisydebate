@@ -34,7 +34,8 @@ function canAnalyse(
 
 /**
  * Whether the seat's own debater may generate (a paid attempt) or read
- * their round analysis; a debater who may not read it sees it locked.
+ * their round analysis. Delivered reads require current account/seat authority,
+ * independently of the entitlement needed by generation.
  */
 export const canUseRoundAnalysis = (
   access: RoundAnalysisAccess,

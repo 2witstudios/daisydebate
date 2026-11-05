@@ -6,10 +6,8 @@ import { createRoundAnalysisHandlers } from './handlers';
 import { roundAnalysisView } from './policy';
 
 /**
- * The round analysis read: the only place its premium gate meets a reader.
- * A seated debater of a completed Round gets their own view, `locked`
- * without the entitlement; anyone else, a Round still running included,
- * gets NOT_FOUND.
+ * The completed Round's own debater may read their delivered report after
+ * paid access lapses. Read authority remains separate from generation access.
  */
 export function composeRoundAnalysisRoutes(app: App) {
   return createRoundAnalysisHandlers({
@@ -18,6 +16,13 @@ export function composeRoundAnalysisRoutes(app: App) {
       const { access, facts } = await app.database.readRoundAnalysis({
         caller,
         roundId,
+        authorize: (access) =>
+          canUseRoundAnalysis(
+            access,
+            app.config.PREMIUM_BETA_GRANT,
+            'round.analysis.read',
+            app.clock.now(),
+          ),
       });
       if (facts.status !== 'completed') throw createAppError('NOT_FOUND');
       const now = app.clock.now();
@@ -26,7 +31,7 @@ export function composeRoundAnalysisRoutes(app: App) {
         entitled: canUseRoundAnalysis(
           access,
           app.config.PREMIUM_BETA_GRANT,
-          'round.analysis.read',
+          'round.analysis.generate',
           now,
         ),
         now,

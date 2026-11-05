@@ -23,6 +23,7 @@ import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { sampleRoundAnalysisReport } from '@daisy/protocol/round-analysis-testing';
 import { canUseRoundAnalysis } from '../src/features/round-analysis/authorization';
 import { createRoundAnalysisOperations } from '../src/features/round-analysis/operations';
+import { roundAnalysisView } from '../src/features/round-analysis/policy';
 import {
   canReadRound,
   canReadTranscript,
@@ -148,16 +149,52 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       const withPremium = JSON.stringify(await ballotRead());
       await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;
       const withoutPremium = JSON.stringify(await ballotRead());
+      const authorizeRead = (
+        access: Parameters<typeof canUseRoundAnalysis>[0],
+      ) => canUseRoundAnalysis(access, false, 'round.analysis.read', now);
       await assertRejects({
         given: 'a member who did not debate the Round reading its analysis',
         should: 'refuse with NOT_FOUND: only a seated debater has one',
         actual: () =>
-          f.store.readRoundAnalysis({ roundId, caller: f.outsider }),
+          f.store.readRoundAnalysis({
+            roundId,
+            caller: f.outsider,
+            authorize: authorizeRead,
+          }),
         code: 'NOT_FOUND',
       });
       const own = await f.store.readRoundAnalysis({
         roundId,
         caller: f.host,
+        authorize: authorizeRead,
+      });
+      assert({
+        given:
+          'the authorized debater after all grants lapse and generation is disabled',
+        should: 'read the delivered report without a new call or grant',
+        actual: [
+          roundAnalysisView({
+            facts: own.facts,
+            entitled: false,
+            enabled: false,
+            now,
+          }),
+          calls,
+        ],
+        expected: [{ status: 'ready', report: sampleRoundAnalysisReport }, 1],
+      });
+      await f.sql`delete from account_age where user_id=${f.host.userId}`;
+      await assertRejects({
+        given:
+          'a once-authorized debater whose durable participant admission is gone',
+        should: 'refuse the private report despite a retained seat and report',
+        actual: () =>
+          f.store.readRoundAnalysis({
+            roundId,
+            caller: f.host,
+            authorize: authorizeRead,
+          }),
+        code: 'NOT_FOUND',
       });
       assert({
         given:

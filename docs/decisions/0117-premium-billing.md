@@ -40,6 +40,13 @@ Delivered analysis remains readable to its authorized debater after Premium
 lapses; existing Recordings keep their visibility rules. Paid cancellation
 normally retains access until period end.
 
+Stored analysis reuse checks the debater's current account and completed frozen
+seat independently of a generation entitlement. The read holds every frozen
+participant's shared account fence, refuses an erased participant, and evaluates
+the injected read policy before loading private report facts. A report read does
+not reserve usage or start a provider call. Removing grants or disabling the
+generation worker cannot hide a delivered report that remains authorized.
+
 Premium uses the existing grant and usage boundaries, with explicit plan mapping
 for `round_analysis`, `ai_rounds`, `casual_ai_judge`, `casual_capture` and
 `recording_download`. Every new entitlement kind requires a reviewed mapping.

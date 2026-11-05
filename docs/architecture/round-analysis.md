@@ -85,9 +85,11 @@ Premium is the account's own `round_analysis` grant, never its beta state
 (ISSUE-779). Beta approval writes the grant in the beta command's
 transaction and revocation removes it. `PREMIUM_BETA_GRANT` says whether a
 beta-sourced grant counts: `true` in the beta, `false` at launch. The
-capabilities are `round.analysis.generate` and `round.analysis.read`. An
-entitlement supplements, never replaces, participant admission and an own
-debating seat.
+capabilities are `round.analysis.generate` and `round.analysis.read`. A
+delivered report remains readable to its authorized debater after an entitlement
+lapses (BILL-13/DEC-363). Generation eligibility remains separate from that
+read. Neither capability replaces current participant admission and an own
+completed debating seat.
 
 `GET /api/rounds/[roundId]/round-analysis` (composition in
 `features/round-analysis/composition.ts`, the only place the gate meets a
@@ -96,10 +98,13 @@ reader) answers a seated debater of a completed Round with:
 - `ready` and the report;
 - `pending` while an analysis runs or will run;
 - `unavailable`;
-- `locked`, with no content, when the debater lacks the entitlement.
+- `locked` for generation without the entitlement when no delivered report exists.
 
 Spectators, judges, hosts and anyone else get NOT_FOUND. The ballot read is
-the same with and without premium.
+the same with and without premium. The database runs the injected read decision
+before loading report facts. Reads hold the shared canonical fences of every
+frozen participant account in user-id order, without lock upgrades; erasure of
+either side therefore wins before any later report read.
 
 `ui/round-analysis` renders the view on the Round page beside the result,
 quoting the transcript lines a key moment cites.

@@ -131,10 +131,11 @@ describe('roundAnalysisClaimDecision()', () => {
 describe('roundAnalysisView()', () => {
   const view = (f: RoundAnalysisFacts, entitled = true, enabled = true) =>
     roundAnalysisView({ facts: f, entitled, now: at(1000), enabled });
-  test('without the entitlement', () => {
+  test('a delivered report after entitlement lapse', () => {
     assert({
-      given: 'a debater without the entitlement, even with a stored report',
-      should: 'be locked, carrying nothing',
+      given:
+        'an authorized debater without the entitlement and a stored report',
+      should: 'retain the delivered report without buying another call',
       actual: view(
         facts({
           analysis: {
@@ -146,7 +147,7 @@ describe('roundAnalysisView()', () => {
         }),
         false,
       ),
-      expected: { status: 'locked' },
+      expected: { status: 'ready', report },
     });
   });
   test('an analysis', () => {

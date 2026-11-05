@@ -31,7 +31,7 @@ const roundReadable = (actorId: string, resource: RoundAuthorizationFact) =>
 const undelayedObserver = (actorId: string, resource: RoundAuthorizationFact) =>
   resource.createdByActorId === actorId && !seatedOn(actorId, resource);
 
-/** The round analysis entitlement supplements participant admission and an own debating seat. */
+/** Delivered reports remain the debater's own content after paid access ends. */
 export function roundAllowed(
   actorId: string,
   capability: AuthorizationCapability,
@@ -45,7 +45,8 @@ export function roundAllowed(
   if (!capability.startsWith('round.analysis.'))
     return roundReadable(actorId, resource);
   return (
-    context.entitlements?.roundAnalysis === true &&
+    (capability === 'round.analysis.read' ||
+      context.entitlements?.roundAnalysis === true) &&
     resource.status === 'completed' &&
     resource.participants.some(
       (p) =>

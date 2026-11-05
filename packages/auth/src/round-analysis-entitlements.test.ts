@@ -69,11 +69,11 @@ test('round analysis authorization never gates the official round read', () => {
   assert({
     given: 'entitled or ordinary debaters and a judge seat',
     should:
-      'restrict round analysis to entitled debaters while keeping the official result available',
+      'retain own report reads after lapse, gate generation and keep the official result available',
     actual: [evaluate(true), evaluate(false), evaluate(true, 'judge')],
     expected: [
       [true, true, true],
-      [true, false, false],
+      [true, true, false],
       [true, false, false],
     ],
   });
