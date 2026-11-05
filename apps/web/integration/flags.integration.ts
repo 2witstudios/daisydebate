@@ -2,7 +2,13 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
-import { api, signed } from '../src/features/operator-api/router.test-support';
+import { finishedOrBlockedBehind } from '@daisy/db/testing';
+import { operatorLimits } from '@daisy/protocol/operator';
+import {
+  api,
+  signed,
+  now as signedNow,
+} from '../src/features/operator-api/router.test-support';
 import { createRequestFlagReader } from '../src/features/flags/reader';
 import { releaseAdmission } from '../src/features/flags/admission';
 import { testDatabaseUrl } from './fixtures';
@@ -116,6 +122,88 @@ test('signed Flags operations resolve real targeting without granting paid acces
     await client`delete from release_flags where key=${key}`;
     await client`delete from actors where id=${actorId}`;
     await client`delete from users where id=${userId}`;
+    await client.close();
+  }
+});
+
+test('signed operator deadline expires during a real Flags lock wait and leaves no durable effects', async () => {
+  const client = new SQL(testDatabaseUrl);
+  const database = createDatabase({
+    url: testDatabaseUrl,
+    nextActorId: createId,
+  });
+  const key = 'premium-checkout';
+  const commandId = createId();
+  let release!: () => void;
+  let locked!: (pid: number) => void;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const holding = new Promise<number>((resolve) => {
+    locked = resolve;
+  });
+  const holder = client.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(59118,1)`;
+    const [row] = await tx`select pg_backend_pid() as pid`;
+    locked(row!.pid);
+    await released;
+  });
+  try {
+    const pid = await holding;
+    let clock = signedNow;
+    const { handle } = api({
+      store: database,
+      nextId: createId,
+      nowMs: () => clock,
+    });
+    const request = handle(
+      signed({
+        method: 'PUT',
+        path: `/operator/v1/flags/${key}/state`,
+        body: JSON.stringify({
+          v: 1,
+          commandId,
+          expectedRevision: 0,
+          adminAuditHead: 'a'.repeat(64),
+          state: 'enabled',
+        }),
+      }),
+    );
+    let waited: 'finished' | 'blocked';
+    try {
+      waited = await finishedOrBlockedBehind(request, client, pid, {
+        now: Date.now,
+        deadlineMs: 1500,
+      });
+      // The actual signedAtMs + operatorLimits.skewMs closure crosses its cutoff.
+      clock = signedNow + operatorLimits.skewMs + 1;
+    } finally {
+      release();
+    }
+    await holder;
+    const response = await request;
+    const [effects] = await client`select
+      (select count(*)::int from release_flags where key=${key}) as state,
+      (select count(*)::int from flag_change_events where command_id=${commandId}) as audit,
+      (select count(*)::int from operator_command_receipts where command_id=${commandId}) as receipts`;
+    assert({
+      given:
+        'a genuinely signed PUT admitted by the production router and blocked on a real PostgreSQL lock while its signed timestamp expires',
+      should: 'return conflict and atomically discard state, audit and receipt',
+      actual: { waited, status: response.status, effects },
+      expected: {
+        waited: 'blocked',
+        status: 409,
+        effects: { state: 0, audit: 0, receipts: 0 },
+      },
+    });
+  } finally {
+    release();
+    await holder;
+    await database.close();
+    await client`delete from flag_change_events where command_id=${commandId}`;
+    await client`delete from operator_command_receipts where command_id=${commandId}`;
+    await client`delete from release_flags where key=${key}`;
     await client.close();
   }
 });
