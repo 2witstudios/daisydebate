@@ -375,3 +375,26 @@ test('allowance never substitutes for live account authority or valid policy fac
     ],
   });
 });
+
+test('a new-Round preview cannot pretend to own an existing free judge binding', () => {
+  assert({
+    given:
+      'a null preview identity before the first free bundle or after its binding survives a refund',
+    should:
+      'offer only the initial bundle or independent bot; standalone judging still needs its actual bound Round',
+    actual: [
+      decide(facts, { kind: 'bot_debate', roundId: null, withJudge: true })
+        .kind,
+      decide(
+        { ...facts, freeBotRoundId: 'original' },
+        { kind: 'bot_debate', roundId: null, withJudge: true },
+      ).kind,
+      decide(
+        { ...facts, freeBotRoundId: 'original' },
+        { kind: 'bot_debate', roundId: null, withJudge: false },
+      ).kind,
+      decide(facts, { kind: 'casual_judge', roundId: null }).kind,
+    ],
+    expected: ['admit', 'refuse', 'admit', 'refuse'],
+  });
+});

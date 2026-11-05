@@ -138,9 +138,10 @@ export const roundJudgingJobs = pgTable(
 );
 
 /**
- * One provider dispatch, recorded before the call is sent, and alone the answer
- * to how many calls a job bought: every row but one the vendor certainly refused
- * may have cost money, including one a crash left `dispatched`. Its diagnostic
+ * One provider dispatch, recorded before the call is sent. Every row but one
+ * the vendor certainly refused may have cost money, including one a crash left
+ * `dispatched`. Historical request counters also preserve calls missing an
+ * attempt record; absence of an attempt never restores provider budget. Its diagnostic
  * holds allowlisted facts only: never a message, received value, transcript or
  * provider text.
  */

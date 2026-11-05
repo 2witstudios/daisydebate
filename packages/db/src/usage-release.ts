@@ -1,4 +1,5 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { roundHasAiJudge } from './round-ai-judge';
+import { and, eq, inArray } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { FreeBindingReleaseFacts } from '@daisy/protocol/billing';
 import { usageStateSchema } from '@daisy/protocol/billing';
@@ -9,16 +10,9 @@ import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
 import { advanceUsageLocked } from './usage-ledger';
 import { roundAgentNow } from './round-agent-runs';
-import { requireAdmissionTarget } from './round-bot-admission-rules';
+import { requireAdmissionTarget } from './round-usage-authority';
 
 type ReleasePolicy = (facts: FreeBindingReleaseFacts) => boolean;
-
-async function selectedJudge(tx: BoundedTransactionContext, roundId: string) {
-  const [row] = await tx.execute(sql`select exists(
-    select 1 from round_participants p join actors a on a.id=p.actor_id
-    where p.round_id=${roundId} and p.role='judge' and a.kind='bot') as selected`);
-  return (row as { selected: boolean }).selected;
-}
 
 type Row = typeof usageReservations.$inferSelect;
 async function releaseReservedRows(
@@ -89,7 +83,7 @@ export function createUsageRelease(input: {
       if (!round || round.createdByActorId !== target.actorId)
         throw createAppError('AUTHORIZATION');
       if (round.status !== 'abandoned') throw createAppError('CONFLICT');
-      const judgeSelected = await selectedJudge(tx, target.roundId);
+      const judgeSelected = await roundHasAiJudge(tx, target.roundId);
       const rows = await tx
         .select()
         .from(usageReservations)

@@ -20,7 +20,7 @@ const before = '2099-01-01T00:00:00.000Z';
 
 test('release commits before a stale dispatcher and preserves terminal old identities', async () => {
   await withFreeBundle(
-    async ({ f, run, roundId, replacement, actorId, admission }) => {
+    async ({ f, run, roundId, replacement, actorId, admission, judge }) => {
       await f.sql`update rounds set status='abandoned',completed_at=clock_timestamp() where id=${roundId}`;
       await withHeldCommit(run, async (held) => {
         const release = createUsageRelease({
@@ -68,7 +68,7 @@ test('release commits before a stale dispatcher and preserves terminal old ident
           should: 'refuse rather than create an old bound judge',
           code: 'CONFLICT',
           actual: () =>
-            run((tx) => admission.reserveJudgeLocked(tx, { actorId, roundId })),
+            run((tx) => judge.reserveLocked(tx, { actorId, roundId })),
         });
         const rows =
           await f.sql`select round_id,state->>'kind' as state from usage_reservations where actor_id=${actorId} order by round_id,kind`;
@@ -93,7 +93,7 @@ test('release commits before a stale dispatcher and preserves terminal old ident
 for (const contender of ['replacement', 'judge'] as const) {
   test(`whole-bundle release serializes concurrent ${contender} admission`, async () => {
     await withFreeBundle(
-      async ({ f, run, roundId, replacement, actorId, admission }) => {
+      async ({ f, run, roundId, replacement, actorId, admission, judge }) => {
         await f.sql`update rounds set status='abandoned',completed_at=clock_timestamp() where id=${roundId}`;
         await withHeldCommit(run, async (held) => {
           const release = createUsageRelease({
@@ -105,9 +105,7 @@ for (const contender of ['replacement', 'judge'] as const) {
           const competing =
             contender === 'replacement'
               ? admission.reserve({ actorId, roundId: replacement })
-              : run((tx) =>
-                  admission.reserveJudgeLocked(tx, { actorId, roundId }),
-                );
+              : run((tx) => judge.reserveLocked(tx, { actorId, roundId }));
           const observed = held.observe(Promise.allSettled([competing]));
           try {
             assert({

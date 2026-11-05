@@ -13,13 +13,18 @@ export const aiJudgeSeatable = (seating: RoomView['aiJudgeSeating']) =>
 export function AiJudgeNotice({
   view,
 }: {
-  readonly view: Pick<RoomView, 'aiJudgeSeating' | 'definition'>;
+  readonly view: Pick<
+    RoomView,
+    'aiJudgeSeating' | 'definition' | 'competitionType'
+  >;
 }) {
   if (view.definition.seats.judge === 0) return null;
   if (view.aiJudgeSeating === 'free')
     return (
       <p role="status" className="py-3 text-sm text-ink-muted">
-        An AI judge is free on ranked rounds.
+        {view.competitionType === 'ranked'
+          ? 'An AI judge is free on ranked rounds.'
+          : 'Your one free bot debate includes an optional AI judge.'}
       </p>
     );
   if (view.aiJudgeSeating === 'premium')

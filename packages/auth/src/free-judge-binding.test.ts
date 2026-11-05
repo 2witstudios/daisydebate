@@ -16,13 +16,19 @@ const facts: FreeBindingReleaseFacts = {
 const states: readonly (UsageState | null)[] = [
   null,
   { kind: 'reserved' },
-  { kind: 'dispatched', countedAt: at },
-  { kind: 'unknown', countedAt: at },
-  { kind: 'delivered', countedAt: at },
-  { kind: 'refunded', countedAt: at, refundedAt: at },
+  { kind: 'dispatched', countedAt: at, countBasis: 'dispatch_record' },
+  { kind: 'unknown', countedAt: at, countBasis: 'dispatch_record' },
+  { kind: 'delivered', countedAt: at, countBasis: 'dispatch_record' },
+  {
+    kind: 'refunded',
+    countedAt: at,
+    countBasis: 'dispatch_record',
+    refundedAt: at,
+  },
   {
     kind: 'credited',
     countedAt: at,
+    countBasis: 'dispatch_record',
     creditedAt: at,
     provenance: { kind: 'recovery_bound', incidentId: 'incident' },
     providerOutcome: 'unknown',

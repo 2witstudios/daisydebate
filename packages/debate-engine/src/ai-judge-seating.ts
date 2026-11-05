@@ -7,13 +7,13 @@ import type { RoomAssemblyState } from '@daisy/protocol';
  */
 export const aiJudgeSeatAdmitted = (
   room: Pick<RoomAssemblyState, 'competitionType'>,
-  hostHoldsCasualAiJudge: boolean,
-): boolean => room.competitionType === 'ranked' || hostHoldsCasualAiJudge;
+  hostMaySeatCasualAiJudge: boolean,
+): boolean => room.competitionType === 'ranked' || hostMaySeatCasualAiJudge;
 
 /** The cast holds an AI judge seat its host could not seat today. */
 export const castHoldsUnadmittedAiJudge = (
   room: Pick<RoomAssemblyState, 'competitionType' | 'participants'>,
-  hostHoldsCasualAiJudge: boolean,
+  hostMaySeatCasualAiJudge: boolean,
 ): boolean =>
-  !aiJudgeSeatAdmitted(room, hostHoldsCasualAiJudge) &&
+  !aiJudgeSeatAdmitted(room, hostMaySeatCasualAiJudge) &&
   room.participants.some((p) => p.kind === 'bot' && p.role === 'judge');

@@ -65,15 +65,16 @@ export const usageReservations = pgTable(
         and jsonb_typeof(${table.state}->'releasedAt')='string'
         and isfinite((${table.state}->>'releasedAt')::timestamptz)
         and (${table.state}->>'releasedAt')::timestamptz>=${table.reservedAt}
-      when 'dispatched' then ${table.state}-array['kind','countedAt']='{}'::jsonb
-      when 'unknown' then ${table.state}-array['kind','countedAt']='{}'::jsonb
-      when 'delivered' then ${table.state}-array['kind','countedAt']='{}'::jsonb
-      when 'refunded' then ${table.state}-array['kind','countedAt','refundedAt']='{}'::jsonb
+      when 'dispatched' then ${table.state}-array['kind','countedAt','countBasis']='{}'::jsonb
+      when 'unknown' then ${table.state}-array['kind','countedAt','countBasis']='{}'::jsonb
+      when 'delivered' then ${table.state}-array['kind','countedAt','countBasis']='{}'::jsonb
+      when 'definite_failure' then ${table.state}-array['kind','countedAt','countBasis']='{}'::jsonb
+      when 'refunded' then ${table.state}-array['kind','countedAt','countBasis','refundedAt']='{}'::jsonb
         and jsonb_typeof(${table.state}->'refundedAt')='string'
         and isfinite((${table.state}->>'refundedAt')::timestamptz)
         and (${table.state}->>'refundedAt')::timestamptz>=(${table.state}->>'countedAt')::timestamptz
       when 'credited' then ${table.kind}='ai_round'
-        and ${table.state}-array['kind','countedAt','creditedAt','provenance','providerOutcome']='{}'::jsonb
+        and ${table.state}-array['kind','countedAt','countBasis','creditedAt','provenance','providerOutcome']='{}'::jsonb
         and jsonb_typeof(${table.state}->'creditedAt')='string'
         and isfinite((${table.state}->>'creditedAt')::timestamptz)
         and (${table.state}->>'creditedAt')::timestamptz>=(${table.state}->>'countedAt')::timestamptz
@@ -93,10 +94,12 @@ export const usageReservations = pgTable(
     check(
       'usage_reservations_count_check',
       sql`coalesce(case
-      when ${table.state}->>'kind' in ('reserved','released') then not (${table.state} ? 'countedAt')
-      else jsonb_typeof(${table.state}->'countedAt')='string'
+      when ${table.state}->>'kind' in ('reserved','released') then not (${table.state} ?| array['countedAt','countBasis'])
+      else ${table.state}->>'countBasis' in ('dispatch_record','historical_observation')
+        and jsonb_typeof(${table.state}->'countedAt')='string'
         and isfinite((${table.state}->>'countedAt')::timestamptz)
-        and (${table.state}->>'countedAt')::timestamptz >= ${table.reservedAt} end, false)`,
+        and (${table.state}->>'countedAt')::timestamptz >= ${table.reservedAt}
+        and (${table.state}->>'countedAt')::timestamptz <= clock_timestamp() end, false)`,
     ),
     check(
       'usage_reservations_source_check',

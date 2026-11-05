@@ -1,3 +1,5 @@
+import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
+import { betaAllowance } from './bot-admission.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { canReleaseFreeJudgeBinding } from '@daisy/auth/authorization';
 import type { BoundedTransaction } from '../src/bounded-transaction';
@@ -16,6 +18,7 @@ export async function withFreeBundle(
     replacement: string;
     actorId: string;
     admission: ReturnType<typeof testBotAdmission>;
+    judge: ReturnType<typeof createCasualJudgeAdmission>;
     release: ReturnType<typeof createUsageRelease>;
   }) => Promise<void>,
 ) {
@@ -36,6 +39,13 @@ export async function withFreeBundle(
       replacement,
       actorId,
       admission,
+      judge: createCasualJudgeAdmission({
+        nextId: createId,
+        policy: {
+          decide: betaAllowance().allowance,
+          accountEligible: betaAllowance().accountEligible,
+        },
+      }),
       release: createUsageRelease({
         run,
         releaseBinding: canReleaseFreeJudgeBinding,

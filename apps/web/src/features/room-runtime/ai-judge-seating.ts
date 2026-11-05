@@ -1,26 +1,11 @@
-import { accountEntitlements } from '@daisy/auth/authorization';
-import type {
-  EntitlementGrant,
-  RoomAssemblyState,
-  RoomView,
-} from '@daisy/protocol';
+import type { RoomAssemblyState, RoomView } from '@daisy/protocol';
+import type { AllowanceDecision } from '@daisy/protocol/billing';
 
-/** This account may seat an AI judge on a casual Round (WATCH-16). */
-export const hostHoldsCasualAiJudge = (
-  grants: readonly EntitlementGrant[],
-  betaGrantsPremium: boolean,
-  now: string,
-): boolean =>
-  accountEntitlements(grants, { betaGrantsPremium, now }).casualAiJudge;
-
-/**
- * What seating an AI judge means to this viewer, for display. Only the host
- * of an open Room seats, and only a casual host's own grants are read.
- */
+/** Display only. Seat mutations obtain a fresh allowance decision under the host fence. */
 export async function roomAiJudgeSeating(
   state: Pick<RoomAssemblyState, 'hostActorId' | 'status' | 'competitionType'>,
   actorId: string,
-  holds: () => Promise<boolean>,
+  allowance: () => Promise<AllowanceDecision>,
 ): Promise<RoomView['aiJudgeSeating']> {
   if (
     state.hostActorId !== actorId ||
@@ -29,5 +14,9 @@ export async function roomAiJudgeSeating(
   )
     return null;
   if (state.competitionType === 'ranked') return 'free';
-  return (await holds()) ? 'included' : 'premium';
+  const decision = await allowance();
+  if (decision.kind === 'refuse') return 'premium';
+  return decision.reservations.some((entry) => entry.source.kind === 'lifetime')
+    ? 'free'
+    : 'included';
 }

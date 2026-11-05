@@ -30,6 +30,7 @@ const credit = (provenance = incidents[0]!) =>
 const credited: UsageState = {
   kind: 'credited',
   countedAt,
+  countBasis: 'dispatch_record',
   creditedAt,
   provenance: incidents[0]!,
   providerOutcome: 'unknown',
@@ -49,7 +50,10 @@ test('qualifying platform credits retain delivered and unknown provider evidence
       'credit the original count without asserting provider failure, including after account revocation or period end',
     actual: incidents.flatMap((provenance) =>
       (['dispatched', 'delivered', 'unknown'] as const).map((kind) =>
-        run({ kind, countedAt }, credit(provenance)),
+        run(
+          { kind, countedAt, countBasis: 'dispatch_record' },
+          credit(provenance),
+        ),
       ),
     ),
     expected: incidents.flatMap((provenance) =>
@@ -59,6 +63,7 @@ test('qualifying platform credits retain delivered and unknown provider evidence
           state: {
             kind: 'credited',
             countedAt,
+            countBasis: 'dispatch_record',
             creditedAt,
             provenance,
             providerOutcome,
@@ -70,7 +75,11 @@ test('qualifying platform credits retain delivered and unknown provider evidence
 });
 
 test('mixed provider-failure and platform-credit order restores allowance only once', () => {
-  const dispatched: UsageState = { kind: 'unknown', countedAt };
+  const dispatched: UsageState = {
+    kind: 'unknown',
+    countedAt,
+    countBasis: 'dispatch_record',
+  };
   const refundFirst = stateOf(run(dispatched, failed));
   const platformFirst = stateOf(run(dispatched, credit()));
   assert({
@@ -103,8 +112,16 @@ test('platform credit cannot restore uncounted use or cascade into judging or an
     actual: [
       run({ kind: 'reserved' }, credit()),
       run({ kind: 'released', releasedAt: countedAt }, credit()),
-      run({ kind: 'delivered', countedAt }, credit(), 'casual_ai_judge'),
-      run({ kind: 'unknown', countedAt }, credit(), 'round_analysis'),
+      run(
+        { kind: 'delivered', countedAt, countBasis: 'dispatch_record' },
+        credit(),
+        'casual_ai_judge',
+      ),
+      run(
+        { kind: 'unknown', countedAt, countBasis: 'dispatch_record' },
+        credit(),
+        'round_analysis',
+      ),
     ],
     expected: Array.from({ length: 4 }, () => ({ kind: 'refuse' })),
   });
@@ -171,6 +188,34 @@ test('recorded restoration resolves late evidence without granting new relief or
       },
       ...incidents.map(() => ({ kind: 'unchanged', state: recorded })),
       { kind: 'refuse' },
+      { kind: 'refuse' },
+    ],
+  });
+});
+
+test('known unrestored failure permits only existing bot platform credit without changing provider truth', () => {
+  const failure: UsageState = {
+    kind: 'definite_failure',
+    countedAt,
+    countBasis: 'dispatch_record',
+  };
+  const restored = stateOf(run(failure, credit()));
+  assert({
+    given:
+      'known failed counted use without historical relief, then a qualifying bot credit',
+    should:
+      'preserve failure, restore once, never grant judge relief or new dispatch',
+    actual: [
+      run(failure, credit()),
+      run(restored, credit(incidents[1]!)),
+      run(failure, credit(), 'casual_ai_judge'),
+    ],
+    expected: [
+      {
+        kind: 'changed',
+        state: { ...credited, providerOutcome: 'definite_failure' },
+      },
+      { kind: 'unchanged', state: restored },
       { kind: 'refuse' },
     ],
   });

@@ -23,7 +23,7 @@ export function requireAdmissionTarget(target: {
 }
 
 /**
- * Only the Round's host sponsors a bot, with a live member account and an
+ * Only the Round's host sponsors casual AI usage, with a live member account and an
  * unranked Round that has not finished.
  */
 export function requireSponsor(
@@ -37,12 +37,4 @@ export function requireSponsor(
     throw createAppError('AUTHORIZATION');
   if (!['opening', 'active'].includes(round.status))
     throw createAppError('CONFLICT');
-}
-
-export function requireBusyCap(busyCap: number): void {
-  if (!Number.isSafeInteger(busyCap) || busyCap < 1)
-    throw createAppError(
-      'VALIDATION',
-      'Explicit positive bot capacity required',
-    );
 }

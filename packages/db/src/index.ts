@@ -36,6 +36,8 @@ import {
 } from './round-analysis-entrypoints';
 import { roundAnalysisReads } from './round-analysis-reads';
 import { roundAnalysisRetention } from './round-analysis-retention';
+import type { AiAllowanceOptions } from './usage-ledger';
+import { createCasualJudgeAdmission } from './casual-judge-admission';
 import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
@@ -166,6 +168,7 @@ export function createDatabase({
   fairnessKey,
   nextActorId,
   botAdmission,
+  aiAllowance,
   judging,
   botPublication,
   roundAnalysis,
@@ -175,6 +178,8 @@ export function createDatabase({
   profile?: WorkloadProfile;
   /** No implicit bot capacity or quota: absence truthfully refuses bot-debater admission. */
   botAdmission?: BotAdmissionOptions | undefined;
+  /** Shared account allowance; bot, judge and analysis capacity stay feature-owned. */
+  aiAllowance?: AiAllowanceOptions | undefined;
   judging?: JudgingOptions | undefined;
   botPublication?: BotPublicationOptions | undefined;
   /** Round analysis's own jobs (DEC-247); absent, none run. */
@@ -210,6 +215,7 @@ export function createDatabase({
       run: transcriptTransaction,
       nextId: nextActorId,
       botAdmission,
+      aiAllowance,
     });
   return namedLaneOperations({
     ...botAdmissionOperations,
@@ -383,6 +389,12 @@ export function createDatabase({
     ...roomCommandOperations({
       database,
       botAdmission: admission,
+      judgeAdmission: aiAllowance
+        ? createCasualJudgeAdmission({
+            policy: aiAllowance,
+            nextId: nextActorId,
+          })
+        : undefined,
       eventSink,
       commandTransaction: roomCommandTransaction(
         competitive.client,

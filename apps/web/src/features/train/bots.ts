@@ -54,7 +54,7 @@ const card = (bot: RoomCastChoice, chosenId: string | null): OpponentCard => ({
 export function trainLanding(
   params: SearchParams,
   bots: readonly RoomCastChoice[],
-  casualAiJudge: boolean,
+  botDebateAiJudge: boolean,
 ): TrainLanding {
   const roster = opponents(bots);
   const named = first(params['bot']);
@@ -68,7 +68,7 @@ export function trainLanding(
     chosen: chosenBot ? card(chosenBot, chosenId) : null,
     available:
       roster.some((bot) => bot.eligible) &&
-      (!casualAiJudge || practiceJudge(bots) !== null),
-    judge: casualAiJudge ? 'ai' : 'person',
+      (!botDebateAiJudge || practiceJudge(bots) !== null),
+    judge: botDebateAiJudge ? 'ai' : 'person',
   };
 }

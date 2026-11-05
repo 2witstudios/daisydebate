@@ -104,7 +104,7 @@ test(
         'credited',
       ] as const)
         originals.push(await seed(f, mode));
-      await scratch.migrate((folder) => folder <= migration);
+      await scratch.migrate(() => true);
       const actual: MigrationResult[] = [];
       for (const original of originals) {
         const [row] =

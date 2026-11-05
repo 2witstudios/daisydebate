@@ -1,3 +1,4 @@
+import { roundHasAiJudge } from './round-ai-judge';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -7,9 +8,8 @@ import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
 import {
   requireAdmissionTarget,
-  requireBusyCap,
   requireSponsor,
-} from './round-bot-admission-rules';
+} from './round-usage-authority';
 import {
   reserveUsageLocked,
   readAllowanceLocked,
@@ -91,13 +91,6 @@ const liveBotDebaterRounds = (exceptRoundId?: string) =>
     join actors a on a.id=p.actor_id and a.kind='bot'
     where r.status in ('opening','active') and r.id<>${exceptRoundId ?? ''}`;
 
-async function hasJudge(tx: BoundedTransactionContext, roundId: string) {
-  const [row] =
-    await tx.execute(sql`select exists(select 1 from round_participants p
-    join actors a on a.id=p.actor_id where p.round_id=${roundId} and p.role='judge' and a.kind='bot') as selected`);
-  return (row as { selected: boolean }).selected;
-}
-
 function admissionRefusal(
   decision: Awaited<ReturnType<typeof readAllowanceLocked>>['decision'],
   busy: number,
@@ -143,7 +136,7 @@ export function createRoundBotAdmission(input: {
       request: {
         kind: 'bot_debate',
         roundId: target.roundId,
-        withJudge: await hasJudge(tx, target.roundId),
+        withJudge: await roundHasAiJudge(tx, target.roundId),
       },
     });
     if (!existing) {
@@ -154,7 +147,7 @@ export function createRoundBotAdmission(input: {
     const bot = rows.find((row) => row.kind === 'ai_round');
     if (
       !bot ||
-      ['refunded', 'credited', 'released'].includes(
+      ['refunded', 'credited', 'released', 'definite_failure'].includes(
         usageStateSchema.parse(bot.state).kind,
       )
     )
@@ -174,7 +167,7 @@ export function createRoundBotAdmission(input: {
         // Preview never establishes binding or grants dispatch authority.
         const result = await readAllowanceLocked(tx, {
           account: account ?? null,
-          request: { kind: 'bot_debate', roundId: actorId, withJudge: false },
+          request: { kind: 'bot_debate', roundId: null, withJudge: false },
           decide: input.allowance,
         });
         const reservation = result.quote?.reservations[0];
@@ -194,24 +187,17 @@ export function createRoundBotAdmission(input: {
         await lockBotAdmission(tx);
         return reserveLocked(tx, target);
       }),
-    reserveJudgeLocked: async (
-      tx: BoundedTransactionContext,
-      target: Target,
-    ) => {
-      const account = await lockSponsor(tx, target);
-      if (!(await hasJudge(tx, target.roundId)))
-        throw createAppError('CONFLICT');
-      return reserveUsageLocked(tx, {
-        account,
-        nextId: input.nextId,
-        decide: input.allowance,
-        accountEligible: input.accountEligible,
-        request: { kind: 'casual_judge', roundId: target.roundId },
-      });
-    },
   };
 }
 export type RoundBotAdmission = ReturnType<typeof createRoundBotAdmission>;
 export type BotAdmissionStatus = Awaited<
   ReturnType<RoundBotAdmission['readStatus']>
 >;
+
+function requireBusyCap(busyCap: number): void {
+  if (!Number.isSafeInteger(busyCap) || busyCap < 1)
+    throw createAppError(
+      'VALIDATION',
+      'Explicit positive bot capacity required',
+    );
+}

@@ -1,7 +1,7 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
-import { hostHoldsCasualAiJudge, roomAiJudgeSeating } from './ai-judge-seating';
+import { roomAiJudgeSeating } from './ai-judge-seating';
 import { hostHoldsCasualCapture, roomCaptureOffer } from './capture-offer';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
@@ -45,6 +45,7 @@ export type Store = Pick<
   Database,
   | 'readRoundBotAdmissionStatus'
   | 'readOwnEntitlementGrants'
+  | 'readOwnCasualJudgeAllowance'
   | 'databaseNow'
   | 'listRoomCatalogSources'
   | 'listRoomBots'
@@ -163,15 +164,13 @@ export function createRoomRuntimeOperations({
         currentRoomConsent(consent, now),
         now,
       ),
-      aiJudgeSeating: await roomAiJudgeSeating(
-        state,
-        caller.actorId,
-        async () =>
-          hostHoldsCasualAiJudge(
-            await store.readOwnEntitlementGrants(caller),
-            betaGrantsPremium,
-            await store.databaseNow(),
+      aiJudgeSeating: await roomAiJudgeSeating(state, caller.actorId, () =>
+        store.readOwnCasualJudgeAllowance(
+          caller,
+          state.participants.some(
+            (seat) => seat.kind === 'bot' && seat.role !== 'judge',
           ),
+        ),
       ),
       contentWaiver: await viewerContentWaiver(state, caller),
       captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
@@ -196,8 +195,8 @@ export function createRoomRuntimeOperations({
   ): Promise<{
     readonly choices: readonly RoomCatalogChoice[];
     readonly resolutions: readonly PublishedResolution[];
-    /** The caller may seat an AI judge on a casual Round (WATCH-16). */
-    readonly casualAiJudge: boolean;
+    /** The caller may include the AI judge in a new bot debate. */
+    readonly botDebateAiJudge: boolean;
   }> => {
     const sources = await store.listRoomCatalogSources(caller, (account) =>
       can(caller, 'room.list', account),
@@ -223,11 +222,9 @@ export function createRoomRuntimeOperations({
     return {
       choices,
       resolutions: await store.listPublishedResolutions(),
-      casualAiJudge: hostHoldsCasualAiJudge(
-        await store.readOwnEntitlementGrants(caller),
-        betaGrantsPremium,
-        await store.databaseNow(),
-      ),
+      botDebateAiJudge:
+        (await store.readOwnCasualJudgeAllowance(caller, true)).kind ===
+        'admit',
     };
   };
   const create = async (
@@ -331,7 +328,7 @@ export function createRoomRuntimeOperations({
               commandId: ids.next(),
               participantId: ids.next(),
             })),
-            apply: (state, seat, target, now, grants) =>
+            apply: (state, seat, target, now, maySeatCasualAiJudge) =>
               executeRoomCommand(
                 state,
                 caller.actorId,
@@ -349,11 +346,7 @@ export function createRoomRuntimeOperations({
                   now,
                   participantId: seat.participantId,
                   formatId: '',
-                  hostHoldsCasualAiJudge: hostHoldsCasualAiJudge(
-                    grants,
-                    betaGrantsPremium,
-                    now,
-                  ),
+                  hostMaySeatCasualAiJudge: maySeatCasualAiJudge,
                   // Seating never reads this; only set-capture and Launch do.
                   hostHoldsCasualCapture: false,
                   target: target

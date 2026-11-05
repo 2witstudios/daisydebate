@@ -25,11 +25,16 @@ function settleInFlight(
     return changed({
       kind: 'refunded',
       countedAt: state.countedAt,
+      countBasis: state.countBasis,
       refundedAt: now,
     });
   return state.kind === outcome
     ? unchanged(state)
-    : changed({ kind: outcome, countedAt: state.countedAt });
+    : changed({
+        kind: outcome,
+        countedAt: state.countedAt,
+        countBasis: state.countBasis,
+      });
 }
 function settle(state: UsageState, outcome: Outcome, now: string): Decision {
   switch (state.kind) {
@@ -39,6 +44,7 @@ function settle(state: UsageState, outcome: Outcome, now: string): Decision {
     case 'credited':
       return settleCredited(state, outcome);
     case 'refunded':
+    case 'definite_failure':
       return outcome === 'definite_failure' ? unchanged(state) : refused;
     case 'delivered':
       return outcome === 'delivered' ? unchanged(state) : refused;
@@ -74,6 +80,7 @@ function platformCredit(
   return changed({
     kind: 'credited',
     countedAt: state.countedAt,
+    countBasis: state.countBasis,
     creditedAt: now,
     provenance,
     providerOutcome: state.kind,
@@ -126,13 +133,18 @@ function dispatch(
   if (!mayDispatch(before, context)) return refused;
   switch (state.kind) {
     case 'reserved':
-      return changed({ kind: 'dispatched', countedAt: context.now });
+      return changed({
+        kind: 'dispatched',
+        countedAt: context.now,
+        countBasis: 'dispatch_record',
+      });
     case 'dispatched':
     case 'unknown':
     case 'delivered':
       return unchanged(state);
     case 'credited':
     case 'refunded':
+    case 'definite_failure':
     case 'released':
       return refused;
   }

@@ -63,11 +63,17 @@ test('usage state refuses credits without provenance and releases that pretend t
       'require exact semantic state, original count and valid credit provenance',
     actual: [
       { kind: 'reserved' },
-      { kind: 'unknown', countedAt: startsAt },
-      { kind: 'refunded', countedAt: startsAt, refundedAt: endsAt },
+      { kind: 'unknown', countedAt: startsAt, countBasis: 'dispatch_record' },
+      {
+        kind: 'refunded',
+        countedAt: startsAt,
+        countBasis: 'dispatch_record',
+        refundedAt: endsAt,
+      },
       {
         kind: 'credited',
         countedAt: startsAt,
+        countBasis: 'dispatch_record',
         creditedAt: endsAt,
         provenance: { kind: 'recovery_bound', incidentId: id },
         providerOutcome: 'delivered',
@@ -75,6 +81,7 @@ test('usage state refuses credits without provenance and releases that pretend t
       {
         kind: 'credited',
         countedAt: startsAt,
+        countBasis: 'dispatch_record',
         creditedAt: endsAt,
         provenance: { kind: 'recorded_restoration' },
         providerOutcome: 'unknown',
@@ -82,6 +89,7 @@ test('usage state refuses credits without provenance and releases that pretend t
       {
         kind: 'credited',
         countedAt: startsAt,
+        countBasis: 'dispatch_record',
         creditedAt: endsAt,
         provenance: { kind: 'recorded_restoration', reason: 'invented' },
         providerOutcome: 'unknown',
@@ -89,10 +97,16 @@ test('usage state refuses credits without provenance and releases that pretend t
       {
         kind: 'credited',
         countedAt: startsAt,
+        countBasis: 'dispatch_record',
         creditedAt: endsAt,
         providerOutcome: 'unknown',
       },
-      { kind: 'refunded', countedAt: endsAt, refundedAt: startsAt },
+      {
+        kind: 'refunded',
+        countedAt: endsAt,
+        countBasis: 'dispatch_record',
+        refundedAt: startsAt,
+      },
       { kind: 'released', releasedAt: endsAt, countedAt: startsAt },
       { kind: 'reserved', countedAt: startsAt },
     ].map((value) => usageStateSchema.safeParse(value).success),

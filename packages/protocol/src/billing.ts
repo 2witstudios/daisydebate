@@ -66,12 +66,13 @@ export type UsageSource =
 export type AllowanceRequest =
   | {
       readonly kind: 'bot_debate';
-      readonly roundId: string;
+      /** Null previews a new Round; durable admission always requires its actual identity. */
+      readonly roundId: string | null;
       readonly withJudge: boolean;
     }
   | {
       readonly kind: 'casual_judge' | 'round_analysis';
-      readonly roundId: string;
+      readonly roundId: string | null;
     };
 
 export type AllowanceFacts = {
@@ -136,26 +137,38 @@ export type UsageCreditProvenance =
 export type UsageProviderOutcome =
   'dispatched' | 'unknown' | 'delivered' | 'definite_failure';
 
+/** States that still consume their original allowance; restoration never moves periods. */
+export const usageHoldingStates = [
+  'reserved',
+  'dispatched',
+  'unknown',
+  'delivered',
+  'definite_failure',
+] as const;
+
+export type UsageCountBasis = 'dispatch_record' | 'historical_observation';
+/** A historical recognition instant never asserts the vendor's exact dispatch time. */
+type UsageCount = {
+  readonly countedAt: string;
+  readonly countBasis: UsageCountBasis;
+};
+
 /** Provider jobs retain their independent outcomes; this is only allowance accounting. */
 export type UsageState =
   | { readonly kind: 'reserved' }
-  | {
-      readonly kind: 'dispatched' | 'unknown' | 'delivered';
-      readonly countedAt: string;
-    }
-  | {
-      readonly kind: 'refunded';
-      readonly countedAt: string;
-      readonly refundedAt: string;
-    }
-  | {
+  | (UsageCount & { readonly kind: 'dispatched' | 'unknown' | 'delivered' })
+  | (UsageCount & {
+      /** Proven nonservice without a recorded allowance restoration. */
+      readonly kind: 'definite_failure';
+    })
+  | (UsageCount & { readonly kind: 'refunded'; readonly refundedAt: string })
+  | (UsageCount & {
       readonly kind: 'credited';
-      readonly countedAt: string;
       readonly creditedAt: string;
       readonly provenance: UsageCreditProvenance;
       /** An allowance credit never rewrites provider evidence. */
       readonly providerOutcome: UsageProviderOutcome;
-    }
+    })
   | { readonly kind: 'released'; readonly releasedAt: string };
 
 export type FreeBindingReleaseFacts = {
@@ -260,13 +273,16 @@ const platformCreditSchema: z.ZodType<PlatformUsageCredit> =
       freezeRevision: z.number().int().positive(),
     }),
   ]);
-const counted = { countedAt: z.iso.datetime() };
+const counted = {
+  countedAt: z.iso.datetime(),
+  countBasis: z.enum(['dispatch_record', 'historical_observation']),
+};
 export const usageStateSchema: z.ZodType<UsageState> = z.discriminatedUnion(
   'kind',
   [
     z.strictObject({ kind: z.literal('reserved') }),
     z.strictObject({
-      kind: z.enum(['dispatched', 'unknown', 'delivered']),
+      kind: z.enum(['dispatched', 'unknown', 'delivered', 'definite_failure']),
       ...counted,
     }),
     z

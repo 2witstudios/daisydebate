@@ -4,7 +4,7 @@ import { analyticsConfiguration } from '../features/analytics/config';
 import { createPostHogErasure } from '../features/analytics/erase-vendor';
 import {
   aiSeatAvailability,
-  botAdmissionOptions,
+  aiAdmissionOptions,
   roundWorkerDatabaseOptions,
   type AiSeatAvailability,
 } from './round-worker-policy';
@@ -144,7 +144,7 @@ export function createApp({
     fairnessKey: requestNetwork.current,
     nextActorId: () => ids.next(),
     ...roundWorkerDatabaseOptions(config, nextWorkerToken),
-    ...botAdmissionOptions(config),
+    ...aiAdmissionOptions(config),
   });
   const analyticsServer = createServerAnalytics({
     key: analytics.serverKey,

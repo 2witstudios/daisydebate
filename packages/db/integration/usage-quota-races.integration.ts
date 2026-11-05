@@ -50,7 +50,11 @@ for (const source of ['lifetime', 'subscription'] as const) {
               kind: 'ai_round',
               source: { kind: source, ...period },
               reserved_at: new Date(startsAt),
-              state: { kind: 'unknown', countedAt: startsAt },
+              state: {
+                kind: 'unknown',
+                countedAt: startsAt,
+                countBasis: 'dispatch_record',
+              },
             });
           }
         }

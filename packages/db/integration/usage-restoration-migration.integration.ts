@@ -146,6 +146,26 @@ test(
             () => f.sql`select id,actor_id,round_id,kind,source,state,reserved_at,binds_free_judge,binding_released_at
           from usage_reservations order by id`;
           const before = await read();
+          await scratch.migrate(
+            (folder) => folder <= '20261105041923_billing_usage_restoration',
+          );
+          const repaired = await read();
+          // Execute the actual repair body again (not the migration journal's no-op).
+          const statements = (await readFile(repair, 'utf8')).split(
+            '--> statement-breakpoint',
+          );
+          await f.sql.begin(async (tx) => {
+            for (const statement of statements)
+              if (statement.trim()) await tx.unsafe(statement);
+          });
+          assert({
+            given:
+              'the same durable facts on a second execution of the forward repair',
+            should: 'leave all already-correct rows byte-for-byte unchanged',
+            actual: await read(),
+            expected: repaired,
+          });
+
           await scratch.migrate(() => true);
           const after = await read();
           assert({
@@ -168,6 +188,7 @@ test(
                 usageSourceSchema.parse(row.source),
                 state.kind,
                 'countedAt' in state ? Date.parse(state.countedAt) : null,
+                'countBasis' in state ? state.countBasis : null,
                 state.kind === 'credited'
                   ? [
                       Date.parse(state.creditedAt),
@@ -194,6 +215,7 @@ test(
                 },
                 original.mode === 'proven_failure' ? 'refunded' : 'credited',
                 Date.parse(countedAt),
+                'dispatch_record',
                 original.mode === 'proven_failure'
                   ? Date.parse(restoredAt)
                   : [
@@ -212,22 +234,6 @@ test(
               ];
             }),
           });
-          // Execute the actual repair body again (not the migration journal's no-op).
-          const statements = (await readFile(repair, 'utf8')).split(
-            '--> statement-breakpoint',
-          );
-          await f.sql.begin(async (tx) => {
-            for (const statement of statements)
-              if (statement.trim()) await tx.unsafe(statement);
-          });
-          assert({
-            given:
-              'the same durable facts on a second execution of the forward repair',
-            should: 'leave all already-correct rows byte-for-byte unchanged',
-            actual: await read(),
-            expected: after,
-          });
-
           const database = drizzle({ client: f.sql });
           for (const original of originals.filter(
             (o) => o.mode !== 'proven_failure',

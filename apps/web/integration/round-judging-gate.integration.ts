@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
@@ -147,6 +148,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );
@@ -224,6 +226,7 @@ const judgingOptions = {
     nextToken: () => randomBytes(32).toString('base64url'),
     contractVersion: 'fixture-contract',
     rules: judgingJobRules,
+    accountEligible: canUseAiAllowance,
   },
 };
 

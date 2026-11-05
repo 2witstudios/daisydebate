@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -170,6 +171,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
           nextToken: () => randomBytes(32).toString('base64url'),
           contractVersion: 'fixture-contract',
           rules: judgingJobRules,
+          accountEligible: canUseAiAllowance,
         },
       },
     );

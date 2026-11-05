@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
 import { hostHoldsCasualCapture } from '../room-runtime/capture-offer';
-import { hostHoldsCasualAiJudge } from '../room-runtime/ai-judge-seating';
+import { accountEntitlements } from '@daisy/auth/authorization';
 import { holdsRecordingDownload } from './download-entitlement';
 
 setupRitewayBun();
@@ -20,7 +20,8 @@ const grants: readonly EntitlementGrant[] = entitlementKinds.map(
 test('Watch capability reads expire unchanged subscription grants while workers are offline', async () => {
   const evaluate = async (now: string) => [
     hostHoldsCasualCapture(grants, false, now),
-    hostHoldsCasualAiJudge(grants, false, now),
+    accountEntitlements(grants, { betaGrantsPremium: false, now })
+      .casualAiJudge,
     await holdsRecordingDownload({
       readGrants: async () => grants,
       betaGrantsPremium: false,

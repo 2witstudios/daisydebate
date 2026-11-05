@@ -1,8 +1,7 @@
 import type { roomCommandTransaction } from './room-command-transaction';
+import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { recordCaptureNotice } from './agreement-signatures';
-import { readEntitlementGrants } from './entitlement-grants';
 import type {
-  EntitlementGrant,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
@@ -69,16 +68,17 @@ export type InitialCastApplier = (
   seat: InitialCastSeat,
   target: Actor | null,
   now: string,
-  /** The host's own grants, read under the host fence this create holds. */
-  grants: readonly EntitlementGrant[],
+  maySeatCasualAiJudge: boolean,
 ) => RoomMutationOutcome;
 
 export const roomCreateOperations = ({
   transaction,
   eventSink,
+  judgeAdmission,
 }: {
   readonly transaction: ReturnType<typeof roomCommandTransaction>;
   readonly eventSink?: DatabaseEventSink | undefined;
+  readonly judgeAdmission?: CasualJudgeAdmission | undefined;
 }) => ({
   async createRoomCommand(input: {
     readonly room: NewRoom;
@@ -213,7 +213,13 @@ export const roomCreateOperations = ({
         // the persisted version, status and receipt match the pure seat
         // transitions exactly. Any refusal rolls the whole create back.
         const assembled = input.cast?.seats.length
-          ? await applyInitialCast(tx, input.caller, input.room, input.cast)
+          ? await applyInitialCast(
+              tx,
+              input.caller,
+              input.room,
+              input.cast,
+              judgeAdmission,
+            )
           : null;
         if (assembled)
           await tx
@@ -282,6 +288,7 @@ const applyInitialCast = async (
     readonly seats: readonly InitialCastSeat[];
     readonly apply: InitialCastApplier;
   },
+  judgeAdmission: CasualJudgeAdmission | undefined,
 ): Promise<RoomAssemblyState> => {
   const seats = cast.seats;
   if (new Set(seats.map((seat) => seat.actorId)).size !== seats.length)
@@ -289,7 +296,7 @@ const applyInitialCast = async (
   const fencedActors = [
     ...new Set([caller.actorId, ...seats.map((seat) => seat.actorId)]),
   ];
-  await lockAuthorizationActors(tx, fencedActors, {
+  const accounts = await lockAuthorizationActors(tx, fencedActors, {
     maxActors: fencedActors.length,
   });
   // Eligibility and seatRole live on these profile rows, not the account
@@ -311,11 +318,23 @@ const applyInitialCast = async (
   const [row] = await tx.select().from(rooms).where(eq(rooms.id, room.id));
   if (!row) throw createAppError('INFRASTRUCTURE');
   const { state } = await roomFacts(tx, row);
-  const grants = await readEntitlementGrants(tx, caller.userId);
   const targets: (Actor | null)[] = [];
   for (const seat of seats) targets.push(await actorFact(tx, seat.actorId));
-  // Creation's timestamp predates profile/fact waits; it is not cast authority.
-  const now = await transactionNow(tx);
+  const judgeQuote =
+    judgeAdmission && targets.some((target) => target?.seatRole === 'judge')
+      ? await judgeAdmission.quoteLocked(tx, {
+          account:
+            accounts.find((account) => account?.actorId === caller.actorId) ??
+            null,
+          roundId: null,
+          withBot: targets.some(
+            (target, index) =>
+              target?.seatRole === 'debater' && seats[index]?.role !== 'judge',
+          ),
+        })
+      : null;
+  // Creation's timestamp predates profile/allowance waits; it is not cast authority.
+  const now = judgeQuote?.now ?? (await transactionNow(tx));
   let assembled = state;
   for (const [index, seat] of seats.entries()) {
     const outcome = cast.apply(
@@ -323,7 +342,7 @@ const applyInitialCast = async (
       seat,
       targets[index] ?? null,
       now,
-      grants,
+      judgeQuote?.decision.kind === 'admit',
     );
     if (!outcome.ok) throw createRefusal('CONFLICT', outcome.refusal);
     assembled = outcome.mutation.state;

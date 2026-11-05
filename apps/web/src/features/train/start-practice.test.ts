@@ -11,7 +11,7 @@ setupRitewayBun();
 
 const catalog: PracticeCatalog = {
   bots: [debater('wren-actor-id-000000', { label: 'Wren' }), judge()],
-  casualAiJudge: true,
+  botDebateAiJudge: true,
   freestyle: { formatId: 'freestyle', formatVersion: 1, presetVersion: 1 },
 };
 
@@ -68,7 +68,7 @@ test('Start practice refuses truthfully before any request', () => {
   ) =>
     preparePractice(
       form(bot),
-      { bots, freestyle, casualAiJudge: true },
+      { bots, freestyle, botDebateAiJudge: true },
       'command-1',
     );
   assert({
@@ -91,7 +91,7 @@ test('Start practice refuses truthfully before any request', () => {
 test('Start practice without the casual AI judge leaves the judge seat for a person (WATCH-16)', () => {
   const ready = preparePractice(
     form('wren-actor-id-000000'),
-    { ...catalog, casualAiJudge: false },
+    { ...catalog, botDebateAiJudge: false },
     'command-1',
   );
   assert({
@@ -104,7 +104,7 @@ test('Start practice without the casual AI judge leaves the judge seat for a per
     form('wren-actor-id-000000'),
     {
       ...catalog,
-      casualAiJudge: false,
+      botDebateAiJudge: false,
       bots: [debater('wren-actor-id-000000', { label: 'Wren' })],
     },
     'command-1',

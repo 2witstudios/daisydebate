@@ -7,12 +7,14 @@ setupRitewayBun();
 const render = (
   aiJudgeSeating: 'free' | 'included' | 'premium' | null,
   judge = 1,
+  competitionType: 'ranked' | 'casual' = 'ranked',
 ) =>
   renderToString(
     <AiJudgeNotice
       view={
         {
           aiJudgeSeating,
+          competitionType,
           definition: { seats: { affirmative: 1, negative: 1, judge } },
         } as never
       }
@@ -33,6 +35,14 @@ test('the host is told plainly what judging is available', () => {
     given: 'a ranked host',
     should: 'say the AI judge is free',
     actual: render('free').includes('free on ranked rounds'),
+    expected: true,
+  });
+  assert({
+    given: 'a free casual bot bundle',
+    should: 'describe its lifetime judge without claiming ranked play',
+    actual: render('free', 1, 'casual').includes(
+      'Your one free bot debate includes an optional AI judge.',
+    ),
     expected: true,
   });
   assert({

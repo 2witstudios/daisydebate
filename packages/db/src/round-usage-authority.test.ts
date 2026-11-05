@@ -2,9 +2,8 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   requireAdmissionTarget,
-  requireBusyCap,
   requireSponsor,
-} from './round-bot-admission-rules';
+} from './round-usage-authority';
 
 setupRitewayBun();
 
@@ -31,7 +30,7 @@ test('admission targets are cuid2 actor and Round ids', async () => {
   });
 });
 
-test('only the host of an unranked unfinished Round sponsors a bot', async () => {
+test('only the host of an unranked unfinished Round sponsors casual AI usage', async () => {
   assert({
     given: 'a member host of scheduled and active casual Rounds',
     should: 'admit the sponsor',
@@ -75,15 +74,5 @@ test('only the host of an unranked unfinished Round sponsors a bot', async () =>
       should: 'refuse the sponsor',
       actual: () => requireSponsor(account, candidate, host),
       code,
-    });
-});
-
-test('bot capacity must be explicitly positive and finite', async () => {
-  for (const busyCap of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])
-    await assertRejects({
-      given: `capacity ${busyCap}`,
-      should: 'refuse invalid capacity',
-      actual: () => requireBusyCap(busyCap),
-      code: 'VALIDATION',
     });
 });

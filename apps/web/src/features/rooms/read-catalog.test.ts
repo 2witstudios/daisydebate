@@ -11,7 +11,7 @@ test('catalog unavailability stays distinct from an authoritative empty list', a
       choices: [],
       bots: [],
       resolutions: [],
-      casualAiJudge: false,
+      botDebateAiJudge: false,
     }),
     new Response(null, { status: 404 }),
     Response.json({ choices: [{ label: 'Invented' }] }),
@@ -30,7 +30,7 @@ test('catalog unavailability stays distinct from an authoritative empty list', a
         choices: [],
         bots: [],
         resolutions: [],
-        casualAiJudge: false,
+        botDebateAiJudge: false,
       },
       { kind: 'unavailable' },
       { kind: 'unavailable' },
@@ -45,7 +45,7 @@ test('catalog retains exact template revisions, unequal seat counts and producer
       choices: [unequalTemplate],
       bots: [],
       resolutions: [],
-      casualAiJudge: false,
+      botDebateAiJudge: false,
     }),
   );
   assert({
@@ -58,7 +58,7 @@ test('catalog retains exact template revisions, unequal seat counts and producer
       choices: [unequalTemplate],
       bots: [],
       resolutions: [],
-      casualAiJudge: false,
+      botDebateAiJudge: false,
     },
   });
 });

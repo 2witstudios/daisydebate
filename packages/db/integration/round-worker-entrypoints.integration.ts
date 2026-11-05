@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -98,6 +99,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
           model: 'fixture-judge',
           contractVersion: 'fixture-contract',
           rules: judgingJobRules,
+          accountEligible: canUseAiAllowance,
           nextToken: () => randomBytes(32).toString('base64url'),
         },
       });

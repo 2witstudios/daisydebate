@@ -5,8 +5,54 @@ import { readServerConfig } from '@daisy/config';
 import { AI_ROUND_MONTHLY_CAP_MAX } from '@daisy/protocol';
 import { createApp } from './app';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
-import { aiSeatAvailability, botAdmissionOptions } from './round-worker-policy';
+import { aiSeatAvailability, aiAdmissionOptions } from './round-worker-policy';
 setupRitewayBun();
+test('casual judge allowance remains available without bot-debater capacity', () => {
+  const options = aiAdmissionOptions({
+    AI_ROUND_MONTHLY_CAP: 20,
+    PREMIUM_BETA_GRANT: true,
+  });
+  const account = {
+    userId: 'u'.repeat(24),
+    actorId: 'a'.repeat(24),
+    member: true,
+    erased: false,
+    revision: 1,
+    beta: { state: 'approved' as const, revision: 1 },
+    ageBand: 'adult' as const,
+    restricted: false,
+  };
+  assert({
+    given:
+      'an eligible Premium-beta host on a deployment with judging but no bot-debater busy cap',
+    should: 'admit included casual judging independently of bot capacity',
+    actual: options.aiAllowance?.decide(
+      account,
+      {
+        billing: null,
+        grants: [{ entitlement: 'casual_ai_judge', source: 'beta' }],
+        usage: [],
+        freeBotRoundId: null,
+      },
+      { kind: 'casual_judge', roundId: 'r'.repeat(24) },
+      '2026-11-05T00:00:00.000Z',
+    ),
+    expected: {
+      kind: 'admit',
+      reservations: [
+        {
+          kind: 'casual_ai_judge',
+          source: {
+            kind: 'beta',
+            startsAt: '2026-11-01T00:00:00.000Z',
+            endsAt: '2026-12-01T00:00:00.000Z',
+          },
+          limit: null,
+        },
+      ],
+    },
+  });
+});
 const env = {
   NODE_ENV: 'test',
   DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
@@ -135,22 +181,22 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
     ageBand: 'adult' as const,
     restricted: false,
   };
-  const configured = botAdmissionOptions({
+  const configured = aiAdmissionOptions({
     AI_ROUND_BUSY_CAP: 4,
     AI_ROUND_MONTHLY_CAP: 20,
     PREMIUM_BETA_GRANT: true,
-  }).botAdmission;
+  });
   assert({
     given: 'no busy cap, then a busy cap with the default monthly cap',
     should:
       'require capacity and select beta or lifetime attribution from locked facts',
     actual: [
-      botAdmissionOptions({
+      aiAdmissionOptions({
         AI_ROUND_MONTHLY_CAP: 20,
         PREMIUM_BETA_GRANT: true,
-      }),
-      configured?.busyCap,
-      configured?.allowance(
+      }).botAdmission,
+      configured.botAdmission?.busyCap,
+      configured.aiAllowance?.decide(
         approved,
         {
           billing: null,
@@ -161,7 +207,7 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
         { kind: 'bot_debate', roundId: 'r'.repeat(24), withJudge: false },
         '2026-11-05T00:00:00.000Z',
       ),
-      configured?.allowance(
+      configured.aiAllowance?.decide(
         approved,
         { billing: null, grants: [], usage: [], freeBotRoundId: null },
         { kind: 'bot_debate', roundId: 'r'.repeat(24), withJudge: false },
@@ -169,7 +215,7 @@ test('bot-debater admission composes capacity with source-aware beta and lifetim
       ),
     ],
     expected: [
-      {},
+      undefined,
       4,
       {
         kind: 'admit',

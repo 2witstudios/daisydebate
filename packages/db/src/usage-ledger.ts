@@ -8,6 +8,7 @@ import type {
 } from '@daisy/protocol/billing';
 import {
   advanceUsage,
+  usageHoldingStates,
   requestedUsageKinds,
   usageKindSchema,
   usageSourceSchema,
@@ -31,6 +32,11 @@ export type AllowancePolicy = (
   request: AllowanceRequest,
   now: string,
 ) => AllowanceDecision;
+/** Shared account/source decision; feature capacity is deliberately separate. */
+export type AiAllowanceOptions = {
+  readonly decide: AllowancePolicy;
+  readonly accountEligible: AllowanceAccountPolicy;
+};
 async function currentBinding(tx: Tx, actorId: string): Promise<string | null> {
   const [row] = await tx
     .select({ roundId: usageReservations.roundId })
@@ -63,7 +69,10 @@ async function readQuotedUse(
           eq(usageReservations.actorId, actorId),
           eq(usageReservations.kind, reservation.kind),
           eq(usageReservations.source, reservation.source),
-          sql`${usageReservations.state}->>'kind' in ('reserved','dispatched','unknown','delivered')`,
+          inArray(
+            sql<string>`${usageReservations.state}->>'kind'`,
+            usageHoldingStates,
+          ),
         ),
       );
     usage.push({
@@ -149,7 +158,7 @@ export async function readAllowanceLocked(tx: Tx, input: RequestInput) {
 async function recoverUsage(
   tx: Tx,
   actorId: string,
-  request: AllowanceRequest,
+  request: AllowanceRequest & { readonly roundId: string },
 ) {
   const kinds = requestedUsageKinds(request);
   const existing = await tx
@@ -166,7 +175,7 @@ async function recoverUsage(
   if (
     existing.length !== kinds.length ||
     existing.some((row) =>
-      ['released', 'refunded', 'credited'].includes(
+      ['released', 'refunded', 'credited', 'definite_failure'].includes(
         usageStateSchema.parse(row.state).kind,
       ),
     )
@@ -179,6 +188,7 @@ async function recoverUsage(
 export async function reserveUsageLocked(
   tx: Tx,
   input: RequestInput & {
+    readonly request: AllowanceRequest & { readonly roundId: string };
     readonly nextId: () => string;
     readonly accountEligible: AllowanceAccountPolicy;
   },

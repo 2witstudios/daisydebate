@@ -112,6 +112,36 @@ The forward repair uses durable facts and restores the runtime immutability
 trigger within the same exclusive migration transaction; repeat execution
 preserves already-correct rows. Applied migration history remains immutable.
 
+Historical casual judging gains a reservation only for a missing casual AI-judge
+cohort with an unerased human frozen creator. Its source is the original beta
+UTC month at Round creation, independent of current Room host or grants. Ranked
+and human judging remain outside this cohort. Claim and lease creation are not
+provider dispatch. A counted, definitively failed aggregate with no historical
+restoration is `definite_failure`, distinct from `refunded`: no synthetic refund
+time or relief event. It stays spent and terminal on repeated settlement,
+refuses dispatch and abandonment, and cannot release free binding. Normal live
+failure settlement from dispatched/unknown still records its one actual refund.
+Every counted state carries an immutable `countBasis`: `dispatch_record` for
+live first-call recording, `historical_observation` for recognizing prior
+execution evidence. Earliest qualifying attempt timestamps are historical
+recognition instants, not claims about exact vendor dispatch. A failed-attempt
+row alone is insufficient without corroborating execution evidence. Preserve
+the original frozen sponsor/admission and beta period even when recognition
+crosses a month or follows Round terminalization; never substitute a claim,
+lease or run-creation time, clamp timestamps or invent relief. Count chronology
+is admission <= recognition <= database time. Export retains this meaning.
+
+The one-off missing-judge backfill follows the existing beta migration's
+namespaced derived identity convention: a truncated SHA-256 of its migration
+namespace and frozen Round/sponsor identifiers. This is a migration-only
+exception to application-minted cuid2 IDs, not a public lookup or bearer
+capability. The existing unique sponsor/Round/kind key controls replay; no
+runtime path derives IDs or recreates deleted usage. All live admissions
+continue to receive injected cuid2 identifiers.
+
+Only an existing qualifying bot platform credit may restore unrestored bot use;
+its provider failure remains unchanged and judge usage never receives that credit.
+
 DEC-367 remains pending owner confirmation (Delivery
 `ehql83zprgmhdxx0mrw21r4j`). Only an abandoned Round's entire selected,
 proven-undispatched bundle may release its matching original free-judge

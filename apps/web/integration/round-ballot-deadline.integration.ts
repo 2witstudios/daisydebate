@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import {
@@ -291,6 +292,7 @@ test('an AI judging job no provider ever served by its budget is a known failure
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );
@@ -412,6 +414,7 @@ test('an AI job out of budget with no worker running is reported once, with the 
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );
@@ -424,6 +427,7 @@ const judgingOptions = {
     nextToken: () => randomBytes(32).toString('base64url'),
     contractVersion: 'fixture-contract',
     rules: judgingJobRules,
+    accountEligible: canUseAiAllowance,
   },
 };
 /** A frozen AI-judged Round past its budget and cutoff, its worker holding a ballot or not. */
