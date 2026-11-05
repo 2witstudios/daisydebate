@@ -129,6 +129,10 @@ export type PlatformUsageCredit =
       readonly freezeRevision: number;
     };
 
+/** Observed historical relief does not authorize a new live credit. */
+export type UsageCreditProvenance =
+  PlatformUsageCredit | { readonly kind: 'recorded_restoration' };
+
 export type UsageProviderOutcome =
   'dispatched' | 'unknown' | 'delivered' | 'definite_failure';
 
@@ -148,8 +152,8 @@ export type UsageState =
       readonly kind: 'credited';
       readonly countedAt: string;
       readonly creditedAt: string;
-      readonly provenance: PlatformUsageCredit;
-      /** A platform allowance credit never rewrites provider evidence. */
+      readonly provenance: UsageCreditProvenance;
+      /** An allowance credit never rewrites provider evidence. */
       readonly providerOutcome: UsageProviderOutcome;
     }
   | { readonly kind: 'released'; readonly releasedAt: string };
@@ -280,7 +284,10 @@ export const usageStateSchema: z.ZodType<UsageState> = z.discriminatedUnion(
         kind: z.literal('credited'),
         ...counted,
         creditedAt: z.iso.datetime(),
-        provenance: platformCreditSchema,
+        provenance: z.union([
+          platformCreditSchema,
+          z.strictObject({ kind: z.literal('recorded_restoration') }),
+        ]),
         providerOutcome: z.enum([
           'dispatched',
           'unknown',

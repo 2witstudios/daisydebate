@@ -44,20 +44,68 @@ export async function withFreeBundle(
   });
 }
 
-/** Pause an actual bounded writer after its effects, before its COMMIT. */
-export function holdCommit(run: BoundedTransaction) {
+type HeldCommit = {
+  readonly run: BoundedTransaction;
+  readonly entered: Promise<number>;
+  readonly observe: <T>(work: Promise<T>) => Promise<T>;
+  readonly release: () => void;
+};
+
+/** Own the holder and every contender through entry failure, assertions and cleanup. */
+export async function withHeldCommit<T>(
+  run: BoundedTransaction,
+  work: (held: HeldCommit) => Promise<T>,
+): Promise<T> {
   const entered = Promise.withResolvers<number>();
   const finish = Promise.withResolvers<void>();
-  const held: BoundedTransaction = (work, options) =>
-    run(async (...args) => {
-      const result = await work(...args);
-      entered.resolve(args[2].writer.pid);
-      await finish.promise;
-      return result;
-    }, options);
-  return {
-    run: held,
-    entered: entered.promise,
-    release: () => finish.resolve(),
+  const pending: Promise<unknown>[] = [];
+  // Keep rejection observed even when the holder fails before the caller awaits entry.
+  void entered.promise.catch(() => undefined);
+  const observe = <R>(operation: Promise<R>) => {
+    pending.push(
+      operation.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return operation;
   };
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const held: BoundedTransaction = (callback, options) => {
+    const timer = setTimeout(() => {
+      entered.reject(new Error('Held writer did not enter within 3000 ms'));
+      finish.resolve();
+    }, 3000);
+    timers.add(timer);
+    return observe(
+      Promise.resolve()
+        .then(() =>
+          run(async (...args) => {
+            const result = await callback(...args);
+            clearTimeout(timer);
+            entered.resolve(args[2].writer.pid);
+            await finish.promise;
+            return result;
+          }, options),
+        )
+        .catch((error) => {
+          entered.reject(error);
+          finish.resolve();
+          throw error;
+        })
+        .finally(() => clearTimeout(timer)),
+    );
+  };
+  try {
+    return await work({
+      run: held,
+      entered: entered.promise,
+      observe,
+      release: () => finish.resolve(),
+    });
+  } finally {
+    finish.resolve();
+    for (const timer of timers) clearTimeout(timer);
+    await Promise.all(pending);
+  }
 }

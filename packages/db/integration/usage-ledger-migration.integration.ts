@@ -12,7 +12,7 @@ import {
   usageSourceSchema,
   type UsageSource,
   type UsageState,
-  type PlatformUsageCredit,
+  type UsageCreditProvenance,
   type UsageProviderOutcome,
 } from '@daisy/protocol/billing';
 
@@ -84,7 +84,7 @@ type MigrationResult = {
   source: UsageSource;
   state: UsageState['kind'];
   count: string | null;
-  credit: readonly [PlatformUsageCredit, UsageProviderOutcome] | null;
+  credit: readonly [UsageCreditProvenance, UsageProviderOutcome] | null;
   originalTime: string;
   binding: boolean;
 };

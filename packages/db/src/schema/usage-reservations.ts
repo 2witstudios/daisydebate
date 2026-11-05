@@ -80,6 +80,7 @@ export const usageReservations = pgTable(
         and ${table.state}->>'providerOutcome' in ('dispatched','unknown','delivered','definite_failure')
         and jsonb_typeof(${table.state}->'provenance')='object'
         and case ${table.state}->'provenance'->>'kind'
+          when 'recorded_restoration' then ${table.state}->'provenance'='{"kind":"recorded_restoration"}'::jsonb
           when 'recovery_bound' then (${table.state}->'provenance')-array['kind','incidentId']='{}'::jsonb
             and ${table.state}->'provenance'->>'incidentId' ~ '^[a-z][a-z0-9]{23}$'
           when 'capture_shortfall' then (${table.state}->'provenance')-array['kind','commandId','freezeRevision']='{}'::jsonb

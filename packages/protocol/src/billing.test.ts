@@ -76,12 +76,26 @@ test('usage state refuses credits without provenance and releases that pretend t
         kind: 'credited',
         countedAt: startsAt,
         creditedAt: endsAt,
+        provenance: { kind: 'recorded_restoration' },
+        providerOutcome: 'unknown',
+      },
+      {
+        kind: 'credited',
+        countedAt: startsAt,
+        creditedAt: endsAt,
+        provenance: { kind: 'recorded_restoration', reason: 'invented' },
+        providerOutcome: 'unknown',
+      },
+      {
+        kind: 'credited',
+        countedAt: startsAt,
+        creditedAt: endsAt,
         providerOutcome: 'unknown',
       },
       { kind: 'refunded', countedAt: endsAt, refundedAt: startsAt },
       { kind: 'released', releasedAt: endsAt, countedAt: startsAt },
       { kind: 'reserved', countedAt: startsAt },
     ].map((value) => usageStateSchema.safeParse(value).success),
-    expected: [true, true, true, true, false, false, false, false],
+    expected: [true, true, true, true, true, false, false, false, false, false],
   });
 });

@@ -100,6 +100,18 @@ Judge/analysis usage and exact free-judge binding remain independent. Ordinary
 forfeit, cancellation, silence or transcript incompleteness creates no credit.
 This is allowance restoration, not a Stripe refund or renewed dispatch authority.
 
+Historical restoration is an observed fact, distinct from authorization for a
+new platform credit. The credited state's provenance also permits
+`recorded_restoration`; the live `platform_credit` event still permits only
+`recovery_bound` and `capture_shortfall`. Preserve the original refund instant
+as `creditedAt`, original count/source/period and all provider evidence. Missing
+or unknown executions never imply definite failure. Late evidence can resolve
+an unknown aggregate without another restoration or renewed request identity.
+A live Round's received call cannot finalize the aggregate of future calls.
+The forward repair uses durable facts and restores the runtime immutability
+trigger within the same exclusive migration transaction; repeat execution
+preserves already-correct rows. Applied migration history remains immutable.
+
 DEC-367 remains pending owner confirmation (Delivery
 `ehql83zprgmhdxx0mrw21r4j`). Only an abandoned Round's entire selected,
 proven-undispatched bundle may release its matching original free-judge

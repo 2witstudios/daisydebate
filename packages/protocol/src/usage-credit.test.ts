@@ -139,3 +139,39 @@ test('credited unknown exposure can settle without reopening dispatch or erasing
     ],
   });
 });
+
+test('recorded restoration resolves late evidence without granting new relief or dispatch', () => {
+  const recorded: UsageState = {
+    ...credited,
+    provenance: { kind: 'recorded_restoration' },
+  };
+  assert({
+    given:
+      'historical relief with an unknown provider aggregate and later definite evidence',
+    should:
+      'keep original restoration immutable, resolve evidence, and refuse resurrection',
+    actual: [
+      run(recorded, { kind: 'settle', outcome: 'unknown' }),
+      run(recorded, { kind: 'settle', outcome: 'delivered' }),
+      run(recorded, failed),
+      ...incidents.map((provenance) => run(recorded, credit(provenance))),
+      advanceUsage(
+        { kind: 'ai_round', state: recorded, admittedAt },
+        { kind: 'dispatch', before: '2099-01-01T00:00:00.000Z' },
+        { now: creditedAt, authorized: true },
+      ),
+      run(recorded, { kind: 'abandon' }),
+    ],
+    expected: [
+      { kind: 'unchanged', state: recorded },
+      { kind: 'changed', state: { ...recorded, providerOutcome: 'delivered' } },
+      {
+        kind: 'changed',
+        state: { ...recorded, providerOutcome: 'definite_failure' },
+      },
+      ...incidents.map(() => ({ kind: 'unchanged', state: recorded })),
+      { kind: 'refuse' },
+      { kind: 'refuse' },
+    ],
+  });
+});
