@@ -1,4 +1,21 @@
 export { advanceUsage } from './usage-lifecycle';
+export {
+  advancePurchase,
+  nextPurchaseWork,
+} from './billing-purchase-lifecycle';
+export {
+  purchaseBounds,
+  purchaseIdempotencyKey,
+  purchaseSchema,
+  purchaseSessionExpiry,
+  purchaseStateSchema,
+} from './billing-purchase';
+export type {
+  Purchase,
+  PurchaseContext,
+  PurchaseObservation,
+  PurchaseState,
+} from './billing-purchase';
 export { reconcileSubscriptionEvidence } from './billing-reconciliation';
 export {
   advanceBillingSync,

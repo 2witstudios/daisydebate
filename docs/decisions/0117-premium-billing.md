@@ -245,6 +245,47 @@ deadline, expire/clean up. Unknown outcomes block replacement even beyond
 vendor idempotency retention. A genuinely new attempt requires fresh admission.
 Erasure overrides continuation and late discovery requires cleanup.
 
+The purchase protocol freezes the account, test/live mode, configured price,
+existing customer (if any), return origin and admission instant. The origin
+comes from server configuration, never form fields; freezing it also prevents
+a deployment URL change from changing an idempotent retry's parameters.
+The vendor key derives only from the injected purchase identity. Hosted
+subscription Checkout uses one fixed-price item, quantity one, automatic tax
+and the card payment-method filter. Session/subscription metadata carries the
+purchase identity without account details. Recovery links that would create
+another Session are disabled. No Session URL is persisted or logged.
+
+| Purchase state | Evidence and permitted continuation                                                                                                                            |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admitted`     | No create claim exists. A current account can claim inside the original five minutes; closure or cutoff permits terminal abandonment.                          |
+| `creating`     | The durable claim records possible vendor execution before I/O. Its lease is at most 30 seconds and cannot cross the creation cutoff.                          |
+| `unknown`      | A missing or failed response proves no absence of side effects. Retry after five seconds retains the first possible execution and identical parameters.        |
+| `open`         | A verified owned Session is retrieved for a fresh hosted URL; at its one-hour deadline it requires vendor expiration. Local time alone never makes it expired. |
+| `complete`     | Verified customer/subscription identities require separate payment reconciliation. Completion itself grants no entitlement.                                    |
+| `expired`      | Positive vendor evidence makes this Session terminal. An old open response cannot regress it. A new purchase still requires fresh admission.                   |
+| `abandoned`    | Only a never-dispatched admission can reach this state; the old identity can neither dispatch nor accept a fabricated Session.                                 |
+
+Create dispatch samples the injected clock again immediately before I/O and
+requires the exact persisted claim and configured mode. A late verified result
+can still supply cleanup facts after a lease or account closes. Closure never
+converts uncertainty into absence: possible execution remains a cleanup
+obligation until positively reconciled. The vendor boundary verifies the
+purchase metadata, customer, mode, configured monthly USD10 price, quantity,
+fixed expiry, creation interval, URLs and complete line-item list. Only an
+owned `checkout.stripe.com` Session URL can be returned. Terminal identities
+cannot change under reversed responses. A complete Session with unpaid status
+still establishes no access.
+
+The [version-matched Checkout creation reference](https://docs.stripe.com/api/checkout/sessions/create)
+and [expiration reference](https://docs.stripe.com/api/checkout/sessions/expire)
+were checked against Stripe23.1/API2026-10-28.endive on 2026-11-05. The one-hour
+deadline remains within Stripe's 30-minute to 24-hour creation limits throughout
+our five-minute window. Stripe's [idempotency contract](https://docs.stripe.com/api/idempotent_requests)
+allows key removal after 24 hours; uncertainty therefore continues to block a
+replacement after that interval. Pure policy and isolated CLI test-object proof
+do not establish the still-required durable intent, Flags admission, paginated
+discovery, native route or vendor cleanup acceptance.
+
 Flags core reaches main before Billing rebases and regenerates migrations.
 Billing owns real FLAGS-8/15 route, mutation, recovery and native-form evidence;
 core fixtures alone do not establish consumer acceptance.
