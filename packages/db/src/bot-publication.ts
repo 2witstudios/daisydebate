@@ -1,3 +1,4 @@
+import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -45,6 +46,7 @@ export function createBotPublicationOperations(input: {
   readonly models: { readonly speech: string; readonly cross_ex: string };
   readonly ttsModel?: string;
   readonly speechBudget?: number;
+  readonly accountEligible: AllowanceAccountPolicy;
 }) {
   requireLeaseMs(input.leaseMs);
   const claimWhere = (

@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import { aiRoundAllowance } from '@daisy/auth/authorization';
+import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
 import type { BoundedTransaction } from '../src/bounded-transaction';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
 import { createAuthorizationSubject } from './authorization.test-support';
@@ -8,13 +8,15 @@ import type { Fixture } from './constraint-helpers';
 
 /** The beta quota policy production composes, at the beta cap of 20 (ISSUE-646). */
 export const betaAllowance = (monthlyCap = 20) => ({
+  accountEligible: canUseAiAllowance,
   allowance: (
-    account: Parameters<typeof aiRoundAllowance>[0],
-    grants: Parameters<typeof aiRoundAllowance>[1],
+    account: Parameters<typeof admitAllowance>[0],
+    facts: Parameters<typeof admitAllowance>[1],
+    request: Parameters<typeof admitAllowance>[2],
     now: string,
   ) =>
-    aiRoundAllowance(account, grants, {
-      monthlyCap,
+    admitAllowance(account, facts, request, {
+      betaMonthlyCap: monthlyCap,
       betaGrantsPremium: true,
       now,
     }),

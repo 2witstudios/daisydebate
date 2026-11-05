@@ -1,13 +1,12 @@
-import {
-  createRoundBotAdmission,
-  type AiRoundAllowance,
-} from './round-bot-admission';
+import { createRoundBotAdmission } from './round-bot-admission';
+import type { AllowancePolicy, AllowanceAccountPolicy } from './usage-ledger';
 import type { BoundedTransaction } from './bounded-transaction';
 
 /** Trusted bot admission: an explicit live bot-debater bound and the quota policy, together. */
 export type BotAdmissionOptions = {
   readonly busyCap: number;
-  readonly allowance: AiRoundAllowance;
+  readonly allowance: AllowancePolicy;
+  readonly accountEligible: AllowanceAccountPolicy;
 };
 
 /** One configured admission resource serves Room freeze and host status. */

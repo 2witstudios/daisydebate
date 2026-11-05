@@ -1,7 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
 import { currentEntitlementGrants } from './entitlement-validity';
-import { accountEntitlements, aiRoundAllowance } from './account-entitlements';
+import { accountEntitlements } from './account-entitlements';
+import { admitAllowance } from './allowance';
 import { input } from './channel.test-support';
 
 setupRitewayBun();
@@ -106,14 +107,31 @@ test('an invalid evaluation time or paid interval grants nothing', () => {
 
 test('capability and AI allowance consumers use the same outage-safe validity projection', () => {
   const evaluate = (now: string, betaGrantsPremium: boolean) => {
-    const policy = { now, betaGrantsPremium, monthlyCap: 5 };
+    const policy = { now, betaGrantsPremium, betaMonthlyCap: 5 };
     return {
       ...accountEntitlements([...beta, ...paid], policy),
-      aiRounds: aiRoundAllowance(
+      aiRounds: admitAllowance(
         input.context.account!,
-        [...beta, ...paid],
+        {
+          billing: {
+            lifecycle: 'active',
+            settlement: {
+              kind: 'paid',
+              invoiceId: 'in_verified',
+              period: {
+                subscriptionId: 'subscription',
+                startsAt,
+                endsAt: expiresAt,
+              },
+            },
+          },
+          grants: [...beta, ...paid],
+          usage: [{ kind: 'ai_round', source: { kind: 'lifetime' }, spent: 1 }],
+          freeBotRoundId: null,
+        },
+        { kind: 'bot_debate', roundId: 'round', withJudge: false },
         policy,
-      ),
+      ).kind,
     };
   };
   const enabled = {
@@ -121,14 +139,14 @@ test('capability and AI allowance consumers use the same outage-safe validity pr
     casualAiJudge: true,
     casualCapture: true,
     recordingDownload: true,
-    aiRounds: 5,
+    aiRounds: 'admit',
   };
   const disabled = {
     roundAnalysis: false,
     casualAiJudge: false,
     casualCapture: false,
     recordingDownload: false,
-    aiRounds: null,
+    aiRounds: 'refuse',
   };
   assert({
     given:

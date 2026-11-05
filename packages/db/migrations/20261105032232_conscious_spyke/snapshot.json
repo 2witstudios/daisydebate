@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "124e785e-a178-4876-a0b4-6e114c38d30b",
+  "id": "5678b567-0e92-4798-b900-72e73d0e3266",
   "prevIds": [
-    "e2345cf1-a6fe-44df-a6b4-3e1f077fec81"
+    "0ac5411a-2da5-43a5-bd7e-aabee0e007b1"
   ],
   "ddl": [
     {
@@ -87,6 +87,12 @@
     {
       "isRlsEnabled": false,
       "name": "account_beta_access",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "billing_subscriptions",
       "entityType": "tables",
       "schema": "public"
     },
@@ -189,6 +195,24 @@
     {
       "isRlsEnabled": false,
       "name": "account_entitlement_grants",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "flag_account_overrides",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "flag_change_events",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "release_flags",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2124,6 +2148,97 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "vendor_subscription_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "evidence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "current",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "observed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "actor_id",
       "entityType": "columns",
       "schema": "public",
@@ -3821,6 +3936,188 @@
       "entityType": "columns",
       "schema": "public",
       "table": "account_entitlement_grants"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "enabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "command_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "change",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "release_flags"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "release_flags"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "release_flags"
     },
     {
       "type": "text",
@@ -12185,14 +12482,27 @@
       "table": "usage_reservations"
     },
     {
-      "type": "timestamp with time zone",
+      "type": "jsonb",
       "typeSchema": null,
-      "notNull": false,
+      "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "counted_at",
+      "name": "source",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "state",
       "entityType": "columns",
       "schema": "public",
       "table": "usage_reservations"
@@ -12211,6 +12521,19 @@
       "table": "usage_reservations"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "binds_free_judge",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -12218,7 +12541,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "refunded_at",
+      "name": "binding_released_at",
       "entityType": "columns",
       "schema": "public",
       "table": "usage_reservations"
@@ -13281,6 +13604,69 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "vendor_subscription_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "billing_subscriptions_vendor_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"current\"",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "billing_subscriptions_current_user_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "billing_subscriptions_user_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "round_id",
           "isExpression": false,
           "asc": true,
@@ -13969,6 +14355,97 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "email_delivery_event"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "flag_account_overrides_user_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "flag_account_overrides_expiry_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "revision",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "flag_change_events_key_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "flag_change_events_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "flag_change_events"
     },
     {
       "nameExplicit": true,
@@ -18447,7 +18924,7 @@
           "opclass": null
         },
         {
-          "value": "reserved_at",
+          "value": "source",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -18459,7 +18936,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "usage_reservations_actor_period_idx",
+      "name": "usage_reservations_actor_source_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "usage_reservations"
@@ -18468,19 +18945,19 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "counted_at",
+          "value": "actor_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
           "opclass": null
         }
       ],
-      "isUnique": false,
-      "where": null,
+      "isUnique": true,
+      "where": "\"binds_free_judge\" and \"binding_released_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "usage_reservations_counted_idx",
+      "name": "usage_reservations_free_binding_unique",
       "entityType": "indexes",
       "schema": "public",
       "table": "usage_reservations"
@@ -19165,6 +19642,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "billing_subscriptions_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "actor_id"
       ],
       "schemaTo": "public",
@@ -19609,6 +20103,40 @@
       "entityType": "fks",
       "schema": "public",
       "table": "account_entitlement_grants"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "key"
+      ],
+      "schemaTo": "public",
+      "tableTo": "release_flags",
+      "columnsTo": [
+        "key"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "flag_account_overrides_key_release_flags_key_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "flag_account_overrides_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "flag_account_overrides"
     },
     {
       "nameExplicit": true,
@@ -22557,6 +23085,17 @@
     },
     {
       "columns": [
+        "key",
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "flag_account_overrides_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "columns": [
         "format_id",
         "version"
       ],
@@ -23011,6 +23550,16 @@
     },
     {
       "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "billing_subscriptions_pkey",
+      "schema": "public",
+      "table": "billing_subscriptions",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "actor_id"
       ],
       "nameExplicit": false,
@@ -23117,6 +23666,26 @@
       "name": "email_suppression_pkey",
       "schema": "public",
       "table": "email_suppression",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "flag_change_events_pkey",
+      "schema": "public",
+      "table": "flag_change_events",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "release_flags_pkey",
+      "schema": "public",
+      "table": "release_flags",
       "entityType": "pks"
     },
     {
@@ -24131,6 +24700,20 @@
       "table": "account_beta_access"
     },
     {
+      "value": "jsonb_typeof(\"evidence\") = 'object'",
+      "name": "billing_subscriptions_evidence_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
+      "value": "coalesce(\n    \"evidence\"->'settlement'->>'kind'='unpaid' or\n    (\"evidence\"->'settlement'->'period'->>'subscriptionId'=\"id\"\n      and (\"evidence\"->'settlement'->>'kind'<>'renewal_failed' or\n        \"evidence\"->'settlement'->'previous'->'period'->>'subscriptionId'=\"id\")), false)",
+      "name": "billing_subscriptions_period_identity_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "billing_subscriptions"
+    },
+    {
       "value": "\"difficulty\" in ('beginner', 'intermediate', 'advanced')",
       "name": "bot_profiles_difficulty_check",
       "entityType": "checks",
@@ -24416,6 +24999,48 @@
       "entityType": "checks",
       "schema": "public",
       "table": "account_entitlement_grants"
+    },
+    {
+      "value": "\"expires_at\" > \"created_at\"",
+      "name": "flag_account_overrides_expiry_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "value": "\"change\" in ('state', 'override')",
+      "name": "flag_change_events_change_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "value": "\"revision\" > 0",
+      "name": "flag_change_events_revision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "value": "\"key\" ~ '^[a-z][a-z0-9-]{1,63}$'",
+      "name": "release_flags_key_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "release_flags"
+    },
+    {
+      "value": "\"state\" in ('default', 'enabled', 'disabled', 'killed')",
+      "name": "release_flags_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "release_flags"
+    },
+    {
+      "value": "\"revision\" > 0",
+      "name": "release_flags_revision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "release_flags"
     },
     {
       "value": "\"version\" > 0",
@@ -26287,21 +26912,56 @@
       "table": "transcript_segments"
     },
     {
-      "value": "\"refunded_at\" is null or (\"counted_at\" is not null and \"refunded_at\" >= \"counted_at\")",
-      "name": "usage_reservations_refund_check",
+      "value": "isfinite(\"reserved_at\")",
+      "name": "usage_reservations_reserved_at_check",
       "entityType": "checks",
       "schema": "public",
       "table": "usage_reservations"
     },
     {
-      "value": "\"counted_at\" is null or \"counted_at\" >= \"reserved_at\"",
-      "name": "usage_reservations_admission_check",
+      "value": "coalesce(case \"state\"->>'kind'\n      when 'reserved' then \"state\"='{\"kind\":\"reserved\"}'::jsonb\n      when 'released' then \"state\"-array['kind','releasedAt']='{}'::jsonb\n        and jsonb_typeof(\"state\"->'releasedAt')='string'\n        and isfinite((\"state\"->>'releasedAt')::timestamptz)\n        and (\"state\"->>'releasedAt')::timestamptz>=\"reserved_at\"\n      when 'dispatched' then \"state\"-array['kind','countedAt']='{}'::jsonb\n      when 'unknown' then \"state\"-array['kind','countedAt']='{}'::jsonb\n      when 'delivered' then \"state\"-array['kind','countedAt']='{}'::jsonb\n      when 'refunded' then \"state\"-array['kind','countedAt','refundedAt']='{}'::jsonb\n        and jsonb_typeof(\"state\"->'refundedAt')='string'\n        and isfinite((\"state\"->>'refundedAt')::timestamptz)\n        and (\"state\"->>'refundedAt')::timestamptz>=(\"state\"->>'countedAt')::timestamptz\n      when 'credited' then \"kind\"='ai_round'\n        and \"state\"-array['kind','countedAt','creditedAt','provenance','providerOutcome']='{}'::jsonb\n        and jsonb_typeof(\"state\"->'creditedAt')='string'\n        and isfinite((\"state\"->>'creditedAt')::timestamptz)\n        and (\"state\"->>'creditedAt')::timestamptz>=(\"state\"->>'countedAt')::timestamptz\n        and \"state\"->>'providerOutcome' in ('dispatched','unknown','delivered','definite_failure')\n        and jsonb_typeof(\"state\"->'provenance')='object'\n        and case \"state\"->'provenance'->>'kind'\n          when 'recovery_bound' then (\"state\"->'provenance')-array['kind','incidentId']='{}'::jsonb\n            and \"state\"->'provenance'->>'incidentId' ~ '^[a-z][a-z0-9]{23}$'\n          when 'capture_shortfall' then (\"state\"->'provenance')-array['kind','commandId','freezeRevision']='{}'::jsonb\n            and \"state\"->'provenance'->>'commandId' ~ '^[a-z][a-z0-9]{23}$'\n            and jsonb_typeof(\"state\"->'provenance'->'freezeRevision')='number'\n            and \"state\"->'provenance'->>'freezeRevision' ~ '^[1-9][0-9]*$'\n          else false end\n      else false end, false)",
+      "name": "usage_reservations_state_check",
       "entityType": "checks",
       "schema": "public",
       "table": "usage_reservations"
     },
     {
-      "value": "\"kind\" in ('ai_round')",
+      "value": "coalesce(case\n      when \"state\"->>'kind' in ('reserved','released') then not (\"state\" ? 'countedAt')\n      else jsonb_typeof(\"state\"->'countedAt')='string'\n        and isfinite((\"state\"->>'countedAt')::timestamptz)\n        and (\"state\"->>'countedAt')::timestamptz >= \"reserved_at\" end, false)",
+      "name": "usage_reservations_count_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "value": "coalesce(case \"source\"->>'kind'\n      when 'lifetime' then \"source\"='{\"kind\":\"lifetime\"}'::jsonb\n      when 'beta' then \"source\"-array['kind','startsAt','endsAt']='{}'::jsonb\n      when 'subscription' then \"source\"-array['kind','subscriptionId','startsAt','endsAt']='{}'::jsonb\n        and \"source\"->>'subscriptionId' ~ '^[a-z][a-z0-9]{23}$'\n      else false end, false) and coalesce(\n        \"source\"->>'kind'='lifetime' or (\n          jsonb_typeof(\"source\"->'startsAt')='string' and jsonb_typeof(\"source\"->'endsAt')='string'\n          and isfinite((\"source\"->>'startsAt')::timestamptz) and isfinite((\"source\"->>'endsAt')::timestamptz)\n          and (\"source\"->>'startsAt')::timestamptz < (\"source\"->>'endsAt')::timestamptz), false)",
+      "name": "usage_reservations_source_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "value": "\n      (not \"binds_free_judge\" or (\"kind\"='ai_round' and \"source\"->>'kind'='lifetime')) and\n      (\"binding_released_at\" is null or (\"binds_free_judge\" and \"state\"->>'kind'='released'\n        and \"binding_released_at\">=\"reserved_at\"))",
+      "name": "usage_reservations_binding_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "value": "jsonb_typeof(\"source\") = 'object'",
+      "name": "usage_reservations_source_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "value": "jsonb_typeof(\"state\") = 'object'",
+      "name": "usage_reservations_state_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "value": "\"kind\" in ('ai_round', 'casual_ai_judge', 'round_analysis')",
       "name": "usage_reservations_kind_check",
       "entityType": "checks",
       "schema": "public",

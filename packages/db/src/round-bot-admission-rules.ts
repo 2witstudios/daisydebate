@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, type botAdmissionRefusals } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 
 type Account = {
   readonly member: boolean;
@@ -10,13 +10,6 @@ type Round = {
   readonly competitionType: string;
   readonly status: string;
 };
-type ReservationRow = {
-  readonly id: string;
-  readonly reservedAt: Date;
-  readonly countedAt: Date | null;
-  readonly refundedAt: Date | null;
-};
-
 export function requireAdmissionTarget(target: {
   readonly actorId: string;
   readonly roundId: string;
@@ -44,46 +37,6 @@ export function requireSponsor(
     throw createAppError('AUTHORIZATION');
   if (!['opening', 'active'].includes(round.status))
     throw createAppError('CONFLICT');
-}
-
-/** A refunded reservation is never reused (refunds happen at Round end, DEC-211). */
-export function requireUnrefundedReservation<R extends ReservationRow>(
-  row: R | undefined,
-): R | undefined {
-  if (row?.refundedAt) throw createAppError('CONFLICT', 'Reservation refunded');
-  return row;
-}
-
-/** The reservation found under lock is the one being counted. */
-export function requireOwnReservation<R extends ReservationRow>(
-  current: R | undefined,
-  reservationId: string,
-): R {
-  if (!current || current.id !== reservationId)
-    throw createAppError('AUTHORIZATION');
-  return current;
-}
-
-/**
- * Refusal order: the sponsor's eligibility (a null limit), its allowance,
- * then global live bot-debater capacity.
- */
-export function admissionRefusal(
-  facts: { readonly spent: number; readonly busy: number },
-  limit: number | null,
-  busyCap: number,
-): (typeof botAdmissionRefusals)[number] | null {
-  if (limit === null) return 'not-eligible';
-  if (facts.spent >= limit) return 'allowance';
-  return facts.busy >= busyCap ? 'capacity' : null;
-}
-
-/** DEC-183: the allowance period is the exact UTC calendar month holding `now`. */
-export function utcMonth(now: Date) {
-  return {
-    start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
-    end: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)),
-  };
 }
 
 export function requireBusyCap(busyCap: number): void {

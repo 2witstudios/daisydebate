@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { usageSourceSchema } from './billing';
 import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { formatSettingsSchema } from './format-settings';
@@ -33,6 +34,7 @@ export const botAdmissionRefusals = [
   'not-eligible',
   'allowance',
   'capacity',
+  'renewal-grace',
 ] as const;
 /** The closed Room refusal vocabulary every Room command and creation answers with. */
 export const roomRefusalSchema = z.enum([
@@ -120,16 +122,13 @@ export const roomViewSchema = z.strictObject({
   botAdmission: z
     .union([
       z.strictObject({ kind: z.literal('unavailable') }),
-      /** The cast's only bots judge: the AI judge spends no AI Round (DEC-186). */
-      z.strictObject({ kind: z.literal('free') }),
       z
         .strictObject({
           kind: z.literal('allowance'),
           /** 0 only for a host the beta does not admit to AI Rounds. */
           limit: z.int().min(0).max(AI_ROUND_MONTHLY_CAP_MAX),
           remaining: z.int().min(0).max(AI_ROUND_MONTHLY_CAP_MAX),
-          periodStart: z.iso.datetime({ offset: true }),
-          periodEnd: z.iso.datetime({ offset: true }),
+          source: usageSourceSchema.nullable(),
           refusal: z.enum(botAdmissionRefusals).nullable(),
         })
         .refine((allowance) => allowance.remaining <= allowance.limit),

@@ -190,7 +190,11 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
       .update(rounds)
       .set({ platformEnding: 'capture_shortfall' })
       .where(eq(rounds.id, input.roundId));
-    await refundPlatformEndedLocked(tx, input.roundId);
+    await refundPlatformEndedLocked(tx, input.roundId, {
+      kind: 'capture_shortfall',
+      commandId: input.commandId,
+      freezeRevision: freeze.revision,
+    });
   }
   const receipt = panelReceipt({
     commandId: input.commandId,

@@ -431,34 +431,37 @@ test('attendance holds while an incident is open', async () => {
   });
 });
 
-test('a platform-ended Round charges nothing, once', async () => {
+test('a platform-ended Round restores allowance once and preserves provider cost evidence', async () => {
   await withMediaRound(async (f) => {
     const { observe } = await liveSpeech(f);
     const [seat] =
-      await f.sql`select actor_id from round_participants where round_id=${f.roundId} limit 1`;
+      await f.sql`select id, actor_id from round_participants where round_id=${f.roundId} and role<>'judge' limit 1`;
     const id = createId();
-    // Spent and counted: a billable call was really served in this Round.
-    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, counted_at) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', statement_timestamp(), statement_timestamp())`;
+    const countedAt = new Date().toISOString();
+    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, source, state)
+      values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', ${countedAt}::timestamptz,
+      '{"kind":"lifetime"}', ${{ kind: 'dispatched', countedAt }}::jsonb)`;
+    await f.sql`insert into agent_runs(id,round_participant_id,kind,provider,requests,input_tokens,output_tokens,configuration_snapshot,started_at)
+      values (${createId()},${seat!.id},'speech','fixture',1,3,2,'{"providerOutcome":"received"}',${countedAt}::timestamptz)`;
     await observe(room({}));
     await retireRoom(f);
     await observe(room({ captureListed: false }));
     await passBound(f);
     await observe({ kind: 'unreachable' });
     const [first] =
-      await f.sql`select refunded_at from usage_reservations where id=${id}`;
+      await f.sql`select state from usage_reservations where id=${id}`;
     await observe({ kind: 'unreachable' });
     const [second] =
-      await f.sql`select refunded_at from usage_reservations where id=${id}`;
+      await f.sql`select state from usage_reservations where id=${id}`;
     assert({
       given: 'a served practice call in a Round the platform ended',
-      should: 'refund it, and a later observation changes nothing',
+      should: 'credit it once while preserving delivered provider evidence',
       actual: {
-        refunded: first!.refunded_at !== null,
-        once:
-          new Date(first!.refunded_at).getTime() ===
-          new Date(second!.refunded_at).getTime(),
+        credited: first!.state.kind === 'credited',
+        providerOutcome: first!.state.providerOutcome,
+        once: first!.state.creditedAt === second!.state.creditedAt,
       },
-      expected: { refunded: true, once: true },
+      expected: { credited: true, providerOutcome: 'delivered', once: true },
     });
   });
 });
@@ -491,25 +494,25 @@ test('a reservation never counted needs no refund when the platform ends the Rou
   await withMediaRound(async (f) => {
     const { observe } = await liveSpeech(f);
     const [seat] =
-      await f.sql`select actor_id from round_participants where round_id=${f.roundId} limit 1`;
+      await f.sql`select id, actor_id from round_participants where round_id=${f.roundId} and role<>'judge' limit 1`;
     const id = createId();
-    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round')`;
+    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, source, state) values (${id}, ${seat!.actor_id}, ${f.roundId}, 'ai_round', '{"kind":"lifetime"}', '{"kind":"reserved"}')`;
     await observe(room({}));
     await retireRoom(f);
     await observe(room({ captureListed: false }));
     await passBound(f);
     await observe({ kind: 'unreachable' });
     const [row] =
-      await f.sql`select refunded_at from usage_reservations where id=${id}`;
+      await f.sql`select state from usage_reservations where id=${id}`;
     assert({
       given: 'an AI practice whose first billable call never came',
       should:
         'still end the Round: the allowance spends it only while the Round is live',
       actual: {
         status: (await checkpointOf(f)).status,
-        refunded: row!.refunded_at,
+        usage: row!.state.kind,
       },
-      expected: { status: 'abandoned', refunded: null },
+      expected: { status: 'abandoned', usage: 'released' },
     });
   });
 });

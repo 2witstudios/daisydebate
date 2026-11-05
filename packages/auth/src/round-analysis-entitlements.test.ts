@@ -1,15 +1,9 @@
-import { expect } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  accountEntitlements,
-  aiRoundAllowance,
-  authorize,
-} from './authorization';
+import { accountEntitlements, authorize } from './authorization';
 import { input } from './channel.test-support';
 setupRitewayBun();
 const now = '2026-11-05T00:00:00.000Z';
 
-const account = input.context.account!;
 const beta = (entitlement: 'round_analysis' | 'ai_rounds') =>
   ({ entitlement, source: 'beta' }) as const;
 const allGrants = [beta('round_analysis'), beta('ai_rounds')];
@@ -39,58 +33,6 @@ test('round analysis premium is the account’s own grant fact, never its beta s
       .roundAnalysis,
     expected: false,
   });
-});
-
-test('the AI-round allowance is the flat cap for live members holding an ai_rounds grant', () => {
-  const live = {
-    ...account,
-    beta: { state: 'approved' as const, revision: 1 },
-  };
-  const cases = [
-    [live, allGrants],
-    [live, [beta('round_analysis')]],
-    [live, []],
-    [{ ...live, erased: true }, allGrants],
-    [{ ...live, member: false }, allGrants],
-    [null, allGrants],
-  ] as const;
-  assert({
-    given: 'canonical account facts with and without the ai_rounds grant',
-    should:
-      'grant the cap only to a live member holding the grant, and never infer one',
-    actual: cases.map(([a, grants]) =>
-      aiRoundAllowance(a, grants, {
-        monthlyCap: 20,
-        betaGrantsPremium: true,
-        now,
-      }),
-    ),
-    expected: [20, null, null, null, null, null],
-  });
-  assert({
-    given: 'the beta premium switch off',
-    should: 'retire both analysis and AI-round beta benefits',
-    actual: [
-      accountEntitlements(allGrants, { betaGrantsPremium: false, now })
-        .roundAnalysis,
-      aiRoundAllowance(live, allGrants, {
-        monthlyCap: 20,
-        betaGrantsPremium: false,
-        now,
-      }),
-    ],
-    expected: [false, null],
-  });
-});
-
-test('an AI-round allowance needs a positive trusted cap', () => {
-  expect(() =>
-    aiRoundAllowance(input.context.account!, allGrants, {
-      monthlyCap: 0,
-      betaGrantsPremium: true,
-      now,
-    }),
-  ).toThrow('A positive monthly AI-round cap is required');
 });
 
 test('round analysis authorization never gates the official round read', () => {

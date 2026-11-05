@@ -124,7 +124,7 @@ test('an absent policy leaves only its own store absent', async () => {
   });
 });
 
-test('bot-debater admission composes the busy cap with the flat beta quota', () => {
+test('bot-debater admission composes capacity with source-aware beta and lifetime policy', () => {
   const approved = {
     userId: 'u'.repeat(24),
     actorId: 'a'.repeat(24),
@@ -143,7 +143,7 @@ test('bot-debater admission composes the busy cap with the flat beta quota', () 
   assert({
     given: 'no busy cap, then a busy cap with the default monthly cap',
     should:
-      'admit no bot debater without a bound, else apply the cap only to an account holding an ai_rounds grant',
+      'require capacity and select beta or lifetime attribution from locked facts',
     actual: [
       botAdmissionOptions({
         AI_ROUND_MONTHLY_CAP: 20,
@@ -152,12 +152,46 @@ test('bot-debater admission composes the busy cap with the flat beta quota', () 
       configured?.busyCap,
       configured?.allowance(
         approved,
-        [{ entitlement: 'ai_rounds', source: 'beta' }],
+        {
+          billing: null,
+          grants: [{ entitlement: 'ai_rounds', source: 'beta' }],
+          usage: [],
+          freeBotRoundId: null,
+        },
+        { kind: 'bot_debate', roundId: 'r'.repeat(24), withJudge: false },
         '2026-11-05T00:00:00.000Z',
       ),
-      configured?.allowance(approved, [], '2026-11-05T00:00:00.000Z'),
+      configured?.allowance(
+        approved,
+        { billing: null, grants: [], usage: [], freeBotRoundId: null },
+        { kind: 'bot_debate', roundId: 'r'.repeat(24), withJudge: false },
+        '2026-11-05T00:00:00.000Z',
+      ),
     ],
-    expected: [{}, 4, 20, null],
+    expected: [
+      {},
+      4,
+      {
+        kind: 'admit',
+        reservations: [
+          {
+            kind: 'ai_round',
+            limit: 20,
+            source: {
+              kind: 'beta',
+              startsAt: '2026-11-01T00:00:00.000Z',
+              endsAt: '2026-12-01T00:00:00.000Z',
+            },
+          },
+        ],
+      },
+      {
+        kind: 'admit',
+        reservations: [
+          { kind: 'ai_round', limit: 1, source: { kind: 'lifetime' } },
+        ],
+      },
+    ],
   });
 });
 

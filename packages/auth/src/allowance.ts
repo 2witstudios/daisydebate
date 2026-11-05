@@ -9,6 +9,7 @@ import type {
 } from '@daisy/protocol/billing';
 import { requestedUsageKinds } from '@daisy/protocol/billing';
 import { subscriptionAccess } from './subscription-policy';
+import { participantAccess } from './participant-access';
 import type { AccountAuthorizationFact } from './authorization-facts';
 import {
   currentEntitlementGrants,
@@ -133,8 +134,11 @@ function exhaustedAllowance(
   );
 }
 
-const liveAccount = (account: AccountAuthorizationFact | null) =>
-  account?.member === true && !account.erased && account.actorId !== null;
+export const canUseAiAllowance = (account: AccountAuthorizationFact | null) =>
+  account?.member === true &&
+  !account.erased &&
+  account.actorId !== null &&
+  participantAccess(account);
 const freeJudgeUnbound = (
   source: UsageSource,
   request: AllowanceRequest,
@@ -163,7 +167,7 @@ export function admitAllowance(
   request: AllowanceRequest,
   policy: Policy,
 ): AllowanceDecision {
-  if (!liveAccount(account)) return refuse('not-eligible');
+  if (!canUseAiAllowance(account)) return refuse('not-eligible');
   if (!validFacts(facts, policy)) return refuse('invalid-facts');
   const now = Date.parse(policy.now);
   const access = facts.billing

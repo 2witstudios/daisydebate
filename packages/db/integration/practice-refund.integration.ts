@@ -44,7 +44,7 @@ const abandon = ({ run, target }: Generation) =>
 
 const refunded = async ({ fixture, reservation }: Generation) =>
   (
-    await fixture.sql`select refunded_at from usage_reservations where id=${reservation.id}`
+    await fixture.sql`select (state->>'refundedAt')::timestamptz as refunded_at from usage_reservations where id=${reservation.id}`
   )[0].refunded_at as Date | null;
 
 test('an AI practice is refunded once when its Round ends without a served model call', async () => {

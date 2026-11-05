@@ -117,7 +117,17 @@ test('the month boundary counts only reservations made in the current UTC month'
       round_id: earlier,
       kind: 'ai_round',
       reserved_at: new Date(start.getTime() - 1),
-      counted_at: new Date(start.getTime() - 1),
+      source: {
+        kind: 'beta',
+        startsAt: new Date(
+          Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - 1, 1),
+        ).toISOString(),
+        endsAt: start.toISOString(),
+      },
+      state: {
+        kind: 'unknown',
+        countedAt: new Date(start.getTime() - 1).toISOString(),
+      },
     });
     const admission = testBotAdmission(run, 4, 1);
     const status = await admission.readStatus(actorId);
@@ -133,7 +143,8 @@ test('the month boundary counts only reservations made in the current UTC month'
       should:
         'exclude it from this month, admit one, and date the reservation inside the selected month',
       actual: [
-        status.periodStart === start.toISOString(),
+        (status.source?.kind === 'beta' ? status.source.startsAt : null) ===
+          start.toISOString(),
         status.remaining,
         row.reserved_at.getTime() >= start.getTime(),
       ],

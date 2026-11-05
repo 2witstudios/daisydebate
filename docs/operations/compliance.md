@@ -99,6 +99,16 @@ told first, the other side can hear it, and the Broadcast stage does not subscri
 
 ## Release-control targeting and audit (FLAGS)
 
+Allowance accounting records the account's own Round request, source and period,
+first dispatch, provider outcome, and once-only refund or platform-credit reason.
+It contains no transcript or payment credentials. These private records support
+contract delivery and quota enforcement during the account's life, export through
+`usage-privacy.ts`, and are deleted on account closure under the canonical account
+fence. DEC-316 forbids retaining a cross-account identity or linking a later signup.
+A late provider result cannot recreate allowance or dispatch authority. Provider
+execution evidence remains governed by its existing purpose, separately from quota
+restoration.
+
 Release controls are not entitlements or authorization. `flag_account_overrides`
 contains account-linked rollout selection (account id, key, enabled, creation and
 expiry). Its purpose is controlled release testing; the proposed lawful basis is

@@ -58,6 +58,41 @@ const decide = (
     now: time,
   });
 
+test('free allowance never bypasses current participant admission or account revocation', () => {
+  const account = input.context.account!;
+  const accounts = [
+    null,
+    { ...account, member: false },
+    { ...account, erased: true },
+    { ...account, restricted: true },
+    { ...account, beta: { state: 'pending' as const, revision: 1 } },
+    { ...account, beta: { state: 'revoked' as const, revision: 2 } },
+    { ...account, ageBand: null },
+    { ...account, ageBand: 'under-13' as const },
+    account,
+  ];
+  assert({
+    given:
+      'missing, closed, suspended, unapproved and under-age accounts with unused lifetime allowance',
+    should:
+      'admit only the currently eligible participant, independent of whether beta benefits are retired',
+    actual: accounts.map(
+      (subject) => admitAllowance(subject, facts, bot, policy).kind,
+    ),
+    expected: [
+      'refuse',
+      'refuse',
+      'refuse',
+      'refuse',
+      'refuse',
+      'refuse',
+      'refuse',
+      'refuse',
+      'admit',
+    ],
+  });
+});
+
 test('free allowances never reset at a month edge', () => {
   const spent = {
     ...facts,

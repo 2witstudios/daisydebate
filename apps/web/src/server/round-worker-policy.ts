@@ -1,6 +1,6 @@
 import { judgeContractVersion } from '@daisy/ai-voice';
 import { judgingJobRules } from '@daisy/debate-engine';
-import { aiRoundAllowance } from '@daisy/auth/authorization';
+import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
 import type { ServerConfig } from '@daisy/config';
 import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
@@ -48,6 +48,7 @@ export function roundWorkerDatabaseOptions(
             },
             ttsModel: bots.models.tts,
             speechBudget: 30_000,
+            accountEligible: canUseAiAllowance,
             nextToken,
           },
         }
@@ -81,9 +82,10 @@ export function botAdmissionOptions(config: {
   return {
     botAdmission: {
       busyCap,
-      allowance: (account, grants, now) =>
-        aiRoundAllowance(account, grants, {
-          monthlyCap,
+      accountEligible: canUseAiAllowance,
+      allowance: (account, facts, request, now) =>
+        admitAllowance(account, facts, request, {
+          betaMonthlyCap: monthlyCap,
           now,
           betaGrantsPremium: config.PREMIUM_BETA_GRANT,
         }),

@@ -1,12 +1,8 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  admissionRefusal,
-  utcMonth,
   requireAdmissionTarget,
   requireBusyCap,
-  requireOwnReservation,
-  requireUnrefundedReservation,
   requireSponsor,
 } from './round-bot-admission-rules';
 
@@ -20,15 +16,6 @@ const round = (overrides: Record<string, unknown> = {}) => ({
   status: 'opening',
   ...overrides,
 });
-const at = new Date('2026-10-22T12:00:00.000Z');
-const reservation = (overrides: Record<string, unknown> = {}) => ({
-  id: 'reservation',
-  reservedAt: at,
-  countedAt: null,
-  refundedAt: null,
-  ...overrides,
-});
-
 test('admission targets are cuid2 actor and Round ids', async () => {
   assert({
     given: 'cuid2 ids',
@@ -91,84 +78,12 @@ test('only the host of an unranked unfinished Round sponsors a bot', async () =>
     });
 });
 
-test('a refunded reservation is never reused', async () => {
-  assert({
-    given: 'no reservation and a live one',
-    should: 'return each as found',
-    actual: [
-      requireUnrefundedReservation(undefined),
-      requireUnrefundedReservation(reservation())?.id,
-    ],
-    expected: [undefined, 'reservation'],
-  });
-  await assertRejects({
-    given: 'a refunded reservation',
-    should: 'refuse it',
-    actual: () => requireUnrefundedReservation(reservation({ refundedAt: at })),
-    code: 'CONFLICT',
-  });
-});
-
-test('a model call counts only the reservation found for its Round', async () => {
-  assert({
-    given: 'the Round reservation, uncounted and already counted',
-    should: 'return it either way: counting is idempotent at the call site',
-    actual: [
-      requireOwnReservation(reservation(), 'reservation').id,
-      requireOwnReservation(reservation({ countedAt: at }), 'reservation').id,
-    ],
-    expected: ['reservation', 'reservation'],
-  });
-  for (const [label, current, id] of [
-    ['no reservation', undefined, 'reservation'],
-    ['another reservation', reservation(), 'other'],
-  ] as const)
+test('bot capacity must be explicitly positive and finite', async () => {
+  for (const busyCap of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])
     await assertRejects({
-      given: label,
-      should: 'refuse the count',
-      actual: () => requireOwnReservation(current, id),
-      code: 'AUTHORIZATION',
-    });
-});
-
-test('admission refuses eligibility, then the allowance, then capacity', async () => {
-  assert({
-    given: 'facts that trip each check in turn, and none',
-    should: 'report the first refusal in order',
-    actual: [
-      admissionRefusal({ spent: 0, busy: 9 }, null, 4),
-      admissionRefusal({ spent: 20, busy: 9 }, 20, 4),
-      admissionRefusal({ spent: 19, busy: 4 }, 20, 4),
-      admissionRefusal({ spent: 19, busy: 3 }, 20, 4),
-    ],
-    expected: ['not-eligible', 'allowance', 'capacity', null],
-  });
-  for (const busyCap of [0, -1, 1.5])
-    await assertRejects({
-      given: `a bot capacity of ${busyCap}`,
-      should: 'refuse the configuration',
+      given: `capacity ${busyCap}`,
+      should: 'refuse invalid capacity',
       actual: () => requireBusyCap(busyCap),
       code: 'VALIDATION',
     });
-});
-
-test('the allowance period is the exact UTC calendar month', () => {
-  assert({
-    given:
-      'instants at a month start, the last millisecond of a year and mid-month',
-    should: 'select the UTC calendar month holding each instant',
-    actual: [
-      '2026-10-01T00:00:00.000Z',
-      '2026-12-31T23:59:59.999Z',
-      '2026-02-14T09:30:00.000+05:00',
-    ].map((instant) => {
-      const { start, end } = utcMonth(new Date(instant));
-      return [start.toISOString(), end.toISOString()];
-    }),
-    expected: [
-      ['2026-10-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z'],
-      ['2026-12-01T00:00:00.000Z', '2027-01-01T00:00:00.000Z'],
-      ['2026-02-01T00:00:00.000Z', '2026-03-01T00:00:00.000Z'],
-    ],
-  });
 });

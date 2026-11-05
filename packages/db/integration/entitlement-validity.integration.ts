@@ -1,8 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import {
-  accountEntitlements,
-  aiRoundAllowance,
-} from '@daisy/auth/authorization';
+import { accountEntitlements, admitAllowance } from '@daisy/auth/authorization';
 import { entitlementKinds } from '@daisy/protocol';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -29,10 +26,33 @@ test('PostgreSQL grants expire at every capability read without a synchronizatio
           maxActors: 1,
         });
         const grants = await readEntitlementGrants(tx, subject.userId);
-        const policy = { now, betaGrantsPremium, monthlyCap: 5 };
+        const policy = { now, betaGrantsPremium, betaMonthlyCap: 5 };
         return [
           ...Object.values(accountEntitlements(grants, policy)),
-          aiRoundAllowance(account ?? null, grants, policy),
+          admitAllowance(
+            account ?? null,
+            {
+              billing: {
+                lifecycle: 'active',
+                settlement: {
+                  kind: 'paid',
+                  invoiceId: 'in_verified',
+                  period: {
+                    subscriptionId: 'subscription',
+                    startsAt,
+                    endsAt: expiresAt,
+                  },
+                },
+              },
+              grants: grants,
+              usage: [
+                { kind: 'ai_round', source: { kind: 'lifetime' }, spent: 1 },
+              ],
+              freeBotRoundId: null,
+            },
+            { kind: 'bot_debate', roundId: 'round', withJudge: false },
+            policy,
+          ).kind,
         ];
       });
     const before = await readEntitlementGrants(database, subject.userId);
@@ -53,9 +73,9 @@ test('PostgreSQL grants expire at every capability read without a synchronizatio
       },
       expected: {
         capabilities: [
-          [true, true, true, true, 5],
-          [false, false, false, false, null],
-          [true, true, true, true, 5],
+          [true, true, true, true, 'admit'],
+          [false, false, false, false, 'refuse'],
+          [true, true, true, true, 'admit'],
         ],
         unchanged: true,
       },

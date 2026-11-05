@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import {
@@ -15,9 +16,38 @@ test('bot admission evaluates entitlement time after a blocked grant read', asyn
     const actorId = await admissionSponsor(fixture, [roundId]);
     const [{ user_id: userId }] =
       await fixture.sql`select user_id from actors where id=${actorId}`;
+    const previousRound = await fixture.round({ created_by_actor_id: actorId });
+    const reservedAt = new Date('2026-01-01T00:00:00.000Z');
+    await fixture.insert('usage_reservations', {
+      id: createId(),
+      actor_id: actorId,
+      round_id: previousRound,
+      kind: 'ai_round',
+      reserved_at: reservedAt,
+      source: { kind: 'lifetime' },
+      binds_free_judge: true,
+      state: { kind: 'unknown', countedAt: reservedAt.toISOString() },
+    });
     await fixture.sql`delete from account_entitlement_grants where user_id=${userId}`;
     await fixture.sql`insert into account_entitlement_grants(user_id,entitlement,source,starts_at,expires_at)
       values(${userId},'ai_rounds','subscription',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '600 milliseconds')`;
+    const [period] =
+      await fixture.sql`select starts_at,expires_at from account_entitlement_grants where user_id=${userId}`;
+    const subscriptionId = createId();
+    // Fault-controlled verified evidence; this fixture is not a Stripe lifecycle receipt.
+    await fixture.sql`insert into billing_subscriptions(id,user_id,vendor_subscription_id,evidence,current,observed_at)
+      values(${subscriptionId},${userId},${'sub_' + subscriptionId},${{
+        lifecycle: 'active',
+        settlement: {
+          kind: 'paid',
+          invoiceId: 'in_expiry',
+          period: {
+            subscriptionId,
+            startsAt: period.starts_at.toISOString(),
+            endsAt: period.expires_at.toISOString(),
+          },
+        },
+      }},true,clock_timestamp())`;
     const blocker = await fixture.sql.reserve();
     let result: Promise<unknown> | undefined;
     try {
@@ -57,13 +87,14 @@ test('bot admission evaluates entitlement time after a blocked grant read', asyn
       assert({
         given: 'the expired admission',
         should: 'leave no usage reservation',
-        actual: await fixture.count('usage_reservations', 'actor_id', actorId),
+        actual: await fixture.count('usage_reservations', 'round_id', roundId),
         expected: 0,
       });
     } finally {
       await blocker`rollback`;
       blocker.release();
       await result?.catch(() => undefined);
+      await fixture.sql`delete from billing_subscriptions where id=${subscriptionId}`;
     }
   });
 });

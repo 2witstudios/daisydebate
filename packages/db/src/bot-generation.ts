@@ -1,3 +1,4 @@
+import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -23,12 +24,15 @@ import { startLockedRoundAgentRun } from './round-agent-runs';
 import {
   lockBotAdmission,
   markLockedRoundBotModelCall,
+  refundUnservedPracticeLocked,
 } from './round-bot-admission';
 import {
   requireBotSpeakingWindow,
+  botSegmentDueAt,
   verifyLockedBotWorker,
   type BotPublicationScope,
 } from './bot-publication-context';
+import { rounds } from './schema/rounds';
 import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
@@ -84,6 +88,7 @@ export function createBotGenerationOperations(input: {
   readonly nextToken: () => string;
   readonly ttsModel?: string;
   readonly speechBudget?: number;
+  readonly accountEligible: AllowanceAccountPolicy;
 }) {
   return {
     beginGeneration: (
@@ -113,10 +118,11 @@ export function createBotGenerationOperations(input: {
           scope.roundId,
           'captured',
         );
-        const reservation = await markLockedRoundBotModelCall(
-          tx,
-          scope.roundId,
-        );
+        const reservation = await markLockedRoundBotModelCall(tx, {
+          roundId: scope.roundId,
+          before: await botSegmentDueAt(tx, scope),
+          accountEligible: input.accountEligible,
+        });
         await verifyLockedBotWorker(tx, scope, token);
         await requireBotSpeakingWindow(tx, scope);
         const id = input.nextId(),
@@ -159,6 +165,12 @@ export function createBotGenerationOperations(input: {
     ) =>
       input.run(async (tx) => {
         requireUsage(outcome, usage);
+        // Round -> execution -> usage order also holds during terminal settlement.
+        await tx
+          .select({ id: rounds.id })
+          .from(rounds)
+          .where(eq(rounds.id, scope.roundId))
+          .for('no key update');
         const run = await lockAgentAccounting(tx, {
           id: execution.id,
           participantId: scope.roundParticipantId,
@@ -190,6 +202,7 @@ export function createBotGenerationOperations(input: {
             },
           })
           .where(eq(agentRuns.id, run.id));
+        await refundUnservedPracticeLocked(tx, scope.roundId);
       }),
   };
 }
