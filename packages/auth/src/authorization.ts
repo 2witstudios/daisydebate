@@ -168,7 +168,11 @@ const nonMemberResource = (
   AuthorizationInput['resource'],
   {
     kind:
-      'foundation' | 'account' | 'account_collection' | 'content_moderation';
+      | 'foundation'
+      | 'account'
+      | 'account_collection'
+      | 'content_moderation'
+      | 'flag_control';
   }
 > => resource.kind === 'foundation' || operatorResource(resource);
 function serviceDecision(
@@ -229,6 +233,7 @@ function resolveMemberResource(
         | 'account'
         | 'account_collection'
         | 'content_moderation'
+        | 'flag_control'
         | 'channel_reaction'
         | 'member_history';
     }
@@ -283,7 +288,11 @@ function memberDecision(
     AuthorizationInput['resource'],
     {
       kind:
-        'foundation' | 'account' | 'account_collection' | 'content_moderation';
+        | 'foundation'
+        | 'account'
+        | 'account_collection'
+        | 'content_moderation'
+        | 'flag_control';
     }
   >,
   context: AuthorizationInput['context'],

@@ -1,5 +1,32 @@
 import { catalogueProblems } from './catalogue-validation';
-import type { FlagDefinition, FlagResolution, FlagSnapshot } from './model';
+import type {
+  FlagDefinition,
+  FlagFact,
+  FlagResolution,
+  FlagSnapshot,
+} from './model';
+
+/** Precedence is local; dependency closure is evaluated separately below. */
+function ownResolution(
+  entry: FlagDefinition,
+  fact: FlagFact | undefined,
+  snapshot: FlagSnapshot,
+  now: number,
+): FlagResolution {
+  if (fact?.state === 'killed') return { enabled: false, reason: 'DISABLED' };
+  if (
+    entry.kind === 'release' &&
+    now >= Date.parse(entry.expiresOn) + 86_400_000
+  )
+    return { enabled: false, reason: 'EXPIRED' };
+  if (snapshot.kind === 'unavailable')
+    return { enabled: entry.safeDefault, reason: 'ERROR' };
+  const targeting = targetingResolution(entry, fact, now);
+  if (targeting) return targeting;
+  if (fact && fact.state !== 'default')
+    return { enabled: fact.state === 'enabled', reason: 'STATIC' };
+  return { enabled: entry.safeDefault, reason: 'DEFAULT' };
+}
 
 /** Pure, total release/ops resolution. Facts belong to one server-selected subject. */
 export function resolveFlag({
@@ -29,26 +56,7 @@ export function resolveFlag({
     const previous = resolved.get(name);
     if (previous) return previous;
     const entry = entries.get(name)!;
-    const fact = facts.get(name);
-    let result: FlagResolution;
-    if (
-      entry.kind === 'release' &&
-      now >= Date.parse(entry.expiresOn) + 86_400_000
-    )
-      result = { enabled: false, reason: 'EXPIRED' };
-    else if (fact?.state === 'killed')
-      result = { enabled: false, reason: 'DISABLED' };
-    else if (snapshot.kind === 'unavailable')
-      result = { enabled: entry.safeDefault, reason: 'ERROR' };
-    else if (
-      entry.kind === 'release' &&
-      fact?.override &&
-      fact.override.expiresAt > now
-    )
-      result = { enabled: fact.override.enabled, reason: 'TARGETING_MATCH' };
-    else if (fact && fact.state !== 'default')
-      result = { enabled: fact.state === 'enabled', reason: 'STATIC' };
-    else result = { enabled: entry.safeDefault, reason: 'DEFAULT' };
+    let result = ownResolution(entry, facts.get(name), snapshot, now);
     if (
       result.enabled &&
       !entry.dependencies.every((dependency) => resolve(dependency).enabled)
@@ -58,4 +66,16 @@ export function resolveFlag({
     return result;
   };
   return resolve(key);
+}
+
+function targetingResolution(
+  entry: FlagDefinition,
+  fact: FlagFact | undefined,
+  now: number,
+): FlagResolution | null {
+  if (entry.kind !== 'release') return null;
+  const override = fact?.override;
+  return override && override.expiresAt > now
+    ? { enabled: override.enabled, reason: 'TARGETING_MATCH' }
+    : null;
 }

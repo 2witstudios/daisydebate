@@ -11,6 +11,9 @@ import { readLadder } from '../features/leaderboard/read-leaderboard';
 import { readMemberStandings } from '../features/ratings/read-member';
 import { readRoundRatings } from '../features/ratings/read-round';
 import { cache } from 'react';
+import { createRequestFlagReader } from '../features/flags/reader';
+import type { ReleaseFlagKey } from '../features/flags/catalogue';
+
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
@@ -40,6 +43,25 @@ import { recordingReads } from '../features/recording/composition';
 import { openRecordingHistory } from '../features/recording/history';
 import { resolveSession } from './identity';
 
+const requestFlagReader = cache(() => {
+  const app = processApp();
+  return createRequestFlagReader({
+    read: (accountId, keys) => app.database.readFlagSnapshot(accountId, keys),
+    now: () => Date.parse(app.clock.now()),
+    diagnostic: () =>
+      app.logger.log(
+        'flags.read.failed',
+        { operation: 'flags.read', cause: 'unavailable' },
+        'Release control read failed',
+      ),
+  });
+});
+
+/** One subject snapshot per render request; anonymous resolution has no targeting. */
+export const requestReleaseEnabled = (
+  key: ReleaseFlagKey,
+  accountId: string | null,
+) => requestFlagReader()(key, accountId);
 /**
  * This request's session, resolved once: the root layout and the page it
  * wraps render in the same request, and React's per-request cache makes

@@ -299,6 +299,7 @@ export type AuthorizationInput = {
     | { readonly kind: 'room_collection' }
     /** ADR 0079: the operator's account listing, and one target account (its fact is `context.account`). */
     | { readonly kind: 'account_collection' }
+    | { readonly kind: 'flag_control' }
     | { readonly kind: 'account' }
     /** WATCH-7: operator moderation; each store checks its own target exists. */
     | { readonly kind: 'content_moderation' }

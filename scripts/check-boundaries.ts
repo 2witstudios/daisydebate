@@ -1,6 +1,8 @@
 import { readdir } from 'node:fs/promises';
 import { resolve, relative, dirname } from 'node:path';
 import ts from 'typescript';
+import { flagBoundaryProblems } from './flag-boundaries';
+import { flagCatalogue } from '../apps/web/src/features/flags/catalogue';
 import {
   architectureExceptionRegistry,
   checkArchitectureExceptions,
@@ -47,6 +49,7 @@ const byName = new Map(
   workspaces.map((workspace) => [workspace.manifest.name, workspace]),
 );
 const issues: string[] = [];
+const flagSources = new Map<string, string>();
 /** The text of an identifier, string or JSX text node: what the reserved-word check reads. */
 const wordOf = (node: ts.Node) =>
   ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isJsxText(node)
@@ -101,6 +104,7 @@ for (const workspace of workspaces) {
       ts.ScriptTarget.Latest,
       true,
     );
+    flagSources.set(relative(root, file), source.text);
     const check = (specifier: string) => {
       if (
         /^posthog-(js|node)(\/|$)/.test(specifier) &&
@@ -195,6 +199,10 @@ for (const workspace of workspaces) {
   }
 }
 issues.push(
+  ...flagBoundaryProblems(
+    flagSources,
+    flagCatalogue.map((entry) => entry.key),
+  ),
   ...checkArchitectureExceptions(
     architectureExceptionRegistry,
     architectureExceptionMarkers,

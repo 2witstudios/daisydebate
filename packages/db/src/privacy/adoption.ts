@@ -10,6 +10,7 @@ import { betaAccessPrivacyAdopter } from '../beta-access-privacy';
 import { documentsPrivacyAdopter } from '../documents-privacy';
 import { competitiveRecordPrivacyAdopter } from '../competitive-record-privacy';
 import { entitlementGrantPrivacyAdopter } from '../entitlement-grants-privacy';
+import { flagsPrivacyAdopter } from '../flags-privacy';
 import { contentModerationPrivacyAdopter } from '../content-moderation-privacy';
 import { onboardingPrivacyAdopter } from '../onboarding-privacy';
 import {
@@ -42,6 +43,7 @@ export const subjectRightsAdoption = (
   betaAccessPrivacyAdopter,
   documentsPrivacyAdopter,
   entitlementGrantPrivacyAdopter,
+  flagsPrivacyAdopter,
   contentModerationPrivacyAdopter,
   audienceReactionPrivacyAdopter,
   debaterFollowPrivacyAdopter,

@@ -35,3 +35,34 @@ test('flag policy refuses catalogue and identity violations', () => {
     expected: true,
   });
 });
+
+test('retirement preserves identity and permanently forbids reuse', () => {
+  const active = { ...ledger, version: 1 as const };
+  const retired = {
+    ...active,
+    keys: active.keys.map((entry) => ({ ...entry, retired: true })),
+  };
+  assert({
+    given:
+      'retirement, unmarked removal, reactivation and changed historical identity',
+    should: 'permit only permanent retirement',
+    actual: [
+      flagPolicyProblems([], retired, active, '2026-11-05'),
+      flagPolicyProblems([], active, active, '2026-11-05'),
+      flagPolicyProblems(flagCatalogue, active, retired, '2026-11-05'),
+      flagPolicyProblems(
+        [],
+        {
+          ...retired,
+          keys: retired.keys.map((entry) => ({
+            ...entry,
+            taskCode: 'FLAGS-99',
+          })),
+        },
+        retired,
+        '2026-11-05',
+      ),
+    ].map((result) => result.length > 0),
+    expected: [false, true, true, true],
+  });
+});

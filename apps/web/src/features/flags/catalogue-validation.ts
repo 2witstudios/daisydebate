@@ -13,21 +13,8 @@ export function catalogueProblems(
   const entries = new Map(catalogue.map((entry) => [entry.key, entry]));
   if (entries.size !== catalogue.length) problems.push('duplicate key');
   if (catalogue.length > 32) problems.push('live flag cap exceeded');
-  for (const entry of catalogue) {
-    if (
-      !/^[a-z][a-z0-9-]{1,63}$/.test(entry.key) ||
-      !entry.owner.trim() ||
-      !/^[A-Z]+-\d+(?:[.\w-]+)?$/.test(entry.taskCode) ||
-      !isDate(entry.expiresOn)
-    )
-      problems.push('invalid definition');
-    if (entry.kind === 'release' && entry.safeDefault !== false)
-      problems.push('release must fail closed');
-    if (new Set(entry.dependencies).size !== entry.dependencies.length)
-      problems.push('duplicate dependency');
-    if (entry.dependencies.some((key) => !entries.has(key)))
-      problems.push('unknown dependency');
-  }
+  for (const entry of catalogue)
+    problems.push(...definitionProblems(entry, entries));
   const visited = new Set<string>();
   const visiting = new Set<string>();
   const visit = (key: string): boolean => {
@@ -40,5 +27,26 @@ export function catalogueProblems(
     return true;
   };
   if (![...entries.keys()].every(visit)) problems.push('dependency cycle');
+  return problems;
+}
+
+function definitionProblems(
+  entry: FlagDefinition,
+  entries: ReadonlyMap<string, FlagDefinition>,
+): string[] {
+  const problems: string[] = [];
+  if (
+    !/^[a-z][a-z0-9-]{1,63}$/.test(entry.key) ||
+    !entry.owner.trim() ||
+    !/^[A-Z]+-\d+(?:[.\w-]+)?$/.test(entry.taskCode) ||
+    !isDate(entry.expiresOn)
+  )
+    problems.push('invalid definition');
+  if (entry.kind === 'release' && entry.safeDefault !== false)
+    problems.push('release must fail closed');
+  if (new Set(entry.dependencies).size !== entry.dependencies.length)
+    problems.push('duplicate dependency');
+  if (entry.dependencies.some((key) => !entries.has(key)))
+    problems.push('unknown dependency');
   return problems;
 }

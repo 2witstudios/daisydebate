@@ -34,7 +34,10 @@ export async function readFlagSnapshot(
   database: FlagReadTransaction,
   accountId: string | null,
   keys: readonly string[],
-): Promise<{ readonly snapshot: FlagSnapshot; readonly now: number }> {
+): Promise<{
+  readonly snapshot: Extract<FlagSnapshot, { kind: 'available' }>;
+  readonly now: number;
+}> {
   requireFlagKeys(keys);
   if (accountId !== null && !idSchema.safeParse(accountId).success)
     throw createAppError('VALIDATION');

@@ -3,8 +3,9 @@
   "keys": [
     {
       "key": "premium-checkout",
+      "retired": false,
       "kind": "release",
-      "owner": "@2witstudios/billing",
+      "owner": "Billing (@2witstudios)",
       "taskCode": "FLAGS-15"
     }
   ]

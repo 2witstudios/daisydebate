@@ -6,6 +6,7 @@ import type { FlagDefinition } from '../apps/web/src/features/flags/model';
 import { utcToday } from './review-date';
 
 type FlagIdentity = {
+  readonly retired: boolean;
   readonly key: string;
   readonly kind: string;
   readonly owner: string;
@@ -27,14 +28,12 @@ export function flagPolicyProblems(
   const identities = new Map(ledger.keys.map((entry) => [entry.key, entry]));
   if (ledger.version !== 1 || identities.size !== ledger.keys.length)
     problems.push('invalid key ledger');
-  for (const old of previous.keys) {
-    if (JSON.stringify(identities.get(old.key)) !== JSON.stringify(old))
-      problems.push(`changed or removed flag identity: ${old.key}`);
-  }
+  problems.push(...historyProblems(identities, previous));
   for (const entry of catalogue) {
     const identity = identities.get(entry.key);
     if (
       !identity ||
+      identity.retired ||
       identity.kind !== entry.kind ||
       identity.owner !== entry.owner ||
       identity.taskCode !== entry.taskCode
@@ -43,7 +42,14 @@ export function flagPolicyProblems(
     if (entry.expiresOn < today)
       problems.push(`expired ${entry.kind} flag: ${entry.key}`);
   }
-  // A key absent from the base catalogue is retired once its ledger entry exists.
+  for (const identity of ledger.keys) {
+    if (
+      typeof identity.retired !== 'boolean' ||
+      (!identity.retired &&
+        !catalogue.some((entry) => entry.key === identity.key))
+    )
+      problems.push(`removed key must be retired: ${identity.key}`);
+  }
   return problems.map((problem) => `flags: ${problem}`);
 }
 
@@ -63,4 +69,23 @@ export async function collectFlagPolicyProblems(): Promise<readonly string[]> {
       ? (JSON.parse(old.stdout) as FlagLedger)
       : { version: 1, keys: [] };
   return flagPolicyProblems(flagCatalogue, ledger, previous, utcToday());
+}
+
+function historyProblems(
+  identities: ReadonlyMap<string, FlagIdentity>,
+  previous: FlagLedger,
+) {
+  const problems: string[] = [];
+  for (const old of previous.keys) {
+    const next = identities.get(old.key);
+    if (
+      !next ||
+      next.kind !== old.kind ||
+      next.owner !== old.owner ||
+      next.taskCode !== old.taskCode ||
+      (old.retired && !next.retired)
+    )
+      problems.push(`changed or removed flag identity: ${old.key}`);
+  }
+  return problems;
 }

@@ -5,7 +5,7 @@ export const flagCatalogue = [
   {
     key: 'premium-checkout',
     kind: 'release',
-    owner: '@2witstudios/billing',
+    owner: 'Billing (@2witstudios)',
     taskCode: 'FLAGS-15',
     expiresOn: '2026-12-04',
     safeDefault: false,

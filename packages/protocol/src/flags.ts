@@ -47,6 +47,16 @@ export const flagCommandResultSchema = z.strictObject({
   revision: z.number().int().positive(),
 });
 export type FlagCommandResult = z.infer<typeof flagCommandResultSchema>;
+export type FlagChange =
+  | { readonly action: 'flag.state.update'; readonly state: FlagState }
+  | {
+      readonly action: 'flag.override.update';
+      readonly accountId: string;
+      readonly override: {
+        readonly enabled: boolean;
+        readonly expiresAt: string;
+      } | null;
+    };
 export const flagCommandStateSchema = z.strictObject({
   action: z.enum(flagCommandActions),
   result: flagCommandResultSchema,
