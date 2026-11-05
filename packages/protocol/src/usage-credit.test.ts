@@ -5,7 +5,7 @@ import type {
   UsageKind,
   UsageState,
   UsageTransition,
-} from '@daisy/protocol/billing';
+} from './billing';
 import { advanceUsage } from './usage-lifecycle';
 
 setupRitewayBun();
@@ -21,14 +21,10 @@ const run = (
   event: UsageEvent,
   kind: UsageKind = 'ai_round',
 ) =>
-  advanceUsage(
-    { kind, state, admittedAt, dispatchBefore: '2026-11-05T01:00:00.000Z' },
-    event,
-    {
-      now: creditedAt,
-      authorized: false,
-    },
-  );
+  advanceUsage({ kind, state, admittedAt }, event, {
+    now: creditedAt,
+    authorized: false,
+  });
 const credit = (provenance = incidents[0]!) =>
   ({ kind: 'platform_credit', provenance }) as const;
 const credited: UsageState = {
@@ -130,9 +126,8 @@ test('credited unknown exposure can settle without reopening dispatch or erasing
           kind: 'ai_round',
           state: { ...credited, creditedAt: countedAt },
           admittedAt,
-          dispatchBefore: creditedAt,
         },
-        { kind: 'dispatch' },
+        { kind: 'dispatch', before: '2026-11-05T01:00:00.000Z' },
         { now: countedAt, authorized: true },
       ),
     ],

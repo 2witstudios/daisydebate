@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { UsageState } from '@daisy/protocol/billing';
+import type { UsageState } from './billing';
 import { advanceUsage } from './usage-lifecycle';
 
 setupRitewayBun();
@@ -14,7 +14,7 @@ const run = (
   now = countedAt,
   authorized = true,
 ) =>
-  advanceUsage({ kind: 'ai_round', state, admittedAt, dispatchBefore }, event, {
+  advanceUsage({ kind: 'ai_round', state, admittedAt }, event, {
     now,
     authorized,
   });
@@ -26,9 +26,17 @@ test('first-model-call counting is once-only and cannot dispatch after its deadl
     should:
       'count once, preserve original count time and refuse a new dispatch at the cutoff',
     actual: [
-      run(reserved, { kind: 'dispatch' }),
-      run(dispatched, { kind: 'dispatch' }, '2026-11-05T00:02:00.000Z'),
-      run(reserved, { kind: 'dispatch' }, dispatchBefore),
+      run(reserved, { kind: 'dispatch', before: '2026-11-05T01:00:00.000Z' }),
+      run(
+        dispatched,
+        { kind: 'dispatch', before: '2026-11-05T01:00:00.000Z' },
+        '2026-11-05T00:02:00.000Z',
+      ),
+      run(
+        reserved,
+        { kind: 'dispatch', before: '2026-11-05T01:00:00.000Z' },
+        dispatchBefore,
+      ),
     ],
     expected: [
       { kind: 'changed', state: dispatched },
@@ -45,9 +53,13 @@ test('only proven non-dispatch can release an expired reservation', () => {
     should:
       'release only the reservation that could not have made a model call',
     actual: [
-      run(reserved, { kind: 'expire' }, dispatchBefore),
-      run(dispatched, { kind: 'expire' }, dispatchBefore),
-      run(unknown, { kind: 'expire' }, dispatchBefore),
+      run(reserved, { kind: 'expire', before: dispatchBefore }, dispatchBefore),
+      run(
+        dispatched,
+        { kind: 'expire', before: dispatchBefore },
+        dispatchBefore,
+      ),
+      run(unknown, { kind: 'expire', before: dispatchBefore }, dispatchBefore),
     ],
     expected: [
       {
@@ -110,8 +122,18 @@ test('account revocation overrides continuation but a paid period edge alone doe
     should:
       'refuse revoked dispatch while allowing authorized work without a fresh payment-source selection',
     actual: [
-      run(reserved, { kind: 'dispatch' }, countedAt, false),
-      run(reserved, { kind: 'dispatch' }, countedAt, true),
+      run(
+        reserved,
+        { kind: 'dispatch', before: '2026-11-05T01:00:00.000Z' },
+        countedAt,
+        false,
+      ),
+      run(
+        reserved,
+        { kind: 'dispatch', before: '2026-11-05T01:00:00.000Z' },
+        countedAt,
+        true,
+      ),
     ],
     expected: [{ kind: 'refuse' }, { kind: 'changed', state: dispatched }],
   });
@@ -126,7 +148,7 @@ test('abandonment before dispatch releases without inventing a counted refund', 
       run(reserved, { kind: 'abandon' }),
       run(dispatched, { kind: 'abandon' }),
       run(released, { kind: 'abandon' }),
-      run(released, { kind: 'dispatch' }),
+      run(released, { kind: 'dispatch', before: '2026-11-05T01:00:00.000Z' }),
     ],
     expected: [
       { kind: 'changed', state: released },

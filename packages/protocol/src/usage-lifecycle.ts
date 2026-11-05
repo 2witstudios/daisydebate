@@ -5,7 +5,7 @@ import type {
   UsageReservation as Reservation,
   UsageTransition as Decision,
   PlatformUsageCredit,
-} from '@daisy/protocol/billing';
+} from './billing';
 
 const refused = { kind: 'refuse' } as const;
 const unchanged = (state: UsageState): Decision => ({
@@ -92,14 +92,9 @@ function terminalAt(state: UsageState): string | null {
       return null;
   }
 }
-function validHistory(
-  state: UsageState,
-  start: number,
-  end: number,
-  now: number,
-): boolean {
+function validHistory(state: UsageState, start: number, now: number): boolean {
   const counted = 'countedAt' in state ? Date.parse(state.countedAt) : start;
-  if (!(start <= counted && counted < end && counted <= now)) return false;
+  if (!(start <= counted && counted <= now)) return false;
   const terminal = terminalAt(state);
   return (
     terminal === null ||
@@ -108,21 +103,27 @@ function validHistory(
 }
 function validTime(reservation: Reservation, now: number): boolean {
   const start = Date.parse(reservation.admittedAt);
-  const end = Date.parse(reservation.dispatchBefore);
   return (
-    [now, start, end].every(Number.isFinite) &&
-    start < end &&
+    [now, start].every(Number.isFinite) &&
     now >= start &&
-    validHistory(reservation.state, start, end, now)
+    validHistory(reservation.state, start, now)
   );
 }
-function dispatch(reservation: Reservation, context: Context): Decision {
+function mayDispatch(before: string, context: Context): boolean {
+  const cutoff = Date.parse(before);
+  return (
+    context.authorized &&
+    Number.isFinite(cutoff) &&
+    Date.parse(context.now) < cutoff
+  );
+}
+function dispatch(
+  reservation: Reservation,
+  before: string,
+  context: Context,
+): Decision {
   const { state } = reservation;
-  if (
-    !context.authorized ||
-    Date.parse(context.now) >= Date.parse(reservation.dispatchBefore)
-  )
-    return refused;
+  if (!mayDispatch(before, context)) return refused;
   switch (state.kind) {
     case 'reserved':
       return changed({ kind: 'dispatched', countedAt: context.now });
@@ -157,10 +158,10 @@ export function advanceUsage(
   if (!validTime(reservation, now)) return refused;
   switch (event.kind) {
     case 'dispatch':
-      return dispatch(reservation, context);
+      return dispatch(reservation, event.before, context);
     case 'expire':
-      return now >= Date.parse(reservation.dispatchBefore) &&
-        state.kind === 'reserved'
+      if (!Number.isFinite(Date.parse(event.before))) return refused;
+      return now >= Date.parse(event.before) && state.kind === 'reserved'
         ? changed({ kind: 'released', releasedAt: context.now })
         : unchanged(state);
     case 'abandon':

@@ -100,6 +100,26 @@ Judge/analysis usage and exact free-judge binding remain independent. Ordinary
 forfeit, cancellation, silence or transcript incompleteness creates no credit.
 This is allowance restoration, not a Stripe refund or renewed dispatch authority.
 
+DEC-367 remains pending owner confirmation (Delivery
+`ehql83zprgmhdxx0mrw21r4j`). Only an abandoned Round's entire selected,
+proven-undispatched bundle may release its matching original free-judge
+binding, atomically under account and Round fences. The unselected optional
+judge needs no reservation, but concurrent judge admission must be excluded.
+A missing selected reservation, elapsed lease or absent response is not proof.
+Any durable dispatch, unknown outcome, counted/refunded use or platform credit
+on either side retains the binding. Released identities remain terminal;
+replacement requires a fresh Round and admission. Source, period and provider
+evidence remain unchanged. BILL-9-r1/11 and BILL-18 own the truth table and real
+release/dispatch/judge-admission/replacement race and stale-worker proof.
+
+The usage state and its pure event transition live in protocol, following the
+existing Recording lifecycle boundary. The allowance and account authorization
+decisions remain in auth. The transition receives current feature dispatch
+deadlines on dispatch/expiry events; late accounting does not reconstruct a
+past dispatch deadline from mutable current feature state. Database adapters
+supply post-lock time and verified authority/evidence, persist the transition
+once, and never change its original source or period.
+
 ## New-purchase admission and recovery
 
 The accepted Flags contract is recorded in Delivery

@@ -1,6 +1,5 @@
 export { subscriptionAccess, subscriptionGrants } from './subscription-policy';
 export { admitAllowance } from './allowance';
-export { advanceUsage } from './usage-lifecycle';
 import { admitsCapability } from './participant-access';
 import { validResourceKind } from './authorization-resource-kind';
 import { operatorDecision, operatorResource } from './authorization-operator';

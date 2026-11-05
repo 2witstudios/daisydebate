@@ -7,6 +7,7 @@ import type {
   UsageKind,
   UsageSource,
 } from '@daisy/protocol/billing';
+import { requestedUsageKinds } from '@daisy/protocol/billing';
 import { subscriptionAccess } from './subscription-policy';
 import type { AccountAuthorizationFact } from './authorization-facts';
 import {
@@ -51,17 +52,6 @@ const entitlementOf: Record<UsageKind, EntitlementGrant['entitlement']> = {
   casual_ai_judge: 'casual_ai_judge',
   round_analysis: 'round_analysis',
 };
-function requestedKinds(request: AllowanceRequest): readonly UsageKind[] {
-  switch (request.kind) {
-    case 'bot_debate':
-      return request.withJudge ? ['ai_round', 'casual_ai_judge'] : ['ai_round'];
-    case 'casual_judge':
-      return ['casual_ai_judge'];
-    case 'round_analysis':
-      return ['round_analysis'];
-  }
-}
-
 function sourceFor(
   access: BillingAccess,
   grants: readonly EntitlementGrant[],
@@ -152,7 +142,7 @@ const freeJudgeUnbound = (
 ) => {
   if (
     source.kind !== 'lifetime' ||
-    !requestedKinds(request).includes('casual_ai_judge')
+    !requestedUsageKinds(request).includes('casual_ai_judge')
   )
     return false;
   // Refunding use never transfers an existing judge binding. Only a new
@@ -182,7 +172,7 @@ export function admitAllowance(
   if (access.kind === 'grace' && request.kind === 'bot_debate')
     return refuse('renewal-grace');
   const grants = currentEntitlementGrants(facts.grants, policy);
-  const kinds = requestedKinds(request);
+  const kinds = requestedUsageKinds(request);
   const source = sourceFor(access, grants, kinds[0]!, now);
   if (!holdsRequestedGrants(source, kinds, grants))
     return refuse('not-eligible');
