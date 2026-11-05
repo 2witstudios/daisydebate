@@ -387,7 +387,9 @@ test.describe('watching with no account', () => {
   }) => {
     const casual = await liveRound({ mode: 'casual', visibility: 'unlisted' });
     await page.goto(`/watch/${casual.roundId}`);
-    await expect(page.getByText(REFUSED)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toBeVisible();
     await expect(page.getByText('Stream this Round')).toHaveCount(0);
     const round = await liveRound();
     const context = await browser.newContext({
@@ -481,7 +483,9 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
       'a visitor with no link',
     );
     await bare.goto(`/watch/${round.roundId}`);
-    await expect(bare.getByText(REFUSED)).toBeVisible();
+    await expect(
+      bare.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toBeVisible();
 
     // The token is in one request's URL, then in an HttpOnly cookie alone.
     const opened = await watching.request.get(first, { maxRedirects: 0 });
@@ -491,7 +495,9 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
     await watching.goto(first);
     expect(new URL(watching.url()).pathname).toBe(`/watch/${round.roundId}`);
     expect(new URL(watching.url()).search).toBe('');
-    await expect(watching.getByText(REFUSED)).toHaveCount(0);
+    await expect(
+      watching.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toHaveCount(0);
     await expect(watching.getByText(round.aff).first()).toBeVisible();
     const [cookie] = (await visitor.cookies()).filter((c) =>
       c.name.startsWith('daisy_audience_link_'),
@@ -504,11 +510,17 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
     const second = await issueLink(page, 'Replace link');
     expect(second).not.toBe(first);
     await watching.reload();
-    await expect(watching.getByText(REFUSED)).toBeVisible();
+    await expect(
+      watching.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toBeVisible();
     await watching.goto(first);
-    await expect(watching.getByText(REFUSED)).toBeVisible();
+    await expect(
+      watching.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toBeVisible();
     await watching.goto(second);
-    await expect(watching.getByText(REFUSED)).toHaveCount(0);
+    await expect(
+      watching.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toHaveCount(0);
 
     // A wrong link and a missing Round are one answer.
     const wrong = await browser.newContext();
@@ -547,12 +559,16 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
       'a visitor with no link',
     );
     await stranger.goto(recording);
-    await expect(stranger.getByText(REFUSED)).toBeVisible();
+    await expect(
+      stranger.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toBeVisible();
     const holder = await browser.newContext();
     const holding = await openPage(holder, 'the link holder');
     await holding.goto(link);
     await holding.goto(recording);
-    await expect(holding.getByText(REFUSED)).toHaveCount(0);
+    await expect(
+      holding.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toHaveCount(0);
     await expect(
       holding.getByRole('region', { name: 'Sharing' }),
     ).toContainText('unlisted');
@@ -601,7 +617,9 @@ test.describe('an unlisted Round by its link', () => {
 
     await page.getByRole('button', { name: 'Replace link' }).click();
     await expect(page.getByLabel('Round link')).toBeVisible();
-    await expect(watching.getByText(REFUSED)).toBeVisible({ timeout: 15_000 });
+    await expect(
+      watching.getByRole('heading', { name: REFUSED, exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
     await visitor.close();
   });
 });
