@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { readFile } from 'node:fs/promises';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -12,6 +13,8 @@ import { recordJudgingUsage } from '../src/round-judging-accounting';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
 import { testLane } from '../src/testing-lane';
 import { withFixture } from './constraint-helpers';
+import { exportThenErase } from './privacy.test-support';
+import { usagePrivacyAdopter } from '../src/usage-privacy';
 import {
   ddlTimeoutMs,
   scratchDatabase,
@@ -58,7 +61,7 @@ test(
     try {
       await scratch.migrate((folder) => folder <= predecessor);
       await withFixture(scratch.url, async (f) => {
-        const seeded = [];
+        const seeded: Awaited<ReturnType<typeof seedHistoricalJudge>>[] = [];
         try {
           for (const mode of judgeCases)
             seeded.push(await seedHistoricalJudge(f, mode));
@@ -185,8 +188,40 @@ test(
           } finally {
             await client.close({ timeout: 0 });
           }
-          const before =
-            await f.sql`select * from usage_reservations order by id`;
+          const before = await f.sql<
+            { id: string; kind: string; round_id: string }[]
+          >`select * from usage_reservations order by id`;
+          const identities = before.filter(
+            (row) => row.kind === 'casual_ai_judge',
+          );
+          assert({
+            given:
+              'distinct frozen Round/sponsor fixtures, including the changed Room host and existing business-key identity',
+            should:
+              'derive only missing historical IDs from the exact namespace while preserving distinct and existing identities',
+            actual: [
+              new Set(identities.map((row) => row.id)).size,
+              identities.map((row) => row.id),
+            ],
+            expected: [
+              identities.length,
+              identities.map((row) => {
+                const seededRow = seeded.find(
+                  (seed) => seed.roundId === row.round_id,
+                )!;
+                return (
+                  seededRow.existingId ??
+                  'm' +
+                    createHash('sha256')
+                      .update(
+                        `casual_judge_usage:${seededRow.roundId}:${seededRow.actorId}`,
+                      )
+                      .digest('hex')
+                      .slice(0, 23)
+                );
+              }),
+            ],
+          });
           const migration = await readFile(migrationPath, 'utf8');
           // Reapply exactly the one-off backfill statement, without rewriting schema/history.
           const backfill = migration
@@ -201,6 +236,35 @@ test(
             should: 'preserve every identity, state and source byte',
             actual: await f.sql`select * from usage_reservations order by id`,
             expected: before,
+          });
+          const closing = seeded.find((row) => row.mode === 'unknown')!;
+          const [{ user_id: userId }] =
+            await f.sql`select user_id from actors where id=${closing.actorId}`;
+          const exported = await exportThenErase(
+            drizzle({ client: f.sql }),
+            { userId, actorId: closing.actorId },
+            [usagePrivacyAdopter],
+          );
+          await f.sql.unsafe(backfill);
+          assert({
+            given:
+              'actual account closure after historical identity creation, followed by the exact migration cohort replay',
+            should:
+              'export the original historical count and never resurrect its erased reservation',
+            actual: [
+              exported.usage_reservations!.map((row) => row.state),
+              await f.count('usage_reservations', 'actor_id', closing.actorId),
+            ],
+            expected: [
+              [
+                {
+                  kind: 'unknown',
+                  countedAt: originalDispatch,
+                  countBasis: 'historical_observation',
+                },
+              ],
+              0,
+            ],
           });
         } finally {
           for (const row of seeded)

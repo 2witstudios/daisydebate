@@ -131,13 +131,18 @@ crosses a month or follows Round terminalization; never substitute a claim,
 lease or run-creation time, clamp timestamps or invent relief. Count chronology
 is admission <= recognition <= database time. Export retains this meaning.
 
-The one-off missing-judge backfill follows the existing beta migration's
-namespaced derived identity convention: a truncated SHA-256 of its migration
-namespace and frozen Round/sponsor identifiers. This is a migration-only
-exception to application-minted cuid2 IDs, not a public lookup or bearer
-capability. The existing unique sponsor/Round/kind key controls replay; no
-runtime path derives IDs or recreates deleted usage. All live admissions
-continue to receive injected cuid2 identifiers.
+Applied `20261105051949_casual_judge_usage` has the exact historical-accounting
+ID exception recorded in ADR 0018: `m` plus 23 hexadecimal characters of
+SHA-256 over UTF-8 `casual_judge_usage:<roundId>:<frozenSponsorActorId>`.
+The fixed namespace and original frozen Round/sponsor inputs identify only
+missing historical casual-judge reservations. The 92-bit result is predictable;
+it is not cuid2, anonymization, authorization or a bearer capability. Existing
+business-key IDs are preserved; reruns cannot recreate erased usage. The old
+beta migration used MD5 and supplies precedent, not policy authority. Runtime
+admission keeps injected cuid2; no actor provisioning or general SQL generator
+exception is introduced. Populated proof covers distinct Round/sponsor inputs,
+stable replay, existing IDs, frozen host attribution, erased-account exclusion
+and preservation of original source/count/restoration facts.
 
 Only an existing qualifying bot platform credit may restore unrestored bot use;
 its provider failure remains unchanged and judge usage never receives that credit.
