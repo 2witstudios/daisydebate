@@ -11,16 +11,20 @@ def real_process_evidence(scenario, invocations, trace, snapshots):
     assert all(call['pid'] == call['pgid'] == call['sid'] and call['uid'] == 0 for call in apt), 'apt must start in root-owned session/group'
     groups = {call['pgid'] for call in apt}
     rows = [line.split() for snapshot in snapshots for line in snapshot['table'].splitlines()[1:]]
-    if scenario in ('cold', 'slow-first', 'slow-progress'):
+    if scenario in ('cold', 'slow-first', 'slow-progress', 'real-unpack-cancel', 'real-configure-stall'):
         assert re.search(r'execve\("/usr/lib/apt/methods/http', trace), 'missing actual apt HTTP method'
         assert any(len(row) >= 7 and int(row[2]) in groups and row[4] == '42' and row[-1] in ('http', 'https') for row in rows), 'missing _apt transport in actual apt group'
-    if scenario in ('cold', 'slow-first'):
+    if scenario in ('cold', 'slow-first', 'real-unpack-cancel', 'real-configure-stall'):
         assert re.search(r'execve\("/usr/bin/dpkg"', trace), 'missing actual dpkg'
-        assert '/var/lib/dpkg/info/' in trace and '.postinst' in trace, 'missing actual maintainer hook execution'
+        if scenario in ('cold', 'slow-first'):
+            assert '/var/lib/dpkg/info/' in trace and '.postinst' in trace, 'missing actual maintainer hook execution'
+        else:
+            assert '/candidate/scripts/ci-ffmpeg-proof/dpkg-hook.py' in trace, 'missing actual dpkg invoke hook'
         assert any(len(row) >= 7 and int(row[2]) in groups and row[4] == '0' and row[-1] == 'dpkg' for row in rows), 'missing root dpkg in actual apt group'
         assert re.search(r'execve\("/usr/lib/apt/methods/gpgv"', trace), 'missing actual signature verifier'
         assert len([call for call in apt if '--no-download' in call['args']]) == 1, 'real installation must occur exactly once'
-        assert {call['name'] for call in invocations} >= {'apt-get', 'ffmpeg', 'ffprobe'}, 'missing both real binary verifications'
+        if scenario in ('cold', 'slow-first'):
+            assert {call['name'] for call in invocations} >= {'apt-get', 'ffmpeg', 'ffprobe'}, 'missing both real binary verifications'
     else:
         assert not any('--no-download' in call['args'] for call in apt), 'failed acquisition must not install'
     # No observed workload may deliberately leave its assigned process group.
@@ -50,3 +54,50 @@ def expect_oracle_failure(name, check):
     except AssertionError as failure:
         return dict(control=name, expected_failure=str(failure))
     raise AssertionError(f'negative control {name} unexpectedly passed')
+
+
+def process_lineage(trace):
+    parents = {}
+    transitions = []
+    mutating = {}
+    for line in trace.splitlines():
+        prefix = re.match(r'\s*(\d+)\s+', line)
+        if not prefix:
+            continue
+        pid = int(prefix[1])
+        if re.search(r'(?:clone3?|vfork|fork)(?:\(| resumed>)', line):
+            child = re.search(r'= (\d+)\s*$', line)
+            if child:
+                parents[int(child[1])] = pid
+        if re.search(r'(?:setsid|setpgid)(?:\(| resumed>)', line) and re.search(r'= \d+\s*$', line):
+            transitions.append((pid, line))
+        if 'execve("/usr/bin/dpkg"' in line:
+            for operation in ('--unpack', '--configure'):
+                if '"' + operation + '"' in line:
+                    mutating[pid] = operation
+    return parents, transitions, mutating
+
+
+def is_descendant(pid, root, parents):
+    seen = set()
+    while pid in parents and pid not in seen:
+        seen.add(pid)
+        pid = parents[pid]
+        if pid == root:
+            return True
+    return False
+
+
+def mutating_install_evidence(invocations, trace, snapshots, required_operations):
+    installs = [call for call in invocations if '--no-download' in call['args']]
+    assert len(installs) == 1, 'exactly one real installation required'
+    root = installs[0]['pid']
+    parents, transitions, mutating = process_lineage(trace)
+    assert set(mutating.values()) >= set(required_operations), 'missing required MUTATING dpkg operations'
+    assert all(is_descendant(pid, root, parents) for pid in mutating), 'missing mutating dpkg ancestry to installation'
+    escapes = [(pid, line) for pid, line in transitions if is_descendant(pid, root, parents)]
+    assert not escapes, 'escaped installation descendant before/after exec: ' + str(escapes)
+    rows = [line.split() for snapshot in snapshots for line in snapshot['table'].splitlines()[1:]]
+    for pid in mutating:
+        assert any(len(row) >= 7 and int(row[0]) == pid and int(row[2]) == root and int(row[3]) == root and row[4] == '0' for row in rows), f'mutating dpkg {pid} never observed in install PGID/SID'
+    return dict(install_pid=root, mutating_pids=mutating, descendant_pids=sorted(pid for pid in parents if is_descendant(pid, root, parents)), escaped_transitions=escapes)

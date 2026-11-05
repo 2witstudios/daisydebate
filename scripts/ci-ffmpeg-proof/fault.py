@@ -18,7 +18,7 @@ def stall():
     while True:
         time.sleep(1)
 
-if scenario in ('cold', 'slow-first', 'slow-progress', 'signature'):
+if scenario in ('cold', 'slow-first', 'slow-progress', 'signature', 'real-unpack-cancel', 'real-configure-stall'):
     os.execv('/usr/bin/' + name, [name] + args)
 if name in ('ffmpeg', 'ffprobe'):
     if scenario == name + '-fail':

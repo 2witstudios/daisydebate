@@ -18,6 +18,9 @@ const apt = [
   'Acquire::https::Timeout=20',
   '-o',
   'APT::Update::Error-Mode=any',
+  // apt's PTY mode calls setsid before mutating dpkg, escaping our group.
+  '-o',
+  'Dpkg::Use-Pty=0',
 ];
 export const acquisitionCommands = () => [
   [...apt, 'update'],

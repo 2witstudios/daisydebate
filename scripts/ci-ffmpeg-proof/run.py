@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 import urllib.request
-from oracles import real_process_evidence, cancellation_evidence, expect_oracle_failure
+from oracles import real_process_evidence, cancellation_evidence, expect_oracle_failure, process_lineage, is_descendant, mutating_install_evidence
 
 assert os.geteuid() == 0 and Path('/disposable-ffmpeg-proof').exists()
 scenario = sys.argv[1]
@@ -30,15 +30,28 @@ if scenario == 'launch-error':
 helper = Path('/candidate/scripts/ci-ffmpeg.ts')
 identity = dict(candidate=os.environ['CANDIDATE_SHA'], helper_sha256=hashlib.sha256(helper.read_bytes()).hexdigest(), scenario=scenario)
 print(json.dumps(identity), flush=True)
-subprocess.run(['sh', '-c', 'cat /etc/os-release; bun --version; apt-get --version | head -1; timeout --version | head -1; uname -a'], check=True)
+subprocess.run(['sh', '-c', 'cat /etc/os-release; bun --version; apt-get --version | head -1; dpkg --version | head -1; timeout --version | head -1; uname -a'], check=True)
+if scenario == 'baseline-negative':
+    baseline = Path('/baseline')
+    calls = [json.loads(line) for line in (baseline / 'invocations.jsonl').read_text().splitlines()]
+    observations = [json.loads(line) for line in (baseline / 'processes.jsonl').read_text().splitlines()]
+    old_trace = (baseline / 'process.trace').read_text()
+    failure = expect_oracle_failure('33ea original source pre-exec dpkg escape', lambda: mutating_install_evidence(calls, old_trace, observations, ('--unpack', '--configure')))
+    assert 'escaped installation descendant' in failure['expected_failure'], failure
+    Path('/control/result.json').write_text(json.dumps(dict(**identity, baseline_candidate='33ea96fe831309b58a23b0811c72ee6990b1d5ec', baseline_trace_sha256=hashlib.sha256(old_trace.encode()).hexdigest(), attribution='post-hoc same-oracle re-evaluation, not a new execution', expected_failure=failure)))
+    print(json.dumps(failure), flush=True)
+    raise SystemExit(0)
 # No host packages or databases are available to this fixture.
 assert subprocess.run(['dpkg-query', '-W', 'ffmpeg'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0
 
 env = os.environ.copy()
-real = scenario in ('cold', 'slow-first', 'slow-progress', 'signature')
+real = scenario in ('cold', 'slow-first', 'slow-progress', 'signature', 'real-unpack-cancel', 'real-configure-stall')
 env['PATH'] = '/control/bin:' + env['PATH']
 if scenario == 'launch-error':
     env['PATH'] = '/control/bin:/usr/local/bin'
+
+if scenario in ('real-unpack-cancel', 'real-configure-stall'):
+    Path('/etc/apt/apt.conf.d/99proof-dpkg-hook').write_text('DPkg::Options { "--pre-invoke=/candidate/scripts/ci-ffmpeg-proof/dpkg-hook.py"; };\n')
 
 # Real apt transport receives a continuously progressing but unusably slow
 # response. It cannot escape the aggregate deadline through per-request progress.
@@ -62,25 +75,20 @@ if scenario in ('slow-first', 'slow-progress'):
                     pass
             else:
                 try:
-                    # apt's actual signed archive data is forwarded unchanged.
-                    backend = self.path.replace('http:', 'https:')
-                    if '/ubuntu-ports/' in backend:
-                        backend = backend.replace('archive.ubuntu.com', 'ports.ubuntu.com')
-                    with urllib.request.urlopen(backend, timeout=20) as response:
-                        data = response.read()
-                        with open('/control/forwarded.jsonl', 'a') as out:
-                            out.write(json.dumps(dict(url=self.path, backend=backend, size=len(data), sha256=hashlib.sha256(data).hexdigest(), prefix=data[:40].hex())) + '\n')
-                        self.send_response(response.status)
-                        self.send_header('Content-Length', str(len(data)))
-                        self.end_headers()
-                        self.wfile.write(data)
+                    backend = self.path.replace('archive.ubuntu.com', 'ports.ubuntu.com')
+                    with open('/control/redirects.jsonl', 'a') as out:
+                        out.write(json.dumps(dict(url=self.path, backend=backend)) + '\n')
+                    self.send_response(302)
+                    self.send_header('Location', backend)
+                    self.send_header('Content-Length', '0')
+                    self.end_headers()
                 except Exception:
                     self.send_error(502)
         def log_message(self, *_):
             pass
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 8123), Proxy)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    Path('/etc/apt/apt.conf.d/99proof-proxy').write_text('Acquire::http::Proxy "http://127.0.0.1:8123";\n')
+    Path('/etc/apt/apt.conf.d/99proof-proxy').write_text('Acquire::http::Proxy "http://127.0.0.1:8123";\nAcquire::http::Proxy::ports.ubuntu.com "DIRECT";\n')
 if scenario == 'signature':
     Path('/unsigned').mkdir()
     Path('/unsigned/Release').write_text('Origin: unsigned-proof\nLabel: unsigned-proof\nSuite: noble\nCodename: noble\n')
@@ -127,15 +135,15 @@ while process.poll() is None and time.monotonic() - start < 245:
         fields = line.split()
         if fields[-1] == 'bun':
             supervisor_pid = int(fields[0])
-    if scenario in ('cleanup-unproven', 'negative-leader-only', 'cancel-term', 'cancel-int', 'cancel-during-grace') and supervisor_pid and not Path(f'/proc/{supervisor_pid}').exists():
+    if scenario in ('cleanup-unproven', 'negative-leader-only', 'cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel') and supervisor_pid and not Path(f'/proc/{supervisor_pid}').exists():
         supervisor_exit_elapsed = time.monotonic() - start
         break
-    if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace') and not sent:
+    if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel') and not sent:
         for line in table.splitlines()[1:]:
             fields = line.split()
             if fields[-1] == 'bun':
                 # Wait until the real fault child exists before cancellation.
-                if Path('/control/invocations.jsonl').exists() and '--no-download' in Path('/control/invocations.jsonl').read_text():
+                if Path('/control/invocations.jsonl').exists() and '--no-download' in Path('/control/invocations.jsonl').read_text() and (scenario != 'real-unpack-cancel' or Path('/control/dpkg-hook-started.json').exists()):
                     signal_pid = int(fields[0])
                     signal_identity = Path(f'/proc/{signal_pid}/stat').read_text()
                     signal_at = time.monotonic() - start
@@ -148,7 +156,7 @@ while process.poll() is None and time.monotonic() - start < 245:
 # strace remains alive if an unkillable-by-candidate child still exists; observe
 # Bun's own exit via trace before observer cleanup and retain that distinction.
 elapsed = time.monotonic() - start
-if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace') and supervisor_exit_elapsed is None and process.poll() is not None:
+if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel') and supervisor_exit_elapsed is None and process.poll() is not None:
     supervisor_exit_elapsed = elapsed
 trace = Path('/control/process.trace').read_text()
 if supervisor_pid is None:
@@ -192,25 +200,34 @@ controls = []
 if real:
     observations = [json.loads(line) for line in Path('/control/processes.jsonl').read_text().splitlines()]
     facts = real_process_evidence(scenario, invocations, trace, observations)
+    if scenario in ('cold', 'slow-first', 'real-unpack-cancel', 'real-configure-stall'):
+        required = ('--unpack',) if scenario == 'real-unpack-cancel' else ('--unpack', '--configure')
+        facts['mutating_install'] = mutating_install_evidence(invocations, trace, observations, required)
+    if scenario in ('real-unpack-cancel', 'real-configure-stall'):
+        assert Path('/control/dpkg-hook-started.json').exists(), 'actual mutating dpkg hook never reached'
+        assert not any(call['name'] in ('ffmpeg', 'ffprobe') for call in invocations), 'verification admitted after interrupted installation'
     Path('/control/real-process-facts.json').write_text(json.dumps(facts, indent=2))
     controls.append(expect_oracle_failure('missing real observations', lambda: real_process_evidence(scenario, [], '', [])))
     controls.append(expect_oracle_failure('undecodable real trace', lambda: real_process_evidence(scenario, invocations, 'syscall_0xBAD', observations)))
-if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace'):
+if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel'):
     signal_name = 'SIGINT' if scenario == 'cancel-int' else 'SIGTERM'
     cancellation_evidence(sent, signal_pid, supervisor_pid, signal_at, supervisor_exit_elapsed, len(installs), trace, signal_name)
     if scenario == 'cancel-during-grace':
         assert re.search(rf'^\s*{supervisor_pid}\s+(?:\d+\.\d+\s+)?--- SIGINT\b', trace, re.M), 'second signal did not reach cleanup grace'
-    assert elapsed < 20, 'ordinary original deadline expiry cannot qualify cancellation'
+    assert elapsed < (120 if scenario == 'real-unpack-cancel' else 20), 'ordinary original deadline expiry cannot qualify cancellation'
     controls.append(expect_oracle_failure('missing signal', lambda: cancellation_evidence(False, None, supervisor_pid, None, supervisor_exit_elapsed, len(installs), trace, signal_name)))
     controls.append(expect_oracle_failure('deadline-only shutdown', lambda: cancellation_evidence(True, supervisor_pid, supervisor_pid, 1, 230, 1, trace, signal_name)))
 Path('/control/oracle-negative-controls.json').write_text(json.dumps(controls, indent=2))
 # Record live group members before the observer is permitted to clean anything.
 live = []
+parents, _, _ = process_lineage(trace)
+roots = {call['pid'] for call in invocations}
+all_descendants = {pid for pid in parents if any(is_descendant(pid, root, parents) for root in roots)}
 for call in invocations:
     for path in Path('/proc').glob('[0-9]*/stat'):
         try:
             data = path.read_text().split(') ')[1].split()
-            if int(data[2]) == call['pgid'] and data[0] not in ('Z', 'X'):
+            if (int(data[2]) == call['pgid'] or int(path.parent.name) in all_descendants) and data[0] not in ('Z', 'X'):
                 live.append(dict(pid=path.parent.name, pgid=call['pgid'], state=data[0]))
         except FileNotFoundError:
             pass

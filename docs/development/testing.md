@@ -666,6 +666,19 @@ runs once with `--no-download`, after acquisition, followed by both `ffmpeg
 -version` and `ffprobe -version` under the original deadline. No lock is deleted
 and no interrupted installation is retried.
 
+Apt runs with `Dpkg::Use-Pty=0`: apt2.8.3 otherwise starts mutating dpkg
+in a new session for its PTY, outside the tracked apt group. The versioned
+[upstream implementation](https://salsa.debian.org/apt-team/apt/-/raw/2.8.3/apt-pkg/deb/dpkgpm.cc)
+(`StartPtyMagic` / `SetupSlavePtyMagic`) and
+[Ubuntu source package](https://archive.ubuntu.com/ubuntu/pool/main/a/apt/apt_2.8.3.tar.xz)
+were read before selecting this option. Real qualification reconstructs fork
+ancestry and session/group transitions before exec, identifies mutating
+`--unpack` and `--configure` PIDs, and tests interrupted actual dpkg invocation
+hooks using its documented
+[`--pre-invoke` contract](https://manpages.ubuntu.com/manpages/noble/man1/dpkg.1.html).
+A same-oracle re-evaluation of the original33ea trace must expose both escaped
+mutating dpkg processes; it is an attributed negative control, not a new run.
+
 Each child starts a new process group. Root signals that group, preserves its
 ID after leader exit, sends KILL even if a TERM-resistant member outlives the
 leader, and checks `/proc` for live members before admitting another phase.
@@ -689,7 +702,7 @@ It builds an native Ubuntu24.04/arm64 observer image with Bun1.4.2, then runs a 
 container per scenario with only this source and an evidence directory mounted.
 Real CI independently runs Ubuntu24.04/amd64. The slow-acquisition proxy maps
 synthetic Azure/primary archive aliases to the signed Ubuntu ports backend on
-arm64; this tests recovery mechanics without asserting a mirror cause.
+arm64 via ordinary apt redirects (the backend bypasses the fault proxy); this tests recovery mechanics without asserting a mirror cause.
 Python, strace and procps belong only to the disposable fault/observer fixture;
 the production helper runs Bun. The image preparation installs observation
 tools, then removes apt indexes/archives; ffmpeg is absent at candidate start.

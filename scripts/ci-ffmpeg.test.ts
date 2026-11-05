@@ -20,7 +20,7 @@ describe('ffmpeg preparation budget', () => {
         command.includes('update') ? command.slice(-3) : command.slice(-5),
       ),
       expected: [
-        ['-o', 'APT::Update::Error-Mode=any', 'update'],
+        ['-o', 'Dpkg::Use-Pty=0', 'update'],
         [
           'install',
           '-y',
