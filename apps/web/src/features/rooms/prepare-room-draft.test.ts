@@ -271,3 +271,22 @@ test('native switching from a casual recording notice to Ranked previews its dif
     expected: 'preview',
   });
 });
+
+test('native switching from Ranked to retained casual recording previews the casual notice', () => {
+  const form = new FormData();
+  Object.entries(draftFormValues(createRoomDraft(unequalTemplate))).forEach(
+    ([key, value]) => form.set(key, value),
+  );
+  form.set('recording', 'on');
+  form.set('noticeVersion', 'ranked-draft-2');
+  form.set('customResolution', 'A host resolution');
+  const result = prepareRoomDraft(form, [unequalTemplate], []);
+  assert({
+    given:
+      'Ranked unchecked on native HTML retaining its casual recording choice and ranked notice',
+    should:
+      'preview the effective casual notice with recording kept rather than falsely refuse stale words',
+    actual: result.kind === 'preview' && result.values.recording,
+    expected: 'on',
+  });
+});

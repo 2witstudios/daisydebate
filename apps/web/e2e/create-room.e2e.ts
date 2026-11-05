@@ -110,11 +110,14 @@ test('native format, resolution and speech editing create a room without JavaScr
     ).toBeVisible();
     await ranked.uncheck();
     await form
-      .getByRole('button', { name: 'Apply resolution', exact: true })
+      .getByRole('button', { name: 'Create room', exact: true })
       .click();
     await expect(
       form.getByRole('checkbox', { name: 'Record match', exact: true }),
     ).toBeChecked();
+    await expect(
+      form.getByText(roundCaptureNotice('opted-in')!.text, { exact: true }),
+    ).toBeVisible();
     // Settings render only for Custom, so the native editor applies Custom
     // first; the submission posts no settings and starts at the preset.
     await form.locator('[name="format"][value="custom"]').check();

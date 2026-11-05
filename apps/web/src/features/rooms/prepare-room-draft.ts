@@ -117,10 +117,15 @@ export function prepareRoomDraft(
       kind: 'preview',
       values: { ...values, ...draftFormValues(draft), intent: '' },
     };
-  // Native mode switches may still carry the casual notice: show Ranked's first.
+  // Native mode switches may carry the other mode's notice. Show the effective
+  // notice before claiming it; a casual form that showed none still owes none.
+  const notice = roundCaptureNotice(
+    draft.ranked ? 'ranked' : values.recording === 'on' ? 'opted-in' : 'none',
+  );
   if (
-    draft.ranked &&
-    values.noticeVersion !== roundCaptureNotice('ranked')!.version
+    notice &&
+    (draft.ranked || values.noticeVersion) &&
+    values.noticeVersion !== notice.version
   )
     return {
       kind: 'preview',
