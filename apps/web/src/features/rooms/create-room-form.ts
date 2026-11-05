@@ -116,8 +116,10 @@ const refusals: Readonly<Record<RoomCreateRefusal, string>> = {
     'You are creating rooms too quickly. Wait a moment and try again.',
   replayed: 'This form was already sent. Reload the page and try again.',
   'ai-judge-premium': aiJudgePremiumText,
+  'capture-premium':
+    'Recording a casual match requires a subscription. Turn Record match off to create this room.',
   'notice-changed':
-    'The notice for ranked rooms changed. Reload the page and read it before creating your room.',
+    'The recording notice changed. Review it before creating your room.',
 };
 
 function creationRefusal(

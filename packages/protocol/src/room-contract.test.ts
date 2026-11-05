@@ -309,3 +309,40 @@ test('roomCreateSchema holds a ranked Room to public', () => {
     expected: [true, false, false, true],
   });
 });
+
+test('a create recording choice belongs only to casual Rooms', () => {
+  const selection = {
+    kind: 'catalog',
+    formatId: 'value',
+    formatVersion: 1,
+    presetVersion: 1,
+    competitionType: 'casual',
+  };
+  const create = {
+    commandId,
+    title: 'Title',
+    resolution: { kind: 'custom', text: 'Topic' },
+    visibility: 'public',
+    selection,
+  };
+  assert({
+    given:
+      'casual recording on, malformed choice, then ranked recording override',
+    should: 'accept only the casual boolean choice',
+    actual: [
+      roomCreateSchema.safeParse({ ...create, recording: true }).success,
+      roomCreateSchema.safeParse({ ...create, recording: 'on' }).success,
+      roomCreateSchema.safeParse({
+        ...create,
+        recording: true,
+        selection: {
+          kind: 'ranked',
+          formatId: 'value',
+          formatVersion: 1,
+          presetVersion: 1,
+        },
+      }).success,
+    ],
+    expected: [true, false, false],
+  });
+});

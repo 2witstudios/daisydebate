@@ -86,6 +86,8 @@ export const roomCreateSchema = z
     resolution: roomResolutionSelectionSchema,
     visibility: roomVisibilitySchema,
     selection: roomSelectionSchema,
+    /** Casual hosts may opt into recording; ranked capture is automatic. */
+    recording: z.boolean().optional(),
     /** Each actor at most once: assign-seat would move, not reject, a repeat. */
     cast: z
       .array(castSeat)
@@ -121,6 +123,11 @@ export const roomCreateSchema = z
     (create) =>
       create.selection.kind !== 'ranked' || create.visibility === 'public',
     { message: 'A ranked Room is always public', path: ['visibility'] },
+  )
+  .refine(
+    (create) =>
+      create.selection.kind !== 'ranked' || create.recording === undefined,
+    { message: 'Ranked recording is automatic', path: ['recording'] },
   );
 
 const envelope = { commandId: idSchema, expectedVersion: versionSchema };

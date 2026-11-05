@@ -108,6 +108,13 @@ export const roomCreateOperations = ({
     } | null;
     /** Members a debater seat stays held for (ADR 0103), the host included. */
     readonly holdSeatsFor?: readonly string[];
+    /** Evaluated against the host's grants under the create account fence. */
+    readonly recording?: {
+      readonly authorize: (
+        grants: readonly EntitlementGrant[],
+        now: string,
+      ) => boolean;
+    };
     /** The notice the create form showed its host, recorded with the Room. */
     readonly notice?: {
       readonly id: string;
@@ -165,9 +172,14 @@ export const roomCreateOperations = ({
           if (active.length !== 1)
             throw createRefusal('CONFLICT', 'ranked-unavailable');
         }
+        if (input.recording && input.room.competitionType === 'ranked')
+          throw createRefusal('CONFLICT', 'illegal-config');
         const now = await transactionNow(tx);
         await tx.insert(rooms).values({
           ...newRoomValues(input.room, 'assembling'),
+          capture: input.recording
+            ? { broadcast: null, recording: true }
+            : null,
           createdAt: new Date(now),
           updatedAt: new Date(now),
         });
@@ -232,6 +244,14 @@ export const roomCreateOperations = ({
             })),
           );
         await holdActiveRoomMembers(tx, input.room.id, input.members);
+        if (input.recording) {
+          // Cast and membership may wait: judge the grant at commit admission,
+          // after their locks and facts, while the host account fence still holds.
+          const grants = await readEntitlementGrants(tx, input.caller.userId);
+          const captureNow = await transactionNow(tx);
+          if (!input.recording.authorize(grants, captureNow))
+            throw createRefusal('CONFLICT', 'capture-premium');
+        }
         const receipt: RoomCommandReceipt = {
           commandId: input.commandId,
           roomId: input.room.id,

@@ -228,3 +228,46 @@ test('a ranked form that never showed the notice shows it before creating', () =
     expected: ['preview', 'on'],
   });
 });
+
+test('a native casual recording selection never claims an unseen capture notice', () => {
+  const form = new FormData();
+  Object.entries(draftFormValues(createRoomDraft(unequalTemplate))).forEach(
+    ([key, value]) => form.set(key, value),
+  );
+  form.set('recording', 'on');
+  form.set('title', 'Record this match');
+  form.set('customResolution', 'A host resolution');
+  const result = prepareRoomDraft(form, [unequalTemplate], []);
+  assert({
+    given: 'recording selected before its notice was shown',
+    should: 'carry recording without synthesizing notice acknowledgement',
+    actual: result.kind === 'submit' && [
+      result.form.get('recording'),
+      result.form.get('noticeVersion'),
+    ],
+    expected: ['on', null],
+  });
+});
+
+test('native switching from a casual recording notice to Ranked previews its different notice', () => {
+  const template = {
+    ...unequalTemplate,
+    formatId: 'value',
+    role: 'standard' as const,
+    preset: { ...unequalTemplate.preset, rankedEligible: true },
+  };
+  const form = new FormData();
+  Object.entries(draftFormValues(createRoomDraft(template))).forEach(
+    ([key, value]) => form.set(key, value),
+  );
+  form.set('ranked', 'on');
+  form.set('noticeVersion', 'casual-draft-1');
+  form.set('customResolution', 'A host resolution');
+  assert({
+    given:
+      'Ranked selected on native HTML that showed the casual recording notice',
+    should: 'render the ranked notice before creation',
+    actual: prepareRoomDraft(form, [template], []).kind,
+    expected: 'preview',
+  });
+});
