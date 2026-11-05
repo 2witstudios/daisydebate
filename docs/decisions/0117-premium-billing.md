@@ -363,8 +363,11 @@ atomically clears only execution state; durable purchases, refund actions,
 original keys and financial observations survive. Current service, canonical
 closed-account fence, exact job/claim/work and post-lock database time fence each
 commit. Durable progress consumes its claim, preserves failure attempts and
-schedules fixed bounded due time; failures preserve work and use ordinary
-backoff. Idle/stale replies change nothing. Invoice payment subpages retain their
+schedules fixed bounded due time. A failed current attempt preserves every
+selected resource/cursor frame, increments one failure, uses ordinary bounded
+backoff and yields deterministically to the next unfinished lane. This is neither
+resolved service nor cursorless progress; an uncertain purchase cannot indefinitely
+block cancellation, invoice/payment and refund work. Idle/stale replies change nothing. Invoice payment subpages retain their
 own cursor and cannot skip the remaining selected invoices.
 
 A missing customer mapping never proves completion. Positive current absence of

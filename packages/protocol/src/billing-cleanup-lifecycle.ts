@@ -181,7 +181,14 @@ function failure(value: Active, retryAt: string, now: string) {
     at(retryAt) > at(now) + 3_600_000
   )
     return idle;
-  return result('failure', { ...value, claim: null, retryAt });
+  return result('failure', {
+    ...value,
+    ...(value.kind === 'scanning'
+      ? { turn: nextTurn(value.turn, value.scans)! }
+      : {}),
+    claim: null,
+    retryAt,
+  });
 }
 
 function noEffects(context: CleanupContext) {

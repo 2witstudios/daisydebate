@@ -6,13 +6,14 @@ import {
   cleanupWork,
   type CleanupState,
 } from '@daisy/protocol/billing';
+import { exerciseFailureDeferral } from './billing-cleanup-deferral.test-support';
 import { exerciseInvoiceProgress } from './billing-cleanup-invoice.test-support';
 import { cleanupCandidate } from './billing-cleanup-candidate.test-support';
 import { withBillingRefunds } from './billing-refunds.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261105214659_stripe_cleanup_progress_guard/migration.sql',
+  '../migrations/20261105221146_stripe_cleanup_fair_failure/migration.sql',
   import.meta.url,
 );
 
@@ -40,6 +41,7 @@ test(
             probe,
             rotate,
           } = matrix;
+          await exerciseFailureDeferral(matrix);
           let c = await claim();
           const first = await read();
           const codes = [
@@ -228,7 +230,7 @@ test(
               retryMutation,
               await read(),
             ],
-            expected: [1, 'purchases', { kind: 'idle' }, '23514', failed],
+            expected: [1, 'subscriptions', { kind: 'idle' }, '23514', failed],
           });
           await rotate();
           await exerciseInvoiceProgress(matrix);
@@ -277,5 +279,5 @@ test(
         if (error !== rollback) throw error;
       }
     }),
-  30_000,
+  40_000,
 );
