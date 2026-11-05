@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { flagCommand, withFlags, barrier } from './flags.test-support';
 import { flagsPrivacyAdopter } from '../src/flags-privacy';
@@ -17,7 +18,7 @@ const override = (accountId: string) => ({
   },
 });
 
-test('Flags export owns its targeting; erasure removes targeting and linkable audit before any retry can recreate it', async () => {
+test('Flags export owns its targeting; erasure removes targeting linkage while preserving audit and refusing retries', async () => {
   await withFlags(
     async ({ fixture, database, store, key, userId, actorId }) => {
       const command = flagCommand(key, 0, override(userId));
@@ -73,7 +74,7 @@ test('Flags export owns its targeting; erasure removes targeting and linkable au
       await erasure;
       await assertRejects({
         given:
-          'an old successful targeting command retried after erasure removed its receipt',
+          'an old successful targeting command retried after account erasure',
         should: 'refuse instead of restoring targeting',
         actual: () => store.runFlagCommand(command),
         code: 'NOT_FOUND',
@@ -87,7 +88,7 @@ test('Flags export owns its targeting; erasure removes targeting and linkable au
         given:
           'erasure wins the account fence against a concurrent targeting writer',
         should:
-          'export only own records then remove private targeting, receipts and linked events without resurrection',
+          'export own records, remove targeting and preserve audit without resurrection',
         actual: {
           exported: Object.fromEntries(
             Object.entries(exported).map(([key, rows]) => [key, rows.length]),
@@ -98,7 +99,7 @@ test('Flags export owns its targeting; erasure removes targeting and linkable au
         expected: {
           exported: { users: 1, flag_account_overrides: 1, flag_commands: 1 },
           concurrent: 'rejected',
-          counts: { overrides: 0, receipts: 0, events: 0, revision: 2 },
+          counts: { overrides: 0, receipts: 1, events: 1, revision: 2 },
         },
       });
     },
@@ -159,4 +160,51 @@ test('Flags audit is append-only to runtime; retention is bounded and cannot era
       },
     });
   });
+});
+
+test('closing a targeted account unlinks only Flags receipts and preserves other operator audit', async () => {
+  await withFlags(
+    async ({ fixture, database, store, key, userId, actorId }) => {
+      const command = flagCommand(key, 0, override(userId));
+      await store.runFlagCommand(command);
+      const otherCommand = createId();
+      await fixture.sql`insert into operator_command_receipts(command_id,service_id,operator_ref,action,target_user_id,request_digest,result,admin_audit_head)
+      values(${otherCommand},'daisy-admin',${'o'.repeat(24)},'account.beta_access.update',${userId},${'b'.repeat(64)},'{}'::jsonb,${'a'.repeat(64)})`;
+      try {
+        await runPrivacyErasure(
+          database,
+          {
+            subject: { userId, actorId },
+            now: new Date().toISOString(),
+            vendors: [],
+            jobIds: [],
+          },
+          [flagsPrivacyAdopter],
+          subjectRightsVerificationBindings,
+        );
+        const [evidence] = await fixture.sql`select
+        (select target_user_id from operator_command_receipts where command_id=${command.commandId}) as flags_target,
+        (select request_digest from operator_command_receipts where command_id=${command.commandId}) as digest,
+        (select operator_ref from operator_command_receipts where command_id=${command.commandId}) as operator,
+        (select target_user_id from operator_command_receipts where command_id=${otherCommand}) as other_target,
+        (select count(*)::int from flag_change_events where command_id=${command.commandId}) as events`;
+        assert({
+          given:
+            'a committed Flags targeting command and a different-action operator receipt before closure',
+          should:
+            'remove only the direct Flags target link while retaining both security audit trails',
+          actual: evidence,
+          expected: {
+            flags_target: null,
+            digest: command.requestDigest,
+            operator: command.operatorRef,
+            other_target: userId,
+            events: 1,
+          },
+        });
+      } finally {
+        await fixture.sql`delete from operator_command_receipts where command_id=${otherCommand}`;
+      }
+    },
+  );
 });

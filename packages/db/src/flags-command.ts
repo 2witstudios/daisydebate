@@ -58,9 +58,9 @@ export async function runFlagCommand(
       : null;
   const account = target === null ? null : await lockTarget(tx, target);
   await lockFlags(tx, 'write');
+  requireLiveTarget(target, account);
   const replay = await storedResult(tx, input.commandId, input.requestDigest);
   if (replay) return flagCommandResultSchema.parse(replay);
-  requireLiveTarget(target, account);
   const { snapshot, now } = await readFlagSnapshot(tx, target, [input.key]);
   const fact = snapshot.flags[0]!;
   const decision = input.decide(fact.revision, now);

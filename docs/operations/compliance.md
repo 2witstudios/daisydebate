@@ -121,12 +121,15 @@ digests are excluded.
 
 Normal runtime writes can append this audit but cannot update or delete it.
 Narrow security-definer functions are the only runtime erasure/retention path:
-account erasure deletes the subject's Flags receipts and linked events atomically;
+account erasure clears the direct target-account link on Flags receipts atomically,
+while keeping command identity, digest and audit events as bounded security evidence;
 retention cannot delete evidence newer than 90 days or more than 500 commands per
 call. Global state commands have a null subject. Expired receipts may no longer
 replay, but every accepted change advances the retained flag revision, so an old
 expected revision cannot regain authority. Erased subjects cannot acquire targeting
-again, including when targeting races erasure. These periods and bases await the
+again, including when targeting races erasure. Erasure does not delete audit trails
+or touch receipts for any other command action. The remaining digest, command id
+and operator references are still classified as linkable evidence, not anonymous data. These periods and bases await the
 same counsel review as the other proposed classes; no new processor is added.
 
 ## Retained after erasure

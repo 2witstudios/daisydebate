@@ -40,8 +40,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON flag_account_overrides TO daisy_web;
 GRANT SELECT, INSERT ON flag_change_events TO daisy_web;
 REVOKE UPDATE, DELETE ON flag_change_events FROM daisy_web;
 --> statement-breakpoint
--- Only the closed-account privacy path may remove a Flags command's target link.
--- Ordinary commands cannot edit or delete audit; erasure is a scoped exception.
+-- Erasure drops direct targeting linkage, never the command's security evidence.
+-- Audit events and receipt identity/digest remain until their classified retention cutoff.
 CREATE FUNCTION public.daisy_erase_flag_subject(subject_id text) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 BEGIN
@@ -49,11 +49,7 @@ BEGIN
     RAISE EXCEPTION 'account must be closed' USING ERRCODE = '23514';
   END IF;
   PERFORM pg_advisory_xact_lock(59118, 1);
-  DELETE FROM public.flag_change_events WHERE command_id IN (
-    SELECT command_id FROM public.operator_command_receipts
-    WHERE target_user_id = subject_id AND action IN ('flag.state.update', 'flag.override.update')
-  );
-  DELETE FROM public.operator_command_receipts
+  UPDATE public.operator_command_receipts SET target_user_id = NULL
     WHERE target_user_id = subject_id AND action IN ('flag.state.update', 'flag.override.update');
 END;
 $$;
