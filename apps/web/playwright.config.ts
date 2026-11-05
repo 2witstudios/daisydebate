@@ -296,6 +296,15 @@ export default defineConfig({
         // provider credential. Provider calls still use the inert stub.
         AI_ROUND_BUSY_CAP: '4',
         AI_ROUND_MONTHLY_CAP: '20',
+        // Requested analysis exercises its actual worker with only its provider edge controlled.
+        ROUND_ANALYSIS_POLICY: JSON.stringify({
+          concurrency: 1,
+          scanBatch: 4,
+          scanMs: 250,
+          leaseMs: 10_000,
+          callTimeoutMs: 5_000,
+          model: 'e2e/round-analysis',
+        }),
       },
     },
     {
