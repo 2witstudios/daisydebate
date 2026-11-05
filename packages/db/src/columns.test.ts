@@ -76,7 +76,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'rooms.config',
         'rooms.execution_plan',
         'rooms.rules_snapshot',
-        'round_analyses.report',
+        'round_analyses.work',
         'round_commands.result',
         'round_draw_private_inputs.inputs',
         'round_judging_attempts.diagnostic',
@@ -108,7 +108,6 @@ describe('jsonb columns (ISSUE-24)', () => {
           name === 'round_judging_attempts.diagnostic' ||
           name === 'rooms.capture' ||
           name === 'rounds.capture' ||
-          name === 'round_analyses.report' ||
           name === 'round_judging_jobs.pending_ballot'
             ? ['VALIDATION', 'VALIDATION', 'VALIDATION', 'accepted']
             : ['VALIDATION', 'VALIDATION', 'VALIDATION', 'VALIDATION'],

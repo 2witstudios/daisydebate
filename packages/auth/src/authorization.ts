@@ -321,7 +321,7 @@ function memberDecision(
   if ('allow' in resolved) return resolved;
   if (!positiveRevision(resolved.revision)) return deny('denied');
   if (resolved.kind === 'round')
-    return decision(roundAllowed(actorId, capability, resolved, context));
+    return decision(roundAllowed(actorId, capability, resolved));
   return resolved.kind === 'room'
     ? decision(roomAllowed(actorId, capability, resolved))
     : channelDecision(actorId, capability, resolved, context);

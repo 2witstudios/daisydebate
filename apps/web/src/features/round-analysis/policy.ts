@@ -1,80 +1,37 @@
-import type {
-  RoundAnalysisClaimDecision,
-  RoundAnalysisFacts,
-} from '@daisy/db/rounds';
-import type { RoundAnalysisView } from '@daisy/protocol';
+import type { RoundAnalysisFacts } from '@daisy/db/rounds';
+import {
+  remainingAnalysisCalls,
+  type RoundAnalysisView,
+} from '@daisy/protocol';
 
-/**
- * Round analysis's own bounds (DEC-247): a seat is analysed only within the
- * window after its Round completes, and buys at most `maxCalls` paid calls.
- * Nothing here reads a ballot.
- */
-export const roundAnalysisBounds = {
-  windowMs: 24 * 60 * 60 * 1000,
-  maxCalls: 2,
-} as const;
-export type RoundAnalysisBounds = typeof roundAnalysisBounds;
-
-/**
- * Whether a seat needs its analysis at `now`: its Round completed within
- * the window, with frozen lines to analyse.
- */
-export function roundAnalysisNeeded(
-  facts: RoundAnalysisFacts,
-  now: string,
-  bounds: RoundAnalysisBounds = roundAnalysisBounds,
-): boolean {
-  if (facts.status !== 'completed' || facts.completedAt === null) return false;
-  const age = Date.parse(now) - Date.parse(facts.completedAt);
-  return age < bounds.windowMs && facts.frozen && facts.lines > 0;
-}
-
-/** A held lease that has run out at `now`. */
-const lapsed = (facts: RoundAnalysisFacts, now: string) =>
-  facts.analysis?.status === 'leased' &&
-  facts.analysis.leaseExpiresAt !== null &&
-  Date.parse(facts.analysis.leaseExpiresAt) <= Date.parse(now);
-
-/**
- * What a claim does with a seat: take its next paid attempt, end a lapsed
- * lease that may buy no more (spent, or no longer needed), or leave it.
- */
-export function roundAnalysisClaimDecision(
-  facts: RoundAnalysisFacts,
-  now: string,
-  bounds: RoundAnalysisBounds = roundAnalysisBounds,
-): RoundAnalysisClaimDecision {
-  const { analysis } = facts;
-  if (analysis && !lapsed(facts, now)) return 'skip';
-  const needed = roundAnalysisNeeded(facts, now, bounds);
-  if (analysis && (analysis.attempts >= bounds.maxCalls || !needed))
-    return 'fail';
-  return needed ? 'claim' : 'skip';
-}
-
-/**
- * An authorized debater's view of their own analysis: the report, pending
- * while an analysis is running or will run in this deployment, else
- * unavailable. A delivered report does not require a current entitlement.
- * The caller must authorize the read before passing any private facts here.
- */
+/** Authorized stored content survives lapse; only a fresh request uses present allowance. */
 export function roundAnalysisView(input: {
   readonly facts: RoundAnalysisFacts;
-  readonly entitled: boolean;
+  readonly allowance: 'included' | 'free' | 'unavailable';
   readonly now: string;
-  /** Whether this deployment runs round analysis (ROUND_ANALYSIS_POLICY is set). */
   readonly enabled: boolean;
-  readonly bounds?: RoundAnalysisBounds;
 }): RoundAnalysisView {
-  const { facts, now } = input;
-  const bounds = input.bounds ?? roundAnalysisBounds;
-  const { analysis } = facts;
-  if (analysis?.status === 'succeeded' && analysis.report)
-    return { status: 'ready', report: analysis.report };
-  if (!input.entitled) return { status: 'locked' };
-  const runs = analysis
-    ? analysis.status === 'leased' &&
-      roundAnalysisClaimDecision(facts, now, bounds) !== 'fail'
-    : input.enabled && roundAnalysisNeeded(facts, now, bounds);
-  return { status: runs ? 'pending' : 'unavailable' };
+  const { facts } = input;
+  const work = facts.analysis;
+  if (work && 'report' in work) return { status: 'ready', report: work.report };
+  if (work?.kind === 'queued' || work?.kind === 'leased')
+    return {
+      status:
+        Date.parse(input.now) < Date.parse(work.deadlineAt)
+          ? 'pending'
+          : 'unavailable',
+    };
+  if (work && work.kind !== 'unrequested') return { status: 'unavailable' };
+  if (
+    !input.enabled ||
+    facts.status !== 'completed' ||
+    facts.completedAt === null ||
+    !facts.frozen ||
+    facts.lines < 1 ||
+    remainingAnalysisCalls(work) === 0
+  )
+    return { status: 'unavailable' };
+  return input.allowance === 'unavailable'
+    ? { status: 'locked' }
+    : { status: 'requestable', allowance: input.allowance };
 }

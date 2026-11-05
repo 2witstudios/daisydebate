@@ -208,7 +208,18 @@ with the Round's pending judgment. A casual Round's lines still erase with the m
 
 Erasure deletes the member's own transcript lines from every non-ranked Round, and
 discards every held AI judgment of such a Round they sat in (DEC-223). It also clears every Round analysis of it, the other debater's
-too. Limits of that:
+too. Round analysis purging removes report content and all future dispatch or
+publication authority while retaining the original competitive seat identity and
+bounded execution observations (historical claim/token facts, request time,
+fixed deadline, call model, token counts and known/unknown outcomes). These facts
+prevent a privacy/content purge from silently resetting usage or inventing a
+provider refund. No transcript, prompt, raw answer or payment credential remains
+in that metadata; exports omit attempt authenticators. The account's separate
+allowance ledger is erased under its own adopter. Late accounting cannot recreate
+it or authorize another request. Analysis content retention is 180 days from the
+actual request, or original creation for a historical report; it is not a
+Round-age eligibility window. Current all-participant privacy fences still refuse
+requests and private report reads after erasure. Limits of that:
 
 - Other people's lines stay until their 180-day retention ends, and can repeat
   the member's words: a bot's reply, an answer in cross-examination.

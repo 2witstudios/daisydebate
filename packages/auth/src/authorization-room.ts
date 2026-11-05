@@ -1,6 +1,5 @@
 import type {
   AuthorizationCapability,
-  AuthorizationInput,
   RoomAuthorizationFact,
   RoundAuthorizationFact,
 } from './authorization-facts';
@@ -36,7 +35,6 @@ export function roundAllowed(
   actorId: string,
   capability: AuthorizationCapability,
   resource: RoundAuthorizationFact,
-  context: AuthorizationInput['context'],
 ): boolean {
   if (capability === 'round.transcript.read')
     return seatedOn(actorId, resource);
@@ -45,8 +43,6 @@ export function roundAllowed(
   if (!capability.startsWith('round.analysis.'))
     return roundReadable(actorId, resource);
   return (
-    (capability === 'round.analysis.read' ||
-      context.entitlements?.roundAnalysis === true) &&
     resource.status === 'completed' &&
     resource.participants.some(
       (p) =>

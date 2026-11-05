@@ -14,6 +14,7 @@ import { roundParticipants } from './schema/round-participants';
 import { actors } from './schema/actors';
 import { readAuthorizationActors, requireOwnScope } from './authorization';
 import { eq } from 'drizzle-orm';
+import { readAllowanceLocked, type AiAllowanceOptions } from './usage-ledger';
 
 /**
  * A caller's own round analysis facts: the caller must hold a human debater
@@ -24,8 +25,10 @@ import { eq } from 'drizzle-orm';
  */
 export const roundAnalysisReads = ({
   database,
+  allowance,
 }: {
   readonly database: BunSQLDatabase;
+  readonly allowance?: AiAllowanceOptions | undefined;
 }) => ({
   async readRoundAnalysis(input: {
     readonly roundId: string;
@@ -34,6 +37,7 @@ export const roundAnalysisReads = ({
   }): Promise<{
     readonly access: RoundAnalysisAccess;
     readonly facts: RoundAnalysisFacts;
+    readonly allowance: 'included' | 'free' | 'unavailable';
   }> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
@@ -73,14 +77,31 @@ export const roundAnalysisReads = ({
         throw createAppError('NOT_FOUND');
       const target = { roundId: input.roundId, roundParticipantId: seat.id };
       // All account fences are already held; never upgrade a shared fence.
-      const access = await readRoundAnalysisAccess(tx, target, 'discovery');
+      const access = await readRoundAnalysisAccess(tx, target);
       if (
         access.seat.actorId !== input.caller.actorId ||
         access.account?.userId !== input.caller.userId ||
         !input.authorize(access)
       )
         throw createAppError('NOT_FOUND');
-      return { access, facts: await readRoundAnalysisFacts(tx, target) };
+      const quote = allowance
+        ? await readAllowanceLocked(tx, {
+            account: access.account,
+            request: { kind: 'round_analysis', roundId: input.roundId },
+            decide: allowance.decide,
+          })
+        : null;
+      const availability =
+        quote?.decision.kind === 'admit'
+          ? quote.decision.reservations[0]?.source.kind === 'lifetime'
+            ? 'free'
+            : 'included'
+          : 'unavailable';
+      return {
+        access,
+        facts: await readRoundAnalysisFacts(tx, target),
+        allowance: availability,
+      };
     });
   },
 });

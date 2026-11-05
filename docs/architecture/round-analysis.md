@@ -59,11 +59,16 @@ judge's seat is never analysed; no ballot is read.
   no 24-hour or blanket 180-day Round-age eligibility rule. The canonical account
   fence admits one outstanding request, the analysis feature bounds global
   pending work, and the single usage ledger records the admitted source/period.
+  The pending limit is four requests per configured analysis concurrency slot,
+  at most 256. Each request has a fixed fifteen-minute execution deadline.
 - **Work.** Discovery lists requested work only, in fair due order. A worker
   claims a bounded lease; claim alone does not count allowance. Immediately
   before provider I/O, current token, account, privacy, evidence and remaining
   call budget authorize a durable first-call record. At most two possible paid
-  calls belong to the seat, including preserved historical exposure.
+  calls belong to the seat, including preserved historical exposure. Four lease
+  claims bound nondispatch recovery; each lease lasts at most three minutes and
+  never outlives the request. Ordinary subscription lapse does not reattribute
+  an admitted request, but current account/privacy/evidence fences still apply.
 - **Results.** Received tokens and provider outcome are recorded independently
   of report parsing. Invalid text is still received service; a lost response is
   unknown. Late accounting cannot regain publication or dispatch authority. A
@@ -116,10 +121,11 @@ Premium is the account's own `round_analysis` grant, never its beta state
 (ISSUE-779). Beta approval writes the grant in the beta command's
 transaction and revocation removes it. `PREMIUM_BETA_GRANT` says whether a
 beta-sourced grant counts: `true` in the beta, `false` at launch. The
-capabilities are `round.analysis.generate` and `round.analysis.read`. A
+capabilities are `round.analysis.request` and `round.analysis.read`. A
 delivered report remains readable to its authorized debater after an entitlement
-lapses (BILL-13/DEC-363). Generation eligibility remains separate from that
-read. Neither capability replaces current participant admission and an own
+lapses (BILL-13/DEC-363). Current own-seat authorization covers both capabilities; the shared allowance
+policy and atomic ledger admission separately decide whether a fresh request
+uses included access or the one lifetime free analysis. Neither capability replaces current participant admission and an own
 completed debating seat.
 
 `GET /api/rounds/[roundId]/round-analysis` (composition in
@@ -127,9 +133,10 @@ completed debating seat.
 reader) answers a seated debater of a completed Round with:
 
 - `ready` and the report;
-- `pending` while an analysis runs or will run;
+- `requestable` with the free or included allowance, before an explicit request;
+- `pending` only for an admitted request before its fixed execution deadline;
 - `unavailable`;
-- `locked` for generation without the entitlement when no delivered report exists.
+- `locked` when no fresh allowance is available and no delivered report exists.
 
 Spectators, judges, hosts and anyone else get NOT_FOUND. The ballot read is
 the same with and without premium. The database runs the injected read decision
@@ -142,10 +149,30 @@ quoting the transcript lines a key moment cites.
 
 ## Privacy
 
-`round_analyses.report` is personal and private: each report reaches only
-its seat's debater. The adopter in `round-analysis-privacy.ts` declares
-every column. Retention is 180 days from job creation
-(`retention.round_analyses`), like the transcript the report reads. Subject
-erasure clears every analysis of a Round the subject sat in, since a report
-quotes both sides, and leaves each human seat `failed` so it is never
-analysed again. The lease token is stored only as a SHA3-256 digest.
+`round_analyses.work` holds one explicit request lifecycle for the original
+frozen debater seat. Report content is personal and private; only that seat's
+authorized debater can read it. `POST /api/rounds/[roundId]/round-analysis`
+accepts an empty native form and derives the account from the authenticated
+session. The database serializes allowance admission with all frozen participant
+accounts, feature capacity, the Round and the work row. No client-provided actor,
+source, period or request identity supplies authority.
+
+Report retention is 180 days from the actual request, or original creation for a
+historical retained report. This content-retention limit never becomes a maximum
+Round age for requesting analysis: actual authorized frozen evidence decides
+eligibility, including ranked content's separate retention rules. Expiry and
+participant erasure purge reports and dispatch/publication authority without
+deleting or resetting the seat identity. Content retention deletes utterance lines; the existing immutable transcript
+freeze and its foreign key remain. Neither that retention nor report purging
+deletes the analysis identity. Round deletion alone retires the competitive seat.
+
+The private execution metadata preserves original historical observations,
+request/deadline, claim count and actual call outcomes. Historical claims remain
+possible exposure, never invented dispatch or relief. Calls retain only model,
+time, token counts and outcome; prompts and raw answers are not stored. The
+account's export excludes lease and attempt authenticators. Purging content
+retains bounded execution facts needed for truthful accounting and terminal
+identity; late authenticated outcome observations cannot republish or reopen
+work. The shared allowance ledger's own account-erasure policy still applies:
+a late result never recreates an erased reservation. Lease/attempt authenticators
+are stored as SHA3-256 digests, never bearer values.

@@ -1,11 +1,9 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
-import { sharedAccount, type Account } from './room-command-facts';
+import type { Account } from './room-command-facts';
 import { createAppError } from '@daisy/errors';
 import { loadAuthorizationAccount } from './authorization';
-import { readEntitlementGrants } from './entitlement-grants';
-import type { EntitlementGrant } from '@daisy/protocol';
 
 const accessRow = z.object({
   roundId: z.string(),
@@ -41,19 +39,16 @@ export type RoundAnalysisAccess = {
     readonly slot: number;
   };
   readonly account: Account;
-  /** The seat account's own entitlement grants (ISSUE-779), read with the account. */
-  readonly grants: readonly EntitlementGrant[];
 };
 
 /**
  * A human debater seat's access facts; NOT_FOUND for any other seat, so a
- * bot's or a judge's seat is never analysed. Advisory discovery reads do not
- * lock the account; claims keep its canonical fence through commit.
+ * bot's or a judge's seat is never analysed. The caller already holds the
+ * canonical account fences; this reader never acquires or upgrades one.
  */
 export async function readRoundAnalysisAccess(
   tx: Pick<BunSQLDatabase, 'execute'>,
   target: { readonly roundId: string; readonly roundParticipantId: string },
-  mode: 'discovery' | 'claim',
 ): Promise<RoundAnalysisAccess> {
   const [row] =
     await tx.execute(sql`select r.id as "roundId", r.created_by_actor_id as "createdByActorId",
@@ -71,10 +66,7 @@ export async function readRoundAnalysisAccess(
     (seat.role !== 'affirmative' && seat.role !== 'negative')
   )
     throw createAppError('NOT_FOUND');
-  const account =
-    mode === 'claim'
-      ? await sharedAccount(tx, { userId: seat.userId, actorId: seat.actorId })
-      : await loadAuthorizationAccount(tx, seat.userId);
+  const account = await loadAuthorizationAccount(tx, seat.userId);
   return {
     round: {
       ...round,
@@ -92,6 +84,5 @@ export async function readRoundAnalysisAccess(
       slot: seat.slot,
     },
     account,
-    grants: await readEntitlementGrants(tx, seat.userId),
   };
 }

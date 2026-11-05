@@ -53,7 +53,7 @@ test('round analysis authorization never gates the official round read', () => {
   };
   const evaluate = (roundAnalysis: boolean, role = 'affirmative') =>
     (
-      ['round.read', 'round.analysis.read', 'round.analysis.generate'] as const
+      ['round.read', 'round.analysis.read', 'round.analysis.request'] as const
     ).map(
       (capability) =>
         authorize({
@@ -69,17 +69,17 @@ test('round analysis authorization never gates the official round read', () => {
   assert({
     given: 'entitled or ordinary debaters and a judge seat',
     should:
-      'retain own report reads after lapse, gate generation and keep the official result available',
+      'authorize own report reads and requests independently of allowance, and keep the official result available',
     actual: [evaluate(true), evaluate(false), evaluate(true, 'judge')],
     expected: [
       [true, true, true],
-      [true, true, false],
+      [true, true, true],
       [true, false, false],
     ],
   });
 });
 
-test('premium spectators, host-only members and judges cannot read or generate a round analysis', () => {
+test('premium spectators, host-only members and judges cannot read or request a round analysis', () => {
   const actorId = input.context.account!.actorId!;
   const scenarios = [
     {
@@ -107,7 +107,7 @@ test('premium spectators, host-only members and judges cannot read or generate a
   ];
   for (const scenario of scenarios) {
     const actual = (
-      ['round.read', 'round.analysis.read', 'round.analysis.generate'] as const
+      ['round.read', 'round.analysis.read', 'round.analysis.request'] as const
     ).map(
       (capability) =>
         authorize({
@@ -147,7 +147,7 @@ test('premium entitlement cannot replace durable participant admission', () => {
     should: 'deny round analysis through canonical participant admission',
     actual: authorize({
       ...input,
-      capability: 'round.analysis.generate',
+      capability: 'round.analysis.request',
       resource: {
         kind: 'round',
         roundId: 'round',

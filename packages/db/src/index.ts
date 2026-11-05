@@ -234,8 +234,16 @@ export function createDatabase({
       judging,
       botPublication,
     }),
-    ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
-    ...roundAnalysisReads({ database }),
+    ...roundAnalysisEntrypoints({
+      run: createBoundedTransaction({
+        lane: controlLane,
+        now: performance.now,
+      }),
+      nextId: nextActorId,
+      roundAnalysis,
+      allowance: aiAllowance,
+    }),
+    ...roundAnalysisReads({ database, allowance: aiAllowance }),
     roundIncidents: namedLaneOperations(
       createRoundIncidentStore({ run: transcriptTransaction }),
     ),

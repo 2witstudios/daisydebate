@@ -1,5 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
-import type { RoundAnalysisAccess } from '@daisy/db/rounds';
+import { createOpenRouter } from '@daisy/ai-voice';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -7,187 +7,179 @@ import {
   round,
 } from '../round-runtime/transcript-evidence.test-support';
 import { createRoundAnalysisOperations } from './operations';
-
 setupRitewayBun();
-
 const seat = { roundId: 'round', roundParticipantId: 'seat' };
 const claim = {
   token: 't',
-  attempt: 1,
+  callId: 'call',
   model: 'analysis-model',
   seat: { ...seat, side: 'affirmative' as const, slot: 1 },
   round,
   frozen,
   history: [],
 };
-const access = (
-  grants: RoundAnalysisAccess['grants'],
-): RoundAnalysisAccess => ({
-  round: {
-    kind: 'round',
-    roundId: 'round',
-    createdByActorId: 'actor',
-    status: 'completed',
-    visibility: 'public',
-    revision: 1,
-    participants: [{ actorId: 'actor', role: 'affirmative', slot: 1 }],
-  },
-  seat: { id: 'seat', actorId: 'actor', side: 'affirmative', slot: 1 },
-  account: {
-    userId: 'user',
-    actorId: 'actor',
-    member: true,
-    erased: false,
-    revision: 1,
-    beta: { state: 'approved', revision: 1 },
-    ageBand: 'adult',
-    restricted: false,
-  },
-  grants,
-});
-const entitled = [{ entitlement: 'round_analysis', source: 'beta' }] as const;
-
-const harness = (
-  answer: string,
-  options: {
-    readonly claimed?: typeof claim | null;
-    readonly betaGrantsPremium?: boolean;
-    readonly grants?: RoundAnalysisAccess['grants'];
+function harness(
+  input: {
+    text?: string;
+    beforeClaim?: () => Promise<void>;
+    allowed?: () => boolean;
+    claimed?: boolean;
+    provider?: Parameters<typeof createRoundAnalysisOperations>[0]['voice'];
   } = {},
-) => {
+) {
   const calls: unknown[] = [];
   const operations = createRoundAnalysisOperations({
-    betaGrantsPremium: options.betaGrantsPremium ?? true,
     store: {
-      claimRoundAnalysisJob: async (target, decide) => {
-        // The policy decides on facts the store reads under its lock.
-        const decision = decide(
-          {
-            status: 'completed',
-            completedAt: '2026-10-26T12:00:00.000Z',
-            frozen: true,
-            lines: 1,
-            analysis: null,
-          },
-          access(options.grants ?? entitled),
-        );
-        calls.push(['claim', target.roundParticipantId, decision]);
-        return (
-          decision === 'claim'
-            ? options.claimed === undefined
-              ? claim
-              : options.claimed
-            : null
-        ) as never;
+      claimRoundAnalysisJob: async () => {
+        calls.push('claim');
+        await input.beforeClaim?.();
+        return input.claimed === false ? null : claim;
       },
-      recordRoundAnalysisUsage: async (target, token, usage) => {
-        calls.push(['usage', target.roundParticipantId, token, usage]);
+      beginRoundAnalysisModelCall: async () => {
+        calls.push('dispatch');
+        return input.allowed?.() === false ? null : true;
       },
-      completeRoundAnalysisJob: async (target, token, result) => {
-        calls.push(['complete', target.roundParticipantId, token, result]);
+      recordRoundAnalysisOutcome: async (_seat, _id, _token, outcome) => {
+        calls.push(['outcome', outcome]);
+        return { kind: 'unchanged' as const };
+      },
+      completeRoundAnalysisJob: async (_seat, _id, _token, result) => {
+        calls.push(['report', result]);
+      },
+      retryRoundAnalysisJob: async () => {
+        calls.push('retry');
+        return { kind: 'unchanged' as const };
       },
     },
-    voice: () => ({
-      complete: async (request) => {
-        calls.push([
-          'provider',
-          request.model,
-          request.messages
-            .map((m) => m.content)
-            .join('\n')
-            .includes('Analyse the affirmative debater in slot 1'),
-        ]);
-        return {
-          text: answer,
-          finish: 'stop' as const,
-          refused: false,
-          promptTokens: 120,
-          completionTokens: 40,
-        };
-      },
-    }),
+    voice:
+      input.provider ??
+      (() => ({
+        complete: async () => {
+          calls.push('provider');
+          return {
+            text: input.text ?? JSON.stringify(report),
+            finish: 'stop' as const,
+            refused: false,
+            promptTokens: 120,
+            completionTokens: 40,
+          };
+        },
+      })),
     withProvider: (_signal, work) => work(),
-    now: () => '2026-10-26T12:01:00.000Z',
   });
   return { calls, operations };
-};
-
-test('a claimed seat is analysed once, its usage recorded before its report', async () => {
-  const { calls, operations } = harness(JSON.stringify(report));
-  await operations.analyse(seat, new AbortController().signal);
+}
+test('requested analysis counts at dispatch and records received service before parsing a report', async () => {
+  const f = harness();
+  await f.operations.analyse(seat, new AbortController().signal);
   assert({
-    given: 'a claimable seat and a valid report citing a frozen line',
+    given: 'a current requested lease and valid report',
     should:
-      'claim it, call the analysis model once for that seat, record its usage, then store the report under the lease',
-    actual: calls,
+      'cross the dispatch fence once and record provider outcome before publishing',
+    actual: f.calls,
     expected: [
-      ['claim', 'seat', 'claim'],
-      ['provider', 'analysis-model', true],
-      ['usage', 'seat', 't', { inputTokens: 120, outputTokens: 40 }],
-      ['complete', 'seat', 't', report],
+      'claim',
+      'dispatch',
+      'provider',
+      ['outcome', { kind: 'received', inputTokens: 120, outputTokens: 40 }],
+      ['report', report],
     ],
   });
-});
-
-test('an invalid answer is paid for but never stored', async () => {
-  const { calls, operations } = harness('Great round!');
+  const invalid = harness({ text: 'Invalid report' });
   await assertRejects({
-    given: 'an answer that is not the report contract',
-    should: 'refuse with INFRASTRUCTURE',
-    actual: () => operations.analyse(seat, new AbortController().signal),
+    given: 'received text outside the report contract',
+    should: 'retain paid service and schedule bounded retry',
+    actual: () =>
+      invalid.operations.analyse(seat, new AbortController().signal),
     code: 'INFRASTRUCTURE',
   });
   assert({
-    given: 'the refused answer',
-    should: 'still record its usage and store no report',
-    actual: calls.map((call) => (call as unknown[])[0]),
-    expected: ['claim', 'provider', 'usage'],
+    given: 'invalid received content',
+    should: 'record service without publishing a report',
+    actual: invalid.calls,
+    expected: [
+      'claim',
+      'dispatch',
+      'provider',
+      ['outcome', { kind: 'received', inputTokens: 120, outputTokens: 40 }],
+      'retry',
+    ],
   });
 });
-
-test('a seat another process holds is left alone', async () => {
-  const { calls, operations } = harness(JSON.stringify(report), {
-    claimed: null,
+test('authority lost while a claim is paused prevents provider I/O', async () => {
+  let allowed = true;
+  const claimed = Promise.withResolvers<void>();
+  const resume = Promise.withResolvers<void>();
+  const f = harness({
+    beforeClaim: () => {
+      claimed.resolve();
+      return resume.promise;
+    },
+    allowed: () => allowed,
   });
-  await operations.analyse(seat, new AbortController().signal);
+  const work = f.operations.analyse(seat, new AbortController().signal);
+  await claimed.promise;
+  allowed = false;
+  resume.resolve();
+  await work;
   assert({
-    given: 'a seat whose claim is refused',
-    should: 'make no provider call',
-    actual: calls,
-    expected: [['claim', 'seat', 'claim']],
+    given: 'claim data returned after an intervening erasure/lease replacement',
+    should: 'ask fresh dispatch authority and invoke no provider',
+    actual: f.calls,
+    expected: ['claim', 'dispatch'],
   });
 });
-
-test('a cancelled claim buys nothing', async () => {
-  const { calls, operations } = harness(JSON.stringify(report));
+test('cancellation before dispatch has no counted call, and a missing claim does no work', async () => {
   const abort = new AbortController();
-  abort.abort();
-  await assertRejects({
-    given: 'a claim whose worker is stopping',
-    should: 'refuse with CONFLICT',
-    actual: () => operations.analyse(seat, abort.signal),
-    code: 'CONFLICT',
+  const f = harness({
+    beforeClaim: async () => {
+      abort.abort();
+    },
   });
+  await assertRejects({
+    given: 'a worker cancelled after claim',
+    should: 'release through bounded retry without dispatch',
+    code: 'CONFLICT',
+    actual: () => f.operations.analyse(seat, abort.signal),
+  });
+  const missing = harness({ claimed: false });
+  await missing.operations.analyse(seat, new AbortController().signal);
   assert({
-    given: 'the cancelled claim',
-    should: 'claim nothing and make no provider call',
-    actual: calls,
-    expected: [],
+    given: 'cancelled and unclaimed work',
+    should: 'make no provider invocation',
+    actual: [f.calls, missing.calls],
+    expected: [['claim', 'retry'], ['claim']],
   });
 });
-
-test('a debater without the entitlement never costs a provider call', async () => {
-  for (const [given, options] of [
-    ['a beta grant with the premium switch off', { betaGrantsPremium: false }],
-    ['approved beta state with no round analysis grant', { grants: [] }],
-  ] as const) {
-    const { calls, operations } = harness(JSON.stringify(report), options);
-    await operations.analyse(seat, new AbortController().signal);
+test('only affirmative provider nonservice is observed as definite failure', async () => {
+  for (const status of [429, 500]) {
+    const f = harness({
+      provider: () =>
+        createOpenRouter({
+          apiKey: 'fixture',
+          fetch: async () => new Response('', { status }),
+        }),
+    });
+    await assertRejects({
+      given: `provider HTTP ${status}`,
+      should: 'record only proven nonservice and retain unknown otherwise',
+      code: 'INFRASTRUCTURE',
+      actual: () => f.operations.analyse(seat, new AbortController().signal),
+    });
     assert({
-      given,
-      should: 'skip the claim and make no paid call',
-      actual: calls,
-      expected: [['claim', 'seat', 'skip']],
+      given: `the ${status} provider outcome`,
+      should:
+        'retry within the same identity and never invent a received result',
+      actual: f.calls,
+      expected:
+        status === 429
+          ? [
+              'claim',
+              'dispatch',
+              ['outcome', { kind: 'definite_failure' }],
+              'retry',
+            ]
+          : ['claim', 'dispatch', 'retry'],
     });
   }
 });

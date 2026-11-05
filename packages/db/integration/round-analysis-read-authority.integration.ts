@@ -11,7 +11,10 @@ import { finishedOrBlockedBehind } from '../src/testing';
 import { runPrivacyErasure } from '../src/privacy/operations';
 import { roundAnalysisPrivacyAdopter } from '../src/round-analysis-privacy';
 import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
-import { claim, withCompletedRound } from './round-analysis.test-support';
+import {
+  deliverAnalysis,
+  withCompletedRound,
+} from './round-analysis.test-support';
 import { bindings } from './privacy.test-support';
 
 setupRitewayBun();
@@ -19,10 +22,9 @@ const { databaseUrl } = requireTestServices(process.env);
 
 test('stored report reads survive lapse and serialize with every frozen participant erasure', async () => {
   await withCompletedRound(
-    async ({ fixture, client, roundId, aff, neg, seats, jobs }) => {
-      const leased = await jobs.claim(seats.aff, claim);
-      if (!leased) throw Error('Expected seeded report lease');
-      await jobs.complete(seats.aff, leased.token, report);
+    async ({ fixture, client, roundId, aff, neg, seats, jobs, request }) => {
+      await request(seats.aff);
+      await deliverAnalysis(jobs, seats.aff, report);
       const store = createDatabase({
         url: databaseUrl,
         client: fixture.sql,
@@ -57,7 +59,7 @@ test('stored report reads survive lapse and serialize with every frozen particip
         given: 'a delivered own report after every grant is removed',
         should:
           'return the same report under current account and seat authority',
-        actual: (await read()).facts.analysis?.report,
+        actual: ((await read()).facts.analysis as { report: unknown }).report,
         expected: report,
       });
       await assertRejects({

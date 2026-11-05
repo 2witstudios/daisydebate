@@ -1,40 +1,25 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
-/**
- * Round analysis rows (DEC-247): each seat's report is personal and private
- * to that seat's debater, and quotes both sides' speech. Subject erasure
- * clears every analysis of a Round the subject sat in and leaves each human
- * debater seat failed with no report, so none is analysed again: a deleted
- * row would read as never analysed. Export returns the subject's own
- * seats' reports.
- */
+import { analysisPurgeProjection } from './round-analysis-purge';
+
+/** Private reports quote every frozen participant. Erasure removes content and all future dispatch authority. */
 export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
   id: 'round-analysis',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(sql`insert into round_analyses
-        (round_id,round_participant_id,freeze_revision,status,attempts,model,completed_at)
-      select distinct on (p.id) z.round_id,p.id,z.revision,'failed',1,'erased',clock_timestamp()
-      from round_transcript_freezes z
-      join round_participants p on p.round_id = z.round_id and p.role in ('affirmative','negative')
-      join actors a on a.id = p.actor_id and a.user_id is not null
-      where z.round_id in (select round_id from round_participants where actor_id=${subject.actorId})
-      order by p.id, z.revision desc
-      on conflict (round_participant_id) do update set status='failed',report=null,
-        lease_token_digest=null,lease_expires_at=null,
-        completed_at=coalesce(round_analyses.completed_at,clock_timestamp())`);
+    // Workers fence every participant first. This subject fence therefore excludes
+    // all new dispatch/publication while retaining truthful original accounting.
+    await tx.execute(sql`update round_analyses set work=${analysisPurgeProjection}
+      where work->>'kind'<>'purged' and round_id in
+      (select round_id from round_participants where actor_id=${subject.actorId})`);
   },
-  // The subject's own seats' reports: each was written for them alone.
   export: async (tx, subject) => {
-    const rows = (await tx.execute(sql`select f.round_id, f.report,
-        to_char(f.completed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as completed_at
-      from round_analyses f
-      join round_participants p on p.id = f.round_participant_id
-      where p.actor_id = ${subject.actorId} and f.status = 'succeeded'
-      order by f.completed_at, f.round_id`)) as unknown as Record<
-      string,
-      unknown
-    >[];
-    return { round_analyses: rows };
+    const rows =
+      await tx.execute(sql`select a.round_id,a.round_participant_id,a.freeze_revision,
+      case when a.work->>'kind'='purged' then jsonb_set(a.work,'{request,calls}', coalesce((select jsonb_agg(c - 'tokenDigest') from jsonb_array_elements(a.work->'request'->'calls') c),'[]'::jsonb),false) else jsonb_set(a.work - 'lease','{calls}', coalesce((select jsonb_agg(c - 'tokenDigest') from jsonb_array_elements(a.work->'calls') c),'[]'::jsonb),false) end as work,
+      to_char(a.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
+      from round_analyses a join round_participants p on p.id=a.round_participant_id
+      where p.actor_id=${subject.actorId} order by a.created_at,a.round_id`);
+    return { round_analyses: rows as unknown as Record<string, unknown>[] };
   },
 };

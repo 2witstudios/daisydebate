@@ -58,6 +58,7 @@ export function roundWorkerDatabaseOptions(
     ...(analysis
       ? {
           roundAnalysis: {
+            capacity: analysis.concurrency * 4,
             leaseMs: analysis.callTimeoutMs + analysis.leaseMs,
             model: analysis.model,
             nextToken,

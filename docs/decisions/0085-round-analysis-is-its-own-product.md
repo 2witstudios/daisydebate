@@ -77,7 +77,9 @@ structure does not match the product's concepts, it is refactored first.
    same way. `PREMIUM_BETA_GRANT` applies to every beta-sourced capability
    (false at launch). The shared allowance policy also admits the one lifetime
    free requested analysis. Capabilities are `round.analysis.read` and
-   `round.analysis.generate`; stored reads do not require a current entitlement.
+   `round.analysis.request`; both require current own-seat authority. Fresh
+   requests additionally pass the single allowance policy and atomic ledger
+   admission; stored reads do not require a current entitlement.
 7. **Free and premium.** Every seated debater keeps the ballot and the
    transcript. Delivered analysis stays readable to its authorized debater after
    payment lapse, subject to privacy and content retention. New work requires

@@ -1,8 +1,6 @@
 import type { RoundAnalysisPolicy } from '@daisy/config';
 import type { ErrorReporter } from '@daisy/observability';
-import { canUseRoundAnalysis } from '../features/round-analysis/authorization';
 import { createRoundAnalysisOperations } from '../features/round-analysis/operations';
-import { roundAnalysisBounds } from '../features/round-analysis/policy';
 import { startRoundAnalysisService } from '../features/round-analysis/service';
 import type { App } from './app';
 import { createProviderBudget } from './provider-budget';
@@ -24,27 +22,12 @@ export function startRoundAnalysisWorkers(input: {
   const failure = workerFailures(app, input.reporter);
   const budget = createProviderBudget(policy.concurrency);
   const operations = createRoundAnalysisOperations({
-    betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
     store: app.database,
     voice: app.aiVoice,
     withProvider: budget,
-    now: () => app.clock.now(),
   });
   return startRoundAnalysisService({
-    scan: (limit) =>
-      app.database.scanRoundAnalysisJobs(
-        limit,
-        new Date(
-          Date.parse(app.clock.now()) - roundAnalysisBounds.windowMs,
-        ).toISOString(),
-        (access) =>
-          canUseRoundAnalysis(
-            access,
-            app.config.PREMIUM_BETA_GRANT,
-            'round.analysis.generate',
-            app.clock.now(),
-          ),
-      ),
+    scan: (limit) => app.database.scanRoundAnalysisJobs(limit),
     analyse: (seat, signal) =>
       operations.analyse(
         seat,

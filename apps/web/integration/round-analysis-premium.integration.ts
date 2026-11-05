@@ -31,7 +31,7 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('round analysis discovery and claims use the seat account’s own entitlement grant, and never change the ballot read', async () => {
+test('only an explicit authorized request runs analysis, and delivered reports survive lapse without changing ballots', async () => {
   await withRoomRuntime(
     async (f) => {
       const room = await f.assemble();
@@ -52,20 +52,22 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       await seedSettledAttendanceLedger(f, roundId);
       await finalizeByMaintenance(f, roundId);
       const now = await f.store.databaseNow();
-      const since = new Date(Date.parse(now) - 60_000).toISOString();
-      const scan = (grant: boolean) =>
+      const scan = () =>
         f.store
-          .scanRoundAnalysisJobs(64, since, (access) =>
-            canUseRoundAnalysis(access, grant, 'round.analysis.generate', now),
-          )
+          .scanRoundAnalysisJobs(64)
           .then((seats) => seats.map((s) => s.roundParticipantId));
+      const request = (caller = f.host) =>
+        f.store.requestRoundAnalysis({
+          roundId,
+          caller,
+          authorize: (access) =>
+            canUseRoundAnalysis(access, 'round.analysis.request'),
+        });
       let calls = 0;
       const hostSeat = { roundId, roundParticipantId: seat.id };
-      const analyse = (grant: boolean) =>
+      const analyse = () =>
         createRoundAnalysisOperations({
           store: f.store,
-          betaGrantsPremium: grant,
-          now: () => new Date().toISOString(),
           withProvider: (_signal, work) => work(),
           voice: () => ({
             complete: async () => {
@@ -81,19 +83,32 @@ test('round analysis discovery and claims use the seat account’s own entitleme
           }),
         }).analyse(hostSeat, new AbortController().signal);
       assert({
-        given: 'a completed round and launch policy with no beta premium',
+        given: 'a completed Round without an explicit request',
         should: 'never enqueue its seat for an analysis',
-        actual: (await scan(false)).includes(seat.id),
+        actual: (await scan()).includes(seat.id),
         expected: false,
       });
-      await analyse(false);
+      await analyse();
       const [before] =
         await f.sql`select count(*)::int as rows from round_analyses where round_id=${roundId}`;
       assert({
-        given: 'a direct worker attempt without premium',
+        given: 'a direct worker attempt without a request',
         should: 'spend no lease, attempt or provider call',
         actual: [before!.rows, calls],
         expected: [0, 0],
+      });
+      await assertRejects({
+        given: 'a member who did not debate requesting private analysis',
+        should: 'refuse without creating work',
+        actual: () => request(f.outsider),
+        code: 'NOT_FOUND',
+      });
+      const admitted = await request();
+      assert({
+        given: 'the authenticated debater requesting analysis twice',
+        should: 'reuse exactly one admitted identity',
+        actual: await request(),
+        expected: admitted,
       });
       const discovery = {
         work: null as Promise<string[]> | null,
@@ -102,7 +117,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       await f.sql.begin(async (holder) => {
         await holder`select id from users where id=${f.host.userId} for update`;
         const [backend] = await holder`select pg_backend_pid() as pid`;
-        discovery.work = scan(true);
+        discovery.work = scan();
         discovery.ordering = await finishedOrBlockedBehind(
           discovery.work,
           f.sql,
@@ -112,30 +127,14 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       });
       await discovery.work;
       assert({
-        given: 'another writer holds a debater account fence',
+        given: 'another writer holding a debater account fence',
         should:
-          'finish advisory discovery without taking cross-round account locks',
-        actual: discovery.ordering,
-        expected: 'finished',
+          'scan only already-admitted work without acquiring cross-round account locks',
+        actual: [discovery.ordering, (await scan()).includes(seat.id)],
+        expected: ['finished', true],
       });
-      assert({
-        given:
-          'a debater holding a beta round analysis grant, with the beta grant counting',
-        should: 'discover their seat',
-        actual: (await scan(true)).includes(seat.id),
-        expected: true,
-      });
-      await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId} and entitlement='round_analysis'`;
-      await analyse(true);
-      assert({
-        given:
-          'the round analysis grant removed after discovery but before the claim, beta state still approved',
-        should: 'reevaluate the seat’s own grant facts and buy no call',
-        actual: calls,
-        expected: 0,
-      });
-      await f.sql`insert into account_entitlement_grants(user_id,entitlement,source) values (${f.host.userId},'round_analysis','beta')`;
-      await analyse(true);
+      await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;
+      await analyse();
       const ballotRead = () =>
         f.store.readRoundBallot({
           readOpening: readRoundOpening,
@@ -151,7 +150,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       const withoutPremium = JSON.stringify(await ballotRead());
       const authorizeRead = (
         access: Parameters<typeof canUseRoundAnalysis>[0],
-      ) => canUseRoundAnalysis(access, false, 'round.analysis.read', now);
+      ) => canUseRoundAnalysis(access, 'round.analysis.read');
       await assertRejects({
         given: 'a member who did not debate the Round reading its analysis',
         should: 'refuse with NOT_FOUND: only a seated debater has one',
@@ -175,7 +174,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
         actual: [
           roundAnalysisView({
             facts: own.facts,
-            entitled: false,
+            allowance: own.allowance,
             enabled: false,
             now,
           }),
@@ -203,7 +202,10 @@ test('round analysis discovery and claims use the seat account’s own entitleme
           'make one paid call, store the report for the debater’s own seat, and leave the ballot read identical',
         actual: {
           calls,
-          report: own.facts.analysis?.report?.summary,
+          report:
+            own.facts.analysis?.kind === 'succeeded'
+              ? own.facts.analysis.report.summary
+              : null,
           identical: withPremium === withoutPremium,
           analysisInBallotRead: Object.keys(JSON.parse(withPremium)).filter(
             (key) => /analysis|coaching/i.test(key),
@@ -219,6 +221,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
     },
     {
       roundAnalysis: {
+        capacity: 8,
         leaseMs: 30000,
         model: 'fixture',
         nextToken: () => randomBytes(32).toString('base64url'),
