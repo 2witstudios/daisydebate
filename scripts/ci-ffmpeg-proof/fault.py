@@ -18,6 +18,8 @@ def stall():
     while True:
         time.sleep(1)
 
+if scenario in ('cold', 'slow-first', 'slow-progress', 'signature'):
+    os.execv('/usr/bin/' + name, [name] + args)
 if name in ('ffmpeg', 'ffprobe'):
     if scenario == name + '-fail':
         sys.exit(19)
@@ -35,7 +37,7 @@ if scenario in ('leader-group', 'negative-leader-only'):
 if scenario == 'apt-error':
     sys.exit(23)
 if '--no-download' in args:
-    if scenario in ('install-stall', 'cleanup-unproven', 'cancel-term', 'cancel-int'):
+    if scenario in ('install-stall', 'cleanup-unproven', 'cancel-term', 'cancel-int', 'cancel-during-grace'):
         stall()
     if scenario == 'missing-archive':
         for deb in Path('/var/cache/apt/archives').glob('*.deb'):

@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 import urllib.request
+from oracles import real_process_evidence, cancellation_evidence, expect_oracle_failure
 
 assert os.geteuid() == 0 and Path('/disposable-ffmpeg-proof').exists()
 scenario = sys.argv[1]
@@ -35,8 +36,7 @@ assert subprocess.run(['dpkg-query', '-W', 'ffmpeg'], stdout=subprocess.DEVNULL,
 
 env = os.environ.copy()
 real = scenario in ('cold', 'slow-first', 'slow-progress', 'signature')
-if not real:
-    env['PATH'] = '/control/bin:' + env['PATH']
+env['PATH'] = '/control/bin:' + env['PATH']
 if scenario == 'launch-error':
     env['PATH'] = '/control/bin:/usr/local/bin'
 
@@ -44,7 +44,7 @@ if scenario == 'launch-error':
 # response. It cannot escape the aggregate deadline through per-request progress.
 if scenario in ('slow-first', 'slow-progress'):
     sources = Path('/etc/apt/sources.list.d/ubuntu.sources')
-    sources.write_text(sources.read_text().replace('archive.ubuntu.com', 'azure.archive.ubuntu.com').replace('security.ubuntu.com', 'azure.archive.ubuntu.com'))
+    sources.write_text(sources.read_text().replace('archive.ubuntu.com', 'azure.archive.ubuntu.com').replace('security.ubuntu.com', 'azure.archive.ubuntu.com').replace('ports.ubuntu.com', 'azure.archive.ubuntu.com'))
     class Proxy(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             with open('/control/proxy.jsonl', 'a') as out:
@@ -63,11 +63,17 @@ if scenario in ('slow-first', 'slow-progress'):
             else:
                 try:
                     # apt's actual signed archive data is forwarded unchanged.
-                    with urllib.request.urlopen(self.path.replace('http:', 'https:'), timeout=20) as response:
+                    backend = self.path.replace('http:', 'https:')
+                    if '/ubuntu-ports/' in backend:
+                        backend = backend.replace('archive.ubuntu.com', 'ports.ubuntu.com')
+                    with urllib.request.urlopen(backend, timeout=20) as response:
+                        data = response.read()
+                        with open('/control/forwarded.jsonl', 'a') as out:
+                            out.write(json.dumps(dict(url=self.path, backend=backend, size=len(data), sha256=hashlib.sha256(data).hexdigest(), prefix=data[:40].hex())) + '\n')
                         self.send_response(response.status)
+                        self.send_header('Content-Length', str(len(data)))
                         self.end_headers()
-                        while data := response.read(65536):
-                            self.wfile.write(data)
+                        self.wfile.write(data)
                 except Exception:
                     self.send_error(502)
         def log_message(self, *_):
@@ -100,16 +106,19 @@ if aged:
     launch += "started=$(awk -v s=\"$started\" 'BEGIN {printf \"%.2f\", s-227}'); "
 launch += 'printf "%s\\n" "$started" > /control/launch-stamp; '
 preload = '--preload /control/preload.ts ' if scenario in ('cleanup-unproven', 'negative-leader-only') else ''
-command = launch + f'sudo -n --preserve-env=PATH /usr/local/bin/bun {preload}{entry} "$started" && touch /control/integration-started && touch /control/receipt-success'
+command = launch + f'/usr/bin/sudo -n --preserve-env=PATH /usr/local/bin/bun {preload}{entry} "$started" && touch /control/integration-started && touch /control/receipt-success'
 start = time.monotonic()
 log = open('/control/candidate.log', 'w')
 # Trace session/group changes, identities and executable hooks, without reading
 # credentials or package content. Observer itself stays outside candidate group.
-process = subprocess.Popen(['strace', '-f', '-o', '/control/process.trace', '-e', 'trace=process,setuid,setresuid,setreuid,setgid,setresgid,setsid,setpgid', 'sh', '-ec', command], env=env, stdout=log, stderr=subprocess.STDOUT)
+process = subprocess.Popen(['/usr/bin/strace', '-f', '-ttt', '-o', '/control/process.trace', '-e', 'trace=process,setuid,setresuid,setreuid,setgid,setresgid,setsid,setpgid', '/bin/sh', '-ec', command], env=env, stdout=log, stderr=subprocess.STDOUT)
 supervisor_pid = None
 supervisor_exit_elapsed = None
 snapshots = open('/control/processes.jsonl', 'w')
 sent = False
+signal_at = None
+signal_pid = None
+signal_identity = None
 while process.poll() is None and time.monotonic() - start < 245:
     table = subprocess.check_output(['ps', '-eo', 'pid,ppid,pgid,sid,uid,stat,comm'], text=True)
     snapshots.write(json.dumps(dict(elapsed=time.monotonic()-start, table=table)) + '\n')
@@ -118,32 +127,46 @@ while process.poll() is None and time.monotonic() - start < 245:
         fields = line.split()
         if fields[-1] == 'bun':
             supervisor_pid = int(fields[0])
-    if scenario in ('cleanup-unproven', 'negative-leader-only') and supervisor_pid and not Path(f'/proc/{supervisor_pid}').exists():
+    if scenario in ('cleanup-unproven', 'negative-leader-only', 'cancel-term', 'cancel-int', 'cancel-during-grace') and supervisor_pid and not Path(f'/proc/{supervisor_pid}').exists():
         supervisor_exit_elapsed = time.monotonic() - start
         break
-    if scenario in ('cancel-term', 'cancel-int') and not sent:
+    if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace') and not sent:
         for line in table.splitlines()[1:]:
             fields = line.split()
             if fields[-1] == 'bun':
                 # Wait until the real fault child exists before cancellation.
                 if Path('/control/invocations.jsonl').exists() and '--no-download' in Path('/control/invocations.jsonl').read_text():
-                    os.kill(int(fields[0]), signal.SIGTERM if scenario == 'cancel-term' else signal.SIGINT)
+                    signal_pid = int(fields[0])
+                    signal_identity = Path(f'/proc/{signal_pid}/stat').read_text()
+                    signal_at = time.monotonic() - start
+                    os.kill(signal_pid, signal.SIGINT if scenario == 'cancel-int' else signal.SIGTERM)
                     sent = True
+                    if scenario == 'cancel-during-grace':
+                        time.sleep(0.1)
+                        os.kill(signal_pid, signal.SIGINT)
     time.sleep(0.1)
 # strace remains alive if an unkillable-by-candidate child still exists; observe
 # Bun's own exit via trace before observer cleanup and retain that distinction.
 elapsed = time.monotonic() - start
+if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace') and supervisor_exit_elapsed is None and process.poll() is not None:
+    supervisor_exit_elapsed = elapsed
 trace = Path('/control/process.trace').read_text()
+if supervisor_pid is None:
+    match = re.search(r'^\s*(\d+)\s+(?:\d+\.\d+\s+)?execve\("/usr/local/bin/bun"', trace, re.M)
+    assert match, 'actual Bun candidate never executed'
+    supervisor_pid = int(match[1])
+if scenario == 'launch-error':
+    assert re.search(rf'^\s*{supervisor_pid}\s+(?:\d+\.\d+\s+)?exit_group\(1\)', trace, re.M), 'launch error did not exercise candidate failure exit'
 if scenario in ('cleanup-unproven', 'negative-leader-only'):
     assert supervisor_exit_elapsed is not None and supervisor_exit_elapsed < 12, 'supervisor did not exit within original spent-startup budget'
     assert 'process group cleanup unproven' in Path('/control/candidate.log').read_text()
-    bound_exit = [line for line in trace.splitlines() if re.match(rf'^\s*{supervisor_pid}\s+exit_group\(1\)', line)]
+    bound_exit = [line for line in trace.splitlines() if re.match(rf'^\s*{supervisor_pid}\s+(?:\d+\.\d+\s+)?exit_group\(1\)', line)]
     assert bound_exit, 'retain failure exit bound to observed Bun PID'
     Path('/control/supervisor-exit.trace').write_text('\n'.join(bound_exit))
     assert not Path('/control/integration-started').exists()
     assert not Path('/control/receipt-success').exists()
 if process.poll() is None:
-    print('OBSERVER: candidate/tracer still alive at guard', flush=True)
+    print('OBSERVER: tracer still follows child; candidate exit is assessed separately', flush=True)
 log.close()
 content = Path('/control/candidate.log').read_text()
 print(content, flush=True)
@@ -154,7 +177,7 @@ expected_success = scenario in ('cold', 'slow-first')
 stamp = float(Path('/control/launch-stamp').read_text().strip())
 original_elapsed = float(Path('/proc/uptime').read_text().split()[0]) - stamp
 assert original_elapsed <= 240, dict(original_elapsed=original_elapsed, elapsed=elapsed, aged=aged)
-result = dict(**identity, launch_stamp=stamp, original_launch_elapsed=original_elapsed, candidate_exit_code=1 if scenario in ('cleanup-unproven', 'negative-leader-only') else process.poll(), supervisor_pid=supervisor_pid, elapsed_seconds=elapsed, returncode=process.poll(), markers=markers, installs=len(installs), cancellation_sent=sent, supervisor_exit_elapsed=supervisor_exit_elapsed, simulated_startup_seconds=227 if aged else 0)
+result = dict(**identity, launch_stamp=stamp, original_launch_elapsed=original_elapsed, candidate_exit_code=1 if scenario in ('cleanup-unproven', 'negative-leader-only') else process.poll(), supervisor_pid=supervisor_pid, elapsed_seconds=elapsed, returncode=process.poll(), markers=markers, installs=len(installs), cancellation_sent=sent, signal_sent_at=signal_at, signal_pid=signal_pid, signal_identity=signal_identity, supervisor_exit_elapsed=supervisor_exit_elapsed, simulated_startup_seconds=227 if aged else 0)
 Path('/control/result.json').write_text(json.dumps(result, indent=2))
 print(json.dumps(result), flush=True)
 if scenario not in ('cleanup-unproven', 'negative-leader-only'):
@@ -165,6 +188,22 @@ if scenario not in ('cleanup-unproven', 'negative-leader-only'):
     if not expected_success:
         assert 'PASS: ffmpeg and ffprobe ready' not in content
     assert len(installs) <= 1
+controls = []
+if real:
+    observations = [json.loads(line) for line in Path('/control/processes.jsonl').read_text().splitlines()]
+    facts = real_process_evidence(scenario, invocations, trace, observations)
+    Path('/control/real-process-facts.json').write_text(json.dumps(facts, indent=2))
+    controls.append(expect_oracle_failure('missing real observations', lambda: real_process_evidence(scenario, [], '', [])))
+    controls.append(expect_oracle_failure('undecodable real trace', lambda: real_process_evidence(scenario, invocations, 'syscall_0xBAD', observations)))
+if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace'):
+    signal_name = 'SIGINT' if scenario == 'cancel-int' else 'SIGTERM'
+    cancellation_evidence(sent, signal_pid, supervisor_pid, signal_at, supervisor_exit_elapsed, len(installs), trace, signal_name)
+    if scenario == 'cancel-during-grace':
+        assert re.search(rf'^\s*{supervisor_pid}\s+(?:\d+\.\d+\s+)?--- SIGINT\b', trace, re.M), 'second signal did not reach cleanup grace'
+    assert elapsed < 20, 'ordinary original deadline expiry cannot qualify cancellation'
+    controls.append(expect_oracle_failure('missing signal', lambda: cancellation_evidence(False, None, supervisor_pid, None, supervisor_exit_elapsed, len(installs), trace, signal_name)))
+    controls.append(expect_oracle_failure('deadline-only shutdown', lambda: cancellation_evidence(True, supervisor_pid, supervisor_pid, 1, 230, 1, trace, signal_name)))
+Path('/control/oracle-negative-controls.json').write_text(json.dumps(controls, indent=2))
 # Record live group members before the observer is permitted to clean anything.
 live = []
 for call in invocations:

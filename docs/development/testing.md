@@ -685,8 +685,11 @@ Run the disposable qualification through the normal machine-wide heavy queue:
 bun scripts/heavy.ts sh scripts/ci-ffmpeg-proof/qualify.sh
 ```
 
-It builds an Ubuntu24.04/amd64 observer image with Bun1.4.2, then runs a fresh
+It builds an native Ubuntu24.04/arm64 observer image with Bun1.4.2, then runs a fresh
 container per scenario with only this source and an evidence directory mounted.
+Real CI independently runs Ubuntu24.04/amd64. The slow-acquisition proxy maps
+synthetic Azure/primary archive aliases to the signed Ubuntu ports backend on
+arm64; this tests recovery mechanics without asserting a mirror cause.
 Python, strace and procps belong only to the disposable fault/observer fixture;
 the production helper runs Bun. The image preparation installs observation
 tools, then removes apt indexes/archives; ffmpeg is absent at candidate start.
