@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "keys": [
+    {
+      "key": "premium-checkout",
+      "kind": "release",
+      "owner": "@2witstudios/billing",
+      "taskCode": "FLAGS-15"
+    }
+  ]
+}
