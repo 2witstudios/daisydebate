@@ -1,15 +1,12 @@
-import type { UsageState } from '@daisy/protocol/billing';
+import type {
+  UsageState,
+  UsageContext as Context,
+  UsageEvent as Event,
+  UsageReservation as Reservation,
+  UsageTransition as Decision,
+  PlatformUsageCredit,
+} from '@daisy/protocol/billing';
 
-type Event =
-  | { readonly kind: 'dispatch' | 'expire' | 'abandon' }
-  | {
-      readonly kind: 'settle';
-      /** Aggregate of all calls for this job: no pending/unknown call permits definite_failure. */
-      readonly outcome: 'delivered' | 'unknown' | 'definite_failure';
-    };
-type Decision =
-  | { readonly kind: 'changed' | 'unchanged'; readonly state: UsageState }
-  | { readonly kind: 'refuse' };
 const refused = { kind: 'refuse' } as const;
 const unchanged = (state: UsageState): Decision => ({
   kind: 'unchanged',
@@ -17,12 +14,6 @@ const unchanged = (state: UsageState): Decision => ({
 });
 const changed = (state: UsageState): Decision => ({ kind: 'changed', state });
 
-type Reservation = {
-  readonly state: UsageState;
-  readonly admittedAt: string;
-  readonly dispatchBefore: string;
-};
-type Context = { readonly now: string; readonly authorized: boolean };
 type Outcome = Extract<Event, { kind: 'settle' }>['outcome'];
 
 function settleInFlight(
@@ -45,6 +36,8 @@ function settle(state: UsageState, outcome: Outcome, now: string): Decision {
     case 'reserved':
     case 'released':
       return refused;
+    case 'credited':
+      return settleCredited(state, outcome);
     case 'refunded':
       return outcome === 'definite_failure' ? unchanged(state) : refused;
     case 'delivered':
@@ -54,14 +47,74 @@ function settle(state: UsageState, outcome: Outcome, now: string): Decision {
       return settleInFlight(state, outcome, now);
   }
 }
+function settleCredited(
+  state: Extract<UsageState, { kind: 'credited' }>,
+  outcome: Outcome,
+): Decision {
+  if (state.providerOutcome === outcome) return unchanged(state);
+  if (
+    state.providerOutcome === 'delivered' ||
+    state.providerOutcome === 'definite_failure'
+  )
+    return refused;
+  return changed({ ...state, providerOutcome: outcome });
+}
+
+/** Accounting relief is separate from whether a provider served or charged. */
+function platformCredit(
+  reservation: Reservation,
+  provenance: PlatformUsageCredit,
+  now: string,
+): Decision {
+  const { state } = reservation;
+  if (reservation.kind !== 'ai_round' || !('countedAt' in state))
+    return refused;
+  if (state.kind === 'refunded' || state.kind === 'credited')
+    return unchanged(state);
+  return changed({
+    kind: 'credited',
+    countedAt: state.countedAt,
+    creditedAt: now,
+    provenance,
+    providerOutcome: state.kind,
+  });
+}
+
+function terminalAt(state: UsageState): string | null {
+  switch (state.kind) {
+    case 'released':
+      return state.releasedAt;
+    case 'refunded':
+      return state.refundedAt;
+    case 'credited':
+      return state.creditedAt;
+    default:
+      return null;
+  }
+}
+function validHistory(
+  state: UsageState,
+  start: number,
+  end: number,
+  now: number,
+): boolean {
+  const counted = 'countedAt' in state ? Date.parse(state.countedAt) : start;
+  if (!(start <= counted && counted < end && counted <= now)) return false;
+  const terminal = terminalAt(state);
+  return (
+    terminal === null ||
+    (counted <= Date.parse(terminal) && Date.parse(terminal) <= now)
+  );
+}
 function validTime(reservation: Reservation, now: number): boolean {
   const start = Date.parse(reservation.admittedAt);
   const end = Date.parse(reservation.dispatchBefore);
-  if (![now, start, end].every(Number.isFinite) || start >= end || now < start)
-    return false;
-  if (!('countedAt' in reservation.state)) return true;
-  const counted = Date.parse(reservation.state.countedAt);
-  return start <= counted && counted < end && counted <= now;
+  return (
+    [now, start, end].every(Number.isFinite) &&
+    start < end &&
+    now >= start &&
+    validHistory(reservation.state, start, end, now)
+  );
 }
 function dispatch(reservation: Reservation, context: Context): Decision {
   const { state } = reservation;
@@ -77,6 +130,7 @@ function dispatch(reservation: Reservation, context: Context): Decision {
     case 'unknown':
     case 'delivered':
       return unchanged(state);
+    case 'credited':
     case 'refunded':
     case 'released':
       return refused;
@@ -113,5 +167,7 @@ export function advanceUsage(
       return abandon(state, context.now);
     case 'settle':
       return settle(state, event.outcome, context.now);
+    case 'platform_credit':
+      return platformCredit(reservation, event.provenance, context.now);
   }
 }

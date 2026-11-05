@@ -101,6 +101,18 @@ export type AllowanceDecision =
       }[];
     };
 
+/** Only the existing trusted Round termination paths may supply this provenance. */
+export type PlatformUsageCredit =
+  | { readonly kind: 'recovery_bound'; readonly incidentId: string }
+  | {
+      readonly kind: 'capture_shortfall';
+      readonly commandId: string;
+      readonly freezeRevision: number;
+    };
+
+export type UsageProviderOutcome =
+  'dispatched' | 'unknown' | 'delivered' | 'definite_failure';
+
 /** Provider jobs retain their independent outcomes; this is only allowance accounting. */
 export type UsageState =
   | { readonly kind: 'reserved' }
@@ -113,4 +125,38 @@ export type UsageState =
       readonly countedAt: string;
       readonly refundedAt: string;
     }
+  | {
+      readonly kind: 'credited';
+      readonly countedAt: string;
+      readonly creditedAt: string;
+      readonly provenance: PlatformUsageCredit;
+      /** A platform allowance credit never rewrites provider evidence. */
+      readonly providerOutcome: UsageProviderOutcome;
+    }
   | { readonly kind: 'released'; readonly releasedAt: string };
+
+export type UsageEvent =
+  | { readonly kind: 'dispatch' | 'expire' | 'abandon' }
+  | {
+      readonly kind: 'platform_credit';
+      readonly provenance: PlatformUsageCredit;
+    }
+  | {
+      readonly kind: 'settle';
+      /** Aggregate of every call: no pending/unknown call permits definite_failure. */
+      readonly outcome: Exclude<UsageProviderOutcome, 'dispatched'>;
+    };
+export type UsageTransition =
+  | { readonly kind: 'changed' | 'unchanged'; readonly state: UsageState }
+  | { readonly kind: 'refuse' };
+export type UsageReservation = {
+  readonly kind: UsageKind;
+  readonly state: UsageState;
+  readonly admittedAt: string;
+  /** The feature's current dispatch bound, independent of payment period expiry. */
+  readonly dispatchBefore: string;
+};
+export type UsageContext = {
+  readonly now: string;
+  readonly authorized: boolean;
+};

@@ -14,7 +14,7 @@ const run = (
   now = countedAt,
   authorized = true,
 ) =>
-  advanceUsage({ state, admittedAt, dispatchBefore }, event, {
+  advanceUsage({ kind: 'ai_round', state, admittedAt, dispatchBefore }, event, {
     now,
     authorized,
   });
