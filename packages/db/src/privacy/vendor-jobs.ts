@@ -89,15 +89,17 @@ export async function deliverPrivacyJob(
     await port.erase(row.subjectRef);
   } catch {
     // Vendor failures are deliberately absent from durable fields/telemetry.
-    await database.execute(sql`update privacy_jobs set attempts = attempts + 1,
+    const retried =
+      await database.execute(sql`update privacy_jobs set attempts = attempts + 1,
       retry_at = ${input.retryAt}::timestamptz
-      where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'`);
-    return 'retry';
+      where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending' returning id`);
+    return retried.length === 1 ? 'retry' : 'idle';
   }
-  await database.execute(sql`update privacy_jobs set status = 'succeeded', attempts = attempts + 1,
+  const completed =
+    await database.execute(sql`update privacy_jobs set status = 'succeeded', attempts = attempts + 1,
     succeeded_at = ${input.now}::timestamptz
-    where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'`);
-  return 'succeeded';
+    where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending' returning id`);
+  return completed.length === 1 ? 'succeeded' : 'idle';
 }
 
 function checkJobInput(input: {

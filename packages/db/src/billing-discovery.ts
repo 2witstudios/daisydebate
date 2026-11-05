@@ -1,31 +1,14 @@
+import { checkBillingPage, type BillingPage } from './billing-pagination';
 import { and, asc, eq, gt, isNull } from 'drizzle-orm';
-import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
 import { billingCustomers } from './schema/billing-customers';
 import { billingWebhookEvents } from './schema/billing-webhook-events';
 
-type Page = {
-  readonly mode: 'test' | 'live';
-  readonly afterId?: string;
-  readonly limit: number;
-};
-function checkPage(input: Page) {
-  if (
-    !['test', 'live'].includes(input.mode) ||
-    !Number.isSafeInteger(input.limit) ||
-    input.limit < 1 ||
-    input.limit > 100 ||
-    (input.afterId !== undefined && !idSchema.safeParse(input.afterId).success)
-  )
-    throw createAppError('VALIDATION');
-}
-
 /** Page over durable identities, not only recently received events; claims recheck all authority/time. */
 export function createBillingDiscovery(run: BoundedTransaction) {
   return {
-    customers(input: Page) {
-      checkPage(input);
+    customers(input: BillingPage) {
+      checkBillingPage(input);
       return run(async (tx) => {
         const rows = await tx
           .select({ customerId: billingCustomers.id })
@@ -48,8 +31,8 @@ export function createBillingDiscovery(run: BoundedTransaction) {
         };
       });
     },
-    receipts(input: Page) {
-      checkPage(input);
+    receipts(input: BillingPage) {
+      checkBillingPage(input);
       return run(async (tx) => {
         const rows = await tx
           .select({

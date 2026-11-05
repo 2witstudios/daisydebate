@@ -137,6 +137,12 @@ function unknown(
 const searchProgresses = (before: string | null, after: string | null) =>
   after === null || after !== before;
 
+const sameOpenSession = (state: PurchaseState, observed: PurchaseObservation) =>
+  state.kind === 'open' &&
+  observed.kind === 'open' &&
+  state.sessionId === observed.id &&
+  state.customerId === observed.customerId;
+
 /** An empty bounded search page advances recovery, never proves non-execution. */
 function searched(
   purchase: Purchase,
@@ -170,6 +176,7 @@ function observe(
   if ('sessionId' in state && state.sessionId !== observed.id) return refuse;
   if (state.kind === 'complete' || state.kind === 'expired')
     return terminalObservation(state, observed);
+  if (sameOpenSession(state, observed)) return unchanged;
   if (
     'customerId' in state &&
     state.customerId !== null &&

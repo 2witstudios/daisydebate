@@ -7,6 +7,7 @@ import { lockBillingCustomer } from './billing-authority';
 import { readDatabaseTime } from './database-clock';
 import { billingCustomers } from './schema/billing-customers';
 import { billingWebhookEvents } from './schema/billing-webhook-events';
+import { enqueuePrivacyJob } from './privacy/enqueue-job';
 
 const receiptSchema = z.strictObject({
   eventId: z
@@ -21,6 +22,34 @@ const receiptSchema = z.strictObject({
 });
 export type BillingReceipt = z.infer<typeof receiptSchema>;
 type Tx = Parameters<Parameters<BoundedTransaction>[0]>[0];
+
+async function notifyCustomer(
+  tx: Tx,
+  locked: NonNullable<Awaited<ReturnType<typeof lockBillingCustomer>>>,
+  nextId: () => string,
+  now: Date,
+) {
+  if (locked.account.erased || locked.customer.closedAt) {
+    await enqueuePrivacyJob(tx, {
+      id: nextId(),
+      subjectRef: locked.customer.userId,
+      vendor: 'stripe',
+      createdAt: now.toISOString(),
+    });
+    return 'closed' as const;
+  }
+  const transition = advanceBillingSync(
+    locked.customer.synchronization,
+    { kind: 'notify', newReceipt: true },
+    now.toISOString(),
+  );
+  if (transition.kind !== 'changed') throw createAppError('CONFLICT');
+  await tx
+    .update(billingCustomers)
+    .set({ synchronization: transition.state })
+    .where(eq(billingCustomers.id, locked.customer.id));
+  return 'recorded' as const;
+}
 
 async function writeReceipt(
   tx: Tx,
@@ -72,8 +101,6 @@ export function createBillingInbox(input: {
           ),
         );
       const locked = target ? await lockBillingCustomer(tx, target.id) : null;
-      if (locked && (locked.account.erased || locked.customer.closedAt))
-        return 'closed' as const;
       const row = await writeReceipt(tx, receipt, input.nextId);
       if (row.notifiedAt) return 'duplicate' as const;
       // Unknown customers remain pending; purchase completion or the bounded inbox sweep links them.
@@ -84,21 +111,12 @@ export function createBillingInbox(input: {
       )
         throw createAppError('CONFLICT');
       const now = await readDatabaseTime(tx);
-      const transition = advanceBillingSync(
-        locked.customer.synchronization,
-        { kind: 'notify', newReceipt: true },
-        now.toISOString(),
-      );
-      if (transition.kind !== 'changed') throw createAppError('CONFLICT');
-      await tx
-        .update(billingCustomers)
-        .set({ synchronization: transition.state })
-        .where(eq(billingCustomers.id, locked.customer.id));
+      const outcome = await notifyCustomer(tx, locked, input.nextId, now);
       await tx
         .update(billingWebhookEvents)
         .set({ notifiedAt: now })
         .where(eq(billingWebhookEvents.id, row.id));
-      return 'recorded' as const;
+      return outcome;
     });
   };
 }

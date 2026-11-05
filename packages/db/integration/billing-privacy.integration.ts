@@ -67,10 +67,23 @@ test('full subject rights export isolates billing and closure prevents stale pay
           rooms,
           bindings,
         );
-        const late = await inbox({
+        const lateReceipt = {
           eventId: `evt_${createId()}`,
           customerId: vendorCustomerId,
-          mode: 'test',
+          mode: 'test' as const,
+        };
+        const late = await inbox(lateReceipt);
+        const [cleanup] =
+          await fixture.sql`select id,status from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
+        const duplicate = await inbox(lateReceipt);
+        const [replayedCleanup] =
+          await fixture.sql`select id,status from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
+        assert({
+          given: 'a verified late customer event and identical replay',
+          should:
+            'retain a new cleanup obligation without rotating it on replay',
+          actual: [cleanup?.status, duplicate, replayedCleanup],
+          expected: ['pending', 'duplicate', cleanup],
         });
         const [customer] =
           await fixture.sql`select closed_at is not null as closed,synchronization->>'kind' as kind from billing_customers where id=${customerId}`;
@@ -80,7 +93,7 @@ test('full subject rights export isolates billing and closure prevents stale pay
           given:
             'repeat closure, a late verified receipt and a paid response from before erasure',
           should:
-            'retain only closed vendor-cleanup mapping and never recreate access or erased billing detail',
+            'retain closed vendor-cleanup mapping and a minimal new receipt without recreating access',
           actual: [
             first.alreadyErased,
             second.alreadyErased,
@@ -97,7 +110,7 @@ test('full subject rights export isolates billing and closure prevents stale pay
             'stale',
             null,
             { closed: true, kind: 'settled' },
-            { subscriptions: 0, receipts: 0, grants: 0 },
+            { subscriptions: 0, receipts: 1, grants: 0 },
           ],
         });
         assert({

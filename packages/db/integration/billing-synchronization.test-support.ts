@@ -81,6 +81,7 @@ export function withBillingSynchronization(
       });
     } finally {
       await pool.close({ timeout: 0 });
+      await fixture.sql`delete from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
       await fixture.sql`delete from billing_webhook_events where vendor_customer_id=${vendorCustomerId}`;
       await fixture.sql`delete from account_entitlement_grants where user_id=${userId}`;
       await fixture.sql`delete from billing_subscriptions where user_id=${userId}`;

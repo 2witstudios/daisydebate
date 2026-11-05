@@ -13,6 +13,26 @@ import {
   started,
 } from './billing-purchase.test-support';
 setupRitewayBun();
+test('an identical open Session observation is not a new cleanup obligation', () => {
+  const event = {
+    kind: 'observe' as const,
+    session: {
+      kind: 'open' as const,
+      id: 'cs_test_original',
+      customerId: null,
+    },
+  };
+  const open = changed(started(), event, 2);
+  assert({
+    given: 'the same verified open Session after account closure',
+    should: 'leave durable facts unchanged',
+    actual: advancePurchase(open, event, {
+      ...context(3),
+      authority: 'closed',
+    }),
+    expected: { kind: 'unchanged' },
+  });
+});
 test('one admitted purchase has bounded creation authority and a durable possible-effect marker', () => {
   const purchase = started();
   assert({

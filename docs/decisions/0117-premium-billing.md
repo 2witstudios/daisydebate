@@ -304,8 +304,25 @@ continue to block replacement. Current member management survives participant
 withdrawal, but a new creation claim still requires participant admission.
 Local closure removes only undispatched/positively expired purchase records and
 retains possible vendor effects as cleanup obligations. Export omits internal
-claim IDs and scan cursors. Service cleanup and native routes remain separate
-required implementation work; these adapters do not activate purchases.
+claim IDs and scan cursors. Current-service discovery and fact application
+recheck service authority after account waits; a worker never obtains a new
+creation claim from discovery. Changed closed-account Session facts and a new
+Stripe privacy-job ID commit together, retaining only a closed mapping and no
+subscription/grant. Identical observations and discovery cursor progress do not
+rotate the job. Newly received, verified events for a closed mapped customer
+also enqueue cleanup; their minimal receipt identity deduplicates replays.
+The privacy completion fence reports idle when late facts replaced its job.
+Vendor cancellation/refund/deletion and native routes remain required
+implementation work; these adapters do not activate purchases.
+
+DEC365's pending-owner refund default distinguishes verified in-flight or
+post-closure payment from positively settled pre-closure payment. Ambiguous
+chronology stays owed with private escalation. Webhook arrival and Session
+creation are not payment chronology. A refund's durable action/idempotency
+identity belongs to its original owned charge and period, independent of
+rotating cleanup-job IDs. Unknown replies never authorize a fresh refund key;
+pending refunds and unknown purchases prevent cleanup completion and deletion
+of needed evidence.
 
 Flags core reaches main before Billing rebases and regenerates migrations.
 Billing owns real FLAGS-8/15 route, mutation, recovery and native-form evidence;

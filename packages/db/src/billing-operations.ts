@@ -3,6 +3,7 @@ import { currentWebTransaction } from './web-service-authority';
 import { createBillingInbox } from './billing-inbox';
 import { createBillingDiscovery } from './billing-discovery';
 import { createBillingSynchronization } from './billing-synchronization';
+import { createBillingPurchaseRecovery } from './billing-purchase-recovery';
 import {
   createBillingPurchases,
   type BillingPurchasePolicies,
@@ -20,6 +21,12 @@ export function billingOperations(input: {
   return {
     billingPurchases(policies: BillingPurchasePolicies) {
       return createBillingPurchases({ ...input, policies });
+    },
+    billingPurchaseRecovery(instanceId: string) {
+      return createBillingPurchaseRecovery({
+        run: currentWebTransaction(input.run, instanceId),
+        nextId: input.nextId,
+      });
     },
     receiveBillingReceipt: createBillingInbox(input),
     billingSynchronization(instanceId: string, grants: GrantProjection) {

@@ -122,6 +122,13 @@ Local erasure removes undispatched and positively expired purchase records;
 possibly executed or completed purchases remain only for outstanding vendor
 cleanup. Local closure excludes every ordinary member admission and completion
 write. It does not by itself claim cancellation, refund or vendor deletion.
+Late verified Session facts retain a closed cleanup mapping and atomically
+replace the existing Stripe privacy-job identity. Identical facts do not reset
+the job. A new verified event for that closed mapping retains only its minimal
+receipt identity to deduplicate delivery and reopens cleanup; no event body is
+stored. Old job completion cannot acknowledge a replacement obligation. Refund
+identity and original-period accounting must survive job rotation, and unknown
+purchase/payment/refund outcomes remain owed until positively resolved.
 
 The privacy adopter and synchronization implementation are in progress on the
 Billing slice. Vendor cleanup delivery and receipt retention must be wired and

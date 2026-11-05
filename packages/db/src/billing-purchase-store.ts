@@ -1,52 +1,37 @@
+import {
+  lockPurchaseSubject,
+  ownedPurchase,
+  parsePurchase,
+  purchaseFromRow,
+  savePurchase,
+  type PurchaseSubject,
+} from './billing-purchase-authority';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import {
   advancePurchase,
   nextPurchaseWork,
-  purchaseSchema,
   type Purchase,
   type PurchaseEvent,
 } from '@daisy/protocol/billing';
-import { lockAuthorizationActors, requireOwnScope } from './authorization';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { requireFlagAdmission, type ReleaseAdmission } from './flags';
 import { readDatabaseTime } from './database-clock';
-import { billingCustomers } from './schema/billing-customers';
 import { billingPurchases } from './schema/billing-purchases';
-import { billingSubscriptions } from './schema/billing-subscriptions';
 import {
   completePurchaseMapping,
   permitsNewSubscription,
 } from './billing-purchase-mapping';
 
-type Subject = { readonly userId: string; readonly actorId: string };
-type Account = Awaited<ReturnType<typeof lockAuthorizationActors>>[number];
+type Subject = PurchaseSubject;
+type Account = Awaited<ReturnType<typeof lockPurchaseSubject>>['account'];
 export type BillingPurchasePolicies = {
   readonly purchase: (account: Account) => boolean;
   readonly manage: (account: Account) => boolean;
   readonly release: ReleaseAdmission;
 };
 type Offer = Pick<Purchase, 'mode' | 'priceId' | 'returnOrigin'>;
-type Row = typeof billingPurchases.$inferSelect;
-function parsePurchase(input: unknown): Purchase {
-  const parsed = purchaseSchema.safeParse(input);
-  if (!parsed.success) throw createAppError('VALIDATION');
-  return parsed.data;
-}
-const purchaseFromRow = (row: Row) =>
-  parsePurchase({
-    id: row.id,
-    userId: row.userId,
-    mode: row.mode,
-    priceId: row.priceId,
-    customerId: row.vendorCustomerId,
-    returnOrigin: row.returnOrigin,
-    admittedAt: row.admittedAt.toISOString(),
-    state: row.state,
-  });
-
 function existingOffer(purchase: Purchase, offer: Offer) {
   if (
     purchase.mode !== offer.mode ||
@@ -55,62 +40,6 @@ function existingOffer(purchase: Purchase, offer: Offer) {
   )
     throw createAppError('CONFLICT');
   return { kind: 'existing' as const, purchase };
-}
-
-/** Account first, then customer/subscription, then purchase; every caller uses this order. */
-async function lockSubject(tx: BoundedTransactionContext, subject: Subject) {
-  requireOwnScope(subject);
-  const [account] = await lockAuthorizationActors(tx, [subject.actorId], {
-    maxActors: 1,
-  });
-  if (
-    !account ||
-    account.userId !== subject.userId ||
-    account.actorId !== subject.actorId
-  )
-    throw createAppError('AUTHORIZATION');
-  const [customer] = await tx
-    .select()
-    .from(billingCustomers)
-    .where(eq(billingCustomers.userId, subject.userId))
-    .for('update');
-  const [subscription] = await tx
-    .select()
-    .from(billingSubscriptions)
-    .where(
-      and(
-        eq(billingSubscriptions.userId, subject.userId),
-        eq(billingSubscriptions.current, true),
-      ),
-    )
-    .for('update');
-  return { account, customer, subscription };
-}
-async function ownedPurchase(
-  tx: BoundedTransactionContext,
-  subject: Subject,
-  id: string,
-) {
-  if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
-  const [row] = await tx
-    .select()
-    .from(billingPurchases)
-    .where(
-      and(
-        eq(billingPurchases.id, id),
-        eq(billingPurchases.userId, subject.userId),
-      ),
-    )
-    .for('update');
-  if (!row) throw createAppError('NOT_FOUND');
-  return purchaseFromRow(row);
-}
-async function savePurchase(tx: BoundedTransactionContext, purchase: Purchase) {
-  const checked = parsePurchase(purchase);
-  await tx
-    .update(billingPurchases)
-    .set({ state: checked.state })
-    .where(eq(billingPurchases.id, checked.id));
 }
 
 async function pendingPurchase(
@@ -155,7 +84,7 @@ export function createBillingPurchases(input: {
           readonly kind: 'admitted' | 'existing';
           readonly purchase: Purchase;
         }> => {
-          const { account, customer, subscription } = await lockSubject(
+          const { account, customer, subscription } = await lockPurchaseSubject(
             tx,
             subject,
           );
@@ -199,7 +128,7 @@ export function createBillingPurchases(input: {
     },
     read(subject: Subject, id: string) {
       return input.run(async (tx) => {
-        const { account } = await lockSubject(tx, subject);
+        const { account } = await lockPurchaseSubject(tx, subject);
         if (!input.policies.manage(account))
           throw createAppError('AUTHORIZATION');
         return ownedPurchase(tx, subject, id);
@@ -207,7 +136,7 @@ export function createBillingPurchases(input: {
     },
     recover(subject: Subject, id: string) {
       return input.run(async (tx) => {
-        const { account, customer } = await lockSubject(tx, subject);
+        const { account, customer } = await lockPurchaseSubject(tx, subject);
         if (!input.policies.manage(account) || customer?.closedAt)
           throw createAppError('AUTHORIZATION');
         const purchase = await ownedPurchase(tx, subject, id);
@@ -252,7 +181,7 @@ export function createBillingPurchases(input: {
         | { readonly kind: 'unknown'; readonly claimId: string },
     ) {
       return input.run(async (tx) => {
-        const { account, customer, subscription } = await lockSubject(
+        const { account, customer, subscription } = await lockPurchaseSubject(
           tx,
           subject,
         );
