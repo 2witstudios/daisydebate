@@ -65,6 +65,19 @@ DEC-362–366 as defaults open to owner confirmation or overrule:
   authorized frozen evidence governs eligibility, including ranked retention
   and all relevant participants' privacy authority. Content purge preserves
   only justified minimal request/accounting identity; it cannot reopen generation.
+  Historical automatic claims remain possible exposure, not proven dispatch or
+  consent: preserve original attempts/model/tokens/times and terminal reports or
+  erasure identities without creating a lifetime debit or refund. Retire only
+  in-flight authority to an unrequested seat; a later real request may use
+  `max(0, 2 - original attempts)` new calls. The replacement bounds lease
+  acquisitions separately at four and keeps claim distinct from dispatch.
+  Clearing a database lease cannot stop an old process paused before I/O. The
+  one-time greenfield cutover stops/drains old workers, verifies termination and
+  prevents restart before migrating and starting requested workers. Already-sent
+  vendor calls remain unknown unless observed; stopping never proves nonservice.
+  Production cutover remains human-controlled. The owning
+  [analysis architecture](../architecture/round-analysis.md) records the cohorts
+  and required proof; requested persistence and migration are still in progress.
 - Verified failed renewal of previously paid access gets seven days from its
   previous verified paid-through boundary. No initial-payment grace, new bots
   or allowance fallback during grace. Active vendor status alone is not paid
