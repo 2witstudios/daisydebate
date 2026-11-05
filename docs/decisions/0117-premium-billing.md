@@ -107,6 +107,15 @@ most three API calls, each bounded to five seconds with SDK retries disabled;
 durable work owns retries. It verifies the configured monthly USD10 price,
 quantity, customer, mode and invoice-line subscription binding. The current
 subscription's latest invoice and newest paid invoice supply payment facts.
+The reconciler traverses durable customer identities in keyset pages of three
+and linkable pending receipts in pages of 25. A failed identity does not pin the
+cursor; the next cycle retries it. Discovery and application require a current
+web instance before and after each bounded transaction, including account lock
+waits. HTTP acknowledgement follows committed receipt persistence, while a lost
+or uncertain reply asks Stripe to retry. Verification reads exact bytes under a
+256 KiB cap and an injected body deadline; an uncooperative stream cancellation
+cannot extend that deadline. Runtime scheduling, the public route and vendor
+cleanup remain incomplete until the owning plan records their proof.
 Only an attempted, unsettled `subscription_cycle` invoice matching the current
 item period and adjacent to the prior paid period establishes renewal failure.
 Trial invoices and active status alone create no paid period. Terminal canceled

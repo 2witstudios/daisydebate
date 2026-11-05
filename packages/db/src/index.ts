@@ -38,6 +38,7 @@ import { roundAnalysisReads } from './round-analysis-reads';
 import { roundAnalysisRetention } from './round-analysis-retention';
 import type { AiAllowanceOptions } from './usage-ledger';
 import { usageRecoveryOperations } from './usage-recovery';
+import { billingOperations } from './billing-operations';
 import { createCasualJudgeAdmission } from './casual-judge-admission';
 import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
@@ -205,6 +206,10 @@ export function createDatabase({
   const browse = workload.lane('browse').database;
   const controlLane = workload.lane('control');
   const control = controlLane.database;
+  const controlTransaction = createBoundedTransaction({
+    lane: controlLane,
+    now: performance.now,
+  });
   const dedicated =
     injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
   const transcriptTransaction = createBoundedTransaction({
@@ -219,12 +224,8 @@ export function createDatabase({
       aiAllowance,
     });
   return namedLaneOperations({
-    ...usageRecoveryOperations(
-      createBoundedTransaction({
-        lane: controlLane,
-        now: performance.now,
-      }),
-    ),
+    ...usageRecoveryOperations(controlTransaction),
+    ...billingOperations({ run: controlTransaction, nextId: nextActorId }),
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
     ...roundPanelCompletionOperations(transcriptTransaction),

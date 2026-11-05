@@ -2,7 +2,7 @@ import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
-import { requireCurrentWeb } from './web-service-authority';
+import { currentWebTransaction } from './web-service-authority';
 import { createUsageRelease } from './usage-release';
 import { rounds } from './schema/rounds';
 import { actors } from './schema/actors';
@@ -12,17 +12,6 @@ type ReleasePolicy = Parameters<typeof createUsageRelease>[0]['releaseBinding'];
 
 /** Durable discovery is only a hint; the existing release fences re-read every fact. */
 export function usageRecoveryOperations(run: BoundedTransaction) {
-  const currentRun = (instanceId: string): BoundedTransaction => {
-    if (!idSchema.safeParse(instanceId).success)
-      throw createAppError('VALIDATION');
-    return (work, options) =>
-      run(async (...args) => {
-        await requireCurrentWeb(args[0], instanceId);
-        const result = await work(...args);
-        await requireCurrentWeb(args[0], instanceId);
-        return result;
-      }, options);
-  };
   return {
     readAbandonedUsageCandidates(input: {
       readonly instanceId: string;
@@ -37,7 +26,10 @@ export function usageRecoveryOperations(run: BoundedTransaction) {
           !idSchema.safeParse(input.afterId).success)
       )
         throw createAppError('VALIDATION');
-      return currentRun(input.instanceId)(async (tx) => {
+      return currentWebTransaction(
+        run,
+        input.instanceId,
+      )(async (tx) => {
         const candidates = await tx
           .select({ roundId: rounds.id, actorId: actors.id })
           .from(rounds)
@@ -74,7 +66,7 @@ export function usageRecoveryOperations(run: BoundedTransaction) {
       releaseBinding: ReleasePolicy,
     ) {
       return createUsageRelease({
-        run: currentRun(input.instanceId),
+        run: currentWebTransaction(run, input.instanceId),
         releaseBinding,
       })(input);
     },
