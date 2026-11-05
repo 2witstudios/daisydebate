@@ -1,5 +1,5 @@
 import { SQL } from 'bun';
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -28,7 +28,10 @@ import {
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const predecessor = '20261105041923_billing_usage_restoration';
-const migrations = new URL('../migrations/', import.meta.url);
+const migrationPath = new URL(
+  '../migrations/20261105051949_casual_judge_usage/migration.sql',
+  import.meta.url,
+);
 const source = {
   kind: 'beta',
   startsAt: '2026-10-01T00:00:00.000Z',
@@ -184,14 +187,7 @@ test(
           }
           const before =
             await f.sql`select * from usage_reservations order by id`;
-          const folder = (await readdir(migrations)).find((name) =>
-            name.endsWith('_casual_judge_usage'),
-          );
-          if (!folder) throw Error('Expected generated judge migration');
-          const migration = await readFile(
-            new URL(`${folder}/migration.sql`, migrations),
-            'utf8',
-          );
+          const migration = await readFile(migrationPath, 'utf8');
           // Reapply exactly the one-off backfill statement, without rewriting schema/history.
           const backfill = migration
             .split('--> statement-breakpoint')
