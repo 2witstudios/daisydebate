@@ -4,6 +4,7 @@ import {
   ownsRefundClaim,
   refundActionSchema,
   refundBounds,
+  closurePaymentDisposition,
   type RefundAction,
   type RefundContext,
   type RefundEvent,
@@ -22,11 +23,19 @@ export function nextRefundWork(
   if (action.claim && at(context.now) < at(action.claim.expiresAt))
     return 'wait';
   const { state } = action;
-  if (state.kind === 'ready') return 'create';
+  const eligible =
+    closurePaymentDisposition({
+      closedAt: action.closedAt,
+      paidAtSeconds: action.paidAtSeconds,
+      now: context.now,
+    }) === 'refund';
+  if (state.kind === 'ready') return eligible ? 'create' : 'refuse';
   if (state.kind === 'known') return 'retrieve';
   if (at(context.now) < at(state.retryAt)) return 'wait';
   return at(context.now) < at(state.startedAt) + refundBounds.creationMs
-    ? 'create'
+    ? eligible
+      ? 'create'
+      : 'wait'
     : 'discover';
 }
 function changed(action: RefundAction): RefundTransition {

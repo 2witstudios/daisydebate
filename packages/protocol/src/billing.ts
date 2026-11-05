@@ -2,7 +2,7 @@ export { advanceUsage } from './usage-lifecycle';
 export { advanceRefund, nextRefundWork } from './billing-refund-lifecycle';
 export {
   closurePaymentDisposition,
-  ownsRefundClaim,
+  mayDispatchRefund,
   refundActionSchema,
   refundBounds,
   refundClaimSchema,

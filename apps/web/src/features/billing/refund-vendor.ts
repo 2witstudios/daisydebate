@@ -2,7 +2,7 @@ import type Stripe from 'stripe';
 import type { Clock } from '@daisy/clock';
 import { z } from 'zod';
 import {
-  ownsRefundClaim,
+  mayDispatchRefund,
   refundIdempotencyKey,
   refundStatuses,
   type RefundAction,
@@ -111,7 +111,7 @@ export function createRefundVendor(input: {
 }) {
   const permitted = (action: RefundAction, claimId: string) =>
     action.mode === input.mode &&
-    ownsRefundClaim(action, claimId, {
+    mayDispatchRefund(action, claimId, {
       now: input.clock.now(),
       authority: 'closed',
     });

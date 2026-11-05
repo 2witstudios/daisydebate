@@ -64,12 +64,16 @@ test('refund vendor checks mode and current claim before I/O and preserves same 
     vendor('2026-11-05T00:00:33.000Z').run(action, claimId),
     vendor().run(action, 'x'.repeat(24)),
     vendor().run(base, claimId),
+    vendor().run(
+      { ...action, paidAtSeconds: Date.parse(action.closedAt) / 1000 },
+      claimId,
+    ),
   ]);
   assert({
     given: 'wrong mode, expired or missing/mismatched authority',
     should: 'make no vendor request',
     actual: [refused, calls],
-    expected: [Array(4).fill({ kind: 'refuse' }), []],
+    expected: [Array(5).fill({ kind: 'refuse' }), []],
   });
   const observed = await vendor().run(action, claimId);
   await vendor().run(action, claimId);

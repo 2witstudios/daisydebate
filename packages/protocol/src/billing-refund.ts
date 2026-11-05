@@ -41,7 +41,7 @@ export function closurePaymentDisposition(input: {
     return 'unresolved';
   const paid = input.paidAtSeconds * 1000;
   if (!Number.isSafeInteger(paid) || paid > at(input.now)) return 'unresolved';
-  if (paid >= at(input.closedAt)) return 'refund';
+  if (paid > at(input.closedAt)) return 'refund';
   return paid + 1000 <= at(input.closedAt) ? 'pre-closure' : 'unresolved';
 }
 
@@ -125,11 +125,11 @@ export const refundActionSchema = z
   })
   .refine(
     (value) =>
-      closurePaymentDisposition({
-        closedAt: value.closedAt,
-        paidAtSeconds: value.paidAtSeconds,
-        now: value.admittedAt,
-      }) === 'refund' &&
+      // Preserve already-recorded boundary facts; new creation authority is a
+      // separate decision and never derives subsecond ordering from equality.
+      Number.isSafeInteger(value.paidAtSeconds * 1000) &&
+      value.paidAtSeconds * 1000 >= at(value.closedAt) &&
+      value.paidAtSeconds * 1000 <= at(value.admittedAt) &&
       validStateTime(value.state, value.admittedAt) &&
       validClaim(value.state, value.claim),
   );
@@ -188,5 +188,22 @@ export function ownsRefundClaim(
     action.claim !== null &&
     action.claim.id === claimId &&
     at(context.now) < at(action.claim.expiresAt)
+  );
+}
+
+/** Accounting a prior possible call and authorizing another vendor dispatch are distinct. */
+export function mayDispatchRefund(
+  action: RefundAction,
+  claimId: string,
+  context: RefundContext,
+) {
+  return (
+    ownsRefundClaim(action, claimId, context) &&
+    (action.claim?.work !== 'create' ||
+      closurePaymentDisposition({
+        closedAt: action.closedAt,
+        paidAtSeconds: action.paidAtSeconds,
+        now: context.now,
+      }) === 'refund')
   );
 }

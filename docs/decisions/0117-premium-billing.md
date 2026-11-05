@@ -318,7 +318,7 @@ implementation work; these adapters do not activate purchases.
 DEC365's pending-owner refund default distinguishes verified in-flight or
 post-closure payment from positively settled pre-closure payment. Ambiguous
 chronology stays owed with private escalation. Webhook arrival and Session
-creation are not payment chronology. A refund's durable action/idempotency
+creation are not payment chronology. Stripe InvoicePayment payment-success timestamps retain their original second precision. A supported payment interval equal to or overlapping local closure remains ambiguous and owed; only a wholly later interval admits a new automatic refund. Stored boundary facts and existing refund identities remain readable for reconciliation, but cannot authorize a new create. The forward trigger constrains new admission/create without retrospectively rejecting retained facts. A refund's durable action/idempotency
 identity belongs to its original owned charge and period, independent of
 rotating cleanup-job IDs. Unknown replies never authorize a fresh refund key;
 pending refunds and unknown purchases prevent cleanup completion and deletion
