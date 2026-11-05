@@ -250,6 +250,44 @@ test('paid analysis and casual judging are included without a monthly quantity c
   });
 });
 
+test('a refunded free judge cannot transfer through a replacement bot bundle', () => {
+  const refunded: AllowanceFacts = {
+    ...facts,
+    freeBotRoundId: 'round_original',
+    usage: [
+      { kind: 'ai_round', source: free, spent: 0 },
+      { kind: 'casual_ai_judge', source: free, spent: 0 },
+    ],
+  };
+  assert({
+    given:
+      'both dispatched free jobs failed and refunded while their original Round binding remains',
+    should:
+      'refuse judge transfer in standalone and bundled paths, while allowing a refunded bot alone',
+    actual: [
+      decide(refunded, { kind: 'casual_judge', roundId: 'round_replacement' }),
+      decide(refunded, {
+        kind: 'bot_debate',
+        roundId: 'round_replacement',
+        withJudge: true,
+      }),
+      decide(refunded, {
+        kind: 'bot_debate',
+        roundId: 'round_replacement',
+        withJudge: false,
+      }),
+    ],
+    expected: [
+      { kind: 'refuse', reason: 'free-judge-unbound' },
+      { kind: 'refuse', reason: 'free-judge-unbound' },
+      {
+        kind: 'admit',
+        reservations: [{ kind: 'ai_round', source: free, limit: 1 }],
+      },
+    ],
+  });
+});
+
 test('allowance never substitutes for live account authority or valid policy facts', () => {
   assert({
     given: 'erased/absent/nonmember accounts or malformed time/count/cap',

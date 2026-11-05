@@ -159,10 +159,18 @@ const freeJudgeUnbound = (
   source: UsageSource,
   request: AllowanceRequest,
   facts: AllowanceFacts,
-) =>
-  source.kind === 'lifetime' &&
-  request.kind === 'casual_judge' &&
-  facts.freeBotRoundId !== request.roundId;
+) => {
+  if (
+    source.kind !== 'lifetime' ||
+    !requestedKinds(request).includes('casual_ai_judge')
+  )
+    return false;
+  // Refunding use never transfers an existing judge binding. Only a new
+  // bundle may establish the first binding; a standalone judge cannot.
+  return facts.freeBotRoundId === null
+    ? request.kind === 'casual_judge'
+    : facts.freeBotRoundId !== request.roundId;
+};
 
 /**
  * One source selection and one all-or-nothing decision. The store serializes
