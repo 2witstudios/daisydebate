@@ -1,8 +1,10 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { isReleaseEnabled } from '../src/features/flags/server';
 import { createRequestFlagReader } from '../src/features/flags/reader';
 import { createTestApp } from './fixtures';
 
+requireTestServices(process.env);
 setupRitewayBun();
 const { app } = createTestApp();
 

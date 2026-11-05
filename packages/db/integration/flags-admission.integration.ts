@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
@@ -11,6 +12,7 @@ import {
   waitingForFlags,
 } from './flags.test-support';
 
+requireTestServices(process.env);
 setupRitewayBun();
 const policy = (key: string): ReleaseAdmission => ({
   keys: [key],

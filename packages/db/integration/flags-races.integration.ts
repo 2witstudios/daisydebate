@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
@@ -13,6 +14,7 @@ import {
   waitingForFlags,
 } from './flags.test-support';
 
+requireTestServices(process.env);
 setupRitewayBun();
 test('expiry sweep and targeting update serialize in both real lock orders', async () => {
   for (const first of ['sweep', 'update'] as const)

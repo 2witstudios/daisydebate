@@ -1,7 +1,9 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { flagCommand, withFlags } from './flags.test-support';
 
+requireTestServices(process.env);
 setupRitewayBun();
 test('Flags revisions serialize competing commands; identical retries have one receipt and audit', async () => {
   await withFlags(async ({ store, fixture, key }) => {

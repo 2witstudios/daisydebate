@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
@@ -9,6 +10,7 @@ import { testLane } from '../src/testing-lane';
 import { withPool } from './bounded-transaction.test-support';
 import { withFlags, flagCommand } from './flags.test-support';
 
+requireTestServices(process.env);
 setupRitewayBun();
 test('Flags admission works on the guarded bounded transaction facade without changing adapter-owned settings', async () => {
   await withFlags(async ({ fixture, store, key, userId, actorId }) => {

@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -8,6 +9,7 @@ import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
 import { subjectRightsVerificationBindings } from '../src/privacy/verification-bindings';
 import { sqlStateOf } from './constraint-helpers';
 
+requireTestServices(process.env);
 setupRitewayBun();
 const override = (accountId: string) => ({
   action: 'flag.override.update' as const,
