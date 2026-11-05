@@ -496,7 +496,11 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
     expect(new URL(watching.url()).pathname).toBe(`/watch/${round.roundId}`);
     expect(new URL(watching.url()).search).toBe('');
     await expect(
-      watching.getByRole('heading', { name: REFUSED, exact: true }),
+      watching.getByRole('heading', {
+        name: REFUSED,
+        exact: true,
+        includeHidden: true,
+      }),
     ).toHaveCount(0);
     await expect(watching.getByText(round.aff).first()).toBeVisible();
     const [cookie] = (await visitor.cookies()).filter((c) =>
@@ -519,7 +523,11 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
     ).toBeVisible();
     await watching.goto(second);
     await expect(
-      watching.getByRole('heading', { name: REFUSED, exact: true }),
+      watching.getByRole('heading', {
+        name: REFUSED,
+        exact: true,
+        includeHidden: true,
+      }),
     ).toHaveCount(0);
 
     // A wrong link and a missing Round are one answer.
@@ -567,7 +575,11 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
     await holding.goto(link);
     await holding.goto(recording);
     await expect(
-      holding.getByRole('heading', { name: REFUSED, exact: true }),
+      holding.getByRole('heading', {
+        name: REFUSED,
+        exact: true,
+        includeHidden: true,
+      }),
     ).toHaveCount(0);
     await expect(
       holding.getByRole('region', { name: 'Sharing' }),
