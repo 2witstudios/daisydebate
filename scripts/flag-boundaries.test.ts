@@ -32,6 +32,14 @@ test('server-only flag boundary follows indirect imports and re-exports', () => 
       `${root}ui/dynamic.ts`,
       "'use client'; const load = () => import('../lib/hidden');",
     ],
+    [
+      `${root}ui/template-import.ts`,
+      "'use client'; const load = () => import(`../lib/hidden`);",
+    ],
+    [
+      `${root}app/cached-js.ts`,
+      "import {read} from '../lib/hidden.js'; export async function page(){'use cache'; return read();}",
+    ],
   ]);
   assert({
     given:
@@ -42,6 +50,8 @@ test('server-only flag boundary follows indirect imports and re-exports', () => 
       .sort(),
     expected: [
       'app/cached.ts',
+      'app/cached-js.ts',
+      'ui/template-import.ts',
       'proxy.ts',
       'ui/client.ts',
       'ui/dynamic.ts',

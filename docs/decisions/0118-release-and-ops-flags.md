@@ -26,7 +26,10 @@ Keys and ownership cannot be silently repurposed, and retired keys stay retired.
 
 `features/flags/server.ts` publishes
 `isReleaseEnabled(key: ReleaseFlagKey, accountId: string | null): Promise<boolean>`.
-It is a display read, deduplicated per request only at the React edge. Null means
+It is a display read, deduplicated per request only at the React edge. Other
+server compositions may inject their per-request reader as its optional third
+argument; this is the allowed integration proof seam, without importing the
+process locator or weakening its boundary. Null means
 anonymous with no targeting; an account ID comes from the authenticated server
 principal. Only booleans reach UI clients. Client chunks are public. No flag
 read belongs in a proxy or a `use cache` scope. Read failures use safe defaults
@@ -51,7 +54,11 @@ transaction-start `now()` would give stale admission evidence. The intent
 stores `admittedAt`, then commits under the shared lock. Admission is decided
 at that sample, not an unknowable physical commit instant. Other blocking
 locks precede it; subsequent writes are minimal. Lock waits, statements and
-the whole transaction are bounded. No lock spans vendor I/O.
+the whole transaction are bounded. The existing bounded transaction facade owns
+its settings and watchdog; Flags recognizes the adapter-owned context and never
+changes configuration through it. Ordinary command/erasure/sweep transactions
+receive PostgreSQL timeout backstops. Held PostgreSQL locks enforce no upgrade.
+No lock spans vendor I/O.
 
 A completed disable prevents later admissions. An already admitted, bounded,
 account-bound and semantically matching attempt follows Billing's idempotent
@@ -69,7 +76,13 @@ transaction. Participant principals and client-supplied overrides never qualify.
 There is no Next operator route, generic command endpoint or admin UI here.
 
 Targeting uses the account-erasure fence. Replaying history must never recreate
-erased targeting. The sweep is bounded and uses the same exclusive Flags lock;
+erased targeting; the current erased-target check precedes receipt replay.
+Closure removes overrides and nulls only the direct target link on Flags receipts.
+It retains Flags audit events, command identity, digest and operator evidence;
+no other action receipt is changed. Receipt results contain only command id,
+flag key and revision. The remaining identifiers, digests and audit joins are
+linkable security evidence under the explicit bounded retention classification,
+never described as anonymous. The sweep is bounded and uses the same exclusive Flags lock;
 revision changes cannot be lost. Override personal data is exported and erased
 through the existing privacy adopter. Audit and receipts have explicit purposes
 and bounded retention, including operator identifiers and semantic digests;

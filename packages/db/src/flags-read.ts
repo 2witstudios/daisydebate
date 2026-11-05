@@ -19,7 +19,7 @@ const rowSchema = z.object({
   now_ms: z.coerce.number().finite(),
 });
 
-export function requireFlagKeys(keys: readonly string[]) {
+function requireFlagKeys(keys: readonly string[]) {
   if (
     keys.length < 1 ||
     keys.length > 32 ||

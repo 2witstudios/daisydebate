@@ -73,12 +73,13 @@ export function barrier() {
   return { ready, release };
 }
 /** Wait for the actual lock wait, with a bounded failure rather than a scheduling guess. */
-export async function waitingForFlags(fixture: Fixture) {
+export async function waitingForFlags(fixture: Fixture, count = 1) {
   const deadline = Date.now() + 1500;
   while (Date.now() < deadline) {
     const [row] = await fixture.sql`select count(*)::integer as n from pg_locks
-      where locktype = 'advisory' and classid = 59118 and objid = 1 and not granted`;
-    if (row?.n > 0) return;
+      where database=(select oid from pg_database where datname=current_database())
+      and locktype = 'advisory' and classid = 59118 and objid = 1 and not granted`;
+    if (row?.n >= count) return;
     await Bun.sleep(5);
   }
   throw new Error('Flags lock waiter did not arrive');

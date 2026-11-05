@@ -50,9 +50,14 @@ export function flagBoundaryProblems(
   const targetOf = (from: string, specifier: string) => {
     if (!specifier.startsWith('.')) return specifier;
     const path = posix.normalize(posix.join(posix.dirname(from), specifier));
+    const stem = path.replace(/\.[cm]?jsx?$/, '');
     return (
       [
         path,
+        `${stem}.ts`,
+        `${stem}.tsx`,
+        `${stem}.mts`,
+        `${stem}.cts`,
         `${path}.ts`,
         `${path}.tsx`,
         `${path}/index.ts`,
@@ -94,5 +99,9 @@ function importedSpecifier(node: ts.Node): string | null {
     node.expression.kind === ts.SyntaxKind.ImportKeyword ||
     (ts.isIdentifier(node.expression) && node.expression.text === 'require');
   const first = node.arguments[0];
-  return importing && first && ts.isStringLiteral(first) ? first.text : null;
+  return importing &&
+    first &&
+    (ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first))
+    ? first.text
+    : null;
 }
