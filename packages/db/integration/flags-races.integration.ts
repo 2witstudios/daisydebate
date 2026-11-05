@@ -7,6 +7,7 @@ import { lockAuthorizationActors } from '../src/authorization';
 import { lockFlags } from '../src/flags-lock';
 import { runFlagCommand } from '../src/flags-command';
 import { readFlagSnapshot } from '../src/flags-read';
+import { sqlStateOf } from './constraint-helpers';
 import {
   withFlags,
   flagCommand,
@@ -132,7 +133,7 @@ test('a signed command deadline expiring behind the Flags lock rolls back state,
 });
 
 test('the final migrated daisy_web role can control/read targeting and cannot delete permanent revision state', async () => {
-  await withFlags(async ({ database, key, userId, actorId }) => {
+  await withFlags(async ({ fixture, database, key, userId, actorId }) => {
     const fact = await database.transaction(async (tx) => {
       await tx.execute(sql`set local role daisy_web`);
       await runFlagCommand(
@@ -174,12 +175,24 @@ test('the final migrated daisy_web role can control/read targeting and cannot de
       actual: admit,
       code: 'NOT_FOUND',
     });
-    const deletion = await Promise.allSettled([
-      database.transaction(async (tx) => {
-        await tx.execute(sql`set local role daisy_web`);
-        await tx.execute(sql`delete from release_flags where key=${key}`);
+    await database.transaction(async (tx) => {
+      await tx.execute(sql`set local role daisy_web`);
+      await runFlagCommand(
+        tx,
+        flagCommand(key, 2, {
+          action: 'flag.override.update',
+          accountId: userId,
+          override: null,
+        }),
+      );
+    });
+    // With no override FK left, only the role's privilege can refuse deletion.
+    const deletion = await sqlStateOf(() =>
+      fixture.sql.begin(async (tx) => {
+        await tx`set local role daisy_web`;
+        await tx`delete from release_flags where key=${key}`;
       }),
-    ]);
+    );
     assert({
       given: 'the least-privilege runtime role on the final migration',
       should:
@@ -187,9 +200,9 @@ test('the final migrated daisy_web role can control/read targeting and cannot de
       actual: {
         targeted: fact.snapshot.flags[0]!.override!.enabled,
         admitted: Number.isFinite(Date.parse(admitted.admittedAt)),
-        deletion: deletion[0]!.status,
+        deletion,
       },
-      expected: { targeted: true, admitted: true, deletion: 'rejected' },
+      expected: { targeted: true, admitted: true, deletion: '42501' },
     });
   });
 });

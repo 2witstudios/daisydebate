@@ -36,6 +36,7 @@ ALTER TABLE "flag_account_overrides" ADD CONSTRAINT "flag_account_overrides_key_
 ALTER TABLE "flag_account_overrides" ADD CONSTRAINT "flag_account_overrides_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;
 --> statement-breakpoint
 GRANT SELECT, INSERT, UPDATE ON release_flags TO daisy_web;
+REVOKE DELETE ON release_flags FROM daisy_web;
 GRANT SELECT, INSERT, UPDATE, DELETE ON flag_account_overrides TO daisy_web;
 GRANT SELECT, INSERT ON flag_change_events TO daisy_web;
 REVOKE UPDATE, DELETE ON flag_change_events FROM daisy_web;
