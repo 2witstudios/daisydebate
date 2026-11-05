@@ -62,6 +62,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.scores',
         'billing_customers.synchronization',
         'billing_purchases.state',
+        'billing_refund_actions.claim',
+        'billing_refund_actions.state',
         'billing_subscriptions.evidence',
         'broadcasts.release_policy',
         'broadcasts.release_skips',
@@ -107,6 +109,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         refusals:
           name === 'ballots.feedback' ||
           name === 'ballots.citations' ||
+          name === 'billing_refund_actions.claim' ||
           name === 'round_judging_attempts.diagnostic' ||
           name === 'rooms.capture' ||
           name === 'rounds.capture' ||

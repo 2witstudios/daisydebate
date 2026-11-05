@@ -4,6 +4,7 @@ import { createBillingInbox } from './billing-inbox';
 import { createBillingDiscovery } from './billing-discovery';
 import { createBillingSynchronization } from './billing-synchronization';
 import { createBillingPurchaseRecovery } from './billing-purchase-recovery';
+import { createBillingRefundActions } from './billing-refund-actions';
 import {
   createBillingPurchases,
   type BillingPurchasePolicies,
@@ -19,6 +20,12 @@ export function billingOperations(input: {
   readonly nextId: () => string;
 }) {
   return {
+    billingRefunds(instanceId: string) {
+      return createBillingRefundActions({
+        run: currentWebTransaction(input.run, instanceId),
+        nextId: input.nextId,
+      });
+    },
     billingPurchases(policies: BillingPurchasePolicies) {
       return createBillingPurchases({ ...input, policies });
     },

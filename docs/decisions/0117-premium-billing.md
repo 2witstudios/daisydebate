@@ -324,6 +324,38 @@ rotating cleanup-job IDs. Unknown replies never authorize a fresh refund key;
 pending refunds and unknown purchases prevent cleanup completion and deletion
 of needed evidence.
 
+The [current Stripe refund contract](https://docs.stripe.com/refunds) permits a
+successful refund to later fail, or for applicable methods to require action
+again. Refund observations therefore require a fresh bounded claim; they do not
+follow a sticky terminal-success order. A stale response cannot replace a newer
+claim. The original action and minimal private charge/refund routing survive
+ordinary customer deletion and earlier cleanup acknowledgement. Neither a
+30-day interval nor silence proves irreversible settlement. Reconciliation and
+late verified events can reopen the same obligation without a new refund key.
+These records serve financial cleanup and original-period accounting only;
+the production retention duration and legal erasure guarantees remain the
+recorded owner/BILL-H caveat. No automatic time-based purge resolves an owed
+or externally revisable financial obligation.
+
+`billing_refund_actions` keeps one action per mode/original charge. A bounded
+creation claim records possible execution before vendor I/O; retries use that
+action's stable key only within its original five-minute creation interval.
+Later uncertainty uses bounded discovery, never a new key. Known refunds are
+retrieved again, including after success. Claim acquisition cannot alter observed
+facts, and a consumed observation cannot predate its claim. Only changed refund
+identity/status rotates the cleanup job; an identical fresh read does not.
+The table's runtime role cannot delete or rewrite original amount, invoice,
+subscription period, closure/payment chronology, first execution or refund ID.
+
+Signed `refund.created`, `refund.updated` and `refund.failed` events provide
+minimal routing hints, not settlement evidence. They resolve through the retained
+owned action/charge/mode and its action marker or known refund ID, including when
+Stripe supplies a null customer. The existing durable receipt and bounded sweep
+reopen cleanup after ordinary customer mapping deletion without recreating
+access. Subject export includes original financial facts but excludes execution
+claims/cursors. Production vendor-cleanup composition and genuine refund journey
+proof remain required before activation.
+
 Flags core reaches main before Billing rebases and regenerates migrations.
 Billing owns real FLAGS-8/15 route, mutation, recovery and native-form evidence;
 core fixtures alone do not establish consumer acceptance.

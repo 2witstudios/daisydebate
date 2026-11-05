@@ -129,6 +129,14 @@ receipt identity to deduplicate delivery and reopens cleanup; no event body is
 stored. Old job completion cannot acknowledge a replacement obligation. Refund
 identity and original-period accounting must survive job rotation, and unknown
 purchase/payment/refund outcomes remain owed until positively resolved.
+Minimal refund-action routing is a separate private financial-cleanup record:
+original account, mode, customer/charge/refund/invoice/subscription-period,
+amount and verified outcome chronology, without contact/payment-method payloads.
+It must survive ordinary customer deletion and an earlier cleanup success so
+a later failed or action-required refund can reopen the same obligation. There
+is no automatic 30-day purge or assumption that elapsed time proves finality.
+Production lawful retention duration and erasure guarantees remain pending
+owner/counsel review at BILL-H; this is not a new claim of complete erasure.
 
 The privacy adopter and synchronization implementation are in progress on the
 Billing slice. Vendor cleanup delivery and receipt retention must be wired and

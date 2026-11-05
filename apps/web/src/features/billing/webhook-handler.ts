@@ -38,7 +38,9 @@ export function createBillingWebhook(input: {
     try {
       await input.receive({
         eventId: verified.hint.eventId,
-        customerId: verified.hint.customerId,
+        ...('refund' in verified.hint
+          ? { refund: verified.hint.refund }
+          : { customerId: verified.hint.customerId }),
         mode: input.config.mode,
       });
       return new Response(null, { status: 204 });

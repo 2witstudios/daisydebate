@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { z } from 'zod';
+import { idSchema } from '@daisy/protocol';
 
 const eventTypes = [
   'customer.subscription.created',
@@ -12,6 +13,11 @@ const eventTypes = [
   'checkout.session.expired',
   'customer.deleted',
 ] as const;
+const refundEventType = z.enum([
+  'refund.created',
+  'refund.updated',
+  'refund.failed',
+]);
 
 const envelope = z.object({
   id: z
@@ -34,13 +40,39 @@ const deletedCustomer = z
   .object({ id: customerId, object: z.literal('customer') })
   .transform((value) => value.id);
 const eventType = z.enum(eventTypes);
+const refundReference = z.object({
+  object: z.literal('refund'),
+  id: z
+    .string()
+    .regex(/^re_[A-Za-z0-9_]+$/)
+    .max(255),
+  charge: z
+    .string()
+    .regex(/^ch_[A-Za-z0-9_]+$/)
+    .max(255),
+  customer: customerId.nullable(),
+  metadata: z
+    .object({ daisy_refund_action_id: idSchema.optional() })
+    .nullable(),
+});
 
 /** Persist the hint, never the raw body or an entitlement asserted by it. */
-export type BillingWebhookHint = {
-  readonly eventId: string;
-  readonly customerId: string;
-  readonly eventType: (typeof eventTypes)[number];
-};
+export type BillingWebhookHint =
+  | {
+      readonly eventId: string;
+      readonly customerId: string;
+      readonly eventType: (typeof eventTypes)[number];
+    }
+  | {
+      readonly eventId: string;
+      readonly eventType: z.infer<typeof refundEventType>;
+      readonly refund: {
+        readonly id: string;
+        readonly chargeId: string;
+        readonly customerId: string | null;
+        readonly actionId: string | null;
+      };
+    };
 
 type Verification =
   | { readonly kind: 'accepted'; readonly hint: BillingWebhookHint }
@@ -53,6 +85,24 @@ function synchronizationHint(
   const parsed = envelope.safeParse(verified);
   if (!parsed.success || parsed.data.livemode !== (mode === 'live'))
     return { kind: 'rejected' };
+  const refundType = refundEventType.safeParse(parsed.data.type);
+  if (refundType.success) {
+    const target = refundReference.safeParse(parsed.data.data.object);
+    if (!target.success) return { kind: 'rejected' };
+    return {
+      kind: 'accepted',
+      hint: {
+        eventId: parsed.data.id,
+        eventType: refundType.data,
+        refund: {
+          id: target.data.id,
+          chargeId: target.data.charge,
+          customerId: target.data.customer,
+          actionId: target.data.metadata?.daisy_refund_action_id ?? null,
+        },
+      },
+    };
+  }
   const type = eventType.safeParse(parsed.data.type);
   if (!type.success) return { kind: 'ignored' };
   const target = (

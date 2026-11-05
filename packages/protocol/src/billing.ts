@@ -1,4 +1,22 @@
 export { advanceUsage } from './usage-lifecycle';
+export { advanceRefund, nextRefundWork } from './billing-refund-lifecycle';
+export {
+  closurePaymentDisposition,
+  ownsRefundClaim,
+  refundActionSchema,
+  refundBounds,
+  refundClaimSchema,
+  refundIdempotencyKey,
+  refundStateSchema,
+  refundStatuses,
+} from './billing-refund';
+export type {
+  RefundAction,
+  RefundContext,
+  RefundEvent,
+  RefundState,
+  RefundStatus,
+} from './billing-refund';
 export {
   advancePurchase,
   nextPurchaseWork,

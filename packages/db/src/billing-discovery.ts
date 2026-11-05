@@ -1,5 +1,5 @@
 import { checkBillingPage, type BillingPage } from './billing-pagination';
-import { and, asc, eq, gt, isNull } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { billingCustomers } from './schema/billing-customers';
 import { billingWebhookEvents } from './schema/billing-webhook-events';
@@ -41,20 +41,14 @@ export function createBillingDiscovery(run: BoundedTransaction) {
             customerId: billingWebhookEvents.vendorCustomerId,
           })
           .from(billingWebhookEvents)
-          .innerJoin(
-            billingCustomers,
-            and(
-              eq(billingCustomers.mode, billingWebhookEvents.mode),
-              eq(
-                billingCustomers.vendorCustomerId,
-                billingWebhookEvents.vendorCustomerId,
-              ),
-            ),
-          )
           .where(
             and(
               eq(billingWebhookEvents.mode, input.mode),
               isNull(billingWebhookEvents.notifiedAt),
+              sql`(exists(select 1 from billing_customers where mode=${billingWebhookEvents.mode}
+                and vendor_customer_id=${billingWebhookEvents.vendorCustomerId})
+                or exists(select 1 from billing_refund_actions where mode=${billingWebhookEvents.mode}
+                and vendor_customer_id=${billingWebhookEvents.vendorCustomerId}))`,
               ...(input.afterId === undefined
                 ? []
                 : [gt(billingWebhookEvents.id, input.afterId)]),
