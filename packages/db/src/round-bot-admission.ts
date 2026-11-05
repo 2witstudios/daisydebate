@@ -198,14 +198,13 @@ export function createRoundBotAdmission(input: {
     const account = await lockSponsor(tx, target);
     const current = await existingReservation(tx, target);
     if (current) return { ...target, id: current.id };
+    const grants = account
+      ? await readEntitlementGrants(tx, account.userId)
+      : [];
     const now = await roundAgentNow(tx);
     const status = await admissionStatus(tx, {
       actorId: target.actorId,
-      limit: input.allowance(
-        account,
-        account ? await readEntitlementGrants(tx, account.userId) : [],
-        now.toISOString(),
-      ),
+      limit: input.allowance(account, grants, now.toISOString()),
       busyCap: input.busyCap,
       now,
       exceptRoundId: target.roundId,

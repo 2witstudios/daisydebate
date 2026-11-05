@@ -24,7 +24,7 @@ const beta: UsageSource = {
   endsAt: '2026-12-01T00:00:00.000Z',
 };
 const facts: AllowanceFacts = {
-  billing: { kind: 'none' },
+  billing: null,
   grants: [],
   usage: [],
   freeBotRoundId: null,
@@ -37,7 +37,10 @@ const bot: AllowanceRequest = {
 };
 const paid: AllowanceFacts = {
   ...facts,
-  billing: { kind: 'paid', period },
+  billing: {
+    lifecycle: 'active',
+    settlement: { kind: 'paid', period, invoiceId: 'in_paid' },
+  },
   grants: entitlementKinds.map((entitlement) => ({
     entitlement,
     source: 'subscription',
@@ -140,7 +143,19 @@ test('beta retirement changes the selected source without erasing prior use', ()
 test('grace blocks new bots and source fallback while other valid Premium capabilities remain', () => {
   const grace: AllowanceFacts = {
     ...paid,
-    billing: { kind: 'grace', period, expiresAt: '2026-12-09T12:00:00.000Z' },
+    billing: {
+      lifecycle: 'past_due',
+      settlement: {
+        kind: 'renewal_failed',
+        invoiceId: 'in_failed',
+        period: {
+          ...period,
+          startsAt: period.endsAt,
+          endsAt: '2027-01-02T12:00:00.000Z',
+        },
+        previous: { invoiceId: 'in_paid', period },
+      },
+    },
     grants: paid.grants.map((grant) => ({
       ...grant,
       startsAt: period.endsAt,

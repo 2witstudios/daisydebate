@@ -80,6 +80,26 @@ customer mapping and account authority. Duplicate receipts preserve pending
 work without continuously invalidating a healthy claim. Reclaimed leases and
 new hints invalidate older responses. No vendor I/O runs under account locks.
 
+The allowance decision reads durable verified subscription evidence at its own
+current instant; BillingAccess is only a result, never a stored observation-time
+authority. Current normalized `past_due` plus the relevant verified renewal
+failure is required for grace. Active status with a failed invoice alone keeps
+only a previously verified paid interval. Bot and Room mutation adapters obtain
+required locked facts before sampling database time immediately before the pure
+capability decision. Room creation timestamps are separate from cast authority.
+
+The existing platform-ending bot credit remains, per Delivery
+`c4s8d9wjg9kn2c90s95bihx5`: only the existing qualifying `recovery_bound` or
+finalized `capture_shortfall`/`platformLostTooMuch` paths authorize it. It may
+restore counted bot allowance even after a served call, without rewriting the
+provider outcome, measured cost or unknown exposure. Record its reason and
+authoritative Round/incident provenance distinctly from provider definite
+failure. Mixed reasons and retries can restore the original reservation only
+once, against its immutable original source and period; no renewal carryover.
+Judge/analysis usage and exact free-judge binding remain independent. Ordinary
+forfeit, cancellation, silence or transcript incompleteness creates no credit.
+This is allowance restoration, not a Stripe refund or renewed dispatch authority.
+
 ## New-purchase admission and recovery
 
 The accepted Flags contract is recorded in Delivery

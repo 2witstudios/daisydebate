@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { subscriptionAccess, subscriptionGrants } from './subscription-policy';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
-import { currentEntitlementGrants } from '@daisy/auth/authorization';
+import { currentEntitlementGrants } from './entitlement-validity';
 
 setupRitewayBun();
 
@@ -76,6 +76,25 @@ test('failed renewal grace is anchored to previously verified paid-through, neve
       { kind: 'none' },
       { kind: 'none' },
     ],
+  });
+});
+
+test('a failed invoice cannot create grace while the current subscription is active', () => {
+  const active: SubscriptionEvidence = { ...failed, lifecycle: 'active' };
+  assert({
+    given:
+      'verified older payment and failed renewal but current active status',
+    should:
+      'preserve only the paid interval, without synthesizing past-due grace',
+    actual: [
+      subscriptionAccess(active, period.startsAt),
+      subscriptionAccess(active, period.endsAt),
+      currentEntitlementGrants(subscriptionGrants(active), {
+        now: period.endsAt,
+        betaGrantsPremium: false,
+      }),
+    ],
+    expected: [{ kind: 'paid', period }, { kind: 'none' }, []],
   });
 });
 

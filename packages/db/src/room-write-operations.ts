@@ -171,7 +171,6 @@ async function executeOnce(
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
     throw new RoomMoved('Room changed while preparing consent');
-  const now = await transactionNow(tx);
   const target = input.targetActorId
     ? await actorFact(tx, input.targetActorId)
     : null;
@@ -193,22 +192,27 @@ async function executeOnce(
     : null;
   const agreements =
     input.type === 'ready' ? input.readyAgreements(state) : null;
+  const draw = await drawFacts(tx, input.type, state);
+  const grants = await readEntitlementGrants(tx, input.caller.userId);
+  const contentWaiver = agreements?.contentWaiverVersion
+    ? await readContentWaiverStanding(
+        tx,
+        input.caller.userId,
+        agreements.contentWaiverVersion,
+      )
+    : null;
+  // Facts can wait on SQL locks. Admission uses one instant after those waits.
+  const now = await transactionNow(tx);
   const outcome = execute(
     state,
     now,
     target,
     account,
-    await drawFacts(tx, input.type, state),
+    draw,
     formatFacts,
     publication,
-    await readEntitlementGrants(tx, input.caller.userId),
-    agreements?.contentWaiverVersion
-      ? await readContentWaiverStanding(
-          tx,
-          input.caller.userId,
-          agreements.contentWaiverVersion,
-        )
-      : null,
+    grants,
+    contentWaiver,
   );
   if (!outcome.ok)
     throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);

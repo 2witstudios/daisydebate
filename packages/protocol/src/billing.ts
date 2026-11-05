@@ -70,7 +70,8 @@ export type AllowanceRequest =
     };
 
 export type AllowanceFacts = {
-  readonly billing: BillingAccess;
+  /** Durable verified evidence, never an observation-time access snapshot. */
+  readonly billing: SubscriptionEvidence | null;
   readonly grants: readonly EntitlementGrant[];
   /** Reserved, dispatched, unknown and delivered use count; proven releases/refunds do not. */
   readonly usage: readonly {

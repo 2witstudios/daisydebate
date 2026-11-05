@@ -248,7 +248,9 @@ const attemptRows = (prepared: number, locked: number) => {
 /** A whole accepted start at `changeVersion`, through its receipt. */
 const successRows = (changeVersion = 1) => [
   ...attemptRows(changeVersion, changeVersion),
-  ...startRows(changeVersion).slice(12),
+  startRows(changeVersion)[13]!, // grants precede the mutation's authority clock
+  startRows(changeVersion)[12]!,
+  ...startRows(changeVersion).slice(14),
 ];
 
 test('Start mutation commits one frozen Round, cast, receipt, and change signal', async () => {

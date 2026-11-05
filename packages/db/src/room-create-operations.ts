@@ -213,13 +213,7 @@ export const roomCreateOperations = ({
         // the persisted version, status and receipt match the pure seat
         // transitions exactly. Any refusal rolls the whole create back.
         const assembled = input.cast?.seats.length
-          ? await applyInitialCast(
-              tx,
-              input.caller,
-              input.room,
-              input.cast,
-              now,
-            )
+          ? await applyInitialCast(tx, input.caller, input.room, input.cast)
           : null;
         if (assembled)
           await tx
@@ -288,7 +282,6 @@ const applyInitialCast = async (
     readonly seats: readonly InitialCastSeat[];
     readonly apply: InitialCastApplier;
   },
-  now: string,
 ): Promise<RoomAssemblyState> => {
   const seats = cast.seats;
   if (new Set(seats.map((seat) => seat.actorId)).size !== seats.length)
@@ -319,10 +312,19 @@ const applyInitialCast = async (
   if (!row) throw createAppError('INFRASTRUCTURE');
   const { state } = await roomFacts(tx, row);
   const grants = await readEntitlementGrants(tx, caller.userId);
+  const targets: (Actor | null)[] = [];
+  for (const seat of seats) targets.push(await actorFact(tx, seat.actorId));
+  // Creation's timestamp predates profile/fact waits; it is not cast authority.
+  const now = await transactionNow(tx);
   let assembled = state;
-  for (const seat of seats) {
-    const target = await actorFact(tx, seat.actorId);
-    const outcome = cast.apply(assembled, seat, target, now, grants);
+  for (const [index, seat] of seats.entries()) {
+    const outcome = cast.apply(
+      assembled,
+      seat,
+      targets[index] ?? null,
+      now,
+      grants,
+    );
     if (!outcome.ok) throw createRefusal('CONFLICT', outcome.refusal);
     assembled = outcome.mutation.state;
   }

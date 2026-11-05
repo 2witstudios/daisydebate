@@ -7,6 +7,7 @@ import type {
   UsageKind,
   UsageSource,
 } from '@daisy/protocol/billing';
+import { subscriptionAccess } from './subscription-policy';
 import type { AccountAuthorizationFact } from './authorization-facts';
 import {
   currentEntitlementGrants,
@@ -43,17 +44,6 @@ export function sameUsageSource(
         left.endsAt === right.endsAt
       );
   }
-}
-
-function currentAccess(access: BillingAccess, now: number): BillingAccess {
-  if (access.kind === 'none') return access;
-  const start = Date.parse(
-    access.kind === 'paid' ? access.period.startsAt : access.period.endsAt,
-  );
-  const end = Date.parse(
-    access.kind === 'paid' ? access.period.endsAt : access.expiresAt,
-  );
-  return start <= now && now < end ? access : { kind: 'none' };
 }
 
 const entitlementOf: Record<UsageKind, EntitlementGrant['entitlement']> = {
@@ -186,7 +176,9 @@ export function admitAllowance(
   if (!liveAccount(account)) return refuse('not-eligible');
   if (!validFacts(facts, policy)) return refuse('invalid-facts');
   const now = Date.parse(policy.now);
-  const access = currentAccess(facts.billing, now);
+  const access = facts.billing
+    ? subscriptionAccess(facts.billing, policy.now)
+    : ({ kind: 'none' } as const);
   if (access.kind === 'grace' && request.kind === 'bot_debate')
     return refuse('renewal-grace');
   const grants = currentEntitlementGrants(facts.grants, policy);

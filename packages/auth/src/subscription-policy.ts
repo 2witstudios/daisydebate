@@ -66,7 +66,11 @@ function verifiedAccessPeriod(
         ? { kind: 'paid', period: settlement.period }
         : null;
     case 'renewal_failed':
-      return renewalPeriod(settlement);
+      return evidence.lifecycle === 'past_due'
+        ? renewalPeriod(settlement)
+        : validPeriod(settlement.previous.period)
+          ? { kind: 'paid', period: settlement.previous.period }
+          : null;
   }
 }
 
