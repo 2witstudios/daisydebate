@@ -19,7 +19,7 @@ import type { lockAuthorizationActors } from './authorization';
 import { readEntitlementGrants } from './entitlement-grants';
 import { readBillingEvidence } from './billing-subscription-facts';
 import { idSchema } from '@daisy/protocol';
-import { roundAgentNow } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import { usageReservations } from './schema/usage-reservations';
 
 type Tx = BoundedTransactionContext;
@@ -131,14 +131,14 @@ export async function readAllowanceLocked(tx: Tx, input: RequestInput) {
     freeBotRoundId: await currentBinding(tx, account.actorId),
     usage: [],
   };
-  let now = (await roundAgentNow(tx)).toISOString();
+  let now = (await readDatabaseTime(tx)).toISOString();
   for (let attempt = 0; attempt < 3; attempt++) {
     const quote = input.decide(account, facts, request, now);
     if (quote.kind === 'refuse')
       return { decision: quote, quote: null, facts, now };
     requireCompleteQuote(quote, request);
     const usage = await readQuotedUse(tx, account.actorId, quote);
-    now = (await roundAgentNow(tx)).toISOString();
+    now = (await readDatabaseTime(tx)).toISOString();
     // Requote after reads before using those counts: time may change the source.
     const current = input.decide(account, facts, request, now);
     if (current.kind === 'refuse')
@@ -256,7 +256,7 @@ export async function advanceUsageLocked(
     },
     input.event,
     {
-      now: (await roundAgentNow(tx)).toISOString(),
+      now: (await readDatabaseTime(tx)).toISOString(),
       authorized: input.authorized,
     },
   );

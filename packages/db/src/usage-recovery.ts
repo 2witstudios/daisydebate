@@ -2,7 +2,7 @@ import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
-import { requireCurrentWeb } from './round-service-authority';
+import { requireCurrentWeb } from './web-service-authority';
 import { createUsageRelease } from './usage-release';
 import { rounds } from './schema/rounds';
 import { actors } from './schema/actors';

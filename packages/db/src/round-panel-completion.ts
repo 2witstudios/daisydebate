@@ -22,7 +22,7 @@ import { hydrateRoundRows } from './round-hydration';
 import type { JudgingPanelFacts, JudgingTerminalReason } from '@daisy/protocol';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
-import { requireCurrentWeb } from './round-service-authority';
+import { requireCurrentWeb } from './web-service-authority';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import {

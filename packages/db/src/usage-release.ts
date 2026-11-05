@@ -9,7 +9,7 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
 import { advanceUsageLocked } from './usage-ledger';
-import { roundAgentNow } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import { requireAdmissionTarget } from './round-usage-authority';
 
 type ReleasePolicy = (facts: FreeBindingReleaseFacts) => boolean;
@@ -104,7 +104,7 @@ export function createUsageRelease(input: {
       if (mayRelease && bot && bot.bindingReleasedAt === null)
         await tx
           .update(usageReservations)
-          .set({ bindingReleasedAt: await roundAgentNow(tx) })
+          .set({ bindingReleasedAt: await readDatabaseTime(tx) })
           .where(eq(usageReservations.id, bot.id));
       return { bindingReleased: mayRelease };
     });

@@ -1,4 +1,11 @@
 export { advanceUsage } from './usage-lifecycle';
+export { reconcileSubscriptionEvidence } from './billing-reconciliation';
+export {
+  advanceBillingSync,
+  billingSyncBounds,
+  billingSyncStateSchema,
+} from './billing-sync';
+export type { BillingSyncState } from './billing-sync';
 import type { EntitlementGrant } from './entitlements';
 import { z } from 'zod';
 import { idSchema } from './primitives';
@@ -16,17 +23,20 @@ type PaidPeriod = {
   readonly period: SubscriptionPeriod;
 };
 
+export const subscriptionLifecycles = [
+  'active',
+  'past_due',
+  'canceled',
+  'unpaid',
+  'paused',
+  'incomplete',
+  'incomplete_expired',
+  'trialing',
+] as const;
+
 /** Produced only after the vendor adapter verifies the configured plan and payment. */
 export type SubscriptionEvidence = {
-  readonly lifecycle:
-    | 'active'
-    | 'past_due'
-    | 'canceled'
-    | 'unpaid'
-    | 'paused'
-    | 'incomplete'
-    | 'incomplete_expired'
-    | 'trialing';
+  readonly lifecycle: (typeof subscriptionLifecycles)[number];
   readonly settlement:
     | { readonly kind: 'unpaid' }
     | ({ readonly kind: 'paid' } & PaidPeriod)
@@ -244,16 +254,7 @@ const paidPeriodSchema = z.strictObject({
 });
 export const subscriptionEvidenceSchema: z.ZodType<SubscriptionEvidence> =
   z.strictObject({
-    lifecycle: z.enum([
-      'active',
-      'past_due',
-      'canceled',
-      'unpaid',
-      'paused',
-      'incomplete',
-      'incomplete_expired',
-      'trialing',
-    ]),
+    lifecycle: z.enum(subscriptionLifecycles),
     settlement: z.discriminatedUnion('kind', [
       z.strictObject({ kind: z.literal('unpaid') }),
       z.strictObject({ kind: z.literal('paid'), ...paidPeriodSchema.shape }),

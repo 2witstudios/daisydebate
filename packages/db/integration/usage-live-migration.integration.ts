@@ -8,7 +8,7 @@ import { createBoundedTransaction } from '../src/bounded-transaction';
 import { testLane } from '../src/testing-lane';
 import { rounds } from '../src/schema/rounds';
 import { agentRuns } from '../src/schema/agent-runs';
-import { roundAgentNow } from '../src/round-agent-runs';
+import { readDatabaseTime } from '../src/database-clock';
 import {
   lockBotAdmission,
   markLockedRoundBotModelCall,
@@ -86,7 +86,7 @@ for (const ending of ['ordinary', 'recovery_bound'] as const) {
                 provider: 'fixture',
                 requests: 1,
                 configurationSnapshot: { providerOutcome: 'unknown' },
-                startedAt: await roundAgentNow(tx),
+                startedAt: await readDatabaseTime(tx),
               });
             });
             const incidentId = createId();
@@ -103,7 +103,7 @@ for (const ending of ['ordinary', 'recovery_bound'] as const) {
                 .from(rounds)
                 .where(eq(rounds.id, roundId))
                 .for('no key update');
-              const now = (await roundAgentNow(tx)).toISOString();
+              const now = (await readDatabaseTime(tx)).toISOString();
               await writeProjectionWithPhaseSignal(
                 tx,
                 roundId,

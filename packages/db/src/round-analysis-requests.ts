@@ -10,7 +10,7 @@ import {
   lockAnalysisRound,
 } from './round-analysis-authority';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
-import { roundAgentNow } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import { reserveUsageLocked, type AiAllowanceOptions } from './usage-ledger';
 import { roundAnalyses } from './schema/round-analyses';
 import { usageReservations } from './schema/usage-reservations';
@@ -77,7 +77,7 @@ export function createRoundAnalysisRequests(input: {
         tx,
         authority.account.actorId!,
         input.capacity,
-        await roundAgentNow(tx),
+        await readDatabaseTime(tx),
       );
       await lockAnalysisEvidence(tx, request.roundId);
       const frozen = await readLockedFrozenRoundTranscript(tx, request.roundId);

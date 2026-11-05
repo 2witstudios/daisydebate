@@ -3,7 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { agentRuns } from './schema/agent-runs';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { requireAgentLeaseToken } from './round-agent-lease';
-import { roundAgentNow } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import {
   requireCurrentJob,
   requireCurrentRun,
@@ -53,7 +53,7 @@ export async function assertLockedJudgingLease(
   requireCurrentJob(job, scope);
   requireAgentLeaseToken(token, job.leaseTokenDigest ?? '');
   // Sample AFTER the job lock wait; the D1 context clock is insufficient here.
-  const now = await roundAgentNow(tx);
+  const now = await readDatabaseTime(tx);
   requireLiveJudgingLease(job, now);
   requireCurrentRun(run, scope);
   return { job, run, now };

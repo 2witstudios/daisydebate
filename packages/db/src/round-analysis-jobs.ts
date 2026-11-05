@@ -18,7 +18,7 @@ import {
   lockAnalysisRound,
   type AnalysisSeat,
 } from './round-analysis-authority';
-import { roundAgentNow } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import { roundAnalyses } from './schema/round-analyses';
 import {
   countAnalysisDispatch,
@@ -74,7 +74,7 @@ async function apply(
   evidence: boolean,
 ) {
   // The clock follows account, Round, work and evidence locks and their reads.
-  const now = (await roundAgentNow(tx)).toISOString();
+  const now = (await readDatabaseTime(tx)).toISOString();
   const decision = advanceAnalysisWork(context.work, event, {
     now,
     authorized: context.authorized,
@@ -151,7 +151,7 @@ export function createRoundAnalysisJobs(input: {
         const prepared = evidence
           ? await readAnalysisInput(tx, seat, context.access)
           : null;
-        const now = await roundAgentNow(tx);
+        const now = await readDatabaseTime(tx);
         const request = analysisRequest(context.work);
         if (!request) return null;
         const token = input.nextToken();

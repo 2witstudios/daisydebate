@@ -77,7 +77,8 @@ DEC-362–366 as defaults open to owner confirmation or overrule:
   vendor calls remain unknown unless observed; stopping never proves nonservice.
   Production cutover remains human-controlled. The owning
   [analysis architecture](../architecture/round-analysis.md) records the cohorts
-  and required proof; requested persistence and migration are still in progress.
+  and required proof. Requested persistence and its forward migration are
+  implemented; independent acceptance remains in the plan's evidence matrix.
 - Verified failed renewal of previously paid access gets seven days from its
   previous verified paid-through boundary. No initial-payment grace, new bots
   or allowance fallback during grace. Active vendor status alone is not paid
@@ -99,6 +100,18 @@ Synchronization applies only with current generation, exact claim identity,
 customer mapping and account authority. Duplicate receipts preserve pending
 work without continuously invalidating a healthy claim. Reclaimed leases and
 new hints invalidate older responses. No vendor I/O runs under account locks.
+
+Synchronization claims last 30 seconds, failed reads retry after five seconds,
+and scheduled reconciliation targets five minutes. The Stripe reader makes at
+most three API calls, each bounded to five seconds with SDK retries disabled;
+durable work owns retries. It verifies the configured monthly USD10 price,
+quantity, customer, mode and invoice-line subscription binding. The current
+subscription's latest invoice and newest paid invoice supply payment facts.
+Only an attempted, unsettled `subscription_cycle` invoice matching the current
+item period and adjacent to the prior paid period establishes renewal failure.
+Trial invoices and active status alone create no paid period. Terminal canceled
+or incomplete-expired vendor identities cannot reopen from stale reads, and
+older/missing invoice observations cannot replace a newer verified payment.
 
 The allowance decision reads durable verified subscription evidence at its own
 current instant; BillingAccess is only a result, never a stored observation-time

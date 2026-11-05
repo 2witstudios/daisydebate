@@ -97,6 +97,30 @@ opens shortly before their clock and through any start hold, so capture has them
 told first, the other side can hear it, and the Broadcast stage does not subscribe to it. A bot hears its peers only in its own process memory, one
 10 ms frame at a time, never written anywhere (ISSUE-764).
 
+## Billing records (BILL-2, BILL-15-r1)
+
+Billing stores the account-to-Stripe mapping, local subscription identity,
+verified invoice IDs and periods, and bounded synchronization receipts. It does
+not store card details, invoice/customer contact payloads, webhook bodies or
+vendor error messages. The proposed lawful basis is performance of the paid
+service contract. These records are private and included in the subject's
+account export; internal claim identifiers are excluded.
+
+Subscription facts last for the account's life. Local closure removes them
+and all grants in the same canonical account transaction. Only the minimal
+customer/unfinished-purchase references needed to cancel, resolve an in-flight
+charge and obtain vendor deletion confirmation remain as an unpaid erasure
+obligation. Elapsed time or a vendor outage cannot falsely complete it. Once
+confirmed, the identifying mapping is removed. Webhook receipt retention is
+proposed at 30 days; receipt replay still requires current vendor evidence and
+current account authority. Stripe's own financial-record obligations and live
+processor terms require the BILL-H owner/counsel activation review.
+
+The privacy adopter and synchronization implementation are in progress on the
+Billing slice. Vendor cleanup delivery and receipt retention must be wired and
+proved before enabling the production billing writer; this section is not a
+claim that those pending paths already operate.
+
 ## Release-control targeting and audit (FLAGS)
 
 Allowance accounting records the account's own Round request, source and period,
@@ -264,6 +288,7 @@ a recorded adult age is open (DEC-246).
 | beehiiv                                   | Newsletter                                                                               | Subscriber email (consent)                                                                                                                                                          | Open, WAIT-1.2                                                                                                                      | Open, WAIT-1.2                                                                                                                                                          |
 | Sentry                                    | Error tracking ([ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md))   | Scrubbed error events, `user.id` only                                                                                                                                               | Deploy-time                                                                                                                         | Wired and inert without keys ([ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md)); DPA and account evidence stays PRIV-H before any deploy sets keys |
 | PostHog                                   | Product analytics and replay, consent-gated                                              | Events of category `none`/`identifier` only                                                                                                                                         | Deploy-time                                                                                                                         | Adapters implemented; PRIV-H before keys; replay disabled                                                                                                               |
+| Stripe                                    | Hosted Checkout, recurring collection and Customer Portal                                | Customer/payment details collected by Stripe; Daisy sends only its server-owned purchase references and configured price                                                            | Pending BILL-H / PRIV-H before live activation                                                                                      | Test-mode implementation/proof only; organization account, DPA and live terms remain human-controlled                                                                   |
 
 Owner authorization for the private-admin setup records operational scope only.
 It is not DPA, account-ownership or transfer-safeguard evidence, and grants no
