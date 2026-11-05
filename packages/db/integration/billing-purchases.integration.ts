@@ -64,10 +64,7 @@ test('a dark new-purchase gate leaves only exact-account same-intent recovery av
       flagCommand(key, 1, { action: 'flag.state.update', state: 'killed' }),
     );
     const recovered = await purchases.recover(subject, first.purchase.id);
-    const duplicate = await purchases.admit(subject, {
-      ...offer,
-      priceId: 'price_other',
-    });
+    const duplicate = await purchases.admit(subject, offer);
     const [count] =
       await fixture.sql`select count(*)::int as n from billing_purchases where user_id=${subject.userId}`;
     assert({
@@ -94,6 +91,19 @@ test('a dark new-purchase gate leaves only exact-account same-intent recovery av
         1,
       ],
     });
+    for (const changedOffer of [
+      { ...offer, priceId: 'price_other' },
+      { ...offer, returnOrigin: 'https://other.example' },
+      { ...offer, mode: 'live' as const },
+    ])
+      await assertRejects({
+        given:
+          'a newly configured offer mismatching the pending admitted attempt',
+        should:
+          'require explicit recovery of the old identity rather than treating it as a matching new purchase',
+        code: 'CONFLICT',
+        actual: () => purchases.admit(subject, changedOffer),
+      });
     await assertRejects({
       given: 'a forged purchase ID',
       should: 'refuse recovery',

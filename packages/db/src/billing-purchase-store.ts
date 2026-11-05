@@ -47,6 +47,16 @@ const purchaseFromRow = (row: Row) =>
     state: row.state,
   });
 
+function existingOffer(purchase: Purchase, offer: Offer) {
+  if (
+    purchase.mode !== offer.mode ||
+    purchase.priceId !== offer.priceId ||
+    purchase.returnOrigin !== offer.returnOrigin
+  )
+    throw createAppError('CONFLICT');
+  return { kind: 'existing' as const, purchase };
+}
+
 /** Account first, then customer/subscription, then purchase; every caller uses this order. */
 async function lockSubject(tx: BoundedTransactionContext, subject: Subject) {
   requireOwnScope(subject);
@@ -154,7 +164,7 @@ export function createBillingPurchases(input: {
           if (customer && customer.mode !== offer.mode)
             throw createAppError('CONFLICT');
           const pending = await pendingPurchase(tx, subject);
-          if (pending) return { kind: 'existing', purchase: pending };
+          if (pending) return existingOffer(pending, offer);
           if (!permitsNewSubscription(subscription))
             throw createAppError('CONFLICT');
           // This final shared Flags lock uses a separate fresh post-lock snapshot/time.
