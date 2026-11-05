@@ -74,3 +74,87 @@ test('a rewrite followed by DDL on the same table must flush deferred triggers f
     expected: [['PENDING_TRIGGER_HAZARD'], [], []],
   });
 });
+
+test('the applied judge basis exception requires exact SQL, path, predecessor and named proof', async () => {
+  const tag = '20261105051949_casual_judge_usage';
+  const path = `packages/db/migrations/${tag}/migration.sql`;
+  const sql = await Bun.file(new URL(`../${path}`, import.meta.url)).text();
+  const input = {
+    tag,
+    sql,
+    proven: true,
+    history: {
+      path,
+      predecessorFingerprint:
+        'sha256:22f15babca01acf4ec7329fbbbf03620cb0ba799cc402cd1e360e77d2ce363fd',
+      proofFiles: [
+        'packages/db/integration/usage-count-basis-migration.integration.ts',
+      ],
+    },
+  };
+  const variants = [
+    input,
+    { ...input, tag: '20990101000000_other' },
+    { ...input, sql: sql + '\n-- changed bytes\n' },
+    { ...input, proven: false },
+    {
+      ...input,
+      history: {
+        ...input.history,
+        path: `apps/admin/src/db/migrations/${tag}/migration.sql`,
+      },
+    },
+    { ...input, history: { ...input.history, proofFiles: [] } },
+    {
+      ...input,
+      history: {
+        ...input.history,
+        predecessorFingerprint: 'sha256:changed-schema',
+      },
+    },
+    { tag, sql, proven: true },
+  ];
+  assert({
+    given:
+      'the exact counted-row proof binding and changes to each required identity or evidence input',
+    should:
+      'waive only that one pending-trigger false positive, never missing rewrite proof',
+    actual: variants.map((variant) =>
+      findRewriteProblems(variant).map((problem) => problem.code),
+    ),
+    expected: [
+      [],
+      ['PENDING_TRIGGER_HAZARD'],
+      ['PENDING_TRIGGER_HAZARD'],
+      ['UNPROVEN_REWRITE', 'PENDING_TRIGGER_HAZARD'],
+      ['PENDING_TRIGGER_HAZARD'],
+      ['PENDING_TRIGGER_HAZARD'],
+      ['PENDING_TRIGGER_HAZARD'],
+      ['PENDING_TRIGGER_HAZARD'],
+    ],
+  });
+  assert({
+    given:
+      'a generic rewrite followed by ENABLE TRIGGER, or another hazard appended to the exception migration',
+    should: 'retain the generic guard and report each affected table',
+    actual: [
+      codes(
+        'UPDATE usage_reservations SET state=state; ALTER TABLE usage_reservations ENABLE TRIGGER usage_attribution_immutable;',
+        true,
+      ),
+      findRewriteProblems({
+        ...input,
+        sql:
+          sql +
+          '\nUPDATE rooms SET status=status; ALTER TABLE rooms ADD COLUMN fixture text;',
+      }).map((problem) => problem.detail),
+    ],
+    expected: [
+      ['PENDING_TRIGGER_HAZARD'],
+      ['usage_reservations', 'rooms'].map(
+        (table) =>
+          `${tag} alters ${table} after rewriting its rows; a deferred trigger on ${table} fails that DDL with pending trigger events. Put SET CONSTRAINTS ALL IMMEDIATE before it, or split the migration`,
+      ),
+    ],
+  });
+});
