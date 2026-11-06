@@ -49,7 +49,8 @@ export async function cleanupFacts(
   const [effects] = await tx.execute(sql`select
     (select count(*)::int from billing_customers where user_id=${userId}) as "mappedCustomers",
     (select count(*)::int from billing_purchases where user_id=${userId} and state->>'kind' not in ('admitted','abandoned','expired')) as "possiblePurchases",
-    (select count(*)::int from billing_refund_actions where user_id=${userId}) as "retainedFinancialRoutes"`);
+    (select count(*)::int from billing_refund_actions where user_id=${userId})+
+      (case when exists(select 1 from billing_payment_observations where user_id=${userId}) then 1 else 0 end) as "retainedFinancialRoutes"`);
   if (
     !effects ||
     !['mappedCustomers', 'possiblePurchases', 'retainedFinancialRoutes'].every(
@@ -61,6 +62,7 @@ export async function cleanupFacts(
     select mode,vendor_customer_id as "customerId" from billing_customers where user_id=${userId}
     union select mode,state->>'customerId' as "customerId" from billing_purchases where user_id=${userId} and state->>'customerId' is not null
     union select mode,vendor_customer_id as "customerId" from billing_refund_actions where user_id=${userId}
+    union select mode,vendor_customer_id as "customerId" from billing_payment_observations where user_id=${userId}
   ) owned_routes limit 2`);
   return {
     effects: effects as {

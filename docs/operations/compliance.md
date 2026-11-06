@@ -149,8 +149,17 @@ retained financial facts and omits execution authenticators/cursors. Unresolved
 observations and necessary routing survive closure, ordinary customer deletion,
 job rotation and vendor disappearance; only positive classification or valid
 original-action linkage changes their obligation. No elapsed finality purge or
-lawful-duration decision is introduced. The observation schema/adopter and
-persist-before-cursor delivery are pending implementation under BILL15r1.
+lawful-duration decision is introduced. The Billing adopter exports these facts
+and retains their routing through closure. Atomic persist-before-cursor delivery
+and fair revisits remain implementation work under BILL15r1.
+
+An exact owned payment may retain verified paid status and original second
+precision as a minimal pre-closure classification, without charge/allocation or
+period details. Unknown fields remain unknown. This evidence resolves only that
+payment; conflicting evidence remains owed and an existing original refund-action
+binding survives independently. Observation identifiers/source/known financial
+facts are non-erasing; the runtime role has no ordinary DELETE privilege. This
+does not settle the pending production lawful-duration/erasure decision.
 
 The privacy adopter and synchronization implementation are in progress on the
 Billing slice. Vendor cleanup delivery and receipt retention must be wired and

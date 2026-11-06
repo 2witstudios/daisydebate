@@ -402,6 +402,21 @@ obligations and linked money actions; shared charges never gain multiple refund
 keys. This is the same BILL15r1 scope and pending-owner policy. Observation schema,
 atomic advancement, retention/export and adverse proof remain implementation work.
 
+Exact positively retrieved paid InvoicePayment chronology has its own typed
+evidence branch. With original mode/customer/invoice/payment and frozen offer
+ownership corroborated, the whole paid timestamp second must end at or before
+local closure, using fresh post-lock database time and rejecting future evidence.
+This can classify only that payment as pre-closure while charge, allocation and
+period remain unknown. Conflicts remain owed. It never resolves invoice
+enumeration, other payments or a bound refund action, and creates no money
+authority. New refunds still require the complete original-charge/allocation
+proof and the sole original action/key. Observation rows retain this distinction;
+privacy jobs alone own cursor/claim execution.
+The pinned [Stripe23.1 InvoicePayment contract](https://github.com/stripe/stripe-node/blob/v23.1.0/src/resources/InvoicePayments.ts)
+identifies the success timestamp separately from invoice allocation; the
+[object reference](https://docs.stripe.com/api/invoice-payment/object) permits
+partial allocation. Neither observation supplies whole-charge refund authority.
+
 Flags core reaches main before Billing rebases and regenerates migrations.
 Billing owns real FLAGS-8/15 route, mutation, recovery and native-form evidence;
 core fixtures alone do not establish consumer acceptance.

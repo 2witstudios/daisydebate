@@ -71,6 +71,8 @@ test('cleanup frozen offer survives mapping deletion and later live configuratio
       )
         throw Error('Missing frozen offer cleanup claim');
       const claimId = c.state.claim.id;
+      const [purchase] =
+        await fixture.sql`select id,admitted_at from billing_purchases where user_id=${subject.userId} and state->>'kind'='complete'`;
       const original = await cleanup.frozenOffer(
         jobId,
         c.state.claim.id,
@@ -99,6 +101,13 @@ test('cleanup frozen offer survives mapping deletion and later live configuratio
           { kind: 'owned', mode: 'test', customerId: session.customerId },
           {
             kind: 'owned',
+            source: {
+              kind: 'purchase',
+              purchaseId: purchase!.id,
+              vendorSubscriptionId: session.subscriptionId,
+              priceId: offer.priceId,
+              admittedAt: purchase!.admitted_at.toISOString(),
+            },
             owner: {
               mode: 'test',
               customerId: session.customerId,

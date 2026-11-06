@@ -229,7 +229,7 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
         -- Flag, analysis-request and original refund-action identities cannot be reset by runtime DELETE.
-        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions') then
+        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')

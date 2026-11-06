@@ -1,4 +1,10 @@
 export { advanceUsage } from './usage-lifecycle';
+export {
+  billingPaymentObservationSchema,
+  billingPaymentObservationStateSchema,
+  paymentObservationSourceSchema,
+} from './billing-payment-observation';
+export type { BillingPaymentObservation } from './billing-payment-observation';
 export { advanceCleanup, ownsCleanupClaim } from './billing-cleanup-lifecycle';
 export {
   billingCleanupSchema,

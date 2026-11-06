@@ -5,11 +5,13 @@ import {
   cleanupWork,
   startCleanup,
   ownsCleanupClaim,
+  paymentObservationSourceSchema,
   type CleanupEvent,
   type CleanupWork,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBillingCleanupResources } from './billing-cleanup-resources';
+import { createBillingPaymentObservations } from './billing-payment-observations';
 import { privacyJobs } from './schema/privacy-jobs';
 import {
   cleanupContext,
@@ -24,6 +26,7 @@ export function createBillingCleanup(input: {
 }) {
   return {
     ...createBillingCleanupResources(input.run),
+    ...createBillingPaymentObservations(input.run),
     frozenOffer(
       jobId: string,
       claimId: string,
@@ -41,7 +44,7 @@ export function createBillingCleanup(input: {
         if (facts.route.kind !== 'owned')
           return { kind: 'unresolved' } as const;
         const rows =
-          await tx.execute(sql`select price_id as "priceId",mode,state->>'customerId' as "customerId",state->>'subscriptionId' as "vendorSubscriptionId"
+          await tx.execute(sql`select id,admitted_at as "admittedAt",price_id as "priceId",mode,state->>'customerId' as "customerId",state->>'subscriptionId' as "vendorSubscriptionId"
           from billing_purchases where user_id=${locked.userId} and mode=${facts.route.mode}
           and state->>'kind'='complete' and state->>'customerId'=${facts.route.customerId}
           and state->>'subscriptionId'=${vendorSubscriptionId} limit 2`);
@@ -49,18 +52,22 @@ export function createBillingCleanup(input: {
         const context = await cleanupContext(tx, jobId, facts.effects);
         if (
           !ownsCleanupClaim(locked.state, claimId, work, context) ||
-          rows.length !== 1 ||
-          !row ||
-          typeof row.priceId !== 'string' ||
-          !/^price_[A-Za-z0-9_]{1,249}$/.test(row.priceId)
+          rows.length !== 1
         )
           return { kind: 'unresolved' } as const;
+        const source = readOriginalOffer(
+          row,
+          vendorSubscriptionId,
+          locked.closedAt,
+        );
+        if (!source) return { kind: 'unresolved' } as const;
         return {
           kind: 'owned' as const,
+          source,
           owner: {
             mode: facts.route.mode,
             customerId: facts.route.customerId,
-            priceId: row.priceId,
+            priceId: source.priceId,
             vendorSubscriptionId,
           },
         };
@@ -131,4 +138,25 @@ export function createBillingCleanup(input: {
       });
     },
   };
+}
+
+function readOriginalOffer(
+  row: Record<string, unknown> | undefined,
+  vendorSubscriptionId: string,
+  closedAt: string,
+) {
+  if (!row) return null;
+  const source = paymentObservationSourceSchema.safeParse({
+    kind: 'purchase',
+    purchaseId: row.id,
+    vendorSubscriptionId,
+    priceId: row.priceId,
+    admittedAt:
+      row.admittedAt instanceof Date ? row.admittedAt.toISOString() : null,
+  });
+  return source.success &&
+    source.data.kind === 'purchase' &&
+    Date.parse(source.data.admittedAt) <= Date.parse(closedAt)
+    ? source.data
+    : null;
 }

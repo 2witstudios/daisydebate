@@ -36,7 +36,8 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as received_at
       from billing_webhook_events where (mode,vendor_customer_id) in
         (select mode,vendor_customer_id from billing_customers where user_id=${subject.userId}
-          union select mode,vendor_customer_id from billing_refund_actions where user_id=${subject.userId}) order by received_at,id`);
+          union select mode,vendor_customer_id from billing_refund_actions where user_id=${subject.userId}
+          union select mode,vendor_customer_id from billing_payment_observations where user_id=${subject.userId}) order by received_at,id`);
     const purchases =
       await tx.execute(sql`select id,mode,price_id,vendor_customer_id,return_origin,
       to_char(admitted_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as admitted_at,
@@ -50,6 +51,12 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       to_char(closed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as closed_at,
       to_char(admitted_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as admitted_at,
       state-'afterRefundId' as state from billing_refund_actions where user_id=${subject.userId} order by admitted_at,id`);
+    const observations =
+      await tx.execute(sql`select id,mode,vendor_customer_id,vendor_invoice_id,kind,vendor_invoice_payment_id,refund_action_id,source,state,
+      to_char(closed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as closed_at,
+      to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
+      to_char(observed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as observed_at
+      from billing_payment_observations where user_id=${subject.userId} order by id`);
     return {
       billing_customers: customers as unknown as Record<string, unknown>[],
       billing_subscriptions: subscriptions as unknown as Record<
@@ -59,6 +66,10 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       billing_webhook_events: receipts as unknown as Record<string, unknown>[],
       billing_purchases: purchases as unknown as Record<string, unknown>[],
       billing_refund_actions: refunds as unknown as Record<string, unknown>[],
+      billing_payment_observations: observations as unknown as Record<
+        string,
+        unknown
+      >[],
     };
   },
 };

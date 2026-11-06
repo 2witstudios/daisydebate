@@ -83,6 +83,44 @@ const factsSchema = z.strictObject({
   paymentIntent: intentSchema.nullable(),
 });
 type Facts = z.infer<typeof factsSchema>;
+const ownedInvoiceSchema = invoiceSchema
+  .pick({
+    id: true,
+    object: true,
+    customer: true,
+    livemode: true,
+    parent: true,
+  })
+  .extend({
+    lines: z.object({
+      has_more: z.literal(false),
+      data: z
+        .array(
+          invoiceSchema.shape.lines.shape.data.element.pick({
+            id: true,
+            quantity: true,
+            livemode: true,
+            parent: true,
+            pricing: true,
+          }),
+        )
+        .length(1),
+    }),
+  });
+const paidChronologySchema = z.strictObject({
+  owner: ownerSchema,
+  invoiceId: vendorId('in'),
+  invoicePaymentId: vendorId('inpay'),
+  invoice: ownedInvoiceSchema,
+  invoicePayment: z.object({
+    id: vendorId('inpay'),
+    object: z.literal('invoice_payment'),
+    invoice: reference('in'),
+    livemode: z.boolean(),
+    status: z.literal('paid'),
+    status_transitions: z.object({ paid_at: seconds, canceled_at: z.null() }),
+  }),
+});
 type Payment = Pick<
   RefundAction,
   | 'mode'
@@ -99,20 +137,54 @@ type Observation =
   | { readonly kind: 'refund'; readonly payment: Payment }
   | { readonly kind: 'pre-closure' | 'unresolved' };
 
-function ownsInvoice(facts: Facts) {
+function ownsInvoice(facts: {
+  readonly owner: z.infer<typeof ownerSchema>;
+  readonly invoice: z.infer<typeof ownedInvoiceSchema>;
+}) {
   const { owner, invoice } = facts;
   const line = invoice.lines.data[0]!;
   return (
     invoice.customer === owner.customerId &&
     invoice.livemode === (owner.mode === 'live') &&
     line.livemode === invoice.livemode &&
-    line.amount === 1000 &&
     invoice.parent.subscription_details.subscription ===
       owner.vendorSubscriptionId &&
     line.parent.subscription_item_details.subscription ===
       owner.vendorSubscriptionId &&
     line.pricing.price_details.price === owner.priceId
   );
+}
+
+/** Positive exact-payment chronology is retained separately from charge/allocation proof. */
+export function observeClosurePaymentChronology(input: {
+  readonly owner: unknown;
+  readonly invoiceId: string;
+  readonly invoicePaymentId: string;
+  readonly invoice: unknown;
+  readonly invoicePayment: unknown;
+}) {
+  const parsed = paidChronologySchema.safeParse(input);
+  if (!parsed.success) return { kind: 'unresolved' } as const;
+  const value = parsed.data,
+    payment = value.invoicePayment;
+  if (
+    !ownsInvoice(value) ||
+    value.invoice.id !== value.invoiceId ||
+    payment.id !== value.invoicePaymentId ||
+    payment.invoice !== value.invoice.id ||
+    payment.livemode !== value.invoice.livemode
+  )
+    return { kind: 'unresolved' } as const;
+  return {
+    kind: 'chronology' as const,
+    proof: {
+      ...value.owner,
+      invoiceId: value.invoiceId,
+      invoicePaymentId: value.invoicePaymentId,
+      status: payment.status,
+      paidAtSeconds: payment.status_transitions.paid_at,
+    },
+  };
 }
 function ownsCharge(facts: Facts) {
   const { owner, invoice, invoicePayment: allocation, charge } = facts;
@@ -158,7 +230,12 @@ export function observeClosurePayment(input: {
   const parsed = factsSchema.safeParse(input);
   if (!parsed.success) return { kind: 'unresolved' };
   const facts = parsed.data;
-  if (!ownsInvoice(facts) || !ownsCharge(facts) || !matchesPayment(facts))
+  if (
+    !ownsInvoice(facts) ||
+    facts.invoice.lines.data[0]!.amount !== 1000 ||
+    !ownsCharge(facts) ||
+    !matchesPayment(facts)
+  )
     return { kind: 'unresolved' };
   const period = facts.invoice.lines.data[0]!.period;
   if (

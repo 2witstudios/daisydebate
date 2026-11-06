@@ -91,6 +91,7 @@ export async function requireRefundCustomer(
     select 1 from billing_customers where user_id=${userId} and mode=${mode} and vendor_customer_id=${customerId} and closed_at is not null
     union all select 1 from billing_purchases where user_id=${userId} and mode=${mode} and state->>'customerId'=${customerId}
     union all select 1 from billing_refund_actions where user_id=${userId} and mode=${mode} and vendor_customer_id=${customerId}
+    union all select 1 from billing_payment_observations where user_id=${userId} and mode=${mode} and vendor_customer_id=${customerId}
   ) as owned`);
   if (owned?.owned !== true) throw createAppError('AUTHORIZATION');
 }
@@ -101,8 +102,10 @@ export async function lockRetainedRefundCustomer(
   mode: string,
   customerId: string,
 ) {
-  const owners = await tx.execute(sql`select distinct user_id as "userId"
-    from billing_refund_actions where mode=${mode} and vendor_customer_id=${customerId} limit 2`);
+  const owners = await tx.execute(sql`select user_id as "userId" from (
+    select user_id from billing_refund_actions where mode=${mode} and vendor_customer_id=${customerId}
+    union select user_id from billing_payment_observations where mode=${mode} and vendor_customer_id=${customerId}
+  ) retained_owners limit 2`);
   if (owners.length === 0) return null;
   if (owners.length !== 1) throw createAppError('CONFLICT');
   const userId = owners[0]!.userId;
