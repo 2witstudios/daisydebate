@@ -5,10 +5,16 @@ native routes compose the existing purchase and allowance authorities; they
 never grant access from a browser return parameter.
 
 `composeNativeBilling(app, stripe)` accepts the integration root's Stripe
-instance. It does not construct a second client. The root injects its lazy
-result through `AppDependencies.billingNative`; the process must supply this
-for both ordinary startup and an already adopted browser-fixture App. Missing
-transport refuses rather than returning a successful vendor response.
+instance. The Billing route binder receives the process App and vendor fetch
+resource explicitly. Its resolver honors an injected adopted-App runtime or
+lazily composes the pinned SDK resource for that App. Only resource composition
+is cached; member authority and release decisions are read for each operation.
+Configured but unavailable transport refuses; no-Stripe beta remains inert.
+
+Display uses `isReleaseEnabled` with the same explicitly injected core request
+reader. Billing management and admitted-attempt recovery remain reachable when
+new purchases are dark; only fresh intent admission obtains mutation authority
+from `requireFlagAdmission` inside its canonical account-fenced transaction.
 
 - `POST /api/billing/checkout` accepts an empty native URL-encoded form only.
   Same-origin, authenticated identity and member budget precede durable

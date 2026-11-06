@@ -1,5 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
+import { createAppError } from '@daisy/errors';
+import type { Identity } from '@daisy/auth';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createBillingNativeHandlers } from './native-handlers';
 setupRitewayBun();
@@ -14,20 +16,37 @@ const post = (body = '', from = origin, query = '') =>
     },
     body,
   });
+function fixtureIdentity(
+  state: 'member' | 'anonymous' | 'provisional',
+): Identity {
+  if (state === 'anonymous') return { state, principal: { kind: 'anonymous' } };
+  if (state === 'provisional')
+    return {
+      state,
+      principal: { kind: 'user', userId: principal.userId, actorId: null },
+    };
+  return {
+    state,
+    username: 'member',
+    principal: { ...principal, kind: 'user' },
+  };
+}
 const setup = ({
   state = 'member',
   limited = false,
-}: { readonly state?: string; readonly limited?: boolean } = {}) => {
+}: {
+  readonly state?: 'member' | 'anonymous' | 'provisional';
+  readonly limited?: boolean;
+} = {}) => {
   const called: unknown[] = [];
   const boundary = {
     logger: silentLogger,
     reporter: noopErrorReporter,
     origin: () => origin,
-    identify: async () => ({ state, principal }) as never,
-    limiter: () =>
-      ({
-        consume: async () => ({ allowed: !limited, retryAfterSeconds: 1 }),
-      }) as never,
+    identify: async () => fixtureIdentity(state),
+    limiter: () => ({
+      consume: async () => ({ allowed: !limited, retryAfterSeconds: 1 }),
+    }),
   };
   const handlers = createBillingNativeHandlers({
     boundary,
@@ -40,7 +59,7 @@ const setup = ({
     },
     portal: async () => ({ kind: 'unavailable' }),
   });
-  return { handlers, called };
+  return { handlers, called, boundary };
 };
 test('a native Checkout form returns a no-store 303 to validated hosted payment', async () => {
   const { handlers, called } = setup();
@@ -95,12 +114,12 @@ test('forged form authority and cross-origin requests never call Checkout', asyn
   });
 });
 
-test('anonymous, unclaimed and rate-limited callers never reach vendor work', async () => {
+test('anonymous, provisional and rate-limited callers never reach vendor work', async () => {
   const variants = [
     { state: 'anonymous' },
-    { state: 'unclaimed' },
+    { state: 'provisional' },
     { limited: true },
-  ];
+  ] as const;
   const result = await Promise.all(
     variants.map(async (variant) => {
       const { handlers, called } = setup(variant);
@@ -117,5 +136,38 @@ test('anonymous, unclaimed and rate-limited callers never reach vendor work', as
       [403, 0],
       [429, 0],
     ],
+  });
+});
+
+test('new-purchase refusal maps to HTTP404 without hiding the existing management entry', async () => {
+  const { boundary } = setup();
+  let admissions = 0,
+    management = 0;
+  const handlers = createBillingNativeHandlers({
+    boundary,
+    checkout: async () => {
+      admissions += 1;
+      throw createAppError('NOT_FOUND');
+    },
+    portal: async () => {
+      management += 1;
+      return { kind: 'unavailable' };
+    },
+  });
+  const refused = await handlers.checkout(post());
+  const portal = await handlers.portal(
+    new Request(`${origin}/api/billing/portal`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/x-www-form-urlencoded' },
+      body: '',
+    }),
+  );
+  assert({
+    given:
+      'canonical new-purchase authority refuses after the authenticated native form boundary',
+    should:
+      'return404 while management continues through its own operation, without a blanket route display gate',
+    actual: [refused.status, portal.status, admissions, management],
+    expected: [404, 303, 1, 1],
   });
 });

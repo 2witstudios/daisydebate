@@ -8,6 +8,7 @@ import type { App } from '../../server/app';
 import { aiAdmissionOptions } from '../../server/round-worker-policy';
 import { releaseAdmission } from '../flags/admission';
 import { createRequestFlagReader } from '../flags/reader';
+import { isReleaseEnabled } from '../flags/server';
 import { createPurchaseAdmission } from './purchase-admission';
 import { stripeCheckoutPort } from './checkout-vendor';
 import { stripePortalPort } from './portal-session';
@@ -64,15 +65,19 @@ export function composeNativeBilling(
       allowance: allowance.decide,
     }),
     release: (key, accountId) =>
-      createRequestFlagReader({
-        read: app.database.readFlagSnapshot,
-        now: () => Date.parse(app.clock.now()),
-        diagnostic: () =>
-          app.logger.log(
-            'flags.read.failed',
-            { operation: 'flags.read', cause: 'unavailable' },
-            'Release control read failed',
-          ),
-      })(key, accountId),
+      isReleaseEnabled(
+        key,
+        accountId,
+        createRequestFlagReader({
+          read: app.database.readFlagSnapshot,
+          now: () => Date.parse(app.clock.now()),
+          diagnostic: () =>
+            app.logger.log(
+              'flags.read.failed',
+              { operation: 'flags.read', cause: 'unavailable' },
+              'Release control read failed',
+            ),
+        }),
+      ),
   });
 }
