@@ -155,7 +155,10 @@ function contentSecurityPolicy(
     "font-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    // Chromium checks the native form's hosted redirect against its document policy.
+    pathname === '/settings/billing'
+      ? "form-action 'self' https://checkout.stripe.com https://billing.stripe.com"
+      : "form-action 'self'",
     "frame-ancestors 'none'",
     // Only the Round page and the replay page play a stream: hls.js reads it, hands
     // the video a blob of Media Source, and transmuxes in its own same-origin worker
