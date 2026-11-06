@@ -237,7 +237,11 @@ jobs:
       # cannot pass flags.
       - run: docker compose -f infra/compose.yaml up -d --wait redis livekit clamd clickhouse
       # The Recording build runs real ffmpeg (apps/recording-worker/integration).
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: Prepare and verify ffmpeg (240-second total budget)
+        timeout-minutes: 4
+        run: |
+          read -r started _ < /proc/uptime
+          sudo -n --preserve-env=ImageOS,ImageVersion "$(command -v bun)" scripts/ci-ffmpeg.ts "$started"
       - run: bun db:migrate
       - name: Verify migration reruns are idempotent
         run: bun db:migrate
