@@ -69,6 +69,13 @@ run their format unchanged. See ADR 0078.
 
 ## Assembly and Launch
 
+An unlisted Room's reusable URL can be shared before its recipient has an
+account. Sign-in, email confirmation and onboarding carry that Room as the
+validated local `next` destination. Sign-up remains required; during closed
+beta, an unapproved account waits on the beta page with the same destination.
+The link grants neither beta approval nor a seat. This continuation lasts for
+the sign-up journey; later beta approval emails use their normal destination.
+
 A host creates a Room from the catalog or a custom definition. Members take
 debater or judge seats; the host may seat bots. Changing settings or seats
 clears every Ready consent, so nobody plays under rules they did not see.

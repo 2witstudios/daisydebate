@@ -10,8 +10,9 @@ const choose = (page: Page, label: string) =>
  * to the lobby. onboarding.e2e.ts runs it with JavaScript and
  * journey-no-js.e2e.ts without.
  */
-export const walkOnboarding = async (page: Page) => {
-  await expect(page).toHaveURL(/\/onboarding\/daisy\?next=(\/|%2F)lobby$/);
+export const walkOnboarding = async (page: Page, destination = '/lobby') => {
+  await expect(page).toHaveURL(/\/onboarding\/daisy\?next=/);
+  expect(new URL(page.url()).searchParams.get('next')).toBe(destination);
   await expect(
     page.getByRole('heading', {
       name: 'How Daisy works',
@@ -44,11 +45,12 @@ export const walkOnboarding = async (page: Page) => {
   await choose(page, 'Law');
   await page.getByRole('button', { name: 'Finish' }).click();
 
-  await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)lobby$/);
+  await expect(page).toHaveURL(/\/onboarding\/ready\?next=/);
+  expect(new URL(page.url()).searchParams.get('next')).toBe(destination);
   await expect(
     page.getByRole('heading', { name: /you're ready/i }),
   ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Enter the lobby' }),
-  ).toHaveAttribute('href', '/lobby');
+  ).toHaveAttribute('href', destination);
 };
