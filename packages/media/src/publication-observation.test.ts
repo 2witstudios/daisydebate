@@ -11,6 +11,54 @@ const terminal = () => ({
   stop: null,
 });
 
+test('nested delivery cannot revive invalidity or commit duplicate sequence', () => {
+  const outcomes = ['malformed', 'valid', 'throw', 'cap'].map((nested) => {
+    const records: unknown[] = [];
+    const observer = createPublicationObserver((event) => {
+      records.push(event);
+      if (records.length !== 1) return;
+      observer.observe(nested === 'malformed' ? ({} as never) : terminal());
+      if (nested === 'cap')
+        for (let index = 0; index < 65; index++) observer.observe(terminal());
+      if (nested === 'throw') throw Error('synthetic nested failure');
+    });
+    observer.observe(terminal());
+    observer.observe(terminal());
+    return { records: records.length, status: observer.status().state };
+  });
+  assert({
+    given: 'a collector reentering its own handle after storing terminal',
+    should:
+      'invalidate the whole receipt and admit no nested or later delivery',
+    actual: outcomes,
+    expected: Array.from({ length: 4 }, () => ({
+      records: 1,
+      status: 'invalid',
+    })),
+  });
+});
+
+test('snapshot construction cannot admit delivery after a reentrant getter invalidates it', () => {
+  let records = 0;
+  const observer = createPublicationObserver(() => {
+    records++;
+  });
+  observer.observe({
+    ...terminal(),
+    get eligibleSamples() {
+      observer.observe({} as never);
+      return 9600;
+    },
+  });
+  assert({
+    given:
+      'a malformed runtime object reentering during scalar snapshot construction',
+    should: 'retain first invalidity and never invoke the consumer',
+    actual: { records, state: observer.status().state },
+    expected: { records: 0, state: 'invalid' },
+  });
+});
+
 test('an observation is a frozen unaliased scalar snapshot', () => {
   const received: unknown[] = [];
   const observer = createPublicationObserver((event) => {

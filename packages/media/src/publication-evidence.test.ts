@@ -52,6 +52,13 @@ function terminal(proof: ReturnType<typeof evidence>, outcome = complete) {
 function happy(proof: ReturnType<typeof evidence>) {
   for (let index = 0; index < 20; index++) {
     proof.observer.observe({
+      kind: 'cadence',
+      decision: 'ready',
+      dueMs: (index + 1) * 10,
+      observedAtMs: (index + 1) * 10,
+      clockSamples: index * 480,
+    });
+    proof.observer.observe({
       kind: 'receipt',
       decision: 'accepted',
       clockSamples: index * 480,
@@ -63,12 +70,14 @@ function happy(proof: ReturnType<typeof evidence>) {
       afterMs: (index + 1) * 10 + 1,
       dueMs: (index + 1) * 10,
       calibrationReceivedAtMs: 0,
+      windowBeforeMs: 1000 + index * 10,
+      windowAfterMs: 1000 + (index + 1) * 10 + 1,
     });
     proof.observer.observe({
       kind: 'authorization',
       decision: 'allowed',
-      beforeMs: index * 10,
-      afterMs: (index + 1) * 10 + 1,
+      beforeMs: 1000 + index * 10,
+      afterMs: 1000 + (index + 1) * 10 + 1,
       sourceSamples: (index + 1) * 480,
       cancelled: 0,
     });
@@ -76,6 +85,13 @@ function happy(proof: ReturnType<typeof evidence>) {
   terminal(proof);
 }
 function rejected(proof: ReturnType<typeof evidence>) {
+  proof.observer.observe({
+    kind: 'cadence',
+    decision: 'ready',
+    dueMs: 10,
+    observedAtMs: 10,
+    clockSamples: 0,
+  });
   proof.observer.observe({
     kind: 'receipt',
     decision: 'receipt.late',
@@ -88,6 +104,8 @@ function rejected(proof: ReturnType<typeof evidence>) {
     afterMs: 111,
     dueMs: 10,
     calibrationReceivedAtMs: 0,
+    windowBeforeMs: undefined,
+    windowAfterMs: undefined,
   });
   proof.observer.observe({
     kind: 'terminal',
@@ -99,6 +117,78 @@ function rejected(proof: ReturnType<typeof evidence>) {
   });
 }
 
+test('ledger corruption cannot substitute counts for source and history evidence', () => {
+  const proof = evidence();
+  happy(proof);
+  const snapshot = proof.snapshot();
+  const mutations = [
+    snapshot.events.map((event) => ({
+      kind: event.kind,
+      sequence: event.sequence,
+      ...('decision' in event ? { decision: event.decision } : {}),
+      ...('phase' in event ? { phase: event.phase } : {}),
+      ...(event.kind === 'terminal' ? event : {}),
+    })),
+    snapshot.events.map((event) =>
+      event.kind === 'receipt'
+        ? {
+            ...snapshot.events.find((item) => item.kind === 'receipt')!,
+            sequence: event.sequence,
+          }
+        : event.kind === 'authorization'
+          ? {
+              ...snapshot.events.find((item) => item.kind === 'authorization')!,
+              sequence: event.sequence,
+            }
+          : event,
+    ),
+    snapshot.events.filter((event) => event.kind !== 'cadence'),
+    snapshot.events.map((event) =>
+      event.kind === 'authorization'
+        ? {
+            ...event,
+            sourceSamples:
+              event.sourceSamples === 480 ? 9600 : event.sourceSamples,
+          }
+        : event,
+    ),
+    snapshot.events.filter(
+      (event) =>
+        !(event.kind === 'authorization' && event.sourceSamples === 480),
+    ),
+    snapshot.events.map((event, index, events) =>
+      index === 2 ? events[3]! : index === 3 ? events[2]! : event,
+    ),
+    snapshot.events.map((event) =>
+      event.kind === 'clock' ? { ...event, sentAtMs: 'NaN' } : event,
+    ),
+    snapshot.events.map((event) =>
+      event.kind === 'authorization' ? { ...event, beforeMs: 0 } : event,
+    ),
+  ];
+  assert({
+    given:
+      'missing numeric fields, duplicated prefixes, missing cadence, substituted history, absent history or reordered events',
+    should:
+      'reject every corrupted ledger despite edited sequence and delivery counts',
+    actual: mutations.map(
+      (events) =>
+        assessNativePublicationEvidence(
+          {
+            events: events.map((event, sequence) => ({
+              ...event,
+              sequence,
+            })) as never,
+            delivery: { state: 'valid', delivered: events.length },
+          },
+          complete,
+          'complete',
+        ).state === 'confirmed',
+    ),
+    expected: mutations.map(() => false),
+  });
+});
+
 test('only a complete native qualification record confirms complete credit', () => {
   const proof = evidence();
   happy(proof);
@@ -109,6 +199,27 @@ test('only a complete native qualification record confirms complete credit', () 
       'confirm the recorded complete qualification without treating transport as credit',
     actual: proof.assess(complete, 'complete'),
     expected: { state: 'confirmed', decision: 'complete' },
+  });
+});
+
+test('matching terminal and public totals cannot contradict the authorized ledger', () => {
+  const proof = evidence();
+  happy(proof);
+  const snapshot = proof.snapshot();
+  const events = snapshot.events.map((event) =>
+    event.kind === 'terminal' ? { ...event, eligibleSamples: 0 } : event,
+  );
+  assert({
+    given:
+      'a complete ledger with terminal and public result both substituted to zero credit',
+    should:
+      'reject totals inconsistent with its actual authorized source prefix',
+    actual: assessNativePublicationEvidence(
+      { ...snapshot, events },
+      { ...complete, eligibleSamples: 0 },
+      'complete',
+    ).state,
+    expected: 'invalid',
   });
 });
 

@@ -120,6 +120,8 @@ async function captureFrame(
     ...normalized,
     dueMs,
     calibrationReceivedAtMs: clock.calibration.receivedAtMs,
+    windowBeforeMs: observed.window?.beforeMs,
+    windowAfterMs: observed.window?.afterMs,
   });
   return observed;
 }

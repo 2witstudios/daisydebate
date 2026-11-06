@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createPacedAudioWriter } from './paced-publication';
 import { createPublicationObserver } from './publication-observation';
+import { assessNativePublicationEvidence } from '../integration/publication-evidence.test-support';
 
 setupRitewayBun();
 type Copied = Parameters<Parameters<typeof createPublicationObserver>[0]>[0];
@@ -10,19 +11,31 @@ type Mode =
   | 'terminal-throw'
   | 'async'
   | 'then-getter'
-  | 'mutating';
-type Fault = 'none' | 'late-receipt' | 'history' | 'cancel';
+  | 'mutating'
+  | 'reentrant';
+type Fault =
+  | 'none'
+  | 'late-receipt'
+  | 'history'
+  | 'cancel'
+  | 'nonfinite-receipt'
+  | 'wake-once'
+  | 'wake-twice'
+  | 'refresh-reject';
 
 /** Scripted effects test decision equivalence, not native/transport qualification. */
 async function run(mode: Mode, fault: Fault = 'none') {
   let now = 1000,
     samples = 0,
-    windows = 0;
+    windows = 0,
+    waits = 0,
+    calibrations = 0;
   const controller = new AbortController();
   const calls: unknown[] = [];
   const records: Copied[] = [];
   const observer = createPublicationObserver((event) => {
     records.push(event);
+    if (mode === 'reentrant') observer.observe({} as never);
     if (mode === 'terminal-throw' && event.kind === 'terminal')
       throw new Error('synthetic terminal delivery failure');
     if (mode === 'async')
@@ -46,7 +59,7 @@ async function run(mode: Mode, fault: Fault = 'none') {
           startSample,
           endSample: samples,
           beforeMs,
-          afterMs: now,
+          afterMs: fault === 'nonfinite-receipt' ? Number.NaN : now,
         };
         calls.push(['capture', receipt]);
         return receipt;
@@ -69,13 +82,20 @@ async function run(mode: Mode, fault: Fault = 'none') {
     },
     waitUntilMs: async (dueMs) => {
       calls.push(['wait', dueMs]);
-      now = Math.max(now, dueMs);
+      waits++;
+      const lateWake =
+        fault === 'wake-twice' || (fault === 'wake-once' && waits === 1);
+      now = Math.max(now, dueMs) + (lateWake ? 101 : 0);
     },
     calibrate: async () => {
+      calibrations++;
       const calibration = {
         sentAtMs: now,
         receivedAtMs: now,
-        serverNowMs: 1_792_000_000_000 + now,
+        serverNowMs:
+          1_792_000_000_000 +
+          now +
+          (fault === 'refresh-reject' && calibrations > 1 ? 1000 : 0),
         precisionMs: 1,
       };
       calls.push(['calibrate', calibration]);
@@ -136,6 +156,7 @@ test('omitted normal and failed collectors preserve identical publication author
     'async',
     'then-getter',
     'mutating',
+    'reentrant',
   ];
   const equal: boolean[] = [];
   for (const fault of faults) {
@@ -181,5 +202,43 @@ test('happy publication retains complete real-contract counts while terminal del
       terminal: 'terminal',
       delivery: 'invalid',
     },
+  });
+});
+
+test('the ordered evidence ledger accepts actual writer records rather than a hand-built count fixture', async () => {
+  const cases = [
+    ['none', 'complete'],
+    ['late-receipt', 'receipt.late'],
+    ['history', 'refused'],
+    ['cancel', 'cancelled'],
+    ['nonfinite-receipt', 'receipt.nonfinite'],
+    ['wake-once', 'complete'],
+    ['wake-twice', 'stall'],
+    ['refresh-reject', 'refresh.offset-ahead'],
+  ] as const;
+  const assessments = [];
+  for (const [fault, expected] of cases) {
+    const actual = await run('normal', fault);
+    assessments.push(
+      assessNativePublicationEvidence(
+        {
+          events: actual.records,
+          delivery: actual.delivery,
+        },
+        actual.result,
+        expected,
+      ),
+    );
+  }
+  assert({
+    given:
+      'actual scripted writer events with refresh and complete, rejected receipt, history refusal or cancellation',
+    should:
+      'correlate each cadence, contiguous source prefix, actual history window and terminal decision',
+    actual: assessments,
+    expected: cases.map(([, decision]) => ({
+      state: 'confirmed' as const,
+      decision,
+    })),
   });
 });

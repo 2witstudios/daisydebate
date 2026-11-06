@@ -32,6 +32,8 @@ type Observation =
       readonly afterMs: number;
       readonly dueMs: number;
       readonly calibrationReceivedAtMs: number;
+      readonly windowBeforeMs: number | undefined;
+      readonly windowAfterMs: number | undefined;
     }
   | {
       readonly kind: 'cadence';
@@ -72,6 +74,7 @@ type Copied<T> = T extends Observation
   ? { readonly [K in keyof T]: Scalar<T[K]> } & { readonly sequence: number }
   : never;
 type Invalidity =
+  | 'reentrant-consumer'
   | 'malformed-event'
   | 'truncated'
   | 'consumer-threw'
@@ -140,6 +143,8 @@ const fields = {
     'afterMs',
     'dueMs',
     'calibrationReceivedAtMs',
+    'windowBeforeMs',
+    'windowAfterMs',
   ],
   cadence: ['decision', 'dueMs', 'observedAtMs', 'clockSamples'],
   authorization: [
@@ -159,35 +164,45 @@ const fields = {
   ],
 } satisfies Record<Observation['kind'], readonly string[]>;
 
+const enumFields: Partial<
+  Record<Observation['kind'], Record<string, readonly unknown[]>>
+> = {
+  clock: {
+    phase: ['initial', 'refresh', 'reanchor'],
+    decision: ['accepted', ...Object.keys(rejections)],
+    precisionPresent: [0, 1],
+  },
+  receipt: { decision: ['accepted', ...Object.keys(rejections)] },
+  cadence: { decision: ['ready', 'late'] },
+  authorization: {
+    decision: ['allowed', 'refused', 'ended'],
+    cancelled: [0, 1],
+  },
+  cancellation: {
+    phase: ['before-frame', 'after-wait', 'after-handoff', 'after-history'],
+  },
+  terminal: {
+    complete: [0, 1],
+    segmentEnded: [0, 1],
+    cancelled: [0, 1],
+    stop: [null, ...Object.keys(stops)],
+  },
+};
 function validScalar(kind: Observation['kind'], key: string, value: unknown) {
-  if (key === 'phase')
-    return (
-      kind === 'clock'
-        ? ['initial', 'refresh', 'reanchor']
-        : ['before-frame', 'after-wait', 'after-handoff', 'after-history']
-    ).includes(value as string);
-  if (key === 'decision') {
-    if (kind === 'clock' || kind === 'receipt')
-      return (
-        value === 'accepted' ||
-        (typeof value === 'string' && Object.hasOwn(rejections, value))
-      );
-    return (
-      kind === 'cadence' ? ['ready', 'late'] : ['allowed', 'refused', 'ended']
-    ).includes(value as string);
-  }
-  if (key === 'stop')
-    return (
-      value === null ||
-      (typeof value === 'string' && Object.hasOwn(stops, value))
-    );
-  if (
-    ['complete', 'segmentEnded', 'cancelled', 'precisionPresent'].includes(key)
-  )
-    return value === 0 || value === 1;
+  const vocabulary = enumFields[kind]?.[key];
+  if (vocabulary) return vocabulary.includes(value);
   return (
-    typeof value === 'number' || (key === 'precisionMs' && value === undefined)
+    typeof value === 'number' ||
+    (['precisionMs', 'windowBeforeMs', 'windowAfterMs'].includes(key) &&
+      value === undefined)
   );
+}
+
+function scalarSnapshot(value: unknown) {
+  if (value === undefined) return 'undefined';
+  if (typeof value !== 'number' || Number.isFinite(value)) return value;
+  if (Number.isNaN(value)) return 'NaN';
+  return value > 0 ? 'Infinity' : '-Infinity';
 }
 
 function copied(
@@ -203,16 +218,7 @@ function copied(
     if (!Object.hasOwn(event, key)) return null;
     const value: unknown = (event as unknown as Record<string, unknown>)[key];
     if (!validScalar(event.kind, key, value)) return null;
-    copy[key] =
-      value === undefined
-        ? 'undefined'
-        : typeof value === 'number' && !Number.isFinite(value)
-          ? Number.isNaN(value)
-            ? 'NaN'
-            : value > 0
-              ? 'Infinity'
-              : '-Infinity'
-          : value;
+    copy[key] = scalarSnapshot(value);
   }
   return Object.freeze(copy) as Copied<Observation>;
 }
@@ -233,6 +239,25 @@ function absorbRejection(value: unknown) {
   }
 }
 
+/** Callback-edge errors never escape into publication authority. */
+function deliver(
+  consume: (event: Copied<Observation>) => unknown,
+  event: Copied<Observation>,
+): Invalidity | null {
+  try {
+    const returned = consume(event);
+    if (returned === undefined) return null;
+    absorbRejection(returned);
+    const then =
+      returned !== null && ['object', 'function'].includes(typeof returned)
+        ? (returned as { then?: unknown }).then
+        : undefined;
+    return typeof then === 'function' ? 'async-consumer' : 'consumer-returned';
+  } catch {
+    return 'consumer-threw';
+  }
+}
+
 /**
  * Synchronous, bounded evidence delivery, independent of publication authority.
  * No callback is awaited. A failed consumer remains unusable even if it stored
@@ -241,46 +266,57 @@ function absorbRejection(value: unknown) {
 export function createPublicationObserver(
   consume: (event: Copied<Observation>) => unknown,
 ) {
-  let delivery: Delivery = { state: 'valid', delivered: 0 };
-  let receipts = 0;
-  let other = 0;
+  type State = {
+    readonly delivered: number;
+    readonly receipts: number;
+    readonly other: number;
+  } & (
+    | { readonly state: 'ready' | 'delivering' }
+    | { readonly state: 'invalid'; readonly reason: Invalidity }
+  );
+  let delivery: State = { state: 'ready', delivered: 0, receipts: 0, other: 0 };
   const invalidate = (reason: Invalidity) => {
-    if (delivery.state === 'valid')
-      delivery = { state: 'invalid', reason, delivered: delivery.delivered };
+    if (delivery.state !== 'invalid')
+      delivery = { ...delivery, state: 'invalid', reason };
   };
   return Object.freeze({
     observe(event: Observation): undefined {
       if (delivery.state === 'invalid') return;
+      if (delivery.state === 'delivering') {
+        invalidate('reentrant-consumer');
+        return;
+      }
+      delivery = { ...delivery, state: 'delivering' };
       try {
         const snapshot = copied(event, delivery.delivered);
-        if (!snapshot) {
-          invalidate('malformed-event');
-          return;
-        }
-        if (event.kind === 'receipt' ? receipts >= 20 : other >= 64) {
-          invalidate('truncated');
-          return;
-        }
-        if (event.kind === 'receipt') receipts++;
-        else other++;
-        const returned = consume(snapshot);
-        if (returned !== undefined) {
-          absorbRejection(returned);
-          const then =
-            returned !== null &&
-            ['object', 'function'].includes(typeof returned)
-              ? (returned as { then?: unknown }).then
-              : undefined;
-          if (typeof then === 'function') {
-            invalidate('async-consumer');
-          } else invalidate('consumer-returned');
-          return;
-        }
-        delivery = { state: 'valid', delivered: delivery.delivered + 1 };
+        if (!snapshot) return void invalidate('malformed-event');
+        if (delivery.state !== 'delivering') return;
+        const counter = snapshot.kind === 'receipt' ? 'receipts' : 'other';
+        if (delivery[counter] >= (counter === 'receipts' ? 20 : 64))
+          return void invalidate('truncated');
+        delivery = { ...delivery, [counter]: delivery[counter] + 1 };
+        const failure = deliver(consume, snapshot);
+        if (failure) return void invalidate(failure);
+        // A nested delivery can invalidate the handle while consume is running.
+        if (delivery.state === 'delivering')
+          delivery = {
+            ...delivery,
+            state: 'ready',
+            delivered: delivery.delivered + 1,
+          };
       } catch {
         invalidate('consumer-threw');
       }
     },
-    status: (): Delivery => Object.freeze({ ...delivery }),
+    status: (): Delivery =>
+      Object.freeze(
+        delivery.state === 'invalid'
+          ? {
+              state: 'invalid',
+              reason: delivery.reason,
+              delivered: delivery.delivered,
+            }
+          : { state: 'valid', delivered: delivery.delivered },
+      ),
   });
 }
