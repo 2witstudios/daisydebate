@@ -60,5 +60,5 @@ export async function claimBetaPreapproval(
 /** Cancels work still owed; a provider request already in flight cannot be recalled. */
 export const cancelPreapprovalInvitations = (tx: Tx, id: string) =>
   tx.execute(
-    sql`update mail_intents set state = 'cancelled', completed_at = now(), last_error_code = 'not-owed', lease_token_digest = null, lease_expires_at = null where preapproval_id = ${id} and state in ('queued', 'leased')`,
+    sql`update mail_intents set state = 'cancelled', completed_at = now(), last_error_code = case when last_error_code = 'delivery-unknown' or state = 'leased' then 'delivery-unknown' else 'not-owed' end, lease_token_digest = null, lease_expires_at = null where preapproval_id = ${id} and state in ('queued', 'leased')`,
   );

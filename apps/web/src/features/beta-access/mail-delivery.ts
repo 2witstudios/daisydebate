@@ -1,3 +1,4 @@
+import { knownDeliveryRejection } from '../mail/resend-sender';
 import { operatorConsoleOrigin } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import type { EmailMessage } from '../mail/types';
@@ -76,17 +77,25 @@ export function createMailIntentDelivery(input: {
       return sent === 'sent'
         ? { kind: 'sent' }
         : { kind: 'cancelled', errorCode: 'suppressed' };
-    } catch {
-      return retryOrFail(claim);
+    } catch (error) {
+      return retryOrFail(
+        claim,
+        claim.purpose === 'beta-invitation' && !knownDeliveryRejection(error)
+          ? 'delivery-unknown'
+          : 'delivery',
+      );
     }
   };
   /** A failed attempt backs off, and fails for good at the attempt cap. */
-  const retryOrFail = (claim: Claim): Outcome =>
+  const retryOrFail = (
+    claim: Claim,
+    errorCode: 'delivery' | 'delivery-unknown' = 'delivery',
+  ): Outcome =>
     claim.attempts >= MAIL_INTENT_MAX_ATTEMPTS
-      ? { kind: 'failed', errorCode: 'delivery' }
+      ? { kind: 'failed', errorCode }
       : {
           kind: 'retry',
-          errorCode: 'delivery',
+          errorCode,
           nextAttemptAt: new Date(
             Date.parse(input.now()) + mailRetryDelayMs(claim.attempts),
           ).toISOString(),

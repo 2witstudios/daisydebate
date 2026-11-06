@@ -9,7 +9,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { PreapprovalCommand } from '@daisy/protocol/beta-preapproval';
 import { createDatabase } from '../src';
-import { withFixture, type Fixture } from './constraint-helpers';
+import { withFixture, rejectedBy, type Fixture } from './constraint-helpers';
 import {
   pendingAccount,
   command as accessCommand,
@@ -388,7 +388,7 @@ test('an invitation lease recovers a crashed send under one provider identity', 
       await db.settleMailIntent({
         id: second.id,
         token: second.token,
-        outcome: { kind: 'cancelled', errorCode: 'suppressed' },
+        outcome: { kind: 'sent' },
       });
       const after = await db.readOperatorCommand({
         commandId: command.commandId,
@@ -396,9 +396,9 @@ test('an invitation lease recovers a crashed send under one provider identity', 
       });
       assert({
         given:
-          'an invitation whose worker crashes before settlement, then a suppression',
+          'an invitation whose worker crashes before settlement, then an acknowledged retry',
         should:
-          'retain one intent/provider id, reject the old lease and show honest unknown then suppressed states',
+          'retain one intent/provider id, reject the old lease and show honest unknown then sent states',
         actual: [
           first.id === second.id,
           second.attempts,
@@ -408,7 +408,7 @@ test('an invitation lease recovers a crashed send under one provider identity', 
             : null,
           after?.action === 'beta.preapproval.update' ? after.mailState : null,
         ],
-        expected: [true, 2, false, 'unknown', 'suppressed'],
+        expected: [true, 2, false, 'unknown', 'sent'],
       });
     } finally {
       await db.close();
@@ -639,6 +639,109 @@ test('removal and erasure use email-before-grant-before-mail locking', async () 
       await Promise.allSettled([removal, erased]);
       await blocker.close();
       await erasure.close();
+      await db.close();
+    }
+  });
+});
+
+test('invitation delivery facts distinguish suppression, rejection, uncertainty and retired detail', async () => {
+  await withFixture(url, async (f) => {
+    const db = trackedDatabase(f, { url, nextActorId: createId });
+    try {
+      const states = [];
+      for (const errorCode of [
+        'suppressed',
+        'delivery',
+        'delivery-unknown',
+      ] as const) {
+        const command = add(`${createId()}@example.test`, true);
+        await db.runPreapprovalCommand(inputFor(command));
+        const [intent] =
+          await f.sql`select id from mail_intents where dedupe_key = ${`beta-invitation:${command.commandId}`}`;
+        const claims = await db.claimMailIntents({
+          limit: 50,
+          leaseMs: 60000,
+          nextToken: () => `${createId()}${createId()}`,
+        });
+        const claim = claims.find((item) => item.id === intent.id)!;
+        await db.settleMailIntent({
+          id: claim.id,
+          token: claim.token,
+          outcome: {
+            kind: errorCode === 'suppressed' ? 'cancelled' : 'failed',
+            errorCode,
+          },
+        });
+        const read = await db.readOperatorCommand({
+          commandId: command.commandId,
+          serviceId: 'daisy-admin',
+        });
+        states.push(
+          read?.action === 'beta.preapproval.update' ? read.mailState : null,
+        );
+        await f.sql`delete from mail_intents where id = ${intent.id}`;
+        const retired = await db.readOperatorCommand({
+          commandId: command.commandId,
+          serviceId: 'daisy-admin',
+        });
+        states.push(
+          retired?.action === 'beta.preapproval.update'
+            ? retired.mailState
+            : null,
+        );
+      }
+      assert({
+        given:
+          'fresh suppressed, definitely rejected and uncertain terminal invitations followed by retained receipts with retired delivery rows',
+        should:
+          'report each truthfully and never call missing delivery evidence none',
+        actual: states,
+        expected: [
+          'suppressed',
+          'unknown',
+          'failed',
+          'unknown',
+          'unknown',
+          'unknown',
+        ],
+      });
+    } finally {
+      await db.close();
+    }
+  });
+});
+
+test('mail recipient variants reject detached active invitations and cross-purpose grant references', async () => {
+  await withFixture(url, async (f) => {
+    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const account = await pendingAccount(f);
+    const terminalId = createId();
+    try {
+      const saved = await db.runPreapprovalCommand(
+        inputFor(add(`${account.userId}@operator.invalid`)),
+      );
+      const detached = await rejectedBy(
+        () =>
+          f.sql`insert into mail_intents (id, purpose, dedupe_key, next_attempt_at) values (${createId()}, 'beta-invitation', ${createId()}, now())`,
+      );
+      const crossPurpose = await rejectedBy(
+        () =>
+          f.sql`insert into mail_intents (id, purpose, recipient_user_id, preapproval_id, dedupe_key, next_attempt_at) values (${createId()}, 'beta-approved', ${account.userId}, ${saved.preapprovalId}, ${createId()}, now())`,
+      );
+      await f.sql`insert into mail_intents (id, purpose, dedupe_key, next_attempt_at, state, completed_at) values (${terminalId}, 'beta-invitation', ${createId()}, now(), 'cancelled', now())`;
+      assert({
+        given:
+          'an active invitation without a grant, an account email with a grant reference, and a terminal invitation whose grant was removed',
+        should:
+          'reject impossible recipient variants while retaining terminal metadata',
+        actual: [detached, crossPurpose],
+        expected: [
+          'mail_intents_preapproval_recipient_check',
+          'mail_intents_preapproval_recipient_check',
+        ],
+      });
+    } finally {
+      await f.sql`delete from mail_intents where id = ${terminalId}`;
       await db.close();
     }
   });

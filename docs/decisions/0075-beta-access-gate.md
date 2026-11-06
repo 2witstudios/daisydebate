@@ -290,3 +290,8 @@ consume the grant. Delivery states distinguish queued, sent, suppressed,
 failed, cancelled and unknown; an unsettled provider attempt is unknown.
 Terminal-intent retention may remove old delivery detail; the grant retains
 that an invitation was requested, so its status then reads unknown.
+
+For invitations, a lost or malformed provider reply remains `unknown` even
+when attempts are exhausted. Definite provider rejections can report `failed`.
+Uncertainty survives retries and expired leases until a positive send receipt;
+a later suppression cannot prove an earlier in-flight request was not sent.

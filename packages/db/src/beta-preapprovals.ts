@@ -22,7 +22,7 @@ type Tx = Pick<BunSQLDatabase, 'execute'>;
 
 /** Delivery is unknown while a send may have happened without settlement. */
 export const invitationStatusSql = sql.raw(
-  `case when m.last_error_code = 'suppressed' then 'suppressed' when m.state = 'leased' or (m.state = 'queued' and m.attempts > 0) then 'unknown' else coalesce(m.state, 'none') end`,
+  `case when m.last_error_code = 'delivery-unknown' then 'unknown' when m.last_error_code = 'suppressed' then 'suppressed' when m.state = 'leased' or (m.state = 'queued' and m.attempts > 0) then 'unknown' else coalesce(m.state, 'none') end`,
 );
 
 export async function readPreapprovalCommandState(

@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createResendSender } from '../mail/resend-sender';
 import type { EmailMessage } from '../mail/types';
 import { createMailIntentDelivery } from './mail-delivery';
 import { MAIL_INTENT_MAX_ATTEMPTS } from './retry-policy';
@@ -16,6 +17,7 @@ type Settled = { id: string; token: string; outcome: unknown };
 
 const scripted = (input: {
   delivery: Delivery;
+  purpose?: 'beta-approved' | 'beta-invitation';
   attempts?: number;
   deliver?: (message: EmailMessage) => Promise<'sent' | 'suppressed'>;
   ownerAddress?: string;
@@ -27,7 +29,7 @@ const scripted = (input: {
       claimMailIntents: async () => [
         {
           id: 'intent-1',
-          purpose: 'beta-approved',
+          purpose: input.purpose ?? 'beta-approved',
           attempts: input.attempts ?? 1,
           token: 'tok',
         },
@@ -172,11 +174,21 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
   const delivery = createMailIntentDelivery({
     store: {
       claimMailIntents: async () => [
-        { id: 'erased', purpose: 'beta-approved', attempts: 1, token: 't1' },
-        { id: 'owed', purpose: 'beta-approved', attempts: 1, token: 't2' },
+        {
+          id: 'erased',
+          purpose: input.purpose ?? 'beta-approved',
+          attempts: 1,
+          token: 't1',
+        },
+        {
+          id: 'owed',
+          purpose: input.purpose ?? 'beta-approved',
+          attempts: 1,
+          token: 't2',
+        },
         {
           id: 'unreadable',
-          purpose: 'beta-approved',
+          purpose: input.purpose ?? 'beta-approved',
           attempts: MAIL_INTENT_MAX_ATTEMPTS,
           token: 't3',
         },
@@ -225,5 +237,44 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
         ['unreadable', 'failed'],
       ],
     },
+  });
+});
+
+test('invitation exhaustion distinguishes definitive rejection from uncertain provider acceptance', async () => {
+  const outcomes = [];
+  for (const response of ['lost', 'rejected', 'malformed-success'] as const) {
+    const sender = createResendSender({
+      apiKey: 'test-key',
+      from: 'test@example.test',
+      ids: { next: () => 'id' },
+      fetch: async () => {
+        if (response === 'lost') throw new Error('connection lost');
+        return response === 'rejected'
+          ? new Response('{}', { status: 400 })
+          : new Response('{}', { status: 200 });
+      },
+    });
+    const { delivery, settled } = scripted({
+      purpose: 'beta-invitation',
+      delivery: { kind: 'invitation', to: 'invitee@example.test' },
+      attempts: MAIL_INTENT_MAX_ATTEMPTS,
+      deliver: async (message) => {
+        await sender.send(message);
+        return 'sent';
+      },
+    });
+    await delivery.run(1);
+    outcomes.push(settled[0]?.outcome);
+  }
+  assert({
+    given:
+      'exhausted invitation attempts with a lost reply, definite HTTP rejection or malformed accepted reply',
+    should: 'preserve uncertainty unless rejection is proven',
+    actual: outcomes,
+    expected: [
+      { kind: 'failed', errorCode: 'delivery-unknown' },
+      { kind: 'failed', errorCode: 'delivery' },
+      { kind: 'failed', errorCode: 'delivery-unknown' },
+    ],
   });
 });

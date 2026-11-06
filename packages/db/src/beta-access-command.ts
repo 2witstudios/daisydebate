@@ -186,7 +186,7 @@ async function applyChange(
         ${approvalMailKey(input.commandId)}, now())`);
   else {
     await tx.execute(
-      sql`update mail_intents set state = 'cancelled', completed_at = now(), last_error_code = 'not-owed', lease_token_digest = null, lease_expires_at = null where preapproval_id in (select id from beta_preapprovals where claimed_by = ${input.targetUserId} or email = (select ${normalizedEmailSql(sql`email`)} from users where id = ${input.targetUserId})) and state in ('queued', 'leased')`,
+      sql`update mail_intents set state = 'cancelled', completed_at = now(), last_error_code = case when last_error_code = 'delivery-unknown' or state = 'leased' then 'delivery-unknown' else 'not-owed' end, lease_token_digest = null, lease_expires_at = null where preapproval_id in (select id from beta_preapprovals where claimed_by = ${input.targetUserId} or email = (select ${normalizedEmailSql(sql`email`)} from users where id = ${input.targetUserId})) and state in ('queued', 'leased')`,
     );
     await appendSessionRevokedFor(
       tx,

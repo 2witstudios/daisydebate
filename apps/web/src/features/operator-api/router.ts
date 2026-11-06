@@ -1,3 +1,4 @@
+import { mayReadOperatorCommand } from './command-access';
 import {
   ageAdmitted,
   authorize,
@@ -21,7 +22,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import { restrictionRules } from '../moderation/restriction-rules';
 import { REPORT_EVIDENCE_RETENTION_MS } from '../reports/operations';
 import { boundedBody, json, refusal, transportRefusal } from './http';
-import { changeFlag, mayControlFlags } from './flags';
+import { changeFlag } from './flags';
 import {
   contentModerationRoute,
   type ContentModerationStore,
@@ -564,18 +565,22 @@ async function readCommand(
 ): Promise<OperatorCommandState> {
   if (principal.kind !== 'operator_service')
     throw createAppError('AUTHORIZATION');
-  const readAccounts = requireCapability(principal, 'account.collection.read');
-  const readFlags = mayControlFlags(principal, 'flag.command.read');
-  if (!readAccounts && !readFlags) throw createAppError('AUTHORIZATION');
+  if (
+    !(
+      [
+        'account.beta_access.update',
+        'beta.preapproval.update',
+        'flag.state.update',
+      ] as const
+    ).some((action) => mayReadOperatorCommand(principal, action))
+  )
+    throw createAppError('AUTHORIZATION');
   const command = await deps.store.readOperatorCommand({
     commandId,
     serviceId: principal.serviceId,
   });
   if (!command) throw createAppError('NOT_FOUND');
-  const flags =
-    command.action === 'flag.state.update' ||
-    command.action === 'flag.override.update';
-  if (!(flags ? readFlags : readAccounts))
+  if (!mayReadOperatorCommand(principal, command.action))
     throw createAppError('AUTHORIZATION');
   return command;
 }

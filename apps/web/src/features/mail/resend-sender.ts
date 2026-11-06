@@ -14,9 +14,28 @@ class DeliveryError extends Error {
   constructor(
     readonly transient: boolean,
     readonly status?: number,
+    readonly uncertain = status === undefined ||
+      status < 400 ||
+      status >= 500 ||
+      status === 408 ||
+      status === 409,
   ) {
     super('Email delivery failed');
   }
+}
+
+/** True only for a definite provider rejection; lost or malformed replies remain unknown. */
+export function knownDeliveryRejection(error: unknown): boolean {
+  const cause = error instanceof Error && error.cause ? error.cause : error;
+  return (
+    cause instanceof DeliveryError &&
+    !cause.uncertain &&
+    cause.status !== undefined &&
+    cause.status >= 400 &&
+    cause.status < 500 &&
+    cause.status !== 408 &&
+    cause.status !== 409
+  );
 }
 
 /**
@@ -113,7 +132,17 @@ export function createResendSender({
           throw new DeliveryError(false, (error as DeliveryError).status);
         const budget = Math.floor(remaining());
         if (budget < 1) throw error;
-        return attempt(message, idempotencyKey, budget);
+        try {
+          return await attempt(message, idempotencyKey, budget);
+        } catch (retryError) {
+          if (error.uncertain && retryError instanceof DeliveryError)
+            throw new DeliveryError(
+              retryError.transient,
+              retryError.status,
+              true,
+            );
+          throw retryError;
+        }
       }
     },
   };

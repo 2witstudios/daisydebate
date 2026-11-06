@@ -55,6 +55,10 @@ export const mailIntents = pgTable(
     ),
     check('mail_intents_state_check', oneOf(table.state, mailIntentStates)),
     check(
+      'mail_intents_preapproval_recipient_check',
+      sql`(${table.purpose} = 'beta-invitation' and (${table.preapprovalId} is not null or ${table.state} in ('sent', 'failed', 'cancelled'))) or (${table.purpose} <> 'beta-invitation' and ${table.preapprovalId} is null)`,
+    ),
+    check(
       'mail_intents_recipient_check',
       sql`(${table.purpose} = 'beta-approved') = (${table.recipientUserId} is not null)`,
     ),
@@ -73,7 +77,7 @@ export const mailIntents = pgTable(
     ),
     check(
       'mail_intents_error_check',
-      sql`${table.lastErrorCode} is null or ${table.lastErrorCode} in ('delivery', 'suppressed', 'recipient-gone', 'unconfigured', 'not-owed')`,
+      sql`${table.lastErrorCode} is null or ${table.lastErrorCode} in ('delivery', 'delivery-unknown', 'suppressed', 'recipient-gone', 'unconfigured', 'not-owed')`,
     ),
     index('mail_intents_preapproval_idx').on(table.preapprovalId),
     index('mail_intents_due_idx').on(table.state, table.nextAttemptAt),

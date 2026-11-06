@@ -271,3 +271,8 @@ not proof of reading or inbox placement. Suppressed, failed, cancelled and
 unknown are shown separately. Do not repeat an unknown command: use Reconcile.
 Ordinary invitation links go to sign-in, contain no recipient or token, and
 cannot approve a different signed-in email.
+
+Native account forms use `Referrer-Policy: same-origin` so Chromium includes
+the canonical Origin on same-origin POSTs even with JavaScript disabled.
+Cross-origin referrers are suppressed; the Host/Origin gate and server actions
+continue requiring the exact configured Origin. Null Origin remains refused.

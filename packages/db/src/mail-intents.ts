@@ -46,13 +46,14 @@ export type MailIntentOutcome =
   | { readonly kind: 'sent' }
   | {
       readonly kind: 'retry';
-      readonly errorCode: 'delivery';
+      readonly errorCode: 'delivery' | 'delivery-unknown';
       readonly nextAttemptAt: string;
     }
   | {
       readonly kind: 'failed' | 'cancelled';
       readonly errorCode:
         | 'delivery'
+        | 'delivery-unknown'
         | 'suppressed'
         | 'recipient-gone'
         | 'unconfigured'
@@ -118,6 +119,7 @@ export function mailIntentOperations({
           for (const { id } of due) {
             const token = input.nextToken();
             const [row] = (await tx.execute(sql`update mail_intents set
+                last_error_code = case when purpose = 'beta-invitation' and state = 'leased' then 'delivery-unknown' else last_error_code end,
                 state = 'leased', attempts = attempts + 1,
                 lease_token_digest = ${agentLeaseDigest(token)},
                 lease_expires_at = clock_timestamp() + ${input.leaseMs} * interval '1 millisecond'
@@ -208,14 +210,16 @@ export function mailIntentOperations({
             ? {
                 ...release,
                 state: 'queued' as const,
-                lastErrorCode: outcome.errorCode,
+                lastErrorCode: sql`case when purpose = 'beta-invitation' and last_error_code = 'delivery-unknown' then 'delivery-unknown' else ${outcome.errorCode} end`,
                 nextAttemptAt: sql`${outcome.nextAttemptAt}::timestamptz`,
               }
             : {
                 ...release,
                 state: outcome.kind,
                 lastErrorCode:
-                  outcome.kind === 'sent' ? null : outcome.errorCode,
+                  outcome.kind === 'sent'
+                    ? null
+                    : sql`case when purpose = 'beta-invitation' and last_error_code = 'delivery-unknown' then 'delivery-unknown' else ${outcome.errorCode} end`,
                 completedAt: sql`clock_timestamp()`,
               };
         const settled = await database
