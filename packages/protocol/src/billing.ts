@@ -1,5 +1,6 @@
 export {
   classifyPaymentObservation,
+  paymentObservationComplete,
   retainRefundAdmissionConflict,
 } from './billing-payment-observation-policy';
 export { unknownPaymentFacts } from './billing-payment-observation-facts';

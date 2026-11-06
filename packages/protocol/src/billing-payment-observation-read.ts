@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { ownedInvoiceObservationSchema } from './billing-payment-observation-source';
+import {
+  ownedInvoiceObservationSchema,
+  mergePaymentObservationSource,
+} from './billing-payment-observation-source';
 import {
   paymentObservationEvidenceSchema,
   type BillingPaymentObservation,
@@ -36,9 +39,19 @@ export function applyPaymentObservationRead(
   const parsed = ownedPaymentObservationSchema.safeParse(read);
   if (!parsed.success || value.kind !== 'payment') return refuse;
   const request = parsed.data;
-  if (!samePaymentIdentity(value, request)) return refuse;
+  if (
+    !samePaymentIdentity(value, request) ||
+    !coherentReadEvidence(request, value.closedAt)
+  )
+    return refuse;
+  const sourceDecision = mergePaymentObservationSource(
+    value.source,
+    request.source,
+  );
   const source = retainPaymentObservationSource(value, request.source, context);
   if (source.kind !== 'recorded') return refuse;
+  // A recognized owned-source contradiction is already a decision, never authority for proof B.
+  if (sourceDecision.kind === 'conflict') return source;
   const evidence = request.evidence;
   if (evidence.kind === 'verified')
     return classifyPaymentObservation(
@@ -57,13 +70,51 @@ export function applyPaymentObservationRead(
 }
 
 function samePaymentIdentity(
-  value: Extract<BillingPaymentObservation, { kind: 'payment' }>,
-  read: OwnedPaymentObservation,
+  value: Pick<
+    OwnedPaymentObservation,
+    'mode' | 'customerId' | 'invoiceId' | 'invoicePaymentId'
+  >,
+  read: Pick<
+    OwnedPaymentObservation,
+    'mode' | 'customerId' | 'invoiceId' | 'invoicePaymentId'
+  >,
 ) {
   return (
     value.mode === read.mode &&
     value.customerId === read.customerId &&
     value.invoiceId === read.invoiceId &&
     value.invoicePaymentId === read.invoicePaymentId
+  );
+}
+
+function coherentReadEvidence(read: OwnedPaymentObservation, closedAt: string) {
+  if (
+    read.source.kind === 'purchase' &&
+    Date.parse(read.source.admittedAt) > Date.parse(closedAt)
+  )
+    return false;
+  const evidence = read.evidence;
+  if (evidence.kind === 'partial') return true;
+  const proof =
+    evidence.kind === 'verified' ? evidence.payment : evidence.proof;
+  if (
+    !samePaymentIdentity(proof, read) ||
+    !knownSourceMatches(read.source, proof)
+  )
+    return false;
+  return (
+    evidence.kind !== 'chronology' ||
+    (evidence.facts.status === 'paid' &&
+      evidence.facts.paidAtSeconds === evidence.proof.paidAtSeconds)
+  );
+}
+function knownSourceMatches(
+  source: OwnedPaymentObservation['source'],
+  proof: { readonly priceId: string; readonly vendorSubscriptionId: string },
+) {
+  return (
+    (source.priceId === null || source.priceId === proof.priceId) &&
+    (source.vendorSubscriptionId === null ||
+      source.vendorSubscriptionId === proof.vendorSubscriptionId)
   );
 }
