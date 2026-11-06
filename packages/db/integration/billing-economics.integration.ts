@@ -69,7 +69,10 @@ test('real bounded current-service aggregate preserves original source/period an
       });
       for (const [model, outcome, input, output] of [
         ['actual-old-model', 'received', 100, 20],
+        ['actual-old-model', 'received', 0, 0],
+        ['positive-input-model', 'received', 200, 0],
         ['unanswered-model', 'unknown', 0, 0],
+        ['zero-pair-model', 'received', 0, 0],
       ] as const)
         await fixture.insert('agent_runs', {
           id: createId(),
@@ -110,7 +113,7 @@ test('real bounded current-service aggregate preserves original source/period an
         given:
           'real daisy_web projection of a refunded original subscription reservation and distinct known/unknown provider executions',
         should:
-          'retain the original source/period and every actual cost exposure without participant identity or parent-claim zero cost',
+          'retain original source/period, served outcomes and positive totals while exposing solo and mixed unmeasured token pairs without participant identity or parent-claim zero cost',
         actual: [
           role,
           snapshot.complete,
@@ -136,11 +139,21 @@ test('real bounded current-service aggregate preserves original source/period an
               'actual-old-model',
               'subscription',
               source.startsAt,
+              2,
               1,
-              0,
               0,
               100,
               20,
+            ],
+            [
+              'positive-input-model',
+              'subscription',
+              source.startsAt,
+              1,
+              0,
+              0,
+              200,
+              0,
             ],
             [
               'unanswered-model',
@@ -152,6 +165,7 @@ test('real bounded current-service aggregate preserves original source/period an
               0,
               0,
             ],
+            ['zero-pair-model', 'subscription', source.startsAt, 1, 1, 0, 0, 0],
           ],
           [['refunded', 'dispatch_record', 1]],
           false,
