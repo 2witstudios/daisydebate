@@ -1,3 +1,7 @@
+import {
+  preapprovalCommandSchema,
+  type PreapprovalCommand,
+} from '@daisy/protocol/beta-preapproval';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { AdminExecutor, AdminTransaction } from '../../db/client';
 import { auditEvents, pendingCommands } from '../../db/schema';
@@ -7,13 +11,21 @@ import { auditEvents, pendingCommands } from '../../db/schema';
  * intent and closes once its outcome is known; closing is one conditional
  * UPDATE, so of two racing reconcilers exactly one records the outcome.
  */
-export type PendingCommand = {
+export type AccountPendingCommand = {
   readonly commandId: string;
   readonly operatorId: string;
   readonly targetUserId: string;
   readonly desiredState: 'approved' | 'revoked';
   readonly expectedRevision: number;
 };
+
+export type PreapprovalPendingCommand = {
+  readonly commandId: string;
+  readonly operatorId: string;
+  readonly targetUserId: null;
+  readonly preapproval: PreapprovalCommand;
+};
+export type PendingCommand = AccountPendingCommand | PreapprovalPendingCommand;
 
 export async function openPendingCommand(
   tx: AdminTransaction,
@@ -23,8 +35,10 @@ export async function openPendingCommand(
     commandId: command.commandId,
     operatorId: command.operatorId,
     targetUserId: command.targetUserId,
-    desiredState: command.desiredState,
-    expectedRevision: command.expectedRevision,
+    desiredState: 'preapproval' in command ? null : command.desiredState,
+    expectedRevision:
+      'preapproval' in command ? null : command.expectedRevision,
+    preapproval: 'preapproval' in command ? command.preapproval : null,
     createdAt: new Date(command.now),
     lastSignedAt: new Date(command.now),
   });
@@ -61,6 +75,15 @@ export async function resolvePendingCommand(
       ),
     )
     .returning({ commandId: pendingCommands.commandId });
+  if (rows.length === 1)
+    await tx
+      .delete(pendingCommands)
+      .where(
+        and(
+          eq(pendingCommands.commandId, commandId),
+          isNull(pendingCommands.targetUserId),
+        ),
+      );
   return rows.length === 1;
 }
 
@@ -78,13 +101,21 @@ export async function openCommands(
     .where(isNull(pendingCommands.resolvedAt))
     .orderBy(asc(pendingCommands.createdAt))
     .limit(limit);
-  return rows.map((row) => ({
+  return rows.map((row): OpenCommand => ({
     commandId: row.commandId,
     operatorId: row.operatorId,
-    targetUserId: row.targetUserId,
-    desiredState: row.desiredState as PendingCommand['desiredState'],
-    expectedRevision: row.expectedRevision,
     lastSignedAt: row.lastSignedAt.toISOString(),
+    ...(row.preapproval !== null
+      ? {
+          targetUserId: null,
+          preapproval: preapprovalCommandSchema.parse(row.preapproval),
+        }
+      : {
+          targetUserId: row.targetUserId!,
+          desiredState:
+            row.desiredState as AccountPendingCommand['desiredState'],
+          expectedRevision: row.expectedRevision!,
+        }),
   }));
 }
 

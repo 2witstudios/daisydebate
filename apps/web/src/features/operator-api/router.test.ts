@@ -169,6 +169,10 @@ describe('the private operator API (ADR 0079)', () => {
         runFlagCommand: async () => {
           throw new Error('Unexpected flag command');
         },
+        listBetaPreapprovals: async () => [],
+        runPreapprovalCommand: async () => {
+          throw new Error('unused');
+        },
         listOperatorReports: async () => [],
         listOperatorRestrictions: async () => [],
         resolveReport: async () => {
@@ -283,6 +287,10 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
       runFlagCommand: async () => {
         throw new Error('Unexpected flag command');
       },
+      listBetaPreapprovals: async () => [],
+      runPreapprovalCommand: async () => {
+        throw new Error('unused');
+      },
       listOperatorReports: async () => [],
       listOperatorRestrictions: async () => [],
       resolveReport: async () => {
@@ -353,6 +361,10 @@ describe('the report routes (ADR 0103)', () => {
         runFlagCommand: async () => {
           throw new Error('Unexpected flag command');
         },
+        listBetaPreapprovals: async () => [],
+        runPreapprovalCommand: async () => {
+          throw new Error('unused');
+        },
         ...storeOf(),
         listOperatorReports: async (input) => {
           seen.push(input);
@@ -380,6 +392,10 @@ describe('the report routes (ADR 0103)', () => {
       store: {
         runFlagCommand: async () => {
           throw new Error('Unexpected flag command');
+        },
+        listBetaPreapprovals: async () => [],
+        runPreapprovalCommand: async () => {
+          throw new Error('unused');
         },
         ...storeOf(),
         resolveReport: async (input) => {
@@ -456,6 +472,10 @@ describe('the report routes (ADR 0103)', () => {
       store: {
         runFlagCommand: async () => {
           throw new Error('Unexpected flag command');
+        },
+        listBetaPreapprovals: async () => [],
+        runPreapprovalCommand: async () => {
+          throw new Error('unused');
         },
         ...storeOf(),
         liftModeration: async (input) => {

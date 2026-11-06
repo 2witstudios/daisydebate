@@ -306,3 +306,21 @@ views over the operational log store.
 Optional product analytics uses consent (GDPR Art. 6(1)(a), Art. 7 and ePrivacy/PECR). `consent_record` stores the account identifier, contract version, necessary/analytics/replay choices and last-choice timestamp. It is private account data retained until account erasure and included in subject export. The necessary HttpOnly consent cookie expires after 180 days; same-origin local storage holds only the latest consent/identity synchronization marker, replaced on withdrawal/account change. SDK identity cookies exist only after opt-in and are cleared on withdrawal or identity reset. Vendor events contain bounded product facts and scoped identifiers, never participant content. PostHog event retention must be recorded by the owner at PRIV-H before activation; person/event/recording erasure uses durable vendor jobs. Session replay is disabled for this beta. See [product analytics](product-analytics.md) for configuration and proof.
 
 Identified analytics withdrawal atomically records denied consent and rearms a bounded PostHog vendor-deletion intent. Repeated requests remain one row per subject/vendor; a new deletion generation replaces its job ID so an older delivery cannot acknowledge a newer request. Account erasure rearms the same delivery obligation after any earlier withdrawal. Anonymous withdrawal stops future capture and removes the browser identity cookie; pre-existing anonymous events expire under the vendor retention period selected at PRIV-H. This anonymous retention behavior is part of the owner/counsel activation review, not a claim that withdrawal retroactively deletes an unlinked anonymous event.
+
+### Beta invitation and preapproval data
+
+Beta preapprovals store normalized recipient emails to admit invited beta
+participants before signup. Unused grants remain until an owner removes them;
+claimed grants remain until removal or account erasure. Account export includes
+matching and claimed grants. Erasure removes both, plus their invitation
+intents, before clearing the account email. Removing a claimed grant does not
+revoke the account. Audit events and command receipts contain opaque ids and
+closed outcomes, never emails. The admin database holds the email in an
+unresolved typed pending command so a lost response can be reconciled; it
+removes that pending row on settlement or abandonment. This data never enters
+URLs, logs, analytics or error text. No new processor is added: invitations use
+the existing suppression-aware mail transport. Terminal invitation intents
+follow the existing mail-intent retention; expired delivery detail is displayed
+as unknown. Unsent mail is cancelled when the grant is removed or the account
+is erased, revoked or restricted; a provider request in flight cannot be
+recalled. Invitation URLs carry no credential and confer no authority.

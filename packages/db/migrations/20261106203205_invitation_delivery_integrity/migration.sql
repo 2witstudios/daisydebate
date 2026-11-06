@@ -1,0 +1,2 @@
+ALTER TABLE "mail_intents" ADD CONSTRAINT "mail_intents_preapproval_recipient_check" CHECK (("purpose" = 'beta-invitation' and ("preapproval_id" is not null or "state" in ('sent', 'failed', 'cancelled'))) or ("purpose" <> 'beta-invitation' and "preapproval_id" is null));--> statement-breakpoint
+ALTER TABLE "mail_intents" DROP CONSTRAINT "mail_intents_error_check", ADD CONSTRAINT "mail_intents_error_check" CHECK ("last_error_code" is null or "last_error_code" in ('delivery', 'delivery-unknown', 'suppressed', 'recipient-gone', 'unconfigured', 'not-owed'));

@@ -173,6 +173,7 @@ export function createApp({
     createResendSender({
       apiKey: mail.RESEND_API_KEY,
       from: mail.EMAIL_FROM,
+      nowMs: () => Date.parse(clock.now()),
       ids,
       fetch,
     });

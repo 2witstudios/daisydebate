@@ -1,4 +1,7 @@
+import { eraseBetaPreapprovals } from './beta-preapproval-erasure';
+import { normalizedEmailSql } from './email-identity';
 import { sql } from 'drizzle-orm';
+import { exportRows } from './privacy/export-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
 
 /**
@@ -10,8 +13,9 @@ import type { PrivacyAdopter } from './privacy/contracts';
  */
 export const betaAccessPrivacyAdopter: PrivacyAdopter = {
   id: 'beta-access',
-  phase: 'after-close',
+  phase: 'before-auth',
   erase: async (tx, subject) => {
+    await eraseBetaPreapprovals(tx, subject.userId);
     await tx.execute(
       sql`delete from mail_intents where recipient_user_id = ${subject.userId}`,
     );
@@ -28,6 +32,12 @@ export const betaAccessPrivacyAdopter: PrivacyAdopter = {
       string,
       unknown
     >[];
-    return { account_beta_access: rows };
+    const preapprovals = (await tx.execute(
+      sql`select id, email, created_at, claimed_at from beta_preapprovals where claimed_user_id = ${subject.userId} or (claimed_user_id is null and email = (select ${normalizedEmailSql(sql`email`)} from users where id = ${subject.userId}))`,
+    )) as unknown as Record<string, unknown>[];
+    return {
+      account_beta_access: rows,
+      beta_preapprovals: exportRows(preapprovals),
+    };
   },
 };

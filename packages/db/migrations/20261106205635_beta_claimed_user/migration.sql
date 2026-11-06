@@ -1,0 +1,2 @@
+ALTER TABLE "beta_preapprovals" RENAME COLUMN "claimed_by" TO "claimed_user_id";--> statement-breakpoint
+ALTER TABLE "beta_preapprovals" DROP CONSTRAINT "beta_preapprovals_claim_check", ADD CONSTRAINT "beta_preapprovals_claim_check" CHECK (("claimed_user_id" is null) = ("claimed_at" is null));

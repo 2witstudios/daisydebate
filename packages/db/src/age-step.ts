@@ -1,3 +1,5 @@
+import { eraseBetaPreapprovals } from './beta-preapproval-erasure';
+import { claimBetaPreapproval } from './beta-preapproval-claim';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -69,6 +71,7 @@ export const ageStepOperations = ({
           termsVersion: input.termsVersion,
           acceptedAt: new Date(input.now),
         });
+        await claimBetaPreapproval(tx, input.userId);
         return 'recorded';
       }),
     );
@@ -117,6 +120,7 @@ export const ageStepOperations = ({
           .from(accountAge)
           .where(eq(accountAge.userId, input.userId));
         if (answered) return 'refused';
+        await eraseBetaPreapprovals(tx, input.userId);
         await clearProvisionalMail(
           tx,
           { id: input.userId, email: user.email },
