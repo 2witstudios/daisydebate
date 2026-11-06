@@ -2,10 +2,14 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Page, Request, Response } from '@playwright/test';
 import { systemClock } from '@daisy/clock';
+import { createRecoveryRequestEvents } from './messaging-recovery-events';
 import { isMessagingRefetch } from './messaging-page-locators';
 
 /** All real RSC reads, including successor routes; explicit speculation stays separate. */
 export function watchConversationRecovery(page: Page, channelId: string) {
+  const lifecycle = createRecoveryRequestEvents(() =>
+    Date.parse(systemClock.now()),
+  );
   const pending = new Set<Request>();
   const responseIds = new Set<string>();
   const refetchResponses: Response[] = [];
@@ -40,6 +44,7 @@ export function watchConversationRecovery(page: Page, channelId: string) {
           : 'successor',
     });
     pending.add(incoming);
+    lifecycle.request(incoming);
     maximumPending = Math.max(maximumPending, pending.size);
   };
   const settled = (incoming: Request) => {
@@ -49,7 +54,16 @@ export function watchConversationRecovery(page: Page, channelId: string) {
     if (!id) throw new Error('Messaging response correlation missing');
     responseIds.add(id);
   };
+  const finished = (incoming: Request) => {
+    settled(incoming);
+    lifecycle.finished(incoming);
+  };
+  const failed = (incoming: Request) => {
+    settled(incoming);
+    lifecycle.failed(incoming, incoming.failure()?.errorText ?? null);
+  };
   const response = (incoming: Response) => {
+    lifecycle.response(incoming);
     const outgoing = incoming.request();
     if (
       new URL(outgoing.url()).pathname === `/messages/${channelId}` &&
@@ -63,8 +77,8 @@ export function watchConversationRecovery(page: Page, channelId: string) {
   };
   page.on('response', response);
   page.on('request', request);
-  page.on('requestfinished', settled);
-  page.on('requestfailed', settled);
+  page.on('requestfinished', finished);
+  page.on('requestfailed', failed);
   return {
     phase,
     memberNavigation: () => {
@@ -73,6 +87,8 @@ export function watchConversationRecovery(page: Page, channelId: string) {
     phases: () => phases,
     includeResponse,
     refetchResponses: () => refetchResponses,
+    eventStep: lifecycle.step,
+    selectedRequestEvents: lifecycle.snapshot,
     requestBoundary: () => ({
       since: phases[0]!.since,
       requestIds: [...responseIds],
@@ -93,8 +109,8 @@ export function watchConversationRecovery(page: Page, channelId: string) {
     stop: () => {
       page.off('response', response);
       page.off('request', request);
-      page.off('requestfinished', settled);
-      page.off('requestfailed', settled);
+      page.off('requestfinished', finished);
+      page.off('requestfailed', failed);
     },
   };
 }

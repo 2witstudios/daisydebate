@@ -120,6 +120,7 @@ export async function settledRefusalResponse(
     .toBe(attempt);
   const response = observer.refetchResponses()[attempt - 1]!;
   const responsePhase = refusalResponsePhase();
+  const eventStep = observer.eventStep();
   const pendingAtEntry = observer.snapshot().pending;
   const budgetMs = remaining(deadline);
   let payload: string | undefined;
@@ -145,6 +146,11 @@ export async function settledRefusalResponse(
         pendingAtEntry,
         pendingAtExit: observer.snapshot().pending,
         maximumPendingWholeObservation: observer.snapshot().maximumPending,
+        selectedRequestEvents: observer.selectedRequestEvents(
+          response,
+          eventStep,
+          deadline,
+        ),
       }),
     });
   } catch (diagnosticError) {
