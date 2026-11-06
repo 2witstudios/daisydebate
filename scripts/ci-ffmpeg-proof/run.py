@@ -12,12 +12,13 @@ import sys
 import threading
 import time
 import urllib.request
-from oracles import real_process_evidence, cancellation_evidence, expect_oracle_failure, process_lineage, is_descendant, mutating_install_evidence
+from oracles import real_process_evidence, cancellation_evidence, expect_oracle_failure, process_lineage, is_descendant, mutating_install_evidence, maintainer_evidence
 
 assert os.geteuid() == 0 and Path('/disposable-ffmpeg-proof').exists()
 scenario = sys.argv[1]
 control = Path('/control')
 control.mkdir()
+(control / 'initial-postinst.json').write_text(json.dumps([str(path) for path in Path('/var/lib/dpkg/info').glob('*.postinst')]))
 (control / 'scenario').write_text(scenario)
 (control / 'bin').mkdir()
 atexit.register(lambda: subprocess.run(['cp', '-a', '/control/.', '/evidence/'], check=False))
@@ -45,13 +46,16 @@ if scenario == 'baseline-negative':
 assert subprocess.run(['dpkg-query', '-W', 'ffmpeg'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0
 
 env = os.environ.copy()
-real = scenario in ('cold', 'slow-first', 'slow-progress', 'signature', 'real-unpack-cancel', 'real-configure-stall')
+real = scenario in ('cold', 'slow-first', 'slow-progress', 'signature', 'real-unpack-cancel', 'real-configure-stall', 'maintainer-cancel', 'maintainer-deadline')
 env['PATH'] = '/control/bin:' + env['PATH']
 if scenario == 'launch-error':
     env['PATH'] = '/control/bin:/usr/local/bin'
 
 if scenario in ('real-unpack-cancel', 'real-configure-stall'):
     Path('/etc/apt/apt.conf.d/99proof-dpkg-hook').write_text('DPkg::Options { "--pre-invoke=/candidate/scripts/ci-ffmpeg-proof/dpkg-hook.py"; };\n')
+
+if scenario in ('maintainer-cancel', 'maintainer-deadline'):
+    Path('/etc/apt/apt.conf.d/99proof-dpkg-hook').write_text('DPkg::Options { "--pre-invoke=/candidate/scripts/ci-ffmpeg-proof/maintainer-inject.py"; };\n')
 
 # Real apt transport receives a continuously progressing but unusably slow
 # response. It cannot escape the aggregate deadline through per-request progress.
@@ -135,15 +139,15 @@ while process.poll() is None and time.monotonic() - start < 245:
         fields = line.split()
         if fields[-1] == 'bun':
             supervisor_pid = int(fields[0])
-    if scenario in ('cleanup-unproven', 'negative-leader-only', 'cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel') and supervisor_pid and not Path(f'/proc/{supervisor_pid}').exists():
+    if scenario in ('cleanup-unproven', 'negative-leader-only', 'cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel', 'maintainer-cancel') and supervisor_pid and not Path(f'/proc/{supervisor_pid}').exists():
         supervisor_exit_elapsed = time.monotonic() - start
         break
-    if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel') and not sent:
+    if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel', 'maintainer-cancel') and not sent:
         for line in table.splitlines()[1:]:
             fields = line.split()
             if fields[-1] == 'bun':
                 # Wait until the real fault child exists before cancellation.
-                if Path('/control/invocations.jsonl').exists() and '--no-download' in Path('/control/invocations.jsonl').read_text() and (scenario != 'real-unpack-cancel' or Path('/control/dpkg-hook-started.json').exists()):
+                if Path('/control/invocations.jsonl').exists() and '--no-download' in Path('/control/invocations.jsonl').read_text() and (scenario != 'real-unpack-cancel' or Path('/control/dpkg-hook-started.json').exists()) and (scenario != 'maintainer-cancel' or Path('/control/maintainer-ready.json').exists()):
                     signal_pid = int(fields[0])
                     signal_identity = Path(f'/proc/{signal_pid}/stat').read_text()
                     signal_at = time.monotonic() - start
@@ -156,7 +160,7 @@ while process.poll() is None and time.monotonic() - start < 245:
 # strace remains alive if an unkillable-by-candidate child still exists; observe
 # Bun's own exit via trace before observer cleanup and retain that distinction.
 elapsed = time.monotonic() - start
-if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel') and supervisor_exit_elapsed is None and process.poll() is not None:
+if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel', 'maintainer-cancel') and supervisor_exit_elapsed is None and process.poll() is not None:
     supervisor_exit_elapsed = elapsed
 trace = Path('/control/process.trace').read_text()
 if supervisor_pid is None:
@@ -200,21 +204,31 @@ controls = []
 if real:
     observations = [json.loads(line) for line in Path('/control/processes.jsonl').read_text().splitlines()]
     facts = real_process_evidence(scenario, invocations, trace, observations)
-    if scenario in ('cold', 'slow-first', 'real-unpack-cancel', 'real-configure-stall'):
+    if scenario in ('cold', 'slow-first', 'real-unpack-cancel', 'real-configure-stall', 'maintainer-cancel', 'maintainer-deadline'):
         required = ('--unpack',) if scenario == 'real-unpack-cancel' else ('--unpack', '--configure')
         facts['mutating_install'] = mutating_install_evidence(invocations, trace, observations, required)
     if scenario in ('real-unpack-cancel', 'real-configure-stall'):
         assert Path('/control/dpkg-hook-started.json').exists(), 'actual mutating dpkg hook never reached'
         assert not any(call['name'] in ('ffmpeg', 'ffprobe') for call in invocations), 'verification admitted after interrupted installation'
+    if scenario in ('maintainer-cancel', 'maintainer-deadline'):
+        metadata = json.loads(Path('/control/maintainer-injection.json').read_text())
+        ready = json.loads(Path('/control/maintainer-ready.json').read_text())
+        assert hashlib.sha256(Path('/control/maintainer-original.postinst').read_bytes()).hexdigest() == metadata['original_sha256']
+        assert hashlib.sha256(Path('/control/maintainer-modified.postinst').read_bytes()).hexdigest() == metadata['modified_sha256']
+        facts['maintainer'] = maintainer_evidence(metadata, ready, trace, observations, facts['mutating_install'])
+        assert ready['ready_boot_seconds'] - stamp < 230, 'maintainer gate did not precede original deadline'
+        assert not any(call['name'] in ('ffmpeg', 'ffprobe') for call in invocations), 'verification admitted after interrupted maintainer'
+        if scenario == 'maintainer-deadline':
+            assert original_elapsed >= 230, 'maintainer failure did not exercise original deadline'
     Path('/control/real-process-facts.json').write_text(json.dumps(facts, indent=2))
     controls.append(expect_oracle_failure('missing real observations', lambda: real_process_evidence(scenario, [], '', [])))
     controls.append(expect_oracle_failure('undecodable real trace', lambda: real_process_evidence(scenario, invocations, 'syscall_0xBAD', observations)))
-if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel'):
+if scenario in ('cancel-term', 'cancel-int', 'cancel-during-grace', 'real-unpack-cancel', 'maintainer-cancel'):
     signal_name = 'SIGINT' if scenario == 'cancel-int' else 'SIGTERM'
     cancellation_evidence(sent, signal_pid, supervisor_pid, signal_at, supervisor_exit_elapsed, len(installs), trace, signal_name)
     if scenario == 'cancel-during-grace':
         assert re.search(rf'^\s*{supervisor_pid}\s+(?:\d+\.\d+\s+)?--- SIGINT\b', trace, re.M), 'second signal did not reach cleanup grace'
-    assert elapsed < (120 if scenario == 'real-unpack-cancel' else 20), 'ordinary original deadline expiry cannot qualify cancellation'
+    assert elapsed < (150 if scenario in ('real-unpack-cancel', 'maintainer-cancel') else 20), 'ordinary original deadline expiry cannot qualify cancellation'
     controls.append(expect_oracle_failure('missing signal', lambda: cancellation_evidence(False, None, supervisor_pid, None, supervisor_exit_elapsed, len(installs), trace, signal_name)))
     controls.append(expect_oracle_failure('deadline-only shutdown', lambda: cancellation_evidence(True, supervisor_pid, supervisor_pid, 1, 230, 1, trace, signal_name)))
 Path('/control/oracle-negative-controls.json').write_text(json.dumps(controls, indent=2))

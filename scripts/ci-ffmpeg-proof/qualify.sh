@@ -13,7 +13,7 @@ docker build --platform linux/arm64 -t daisy-ffmpeg-proof:issue1356 -f scripts/c
 docker image inspect daisy-ffmpeg-proof:issue1356 > "$proof_dir/image.json"
 git ls-files scripts/ci-ffmpeg.ts scripts/ci-ffmpeg.test.ts scripts/ci-ffmpeg-proof .github/workflows/ci.yml | while IFS= read -r file; do shasum -a 256 "$file"; done > "$proof_dir/source-manifest.sha256"
 if [ "$#" -eq 0 ]; then
-  set -- baseline-negative launch-error apt-error ffmpeg-fail ffprobe-fail ffmpeg-hang ffprobe-hang leader-group cancel-term cancel-int cancel-during-grace cleanup-unproven negative-leader-only cold slow-first slow-progress signature missing-archive real-unpack-cancel real-configure-stall
+  set -- baseline-negative launch-error apt-error ffmpeg-fail ffprobe-fail ffmpeg-hang ffprobe-hang leader-group cancel-term cancel-int cancel-during-grace cleanup-unproven negative-leader-only cold slow-first slow-progress signature missing-archive real-unpack-cancel real-configure-stall maintainer-cancel maintainer-deadline
 fi
 for scenario do
   mkdir -p "$proof_dir/$scenario"

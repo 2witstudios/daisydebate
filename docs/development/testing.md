@@ -726,3 +726,18 @@ Primary references read for this mechanism:
 The [coreutils timeout manual](https://manpages.ubuntu.com/manpages/noble/man1/timeout.1.html)
 documents parent/foreground and kill-grace behavior; nested timeouts alone were
 not used as proof of aggregate descendant containment.
+
+The maintainer adverse controls have a precise additional boundary: authenticated
+package unpack is followed by disposable modification of one freshly unpacked
+package's actual `.postinst`; interruption occurs inside an injected gate. The
+configure pre-invoke injector returns promptly. It preserves the shebang and
+remaining original body and retains package/version/action/path, original bytes
+and hash, modified hash and exact diff. Only the real `.postinst` invocation
+publishes gate readiness, after root and `_apt` descendants have installed their
+TERM-resistant handlers. The oracle checks apt → mutating configure dpkg →
+actual `.postinst` → gate/descendant lineage, identities and group membership,
+then proves cancellation and the original unaged deadline with no surviving
+known descendant or downstream success. This is fault-controlled execution at
+the actual maintainer entry; it does not prove every unmodified script command
+or an arbitrary session-escaping script is safe. The unmodified normal cold
+trace remains separate evidence.

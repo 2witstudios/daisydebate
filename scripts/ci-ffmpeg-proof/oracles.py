@@ -11,14 +11,14 @@ def real_process_evidence(scenario, invocations, trace, snapshots):
     assert all(call['pid'] == call['pgid'] == call['sid'] and call['uid'] == 0 for call in apt), 'apt must start in root-owned session/group'
     groups = {call['pgid'] for call in apt}
     rows = [line.split() for snapshot in snapshots for line in snapshot['table'].splitlines()[1:]]
-    if scenario in ('cold', 'slow-first', 'slow-progress', 'real-unpack-cancel', 'real-configure-stall'):
+    if scenario in ('cold', 'slow-first', 'slow-progress', 'real-unpack-cancel', 'real-configure-stall', 'maintainer-cancel', 'maintainer-deadline'):
         assert re.search(r'execve\("/usr/lib/apt/methods/http', trace), 'missing actual apt HTTP method'
         assert any(len(row) >= 7 and int(row[2]) in groups and row[4] == '42' and row[-1] in ('http', 'https') for row in rows), 'missing _apt transport in actual apt group'
-    if scenario in ('cold', 'slow-first', 'real-unpack-cancel', 'real-configure-stall'):
+    if scenario in ('cold', 'slow-first', 'real-unpack-cancel', 'real-configure-stall', 'maintainer-cancel', 'maintainer-deadline'):
         assert re.search(r'execve\("/usr/bin/dpkg"', trace), 'missing actual dpkg'
         if scenario in ('cold', 'slow-first'):
             assert '/var/lib/dpkg/info/' in trace and '.postinst' in trace, 'missing actual maintainer hook execution'
-        else:
+        elif scenario in ('real-unpack-cancel', 'real-configure-stall'):
             assert '/candidate/scripts/ci-ffmpeg-proof/dpkg-hook.py' in trace, 'missing actual dpkg invoke hook'
         assert any(len(row) >= 7 and int(row[2]) in groups and row[4] == '0' and row[-1] == 'dpkg' for row in rows), 'missing root dpkg in actual apt group'
         assert re.search(r'execve\("/usr/lib/apt/methods/gpgv"', trace), 'missing actual signature verifier'
@@ -101,3 +101,20 @@ def mutating_install_evidence(invocations, trace, snapshots, required_operations
     for pid in mutating:
         assert any(len(row) >= 7 and int(row[0]) == pid and int(row[2]) == root and int(row[3]) == root and row[4] == '0' for row in rows), f'mutating dpkg {pid} never observed in install PGID/SID'
     return dict(install_pid=root, mutating_pids=mutating, descendant_pids=sorted(pid for pid in parents if is_descendant(pid, root, parents)), escaped_transitions=escapes)
+
+
+def maintainer_evidence(metadata, ready, trace, snapshots, install_facts):
+    parents, _, mutating = process_lineage(trace)
+    configured = [pid for pid, operation in mutating.items() if operation == '--configure']
+    executions = [int(match[1]) for line in trace.splitlines() if (match := re.match(r'\s*(\d+)\s+', line)) and f'execve("{metadata["script"]}"' in line and '"configure"' in line]
+    assert executions, 'actual modified package .postinst was never invoked for configure'
+    assert any(is_descendant(pid, configure_pid, parents) for pid in executions for configure_pid in configured), 'missing configure -> actual .postinst ancestry'
+    assert any(is_descendant(ready['pid'], pid, parents) for pid in executions), 'ready came from outside actual .postinst invocation'
+    root = install_facts['install_pid']
+    assert ready['pgid'] == ready['sid'] == root, 'maintainer gate escaped installation group'
+    rows = [line.split() for snapshot in snapshots for line in snapshot['table'].splitlines()[1:]]
+    for child in ready['children']:
+        assert is_descendant(child['pid'], ready['pid'], parents), 'missing ready descendant ancestry'
+        assert any(len(row) >= 7 and int(row[0]) == child['pid'] and int(row[2]) == root and int(row[3]) == root and int(row[4]) == child['uid'] for row in rows), 'missing ready root/_apt child identity in installation group'
+    assert {child['uid'] for child in ready['children']} == {0, 42}, 'missing resistant identities'
+    return dict(package=metadata['package'], version=metadata['version'], action='configure', script=metadata['script'], postinst_pids=executions, gate_pid=ready['pid'], children=ready['children'], install_pid=root, label=metadata['label'])
