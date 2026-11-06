@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 
 /** Linux boot-relative elapsed time, shared with the workflow launch stamp. */
-export const elapsedBootMs = () =>
+const elapsedBootMs = () =>
   Number(readFileSync('/proc/uptime', 'utf8').split(' ')[0]) * 1000;
 export const preparationDeadline = (launchSeconds: number) =>
   launchSeconds * 1000 + 230_000;
@@ -35,7 +35,7 @@ export const acquisitionCommands = () => [
 ];
 
 /** Zombies cannot perform work or hold package locks; their parent reaps them. */
-export function liveGroupMembers(group: number) {
+function liveGroupMembers(group: number) {
   return readdirSync('/proc')
     .filter((name) => /^\d+$/.test(name))
     .flatMap((name) => {
@@ -83,10 +83,7 @@ async function before<T>(promise: Promise<T>, deadline: number, fallback: T) {
   }
 }
 
-export function createPreparation(
-  launchSeconds: number,
-  cancellation: AbortSignal,
-) {
+function createPreparation(launchSeconds: number, cancellation: AbortSignal) {
   const deadline = preparationDeadline(launchSeconds);
   const log = (message: string) =>
     console.log(
@@ -171,9 +168,7 @@ export function createPreparation(
 const sourceFiles =
   '/etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources /etc/apt/apt-mirrors.txt';
 
-export async function prepareFfmpeg(
-  runner: ReturnType<typeof createPreparation>,
-) {
+async function prepareFfmpeg(runner: ReturnType<typeof createPreparation>) {
   await runner.run('configured package sources', [
     'sh',
     '-ec',
