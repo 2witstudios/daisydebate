@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
+import { isAppError } from '@daisy/errors';
 import { withBillingSynchronization } from './billing-synchronization.test-support';
 
 setupRitewayBun();
@@ -133,6 +134,57 @@ test('current account authority wins over a paid response that arrives after clo
         should: 'leave evidence and grants unchanged',
         actual: [row!.kind, grants!.n],
         expected: ['unpaid', 0],
+      });
+    },
+  );
+});
+
+test('original purchase price fences forged claims and missing provenance cannot acquire repair authority', async () => {
+  await withBillingSynchronization(
+    async ({ fixture, customerId, userId, store, paid }) => {
+      const claim = (await store.claim(customerId))!;
+      const before = (
+        await fixture.sql`select synchronization from billing_customers where id=${customerId}`
+      )[0];
+      const wrongPrice = await store.apply(
+        { ...claim, priceId: 'price_replacement' },
+        paid,
+      );
+      const unchanged = (
+        await fixture.sql`select synchronization from billing_customers where id=${customerId}`
+      )[0];
+      const grants = (
+        await fixture.sql`select count(*)::int as n from account_entitlement_grants where user_id=${userId}`
+      )[0];
+      await store.retry(claim);
+      // Owner-only loss-of-evidence fixture: runtime deletion privileges remain unchanged.
+      await fixture.sql`delete from billing_purchases where user_id=${userId}`;
+      const retryBefore = (
+        await fixture.sql`select synchronization from billing_customers where id=${customerId}`
+      )[0];
+      let refused = false;
+      try {
+        await store.claim(customerId);
+      } catch (error) {
+        refused = isAppError(error) && error.code === 'CONFLICT';
+      }
+      const retryAfter = (
+        await fixture.sql`select synchronization from billing_customers where id=${customerId}`
+      )[0];
+      assert({
+        given:
+          'replacement-price claim data or absent original completed-purchase evidence',
+        should:
+          'refuse grant application and new repair claims without consuming their durable state',
+        actual: [
+          claim.priceId,
+          wrongPrice,
+          unchanged,
+          grants!.n,
+          refused,
+          retryAfter,
+        ],
+        expected: ['price_fixture', 'stale', before, 0, true, retryBefore],
       });
     },
   );

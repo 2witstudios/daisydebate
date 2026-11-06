@@ -28,9 +28,18 @@ receipt into acknowledgment or replace the retry response. No raw database or
 vendor exception enters those signals. An unconfigured Sentry adapter remains
 inert; source submission is not proof of operator delivery.
 
-Receipt consumption, customer/subscription reconciliation and retained refund
-reads have separate current-service runtime/proof obligations. HTTP ingress
-alone does not establish their completion. Genuine Stripe TEST delivery and
+The process starts single-flight subscription repair every five seconds when
+Stripe is configured. Receipt and customer keyset pages remain bounded; failed
+identities stay durable while later identities can advance. Each current-service
+claim carries the original completed purchase price, rechecked under the canonical
+account fence at apply. Replacement new-purchase configuration cannot rewrite it.
+Missing or ambiguous original offer evidence refuses repair; local grant validity
+still expires during outages. Drain retires read admission and waits for the bounded
+in-flight request without applying its result.
+
+Retained refund reads, purchase recovery and vendor cleanup have separate runtime
+and proof obligations. HTTP ingress and scheduled subscription source binding
+alone do not establish their completion. Genuine Stripe TEST delivery and
 crash/missed-event lifecycle evidence remain separate from controlled SDK-signed
 unit fixtures. All original Billing acceptance criteria and launch obligations
 remain in the existing plan.

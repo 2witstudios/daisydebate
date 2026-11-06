@@ -5,6 +5,7 @@ import {
   advanceBillingSync,
   reconcileSubscriptionEvidence,
   subscriptionEvidenceSchema,
+  purchaseSchema,
   type SubscriptionEvidence,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -13,6 +14,7 @@ import { replaceSubscriptionGrants } from './billing-grants';
 import { readDatabaseTime } from './database-clock';
 import { billingCustomers } from './schema/billing-customers';
 import { billingSubscriptions } from './schema/billing-subscriptions';
+import { readFrozenBillingOffer } from './billing-frozen-offer';
 
 export type BillingSynchronizationClaim = {
   readonly customerId: string;
@@ -21,6 +23,7 @@ export type BillingSynchronizationClaim = {
   readonly mode: 'test' | 'live';
   readonly subscriptionId: string;
   readonly vendorSubscriptionId: string;
+  readonly priceId: string;
   readonly accountRevision: number;
   readonly revision: number;
   readonly claimId: string;
@@ -49,7 +52,8 @@ function validClaim(input: BillingSynchronizationClaim) {
     [input.accountRevision, input.revision].every(
       (value) => Number.isSafeInteger(value) && value > 0,
     ) &&
-    ['test', 'live'].includes(input.mode)
+    ['test', 'live'].includes(input.mode) &&
+    purchaseSchema.shape.priceId.safeParse(input.priceId).success
   );
 }
 function isCurrentMapping(
@@ -86,6 +90,18 @@ export function createBillingSynchronization(input: {
             locked.account.userId,
           );
           if (!subscription) return null;
+          if (
+            locked.customer.mode !== 'test' &&
+            locked.customer.mode !== 'live'
+          )
+            throw createAppError('VALIDATION');
+          const offer = await readFrozenBillingOffer(tx, {
+            userId: locked.account.userId,
+            mode: locked.customer.mode,
+            customerId: locked.customer.vendorCustomerId,
+            vendorSubscriptionId: subscription.vendorSubscriptionId,
+          });
+          if (!offer) throw createAppError('CONFLICT');
           const now = (await readDatabaseTime(tx)).toISOString();
           const poll = advanceBillingSync(
             locked.customer.synchronization,
@@ -108,11 +124,6 @@ export function createBillingSynchronization(input: {
             .update(billingCustomers)
             .set({ synchronization: claim.state })
             .where(eq(billingCustomers.id, customerId));
-          if (
-            locked.customer.mode !== 'test' &&
-            locked.customer.mode !== 'live'
-          )
-            throw createAppError('VALIDATION');
           return {
             customerId,
             userId: locked.account.userId,
@@ -120,6 +131,7 @@ export function createBillingSynchronization(input: {
             mode: locked.customer.mode,
             subscriptionId: subscription.id,
             vendorSubscriptionId: subscription.vendorSubscriptionId,
+            priceId: offer.priceId,
             accountRevision: locked.account.revision,
             revision: claim.state.revision,
             claimId,
@@ -143,6 +155,13 @@ export function createBillingSynchronization(input: {
           subscription.vendorSubscriptionId !== claim.vendorSubscriptionId
         )
           return 'stale' as const;
+        const offer = await readFrozenBillingOffer(tx, {
+          userId: locked.account.userId,
+          mode: claim.mode,
+          customerId: locked.customer.vendorCustomerId,
+          vendorSubscriptionId: subscription.vendorSubscriptionId,
+        });
+        if (offer?.priceId !== claim.priceId) return 'stale' as const;
         const now = await readDatabaseTime(tx);
         const transition = advanceBillingSync(
           locked.customer.synchronization,

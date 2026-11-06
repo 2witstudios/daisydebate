@@ -1,6 +1,7 @@
 import { recordingPersistence } from '../features/recording/persistence';
 import { startRecordingDeletions } from './recording-deletions';
 import { startUsageRecovery } from './usage-recovery';
+import { startBillingSubscriptions } from './billing-subscriptions';
 import { startBroadcastSweep } from '../features/broadcast/composition';
 import { startStrayEgressSweep } from '../features/stage-capture/composition';
 import { startNotificationSweep } from '../features/spectating/audience-composition';
@@ -144,6 +145,12 @@ const usageRecovery = startUsageRecovery({
   instanceId: availability.instanceId,
   timers: workerTimers,
 });
+const billingSubscriptions = startBillingSubscriptions({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+  fetch: globalThis.fetch,
+});
 const roomMaintenance = startRoomLifecycleMaintenance({
   app,
   timers: workerTimers,
@@ -250,6 +257,7 @@ async function shutdown() {
   // Ends any sweep between batches; awaited before the pools close below.
   const retentionStopped = retention.stop();
   const usageRecoveryStopped = usageRecovery.stop();
+  const billingSubscriptionsStopped = billingSubscriptions?.stop();
   const betaMailStopped = betaMail.stop();
   const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
@@ -289,6 +297,7 @@ async function shutdown() {
       await Promise.all([
         retentionStopped,
         usageRecoveryStopped,
+        billingSubscriptionsStopped,
         betaMailStopped,
         operatorApiStopped,
         filesStopped,

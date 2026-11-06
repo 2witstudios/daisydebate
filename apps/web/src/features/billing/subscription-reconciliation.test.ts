@@ -16,6 +16,7 @@ const claim = {
   mode: 'test' as const,
   subscriptionId: identity.subscriptionId,
   vendorSubscriptionId: identity.vendorSubscriptionId,
+  priceId: identity.priceId,
   accountRevision: 1,
   revision: 1,
   claimId: 'd'.repeat(24),
@@ -48,7 +49,6 @@ test('reconciliation advances bounded pages past failed identities and restarts 
     failures: string[] = [];
   const worker = createSubscriptionReconciliation({
     mode: 'test',
-    priceId: identity.priceId,
     vendor,
     store: {
       ...store(),
@@ -134,7 +134,6 @@ test('transport and invalid vendor observations retain retry work without applyi
     const outcomes: string[] = [];
     const worker = createSubscriptionReconciliation({
       mode: 'test',
-      priceId: identity.priceId,
       vendor: {
         ...vendor,
         subscription: async () => {
@@ -182,7 +181,6 @@ test('stopping during a bounded vendor read leaves the claim for recovery and st
   const calls: string[] = [];
   const worker = createSubscriptionReconciliation({
     mode: 'test',
-    priceId: identity.priceId,
     vendor: {
       ...vendor,
       subscription: async () => {
@@ -234,7 +232,6 @@ test('a claim from another configured Stripe mode never reaches that vendor clie
   const calls: string[] = [];
   const worker = createSubscriptionReconciliation({
     mode: 'test',
-    priceId: identity.priceId,
     vendor: {
       ...vendor,
       subscription: async () => {
@@ -261,5 +258,42 @@ test('a claim from another configured Stripe mode never reaches that vendor clie
     should: 'refuse before vendor I/O',
     actual: calls,
     expected: ['CONFLICT'],
+  });
+});
+
+test('a replacement purchase price cannot rewrite the original subscription observation identity', async () => {
+  let applied = 0,
+    retried = 0;
+  const configured = {
+    mode: 'test' as const,
+    priceId: 'price_replacement',
+    vendor,
+    store: {
+      ...store(),
+      customers: async () => ({
+        rows: [{ customerId: claim.customerId }],
+        afterId: null,
+        exhausted: true,
+      }),
+      claim: async () => ({ ...claim, priceId: identity.priceId }),
+      apply: async () => {
+        applied += 1;
+        return 'applied' as const;
+      },
+      retry: async () => {
+        retried += 1;
+        return true;
+      },
+    },
+    failed: () => undefined,
+  };
+  await createSubscriptionReconciliation(configured).run();
+  assert({
+    given:
+      'an original owned subscription claim and vendor facts for priceA after the new-purchase offer changes to priceB',
+    should:
+      'observe and apply the frozen original price without inheriting new-purchase configuration',
+    actual: [applied, retried],
+    expected: [1, 0],
   });
 });

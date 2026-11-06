@@ -2,7 +2,15 @@ import Stripe from 'stripe';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
-import { subscriptionGrants } from '@daisy/auth/authorization';
+import {
+  subscriptionGrants,
+  canPurchasePremium,
+  canManageBilling,
+} from '@daisy/auth/authorization';
+import {
+  admitParticipants,
+  completeControlledBillingPurchase,
+} from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { fixedClock } from '@daisy/clock';
 import { withSql, testDatabaseUrl } from './fixtures';
@@ -21,10 +29,9 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
   withSql(async (sql) => {
     const userId = createId(),
       actorId = createId(),
-      customerId = createId(),
-      subscriptionId = createId(),
       instanceId = createId(),
       eventId = `evt_${createId()}`;
+    let customerId: string;
     const database = createDatabase({
       url: testDatabaseUrl,
       client: sql,
@@ -83,8 +90,32 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
     try {
       await sql`insert into users(id,username) values(${userId},${userId})`;
       await sql`insert into actors(id,user_id,kind) values(${actorId},${userId},'human')`;
-      await sql`insert into billing_customers(id,user_id,vendor_customer_id,mode,synchronization) values(${customerId},${userId},${identity.customerId},'test',${JSON.stringify({ kind: 'pending', revision: 1, requestedAt: now, retryAt: now })}::text::jsonb)`;
-      await sql`insert into billing_subscriptions(id,user_id,vendor_subscription_id,evidence,current,observed_at) values(${subscriptionId},${userId},${identity.vendorSubscriptionId},'{"lifecycle":"incomplete","settlement":{"kind":"unpaid"}}'::jsonb,true,${now}::timestamptz)`;
+      await admitParticipants(sql, [userId]);
+      await sql`update users set email_verified=true where id=${userId}`;
+      await completeControlledBillingPurchase({
+        purchases: database.billingPurchases({
+          purchase: canPurchasePremium,
+          manage: canManageBilling,
+          // Controlled catalogue policy: this lifecycle suite is not release-Flags proof.
+          release: { keys: ['premium-checkout'], decide: () => true },
+        }),
+        subject: { userId, actorId },
+        offer: {
+          mode: 'test',
+          priceId: identity.priceId,
+          returnOrigin: 'https://daisy.invalid',
+        },
+        session: {
+          kind: 'complete',
+          id: `cs_test_${createId()}`,
+          customerId: identity.customerId,
+          subscriptionId: identity.vendorSubscriptionId,
+        },
+      });
+      const [mapping] =
+        await sql`select id from billing_customers where user_id=${userId}`;
+      customerId = mapping.id;
+      await sql`delete from account_entitlement_grants where user_id=${userId} and source='beta'`;
       const uncertain = await handler(request());
       const duplicates = await Promise.all(
         Array.from({ length: 4 }, () => handler(request())),
@@ -115,7 +146,6 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
       const worker = createSubscriptionReconciliation({
         store: database.billingSynchronization(instanceId, subscriptionGrants),
         mode: 'test',
-        priceId: identity.priceId,
         vendor: {
           subscription: async () => subscription,
           invoice: async () => invoice,
@@ -155,8 +185,9 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
       await sql`delete from service_instances where instance_id=${instanceId}`;
       await sql`delete from billing_webhook_events where vendor_event_id=${eventId}`;
       await sql`delete from account_entitlement_grants where user_id=${userId}`;
-      await sql`delete from billing_subscriptions where id=${subscriptionId}`;
-      await sql`delete from billing_customers where id=${customerId}`;
+      await sql`delete from billing_purchases where user_id=${userId}`;
+      await sql`delete from billing_subscriptions where user_id=${userId}`;
+      await sql`delete from billing_customers where user_id=${userId}`;
       await sql`delete from actors where id=${actorId}`;
       await sql`delete from users where id=${userId}`;
     }

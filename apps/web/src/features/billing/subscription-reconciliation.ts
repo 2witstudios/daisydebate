@@ -13,12 +13,22 @@ export function createSubscriptionReconciliation(input: {
   readonly store: Store;
   readonly vendor: SubscriptionReadPort;
   readonly mode: 'test' | 'live';
-  readonly priceId: string;
   readonly failed: (error: unknown, stage: FailureStage) => void;
 }) {
   let receiptCursor: string | undefined;
   let customerCursor: string | undefined;
   let stopped = false;
+  // A read already in flight stays bounded; drain admits none of its follow-up SDK calls.
+  const readIfRunning = (read: () => Promise<unknown>) =>
+    stopped ? Promise.reject(createAppError('CONFLICT')) : read();
+  const vendor: SubscriptionReadPort = {
+    subscription: (id) => readIfRunning(() => input.vendor.subscription(id)),
+    invoice: (id) => readIfRunning(() => input.vendor.invoice(id)),
+    latestPaidInvoice: (subscriptionId, customerId) =>
+      readIfRunning(() =>
+        input.vendor.latestPaidInvoice(subscriptionId, customerId),
+      ),
+  };
 
   const receipts = async () => {
     const page = await input.store.receipts({
@@ -41,12 +51,12 @@ export function createSubscriptionReconciliation(input: {
     const claim = await input.store.claim(customerId);
     if (!claim || stopped) return;
     if (claim.mode !== input.mode) throw createAppError('CONFLICT');
-    const observed = await readSubscriptionObservation(input.vendor, {
+    const observed = await readSubscriptionObservation(vendor, {
       subscriptionId: claim.subscriptionId,
       vendorSubscriptionId: claim.vendorSubscriptionId,
       customerId: claim.vendorCustomerId,
       mode: input.mode,
-      priceId: input.priceId,
+      priceId: claim.priceId,
     });
     if (stopped) return;
     if (observed.kind === 'observed') {

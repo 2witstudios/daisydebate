@@ -1,11 +1,10 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   advanceCleanup,
   cleanupWork,
   startCleanup,
   ownsCleanupClaim,
-  paymentObservationSourceSchema,
   type CleanupEvent,
   type CleanupWork,
 } from '@daisy/protocol/billing';
@@ -15,6 +14,7 @@ import { createBillingPaymentObservations } from './billing-payment-observations
 import { createBillingPaymentRecording } from './billing-payment-recording';
 import { createBillingPaymentProgress } from './billing-payment-progress';
 import { privacyJobs } from './schema/privacy-jobs';
+import { readFrozenBillingOffer } from './billing-frozen-offer';
 import {
   cleanupContext,
   cleanupFacts,
@@ -45,26 +45,24 @@ export function createBillingCleanup(input: {
         )
           return { kind: 'unresolved' } as const;
         const facts = await cleanupFacts(tx, locked.userId);
-        if (facts.route.kind !== 'owned')
+        if (
+          facts.route.kind !== 'owned' ||
+          (facts.route.mode !== 'test' && facts.route.mode !== 'live')
+        )
           return { kind: 'unresolved' } as const;
-        const rows =
-          await tx.execute(sql`select id,admitted_at as "admittedAt",price_id as "priceId",mode,state->>'customerId' as "customerId",state->>'subscriptionId' as "vendorSubscriptionId"
-          from billing_purchases where user_id=${locked.userId} and mode=${facts.route.mode}
-          and state->>'kind'='complete' and state->>'customerId'=${facts.route.customerId}
-          and state->>'subscriptionId'=${vendorSubscriptionId} limit 2`);
-        const row = rows[0];
+        const source = await readFrozenBillingOffer(tx, {
+          userId: locked.userId,
+          mode: facts.route.mode,
+          customerId: facts.route.customerId,
+          vendorSubscriptionId,
+        });
         const context = await cleanupContext(tx, jobId, facts.effects);
         if (
           !ownsCleanupClaim(locked.state, claimId, work, context) ||
-          rows.length !== 1
+          !source ||
+          Date.parse(source.admittedAt) > Date.parse(locked.closedAt)
         )
           return { kind: 'unresolved' } as const;
-        const source = readOriginalOffer(
-          row,
-          vendorSubscriptionId,
-          locked.closedAt,
-        );
-        if (!source) return { kind: 'unresolved' } as const;
         return {
           kind: 'owned' as const,
           source,
@@ -150,25 +148,4 @@ export function createBillingCleanup(input: {
 
 function needsObservationWrite(event: { readonly kind: string }) {
   return event.kind === 'retained';
-}
-
-function readOriginalOffer(
-  row: Record<string, unknown> | undefined,
-  vendorSubscriptionId: string,
-  closedAt: string,
-) {
-  if (!row) return null;
-  const source = paymentObservationSourceSchema.safeParse({
-    kind: 'purchase',
-    purchaseId: row.id,
-    vendorSubscriptionId,
-    priceId: row.priceId,
-    admittedAt:
-      row.admittedAt instanceof Date ? row.admittedAt.toISOString() : null,
-  });
-  return source.success &&
-    source.data.kind === 'purchase' &&
-    Date.parse(source.data.admittedAt) <= Date.parse(closedAt)
-    ? source.data
-    : null;
 }
