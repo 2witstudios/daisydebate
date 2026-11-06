@@ -112,8 +112,8 @@ export const economicsInput = z.strictObject({
         'casual_capture',
         'recording_download',
       ]),
-      completed: integer,
-      possibleCalls: integer,
+      completed: integer.nullable(),
+      possibleCalls: integer.nullable(),
       capacity: z.discriminatedUnion('kind', [
         z.strictObject({
           kind: z.literal('measured'),

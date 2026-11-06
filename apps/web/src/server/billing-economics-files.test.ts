@@ -28,7 +28,12 @@ test('private file measurements cross the real report sink and scrubbed reporter
     void _v;
     await writeFile(
       join(directory, 'feed-2026-10.json'),
-      JSON.stringify({ ...feed, modelCostBasis: 'provider_invoice' }),
+      JSON.stringify({
+        startsAt,
+        endsAt,
+        ...feed,
+        modelCostBasis: 'provider_invoice',
+      }),
       { mode: 0o600 },
     );
     const files = createBillingEconomicsFiles({

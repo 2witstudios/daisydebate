@@ -80,3 +80,19 @@ bounds this sink's generated files and cleanup work. Provision the directory onl
 for this sink. Source financial systems retain their own classified records; the
 feed file is a temporary normalized operational projection. No deletion here
 resolves an owed vendor obligation, alters original accounting or revokes access.
+
+The private feed binds `startsAt`/`endsAt` to the requested calendar month. Its
+optional `volume` array may supply measured capacity for each feature and measured
+capture/download volume; absence is null/unknown. Model-feature volume continues
+to come from actual ledger/attempt cohorts, so supplied capacity cannot overwrite
+it. Ledger completions describe reservations admitted in this month, while call
+volume describes executions observed in this month; the retained original source
+period is separate. A credited allowance with a delivered provider outcome still
+counts as delivered volume. No current configured concurrency value is accepted
+as an observed high-water measurement.
+
+A `reported` collector result means the report was saved and signals submitted to
+the existing reporter port. `alertDelivery` remains explicitly `unconfirmed`:
+the void ErrorReporter cannot acknowledge operator delivery and may be inert
+without keys. Only a separately retained approved private transport/destination
+receipt can establish that an operator received the named alert.

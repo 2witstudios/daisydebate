@@ -126,3 +126,21 @@ test('private persistence and alert delivery failures remain visible to the call
     expected: ['failed', 'failed'],
   });
 });
+
+test('a void reporter submission is not a delivery receipt', async () => {
+  const { dataset, now } = await import('./economics.test-support');
+  const r = await runEconomicsReport({
+    read: async () => dataset(),
+    now: () => now,
+    save: async () => undefined,
+    reporter: { capture: () => undefined },
+  });
+  assert({
+    given:
+      'an existing void reporter port that may be inert without deployment keys',
+    should:
+      'keep operator delivery explicitly unconfirmed even after a report and signal submission',
+    actual: r.kind === 'reported' && r.alertDelivery,
+    expected: 'unconfirmed',
+  });
+});

@@ -11,8 +11,11 @@ import { runEconomicsReport } from './economics-alert';
 import type { buildEconomicsReport } from './economics-report';
 
 const privateFeed = economicsInput
-  .omit({ startsAt: true, endsAt: true, modelUsage: true, volume: true })
-  .extend({ modelCostBasis: z.enum(['provider_invoice', 'usage_counters']) });
+  .omit({ modelUsage: true, volume: true })
+  .extend({
+    modelCostBasis: z.enum(['provider_invoice', 'usage_counters']),
+    volume: economicsInput.shape.volume.default([]),
+  });
 type Window = { readonly startsAt: string; readonly endsAt: string };
 type Snapshot = z.infer<typeof billingEconomicsReadSchema>;
 const planFor = (source: string): EconomicsPlan | null =>
@@ -23,6 +26,41 @@ const planFor = (source: string): EconomicsPlan | null =>
       : source === 'lifetime' || source === 'ranked'
         ? 'free'
         : null;
+function volumeFor(
+  plan: EconomicsPlan,
+  feature: EconomicsInput['volume'][number]['feature'],
+  snapshot: Snapshot,
+  measurements: EconomicsInput['volume'],
+): EconomicsInput['volume'][number] {
+  const measured = measurements.find(
+    (v) => v.plan === plan && v.feature === feature,
+  );
+  const capacity = measured?.capacity ?? { kind: 'unknown' as const };
+  if (feature === 'casual_capture' || feature === 'recording_download')
+    return {
+      plan,
+      feature,
+      completed: measured?.completed ?? null,
+      possibleCalls: measured?.possibleCalls ?? null,
+      capacity,
+    };
+  const delivered = snapshot.usage.filter(
+    (u) =>
+      planFor(u.sourceKind) === plan &&
+      u.feature === feature &&
+      (u.state === 'delivered' ||
+        (u.state === 'credited' && u.providerOutcome === 'delivered')),
+  );
+  return {
+    plan,
+    feature,
+    completed: delivered.reduce((n, u) => n + u.reservations, 0),
+    possibleCalls: snapshot.attempts
+      .filter((a) => planFor(a.sourceKind) === plan && a.feature === feature)
+      .reduce((n, a) => n + a.runs, 0),
+    capacity,
+  };
+}
 function usageRows(
   snapshot: Snapshot,
   offset: number,
@@ -47,7 +85,7 @@ function usageRows(
                 ...common,
                 sequence: offset + index * 2,
                 evidence:
-                  a.model === null
+                  a.model === null || a.provider === 'unrecorded'
                     ? ('unknown' as const)
                     : ('provider_response' as const),
                 inputTokens: a.inputTokens,
@@ -73,6 +111,7 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
   const feed =
     value === null
       ? {
+          ...window,
           floorBasisPoints: 3000,
           revenue: [],
           costs: [],
@@ -80,8 +119,16 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
           coverage: [],
           revenueCoverage: [],
           modelCostBasis: 'usage_counters' as const,
+          volume: [],
         }
       : privateFeed.parse(value);
+  if (feed.startsAt !== window.startsAt || feed.endsAt !== window.endsAt)
+    throw new Error('Economics feed window mismatch');
+  if (
+    new Set(feed.volume.map((v) => `${v.plan}:${v.feature}`)).size !==
+    feed.volume.length
+  )
+    throw new Error('Duplicate capacity measurements');
   if (
     feed.modelCostBasis === 'usage_counters' &&
     feed.costs.some((c) => c.category === 'models')
@@ -96,23 +143,15 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
     Math.max(-1, ...feed.costs.map((c) => c.sequence)) + 1,
   );
   const volume = economicsPlans.flatMap((plan) =>
-    ['ai_round', 'casual_ai_judge', 'round_analysis'].map((feature) => ({
-      plan,
-      feature: feature as 'ai_round' | 'casual_ai_judge' | 'round_analysis',
-      completed: snapshot.usage
-        .filter(
-          (u) =>
-            planFor(u.sourceKind) === plan &&
-            u.feature === feature &&
-            (u.state === 'delivered' ||
-              (u.state === 'credited' && u.providerOutcome === 'delivered')),
-        )
-        .reduce((n, u) => n + u.reservations, 0),
-      possibleCalls: snapshot.attempts
-        .filter((a) => planFor(a.sourceKind) === plan && a.feature === feature)
-        .reduce((n, a) => n + a.runs, 0),
-      capacity: { kind: 'unknown' as const },
-    })),
+    (
+      [
+        'ai_round',
+        'casual_ai_judge',
+        'round_analysis',
+        'casual_capture',
+        'recording_download',
+      ] as const
+    ).map((feature) => volumeFor(plan, feature, snapshot, feed.volume)),
   );
   return {
     ...window,

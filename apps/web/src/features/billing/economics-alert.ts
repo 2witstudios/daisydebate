@@ -47,7 +47,12 @@ export async function runEconomicsReport(input: {
         requestId:
           report.kind === 'report' ? report.startsAt.slice(0, 7) : 'invalid',
       });
-    return { kind: 'reported', report, signals } as const;
+    return {
+      kind: 'reported',
+      report,
+      signals,
+      alertDelivery: 'unconfirmed',
+    } as const;
   } catch {
     try {
       input.reporter.capture(new Error('BILLING_ECONOMICS_INCOMPLETE'), {
