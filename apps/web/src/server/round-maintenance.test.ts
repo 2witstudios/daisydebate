@@ -9,7 +9,10 @@ async function maintained(probe: string | undefined) {
   const seen: string[] = [];
   const service = startRoundCompetitiveMaintenance({
     app: {
-      config: { ATTENDANCE_PUBLIC_PROBE: probe },
+      config: {
+        ATTENDANCE_PUBLIC_PROBE: probe,
+        PUBLIC_APP_URL: 'https://daisy.test',
+      },
       ids: { next: () => id('g') },
       logger: { log: () => {} },
       database: {
@@ -42,7 +45,6 @@ test('ISSUE-532: the real wiring passes the configured probe Round to maintenanc
     should: 'leave exactly that Round out of maintenance',
     actual: await maintained(
       JSON.stringify({
-        origin: 'https://daisy.test/',
         roundId: probeRound,
         segmentId: id('s'),
         participantId: id('m'),

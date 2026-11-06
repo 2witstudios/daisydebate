@@ -8,4 +8,7 @@ import { initSentry } from './sentry-init';
  * even if the server DSN is set. There is no session replay here: replay is
  * PostHog's, gated separately on consent (ADR 0036 §5).
  */
-initSentry(browserCaptureConfig(document.documentElement.dataset));
+initSentry({
+  ...browserCaptureConfig(document.documentElement.dataset),
+  trustedOrigin: document.location.origin,
+});

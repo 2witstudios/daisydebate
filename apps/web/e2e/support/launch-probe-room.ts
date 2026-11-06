@@ -202,5 +202,5 @@ export async function createLaunchProbeResource(
   });
   if (!(await probe()))
     throw new Error('Public probe resource failed its real receipt check');
-  return configuration;
+  return { roundId, ...target, cookie: members[1]!.cookie };
 }
