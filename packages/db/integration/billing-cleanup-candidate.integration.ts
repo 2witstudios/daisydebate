@@ -13,7 +13,7 @@ import { withBillingRefunds } from './billing-refunds.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261105221146_stripe_cleanup_fair_failure/migration.sql',
+  '../migrations/20261106004019_stripe_cleanup_observation_completion/migration.sql',
   import.meta.url,
 );
 
@@ -251,6 +251,7 @@ test(
                 mappedCustomers: 0,
                 possiblePurchases: 0,
                 retainedFinancialRoutes: 0,
+                owedObservations: false,
               },
             },
           );

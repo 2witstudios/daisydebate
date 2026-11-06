@@ -399,8 +399,18 @@ indexed discovery alternates with owed-record revisits, retaining every exact
 unknown without capped eviction. Exhaustion, disappearance, job rotation and
 customer deletion cannot clear owed observations. Completion checks their current
 obligations and linked money actions; shared charges never gain multiple refund
-keys. This is the same BILL15r1 scope and pending-owner policy. Observation schema,
-atomic advancement, retention/export and adverse proof remain implementation work.
+keys. This is the same BILL15r1 scope and pending-owner policy. Observation storage
+and subject export retain their exact-source proof; atomic advancement, fair
+revisits and full runtime delivery remain implementation work.
+
+Retained observation routing, including classified pre-closure facts, defeats a
+no-vendor-effects acknowledgement. Verified customer deletion is a different
+outcome: every owed invoice/payment and every linked original action without
+current known success still blocks acknowledgement. The application reads that
+explicit obligation fact after canonical account/job waits and samples fresh DB
+time before admission. SQL enforces the same completion boundary. A later refund
+reversal atomically rotates/reopens the job while preserving the original action;
+the unfinished observation writer must likewise pair new facts with rearming.
 
 Exact positively retrieved paid InvoicePayment chronology has its own typed
 evidence branch. With original mode/customer/invoice/payment and frozen offer

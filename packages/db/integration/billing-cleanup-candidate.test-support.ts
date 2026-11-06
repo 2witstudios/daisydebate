@@ -38,6 +38,12 @@ export function cleanupCandidate(tx: TransactionSQL, initialJobId: string) {
       now: await now(),
       jobId,
       closed: true,
+      effects: {
+        mappedCustomers: 0,
+        possiblePurchases: 0,
+        retainedFinancialRoutes: 0,
+        owedObservations: false,
+      },
     });
     if (result.kind === 'idle')
       throw Error('Candidate matrix transition refused');

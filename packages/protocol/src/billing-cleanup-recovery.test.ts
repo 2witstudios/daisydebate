@@ -64,14 +64,36 @@ test('missing customer mapping alone never acknowledges unknown purchase or reta
     };
   const effects = [
     undefined,
-    { mappedCustomers: 0, possiblePurchases: 1, retainedFinancialRoutes: 0 },
-    { mappedCustomers: 0, possiblePurchases: 0, retainedFinancialRoutes: 1 },
-    { mappedCustomers: 1, possiblePurchases: 0, retainedFinancialRoutes: 0 },
+    {
+      mappedCustomers: 0,
+      possiblePurchases: 1,
+      retainedFinancialRoutes: 0,
+      owedObservations: false,
+    },
+    {
+      mappedCustomers: 0,
+      possiblePurchases: 0,
+      retainedFinancialRoutes: 1,
+      owedObservations: false,
+    },
+    {
+      mappedCustomers: 1,
+      possiblePurchases: 0,
+      retainedFinancialRoutes: 0,
+      owedObservations: false,
+    },
+    {
+      mappedCustomers: 0,
+      possiblePurchases: 0,
+      retainedFinancialRoutes: 0,
+      owedObservations: true,
+    },
   ];
   const empty = {
     mappedCustomers: 0,
     possiblePurchases: 0,
     retainedFinancialRoutes: 0,
+    owedObservations: false,
   };
   const valid = advanceCleanup(value, event, { ...context(1), effects: empty });
   assert({
@@ -97,7 +119,7 @@ test('missing customer mapping alone never acknowledges unknown purchase or reta
       }),
     ],
     expected: [
-      Array(4).fill({ kind: 'idle' }),
+      Array(5).fill({ kind: 'idle' }),
       'complete',
       'no-vendor-effects',
       { kind: 'idle' },

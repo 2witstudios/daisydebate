@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createDatabase } from '../src/index';
 import { exportPrivacySubject } from '../src/privacy';
+import { sqlStateOf } from './constraint-helpers';
 import {
   withBillingRefunds,
   refundRooms,
@@ -137,6 +138,41 @@ test('observation-only routing survives customer deletion and late facts, blocks
             false,
             0,
           ],
+        });
+        const raw = await fixture.sql.begin(async (tx) => {
+          await tx`set local role daisy_web`;
+          await tx`select * from public.daisy_authorization_accounts_v2(array[${actorId}]::text[],null::text,true)`;
+          const [clock] =
+            await tx`select date_trunc('milliseconds',clock_timestamp()) as at`;
+          const checkedAt = clock!.at.toISOString();
+          const acknowledged = {
+            kind: 'acknowledged',
+            outcome: 'no-vendor-effects',
+            jobId: job!.id,
+            checkedAt,
+            nextAt: new Date(clock!.at.getTime() + 86_400_000).toISOString(),
+          };
+          await tx`savepoint observation_completion_probe`;
+          const code = await sqlStateOf(
+            () =>
+              tx`update privacy_jobs set billing_cleanup=${JSON.stringify(acknowledged)}::text::jsonb,status='succeeded',succeeded_at=${checkedAt}::timestamptz where id=${job!.id}`,
+          );
+          await tx`rollback to savepoint observation_completion_probe`;
+          await tx`release savepoint observation_completion_probe`;
+          return code;
+        });
+        assert({
+          given:
+            'the same live claim with only an owed invoice observation remaining and no customer, purchase or refund rows',
+          should:
+            'also refuse raw daisy_web no-vendor-effects acknowledgement and preserve the owed job',
+          actual: [
+            raw,
+            (
+              await fixture.sql`select billing_cleanup,retry_at,attempts,status from privacy_jobs where id=${job!.id}`
+            )[0],
+          ],
+          expected: ['23514', before],
         });
       } finally {
         pool.reserve = reserve;

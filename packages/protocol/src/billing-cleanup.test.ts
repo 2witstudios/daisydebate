@@ -184,7 +184,15 @@ test('empty scans do not erase unresolved work and only verified deletion can ac
   const complete = advanceCleanup(
     deletion,
     { kind: 'deleted', claimId: first, work: cleanupWork(deletion)! },
-    context(8.1),
+    {
+      ...context(8.1),
+      effects: {
+        mappedCustomers: 0,
+        possiblePurchases: 0,
+        retainedFinancialRoutes: 0,
+        owedObservations: false,
+      },
+    },
   );
   assert({
     given:

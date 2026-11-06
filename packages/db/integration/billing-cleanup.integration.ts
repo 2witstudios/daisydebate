@@ -55,6 +55,7 @@ test('Stripe cleanup proves free no-mapping closure and atomically completes its
             mappedCustomers: 0,
             possiblePurchases: 0,
             retainedFinancialRoutes: 0,
+            owedObservations: false,
           },
           route: { kind: 'absent' },
         },

@@ -128,6 +128,7 @@ export type CleanupContext = {
     readonly mappedCustomers: number;
     readonly possiblePurchases: number;
     readonly retainedFinancialRoutes: number;
+    readonly owedObservations: boolean;
   };
 };
 export type CleanupEvent =

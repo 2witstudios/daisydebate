@@ -195,6 +195,7 @@ function noEffects(context: CleanupContext) {
   const facts = context.effects;
   return (
     facts !== undefined &&
+    facts.owedObservations === false &&
     [
       facts.mappedCustomers,
       facts.possiblePurchases,
@@ -239,7 +240,8 @@ function terminal(
   context: CleanupContext,
 ) {
   if (event.kind === 'deleted')
-    return value.kind === 'deleting'
+    return value.kind === 'deleting' &&
+      context.effects?.owedObservations === false
       ? completed(value.jobId, context.now, 'vendor-deleted')
       : idle;
   return noEffects(context)

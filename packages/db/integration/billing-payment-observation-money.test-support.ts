@@ -1,8 +1,9 @@
 import type { TransactionSQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
+import { refundActionSchema } from '@daisy/protocol/billing';
 
-export async function exerciseObservedMoney(input: {
+type ObservedMoneyInput = {
   readonly tx: TransactionSQL;
   readonly userId: string;
   readonly customerId: string;
@@ -10,8 +11,8 @@ export async function exerciseObservedMoney(input: {
   readonly subscriptionId: string;
   readonly source: Record<string, unknown>;
   readonly closedAt: Date;
-  readonly probe: (work: () => Promise<unknown>) => Promise<unknown>;
-}) {
+};
+export async function seedObservedMoney(input: ObservedMoneyInput) {
   const {
     tx,
     userId,
@@ -20,7 +21,6 @@ export async function exerciseObservedMoney(input: {
     subscriptionId,
     source,
     closedAt,
-    probe,
   } = input;
   const paidAtSeconds = Math.floor(closedAt.getTime() / 1000) + 1;
   await tx`select pg_sleep(greatest(0,extract(epoch from to_timestamp(${paidAtSeconds})-clock_timestamp()))+.01)`;
@@ -57,6 +57,33 @@ export async function exerciseObservedMoney(input: {
   await tx`insert into billing_payment_observations(id,user_id,mode,vendor_customer_id,vendor_invoice_id,kind,vendor_invoice_payment_id,source,state,closed_at,created_at,observed_at)
     values(${id},${userId},'test',${customerId},${invoiceId},'payment',${paymentId},${JSON.stringify(source)}::text::jsonb,${JSON.stringify(owed)}::text::jsonb,${closedAt},${clock!.at},${clock!.at})`;
   const linked = { kind: 'refund-linked', payment };
+  const action = refundActionSchema.parse({
+    id: actionId,
+    userId,
+    mode: 'test',
+    customerId,
+    chargeId,
+    invoiceId,
+    vendorSubscriptionId: subscriptionId,
+    amountMinor: 1000,
+    currency: 'usd',
+    period,
+    paidAtSeconds,
+    closedAt: closedAt.toISOString(),
+    admittedAt: clock!.at.toISOString(),
+    state: { kind: 'ready' },
+    claim: null,
+  });
+  return { actionId, id, payment, owed, linked, action };
+}
+export async function exerciseObservedMoney(
+  input: ObservedMoneyInput & {
+    readonly probe: (work: () => Promise<unknown>) => Promise<unknown>;
+  },
+) {
+  const { tx, userId, probe } = input;
+  const { actionId, id, payment, owed, linked } =
+    await seedObservedMoney(input);
   const wrong = { ...linked, payment: { ...payment, amountMinor: 500 } };
   const invalid = await probe(
     () =>
