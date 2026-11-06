@@ -1,3 +1,7 @@
+import {
+  preapprovalAction,
+  type PreapprovalCommand,
+} from '@daisy/protocol/beta-preapproval';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import { appendAudit } from '../../audit/store';
 import type { AuditEvent } from '../../audit/chain';
@@ -20,6 +24,7 @@ import {
   openPendingCommand,
   resolvePendingCommand,
   type OpenCommand,
+  type AccountPendingCommand,
   type PendingCommand,
 } from './store';
 
@@ -68,12 +73,15 @@ async function currentFact(
 async function refusalOf(
   deps: CommandDeps,
   operatorId: string,
+  action:
+    | 'account.beta_access.update'
+    | 'beta.preapproval.update' = 'account.beta_access.update',
 ): Promise<ReturnType<typeof deniedDetail> | null> {
   const operator = await currentFact(deps, operatorId);
   const decision = operator
     ? authorizeOperator({
         operator,
-        action: 'account.beta_access.update',
+        action,
         policy: currentApprovalPolicy,
       })
     : ({ allowed: false, reason: 'disabled' } as const);
@@ -87,8 +95,11 @@ async function refusalOf(
 async function updateRefusal(
   deps: CommandDeps,
   operatorId: string,
+  action:
+    | 'account.beta_access.update'
+    | 'beta.preapproval.update' = 'account.beta_access.update',
 ): Promise<ReturnType<typeof deniedDetail> | null> {
-  const refused = await refusalOf(deps, operatorId);
+  const refused = await refusalOf(deps, operatorId, action);
   if (refused === null) return null;
   await record(
     deps,
@@ -105,8 +116,13 @@ async function updateRefusal(
   return refused;
 }
 
-const mayUpdate = async (deps: CommandDeps, operatorId: string) =>
-  (await updateRefusal(deps, operatorId)) === null;
+const mayUpdate = async (
+  deps: CommandDeps,
+  operatorId: string,
+  action:
+    | 'account.beta_access.update'
+    | 'beta.preapproval.update' = 'account.beta_access.update',
+) => (await updateRefusal(deps, operatorId, action)) === null;
 
 /**
  * Audits the outcome; a settled one closes the command exactly once. True
@@ -146,22 +162,28 @@ const send = (
   anchor: string,
   signedAt: string,
 ) =>
-  deps.client.setBetaAccess(
-    command.operatorId,
-    command.targetUserId,
-    {
-      v: 1,
-      commandId: command.commandId,
-      state: command.desiredState,
-      expectedRevision: command.expectedRevision,
-      adminAuditHead: anchor,
-    },
-    signedAt,
-  );
+  'preapproval' in command
+    ? deps.client.updatePreapproval(
+        command.operatorId,
+        { ...command.preapproval, adminAuditHead: anchor },
+        signedAt,
+      )
+    : deps.client.setBetaAccess(
+        command.operatorId,
+        command.targetUserId,
+        {
+          v: 1,
+          commandId: command.commandId,
+          state: command.desiredState,
+          expectedRevision: command.expectedRevision,
+          adminAuditHead: anchor,
+        },
+        signedAt,
+      );
 
 export async function submitBetaAccess(
   deps: CommandDeps,
-  input: Omit<PendingCommand, 'commandId'>,
+  input: Omit<AccountPendingCommand, 'commandId'>,
 ): Promise<ReturnType<typeof commandView> | { readonly notice: 'denied' }> {
   if (!(await mayUpdate(deps, input.operatorId))) return { notice: 'denied' };
   const command = { ...input, commandId: deps.ids.next() };
@@ -218,7 +240,13 @@ async function resendOrAbandon(
   // Another owner's reconcile re-reads the original operator; that operator
   // did not act, so no access.denied row is written under it. A close as
   // abandoned records the reason itself.
-  const refused = await refusalOf(deps, command.operatorId);
+  const refused = await refusalOf(
+    deps,
+    command.operatorId,
+    'preapproval' in command
+      ? 'beta.preapproval.update'
+      : 'account.beta_access.update',
+  );
   const inFlight =
     Date.parse(deps.clock.now()) - Date.parse(command.lastSignedAt) <
     ABANDON_AFTER_MS;
@@ -256,7 +284,24 @@ async function reconcileOne(
   viewerId: string,
 ): Promise<Reconciled> {
   const read = await deps.client.readCommand(viewerId, command.commandId);
-  if (read.kind === 'ok' && read.value.action === betaAccessCommandAction)
+  if (
+    read.kind === 'ok' &&
+    read.value.action === preapprovalAction &&
+    'preapproval' in command
+  )
+    return settledBy(
+      await recordOutcome(deps, command, 'command.reconciled', {
+        outcome: read.value.result.outcome,
+        detail:
+          read.value.result.mail === 'queued' ? 'mail_queued' : 'mail_none',
+        settled: true,
+      }),
+    );
+  if (
+    read.kind === 'ok' &&
+    read.value.action === betaAccessCommandAction &&
+    !('preapproval' in command)
+  )
     return settledBy(
       await recordOutcome(deps, command, 'command.reconciled', {
         outcome: read.value.result.outcome,
@@ -296,4 +341,37 @@ export async function reconcileOpenCommands(
     if (reconciled.recorded) settled += 1;
   }
   return { settled, open: open.length - closed };
+}
+
+/** Preapproval payload is durable only while its signed command is unresolved. */
+export async function submitPreapproval(
+  deps: CommandDeps,
+  operatorId: string,
+  command: PreapprovalCommand,
+) {
+  if (!(await mayUpdate(deps, operatorId, 'beta.preapproval.update')))
+    return { notice: 'denied' } as const;
+  const pending = {
+    commandId: command.commandId,
+    operatorId,
+    targetUserId: null,
+    preapproval: command,
+  } as const;
+  const now = deps.clock.now();
+  const intent = await deps.db.transaction(async (tx) => {
+    await openPendingCommand(tx, { ...pending, now });
+    return appendAudit(tx, {
+      id: deps.ids.next(),
+      kind: 'command.intent',
+      operatorId,
+      commandId: command.commandId,
+      targetUserId: null,
+      outcome: null,
+      detail: null,
+      at: now,
+    });
+  });
+  const call = await send(deps, pending, intent.hash, now);
+  await recordOutcome(deps, pending, 'command.outcome', auditedOutcome(call));
+  return commandView(call);
 }

@@ -1,11 +1,13 @@
 'use server';
 
+import { preapprovalCommandSchema } from '@daisy/protocol/beta-preapproval';
 import { idSchema } from '@daisy/protocol';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import {
   reconcileOpenCommands,
   submitBetaAccess,
+  submitPreapproval,
 } from '../../features/accounts/commands';
 import { accessTabs, accountsHref } from '../../features/accounts/view';
 import { currentOperator, requireSameOrigin } from '../../server/operator-gate';
@@ -75,5 +77,42 @@ export async function reconcileAction(form: FormData): Promise<never> {
         access: 'pending',
         notice: commands ? 'reconciled' : 'unconfigured',
       }),
+  );
+}
+
+/** No address is placed in the redirect or audit. */
+export async function preapprovalAction(form: FormData): Promise<never> {
+  const operator = await signedIn();
+  const { commands } = adminRuntime();
+  if (!commands)
+    redirect(accountsHref({ access: 'pending', notice: 'unconfigured' }));
+  const operation = form.get('operation');
+  const input =
+    operation === 'add'
+      ? {
+          operation,
+          email: form.get('email'),
+          invite: form.get('delivery') === 'invite',
+        }
+      : {
+          operation,
+          preapprovalId: form.get('preapprovalId'),
+          expectedRevision: Number(form.get('expectedRevision')),
+        };
+  const parsed = preapprovalCommandSchema.safeParse({
+    ...input,
+    v: 1,
+    commandId: commands.ids.next(),
+    adminAuditHead: '0'.repeat(64),
+  });
+  if (!parsed.success)
+    redirect(accountsHref({ access: 'pending', notice: 'refused' }));
+  const view = await submitPreapproval(commands, operator.id, parsed.data);
+  redirect(
+    accountsHref({
+      access: 'pending',
+      notice: view.notice,
+      mail: 'mail' in view ? view.mail : null,
+    }),
   );
 }

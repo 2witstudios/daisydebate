@@ -23,6 +23,11 @@ import {
   type ContentModerationQueue,
   type ContentReport,
 } from '@daisy/protocol/content-moderation';
+import {
+  preapprovalPageSchema,
+  preapprovalResultSchema,
+  type PreapprovalCommand,
+} from '@daisy/protocol/beta-preapproval';
 import { z } from 'zod';
 import { toBase64Url, type RandomBytes } from '../../auth/secrets';
 
@@ -161,6 +166,38 @@ export function createOperatorClient(deps: {
   }
 
   return {
+    listPreapprovals: (
+      operatorRef: string,
+      page: { readonly limit: number; readonly cursor?: string },
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'GET',
+          path: '/operator/v1/beta-preapprovals',
+          query: [
+            ['limit', String(page.limit)],
+            ...(page.cursor ? [['cursor', page.cursor] as const] : []),
+          ],
+        },
+        preapprovalPageSchema,
+      ),
+    updatePreapproval: (
+      operatorRef: string,
+      command: PreapprovalCommand,
+      signedAt: string,
+    ) =>
+      call(
+        operatorRef,
+        {
+          method: 'PUT',
+          path: '/operator/v1/beta-preapprovals',
+          query: [],
+          body: JSON.stringify(command),
+          signedAt,
+        },
+        preapprovalResultSchema,
+      ),
     listAccounts: (
       operatorRef: string,
       page: {

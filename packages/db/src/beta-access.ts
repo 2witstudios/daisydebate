@@ -1,3 +1,4 @@
+import { claimBetaPreapproval } from './beta-preapproval-claim';
 import { sql } from 'drizzle-orm';
 import { loadAuthorizationAccount } from './authorization';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -5,7 +6,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { accountAccessEvents, accountBetaAccess } from './schema/beta-access';
 import { mailIntents } from './schema/mail-intents';
 
-type Tx = Pick<BunSQLDatabase, 'insert'>;
+type Tx = Pick<BunSQLDatabase, 'insert' | 'execute'>;
 
 /** The owner hears about new beta requests at most once per window (ADR 0075, P3). */
 export const DIGEST_WINDOW = sql.raw(`interval '10 minutes'`);
@@ -40,6 +41,7 @@ export async function enrolPendingBetaAccess(
     revision: 1,
     principal: 'signup',
   });
+  if (await claimBetaPreapproval(tx, userId)) return;
   await tx
     .insert(mailIntents)
     .values({

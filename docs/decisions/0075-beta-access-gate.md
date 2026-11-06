@@ -260,3 +260,33 @@ The rest of this record describes BETA-2.
 - WAIT-5.1's name-claimed email is the queue's expected second consumer.
 - Ending the beta (approve everyone, or remove the gate) is a later forward
   migration plus deletion of the gate, recorded then (ADR 0023).
+
+## Email preapproval and invitations
+
+The admin Accounts screen manages `beta_preapprovals`, independently of
+`account_beta_access`. A normalized email (trimmed and case insensitive, with
+plus tags and dots preserved) can be entered before an account exists. Only a
+verified matching account, pending and age 16+, without erasure or moderation
+restrictions, consumes it once. Username enrollment and the required age step
+both attempt the claim. Adding a grant also approves an eligible existing
+waiting account immediately. Claims write access, its revision, beta
+entitlements and the access event atomically; they never send an approval
+email. Age, Terms and onboarding remain required. Revoked access is never
+automatically restored. Removing a claimed grant leaves account access alone.
+
+Invite by email saves the grant and owes one `beta-invitation` mail intent;
+Preapprove only owes no mail. Repeated adds do not resend an earlier invitation.
+Explicit Send/Resend and Remove carry the displayed grant revision. Account
+writers lock users before the normalized email advisory lock; removal locks
+only the email/grant because it has no account effect. Receipt identity and
+all state and owed mail commit together. The mail worker resolves grant-backed
+recipients fresh, retaining existing suppression, retry, lease and provider
+idempotency behavior. Removal, erasure and revocation cancel unsent work. A
+provider request already in flight cannot be recalled.
+
+Invitation links go to ordinary `/sign-in`, without an email or bearer token.
+Forwarding a link grants no access, and signing in with another email cannot
+consume the grant. Delivery states distinguish queued, sent, suppressed,
+failed, cancelled and unknown; an unsettled provider attempt is unknown.
+Terminal-intent retention may remove old delivery detail; the grant retains
+that an invitation was requested, so its status then reads unknown.

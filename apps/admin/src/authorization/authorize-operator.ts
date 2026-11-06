@@ -4,6 +4,7 @@
  * before it signs anything; the participant app authorizes again on its own.
  */
 export const operatorActions = [
+  'beta.preapproval.update',
   'accounts.read',
   'account.beta_access.update',
   'content_moderation.read',
@@ -52,6 +53,7 @@ const roleActions: Readonly<
 };
 
 const mutatingActions: ReadonlySet<OperatorAction> = new Set([
+  'beta.preapproval.update',
   'account.beta_access.update',
   'content_moderation.update',
   'report.resolve',

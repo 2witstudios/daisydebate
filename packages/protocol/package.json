@@ -10,6 +10,8 @@
     "./format-bounds-testing": "./src/format-bounds.test-support.ts",
     "./capture-heard": "./src/capture-heard.ts",
     "./resolution-draw": "./src/resolution-draw.ts",
+    "./email": "./src/email.ts",
+    "./beta-preapproval": "./src/beta-preapproval.ts",
     "./operator": "./src/operator.ts",
     "./flags": "./src/flags.ts",
     "./content-moderation": "./src/content-moderation.ts",

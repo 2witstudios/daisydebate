@@ -254,3 +254,20 @@ Official sources read before implementation: [Tailscale Serve CLI](https://tails
 [Fly volume update limitation](https://fly.io/docs/machines/flyctl/fly-machine-update/),
 [Fly clone and attach-volume](https://fly.io/docs/flyctl/machine-clone/),
 [Fly deploy target selection](https://fly.io/docs/flyctl/deploy/).
+
+### Preapproved emails
+
+Accounts includes a separate paginated Preapproved emails section. Enter one
+email and select Invite by email to save and queue an invitation, or Preapprove
+only to save silently. An eligible verified account already waiting is
+approved immediately. Missing age evidence defers claiming until the age step;
+revoked access and moderation restrictions remain authoritative. Unused grants
+never expire. Send/Resend and Remove use revision-checked native forms that
+work without JavaScript. Removal does not revoke a claimed account; use the
+existing account Revoke control for that.
+
+Saved and queued are command outcomes; sent is mail accepted by the provider,
+not proof of reading or inbox placement. Suppressed, failed, cancelled and
+unknown are shown separately. Do not repeat an unknown command: use Reconcile.
+Ordinary invitation links go to sign-in, contain no recipient or token, and
+cannot approve a different signed-in email.

@@ -41,24 +41,32 @@ export function createMailIntentDelivery(input: {
     if (delivery.kind === 'owner-digest' && !input.ownerAddress)
       return { kind: 'cancelled', errorCode: 'unconfigured' };
     const [to, rendered] =
-      delivery.kind === 'member'
+      delivery.kind === 'invitation'
         ? [
             delivery.to,
             renderBetaEmail({
-              kind: 'beta-approved',
-              username: delivery.username,
-              url: new URL('/play', input.appUrl).toString(),
+              kind: 'beta-invitation',
+              url: new URL('/sign-in', input.appUrl).toString(),
             }),
           ]
-        : [
-            input.ownerAddress!,
-            renderBetaEmail({
-              kind: 'beta-requests',
-              newRequests: delivery.newRequests,
-              waiting: delivery.waiting,
-              url: `${operatorConsoleOrigin}/accounts?access=pending`,
-            }),
-          ];
+        : delivery.kind === 'member'
+          ? [
+              delivery.to,
+              renderBetaEmail({
+                kind: 'beta-approved',
+                username: delivery.username,
+                url: new URL('/play', input.appUrl).toString(),
+              }),
+            ]
+          : [
+              input.ownerAddress!,
+              renderBetaEmail({
+                kind: 'beta-requests',
+                newRequests: delivery.newRequests,
+                waiting: delivery.waiting,
+                url: `${operatorConsoleOrigin}/accounts?access=pending`,
+              }),
+            ];
     try {
       const sent = await input.deliver({
         ...rendered,

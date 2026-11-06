@@ -4,6 +4,11 @@ import {
   type AuthorizationCapability,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
+import {
+  preapprovalCommandSchema,
+  preapprovalPageSchema,
+  preapprovalQuerySchema,
+} from '@daisy/protocol/beta-preapproval';
 import { decideBetaAccessChange } from '@daisy/auth';
 import {
   verifyOperatorRequest,
@@ -47,6 +52,8 @@ import {
 const operatorService = {
   serviceId: 'daisy-admin',
   capabilities: [
+    'beta.preapproval.read',
+    'beta.preapproval.update',
     'account.collection.read',
     'flag.state.update',
     'flag.override.update',
@@ -73,6 +80,8 @@ const operatorService = {
 
 type Store = Pick<
   Database,
+  | 'listBetaPreapprovals'
+  | 'runPreapprovalCommand'
   | 'listOperatorAccounts'
   | 'runFlagCommand'
   | 'runBetaAccessCommand'
@@ -218,6 +227,10 @@ function dispatch(
     case 'setFlagState':
     case 'setFlagOverride':
       return changeFlag(deps, principal, route.route, route.id!, request);
+    case 'listPreapprovals':
+      return listPreapprovals(deps, principal, url);
+    case 'updatePreapproval':
+      return updatePreapproval(deps, principal, request);
     case 'listAccounts':
       return listAccounts(deps, principal, url);
     case 'setBetaAccess':
@@ -565,4 +578,64 @@ async function readCommand(
   if (!(flags ? readFlags : readAccounts))
     throw createAppError('AUTHORIZATION');
   return command;
+}
+
+async function listPreapprovals(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  url: URL,
+) {
+  if (!requireCapability(principal, 'beta.preapproval.read'))
+    throw createAppError('AUTHORIZATION');
+  const parsed = preapprovalQuerySchema.safeParse(
+    Object.fromEntries(url.searchParams),
+  );
+  if (!parsed.success) throw createAppError('VALIDATION');
+  const rows = await deps.store.listBetaPreapprovals({
+    limit: parsed.data.limit + 1,
+    ...(parsed.data.cursor === undefined ? {} : { cursor: parsed.data.cursor }),
+  });
+  const items = [...rows].slice(0, parsed.data.limit);
+  return preapprovalPageSchema.parse({
+    items,
+    nextCursor:
+      rows.length > parsed.data.limit
+        ? (items.at(-1) as { id: string }).id
+        : null,
+  });
+}
+
+async function updatePreapproval(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  request: { readonly body: Uint8Array; readonly signedAtMs: number },
+) {
+  if (
+    principal.kind !== 'operator_service' ||
+    !requireCapability(principal, 'beta.preapproval.update')
+  )
+    throw createAppError('AUTHORIZATION');
+  const parsed = preapprovalCommandSchema.safeParse(parseBody(request.body));
+  if (!parsed.success) throw createAppError('VALIDATION');
+  const {
+    commandId: _id,
+    adminAuditHead: _anchor,
+    v: _v,
+    ...semantic
+  } = parsed.data;
+  return deps.store.runPreapprovalCommand({
+    command: parsed.data,
+    serviceId: principal.serviceId,
+    operatorRef: principal.operatorRef,
+    requestDigest: deps.crypto.sha3Hex(
+      JSON.stringify([
+        principal.serviceId,
+        principal.operatorRef,
+        'beta.preapproval.update',
+        semantic,
+      ]),
+    ),
+    nextId: deps.nextId,
+    live: () => deps.nowMs() <= request.signedAtMs + operatorLimits.skewMs,
+  });
 }

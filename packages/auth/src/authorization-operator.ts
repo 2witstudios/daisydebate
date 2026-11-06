@@ -32,6 +32,8 @@ const contentModerationCapabilities: readonly AuthorizationCapability[] = [
 
 /** ADR 0079: capabilities only the operator service may hold. */
 const operatorCapabilities: readonly AuthorizationCapability[] = [
+  'beta.preapproval.read',
+  'beta.preapproval.update',
   'account.collection.read',
   'flag.state.update',
   'flag.override.update',
@@ -76,6 +78,8 @@ export function operatorDecision(
       return context.account !== null && context.account.beta !== null
         ? { allow: true }
         : { allow: false, reason: 'denied' };
+    case 'beta.preapproval.read':
+    case 'beta.preapproval.update':
     case 'account.collection.read':
     case 'flag.state.update':
     case 'flag.override.update':

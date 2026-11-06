@@ -32,8 +32,10 @@ function UnknownCommands({
       <ul data-testid="unknown-commands">
         {commands.map((command) => (
           <li key={command.commandId}>
-            {command.commandId}: {command.desiredState} for{' '}
-            {command.targetUserId} at revision {command.expectedRevision}
+            {command.commandId}:{' '}
+            {'preapproval' in command
+              ? `preapproval ${command.preapproval.operation}`
+              : `${command.desiredState} for ${command.targetUserId} at revision ${command.expectedRevision}`}
           </li>
         ))}
       </ul>

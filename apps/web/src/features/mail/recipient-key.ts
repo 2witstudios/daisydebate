@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
 
-/** The one place an email address is trimmed and lowercased before use. */
-export const normalizeEmail = (email: string): string =>
-  email.trim().toLowerCase();
+import { normalizeEmail } from '@daisy/protocol/email';
+export { normalizeEmail } from '@daisy/protocol/email';
 
 /**
  * A subkey derived once from a secret, domain-separated by a fixed label per

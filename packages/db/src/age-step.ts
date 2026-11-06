@@ -1,3 +1,4 @@
+import { claimBetaPreapproval } from './beta-preapproval-claim';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -69,6 +70,7 @@ export const ageStepOperations = ({
           termsVersion: input.termsVersion,
           acceptedAt: new Date(input.now),
         });
+        await claimBetaPreapproval(tx, input.userId);
         return 'recorded';
       }),
     );

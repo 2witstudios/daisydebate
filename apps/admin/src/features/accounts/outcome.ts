@@ -1,3 +1,4 @@
+import type { PreapprovalResult } from '@daisy/protocol/beta-preapproval';
 import type {
   BetaAccessCommandResult,
   BetaAccessCommandState,
@@ -10,7 +11,7 @@ import type { OperatorCall } from '../operator-client/client';
  * result or a definite refusal settles a command; `unknown` leaves it open
  * for reconciliation and is never shown as a failure.
  */
-type CommandCall = OperatorCall<BetaAccessCommandResult>;
+type CommandCall = OperatorCall<BetaAccessCommandResult | PreapprovalResult>;
 
 export type AuditedOutcome = {
   readonly outcome: string;
@@ -43,6 +44,8 @@ export function auditedOutcome(call: CommandCall): AuditedOutcome {
 }
 
 export const commandNotices = [
+  'saved',
+  'removed',
   'changed',
   'unchanged',
   'conflict',

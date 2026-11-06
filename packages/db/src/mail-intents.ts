@@ -1,3 +1,4 @@
+import { loadAuthorizationAccount } from './authorization';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -22,6 +23,7 @@ export type MailIntentClaim = {
 
 /** What a claimed intent should say right now; read fresh at send time. */
 export type MailIntentDelivery =
+  | { readonly kind: 'invitation'; readonly to: string }
   | {
       readonly kind: 'member';
       readonly to: string;
@@ -129,13 +131,39 @@ export function mailIntentOperations({
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
         // A digest counts its own window, which retries never move.
         const [intent] =
-          (await database.execute(sql`select purpose, recipient_user_id, window_start
+          (await database.execute(sql`select purpose, recipient_user_id, preapproval_id, state, window_start
           from mail_intents where id = ${id}`)) as unknown as {
             purpose: string;
+            state: string;
+            preapproval_id: string | null;
             recipient_user_id: string | null;
             window_start: Date | null;
           }[];
         if (!intent) throw createAppError('NOT_FOUND');
+        if (intent.purpose === 'beta-invitation') {
+          if (intent.state !== 'leased') return { kind: 'not-owed' };
+          const [grant] =
+            (await database.execute(sql`select p.email from beta_preapprovals p
+            left join users u on u.id = p.claimed_by
+            left join account_beta_access b on b.user_id = p.claimed_by
+            where p.id = ${intent.preapproval_id} and (p.claimed_by is null or (u.deleted_at is null and b.state = 'approved'))`)) as unknown as {
+              email: string;
+            }[];
+          if (!grant) return { kind: 'not-owed' };
+          const accounts = (await database.execute(
+            sql`select id from users where lower(btrim(email)) = ${grant.email} and email_verified`,
+          )) as unknown as { id: string }[];
+          for (const account of accounts) {
+            const fact = await loadAuthorizationAccount(database, account.id);
+            if (
+              fact?.erased ||
+              fact?.restricted ||
+              fact?.beta?.state === 'revoked'
+            )
+              return { kind: 'not-owed' };
+          }
+          return { kind: 'invitation', to: grant.email };
+        }
         if (intent.purpose === 'beta-approved') {
           const [row] =
             (await database.execute(sql`select u.email, u.username, b.state

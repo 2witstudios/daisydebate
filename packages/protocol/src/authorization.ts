@@ -65,6 +65,8 @@ const authorizationCapabilities = [
   'channel.request.decide',
   'channel.request.cancel',
   // ADR 0079: the operator service's closed capabilities, never a user's.
+  'beta.preapproval.read',
+  'beta.preapproval.update',
   'account.collection.read',
   'flag.state.update',
   'flag.override.update',
