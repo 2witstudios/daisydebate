@@ -1,3 +1,4 @@
+import { createBillingMember } from './billing-member';
 import type { BoundedTransaction } from './bounded-transaction';
 import { currentWebTransaction } from './web-service-authority';
 import { createBillingInbox } from './billing-inbox';
@@ -21,6 +22,11 @@ export function billingOperations(input: {
   readonly nextId: () => string;
 }) {
   return {
+    billingMember(
+      policies: Omit<Parameters<typeof createBillingMember>[0], 'run'>,
+    ) {
+      return createBillingMember({ run: input.run, ...policies });
+    },
     billingCleanup(instanceId: string) {
       return createBillingCleanup({
         run: currentWebTransaction(input.run, instanceId),
