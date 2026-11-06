@@ -56,7 +56,9 @@ export const initSentry = (input: {
   });
   // Dynamic sampling metadata is outside beforeSendSpan and may copy a URL-bearing root name.
   Sentry.getClient()?.on('beforeEnvelope', (envelope) => {
-    if (envelope[0].trace) delete envelope[0].trace.transaction;
+    const trace = envelope[0].trace;
+    if (typeof trace === 'object' && trace !== null)
+      Reflect.deleteProperty(trace, 'transaction');
   });
   return true;
 };
@@ -65,5 +67,5 @@ export const initSentry = (input: {
 export const fetchWithoutTracing = (
   url: string,
   init: RequestInit,
-  fetch: typeof globalThis.fetch,
+  fetch: (url: string, init: RequestInit) => Promise<Response>,
 ): Promise<Response> => Sentry.suppressTracing(() => fetch(url, init));

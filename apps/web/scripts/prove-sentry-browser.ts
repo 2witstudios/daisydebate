@@ -11,6 +11,25 @@ const build = await Bun.build({
   target: 'browser',
   format: 'iife',
   define: { 'process.env': '{}', 'process.turbopack': 'false' },
+  plugins: process.argv.includes('--without-child-filter')
+    ? [
+        {
+          name: 'negative-control-remove-child-filter',
+          setup(builder) {
+            builder.onLoad(
+              { filter: /sentry-init\.ts$/ },
+              async ({ path }) => ({
+                loader: 'ts',
+                contents: (await Bun.file(path).text()).replace(
+                  'ignoreSpans: routineSpanFilters',
+                  'ignoreSpans: []',
+                ),
+              }),
+            );
+          },
+        },
+      ]
+    : [],
 });
 if (!build.success)
   throw new Error('Browser SDK proof bundle failed', { cause: build.logs });

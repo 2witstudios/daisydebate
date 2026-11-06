@@ -55,7 +55,9 @@ export const initRealtimeSentry = (input: {
     beforeSendSpan: (span) => scrubSpan(span),
   });
   Sentry.getClient()?.on('beforeEnvelope', (envelope) => {
-    if (envelope[0].trace) delete envelope[0].trace.transaction;
+    const trace = envelope[0].trace;
+    if (typeof trace === 'object' && trace !== null)
+      Reflect.deleteProperty(trace, 'transaction');
   });
   return true;
 };

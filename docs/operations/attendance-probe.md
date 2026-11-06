@@ -32,6 +32,18 @@ ends with no winner.
 1. Recreate the synthetic probe account, Round, segment and seat with
    `scripts/staging-transcript-fixture.ts` conventions, on an admitted synthetic
    account (ISSUE-698: it needs a durable age fact before the gate is on).
+   `apps/web/scripts/staging-attendance-probe.ts` is the guarded staging repair
+   entry: bundle it with Bun and run it on the verified web machine with the
+   actual full image commit as its argument. It refuses any other app, origin,
+   commit or actual database before creating three fresh synthetic members.
+   It records durable age/Terms and admission, signs normal seven-day sessions,
+   then uses the same public Room/Ready/Start/check-in/yield flow as the isolated
+   launch fixture. Both speeches earn real receipts before being yielded. No
+   AI provider is called. It retains the negative speaker's session and writes
+   only the new fixture secret to a unique mode0600 `.env` file on that machine;
+   output contains the file path and safe proof facts, never the cookie.
+   Pipe that private file directly into the staged secret update without
+   displaying it. Remove the private file after the staged value is verified.
 2. `ATTENDANCE_PUBLIC_PROBE` contains only `roundId`, `segmentId`,
    `participantId` and `cookie`. The probe derives its destination and Origin
    header from `PUBLIC_APP_URL`, the same authority used by the strict public

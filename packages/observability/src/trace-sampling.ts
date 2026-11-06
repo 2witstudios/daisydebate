@@ -23,9 +23,10 @@ export const routineSpanFilters = [
 /** Explicit return overrides Sentry's inherited sampling decision, including sampled=true. */
 export function sampleTrace(input: {
   readonly name: string;
-  readonly attributes?: Readonly<Record<string, unknown>>;
-  readonly normalizedRequest?: { readonly url?: string };
-  readonly parentSampled?: boolean;
+  readonly attributes?: Readonly<Record<string, unknown>> | undefined;
+  readonly normalizedRequest?:
+    { readonly url?: string | undefined } | undefined;
+  readonly parentSampled?: boolean | undefined;
 }): number {
   const candidates = [
     input.name,

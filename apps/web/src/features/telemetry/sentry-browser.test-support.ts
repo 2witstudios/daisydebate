@@ -10,7 +10,7 @@ async function proveBrowser(untrustedUrl: string) {
     trustedOrigin: location.origin,
     drawTraceSample: () => draw,
     transport: () => ({
-      send: async (envelope) => {
+      send: async (envelope: unknown) => {
         envelopes.push(envelope);
         return { statusCode: 200 };
       },
@@ -44,6 +44,23 @@ async function proveBrowser(untrustedUrl: string) {
     await Sentry.startSpan(
       { name: 'ordinary-browser-parent', parentSpan: null },
       async () => {
+        await Sentry.startSpan({ name: 'attendance.check-in' }, async () => {});
+        await Sentry.startSpan(
+          {
+            name: 'HTTP POST',
+            attributes: {
+              'url.full': `${location.origin}/api/rounds/abc/check-in`,
+            },
+          },
+          async () => {},
+        );
+        await Sentry.startSpan(
+          {
+            name: 'HTTP GET',
+            attributes: { 'http.url': `${location.origin}/api/health/ready` },
+          },
+          async () => {},
+        );
         await fetch('/api/rounds/abc/check-in');
         await fetch('/api/health/ready');
         await fetchWithoutTracing(

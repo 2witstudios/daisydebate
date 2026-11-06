@@ -41,7 +41,7 @@ initSentry({
   trustedOrigin: network.url.origin,
   drawTraceSample: () => localDraw,
   transport: () => ({
-    send: async (envelope) => {
+    send: async (envelope: unknown) => {
       envelopes.push(envelope);
       return { statusCode: 200 };
     },
@@ -54,7 +54,7 @@ const root = async (name: string, url?: string, sampleRand = 0) =>
   Sentry.withIsolationScope(async (scope) => {
     localDraw = sampleRand;
     scope.setSDKProcessingMetadata({
-      normalizedRequest: url ? { url } : undefined,
+      normalizedRequest: url ? { url } : {},
     });
     await Sentry.continueTrace(
       {
@@ -101,7 +101,7 @@ const probe = createPublicCheckInProbe({
   nextId,
   nowMs: () => 0,
   fetch: (url, init) =>
-    fetchWithoutTracing(url, init, (async () => {
+    fetchWithoutTracing(url, init, async () => {
       const path = new URL(url).pathname;
       await Sentry.startSpan({ name: `outgoing ${path}` }, async (span) => {
         calls.push({
@@ -115,7 +115,7 @@ const probe = createPublicCheckInProbe({
         slideFinished = true;
       }
       return fetch(url, init);
-    }) as typeof fetch),
+    }),
 });
 let healthy = false;
 localDraw = 0;
@@ -147,6 +147,7 @@ await Sentry.startNewTrace(async () => {
       );
       await fetch(`${network.url.origin}/api/rounds/abc/check-in`);
       await fetch(`${network.url.origin}/api/health/ready`);
+      await fetch(`${network.url.origin}/ordinary`);
       healthy = await probe();
       response.resolve(new Response());
       await new Promise(setImmediate);

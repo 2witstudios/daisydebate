@@ -79,6 +79,6 @@ for (const condition of ['node', 'edge-light'])
               call.traceparent === null,
           ),
       ],
-      expected: [true, true, [false, false], 4, true],
+      expected: [true, true, [false, false], 5, true],
     });
   });
