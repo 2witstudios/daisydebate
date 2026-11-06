@@ -63,3 +63,15 @@ test('only free and included seating offers the AI judge', () => {
     expected: [true, true, false, false],
   });
 });
+
+test('a genuinely Premium-locked judge offers the existing Premium destination', () => {
+  assert({
+    given: 'premium or included AI-judge seating',
+    should: 'offer Premium only while locked',
+    actual: [
+      render('premium').includes('href="/premium"'),
+      render('included').includes('href="/premium"'),
+    ],
+    expected: [true, false],
+  });
+});

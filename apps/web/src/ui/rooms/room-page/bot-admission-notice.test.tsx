@@ -29,7 +29,7 @@ test('a bot-debater cast states the monthly allowance and what starting spends',
     should:
       'say how many AI rounds are left this month and that this cast uses one',
     actual: [
-      html.includes('20 of 20 bot debates left'),
+      html.includes('20 of 20 bot debates remaining'),
       html.includes('Starting reserves one bot debate'),
       html.includes('an unknown result stays counted'),
       html.includes('2026-11-01'),
@@ -57,7 +57,7 @@ test('each refusal says why a bot-debater round cannot start, never a wrong reas
         html.includes('because your bot debate allowance is used'),
         html.includes('bots are busy, try again shortly'),
         html.includes('bots are unavailable'),
-        html.includes('bot debates left'),
+        html.includes('bot debates remaining'),
       ];
     }),
     expected: [
@@ -72,5 +72,17 @@ test('each refusal says why a bot-debater round cannot start, never a wrong reas
     should: 'reveal nothing',
     actual: render(null),
     expected: '',
+  });
+});
+
+test('exhausted allowance links to billing while busy bots never become an upsell', () => {
+  assert({
+    given: 'an exhausted allowance or shared bot capacity',
+    should: 'offer plan/usage only for the allowance refusal',
+    actual: [
+      render(allowance(0, 'allowance')).includes('href="/settings/billing"'),
+      render(allowance(3, 'capacity')).includes('href="/settings/billing"'),
+    ],
+    expected: [true, false],
   });
 });

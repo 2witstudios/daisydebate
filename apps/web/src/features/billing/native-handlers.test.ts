@@ -14,16 +14,19 @@ const post = (body = '', from = origin, query = '') =>
     },
     body,
   });
-const setup = () => {
+const setup = ({
+  state = 'member',
+  limited = false,
+}: { readonly state?: string; readonly limited?: boolean } = {}) => {
   const called: unknown[] = [];
   const boundary = {
     logger: silentLogger,
     reporter: noopErrorReporter,
     origin: () => origin,
-    identify: async () => ({ state: 'member', principal }) as never,
+    identify: async () => ({ state, principal }) as never,
     limiter: () =>
       ({
-        consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
+        consume: async () => ({ allowed: !limited, retryAfterSeconds: 1 }),
       }) as never,
   };
   const handlers = createBillingNativeHandlers({
@@ -88,6 +91,31 @@ test('forged form authority and cross-origin requests never call Checkout', asyn
       [400, 0],
       [403, 0],
       [400, 0],
+    ],
+  });
+});
+
+test('anonymous, unclaimed and rate-limited callers never reach vendor work', async () => {
+  const variants = [
+    { state: 'anonymous' },
+    { state: 'unclaimed' },
+    { limited: true },
+  ];
+  const result = await Promise.all(
+    variants.map(async (variant) => {
+      const { handlers, called } = setup(variant);
+      const response = await handlers.checkout(post());
+      return [response.status, called.length];
+    }),
+  );
+  assert({
+    given: 'missing signed-in ownership or an exhausted member budget',
+    should: 'refuse before calling Checkout',
+    actual: result,
+    expected: [
+      [401, 0],
+      [403, 0],
+      [429, 0],
     ],
   });
 });
