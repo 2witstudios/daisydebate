@@ -120,3 +120,24 @@ known. No historical usage-presence marker or provider-job/schema rewrite is
 introduced; genuinely measured0/0 cannot be established from current stored facts
 alone. The old received-zero PostgreSQL fixture proves its response outcome only;
 its earlier interpretation as measured-zero provenance is explicitly superseded.
+
+## Runtime collection
+
+The web process registers `startBillingEconomics` with its current service
+instance and drains it before closing database pools. Each hourly tick selects
+the previous completed UTC calendar month; January and leap-year boundaries use
+calendar arithmetic. The private supplier feed may state the recorded provisional
+30% floor or an explicit unknown floor. It cannot lower that policy through a
+configuration value. Missing inputs remain incomplete even during beta/keyless
+operation.
+
+`BILLING_ECONOMICS_DIRECTORY` is an optional absolute server-only path to the
+sink's dedicated private directory. It is excluded from browser configuration.
+Without this path or a valid private feed, the scheduler submits completeness
+through the scrubbed reporter and records `billing.economics.failed`; it does not
+invent measured costs, publish a financial report or claim low-margin delivery.
+The collector's reporter remains a void port: runtime registration and unit
+transport capture do not confirm an operator/Sentry notification. Actual approved
+measurement-feed and private-destination delivery receipts remain required
+acceptance evidence, distinct from controlled threshold tests. This registration
+adds no admin billing view, PostHog funnel or production activation.

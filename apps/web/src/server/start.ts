@@ -1,6 +1,7 @@
 import { recordingPersistence } from '../features/recording/persistence';
 import { startRecordingDeletions } from './recording-deletions';
 import { startUsageRecovery } from './usage-recovery';
+import { startBillingEconomics } from './billing-economics';
 import { startBillingSubscriptions } from './billing-subscriptions';
 import { startBillingRefunds } from './billing-refunds';
 import { startBillingPurchases } from './billing-purchases';
@@ -153,6 +154,11 @@ const usageRecovery = startUsageRecovery({
   instanceId: availability.instanceId,
   timers: workerTimers,
 });
+const billingEconomics = startBillingEconomics({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+});
 const billingSubscriptions = startBillingSubscriptions({
   app,
   instanceId: availability.instanceId,
@@ -288,6 +294,7 @@ async function shutdown() {
   // Ends any sweep between batches; awaited before the pools close below.
   const retentionStopped = retention.stop();
   const usageRecoveryStopped = usageRecovery.stop();
+  const billingEconomicsStopped = billingEconomics.stop();
   const billingSubscriptionsStopped = billingSubscriptions?.stop();
   const billingRefundsStopped = billingRefunds?.stop();
   const billingPurchasesStopped = billingPurchases?.stop();
@@ -331,6 +338,7 @@ async function shutdown() {
       await Promise.all([
         retentionStopped,
         usageRecoveryStopped,
+        billingEconomicsStopped,
         billingSubscriptionsStopped,
         billingRefundsStopped,
         billingPurchasesStopped,

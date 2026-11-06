@@ -101,3 +101,27 @@ test('billing credentials are registered for redaction and excluded from browser
     },
   });
 });
+
+test('private economics configuration is independent of Stripe and absent from browser configuration', () => {
+  const path = '/var/private/daisy-billing';
+  const config = readServerConfig({
+    ...env,
+    BILLING_ECONOMICS_DIRECTORY: path,
+  });
+  assert({
+    given:
+      'a dedicated absolute private economics directory without Stripe configuration',
+    should:
+      'preserve beta operation and keep the local path off the browser allowlist',
+    actual: [
+      config.billing.kind,
+      config.BILLING_ECONOMICS_DIRECTORY,
+      readBrowserConfig({ ...env, BILLING_ECONOMICS_DIRECTORY: path }),
+    ],
+    expected: ['disabled', path, { PUBLIC_APP_URL: env.PUBLIC_APP_URL }],
+  });
+  for (const value of ['', 'public/billing', '/private\u0000invalid'])
+    expect(() =>
+      readServerConfig({ ...env, BILLING_ECONOMICS_DIRECTORY: value }),
+    ).toThrow('Invalid server configuration: BILLING_ECONOMICS_DIRECTORY');
+});

@@ -71,6 +71,16 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
 };
 const serverFields = {
   ...billingFields,
+  BILLING_ECONOMICS_DIRECTORY: z
+    .string()
+    .min(1)
+    .max(4096)
+    .refine(
+      (path) =>
+        path.startsWith('/') &&
+        !['\0', '\r', '\n'].some((character) => path.includes(character)),
+    )
+    .optional(),
   NEXT_PUBLIC_POSTHOG_KEY: z
     .string()
     .regex(/^phc_[A-Za-z0-9_-]+$/)
