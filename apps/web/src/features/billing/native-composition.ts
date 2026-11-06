@@ -4,7 +4,7 @@ import {
   type BudgetedMemberBoundary,
 } from '../../server/member-boundary';
 import { createBillingNativeHandlers } from './native-handlers';
-import type { NativeBillingRuntime } from './native-runtime';
+import type { NativeBillingRuntime } from './native-contract';
 
 /** The integration root supplies the real transport and current application lifetime. */
 export function composeBillingRoutes(input: {

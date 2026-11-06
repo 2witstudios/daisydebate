@@ -1,5 +1,4 @@
 import {} from '../features/broadcast/composition';
-import { composeBillingRoutes } from '../features/billing/native-composition';
 import { composeStage } from '../features/stage-capture/composition';
 import { createConsentHandler } from '../features/analytics/handlers';
 import { composeAttendanceRoutes } from '../features/attendance/composition';
@@ -76,10 +75,6 @@ export function createRoutes(app: App) {
     () => app.mailConfig().RECIPIENT_HASH_SECRET,
   );
   return {
-    billing: composeBillingRoutes({
-      boundary: memberBoundary,
-      runtime: () => app.billingNative(),
-    }),
     analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
     stage: composeStage(app),

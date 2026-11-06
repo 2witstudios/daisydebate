@@ -1,6 +1,5 @@
 import { systemClock, systemId } from '@daisy/clock';
-import type { App } from './app';
-import { createBillingApp } from './billing-app';
+import { createApp, type App } from './app';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import type { Fetch } from '../features/mail/resend-sender';
 import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
@@ -52,17 +51,14 @@ const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,
   () =>
     stateFor(
-      createBillingApp(
-        {
-          env: process.env,
-          fetch: outboundFetch(process.env),
-          clock: systemClock,
-          ids: systemId,
-          nextWorkerToken,
-          messagingPolicy: betaMessagingPolicy,
-        },
-        globalThis.fetch,
-      ),
+      createApp({
+        env: process.env,
+        fetch: outboundFetch(process.env),
+        clock: systemClock,
+        ids: systemId,
+        nextWorkerToken,
+        messagingPolicy: betaMessagingPolicy,
+      }),
     ),
 );
 
@@ -70,7 +66,16 @@ const edge = createProcessEdge(
 export const processApp = (): App => edge.get().app;
 
 /** Binds a Next route export to this process's route table. */
-export const processRoute = createRouteBinder(() => edge.get().routes);
+export const processRoute = (
+  pick: (
+    routes: Routes,
+    app: App,
+    fetch: typeof globalThis.fetch,
+  ) => (request: Request) => Promise<Response>,
+) =>
+  createRouteBinder(() => edge.get())((state) =>
+    pick(state.routes, state.app, globalThis.fetch),
+  );
 /**
  * For a process entry that composes its own app before the server starts
  * (the browser suite's server, which captures outbound mail): makes it this

@@ -1,4 +1,5 @@
 import type { Clock } from '@daisy/clock';
+import type { NativeBillingRuntime } from './native-contract';
 import type { BillingConfig } from '@daisy/config';
 import type { ReleaseFlagReader } from '../flags/catalogue';
 import { createCheckoutVendor, type CheckoutPort } from './checkout-vendor';
@@ -37,7 +38,7 @@ export function createNativeBillingRuntime(input: {
   readonly purchaseStore: FlowInput['store'];
   readonly admit: FlowInput['admit'];
   readonly release: ReleaseFlagReader;
-}) {
+}): NativeBillingRuntime {
   const vendor = input.vendor;
   const purchase =
     vendor.kind === 'stripe'
@@ -94,6 +95,3 @@ export function createNativeBillingRuntime(input: {
     },
   };
 }
-export type NativeBillingRuntime = ReturnType<
-  typeof createNativeBillingRuntime
->;
