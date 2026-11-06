@@ -1,3 +1,4 @@
+import { normalizedEmailSql } from './email-identity';
 import { loadAuthorizationAccount } from './authorization';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
@@ -151,7 +152,7 @@ export function mailIntentOperations({
             }[];
           if (!grant) return { kind: 'not-owed' };
           const accounts = (await database.execute(
-            sql`select id from users where lower(btrim(email)) = ${grant.email} and email_verified`,
+            sql`select id from users where ${normalizedEmailSql(sql`email`)} = ${grant.email} and email_verified`,
           )) as unknown as { id: string }[];
           for (const account of accounts) {
             const fact = await loadAuthorizationAccount(database, account.id);

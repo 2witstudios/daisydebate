@@ -1,3 +1,4 @@
+import { normalizedEmailSql } from './email-identity';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -91,7 +92,7 @@ export function preapprovalOperations({
         const accounts =
           command.operation === 'add'
             ? ((await tx.execute(
-                sql`select id from users where lower(btrim(email)) = ${command.email} order by id for update`,
+                sql`select id from users where ${normalizedEmailSql(sql`email`)} = ${command.email} order by id for update`,
               )) as unknown as { id: string }[])
             : [];
         const [existing] =

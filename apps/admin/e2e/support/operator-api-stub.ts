@@ -1,3 +1,8 @@
+import {
+  preapprovalCommandSchema,
+  type PreapprovalPage,
+  type PreapprovalResult,
+} from '@daisy/protocol/beta-preapproval';
 import { decideBetaAccessChange } from '@daisy/auth';
 import {
   verifyOperatorRequest,
@@ -110,6 +115,8 @@ export function createOperatorApiStub(input: {
   readonly accounts: readonly StubAccount[];
 }) {
   const accounts = new Map(input.accounts.map((a) => [a.userId, { ...a }]));
+  const preapprovals = new Map<string, PreapprovalPage['items'][number]>();
+  const preapprovalReceipts = new Map<string, PreapprovalResult>();
   const receipts = new Map<string, BetaAccessCommandResult>();
   const nonces = new Set<string>();
   const received: StubRequest[] = [];
@@ -146,6 +153,52 @@ export function createOperatorApiStub(input: {
     return json(200, result);
   }
 
+  function applyPreapproval(body: unknown): Response {
+    const parsed = preapprovalCommandSchema.safeParse(body);
+    if (!parsed.success) return refusal(400, 'VALIDATION');
+    const command = parsed.data;
+    const prior = preapprovalReceipts.get(command.commandId);
+    if (prior) return json(200, prior);
+    const existing =
+      command.operation === 'add'
+        ? [...preapprovals.values()].find(
+            (entry) => entry.email === command.email,
+          )
+        : preapprovals.get(command.preapprovalId);
+    if (
+      command.operation !== 'add' &&
+      (!existing || existing.revision !== command.expectedRevision)
+    )
+      return refusal(409, 'CONFLICT');
+    const entry = existing ?? {
+      id: command.commandId,
+      email: command.operation === 'add' ? command.email : '',
+      revision: 1,
+      createdAt: new Date(input.nowMs()).toISOString(),
+      status: 'unused' as const,
+      invitation: 'none' as const,
+    };
+    const invite =
+      command.operation === 'invite' ||
+      (command.operation === 'add' && command.invite && !existing);
+    if (command.operation === 'remove') preapprovals.delete(entry.id);
+    else
+      preapprovals.set(entry.id, {
+        ...entry,
+        revision: entry.revision + (command.operation === 'invite' ? 1 : 0),
+        invitation: invite ? 'queued' : entry.invitation,
+      });
+    const result: PreapprovalResult = {
+      commandId: command.commandId,
+      preapprovalId: entry.id,
+      revision: entry.revision + (command.operation === 'invite' ? 1 : 0),
+      outcome: command.operation === 'remove' ? 'removed' : 'saved',
+      mail: invite ? 'queued' : 'none',
+    };
+    preapprovalReceipts.set(command.commandId, result);
+    return json(200, result);
+  }
+
   /** The real verifier, then a one-time nonce; null refuses as AUTHENTICATION. */
   function authenticate(request: Request, url: URL, bytes: Uint8Array) {
     const verified = verifyOperatorRequest({
@@ -165,6 +218,13 @@ export function createOperatorApiStub(input: {
   }
 
   function readBack(commandId: string): Response {
+    const preapproval = preapprovalReceipts.get(commandId);
+    if (preapproval)
+      return json(200, {
+        action: 'beta.preapproval.update',
+        result: preapproval,
+        mailState: preapproval.mail === 'queued' ? 'queued' : 'none',
+      });
     const stored = receipts.get(commandId);
     return stored
       ? json(200, {
@@ -198,6 +258,19 @@ export function createOperatorApiStub(input: {
       body,
     });
     const id = route.id ?? '';
+    if (route.route === 'listPreapprovals') {
+      const items = [...preapprovals.values()].sort((a, b) =>
+        b.id.localeCompare(a.id),
+      );
+      return json(200, { items, nextCursor: null });
+    }
+    if (route.route === 'updatePreapproval') {
+      const fault = faults.shift();
+      if (fault === 'lose-before-apply') throw new LostResponse('lost');
+      const response = applyPreapproval(body);
+      if (fault === 'lose-after-apply') throw new LostResponse('lost');
+      return response;
+    }
     if (route.route === 'listAccounts') return json(200, list(url));
     return route.route === 'readCommand' ? readBack(id) : command(id, body);
   }
@@ -205,6 +278,7 @@ export function createOperatorApiStub(input: {
   return {
     handle,
     accounts,
+    preapprovals,
     received,
     /** Loses the next command's response, before or after it applies. */
     lose: (fault: StubFault) => faults.push(fault),

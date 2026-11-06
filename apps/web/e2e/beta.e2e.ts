@@ -1,10 +1,16 @@
+import { preapproveEmail } from './support/preapproval';
 import { expect, test } from './support/fixtures';
 import {
   reachOnboardingFromRanked,
+  freshEmail,
+  emailedLink,
+  requestSignInLink,
+  confirmSignIn,
+  answerAgeStep,
   signUpWaitlisted,
   uniqueName,
 } from './support/accounts';
-import { claimUsername } from './support/forms';
+import { claimUsername, skipOnboarding } from './support/forms';
 import { approveBetaAccounts } from './support/beta-access';
 
 /**
@@ -77,4 +83,53 @@ test.describe('without JavaScript', () => {
     await page.goto('/play');
     await expect(page).toHaveURL(/\/sign-in/);
   });
+});
+
+// Uses real account handlers and the durable operator operation; no access seeding.
+test('a silently preapproved verified email still finishes onboarding', async ({
+  page,
+  request,
+}) => {
+  const email = await reachOnboardingFromRanked(page, request);
+  await preapproveEmail(`  ${email.toUpperCase()} `);
+  const username = uniqueName('invited');
+  await claimUsername(page, username);
+  await page.getByRole('button', { name: 'Not now' }).click();
+  await skipOnboarding(page, /\/ranked$/);
+});
+
+test('a forwarded invitation grants no access to a different verified email', async ({
+  page,
+}) => {
+  await preapproveEmail(`${uniqueName('forwarded')}@example.test`);
+  // Invitation contains precisely the ordinary sign-in destination.
+  await page.goto('/sign-in');
+  await signUpWaitlisted(page.request);
+  await page.goto('/play');
+  await expect(page).toHaveURL(/\/beta\?next=%2Fplay$/);
+});
+
+test('an invited new person follows the ordinary sign-in link and completes every onboarding step', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(45000);
+  const email = freshEmail();
+  await preapproveEmail(email, true);
+  let link = '';
+  await expect(async () => {
+    link = await emailedLink(request, email);
+  }).toPass({ timeout: 25000 });
+  const invitation = new URL(link);
+  expect(invitation.pathname).toBe('/sign-in');
+  expect(invitation.search).toBe('');
+  await page.goto(link);
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
+  await answerAgeStep(page);
+  await claimUsername(page, uniqueName('invited'));
+  await page.getByRole('button', { name: 'Not now' }).click();
+  await skipOnboarding(page, /\/lobby$/);
+  await page.goto('/play');
+  await expect(page).toHaveURL(/\/play$/);
 });
