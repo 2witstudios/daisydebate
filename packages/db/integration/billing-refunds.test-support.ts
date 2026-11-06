@@ -4,7 +4,10 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { createDatabase } from '../src/index';
 import { erasePrivacySubject } from '../src/privacy';
 import { bindings } from './privacy.test-support';
-import { withBillingSynchronization } from './billing-synchronization.test-support';
+import {
+  withRefundSubject,
+  type RefundSubjectFixture,
+} from './billing-refund-subject.test-support';
 
 const { databaseUrl } = requireTestServices(process.env);
 export const refundRooms = {
@@ -12,7 +15,7 @@ export const refundRooms = {
   eraseSeats: <T>(room: T) => room,
   activeRoomMembers: () => [],
 };
-type Fixture = Parameters<Parameters<typeof withBillingSynchronization>[0]>[0];
+type Fixture = RefundSubjectFixture;
 type RefundFixture = Fixture & {
   readonly instanceId: string;
   readonly refunds: ReturnType<
@@ -34,7 +37,7 @@ type RefundFixture = Fixture & {
 export function withBillingRefunds(
   work: (input: RefundFixture) => Promise<void>,
 ) {
-  return withBillingSynchronization(async (input) => {
+  return withRefundSubject(async (input) => {
     const { fixture, pool, userId, actorId, vendorCustomerId, subscriptionId } =
       input;
     const [clock] = await fixture.sql`select clock_timestamp() as now`;
