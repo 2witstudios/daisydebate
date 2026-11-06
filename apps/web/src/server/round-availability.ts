@@ -13,6 +13,7 @@ export function startRoundAvailability(input: {
   const instanceId = app.ids.next();
   const configuration = readPublicCheckInProbe(
     app.config.ATTENDANCE_PUBLIC_PROBE,
+    app.config.PUBLIC_APP_URL,
   );
   const lifecycle = startAvailabilityService({
     instanceId,

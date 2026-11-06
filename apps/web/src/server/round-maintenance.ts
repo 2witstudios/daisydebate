@@ -65,8 +65,10 @@ export function startRoundCompetitiveMaintenance(input: {
           'Competitive maintenance remains recoverable',
         )(error, 'rate'),
       probeRoundId:
-        readPublicCheckInProbe(app.config.ATTENDANCE_PUBLIC_PROBE)?.roundId ??
-        null,
+        readPublicCheckInProbe(
+          app.config.ATTENDANCE_PUBLIC_PROBE,
+          app.config.PUBLIC_APP_URL,
+        )?.roundId ?? null,
     }),
     timers: input.timers,
     now: () => performance.now(),

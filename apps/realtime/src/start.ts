@@ -29,6 +29,7 @@ import {
 initRealtimeSentry({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.SENTRY_ENVIRONMENT,
+  trustedOrigin: process.env.PUBLIC_APP_URL,
 });
 const reporter = realtimeErrorReporter();
 const resources = createRealtimeApp({
