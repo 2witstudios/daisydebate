@@ -47,6 +47,10 @@ const outboundFetch = (env: Record<string, string | undefined>): Fetch => {
 export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
   globalThis.fetch(url, init);
 
+/** Process-owned vendor transport; workers receive it explicitly and never read globals. */
+export const processVendorFetch = (): typeof globalThis.fetch =>
+  globalThis.fetch;
+
 const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,
   () =>

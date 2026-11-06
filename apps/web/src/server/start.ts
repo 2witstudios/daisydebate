@@ -35,6 +35,7 @@ import {
   processApp,
   processStartOptions,
   fetchPublicAttendanceProbe,
+  processVendorFetch,
 } from './process-app';
 import { createRetentionSweep, retentionTargets } from './retention-sweep';
 import { startProductionServer } from './listen-first';
@@ -149,7 +150,7 @@ const billingSubscriptions = startBillingSubscriptions({
   app,
   instanceId: availability.instanceId,
   timers: workerTimers,
-  fetch: globalThis.fetch,
+  fetch: processVendorFetch(),
 });
 const roomMaintenance = startRoomLifecycleMaintenance({
   app,
