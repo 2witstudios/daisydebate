@@ -30,7 +30,10 @@ export function AiJudgeNotice({
   if (view.aiJudgeSeating === 'premium')
     return (
       <p role="status" className="py-3 text-sm text-ink-muted">
-        {aiJudgePremiumText}
+        {aiJudgePremiumText}{' '}
+        <a href="/premium" className="underline">
+          Explore Premium
+        </a>
       </p>
     );
   return null;

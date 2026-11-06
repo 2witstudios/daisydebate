@@ -24,7 +24,7 @@ export function BotAdmissionNotice({
       {admission.refusal === 'not-eligible' ? null : (
         <>
           <p>
-            {admission.remaining} of {admission.limit} bot debates left
+            {admission.remaining} of {admission.limit} bot debates remaining
             {admission.source?.kind === 'lifetime'
               ? ' in your lifetime free allowance.'
               : admission.source
@@ -43,6 +43,14 @@ export function BotAdmissionNotice({
         <p>
           A round with a bot debater can’t start {refusals[admission.refusal]}
         </p>
+      ) : null}
+      {admission.refusal === 'allowance' ||
+      admission.refusal === 'renewal-grace' ? (
+        <a href="/settings/billing" className="underline">
+          {admission.refusal === 'renewal-grace'
+            ? 'Manage billing'
+            : 'View plan and usage'}
+        </a>
       ) : null}
     </div>
   );

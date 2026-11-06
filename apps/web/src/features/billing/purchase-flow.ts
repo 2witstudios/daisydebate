@@ -9,79 +9,96 @@ type Store = Pick<
   ReturnType<Database['billingPurchases']>,
   'recover' | 'record' | 'read'
 >;
-type Vendor = ReturnType<typeof createCheckoutVendor>;
+type Recovery = Awaited<ReturnType<Store['recover']>>;
 type Discovery = Awaited<ReturnType<typeof discoverCheckout>>;
+type Dependencies = {
+  readonly admit: (
+    subject: Subject,
+  ) => Promise<{ readonly purchase: Purchase }>;
+  readonly store: Store;
+  readonly vendor: ReturnType<typeof createCheckoutVendor>;
+  readonly discover: (purchase: Purchase) => Promise<Discovery>;
+};
 export type PurchaseDestination =
   | { readonly kind: 'redirect'; readonly url: string }
   | { readonly kind: 'pending' };
 const pending = { kind: 'pending' } as const;
 
+async function readPurchase(
+  input: Dependencies,
+  recovery: Recovery,
+): Promise<Discovery | null> {
+  const { purchase, work, claimId } = recovery;
+  switch (work) {
+    case 'refuse':
+    case 'cleanup':
+      throw createAppError('AUTHORIZATION');
+    case 'create':
+      if (claimId === null) throw createAppError('CONFLICT');
+      return input.vendor.create(purchase, claimId);
+    case 'retrieve':
+      return input.vendor.retrieve(purchase);
+    case 'expire':
+      return input.vendor.expire(purchase);
+    case 'discover':
+      return input.discover(purchase);
+    case 'wait':
+    case 'none':
+    case 'synchronize':
+      return null;
+  }
+}
+
+function currentDestination(
+  result: Extract<Discovery, { kind: 'observed' }>,
+  current: Purchase,
+): PurchaseDestination {
+  return result.session.kind === 'open' &&
+    result.url !== null &&
+    current.state.kind === 'open' &&
+    current.state.sessionId === result.session.id &&
+    current.state.customerId === result.session.customerId
+    ? { kind: 'redirect', url: result.url }
+    : pending;
+}
+
+async function recordPurchase(
+  store: Store,
+  subject: Subject,
+  recovery: Recovery,
+  result: Discovery,
+): Promise<PurchaseDestination> {
+  const { purchase, work, claimId } = recovery;
+  switch (result.kind) {
+    case 'refuse':
+      throw createAppError('CONFLICT');
+    case 'unknown':
+      if (work === 'create' && claimId !== null)
+        await store.record(subject, purchase.id, { kind: 'unknown', claimId });
+      return pending;
+    case 'searched':
+      await store.record(subject, purchase.id, result);
+      return pending;
+    case 'observed': {
+      const recorded = await store.record(subject, purchase.id, {
+        kind: 'observe',
+        session: result.session,
+      });
+      if (recorded === 'refuse') throw createAppError('CONFLICT');
+      // Recording may lose a race to account closure or a newer observation.
+      return currentDestination(result, await store.read(subject, purchase.id));
+    }
+  }
+}
+
 /** One bounded recovery step over the stable, account-fenced purchase identity. */
-export function createPurchaseFlow(input: {
-  readonly admit: (
-    subject: Subject,
-  ) => Promise<{ readonly purchase: Purchase }>;
-  readonly store: Store;
-  readonly vendor: Vendor;
-  readonly discover: (purchase: Purchase) => Promise<Discovery>;
-}) {
+export function createPurchaseFlow(input: Dependencies) {
   return async (subject: Subject): Promise<PurchaseDestination> => {
     const admitted = await input.admit(subject);
-    const { purchase, work, claimId } = await input.store.recover(
-      subject,
-      admitted.purchase.id,
-    );
-    if (work === 'refuse' || work === 'cleanup')
-      throw createAppError('AUTHORIZATION');
-    let result: Discovery;
-    switch (work) {
-      case 'create':
-        if (claimId === null) throw createAppError('CONFLICT');
-        result = await input.vendor.create(purchase, claimId);
-        break;
-      case 'retrieve':
-        result = await input.vendor.retrieve(purchase);
-        break;
-      case 'expire':
-        result = await input.vendor.expire(purchase);
-        break;
-      case 'discover':
-        result = await input.discover(purchase);
-        break;
-      case 'wait':
-      case 'none':
-      case 'synchronize':
-        return pending;
-    }
-    switch (result.kind) {
-      case 'refuse':
-        throw createAppError('CONFLICT');
-      case 'unknown':
-        if (work === 'create' && claimId !== null)
-          await input.store.record(subject, purchase.id, {
-            kind: 'unknown',
-            claimId,
-          });
-        return pending;
-      case 'searched':
-        await input.store.record(subject, purchase.id, result);
-        return pending;
-      case 'observed': {
-        const recorded = await input.store.record(subject, purchase.id, {
-          kind: 'observe',
-          session: result.session,
-        });
-        if (recorded === 'refuse') throw createAppError('CONFLICT');
-        // Recording may lose a race to account closure or a newer observation.
-        const current = await input.store.read(subject, purchase.id);
-        return result.session.kind === 'open' &&
-          result.url !== null &&
-          current.state.kind === 'open' &&
-          current.state.sessionId === result.session.id &&
-          current.state.customerId === result.session.customerId
-          ? { kind: 'redirect', url: result.url }
-          : pending;
-      }
-    }
+    const recovery = await input.store.recover(subject, admitted.purchase.id);
+    const result = await readPurchase(input, recovery);
+    return result === null
+      ? pending
+      : recordPurchase(input.store, subject, recovery, result);
   };
 }
