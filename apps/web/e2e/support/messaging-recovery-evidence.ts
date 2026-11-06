@@ -11,12 +11,19 @@ export function watchConversationRecovery(page: Page, channelId: string) {
   const reads: { phase: string; destination: 'original' | 'successor' }[] = [];
   let prefetches = 0,
     maximumPending = 0,
-    memberChoices = 0;
+    memberChoices = 0,
+    historyGetRequests = 0;
   const phase = (name: string) => {
     phases.push({ name, since: Date.parse(systemClock.now()) });
   };
   phase('initial refusal');
   const request = (incoming: Request) => {
+    if (
+      incoming.method() === 'GET' &&
+      new URL(incoming.url()).pathname ===
+        `/api/messaging/channels/${channelId}/messages`
+    )
+      historyGetRequests += 1;
     const headers = incoming.headers();
     if (headers['next-router-prefetch'] === '1') {
       prefetches += 1;
@@ -51,6 +58,7 @@ export function watchConversationRecovery(page: Page, channelId: string) {
       otherDispatches: reads.filter((read) => read.destination === 'successor')
         .length,
       memberChoices,
+      historyGetRequests,
       provenance: 'observed; no request attributed from choice alone',
       prefetches,
       maximumPending,

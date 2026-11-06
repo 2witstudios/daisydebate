@@ -15,6 +15,8 @@ import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { boundedStep } from './bounded-step';
 import type { Page } from '@playwright/test';
+import { watchRecoveredChannel } from './messaging-recovery-observation';
+import { postMessage } from './messaging-content-requests';
 
 /** Resolve HostRoot.current, then read only the committed refusal's ancestor props. */
 const refusalRenderId = (page: Page) =>
@@ -76,8 +78,13 @@ export function testMessagingRecovery() {
       const journey = await openMessagingJourney(browser);
       let observer: ReturnType<typeof watchConversationRecovery> | undefined;
       try {
-        const page = await acceptMessagingJourney(journey);
-        await effectsRan(page);
+        const accepted = await acceptMessagingJourney(journey);
+        await accepted.close();
+        const page = await openPage(
+          journey.recipient,
+          'the fresh refused conversation target',
+        );
+        const live = watchRecoveredChannel(page, journey.channelId);
         await page.clock.install();
         observer = watchConversationRecovery(page, journey.channelId);
         await control(
@@ -88,15 +95,60 @@ export function testMessagingRecovery() {
         await page.goto(`/messages/${journey.channelId}`);
         await expect(refused(page)).toBeVisible();
         await expect(composer(page)).toHaveCount(0);
+        expect(live.snapshot()).toMatchObject({
+          ready: false,
+          revision: null,
+          observes: 0,
+        });
         await control('allow-messaging-reads');
         await expect(composer(page)).toBeVisible();
+        const baseline = await live.ready();
+        const requestId = await composer(page)
+          .locator('xpath=ancestor::form')
+          .locator('input[name="requestId"]')
+          .inputValue();
         await composer(page).fill('A recovered draft stays here');
+        observer.phase('fresh ready then authorized later revision');
+        const later = await postMessage(
+          journey.sender,
+          journey,
+          new URL(page.url()).origin,
+          `A later live revision after ${target} recovery`,
+        );
+        expect(later.changeVersion).toBeGreaterThan(baseline);
+        await live.heard(later.changeVersion);
+        await expect(
+          page
+            .getByRole('list', { name: 'Message history', exact: true })
+            .getByText(later.text, { exact: true }),
+        ).toBeVisible();
+        await expect(composer(page)).toHaveValue(
+          'A recovered draft stays here',
+        );
+        await expect(
+          composer(page)
+            .locator('xpath=ancestor::form')
+            .locator('input[name="requestId"]'),
+        ).toHaveValue(requestId);
+        await info.attach('recovered-target-observation', {
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ...live.snapshot(),
+            baselineRevision: baseline,
+            laterRevision: later.changeVersion,
+            targetRenderedLaterMessage: true,
+            draftAndRequestIdRetained: true,
+          }),
+        });
+        // Clock advancement follows the current-base live proof: it can expire permits.
         await page.clock.fastForward(12000);
         await expect(composer(page)).toHaveValue(
           'A recovered draft stays here',
         );
         expect(observer.snapshot()).toMatchObject({
           dispatches: 1,
+          otherDispatches: 0,
+          historyGetRequests: 0,
           maximumPending: 1,
         });
         const observed = await evidence(info, observer);
