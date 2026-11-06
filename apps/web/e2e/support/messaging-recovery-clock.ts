@@ -1,10 +1,44 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { systemClock } from '@daisy/clock';
-import { boundedStep } from './bounded-step';
+import { boundedStep, StepTimeoutError } from './bounded-step';
 import { committedRefusalState } from './messaging-committed-refusal';
 import { advisedConversationBoundary } from './messaging-refusal-flight';
 import type { watchConversationRecovery } from './messaging-recovery-evidence';
+
+export const refusalResponsePhase = () => ({
+  finishedEntered: false,
+  finishedReturned: false,
+  finishedFailed: false,
+  bodyEntered: false,
+  bodyReturned: false,
+  bodyFailed: false,
+});
+
+/** Observe the existing awaits only; payload/error identity and ordering stay unchanged. */
+export async function readRefusalResponse(
+  response: { finished: () => Promise<unknown>; text: () => Promise<string> },
+  phase: ReturnType<typeof refusalResponsePhase>,
+) {
+  phase.finishedEntered = true;
+  try {
+    const error = await response.finished();
+    phase.finishedReturned = true;
+    if (error) throw error;
+  } catch (error) {
+    phase.finishedFailed = true;
+    throw error;
+  }
+  phase.bodyEntered = true;
+  try {
+    const payload = await response.text();
+    phase.bodyReturned = true;
+    return payload;
+  } catch (error) {
+    phase.bodyFailed = true;
+    throw error;
+  }
+}
 
 export async function pauseMessagingRecovery(page: Page) {
   const anchor = new Date(systemClock.now());
@@ -85,16 +119,45 @@ export async function settledRefusalResponse(
     })
     .toBe(attempt);
   const response = observer.refetchResponses()[attempt - 1]!;
-  const payload = await boundedStep(
-    'the completed actual refusal response',
-    async () => {
-      const error = await response.finished();
-      if (error) throw error;
-      return response.text();
-    },
-    remaining(deadline),
-  );
-  const advice = advisedConversationBoundary(payload);
+  const responsePhase = refusalResponsePhase();
+  const pendingAtEntry = observer.snapshot().pending;
+  const budgetMs = remaining(deadline);
+  let payload: string | undefined;
+  const completionFailures: unknown[] = [];
+  try {
+    payload = await boundedStep(
+      'the completed actual refusal response',
+      () => readRefusalResponse(response, responsePhase),
+      budgetMs,
+    );
+  } catch (error) {
+    completionFailures.push(error);
+  }
+  try {
+    await test.info().attach('refusal-response-await-safe', {
+      contentType: 'application/json',
+      body: JSON.stringify({
+        phase: 'response-completion',
+        attempt,
+        budgetMs,
+        ...responsePhase,
+        stepTimedOut: completionFailures[0] instanceof StepTimeoutError,
+        pendingAtEntry,
+        pendingAtExit: observer.snapshot().pending,
+        maximumPendingWholeObservation: observer.snapshot().maximumPending,
+      }),
+    });
+  } catch (diagnosticError) {
+    completionFailures.push(diagnosticError);
+  }
+  if (completionFailures.length === 1) throw completionFailures[0];
+  if (completionFailures.length > 1)
+    throw new AggregateError(
+      completionFailures,
+      'Response completion and diagnostic attachment failed',
+      { cause: completionFailures[0] },
+    );
+  const advice = advisedConversationBoundary(payload!);
   expect(advice !== null).toBe(true);
   let id: string | null = null;
   let readiness: ReturnType<typeof committedRefusalState>['diagnostic'] | null =
