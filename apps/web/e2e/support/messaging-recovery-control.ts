@@ -2,6 +2,10 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createLaunchControl } from './room-launch-control';
 import type { App } from '../../src/server/app';
+import { createMessagingPressure } from './messaging-pressure';
+import { systemClock } from '@daisy/clock';
+import { capacityRefusalFields } from '@daisy/db/capacity';
+import { isAppError } from '@daisy/errors';
 
 export const messagingRecoveryControlPath = (port: number) =>
   join(tmpdir(), `dmr-${port}.sock`);
@@ -16,51 +20,25 @@ export async function createMessagingRecoveryControl(app: App, port: number) {
   const authority = database.messagingChannelAuthority.bind(database);
   const channelStore = database.messagingChannelStore.bind(database);
   let target: 'history' | 'entry' | null = null;
-  let holding = false;
-  const behindReaders = async <T>(
-    scope: Parameters<typeof authority>[0],
-    run: () => Promise<T>,
-  ): Promise<T> => {
-    if (holding) return run();
-    holding = true;
-    const entered = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    let readers = 0;
-    const held = Promise.all(
-      Array.from({ length: 4 }, () =>
-        authority(scope, async () => {
-          readers += 1;
-          if (readers === 4) entered.resolve();
-          await release.promise;
-        }),
+  const behindReaders = createMessagingPressure(
+    (scope: Parameters<typeof authority>[0], work) => authority(scope, work),
+    (sample, errors) =>
+      process.stdout.write(
+        JSON.stringify({
+          event: 'e2e.messaging.pressure',
+          time: Date.parse(systemClock.now()),
+          ...sample,
+          causes: errors.map((error) => {
+            const cause = capacityRefusalFields(error)?.cause;
+            return cause === 'social.expired' || cause === 'social.saturated'
+              ? cause
+              : isAppError(error)
+                ? error.code
+                : 'INTERNAL';
+          }),
+        }) + '\n',
       ),
-    );
-    void held.catch(entered.reject);
-    const outcome = await (async () => {
-      try {
-        await entered.promise;
-        return { kind: 'ready' as const, value: await run() };
-      } catch (error) {
-        return { kind: 'failed' as const, error };
-      } finally {
-        release.resolve();
-      }
-    })();
-    const cleanup = await held.then(
-      () => ({ kind: 'ready' as const }),
-      (error: unknown) => ({ kind: 'failed' as const, error }),
-    );
-    holding = false;
-    if (cleanup.kind === 'failed')
-      throw new AggregateError(
-        outcome.kind === 'failed'
-          ? [outcome.error, cleanup.error]
-          : [cleanup.error],
-        'Messaging admission proof cleanup failed',
-      );
-    if (outcome.kind === 'failed') throw outcome.error;
-    return outcome.value;
-  };
+  );
   database.messagingChannelStore = (authorize) => {
     const store = channelStore(authorize);
     return {

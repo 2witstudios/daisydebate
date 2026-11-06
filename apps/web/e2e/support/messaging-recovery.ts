@@ -10,7 +10,12 @@ import {
   acceptMessagingJourney,
   openMessagingJourney,
 } from './messaging-journey';
-import { watchConversationRecovery } from './messaging-recovery-evidence';
+import {
+  watchConversationRecovery,
+  messagingAdmissionEvidence,
+} from './messaging-recovery-evidence';
+import { committedRefusalRenderId } from './messaging-committed-refusal';
+import { hasAdvisedConversationBoundary } from './messaging-refusal-flight';
 import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { boundedStep } from './bounded-step';
@@ -18,55 +23,8 @@ import type { Page } from '@playwright/test';
 import { watchRecoveredChannel } from './messaging-recovery-observation';
 import { postMessage } from './messaging-content-requests';
 
-/** Resolve HostRoot.current, then read only the committed refusal's ancestor props. */
 const refusalRenderId = (page: Page) =>
-  refused(page).evaluate((element) => {
-    type Fiber = {
-      readonly memoizedProps?: {
-        readonly requestId?: unknown;
-        readonly retryAfterMs?: unknown;
-      };
-      readonly return?: Fiber | null;
-      readonly child?: Fiber | null;
-      readonly sibling?: Fiber | null;
-      readonly stateNode?: unknown;
-    };
-    const key = Object.keys(element).find((name) =>
-      name.startsWith('__reactFiber$'),
-    );
-    let root =
-      key === undefined
-        ? undefined
-        : (element as unknown as Record<string, Fiber>)[key];
-    for (let depth = 0; root?.return && depth < 100; depth += 1)
-      root = root.return;
-    const current = (
-      root?.stateNode as { readonly current?: Fiber } | undefined
-    )?.current;
-    if (!current) throw new Error('Current mounted React root unavailable');
-    const pending: { fiber: Fiber; path: readonly Fiber[] }[] = [
-      { fiber: current, path: [] },
-    ];
-    for (let visited = 0; pending.length > 0 && visited < 20000; visited += 1) {
-      const { fiber, path } = pending.pop()!;
-      if (fiber.stateNode === element) {
-        for (const ancestor of [...path, fiber].reverse()) {
-          const props = ancestor.memoizedProps;
-          if (
-            typeof props?.requestId === 'string' &&
-            /^[a-z0-9]{24}$/.test(props.requestId) &&
-            typeof props.retryAfterMs === 'number'
-          )
-            return props.requestId;
-        }
-        throw new Error('Committed refusal owner unavailable');
-      }
-      if (fiber.sibling) pending.push({ fiber: fiber.sibling, path });
-      if (fiber.child)
-        pending.push({ fiber: fiber.child, path: [...path, fiber] });
-    }
-    throw new Error('Refusal DOM node absent from current React tree');
-  });
+  refused(page).evaluate(committedRefusalRenderId);
 
 /** Actual web-process admission, production Next/TLS/auth and unchanged test budgets. */
 export function testMessagingRecovery() {
@@ -280,7 +238,7 @@ export function testMessagingRecovery() {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
       await page.clock.install();
-      const held = Promise.withResolvers<void>();
+      const held = Promise.withResolvers<boolean>();
       const gate = Promise.withResolvers<void>();
       release = gate.resolve;
       let captured = false;
@@ -289,7 +247,7 @@ export function testMessagingRecovery() {
           return route.continue();
         captured = true;
         const response = await route.fetch();
-        held.resolve();
+        held.resolve(hasAdvisedConversationBoundary(await response.text()));
         await gate.promise;
         await route.fulfill({ response });
       });
@@ -297,15 +255,44 @@ export function testMessagingRecovery() {
       await control('refuse-messaging-history');
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
-      await boundedStep('the held real recovery response', () => held.promise);
+      expect(
+        await boundedStep(
+          'the held real recovery response',
+          () => held.promise,
+        ),
+      ).toBe(true);
+      const admission = await messagingAdmissionEvidence(observer.phases());
+      const refusals = admission.failures.filter(
+        (failure) => failure.operation === 'messaging.history',
+      );
+      expect(refusals).toHaveLength(2);
+      expect(
+        refusals.every(
+          (failure) =>
+            failure.status === 503 && failure.admission === 'social.expired',
+        ),
+      ).toBe(true);
+      await info.attach('held-recovery-advised', {
+        contentType: 'application/json',
+        body: JSON.stringify({
+          heldTemporaryRender: true,
+          genuineHistoryRefusals: 2,
+        }),
+      });
+      // Wait for this exact node in HostRoot.current, never an alternate or old document.
+      await expect.poll(() => refusalRenderId(page)).not.toBeNull();
       const before = await refusalRenderId(page);
+      expect(before).not.toBeNull();
       observer.phase('unrelated shell action while recovery is held');
       await page.getByRole('button', { name: 'Minimize', exact: true }).click();
       await expect(
         page.getByRole('button', { name: 'Expand', exact: true }),
       ).toBeVisible();
       await expect
-        .poll(async () => (await refusalRenderId(page)) !== before)
+        .poll(async () => {
+          const current = await refusalRenderId(page);
+          return current !== null && current !== before;
+        })
         .toBe(true);
       await info.attach('unrelated-render-observed', {
         contentType: 'application/json',
