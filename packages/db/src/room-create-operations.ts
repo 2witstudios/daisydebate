@@ -7,6 +7,7 @@ import type {
   RoomMutationOutcome,
   FormatDefinition,
   FormatSelectionFacts,
+  EntitlementGrant,
 } from '@daisy/protocol';
 import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import {
@@ -28,6 +29,7 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import { lockAuthorizationActors } from './authorization';
+import { readEntitlementGrants } from './entitlement-grants';
 
 import { newRoomValues, type NewRoom } from './room-operations';
 import { readPublishedResolution } from './published-resolutions';

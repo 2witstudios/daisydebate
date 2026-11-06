@@ -307,8 +307,8 @@ export function createRoomRuntimeOperations({
       ...(body.recording
         ? {
             recording: {
-              authorize: (grants) =>
-                hostHoldsCasualCapture(grants, betaGrantsPremium),
+              authorize: (grants, now) =>
+                hostHoldsCasualCapture(grants, betaGrantsPremium, now),
             },
           }
         : {}),

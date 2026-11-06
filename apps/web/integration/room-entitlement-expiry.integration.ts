@@ -149,3 +149,33 @@ test('casual capture admission refuses expiry after a blocked grant read', async
     });
   });
 });
+
+test('initial recording uses post-cast time after a real bot-profile wait and rolls back creation on paid expiry', async () => {
+  await withRoomRuntime(async (f) => {
+    const bot = await f.bot();
+    await paidGrant(f, 'casual_capture');
+    await acrossExpiry(
+      f,
+      (tx) =>
+        tx`select actor_id from bot_profiles where actor_id=${bot.actorId} for update`,
+      () =>
+        f.create({
+          selection,
+          recording: true,
+          cast: [{ actorId: bot.actorId, role: 'negative', slot: 0 }],
+        }),
+      'capture-premium',
+    );
+    const [rows] = await f.sql`select
+      (select count(*)::int from rooms where host_actor_id=${f.host.actorId}) rooms,
+      (select count(*)::int from room_commands where actor_id=${f.host.actorId}) commands,
+      (select count(*)::int from room_participants where actor_id=${bot.actorId}) seats`;
+    assert({
+      given: 'recording access expires while initial cast facts are blocked',
+      should:
+        'refuse the whole recording create without Room, seats or receipt',
+      actual: rows,
+      expected: { rooms: 0, commands: 0, seats: 0 },
+    });
+  });
+});
