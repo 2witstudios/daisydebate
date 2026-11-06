@@ -164,9 +164,6 @@ export default async function AccountsPage({
     <>
       {nav}
       {heading}
-      <Preapprovals
-        page={preapprovals.kind === 'ok' ? preapprovals.value : null}
-      />
       {query.notice ? (
         <p
           role="status"
@@ -185,6 +182,9 @@ export default async function AccountsPage({
           <button type="submit">Reconcile</button>
         </form>
       ) : null}
+      <Preapprovals
+        page={preapprovals.kind === 'ok' ? preapprovals.value : null}
+      />
       <nav aria-label="Beta access" className="tabs">
         {accessTabs.map((tab) => (
           <Link

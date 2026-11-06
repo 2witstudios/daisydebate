@@ -8,13 +8,13 @@ export function Preapprovals({
   readonly page: PreapprovalPage | null;
 }) {
   return (
-    <section aria-labelledby="preapprovals-heading">
+    <section className="section" aria-labelledby="preapprovals-heading">
       <h2 id="preapprovals-heading">Preapproved emails</h2>
       <p>
         Preapprovals remain valid until removed. Removing a claimed entry does
         not revoke the account.
       </p>
-      <form action={preapprovalAction}>
+      <form action={preapprovalAction} className="preapproval-form">
         <input type="hidden" name="operation" value="add" />
         <label htmlFor="preapproval-email">Email</label>
         <input
@@ -25,17 +25,19 @@ export function Preapprovals({
           required
           autoComplete="off"
         />
-        <button
-          type="submit"
-          name="delivery"
-          value="invite"
-          className="button-primary"
-        >
-          Invite by email
-        </button>
-        <button type="submit" name="delivery" value="silent">
-          Preapprove only
-        </button>
+        <div className="row-actions">
+          <button
+            type="submit"
+            name="delivery"
+            value="invite"
+            className="button-primary"
+          >
+            Invite by email
+          </button>
+          <button type="submit" name="delivery" value="silent">
+            Preapprove only
+          </button>
+        </div>
       </form>
       {page === null ? (
         <p role="alert">Preapproved emails could not be loaded. Try again.</p>
@@ -60,7 +62,7 @@ export function Preapprovals({
                     <td>{entry.status}</td>
                     <td>{entry.invitation}</td>
                     <td>
-                      <form action={preapprovalAction}>
+                      <form action={preapprovalAction} className="row-actions">
                         <input
                           type="hidden"
                           name="preapprovalId"
