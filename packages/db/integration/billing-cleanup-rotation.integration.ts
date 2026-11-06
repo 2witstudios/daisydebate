@@ -94,12 +94,32 @@ test('durable progress preserves failure attempts and uses its fixed due time ra
   withBillingRefunds(async ({ fixture, pool, instanceId, userId }) => {
     const [job] =
       await fixture.sql`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
-    await fixture.sql`update privacy_jobs set attempts=8 where id=${job!.id}`;
-    const cleanup = createDatabase({
+    const database = createDatabase({
       url: databaseUrl,
       client: pool,
       nextActorId: createId,
-    }).billingCleanup(instanceId);
+    });
+    const cleanup = database.billingCleanup(instanceId);
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await fixture.sql`select pg_sleep(greatest(0,extract(epoch from retry_at-clock_timestamp()))+.01) from privacy_jobs where id=${job!.id}`;
+      await database.renewServiceInstance({ instanceId, role: 'web' });
+      const failed = await cleanup.claim(job!.id);
+      if (
+        failed.kind !== 'claimed' ||
+        failed.state.kind === 'acknowledged' ||
+        !failed.state.claim
+      )
+        throw Error('Missing prior failed attempt');
+      const [clock] = await fixture.sql`select clock_timestamp() as at`;
+      const result = await cleanup.record(job!.id, {
+        kind: 'failure',
+        claimId: failed.state.claim.id,
+        work: failed.work,
+        retryAt: new Date(clock!.at.getTime() + 250).toISOString(),
+      });
+      if (result !== 'failure') throw Error('Prior failure was not consumed');
+    }
+    await fixture.sql`select pg_sleep(greatest(0,extract(epoch from retry_at-clock_timestamp()))+.01) from privacy_jobs where id=${job!.id}`;
     const current = await cleanup.claim(job!.id);
     if (
       current.kind !== 'claimed' ||
@@ -129,7 +149,7 @@ test('durable progress preserves failure attempts and uses its fixed due time ra
         {
           status: 'pending',
           attempts: 8,
-          turn: 'subscriptions',
+          turn: 'observations',
           fixed_due: true,
           consumed: true,
         },

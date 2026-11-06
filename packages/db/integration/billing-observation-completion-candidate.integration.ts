@@ -7,7 +7,7 @@ import { withBillingRefunds } from './billing-refunds.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261106015001_stripe_cleanup_five_lane/migration.sql',
+  '../migrations/20261106023226_stripe_cleanup_failure_classification/migration.sql',
   import.meta.url,
 );
 

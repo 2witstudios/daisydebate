@@ -7,6 +7,7 @@ import {
 } from './spectator-release-sql';
 
 export { validRules } from './testing-rules';
+export { completeControlledStripeCleanup } from './testing-billing';
 
 const POLL_INTERVAL_MS = 10;
 
