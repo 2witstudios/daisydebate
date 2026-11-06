@@ -11,7 +11,14 @@ export function PremiumPage() {
         title="Daisy Premium"
         lede="More ways to practise, review and share your debates."
       />
-      <Panel title="Premium · USD 10/month">
+      <Panel
+        title="Premium · USD 10/month"
+        action={
+          <Link href="/settings/billing" className="underline">
+            Billing
+          </Link>
+        }
+      >
         <ul className="flex list-disc flex-col gap-3 pl-5">
           <li>Five bot debates per billing period.</li>
           <li>Unlimited casual AI judging.</li>

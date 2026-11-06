@@ -1,3 +1,4 @@
+import type { NativeBillingRuntime } from '../features/billing/native-runtime';
 import { createServerAnalytics } from '../features/analytics/server-adapter';
 import { createAnalyticsDelivery } from '../features/analytics/delivery';
 import { analyticsConfiguration } from '../features/analytics/config';
@@ -59,6 +60,8 @@ import { recordingObjectStore } from '../features/recording/tigris-object-store'
 import { createRequestNetwork } from './request-network';
 
 export type AppDependencies = {
+  /** Injected lazy customer-facing Billing composition; transport is owned by the process edge. */
+  readonly billingNative?: () => NativeBillingRuntime;
   readonly roomPolicy?: RoomPolicy;
   /** Fixtures that seat bots with no worker state it; otherwise from config. */
   readonly aiSeats?: AiSeatAvailability;
@@ -115,6 +118,7 @@ export function createApp({
   logDestination,
   afterResponseLimits,
   redisClient,
+  billingNative,
 }: AppDependencies) {
   const config = readServerConfig(env);
   const analytics = analyticsConfiguration(config);
@@ -225,6 +229,14 @@ export function createApp({
   const drainState = createDrainState([database, redis]);
   let startupChecked = true;
   return {
+    billingNative(): NativeBillingRuntime {
+      if (!billingNative)
+        throw createAppError(
+          'INFRASTRUCTURE',
+          'Billing runtime is unavailable',
+        );
+      return billingNative();
+    },
     config,
     websocketEndpoint: readRealtimePublicUrl({
       REALTIME_PUBLIC_URL: config.REALTIME_PUBLIC_URL,
