@@ -1,4 +1,9 @@
-import { decidePreapprovalChange } from './beta-preapproval-decision';
+import { normalizeEmail } from '@daisy/protocol/email';
+import { loadAuthorizationAccount } from './authorization';
+import {
+  decidePreapprovalChange,
+  canInviteClaimedPreapproval,
+} from './beta-preapproval-decision';
 import { normalizedEmailSql } from './email-identity';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
@@ -140,12 +145,15 @@ export function preapprovalOperations({
             claimed_by: string | null;
             last_invited_at: Date | null;
           }[];
-          const [account] = grant?.claimed_by
+          const account = grant?.claimed_by
+            ? await loadAuthorizationAccount(tx, grant.claimed_by)
+            : null;
+          const [identity] = grant?.claimed_by
             ? ((await tx.execute(
-                sql`select b.state, u.deleted_at from users u left join account_beta_access b on b.user_id = u.id where u.id = ${grant.claimed_by}`,
+                sql`select email, email_verified from users where id = ${grant.claimed_by}`,
               )) as unknown as {
-                state: string | null;
-                deleted_at: Date | null;
+                email: string | null;
+                email_verified: boolean;
               }[])
             : [];
           const [owed] = grant
@@ -164,7 +172,18 @@ export function preapprovalOperations({
                 }
               : null,
             claimedAccountInvitable:
-              account?.state === 'approved' && account.deleted_at === null,
+              account !== null &&
+              canInviteClaimedPreapproval({
+                verified: identity?.email_verified ?? false,
+                emailMatches:
+                  identity?.email !== null &&
+                  identity?.email !== undefined &&
+                  normalizeEmail(identity.email) === email,
+                erased: account.erased,
+                restricted: account.restricted,
+                state: account.beta?.state ?? null,
+                ageBand: account.ageBand,
+              }),
             activeInvitation: owed !== undefined,
           });
           if (decision.kind === 'refused') throw createAppError(decision.code);

@@ -295,3 +295,8 @@ For invitations, a lost or malformed provider reply remains `unknown` even
 when attempts are exhausted. Definite provider rejections can report `failed`.
 Uncertainty survives retries and expired leases until a positive send receipt;
 a later suppression cannot prove an earlier in-flight request was not sent.
+
+A claimed grant's queued invitation and resend also require the account's
+current verified email to still match, its age to remain eligible and its
+moderation state to permit access. Changing email never transfers the old
+grant or revokes the account, but cancels mail to the obsolete address.

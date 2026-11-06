@@ -1,3 +1,4 @@
+import { canInviteClaimedPreapproval } from './beta-preapproval-decision';
 import { normalizedEmailSql } from './email-identity';
 import { loadAuthorizationAccount } from './authorization';
 import { createAppError } from '@daisy/errors';
@@ -146,13 +147,32 @@ export function mailIntentOperations({
         if (intent.purpose === 'beta-invitation') {
           if (intent.state !== 'leased') return { kind: 'not-owed' };
           const [grant] =
-            (await database.execute(sql`select p.email from beta_preapprovals p
+            (await database.execute(sql`select p.email, p.claimed_by from beta_preapprovals p
             left join users u on u.id = p.claimed_by
             left join account_beta_access b on b.user_id = p.claimed_by
-            where p.id = ${intent.preapproval_id} and (p.claimed_by is null or (u.deleted_at is null and b.state = 'approved'))`)) as unknown as {
+            where p.id = ${intent.preapproval_id} and (p.claimed_by is null or (u.deleted_at is null and u.email_verified and ${normalizedEmailSql(sql`u.email`)} = p.email and b.state = 'approved'))`)) as unknown as {
               email: string;
+              claimed_by: string | null;
             }[];
           if (!grant) return { kind: 'not-owed' };
+          if (grant.claimed_by) {
+            const account = await loadAuthorizationAccount(
+              database,
+              grant.claimed_by,
+            );
+            if (
+              !account ||
+              !canInviteClaimedPreapproval({
+                verified: true,
+                emailMatches: true,
+                erased: account.erased,
+                restricted: account.restricted,
+                state: account.beta?.state ?? null,
+                ageBand: account.ageBand,
+              })
+            )
+              return { kind: 'not-owed' };
+          }
           const accounts = (await database.execute(
             sql`select id from users where ${normalizedEmailSql(sql`email`)} = ${grant.email} and email_verified`,
           )) as unknown as { id: string }[];

@@ -834,3 +834,55 @@ test('preapproval listing pages by stable opaque grant ids without losing entrie
     }
   });
 });
+
+test('a claimed invitation stops being owed when its verified email changes', async () => {
+  await withFixture(url, async (f) => {
+    const db = trackedDatabase(f, { url, nextActorId: createId });
+    const account = await pendingAccount(f);
+    try {
+      const saved = await db.runPreapprovalCommand(
+        inputFor(add(`${account.userId}@operator.invalid`, true)),
+      );
+      await f.sql`update users set email = ${`${createId()}@example.test`} where id = ${account.userId}`;
+      const [intent] =
+        await f.sql`select id from mail_intents where preapproval_id = ${saved.preapprovalId}`;
+      const claims = await db.claimMailIntents({
+        limit: 50,
+        leaseMs: 60000,
+        nextToken: () => `${createId()}${createId()}`,
+      });
+      const claim = claims.find((item) => item.id === intent.id)!;
+      const delivery = await db.readMailIntentDelivery(claim.id);
+      let refused = false;
+      try {
+        await db.runPreapprovalCommand(
+          inputFor({
+            v: 1,
+            commandId: createId(),
+            adminAuditHead: 'a'.repeat(64),
+            operation: 'invite',
+            preapprovalId: saved.preapprovalId,
+            expectedRevision: saved.revision,
+          }),
+        );
+      } catch (error) {
+        refused = (error as { code?: string }).code === 'CONFLICT';
+      }
+      await db.settleMailIntent({
+        id: claim.id,
+        token: claim.token,
+        outcome: { kind: 'cancelled', errorCode: 'not-owed' },
+      });
+      assert({
+        given:
+          'a consumed preapproval whose account verified email has moved to another address',
+        should:
+          'cancel the old-address invitation and refuse resend while preserving account approval',
+        actual: [delivery.kind, refused, await access(f, account.userId)],
+        expected: ['not-owed', true, 'approved'],
+      });
+    } finally {
+      await db.close();
+    }
+  });
+});
