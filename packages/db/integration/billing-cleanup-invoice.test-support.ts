@@ -36,7 +36,33 @@ export async function exerciseInvoiceProgress(
     more: false,
   });
   c = await claim();
+  await apply({
+    kind: 'page',
+    claimId: token(c),
+    work: cleanupWork(c)!,
+    ids: [],
+    more: false,
+  });
+  c = await claim();
   const paymentCursor = `inpay_${createId()}`;
+  assert({
+    given:
+      'a selected invoice whose next payment identity has not yet been durably retained',
+    should:
+      'refuse moving its cursor before the exact invoice and payment obligations exist',
+    actual: await probe(() =>
+      apply({
+        kind: 'payments',
+        claimId: token(c),
+        work: cleanupWork(c)!,
+        beforeId: null,
+        afterId: paymentCursor,
+        exhausted: false,
+      }),
+    ),
+    expected: '23514',
+  });
+  await matrix.retainInvoice(invoiceA, paymentCursor);
   await apply({
     kind: 'payments',
     claimId: token(c),
@@ -76,6 +102,7 @@ export async function exerciseInvoiceProgress(
     ],
     expected: ['23514', '23514'],
   });
+  await matrix.retainInvoice(invoiceA);
   await apply({
     kind: 'payments',
     claimId: token(c),
@@ -100,6 +127,7 @@ export async function exerciseInvoiceProgress(
     },
   });
   c = await claim();
+  await matrix.retainInvoice(invoiceB);
   await apply({
     kind: 'payments',
     claimId: token(c),
@@ -109,9 +137,14 @@ export async function exerciseInvoiceProgress(
     exhausted: true,
   });
   assert({
-    given: 'exhausted final invoice and all other completed lanes',
-    should: 'advance to deletion without dropping payment remainder',
-    actual: (await state()).kind,
-    expected: 'deleting',
+    given:
+      'exhausted final invoice while exact retained invoice/payment witnesses remain owed',
+    should:
+      'restart fair discovery without treating enumeration exhaustion as financial relief',
+    actual: [
+      (await state()).kind,
+      (await state()).kind === 'scanning' && 'turn' in (await state()),
+    ],
+    expected: ['scanning', true],
   });
 }

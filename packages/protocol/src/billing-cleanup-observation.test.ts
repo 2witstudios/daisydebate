@@ -12,8 +12,8 @@ setupRitewayBun();
 
 test('verified customer deletion cannot acknowledge an owed observation or missing current obligation facts', () => {
   let cleared = initial();
-  for (const time of [0, 2, 4, 6]) cleared = empty(cleared, time);
-  const value = claimed(cleared, 8);
+  for (const time of [0, 2, 4, 6, 8]) cleared = empty(cleared, time);
+  const value = claimed(cleared, 10);
   const event = {
     kind: 'deleted' as const,
     claimId: first,
@@ -31,7 +31,7 @@ test('verified customer deletion cannot acknowledge an owed observation or missi
     effects,
   ].map((facts) =>
     advanceCleanup(value, event, {
-      ...context(8.1),
+      ...context(10.1),
       ...(facts === undefined ? {} : { effects: facts }),
     }),
   );
@@ -45,7 +45,7 @@ test('verified customer deletion cannot acknowledge an owed observation or missi
       advanceCleanup(
         value,
         { ...event, kind: 'no-effects' },
-        { ...context(8.1), effects },
+        { ...context(10.1), effects },
       ).kind,
     ],
     expected: [['idle', 'idle', 'complete'], 'idle'],

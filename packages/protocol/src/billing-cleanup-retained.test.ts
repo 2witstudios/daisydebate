@@ -21,7 +21,8 @@ function selectedInvoice() {
   value = claimed(value, 4);
   value = changed(value, page(value, [owner.invoiceId, 'in_later']), 4.1);
   value = empty(value, 6);
-  return claimed(value, 8);
+  value = empty(value, 8);
+  return claimed(value, 10);
 }
 const witness = () =>
   billingPaymentObservationSchema.parse({
@@ -30,7 +31,7 @@ const witness = () =>
     state: { kind: 'owed', reason: 'enumeration_unavailable' },
   });
 const owned = () => ({
-  ...context(8.1),
+  ...context(10.1),
   observationOwner: { userId: owner.userId, closedAt: owner.closedAt },
 });
 
@@ -73,7 +74,7 @@ test('a retained owed invoice advances bounded discovery without pretending it w
           more: false,
           detail: { kind: 'invoice-payments', afterId: null },
         },
-        at(9.1),
+        at(11.1),
         null,
       ],
       { kind: 'owed', reason: 'enumeration_unavailable' },
@@ -90,7 +91,7 @@ test('missing/foreign observation ownership, stale claim and unmatched invoice c
       observation: witness(),
     };
   const attempts = [
-    advanceCleanup(value, event, context(8.1)),
+    advanceCleanup(value, event, context(10.1)),
     advanceCleanup(value, event, {
       ...owned(),
       observationOwner: { userId: 'x'.repeat(24), closedAt: owner.closedAt },
@@ -107,7 +108,7 @@ test('missing/foreign observation ownership, stale claim and unmatched invoice c
     ),
     advanceCleanup(
       value,
-      { ...event, observation: { ...witness(), observedAt: at(9) } },
+      { ...event, observation: { ...witness(), observedAt: at(11) } },
       owned(),
     ),
   ];

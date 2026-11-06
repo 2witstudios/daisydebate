@@ -8,6 +8,11 @@ import {
   type CleanupState,
 } from '@daisy/protocol/billing';
 import { sqlStateOf } from './constraint-helpers';
+import {
+  candidateEffects,
+  retainCandidateInvoice,
+  retainCandidateObservation,
+} from './billing-cleanup-witness.test-support';
 /** Mirrors runtime claim writes: claiming never rewrites microsecond queue times. */
 export function cleanupCandidate(tx: TransactionSQL, initialJobId: string) {
   let jobId = initialJobId;
@@ -34,16 +39,17 @@ export function cleanupCandidate(tx: TransactionSQL, initialJobId: string) {
   };
   const apply = async (event: CleanupEvent, short = false) => {
     const current = await state();
+    const [owner] =
+      await tx`select subject_ref,deleted_at from privacy_jobs join users on users.id=subject_ref where privacy_jobs.id=${jobId}`;
     const result = advanceCleanup(current, event, {
+      observationOwner: {
+        userId: owner!.subject_ref,
+        closedAt: owner!.deleted_at.toISOString(),
+      },
       now: await now(),
       jobId,
       closed: true,
-      effects: {
-        mappedCustomers: 0,
-        possiblePurchases: 0,
-        retainedFinancialRoutes: 0,
-        owedObservations: false,
-      },
+      effects: await candidateEffects(tx, jobId),
     });
     if (result.kind === 'idle')
       throw Error('Candidate matrix transition refused');
@@ -89,5 +95,9 @@ export function cleanupCandidate(tx: TransactionSQL, initialJobId: string) {
     token,
     probe,
     rotate,
+    retainObservation: (id: string) =>
+      retainCandidateObservation(tx, jobId, id),
+    retainInvoice: (invoiceId: string, paymentId?: string) =>
+      retainCandidateInvoice(tx, jobId, invoiceId, paymentId),
   };
 }

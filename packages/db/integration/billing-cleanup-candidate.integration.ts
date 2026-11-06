@@ -13,7 +13,7 @@ import { withBillingRefunds } from './billing-refunds.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261106004019_stripe_cleanup_observation_completion/migration.sql',
+  '../migrations/20261106015001_stripe_cleanup_five_lane/migration.sql',
   import.meta.url,
 );
 
@@ -29,6 +29,10 @@ test(
           await tx`select * from public.daisy_authorization_accounts_v2(array[${actorId}]::text[],null::text,true)`;
           const [original] =
             await tx`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
+          await tx`savepoint owned_failure_case`;
+          await exerciseFailureDeferral(cleanupCandidate(tx, original!.id));
+          await tx`rollback to savepoint owned_failure_case`;
+          await tx`release savepoint owned_failure_case`;
           const matrix = cleanupCandidate(tx, original!.id);
           const {
             read,
@@ -41,7 +45,6 @@ test(
             probe,
             rotate,
           } = matrix;
-          await exerciseFailureDeferral(matrix);
           let c = await claim();
           const first = await read();
           const codes = [
@@ -74,7 +77,7 @@ test(
             ids: [p1, p2],
             more: true,
           });
-          for (let lane = 0; lane < 3; lane++) {
+          for (let lane = 0; lane < 4; lane++) {
             c = await claim();
             await apply({
               kind: 'page',
@@ -233,7 +236,10 @@ test(
             expected: [1, 'subscriptions', { kind: 'idle' }, '23514', failed],
           });
           await rotate();
+          await tx`savepoint owned_invoice_case`;
           await exerciseInvoiceProgress(matrix);
+          await tx`rollback to savepoint owned_invoice_case`;
+          await tx`release savepoint owned_invoice_case`;
           await rotate();
           await tx`set local role none`;
           await tx`delete from billing_customers where user_id=${userId}`;

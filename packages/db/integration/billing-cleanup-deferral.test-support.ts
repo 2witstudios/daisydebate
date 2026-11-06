@@ -19,6 +19,14 @@ export async function exerciseFailureDeferral(
       more: false,
     });
   }
+  const observations = await claim();
+  await apply({
+    kind: 'page',
+    claimId: token(observations),
+    work: cleanupWork(observations)!,
+    ids: [],
+    more: false,
+  });
   const selected = await state();
   if (selected.kind !== 'scanning')
     throw Error('Expected selected deferral lanes');
@@ -67,24 +75,7 @@ export async function exerciseFailureDeferral(
     ],
     expected: [1, 'subscriptions', selected.scans, null],
   });
-  const visited: unknown[] = [];
-  for (let index = 0; index < 3; index++) {
-    const current = await claim(),
-      work = cleanupWork(current)!;
-    visited.push(work.kind === 'scan' && work.lane);
-    await apply(
-      work.kind === 'scan' && work.lane === 'invoices'
-        ? {
-            kind: 'payments',
-            claimId: token(current),
-            work,
-            beforeId: null,
-            afterId: null,
-            exhausted: true,
-          }
-        : { kind: 'resolved', claimId: token(current), work },
-    );
-  }
+  const visited = await finishKnownProducers(matrix);
   const next = await state();
   assert({
     given:
@@ -124,4 +115,35 @@ export async function exerciseFailureDeferral(
     expected: ['pending', 2, 'purchases', selected.scans.purchases],
   });
   await rotate();
+}
+
+async function finishKnownProducers(
+  matrix: ReturnType<typeof cleanupCandidate>,
+) {
+  const { claim, apply, token } = matrix;
+  const visited: unknown[] = [];
+  for (let index = 0; index < 3; index++) {
+    const current = await claim(),
+      work = cleanupWork(current)!;
+    visited.push(work.kind === 'scan' && work.lane);
+    if (
+      work.kind === 'scan' &&
+      work.lane === 'invoices' &&
+      work.scan.kind === 'selected'
+    )
+      await matrix.retainInvoice(work.scan.id);
+    await apply(
+      work.kind === 'scan' && work.lane === 'invoices'
+        ? {
+            kind: 'payments',
+            claimId: token(current),
+            work,
+            beforeId: null,
+            afterId: null,
+            exhausted: true,
+          }
+        : { kind: 'resolved', claimId: token(current), work },
+    );
+  }
+  return visited;
 }

@@ -16,19 +16,19 @@ test('a crashed selected-resource attempt replays its exact identity and rejects
   const ids = ['p'.repeat(24), 'q'.repeat(24)];
   let value = claimed(initial(), 0);
   value = changed(value, page(value, ids, true), 0.1);
-  for (const time of [2, 4, 6]) value = empty(value, time);
-  const old = claimed(value, 8),
+  for (const time of [2, 4, 6, 8]) value = empty(value, time);
+  const old = claimed(value, 10),
     work = cleanupWork(old)!;
-  const replacement = claimed(old, 38, second);
+  const replacement = claimed(old, 40, second);
   const stale = advanceCleanup(
     replacement,
     { kind: 'resolved', claimId: first, work },
-    context(38.1),
+    context(40.1),
   );
   const fresh = changed(
     replacement,
     { kind: 'resolved', claimId: second, work },
-    38.2,
+    40.2,
   );
   assert({
     given:

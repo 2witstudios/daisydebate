@@ -19,7 +19,7 @@ async function selectInvoice(input: Fixture) {
       throw Error('Missing current invoice retention claim');
     return { ...result, claimId: result.state.claim.id };
   };
-  for (let lane = 0; lane < 4; lane++) {
+  for (let lane = 0; lane < 5; lane++) {
     const current = await claim();
     await cleanup.record(jobId, {
       kind: 'page',

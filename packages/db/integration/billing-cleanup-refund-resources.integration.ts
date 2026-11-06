@@ -39,8 +39,8 @@ test('owned cleanup refund resources retain original money identity after the or
             throw Error('Missing resource claim');
           return { ...c, claimId: c.state.claim.id };
         };
-        const deferOthers = async () => {
-          for (let lane = 0; lane < 3; lane++) {
+        const deferOthers = async (count: number) => {
+          for (let lane = 0; lane < count; lane++) {
             const c = await claim(),
               [clock] = await fixture.sql`select clock_timestamp() as at`;
             await cleanup.record(jobId, {
@@ -51,7 +51,7 @@ test('owned cleanup refund resources retain original money identity after the or
             });
           }
         };
-        await deferOthers();
+        await deferOthers(3);
         let c = await claim();
         const page = await cleanup.resources(jobId, c.claimId, c.work);
         if (page.kind !== 'page') throw Error('Missing refund page');
@@ -62,7 +62,7 @@ test('owned cleanup refund resources retain original money identity after the or
           ids: page.ids,
           more: page.more,
         });
-        await deferOthers();
+        await deferOthers(4);
         c = await claim();
         const resource = await cleanup.resources(jobId, c.claimId, c.work);
         const stale = await cleanup.resources(jobId, createId(), c.work);

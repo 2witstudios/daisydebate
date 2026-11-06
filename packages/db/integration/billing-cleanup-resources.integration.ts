@@ -58,7 +58,7 @@ test('cleanup resource reads page only its closed sponsor and retain exact selec
           ids: page.ids,
           more: page.more,
         });
-        for (let lane = 0; lane < 3; lane++) {
+        for (let lane = 0; lane < 4; lane++) {
           c = await claim();
           const [clock] = await fixture.sql`select clock_timestamp() as at`;
           await cleanup.record(jobId, {
@@ -129,7 +129,7 @@ test('a selected foreign purchase cannot be read or handed to vendor execution e
           ids: [foreignId],
           more: false,
         });
-        for (let lane = 0; lane < 3; lane++) {
+        for (let lane = 0; lane < 4; lane++) {
           c = await claim();
           const [clock] = await fixture.sql`select clock_timestamp() as at`;
           await cleanup.record(jobId, {

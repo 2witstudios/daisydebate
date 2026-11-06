@@ -24,8 +24,12 @@ export function changed(
   value: CleanupState,
   event: CleanupEvent,
   seconds: number,
+  overrides: Partial<CleanupContext> = {},
 ) {
-  const next = advanceCleanup(value, event, context(seconds));
+  const next = advanceCleanup(value, event, {
+    ...context(seconds),
+    ...overrides,
+  });
   if (next.kind === 'idle') throw Error('Cleanup fixture refused');
   return next.state;
 }
@@ -46,5 +50,12 @@ export const page = (
 });
 export function empty(value: CleanupState, seconds: number) {
   const c = claimed(value, seconds);
-  return changed(c, page(c, []), seconds + 0.1);
+  return changed(c, page(c, []), seconds + 0.1, {
+    effects: {
+      mappedCustomers: 0,
+      possiblePurchases: 0,
+      retainedFinancialRoutes: 0,
+      owedObservations: false,
+    },
+  });
 }

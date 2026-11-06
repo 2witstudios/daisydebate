@@ -13,8 +13,14 @@ import {
 setupRitewayBun();
 function selectedLanes() {
   let value = initial();
-  const ids = ['p'.repeat(24), 'sub_known', 'in_known', 'r'.repeat(24)];
-  for (let index = 0; index < 4; index++) {
+  const ids = [
+    'p'.repeat(24),
+    'sub_known',
+    'in_known',
+    'r'.repeat(24),
+    'o'.repeat(24),
+  ];
+  for (let index = 0; index < 5; index++) {
     const c = claimed(value, index * 2);
     value = changed(c, page(c, [ids[index]!]), index * 2 + 0.1);
   }
@@ -27,8 +33,8 @@ test('repeated failed current attempts yield fairly while preserving every owed 
     turns: unknown[] = [],
     kinds: unknown[] = [];
   let stale: unknown;
-  for (let index = 0; index < 4; index++) {
-    const time = 8 + index * 2,
+  for (let index = 0; index < 5; index++) {
+    const time = 10 + index * 2,
       c = claimed(value, time);
     const event = {
       kind: 'failure' as const,
@@ -45,7 +51,7 @@ test('repeated failed current attempts yield fairly while preserving every owed 
   }
   assert({
     given:
-      'an uncertain purchase and three known selected financial resources, with four failed current attempts',
+      'an uncertain purchase and four known selected financial resources, with five failed current attempts',
     should:
       'visit every lane once while retaining all original cursors/identities, ordinary failure scheduling and stale refusal',
     actual: [
@@ -56,24 +62,24 @@ test('repeated failed current attempts yield fairly while preserving every owed 
       stale,
     ],
     expected: [
-      Array(4).fill('failure'),
-      ['subscriptions', 'invoices', 'refunds', 'purchases'],
+      Array(5).fill('failure'),
+      ['subscriptions', 'invoices', 'refunds', 'observations', 'purchases'],
       original,
-      at(16),
+      at(20),
       { kind: 'idle' },
     ],
   });
 });
 test('an unresolved purchase does not prevent other selected financial cleanup from progressing', () => {
   let value = selectedLanes();
-  const c = claimed(value, 8);
+  const c = claimed(value, 10);
   value = changed(
     c,
-    { kind: 'failure', claimId: first, work: cleanupWork(c)!, retryAt: at(10) },
-    8.1,
+    { kind: 'failure', claimId: first, work: cleanupWork(c)!, retryAt: at(12) },
+    10.1,
   );
   const visited: unknown[] = [];
-  for (const time of [10, 12, 14]) {
+  for (const time of [12, 14, 16]) {
     const current = claimed(value, time),
       work = cleanupWork(current)!;
     visited.push(work.kind === 'scan' && work.lane);
@@ -101,7 +107,7 @@ test('an unresolved purchase does not prevent other selected financial cleanup f
     actual: [visited, value.kind === 'scanning' && value.turn, scans],
     expected: [
       ['subscriptions', 'invoices', 'refunds'],
-      'purchases',
+      'observations',
       {
         purchases: {
           kind: 'selected',
@@ -114,6 +120,14 @@ test('an unresolved purchase does not prevent other selected financial cleanup f
         subscriptions: { kind: 'complete' },
         invoices: { kind: 'complete' },
         refunds: { kind: 'complete' },
+        observations: {
+          kind: 'selected',
+          id: 'o'.repeat(24),
+          rest: [],
+          lastId: 'o'.repeat(24),
+          more: false,
+          detail: { kind: 'resource' },
+        },
       },
     ],
   });

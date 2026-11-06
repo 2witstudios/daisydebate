@@ -357,8 +357,9 @@ claims/cursors. Production vendor-cleanup composition and genuine refund journey
 proof remain required before activation.
 
 Stripe cleanup execution belongs to nullable, Stripe-only `privacy_jobs.billing_cleanup`,
-not the customer mapping. Its pure state records one bounded scan lane, selected
-resource and retained page remainder, or deletion/acknowledgement. A new job ID
+not the customer mapping. Its pure state interleaves five bounded lanes: purchases,
+subscriptions, invoices, refunds and indexed retained observations. Each preserves
+its selected resource and page remainder, before deletion/acknowledgement. A new job ID
 atomically clears only execution state; durable purchases, refund actions,
 original keys and financial observations survive. Current service, canonical
 closed-account fence, exact job/claim/work and post-lock database time fence each
@@ -399,9 +400,26 @@ indexed discovery alternates with owed-record revisits, retaining every exact
 unknown without capped eviction. Exhaustion, disappearance, job rotation and
 customer deletion cannot clear owed observations. Completion checks their current
 obligations and linked money actions; shared charges never gain multiple refund
-keys. This is the same BILL15r1 scope and pending-owner policy. Observation storage
-and subject export retain their exact-source proof; atomic advancement, fair
-revisits and full runtime delivery remain implementation work.
+keys. Retaining or reusing unchanged owed facts while atomically consuming the
+exact selected remainder is genuine fixed-due progress. An unresolved read/action
+without that durable retention and cursor transition remains failure/backoff;
+replay is idle without accounting or due mutation. An exhausted pass with current
+owed observations restarts all traversal heads fairly, preserving every observation
+and original action. Missing current obligation facts cannot admit deletion.
+
+The four-to-five-lane forward execution transition runs under one transaction:
+an exact temporary transformation guard, the data update, then the final strict
+guard. Pending NULL execution gets five head pages; old scanning frames retain
+their original selections, remainders and cursors while adding observations.
+Old deletion demotes to real discovery. Claims retire without declaring possible
+vendor effects resolved or never dispatched. Job IDs, queue times, attempts and
+financial records remain unchanged; historical typed acknowledgements and succeeded
+NULL execution remain historical facts without an invented outcome. Old replies
+cannot consume the new execution. There is no trigger disable or runtime
+compatibility parser. This is the same BILL15r1 scope and pending-owner policy.
+Observation storage, exact-source export, retention and traversal guards have
+focused implementation proof; payment classification, new-fact atomic rearming
+and full runtime delivery remain implementation work.
 
 Retained observation routing, including classified pre-closure facts, defeats a
 no-vendor-effects acknowledgement. Verified customer deletion is a different

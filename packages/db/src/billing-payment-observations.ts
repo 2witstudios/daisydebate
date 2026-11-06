@@ -4,7 +4,7 @@ import {
   cleanupWorkSchema,
   ownsCleanupClaim,
   ownedInvoiceObservationSchema,
-  advanceCleanup,
+  retainPaymentObservationSource,
   type CleanupWork,
   type OwnedInvoiceObservation,
 } from '@daisy/protocol/billing';
@@ -13,9 +13,8 @@ import { lockCleanupJob, cleanupContext } from './billing-cleanup-authority';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
 import { paymentObservationFromRow } from './billing-payment-observation-record';
 import { retainInvoiceWitness } from './billing-invoice-observation';
-import { createAppError } from '@daisy/errors';
 import { cleanupFacts } from './billing-cleanup-authority';
-import { privacyJobs } from './schema/privacy-jobs';
+import { commitObservationProgress } from './billing-observation-progress';
 
 const refuse = { kind: 'refuse' } as const;
 /** Retained-resource reads and atomic progress share the existing privacy job's current authority. */
@@ -50,37 +49,68 @@ export function createBillingPaymentObservations(input: {
           },
           nextId: input.nextId,
         });
-        const currentFacts = await cleanupFacts(tx, locked.userId);
-        const context = await cleanupContext(tx, jobId, currentFacts.effects);
-        const transition = advanceCleanup(
-          locked.state,
+        return commitObservationProgress(tx, {
+          jobId,
+          userId: locked.userId,
+          closedAt: locked.closedAt,
+          state: locked.state,
+          event: { kind: 'retained', claimId, work: request.work, observation },
+        });
+      });
+    },
+    retainObservation(jobId: string, claimId: string, work: CleanupWork) {
+      return input.run(async (tx) => {
+        const parsed = cleanupWorkSchema.safeParse(work);
+        if (
+          !parsed.success ||
+          parsed.data.kind !== 'scan' ||
+          parsed.data.lane !== 'observations' ||
+          parsed.data.scan.kind !== 'selected'
+        )
+          return 'idle' as const;
+        const locked = await lockCleanupJob(tx, jobId);
+        if (!locked?.state) return 'idle' as const;
+        const [row] = await tx
+          .select()
+          .from(billingPaymentObservations)
+          .where(
+            and(
+              eq(billingPaymentObservations.userId, locked.userId),
+              eq(billingPaymentObservations.id, parsed.data.scan.id),
+            ),
+          )
+          .for('update');
+        if (!row) return 'idle' as const;
+        const context = await cleanupContext(tx, jobId, undefined);
+        if (!ownsCleanupClaim(locked.state, claimId, parsed.data, context))
+          return 'idle' as const;
+        const current = paymentObservationFromRow(row);
+        const retained = retainPaymentObservationSource(
+          current,
+          current.source,
           {
-            kind: 'retained',
-            claimId,
-            work: request.work,
-            observation,
-          },
-          {
-            ...context,
-            observationOwner: {
-              userId: locked.userId,
-              closedAt: locked.closedAt,
-            },
+            userId: locked.userId,
+            closedAt: locked.closedAt,
+            now: context.now,
           },
         );
-        if (
-          transition.kind !== 'progress' ||
-          transition.state.kind === 'acknowledged'
-        )
-          throw createAppError('CONFLICT');
+        if (retained.kind !== 'recorded') return 'idle' as const;
         await tx
-          .update(privacyJobs)
-          .set({
-            billingCleanup: transition.state,
-            retryAt: new Date(transition.state.retryAt),
-          })
-          .where(eq(privacyJobs.id, jobId));
-        return 'progress' as const;
+          .update(billingPaymentObservations)
+          .set({ observedAt: new Date(retained.observation.observedAt) })
+          .where(eq(billingPaymentObservations.id, current.id));
+        return commitObservationProgress(tx, {
+          jobId,
+          userId: locked.userId,
+          closedAt: locked.closedAt,
+          state: locked.state,
+          event: {
+            kind: 'retained',
+            claimId,
+            work: parsed.data,
+            observation: retained.observation,
+          },
+        });
       });
     },
     observations(

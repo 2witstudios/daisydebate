@@ -7,6 +7,7 @@ export const cleanupLanes = [
   'subscriptions',
   'invoices',
   'refunds',
+  'observations',
 ] as const;
 export type CleanupLane = (typeof cleanupLanes)[number];
 const instant = z.iso.datetime({ precision: 3 });
@@ -58,6 +59,7 @@ const laneScans = z.strictObject({
   subscriptions: cleanupScanSchema,
   invoices: cleanupScanSchema,
   refunds: cleanupScanSchema,
+  observations: cleanupScanSchema,
 });
 const state = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -84,7 +86,7 @@ export const cleanupBounds = {
 } as const;
 const at = Date.parse;
 function laneId(lane: CleanupLane, id: string) {
-  if (lane === 'purchases' || lane === 'refunds')
+  if (lane === 'purchases' || lane === 'refunds' || lane === 'observations')
     return idSchema.safeParse(id).success;
   return new RegExp(
     lane === 'subscriptions' ? '^sub_[A-Za-z0-9_]+$' : '^in_[A-Za-z0-9_]+$',
@@ -211,6 +213,7 @@ export function startCleanup(jobId: string, now: string): CleanupState | null {
       subscriptions: page,
       invoices: page,
       refunds: page,
+      observations: page,
     },
   };
 }

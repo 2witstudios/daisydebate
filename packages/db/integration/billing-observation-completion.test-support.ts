@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import type { CleanupWork } from '@daisy/protocol/billing';
 import { createDatabase } from '../src/index';
 import { requireTestServices } from '@daisy/config';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
@@ -93,6 +94,7 @@ async function prepareCompletion(input: Fixture) {
       more: false,
     });
   }
+  await retainCompletionObservation(cleanup, jobId, claim);
   const current = await claim();
   if (
     current.work.kind !== 'delete' ||
@@ -138,4 +140,38 @@ export async function withObservationCompletion(
         .sql`delete from billing_refund_actions where user_id=${input.subject.userId}`;
     }
   });
+}
+
+async function retainCompletionObservation(
+  cleanup: Fixture['cleanup'],
+  jobId: string,
+  claim: () => Promise<{
+    readonly claimId: string;
+    readonly work: CleanupWork;
+  }>,
+) {
+  const observationPage = await claim();
+  const rows = await cleanup.observations(
+    jobId,
+    observationPage.claimId,
+    observationPage.work,
+    null,
+  );
+  if (rows.kind !== 'observations')
+    throw Error('Missing current observation page');
+  await cleanup.record(jobId, {
+    kind: 'page',
+    claimId: observationPage.claimId,
+    work: observationPage.work,
+    ids: rows.observations.map((row) => row.id),
+    more: rows.more,
+  });
+  const selectedObservation = await claim();
+  const retained = await cleanup.retainObservation(
+    jobId,
+    selectedObservation.claimId,
+    selectedObservation.work,
+  );
+  if (retained !== 'progress')
+    throw Error('Missing current settled observation retention');
 }

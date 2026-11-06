@@ -12,7 +12,7 @@ import { seedObservedMoney } from './billing-payment-observation-money.test-supp
 requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261106004019_stripe_cleanup_observation_completion/migration.sql',
+  '../migrations/20261106015001_stripe_cleanup_five_lane/migration.sql',
   import.meta.url,
 );
 
@@ -127,6 +127,22 @@ test(
             });
             claim = await matrix.claim();
           }
+          await matrix.apply({
+            kind: 'page',
+            claimId: matrix.token(claim),
+            work: cleanupWork(claim)!,
+            ids: [id],
+            more: false,
+          });
+          claim = await matrix.claim();
+          const retained = await matrix.retainObservation(id);
+          await matrix.apply({
+            kind: 'retained',
+            claimId: matrix.token(claim),
+            work: cleanupWork(claim)!,
+            observation: retained,
+          });
+          claim = await matrix.claim();
           const seeded = await seedObservedMoney({
             tx,
             userId: subject.userId,

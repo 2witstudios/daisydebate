@@ -1,18 +1,15 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import { currentPaymentObservation } from './billing-payment-observation';
+import { advanceCleanupScan, nextTurn } from './billing-cleanup-scans';
 import {
   billingCleanupSchema,
   cleanupBounds,
-  cleanupLanes,
   cleanupWork,
   cleanupWorkSchema,
   currentCleanup,
   type CleanupWork,
   type CleanupContext,
   type CleanupEvent,
-  type CleanupLane,
-  type CleanupScan,
   type CleanupState,
 } from './billing-cleanup';
 const idle = { kind: 'idle' } as const;
@@ -65,115 +62,6 @@ function claim(value: Active, claimId: string, now: string): CleanupTransition {
       expiresAt: new Date(at(now) + cleanupBounds.claimMs).toISOString(),
     },
   });
-}
-function nextTurn(
-  turn: CleanupLane,
-  scans: Extract<CleanupState, { kind: 'scanning' }>['scans'],
-) {
-  const index = cleanupLanes.indexOf(turn);
-  for (let offset = 1; offset <= cleanupLanes.length; offset++) {
-    const lane = cleanupLanes[(index + offset) % cleanupLanes.length]!;
-    if (scans[lane].kind !== 'complete') return lane;
-  }
-  return null;
-}
-function progressed(
-  value: Extract<CleanupState, { kind: 'scanning' }>,
-  scan: CleanupScan,
-  now: string,
-) {
-  const scans = { ...value.scans, [value.turn]: scan };
-  const turn = nextTurn(value.turn, scans);
-  const retryAt = new Date(at(now) + cleanupBounds.progressMs).toISOString();
-  return result(
-    'progress',
-    turn
-      ? { ...value, scans, turn, retryAt, claim: null }
-      : { kind: 'deleting', jobId: value.jobId, retryAt, claim: null },
-  );
-}
-function selected(
-  id: string,
-  rest: string[],
-  lastId: string,
-  more: boolean,
-  lane: CleanupLane,
-): CleanupScan {
-  return {
-    kind: 'selected',
-    id,
-    rest,
-    lastId,
-    more,
-    detail:
-      lane === 'invoices'
-        ? { kind: 'invoice-payments', afterId: null }
-        : { kind: 'resource' },
-  };
-}
-function validPage(
-  event: Extract<CleanupEvent, { kind: 'page' }>,
-  afterId: string | null,
-) {
-  return (
-    Array.isArray(event.ids) &&
-    event.ids.length <= cleanupBounds.maxPage &&
-    typeof event.more === 'boolean' &&
-    new Set(event.ids).size === event.ids.length &&
-    !event.ids.includes(afterId ?? '') &&
-    !(event.ids.length === 0 && event.more)
-  );
-}
-function page(
-  value: Extract<CleanupState, { kind: 'scanning' }>,
-  event: Extract<CleanupEvent, { kind: 'page' }>,
-  now: string,
-) {
-  const before = value.scans[value.turn];
-  if (before.kind !== 'page' || !validPage(event, before.afterId)) return idle;
-  const [first, ...rest] = event.ids;
-  const scan: CleanupScan =
-    first === undefined
-      ? { kind: 'complete' }
-      : selected(first, rest, event.ids.at(-1)!, event.more, value.turn);
-  return progressed(value, scan, now);
-}
-function advanceSelected(
-  value: Extract<CleanupState, { kind: 'scanning' }>,
-  now: string,
-) {
-  const before = value.scans[value.turn];
-  if (before.kind !== 'selected') return idle;
-  const [first, ...rest] = before.rest;
-  const scan: CleanupScan =
-    first !== undefined
-      ? selected(first, rest, before.lastId, before.more, value.turn)
-      : before.more
-        ? { kind: 'page', afterId: before.lastId }
-        : { kind: 'complete' };
-  return progressed(value, scan, now);
-}
-function payments(
-  value: Extract<CleanupState, { kind: 'scanning' }>,
-  event: Extract<CleanupEvent, { kind: 'payments' }>,
-  now: string,
-) {
-  const before = value.scans[value.turn];
-  if (
-    value.turn !== 'invoices' ||
-    before.kind !== 'selected' ||
-    before.detail.kind !== 'invoice-payments' ||
-    before.detail.afterId !== event.beforeId
-  )
-    return idle;
-  if (event.exhausted)
-    return event.afterId === null ? advanceSelected(value, now) : idle;
-  if (event.afterId === null || event.afterId === event.beforeId) return idle;
-  return progressed(
-    value,
-    { ...before, detail: { kind: 'invoice-payments', afterId: event.afterId } },
-    now,
-  );
 }
 function failure(value: Active, retryAt: string, now: string) {
   if (
@@ -233,7 +121,8 @@ export function advanceCleanup(
   if (event.kind === 'deleted' || event.kind === 'no-effects')
     return terminal(value, event, context);
   if (value.kind !== 'scanning') return idle;
-  return advanceScanning(value, event, context);
+  const next = advanceCleanupScan(value, event, context);
+  return next ? result('progress', next) : idle;
 }
 function terminal(
   value: Active,
@@ -248,50 +137,4 @@ function terminal(
   return noEffects(context)
     ? completed(value.jobId, context.now, 'no-vendor-effects')
     : idle;
-}
-function advanceScanning(
-  value: Extract<CleanupState, { kind: 'scanning' }>,
-  event: Extract<
-    CleanupEvent,
-    { kind: 'page' | 'payments' | 'resolved' | 'retained' }
-  >,
-  context: CleanupContext,
-): CleanupTransition {
-  switch (event.kind) {
-    case 'page':
-      return page(value, event, context.now);
-    case 'payments':
-      return payments(value, event, context.now);
-    case 'resolved':
-      return value.turn === 'invoices'
-        ? idle
-        : advanceSelected(value, context.now);
-    case 'retained':
-      return retained(value, event, context);
-  }
-}
-
-function retained(
-  value: Extract<CleanupState, { kind: 'scanning' }>,
-  event: Extract<CleanupEvent, { kind: 'retained' }>,
-  context: CleanupContext,
-) {
-  const owner = context.observationOwner;
-  const scan = value.scans[value.turn];
-  if (
-    !owner ||
-    !currentPaymentObservation(event.observation, {
-      ...owner,
-      now: context.now,
-    })
-  )
-    return idle;
-  if (
-    value.turn !== 'invoices' ||
-    scan.kind !== 'selected' ||
-    event.observation.kind !== 'invoice' ||
-    event.observation.invoiceId !== scan.id
-  )
-    return idle;
-  return advanceSelected(value, context.now);
 }

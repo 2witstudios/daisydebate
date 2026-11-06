@@ -29,20 +29,21 @@ test('bounded cleanup interleaves lanes and durably retains selected page remain
   value = claimed(value, 4);
   value = changed(value, page(value, ['in_original'], true), 4.1);
   value = empty(value, 6);
-  value = claimed(value, 8);
-  value = changed(
-    value,
-    { kind: 'resolved', claimId: first, work: cleanupWork(value)! },
-    8.1,
-  );
-  const remaining = value.kind === 'scanning' ? value.scans.purchases : null;
+  value = empty(value, 8);
   value = claimed(value, 10);
   value = changed(
     value,
     { kind: 'resolved', claimId: first, work: cleanupWork(value)! },
     10.1,
   );
+  const remaining = value.kind === 'scanning' ? value.scans.purchases : null;
   value = claimed(value, 12);
+  value = changed(
+    value,
+    { kind: 'resolved', claimId: first, work: cleanupWork(value)! },
+    12.1,
+  );
+  value = claimed(value, 14);
   value = changed(
     value,
     {
@@ -53,7 +54,7 @@ test('bounded cleanup interleaves lanes and durably retains selected page remain
       afterId: 'inpay_cursor',
       exhausted: false,
     },
-    12.1,
+    14.1,
   );
   assert({
     given:
@@ -179,13 +180,13 @@ test('empty scans do not erase unresolved work and only verified deletion can ac
     context(2.1),
   );
   let clear = initial();
-  for (const time of [0, 2, 4, 6]) clear = empty(clear, time);
-  const deletion = claimed(clear, 8);
+  for (const time of [0, 2, 4, 6, 8]) clear = empty(clear, time);
+  const deletion = claimed(clear, 10);
   const complete = advanceCleanup(
     deletion,
     { kind: 'deleted', claimId: first, work: cleanupWork(deletion)! },
     {
-      ...context(8.1),
+      ...context(10.1),
       effects: {
         mappedCustomers: 0,
         possiblePurchases: 0,
@@ -208,7 +209,7 @@ test('empty scans do not erase unresolved work and only verified deletion can ac
         advanceCleanup(
           complete.state,
           { kind: 'claim', claimId: second },
-          context(9),
+          context(11),
         ),
     ],
     expected: [
