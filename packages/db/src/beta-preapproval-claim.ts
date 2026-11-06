@@ -41,7 +41,7 @@ export async function claimBetaPreapproval(
   )
     return false;
   const [grant] = (await tx.execute(
-    sql`update beta_preapprovals set claimed_by = ${userId}, claimed_at = now(), revision = revision + 1 where email = ${email} and claimed_by is null returning id`,
+    sql`update beta_preapprovals set claimed_user_id = ${userId}, claimed_at = now(), revision = revision + 1 where email = ${email} and claimed_user_id is null returning id`,
   )) as unknown as { id: string }[];
   if (!grant) return false;
   await tx.execute(

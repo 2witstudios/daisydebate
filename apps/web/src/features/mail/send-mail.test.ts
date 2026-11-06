@@ -1,3 +1,4 @@
+import { createResendSender } from './resend-sender';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
@@ -111,5 +112,51 @@ describe('createSendMail', () => {
         },
       ],
     });
+  });
+});
+
+test('an invitation deadline is checked after a delayed suppression lookup', async () => {
+  const deadline = Date.parse('2026-11-06T00:00:01.000Z');
+  let now = deadline - 1;
+  let calls = 0;
+  const { logger } = createEventRecorder();
+  const send = createSendMail({
+    recipientSubkey: 'k'.repeat(64),
+    clock: fixedClock('2026-11-06T00:00:00.000Z'),
+    logger,
+    ledger: {
+      isSuppressed: async () => {
+        now = deadline + 1;
+        return false;
+      },
+      record: async () => {},
+    },
+    emailSender: createResendSender({
+      apiKey: 'test',
+      from: 'test@example.test',
+      ids: { next: () => 'intent' },
+      nowMs: () => now,
+      fetch: async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ id: 'sent' }));
+      },
+    }),
+  });
+  await assertRejects({
+    given: 'a suppression lookup that resumes after the invitation deadline',
+    should: 'refuse before reaching the provider',
+    code: 'INFRASTRUCTURE',
+    actual: () =>
+      send('beta-access')({
+        ...message,
+        idempotencyKey: 'intent',
+        sendBefore: new Date(deadline).toISOString(),
+      }),
+  });
+  assert({
+    given: 'the expired invitation after suppression was checked',
+    should: 'make no HTTP request',
+    actual: calls,
+    expected: 0,
   });
 });

@@ -70,6 +70,7 @@ export function createResendSender({
   fetch: fetchImpl = fetch,
   timeoutMs = 10_000,
   elapsed = () => performance.now(),
+  nowMs,
 }: {
   readonly apiKey: string;
   readonly from: string;
@@ -77,12 +78,18 @@ export function createResendSender({
   readonly fetch?: Fetch;
   readonly timeoutMs?: number;
   readonly elapsed?: () => number;
+  readonly nowMs: () => number;
 }): EmailSender {
   const attempt = async (
     message: EmailMessage,
     idempotencyKey: string,
     budgetMs: number,
   ) => {
+    if (
+      message.sendBefore !== undefined &&
+      nowMs() >= Date.parse(message.sendBefore)
+    )
+      throw new DeliveryError(false, 408);
     let response: Response;
     try {
       response = await fetchImpl(ENDPOINT, {

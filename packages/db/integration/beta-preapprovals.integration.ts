@@ -70,7 +70,7 @@ const access = async (f: Fixture, userId: string) => {
 };
 const grant = async (f: Fixture, id: string) => {
   const [row] =
-    await f.sql`select claimed_by, revision from beta_preapprovals where id = ${id}`;
+    await f.sql`select claimed_user_id, revision from beta_preapprovals where id = ${id}`;
   return row;
 };
 
@@ -99,7 +99,7 @@ describe('beta email grants through participant operations', () => {
           actual: [
             results.every((r) => r.preapprovalId === id),
             await access(f, account.userId),
-            (await grant(f, id)).claimed_by,
+            (await grant(f, id)).claimed_user_id,
             count.count,
             approvalMail.count,
           ],
@@ -159,7 +159,7 @@ describe('beta email grants through participant operations', () => {
           should: 'claim the grant once without invitation or approval mail',
           actual: [
             await access(f, userId),
-            (await grant(f, saved.preapprovalId)).claimed_by,
+            (await grant(f, saved.preapprovalId)).claimed_user_id,
           ],
           expected: ['approved', userId],
         });
@@ -183,7 +183,7 @@ describe('beta email grants through participant operations', () => {
           should: 'leave its grant unclaimed',
           actual: [
             await access(f, account.userId),
-            (await grant(f, result.preapprovalId)).claimed_by,
+            (await grant(f, result.preapprovalId)).claimed_user_id,
           ],
           expected: ['pending', null],
         });
@@ -293,7 +293,9 @@ test('two verified accounts racing one grant can consume it only once', async ()
           'grant approval to exactly one account and retain its one-time claim',
         actual: [
           states.sort(),
-          userIds.includes((await grant(f, saved.preapprovalId)).claimed_by),
+          userIds.includes(
+            (await grant(f, saved.preapprovalId)).claimed_user_id,
+          ),
         ],
         expected: [['approved', 'pending'], true],
       });
@@ -345,7 +347,7 @@ test('signup and removal serialize without an orphaned approval', async () => {
             current === undefined &&
             state === 'pending') ||
             (removal.status === 'rejected' &&
-              current?.claimed_by === userId &&
+              current?.claimed_user_id === userId &&
               state === 'approved')),
         expected: true,
       });
@@ -431,7 +433,7 @@ test('unverified, mismatched and moderated identities cannot consume a grant', a
         const saved = await db.runPreapprovalCommand(inputFor(add(email)));
         outcomes.push([
           await access(f, account.userId),
-          (await grant(f, saved.preapprovalId)).claimed_by,
+          (await grant(f, saved.preapprovalId)).claimed_user_id,
         ]);
       }
       assert({
@@ -553,7 +555,7 @@ test('an account committed between discovery and the email fence is approved by 
           'restart account-first and approve it before committing the grant',
         actual: [
           await access(f, userId),
-          (await grant(f, result.preapprovalId)).claimed_by,
+          (await grant(f, result.preapprovalId)).claimed_user_id,
         ],
         expected: ['approved', userId],
       });
@@ -880,6 +882,70 @@ test('a claimed invitation stops being owed when its verified email changes', as
           'cancel the old-address invitation and refuse resend while preserving account approval',
         actual: [delivery.kind, refused, await access(f, account.userId)],
         expected: ['not-owed', true, 'approved'],
+      });
+    } finally {
+      await db.close();
+    }
+  });
+});
+
+test('long-outage invitation recovery preserves the grant and never assumes an expired provider key is safe', async () => {
+  await withFixture(url, async (f) => {
+    const db = trackedDatabase(f, { url, nextActorId: createId });
+    try {
+      const command = add(`${createId()}@example.test`, true);
+      const saved = await db.runPreapprovalCommand(inputFor(command));
+      const claims = await db.claimMailIntents({
+        limit: 50,
+        leaseMs: 60000,
+        nextToken: () => `${createId()}${createId()}`,
+      });
+      const [intent] =
+        await f.sql`select id from mail_intents where preapproval_id = ${saved.preapprovalId}`;
+      const first = claims.find((item) => item.id === intent.id)!;
+      await f.sql`update mail_intents set created_at = now() - interval '2 days', lease_expires_at = now() - interval '1 minute' where id = ${first.id}`;
+      const retry = (
+        await db.claimMailIntents({
+          limit: 50,
+          leaseMs: 60000,
+          nextToken: () => `${createId()}${createId()}`,
+        })
+      ).find((item) => item.id === first.id)!;
+      const delivery = await db.readMailIntentDelivery(retry.id);
+      await db.settleMailIntent({
+        id: retry.id,
+        token: retry.token,
+        outcome: { kind: 'failed', errorCode: 'delivery-unknown' },
+      });
+      const result = await db.readOperatorCommand({
+        commandId: command.commandId,
+        serviceId: 'daisy-admin',
+      });
+      const resent = await db.runPreapprovalCommand(
+        inputFor({
+          v: 1,
+          commandId: createId(),
+          adminAuditHead: 'a'.repeat(64),
+          operation: 'invite',
+          preapprovalId: saved.preapprovalId,
+          expectedRevision: saved.revision,
+        }),
+      );
+      assert({
+        given:
+          'a worker lease recovered after two days, beyond provider idempotency retention',
+        should:
+          'expose an elapsed send deadline and unknown outcome while the unused grant remains valid for explicit fresh resend',
+        actual: [
+          delivery.kind === 'invitation' &&
+            Date.parse(delivery.sendBefore) < new Date().getTime(),
+          result?.action === 'beta.preapproval.update'
+            ? result.mailState
+            : null,
+          (await grant(f, saved.preapprovalId)).claimed_user_id,
+          resent.mail,
+        ],
+        expected: [true, 'unknown', null, 'queued'],
       });
     } finally {
       await db.close();

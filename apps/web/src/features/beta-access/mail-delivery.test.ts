@@ -245,6 +245,7 @@ test('invitation exhaustion distinguishes definitive rejection from uncertain pr
   for (const response of ['lost', 'rejected', 'malformed-success'] as const) {
     const sender = createResendSender({
       apiKey: 'test-key',
+      nowMs: () => Date.parse('2026-11-06T00:00:00.000Z'),
       from: 'test@example.test',
       ids: { next: () => 'id' },
       fetch: async () => {
@@ -256,7 +257,11 @@ test('invitation exhaustion distinguishes definitive rejection from uncertain pr
     });
     const { delivery, settled } = scripted({
       purpose: 'beta-invitation',
-      delivery: { kind: 'invitation', to: 'invitee@example.test' },
+      delivery: {
+        kind: 'invitation',
+        to: 'invitee@example.test',
+        sendBefore: '2099-01-01T00:00:00.000Z',
+      },
       attempts: MAIL_INTENT_MAX_ATTEMPTS,
       deliver: async (message) => {
         await sender.send(message);
@@ -276,5 +281,25 @@ test('invitation exhaustion distinguishes definitive rejection from uncertain pr
       { kind: 'failed', errorCode: 'delivery' },
       { kind: 'failed', errorCode: 'delivery-unknown' },
     ],
+  });
+});
+
+test('an invitation outside its provider idempotency window stays unknown without another send', async () => {
+  const { delivery, sent, settled } = scripted({
+    purpose: 'beta-invitation',
+    delivery: {
+      kind: 'invitation',
+      to: 'invitee@example.test',
+      sendBefore: '2026-10-25T23:00:00.000Z',
+    },
+    attempts: 2,
+  });
+  await delivery.run(1);
+  assert({
+    given: 'an invitation resumed after its bounded send window',
+    should:
+      'make no provider call and retain unknown delivery while leaving preapproval alone',
+    actual: [sent.length, settled.map(({ outcome }) => outcome)],
+    expected: [0, [{ kind: 'failed', errorCode: 'delivery-unknown' }]],
   });
 });

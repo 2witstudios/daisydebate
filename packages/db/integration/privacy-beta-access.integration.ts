@@ -28,7 +28,7 @@ test('erasure removes beta state and owed mail; export carries the beta fields',
       [createId(), userId, `beta-approved:${createId()}`],
     );
     const grantId = createId();
-    await client`insert into beta_preapprovals (id, email, claimed_by, claimed_at) select ${grantId}, email, id, now() from users where id = ${userId}`;
+    await client`insert into beta_preapprovals (id, email, claimed_user_id, claimed_at) select ${grantId}, email, id, now() from users where id = ${userId}`;
     await client`insert into mail_intents (id, purpose, preapproval_id, dedupe_key, next_attempt_at) values (${createId()}, 'beta-invitation', ${grantId}, ${`beta-invitation:${createId()}`}, now())`;
     const exported = await exportThenErase(
       database,
@@ -52,7 +52,7 @@ test('erasure removes beta state and owed mail; export carries the beta fields',
         access: await count('account_beta_access', 'user_id'),
         mail: await count('mail_intents', 'recipient_user_id'),
         preapprovalExported: exported.beta_preapprovals?.[0]?.id === grantId,
-        preapprovals: await count('beta_preapprovals', 'claimed_by'),
+        preapprovals: await count('beta_preapprovals', 'claimed_user_id'),
         audit: await count('account_access_events', 'user_id'),
       },
       expected: {

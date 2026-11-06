@@ -39,6 +39,11 @@ export function createMailIntentDelivery(input: {
     const delivery = await input.store.readMailIntentDelivery(claim.id);
     if (delivery.kind === 'recipient-gone' || delivery.kind === 'not-owed')
       return { kind: 'cancelled', errorCode: delivery.kind };
+    if (
+      delivery.kind === 'invitation' &&
+      Date.parse(input.now()) >= Date.parse(delivery.sendBefore)
+    )
+      return { kind: 'failed', errorCode: 'delivery-unknown' };
     if (delivery.kind === 'owner-digest' && !input.ownerAddress)
       return { kind: 'cancelled', errorCode: 'unconfigured' };
     const [to, rendered] =
@@ -73,6 +78,9 @@ export function createMailIntentDelivery(input: {
         ...rendered,
         to,
         idempotencyKey: claim.id,
+        ...(delivery.kind === 'invitation'
+          ? { sendBefore: delivery.sendBefore }
+          : {}),
       });
       return sent === 'sent'
         ? { kind: 'sent' }

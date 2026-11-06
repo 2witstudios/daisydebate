@@ -63,7 +63,7 @@ export function preapprovalOperations({
         throw createAppError('VALIDATION');
       const rows = await database.execute(sql`select p.id, p.email, p.revision,
         to_char(p.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "createdAt",
-        case when p.claimed_by is null then 'unused' else 'claimed' end as status,
+        case when p.claimed_user_id is null then 'unused' else 'claimed' end as status,
         case when m.state is null and p.last_invited_at is not null then 'unknown' else ${invitationStatusSql} end as invitation
         from beta_preapprovals p left join lateral (select state, attempts, last_error_code from mail_intents where preapproval_id = p.id order by created_at desc, id desc limit 1) m on true
         where ${input.cursor ? sql`p.id < ${input.cursor}` : sql`true`}
@@ -138,19 +138,19 @@ export function preapprovalOperations({
               });
           }
           const [grant] = (await tx.execute(
-            sql`select id, revision, claimed_by, last_invited_at from beta_preapprovals where email = ${email} for update`,
+            sql`select id, revision, claimed_user_id, last_invited_at from beta_preapprovals where email = ${email} for update`,
           )) as unknown as {
             id: string;
             revision: number;
-            claimed_by: string | null;
+            claimed_user_id: string | null;
             last_invited_at: Date | null;
           }[];
-          const account = grant?.claimed_by
-            ? await loadAuthorizationAccount(tx, grant.claimed_by)
+          const account = grant?.claimed_user_id
+            ? await loadAuthorizationAccount(tx, grant.claimed_user_id)
             : null;
-          const [identity] = grant?.claimed_by
+          const [identity] = grant?.claimed_user_id
             ? ((await tx.execute(
-                sql`select email, email_verified from users where id = ${grant.claimed_by}`,
+                sql`select email, email_verified from users where id = ${grant.claimed_user_id}`,
               )) as unknown as {
                 email: string | null;
                 email_verified: boolean;
@@ -167,7 +167,7 @@ export function preapprovalOperations({
               ? {
                   id: grant.id,
                   revision: grant.revision,
-                  claimed: grant.claimed_by !== null,
+                  claimed: grant.claimed_user_id !== null,
                   invited: grant.last_invited_at !== null,
                 }
               : null,

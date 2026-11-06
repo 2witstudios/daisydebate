@@ -15,14 +15,14 @@ export async function eraseBetaPreapprovals(
   )) as unknown as { email: string | null }[];
   const email = user?.email ? normalizeEmail(user.email) : null;
   const owned = (await tx.execute(
-    sql`select email from beta_preapprovals where claimed_by = ${userId}`,
+    sql`select email from beta_preapprovals where claimed_user_id = ${userId}`,
   )) as unknown as { email: string }[];
   const emails = [
     ...new Set([...owned.map((row) => row.email), ...(email ? [email] : [])]),
   ].sort();
   for (const address of emails) await lockPreapprovalEmail(tx, address);
   const grants = (await tx.execute(
-    sql`select id from beta_preapprovals where claimed_by = ${userId} or (claimed_by is null and email = ${email}) order by email for update`,
+    sql`select id from beta_preapprovals where claimed_user_id = ${userId} or (claimed_user_id is null and email = ${email}) order by email for update`,
   )) as unknown as { id: string }[];
   for (const grant of grants) {
     await tx.execute(

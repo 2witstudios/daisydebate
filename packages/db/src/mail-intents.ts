@@ -25,7 +25,11 @@ export type MailIntentClaim = {
 
 /** What a claimed intent should say right now; read fresh at send time. */
 export type MailIntentDelivery =
-  | { readonly kind: 'invitation'; readonly to: string }
+  | {
+      readonly kind: 'invitation';
+      readonly to: string;
+      readonly sendBefore: string;
+    }
   | {
       readonly kind: 'member';
       readonly to: string;
@@ -135,9 +139,11 @@ export function mailIntentOperations({
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
         // A digest counts its own window, which retries never move.
         const [intent] =
-          (await database.execute(sql`select purpose, recipient_user_id, preapproval_id, state, window_start
+          (await database.execute(sql`select purpose, recipient_user_id, preapproval_id, state, window_start,
+            to_char((created_at + interval '23 hours') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as invitation_deadline
           from mail_intents where id = ${id}`)) as unknown as {
             purpose: string;
+            invitation_deadline: string;
             state: string;
             preapproval_id: string | null;
             recipient_user_id: string | null;
@@ -147,18 +153,18 @@ export function mailIntentOperations({
         if (intent.purpose === 'beta-invitation') {
           if (intent.state !== 'leased') return { kind: 'not-owed' };
           const [grant] =
-            (await database.execute(sql`select p.email, p.claimed_by from beta_preapprovals p
-            left join users u on u.id = p.claimed_by
-            left join account_beta_access b on b.user_id = p.claimed_by
-            where p.id = ${intent.preapproval_id} and (p.claimed_by is null or (u.deleted_at is null and u.email_verified and ${normalizedEmailSql(sql`u.email`)} = p.email and b.state = 'approved'))`)) as unknown as {
+            (await database.execute(sql`select p.email, p.claimed_user_id from beta_preapprovals p
+            left join users u on u.id = p.claimed_user_id
+            left join account_beta_access b on b.user_id = p.claimed_user_id
+            where p.id = ${intent.preapproval_id} and (p.claimed_user_id is null or (u.deleted_at is null and u.email_verified and ${normalizedEmailSql(sql`u.email`)} = p.email and b.state = 'approved'))`)) as unknown as {
               email: string;
-              claimed_by: string | null;
+              claimed_user_id: string | null;
             }[];
           if (!grant) return { kind: 'not-owed' };
-          if (grant.claimed_by) {
+          if (grant.claimed_user_id) {
             const account = await loadAuthorizationAccount(
               database,
-              grant.claimed_by,
+              grant.claimed_user_id,
             );
             if (
               !account ||
@@ -185,7 +191,11 @@ export function mailIntentOperations({
             )
               return { kind: 'not-owed' };
           }
-          return { kind: 'invitation', to: grant.email };
+          return {
+            kind: 'invitation',
+            to: grant.email,
+            sendBefore: intent.invitation_deadline,
+          };
         }
         if (intent.purpose === 'beta-approved') {
           const [row] =

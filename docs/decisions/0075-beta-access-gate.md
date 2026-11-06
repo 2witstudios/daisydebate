@@ -300,3 +300,10 @@ A claimed grant's queued invitation and resend also require the account's
 current verified email to still match, its age to remain eligible and its
 moderation state to permit access. Changing email never transfers the old
 grant or revokes the account, but cancels mail to the obsolete address.
+
+Invitation sends stop 23 hours after intent creation, conservatively inside
+[Resend's documented 24-hour idempotency window](https://resend.com/docs/dashboard/emails/idempotency-keys).
+The worker and transport both check the internal deadline (including transport
+retries and after suppression lookup), so a process resuming after a long
+outage cannot reuse an expired key and duplicate mail. It records unknown and
+leaves the preapproval valid. An owner can explicitly resend using a new intent.

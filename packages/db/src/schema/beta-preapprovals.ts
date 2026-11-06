@@ -8,7 +8,7 @@ export const betaPreapprovals = pgTable(
     id: text('id').primaryKey(),
     email: text('email').notNull().unique(),
     revision: integer('revision').notNull().default(1),
-    claimedBy: text('claimed_by').references(() => users.id, {
+    claimedUserId: text('claimed_user_id').references(() => users.id, {
       onDelete: 'cascade',
     }),
     claimedAt: timestampColumn('claimed_at'),
@@ -23,8 +23,8 @@ export const betaPreapprovals = pgTable(
     check('beta_preapprovals_revision_positive', sql`${t.revision} > 0`),
     check(
       'beta_preapprovals_claim_check',
-      sql`(${t.claimedBy} is null) = (${t.claimedAt} is null)`,
+      sql`(${t.claimedUserId} is null) = (${t.claimedAt} is null)`,
     ),
-    index('beta_preapprovals_claimed_idx').on(t.claimedBy),
+    index('beta_preapprovals_claimed_idx').on(t.claimedUserId),
   ],
 );
