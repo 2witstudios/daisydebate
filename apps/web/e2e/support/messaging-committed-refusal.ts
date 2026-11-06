@@ -19,6 +19,9 @@ export function committedRefusalState(
     ownerRefMounted: false,
     rootDepthLimited: false,
     traversalLimited: false,
+    ancestorCycleDetected: false,
+    currentTreeCycleDetected: false,
+    hostRootFound: false,
     transitionCategory: 'unobserved' as
       | 'unobserved'
       | 'false'
@@ -131,6 +134,7 @@ export function committedRefusalState(
       : 'transition-not-settled';
   };
   type Fiber = {
+    readonly tag?: number;
     readonly memoizedState?: Hook;
     readonly memoizedProps?: {
       readonly requestId?: unknown;
@@ -148,42 +152,81 @@ export function committedRefusalState(
     key === undefined
       ? undefined
       : (element as unknown as Record<string, Fiber>)[key];
-  for (let depth = 0; root?.return && depth < 100; depth += 1)
-    root = root.return;
   diagnostic.attachedFiber = key !== undefined;
-  diagnostic.rootDepthLimited = Boolean(root?.return);
-  const current = (root?.stateNode as { readonly current?: Fiber } | undefined)
-    ?.current;
   if (!diagnostic.attachedFiber) return result(null, 'attached-fiber-missing');
-  if (!current) return result(null, 'current-root-unavailable');
+  let remainingWork = 20000;
+  const ancestorSeen = new Set<Fiber>();
+  while (root && remainingWork > 0) {
+    if (ancestorSeen.has(root)) {
+      diagnostic.ancestorCycleDetected = true;
+      return result(null, 'current-root-unavailable');
+    }
+    ancestorSeen.add(root);
+    remainingWork -= 1;
+    if (root.tag === 3) break;
+    root = root.return ?? undefined;
+  }
+  diagnostic.hostRootFound = root?.tag === 3 && root.return == null;
+  diagnostic.rootDepthLimited =
+    !diagnostic.hostRootFound && remainingWork === 0;
+  if (!diagnostic.hostRootFound)
+    return result(null, 'current-root-unavailable');
+  const holder = root!.stateNode as { readonly current?: Fiber } | undefined;
+  const current = holder?.current;
+  if (
+    current?.tag !== 3 ||
+    current.return != null ||
+    current.stateNode !== holder
+  )
+    return result(null, 'current-root-unavailable');
   diagnostic.currentRoot = true;
-  const pending: { fiber: Fiber; path: readonly Fiber[] }[] = [
-    { fiber: current, path: [] },
+  // Stage-local sets allow the HostRoot to be visited once in each stage,
+  // while one shared budget bounds all ancestry/current-tree work.
+  type Path = { readonly fiber: Fiber; readonly parent: Path | null };
+  const pending: { fiber: Fiber; path: Path | null }[] = [
+    { fiber: current, path: null },
   ];
-  for (let visited = 0; pending.length > 0 && visited < 20000; visited += 1) {
+  const currentSeen = new Set<Fiber>();
+  let found: Path | null = null;
+  while (pending.length > 0 && remainingWork > 0) {
     const { fiber, path } = pending.pop()!;
+    remainingWork -= 1;
+    if (currentSeen.has(fiber)) {
+      diagnostic.currentTreeCycleDetected = true;
+      return result(null, 'current-node-unavailable');
+    }
+    currentSeen.add(fiber);
+    const currentPath: Path = { fiber, parent: path };
     if (fiber.stateNode === element) {
       diagnostic.currentNode = true;
-      for (const ancestor of [...path, fiber].reverse()) {
-        const props = ancestor.memoizedProps;
-        if (
-          typeof props?.requestId === 'string' &&
-          /^[a-z0-9]{24}$/.test(props.requestId) &&
-          typeof props.retryAfterMs === 'number'
-        ) {
-          diagnostic.ownerProps = true;
-          if (!requireSettlement)
-            return result(props.requestId, 'current-owner');
-          const reason = settled(ancestor.memoizedState);
-          return result(reason === 'settled' ? props.requestId : null, reason);
-        }
-      }
-      return result(null, 'recovery-owner-unavailable');
+      found = currentPath;
     }
     if (fiber.sibling) pending.push({ fiber: fiber.sibling, path });
-    if (fiber.child)
-      pending.push({ fiber: fiber.child, path: [...path, fiber] });
+    if (fiber.child) pending.push({ fiber: fiber.child, path: currentPath });
   }
   diagnostic.traversalLimited = pending.length > 0;
-  return result(null, 'current-node-unavailable');
+  if (diagnostic.traversalLimited || !found)
+    return result(null, 'current-node-unavailable');
+  // Validate the complete bounded current tree before trusting the found path.
+  for (
+    let path: Path | null = found;
+    path && remainingWork > 0;
+    path = path.parent
+  ) {
+    remainingWork -= 1;
+    const ancestor = path.fiber;
+    const props = ancestor.memoizedProps;
+    if (
+      typeof props?.requestId === 'string' &&
+      /^[a-z0-9]{24}$/.test(props.requestId) &&
+      typeof props.retryAfterMs === 'number'
+    ) {
+      diagnostic.ownerProps = true;
+      if (!requireSettlement) return result(props.requestId, 'current-owner');
+      const reason = settled(ancestor.memoizedState);
+      return result(reason === 'settled' ? props.requestId : null, reason);
+    }
+  }
+  diagnostic.traversalLimited = remainingWork === 0;
+  return result(null, 'recovery-owner-unavailable');
 }

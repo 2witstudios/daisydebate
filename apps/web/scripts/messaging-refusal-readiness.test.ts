@@ -1,6 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { committedRefusalState } from '../e2e/support/messaging-committed-refusal';
 setupRitewayBun();
+const hostRoot = (child: unknown) => {
+  type Root = { tag: number; stateNode: { current: Root }; child: unknown };
+  const state = { current: null as unknown as Root };
+  const select = (next: unknown) => {
+    state.current = { tag: 3, stateNode: state, child: next };
+  };
+  select(child);
+  return { host: state.current, select };
+};
 
 const mounted = () => {
   const element: Record<string, unknown> = {};
@@ -26,9 +35,9 @@ const mounted = () => {
     memoizedState: memo,
     child: { stateNode: element },
   };
-  const host = { stateNode: { current: { child: owner } } };
+  const { host, select } = hostRoot(owner);
   element['__reactFiber$fixture'] = { return: host };
-  return { element, host, owner, memo, transition };
+  return { element, host, select, owner, memo, transition };
 };
 
 test('readiness diagnoses each fixed gate without returning hook or identity data in its projection', () => {
@@ -110,12 +119,10 @@ test('root, exact current node and recovery-owner props failures stay distinct',
   const attached: Record<string, unknown> = { __reactFiber$fixture: {} };
   const missingRoot = committedRefusalState(attached, true).diagnostic.reason;
   const sample = mounted();
-  sample.host.stateNode.current = {
-    child: { stateNode: {} },
-  } as unknown as typeof sample.host.stateNode.current;
+  sample.select({ stateNode: {} });
   const missingNode = committedRefusalState(sample.element, true).diagnostic
     .reason;
-  sample.host.stateNode.current = { child: sample.owner };
+  sample.select(sample.owner);
   sample.owner.memoizedProps.requestId = 'not-an-id';
   const missingOwner = committedRefusalState(sample.element, true).diagnostic
     .reason;

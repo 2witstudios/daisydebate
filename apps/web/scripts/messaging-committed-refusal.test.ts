@@ -1,6 +1,16 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { committedRefusalState } from '../e2e/support/messaging-committed-refusal';
 setupRitewayBun();
+const hostRoot = (child: unknown) => {
+  type Root = { tag: number; stateNode: { current: Root }; child: unknown };
+  const state = { current: null as unknown as Root };
+  const select = (next: unknown) => {
+    state.current = { tag: 3, stateNode: state, child: next };
+  };
+  select(child);
+  return { host: state.current, select };
+};
+
 const committedRefusalRenderId = (element: object, settled = false) =>
   committedRefusalState(element, settled).requestId;
 
@@ -13,11 +23,10 @@ test('the refusal oracle waits for the exact node in the committed tree', () => 
     memoizedProps: { requestId: id, retryAfterMs: 1000 },
     child: node,
   };
-  const committed = { child: owner };
-  const host = { stateNode: { current: committed } };
+  const { host, select } = hostRoot(owner);
   element['__reactFiber$fixture'] = { return: host };
   const mounted = committedRefusalRenderId(element);
-  host.stateNode.current = { child: { ...owner, child: { stateNode: {} } } };
+  select({ ...owner, child: { stateNode: {} } });
   const unmounted = committedRefusalRenderId(element);
   assert({
     given:
@@ -41,10 +50,10 @@ test('an alternate render cannot satisfy committed identity', () => {
     memoizedProps: { requestId: futureId, retryAfterMs: 1000 },
     child: { stateNode: element },
   };
-  const host = { stateNode: { current: { child: current } } };
+  const { host, select } = hostRoot(current);
   element['__reactFiber$fixture'] = { return: host, alternate: future };
   const uncommitted = committedRefusalRenderId(element);
-  host.stateNode.current = { child: future };
+  select(future);
   const committed = committedRefusalRenderId(element);
   assert({
     given:
@@ -80,7 +89,7 @@ test('settlement follows the installed router memo then transition hooks, never 
     },
     child: { stateNode: element },
   };
-  const host = { stateNode: { current: { child: owner } } };
+  const { host, select } = hostRoot(owner);
   element['__reactFiber$fixture'] = { return: host };
   const samples = [
     true,
@@ -128,7 +137,7 @@ test('settlement follows the installed router memo then transition hooks, never 
   element['__reactFiber$fixture'] = { return: host, alternate: future };
   const pendingCurrent = committedRefusalRenderId(element, true);
   transition.memoizedState = false;
-  host.stateNode.current = { child: future };
+  select(future);
   const committedFuture = committedRefusalRenderId(element, true);
   assert({
     given: 'the attached alternate is distinct from the current pending owner',
@@ -137,7 +146,7 @@ test('settlement follows the installed router memo then transition hooks, never 
     actual: [pendingCurrent, committedFuture],
     expected: [null, 'f'.repeat(24)],
   });
-  host.stateNode.current = { child: owner };
+  select(owner);
   owner.memoizedState.memoizedState = [false, []];
   assert({
     given:
