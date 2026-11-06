@@ -1,5 +1,4 @@
 import type { Page } from '@playwright/test';
-import { systemClock } from '@daisy/clock';
 import { expect, test, openPage } from './fixtures';
 import { boundedStep } from './bounded-step';
 import {
@@ -16,13 +15,7 @@ import { watchConversationRecovery } from './messaging-recovery-evidence';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { effectsRan } from './hydration';
 
-const pause = async (page: Page) => {
-  const anchor = new Date(systemClock.now());
-  await page.clock.install();
-  await page.clock.setFixedTime(anchor);
-  await page.clock.pauseAt(anchor);
-  await page.clock.setSystemTime(anchor);
-};
+import { pauseMessagingRecovery as pause } from './messaging-recovery-clock';
 async function holdDestination(page: Page, path: string) {
   const held = Promise.withResolvers<void>();
   const gate = Promise.withResolvers<void>();
@@ -170,7 +163,7 @@ export function testMessagingRecoveryNavigation() {
       const row = page
         .getByRole('list', { name: 'Conversations', exact: true })
         .getByRole('link', {
-          name: new RegExp(`^@${journey.senderUsername}(, unread)?$`),
+          name: new RegExp(`^${journey.senderUsername}(, unread)?$`),
         });
       await expect(row).toBeVisible();
       await expect(row).toHaveAttribute(

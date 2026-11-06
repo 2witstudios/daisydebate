@@ -14,6 +14,13 @@ import {
   watchConversationRecovery,
   readMessagingAdmissionLog,
 } from './messaging-recovery-evidence';
+import {
+  pauseMessagingRecovery,
+  recoveryDeadline,
+  settledRefusal,
+  settledRefusalResponse,
+  driveRefusalDeadlines,
+} from './messaging-recovery-clock';
 import { awaitMessagingOperations } from './messaging-completed-operations';
 import { committedRefusalRenderId } from './messaging-committed-refusal';
 import { hasAdvisedConversationBoundary } from './messaging-refusal-flight';
@@ -141,15 +148,14 @@ export function testMessagingRecovery() {
     try {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
-      await page.clock.install();
+      await pauseMessagingRecovery(page);
       observer = watchConversationRecovery(page, journey.channelId);
       await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
-      await expect(
-        page.getByText('This conversation is still unavailable. Try again.', {
-          exact: true,
-        }),
-      ).toBeVisible({ timeout: 10000 });
+      const deadline = recoveryDeadline();
+      await effectsRan(page);
+      const initial = await settledRefusal(page, deadline);
+      await driveRefusalDeadlines(page, observer, initial, deadline);
       await page.clock.fastForward(12000);
       expect(observer.snapshot()).toMatchObject({
         dispatches: 3,
@@ -254,7 +260,7 @@ export function testMessagingRecovery() {
     try {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
-      await page.clock.install();
+      await pauseMessagingRecovery(page);
       const held = Promise.withResolvers<boolean>();
       const gate = Promise.withResolvers<void>();
       release = gate.resolve;
@@ -273,6 +279,9 @@ export function testMessagingRecovery() {
       await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
+      await effectsRan(page);
+      await settledRefusal(page, recoveryDeadline());
+      await page.clock.fastForward(1000);
       expect(
         await boundedStep(
           'the held real recovery response',
@@ -329,12 +338,16 @@ export function testMessagingRecovery() {
         pending: 1,
       });
       observer.phase('held refusal released in place');
+      const deadline = recoveryDeadline();
       release();
-      await expect(
-        page.getByText('This conversation is still unavailable. Try again.', {
-          exact: true,
-        }),
-      ).toBeVisible({ timeout: 10000 });
+      const settled = await settledRefusalResponse(
+        page,
+        observer,
+        1,
+        before!,
+        deadline,
+      );
+      await driveRefusalDeadlines(page, observer, settled, deadline, 1);
       expect(observer.snapshot()).toMatchObject({
         dispatches: 3,
         otherDispatches: 0,

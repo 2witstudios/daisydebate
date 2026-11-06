@@ -8,6 +8,7 @@ import { isMessagingRefetch } from './messaging-page-locators';
 export function watchConversationRecovery(page: Page, channelId: string) {
   const pending = new Set<Request>();
   const responseIds = new Set<string>();
+  const refetchResponses: Response[] = [];
   const phases: { name: string; since: number }[] = [];
   const reads: { phase: string; destination: 'original' | 'successor' }[] = [];
   let prefetches = 0,
@@ -54,8 +55,11 @@ export function watchConversationRecovery(page: Page, channelId: string) {
       new URL(outgoing.url()).pathname === `/messages/${channelId}` &&
       outgoing.headers()['next-router-prefetch'] !== '1' &&
       (outgoing.isNavigationRequest() || isMessagingRefetch(outgoing.headers()))
-    )
+    ) {
       includeResponse(incoming.headers()['x-request-id']);
+      if (outgoing.method() === 'GET' && isMessagingRefetch(outgoing.headers()))
+        refetchResponses.push(incoming);
+    }
   };
   page.on('response', response);
   page.on('request', request);
@@ -68,6 +72,7 @@ export function watchConversationRecovery(page: Page, channelId: string) {
     },
     phases: () => phases,
     includeResponse,
+    refetchResponses: () => refetchResponses,
     requestBoundary: () => ({
       since: phases[0]!.since,
       requestIds: [...responseIds],
