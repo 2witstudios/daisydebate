@@ -90,10 +90,13 @@ export function createCheckoutVendor(input: {
       const id = purchase.state.sessionId;
       return observe(purchase, () => input.port.retrieve(id));
     },
-    expire(purchase: Purchase): Promise<Result> {
-      if (!valid(purchase) || purchase.state.kind !== 'open')
-        return Promise.resolve(refuse);
+    async expire(purchase: Purchase): Promise<Result> {
+      if (!valid(purchase) || purchase.state.kind !== 'open') return refuse;
       const id = purchase.state.sessionId;
+      // Expiring an already-terminal Session errors; a prior lost reply must remain recoverable.
+      const current = await observe(purchase, () => input.port.retrieve(id));
+      if (current.kind !== 'observed' || current.session.kind !== 'open')
+        return current;
       return observe(purchase, () => input.port.expire(id));
     },
   };

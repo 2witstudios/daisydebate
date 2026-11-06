@@ -65,3 +65,26 @@ kill, cancellation/management while purchases are dark, and correct usage.
 Missing vendor configuration or resource admission is a named proof gap, never
 a skipped or fake successful vendor flow. BILL-H/live identity, secrets,
 production activation and the recorded minors/legal decisions remain human.
+
+## Existing attempt repair
+
+A current-service process sweep independently scans at most three existing
+purchase identities per five-second single-flight tick. Its worker has no
+creation operation. It reads only the admitted mode, original offer and Session
+identity; a replacement configured price cannot reprice an old attempt. Failed
+identities remain durable while the indexed scan advances and revisits its head.
+A read failure or absent response remains unknown, never an invented expiration.
+
+Expiration first retrieves the same owned Session. The endive API errors when a
+Session is already expired or no longer expirable, so retrying an expiration
+whose successful reply was lost must recover its positive terminal state by GET.
+An open result may proceed to one bounded expire request; a terminal completed or
+expired result is recorded without another POST. Identity/source validation
+still precedes all later effects. The two requests are bounded independently.
+See [Stripe's pinned expiration contract](https://docs.stripe.com/api/checkout/sessions/expire).
+
+Verified late Session facts use the existing current-service/account-fenced
+recovery transaction, preserving the original purchase/key and atomically
+reopening closed-account cleanup when facts change. Drain waits for an in-flight
+positive effect to be accounted for. This source and controlled fault tests do
+not establish genuine paid lifecycle or browser acceptance.

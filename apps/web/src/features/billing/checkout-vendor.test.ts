@@ -132,7 +132,56 @@ test('retrieval and expiration use only the already-owned session and validate r
       'observed',
       { kind: 'refuse' },
       { kind: 'refuse' },
-      [checkoutSession.id, checkoutSession.id],
+      [checkoutSession.id, checkoutSession.id, checkoutSession.id],
     ],
+  });
+});
+
+test('an expiration committed before its reply was lost is recovered by the same owned Session read', async () => {
+  let expired = false;
+  const calls: string[] = [];
+  const open = {
+    ...purchase,
+    state: {
+      kind: 'open' as const,
+      startedAt: '2026-11-05T00:00:01.000Z',
+      sessionId: checkoutSession.id,
+      customerId: null,
+    },
+  };
+  const vendor = createCheckoutVendor({
+    clock: fixedClock('2026-11-05T02:00:00.000Z'),
+    mode: 'test',
+    port: {
+      create: async () => {
+        throw Error('Unexpected creation');
+      },
+      retrieve: async (id) => {
+        calls.push(`retrieve:${id}`);
+        return expired
+          ? { ...checkoutSession, status: 'expired', url: null }
+          : checkoutSession;
+      },
+      expire: async (id) => {
+        calls.push(`expire:${id}`);
+        if (expired) throw Error('Already expired');
+        expired = true;
+        throw Error('Controlled reply loss after actual vendor-side effect');
+      },
+    },
+  });
+  const first = await vendor.expire(open),
+    second = await vendor.expire(open);
+  assert({
+    given:
+      'same Session expiration committed but its response was lost, so a repeated expire errors',
+    should:
+      'retain first uncertainty then positively recover terminal state without another money attempt or key',
+    actual: [
+      first.kind,
+      second.kind,
+      second.kind === 'observed' ? second.session.kind : null,
+    ],
+    expected: ['unknown', 'observed', 'expired'],
   });
 });

@@ -59,6 +59,8 @@ export const eventRegistry = {
   'billing.usage_recovery.failed': 'error',
   'billing.webhook.failed': 'error',
   'billing.subscription.failed': 'error',
+  'billing.refund.failed': 'error',
+  'billing.purchase.failed': 'error',
   'round.attendance.held': 'warn',
   'room.maintenance.failed': 'error',
   'round.media.recovery_failed': 'error',
