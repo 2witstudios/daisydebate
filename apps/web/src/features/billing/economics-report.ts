@@ -25,7 +25,10 @@ function coherent(input: EconomicsInput, now: string) {
     unique(input.revenueCoverage.map((r) => r.plan)) &&
     unique(input.volume.map((r) => `${r.plan}:${r.feature}`)) &&
     recognized.every(
-      (r) => r.sourceMonth <= r.observedAt && r.observedAt <= now,
+      (r) =>
+        /^\d{4}-\d{2}-01T00:00:00\.000Z$/.test(r.sourceMonth) &&
+        r.sourceMonth <= r.observedAt &&
+        r.observedAt <= now,
     ) &&
     input.revenue.every(
       (r) =>
@@ -37,6 +40,12 @@ function coherent(input: EconomicsInput, now: string) {
       (r) =>
         r.allocation.shares.reduce((n, s) => n + s.basisPoints, 0) === 10000 &&
         unique(r.allocation.shares.map((s) => s.plan)) &&
+        (r.allocation.rule !== 'free_subsidy' ||
+          r.category === 'freeTierSubsidy') &&
+        (r.allocation.rule !== 'equal_share' ||
+          Math.max(...r.allocation.shares.map((s) => s.basisPoints)) -
+            Math.min(...r.allocation.shares.map((s) => s.basisPoints)) <=
+            1) &&
         (r.allocation.rule !== 'direct' || r.allocation.shares.length === 1),
     ) &&
     input.modelUsage.every(
@@ -142,6 +151,8 @@ export function buildEconomicsReport(value: unknown, now: string) {
       costs: input.costs,
       modelUsage: input.modelUsage,
       rates: input.rates,
+      coverage: input.coverage,
+      revenueCoverage: input.revenueCoverage,
     },
     plansReported: economicsPlans,
   } as const;

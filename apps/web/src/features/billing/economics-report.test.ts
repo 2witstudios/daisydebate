@@ -84,3 +84,45 @@ test('unexpected personal dimensions fail before private report construction', (
     expected: { kind: 'invalid', reason: 'invalid_input' },
   });
 });
+
+test('malformed source months or misleading allocation rules cannot disappear into complete zero costs', () => {
+  const input = dataset();
+  const cost = input.costs[0]!;
+  const variants = [
+    { ...input, costs: [{ ...cost, sourceMonth: '2026-10-02T00:00:00.000Z' }] },
+    {
+      ...input,
+      costs: [
+        {
+          ...cost,
+          allocation: {
+            rule: 'free_subsidy',
+            shares: [{ plan: 'premium', basisPoints: 10000 }],
+          },
+        },
+      ],
+    },
+    {
+      ...input,
+      costs: [
+        {
+          ...cost,
+          allocation: {
+            rule: 'equal_share',
+            shares: [
+              { plan: 'premium', basisPoints: 9000 },
+              { plan: 'free', basisPoints: 1000 },
+            ],
+          },
+        },
+      ],
+    },
+  ];
+  assert({
+    given:
+      'a noncanonical source month, an unlabeled subsidy, or an unequal supposedly equal allocation',
+    should: 'reject the input before any measured margin verdict',
+    actual: variants.map((v) => buildEconomicsReport(v, now).kind),
+    expected: ['invalid', 'invalid', 'invalid'],
+  });
+});
