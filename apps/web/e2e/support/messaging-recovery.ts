@@ -14,6 +14,57 @@ import { watchConversationRecovery } from './messaging-recovery-evidence';
 import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { boundedStep } from './bounded-step';
+import type { Page } from '@playwright/test';
+
+/** Resolve HostRoot.current, then read only the committed refusal's ancestor props. */
+const refusalRenderId = (page: Page) =>
+  refused(page).evaluate((element) => {
+    type Fiber = {
+      readonly memoizedProps?: {
+        readonly requestId?: unknown;
+        readonly retryAfterMs?: unknown;
+      };
+      readonly return?: Fiber | null;
+      readonly child?: Fiber | null;
+      readonly sibling?: Fiber | null;
+      readonly stateNode?: unknown;
+    };
+    const key = Object.keys(element).find((name) =>
+      name.startsWith('__reactFiber$'),
+    );
+    let root =
+      key === undefined
+        ? undefined
+        : (element as unknown as Record<string, Fiber>)[key];
+    for (let depth = 0; root?.return && depth < 100; depth += 1)
+      root = root.return;
+    const current = (
+      root?.stateNode as { readonly current?: Fiber } | undefined
+    )?.current;
+    if (!current) throw new Error('Current mounted React root unavailable');
+    const pending: { fiber: Fiber; path: readonly Fiber[] }[] = [
+      { fiber: current, path: [] },
+    ];
+    for (let visited = 0; pending.length > 0 && visited < 20000; visited += 1) {
+      const { fiber, path } = pending.pop()!;
+      if (fiber.stateNode === element) {
+        for (const ancestor of [...path, fiber].reverse()) {
+          const props = ancestor.memoizedProps;
+          if (
+            typeof props?.requestId === 'string' &&
+            /^[a-z0-9]{24}$/.test(props.requestId) &&
+            typeof props.retryAfterMs === 'number'
+          )
+            return props.requestId;
+        }
+        throw new Error('Committed refusal owner unavailable');
+      }
+      if (fiber.sibling) pending.push({ fiber: fiber.sibling, path });
+      if (fiber.child)
+        pending.push({ fiber: fiber.child, path: [...path, fiber] });
+    }
+    throw new Error('Refusal DOM node absent from current React tree');
+  });
 
 /** Actual web-process admission, production Next/TLS/auth and unchanged test budgets. */
 export function testMessagingRecovery() {
@@ -167,7 +218,7 @@ export function testMessagingRecovery() {
     }
   });
 
-  test('a held Messaging refresh neither overlaps nor overrides a newer shell choice', async ({
+  test('an unrelated real render cannot settle a held Messaging refresh or reset its remaining budget', async ({
     browser,
   }, info) => {
     const journey = await openMessagingJourney(browser);
@@ -195,29 +246,41 @@ export function testMessagingRecovery() {
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
       await boundedStep('the held real recovery response', () => held.promise);
+      const before = await refusalRenderId(page);
       observer.phase('unrelated shell action while recovery is held');
       await page.getByRole('button', { name: 'Minimize', exact: true }).click();
       await expect(
         page.getByRole('button', { name: 'Expand', exact: true }),
       ).toBeVisible();
+      await expect
+        .poll(async () => (await refusalRenderId(page)) !== before)
+        .toBe(true);
+      await info.attach('unrelated-render-observed', {
+        contentType: 'application/json',
+        body: JSON.stringify({ changedConversationRender: true }),
+      });
       await page.clock.fastForward(12000);
       expect(observer.snapshot()).toMatchObject({
         dispatches: 1,
         maximumPending: 1,
         pending: 1,
       });
-      await control('allow-messaging-reads');
-      observer.phase('member departure while recovery is held');
-      observer.memberNavigation();
-      await page
-        .getByRole('link', { name: 'Home', exact: true })
-        .first()
-        .click();
-      await expect(page).toHaveURL(/\/$/);
+      observer.phase('held refusal released in place');
       release();
+      await expect(
+        page.getByText('This conversation is still unavailable. Try again.', {
+          exact: true,
+        }),
+      ).toBeVisible({ timeout: 10000 });
+      expect(observer.snapshot()).toMatchObject({
+        dispatches: 3,
+        otherDispatches: 0,
+        maximumPending: 1,
+        pending: 0,
+      });
+      observer.phase('exhausted owner after unrelated render');
       await page.clock.fastForward(12000);
-      await expect(page).toHaveURL(/\/$/);
-      expect(observer.snapshot().dispatches).toBe(1);
+      expect(observer.snapshot().dispatches).toBe(3);
       await evidence(info, observer);
     } finally {
       release();
