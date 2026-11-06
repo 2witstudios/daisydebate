@@ -37,6 +37,10 @@
         // `test` runs `bun test src scripts` through the heavy queue.
         "src/**/*.test.{ts,tsx}",
         "scripts/**/*.test.ts",
+        // Manual SDK/repair CLIs; the browser proof module is bundled by Bun.
+        "scripts/prove-sentry-browser.ts",
+        "scripts/staging-attendance-probe.ts",
+        "src/features/telemetry/sentry-browser.test-support.ts",
         // Spawned by isolated messaging caller tests; paths belong to this workspace.
         "scripts/messaging-navigation-realm.test-support.ts",
         "scripts/messaging-reaction-realm.test-support.ts",
