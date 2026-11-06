@@ -17,7 +17,7 @@ const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 
 test(
-  'historical analysis cannot inherit a later request source while actual received zero counters remain distinct from defaults',
+  'historical analysis cannot inherit a later request source and received outcomes remain distinct from token knowledge',
   async () => {
     const scratch = scratchDatabase(databaseUrl, 'ec7vbrip0j');
     let pool: SQL | undefined;
@@ -133,23 +133,25 @@ test(
           given:
             'a real populated predecessor migration with historical usage and then a separate guarded lifetime request/lease/dispatch/received-zero transition',
           should:
-            'retain historical cost as unattributed, bind only the new request to its real source and distinguish positively received zero from default counters',
+            'retain historical cost as unattributed and the new request source, while keeping received response outcomes separate from unmeasured zero token pairs',
           actual: snapshot.attempts.map((a) => [
             a.model,
             a.provider,
             a.sourceKind,
             a.knownResponses,
+            a.unmeasuredResponses,
             a.unknownCalls,
             a.inputTokens,
             a.outputTokens,
           ]),
           expected: [
-            ['actual-new-model', 'openrouter', 'lifetime', 1, 0, 0, 0],
+            ['actual-new-model', 'openrouter', 'lifetime', 1, 1, 0, 0, 0],
             [
               'original-historical',
               'unrecorded',
               'unattributed',
               1,
+              0,
               0,
               100,
               20,

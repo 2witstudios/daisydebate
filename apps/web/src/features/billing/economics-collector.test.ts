@@ -198,6 +198,7 @@ test('possible unknown calls cannot be priced as measured zero even when a bille
     lastAt: month,
     runs: 1,
     knownResponses: 0,
+    unmeasuredResponses: 0,
     unknownCalls: 1,
     definiteFailures: 0,
     inputTokens: 0,

@@ -19,26 +19,38 @@ export const billingEconomicsSnapshotSchema = z.strictObject({
   observedAt: instant,
   attempts: z
     .array(
-      z.strictObject({
-        ...attribution,
-        feature: z.enum([
-          'ai_round',
-          'casual_ai_judge',
-          'round_analysis',
-          'speech',
-        ]),
-        model: z.string().nullable(),
-        provider: z.string(),
-        firstAt: instant,
-        lastAt: instant,
-        runs: count,
-        knownResponses: count,
-        unknownCalls: count,
-        definiteFailures: count,
-        inputTokens: count,
-        outputTokens: count,
-        characters: count,
-      }),
+      z
+        .strictObject({
+          ...attribution,
+          feature: z.enum([
+            'ai_round',
+            'casual_ai_judge',
+            'round_analysis',
+            'speech',
+          ]),
+          model: z.string().nullable(),
+          provider: z.string(),
+          firstAt: instant,
+          lastAt: instant,
+          runs: count,
+          knownResponses: count,
+          /** Received response with a zero token pair; existing storage cannot prove usage presence. */
+          unmeasuredResponses: count,
+          unknownCalls: count,
+          definiteFailures: count,
+          inputTokens: count,
+          outputTokens: count,
+          characters: count,
+        })
+        .refine(
+          (row) =>
+            row.unmeasuredResponses <= row.knownResponses &&
+            (row.inputTokens !== 0 || row.outputTokens !== 0
+              ? row.unmeasuredResponses < row.knownResponses ||
+                row.knownResponses === 0
+              : row.unmeasuredResponses === row.knownResponses),
+          { message: 'Response counter knowledge is inconsistent' },
+        ),
     )
     .max(1001),
   usage: z

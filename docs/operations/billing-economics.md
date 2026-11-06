@@ -11,8 +11,9 @@ control transaction. One READ COMMITTED statement reads actual provider run
 and requested/historical analysis facts alongside original allowance source,
 period, state and count basis. Aggregate output contains no user, actor, Round,
 customer, charge, request token or report content. Parent claims with no dispatch
-or consumption witness are excluded; default counters never establish a known
-response. Received counters, definite refusal and possible execution are distinct.
+or consumption witness are excluded; default token counters never establish
+measured-zero cost. Received response, token-counter knowledge, definite refusal
+and possible execution are distinct.
 Allowance refunds/platform credits cannot remove provider expense. Historical
 analysis with missing original source stays unattributed; a later request's source
 must not be substituted. Original source periods survive alongside reporting-month
@@ -96,3 +97,26 @@ the existing reporter port. `alertDelivery` remains explicitly `unconfirmed`:
 the void ErrorReporter cannot acknowledge operator delivery and may be inert
 without keys. Only a separately retained approved private transport/destination
 receipt can establish that an operator received the named alert.
+
+## Response outcome and token-counter knowledge
+
+The OpenRouter adapter permits an absent usage object and stores its missing
+prompt/completion pair as0/0. A received/answered marker proves a response; it
+cannot distinguish that default pair from genuinely reported zeros. The reader
+therefore retains `knownResponses`, provider outcomes, original sources and token
+totals, and separately counts per-response zero pairs as `unmeasuredResponses`.
+That count is a subset of received responses, not another unknown provider outcome.
+It is computed before aggregation: a positive row must not hide an unmeasured
+response in the same model/day/source bucket. A positive counter witnesses the
+paired usage object under the current adapter contract, whose two counters are
+required together, so its other zero counterpart is retained normally.
+
+The strict snapshot requires this knowledge field and rejects contradictory
+counts. Usage-counter pricing preserves known positive totals but keeps the whole
+bucket unknown when any received token pair remains unmeasured. Separate unknown
+provider calls remain unknown calls. A complete independently reconciled provider
+invoice basis can establish money cost without claiming token counters became
+known. No historical usage-presence marker or provider-job/schema rewrite is
+introduced; genuinely measured0/0 cannot be established from current stored facts
+alone. The old received-zero PostgreSQL fixture proves its response outcome only;
+its earlier interpretation as measured-zero provenance is explicitly superseded.
