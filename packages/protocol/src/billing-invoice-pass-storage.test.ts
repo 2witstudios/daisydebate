@@ -41,13 +41,13 @@ test('retired unversioned execution cannot regain authority while historical ack
   };
   assert({
     given:
-      'fresh v2 execution, retired unversioned execution and historical acknowledged knowledge',
+      'fresh v3 execution, retired unversioned execution and historical acknowledged knowledge',
     should: 'require fresh execution version without rewriting historical ACK',
     actual: [
       version,
       billingCleanupSchema.safeParse(retired).success,
       billingCleanupSchema.safeParse(acknowledged).success,
     ],
-    expected: [2, false, true],
+    expected: [3, false, true],
   });
 });
