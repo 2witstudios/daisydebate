@@ -39,6 +39,16 @@ return URL or an active vendor label alone.
 
 ## Evidence boundaries
 
+The production process uses `createBillingApp` to lazily compose its native
+operations with the pinned Stripe23.1/API2026-10-28.endive resource. Requests
+have a five-second timeout and no automatic SDK retries; durable purchase
+identity owns retries. Without Stripe configuration the resource is absent
+and Checkout/Portal refuse while existing local allowance remains available.
+An adopted test app can use the same factory with its explicit transport or
+provide the existing native-runtime injection. This process binding does not
+establish background reconciliation, vendor cleanup or genuine hosted payment
+qualification; those have separate runtime and proof obligations.
+
 The native companion's port, boundary and server-render tests prove source
 behavior only. The isolated PostgreSQL member fixture proves canonical account
 fences, lifetime usage, completed-Session routing without paid grants and an

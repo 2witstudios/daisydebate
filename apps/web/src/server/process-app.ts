@@ -1,5 +1,6 @@
 import { systemClock, systemId } from '@daisy/clock';
-import { createApp, type App } from './app';
+import type { App } from './app';
+import { createBillingApp } from './billing-app';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import type { Fetch } from '../features/mail/resend-sender';
 import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
@@ -51,14 +52,17 @@ const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,
   () =>
     stateFor(
-      createApp({
-        env: process.env,
-        fetch: outboundFetch(process.env),
-        clock: systemClock,
-        ids: systemId,
-        nextWorkerToken,
-        messagingPolicy: betaMessagingPolicy,
-      }),
+      createBillingApp(
+        {
+          env: process.env,
+          fetch: outboundFetch(process.env),
+          clock: systemClock,
+          ids: systemId,
+          nextWorkerToken,
+          messagingPolicy: betaMessagingPolicy,
+        },
+        globalThis.fetch,
+      ),
     ),
 );
 

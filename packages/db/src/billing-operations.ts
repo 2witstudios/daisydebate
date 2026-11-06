@@ -1,4 +1,5 @@
 import { createBillingMember } from './billing-member';
+import { createBillingEconomicsReader } from './billing-economics';
 import type { BoundedTransaction } from './bounded-transaction';
 import { currentWebTransaction } from './web-service-authority';
 import { createBillingInbox } from './billing-inbox';
@@ -22,6 +23,9 @@ export function billingOperations(input: {
   readonly nextId: () => string;
 }) {
   return {
+    billingEconomics(instanceId: string) {
+      return createBillingEconomicsReader({ run: input.run, instanceId });
+    },
     billingMember(
       policies: Omit<Parameters<typeof createBillingMember>[0], 'run'>,
     ) {

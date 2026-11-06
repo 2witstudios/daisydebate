@@ -99,6 +99,18 @@ told first, the other side can hear it, and the Broadcast stage does not subscri
 
 ## Billing records (BILL-2, BILL-15-r1)
 
+Private Billing economics feeds and reports are operational aggregate projections
+under DEC-42's maximum 30-day operational retention. They contain model/source
+period counts and financial aggregates, with no account, actor, Round or vendor
+customer identifiers; this is data minimization, not an anonymity guarantee.
+The dedicated local directory is private mode0700 and regular files are mode0600;
+the bounded file adapter refuses oversized, symlinked or over-capacity input.
+These projections never replace the separately retained original financial
+records or discharge an erasure/refund obligation. No participant route serves
+them, and named completeness/margin signals alone enter the existing scrubbed
+error reporter. See [Billing economics](billing-economics.md) for the concrete
+source, retention and delivery limitations.
+
 Billing stores the account-to-Stripe mapping, local subscription identity,
 verified invoice IDs and periods, bounded synchronization receipts, and the
 account's immutable purchase offer/admission, possible execution and minimal
