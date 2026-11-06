@@ -31,6 +31,12 @@ transport refuses rather than returning a successful vendor response.
   obtains current Flags authority. Killing purchases does not disable Portal,
   reconciliation or erasure.
 
+The exact `/settings/billing` document permits form redirects to
+`https://checkout.stripe.com` and `https://billing.stripe.com` in its CSP.
+Chromium applies `form-action` to the native POST's redirect as well as its
+initial same-origin destination. Other documents retain `form-action 'self'`;
+the native handlers still validate ownership, origin and the fixed vendor URL.
+
 The configured hosted Checkout Session collects payment in Stripe. Portal
 configuration and actual period-end cancellation must be qualified in test
 mode before activation. Current paid/grace access is read from verified
