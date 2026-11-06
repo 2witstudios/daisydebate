@@ -42,13 +42,21 @@ test(
         try {
           for (let lane = 0; lane < 4; lane++) {
             const c = await claim();
-            await cleanup.record(jobId, {
-              kind: 'page',
-              claimId: c.claimId,
-              work: c.work,
-              ids: [],
-              more: false,
-            });
+            const progress =
+              c.work.kind === 'scan' && c.work.lane === 'invoices'
+                ? await cleanup.retainInvoicePage(jobId, c.claimId, c.work, {
+                    reads: [],
+                    more: false,
+                  })
+                : await cleanup.record(jobId, {
+                    kind: 'page',
+                    claimId: c.claimId,
+                    work: c.work,
+                    ids: [],
+                    more: false,
+                  });
+            if (progress !== 'progress')
+              throw Error('Retention setup page refused');
           }
           let c = await claim();
           const page = await cleanup.observations(
@@ -68,7 +76,7 @@ test(
           });
           c = await claim();
           const before =
-            await fixture.sql`select id,source,state,closed_at,created_at from billing_payment_observations where user_id=${subject.userId} order by id`;
+            await fixture.sql`select id,source,state,closed_at,created_at,observed_at from billing_payment_observations where user_id=${subject.userId} order by id`;
           const race = await Promise.all([
             cleanup.retainObservation(jobId, c.claimId, c.work),
             cleanup.retainObservation(jobId, c.claimId, c.work),
@@ -112,7 +120,7 @@ test(
             c.work,
           );
           const after =
-            await fixture.sql`select id,source,state,closed_at,created_at from billing_payment_observations where user_id=${subject.userId} order by id`;
+            await fixture.sql`select id,source,state,closed_at,created_at,observed_at from billing_payment_observations where user_id=${subject.userId} order by id`;
           const [unchanged] =
             await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;
           const replayedRows =

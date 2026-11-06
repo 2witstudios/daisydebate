@@ -16,7 +16,7 @@ test(
         cleanup,
         jobId,
         current,
-        claim,
+        claimInvoice,
         read,
         invoiceId,
         laterId,
@@ -68,7 +68,7 @@ test(
           current.work,
           { kind: 'start', passId, owner },
         );
-        const active = await claim();
+        const active = await claimInvoice();
         const progress = await cleanup.invoicePassStep(
           jobId,
           active.claimId,
@@ -86,7 +86,7 @@ test(
         const [beforeReplay] =
           await fixture.sql`select billing_cleanup,attempts,retry_at from privacy_jobs where id=${jobId}`;
         const beforeRows =
-          await fixture.sql`select id,kind,vendor_invoice_id,vendor_invoice_payment_id,source,state,observed_at from billing_payment_observations where user_id=${subject.userId} order by kind`;
+          await fixture.sql`select id,kind,vendor_invoice_id,vendor_invoice_payment_id,source,state,observed_at from billing_payment_observations where user_id=${subject.userId} and vendor_invoice_id=${invoiceId} order by kind`;
         const replay = await cleanup.invoicePassStep(
           jobId,
           active.claimId,
@@ -102,15 +102,18 @@ test(
           },
         );
         const afterRows =
-          await fixture.sql`select id,kind,vendor_invoice_id,vendor_invoice_payment_id,source,state,observed_at from billing_payment_observations where user_id=${subject.userId} order by kind`;
+          await fixture.sql`select id,kind,vendor_invoice_id,vendor_invoice_payment_id,source,state,observed_at from billing_payment_observations where user_id=${subject.userId} and vendor_invoice_id=${invoiceId} order by kind`;
         const [afterReplay] =
           await fixture.sql`select billing_cleanup,attempts,retry_at from privacy_jobs where id=${jobId}`;
+        const remainder =
+          await fixture.sql`select source,state from billing_payment_observations where user_id=${subject.userId} and vendor_invoice_id=${laterId}`;
         assert({
           given:
             'one selected invoice with a later selected invoice remainder and one honest unknown payment',
           should:
             'retain both exact obligations, advance only its payment cursor, preserve source/remainder/accounting and make stale replay entirely idle',
           actual: [
+            remainder,
             foreign,
             started,
             progress,
@@ -136,6 +139,16 @@ test(
             beforeReplay!.attempts,
           ],
           expected: [
+            [
+              {
+                source: {
+                  kind: 'unresolved',
+                  vendorSubscriptionId: null,
+                  priceId: null,
+                },
+                state: { kind: 'owed', reason: 'enumeration_unavailable' },
+              },
+            ],
             'idle',
             'progress',
             'progress',

@@ -68,7 +68,6 @@ async function prepareCompletion(input: Fixture) {
       insert into billing_payment_observations(id,user_id,mode,vendor_customer_id,vendor_invoice_id,kind,vendor_invoice_payment_id,refund_action_id,source,state,closed_at,created_at,observed_at)
       select ${observationId},id,'test',${payment.customerId},${payment.invoiceId},'payment',${invoicePaymentId},${action.id},${JSON.stringify(source)}::text::jsonb,${JSON.stringify(state)}::text::jsonb,deleted_at,sampled.at,sampled.at from users cross join sampled where id=${subject.userId}`;
   });
-  await fixture.sql`delete from billing_customers where user_id=${subject.userId}`;
   const [row] =
     await fixture.sql`select id from privacy_jobs where subject_ref=${subject.userId} and vendor='stripe'`;
   const jobId = row!.id as string;
@@ -86,15 +85,26 @@ async function prepareCompletion(input: Fixture) {
   };
   for (let lane = 0; lane < 4; lane++) {
     const current = await claim();
-    await cleanup.record(jobId, {
-      kind: 'page',
-      claimId: current.claimId,
-      work: current.work,
-      ids: [],
-      more: false,
-    });
+    const progress =
+      current.work.kind === 'scan' && current.work.lane === 'invoices'
+        ? await cleanup.retainInvoicePage(
+            jobId,
+            current.claimId,
+            current.work,
+            { reads: [], more: false },
+          )
+        : await cleanup.record(jobId, {
+            kind: 'page',
+            claimId: current.claimId,
+            work: current.work,
+            ids: [],
+            more: false,
+          });
+    if (progress !== 'progress')
+      throw Error('Completion setup discovery refused');
   }
   await retainCompletionObservation(cleanup, jobId, claim);
+  await fixture.sql`delete from billing_customers where user_id=${subject.userId}`;
   const current = await claim();
   if (
     current.work.kind !== 'delete' ||

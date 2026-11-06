@@ -4,7 +4,6 @@ import {
   cleanupWorkSchema,
   ownsCleanupClaim,
   ownedInvoiceObservationSchema,
-  retainPaymentObservationSource,
   type CleanupWork,
   type OwnedInvoiceObservation,
 } from '@daisy/protocol/billing';
@@ -85,20 +84,7 @@ export function createBillingPaymentObservations(input: {
         if (!ownsCleanupClaim(locked.state, claimId, parsed.data, context))
           return 'idle' as const;
         const current = paymentObservationFromRow(row);
-        const retained = retainPaymentObservationSource(
-          current,
-          current.source,
-          {
-            userId: locked.userId,
-            closedAt: locked.closedAt,
-            now: context.now,
-          },
-        );
-        if (retained.kind !== 'recorded') return 'idle' as const;
-        await tx
-          .update(billingPaymentObservations)
-          .set({ observedAt: new Date(retained.observation.observedAt) })
-          .where(eq(billingPaymentObservations.id, current.id));
+        // Reusing retained knowledge advances execution only; no provider observation occurred.
         return commitObservationProgress(tx, {
           jobId,
           userId: locked.userId,
@@ -108,7 +94,7 @@ export function createBillingPaymentObservations(input: {
             kind: 'retained',
             claimId,
             work: parsed.data,
-            observation: retained.observation,
+            observation: current,
           },
         });
       });

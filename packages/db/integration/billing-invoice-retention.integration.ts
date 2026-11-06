@@ -12,6 +12,8 @@ test(
   async () =>
     withSelectedInvoice(
       async ({ fixture, subject, cleanup, jobId, current, read }) => {
+        const originalRows =
+          await fixture.sql`select * from billing_payment_observations where user_id=${subject.userId} order by id`;
         const [before] =
           await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;
         const variants = [
@@ -44,14 +46,18 @@ test(
         const [after] =
           await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;
         const rows =
-          await fixture.sql`select id from billing_payment_observations where user_id=${subject.userId}`;
+          await fixture.sql`select * from billing_payment_observations where user_id=${subject.userId} order by id`;
         assert({
           given:
             'foreign vendor routing, a malformed source or a forged pure retention event through the generic recorder',
           should:
             'refuse without persistence, cursor advancement, attempts or due mutation',
-          actual: [results, rows.length, after],
-          expected: [variants.concat([read]).map(() => 'idle'), 0, before],
+          actual: [results, rows, after],
+          expected: [
+            variants.concat([read]).map(() => 'idle'),
+            originalRows,
+            before,
+          ],
         });
       },
     ),
@@ -59,14 +65,16 @@ test(
 );
 
 test(
-  'failure after invoice insertion rolls back both retained identity and cleanup progress',
+  'failure after invoice source refinement rolls back both retained facts and cleanup progress',
   async () =>
     withSelectedInvoice(
       async ({ fixture, subject, cleanup, jobId, current, read }) => {
+        const originalRows =
+          await fixture.sql`select * from billing_payment_observations where user_id=${subject.userId} order by id`;
         const [before] =
           await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;
         // The disposable run database keeps every production guard enabled. This
-        // extra fault fires only after the new witness is visible to this transaction.
+        // extra fault fires only after source refinement is visible to this transaction.
         await fixture.sql`create function daisy_test_invoice_progress_failure() returns trigger language plpgsql as $$
         begin
           if new.vendor='stripe' and new.billing_cleanup->'claim'='null'::jsonb then
@@ -97,16 +105,16 @@ test(
           await fixture.sql`drop function daisy_test_invoice_progress_failure()`;
         }
         const rows =
-          await fixture.sql`select id from billing_payment_observations where user_id=${subject.userId}`;
+          await fixture.sql`select * from billing_payment_observations where user_id=${subject.userId} order by id`;
         const [after] =
           await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;
         assert({
           given:
-            'a real PostgreSQL failure after the inserted witness is visible but before progress commits',
+            'a real PostgreSQL failure after retained source refinement but before progress commits',
           should:
-            'roll back the exact witness and preserve the original claim, due and attempts',
-          actual: [code, rows.length, after],
-          expected: ['23514', 0, before],
+            'roll back source refinement while preserving discovered witnesses, original claim, due and attempts',
+          actual: [code, rows, after],
+          expected: ['23514', originalRows, before],
         });
       },
     ),
@@ -127,7 +135,7 @@ test(
         const [after] =
           await fixture.sql`select attempts,billing_cleanup from privacy_jobs where id=${jobId}`;
         const rows =
-          await fixture.sql`select vendor_invoice_id,source,state from billing_payment_observations where user_id=${subject.userId}`;
+          await fixture.sql`select vendor_invoice_id,source,state from billing_payment_observations where user_id=${subject.userId} order by (vendor_invoice_id=${read.invoiceId}) desc`;
         assert({
           given:
             'two actual current-service transactions retain the same selected invoice',
@@ -150,6 +158,15 @@ test(
               [
                 read.invoiceId,
                 read.source,
+                { kind: 'owed', reason: 'enumeration_unavailable' },
+              ],
+              [
+                laterId,
+                {
+                  kind: 'unresolved',
+                  vendorSubscriptionId: null,
+                  priceId: null,
+                },
                 { kind: 'owed', reason: 'enumeration_unavailable' },
               ],
             ],
@@ -214,7 +231,7 @@ test(
         const [after] =
           await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;
         const rows =
-          await fixture.sql`select id from billing_payment_observations where user_id=${subject.userId}`;
+          await fixture.sql`select * from billing_payment_observations where user_id=${subject.userId} order by id`;
         assert({
           given:
             'the caller recovers using the original claim and invoice identity',
@@ -227,7 +244,7 @@ test(
             replay,
             after,
           ],
-          expected: [1, laterId, null, 'idle', committed],
+          expected: [2, laterId, null, 'idle', committed],
         });
       },
     ),

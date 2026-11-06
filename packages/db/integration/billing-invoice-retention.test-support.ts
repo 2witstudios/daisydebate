@@ -21,13 +21,46 @@ async function selectInvoice(input: Fixture) {
   };
   for (let lane = 0; lane < 5; lane++) {
     const current = await claim();
-    await cleanup.record(jobId, {
-      kind: 'page',
-      claimId: current.claimId,
-      work: current.work,
-      ids: lane === 2 ? [invoiceId, laterId] : [],
-      more: false,
-    });
+    const observationPage =
+      current.work.kind === 'scan' && current.work.lane === 'observations'
+        ? await cleanup.observations(jobId, current.claimId, current.work, null)
+        : null;
+    if (observationPage && observationPage.kind !== 'observations')
+      throw Error('Invoice setup observation read refused');
+    const progress =
+      current.work.kind === 'scan' && current.work.lane === 'invoices'
+        ? await cleanup.retainInvoicePage(
+            jobId,
+            current.claimId,
+            current.work,
+            {
+              reads: [invoiceId, laterId].map((invoiceId) => ({
+                mode: 'test',
+                customerId: session.customerId,
+                invoiceId,
+                source: {
+                  kind: 'unresolved',
+                  vendorSubscriptionId: null,
+                  priceId: null,
+                },
+              })),
+              more: false,
+            },
+          )
+        : await cleanup.record(jobId, {
+            kind: 'page',
+            claimId: current.claimId,
+            work: current.work,
+            ids:
+              observationPage?.kind === 'observations'
+                ? observationPage.observations.map((row) => row.id)
+                : [],
+            more:
+              observationPage?.kind === 'observations'
+                ? observationPage.more
+                : false,
+          });
+    if (progress !== 'progress') throw Error('Invoice setup discovery refused');
   }
   const current = await claim();
   const offer = await cleanup.frozenOffer(
@@ -40,6 +73,22 @@ async function selectInvoice(input: Fixture) {
   return {
     current,
     claim,
+    claimInvoice: async () => {
+      for (let turn = 0; turn < 5; turn++) {
+        const next = await claim();
+        if (next.work.kind === 'scan' && next.work.lane === 'invoices')
+          return next;
+        if (
+          next.work.kind !== 'scan' ||
+          next.work.lane !== 'observations' ||
+          next.work.scan.kind !== 'selected' ||
+          (await cleanup.retainObservation(jobId, next.claimId, next.work)) !==
+            'progress'
+        )
+          throw Error('Unexpected intervening invoice work');
+      }
+      throw Error('Invoice work did not return within bounded lanes');
+    },
     invoiceId,
     laterId,
     read: {

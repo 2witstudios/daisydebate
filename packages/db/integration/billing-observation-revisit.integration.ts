@@ -67,12 +67,22 @@ test(
           };
           for (let lane = 0; lane < 4; lane++) {
             const current = await claim();
-            await cleanup.record(jobId, {
-              kind: 'page',
-              ...current,
-              ids: [],
-              more: false,
-            });
+            const progress =
+              current.work.kind === 'scan' && current.work.lane === 'invoices'
+                ? await cleanup.retainInvoicePage(
+                    jobId,
+                    current.claimId,
+                    current.work,
+                    { reads: [], more: false },
+                  )
+                : await cleanup.record(jobId, {
+                    kind: 'page',
+                    ...current,
+                    ids: [],
+                    more: false,
+                  });
+            if (progress !== 'progress')
+              throw Error('Revisit setup page refused');
           }
           const first = await claim();
           const page = await cleanup.observations(

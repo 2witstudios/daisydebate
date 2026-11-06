@@ -12,7 +12,9 @@ test(
   'invoice write wait crossing claim expiry rolls back retained witness and exact cursor',
   async () =>
     withSelectedInvoice(
-      async ({ fixture, subject, cleanup, jobId, current, read }) => {
+      async ({ fixture, subject, cleanup, jobId, current, read, claim }) => {
+        const originalRows =
+          await fixture.sql`select * from billing_payment_observations where user_id=${subject.userId} order by id`;
         const [clock] = await fixture.sql`select clock_timestamp() as at`;
         await cleanup.record(jobId, {
           kind: 'failure',
@@ -20,6 +22,18 @@ test(
           work: current.work,
           retryAt: new Date(clock!.at.getTime() + 100).toISOString(),
         });
+        // Failure yields the observation lane; consume its exact already-durable row before returning to invoices.
+        const yielded = await claim();
+        if (
+          yielded.work.kind !== 'scan' ||
+          yielded.work.lane !== 'observations' ||
+          (await cleanup.retainObservation(
+            jobId,
+            yielded.claimId,
+            yielded.work,
+          )) !== 'progress'
+        )
+          throw Error('Missing fair observation turn');
         await fixture.sql`select pg_sleep(greatest(0,extract(epoch from retry_at-clock_timestamp()))+.01) from privacy_jobs where id=${jobId}`;
         const [row] =
           await fixture.sql`select billing_cleanup,clock_timestamp() as at from privacy_jobs where id=${jobId}`;
@@ -72,20 +86,20 @@ test(
           await holder`commit`;
           await assertRejects({
             given: 'the exact claim expired during the INSERT wait',
-            should: 'refuse final progress and roll back the new witness',
+            should: 'refuse final progress and roll back the source refinement',
             code: 'CONFLICT',
             actual: () => result,
           });
           const rows =
-            await fixture.sql`select id from billing_payment_observations where user_id=${subject.userId}`;
+            await fixture.sql`select * from billing_payment_observations where user_id=${subject.userId} order by id`;
           const [after] =
             await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;
           assert({
             given: 'final authority is sampled after the write wait',
             should:
-              'preserve original identity, claim, due and attempts with no partial obligation',
-            actual: [rows.length, after],
-            expected: [0, before],
+              'preserve original identity, claim, due and attempts with no partial source refinement',
+            actual: [rows, after],
+            expected: [originalRows, before],
           });
         } finally {
           await holder`rollback`;

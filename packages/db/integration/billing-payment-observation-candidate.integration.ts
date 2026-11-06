@@ -116,14 +116,18 @@ test('observation candidate preserves immutable owned evidence and real runtime 
           () =>
             tx`update billing_payment_observations set state=${JSON.stringify(invalidCoverage)}::text::jsonb where id=${witnessId}`,
         );
-        await tx`update billing_payment_observations set state=${JSON.stringify(coverage)}::text::jsonb where id=${witnessId}`;
+        const missingPass = await probe(
+          () =>
+            tx`update billing_payment_observations set state=${JSON.stringify(coverage)}::text::jsonb where id=${witnessId}`,
+        );
         assert({
           given:
             'an invoice-only witness and a positively retained exact payment identity',
           should:
-            'refuse an absent proof reference, retain valid enumeration evidence and leave the independent payment owed',
+            'refuse both absent identity and bare retained identity without current pass authority, leaving independent payment owed',
           actual: [
             missingIdentity,
+            missingPass,
             (
               await tx`select state from billing_payment_observations where id=${witnessId}`
             )[0]!.state,
@@ -131,7 +135,7 @@ test('observation candidate preserves immutable owned evidence and real runtime 
               await tx`select state from billing_payment_observations where id=${id}`
             )[0]!.state,
           ],
-          expected: ['23514', coverage, state],
+          expected: ['23514', '23514', witnessState, state],
         });
         const malformed = {
           ...state,
