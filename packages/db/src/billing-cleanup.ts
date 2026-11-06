@@ -1,14 +1,16 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   advanceCleanup,
   cleanupWork,
+  cleanupWorkSchema,
   startCleanup,
   ownsCleanupClaim,
   type CleanupEvent,
   type CleanupWork,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
+import type { BoundedTransactionContext } from './transaction-context';
 import {
   createBillingCleanupResources,
   currentCleanupResolution,
@@ -18,8 +20,11 @@ import { createBillingPaymentRecording } from './billing-payment-recording';
 import { createBillingPaymentProgress } from './billing-payment-progress';
 import { createBillingObservationRevisit } from './billing-observation-revisit';
 import { createBillingInvoiceDiscovery } from './billing-invoice-discovery';
+import { createBillingInvoiceRecording } from './billing-invoice-recording';
 import { createBillingInvoiceIdentity } from './billing-invoice-identity';
+import { createBillingCleanupRechecks } from './billing-cleanup-rechecks';
 import { privacyJobs } from './schema/privacy-jobs';
+import { billingCustomers } from './schema/billing-customers';
 import { readFrozenBillingOffer } from './billing-frozen-offer';
 import {
   cleanupContext,
@@ -39,7 +44,9 @@ export function createBillingCleanup(input: {
     ...createBillingPaymentProgress(input),
     ...createBillingObservationRevisit(input),
     ...createBillingInvoiceDiscovery(input),
+    ...createBillingInvoiceRecording(input),
     ...createBillingInvoiceIdentity(input),
+    ...createBillingCleanupRechecks(input),
     frozenOffer(
       jobId: string,
       claimId: string,
@@ -84,6 +91,26 @@ export function createBillingCleanup(input: {
         };
       });
     },
+    inspect(jobId: string, claimId: string, work: CleanupWork) {
+      const parsed = cleanupWorkSchema.safeParse(work);
+      if (!parsed.success) return Promise.resolve({ kind: 'refuse' } as const);
+      return input.run(async (tx) => {
+        const locked = await lockCleanupJob(tx, jobId);
+        if (!locked?.state) return { kind: 'refuse' } as const;
+        const facts = await cleanupFacts(tx, locked.userId);
+        const context = await cleanupContext(tx, jobId, facts.effects);
+        if (!ownsCleanupClaim(locked.state, claimId, parsed.data, context))
+          return { kind: 'refuse' } as const;
+        return {
+          kind: 'current' as const,
+          userId: locked.userId,
+          closedAt: locked.closedAt,
+          now: context.now,
+          attempts: locked.row.attempts,
+          facts,
+        };
+      });
+    },
     claim(jobId: string) {
       return input.run(async (tx) => {
         const locked = await lockCleanupJob(tx, jobId);
@@ -111,6 +138,7 @@ export function createBillingCleanup(input: {
           work: cleanupWork(transition.state)!,
           userId: locked.userId,
           closedAt: locked.closedAt,
+          attempts: locked.row.attempts,
           facts,
         };
       });
@@ -143,6 +171,12 @@ export function createBillingCleanup(input: {
               succeededAt: new Date(state.checkedAt),
             })
             .where(eq(privacyJobs.id, jobId));
+          await removeConfirmedCustomerMapping(
+            tx,
+            locked.userId,
+            state.outcome,
+            facts.effects.mappedCustomers,
+          );
           return 'complete' as const;
         }
         await tx
@@ -168,4 +202,25 @@ function needsObservationWrite(event: CleanupEvent) {
       event.work.kind === 'scan' &&
       event.work.lane === 'invoices')
   );
+}
+
+async function removeConfirmedCustomerMapping(
+  tx: BoundedTransactionContext,
+  userId: string,
+  outcome: 'vendor-deleted' | 'no-vendor-effects',
+  mappedCustomers: number,
+) {
+  if (outcome !== 'vendor-deleted') return;
+  // The account/job fence makes confirmation and removal atomic;
+  // retained financial obligations keep their own original routing.
+  const removed = await tx
+    .delete(billingCustomers)
+    .where(
+      and(
+        eq(billingCustomers.userId, userId),
+        isNotNull(billingCustomers.closedAt),
+      ),
+    )
+    .returning({ id: billingCustomers.id });
+  if (removed.length !== mappedCustomers) throw createAppError('CONFLICT');
 }

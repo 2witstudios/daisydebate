@@ -1,3 +1,4 @@
+import { repairInvoicePassAuthority } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -50,6 +51,7 @@ test('public current-service identity materialization validates exact producer b
       const frame = old.billing_cleanup.scans.invoices;
       await tx`reset role`;
       await tx.unsafe(await Bun.file(migration).text());
+      await repairInvoicePassAuthority(tx);
       return [frame.id, ...frame.rest] as string[];
     });
     const reserve = pool.reserve.bind(pool);

@@ -1,3 +1,4 @@
+import { repairInvoicePassAuthority } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { cleanupWork } from '@daisy/protocol/billing';
@@ -41,6 +42,7 @@ test('unrouted predecessor invoice identities survive conversion, rotation and f
         await tx`delete from billing_customers where user_id=${userId}`;
         await tx`reset role`;
         await tx.unsafe(await Bun.file(migration).text());
+        await repairInvoicePassAuthority(tx);
         await tx`set local role daisy_web`;
         const matrix = cleanupCandidate(tx, job!.id);
         let state = await matrix.state();

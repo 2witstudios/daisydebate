@@ -22,7 +22,11 @@ export type {
   BillingPaymentObservation,
   PaymentObservationContext,
 } from './billing-payment-observation';
-export { advanceCleanup, ownsCleanupClaim } from './billing-cleanup-lifecycle';
+export {
+  advanceCleanup,
+  ownsCleanupClaim,
+  noCleanupEffects,
+} from './billing-cleanup-lifecycle';
 export {
   billingCleanupSchema,
   cleanupWorkSchema,

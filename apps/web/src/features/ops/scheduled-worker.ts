@@ -5,6 +5,7 @@ import type { Logger } from '@daisy/logger';
 export const SCHEDULED_WORKERS = [
   'observation_purges',
   'privacy_jobs',
+  'billing_cleanup',
   'messaging_file_maintenance',
 ] as const;
 export type ScheduledWorkerName = (typeof SCHEDULED_WORKERS)[number];

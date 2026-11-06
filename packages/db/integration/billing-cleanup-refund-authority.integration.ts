@@ -1,3 +1,4 @@
+import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -9,7 +10,7 @@ import { sqlStateOf } from './constraint-helpers';
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261106110238_stripe_invoice_pass_authority/migration.sql',
+  '../migrations/20261106223739_stripe_invoice_coverage_repair/migration.sql',
   import.meta.url,
 );
 
@@ -25,7 +26,7 @@ test('current unlinked original refund action cannot be skipped by public resolu
       payment,
     }) => {
       await fixture.sql.begin(async (tx) =>
-        tx.unsafe(await Bun.file(candidate).text()),
+        installInvoicePassGuards(tx, candidate),
       );
       const reserve = pool.reserve.bind(pool);
       pool.reserve = async (options) => {

@@ -31,7 +31,7 @@ test('retaining an unchanged owed observation with its exact remainder is progre
   });
   const later = 'q'.repeat(24);
   const base = billingCleanupSchema.parse({
-    version: 2,
+    version: 3,
     kind: 'scanning',
     invoiceDebt: { kind: 'none' },
     jobId: job,
@@ -128,7 +128,7 @@ test('new cleanup execution contains five independently bounded discovery/revisi
     expected: [
       ['purchases', 'subscriptions', 'invoices', 'refunds', 'observations'],
       {
-        version: 2,
+        version: 3,
         kind: 'scanning',
         invoiceDebt: { kind: 'none' },
         jobId: job,
@@ -152,7 +152,7 @@ test('new cleanup execution contains five independently bounded discovery/revisi
 function finalPage() {
   return claimed(
     billingCleanupSchema.parse({
-      version: 2,
+      version: 3,
       kind: 'scanning',
       invoiceDebt: { kind: 'none' },
       jobId: job,
@@ -197,7 +197,7 @@ test('all-pass traversal with owed identities restarts fair head discovery witho
       {
         kind: 'progress',
         state: {
-          version: 2,
+          version: 3,
           kind: 'deleting',
           jobId: job,
           retryAt: at(1.1),
@@ -210,7 +210,7 @@ test('all-pass traversal with owed identities restarts fair head discovery witho
 
 test('five-lane failure yielding preserves exact selections and never turns an unresolved observation read into progress', () => {
   let value = billingCleanupSchema.parse({
-    version: 2,
+    version: 3,
     kind: 'scanning',
     invoiceDebt: { kind: 'none' },
     jobId: job,

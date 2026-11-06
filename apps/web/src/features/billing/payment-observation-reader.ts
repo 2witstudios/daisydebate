@@ -72,7 +72,8 @@ export function createPaymentObservationReader(input: {
     }
   };
 }
-function normalizePaymentObservation(
+/** Shared by a retrieved payment and an actually returned expanded list member. */
+export function normalizePaymentObservation(
   raw: unknown,
   request: {
     readonly invoice: ReturnType<typeof ownedInvoiceObservationSchema.parse>;

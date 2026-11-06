@@ -3,7 +3,10 @@ import {
   closurePaymentDisposition,
   type RefundAction,
 } from '@daisy/protocol/billing';
-import { invoiceSchema } from './subscription-vendor-facts';
+import {
+  invoiceSchema,
+  subscriptionOwnerSchema,
+} from './subscription-vendor-facts';
 
 const vendorId = (prefix: string) =>
   z
@@ -18,12 +21,7 @@ const reference = (prefix: string) =>
 const money = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const seconds = z.number().int().nonnegative().max(253_402_300_799);
 const instant = z.iso.datetime({ precision: 3 });
-const ownerSchema = z.strictObject({
-  mode: z.enum(['test', 'live']),
-  customerId: vendorId('cus'),
-  vendorSubscriptionId: vendorId('sub'),
-  priceId: vendorId('price'),
-});
+const ownerSchema = subscriptionOwnerSchema;
 export function readClosurePaymentOwner(value: unknown) {
   const parsed = ownerSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
@@ -153,6 +151,30 @@ function ownsInvoice(facts: {
       owner.vendorSubscriptionId &&
     line.pricing.price_details.price === owner.priceId
   );
+}
+
+/** Enumeration's current invoice read establishes ownership/period only, never payment settlement. */
+export function observeClosureInvoice(input: {
+  readonly owner: unknown;
+  readonly invoice: unknown;
+}) {
+  const owner = ownerSchema.safeParse(input.owner);
+  const invoice = invoiceSchema.safeParse(input.invoice);
+  if (
+    !owner.success ||
+    !invoice.success ||
+    !ownsInvoice({ owner: owner.data, invoice: invoice.data })
+  )
+    return { kind: 'unresolved' } as const;
+  const period = invoice.data.lines.data[0]!.period;
+  return {
+    kind: 'invoice' as const,
+    invoiceId: invoice.data.id,
+    period: {
+      startsAt: new Date(period.start * 1000).toISOString(),
+      endsAt: new Date(period.end * 1000).toISOString(),
+    },
+  };
 }
 
 /** Positive exact-payment chronology is retained separately from charge/allocation proof. */

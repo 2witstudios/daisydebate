@@ -7,21 +7,14 @@ import { startRunSchedule } from './run-schedule';
 import type { App } from './app';
 import type { WorkerTimers } from '../lib/worker-timers';
 
-/**
- * The vendors this deployment both queues on erasure and can deliver
- * (ISSUE-833, ADR 0087): a processor holds subject data only once it is
- * wired, and a queued job no port can deliver would retry forever while
- * recording a deletion that never happened. `messaging-typing` is the one
- * unconditional vendor here. Configured PostHog adds its port and admission
- * together; object storage has its own file-deletion worker. Other planned
- * processors stay absent until their delivery ports exist (ADR 0037).
- */
+/** Generic vendor erasure ports retain their existing Promise<void> completion contract. */
 const privacyJobVendors = ['messaging-typing'] as const;
-
+export const genericPrivacyJobVendors = (app: App): readonly PrivacyVendor[] =>
+  app.posthogErasure ? [...privacyJobVendors, 'posthog'] : privacyJobVendors;
+/** Stripe always has a local fenced zero-effects path; configured vendor transport is needed only for retained effects. */
 export const configuredPrivacyJobVendors = (
   app: App,
-): readonly PrivacyVendor[] =>
-  app.posthogErasure ? [...privacyJobVendors, 'posthog'] : privacyJobVendors;
+): readonly PrivacyVendor[] => [...genericPrivacyJobVendors(app), 'stripe'];
 
 /**
  * The vendor deletion port a queued job is delivered through: the Redis
@@ -57,7 +50,7 @@ export const PRIVACY_JOBS_RETRY_MAX_MS = 3_600_000;
  * minute, at most hourly. The obligation stays pending until the vendor
  * confirms; nothing about the failure is stored or logged beyond counts.
  */
-const privacyJobRetryAt = (now: string, attempts: number): string =>
+export const privacyJobRetryAt = (now: string, attempts: number): string =>
   new Date(
     new Date(now).getTime() +
       Math.min(

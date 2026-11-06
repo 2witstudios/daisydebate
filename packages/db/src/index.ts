@@ -302,9 +302,9 @@ export function createDatabase({
       instrumented(eventSink, 'owedObservationPurges', () =>
         owedObservationPurges(control),
       ),
-    owedPrivacyJobs: () =>
+    owedPrivacyJobs: (input?: Parameters<typeof owedPrivacyJobs>[1]) =>
       instrumented(eventSink, 'owedPrivacyJobs', () =>
-        owedPrivacyJobs(control),
+        owedPrivacyJobs(control, input),
       ),
     /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
     duePrivacyJobs: (input: Parameters<typeof duePrivacyJobs>[1]) =>

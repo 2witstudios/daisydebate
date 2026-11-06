@@ -458,7 +458,7 @@ privacy jobs alone own cursor/claim execution.
 
 Invoice enumeration requires a current execution pass, independent of payment
 classification or refund settlement. Active cleanup execution uses literal
-version 2; historical acknowledgements retain their original shape. A new pass
+version 3; historical acknowledgements retain their original shape. A new pass
 retires prior enumeration coverage to an owed invoice witness while preserving
 original source, payment evidence, action links and sticky conflicts. Its bounded
 comparison stores the complete normalized ordered reads up to 20 members. Beyond
@@ -485,14 +485,24 @@ and consuming its pass in the same transaction. SQL does not independently attes
 that vendor I/O occurred. Resolving enumeration never settles its payments or
 actions; independent owed facts continue to block acknowledgement through F3.
 
-The invoice-pass forward transition uses an exact temporary guard, deterministic
-data update and final strict guard in one transaction. It transforms only pending
-unversioned/null execution, retires old claims and invoice cursors, preserves all
-selected IDs/remainders and financial facts, and starts null passes. Old deletion
-demotes to actual discovery; already-v2 execution, historical ACKs and non-Stripe
-jobs remain untouched. This marker makes replay preserve new authority without a
-runtime compatibility parser. The two-function correction and atomic adapters
-require populated predecessor and runtime-role proof before delivery acceptance.
+Applied112 first introduced v2 passes while preserving predecessor-complete
+heads. Those heads do not prove current membership: consuming a remaining refund
+head could otherwise enter deletion using historical enumeration. The forward
+v3 correction uses an exact temporary guard, deterministic data update and final
+strict guards in one transaction. Only pending v2/null execution changes.
+Canonical account, job and invoice-observation locks precede its database time.
+It retires claims and pass receipts, preserves every selected ID/remainder,
+identity debt and original queue accounting, and resets nonselected invoice and
+observation frames to HEAD. Old deletion/null demotes to real discovery.
+Enumeration-resolved invoice witnesses of these pending subjects become owed;
+original owner/source/creation facts and all payment/action evidence remain.
+Sticky conflicts, historical ACKs and non-Stripe jobs are untouched. Indexed owed
+facts prevent selected tails from bypassing newly rearmed earlier invoices;
+exhausted owed passes revisit all heads. Strict version3 rejects old-worker
+claims, and replay does not reset new version3 authority. No runtime compatibility
+parser accepts retired execution. This forward correction requires populated112
+and runtime-role proof before delivery acceptance; it is not supplied by the
+older112 preservation tests or by producer assertions alone.
 The pinned [Stripe23.1 InvoicePayment contract](https://github.com/stripe/stripe-node/blob/v23.1.0/src/resources/InvoicePayments.ts)
 identifies the success timestamp separately from invoice allocation; the
 [object reference](https://docs.stripe.com/api/invoice-payment/object) permits

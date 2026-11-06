@@ -60,7 +60,7 @@ const claim = z.strictObject({
   expiresAt: instant,
 });
 const active = {
-  version: z.literal(2),
+  version: z.literal(3),
   jobId: idSchema,
   retryAt: instant,
   claim: claim.nullable(),
@@ -249,7 +249,7 @@ export function startCleanup(
     return null;
   const page = { kind: 'page' as const, afterId: null };
   return {
-    version: 2,
+    version: 3,
     kind: 'scanning',
     jobId,
     retryAt: now,

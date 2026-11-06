@@ -263,6 +263,7 @@ existing event stream — no new call sites):
 | `auth_5xx_rate`             | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*`     |
 | `cleanup_missed`            | no retention run has succeeded and drained on every target in 3+ hours, or ever                 | `alert-retention-last-success`                         |
 | `observation_purges_missed` | the observation purge worker has had no healthy run in 15+ minutes, or ever                     | `alert-worker-last-success-observation_purges`         |
+| `billing_cleanup_missed`    | Stripe cleanup has had no healthy run in 2+ hours, or ever                                      | `alert-worker-last-success-billing_cleanup`            |
 | `privacy_jobs_missed`       | the vendor deletion worker has had no healthy run in 2+ hours, or ever                          | `alert-worker-last-success-privacy_jobs`               |
 | `file_maintenance_missed`   | file maintenance, when configured, has had no healthy run in 2+ hours or 3 intervals            | `alert-worker-last-success-messaging_file_maintenance` |
 | `mail_shed`                 | 20+ `mail.shed` over the trailing 10 minutes (ISSUE-220)                                        | per-minute `alert-mail-shed-*`                         |
@@ -535,18 +536,24 @@ hours, or ever, fires cleanup_missed").
 ### Scheduled worker missed
 
 **Symptom:** `observation_purges_missed`, `privacy_jobs_missed` or
-`file_maintenance_missed` fires: that worker has had no healthy run within
+`billing_cleanup_missed` or `file_maintenance_missed` fires: that worker has had no healthy run within
 its threshold. A healthy run is one that owes nothing, so a job in backoff or a
 queue longer than a batch keeps the alert armed. The alert
 therefore fires on an outage of the vendor the worker delivers to, which for
 `privacy_jobs` means a deletion the law requires is still unpaid.
+`billing_cleanup` separately tracks Stripe closure work, including retained
+unknown purchases and refund obligations. Its two-hour operational threshold
+exceeds the existing one-hour failure-backoff ceiling; progress or a successful
+individual vendor read does not clear an owed queue. This threshold is an
+operational default, not a financial retention or refund deadline.
 
 1. Filter the event stream for `event:"worker.run.failed"` and the worker's
    name in `operation`, and read `worker_run_failures_total{worker=...}` on
    `/api/ops/metrics`.
 2. Failures present: the store or vendor behind that worker is down (Redis for
    `observation_purges`, each vendor port for `privacy_jobs`, object storage
-   for `messaging_file_maintenance`). Jobs stay pending and retry on their own
+   for `messaging_file_maintenance`, Stripe or the Billing store for
+   `billing_cleanup`). Jobs stay pending and retry on their own
    once it returns; no manual drain is needed.
 3. No failures and no `worker.run.completed` either: check for jobs still owed
    (`status = 'pending'` on `privacy_jobs` or `observation_purge_jobs`), then that the process is up, as for

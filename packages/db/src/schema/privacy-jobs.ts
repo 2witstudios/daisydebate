@@ -1,4 +1,4 @@
-import { check, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { billingCleanupSchema } from '@daisy/protocol/billing';
 import {
@@ -31,6 +31,9 @@ export const privacyJobs = pgTable(
       table.subjectRef,
       table.vendor,
     ),
+    index('privacy_jobs_pending_vendor_due_idx')
+      .on(table.vendor, table.retryAt, table.id)
+      .where(sql`${table.status}='pending'`),
     check('privacy_jobs_vendor_valid', oneOf(table.vendor, privacyVendors)),
     jsonbIsObject('privacy_jobs', table.billingCleanup),
     check(

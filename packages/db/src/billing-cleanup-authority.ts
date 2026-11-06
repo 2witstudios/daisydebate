@@ -10,7 +10,7 @@ import { privacyJobs } from './schema/privacy-jobs';
 import { lockRefundAccount } from './billing-refund-authority';
 import { readDatabaseTime } from './database-clock';
 
-export async function lockCleanupJob(
+export async function lockCleanupRecord(
   tx: BoundedTransactionContext,
   jobId: string,
 ) {
@@ -32,13 +32,22 @@ export async function lockCleanupJob(
       ),
     )
     .for('update');
-  if (!row || row.status !== 'pending') return null;
+  return row ? { row, userId: selector.userId, closedAt } : null;
+}
+
+export async function lockCleanupJob(
+  tx: BoundedTransactionContext,
+  jobId: string,
+) {
+  const locked = await lockCleanupRecord(tx, jobId);
+  if (!locked || locked.row.status !== 'pending') return null;
+  const { row } = locked;
   const state =
     row.billingCleanup === null
       ? null
       : billingCleanupSchema.parse(row.billingCleanup);
   if (state && state.jobId !== jobId) throw createAppError('CONFLICT');
-  return { row, state, userId: selector.userId, closedAt };
+  return { ...locked, state };
 }
 
 /** Positive current absence includes retained financial routing, not merely a missing customer. */
@@ -82,7 +91,14 @@ export async function cleanupFacts(
 }
 function cleanupRoute(
   routes: readonly { readonly mode?: unknown; readonly customerId?: unknown }[],
-) {
+):
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'unresolved' }
+  | {
+      readonly kind: 'owned';
+      readonly mode: 'test' | 'live';
+      readonly customerId: string;
+    } {
   if (routes.length === 0) return { kind: 'absent' as const };
   const route = routes[0];
   if (

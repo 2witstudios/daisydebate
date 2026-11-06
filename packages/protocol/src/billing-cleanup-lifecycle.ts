@@ -96,8 +96,7 @@ function failure(value: Active, retryAt: string, now: string) {
   });
 }
 
-function noEffects(context: CleanupContext) {
-  const facts = context.effects;
+export function noCleanupEffects(facts: CleanupContext['effects']) {
   return (
     facts !== undefined &&
     facts.owedFinancialEffects === false &&
@@ -174,7 +173,7 @@ function terminal(
       context.effects?.owedFinancialEffects === false
       ? completed(value.jobId, context.now, 'vendor-deleted')
       : idle;
-  return noEffects(context)
+  return noCleanupEffects(context.effects)
     ? completed(value.jobId, context.now, 'no-vendor-effects')
     : idle;
 }

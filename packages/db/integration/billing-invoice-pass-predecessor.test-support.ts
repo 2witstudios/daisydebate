@@ -246,3 +246,148 @@ async function selectCohort(
   }
   if (cohort === 'claimed-invoices') await producer.claim();
 }
+
+/** Legal immutable111 trajectory: old enumeration consumed, only a failing refund HEAD remains. */
+export async function seedCompletedInvoicePredecessor(
+  tx: TransactionSQL,
+  jobId: string,
+  invoiceId: string,
+  observationIds: readonly string[],
+) {
+  if (observationIds.length === 0 || observationIds.length > 20)
+    throw Error('Expected bounded positive historical observations');
+  const [row] = await tx`select retry_at from privacy_jobs where id=${jobId}`;
+  const producer = legacyProducer(tx, jobId, row!.retry_at.toISOString());
+  for (let lane = 0; lane < 2; lane++) {
+    await producer.claim();
+    await producer.advance({ kind: 'complete' });
+  }
+  await producer.claim();
+  await producer.advance({
+    kind: 'selected',
+    id: invoiceId,
+    rest: [],
+    lastId: invoiceId,
+    more: false,
+    detail: { kind: 'invoice-payments', afterId: null },
+  });
+  await producer.claim();
+  await producer.failure();
+  await producer.claim();
+  await producer.advance({
+    kind: 'selected',
+    id: observationIds[0]!,
+    rest: observationIds.slice(1),
+    lastId: observationIds.at(-1)!,
+    more: false,
+    detail: { kind: 'resource' },
+  });
+  await producer.claim();
+  // Controlled historical producer supplies the same positive invoice proof after this claim.
+  // The immutable111 writer recognized each supplied read; this is not current runtime freshness.
+  await tx`update billing_payment_observations set observed_at=date_trunc('milliseconds',clock_timestamp())
+    where user_id=(select subject_ref from privacy_jobs where id=${jobId}) and kind='invoice' and vendor_invoice_id=${invoiceId}`;
+  await producer.advance({ kind: 'complete' });
+  for (let index = 0; index < observationIds.length; index++) {
+    await producer.claim();
+    await producer.failure();
+    await producer.claim();
+    const selected = producer.scanning().scans.observations;
+    if (selected.kind !== 'selected')
+      throw Error('Missing historical selected observation');
+    // Supply the exact selected positive historical fixture again, preserving its classified facts.
+    await tx`update billing_payment_observations set observed_at=date_trunc('milliseconds',clock_timestamp())
+      where id=${selected.id} and user_id=(select subject_ref from privacy_jobs where id=${jobId})`;
+    await producer.advance(
+      selected.rest.length
+        ? { ...selected, id: selected.rest[0]!, rest: selected.rest.slice(1) }
+        : { kind: 'complete' },
+    );
+  }
+  const state = producer.scanning();
+  if (
+    state.turn !== 'refunds' ||
+    state.scans.invoices.kind !== 'complete' ||
+    state.scans.observations.kind !== 'complete'
+  )
+    throw Error('Historical completion cohort not reached');
+  return state;
+}
+
+/** Guarded111 trajectory leaves an earlier resolved witness behind both selected traversal tails. */
+export async function seedInvoiceTailPredecessor(
+  tx: TransactionSQL,
+  jobId: string,
+  invoiceIds: readonly [string, string, string],
+  observationIds: readonly [string, string, string, string],
+  target: 'invoices' | 'observations',
+) {
+  const [row] = await tx`select retry_at from privacy_jobs where id=${jobId}`;
+  const producer = legacyProducer(tx, jobId, row!.retry_at.toISOString());
+  for (let n = 0; n < 2; n++) {
+    await producer.claim();
+    await producer.advance({ kind: 'complete' });
+  }
+  await producer.claim();
+  await producer.advance({
+    kind: 'selected',
+    id: invoiceIds[0],
+    rest: invoiceIds.slice(1),
+    lastId: invoiceIds[2],
+    more: false,
+    detail: { kind: 'invoice-payments', afterId: null },
+  });
+  await producer.claim();
+  await producer.failure();
+  await producer.claim();
+  await producer.advance({
+    kind: 'selected',
+    id: observationIds[0],
+    rest: observationIds.slice(1),
+    lastId: observationIds[3],
+    more: false,
+    detail: { kind: 'resource' },
+  });
+  await producer.claim();
+  await tx`update billing_payment_observations set observed_at=date_trunc('milliseconds',clock_timestamp()) where user_id=(select subject_ref from privacy_jobs where id=${jobId}) and kind='invoice' and vendor_invoice_id=${invoiceIds[0]}`;
+  await producer.advance({
+    kind: 'selected',
+    id: invoiceIds[1],
+    rest: [invoiceIds[2]],
+    lastId: invoiceIds[2],
+    more: false,
+    detail: { kind: 'invoice-payments', afterId: null },
+  });
+  await producer.claim();
+  await producer.failure();
+  await producer.claim();
+  await recognizeAndAdvance(0);
+  if (target === 'observations') {
+    await producer.claim();
+    await producer.failure();
+    await producer.claim();
+    await producer.failure();
+    await producer.claim();
+    await recognizeAndAdvance(1);
+    await producer.claim();
+    await producer.failure();
+    await producer.claim();
+    await producer.failure();
+  }
+  if (producer.scanning().turn !== target)
+    throw Error('Missing exact historical tail turn');
+  return producer.scanning();
+  async function recognizeAndAdvance(index: number) {
+    const id = observationIds[index]!;
+    // Positive historical fixture is supplied after this claim; known facts remain identical.
+    await tx`update billing_payment_observations set observed_at=date_trunc('milliseconds',clock_timestamp()) where id=${id} and user_id=(select subject_ref from privacy_jobs where id=${jobId})`;
+    await producer.advance({
+      kind: 'selected',
+      id: observationIds[index + 1]!,
+      rest: observationIds.slice(index + 2),
+      lastId: observationIds[3],
+      more: false,
+      detail: { kind: 'resource' },
+    });
+  }
+}

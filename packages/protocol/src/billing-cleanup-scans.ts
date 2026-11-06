@@ -55,7 +55,7 @@ export function progressCleanupScan(
   return context.effects.owedFinancialEffects
     ? startCleanup(value.jobId, retryAt)
     : {
-        version: 2,
+        version: 3,
         kind: 'deleting',
         jobId: value.jobId,
         retryAt,

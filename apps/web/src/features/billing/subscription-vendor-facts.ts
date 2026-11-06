@@ -25,6 +25,10 @@ export const identitySchema = z.strictObject({
   mode: z.enum(['test', 'live']),
 });
 export type BillingSubscriptionIdentity = z.infer<typeof identitySchema>;
+export const subscriptionOwnerSchema = identitySchema.omit({
+  subscriptionId: true,
+});
+export type SubscriptionOwner = z.infer<typeof subscriptionOwnerSchema>;
 export const subscriptionSchema = z.object({
   id: vendorId('sub'),
   object: z.literal('subscription'),

@@ -36,6 +36,7 @@ export const ALERT_THRESHOLDS = {
   workerMissedMs: {
     observation_purges: 15 * MINUTE_MS,
     privacy_jobs: 2 * 60 * MINUTE_MS,
+    billing_cleanup: 2 * 60 * MINUTE_MS,
     messaging_file_maintenance: 2 * 60 * MINUTE_MS,
   } satisfies Record<ScheduledWorkerName, number>,
   /**
@@ -106,6 +107,7 @@ export type AlertSnapshot = ReadAlertSnapshot | UnreadAlertSnapshot;
 const WORKER_ALERT_IDS = {
   observation_purges: 'observation_purges_missed',
   privacy_jobs: 'privacy_jobs_missed',
+  billing_cleanup: 'billing_cleanup_missed',
   messaging_file_maintenance: 'file_maintenance_missed',
 } as const satisfies Record<ScheduledWorkerName, string>;
 type WorkerAlertId = (typeof WORKER_ALERT_IDS)[ScheduledWorkerName];
@@ -134,6 +136,7 @@ const RUNBOOK_ANCHOR = {
   cleanup_missed: '#retention-cleanup-missed',
   observation_purges_missed: '#scheduled-worker-missed',
   privacy_jobs_missed: '#scheduled-worker-missed',
+  billing_cleanup_missed: '#scheduled-worker-missed',
   file_maintenance_missed: '#scheduled-worker-missed',
   mail_shed: '#auth-mail-shed-past-the-bound',
   network_limited: '#magic-link-requests-limited-per-network',

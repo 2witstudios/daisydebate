@@ -1,14 +1,16 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { startCleanup } from '@daisy/protocol/billing';
 import { withClosedPurchase } from './billing-cleanup-purchases.test-support';
 import {
   invoicePassCohorts,
   seedInvoicePassPredecessor,
   type InvoicePassLegacyState,
 } from './billing-invoice-pass-predecessor.test-support';
-import { cleanupCandidate } from './billing-cleanup-candidate.test-support';
+import {
+  startHistoricalInvoicePassV2,
+  claimHistoricalInvoicePassV2,
+} from './billing-invoice-pass-v2.test-support';
 import { sqlStateOf } from './constraint-helpers';
 requireTestServices(process.env);
 setupRitewayBun();
@@ -122,7 +124,7 @@ for (const cohort of invoicePassCohorts)
                 () =>
                   tx`update privacy_jobs set billing_cleanup=${JSON.stringify(before!.value.billing_cleanup)}::text::jsonb where id=${jobId}`,
               );
-              await cleanupCandidate(tx, jobId).claim();
+              await claimHistoricalInvoicePassV2(tx, jobId);
             }
             const [newAuthority] =
               await tx`select to_jsonb(job) as value from privacy_jobs job where id=${jobId}`;
@@ -164,9 +166,13 @@ function expectedExecution(
   const old = row.billing_cleanup;
   if (row.status !== 'pending') return old;
   if (old === null)
-    return startCleanup(row.id, new Date(row.retry_at).toISOString());
+    return startHistoricalInvoicePassV2(
+      row.id,
+      new Date(row.retry_at).toISOString(),
+    );
   if (old.kind === 'acknowledged') return old;
-  if (old.kind === 'deleting') return startCleanup(row.id, old.retryAt);
+  if (old.kind === 'deleting')
+    return startHistoricalInvoicePassV2(row.id, old.retryAt);
   const invoice = old.scans.invoices;
   const ids =
     invoice.kind === 'selected'

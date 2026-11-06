@@ -7,6 +7,8 @@ import {
 
 import {
   identitySchema,
+  subscriptionOwnerSchema,
+  type SubscriptionOwner,
   subscriptionSchema,
   invoiceSchema,
   type BillingSubscriptionIdentity,
@@ -31,6 +33,20 @@ function verifiedSubscription(
   value: unknown,
 ) {
   const expected = identitySchema.safeParse(identity);
+  if (!expected.success) return null;
+  const { vendorSubscriptionId, customerId, priceId, mode } = expected.data;
+  return readOwnedSubscription(
+    { vendorSubscriptionId, customerId, priceId, mode },
+    value,
+  );
+}
+
+/** Original offer ownership remains available after local subscription/grant erasure. */
+export function readOwnedSubscription(
+  identity: SubscriptionOwner,
+  value: unknown,
+) {
+  const expected = subscriptionOwnerSchema.safeParse(identity);
   const parsed = subscriptionSchema.safeParse(value);
   if (!expected.success || !parsed.success) return null;
   const sub = parsed.data;
