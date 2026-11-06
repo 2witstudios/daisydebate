@@ -17,7 +17,7 @@ export async function commitObservationProgress(
     readonly userId: string;
     readonly closedAt: string;
     readonly state: CleanupState;
-    readonly event: Extract<CleanupEvent, { kind: 'retained' }>;
+    readonly event: Extract<CleanupEvent, { kind: 'retained' | 'payments' }>;
   },
 ) {
   const facts = await cleanupFacts(tx, input.userId);

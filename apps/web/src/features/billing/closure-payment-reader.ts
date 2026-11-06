@@ -71,27 +71,34 @@ export function createClosurePaymentReader(input: {
       return { kind: 'unresolved' } as const;
     try {
       const value = await input.port.payment(request.paymentId);
-      const parsed = expanded.safeParse(value);
-      if (!parsed.success || parsed.data.id !== request.paymentId)
-        return { kind: 'unresolved' } as const;
-      const payment = parsed.data.payment;
-      const intent =
-        payment.type === 'payment_intent' ? payment.payment_intent : null;
+      const parts = expandedClosurePaymentParts(value, request.paymentId);
+      if (!parts) return { kind: 'unresolved' } as const;
       return observeClosurePayment({
         owner,
         closedAt: request.closedAt,
         now: input.clock.now(),
-        invoice: parsed.data.invoice,
-        invoicePayment: value,
-        paymentIntent: intent,
-        charge:
-          payment.type === 'charge'
-            ? payment.charge
-            : payment.payment_intent.latest_charge,
+        ...parts,
       });
     } catch {
       // SDK exceptions may contain private payment data; an unread fact is never nonpayment.
       return { kind: 'unresolved' } as const;
     }
+  };
+}
+
+/** One linked SDK read supplies the same exact parts to financial and retained-observation normalizers. */
+export function expandedClosurePaymentParts(value: unknown, id: string) {
+  const parsed = expanded.safeParse(value);
+  if (!parsed.success || parsed.data.id !== id) return null;
+  const payment = parsed.data.payment;
+  return {
+    invoice: parsed.data.invoice,
+    invoicePayment: value,
+    paymentIntent:
+      payment.type === 'payment_intent' ? payment.payment_intent : null,
+    charge:
+      payment.type === 'charge'
+        ? payment.charge
+        : payment.payment_intent.latest_charge,
   };
 }

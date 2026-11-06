@@ -89,7 +89,7 @@ const chronologyEvidence = z.strictObject({
   proof: observedPaymentChronologySchema,
   facts: partialPaymentFactsSchema,
 });
-const evidence = z.discriminatedUnion('kind', [
+export const paymentObservationEvidenceSchema = z.discriminatedUnion('kind', [
   chronologyEvidence,
   z.strictObject({
     kind: z.literal('partial'),
@@ -130,7 +130,7 @@ export const paymentObservationStateSchema = z.discriminatedUnion('kind', [
       'refund_required',
       'conflicting_evidence',
     ]),
-    evidence,
+    evidence: paymentObservationEvidenceSchema,
   }),
   z.strictObject({
     kind: z.literal('resolved'),

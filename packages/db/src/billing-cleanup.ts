@@ -12,6 +12,8 @@ import {
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBillingCleanupResources } from './billing-cleanup-resources';
 import { createBillingPaymentObservations } from './billing-payment-observations';
+import { createBillingPaymentRecording } from './billing-payment-recording';
+import { createBillingPaymentProgress } from './billing-payment-progress';
 import { privacyJobs } from './schema/privacy-jobs';
 import {
   cleanupContext,
@@ -27,6 +29,8 @@ export function createBillingCleanup(input: {
   return {
     ...createBillingCleanupResources(input.run),
     ...createBillingPaymentObservations(input),
+    ...createBillingPaymentRecording(input),
+    ...createBillingPaymentProgress(input),
     frozenOffer(
       jobId: string,
       claimId: string,

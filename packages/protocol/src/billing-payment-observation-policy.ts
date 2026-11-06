@@ -280,3 +280,22 @@ function chronologyResolutionEvidence(
     ? retained
     : { kind: 'chronology' as const, proof, facts: retained.facts };
 }
+
+/** A final money-admission conflict retains only this subject's original observed evidence and link. */
+export function retainRefundAdmissionConflict(
+  value: BillingPaymentObservation,
+  context: PaymentObservationContext,
+) {
+  if (value.kind !== 'payment' || !currentPaymentObservation(value, context))
+    return refuse;
+  const evidence = retainedPaymentEvidence(value);
+  if (evidence.kind !== 'verified') return refuse;
+  const next = billingPaymentObservationSchema.safeParse({
+    ...value,
+    observedAt: context.now,
+    state: { kind: 'owed', reason: 'conflicting_evidence', evidence },
+  });
+  return next.success
+    ? { kind: 'recorded' as const, observation: next.data }
+    : refuse;
+}

@@ -1,3 +1,13 @@
+export {
+  classifyPaymentObservation,
+  retainRefundAdmissionConflict,
+} from './billing-payment-observation-policy';
+export { unknownPaymentFacts } from './billing-payment-observation-facts';
+export {
+  ownedPaymentObservationSchema,
+  applyPaymentObservationRead,
+} from './billing-payment-observation-read';
+export type { OwnedPaymentObservation } from './billing-payment-observation-read';
 export { advanceUsage } from './usage-lifecycle';
 export {
   billingPaymentObservationSchema,

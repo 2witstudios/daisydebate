@@ -2,9 +2,7 @@ import { and, asc, eq, gt } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   advanceRefund,
-  closurePaymentDisposition,
   nextRefundWork,
-  refundActionSchema,
   type RefundAction,
   type RefundEvent,
 } from '@daisy/protocol/billing';
@@ -14,45 +12,14 @@ import { checkBillingPage, type BillingPage } from './billing-pagination';
 import {
   lockRefundAccount,
   lockRefundAction,
-  refundFromRow,
-  requireRefundCustomer,
 } from './billing-refund-authority';
 import { billingRefundActions } from './schema/billing-refund-actions';
+import {
+  admitRefundAction,
+  type RefundPayment,
+} from './billing-refund-admission';
 import { enqueuePrivacyJob } from './privacy/enqueue-job';
 
-type Payment = Pick<
-  RefundAction,
-  | 'mode'
-  | 'customerId'
-  | 'chargeId'
-  | 'invoiceId'
-  | 'vendorSubscriptionId'
-  | 'amountMinor'
-  | 'currency'
-  | 'period'
-  | 'paidAtSeconds'
->;
-function originalPayment(action: RefundAction): Payment {
-  return {
-    mode: action.mode,
-    customerId: action.customerId,
-    chargeId: action.chargeId,
-    invoiceId: action.invoiceId,
-    vendorSubscriptionId: action.vendorSubscriptionId,
-    amountMinor: action.amountMinor,
-    currency: action.currency,
-    period: action.period,
-    paidAtSeconds: action.paidAtSeconds,
-  };
-}
-function samePayment(action: RefundAction, other: RefundAction) {
-  return (
-    action.userId === other.userId &&
-    action.closedAt === other.closedAt &&
-    JSON.stringify(originalPayment(action)) ===
-      JSON.stringify(originalPayment(other))
-  );
-}
 function newRefundFact(before: RefundAction, after: RefundAction) {
   if (after.state.kind !== 'known') return false;
   return (
@@ -68,80 +35,24 @@ export function createBillingRefundActions(input: {
   readonly nextId: () => string;
 }) {
   return {
-    admit(userId: string, payment: Payment) {
+    admit(userId: string, payment: RefundPayment) {
       return input.run(async (tx) => {
         const closedAt = await lockRefundAccount(tx, userId);
-        await requireRefundCustomer(
-          tx,
-          userId,
-          payment.mode,
-          payment.customerId,
-        );
-        const now = (await readDatabaseTime(tx)).toISOString();
-        const disposition = closurePaymentDisposition({
-          closedAt,
-          paidAtSeconds: payment.paidAtSeconds,
-          now,
-        });
-        if (disposition !== 'refund') return { kind: disposition };
-        const action = refundActionSchema.parse({
-          ...payment,
-          id: input.nextId(),
+        const result = await admitRefundAction(tx, {
           userId,
           closedAt,
-          admittedAt: now,
-          state: { kind: 'ready' },
-          claim: null,
+          payment,
+          nextId: input.nextId,
         });
-        const inserted = await tx
-          .insert(billingRefundActions)
-          .values({
-            id: action.id,
-            userId,
-            mode: action.mode,
-            vendorCustomerId: action.customerId,
-            vendorChargeId: action.chargeId,
-            vendorInvoiceId: action.invoiceId,
-            vendorSubscriptionId: action.vendorSubscriptionId,
-            amountMinor: action.amountMinor,
-            currency: action.currency,
-            periodStartsAt: new Date(action.period.startsAt),
-            periodEndsAt: new Date(action.period.endsAt),
-            closedAt: new Date(closedAt),
-            paidAtSeconds: action.paidAtSeconds,
-            admittedAt: new Date(now),
-            state: action.state,
-            claim: null,
-          })
-          .onConflictDoNothing({
-            target: [
-              billingRefundActions.mode,
-              billingRefundActions.vendorChargeId,
-            ],
-          })
-          .returning();
-        const [row] = await tx
-          .select()
-          .from(billingRefundActions)
-          .where(
-            and(
-              eq(billingRefundActions.mode, action.mode),
-              eq(billingRefundActions.vendorChargeId, action.chargeId),
-            ),
-          )
-          .for('update');
-        if (!row) throw createAppError('CONFLICT');
-        const stored = refundFromRow(row);
-        if (!samePayment(stored, action)) throw createAppError('CONFLICT');
-        if (inserted.length === 0)
-          return { kind: 'existing' as const, action: stored };
-        await enqueuePrivacyJob(tx, {
-          id: input.nextId(),
-          subjectRef: userId,
-          vendor: 'stripe',
-          createdAt: now,
-        });
-        return { kind: 'admitted' as const, action: stored };
+        if (result.kind === 'conflict') throw createAppError('CONFLICT');
+        if (result.kind === 'admitted')
+          await enqueuePrivacyJob(tx, {
+            id: input.nextId(),
+            subjectRef: userId,
+            vendor: 'stripe',
+            createdAt: (await readDatabaseTime(tx)).toISOString(),
+          });
+        return result;
       });
     },
     claim(id: string) {
