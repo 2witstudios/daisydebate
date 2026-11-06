@@ -12,8 +12,9 @@ import {
 } from './messaging-journey';
 import {
   watchConversationRecovery,
-  messagingAdmissionEvidence,
+  readMessagingAdmissionLog,
 } from './messaging-recovery-evidence';
+import { awaitMessagingOperations } from './messaging-completed-operations';
 import { committedRefusalRenderId } from './messaging-committed-refusal';
 import { hasAdvisedConversationBoundary } from './messaging-refusal-flight';
 import { effectsRan } from './hydration';
@@ -156,17 +157,23 @@ export function testMessagingRecovery() {
         pending: 0,
       });
       await expect(composer(page)).toHaveCount(0);
-      const observed = await evidence(info, observer);
+      expect(observer.requestBoundary().requestIds.length).toBe(4);
+      const completed = await awaitMessagingOperations(
+        readMessagingAdmissionLog,
+        {
+          ...observer.requestBoundary(),
+          operation: 'messaging.history',
+        },
+      );
       expect(
-        observed.failures.filter(
-          (failure) => failure.operation === 'messaging.history',
+        completed.every(
+          (record) =>
+            record.status === 503 &&
+            record.errorCode === 'INFRASTRUCTURE' &&
+            record.admission === 'social.expired',
         ),
-      ).toHaveLength(4);
-      expect(
-        observed.failures
-          .filter((failure) => failure.operation === 'messaging.history')
-          .every((failure) => failure.admission === 'social.expired'),
       ).toBe(true);
+      await evidence(info, observer);
     } finally {
       try {
         await control('allow-messaging-reads');
@@ -257,6 +264,7 @@ export function testMessagingRecovery() {
           return route.continue();
         captured = true;
         const response = await route.fetch();
+        observer!.includeResponse(response.headers()['x-request-id']);
         held.resolve(hasAdvisedConversationBoundary(await response.text()));
         await gate.promise;
         await route.fulfill({ response });
@@ -271,15 +279,21 @@ export function testMessagingRecovery() {
           () => held.promise,
         ),
       ).toBe(true);
-      const admission = await messagingAdmissionEvidence(observer.phases());
-      const refusals = admission.failures.filter(
-        (failure) => failure.operation === 'messaging.history',
+      expect(observer.requestBoundary().requestIds.length).toBe(2);
+      const refusals = await awaitMessagingOperations(
+        readMessagingAdmissionLog,
+        {
+          ...observer.requestBoundary(),
+          operation: 'messaging.history',
+        },
       );
-      expect(refusals).toHaveLength(2);
+      expect(refusals.length).toBe(2);
       expect(
         refusals.every(
           (failure) =>
-            failure.status === 503 && failure.admission === 'social.expired',
+            failure.status === 503 &&
+            failure.errorCode === 'INFRASTRUCTURE' &&
+            failure.admission === 'social.expired',
         ),
       ).toBe(true);
       await info.attach('held-recovery-advised', {

@@ -1,12 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { Page, Request } from '@playwright/test';
+import type { Page, Request, Response } from '@playwright/test';
 import { systemClock } from '@daisy/clock';
 import { isMessagingRefetch } from './messaging-page-locators';
 
 /** All real RSC reads, including successor routes; explicit speculation stays separate. */
 export function watchConversationRecovery(page: Page, channelId: string) {
   const pending = new Set<Request>();
+  const responseIds = new Set<string>();
   const phases: { name: string; since: number }[] = [];
   const reads: { phase: string; destination: 'original' | 'successor' }[] = [];
   let prefetches = 0,
@@ -43,6 +44,20 @@ export function watchConversationRecovery(page: Page, channelId: string) {
   const settled = (incoming: Request) => {
     pending.delete(incoming);
   };
+  const includeResponse = (id: string | undefined) => {
+    if (!id) throw new Error('Messaging response correlation missing');
+    responseIds.add(id);
+  };
+  const response = (incoming: Response) => {
+    const outgoing = incoming.request();
+    if (
+      new URL(outgoing.url()).pathname === `/messages/${channelId}` &&
+      outgoing.headers()['next-router-prefetch'] !== '1' &&
+      (outgoing.isNavigationRequest() || isMessagingRefetch(outgoing.headers()))
+    )
+      includeResponse(incoming.headers()['x-request-id']);
+  };
+  page.on('response', response);
   page.on('request', request);
   page.on('requestfinished', settled);
   page.on('requestfailed', settled);
@@ -52,6 +67,11 @@ export function watchConversationRecovery(page: Page, channelId: string) {
       memberChoices += 1;
     },
     phases: () => phases,
+    includeResponse,
+    requestBoundary: () => ({
+      since: phases[0]!.since,
+      requestIds: [...responseIds],
+    }),
     snapshot: () => ({
       dispatches: reads.filter((read) => read.destination === 'original')
         .length,
@@ -66,6 +86,7 @@ export function watchConversationRecovery(page: Page, channelId: string) {
       reads,
     }),
     stop: () => {
+      page.off('response', response);
       page.off('request', request);
       page.off('requestfinished', settled);
       page.off('requestfailed', settled);
@@ -73,17 +94,20 @@ export function watchConversationRecovery(page: Page, channelId: string) {
   };
 }
 
-/** Safe operation/phase counts, all protected HTTP fanout and interval overlap. */
-export async function messagingAdmissionEvidence(
-  phases: readonly { name: string; since: number }[],
-) {
-  const source = await readFile(
+export const readMessagingAdmissionLog = () =>
+  readFile(
     resolve(
       import.meta.dirname,
       `../../test-results/server-${process.env.E2E_PORT}.log`,
     ),
     'utf8',
   );
+
+/** Safe operation/phase counts, all protected HTTP fanout and interval overlap. */
+export async function messagingAdmissionEvidence(
+  phases: readonly { name: string; since: number }[],
+) {
+  const source = await readMessagingAdmissionLog();
   const lines: Record<string, unknown>[] = source
     .split('\n')
     .flatMap((line) => {
