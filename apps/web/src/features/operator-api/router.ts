@@ -598,10 +598,7 @@ async function listPreapprovals(
   const items = [...rows].slice(0, parsed.data.limit);
   return preapprovalPageSchema.parse({
     items,
-    nextCursor:
-      rows.length > parsed.data.limit
-        ? (items.at(-1) as { id: string }).id
-        : null,
+    nextCursor: rows.length > parsed.data.limit ? items.at(-1)!.id : null,
   });
 }
 
@@ -617,12 +614,14 @@ async function updatePreapproval(
     throw createAppError('AUTHORIZATION');
   const parsed = preapprovalCommandSchema.safeParse(parseBody(request.body));
   if (!parsed.success) throw createAppError('VALIDATION');
-  const {
-    commandId: _id,
-    adminAuditHead: _anchor,
-    v: _v,
-    ...semantic
-  } = parsed.data;
+  const semantic =
+    parsed.data.operation === 'add'
+      ? [parsed.data.operation, parsed.data.email, parsed.data.invite]
+      : [
+          parsed.data.operation,
+          parsed.data.preapprovalId,
+          parsed.data.expectedRevision,
+        ];
   return deps.store.runPreapprovalCommand({
     command: parsed.data,
     serviceId: principal.serviceId,

@@ -100,11 +100,17 @@ test('a silently preapproved verified email still finishes onboarding', async ({
 
 test('a forwarded invitation grants no access to a different verified email', async ({
   page,
+  request,
 }) => {
-  await preapproveEmail(`${uniqueName('forwarded')}@example.test`);
-  // Invitation contains precisely the ordinary sign-in destination.
-  await page.goto('/sign-in');
+  test.setTimeout(45000);
+  const invitedEmail = `${uniqueName('forwarded')}@example.test`;
+  await preapproveEmail(invitedEmail, true);
+  let forwarded = '';
+  await expect(async () => {
+    forwarded = await emailedLink(request, invitedEmail);
+  }).toPass({ timeout: 25000 });
   await signUpWaitlisted(page.request);
+  await page.goto(forwarded);
   await page.goto('/play');
   await expect(page).toHaveURL(/\/beta\?next=%2Fplay$/);
 });

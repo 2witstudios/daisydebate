@@ -25,6 +25,7 @@ test('a lost preapproval response reconciles once and removes its personal pendi
   stub.lose('lose-after-apply');
   const submitted = await submitPreapproval(deps, operatorId, command);
   const open = await db.select().from(pendingCommands);
+  stub.preapprovalMailStates.set(command.commandId, 'suppressed');
   const reconciled = await reconcileOpenCommands(deps, operatorId);
   const again = await reconcileOpenCommands(deps, operatorId);
   const remaining = await db.select().from(pendingCommands);
@@ -43,6 +44,7 @@ test('a lost preapproval response reconciles once and removes its personal pendi
       remaining.length,
       stub.received.filter(({ route }) => route === 'updatePreapproval').length,
       JSON.stringify(audit).includes(command.email),
+      audit.find((event) => event.kind === 'command.reconciled')?.detail,
     ],
     expected: [
       'unknown',
@@ -53,6 +55,7 @@ test('a lost preapproval response reconciles once and removes its personal pendi
       0,
       1,
       false,
+      'mail_suppressed',
     ],
   });
 });

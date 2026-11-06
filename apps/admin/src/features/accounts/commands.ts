@@ -292,8 +292,7 @@ async function reconcileOne(
     return settledBy(
       await recordOutcome(deps, command, 'command.reconciled', {
         outcome: read.value.result.outcome,
-        detail:
-          read.value.result.mail === 'queued' ? 'mail_queued' : 'mail_none',
+        detail: mailDetail(read.value.mailState),
         settled: true,
       }),
     );

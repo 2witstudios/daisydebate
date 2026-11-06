@@ -2,6 +2,7 @@ import {
   preapprovalCommandSchema,
   type PreapprovalPage,
   type PreapprovalResult,
+  type invitationStates,
 } from '@daisy/protocol/beta-preapproval';
 import { decideBetaAccessChange } from '@daisy/auth';
 import {
@@ -116,6 +117,10 @@ export function createOperatorApiStub(input: {
 }) {
   const accounts = new Map(input.accounts.map((a) => [a.userId, { ...a }]));
   const preapprovals = new Map<string, PreapprovalPage['items'][number]>();
+  const preapprovalMailStates = new Map<
+    string,
+    (typeof invitationStates)[number]
+  >();
   const preapprovalReceipts = new Map<string, PreapprovalResult>();
   const receipts = new Map<string, BetaAccessCommandResult>();
   const nonces = new Set<string>();
@@ -223,7 +228,9 @@ export function createOperatorApiStub(input: {
       return json(200, {
         action: 'beta.preapproval.update',
         result: preapproval,
-        mailState: preapproval.mail === 'queued' ? 'queued' : 'none',
+        mailState:
+          preapprovalMailStates.get(commandId) ??
+          (preapproval.mail === 'queued' ? 'queued' : 'none'),
       });
     const stored = receipts.get(commandId);
     return stored
@@ -279,6 +286,7 @@ export function createOperatorApiStub(input: {
     handle,
     accounts,
     preapprovals,
+    preapprovalMailStates,
     received,
     /** Loses the next command's response, before or after it applies. */
     lose: (fault: StubFault) => faults.push(fault),

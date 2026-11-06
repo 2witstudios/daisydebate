@@ -57,19 +57,16 @@ export const preapprovalQuerySchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(100).default(25),
   cursor: idSchema.optional(),
 });
+export const preapprovalEntrySchema = z.strictObject({
+  id: idSchema,
+  email: preapprovalEmailSchema,
+  revision: z.number().int().positive(),
+  createdAt: z.iso.datetime(),
+  status: z.enum(['unused', 'claimed']),
+  invitation: z.enum(invitationStates),
+});
 export const preapprovalPageSchema = z.strictObject({
-  items: z
-    .array(
-      z.strictObject({
-        id: idSchema,
-        email: preapprovalEmailSchema,
-        revision: z.number().int().positive(),
-        createdAt: z.iso.datetime(),
-        status: z.enum(['unused', 'claimed']),
-        invitation: z.enum(invitationStates),
-      }),
-    )
-    .max(100),
+  items: z.array(preapprovalEntrySchema).max(100),
   nextCursor: idSchema.nullable(),
 });
 export type PreapprovalPage = z.infer<typeof preapprovalPageSchema>;

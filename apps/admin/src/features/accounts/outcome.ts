@@ -1,4 +1,7 @@
-import type { PreapprovalResult } from '@daisy/protocol/beta-preapproval';
+import type {
+  PreapprovalResult,
+  invitationStates,
+} from '@daisy/protocol/beta-preapproval';
 import type {
   BetaAccessCommandResult,
   BetaAccessCommandState,
@@ -20,9 +23,10 @@ export type AuditedOutcome = {
 };
 
 export const mailDetail = (
-  state: BetaAccessCommandState['mailState'],
+  state:
+    BetaAccessCommandState['mailState'] | (typeof invitationStates)[number],
 ): AuditDetail =>
-  state === null
+  state === null || state === 'none'
     ? 'mail_none'
     : state === 'leased'
       ? 'mail_queued'

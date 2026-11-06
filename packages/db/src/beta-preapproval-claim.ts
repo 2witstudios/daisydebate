@@ -17,6 +17,10 @@ export const lockPreapprovalEmail = (tx: Tx, email: string) =>
 export async function claimBetaPreapproval(
   tx: Tx,
   userId: string,
+  audit: { readonly principal: string; readonly commandId: string | null } = {
+    principal: 'signup',
+    commandId: null,
+  },
 ): Promise<boolean> {
   const [user] = (await tx.execute(
     sql`select email, email_verified from users where id = ${userId}`,
@@ -48,7 +52,7 @@ export async function claimBetaPreapproval(
     sql`update users set version = version + 1 where id = ${userId}`,
   );
   await tx.execute(
-    sql`insert into account_access_events (id, user_id, from_state, to_state, revision, principal) values (${grant.id}, ${userId}, 'pending', 'approved', ${fact.beta!.revision + 1}, 'signup')`,
+    sql`insert into account_access_events (id, user_id, command_id, from_state, to_state, revision, principal) values (${grant.id}, ${userId}, ${audit.commandId}, 'pending', 'approved', ${fact.beta!.revision + 1}, ${audit.principal})`,
   );
   return true;
 }

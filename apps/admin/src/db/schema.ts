@@ -64,6 +64,8 @@ export const auditDetails = [
   'approval_missing',
   'approved',
   'revoked',
+  'mail_unknown',
+  'mail_suppressed',
   'mail_none',
   'mail_queued',
   'mail_sent',

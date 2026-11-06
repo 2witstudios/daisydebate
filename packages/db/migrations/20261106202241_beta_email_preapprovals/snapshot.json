@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "482f1b19-e243-4792-ab1f-03384c2c34e7",
+  "id": "f87be94c-0e7e-4833-b52a-7f6fe08d5434",
   "prevIds": [
-    "e2345cf1-a6fe-44df-a6b4-3e1f077fec81"
+    "0ac5411a-2da5-43a5-bd7e-aabee0e007b1"
   ],
   "ddl": [
     {
@@ -195,6 +195,24 @@
     {
       "isRlsEnabled": false,
       "name": "account_entitlement_grants",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "flag_account_overrides",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "flag_change_events",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "release_flags",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2190,6 +2208,19 @@
     {
       "type": "timestamp with time zone",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "last_invited_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "beta_preapprovals"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "now()",
@@ -3879,6 +3910,188 @@
       "entityType": "columns",
       "schema": "public",
       "table": "account_entitlement_grants"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "enabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "command_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "change",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "release_flags"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "release_flags"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "release_flags"
     },
     {
       "type": "text",
@@ -14066,6 +14279,97 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "flag_account_overrides_user_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "flag_account_overrides_expiry_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "revision",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "flag_change_events_key_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "flag_change_events_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "format_id",
           "isExpression": false,
           "asc": true,
@@ -14215,6 +14519,27 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "friendships"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "preapproval_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "mail_intents_preapproval_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "mail_intents"
     },
     {
       "nameExplicit": true,
@@ -19720,6 +20045,40 @@
       "table": "account_entitlement_grants"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "key"
+      ],
+      "schemaTo": "public",
+      "tableTo": "release_flags",
+      "columnsTo": [
+        "key"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "flag_account_overrides_key_release_flags_key_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "flag_account_overrides_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
       "nameExplicit": true,
       "columns": [
         "format_id",
@@ -22683,6 +23042,17 @@
     },
     {
       "columns": [
+        "key",
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "flag_account_overrides_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "columns": [
         "format_id",
         "version"
       ],
@@ -23253,6 +23623,26 @@
       "name": "email_suppression_pkey",
       "schema": "public",
       "table": "email_suppression",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "flag_change_events_pkey",
+      "schema": "public",
+      "table": "flag_change_events",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "release_flags_pkey",
+      "schema": "public",
+      "table": "release_flags",
       "entityType": "pks"
     },
     {
@@ -24577,6 +24967,48 @@
       "entityType": "checks",
       "schema": "public",
       "table": "account_entitlement_grants"
+    },
+    {
+      "value": "\"expires_at\" > \"created_at\"",
+      "name": "flag_account_overrides_expiry_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "flag_account_overrides"
+    },
+    {
+      "value": "\"change\" in ('state', 'override')",
+      "name": "flag_change_events_change_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "value": "\"revision\" > 0",
+      "name": "flag_change_events_revision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "flag_change_events"
+    },
+    {
+      "value": "\"key\" ~ '^[a-z][a-z0-9-]{1,63}$'",
+      "name": "release_flags_key_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "release_flags"
+    },
+    {
+      "value": "\"state\" in ('default', 'enabled', 'disabled', 'killed')",
+      "name": "release_flags_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "release_flags"
+    },
+    {
+      "value": "\"revision\" > 0",
+      "name": "release_flags_revision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "release_flags"
     },
     {
       "value": "\"version\" > 0",

@@ -53,8 +53,15 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
         return { commandId: input.commandId, key: input.key, revision: 1 };
       },
       listBetaPreapprovals: async () => [],
-      runPreapprovalCommand: async () => {
-        throw new Error('unused');
+      runPreapprovalCommand: async (input) => {
+        calls.commands.push(input);
+        return {
+          commandId: input.command.commandId,
+          preapprovalId: 'g'.repeat(24),
+          revision: 1,
+          outcome: 'saved',
+          mail: 'none',
+        };
       },
       listOperatorReports: async () => [],
       listOperatorRestrictions: async () => [],
