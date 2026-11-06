@@ -176,19 +176,19 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
       claimMailIntents: async () => [
         {
           id: 'erased',
-          purpose: input.purpose ?? 'beta-approved',
+          purpose: 'beta-approved',
           attempts: 1,
           token: 't1',
         },
         {
           id: 'owed',
-          purpose: input.purpose ?? 'beta-approved',
+          purpose: 'beta-approved',
           attempts: 1,
           token: 't2',
         },
         {
           id: 'unreadable',
-          purpose: input.purpose ?? 'beta-approved',
+          purpose: 'beta-approved',
           attempts: MAIL_INTENT_MAX_ATTEMPTS,
           token: 't3',
         },
