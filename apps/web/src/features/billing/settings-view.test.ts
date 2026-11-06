@@ -59,3 +59,46 @@ test('unavailable usage never becomes an invented remaining balance', () => {
     },
   });
 });
+
+test('paid access remains through its verified period and expires at the end even while vendor status stays active', () => {
+  const endsAt = '2026-12-01T00:00:00.000Z';
+  const paid = {
+    ...source,
+    purchaseAllowed: false,
+    evidence: {
+      lifecycle: 'active' as const,
+      settlement: {
+        kind: 'paid' as const,
+        invoiceId: 'in_paid',
+        period: {
+          subscriptionId: 'sub_owned',
+          startsAt: '2026-11-01T00:00:00.000Z',
+          endsAt,
+        },
+      },
+    },
+  };
+  const before = billingSettingsView({
+    source: paid,
+    configured: true,
+    purchaseVisible: false,
+  });
+  const after = billingSettingsView({
+    source: { ...paid, now: endsAt },
+    configured: true,
+    purchaseVisible: false,
+  });
+  assert({
+    given: 'retained verified payment after cancel-at-period-end is requested',
+    should:
+      'preserve paid-through display and management without extending the interval from vendor active',
+    actual: [
+      before.plan,
+      before.accessEndsAt,
+      after.plan,
+      after.accessEndsAt,
+      after.manageAvailable,
+    ],
+    expected: ['premium', endsAt, 'free', null, true],
+  });
+});
