@@ -20,11 +20,19 @@ import { nextWorkerToken } from './worker-token';
  * else receives the app, or a part of it, as an argument, and tests build
  * their own with `createApp`.
  */
-type ProcessState = { readonly app: App; readonly routes: Routes };
+type ProcessState = {
+  readonly app: App;
+  readonly routes: Routes;
+  readonly vendorFetch: typeof globalThis.fetch;
+};
 
-const stateFor = (app: App): ProcessState => ({
+const stateFor = (
+  app: App,
+  vendorFetch: typeof globalThis.fetch,
+): ProcessState => ({
   app,
   routes: createRoutes(app),
+  vendorFetch,
 });
 
 /**
@@ -49,7 +57,7 @@ export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
 
 /** Process-owned vendor transport; workers receive it explicitly and never read globals. */
 export const processVendorFetch = (): typeof globalThis.fetch =>
-  globalThis.fetch;
+  edge.get().vendorFetch;
 
 const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,
@@ -63,6 +71,7 @@ const edge = createProcessEdge(
         nextWorkerToken,
         messagingPolicy: betaMessagingPolicy,
       }),
+      globalThis.fetch,
     ),
 );
 
@@ -78,14 +87,17 @@ export const processRoute = (
   ) => (request: Request) => Promise<Response>,
 ) =>
   createRouteBinder(() => edge.get())((state) =>
-    pick(state.routes, state.app, globalThis.fetch),
+    pick(state.routes, state.app, state.vendorFetch),
   );
 /**
  * For a process entry that composes its own app before the server starts
  * (the browser suite's server, which captures outbound mail): makes it this
  * process's app. Refuses once one exists.
  */
-export const adoptProcessApp = (app: App) => edge.adopt(stateFor(app));
+export const adoptProcessApp = (
+  app: App,
+  vendorFetch: typeof globalThis.fetch = globalThis.fetch,
+) => edge.adopt(stateFor(app, vendorFetch));
 
 /** Closes this process's app if one was built. */
 export async function closeProcessApp() {

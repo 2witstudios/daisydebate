@@ -100,3 +100,11 @@ recovery transaction, preserving the original purchase/key and atomically
 reopening closed-account cleanup when facts change. Drain waits for an in-flight
 positive effect to be accounted for. This source and controlled fault tests do
 not establish genuine paid lifecycle or browser acceptance.
+
+An explicitly composed process may adopt its App together with its vendor
+transport through `adoptProcessApp(app, vendorFetch)`. Routes and the real
+subscription, purchase and refund workers share that frozen transport. Adoption
+refuses after process initialization; it cannot replace transport mid-attempt.
+Ordinary startup uses real fetch. Mail capture and the public ingress probe keep
+their separate existing resources. This permits authenticated TEST transport at
+the resource edge without replacing business workers or copying credentials.
