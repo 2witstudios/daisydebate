@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useRouter } from 'next/navigation';
 import {
   createContext,

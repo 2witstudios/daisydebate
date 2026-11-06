@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { ShellLink as Link } from '../../shell-link';
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '../../../../cn';

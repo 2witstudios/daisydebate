@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ShellLink as Link } from '../../shell-link';
 import { Suspense, type ReactNode } from 'react';
 import { Avatar } from '../../../../components/avatar/avatar';
 import { Icon } from '../../../../components/icon/icon';

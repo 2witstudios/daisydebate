@@ -92,3 +92,49 @@ test('a refusal no operation reported still names what held the lane', async () 
     expected: [{ operation: 'readFoo', cause: 'competitive', running: 2 }],
   });
 });
+
+test('an unreported queued read refusal names its lane and reason at the HTTP boundary', async () => {
+  const { logger, recorded } = createRecordingLogger();
+  const response = await handleOperation(
+    logger,
+    new Request('http://localhost/x'),
+    'messaging.history',
+    async () => {
+      throw refuseCapacity({
+        lane: 'social',
+        reason: 'expired',
+        pressure: { running: 4, pending: 2, oldestAgeMs: 110 },
+        holders: { messagingTypingStore: 1 },
+      });
+    },
+  );
+  assert({
+    given: 'a social read expiring before its database operation runs',
+    should:
+      'record one precise refusal summary and keep temporary retry advice',
+    actual: {
+      summaries: recorded
+        .filter(({ event }) => event === 'db.capacity.refused')
+        .map(({ fields }) => {
+          const { operation, cause, running, pending, oldestAgeMs } =
+            fields as Record<string, unknown>;
+          return { operation, cause, running, pending, oldestAgeMs };
+        }),
+      status: response.status,
+      retry: response.headers.get('retry-after'),
+    },
+    expected: {
+      summaries: [
+        {
+          operation: 'messaging.history',
+          cause: 'social.expired',
+          running: 4,
+          pending: 2,
+          oldestAgeMs: 110,
+        },
+      ],
+      status: 503,
+      retry: '1',
+    },
+  });
+});
