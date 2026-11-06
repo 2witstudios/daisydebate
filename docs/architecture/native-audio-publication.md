@@ -55,6 +55,33 @@ publication/subscription and isolated PostgreSQL history. It proves a paced
 callback, historical closure and cancellation controls. Subscriber sample totals
 only corroborate transport; authorization uses the native source brackets.
 
+### Qualification observations
+
+The canonical clock retains the first rejected predicate as data on invalid
+state. A later refresh or reanchor cannot replace that reason or revive the
+gap. A reason identifies a decision mechanism, not its environmental cause.
+
+The paced writer may receive a synchronous `createPublicationObserver` handle.
+It receives copied, frozen scalar observations of already computed calibration,
+source-receipt, cadence, history, cancellation and terminal decisions. It reads
+no additional clock and awaits no observer. Callback failure, non-void or async
+results, malformed records and exceeded limits make delivery sticky-invalid;
+returned promise rejection is consumed without becoming a publication decision.
+No PCM, identity, credential or raw error is copied, and no production logging
+or environment switch is added. Nonfinite numbers have explicit serialized
+tags. Observation overhead remains real elapsed time and can cause a later
+timing guard to refuse; this is not timing-transparent instrumentation.
+
+The native test owns its evidence collector, capped at 20 source receipts and
+64 other records per job. Classification reads final delivery validity and
+requires ordered records and a matching terminal result. Complete qualification
+still requires all 20 source decisions, all historical windows and exactly
+9600 eligible samples with `complete=true` and no stop, followed by independent
+transport checks. Missing, truncated, malformed or wrong-reason evidence cannot
+confirm qualification. An adverse guard confirmation does not turn a partial
+clock refusal into a successful happy path. These observations alone do not
+establish the cause or repair of a historical CI failure.
+
 Two source sabotage controls were observed: disabling raw prefix advancement
 fails the expected 9600-sample native assertion; removing early-dispatch rejection
 makes the burst control reach the real historical reader with an invalid window
