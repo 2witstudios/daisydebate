@@ -58,16 +58,24 @@ export function allocateEconomics(cost: EconomicsInput['costs'][number]) {
     },
   }));
 }
+type ModelUsage = EconomicsInput['modelUsage'][number];
+function hasTokenMeasurements(
+  usage: ModelUsage,
+): usage is ModelUsage & { inputTokens: number; outputTokens: number } {
+  return (
+    usage.inputTokens !== null &&
+    usage.outputTokens !== null &&
+    usage.evidence !== 'unknown' &&
+    (usage.evidence !== 'provider_response' ||
+      usage.inputTokens !== 0 ||
+      usage.outputTokens !== 0)
+  );
+}
 export function priceModelUsage(
-  usage: EconomicsInput['modelUsage'][number],
+  usage: ModelUsage,
   rates: EconomicsInput['rates'],
 ): EconomicsMoney {
-  if (
-    usage.evidence === 'unknown' ||
-    usage.inputTokens === null ||
-    usage.outputTokens === null
-  )
-    return missingEconomics('outcome_unknown');
+  if (!hasTokenMeasurements(usage)) return missingEconomics('outcome_unknown');
   const candidates = rates.filter(
     (r) =>
       r.model === usage.model &&

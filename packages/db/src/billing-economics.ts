@@ -63,7 +63,7 @@ with agent_facts as (
  select feature,model,provider,source_kind,source_starts_at,source_ends_at,
  to_char(min(at) at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as first_at,
  to_char(max(at) at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as last_at,
- sum(call_count) as runs,count(*) filter(where known is true) as known_responses,sum(case when known is true or definite is true then call_count-1 else call_count end) as unknown_calls,count(*) filter(where definite is true and known is not true) as definite_failures,
+ sum(call_count) as runs,count(*) filter(where known is true) as known_responses,count(*) filter(where known is true and input_tokens=0 and output_tokens=0) as unmeasured_responses,sum(case when known is true or definite is true then call_count-1 else call_count end) as unknown_calls,count(*) filter(where definite is true and known is not true) as definite_failures,
  coalesce(sum(input_tokens) filter(where known is true),0) as input_tokens,coalesce(sum(output_tokens) filter(where known is true),0) as output_tokens,coalesce(sum(characters) filter(where known is true),0) as characters
  from (select * from agent_facts union all select * from analysis_facts union all select * from historical_analysis) f
  group by feature,model,provider,source_kind,source_starts_at,source_ends_at,date_trunc('day',at at time zone 'UTC')
@@ -75,7 +75,7 @@ with agent_facts as (
  order by kind,source->>'kind',source->>'startsAt',source->>'endsAt',state->>'kind',state->>'providerOutcome',state->>'countBasis' limit 1001
 )
  select jsonb_build_object('startsAt',${window.startsAt}::text,'endsAt',${window.endsAt}::text,'observedAt',to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
- 'attempts',coalesce((select jsonb_agg(jsonb_build_object('feature',feature,'model',model,'provider',provider,'sourceKind',source_kind,'sourceStartsAt',source_starts_at,'sourceEndsAt',source_ends_at,'firstAt',first_at,'lastAt',last_at,'runs',runs,'knownResponses',known_responses,'unknownCalls',unknown_calls,'definiteFailures',definite_failures,'inputTokens',input_tokens,'outputTokens',output_tokens,'characters',characters)) from attempts),'[]'::jsonb),
+ 'attempts',coalesce((select jsonb_agg(jsonb_build_object('feature',feature,'model',model,'provider',provider,'sourceKind',source_kind,'sourceStartsAt',source_starts_at,'sourceEndsAt',source_ends_at,'firstAt',first_at,'lastAt',last_at,'runs',runs,'knownResponses',known_responses,'unmeasuredResponses',unmeasured_responses,'unknownCalls',unknown_calls,'definiteFailures',definite_failures,'inputTokens',input_tokens,'outputTokens',output_tokens,'characters',characters)) from attempts),'[]'::jsonb),
  'usage',coalesce((select jsonb_agg(jsonb_build_object('feature',feature,'sourceKind',source_kind,'sourceStartsAt',source_starts_at,'sourceEndsAt',source_ends_at,'state',state,'providerOutcome',provider_outcome,'countBasis',count_basis,'reservations',reservations)) from usage),'[]'::jsonb)) as snapshot`);
         const parsed = billingEconomicsSnapshotSchema.safeParse(
           rows[0]?.snapshot,

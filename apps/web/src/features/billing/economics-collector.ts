@@ -85,7 +85,9 @@ function usageRows(
                 ...common,
                 sequence: offset + index * 2,
                 evidence:
-                  a.model === null || a.provider === 'unrecorded'
+                  a.model === null ||
+                  a.provider === 'unrecorded' ||
+                  a.unmeasuredResponses > 0
                     ? ('unknown' as const)
                     : ('provider_response' as const),
                 inputTokens: a.inputTokens,
