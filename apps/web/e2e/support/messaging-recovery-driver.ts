@@ -6,14 +6,21 @@ import {
   messagingAdmissionEvidence,
 } from './messaging-recovery-evidence';
 export const control = (
-  operation:
-    | 'refuse-messaging-history'
-    | 'refuse-messaging-entry'
-    | 'allow-messaging-reads',
+  ...[operation, selectors]:
+    | [operation: 'allow-messaging-reads']
+    | [
+        operation: 'refuse-messaging-history' | 'refuse-messaging-entry',
+        selectors: {
+          readonly channelId: string;
+          readonly actorId: string;
+          readonly userId: string;
+        },
+      ]
 ) =>
   callLaunchControl(
     messagingRecoveryControlPath(Number(process.env.E2E_PORT)),
     operation,
+    selectors === undefined ? undefined : JSON.stringify(selectors),
   );
 export const composer = (page: Page) =>
   page.getByRole('textbox', { name: 'Your message', exact: true });

@@ -49,6 +49,7 @@ export function testMessagingRecovery() {
           target === 'history'
             ? 'refuse-messaging-history'
             : 'refuse-messaging-entry',
+          journey.pressureSelectors,
         );
         await page.goto(`/messages/${journey.channelId}`);
         await expect(refused(page)).toBeVisible();
@@ -122,9 +123,12 @@ export function testMessagingRecovery() {
           }),
         );
       } finally {
-        await control('allow-messaging-reads');
-        observer?.stop();
-        await journey.close();
+        try {
+          await control('allow-messaging-reads');
+        } finally {
+          observer?.stop();
+          await journey.close();
+        }
       }
     });
 
@@ -138,7 +142,7 @@ export function testMessagingRecovery() {
       await effectsRan(page);
       await page.clock.install();
       observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history');
+      await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(
         page.getByText('This conversation is still unavailable. Try again.', {
@@ -164,9 +168,12 @@ export function testMessagingRecovery() {
           .every((failure) => failure.admission === 'social.expired'),
       ).toBe(true);
     } finally {
-      await control('allow-messaging-reads');
-      observer?.stop();
-      await journey.close();
+      try {
+        await control('allow-messaging-reads');
+      } finally {
+        observer?.stop();
+        await journey.close();
+      }
     }
   });
 
@@ -178,7 +185,7 @@ export function testMessagingRecovery() {
     try {
       const page = await acceptMessagingJourney(journey);
       observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history');
+      await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
       await control('allow-messaging-reads');
@@ -187,9 +194,12 @@ export function testMessagingRecovery() {
       expect(observer.snapshot().dispatches).toBe(0);
       await evidence(info, observer);
     } finally {
-      await control('allow-messaging-reads');
-      observer?.stop();
-      await journey.close();
+      try {
+        await control('allow-messaging-reads');
+      } finally {
+        observer?.stop();
+        await journey.close();
+      }
     }
   });
 
@@ -252,7 +262,7 @@ export function testMessagingRecovery() {
         await route.fulfill({ response });
       });
       observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history');
+      await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
       expect(
@@ -323,9 +333,12 @@ export function testMessagingRecovery() {
       await evidence(info, observer);
     } finally {
       release();
-      await control('allow-messaging-reads');
-      observer?.stop();
-      await journey.close();
+      try {
+        await control('allow-messaging-reads');
+      } finally {
+        observer?.stop();
+        await journey.close();
+      }
     }
   });
 }

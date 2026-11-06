@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage } from 'node:http';
 import { chmodSync, lstatSync, rmSync } from 'node:fs';
 import { connect } from 'node:net';
 export type LaunchControlOperation =
@@ -27,20 +27,24 @@ export async function createLaunchControl(input: {
   readonly settled: () => Promise<void>;
   readonly pending: () => number;
   readonly actions?: Partial<
-    Record<Exclude<LaunchControlOperation, 'settled'>, () => Promise<void>>
+    Record<
+      Exclude<LaunchControlOperation, 'settled'>,
+      (request: IncomingMessage) => Promise<void>
+    >
   >;
 }) {
   if (!input.path.startsWith('/') || Buffer.byteLength(input.path) > 103)
     throw new Error('Invalid owned Unix control path');
-  const actions: Partial<Record<LaunchControlOperation, () => Promise<void>>> =
-    {
-      ...input.actions,
-      settled: async () => {
-        await input.settled();
-        if (input.pending() !== 0)
-          throw new Error('Proof auth work remains pending');
-      },
-    };
+  const actions: Partial<
+    Record<LaunchControlOperation, (request: IncomingMessage) => Promise<void>>
+  > = {
+    ...input.actions,
+    settled: async () => {
+      await input.settled();
+      if (input.pending() !== 0)
+        throw new Error('Proof auth work remains pending');
+    },
+  };
   const server = createServer((request, response) => {
     const operation = request.url?.slice(1) as LaunchControlOperation;
     const action = Object.hasOwn(actions, operation)
@@ -50,7 +54,7 @@ export async function createLaunchControl(input: {
       response.writeHead(404).end();
       return;
     }
-    void action().then(
+    void action(request).then(
       () => response.writeHead(204).end(),
       () => response.writeHead(503).end(),
     );

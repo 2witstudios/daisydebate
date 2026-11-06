@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { systemClock } from '@daisy/clock';
-import { expect, test } from './fixtures';
+import { expect, test, openPage } from './fixtures';
 import { boundedStep } from './bounded-step';
 import {
   acceptMessagingJourney,
@@ -17,8 +17,11 @@ import { isMessagingRefetch } from './messaging-page-locators';
 import { effectsRan } from './hydration';
 
 const pause = async (page: Page) => {
+  const anchor = new Date(systemClock.now());
   await page.clock.install();
-  await page.clock.pauseAt(new Date(systemClock.now()));
+  await page.clock.setFixedTime(anchor);
+  await page.clock.pauseAt(anchor);
+  await page.clock.setSystemTime(anchor);
 };
 async function holdDestination(page: Page, path: string) {
   const held = Promise.withResolvers<void>();
@@ -55,7 +58,7 @@ export function testMessagingRecoveryNavigation() {
       await effectsRan(page);
       await pause(page);
       observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history');
+      await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
       const held = await holdDestination(page, '/');
@@ -84,9 +87,12 @@ export function testMessagingRecoveryNavigation() {
       await evidence(info, observer);
     } finally {
       release();
-      await control('allow-messaging-reads');
-      observer?.stop();
-      await journey.close();
+      try {
+        await control('allow-messaging-reads');
+      } finally {
+        observer?.stop();
+        await journey.close();
+      }
     }
   });
 
@@ -100,7 +106,7 @@ export function testMessagingRecoveryNavigation() {
       await effectsRan(page);
       await pause(page);
       observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history');
+      await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
       const home = page
@@ -137,9 +143,12 @@ export function testMessagingRecoveryNavigation() {
       });
       await evidence(info, observer);
     } finally {
-      await control('allow-messaging-reads');
-      observer?.stop();
-      await journey.close();
+      try {
+        await control('allow-messaging-reads');
+      } finally {
+        observer?.stop();
+        await journey.close();
+      }
     }
   });
 
@@ -150,17 +159,43 @@ export function testMessagingRecoveryNavigation() {
     let release = () => {};
     let observer: ReturnType<typeof watchConversationRecovery> | undefined;
     try {
-      const page = await acceptMessagingJourney(journey);
+      const accepted = await acceptMessagingJourney(journey);
+      await accepted.close();
+      const page = await openPage(
+        journey.recipient,
+        'the fresh inbox Message owner',
+      );
+      await page.goto('/messages');
       await effectsRan(page);
-      await pause(page);
-      observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history');
-      await page.goto(`/messages/${journey.channelId}`);
-      await expect(refused(page)).toBeVisible();
+      const row = page
+        .getByRole('list', { name: 'Conversations', exact: true })
+        .getByRole('link', {
+          name: new RegExp(`^@${journey.senderUsername}(, unread)?$`),
+        });
+      await expect(row).toBeVisible();
+      await expect(row).toHaveAttribute(
+        'href',
+        `/messages/${journey.channelId}`,
+      );
       const rail = page.getByRole('complementary', {
         name: 'People',
         exact: true,
       });
+      await expect(
+        rail.getByRole('button', {
+          name: new RegExp(`^@${journey.senderUsername},`),
+        }),
+      ).toBeVisible();
+      await pause(page);
+      observer = watchConversationRecovery(page, journey.channelId);
+      observer.phase('member opens first-ever refused channel in shared shell');
+      await control('refuse-messaging-history', journey.pressureSelectors);
+      observer.memberNavigation();
+      await row.click();
+      await expect(refused(page)).toBeVisible();
+      const baseline = observer.snapshot().dispatches;
+      expect(baseline).toBe(1);
+      expect(observer.snapshot().otherDispatches).toBe(0);
       await rail
         .getByRole('button', {
           name: new RegExp(`^@${journey.senderUsername},`),
@@ -184,7 +219,7 @@ export function testMessagingRecoveryNavigation() {
       await held.entered();
       await page.clock.fastForward(12000);
       expect(observer.snapshot()).toMatchObject({
-        dispatches: 1,
+        dispatches: baseline + 1,
         otherDispatches: 0,
         pending: 1,
       });
@@ -193,13 +228,16 @@ export function testMessagingRecoveryNavigation() {
       await composer(page).fill('The newer same-page draft');
       await page.clock.fastForward(12000);
       await expect(composer(page)).toHaveValue('The newer same-page draft');
-      expect(observer.snapshot().dispatches).toBe(1);
+      expect(observer.snapshot().dispatches).toBe(baseline + 1);
       await evidence(info, observer);
     } finally {
       release();
-      await control('allow-messaging-reads');
-      observer?.stop();
-      await journey.close();
+      try {
+        await control('allow-messaging-reads');
+      } finally {
+        observer?.stop();
+        await journey.close();
+      }
     }
   });
 
@@ -213,7 +251,7 @@ export function testMessagingRecoveryNavigation() {
       await effectsRan(page);
       await pause(page);
       observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history');
+      await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}?query=missing`);
       await expect(refused(page)).toBeVisible();
       await control('allow-messaging-reads');
@@ -228,9 +266,12 @@ export function testMessagingRecoveryNavigation() {
       expect(observer.snapshot().dispatches).toBe(observed);
       await evidence(info, observer);
     } finally {
-      await control('allow-messaging-reads');
-      observer?.stop();
-      await journey.close();
+      try {
+        await control('allow-messaging-reads');
+      } finally {
+        observer?.stop();
+        await journey.close();
+      }
     }
   });
 }
