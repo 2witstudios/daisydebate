@@ -395,3 +395,21 @@ export const usageStateSchema: z.ZodType<UsageState> = z.discriminatedUnion(
     }),
   ],
 );
+
+export {
+  invoicePassOwnerSchema,
+  invoicePassHeadSchema,
+  invoicePassInvoiceSchema,
+  invoicePassSchema,
+  type InvoicePass,
+  type InvoicePassOwner,
+  type InvoicePassHead,
+  type InvoicePassEvent,
+} from './billing-invoice-pass';
+export { headRetention } from './billing-invoice-pass-evidence';
+export {
+  advanceCleanupInvoicePass,
+  type CleanupInvoiceStep,
+} from './billing-cleanup-invoice-pass';
+
+export { recordInvoiceEnumeration } from './billing-payment-observation-retention';

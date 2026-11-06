@@ -98,7 +98,7 @@ async function prepareCompletion(input: Fixture) {
   const current = await claim();
   if (
     current.work.kind !== 'delete' ||
-    current.facts.effects.owedObservations !== false
+    current.facts.effects.owedFinancialEffects !== false
   )
     throw Error('Missing current settled completion facts');
   const completion = {

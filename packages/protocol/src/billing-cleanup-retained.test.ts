@@ -72,7 +72,7 @@ test('a retained owed invoice advances bounded discovery without pretending it w
           rest: [],
           lastId: 'in_later',
           more: false,
-          detail: { kind: 'invoice-payments', afterId: null },
+          detail: { kind: 'invoice-payments', pass: null },
         },
         at(11.1),
         null,

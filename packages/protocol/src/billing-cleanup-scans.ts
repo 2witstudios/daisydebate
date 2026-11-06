@@ -1,5 +1,9 @@
 import { currentPaymentObservation } from './billing-payment-observation';
 import {
+  advanceInvoiceIdentityDebt,
+  type InvoiceIdentityDebt,
+} from './billing-invoice-identity-debt';
+import {
   cleanupBounds,
   cleanupLanes,
   startCleanup,
@@ -12,29 +16,51 @@ import {
 export function nextTurn(
   turn: CleanupLane,
   scans: Extract<CleanupState, { kind: 'scanning' }>['scans'],
+  debt: InvoiceIdentityDebt = { kind: 'none' },
 ) {
   const index = cleanupLanes.indexOf(turn);
   for (let offset = 1; offset <= cleanupLanes.length; offset++) {
     const lane = cleanupLanes[(index + offset) % cleanupLanes.length]!;
-    if (scans[lane].kind !== 'complete') return lane;
+    if (
+      scans[lane].kind !== 'complete' ||
+      (lane === 'observations' && debt.kind === 'owed')
+    )
+      return lane;
   }
   return null;
 }
-function progressed(
+export function progressCleanupScan(
   value: Extract<CleanupState, { kind: 'scanning' }>,
   scan: CleanupScan,
   context: CleanupContext,
 ): CleanupState | null {
   const scans = { ...value.scans, [value.turn]: scan };
-  const turn = nextTurn(value.turn, scans);
+  const invoiceDebt =
+    value.turn === 'observations'
+      ? advanceInvoiceIdentityDebt(value.invoiceDebt, {
+          kind: 'observation-step',
+        })!
+      : value.invoiceDebt;
+  const turn = nextTurn(value.turn, scans, invoiceDebt);
   const retryAt = new Date(
     Date.parse(context.now) + cleanupBounds.progressMs,
   ).toISOString();
-  if (turn) return { ...value, scans, turn, retryAt, claim: null };
-  if (context.effects?.owedObservations === undefined) return null;
-  return context.effects.owedObservations
+  if (
+    invoiceDebt.kind === 'owed' &&
+    cleanupLanes.every((lane) => scans[lane].kind === 'complete')
+  )
+    return startCleanup(value.jobId, retryAt, invoiceDebt);
+  if (turn) return { ...value, scans, invoiceDebt, turn, retryAt, claim: null };
+  if (context.effects?.owedFinancialEffects === undefined) return null;
+  return context.effects.owedFinancialEffects
     ? startCleanup(value.jobId, retryAt)
-    : { kind: 'deleting', jobId: value.jobId, retryAt, claim: null };
+    : {
+        version: 2,
+        kind: 'deleting',
+        jobId: value.jobId,
+        retryAt,
+        claim: null,
+      };
 }
 function selected(
   id: string,
@@ -51,7 +77,7 @@ function selected(
     more,
     detail:
       lane === 'invoices'
-        ? { kind: 'invoice-payments', afterId: null }
+        ? { kind: 'invoice-payments', pass: null }
         : { kind: 'resource' },
   };
 }
@@ -80,7 +106,7 @@ function page(
     first === undefined
       ? { kind: 'complete' }
       : selected(first, rest, event.ids.at(-1)!, event.more, value.turn);
-  return progressed(value, scan, context);
+  return progressCleanupScan(value, scan, context);
 }
 function advanceSelected(
   value: Extract<CleanupState, { kind: 'scanning' }>,
@@ -95,43 +121,16 @@ function advanceSelected(
       : before.more
         ? { kind: 'page', afterId: before.lastId }
         : { kind: 'complete' };
-  return progressed(value, scan, context);
-}
-function payments(
-  value: Extract<CleanupState, { kind: 'scanning' }>,
-  event: Extract<CleanupEvent, { kind: 'payments' }>,
-  context: CleanupContext,
-) {
-  const before = value.scans[value.turn];
-  if (
-    value.turn !== 'invoices' ||
-    before.kind !== 'selected' ||
-    before.detail.kind !== 'invoice-payments' ||
-    before.detail.afterId !== event.beforeId
-  )
-    return null;
-  if (event.exhausted)
-    return event.afterId === null ? advanceSelected(value, context) : null;
-  if (event.afterId === null || event.afterId === event.beforeId) return null;
-  return progressed(
-    value,
-    { ...before, detail: { kind: 'invoice-payments', afterId: event.afterId } },
-    context,
-  );
+  return progressCleanupScan(value, scan, context);
 }
 export function advanceCleanupScan(
   value: Extract<CleanupState, { kind: 'scanning' }>,
-  event: Extract<
-    CleanupEvent,
-    { kind: 'page' | 'payments' | 'resolved' | 'retained' }
-  >,
+  event: Extract<CleanupEvent, { kind: 'page' | 'resolved' | 'retained' }>,
   context: CleanupContext,
 ): CleanupState | null {
   switch (event.kind) {
     case 'page':
       return page(value, event, context);
-    case 'payments':
-      return payments(value, event, context);
     case 'resolved':
       return value.turn === 'invoices' || value.turn === 'observations'
         ? null

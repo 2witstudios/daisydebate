@@ -1,4 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { billingPaymentObservationSchema } from './billing-payment-observation';
+import { owner } from './billing-payment-observation.test-support';
 import { cleanupWork } from './billing-cleanup';
 import { advanceCleanup } from './billing-cleanup-lifecycle';
 import {
@@ -87,23 +89,27 @@ test('an unresolved purchase does not prevent other selected financial cleanup f
       current,
       work.kind === 'scan' && work.lane === 'invoices'
         ? {
-            kind: 'payments',
+            kind: 'retained',
             claimId: first,
             work,
-            beforeId: null,
-            afterId: null,
-            exhausted: true,
+            observation: billingPaymentObservationSchema.parse({
+              ...owner,
+              invoiceId: 'in_known',
+              kind: 'invoice',
+              state: { kind: 'owed', reason: 'enumeration_unavailable' },
+            }),
           }
         : { kind: 'resolved', claimId: first, work },
       time + 0.1,
+      { observationOwner: { userId: owner.userId, closedAt: owner.closedAt } },
     );
   }
   const scans = value.kind === 'scanning' && value.scans;
   assert({
     given:
-      'one deferred uncertain purchase and successful known cancellation/payment/refund work',
+      'one deferred uncertain purchase and known cancellation/refund work and retained unresolved invoice witness',
     should:
-      'retain the owed purchase and complete only other positively resolved selections',
+      'retain the owed purchase and advance only exact retained selections while preserving the unresolved invoice obligation',
     actual: [visited, value.kind === 'scanning' && value.turn, scans],
     expected: [
       ['subscriptions', 'invoices', 'refunds'],

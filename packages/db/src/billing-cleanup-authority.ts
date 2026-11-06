@@ -51,12 +51,14 @@ export async function cleanupFacts(
     (select count(*)::int from billing_purchases where user_id=${userId} and state->>'kind' not in ('admitted','abandoned','expired')) as "possiblePurchases",
     (select count(*)::int from billing_refund_actions where user_id=${userId})+
       (case when exists(select 1 from billing_payment_observations where user_id=${userId}) then 1 else 0 end) as "retainedFinancialRoutes",
+    (exists(select 1 from billing_refund_actions action where action.user_id=${userId}
+      and not coalesce(action.state->>'kind'='known' and action.state->>'status'='succeeded',false)) or
     exists(select 1 from billing_payment_observations observation left join billing_refund_actions action on action.id=observation.refund_action_id
       where observation.user_id=${userId} and (observation.state->>'kind'='owed' or
-        (observation.state->>'kind'='refund-linked' and not coalesce(action.state->>'kind'='known' and action.state->>'status'='succeeded',false)))) as "owedObservations"`);
+        (observation.state->>'kind'='refund-linked' and not coalesce(action.state->>'kind'='known' and action.state->>'status'='succeeded',false)))) ) as "owedFinancialEffects"`);
   if (
     !effects ||
-    typeof effects.owedObservations !== 'boolean' ||
+    typeof effects.owedFinancialEffects !== 'boolean' ||
     !['mappedCustomers', 'possiblePurchases', 'retainedFinancialRoutes'].every(
       (key) => Number.isSafeInteger(effects[key]) && Number(effects[key]) >= 0,
     )
@@ -73,7 +75,7 @@ export async function cleanupFacts(
       mappedCustomers: number;
       possiblePurchases: number;
       retainedFinancialRoutes: number;
-      owedObservations: boolean;
+      owedFinancialEffects: boolean;
     },
     route: cleanupRoute(routes),
   };

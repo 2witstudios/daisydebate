@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { invoicePassOwnerSchema } from '@daisy/protocol/billing';
 import { createId } from '@paralleldrive/cuid2';
 import { withSelectedInvoice } from './billing-invoice-retention.test-support';
 requireTestServices(process.env);
@@ -15,6 +16,7 @@ test(
         cleanup,
         jobId,
         current,
+        claim,
         read,
         invoiceId,
         laterId,
@@ -34,27 +36,70 @@ test(
             },
           },
         };
-        const foreign = await cleanup.retainPayment(
+        const [account] =
+          await fixture.sql`select deleted_at from users where id=${subject.userId}`;
+        if (read.source.kind !== 'purchase')
+          throw Error('Expected original offer');
+        const owner = invoicePassOwnerSchema.parse({
+          ...read,
+          userId: subject.userId,
+          closedAt: account!.deleted_at.toISOString(),
+          period: {
+            startsAt: read.source.admittedAt,
+            endsAt: new Date(
+              Date.parse(read.source.admittedAt) + 30 * 86400000,
+            ).toISOString(),
+          },
+        });
+        const passId = createId();
+        const foreign = await cleanup.invoicePassStep(
           jobId,
           current.claimId,
           current.work,
-          { ...payment, invoiceId: 'in_foreign' },
+          {
+            kind: 'start',
+            passId,
+            owner: { ...owner, invoiceId: 'in_foreign' },
+          },
         );
-        const progress = await cleanup.retainPayment(
+        const started = await cleanup.invoicePassStep(
           jobId,
           current.claimId,
           current.work,
-          payment,
+          { kind: 'start', passId, owner },
+        );
+        const active = await claim();
+        const progress = await cleanup.invoicePassStep(
+          jobId,
+          active.claimId,
+          active.work,
+          {
+            kind: 'advance',
+            event: {
+              kind: 'retained',
+              beforeId: null,
+              read: payment,
+              more: true,
+            },
+          },
         );
         const [beforeReplay] =
           await fixture.sql`select billing_cleanup,attempts,retry_at from privacy_jobs where id=${jobId}`;
         const beforeRows =
           await fixture.sql`select id,kind,vendor_invoice_id,vendor_invoice_payment_id,source,state,observed_at from billing_payment_observations where user_id=${subject.userId} order by kind`;
-        const replay = await cleanup.retainPayment(
+        const replay = await cleanup.invoicePassStep(
           jobId,
-          current.claimId,
-          current.work,
-          payment,
+          active.claimId,
+          active.work,
+          {
+            kind: 'advance',
+            event: {
+              kind: 'retained',
+              beforeId: null,
+              read: payment,
+              more: true,
+            },
+          },
         );
         const afterRows =
           await fixture.sql`select id,kind,vendor_invoice_id,vendor_invoice_payment_id,source,state,observed_at from billing_payment_observations where user_id=${subject.userId} order by kind`;
@@ -67,6 +112,7 @@ test(
             'retain both exact obligations, advance only its payment cursor, preserve source/remainder/accounting and make stale replay entirely idle',
           actual: [
             foreign,
+            started,
             progress,
             replay,
             beforeRows.map(
@@ -92,6 +138,7 @@ test(
           expected: [
             'idle',
             'progress',
+            'progress',
             'idle',
             [
               ['invoice', invoiceId, null, read.source, 'owed'],
@@ -103,7 +150,23 @@ test(
               rest: [laterId],
               lastId: laterId,
               more: false,
-              detail: { kind: 'invoice-payments', afterId: paymentId },
+              detail: {
+                kind: 'invoice-payments',
+                pass: {
+                  id: passId,
+                  jobId,
+                  beganAt:
+                    active.work.kind === 'scan' &&
+                    active.work.scan.kind === 'selected' &&
+                    active.work.scan.detail.kind === 'invoice-payments'
+                      ? active.work.scan.detail.pass!.beganAt
+                      : null,
+                  owner,
+                  phase: 'retaining',
+                  afterId: paymentId,
+                  comparison: { kind: 'bounded', reads: [payment] },
+                },
+              },
             },
             beforeReplay,
             beforeRows,

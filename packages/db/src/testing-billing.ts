@@ -31,7 +31,7 @@ export async function completeControlledStripeCleanup(input: {
       !claim.state.claim
     )
       throw Error('Controlled cleanup claim refused');
-    if (claim.facts.effects.owedObservations)
+    if (claim.facts.effects.owedFinancialEffects)
       throw Error('Fixture cannot acknowledge owed observation evidence');
     const claimId = claim.state.claim.id,
       work = claim.work;
@@ -45,6 +45,8 @@ export async function completeControlledStripeCleanup(input: {
         throw Error('Controlled deletion confirmation refused');
       return;
     }
+    if (work.kind === 'invoice-identity')
+      throw Error('Fixture cannot acknowledge unresolved invoice routing');
     await controlledScan(cleanup, job.id, claimId, work);
   }
   throw Error('Controlled cleanup exceeded its bounded fixture steps');
@@ -80,6 +82,13 @@ async function controlledPage(
   work: ScanWork,
 ) {
   if (work.scan.kind !== 'page') throw Error('Controlled page phase missing');
+  if (work.lane === 'invoices') {
+    await cleanup.retainInvoicePage(jobId, claimId, work, {
+      reads: [],
+      more: false,
+    });
+    return;
+  }
   {
     if (work.lane === 'purchases' || work.lane === 'refunds') {
       const page = await cleanup.resources(jobId, claimId, work);

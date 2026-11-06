@@ -20,7 +20,7 @@ const effects = {
   mappedCustomers: 0,
   possiblePurchases: 0,
   retainedFinancialRoutes: 1,
-  owedObservations: true,
+  owedFinancialEffects: true,
 };
 
 test('retaining an unchanged owed observation with its exact remainder is progress, while unresolved or stale replies cannot advance', () => {
@@ -31,7 +31,9 @@ test('retaining an unchanged owed observation with its exact remainder is progre
   });
   const later = 'q'.repeat(24);
   const base = billingCleanupSchema.parse({
+    version: 2,
     kind: 'scanning',
+    invoiceDebt: { kind: 'none' },
     jobId: job,
     retryAt: at(10),
     claim: null,
@@ -126,7 +128,9 @@ test('new cleanup execution contains five independently bounded discovery/revisi
     expected: [
       ['purchases', 'subscriptions', 'invoices', 'refunds', 'observations'],
       {
+        version: 2,
         kind: 'scanning',
+        invoiceDebt: { kind: 'none' },
         jobId: job,
         retryAt: at(0),
         claim: null,
@@ -148,7 +152,9 @@ test('new cleanup execution contains five independently bounded discovery/revisi
 function finalPage() {
   return claimed(
     billingCleanupSchema.parse({
+      version: 2,
       kind: 'scanning',
+      invoiceDebt: { kind: 'none' },
       jobId: job,
       retryAt: at(0),
       claim: null,
@@ -177,7 +183,7 @@ test('all-pass traversal with owed identities restarts fair head discovery witho
   const absent = advanceCleanup(value, event, context(0.1));
   const settled = advanceCleanup(value, event, {
     ...context(0.1),
-    effects: { ...effects, owedObservations: false },
+    effects: { ...effects, owedFinancialEffects: false },
   });
   assert({
     given:
@@ -190,7 +196,13 @@ test('all-pass traversal with owed identities restarts fair head discovery witho
       { kind: 'idle' },
       {
         kind: 'progress',
-        state: { kind: 'deleting', jobId: job, retryAt: at(1.1), claim: null },
+        state: {
+          version: 2,
+          kind: 'deleting',
+          jobId: job,
+          retryAt: at(1.1),
+          claim: null,
+        },
       },
     ],
   });
@@ -198,7 +210,9 @@ test('all-pass traversal with owed identities restarts fair head discovery witho
 
 test('five-lane failure yielding preserves exact selections and never turns an unresolved observation read into progress', () => {
   let value = billingCleanupSchema.parse({
+    version: 2,
     kind: 'scanning',
+    invoiceDebt: { kind: 'none' },
     jobId: job,
     retryAt: at(0),
     claim: null,
@@ -220,7 +234,7 @@ test('five-lane failure yielding preserves exact selections and never turns an u
           more: false,
           detail:
             lane === 'invoices'
-              ? { kind: 'invoice-payments', afterId: null }
+              ? { kind: 'invoice-payments', pass: null }
               : { kind: 'resource' },
         },
       ]),

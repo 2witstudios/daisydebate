@@ -31,3 +31,24 @@ Controlled scheduler/SDK tests are separate from genuine Stripe TEST lifecycle
 proof. Production activation, keys, deployment and legal retention duration
 remain the existing human-controlled BILL-H obligations. This worker does not
 complete the separate five-lane customer cleanup or invoice-coverage proof.
+
+Invoice discovery retains each exact owned invoice witness before admitting its
+page or selected remainder. A predecessor may have observed an invoice identity
+before retaining its routing. The Stripe job preserves that identity as explicit
+unrouted invoice debt across migration and job-ID rotation, alongside retired
+execution authority. Missing or ambiguous routing stays owed; no customer, mode,
+offer, charge or refund is invented. Both completion outcomes refuse this debt.
+Its exact identities are included in the subject export without worker claims,
+passes or vendor credentials. Actual owned routing is retained before removing an
+identity from this debt, and independently owed payments/actions remain intact.
+An available customer route supplies a place to read; it does not by itself prove
+that an invoice belongs to that customer. Materialization also requires the
+producer's positive exact owned invoice read, revalidated against the current
+route and exact identity claim after locks. An absent or foreign invoice read
+cannot manufacture routing or retire debt.
+
+Unknown identity attempts yield to retained observations and the other discovery
+lanes. Exhausted passes restart fair head traversal while retaining all debts;
+there is no capped eviction or list-absence relief. The existing legal duration
+and production activation decisions remain human BILL-H obligations. This source
+contract does not itself establish completed vendor cleanup qualification.

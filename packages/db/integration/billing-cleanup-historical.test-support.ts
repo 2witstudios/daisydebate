@@ -1,13 +1,26 @@
 import type { TransactionSQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import type { CleanupState } from '@daisy/protocol/billing';
 
 const lanes = ['purchases', 'subscriptions', 'invoices', 'refunds'] as const;
 type HistoricalLane = (typeof lanes)[number];
-type Scans = Pick<
-  Extract<CleanupState, { kind: 'scanning' }>['scans'],
-  HistoricalLane
->;
+// Immutable predecessor wire shape; never a runtime compatibility parser.
+type HistoricalScan =
+  | { readonly kind: 'page'; readonly afterId: string | null }
+  | { readonly kind: 'complete' }
+  | {
+      readonly kind: 'selected';
+      readonly id: string;
+      readonly rest: readonly string[];
+      readonly lastId: string;
+      readonly more: boolean;
+      readonly detail:
+        | { readonly kind: 'resource' }
+        | {
+            readonly kind: 'invoice-payments';
+            readonly afterId: string | null;
+          };
+    };
+type Scans = Record<HistoricalLane, HistoricalScan>;
 type Claim = {
   readonly id: string;
   readonly claimedAt: string;

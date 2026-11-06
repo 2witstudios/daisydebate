@@ -63,6 +63,14 @@ export async function retainInvoiceWitness(
     now,
   });
   if (merged.kind !== 'recorded') throw createAppError('CONFLICT');
+  if (
+    JSON.stringify({ source: retained.source, state: retained.state }) ===
+    JSON.stringify({
+      source: merged.observation.source,
+      state: merged.observation.state,
+    })
+  )
+    return retained;
   await tx
     .update(billingPaymentObservations)
     .set({
@@ -72,4 +80,23 @@ export async function retainInvoiceWitness(
     })
     .where(eq(billingPaymentObservations.id, retained.id));
   return merged.observation;
+}
+
+/** A new execution pass retires historical enumeration coverage without changing financial observations. */
+export async function rearmInvoiceWitness(
+  tx: BoundedTransactionContext,
+  value: Awaited<ReturnType<typeof retainInvoiceWitness>>,
+) {
+  if (value.kind !== 'invoice' || value.state.kind !== 'resolved') return value;
+  const now = await readDatabaseTime(tx);
+  const next = billingPaymentObservationSchema.parse({
+    ...value,
+    observedAt: now.toISOString(),
+    state: { kind: 'owed', reason: 'enumeration_unavailable' },
+  });
+  await tx
+    .update(billingPaymentObservations)
+    .set({ state: next.state, observedAt: now })
+    .where(eq(billingPaymentObservations.id, value.id));
+  return next;
 }

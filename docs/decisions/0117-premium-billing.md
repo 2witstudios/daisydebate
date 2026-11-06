@@ -371,6 +371,21 @@ resolved service nor cursorless progress; an uncertain purchase cannot indefinit
 block cancellation, invoice/payment and refund work. Idle/stale replies change nothing. Invoice payment subpages retain their
 own cursor and cannot skip the remaining selected invoices.
 
+Observed predecessor invoice IDs whose positive mode/customer routing is not yet
+durable are retained explicitly as `invoiceDebt` in the Stripe job. They are
+obligations, not execution authority: conversion and rotation preserve the exact
+selected ID and remainder before retiring old claims/passes/cursors. An absent or
+ambiguous route cannot discard an ID, acknowledge cleanup, or block a newly
+arrived fact/job from committing. The bounded predecessor input is not an eviction
+cap on retained obligations. Exact positive owned witnesses are materialized
+using the existing injected runtime ID resource before identity debt is retired;
+no SQL ID generator, guessed routing or refund eligibility is introduced.
+Current routing alone is insufficient: the producer must positively read the
+exact invoice under that owned route before its witness can retire identity debt.
+Unknown identity attempts alternate with retained observation work and yield
+across the existing lanes; exhausted discovery restarts its heads without relief.
+Subject export includes these minimal identities, excluding execution claims.
+
 A missing customer mapping never proves completion. Positive current absence of
 mapping, possibly executed purchases and retained financial effects permits the
 separate `no-vendor-effects` acknowledgement. Verified vendor deletion follows
@@ -407,7 +422,7 @@ replay is idle without accounting or due mutation. An exhausted pass with curren
 owed observations restarts all traversal heads fairly, preserving every observation
 and original action. Missing current obligation facts cannot admit deletion.
 
-The four-to-five-lane forward execution transition runs under one transaction:
+The prior four-to-five-lane forward execution transition runs under one transaction:
 an exact temporary transformation guard, the data update, then the final strict
 guard. Pending NULL execution gets five head pages; old scanning frames retain
 their original selections, remainders and cursors while adding observations.
@@ -440,6 +455,44 @@ enumeration, other payments or a bound refund action, and creates no money
 authority. New refunds still require the complete original-charge/allocation
 proof and the sole original action/key. Observation rows retain this distinction;
 privacy jobs alone own cursor/claim execution.
+
+Invoice enumeration requires a current execution pass, independent of payment
+classification or refund settlement. Active cleanup execution uses literal
+version 2; historical acknowledgements retain their original shape. A new pass
+retires prior enumeration coverage to an owed invoice witness while preserving
+original source, payment evidence, action links and sticky conflicts. Its bounded
+comparison stores the complete normalized ordered reads up to 20 members. Beyond
+that, an explicit comparison overflow retains the prefix and count while discovery
+continues retaining every obligation; it cannot authorize completion or eviction.
+
+Fresh coverage requires one unfiltered exact-invoice HEAD response with fixed
+limit 20, nonzero complete ordered membership/evidence and `has_more=false`,
+matching the entire retained pass progression. A subsequent fresh owned invoice
+read must preserve the frozen offer and period. A tuple, historical row count,
+old resolved witness or matching multipage traversals supplies no snapshot
+guarantee. Multipage continuity remains unresolved and owed until supported
+producer provenance exists; the bounded path does not silently complete it.
+
+The final transaction holds canonical account and current job authority, retains
+each returned decision before cursor advancement, and compares only the at-most-20
+receipt members plus indexed current obligation/action checks. Freshness belongs
+to the pass/job/claim-bound producer receipt; unchanged retained observations keep
+their recognition time. PostgreSQL guards persist and validate current execution,
+the complete HEAD receipt, exact membership/source/link bindings and post-wait
+claim validity. The actual subsequent vendor invoice read and its receipt timing
+remain application producer assertions, validated before resolving the witness
+and consuming its pass in the same transaction. SQL does not independently attest
+that vendor I/O occurred. Resolving enumeration never settles its payments or
+actions; independent owed facts continue to block acknowledgement through F3.
+
+The invoice-pass forward transition uses an exact temporary guard, deterministic
+data update and final strict guard in one transaction. It transforms only pending
+unversioned/null execution, retires old claims and invoice cursors, preserves all
+selected IDs/remainders and financial facts, and starts null passes. Old deletion
+demotes to actual discovery; already-v2 execution, historical ACKs and non-Stripe
+jobs remain untouched. This marker makes replay preserve new authority without a
+runtime compatibility parser. The two-function correction and atomic adapters
+require populated predecessor and runtime-role proof before delivery acceptance.
 The pinned [Stripe23.1 InvoicePayment contract](https://github.com/stripe/stripe-node/blob/v23.1.0/src/resources/InvoicePayments.ts)
 identifies the success timestamp separately from invoice allocation; the
 [object reference](https://docs.stripe.com/api/invoice-payment/object) permits

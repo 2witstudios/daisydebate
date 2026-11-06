@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { advanceCleanupScan, nextTurn } from './billing-cleanup-scans';
+import { advanceInvoiceIdentityDebt } from './billing-invoice-identity-debt';
+import { advanceCleanupInvoiceIdentity } from './billing-cleanup-invoice-identity';
 import {
   billingCleanupSchema,
   cleanupBounds,
@@ -70,10 +72,24 @@ function failure(value: Active, retryAt: string, now: string) {
     at(retryAt) > at(now) + 3_600_000
   )
     return idle;
+  const work = cleanupWork(value);
+  const invoiceDebt =
+    value.kind === 'scanning'
+      ? work?.kind === 'invoice-identity'
+        ? advanceInvoiceIdentityDebt(value.invoiceDebt, {
+            kind: 'identity-failed',
+            id: work.invoiceId,
+          })!
+        : value.turn === 'observations'
+          ? advanceInvoiceIdentityDebt(value.invoiceDebt, {
+              kind: 'observation-step',
+            })!
+          : value.invoiceDebt
+      : { kind: 'none' as const };
   return result('failure', {
     ...value,
     ...(value.kind === 'scanning'
-      ? { turn: nextTurn(value.turn, value.scans)! }
+      ? { invoiceDebt, turn: nextTurn(value.turn, value.scans, invoiceDebt)! }
       : {}),
     claim: null,
     retryAt,
@@ -84,7 +100,7 @@ function noEffects(context: CleanupContext) {
   const facts = context.effects;
   return (
     facts !== undefined &&
-    facts.owedObservations === false &&
+    facts.owedFinancialEffects === false &&
     [
       facts.mappedCustomers,
       facts.possiblePurchases,
@@ -116,22 +132,46 @@ export function advanceCleanup(
     return idle;
   if (event.kind === 'claim') return claim(value, event.claimId, context.now);
   if (!ownsCleanupClaim(value, event.claimId, event.work, context)) return idle;
+  return applyClaimedOutcome(value, event, context);
+}
+
+function applyClaimedOutcome(
+  value: Active,
+  event: Exclude<CleanupEvent, { kind: 'claim' }>,
+  context: CleanupContext,
+): CleanupTransition {
+  if (!identityOutcomeAllowed(event)) return idle;
   if (event.kind === 'failure')
     return failure(value, event.retryAt, context.now);
   if (event.kind === 'deleted' || event.kind === 'no-effects')
     return terminal(value, event, context);
   if (value.kind !== 'scanning') return idle;
+  if (event.kind === 'invoice-identity-retained') {
+    const next = advanceCleanupInvoiceIdentity(value, event, context);
+    return next ? result('progress', next) : idle;
+  }
   const next = advanceCleanupScan(value, event, context);
   return next ? result('progress', next) : idle;
+}
+function identityOutcomeAllowed(
+  event: Exclude<CleanupEvent, { kind: 'claim' }>,
+) {
+  return (
+    event.work.kind !== 'invoice-identity' ||
+    event.kind === 'failure' ||
+    event.kind === 'invoice-identity-retained'
+  );
 }
 function terminal(
   value: Active,
   event: Extract<CleanupEvent, { kind: 'deleted' | 'no-effects' }>,
   context: CleanupContext,
 ) {
+  if (value.kind === 'scanning' && value.invoiceDebt.kind === 'owed')
+    return idle;
   if (event.kind === 'deleted')
     return value.kind === 'deleting' &&
-      context.effects?.owedObservations === false
+      context.effects?.owedFinancialEffects === false
       ? completed(value.jobId, context.now, 'vendor-deleted')
       : idle;
   return noEffects(context)

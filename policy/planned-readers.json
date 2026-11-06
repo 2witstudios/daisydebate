@@ -45,6 +45,15 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "MSG-1.4 channel doorbells precede the committed transactional send reader; integration proves append shape and rollback independently of socket fanout.",
       "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/db/src/billing-cleanup.ts",
+      "export": "createBillingCleanup",
+      "task": "BILL-15-r1",
+      "owner": "billing",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "The guarded public cleanup adapter has real PostgreSQL consumers; its committed Billing leaf must invoke it from the Stripe-specific delivery branch before generic vendor erasure. This checkpoint does not claim runtime delivery.",
+      "reviewBy": "2026-11-07"
     }
   ]
 }

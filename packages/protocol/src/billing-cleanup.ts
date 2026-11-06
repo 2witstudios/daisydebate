@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
+import { invoicePassSchema } from './billing-invoice-pass';
 import type { BillingPaymentObservation } from './billing-payment-observation';
+import {
+  invoiceIdentityDebtSchema,
+  nextInvoiceIdentity,
+  type InvoiceIdentityDebt,
+} from './billing-invoice-identity-debt';
 
 export const cleanupLanes = [
   'purchases',
@@ -16,10 +22,6 @@ const resourceId = z
   .min(1)
   .max(255)
   .regex(/^[A-Za-z0-9_]+$/);
-const paymentId = z
-  .string()
-  .max(255)
-  .regex(/^inpay_[A-Za-z0-9_]+$/);
 export const cleanupScanSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('page'), afterId: resourceId.nullable() }),
   z.strictObject({
@@ -32,7 +34,7 @@ export const cleanupScanSchema = z.discriminatedUnion('kind', [
       z.strictObject({ kind: z.literal('resource') }),
       z.strictObject({
         kind: z.literal('invoice-payments'),
-        afterId: paymentId.nullable(),
+        pass: invoicePassSchema.nullable(),
       }),
     ]),
   }),
@@ -40,6 +42,10 @@ export const cleanupScanSchema = z.discriminatedUnion('kind', [
 ]);
 export type CleanupScan = z.infer<typeof cleanupScanSchema>;
 export const cleanupWorkSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('invoice-identity'),
+    invoiceId: resourceId.regex(/^in_[A-Za-z0-9_]+$/),
+  }),
   z.strictObject({
     kind: z.literal('scan'),
     lane: z.enum(cleanupLanes),
@@ -53,7 +59,12 @@ const claim = z.strictObject({
   claimedAt: instant,
   expiresAt: instant,
 });
-const active = { jobId: idSchema, retryAt: instant, claim: claim.nullable() };
+const active = {
+  version: z.literal(2),
+  jobId: idSchema,
+  retryAt: instant,
+  claim: claim.nullable(),
+};
 const laneScans = z.strictObject({
   purchases: cleanupScanSchema,
   subscriptions: cleanupScanSchema,
@@ -67,6 +78,7 @@ const state = z.discriminatedUnion('kind', [
     kind: z.literal('scanning'),
     turn: z.enum(cleanupLanes),
     scans: laneScans,
+    invoiceDebt: invoiceIdentityDebtSchema,
   }),
   z.strictObject({ ...active, kind: z.literal('deleting') }),
   z.strictObject({
@@ -92,7 +104,7 @@ function laneId(lane: CleanupLane, id: string) {
     lane === 'subscriptions' ? '^sub_[A-Za-z0-9_]+$' : '^in_[A-Za-z0-9_]+$',
   ).test(id);
 }
-function validScan(lane: CleanupLane, scan: CleanupScan) {
+function validScan(lane: CleanupLane, scan: CleanupScan, jobId: string) {
   if (scan.kind === 'complete') return true;
   if (scan.kind === 'page')
     return scan.afterId === null || laneId(lane, scan.afterId);
@@ -101,26 +113,47 @@ function validScan(lane: CleanupLane, scan: CleanupScan) {
     ids.every((id) => laneId(lane, id)) &&
     new Set(ids).size === ids.length &&
     ids.at(-1) === scan.lastId &&
-    (lane === 'invoices'
-      ? scan.detail.kind === 'invoice-payments'
-      : scan.detail.kind === 'resource')
+    validDetail(lane, scan) &&
+    (scan.detail.kind !== 'invoice-payments' ||
+      scan.detail.pass === null ||
+      scan.detail.pass.jobId === jobId)
+  );
+}
+function validDetail(
+  lane: CleanupLane,
+  scan: Extract<CleanupScan, { kind: 'selected' }>,
+) {
+  if (scan.detail.kind === 'resource') return lane !== 'invoices';
+  if (lane !== 'invoices' && lane !== 'observations') return false;
+  return (
+    scan.detail.pass === null ||
+    lane === 'observations' ||
+    scan.detail.pass.owner.invoiceId === scan.id
+  );
+}
+function validCleanupClaimTime(
+  value: Exclude<CleanupState, { kind: 'acknowledged' }>,
+) {
+  return (
+    value.claim === null ||
+    (at(value.claim.expiresAt) > at(value.claim.claimedAt) &&
+      at(value.claim.expiresAt) <=
+        at(value.claim.claimedAt) + cleanupBounds.claimMs &&
+      at(value.claim.claimedAt) >= at(value.retryAt))
   );
 }
 export const billingCleanupSchema = state.refine((value) => {
   if (value.kind === 'acknowledged')
     return at(value.checkedAt) < at(value.nextAt);
-  if (
-    value.claim &&
-    (at(value.claim.expiresAt) <= at(value.claim.claimedAt) ||
-      at(value.claim.expiresAt) >
-        at(value.claim.claimedAt) + cleanupBounds.claimMs ||
-      at(value.claim.claimedAt) < at(value.retryAt))
-  )
-    return false;
+  if (!validCleanupClaimTime(value)) return false;
   if (value.kind === 'deleting') return true;
   return (
-    cleanupLanes.every((lane) => validScan(lane, value.scans[lane])) &&
-    value.scans[value.turn].kind !== 'complete'
+    cleanupLanes.every((lane) =>
+      validScan(lane, value.scans[lane], value.jobId),
+    ) &&
+    cleanupLanes.some((lane) => value.scans[lane].kind !== 'complete') &&
+    (value.scans[value.turn].kind !== 'complete' ||
+      (value.turn === 'observations' && value.invoiceDebt.kind === 'owed'))
   );
 });
 export type CleanupContext = {
@@ -135,11 +168,17 @@ export type CleanupContext = {
     readonly mappedCustomers: number;
     readonly possiblePurchases: number;
     readonly retainedFinancialRoutes: number;
-    readonly owedObservations: boolean;
+    readonly owedFinancialEffects: boolean;
   };
 };
 export type CleanupEvent =
   | { readonly kind: 'claim'; readonly claimId: string }
+  | {
+      readonly kind: 'invoice-identity-retained';
+      readonly claimId: string;
+      readonly work: CleanupWork;
+      readonly observation: BillingPaymentObservation;
+    }
   | {
       readonly kind: 'page';
       readonly claimId: string;
@@ -160,14 +199,6 @@ export type CleanupEvent =
       readonly observation: BillingPaymentObservation;
     }
   | {
-      readonly kind: 'payments';
-      readonly claimId: string;
-      readonly work: CleanupWork;
-      readonly beforeId: string | null;
-      readonly afterId: string | null;
-      readonly exhausted: boolean;
-    }
-  | {
       readonly kind: 'failure';
       readonly claimId: string;
       readonly work: CleanupWork;
@@ -185,6 +216,13 @@ export type CleanupEvent =
     };
 export function cleanupWork(value: CleanupState): CleanupWork | null {
   if (value.kind === 'acknowledged') return null;
+  if (value.kind === 'scanning' && value.turn === 'observations') {
+    const invoiceId = nextInvoiceIdentity(
+      value.invoiceDebt,
+      value.scans.observations.kind === 'complete',
+    );
+    if (invoiceId !== null) return { kind: 'invoice-identity', invoiceId };
+  }
   return value.kind === 'deleting'
     ? { kind: 'delete' }
     : { kind: 'scan', lane: value.turn, scan: value.scans[value.turn] };
@@ -198,15 +236,25 @@ export function currentCleanup(value: CleanupState, context: CleanupContext) {
     value.jobId === context.jobId
   );
 }
-export function startCleanup(jobId: string, now: string): CleanupState | null {
-  if (!idSchema.safeParse(jobId).success || !instant.safeParse(now).success)
+export function startCleanup(
+  jobId: string,
+  now: string,
+  invoiceDebt: InvoiceIdentityDebt = { kind: 'none' },
+): CleanupState | null {
+  if (
+    !idSchema.safeParse(jobId).success ||
+    !instant.safeParse(now).success ||
+    !invoiceIdentityDebtSchema.safeParse(invoiceDebt).success
+  )
     return null;
   const page = { kind: 'page' as const, afterId: null };
   return {
+    version: 2,
     kind: 'scanning',
     jobId,
     retryAt: now,
     claim: null,
+    invoiceDebt,
     turn: 'purchases',
     scans: {
       purchases: page,

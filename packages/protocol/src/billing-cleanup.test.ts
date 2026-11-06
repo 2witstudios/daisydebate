@@ -18,7 +18,7 @@ import {
   second,
 } from './billing-cleanup.test-support';
 setupRitewayBun();
-test('bounded cleanup interleaves lanes and durably retains selected page remainder and invoice payment position', () => {
+test('bounded cleanup interleaves lanes and durably retains selected page remainder and invoice authority', () => {
   const p1 = 'p'.repeat(24),
     p2 = 'q'.repeat(24);
   let value = claimed(initial(), 0);
@@ -47,12 +47,10 @@ test('bounded cleanup interleaves lanes and durably retains selected page remain
   value = changed(
     value,
     {
-      kind: 'payments',
+      kind: 'failure',
       claimId: first,
       work: cleanupWork(value)!,
-      beforeId: null,
-      afterId: 'inpay_cursor',
-      exhausted: false,
+      retryAt: at(16),
     },
     14.1,
   );
@@ -60,7 +58,7 @@ test('bounded cleanup interleaves lanes and durably retains selected page remain
     given:
       'subscription and purchase pages with pending work, a multi-page invoice and an empty refund scan',
     should:
-      'yield among lanes without dropping selected resources or payment position',
+      'yield among lanes without dropping selected resources or inventing invoice coverage',
     actual: [
       purchase,
       remaining,
@@ -92,7 +90,7 @@ test('bounded cleanup interleaves lanes and durably retains selected page remain
         rest: [],
         lastId: 'in_original',
         more: true,
-        detail: { kind: 'invoice-payments', afterId: 'inpay_cursor' },
+        detail: { kind: 'invoice-payments', pass: null },
       },
       { kind: 'page', afterId: 'sub_original' },
     ],
@@ -191,7 +189,7 @@ test('empty scans do not erase unresolved work and only verified deletion can ac
         mappedCustomers: 0,
         possiblePurchases: 0,
         retainedFinancialRoutes: 0,
-        owedObservations: false,
+        owedFinancialEffects: false,
       },
     },
   );

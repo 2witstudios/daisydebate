@@ -55,7 +55,7 @@ export function empty(value: CleanupState, seconds: number) {
       mappedCustomers: 0,
       possiblePurchases: 0,
       retainedFinancialRoutes: 0,
-      owedObservations: false,
+      owedFinancialEffects: false,
     },
   });
 }

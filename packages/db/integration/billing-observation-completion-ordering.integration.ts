@@ -113,7 +113,7 @@ for (const order of ['reversal-first', 'completion-first'] as const)
               replay,
               same,
               current.kind === 'claimed' &&
-                current.facts.effects.owedObservations,
+                current.facts.effects.owedFinancialEffects,
             ],
             expected: ['refuse', { id: job!.id, status: 'pending' }, true],
           });

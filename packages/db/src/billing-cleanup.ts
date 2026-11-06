@@ -9,10 +9,16 @@ import {
   type CleanupWork,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
-import { createBillingCleanupResources } from './billing-cleanup-resources';
+import {
+  createBillingCleanupResources,
+  currentCleanupResolution,
+} from './billing-cleanup-resources';
 import { createBillingPaymentObservations } from './billing-payment-observations';
 import { createBillingPaymentRecording } from './billing-payment-recording';
 import { createBillingPaymentProgress } from './billing-payment-progress';
+import { createBillingObservationRevisit } from './billing-observation-revisit';
+import { createBillingInvoiceDiscovery } from './billing-invoice-discovery';
+import { createBillingInvoiceIdentity } from './billing-invoice-identity';
 import { privacyJobs } from './schema/privacy-jobs';
 import { readFrozenBillingOffer } from './billing-frozen-offer';
 import {
@@ -31,6 +37,9 @@ export function createBillingCleanup(input: {
     ...createBillingPaymentObservations(input),
     ...createBillingPaymentRecording(input),
     ...createBillingPaymentProgress(input),
+    ...createBillingObservationRevisit(input),
+    ...createBillingInvoiceDiscovery(input),
+    ...createBillingInvoiceIdentity(input),
     frozenOffer(
       jobId: string,
       claimId: string,
@@ -114,6 +123,11 @@ export function createBillingCleanup(input: {
       return input.run(async (tx) => {
         const locked = await lockCleanupJob(tx, jobId);
         if (!locked?.state) return 'idle' as const;
+        if (
+          event.kind === 'resolved' &&
+          !(await currentCleanupResolution(tx, locked.userId, event))
+        )
+          return 'idle' as const;
         const facts = await cleanupFacts(tx, locked.userId);
         const context = await cleanupContext(tx, jobId, facts.effects);
         const transition = advanceCleanup(locked.state, event, context);
@@ -146,6 +160,12 @@ export function createBillingCleanup(input: {
   };
 }
 
-function needsObservationWrite(event: { readonly kind: string }) {
-  return event.kind === 'retained';
+function needsObservationWrite(event: CleanupEvent) {
+  return (
+    event.kind === 'retained' ||
+    event.kind === 'invoice-identity-retained' ||
+    (event.kind === 'page' &&
+      event.work.kind === 'scan' &&
+      event.work.lane === 'invoices')
+  );
 }

@@ -47,7 +47,7 @@ test('actual runtime cleanup cannot acknowledge an unmapped possibly executed pu
               mappedCustomers: 0,
               possiblePurchases: 1,
               retainedFinancialRoutes: 0,
-              owedObservations: false,
+              owedFinancialEffects: false,
             },
             route: { kind: 'absent' },
           },

@@ -9,12 +9,16 @@ export async function exerciseFailureDeferral(
   const { claim, apply, token, state, now, read, rotate, probe, persist } =
     matrix;
   const ids = [createId(), `sub_${createId()}`, `in_${createId()}`, createId()];
+  await matrix.settleRefund(ids[3]!);
   for (const id of ids) {
     const c = await claim();
+    const work = cleanupWork(c)!;
+    if (work.kind === 'scan' && work.lane === 'invoices')
+      await matrix.retainInvoice(id);
     await apply({
       kind: 'page',
       claimId: token(c),
-      work: cleanupWork(c)!,
+      work,
       ids: [id],
       more: false,
     });
@@ -24,7 +28,7 @@ export async function exerciseFailureDeferral(
     kind: 'page',
     claimId: token(observations),
     work: cleanupWork(observations)!,
-    ids: [],
+    ids: await matrix.observationIds(),
     more: false,
   });
   const selected = await state();
@@ -88,7 +92,7 @@ export async function exerciseFailureDeferral(
       (await read()).attempts,
     ],
     expected: [
-      ['subscriptions', 'invoices', 'refunds'],
+      ['subscriptions', 'invoices', 'refunds', 'observations'],
       selected.scans.purchases,
       'purchases',
       1,
@@ -122,27 +126,35 @@ async function finishKnownProducers(
 ) {
   const { claim, apply, token } = matrix;
   const visited: unknown[] = [];
-  for (let index = 0; index < 3; index++) {
+  for (let index = 0; index < 4; index++) {
     const current = await claim(),
       work = cleanupWork(current)!;
     visited.push(work.kind === 'scan' && work.lane);
+    let invoiceWitness;
     if (
       work.kind === 'scan' &&
       work.lane === 'invoices' &&
       work.scan.kind === 'selected'
     )
-      await matrix.retainInvoice(work.scan.id);
+      invoiceWitness = (await matrix.retainInvoice(work.scan.id)).invoice;
     await apply(
-      work.kind === 'scan' && work.lane === 'invoices'
+      work.kind === 'scan' &&
+        work.lane === 'observations' &&
+        work.scan.kind === 'selected'
         ? {
-            kind: 'payments',
+            kind: 'retained',
             claimId: token(current),
             work,
-            beforeId: null,
-            afterId: null,
-            exhausted: true,
+            observation: await matrix.readObservation(work.scan.id),
           }
-        : { kind: 'resolved', claimId: token(current), work },
+        : work.kind === 'scan' && work.lane === 'invoices'
+          ? {
+              kind: 'retained',
+              claimId: token(current),
+              work,
+              observation: invoiceWitness!,
+            }
+          : { kind: 'resolved', claimId: token(current), work },
     );
   }
   return visited;

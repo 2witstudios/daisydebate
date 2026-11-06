@@ -57,6 +57,12 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
       to_char(observed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as observed_at
       from billing_payment_observations where user_id=${subject.userId} order by id`);
+    const unroutedInvoices =
+      await tx.execute(sql`select identity as vendor_invoice_id
+      from privacy_jobs job cross join lateral
+        jsonb_array_elements_text(job.billing_cleanup->'invoiceDebt'->'ids') identity
+      where job.subject_ref=${subject.userId} and job.vendor='stripe'
+        and job.billing_cleanup->'invoiceDebt'->>'kind'='owed' order by identity`);
     return {
       billing_customers: customers as unknown as Record<string, unknown>[],
       billing_subscriptions: subscriptions as unknown as Record<
@@ -67,6 +73,10 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       billing_purchases: purchases as unknown as Record<string, unknown>[],
       billing_refund_actions: refunds as unknown as Record<string, unknown>[],
       billing_payment_observations: observations as unknown as Record<
+        string,
+        unknown
+      >[],
+      billing_unrouted_invoices: unroutedInvoices as unknown as Record<
         string,
         unknown
       >[],

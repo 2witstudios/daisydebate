@@ -23,11 +23,11 @@ test('verified customer deletion cannot acknowledge an owed observation or missi
     mappedCustomers: 0,
     possiblePurchases: 0,
     retainedFinancialRoutes: 1,
-    owedObservations: false,
+    owedFinancialEffects: false,
   };
   const results = [
     undefined,
-    { ...effects, owedObservations: true },
+    { ...effects, owedFinancialEffects: true },
     effects,
   ].map((facts) =>
     advanceCleanup(value, event, {

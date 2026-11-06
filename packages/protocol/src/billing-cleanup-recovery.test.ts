@@ -68,32 +68,32 @@ test('missing customer mapping alone never acknowledges unknown purchase or reta
       mappedCustomers: 0,
       possiblePurchases: 1,
       retainedFinancialRoutes: 0,
-      owedObservations: false,
+      owedFinancialEffects: false,
     },
     {
       mappedCustomers: 0,
       possiblePurchases: 0,
       retainedFinancialRoutes: 1,
-      owedObservations: false,
+      owedFinancialEffects: false,
     },
     {
       mappedCustomers: 1,
       possiblePurchases: 0,
       retainedFinancialRoutes: 0,
-      owedObservations: false,
+      owedFinancialEffects: false,
     },
     {
       mappedCustomers: 0,
       possiblePurchases: 0,
       retainedFinancialRoutes: 0,
-      owedObservations: true,
+      owedFinancialEffects: true,
     },
   ];
   const empty = {
     mappedCustomers: 0,
     possiblePurchases: 0,
     retainedFinancialRoutes: 0,
-    owedObservations: false,
+    owedFinancialEffects: false,
   };
   const valid = advanceCleanup(value, event, { ...context(1), effects: empty });
   assert({
