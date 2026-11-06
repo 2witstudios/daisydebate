@@ -1,8 +1,8 @@
 import type { Page } from '@playwright/test';
-import { expect } from './fixtures';
+import { expect, test } from './fixtures';
 import { systemClock } from '@daisy/clock';
 import { boundedStep } from './bounded-step';
-import { committedRefusalRenderId } from './messaging-committed-refusal';
+import { committedRefusalState } from './messaging-committed-refusal';
 import { advisedConversationBoundary } from './messaging-refusal-flight';
 import type { watchConversationRecovery } from './messaging-recovery-evidence';
 
@@ -28,15 +28,46 @@ const status = (page: Page) =>
 
 export async function settledRefusal(page: Page, deadline: number) {
   let id: string | null = null;
-  await expect
-    .poll(
-      async () => {
-        id = await status(page).evaluate(committedRefusalRenderId, true);
-        return id !== null;
-      },
-      { timeout: Math.min(5000, remaining(deadline)) },
-    )
-    .toBe(true);
+  let readiness: ReturnType<typeof committedRefusalState>['diagnostic'] | null =
+    null;
+  const failures: unknown[] = [];
+  try {
+    await expect
+      .poll(
+        async () => {
+          const observed = await status(page).evaluate(
+            committedRefusalState,
+            true,
+          );
+          id = observed.requestId;
+          readiness = observed.diagnostic;
+          return id !== null;
+        },
+        { timeout: Math.min(5000, remaining(deadline)) },
+      )
+      .toBe(true);
+  } catch (error) {
+    failures.push(error);
+  }
+  try {
+    await test.info().attach('initial-refusal-readiness-safe', {
+      contentType: 'application/json',
+      body: JSON.stringify({
+        phase: 'initial',
+        observed: readiness !== null,
+        readiness,
+      }),
+    });
+  } catch (diagnosticError) {
+    failures.push(diagnosticError);
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(
+      failures,
+      'Refusal predicate and diagnostic attachment failed',
+      { cause: failures[0] },
+    );
   return id!;
 }
 
@@ -66,20 +97,57 @@ export async function settledRefusalResponse(
   const advice = advisedConversationBoundary(payload);
   expect(advice !== null).toBe(true);
   let id: string | null = null;
-  await expect
-    .poll(
-      async () => {
-        id = await status(page).evaluate(committedRefusalRenderId, true);
-        return (
-          id !== null &&
-          id !== previous &&
-          id === advice!.requestId &&
-          observer.snapshot().pending === 0
-        );
-      },
-      { timeout: Math.min(5000, remaining(deadline)) },
-    )
-    .toBe(true);
+  let readiness: ReturnType<typeof committedRefusalState>['diagnostic'] | null =
+    null;
+  let settledIdentityMatchesResponse = false;
+  const failures: unknown[] = [];
+  try {
+    await expect
+      .poll(
+        async () => {
+          const observed = await status(page).evaluate(
+            committedRefusalState,
+            true,
+          );
+          id = observed.requestId;
+          readiness = observed.diagnostic;
+          settledIdentityMatchesResponse =
+            id !== null && id === advice!.requestId;
+          return (
+            id !== null &&
+            id !== previous &&
+            id === advice!.requestId &&
+            observer.snapshot().pending === 0
+          );
+        },
+        { timeout: Math.min(5000, remaining(deadline)) },
+      )
+      .toBe(true);
+  } catch (error) {
+    failures.push(error);
+  }
+  try {
+    await test.info().attach('completed-refusal-readiness-safe', {
+      contentType: 'application/json',
+      body: JSON.stringify({
+        phase: 'completed-response',
+        attempt,
+        responseFinished: true,
+        settledIdentityMatchesResponse,
+        observed: readiness !== null,
+        readiness,
+      }),
+    });
+  } catch (diagnosticError) {
+    failures.push(diagnosticError);
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(
+      failures,
+      'Refusal predicate and diagnostic attachment failed',
+      { cause: failures[0] },
+    );
   expect(observer.snapshot()).toMatchObject({
     dispatches: attempt,
     maximumPending: 1,

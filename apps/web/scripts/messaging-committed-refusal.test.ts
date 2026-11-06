@@ -1,6 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { committedRefusalRenderId } from '../e2e/support/messaging-committed-refusal';
+import { committedRefusalState } from '../e2e/support/messaging-committed-refusal';
 setupRitewayBun();
+const committedRefusalRenderId = (element: object, settled = false) =>
+  committedRefusalState(element, settled).requestId;
 
 test('the refusal oracle waits for the exact node in the committed tree', () => {
   const id = 'c'.repeat(24);

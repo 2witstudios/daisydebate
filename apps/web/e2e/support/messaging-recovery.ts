@@ -22,7 +22,7 @@ import {
   driveRefusalDeadlines,
 } from './messaging-recovery-clock';
 import { awaitMessagingOperations } from './messaging-completed-operations';
-import { committedRefusalRenderId } from './messaging-committed-refusal';
+import { committedRefusalState } from './messaging-committed-refusal';
 import { hasAdvisedConversationBoundary } from './messaging-refusal-flight';
 import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
@@ -31,8 +31,8 @@ import type { Page } from '@playwright/test';
 import { watchRecoveredChannel } from './messaging-recovery-observation';
 import { postMessage } from './messaging-content-requests';
 
-const refusalRenderId = (page: Page) =>
-  refused(page).evaluate(committedRefusalRenderId);
+const refusalRenderId = async (page: Page) =>
+  (await refused(page).evaluate(committedRefusalState)).requestId;
 
 /** Actual web-process admission, production Next/TLS/auth and unchanged test budgets. */
 export function testMessagingRecovery() {
