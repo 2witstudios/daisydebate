@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
+import type { BillingPaymentObservation } from './billing-payment-observation';
 
 export const cleanupLanes = [
   'purchases',
@@ -124,6 +125,10 @@ export type CleanupContext = {
   readonly now: string;
   readonly jobId: string;
   readonly closed: boolean;
+  readonly observationOwner?: {
+    readonly userId: string;
+    readonly closedAt: string;
+  };
   readonly effects?: {
     readonly mappedCustomers: number;
     readonly possiblePurchases: number;
@@ -144,6 +149,13 @@ export type CleanupEvent =
       readonly kind: 'resolved';
       readonly claimId: string;
       readonly work: CleanupWork;
+    }
+  | {
+      /** Only the observation transaction may emit this after retaining its exact obligation. */
+      readonly kind: 'retained';
+      readonly claimId: string;
+      readonly work: CleanupWork;
+      readonly observation: BillingPaymentObservation;
     }
   | {
       readonly kind: 'payments';

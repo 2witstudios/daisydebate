@@ -4,7 +4,13 @@ export {
   billingPaymentObservationStateSchema,
   paymentObservationSourceSchema,
 } from './billing-payment-observation';
-export type { BillingPaymentObservation } from './billing-payment-observation';
+export { ownedInvoiceObservationSchema } from './billing-payment-observation-source';
+export type { OwnedInvoiceObservation } from './billing-payment-observation-source';
+export { retainPaymentObservationSource } from './billing-payment-observation-retention';
+export type {
+  BillingPaymentObservation,
+  PaymentObservationContext,
+} from './billing-payment-observation';
 export { advanceCleanup, ownsCleanupClaim } from './billing-cleanup-lifecycle';
 export {
   billingCleanupSchema,

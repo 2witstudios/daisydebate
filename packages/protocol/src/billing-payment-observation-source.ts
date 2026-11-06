@@ -1,4 +1,24 @@
-import type { PaymentObservationSource } from './billing-payment-observation';
+import { z } from 'zod';
+import {
+  paymentObservationSourceSchema,
+  type PaymentObservationSource,
+} from './billing-payment-observation';
+/** An owned invoice identity is retained even when its payment enumeration is unavailable. */
+export const ownedInvoiceObservationSchema = z.strictObject({
+  mode: z.enum(['test', 'live']),
+  customerId: z
+    .string()
+    .max(255)
+    .regex(/^cus_[A-Za-z0-9_]+$/),
+  invoiceId: z
+    .string()
+    .max(255)
+    .regex(/^in_[A-Za-z0-9_]+$/),
+  source: paymentObservationSourceSchema,
+});
+export type OwnedInvoiceObservation = z.infer<
+  typeof ownedInvoiceObservationSchema
+>;
 
 /** A later unavailable offer is not authority to replace an original source. */
 export function mergePaymentObservationSource(

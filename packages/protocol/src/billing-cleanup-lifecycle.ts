@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
+import { currentPaymentObservation } from './billing-payment-observation';
 import {
   billingCleanupSchema,
   cleanupBounds,
@@ -137,7 +138,7 @@ function page(
       : selected(first, rest, event.ids.at(-1)!, event.more, value.turn);
   return progressed(value, scan, now);
 }
-function resolved(
+function advanceSelected(
   value: Extract<CleanupState, { kind: 'scanning' }>,
   now: string,
 ) {
@@ -166,7 +167,7 @@ function payments(
   )
     return idle;
   if (event.exhausted)
-    return event.afterId === null ? resolved(value, now) : idle;
+    return event.afterId === null ? advanceSelected(value, now) : idle;
   if (event.afterId === null || event.afterId === event.beforeId) return idle;
   return progressed(
     value,
@@ -232,7 +233,7 @@ export function advanceCleanup(
   if (event.kind === 'deleted' || event.kind === 'no-effects')
     return terminal(value, event, context);
   if (value.kind !== 'scanning') return idle;
-  return advanceScanning(value, event, context.now);
+  return advanceScanning(value, event, context);
 }
 function terminal(
   value: Active,
@@ -250,15 +251,47 @@ function terminal(
 }
 function advanceScanning(
   value: Extract<CleanupState, { kind: 'scanning' }>,
-  event: Extract<CleanupEvent, { kind: 'page' | 'payments' | 'resolved' }>,
-  now: string,
+  event: Extract<
+    CleanupEvent,
+    { kind: 'page' | 'payments' | 'resolved' | 'retained' }
+  >,
+  context: CleanupContext,
 ): CleanupTransition {
   switch (event.kind) {
     case 'page':
-      return page(value, event, now);
+      return page(value, event, context.now);
     case 'payments':
-      return payments(value, event, now);
+      return payments(value, event, context.now);
     case 'resolved':
-      return value.turn === 'invoices' ? idle : resolved(value, now);
+      return value.turn === 'invoices'
+        ? idle
+        : advanceSelected(value, context.now);
+    case 'retained':
+      return retained(value, event, context);
   }
+}
+
+function retained(
+  value: Extract<CleanupState, { kind: 'scanning' }>,
+  event: Extract<CleanupEvent, { kind: 'retained' }>,
+  context: CleanupContext,
+) {
+  const owner = context.observationOwner;
+  const scan = value.scans[value.turn];
+  if (
+    !owner ||
+    !currentPaymentObservation(event.observation, {
+      ...owner,
+      now: context.now,
+    })
+  )
+    return idle;
+  if (
+    value.turn !== 'invoices' ||
+    scan.kind !== 'selected' ||
+    event.observation.kind !== 'invoice' ||
+    event.observation.invoiceId !== scan.id
+  )
+    return idle;
+  return advanceSelected(value, context.now);
 }

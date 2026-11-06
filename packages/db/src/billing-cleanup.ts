@@ -26,7 +26,7 @@ export function createBillingCleanup(input: {
 }) {
   return {
     ...createBillingCleanupResources(input.run),
-    ...createBillingPaymentObservations(input.run),
+    ...createBillingPaymentObservations(input),
     frozenOffer(
       jobId: string,
       claimId: string,
@@ -104,7 +104,11 @@ export function createBillingCleanup(input: {
         };
       });
     },
-    record(jobId: string, event: Exclude<CleanupEvent, { kind: 'claim' }>) {
+    record(
+      jobId: string,
+      event: Exclude<CleanupEvent, { kind: 'claim' | 'retained' }>,
+    ) {
+      if (needsObservationWrite(event)) return Promise.resolve('idle' as const);
       return input.run(async (tx) => {
         const locked = await lockCleanupJob(tx, jobId);
         if (!locked?.state) return 'idle' as const;
@@ -138,6 +142,10 @@ export function createBillingCleanup(input: {
       });
     },
   };
+}
+
+function needsObservationWrite(event: { readonly kind: string }) {
+  return event.kind === 'retained';
 }
 
 function readOriginalOffer(
