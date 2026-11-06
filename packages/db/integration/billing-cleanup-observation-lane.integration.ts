@@ -31,10 +31,17 @@ async function withObservationLane(
         ];
         for (const id of producers) {
           const c = await matrix.claim();
+          const selected = cleanupWork(c)!;
+          if (
+            selectedProducers &&
+            selected.kind === 'scan' &&
+            selected.lane === 'invoices'
+          )
+            await matrix.retainInvoice(id);
           await matrix.apply({
             kind: 'page',
             claimId: matrix.token(c),
-            work: cleanupWork(c)!,
+            work: selected,
             ids: selectedProducers ? [id] : [],
             more: false,
           });
@@ -74,7 +81,6 @@ test(
       c = await matrix.claim();
       if (c.kind !== 'scanning' || c.scans.observations.kind !== 'selected')
         throw Error('Missing selected observation');
-      const old = c.scans.observations;
       const before = await matrix.read();
       const forged = {
         ...c,
@@ -82,18 +88,18 @@ test(
         retryAt: new Date(Date.parse(await matrix.now()) + 1000).toISOString(),
         scans: {
           ...c.scans,
-          observations: { ...old, id: old.rest[0]!, rest: [] },
+          observations: { kind: 'complete' as const },
         },
       };
-      const missingRetention = await matrix.probe(() =>
+      const skippedRemainder = await matrix.probe(() =>
         matrix.persist(forged, 'progress'),
       );
       assert({
         given:
-          'foreign/skipped local keysets or cursor progress without retaining the currently selected identity',
+          'foreign/skipped local keysets or false exhaustion with an owed selected remainder',
         should:
           'reject all23514 and preserve the exact current claim and owed facts',
-        actual: [refusals, missingRetention, await matrix.read()],
+        actual: [refusals, skippedRemainder, await matrix.read()],
         expected: [['23514', '23514', '23514'], '23514', before],
       });
       for (const id of ids) {

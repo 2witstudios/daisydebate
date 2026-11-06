@@ -10,9 +10,10 @@ export async function retainCandidateObservation(
   jobId: string,
   id: string,
 ) {
+  // The exact owed row is already durable. Reusing it never invents a new recognition time.
   const [row] =
-    await tx`update billing_payment_observations observation set observed_at=date_trunc('milliseconds',clock_timestamp())
-    from privacy_jobs job where job.id=${jobId} and observation.user_id=job.subject_ref and observation.id=${id} returning observation.*`;
+    await tx`select observation.* from billing_payment_observations observation join privacy_jobs job
+      on observation.user_id=job.subject_ref where job.id=${jobId} and observation.id=${id} for update of observation`;
   if (!row) throw Error('Missing exact owned candidate observation');
   return candidateObservation(row);
 }

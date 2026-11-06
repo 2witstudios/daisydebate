@@ -78,7 +78,7 @@ test('new financial facts rotate only Stripe execution and stale progress cannot
             mappedCustomers: 0,
             possiblePurchases: 0,
             retainedFinancialRoutes: 1,
-            owedFinancialEffects: false,
+            owedFinancialEffects: true,
           },
           { kind: 'owned', mode: 'test', customerId: payment.customerId },
           'idle',

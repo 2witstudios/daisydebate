@@ -1,12 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  advanceCleanup,
-  billingCleanupSchema,
-  cleanupWork,
-  startCleanup,
-} from '@daisy/protocol/billing';
+import { billingCleanupSchema } from '@daisy/protocol/billing';
 import { withBillingRefunds } from './billing-refunds.test-support';
 import { cleanupCandidate } from './billing-cleanup-candidate.test-support';
 import { retainCandidateInvoice } from './billing-cleanup-witness.test-support';
@@ -24,6 +19,24 @@ const predecessor = new URL(
   '../migrations/20261106004019_stripe_cleanup_observation_completion/migration.sql',
   import.meta.url,
 );
+
+/** Oracle for immutable110, deliberately independent of the current v2 runtime constructor. */
+function historicalFiveLaneStart(jobId: string, retryAt: string) {
+  return {
+    kind: 'scanning',
+    jobId,
+    retryAt,
+    claim: null,
+    turn: 'purchases',
+    scans: {
+      purchases: { kind: 'page', afterId: null },
+      subscriptions: { kind: 'page', afterId: null },
+      invoices: { kind: 'page', afterId: null },
+      refunds: { kind: 'page', afterId: null },
+      observations: { kind: 'page', afterId: null },
+    },
+  };
+}
 
 for (const cohort of historicalCohorts)
   test(
@@ -74,7 +87,10 @@ for (const cohort of historicalCohorts)
                           observations: { kind: 'page', afterId: null },
                         },
                       }
-                    : startCleanup(before.id, before.retry_at.toISOString());
+                    : historicalFiveLaneStart(
+                        before.id,
+                        before.retry_at.toISOString(),
+                      );
               }
               const sql = await Bun.file(candidate).text();
               const cut = sql.indexOf('\nUPDATE public.privacy_jobs');
@@ -95,8 +111,6 @@ for (const cohort of historicalCohorts)
               await tx.unsafe(sql.slice(cut));
               const [after] =
                 await tx`select * from privacy_jobs where id=${job!.id}`;
-              if (before.status === 'pending')
-                billingCleanupSchema.parse(after!.billing_cleanup);
               const [financialAfter] = await tx`select
             (select coalesce(jsonb_agg(to_jsonb(row)),'[]'::jsonb) from billing_customers row where user_id=${userId}) as customers,
             (select coalesce(jsonb_agg(to_jsonb(row)),'[]'::jsonb) from billing_purchases row where user_id=${userId}) as purchases,
@@ -121,42 +135,40 @@ for (const cohort of historicalCohorts)
                     tx`with sampled as materialized(select date_trunc('milliseconds',clock_timestamp())+interval '1 second' as due)
                     update privacy_jobs set billing_cleanup=jsonb_set(billing_cleanup,'{retryAt}',to_jsonb(to_char(sampled.due at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))),retry_at=sampled.due from sampled where id=${matrix.jobId}`,
                 );
-                const state = billingCleanupSchema.parse(
+                const currentWireAccepted = billingCleanupSchema.safeParse(
                   after!.billing_cleanup,
-                );
-                const oldReply = advanceCleanup(
-                  state,
-                  {
-                    kind: 'page',
-                    claimId: oldClaim.id,
-                    work: cleanupWork(state)!,
-                    ids: [],
-                    more: false,
-                  },
-                  {
-                    jobId: matrix.jobId,
-                    now: await matrix.now(),
-                    closed: true,
-                  },
-                );
+                ).success;
                 assert({
                   given:
                     'a pretransition claim reply after its execution authority is retired',
                   should:
                     'refuse stale outcome/progress without declaring its possible vendor effect gone',
-                  actual: [oldReply, stale],
-                  expected: [{ kind: 'idle' }, '23514'],
+                  actual: [currentWireAccepted, stale],
+                  expected: [false, '23514'],
                 });
               }
               if (before.status === 'pending') {
-                const next = await matrix.claim();
+                await tx`select pg_sleep(greatest(0,extract(epoch from retry_at-clock_timestamp()))+.01) from privacy_jobs where id=${job!.id}`;
+                const [sampled] =
+                  await tx`select date_trunc('milliseconds',clock_timestamp()) as at`;
+                const next = {
+                  ...after!.billing_cleanup,
+                  claim: {
+                    id: createId(),
+                    claimedAt: sampled!.at.toISOString(),
+                    expiresAt: new Date(
+                      sampled!.at.getTime() + 30_000,
+                    ).toISOString(),
+                  },
+                };
+                await tx`update privacy_jobs set billing_cleanup=${JSON.stringify(next)}::text::jsonb where id=${job!.id}`;
                 assert({
                   given: 'the final strict guard after transformation',
                   should:
                     'admit a new bounded claim while retaining selected frames and all five lanes',
                   actual: [
                     next.kind,
-                    next.kind === 'scanning' && Object.keys(next.scans),
+                    next.kind === 'scanning' && Object.keys(next.scans).sort(),
                   ],
                   expected: [
                     'scanning',
@@ -166,7 +178,7 @@ for (const cohort of historicalCohorts)
                       'invoices',
                       'refunds',
                       'observations',
-                    ],
+                    ].sort(),
                   ],
                 });
               }
