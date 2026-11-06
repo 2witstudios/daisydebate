@@ -746,3 +746,91 @@ test('mail recipient variants reject detached active invitations and cross-purpo
     }
   });
 });
+
+test('explicit resend creates one new invitation after terminal delivery and replays safely', async () => {
+  await withFixture(url, async (f) => {
+    const db = trackedDatabase(f, { url, nextActorId: createId });
+    try {
+      const saved = await db.runPreapprovalCommand(
+        inputFor(add(`${createId()}@example.test`, true)),
+      );
+      const claims = await db.claimMailIntents({
+        limit: 50,
+        leaseMs: 60000,
+        nextToken: () => `${createId()}${createId()}`,
+      });
+      for (const claim of claims)
+        await db.settleMailIntent({
+          id: claim.id,
+          token: claim.token,
+          outcome: { kind: 'sent' },
+        });
+      const resend = inputFor({
+        v: 1,
+        commandId: createId(),
+        adminAuditHead: 'a'.repeat(64),
+        operation: 'invite',
+        preapprovalId: saved.preapprovalId,
+        expectedRevision: saved.revision,
+      });
+      const replayed = await Promise.all([
+        db.runPreapprovalCommand(resend),
+        db.runPreapprovalCommand(resend),
+      ]);
+      let stale = false;
+      try {
+        await db.runPreapprovalCommand(
+          inputFor({ ...resend.command, commandId: createId() }),
+        );
+      } catch (error) {
+        stale = (error as { code?: string }).code === 'CONFLICT';
+      }
+      const [mail] =
+        await f.sql`select count(*)::int as count, count(*) filter (where state = 'queued')::int as queued from mail_intents where preapproval_id = ${saved.preapprovalId}`;
+      assert({
+        given:
+          'a delivered invitation, an explicit resend replayed concurrently, and an old revision submitted again',
+        should: 'owe exactly one new intent and refuse the stale form',
+        actual: [replayed[0], replayed[1], mail.count, mail.queued, stale],
+        expected: [replayed[0], replayed[0], 2, 1, true],
+      });
+    } finally {
+      await db.close();
+    }
+  });
+});
+
+test('preapproval listing pages by stable opaque grant ids without losing entries', async () => {
+  await withFixture(url, async (f) => {
+    const db = trackedDatabase(f, { url, nextActorId: createId });
+    try {
+      const ids = [];
+      for (let index = 0; index < 3; index += 1)
+        ids.push(
+          (
+            await db.runPreapprovalCommand(
+              inputFor(add(`${createId()}@example.test`)),
+            )
+          ).preapprovalId,
+        );
+      const first = await db.listBetaPreapprovals({ limit: 2 });
+      const second = await db.listBetaPreapprovals({
+        limit: 2,
+        cursor: first.at(-1)!.id,
+      });
+      assert({
+        given: 'three preapprovals split across two bounded pages',
+        should: 'return every grant once with unused and no-invitation facts',
+        actual: [
+          [...first, ...second].map((entry) => entry.id),
+          [...first, ...second].every(
+            (entry) => entry.status === 'unused' && entry.invitation === 'none',
+          ),
+        ],
+        expected: [ids.sort().reverse(), true],
+      });
+    } finally {
+      await db.close();
+    }
+  });
+});

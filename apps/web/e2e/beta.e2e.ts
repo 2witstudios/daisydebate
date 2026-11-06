@@ -139,3 +139,14 @@ test('an invited new person follows the ordinary sign-in link and completes ever
   await page.goto('/play');
   await expect(page).toHaveURL(/\/play$/);
 });
+
+test('preapproval immediately admits an eligible existing waiting account', async ({
+  page,
+}) => {
+  const { email } = await signUpWaitlisted(page.request);
+  await page.goto('/play');
+  await expect(page).toHaveURL(/\/beta\?next=%2Fplay$/);
+  await preapproveEmail(email);
+  await page.reload();
+  await expect(page).toHaveURL(/\/play$/);
+});
