@@ -989,7 +989,14 @@ test('rapid renames remain ordered when a committed response is delayed', async 
     await rename('Second title');
     release();
     await expect(
-      files(page).getByRole('button', { name: 'Second title', exact: true }),
+      files(page)
+        .getByRole('region', { name: 'My drive', exact: true })
+        .getByRole('button', { name: 'Second title', exact: true }),
+    ).toBeVisible();
+    await expect(
+      files(page)
+        .getByRole('region', { name: 'Recent', exact: true })
+        .getByRole('button', { name: 'Second title', exact: true }),
     ).toBeVisible();
     const read = await page.request.post('/api/documents/read', {
       headers: { origin },
