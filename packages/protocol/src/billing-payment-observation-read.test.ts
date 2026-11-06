@@ -97,9 +97,9 @@ test('full payment and chronology proof share original-source and conflict polic
       'owed',
       'resolved',
       {
-        kind: 'owed',
-        reason: 'conflicting_evidence',
-        evidence: { kind: 'verified', payment: proof },
+        kind: 'owed' as const,
+        reason: 'conflicting_evidence' as const,
+        evidence: { kind: 'verified' as const, payment: proof },
       },
     ],
   });
@@ -112,14 +112,15 @@ test('typed final refund conflict preserves this observation evidence and any al
     { ...read(), evidence: { kind: 'verified', payment: proof } },
     context,
   );
-  if (full.kind !== 'recorded') throw Error('Expected verified owned fixture');
+  if (full.kind !== 'recorded' || full.observation.kind !== 'payment')
+    throw Error('Expected verified owned fixture');
   const bound = applyPaymentObservationRead(
     full.observation,
     { ...read(), evidence: { kind: 'verified', payment: proof } },
     context,
     originalAction(),
   );
-  if (bound.kind !== 'recorded')
+  if (bound.kind !== 'recorded' || bound.observation.kind !== 'payment')
     throw Error('Expected bound original action fixture');
   const results = [full.observation, bound.observation].map((value) =>
     retainRefundAdmissionConflict(value, context),
@@ -135,9 +136,9 @@ test('typed final refund conflict preserves this observation evidence and any al
     expected: [full.observation, bound.observation].map((value) => ({
       ...value,
       state: {
-        kind: 'owed',
-        reason: 'conflicting_evidence',
-        evidence: { kind: 'verified', payment: proof },
+        kind: 'owed' as const,
+        reason: 'conflicting_evidence' as const,
+        evidence: { kind: 'verified' as const, payment: proof },
       },
     })),
   });
