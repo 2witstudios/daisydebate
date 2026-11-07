@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { encodePcmWave } from '@daisy/media/pcm';
 import { idSchema, segmentDueAtMs, speakingEndMs } from '@daisy/protocol';
 
 type Segment = {
@@ -137,32 +138,6 @@ function admit(input: Input, frame: Frame): Admitted | null {
   // Ambiguous history never chooses an arbitrary granting segment.
   return matches.length === 1 ? matches[0]! : null;
 }
-function wav(frames: readonly Admitted[]) {
-  const bytes = new Uint8Array(44 + frames.length * 320);
-  const view = new DataView(bytes.buffer);
-  const text = (offset: number, value: string) =>
-    bytes.set(new TextEncoder().encode(value), offset);
-  text(0, 'RIFF');
-  view.setUint32(4, bytes.length - 8, true);
-  text(8, 'WAVE');
-  text(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, 16000, true);
-  view.setUint32(28, 32000, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  text(36, 'data');
-  view.setUint32(40, bytes.length - 44, true);
-  let offset = 44;
-  for (const { frame } of frames)
-    for (const value of frame.pcm) {
-      view.setInt16(offset, value, true);
-      offset += 2;
-    }
-  return bytes;
-}
 /**
  * A run of speech with less voice than this, ended by a real pause, is treated as
  * a click and never sent, because a speech-to-text model can invent words from such
@@ -203,7 +178,11 @@ function clip(input: Input, frames: readonly Admitted[], audible: boolean) {
   };
   // A silent clip has no audio, so it cannot reach speech-to-text.
   return audible
-    ? { ...window, kind: 'audible' as const, wav: wav(frames) }
+    ? {
+        ...window,
+        kind: 'audible' as const,
+        wav: encodePcmWave(frames.map(({ frame }) => frame.pcm)),
+      }
     : { ...window, kind: 'silent' as const };
 }
 /**

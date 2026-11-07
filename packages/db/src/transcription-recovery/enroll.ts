@@ -31,6 +31,6 @@ export async function enroll(tx: BoundedTransactionContext, raw: unknown) {
     row.expiresAt <= now
   )
     throw createAppError('CONFLICT', 'Original payload is unavailable');
-  await register(tx, original.body, row.payloadAcceptedAt, original.row);
+  await register(tx, original.body, original.row);
   return { kind: 'enrolled' as const, evidenceId: original.body.evidenceId };
 }

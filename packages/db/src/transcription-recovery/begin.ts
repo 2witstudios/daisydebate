@@ -1,4 +1,7 @@
 import { and, eq } from 'drizzle-orm';
+import { createAppError } from '@daisy/errors';
+import { sampleRoundExecutionTime } from '../round-execution-time';
+import { requireOriginalEnrollment } from './readiness';
 import type { BoundedTransactionContext } from '../transaction-context';
 import { transcriptionRecoveryContexts as contexts } from '../schema/transcription-recovery';
 import { transcriptionRecoveryAttempts as attempts } from '../schema/transcription-recovery-attempts';
@@ -22,6 +25,16 @@ export async function begin(
     );
   if (existing)
     return { kind: 'already-admitted' as const, ordinal: existing.ordinal };
+  await requireOriginalEnrollment(tx, input.roundId);
+  const admittedAt = new Date(await sampleRoundExecutionTime(tx));
+  const startBefore = new Date(
+    Math.min(
+      owned.context.leaseExpiresAt!.getTime(),
+      ...owned.members.map((unit) => unit.expiresAt!.getTime()),
+    ),
+  );
+  if (startBefore <= admittedAt)
+    throw createAppError('CONFLICT', 'Recognition start permission expired');
   if (owned.context.attempts >= options.maxAttempts) {
     await tx
       .update(contexts)
@@ -40,11 +53,16 @@ export async function begin(
     claimEpoch: input.claim.epoch,
     ordinal,
     outcome: 'admitted',
-    admittedAt: owned.now,
+    admittedAt,
   });
   await tx
     .update(contexts)
     .set({ attempts: ordinal })
     .where(eq(contexts.id, input.contextId));
-  return { kind: 'admitted' as const, ordinal };
+  return {
+    kind: 'admitted' as const,
+    ordinal,
+    admittedAt: admittedAt.toISOString(),
+    startBefore: startBefore.toISOString(),
+  };
 }

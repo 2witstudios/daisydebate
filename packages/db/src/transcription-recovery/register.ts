@@ -16,7 +16,6 @@ import { sampleRoundExecutionTime } from '../round-execution-time';
 export async function register(
   tx: BoundedTransactionContext,
   body: CaptureEvidenceBody,
-  admittedAt: Date,
   original: {
     readonly authorityId: string | null;
     readonly originalSubjectActorIds: readonly string[] | null;
@@ -73,6 +72,7 @@ export async function register(
     )
     .orderBy(desc(contexts.createdAt), desc(contexts.id))
     .limit(1);
+  const enrolledAt = new Date(await sampleRoundExecutionTime(tx));
   const append = contextBoundary(current ?? null, unit) === 'append';
   const contextId = append ? current!.id : body.evidenceId;
   if (append) {
@@ -82,7 +82,7 @@ export async function register(
         durationMs: current!.durationMs + unit.durationMs,
         lastSequence: unit.lastSequence,
         units: current!.units + 1,
-        lastSourceAt: admittedAt,
+        lastSourceAt: enrolledAt,
       })
       .where(eq(contexts.id, contextId));
   } else {
@@ -99,13 +99,13 @@ export async function register(
       ...unit,
       units: 1,
       status: 'collecting',
-      lastSourceAt: admittedAt,
+      lastSourceAt: enrolledAt,
     });
   }
   await tx.insert(sources).values({
     evidenceId: body.evidenceId,
     contextId,
     ...unit,
-    enrolledAt: new Date(await sampleRoundExecutionTime(tx)),
+    enrolledAt,
   });
 }

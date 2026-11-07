@@ -70,7 +70,7 @@ export async function adoptCaptureEvidencePayload(tx: CaptureTx, raw: unknown) {
       !Buffer.from(row.tag).equals(sealed.tag)
     )
       throw createAppError('CONFLICT', 'Payload confirmation differs');
-    await registerTranscriptionRecovery(tx, body, row.payloadAcceptedAt, row);
+    await registerTranscriptionRecovery(tx, body, row);
     return {
       kind: 'received' as const,
       evidenceId: row.id,
@@ -102,7 +102,7 @@ export async function adoptCaptureEvidencePayload(tx: CaptureTx, raw: unknown) {
       tag: sealed.tag,
     })
     .where(eq(necessaryEvidence.id, row.id));
-  await registerTranscriptionRecovery(tx, body, admittedAt, row);
+  await registerTranscriptionRecovery(tx, body, row);
   return {
     kind: 'received' as const,
     evidenceId: row.id,

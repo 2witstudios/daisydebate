@@ -16,13 +16,13 @@ export async function claim(
   const target = { contextId: input.contextId, roundId: input.roundId };
   {
     const owned = await lock(tx, target.contextId, target.roundId);
-    const now = new Date(await sampleRoundExecutionTime(tx));
     const [eligible] =
       (await tx.execute(sql`select c.id from transcription_recovery_contexts c where c.id=${target.contextId} and ${due(options)}
    and not exists(select 1 from transcription_recovery_contexts live where live.round_id=c.round_id and live.status='leased' and live.lease_expires_at>clock_timestamp())`)) as unknown as {
         id: string;
       }[];
     if (!eligible) return { kind: 'idle' as const };
+    const now = new Date(await sampleRoundExecutionTime(tx));
     if (
       owned.members.some(
         (unit) =>

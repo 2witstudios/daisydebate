@@ -951,3 +951,47 @@ rewritten by schema integration. No historical result is reopened. The original
 account fences and current allowance eligibility still apply at new dispatch.
 Old unpublished migration/test bytes stay archived with original provenance;
 combined schema/role/populated-predecessor proofs belong to their new candidate.
+
+### Original audio assembly and recovery readiness
+
+The local recognition application assembles only the exact ordered unique claimed
+original evidence IDs, at most128 units and30 seconds. It validates canonical
+bodies and original clock equations, preserves original worker/epoch/seat/grant/
+track/calibration identity, and requires contiguous actual sequence, offsets and
+previous-observation links across units. It refuses a gap rather than inserting
+silence or asserting cross-epoch continuity. Short and low-energy samples remain
+in the PCM. One pure16kHz mono S16LE WAV encoder also serves existing capture;
+encoding itself establishes neither hearing, speech classification nor coverage.
+The existing capture classifier is unchanged by that extraction and is not newly
+qualified by these encoding tests.
+
+Quiet eligibility measures actual source-metadata assembly progress, not original
+payload receipt age. Duplicate enrollment does not advance that progress. Original
+receivedAt/expiresAt/payloadAcceptedAt remain immutable. A known retained payload
+without recognition-source metadata excludes its Round before discovery's bounded
+page and prevents a fresh paid admission under original-scope/Round fences.
+This barrier does not claim all frames have arrived, or that acquiring intents,
+missing speech, silence or recognition quality are settled. Independently
+unrestorable/expired originals still require visible unresolved classification,
+escalation and the exceptional remedy; the barrier is not eventual-result proof.
+Other eligible Rounds retain their fair turn.
+
+Readiness gates new spending, not bookkeeping for an already admitted attempt.
+Unrelated backlog appearing afterward cannot by itself discard that attempt's
+provisional metadata or prevent persisted retry/backoff. Current original privacy,
+withdrawal, receipt expiry, pinned manifest/configuration and execution-token
+fences remain mandatory. No new units are appended to an already leased context.
+Candidate words stay transient, with only digest/size/attempt metadata persisted;
+this does not select authoritative transcript text or permit freeze/deletion.
+
+A fresh admission returns its actual authoritative admission instant and a call
+start-before bound no later than the original lease and every original receipt's
+expiry. Replayed/unknown admission never grants another call. The application
+must finish bounded assembly before fresh admission where practical and anchor
+its conservative monotonic start deadline BEFORE requesting that admission;
+adding returned remaining time after a delayed reply would extend permission.
+This only bounds starting a call within the declared trusted-time model. It
+cannot recall already authorized external processing, replace privacy/content
+commit fences, or prove host-independent custody/time under REL-H. The one-shot
+provider executor, delayed-response/erasure process proof, qualified quality
+selection, protected speech and genuine played-to-result outcome remain incomplete.
