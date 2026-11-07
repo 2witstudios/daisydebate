@@ -35,7 +35,7 @@ columns and routes, so the baseline now matches the policy:
   (ADR 0023), so `users` and `debates` carry application-supplied cuid2 ids
   from the first migration onward.
 
-Historical accounting exception (BILL-9-r1/11/18): applied migration
+Historical accounting exception (BILL-9-r1/11/18): canonical transition candidate
 `packages/db/migrations/20261107080513_fair_midnight/migration.sql`
 may derive IDs only for its missing historical casual-judge usage cohort.
 The exact expression is `m` plus the first 23 hexadecimal characters of

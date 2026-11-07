@@ -173,7 +173,7 @@ crosses a month or follows Round terminalization; never substitute a claim,
 lease or run-creation time, clamp timestamps or invent relief. Count chronology
 is admission <= recognition <= database time. Export retains this meaning.
 
-Applied `20261107080513_fair_midnight` has the exact historical-accounting
+Canonical candidate `20261107080513_fair_midnight` has the exact historical-accounting
 ID exception recorded in ADR 0018: `m` plus 23 hexadecimal characters of
 SHA-256 over UTF-8 `casual_judge_usage:<roundId>:<frozenSponsorActorId>`.
 The fixed namespace and original frozen Round/sponsor inputs identify only
