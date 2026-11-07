@@ -6,6 +6,8 @@ import type {
   MessagingMutationCommand,
   MessagingMutationState,
   MessagingMutationPlan,
+  MessagingReadFrame,
+  MessagingLockedFrame,
 } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
@@ -16,6 +18,21 @@ import { parseValidated } from '../../server/http';
 
 import { planMessageMutation } from './mutation-plan';
 import { requireMemberActor } from '../access/actor';
+
+type MutationScope = Parameters<MessagingChannelStore['readChannel']>[0];
+/** Mutation planning needs content methods, not social pair or group authority. */
+type MutationStore = {
+  readonly readChannel: <T>(
+    scope: MutationScope,
+    work: (frame: Pick<MessagingReadFrame, 'readRequestState'>) => Promise<T>,
+  ) => Promise<T>;
+  readonly withChannel: <T>(
+    scope: MutationScope,
+    work: (
+      frame: Pick<MessagingLockedFrame, 'readMutationState' | 'commitMutation'>,
+    ) => Promise<T>,
+  ) => Promise<T>;
+};
 
 const digest = (command: MessagingMutationCommand) =>
   createHash('sha3-256')
@@ -36,12 +53,17 @@ function replay(
   payloadDigest: string,
 ) {
   if (!state.receipt) return null;
+  if (!state.message || state.message.authorActorId !== actorId)
+    throw createAppError('NOT_FOUND');
+  // Removal scrubs all payload digests, including its own receipt. A caller-
+  // owned tombstone is the complete answer to repeating that withdrawal.
   if (
-    !state.message ||
-    state.message.text === null ||
-    state.message.removedAt !== null ||
-    state.message.authorActorId !== actorId
+    command.kind === 'remove' &&
+    state.message.removedAt !== null &&
+    state.receipt.messageId === command.messageId
   )
+    return state.message;
+  if (state.message.text === null || state.message.removedAt !== null)
     throw createAppError('NOT_FOUND');
   if (
     state.receipt.messageId !== command.messageId ||
@@ -58,7 +80,7 @@ export async function mutateMessagingMessage(
   dependencies: {
     readonly bounds: MessagingCoreBounds;
     readonly editWindowMs: number;
-    readonly store: MessagingChannelStore;
+    readonly store: MutationStore;
     readonly clock: Clock;
     readonly limit: (actorId: string, channelId: string) => Promise<void>;
   },

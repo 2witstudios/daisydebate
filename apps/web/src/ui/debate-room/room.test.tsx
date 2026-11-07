@@ -245,3 +245,40 @@ describe('DebateRoom', () => {
     });
   });
 });
+
+test('an opening Round binds its durable floor beside the opening controls', () => {
+  const action = async () => ({ text: '', requestId: 'r'.repeat(24) });
+  const html = renderToString(
+    h(DebateRoom, {
+      round: { ...sampleRound('prep', 'casual'), phase: 'waiting' },
+      notices: h(
+        'section',
+        { 'aria-label': 'Topic strikes' },
+        'Choose a topic',
+      ),
+      floor: {
+        roundId: 'd'.repeat(24),
+        actorId: 'a'.repeat(24),
+        requestId: 'r'.repeat(24),
+        socketUrl: null,
+        readOnlyHint: false,
+        sendAction: action,
+        mutateAction: action,
+        reportAction: action,
+      },
+    }),
+  );
+  assert({
+    given:
+      'an opening Round with topic controls and the protected floor binding',
+    should:
+      'render both the opening controls and one actual floor thread without a seeded channel composer',
+    actual: [
+      html.includes('aria-label="Topic strikes"'),
+      (html.match(/aria-label="Round floor chat"/g) ?? []).length,
+      html.includes('The host can read this chat.'),
+      html.includes('Message #round'),
+    ],
+    expected: [true, 1, true, false],
+  });
+});

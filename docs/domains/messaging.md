@@ -5,6 +5,24 @@ social adapter supports DM pairs and private-group grants. Actor preferences,
 following and read cursors do not grant access. Other contextual channel kinds
 require their owning producers before admission.
 
+Round floor storage uses kind `round_floor` and policy `round.floor`, separate
+from `round_spectator` / `round.spectator`. A unique `(round_id, kind)` pair
+permits one of each per Round; social kinds have no Round association. Social
+authority readers explicitly accept only DM and private-group kinds. The Round floor authority producer and `decideRoundFloor` evaluate the frozen
+host/debater audience and current account under account → Round → channel locks.
+Judges, including an anonymous judge who is also host, are excluded. Social DM
+blocks do not change this audience. The explicit floor open POST creates a
+channel once; discovery and rendering never create one. Protected Round-bound
+HTTP and the shared `channel-messages` observer use the same authority. Reports
+and signed operator moderation resolve this separate floor authority too.
+
+Posting lasts through judging. Terminal floors retain original-audience reads
+for 180 days from Round end, then immediately deny reads/observation independently
+of sweep progress. The bounded sweep drains receipts before message reply leaves,
+then read state; ordinary Messaging erasure/export and durable observation purge
+apply. Own-message withdrawal remains available without posting admission.
+`/rounds/:id/floor` is the retained-history entry. See ADR 0120.
+
 `@daisy/db/messaging` supplies a transaction frame over the application's existing
 pool. It discovers authority identities, locks current users in sorted order,
 then locks the canonical DM pair and channel. Membership is reread after waits;
@@ -18,6 +36,12 @@ fences: a request key that already has a receipt is a replay and never spends
 the limiter. Otherwise the Redis limiter runs before the write transaction,
 never inside a database fence, and the transaction then repeats the receipt
 lookup before any write (MSG-2.2-arch1).
+
+An author’s exact removal retry can acknowledge the same content-free tombstone
+under the current removal capability, without another mutation or change version.
+Removal still scrubs all associated payload fingerprints. Send/edit receipt
+replays return current message state, so a later edit does not make a confirmed
+command unknown again in the embedded form.
 
 Message sequence orders creation. Change version orders content changes and
 reconnect reads. Both live on the channel stream (`messaging_channel_streams`),

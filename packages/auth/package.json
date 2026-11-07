@@ -13,7 +13,8 @@
     "./social-reading": "./src/social-reading.ts",
     "./account-policy-facts": "./src/account-policy-facts.ts",
     "./testing": "./src/testing/social-policy.ts",
-    "./operator-signature": "./src/operator-signature.ts"
+    "./operator-signature": "./src/operator-signature.ts",
+    "./round-floor": "./src/round-floor.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

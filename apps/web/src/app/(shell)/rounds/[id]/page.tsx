@@ -1,3 +1,4 @@
+import { floorProps } from './floor/floor-props';
 import { BoundedDocuments } from '../../../../ui/documents/bounded-documents';
 import { documentPrincipalOf } from '../../../../features/documents/document-principal';
 import {
@@ -119,12 +120,21 @@ export default async function RoundPage({
   );
   if (ratings === 'refused') return reconnectingRoundPage();
   const retry = resultRetryOf([ballots, analysis, transcript]);
+  const floor =
+    identity.state === 'member'
+      ? await floorProps(id, identity.principal.actorId, null, true)
+      : null;
   const hostedLink = await requestHostedAudienceLink(id, identity);
   return (
     <>
       <MediaDocument />
       <RoundReceipt round={result.round}>
         <RoundRatings view={ratings} />
+        {floor ? (
+          <Link href={`/rounds/${id}/floor`} className="text-sm underline">
+            Round chat
+          </Link>
+        ) : null}
         {retry ? (
           <ResultUnavailable
             retrySeconds={

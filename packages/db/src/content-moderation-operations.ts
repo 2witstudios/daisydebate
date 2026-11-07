@@ -1,3 +1,4 @@
+import { insertContentReport } from './content-report-write';
 import { createAppError } from '@daisy/errors';
 import type {
   ContentModerationCommandResult,
@@ -8,7 +9,6 @@ import type {
 import {
   contentModerationCommandResultSchema,
   contentReportSchema,
-  queueOfReason,
   type recordingLegalRemovalReasons,
   type recordingTakedownReasons,
   type ContentModerationAction,
@@ -31,6 +31,7 @@ import {
   type ContentModerationOutcome,
   type RecordingModeration,
   type SpectatorChatModeration,
+  type ChatMessageModeration,
 } from './content-moderation-ports';
 import type { BoundedTransactionContext } from './transaction-context';
 
@@ -159,6 +160,7 @@ export type ContentModerationChange =
 type Ports = {
   readonly recordings: RecordingModeration;
   readonly chat: SpectatorChatModeration;
+  readonly floor: ChatMessageModeration;
 };
 
 const dbNow = async (tx: Tx) => {
@@ -345,7 +347,13 @@ const applyChange = (
     case 'recording.rebuild':
       return ports.recordings.rebuild(tx, change);
     case 'chat_message.remove':
-      return ports.chat.remove(tx, { messageId: change.messageId, now });
+      return ports.chat
+        .remove(tx, { messageId: change.messageId, now })
+        .then((result) =>
+          result === null
+            ? ports.floor.remove(tx, { messageId: change.messageId, now })
+            : result,
+        );
     case 'account.audience_ban.update':
       return setAudienceBan(tx, change, operatorRef);
   }
@@ -395,7 +403,9 @@ const subjectOf = async (
       );
     }
     case 'chat_message': {
-      const message = await ports.chat.readSubject(tx, report.targetId);
+      const message =
+        (await ports.chat.readSubject(tx, report.targetId)) ??
+        (await ports.floor.readSubject(tx, report.targetId));
       return (
         message && {
           kind: 'chat_message',
@@ -432,13 +442,15 @@ export function contentModerationOperations({
   eventSink,
   recordings = noRecordings,
   chat = noSpectatorChat,
+  floor = noSpectatorChat,
 }: {
   readonly database: Database;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly recordings?: RecordingModeration;
   readonly chat?: SpectatorChatModeration;
+  readonly floor?: ChatMessageModeration;
 }) {
-  const ports = { recordings, chat };
+  const ports = { recordings, chat, floor };
   return {
     readReportTargetFacts: (input: {
       readonly reporterUserId: string;
@@ -494,11 +506,12 @@ export function contentModerationOperations({
                 input.reporterActorId,
               )
             : null;
-        await database.execute(sql`insert into content_reports
-            (id, reporter_user_id, target_kind, target_id, feedback_side, reason, queue)
-          values (${input.id}, ${input.reporterUserId}, ${report.targetKind},
-            ${report.targetId}, ${side}, ${report.reason}, ${queueOfReason(report.reason)})
-          on conflict do nothing`);
+        await insertContentReport(database, {
+          id: input.id,
+          reporterUserId: input.reporterUserId,
+          report,
+          feedbackSide: side,
+        });
       }),
     /** One keyset page, newest report first, id breaking ties. */
     listModerationReports: (input: {

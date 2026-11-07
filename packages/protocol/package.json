@@ -15,7 +15,8 @@
     "./operator": "./src/operator.ts",
     "./flags": "./src/flags.ts",
     "./content-moderation": "./src/content-moderation.ts",
-    "./round-analysis-testing": "./src/round-analysis.test-support.ts"
+    "./round-analysis-testing": "./src/round-analysis.test-support.ts",
+    "./round-floor": "./src/round-floor.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

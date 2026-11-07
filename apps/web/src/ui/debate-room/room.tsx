@@ -1,9 +1,11 @@
 'use client';
 
+import type { FloorChatProps } from '../round-floor/floor-chat';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import {
   useLayoutEffect,
   useReducer,
+  useState,
   useRef,
   useSyncExternalStore,
   type ReactNode,
@@ -121,6 +123,7 @@ const noLeave: LeaveLinks = {
 
 type RoomProps = {
   readonly round: RoundSnapshot;
+  readonly floor?: FloorChatProps | undefined;
   readonly media?: ReactNode;
   readonly publication?: LocalPublication;
   readonly transcript?: ReactNode;
@@ -155,7 +158,9 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
     dispatch,
   });
   const hydrated = useHydrated();
-  const unread = chatUnread(round, state);
+  const [floorUnread, setFloorUnread] = useState(0);
+  const phoneLayout = usePhoneBreakpoint();
+  const unread = props.floor ? floorUnread : chatUnread(round, state);
   const alerts = [...new Set([problem ?? props.notice, drive.problem])].filter(
     Boolean,
   );
@@ -226,6 +231,10 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
           state={state}
           dispatch={dispatch}
           transcript={props.transcript}
+          floor={props.floor}
+          floorActive={!phoneLayout || phonePanel === 'channels'}
+          floorUnread={props.floor ? floorUnread : undefined}
+          onFloorUnread={setFloorUnread}
           phoneClass={phoneHides('transcript', 'channels', 'ai')}
         />
         <div

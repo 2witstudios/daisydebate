@@ -208,8 +208,7 @@ function liveParts(
 /**
  * One debater's room at one instant, derived from the round's durable
  * snapshot with the same reader the server uses. The mic follows the
- * floor (DEC-97). Chat, agents and media have no server yet and start
- * empty.
+ * floor (DEC-97). Floor chat is bound separately to its authorized durable channel.
  */
 export function liveRoundOf(
   view: RoundView,
@@ -238,7 +237,7 @@ export function liveRoundOf(
     speeches: speechesOf(view),
     ...clocks,
     micLive: phase === 'own-speech' || phase === 'cross-ex',
-    channels: [{ id: 'round', title: 'round' }],
+    channels: [],
     messages: [],
     agents: [{ id: 'assistant', title: 'Assistant' }],
     agentThreads: {},
