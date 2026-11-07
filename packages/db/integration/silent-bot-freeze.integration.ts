@@ -160,7 +160,7 @@ test('a bot that published and lost its audio still freezes incomplete (ISSUE-96
   });
   assert({
     given: 'a credited bot publication whose stream sealed partial',
-    should: 'freeze incomplete',
+    should: 'keep admission open before cutoff, then freeze incomplete',
     actual: await freezeOf(async (fixture, roundId, seats) => {
       await sealed(fixture, roundId, seats.segmentId, seats.asker, 'complete');
       await credit(fixture, roundId, seats.segmentId, seats.respondent);
@@ -173,7 +173,7 @@ test('a bot that published and lost its audio still freezes incomplete (ISSUE-96
       );
     }),
     expected: {
-      beforeCutoff: 'incomplete',
+      beforeCutoff: 'capture',
       atCutoff: 'incomplete',
       asker: 'complete',
       respondent: 'partial',

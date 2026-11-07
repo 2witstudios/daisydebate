@@ -59,11 +59,13 @@ test('every expected stream sealed complete freezes complete before the cutoff',
   });
 });
 
-test('partial, missing, open or unexpected streams freeze incomplete', () => {
+test('partial streams wait through admission before freezing incomplete', () => {
   const closed = { expected: [a, b] };
   assert({
-    given: 'closed or cut-off stream sets that are not wholly complete',
-    should: 'freeze incomplete rather than claim a complete transcript',
+    given:
+      'a partial stream before cutoff and incomplete stream sets at cutoff',
+    should:
+      'preserve admission before cutoff without claiming completeness later',
     actual: [
       finalizationState(
         { ...closed, streams: [stream(a, 'complete'), stream(b, 'partial')] },
@@ -91,7 +93,7 @@ test('partial, missing, open or unexpected streams freeze incomplete', () => {
       finalizationState({ expected: [], streams: [] }, after, cutoff),
     ],
     expected: [
-      'incomplete',
+      'capture',
       'incomplete',
       'incomplete',
       'incomplete',

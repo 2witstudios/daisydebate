@@ -1,0 +1,175 @@
+# 0119: Recoverable Round evidence and result
+
+Status: implementation direction accepted by the point guard and architecture,
+2026-11-07. Implementation and operational qualification remain in progress.
+Plan: [Debate evidence and result reliability](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/d4qpxtoq02wy2ttbsq2ict4y).
+
+## Intent and policy reconciliation
+
+Played human and bot Rounds must survive transient platform failures without
+discarding recoverable speech or a recoverable ruling. Nothing authorizes invented
+speech, coverage, silence, peer hearing or a ballot.
+
+DEC-118's missing-audio rule cannot authorize unsupported ratings. ADR 0110
+already refines DEC-208: a measured small gap may be judged with its disclosure;
+an unknown gap cannot be assumed small. This decision preserves that evidentiary
+rule while replacing avoidable loss with protected play and durable recovery.
+Human silence, unused interaction permission, unauthorized observed speech and
+failed owed bot generation are different facts. Failed bot CX is service work
+still owed, not evidence that a completed exchange contained silence.
+
+This decision amends ADR 0094's memory-only capture and late-STT-loss policy,
+ADR 0058/0067's terminal provider-budget policy and ADR 0110's start-anyway and
+single-worker capture assumptions for the new protected path. It does not claim
+that the incomplete transition has shipped: the slice must replace affected
+consumers together and prove the final path before acceptance.
+
+## One necessary-evidence home
+
+Necessary evidence is separate from optional user Recordings. The candidate
+home is bounded, application-encrypted PCM batches and original-authority
+receipts committed atomically in PostgreSQL through the existing bounded
+transactions and signed capture ingress. Capture's discovery database role
+remains read-only. No second competitive pool or direct worker DML is introduced.
+Evidence is excluded from ordinary Round reads, realtime and telemetry.
+
+Receipt precedes release of admitted PCM, including frames still in an uncut
+carry. Spooling only a WAV produced at a pause or sixty seconds is insufficient.
+Allocate a stable batch identity before encryption; a lost commit acknowledgement
+reuses it. Original capture epoch, seat, segment, track sequence, clock
+calibration, nominal frame times and historical permission are retained. Replay
+uses that receipt's authority, not the replacement worker's lease. Different runs
+may establish one stream only where their original evidence actually proves
+continuity; no missing frames or cross-epoch gap is bridged.
+
+Atomic payload and receipt remove the separate object-adoption failure state.
+Unknown commit, custody acquisition without a payload, transaction rollback and
+deletion still need recovery. Receipt time comes from trusted custody/database
+authority, never a retrying caller's new timestamp. The earliest original
+accepted receipt anchors expiry even if its acknowledgement was lost.
+
+Initial capacity candidates to qualify, not measured limits: at most 64 KiB per
+batch including provenance, 32 MiB outstanding per Round, 512 MiB globally, with
+serialized global admission and bounded replay/deletion batches. The declared
+load is fifty simultaneous Rounds with two 16 kHz mono 16-bit streams each:
+3.2 MB/s of PCM before metadata, ciphertext and WAL amplification. Measure
+transaction rate, WAL, backups, storage growth and clock-path latency. A full
+reservation holds vulnerable play before additional speech is accepted. These
+numbers cannot be adopted as production capacity without the measurement.
+
+## Durable key custody and privacy
+
+DEC-369 sets a hard maximum of seven days from ORIGINAL durable receipt, without
+retry extension. Delete earlier after verified durable authoritative transcript
+AND adequate coverage settlement, or applicable erasure. A provider success
+response alone is insufficient. Ranked Recording retention does not extend this
+spool's retention.
+
+Key custody is an injected durable authority, separate from payload database
+backups and expendable Redis. Acquisition/revocation are durable and idempotent
+under stable evidence identity and original expiry. Unavailable or uncertain
+custody refuses admission. Revocation and expiry remain authoritative through
+restart, takeover, caches and restore; possessing a previously obtained decryptor
+or plaintext never authorizes a later append or submission.
+
+There is NO asserted approved production custody implementation. Production
+collection remains disabled pending REL-H, owned by the human infrastructure
+and privacy owner: encryption, replica/backup/WAL retention, irreversible key
+revocation across custody backups/caches/restore, restore-before-read tombstone
+reconciliation and activation-refusal evidence. No new service, secret,
+production deploy or production data operation is authorized by this decision.
+
+Local qualification requires an isolated genuinely persistent key authority and
+fresh processes. A memory fake proves no durability. A shared local directory
+can prove process persistence only, not host-independent production custody.
+Test old ciphertext/metadata restored against current expiry/revocation, old
+custody restore attempts, stale decryptors and already-held plaintext across
+erasure, lost acknowledgements, concurrent erasure and retrying revocation.
+Ciphertext remaining in backups is not physically deleted by key revocation;
+report physical lifecycle and cryptographic unrecoverability separately.
+Every-copy privacy acceptance remains blocked until operational evidence exists.
+
+Erasure serializes with receipt, claim, decrypt, STT append, freeze, judging cache
+and ballot submission. A late effect cannot resurrect content. Deletion and
+custody-orphan cleanup remain durable obligations until confirmed. The existing
+ranked transcript/record retention policy remains a separate class.
+
+Before expiry, persist a visible recovery warning and operator escalation.
+Capacity/outage admission prevents new vulnerable work. At expiry, revoke and
+fence all late work, retain an honest unresolved recovery state, and offer a
+fresh no-charge replay/rematch opportunity. That exceptional remedy does NOT
+fulfil the no-wasted-time outcome. It never invents a result or reopens a decided
+Round. Finite retention is not a universal no-loss guarantee.
+
+## Protected time and interruption evidence
+
+Preservation progress, permission readiness and peer hearing are independent.
+A silent human or CX listener may produce no PCM because of DTX. A lease or track
+presence cannot advance captured coverage. Positive trusted readiness facts may
+permit silence without asserting PCM receipt or that speech was heard.
+
+Candidate receipt cadence is 250 ms and candidate maximum unprotected progress
+is 1000 ms. Neither is measured. A server poll cannot establish this bound if the
+server itself stalls. An expiring preservation permission must fail closed at
+EVERY clock and publication consumer, including through control-plane/database
+stalls. The concrete implementation must distinguish supported clock/network
+failure assumptions and prove them; it cannot infer a global bound from a batch
+schedule. This is a blocker before affected clock writes.
+
+On interruption, hold the existing system-controlled incident clock and return
+time from the last defensible durable checkpoint. For CX the common checkpoint
+is the minimum of the parties' progress; both receive the same returned-time
+opportunity. This restores TIME ONLY. A faster party's already-durable suffix,
+its original authority and any pending/late STT remain canonical evidence.
+Nothing supersedes, deletes or retracts it because the other party fell behind.
+
+The resumed interval contains linked NEW authorized contributions. Both parties
+see the returned interval and which speech was preserved. Absent original audio
+cannot be reconstructed or proven equal to a human's restatement. Preserve the
+ordered original speech, interruption and resumed speech for the unchanged
+shared rubric. Once-only receipts/source offsets are mechanical properties;
+avoiding duplicate argumentative credit is a judging obligation to test, not a
+claim of semantic deduplication or equivalent arguments.
+
+Bot replay needs an explicit source-offset-to-captured-receipt correlation. Source
+handoff or publication credit alone proves neither that correlation nor peer
+hearing. Retain the bounded source identity/audio under its declared privacy
+lifecycle until correlation settles. An in-flight word/frame needs an explicit
+overlap/gap rule; source text never becomes transcript evidence. ISSUE-1304's
+parked WIP is context, not accepted implementation or proof.
+
+## Settlement, scheduling and finality
+
+Accepted recovery work settles before ONE final immutable transcript freeze.
+An early partial seal or old admission cutoff cannot destroy its obligation.
+Never mutate a frozen frontier or reopen a historical terminal Round.
+
+DEC-370 separates a durable judging obligation from finite provider attempts,
+lease expiry and generation deadlines. Preserve a validated response under the
+same rubric/frontier, resubmit idempotently under current authority and attendance
+fences, and never discard it merely because its attempt window ended.
+
+Due STT/judging work needs bounded fair admission, not only a pending row. Order
+by due time and fair Round turn with stable receipt/ID tie-breakers; release
+capacity before backoff. Bound concurrent work globally and per Round. Track
+unknown paid outcomes, cap automatic lifetime spending and expose exhausted
+funding as blocked recovery rather than pretending an automatic eventual result.
+An operator may explicitly replenish; that is not evidence of automatic progress.
+Qualification must name its supported outage/funding window and demonstrate
+progress through a growing backlog, crash and takeover without starvation.
+
+## Required proof
+
+Storage receipt, heard evidence, authoritative transcript and final result each
+need independent evidence at the exact candidate. No source inspection is an
+execution PASS. Required faults include nonempty-carry capture death and host
+replacement; STT failure beyond 66.5 seconds and the old cutoff; pre-receipt media
+loss and control/database stalls; asymmetric CX receipts with already committed
+STT plus late original callbacks; bot CX opening-question and response failures;
+source-offset publication interruption; judging crash before/after validated
+cache, old budget/deadline and attendance holds; duplicate and foreign/stale
+authority; concurrent capacity admission and fair backlog progress; every late
+erasure/expiry seam, unknown commit, durable custody and backup/restore controls.
+Real played human-vs-human and bot journeys must reach exactly one supported
+result. Negative controls must fail without weakening existing timing bounds or
+assertions.
