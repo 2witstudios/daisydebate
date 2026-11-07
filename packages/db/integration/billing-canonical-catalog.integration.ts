@@ -57,7 +57,7 @@ test(
             }))
             .sort((a, b) => a.name.localeCompare(b.name));
           const actualFunctions =
-            await f.sql`select proname as name,prosrc as body from pg_proc where pronamespace='public'::regnamespace and proname in (select jsonb_array_elements_text(${JSON.stringify(functions.map((f) => f.name))}::jsonb)) order by proname`;
+            await f.sql`select proname as name,prosrc as body from pg_proc where pronamespace='public'::regnamespace and proname in (select jsonb_array_elements_text(${JSON.stringify(functions.map((f) => f.name))}::text::jsonb)) order by proname`;
           const triggers = [
             ...source.matchAll(
               /CREATE TRIGGER\s+(\w+) BEFORE (INSERT OR UPDATE|UPDATE) ON ([\w.]+)\s+FOR EACH ROW EXECUTE FUNCTION ([\w.]+)\(\);/g,
@@ -72,7 +72,7 @@ test(
             }))
             .sort((a, b) => a.name.localeCompare(b.name));
           const actualTriggers =
-            await f.sql`select t.tgname as name,c.relname as "table",p.proname as "function",t.tgtype::int as type,t.tgenabled as enabled from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_proc p on p.oid=t.tgfoid where t.tgname in (select jsonb_array_elements_text(${JSON.stringify(triggers.map((t) => t.name))}::jsonb)) order by t.tgname`;
+            await f.sql`select t.tgname as name,c.relname as "table",p.proname as "function",t.tgtype::int as type,t.tgenabled as enabled from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_proc p on p.oid=t.tgfoid where t.tgname in (select jsonb_array_elements_text(${JSON.stringify(triggers.map((t) => t.name))}::text::jsonb)) order by t.tgname`;
           const names = [
             'billing_customers',
             'billing_subscriptions',
@@ -82,7 +82,7 @@ test(
             'billing_payment_observations',
           ];
           const acl =
-            await f.sql`select name,has_table_privilege('daisy_web',name,'SELECT') as "read",has_table_privilege('daisy_web',name,'INSERT') as "insert",has_table_privilege('daisy_web',name,'UPDATE') as "update",has_table_privilege('daisy_web',name,'DELETE') as "delete",has_table_privilege('daisy_realtime',name,'SELECT') as realtime from jsonb_array_elements_text(${JSON.stringify(names)}::jsonb) name order by name`;
+            await f.sql`select name,has_table_privilege('daisy_web',name,'SELECT') as "read",has_table_privilege('daisy_web',name,'INSERT') as "insert",has_table_privilege('daisy_web',name,'UPDATE') as "update",has_table_privilege('daisy_web',name,'DELETE') as "delete",has_table_privilege('daisy_realtime',name,'SELECT') as realtime from jsonb_array_elements_text(${JSON.stringify(names)}::text::jsonb) name order by name`;
           const [analysis] =
             await f.sql`select has_table_privilege('daisy_web','round_analyses','DELETE') as "delete"`;
           const [due] =
