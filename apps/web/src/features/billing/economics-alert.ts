@@ -8,7 +8,7 @@ type EconomicsSignal = {
 };
 
 /** Closed private signal names; no source financial details or participant identity reaches telemetry. */
-export function economicsSignals(
+function economicsSignals(
   report: ReturnType<typeof buildEconomicsReport>,
 ): readonly EconomicsSignal[] {
   if (report.kind === 'invalid')

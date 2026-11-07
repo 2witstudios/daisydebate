@@ -5,7 +5,7 @@ import {
   type ObservedClosurePayment,
 } from './billing-payment-observation';
 import { refundActionSchema } from './billing-refund';
-export const closedAt = '2026-11-05T00:00:02.500Z',
+const closedAt = '2026-11-05T00:00:02.500Z',
   now = '2026-11-05T00:00:06.000Z';
 export const context = { userId: 'u'.repeat(24), closedAt, now };
 export const owner = {

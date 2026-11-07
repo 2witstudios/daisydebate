@@ -19,6 +19,8 @@ import {
   type InvoicePass,
   type InvoicePassAuthority,
   type InvoicePassEvent,
+  type InvoicePassHead,
+  type InvoicePassInvoice,
 } from './billing-invoice-pass';
 const refuse = { kind: 'refuse' } as const;
 type Reason =
@@ -189,10 +191,7 @@ function head(
   if (disposition) return disposition;
   return classifyHead(value, receipt);
 }
-function classifyHead(
-  value: InvoicePass,
-  receipt: import('./billing-invoice-pass').InvoicePassHead,
-) {
+function classifyHead(value: InvoicePass, receipt: InvoicePassHead) {
   if (!equal(value.owner, receipt.owner)) return defer('source_changed');
   if (receipt.reads.length === 0) return defer('zero_membership');
   if (receipt.hasMore || value.comparison.kind === 'overflow')
@@ -255,7 +254,7 @@ function conflicting(state: {
 
 function freshInvoiceReceipt(
   value: Extract<InvoicePass, { phase: 'verify-invoice' }>,
-  receipt: import('./billing-invoice-pass').InvoicePassInvoice,
+  receipt: InvoicePassInvoice,
   context: InvoicePassAuthority,
 ) {
   return (

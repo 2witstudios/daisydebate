@@ -68,9 +68,6 @@ export const billingEconomicsSnapshotSchema = z.strictObject({
     )
     .max(1001),
 });
-export type BillingEconomicsSnapshot = z.infer<
-  typeof billingEconomicsSnapshotSchema
->;
 
 export const billingEconomicsReadSchema = billingEconomicsSnapshotSchema.extend(
   { complete: z.boolean() },

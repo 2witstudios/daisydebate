@@ -6,6 +6,7 @@ import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
 import { createRoutes, type Routes } from './routes';
+import { createLazyBillingRoutes } from './billing-route-table';
 import { readStartOptions } from './start-options';
 import { nextWorkerToken } from './worker-token';
 import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
@@ -23,7 +24,9 @@ import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
  */
 type ProcessState = {
   readonly app: App;
-  readonly routes: Routes;
+  readonly routes: Routes & {
+    readonly billing: ReturnType<typeof createLazyBillingRoutes>;
+  };
   readonly vendorFetch: typeof globalThis.fetch;
 };
 
@@ -32,7 +35,10 @@ const stateFor = (
   vendorFetch: typeof globalThis.fetch,
 ): ProcessState => ({
   app,
-  routes: createRoutes(app),
+  routes: {
+    ...createRoutes(app),
+    billing: createLazyBillingRoutes(app, vendorFetch),
+  },
   vendorFetch,
 });
 
@@ -82,7 +88,7 @@ export const processApp = (): App => edge.get().app;
 /** Binds a Next route export to this process's route table. */
 export const processRoute = (
   pick: (
-    routes: Routes,
+    routes: ProcessState['routes'],
     app: App,
     fetch: typeof globalThis.fetch,
   ) => (request: Request) => Promise<Response>,

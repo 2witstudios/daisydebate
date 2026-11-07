@@ -71,7 +71,7 @@ export async function currentPassMembers(
   return rows.map(paymentObservationFromRow);
 }
 
-export function stepMatchesInvoice(
+function stepMatchesInvoice(
   work: CleanupWork,
   current: InvoicePass | null,
   owner: import('@daisy/protocol/billing').InvoicePassOwner,

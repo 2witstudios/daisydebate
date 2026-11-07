@@ -109,7 +109,7 @@ export const invoiceEnumerationCoverageSchema = z.strictObject({
   paymentCount: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   lastPaymentId: vendorId('inpay'),
 });
-export const invoiceEnumerationStateSchema = z.discriminatedUnion('kind', [
+const invoiceEnumerationStateSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('owed'),
     reason: z.enum(['enumeration_unavailable', 'conflicting_evidence']),
@@ -121,7 +121,7 @@ export const invoiceEnumerationStateSchema = z.discriminatedUnion('kind', [
     lastPaymentId: vendorId('inpay'),
   }),
 ]);
-export const paymentObservationStateSchema = z.discriminatedUnion('kind', [
+const paymentObservationStateSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('owed'),
     reason: z.enum([
@@ -150,9 +150,6 @@ export const paymentObservationStateSchema = z.discriminatedUnion('kind', [
 ]);
 export type PaymentObservationState = z.infer<
   typeof paymentObservationStateSchema
->;
-export type InvoiceEnumerationState = z.infer<
-  typeof invoiceEnumerationStateSchema
 >;
 export const billingPaymentObservationStateSchema = z.union([
   invoiceEnumerationStateSchema,
