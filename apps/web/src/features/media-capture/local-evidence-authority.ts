@@ -26,6 +26,9 @@ export type EvidenceAuthorityRecord = {
   readonly keyDigest: string | null;
 };
 export type EvidenceAuthority = {
+  readonly identify: () =>
+    | { readonly kind: 'identified'; readonly authorityId: string }
+    | EvidenceRefusal;
   readonly reserve: (
     identity: EvidenceIdentity,
     payloadDigest: string,
@@ -126,6 +129,18 @@ export function openLocalEvidenceAuthority(input: {
     db.close();
     throw createAppError('CONFLICT');
   }
+  const identify: EvidenceAuthority['identify'] = () => {
+    try {
+      const rows = db
+        .query<{ id: string }, []>('SELECT id FROM authority')
+        .all();
+      return rows.length === 1 && rows[0]?.id === input.authorityId
+        ? { kind: 'identified', authorityId: rows[0].id }
+        : refused('uncertain');
+    } catch {
+      return refused('unavailable');
+    }
+  };
   const row = (id: string) =>
     db.query<Row, [string]>('SELECT * FROM evidence WHERE id=?').get(id);
   const now = () => {
@@ -167,7 +182,12 @@ export function openLocalEvidenceAuthority(input: {
   };
   const guarded = <T>(work: () => T): T | EvidenceRefusal => {
     try {
-      return db.transaction(work).immediate();
+      return db
+        .transaction(() => {
+          const current = identify();
+          return current.kind === 'identified' ? work() : current;
+        })
+        .immediate();
     } catch {
       return refused('unavailable');
     }
@@ -268,6 +288,7 @@ export function openLocalEvidenceAuthority(input: {
     });
   };
   return {
+    identify,
     reserve,
     read,
     bindMaterial,

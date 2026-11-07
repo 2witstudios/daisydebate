@@ -11,6 +11,7 @@ export const originalEvidenceBinding = (
 ) =>
   captureDigest([
     'necessary-evidence@1',
+    input.authorityId,
     input.roundId,
     input.sessionId,
     input.segmentId,

@@ -214,3 +214,40 @@ test('metadata and a real key cannot manufacture missing pre-receipt audio', asy
     });
   });
 });
+
+test('original custody route is durably discoverable before the first key side effect', async () => {
+  await withEvidenceIngress(async ({ f, capture, custody, body }) => {
+    const backing = await custody.identify();
+    if (backing.kind !== 'identified')
+      throw new Error('Fixture authority unavailable');
+    let route: unknown = null;
+    const ingress = createNecessaryEvidenceIngress({
+      store: capture,
+      custody: {
+        ...custody,
+        seal: async (...args) => {
+          const [row] =
+            await f.sql`select authority_id,received_at,payload_accepted_at from necessary_evidence where id=${body.evidenceId}`;
+          route = row ?? null;
+          return custody.seal(...args);
+        },
+      },
+    });
+    const reply = await ingress.receive(body);
+    assert({
+      given:
+        'an actual injected authority and first key acquisition after PG intent commit',
+      should:
+        'retain original resource routing before custody, while key/audio receipt times are still absent',
+      actual: { route, kind: reply.kind },
+      expected: {
+        route: {
+          authority_id: backing.authorityId,
+          received_at: null,
+          payload_accepted_at: null,
+        },
+        kind: 'received',
+      },
+    });
+  });
+});

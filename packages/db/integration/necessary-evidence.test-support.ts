@@ -37,6 +37,7 @@ export async function configuredCapture(
   });
   const { trackId, startOffsetMs, durationMs, before, after } = original.clip;
   const window = {
+    authorityId: createId(),
     ...original.stream,
     trackId,
     startOffsetMs,

@@ -20,10 +20,11 @@ async function prepare(...[f, transaction, roundId, client]: Inputs) {
   const at = original.start.getTime() + 100;
   const [grant] =
     await f.sql`select id from round_speaking_intervals where round_id=${roundId}`;
+  const { authorityId, ...nativeWindow } = window;
   const body = {
     version: 1,
     evidenceId: createId(),
-    ...window,
+    ...nativeWindow,
     intervalId: grant!.id,
     historyVersion: 2,
     historyReadAt: new Date(at + 20).toISOString(),
@@ -78,7 +79,7 @@ async function prepare(...[f, transaction, roundId, client]: Inputs) {
     receipt: {
       evidenceId: body.evidenceId,
       bindingDigest: intent.bindingDigest,
-      authorityId: createId(),
+      authorityId,
       receivedAtMs,
       expiresAtMs: receivedAtMs + necessaryEvidencePolicy.maxAgeMs,
     },

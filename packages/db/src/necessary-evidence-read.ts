@@ -91,6 +91,7 @@ export async function readCaptureEvidencePayload(tx: CaptureTx, raw: unknown) {
       kind: 'pending' as const,
       evidenceId,
       bindingDigest: original.binding,
+      authorityId: original.row.authorityId!,
       privacyScope,
     };
   return {

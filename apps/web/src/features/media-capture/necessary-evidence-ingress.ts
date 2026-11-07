@@ -79,6 +79,8 @@ export function createNecessaryEvidenceIngress({
       if (recoveryWorker && existing.kind === 'missing')
         return refused('uncertain');
       const body = encoded.body;
+      const backing = await custody.identify();
+      if (backing.kind !== 'identified') return backing;
       const claim = recoveryWorker
         ? await store.claimCaptureEvidenceReconciliation({
             roundId: body.roundId,
@@ -98,6 +100,7 @@ export function createNecessaryEvidenceIngress({
             before: body.before,
             after: body.after,
             evidenceId: body.evidenceId,
+            authorityId: backing.authorityId,
             bodyDigest: encoded.digest,
             reservedBytes: encoded.byteLength,
           });
@@ -116,7 +119,11 @@ export function createNecessaryEvidenceIngress({
       )
         return refused('uncertain');
       const sealed = await custody.seal(
-        { evidenceId: body.evidenceId, bindingDigest: claim.bindingDigest },
+        {
+          evidenceId: body.evidenceId,
+          bindingDigest: claim.bindingDigest,
+          authorityId: original.authorityId,
+        },
         Buffer.from(encoded.json),
         original.privacyScope,
       );
@@ -125,7 +132,8 @@ export function createNecessaryEvidenceIngress({
       if (
         !checked.success ||
         sealed.receipt.evidenceId !== body.evidenceId ||
-        sealed.receipt.bindingDigest !== claim.bindingDigest
+        sealed.receipt.bindingDigest !== claim.bindingDigest ||
+        sealed.receipt.authorityId !== original.authorityId
       )
         return refused('invalid');
       const denial = await authenticated(

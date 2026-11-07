@@ -32,6 +32,7 @@ const sameOriginal = (
   subjects: readonly string[],
   speaker: CaptureEvidenceSpeaker,
 ) =>
+  row.authorityId === input.authorityId &&
   row.originalRoundId === input.roundId &&
   row.sessionId === input.sessionId &&
   row.segmentId === input.segmentId &&
@@ -168,6 +169,7 @@ export async function reserveCaptureEvidenceIntent(
       originalRoundId: input.roundId,
       originalSubjectActorIds: subjects,
       originalSpeaker: speaker,
+      authorityId: input.authorityId,
       sessionId: input.sessionId,
       segmentId: input.segmentId,
       roundParticipantId: input.roundParticipantId,

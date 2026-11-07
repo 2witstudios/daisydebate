@@ -652,4 +652,5 @@ expected ID; a foreign resource refuses before side effects. Cleanup never
 chooses a replacement authority from current configuration. Unknown original
 routing remains blocked work. A local material-cache identity also prevents
 cross-authority restore/adoption; all-authority rollback remains REL-H. This
-routing refinement and its negative controls are not yet implemented/qualified.
+routing refinement is locally implemented; exact-head qualification is recorded
+separately. It adds no production custody or privacy-lineage approval.

@@ -53,6 +53,7 @@ export const necessaryEvidence = pgTable(
     >(),
     /** Reserved before custody, released only once payload is cleared and work is fenced. */
     reservedBytes: integer('reserved_bytes').notNull(),
+    /** Original custody route, committed before acquisition; timestamps alone indicate a key receipt. */
     authorityId: text('authority_id'),
     receivedAt: timestampColumn('received_at'),
     expiresAt: timestampColumn('expires_at'),
@@ -111,9 +112,13 @@ export const necessaryEvidence = pgTable(
       sql`${table.bindingDigest} ~ '^[a-f0-9]{64}$'`,
     ),
     check(
+      'necessary_evidence_authority_check',
+      sql`${table.authorityId} is null or ${table.authorityId} ~ '^[a-z0-9]{24}$'`,
+    ),
+    check(
       'necessary_evidence_receipt_check',
       sql`(
-    ${table.authorityId} is null and ${table.receivedAt} is null and ${table.expiresAt} is null
+    ${table.receivedAt} is null and ${table.expiresAt} is null
   ) or (
     ${table.authorityId} is not null and ${table.receivedAt} is not null and ${table.expiresAt} is not null
     and ${table.expiresAt}=${table.receivedAt}+interval '168 hours'

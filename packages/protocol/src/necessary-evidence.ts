@@ -10,9 +10,12 @@ export type EvidenceIdentity = {
   /** Digest of original authority, sequence/calibration/history and payload. */
   readonly bindingDigest: string;
 };
-/** Durable key reservation only: neither a PG audio receipt nor a hearing/coverage fact. */
-export type EvidenceCustodyReceipt = EvidenceIdentity & {
+/** Original backing resource, fixed before any side-effectful key acquisition. */
+export type EvidenceCustodyIdentity = EvidenceIdentity & {
   readonly authorityId: string;
+};
+/** Durable key reservation only: neither a PG audio receipt nor a hearing/coverage fact. */
+export type EvidenceCustodyReceipt = EvidenceCustodyIdentity & {
   readonly receivedAtMs: number;
   readonly expiresAtMs: number;
 };
@@ -35,8 +38,13 @@ export type SealedEvidence = {
 };
 /** No raw key or reusable decryptor crosses the custody boundary. */
 export type NecessaryEvidenceCustody = {
+  /** Backing identity only; never an attestation of complete/current privacy lineage. */
+  readonly identify: () => Promise<
+    | { readonly kind: 'identified'; readonly authorityId: string }
+    | EvidenceRefusal
+  >;
   readonly seal: (
-    identity: EvidenceIdentity,
+    identity: EvidenceCustodyIdentity,
     plaintext: Uint8Array,
     privacyScope: EvidencePrivacyScope,
   ) => Promise<
@@ -44,7 +52,7 @@ export type NecessaryEvidenceCustody = {
   >;
   /** Fresh current authority/material check; no reusable key/decryptor or caller currentness assertion. */
   readonly inspect: (
-    identity: EvidenceIdentity,
+    identity: EvidenceCustodyIdentity,
     privacyScope: EvidencePrivacyScope,
   ) => Promise<
     | {
@@ -62,7 +70,7 @@ export type NecessaryEvidenceCustody = {
   >;
   /** Idempotent, including when acquisition/commit acknowledgement was lost. */
   readonly revoke: (
-    identity: EvidenceIdentity,
+    identity: EvidenceCustodyIdentity,
   ) => Promise<{ readonly kind: 'revoked' } | EvidenceRefusal>;
 };
 

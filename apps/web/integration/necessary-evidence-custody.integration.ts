@@ -12,7 +12,11 @@ import {
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
 
 setupRitewayBun();
-const identity = { evidenceId: 'a'.repeat(24), bindingDigest: 'b'.repeat(64) };
+const identity = {
+  authorityId: 'c'.repeat(24),
+  evidenceId: 'a'.repeat(24),
+  bindingDigest: 'b'.repeat(64),
+};
 const payload = new Uint8Array([1, 2, 3, 4]);
 test('local custody preserves original identity across restart and irrevocable revocation', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'daisy-evidence-'));

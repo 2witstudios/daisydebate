@@ -12,7 +12,11 @@ import {
   spawnCustodyProcess,
 } from './necessary-evidence-custody.test-support';
 setupRitewayBun();
-const identity = { evidenceId: 'a'.repeat(24), bindingDigest: 'b'.repeat(64) };
+const identity = {
+  authorityId: 'c'.repeat(24),
+  evidenceId: 'a'.repeat(24),
+  bindingDigest: 'b'.repeat(64),
+};
 const payload = [1, 2, 3, 4];
 async function marker(path: string) {
   const until = performance.now() + 3000;

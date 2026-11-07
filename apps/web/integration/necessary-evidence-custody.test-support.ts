@@ -2,7 +2,7 @@ import { privacyScope } from './necessary-evidence-custody-fixture.test-support'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import type { EvidenceIdentity, SealedEvidence } from '@daisy/protocol';
+import type { EvidenceCustodyIdentity, SealedEvidence } from '@daisy/protocol';
 import {
   initializeLocalEvidenceAuthority,
   openLocalEvidenceAuthority,
@@ -66,7 +66,7 @@ if (import.meta.main) {
       return result;
     },
     bindMaterial: (
-      identity: EvidenceIdentity,
+      identity: Parameters<typeof backingAuthority.bindMaterial>[0],
       work: Parameters<typeof backingAuthority.bindMaterial>[1],
     ) =>
       backingAuthority.bindMaterial(identity, (current, revalidate) => {
@@ -84,7 +84,7 @@ if (import.meta.main) {
     barrier('constructed');
     if (request.operation === 'seal') {
       const result = await custody.seal(
-        request.identity as EvidenceIdentity,
+        request.identity as EvidenceCustodyIdentity,
         new Uint8Array(request.payload),
         request.privacyScope,
       );

@@ -8,6 +8,7 @@ import {
 } from '../src/features/media-capture/local-evidence-authority';
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
 export const identity = {
+  authorityId: 'c'.repeat(24),
   evidenceId: 'a'.repeat(24),
   bindingDigest: 'b'.repeat(64),
 };

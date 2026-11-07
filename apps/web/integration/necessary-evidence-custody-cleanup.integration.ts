@@ -11,6 +11,7 @@ test('bounded cleanup advances past a live prefix after authority revocation int
     const custody = connect();
     const identities = ['a', 'b', 'c', 'z'].map((letter) => ({
       ...identity,
+      authorityId: 'c'.repeat(24),
       evidenceId: letter.repeat(24),
     }));
     for (const scope of identities) {
@@ -39,6 +40,7 @@ test('a finite persisted cleanup pass revisits earlier revocations despite new a
     let custody = connect();
     const scopes = ['a', 'b', 'c', 'd', 'e', 'f'].map((letter) => ({
       ...identity,
+      authorityId: 'c'.repeat(24),
       evidenceId: letter.repeat(24),
     }));
     for (const scope of scopes.slice(0, 3))

@@ -78,6 +78,7 @@ const originalScope = {
   originalRoundId: necessaryEvidence.originalRoundId,
   originalSubjectActorIds: necessaryEvidence.originalSubjectActorIds,
   originalSpeaker: necessaryEvidence.originalSpeaker,
+  authorityId: necessaryEvidence.authorityId,
   workerId: necessaryEvidence.workerId,
   captureEpoch: necessaryEvidence.captureEpoch,
   sessionId: necessaryEvidence.sessionId,
@@ -108,6 +109,7 @@ export async function lockOriginalNecessaryEvidence(
     original.roundId !== input.roundId ||
     original.originalRoundId !== input.roundId ||
     !['acquiring', 'retained'].includes(original.state) ||
+    !idSchema.safeParse(original.authorityId).success ||
     !subjects ||
     !captureEvidenceSpeakerSchema.safeParse(original.originalSpeaker).success ||
     original.originalSpeaker?.roundParticipantId !==

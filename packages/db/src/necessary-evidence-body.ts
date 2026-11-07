@@ -84,6 +84,7 @@ export async function lockOriginalEvidenceBody(tx: CaptureTx, raw: unknown) {
       before: body.before,
       after: body.after,
       evidenceId: body.evidenceId,
+      authorityId: row.authorityId!,
       bodyDigest,
       reservedBytes: encoded.byteLength,
     },

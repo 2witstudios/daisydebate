@@ -1,5 +1,6 @@
-import { evidenceEnvelopeSchema } from '@daisy/protocol';
+import { evidenceEnvelopeSchema, idSchema } from '@daisy/protocol';
 import { requirePrivateEvidenceDirectory } from './local-evidence-storage';
+import { createAppError } from '@daisy/errors';
 import { chmodSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
 import {
@@ -14,7 +15,7 @@ import {
 } from '@daisy/protocol';
 import { evidencePrivacyDigest } from './local-evidence-privacy';
 import type {
-  EvidenceIdentity,
+  EvidenceCustodyIdentity,
   EvidenceRefusal,
   NecessaryEvidenceCustody,
   SealedEvidence,
@@ -51,6 +52,13 @@ export function openLocalEvidenceCustody(input: {
     limit: number,
   ) => { readonly removed: number; readonly blocked: number } | EvidenceRefusal;
 } {
+  const backing = input.authority.identify();
+  if (
+    backing.kind !== 'identified' ||
+    !idSchema.safeParse(backing.authorityId).success
+  )
+    throw createAppError('INFRASTRUCTURE');
+  const realm = backing.authorityId;
   requirePrivateEvidenceDirectory(input.path);
   const db = new Database(input.path, { create: true, strict: true });
   db.run('PRAGMA busy_timeout=1000');
@@ -58,6 +66,31 @@ export function openLocalEvidenceCustody(input: {
   db.run('PRAGMA journal_mode=DELETE');
   db.run('PRAGMA synchronous=FULL');
   db.run('PRAGMA secure_delete=ON');
+  try {
+    // Resource identity is sampled BEFORE the material lock; no reverse lock acquisition.
+    db.transaction(() => {
+      const tables = db
+        .query<{ name: string }, []>(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+        )
+        .all();
+      if (tables.length === 0) {
+        db.run(
+          'CREATE TABLE material_authority(singleton INTEGER PRIMARY KEY CHECK(singleton=1),authority_id TEXT NOT NULL)',
+        );
+        db.query('INSERT INTO material_authority VALUES(1,?)').run(realm);
+      }
+      const stored = db
+        .query<{ authority_id: string }, []>(
+          'SELECT authority_id FROM material_authority WHERE singleton=1',
+        )
+        .get();
+      if (stored?.authority_id !== realm) throw createAppError('CONFLICT');
+    }).immediate();
+  } catch (error) {
+    db.close();
+    throw error;
+  }
   db.run(
     'CREATE TABLE IF NOT EXISTS material(sequence INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,binding TEXT NOT NULL,expires INTEGER NOT NULL,key BLOB NOT NULL,nonce BLOB NOT NULL)',
   );
@@ -65,6 +98,22 @@ export function openLocalEvidenceCustody(input: {
     'CREATE TABLE IF NOT EXISTS cleanup_cursor(singleton INTEGER PRIMARY KEY CHECK(singleton=1),after_sequence INTEGER NOT NULL,through_sequence INTEGER)',
   );
   db.run('INSERT OR IGNORE INTO cleanup_cursor VALUES(1,0,NULL)');
+  const identify: NecessaryEvidenceCustody['identify'] = async () => {
+    const current = input.authority.identify();
+    return current.kind !== 'identified' || current.authorityId === realm
+      ? current
+      : refused('conflict');
+  };
+  const requireRealm = (identity: EvidenceCustodyIdentity) => {
+    if (!idSchema.safeParse(identity.authorityId).success)
+      return refused('invalid');
+    const current = input.authority.identify();
+    if (current.kind !== 'identified') return current;
+    return current.authorityId === realm &&
+      current.authorityId === identity.authorityId
+      ? null
+      : refused('conflict');
+  };
   const material = (id: string) =>
     db
       .query<Material, [string]>('SELECT key,nonce FROM material WHERE id=?')
@@ -82,6 +131,8 @@ export function openLocalEvidenceCustody(input: {
     )
       return refused('invalid');
     try {
+      const denial = requireRealm(identity);
+      if (denial) return denial;
       const current = input.authority.reserve(
         identity,
         digest(plaintext),
@@ -151,6 +202,8 @@ export function openLocalEvidenceCustody(input: {
     const scope = encodeEvidencePrivacyScope(privacyScope);
     if (!scope) return refused('invalid');
     try {
+      const denial = requireRealm(identity);
+      if (denial) return denial;
       const current = input.authority.read(identity);
       if (current.kind !== 'current') return current;
       if (current.privacyScopeDigest !== evidencePrivacyDigest(scope.document))
@@ -178,6 +231,8 @@ export function openLocalEvidenceCustody(input: {
     if (!evidenceEnvelopeSchema.safeParse(evidence).success)
       return refused('invalid');
     try {
+      const denial = requireRealm(evidence.receipt);
+      if (denial) return denial;
       const current = input.authority.read(evidence.receipt);
       if (current.kind !== 'current') return current;
       if (!aad(current.receipt).equals(aad(evidence.receipt)))
@@ -211,9 +266,11 @@ export function openLocalEvidenceCustody(input: {
     }
   };
   const revoke: NecessaryEvidenceCustody['revoke'] = async (
-    identity: EvidenceIdentity,
+    identity: EvidenceCustodyIdentity,
   ) => {
     try {
+      const denial = requireRealm(identity);
+      if (denial) return denial;
       // Commit the authoritative fence FIRST. Retry finishes material cleanup after a crash.
       const result = input.authority.revoke(identity);
       if (result.kind !== 'revoked') return result;
@@ -227,6 +284,9 @@ export function openLocalEvidenceCustody(input: {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
       return refused('invalid');
     try {
+      const current = input.authority.identify();
+      if (current.kind !== 'identified') return current;
+      if (current.authorityId !== realm) return refused('conflict');
       const candidates = db
         .transaction(() => {
           let cursor = db
@@ -286,5 +346,13 @@ export function openLocalEvidenceCustody(input: {
       return refused('unavailable');
     }
   };
-  return { seal, open, inspect, revoke, sweep, close: () => db.close() };
+  return {
+    identify,
+    seal,
+    open,
+    inspect,
+    revoke,
+    sweep,
+    close: () => db.close(),
+  };
 }
