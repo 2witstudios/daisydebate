@@ -1,6 +1,7 @@
 'use client';
 import '../../lib/zod-jitless';
 import { systemClock } from '@daisy/clock';
+import { floorPagedHistory, type FloorOlderPages } from './paged-history';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { idSchema } from '@daisy/protocol';
 import { channelMessages } from '../../features/messaging/channel-messages';
@@ -14,7 +15,6 @@ import {
 import {
   floorUnread,
   mergeFloorMessages,
-  type FloorMessage,
 } from '../../features/messaging/round-floor/history';
 import type { FloorFormState } from '../../features/messaging/round-floor/form';
 
@@ -56,8 +56,7 @@ export function useFloorChat({
 }) {
   const [state, setState] = useState<FloorState>({ kind: 'idle' });
   const [page, setPage] = useState<Page | null>(null);
-  const [older, setOlder] = useState<readonly FloorMessage[]>([]);
-  const [before, setBefore] = useState<number | null>(null);
+  const [older, setOlder] = useState<FloorOlderPages | null>(null);
   const [paging, setPaging] = useState(false);
   const [expired, setExpired] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -97,7 +96,7 @@ export function useFloorChat({
           );
           if (response.status === 403 || response.status === 404) {
             setState({ kind: 'denied' });
-            setOlder([]);
+            setOlder(null);
           }
           return;
         }
@@ -112,16 +111,18 @@ export function useFloorChat({
               ? { ...value, history: previous.history }
               : value,
           );
-          setBefore((current) =>
-            older.length
-              ? current
-              : (value.history.nextBefore?.sequence ?? null),
-          );
         } else {
-          setOlder((previous) =>
-            mergeFloorMessages(id, previous, value.history.messages),
-          );
-          setBefore(value.history.nextBefore?.sequence ?? null);
+          setOlder((previous) => ({
+            changeVersion: value.history.changeVersion,
+            messages: mergeFloorMessages(
+              id,
+              previous?.changeVersion === value.history.changeVersion
+                ? previous.messages
+                : [],
+              value.history.messages,
+            ),
+            before: value.history.nextBefore?.sequence ?? null,
+          }));
           setPage((previous) =>
             previous
               ? {
@@ -142,12 +143,10 @@ export function useFloorChat({
     [
       base,
       props.roundId,
-      older.length,
       setPaging,
       setNotice,
       setState,
       setOlder,
-      setBefore,
       setPage,
       setReadSequence,
     ],
@@ -206,16 +205,14 @@ export function useFloorChat({
     if (live.status !== 'hidden') return;
     generation.current += 1;
     const timer = setTimeout(() => {
-      setOlder([]);
-      setBefore(null);
+      setOlder(null);
     }, 0);
     return () => clearTimeout(timer);
   }, [live.status]);
   const history = hidden ? null : live.body;
-  const messages =
-    history && channelId
-      ? mergeFloorMessages(channelId, older, history.messages)
-      : [];
+  const { messages, before } = history
+    ? floorPagedHistory(history, older)
+    : { messages: [], before: null };
   const retainedDrafts =
     page?.history.messages.filter(
       (message) =>

@@ -7,6 +7,7 @@ import {
 } from '../../features/messaging/round-floor/form';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { CountedTextarea } from '../messaging/counted-textarea';
+import { floorEditSeed } from './edit-draft';
 
 const reasons = {
   harassment: 'Harassment',
@@ -43,6 +44,7 @@ export function FloorMessageControls({
     own ? 'edit' : 'report',
   );
   const [reason, setReason] = useState('harassment');
+  const [dirty, setDirty] = useState<string | null>(null);
   const [initial] = useState<FloorFormState>(() => ({
     text,
     requestId: systemId.next(),
@@ -59,6 +61,12 @@ export function FloorMessageControls({
       onSent(answer.sent);
     }
   }, [answer, onSent]);
+  useEffect(() => {
+    if (!answer.sent || answer.text !== text) return;
+    const timer = setTimeout(() => setDirty(null), 0);
+    return () => clearTimeout(timer);
+  }, [answer.sent, answer.text, text]);
+  const seed = floorEditSeed(answer, text, dirty !== null);
   return (
     <details className="text-sm">
       <summary className="cursor-pointer">
@@ -88,13 +96,14 @@ export function FloorMessageControls({
         ) : null}
         {kind === 'edit' ? (
           <CountedTextarea
-            key={answer.text}
+            key={`${answer.requestId}:${dirty ?? text}`}
             id={`floor-edit-${messageId}`}
             name="text"
             aria-label="Edit message"
-            defaultValue={answer.text}
+            defaultValue={seed}
             maxUnits={maxUnits}
             required
+            onInput={() => setDirty((current) => current ?? text)}
             readOnly={locked || editingLocked || answer.uncertain === true}
             disabled={pending}
             className="rounded-sm border border-border bg-background p-2"

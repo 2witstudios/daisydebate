@@ -180,22 +180,7 @@ export function LiveRoundRoom({
       onAnswer={onAnswer}
     >
       {(actions, feedback, form) =>
-        view.opening?.step.step === 'strike' && view.opening.draw ? (
-          <>
-            {notices}
-            {feedback}
-            <OpeningStrike
-              view={view}
-              opening={view.opening}
-              draw={view.opening.draw}
-              actorId={actorId}
-              nowMs={now}
-              commandId={ids.strike_resolution}
-              post={form.post}
-              pending={form.pending}
-            />
-          </>
-        ) : round ? (
+        round ? (
           <DebateRoom
             key={`${view.id}:${principalId}`}
             transcript={transcript}
@@ -205,6 +190,18 @@ export function LiveRoundRoom({
                 {notices}
                 {feedback}
                 {audienceSlot}
+                {view.opening?.step.step === 'strike' && view.opening.draw ? (
+                  <OpeningStrike
+                    view={view}
+                    opening={view.opening}
+                    draw={view.opening.draw}
+                    actorId={actorId}
+                    nowMs={now}
+                    commandId={ids.strike_resolution}
+                    post={form.post}
+                    pending={form.pending}
+                  />
+                ) : null}
               </>
             }
             media={(mediaSlot ?? defaultMedia)(view)}
