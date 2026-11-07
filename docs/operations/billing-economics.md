@@ -120,3 +120,114 @@ known. No historical usage-presence marker or provider-job/schema rewrite is
 introduced; genuinely measured0/0 cannot be established from current stored facts
 alone. The old received-zero PostgreSQL fixture proves its response outcome only;
 its earlier interpretation as measured-zero provenance is explicitly superseded.
+
+## Source availability and operator handoff
+
+Qualification baseline: Billing `6a56ee944fda4490548d9ac4603634901b0e6b33`.
+The following is an availability assessment, not a supplier reconciliation. The
+local assignment has no configured `BILLING_ECONOMICS_DIRECTORY` or `SENTRY_DSN`;
+no private financial export or approved destination was supplied. No credentials
+or vendor financial records were requested, printed or sent. Existing test-mode
+payment proofs cannot establish production revenue or supplier cost.
+
+| Input                | Existing read/measurement seam                                                                                               | Available knowledge and missing reconciliation                                                                                                                                                | Required dates/allocation                                                                                                                                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Revenue              | Stripe payment observations and subscription/payment adapters; `billing_payment_observations` retains positively owned facts | Observations are recovery evidence, not a complete accounting export. No normalized paid-receipts export is supplied. Subscription status/price is not collected cash.                        | Original recognized UTC month, observation instant, actual USD receipts; allocate Premium only for positively identified plan. Exclude tax/liabilities according to the retained source reconciliation.                                           |
+| Monetary refunds     | Original `billing_refund_actions` plus retained payment observations                                                         | An action/request/allowance restoration is not a successful cash refund. No reconciled successful-refund export supplied.                                                                     | Bind the refund to its original revenue month; late observation must not move the expense into the current month's revenue. Keep source reconciliation privately outside this feed.                                                               |
+| Model usage          | `createBillingEconomicsReader` over actual agent runs, requested/historical analysis and original usage ledger               | Genuine current-service SQL proof exists. Outcomes, positive paired counters, unmeasured zero pairs and unknown attempts remain distinct. Historical missing provenance remains unattributed. | Actual recorded provider/model and first/last call instants; original allowance source/period; no current configured model substitution.                                                                                                          |
+| Model rates/invoices | Private `rates` or `modelCostBasis=provider_invoice` contract                                                                | No billed rate schedule or reconciled OpenRouter invoice supplied. Repository/model configuration and design estimates are not billed rates.                                                  | Exact provider/model, effective interval covering every priced call, observed instant, USD micros/million. Catalog prices must be `catalog_estimate`. Invoice basis requires complete disjoint `models` cost lines, not additional token pricing. |
+| Speech/media         | Agent speech characters and media/capture operational facts                                                                  | Characters/recording existence are not billed duration, transcription completeness, egress or a supplier invoice. No reconciled speech/recording/broadcast export supplied.                   | Service period and observed instant; separate `speech`, `recording`, `broadcast` costs. Allocate from measured usage or retain allocation unknown.                                                                                                |
+| Storage              | Recording/object lifecycle and storage operations                                                                            | Object existence and forever-retention policy cannot establish byte-hours, replicas, egress, invoice or measured zero. No storage billing export supplied.                                    | Original UTC month, actual billed storage/egress and observed instant; disjoint `storage` allocation. Never infer cost from absent rows.                                                                                                          |
+| Payment fees         | Stripe financial/balance reconciliation, external to recovery facts                                                          | No fee export supplied. The design's percentage/flat fee remains an estimate, never measured fee.                                                                                             | Actual fee/credit USD micros, original month; do not subtract it both from revenue and `paymentFees`.                                                                                                                                             |
+| Shared expense       | Supplier/platform financial exports                                                                                          | No host/database/Redis/network invoice or allocation supplied. Repository code metrics and process-health counters are not financial measurements.                                            | Original month and observation instant; residual only after direct categories, documented `usage_share`/`equal_share` totalling10000bp.                                                                                                           |
+| Free subsidy         | Original source cohort in ledger plus allocation of the SAME supplier expense                                                | Free/beta/source volume exists; it does not prove who funded an expense or its dollar amount. No subsidy allocation supplied.                                                                 | `free_subsidy` reallocates an already reconciled expense to funding plans, never adds the same invoice a second time.                                                                                                                             |
+| Volume               | Actual source reader's ledger completions/call attempts; private `volume` for capture/download                               | Model-feature source counts are available; capture/download complete counts are not exported by this collector and stay null. Unknown dispatch remains possible work.                         | Admission month and execution month remain distinct; credit does not erase delivered work.                                                                                                                                                        |
+| Capacity             | Private per-plan/feature `volume.capacity` measurement                                                                       | No observed high-water/time-series export supplied. One active Room is a configured concurrency fence, not monthly usage, spend, or a measured peak.                                          | Actual observed peak and corresponding limit for this exact month; absent measurement stays `{kind:"unknown"}`.                                                                                                                                   |
+
+No additional vendor ingestion adapter is justified by these available contracts:
+there is no authorized raw export format to normalize or complete supplier source
+to reconcile. The existing bounded private JSON edge is the ingestion adapter.
+Guessing vendor columns, scraping credentials or treating recovery tables as a
+complete invoice ledger would manufacture authority. A subsequent supplied export
+must specify format/version, mode/currency, completeness boundary and allocation
+before an adapter can truthfully mark its coverage measured.
+
+### Minimal private input
+
+For an October2026 collection, an operator can provide this exact **incomplete**
+feed in a dedicated mode0700 directory as mode0600 `feed-2026-10.json`. It is a
+reviewable template, not a measured-zero fixture:
+
+```json
+{
+  "startsAt": "2026-10-01T00:00:00.000Z",
+  "endsAt": "2026-11-01T00:00:00.000Z",
+  "floorBasisPoints": 3000,
+  "modelCostBasis": "usage_counters",
+  "revenue": [],
+  "costs": [],
+  "rates": [],
+  "coverage": [],
+  "revenueCoverage": [],
+  "volume": []
+}
+```
+
+For each available source, replace only supported fields using the strict
+`economics-input.ts`/collector feed schema. Supply distinct nonnegative sequences,
+original source month and observation instant. Money is signed integer USD micros;
+a refund uses `kind:"refund"` with a nonnegative amount. Cost allocation shares
+sum to10000bp. Explicit unknown money has `kind:"unknown"` and a closed reason
+(`not_measured`, `rate_missing`, `allocation_missing`, `outcome_unknown`). Do not
+add arbitrary vendor IDs, personal data, provenance text or modelUsage fields to
+this strict normalized feed. Retain source exports, hashes, reconciliation and
+allocation rationale in the authorized private financial evidence location.
+Coverage is a separate complete-category assertion, including a positively
+reconciled zero; never populate coverage merely because arrays are empty. Unknown
+sources can stay absent and the report must remain incomplete.
+
+The operator's minimal missing input package is: exact month; mode/currency and
+reconciled receipts/refunds/fees; dated supplier model rates OR model invoices;
+speech/media/storage/shared expense and disjoint allocation; complete-category
+receipts; and independently measured capacity/capture/download counts if known.
+Partial delivery is useful: leave remaining categories unknown. No live purchase
+or production configuration change is required to prepare this package.
+
+### Reviewable collection and destination receipt
+
+Use the existing approved local service checkout/slot and its normal environment;
+do not copy production credentials into a test checkout. After provisioning the
+private feed directory and a current local service instance, the existing runtime
+invocation is:
+
+```sh
+BILLING_ECONOMICS_DIRECTORY=/absolute/private/economics bun run start
+```
+
+This is the normal web process, not a new finance CLI: it requires that checkout's
+already qualified runtime build and local service configuration. It starts one
+current-service collection of the previous completed UTC month, then hourly;
+it also starts the other registered workers. Review that process's existing local
+TEST-mode worker configuration before invocation. Do not launch a second process
+against an active instance or use this example to activate production. The current
+assignment has not executed that full process command. For a one-off/late-month
+correction the existing `composeBillingEconomics(app, instanceId).run(window)`
+seam is available to the integrating process owner, retaining the same bounded
+current-service reader and private sink; there is no participant/admin endpoint.
+
+Record the exact candidate/source hashes, month, feed hash, report hash and private
+file mode, plus the actual current-service query receipt. Missing feed must submit
+`BILLING_ECONOMICS_INCOMPLETE`; a separately labelled controlled threshold crossing
+can qualify signal plumbing but cannot establish a real measured margin. Existing
+`reporterFrom` maps only fixed signal/errorCode, plan route and UTC month to Sentry.
+The collector's `alertDelivery` remains `unconfirmed` even when capture returns.
+
+No approved local external operator destination/DSN was supplied. No outbound
+operator message has been sent. The remaining minimal human-controlled delivery
+step is to select an already authorized private destination, perform an approved
+completeness canary through that same reporter, and retain a destination-side
+receipt showing signal code/month/environment/arrival instant and event reference.
+A scrubbed SDK capture, HTTP acceptance or event ID alone does not prove operator
+notification. Keep destination capabilities/URLs private. The economics report's
+financial details must not be attached. Actual measured-margin and actual operator
+receipt acceptance remain separate open requirements; neither is BILL-H activation.
