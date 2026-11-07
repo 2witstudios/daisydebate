@@ -33,11 +33,9 @@ test(
           id: preapproval,
           email: `${preapproval}@example.test`,
         });
-        await f.insert('privacy_jobs', {
-          id: job,
-          subject_ref: account.user_id,
-          vendor: 'posthog',
-        });
+        await f.sql`with sampled as materialized(select clock_timestamp() as at)
+          insert into privacy_jobs(id,subject_ref,vendor,created_at,retry_at)
+          select ${job},${account.user_id},'posthog',at,at from sampled`;
         const read = async () => {
           const [beta] =
             await f.sql`select to_jsonb(row) as value from beta_preapprovals row where id=${preapproval}`;
