@@ -31,6 +31,7 @@ import { systemClock } from '@daisy/clock';
 import { watchRecoveryConsumer } from './messaging-recovery-consumer';
 import {
   recordRecoveryPhase,
+  captureRecoveryOwner,
   recordRecoveryFailure,
 } from './messaging-recovery-phase';
 import type { Page } from '@playwright/test';
@@ -293,6 +294,8 @@ export function testMessagingRecovery() {
   }, info) => {
     const journey = await openMessagingJourney(browser);
     let release = () => {};
+    let previousOwner:
+      Awaited<ReturnType<typeof captureRecoveryOwner>> | undefined;
     let observer: ReturnType<typeof watchConversationRecovery> | undefined;
     try {
       const page = await acceptMessagingJourney(journey);
@@ -382,6 +385,8 @@ export function testMessagingRecovery() {
       await expect.poll(() => refusalRenderId(page)).not.toBeNull();
       const before = await refusalRenderId(page);
       expect(before).not.toBeNull();
+      const ownerBeforeAction = await captureRecoveryOwner(page);
+      previousOwner = ownerBeforeAction;
       observer.phase('unrelated shell action while recovery is held');
       await page.getByRole('button', { name: 'Minimize', exact: true }).click();
       await expect(
@@ -401,6 +406,7 @@ export function testMessagingRecovery() {
         phase: 'unrelated-render-held',
         response: null,
         previous: before,
+        previousOwner: ownerBeforeAction,
       });
       await page.clock.fastForward(12000);
       expect(observer.snapshot()).toMatchObject({
@@ -417,6 +423,7 @@ export function testMessagingRecovery() {
         phase: 'after-held-predicate' as const,
         response: observer!.refetchResponses()[0] ?? null,
         previous: before,
+        previousOwner: ownerBeforeAction,
         timing: { step, deadline },
       });
       const settled = await settledRefusalResponse(
@@ -446,7 +453,11 @@ export function testMessagingRecovery() {
         await control('allow-messaging-reads');
       } finally {
         observer?.stop();
-        await journey.close();
+        try {
+          await previousOwner?.dispose();
+        } finally {
+          await journey.close();
+        }
       }
     }
   });
