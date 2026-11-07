@@ -45,6 +45,8 @@ export const necessaryEvidence = pgTable(
     authorityId: text('authority_id'),
     receivedAt: timestampColumn('received_at'),
     expiresAt: timestampColumn('expires_at'),
+    /** DB admission instant, exposed only after the atomic payload transaction commits. */
+    payloadAcceptedAt: timestampColumn('payload_accepted_at'),
     ciphertext: encryptedBytes('ciphertext'),
     nonce: encryptedBytes('nonce'),
     tag: encryptedBytes('tag'),
@@ -101,6 +103,12 @@ export const necessaryEvidence = pgTable(
     ${table.authorityId} is not null and ${table.receivedAt} is not null and ${table.expiresAt} is not null
     and ${table.expiresAt}=${table.receivedAt}+interval '168 hours'
   )`,
+    ),
+    check(
+      'necessary_evidence_acceptance_check',
+      sql`(${table.state}<>'retained' or ${table.payloadAcceptedAt} is not null)
+      and (${table.payloadAcceptedAt} is null or (${table.receivedAt} is not null
+      and ${table.payloadAcceptedAt}>=${table.receivedAt} and ${table.payloadAcceptedAt}<${table.expiresAt}))`,
     ),
     check(
       'necessary_evidence_payload_check',

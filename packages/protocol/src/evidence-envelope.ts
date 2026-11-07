@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { idSchema, necessaryEvidencePolicy } from '@daisy/protocol';
+import { idSchema } from './primitives';
+import { necessaryEvidencePolicy } from './necessary-evidence';
 
 const bytes = (length: number, exact = false) =>
   z

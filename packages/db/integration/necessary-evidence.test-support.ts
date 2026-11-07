@@ -12,6 +12,7 @@ export async function configuredCapture(
   maxGlobalBytes = 2048,
   maxOutstandingIntents = 65536,
   endedAgoMs = 1000,
+  maxRoundBytes = 1024,
 ) {
   const original = await historicalCapture(f, transaction, roundId, endedAgoMs);
   await original.store.claimMediaWorkerLease({
@@ -29,7 +30,7 @@ export async function configuredCapture(
     evidence: {
       leaseMs: 1000,
       nextToken: () => randomBytes(32).toString('base64url'),
-      maxRoundBytes: 1024,
+      maxRoundBytes,
       maxGlobalBytes,
       maxOutstandingIntents,
     },

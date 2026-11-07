@@ -544,3 +544,37 @@ method-only liveness or whole privacy acceptance follows. Scope/intent digests
 and private routing metadata retain only their anti-resurrection purpose while
 old snapshots exist; no timer silently purges that authority. Production stays
 disabled under the named REL-H human infrastructure/privacy leaf.
+
+## Atomic payload receipt and compensation contract
+
+Before payload activation, the application derives the canonical full native-body
+bytes/digest, checks original frame equations and verifies authenticated ciphertext
+against those bytes. PostgreSQL independently derives canonical body digest/size
+and checks the stored original binding/scope, current original account fences,
+Round withdrawal, execution ownership, lease, original expiry and freeze. It then
+commits bounded ciphertext, original custody receipt and a distinct actual payload
+acceptance timestamp atomically. Only that committed payload receipt can release
+PCM or advance preservation; an intent or key reservation cannot. The earlier
+original custody receipt keeps its earlier seven-day ceiling; neither payload
+commit nor retry renews it. Identical confirmation returns the original committed
+receipt without replacing ciphertext, source body or acceptance time.
+
+Sample authoritative DB time after relevant waits for lease/expiry admission.
+Custody checks outside PG are not an atomic latest-authority read at PG commit.
+Application privacy revokers commit the owning canonical PG fence before actual
+key revocation; independent pending preparation may deny earlier. Out-of-band
+custody loss can invalidate future use of already-authorized in-flight work.
+Confirmation and subsequent dispatch/settlement must independently refuse current
+unavailable/uncertain/revoked authority; already-held plaintext remains residual.
+No vendor call runs inside a PG transaction.
+
+An unknown payload commit is reconciled under the same original ID/body/receipt
+before cleanup may revoke material. Retirement first commits a no-use PG fence,
+clears live ciphertext, and retains original routing/count debt. Bounded external
+revocation/material deletion then runs; only confirmed cleanup marks retired and
+releases outstanding-work count. Already-erased subjects and deleted aggregates
+must not strand cleanup behind a raw-use authorization check. Original expiry
+remains visible unresolved with its remedy, never silent successful completion.
+Atomic receipt, compensation, scheduled progress, original-subject/late-erasure
+races and actual selective PG restore proofs remain NOT RUN until implemented;
+production remains disabled under REL-H.

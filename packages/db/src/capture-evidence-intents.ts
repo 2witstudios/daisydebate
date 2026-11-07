@@ -1,11 +1,9 @@
+import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { z } from 'zod';
-import {
-  captureDigest,
-  type captureEvidenceIntentSchema,
-} from './capture-input';
+import { type captureEvidenceIntentSchema } from './capture-input';
 import { captureHistory } from './capture-history';
 import { requireCapturedWindow } from './capture-rules';
 import { nextEpoch } from './lease-policy';
@@ -24,25 +22,6 @@ import {
 } from './necessary-evidence-policy';
 
 type Intent = z.infer<typeof captureEvidenceIntentSchema>;
-/** Binds server-validated original scope/window independently of the declared full-body digest. */
-const originalBinding = (input: Intent, subjects: readonly string[]) =>
-  captureDigest([
-    'necessary-evidence@1',
-    input.roundId,
-    input.sessionId,
-    input.segmentId,
-    input.roundParticipantId,
-    input.workerId,
-    input.epoch,
-    input.trackId,
-    input.startOffsetMs,
-    input.durationMs,
-    input.before,
-    input.after,
-    input.bodyDigest,
-    input.reservedBytes,
-    subjects,
-  ]);
 const sameOriginal = (
   row: typeof necessaryEvidence.$inferSelect,
   input: Intent,
@@ -55,7 +34,7 @@ const sameOriginal = (
   row.workerId === input.workerId &&
   row.captureEpoch === input.epoch &&
   JSON.stringify(row.originalSubjectActorIds) === JSON.stringify(subjects) &&
-  row.bindingDigest === originalBinding(input, subjects) &&
+  row.bindingDigest === originalEvidenceBinding(input, subjects) &&
   row.reservedBytes === input.reservedBytes;
 
 /** Commits original authority and bounded crash discovery BEFORE custody has any side effect. */
@@ -167,7 +146,7 @@ export async function reserveCaptureEvidenceIntent(
       roundParticipantId: input.roundParticipantId,
       workerId: input.workerId,
       captureEpoch: input.epoch,
-      bindingDigest: originalBinding(input, subjects),
+      bindingDigest: originalEvidenceBinding(input, subjects),
       reservedBytes: input.reservedBytes,
       createdAt: admittedAt,
       ...claim,
@@ -175,7 +154,7 @@ export async function reserveCaptureEvidenceIntent(
   return {
     kind: 'claimed' as const,
     evidenceId: input.evidenceId,
-    bindingDigest: originalBinding(input, subjects),
+    bindingDigest: originalEvidenceBinding(input, subjects),
     executionEpoch: epoch,
     token,
     leaseExpiresAt: leaseExpiresAt.toISOString(),

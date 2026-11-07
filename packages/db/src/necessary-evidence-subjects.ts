@@ -83,7 +83,7 @@ const originalScope = {
   state: necessaryEvidence.state,
 };
 /** Original account fences precede Round; execution replacement never reads a successor cast as authority. */
-export async function lockOriginalEvidenceAcquisition(
+export async function lockOriginalNecessaryEvidence(
   tx: Tx,
   input: { readonly roundId: string; readonly evidenceId: string },
 ) {
@@ -102,7 +102,7 @@ export async function lockOriginalEvidenceAcquisition(
     !original ||
     original.roundId !== input.roundId ||
     original.originalRoundId !== input.roundId ||
-    original.state !== 'acquiring' ||
+    !['acquiring', 'retained'].includes(original.state) ||
     !subjects ||
     subjects.length > MAX_FORMAT_SEATS + 1 ||
     !subjects.every(
@@ -125,7 +125,9 @@ export async function lockOriginalEvidenceAcquisition(
   const [current] = await tx
     .select({
       ...originalScope,
+      executionWorkerId: necessaryEvidence.executionWorkerId,
       executionEpoch: necessaryEvidence.executionEpoch,
+      leaseDigest: necessaryEvidence.leaseDigest,
       leaseExpiresAt: necessaryEvidence.leaseExpiresAt,
       expiresAt: necessaryEvidence.expiresAt,
     })
@@ -133,8 +135,13 @@ export async function lockOriginalEvidenceAcquisition(
     .where(eq(necessaryEvidence.id, input.evidenceId))
     .for('update');
   if (!current) throw createAppError('CONFLICT');
-  const { executionEpoch, leaseExpiresAt, expiresAt, ...checked } = current;
+  const checked = Object.fromEntries(
+    Object.keys(original).map((key) => [
+      key,
+      current[key as keyof typeof original],
+    ]),
+  );
   if (JSON.stringify(original) !== JSON.stringify(checked))
     throw createAppError('CONFLICT', 'Original evidence scope changed');
-  return { original: checked, executionEpoch, leaseExpiresAt, expiresAt };
+  return { original, row: current };
 }

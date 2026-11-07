@@ -686,3 +686,5 @@ export {
   type EvidencePrivacyIntent,
   type EvidencePrivacyIntentRecord,
 } from './evidence-privacy';
+
+export { evidenceEnvelopeSchema } from './evidence-envelope';

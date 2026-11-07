@@ -1,4 +1,4 @@
-import { evidenceEnvelopeSchema } from './evidence-envelope';
+import { evidenceEnvelopeSchema } from '@daisy/protocol';
 import { requirePrivateEvidenceDirectory } from './local-evidence-storage';
 import { chmodSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
