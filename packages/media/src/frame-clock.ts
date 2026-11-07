@@ -1,35 +1,11 @@
-import {
-  calibrationOffsets,
-  publicationClock,
-  type ClockCalibration,
-} from './publication-clock';
+import type {
+  ClockCalibration,
+  FrameObservation,
+  FrameRunAnchor,
+  FrameClockEvidence,
+} from '@daisy/protocol';
+import { calibrationOffsets, publicationClock } from './publication-clock';
 
-export type FrameObservation = {
-  readonly sequence: number;
-  readonly beforeMs: number;
-  readonly afterMs: number;
-};
-export type FrameRunAnchor = {
-  readonly calibration: ClockCalibration;
-  readonly observation: FrameObservation;
-  readonly previous: {
-    readonly sequence: number;
-    readonly nominalStartMs: number;
-  } | null;
-};
-export type FrameClockEvidence = {
-  readonly observation: FrameObservation;
-  readonly anchor: FrameRunAnchor;
-  readonly previous: {
-    readonly sequence: number;
-    readonly nominalStartMs: number;
-  } | null;
-  readonly window: {
-    readonly beforeMs: number;
-    readonly afterMs: number;
-    readonly nominalStartMs: number;
-  };
-};
 type Run = {
   readonly anchor: FrameRunAnchor;
   readonly sequence: number;

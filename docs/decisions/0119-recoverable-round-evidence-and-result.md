@@ -284,3 +284,24 @@ bound and checked at receipt before carry/WAV release and used unchanged by repl
 The old PCM-only memory accounting is not a total heap/provenance bound: include
 encoded provenance, staging overhead, WAL and custody load in capacity qualification
 before claiming the declared workload or protected-time targets.
+
+The first PostgreSQL admission operation is intent-only: it validates current
+original capture/window authority, serializes evidence-owned per-Round/global
+byte and live-intent reservations, and commits a leased `acquiring` row before
+custody is called. Its reply is `claimed` or `pending`, never a PCM durability
+acknowledgement. Actual database time is resampled after waits/token creation;
+first admission stamps `created_at`, while takeover preserves original scope and
+advances only execution ownership. Lost intent COMMIT replies reconcile the same
+ID. The existing media-worker role has column-scoped discovery only, with no
+payload/lease-secret reads or DML. No second competitive pool is introduced.
+
+The evidence-owned row also holds the future encrypted payload and receipt in
+one atomic update. Aggregate Round deletion first fences rows as retiring and
+clears payload/reservation, then detaches the Round FK; revocation routing remains.
+Seven days in the SQL receipt constraint means 168 elapsed hours, unaffected by
+session timezone or daylight saving. The optional admission capability is absent
+from production composition. At this checkpoint payload commit, current subject
+fences/adoption, custody compensation/retirement worker, replay/STT settlement and
+freeze coordination are STILL INCOMPLETE. Intent tests do not claim any of them.
+Admission limits are local candidate ceilings, not measured throughput/heap/WAL or
+backlog-fairness acceptance. No source row or timer authorizes an invented result.

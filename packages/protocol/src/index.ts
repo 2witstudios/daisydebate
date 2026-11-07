@@ -665,3 +665,10 @@ export {
   type SealedEvidence,
   type NecessaryEvidenceCustody,
 } from './necessary-evidence';
+
+export type {
+  ClockCalibration,
+  FrameObservation,
+  FrameRunAnchor,
+  FrameClockEvidence,
+} from './frame-clock-evidence';

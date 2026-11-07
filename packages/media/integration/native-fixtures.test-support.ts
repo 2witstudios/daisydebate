@@ -8,7 +8,7 @@ export async function withHistoricalSeat(
   work: (input: {
     readonly binding: { roomName: string; identity: string };
     readonly calibrate: () => Promise<
-      import('../src/publication-clock').ClockCalibration
+      import('@daisy/protocol').ClockCalibration
     >;
     readonly authorizeWindow: (window: {
       before: string;

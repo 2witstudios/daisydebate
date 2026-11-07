@@ -1,7 +1,5 @@
-import {
-  createTrackClocks,
-  type FrameClockEvidence,
-} from '@daisy/media/observation';
+import type { FrameClockEvidence } from '@daisy/protocol';
+import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import type { cutCaptureClips } from './capture-clips';
 import {

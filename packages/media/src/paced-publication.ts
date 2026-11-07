@@ -1,3 +1,4 @@
+import type { ClockCalibration } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type {
   createAudioPublication,
@@ -8,7 +9,6 @@ import {
   publicationClock,
   reanchorPublicationClock,
   refreshPublicationClock,
-  type ClockCalibration,
 } from './publication-clock';
 
 type Publication = Awaited<ReturnType<typeof createAudioPublication>>;

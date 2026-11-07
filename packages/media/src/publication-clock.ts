@@ -1,11 +1,6 @@
+import type { ClockCalibration } from '@daisy/protocol';
 import type { SourceProgress } from './audio-publication';
 
-export type ClockCalibration = {
-  readonly sentAtMs: number;
-  readonly receivedAtMs: number;
-  readonly serverNowMs: number;
-  readonly precisionMs?: number;
-};
 type PublicationClock = {
   readonly calibration: ClockCalibration;
   readonly anchorMs: number;

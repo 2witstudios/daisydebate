@@ -33,6 +33,13 @@ export type CaptureStream = {
   readonly roundParticipantId: string;
 };
 export type CaptureDependencies = {
+  /** Explicit local qualification admission; absent in production composition. */
+  readonly evidence?: {
+    readonly leaseMs: number;
+    readonly nextToken: () => string;
+    readonly maxRoundBytes: number;
+    readonly maxGlobalBytes: number;
+  };
   readonly transaction: BoundedTransaction;
   /** Injected policy: how long after a session closes earlier audio may still arrive (CAP-E.1-r8). */
   readonly sttLagMs: number;

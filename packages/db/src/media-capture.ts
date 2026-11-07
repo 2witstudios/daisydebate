@@ -1,7 +1,9 @@
+import { reserveCaptureEvidenceIntent } from './capture-evidence-intents';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import {
   captureClipSchema,
+  captureEvidenceIntentSchema,
   captureReadSchema,
   captureWorkerIdentitySchema,
   captureLeaseSchema,
@@ -131,6 +133,12 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
           and session_id in (select id from media_sessions where round_id=${input.roundId})`);
       return null;
     });
+  },
+  reserveCaptureEvidence(raw: unknown) {
+    const input = parseCapture(captureEvidenceIntentSchema, raw);
+    return dependencies.transaction((tx) =>
+      reserveCaptureEvidenceIntent(tx, input, dependencies),
+    );
   },
   appendCapturedTranscript(raw: unknown) {
     const input = parseCapture(captureClipSchema, raw);
