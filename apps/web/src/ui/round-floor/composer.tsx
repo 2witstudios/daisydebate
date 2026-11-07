@@ -65,6 +65,8 @@ export function FloorComposer({
         className="min-w-0 resize-none rounded-sm border border-border-strong bg-background px-3 py-2 text-sm disabled:opacity-60"
         onKeyDown={(event) => {
           if (
+            locked ||
+            pending ||
             event.key !== 'Enter' ||
             event.shiftKey ||
             event.nativeEvent.isComposing

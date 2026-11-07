@@ -291,3 +291,58 @@ describe('Round floor Messaging producer', () => {
       }
     }));
 });
+
+test('floor subject export and erasure preserve the other debater contribution', async () =>
+  withFixture(databaseUrl, async (f) => {
+    const { store, scope, db } = await prepared(f);
+    try {
+      const peerActor = await f.participant(scope.roundId, 'negative');
+      const [peer] =
+        await f.sql`select user_id from actors where id=${peerActor}`;
+      await f.sql`update users set email_verified=true where id=${String(peer.user_id)}`;
+      await send(store, scope, createId(), 'Export my floor contribution');
+      await send(
+        store,
+        { ...scope, actorId: peerActor, userId: String(peer.user_id) },
+        createId(),
+        'Keep the other debater contribution',
+      );
+      const adopter = createMessagingPrivacyAdopter();
+      const subject = { userId: scope.userId, actorId: scope.actorId };
+      const exported = await db.transaction(async (tx) => {
+        const { sql } = await import('drizzle-orm');
+        await tx.execute(
+          sql`select id from users where id=${scope.userId} for update`,
+        );
+        return adopter.export(tx, subject);
+      });
+      assert({
+        given: 'two authorized debaters contributing to the same private floor',
+        should: 'export only the requesting subject message content',
+        actual: [
+          exported.messaging_messages?.map((row) => row.text),
+          JSON.stringify(exported).includes(
+            'Keep the other debater contribution',
+          ),
+        ],
+        expected: [['Export my floor contribution'], false],
+      });
+      await db.transaction(async (tx) => {
+        const { sql } = await import('drizzle-orm');
+        await tx.execute(
+          sql`select id from users where id=${scope.userId} for update`,
+        );
+        await adopter.erase(tx, subject, { now });
+      });
+      const rows =
+        await f.sql`select text from messaging_messages where channel_id=${scope.channelId} order by sequence`;
+      assert({
+        given: 'ordinary subject erasure after the export',
+        should: 'scrub the subject while preserving the other debater text',
+        actual: rows.map((row) => row.text),
+        expected: [null, 'Keep the other debater contribution'],
+      });
+    } finally {
+      await cleanupFloor(f, scope.roundId);
+    }
+  }));

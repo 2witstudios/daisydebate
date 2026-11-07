@@ -5,7 +5,11 @@ import {
   floorFormUnavailable,
   type FloorFormState,
 } from '../../features/messaging/round-floor/form';
-import { useFormAction, type FormAction } from '../form-action/form-action';
+import {
+  useFormAction,
+  useFocusAfterAnswer,
+  type FormAction,
+} from '../form-action/form-action';
 import { CountedTextarea } from '../messaging/counted-textarea';
 import { floorEditSeed, type FloorEditDraft } from './edit-draft';
 
@@ -30,7 +34,9 @@ export function FloorMessageControls({
   mutateAction,
   reportAction,
   onSent,
+  returnFocusId,
 }: {
+  readonly returnFocusId: string;
   readonly messageId: string;
   readonly text: string;
   readonly own: boolean;
@@ -63,13 +69,44 @@ export function FloorMessageControls({
       onSent(answer.sent);
     }
   }, [answer, onSent]);
+  const removing = useRef(false);
+  useEffect(
+    () => () => {
+      if (removing.current && document.activeElement === document.body)
+        document.getElementById(returnFocusId)?.focus();
+    },
+    [returnFocusId],
+  );
+  const noticeId = `floor-notice-${messageId}`;
+  const fieldId = `floor-edit-${messageId}`;
+  const submitId = `floor-action-${messageId}`;
+  const notice =
+    answer.notice ??
+    (kind === 'report' && answer.sent ? 'Report received.' : null);
+  useFocusAfterAnswer(
+    answer,
+    notice
+      ? noticeId
+      : kind === 'remove'
+        ? returnFocusId
+        : kind === 'edit'
+          ? fieldId
+          : submitId,
+    !pending,
+  );
   const seed = floorEditSeed(answer, { text, changeVersion }, dirty);
   return (
     <details className="text-sm">
       <summary className="cursor-pointer">
         {own ? 'Message options' : 'Report message'}
       </summary>
-      <form action={post} className="flex flex-col gap-2 py-2">
+      <form
+        action={post}
+        onSubmit={() => {
+          removing.current = kind === 'remove';
+        }}
+        className="flex flex-col gap-2 py-2"
+      >
         <input type="hidden" name="messageId" value={messageId} />
         <input type="hidden" name="requestId" value={answer.requestId} />
         {own ? (
@@ -94,7 +131,7 @@ export function FloorMessageControls({
         {kind === 'edit' ? (
           <CountedTextarea
             key={seed.key}
-            id={`floor-edit-${messageId}`}
+            id={fieldId}
             name="text"
             aria-label="Edit message"
             defaultValue={seed.text}
@@ -130,8 +167,13 @@ export function FloorMessageControls({
         {kind === 'report' && (pending || answer.uncertain || locked) ? (
           <input type="hidden" name="reason" value={reason} />
         ) : null}
-        {answer.notice ? <p role="status">{answer.notice}</p> : null}
+        {notice ? (
+          <p id={noticeId} role="status" tabIndex={-1}>
+            {notice}
+          </p>
+        ) : null}
         <button
+          id={submitId}
           type="submit"
           disabled={pending || locked || (kind === 'edit' && editingLocked)}
           className="min-h-room-target cursor-pointer self-start font-strong"

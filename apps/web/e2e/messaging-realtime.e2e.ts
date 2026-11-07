@@ -1,3 +1,4 @@
+import { testRoundFloorLive } from './support/round-floor-live';
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
 import { STEP_LIMIT_MS } from './support/bounded-step';
 import { testPeopleList } from './support/people-list-live';
@@ -33,6 +34,7 @@ const isBareInboxBell = (topic: string, payload: unknown) =>
   JSON.stringify(payload) ===
     JSON.stringify({ kind: 'messaging.inbox.changed' });
 
+testRoundFloorLive();
 testMessageControlFocus();
 testPeopleList();
 testMessagingNavigationOverlap();

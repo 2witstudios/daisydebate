@@ -7,6 +7,7 @@ const action = async () => ({ text: '', requestId: 'r'.repeat(24) });
 const props = {
   messageId: 'm'.repeat(24),
   changeVersion: 1,
+  returnFocusId: 'floor-composer',
   text: 'A message',
   own: true,
   locked: false,
