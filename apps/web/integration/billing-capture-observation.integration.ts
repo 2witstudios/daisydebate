@@ -29,7 +29,7 @@ test('actual casual capture volume, verified output and independent transport ov
         count(*) filter(where c.egress_started_at is not null)::int as started,
         count(*) filter(where c.ended_at is not null)::int as ended,
         coalesce(sum((r.lifecycle->'media'->>'byteSize')::bigint) filter(where r.status='ready'),0)::text as bytes
-        from recordings r left join recording_captures c on c.recording_id=r.id where r.round_id in(select unnest(${roundIds}::text[]))`;
+        from recordings r left join recording_captures c on c.recording_id=r.id where r.round_id in(select jsonb_array_elements_text(${JSON.stringify(roundIds)}::text::jsonb))`;
           return {
             recordings: row!.recordings,
             ready: row!.ready,
@@ -172,7 +172,7 @@ test('actual casual capture volume, verified output and independent transport ov
             JSON.stringify(
               {
                 status: 'FAILED_partial_observation',
-                counts: await captureCount(),
+                counts: await captureCount().catch(() => null),
                 intervals: h.intervals,
                 sourceBytes: h.sources,
                 failures: h.failures,
