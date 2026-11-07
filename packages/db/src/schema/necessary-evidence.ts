@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { captureEvidenceSpeakerSchema } from '@daisy/protocol';
 import {
   check,
   customType,
@@ -7,7 +8,12 @@ import {
   pgTable,
   text,
 } from 'drizzle-orm/pg-core';
-import { createdAtColumn, oneOf, timestampColumn } from './columns';
+import {
+  createdAtColumn,
+  oneOf,
+  timestampColumn,
+  jsonbColumnNullable,
+} from './columns';
 import { rounds } from './rounds';
 
 const encryptedBytes = customType<{ data: Uint8Array; driverData: Buffer }>({
@@ -27,6 +33,11 @@ export const necessaryEvidence = pgTable(
     originalRoundId: text('original_round_id').notNull(),
     /** Null means original subjects were not proven; never infer them from a successor cast. */
     originalSubjectActorIds: text('original_subject_actor_ids').array(),
+    /** Null is unproven, never a current-cast backfill. */
+    originalSpeaker: jsonbColumnNullable(
+      'original_speaker',
+      captureEvidenceSpeakerSchema,
+    ),
     sessionId: text('session_id').notNull(),
     segmentId: text('segment_id').notNull(),
     roundParticipantId: text('round_participant_id').notNull(),
@@ -64,6 +75,10 @@ export const necessaryEvidence = pgTable(
     index('necessary_evidence_subjects_idx').using(
       'gin',
       table.originalSubjectActorIds,
+    ),
+    check(
+      'necessary_evidence_speaker_check',
+      sql`${table.originalSpeaker} is null or (jsonb_typeof(${table.originalSpeaker})='object' and octet_length(${table.originalSpeaker}::text)<=512)`,
     ),
     check(
       'necessary_evidence_subjects_check',

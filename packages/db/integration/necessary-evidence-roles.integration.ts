@@ -31,6 +31,8 @@ test('worker discovery reads only routing columns and cannot read payload or acq
         'select lease_digest from necessary_evidence where id=$1',
         'select payload_accepted_at from necessary_evidence where id=$1',
         'select original_subject_actor_ids from necessary_evidence where id=$1',
+        'select original_speaker from necessary_evidence where id=$1',
+        'select actor_id from necessary_evidence_erasure_requests where actor_id=$1',
         'select execution_worker_id from necessary_evidence where id=$1',
         'select withdrawn_at from necessary_evidence_round_fences where round_id=$1',
         'update necessary_evidence set reserved_bytes=2 where id=$1',
@@ -52,6 +54,8 @@ test('worker discovery reads only routing columns and cannot read payload or acq
         expected: {
           rows: [{ id, state: 'acquiring' }],
           refusals: [
+            '42501',
+            '42501',
             '42501',
             '42501',
             '42501',

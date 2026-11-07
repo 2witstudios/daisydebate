@@ -1,3 +1,7 @@
+import {
+  captureEvidenceSpeakerSchema,
+  type CaptureEvidenceSpeaker,
+} from '@daisy/protocol';
 import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { and, eq, sql } from 'drizzle-orm';
@@ -26,6 +30,7 @@ const sameOriginal = (
   row: typeof necessaryEvidence.$inferSelect,
   input: Intent,
   subjects: readonly string[],
+  speaker: CaptureEvidenceSpeaker,
 ) =>
   row.originalRoundId === input.roundId &&
   row.sessionId === input.sessionId &&
@@ -34,7 +39,10 @@ const sameOriginal = (
   row.workerId === input.workerId &&
   row.captureEpoch === input.epoch &&
   JSON.stringify(row.originalSubjectActorIds) === JSON.stringify(subjects) &&
-  row.bindingDigest === originalEvidenceBinding(input, subjects) &&
+  JSON.stringify(
+    captureEvidenceSpeakerSchema.safeParse(row.originalSpeaker).data,
+  ) === JSON.stringify(speaker) &&
+  row.bindingDigest === originalEvidenceBinding(input, subjects, speaker) &&
   row.reservedBytes === input.reservedBytes;
 
 /** Commits original authority and bounded crash discovery BEFORE custody has any side effect. */
@@ -44,7 +52,25 @@ export async function reserveCaptureEvidenceIntent(
   dependencies: CaptureDependencies,
 ) {
   const policy = evidencePolicyOf(dependencies);
-  const { subjects } = await lockNecessaryEvidenceRound(tx, input.roundId);
+  const { subjects, seats } = await lockNecessaryEvidenceRound(
+    tx,
+    input.roundId,
+  );
+  const seat = seats.find(
+    (candidate) => candidate.id === input.roundParticipantId,
+  );
+  const parsedSpeaker = captureEvidenceSpeakerSchema.safeParse(
+    seat && {
+      roundParticipantId: seat.id,
+      actorId: seat.actorId,
+      kind: seat.kind,
+      role: seat.role,
+      slot: seat.slot,
+    },
+  );
+  if (!parsedSpeaker.success)
+    throw createAppError('CONFLICT', 'Original evidence speaker is unproven');
+  const speaker = parsedSpeaker.data;
   await requireRoundEvidenceOpen(tx, input.roundId, true);
   const context = await captureWriteContext(
     tx,
@@ -73,7 +99,7 @@ export async function reserveCaptureEvidenceIntent(
   });
   if (existing) {
     if (
-      !sameOriginal(existing, input, subjects) ||
+      !sameOriginal(existing, input, subjects, speaker) ||
       existing.state !== 'acquiring'
     )
       throw createAppError('CONFLICT', 'Evidence identity is fenced');
@@ -141,12 +167,13 @@ export async function reserveCaptureEvidenceIntent(
       roundId: input.roundId,
       originalRoundId: input.roundId,
       originalSubjectActorIds: subjects,
+      originalSpeaker: speaker,
       sessionId: input.sessionId,
       segmentId: input.segmentId,
       roundParticipantId: input.roundParticipantId,
       workerId: input.workerId,
       captureEpoch: input.epoch,
-      bindingDigest: originalEvidenceBinding(input, subjects),
+      bindingDigest: originalEvidenceBinding(input, subjects, speaker),
       reservedBytes: input.reservedBytes,
       createdAt: admittedAt,
       ...claim,
@@ -154,7 +181,7 @@ export async function reserveCaptureEvidenceIntent(
   return {
     kind: 'claimed' as const,
     evidenceId: input.evidenceId,
-    bindingDigest: originalEvidenceBinding(input, subjects),
+    bindingDigest: originalEvidenceBinding(input, subjects, speaker),
     executionEpoch: epoch,
     token,
     leaseExpiresAt: leaseExpiresAt.toISOString(),

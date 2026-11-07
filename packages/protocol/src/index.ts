@@ -690,3 +690,8 @@ export {
 } from './evidence-privacy';
 
 export { evidenceEnvelopeSchema } from './evidence-envelope';
+
+export {
+  captureEvidenceSpeakerSchema,
+  type CaptureEvidenceSpeaker,
+} from './capture-evidence-speaker';

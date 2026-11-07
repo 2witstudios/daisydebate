@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   canonicalCaptureEvidenceBody,
+  captureEvidenceSpeakerSchema,
   type CaptureEvidenceBody,
 } from '@daisy/protocol';
 import { originalEvidenceBinding } from './necessary-evidence-binding';
@@ -87,6 +88,7 @@ export async function lockOriginalEvidenceBody(tx: CaptureTx, raw: unknown) {
       reservedBytes: encoded.byteLength,
     },
     row.originalSubjectActorIds!,
+    captureEvidenceSpeakerSchema.parse(row.originalSpeaker),
   );
   if (
     binding !== row.bindingDigest ||

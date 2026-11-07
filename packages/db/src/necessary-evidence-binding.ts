@@ -1,3 +1,4 @@
+import type { CaptureEvidenceSpeaker } from '@daisy/protocol';
 import { captureDigest } from './capture-input';
 import type { z } from 'zod';
 import type { captureEvidenceIntentSchema } from './capture-input';
@@ -6,6 +7,7 @@ type Intent = z.infer<typeof captureEvidenceIntentSchema>;
 export const originalEvidenceBinding = (
   input: Intent,
   subjects: readonly string[],
+  speaker: CaptureEvidenceSpeaker,
 ) =>
   captureDigest([
     'necessary-evidence@1',
@@ -23,4 +25,5 @@ export const originalEvidenceBinding = (
     input.bodyDigest,
     input.reservedBytes,
     subjects,
+    speaker,
   ]);

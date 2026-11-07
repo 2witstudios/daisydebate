@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   idSchema,
   type EvidenceRefusal,
+  type CaptureEvidenceSpeaker,
   type NecessaryEvidenceCustody,
   type NecessaryEvidencePayloadReceipt,
   type NecessaryEvidenceIngressReply,
@@ -38,6 +39,7 @@ export function createStoredEvidenceRestore({
     | {
         readonly kind: 'restored';
         readonly body: PreparedEvidenceBody['body'];
+        readonly speaker: CaptureEvidenceSpeaker;
         readonly receipt: NecessaryEvidencePayloadReceipt;
       }
     | Exclude<NecessaryEvidenceIngressReply, NecessaryEvidencePayloadReceipt>
@@ -95,6 +97,7 @@ export function createStoredEvidenceRestore({
       return {
         kind: 'restored',
         body: encoded.body,
+        speaker: latest.originalSpeaker,
         receipt: {
           kind: 'received',
           evidenceId: latest.evidenceId,

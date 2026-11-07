@@ -1,5 +1,9 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, MAX_FORMAT_SEATS } from '@daisy/protocol';
+import {
+  idSchema,
+  MAX_FORMAT_SEATS,
+  captureEvidenceSpeakerSchema,
+} from '@daisy/protocol';
 import { eq } from 'drizzle-orm';
 import { readAuthorizationActors } from './authorization';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -54,7 +58,7 @@ export async function lockNecessaryEvidenceRound(tx: Tx, roundId: string) {
   const current = await evidenceCast(tx, roundId);
   if (JSON.stringify(current) !== JSON.stringify(original))
     throw createAppError('CONFLICT', 'Evidence content subjects changed');
-  return { subjects };
+  return { subjects, seats: current.seats };
 }
 
 async function lockEvidenceSubjects(tx: Tx, subjects: readonly string[]) {
@@ -73,6 +77,7 @@ const originalScope = {
   roundId: necessaryEvidence.roundId,
   originalRoundId: necessaryEvidence.originalRoundId,
   originalSubjectActorIds: necessaryEvidence.originalSubjectActorIds,
+  originalSpeaker: necessaryEvidence.originalSpeaker,
   workerId: necessaryEvidence.workerId,
   captureEpoch: necessaryEvidence.captureEpoch,
   sessionId: necessaryEvidence.sessionId,
@@ -104,6 +109,9 @@ export async function lockOriginalNecessaryEvidence(
     original.originalRoundId !== input.roundId ||
     !['acquiring', 'retained'].includes(original.state) ||
     !subjects ||
+    !captureEvidenceSpeakerSchema.safeParse(original.originalSpeaker).success ||
+    original.originalSpeaker?.roundParticipantId !==
+      original.roundParticipantId ||
     subjects.length > MAX_FORMAT_SEATS + 1 ||
     !subjects.every(
       (id, index) =>

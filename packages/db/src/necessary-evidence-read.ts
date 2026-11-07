@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import {
   canonicalCaptureEvidenceBody,
+  captureEvidenceSpeakerSchema,
   evidenceEnvelopeSchema,
   idSchema,
 } from '@daisy/protocol';
@@ -57,6 +58,7 @@ async function sealedRow(
     bindingDigest: row.bindingDigest,
     payloadAcceptedAt: row.payloadAcceptedAt.toISOString(),
     privacyScope,
+    originalSpeaker: captureEvidenceSpeakerSchema.parse(row.originalSpeaker),
     sealed: sealed.data,
   };
 }

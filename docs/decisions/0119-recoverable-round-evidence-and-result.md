@@ -622,3 +622,34 @@ backup-restore freshness, external processor cancellation or every-copy proof.
 Capture wiring, durable compensation/retirement scheduling, dispatch/settlement,
 STT/recognition/freeze, protected clocks, hearing/result and production REL-H
 acceptance remain incomplete. The capability is not mounted in production routes.
+
+### Original speaker and canonical subject cleanup admission
+
+The server freezes the original seat's actor, human/bot kind, debate role and
+slot under the same complete account→Round cast fence as initial intent
+admission. Canonical mapping participates in the original binding before custody.
+It survives cast changes and is returned only by private authenticated restore;
+it is publisher provenance, not acoustic identity or hearing proof. Unknown old
+mapping is not backfilled from current cast and refuses raw use. Destructive
+cleanup must retain opaque identity/routing independently of that uncertainty.
+
+Canonical account erasure queues one evidence-owned subject propagation request
+in its existing after-close adopter transaction. It adds no user/Round lock or
+external call and cannot be blocked by unavailable custody. The canonical account
+tombstone immediately denies raw use across all applicable Rounds; ranked
+transcript/result retention remains separate. Request routing survives aggregate
+deletion. Propagated means independent privacy-fence acknowledgement, never
+confirmed material deletion. Claim/propagation/retirement scheduling and complete
+own-audio export remain unimplemented. The current adopter exports only minimal
+request metadata and does not establish whole evidence-export acceptance.
+
+Before retirement integration, custody routing must name the original backing
+resource. A read-only identify operation reports its actual stored authority ID;
+it does not attest that privacy lineage is complete or detect a same-ID stale
+snapshot. Initial PG intent binds that ID before key acquisition, without
+claiming a key or PCM receipt. All custody admission/revocation requires this
+expected ID; a foreign resource refuses before side effects. Cleanup never
+chooses a replacement authority from current configuration. Unknown original
+routing remains blocked work. A local material-cache identity also prevents
+cross-authority restore/adoption; all-authority rollback remains REL-H. This
+routing refinement and its negative controls are not yet implemented/qualified.

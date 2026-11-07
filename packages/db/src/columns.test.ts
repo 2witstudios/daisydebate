@@ -65,6 +65,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'format_presets.config',
         'format_revisions.definition',
         'media_vendor_mutations.payload',
+        'necessary_evidence.original_speaker',
         'operator_command_receipts.result',
         'outbox.payload',
         'recording_processing_jobs.state',
@@ -102,6 +103,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         refusals:
           name === 'ballots.feedback' ||
           name === 'ballots.citations' ||
+          name === 'necessary_evidence.original_speaker' ||
           name === 'round_judging_attempts.diagnostic' ||
           name === 'rooms.capture' ||
           name === 'rounds.capture' ||
