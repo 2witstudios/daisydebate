@@ -219,3 +219,22 @@ Round erasure fences must also refuse future STT commits, freeze, caches and
 submissions, cancel outstanding work and clean temporary buffers. Residual
 in-flight provider processing needs its own processor/erasure contract; this
 adapter does not claim to erase another process's memory or provider work.
+
+Restored ciphertext crosses a runtime envelope guard before current-authority
+reads or crypto: canonical sealed kind/receipt, fixed identifier/digest shapes,
+exact original seven-day expiry interval, at most 64 KiB nonempty ciphertext,
+12-byte nonce and 16-byte authentication tag. Integrity rejection after decrypt
+is insufficient to bound that edge.
+
+Local material cleanup uses an immutable autoincrement insertion sequence and
+persisted after/through cursor. Each pass captures its maximum sequence before
+reading at most the requested bound (1–64). New arrivals lie outside that finite
+pass. Completing or exhausting its captured range resets the cursor, so a key
+revoked after its visit is revisited on a following pass, including after adapter
+restart. Expiry is always checked against the original independent authority,
+never the traversal position or a caller clock. Unavailable/uncertain entries
+remain material and are revisited; refusal cannot become deletion permission.
+For a finite bounded admitted population this establishes traversal progress
+under repeated calls, not a wall-clock deletion promise. A running scheduler,
+per-ID payload compensation, crash recovery and load qualification are still
+required before claiming prompt eventual cleanup in the integrated feature.

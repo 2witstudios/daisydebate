@@ -24,6 +24,7 @@ export type EvidenceRefusal = {
     | 'invalid';
 };
 export type SealedEvidence = {
+  readonly kind: 'sealed';
   readonly receipt: EvidenceReceipt;
   readonly ciphertext: Uint8Array;
   readonly nonce: Uint8Array;

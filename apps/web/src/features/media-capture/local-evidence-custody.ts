@@ -1,3 +1,4 @@
+import { evidenceEnvelopeSchema } from './evidence-envelope';
 import { requirePrivateEvidenceDirectory } from './local-evidence-storage';
 import { chmodSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
@@ -52,8 +53,12 @@ export function openLocalEvidenceCustody(input: {
   db.run('PRAGMA synchronous=FULL');
   db.run('PRAGMA secure_delete=ON');
   db.run(
-    'CREATE TABLE IF NOT EXISTS material(id TEXT PRIMARY KEY,binding TEXT NOT NULL,expires INTEGER NOT NULL,key BLOB NOT NULL,nonce BLOB NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS material(sequence INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,binding TEXT NOT NULL,expires INTEGER NOT NULL,key BLOB NOT NULL,nonce BLOB NOT NULL)',
   );
+  db.run(
+    'CREATE TABLE IF NOT EXISTS cleanup_cursor(singleton INTEGER PRIMARY KEY CHECK(singleton=1),after_sequence INTEGER NOT NULL,through_sequence INTEGER)',
+  );
+  db.run('INSERT OR IGNORE INTO cleanup_cursor VALUES(1,0,NULL)');
   const material = (id: string) =>
     db
       .query<Material, [string]>('SELECT key,nonce FROM material WHERE id=?')
@@ -113,6 +118,8 @@ export function openLocalEvidenceCustody(input: {
     }
   };
   const open: NecessaryEvidenceCustody['open'] = async (evidence) => {
+    if (!evidenceEnvelopeSchema.safeParse(evidence).success)
+      return refused('invalid');
     try {
       const current = input.authority.read(evidence.receipt);
       if (current.kind !== 'current') return current;
@@ -164,10 +171,43 @@ export function openLocalEvidenceCustody(input: {
       return refused('invalid');
     try {
       const candidates = db
-        .query<{ id: string; binding: string }, [number]>(
-          'SELECT id,binding FROM material ORDER BY expires,id LIMIT ?',
-        )
-        .all(limit);
+        .transaction(() => {
+          let cursor = db
+            .query<
+              { after_sequence: number; through_sequence: number | null },
+              []
+            >(
+              'SELECT after_sequence,through_sequence FROM cleanup_cursor WHERE singleton=1',
+            )
+            .get()!;
+          if (cursor.through_sequence === null) {
+            const { upper } = db
+              .query<{ upper: number }, []>(
+                'SELECT coalesce(max(sequence),0) as upper FROM material',
+              )
+              .get()!;
+            cursor = { after_sequence: 0, through_sequence: upper };
+          }
+          const page = db
+            .query<
+              { sequence: number; id: string; binding: string },
+              [number, number, number]
+            >(
+              'SELECT sequence,id,binding FROM material WHERE sequence>? AND sequence<=? ORDER BY sequence LIMIT ?',
+            )
+            .all(cursor.after_sequence, cursor.through_sequence!, limit);
+          const after = page.at(-1)?.sequence ?? cursor.through_sequence!;
+          if (after >= cursor.through_sequence!)
+            db.run(
+              'UPDATE cleanup_cursor SET after_sequence=0,through_sequence=NULL WHERE singleton=1',
+            );
+          else
+            db.query(
+              'UPDATE cleanup_cursor SET after_sequence=?,through_sequence=? WHERE singleton=1',
+            ).run(after, cursor.through_sequence);
+          return page;
+        })
+        .immediate();
       let removed = 0,
         blocked = 0;
       for (const candidate of candidates) {
@@ -179,8 +219,9 @@ export function openLocalEvidenceCustody(input: {
           state.kind === 'refused' &&
           (state.reason === 'revoked' || state.reason === 'expired')
         ) {
-          db.query('DELETE FROM material WHERE id=?').run(candidate.id);
-          removed++;
+          removed += db
+            .query('DELETE FROM material WHERE id=?')
+            .run(candidate.id).changes;
         } else if (state.kind === 'refused') blocked++;
       }
       return { removed, blocked };

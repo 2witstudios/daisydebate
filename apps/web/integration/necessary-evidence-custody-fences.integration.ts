@@ -1,60 +1,12 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { necessaryEvidencePolicy } from '@daisy/protocol';
 import {
-  initializeLocalEvidenceAuthority,
-  openLocalEvidenceAuthority,
-  type EvidenceAuthority,
-} from '../src/features/media-capture/local-evidence-authority';
-import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
-
+  fixture,
+  identity,
+  payload,
+} from './necessary-evidence-custody-fixture.test-support';
+import { necessaryEvidencePolicy, type SealedEvidence } from '@daisy/protocol';
+import type { EvidenceAuthority } from '../src/features/media-capture/local-evidence-authority';
 setupRitewayBun();
-const identity = { evidenceId: 'a'.repeat(24), bindingDigest: 'b'.repeat(64) };
-const payload = new Uint8Array([1, 2, 3, 4]);
-async function fixture(
-  work: (f: {
-    readonly authority: ReturnType<typeof openLocalEvidenceAuthority>;
-    readonly connect: (
-      authority?: EvidenceAuthority,
-    ) => ReturnType<typeof openLocalEvidenceCustody>;
-    readonly advance: (time: number) => void;
-    readonly removeMaterial: () => Promise<void>;
-  }) => Promise<void>,
-) {
-  const dir = await mkdtemp(join(tmpdir(), 'daisy-custody-fences-'));
-  let now = 1000;
-  const path = join(dir, 'authority.sqlite');
-  initializeLocalEvidenceAuthority({ path, authorityId: 'c'.repeat(24) });
-  const authority = openLocalEvidenceAuthority({
-    path,
-    authorityId: 'c'.repeat(24),
-    nowMs: () => now,
-  });
-  const clients: ReturnType<typeof openLocalEvidenceCustody>[] = [];
-  try {
-    await work({
-      authority,
-      advance: (time) => {
-        now = time;
-      },
-      removeMaterial: () => rm(join(dir, 'keys.sqlite')),
-      connect: (current = authority) => {
-        const client = openLocalEvidenceCustody({
-          path: join(dir, 'keys.sqlite'),
-          authority: current,
-        });
-        clients.push(client);
-        return client;
-      },
-    });
-  } finally {
-    for (const client of clients) client.close();
-    authority.close();
-    await rm(dir, { recursive: true, force: true });
-  }
-}
 test('original expiry and payload binding survive retries and clock regression', () =>
   fixture(async ({ connect, advance }) => {
     const custody = connect();
@@ -193,5 +145,46 @@ test('revocation during decrypt and unavailable authority refuse plaintext relea
         { kind: 'refused', reason: 'revoked' },
         { kind: 'refused', reason: 'unavailable' },
       ],
+    });
+  }));
+
+test('restored envelopes are bounded and validated before current authority or cryptography', () =>
+  fixture(async ({ authority, connect }) => {
+    const original = connect();
+    const sealed = await original.seal(identity, payload);
+    if (sealed.kind !== 'sealed') throw new Error('Synthetic fixture failed');
+    let reads = 0;
+    const guarded = connect({
+      ...authority,
+      read: (scope) => {
+        reads++;
+        return authority.read(scope);
+      },
+    });
+    const malformed: SealedEvidence[] = [
+      {
+        ...sealed,
+        ciphertext: new Uint8Array(necessaryEvidencePolicy.maxPayloadBytes + 1),
+      },
+      { ...sealed, ciphertext: new Uint8Array() },
+      { ...sealed, nonce: new Uint8Array(11) },
+      { ...sealed, tag: new Uint8Array(15) },
+      { ...sealed, receipt: { ...sealed.receipt, expiresAtMs: -1 } },
+      { ...sealed, receipt: { ...sealed.receipt, authorityId: 'invalid' } },
+      { ...sealed, receipt: null } as unknown as SealedEvidence,
+    ];
+    const results = [];
+    for (const candidate of malformed)
+      results.push(await guarded.open(candidate));
+    assert({
+      given:
+        'oversized/empty restored ciphertext, malformed nonce/tag or receipt',
+      should:
+        'refuse invalid envelopes before consulting current authority or decrypting',
+      actual: { results, reads },
+      expected: {
+        results: malformed.map(() => ({ kind: 'refused', reason: 'invalid' })),
+        reads: 0,
+      },
     });
   }));
