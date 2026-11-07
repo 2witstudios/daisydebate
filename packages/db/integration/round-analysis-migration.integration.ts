@@ -18,7 +18,7 @@ import { createDatabase } from '../src';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const migration = '20261107080513_fair_midnight';
-const scratch = scratchDatabase(databaseUrl, 'analysisrequest');
+const scratch = scratchDatabase(databaseUrl, 'can7vbrip0janalysis');
 afterAll(() => scratch.drop());
 const originalTime = new Date('2026-10-31T23:59:58.123Z');
 const completion = new Date('2026-11-01T00:00:00.456Z');

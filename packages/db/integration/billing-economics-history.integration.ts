@@ -19,7 +19,7 @@ setupRitewayBun();
 test(
   'historical analysis cannot inherit a later request source and received outcomes remain distinct from token knowledge',
   async () => {
-    const scratch = scratchDatabase(databaseUrl, 'ec7vbrip0j');
+    const scratch = scratchDatabase(databaseUrl, 'can7vbrip0jeconomics');
     let pool: SQL | undefined;
     const instanceId = createId();
     try {
