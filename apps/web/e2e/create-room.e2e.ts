@@ -217,7 +217,7 @@ test('create-room layout fits narrow screens and exposes the full editor', async
   ).toBe(true);
 });
 
-test('Custom offers searchable league starting points and Strike stays one option', async ({
+test('Custom offers a league template selector and Strike stays one option', async ({
   page,
 }) => {
   await signUpMember(page.request);
@@ -226,9 +226,7 @@ test('Custom offers searchable league starting points and Strike stays one optio
   await hydrated(form);
   await form.locator('[name="format"][value="custom"]').check();
   await form.getByText('Start from a league template', { exact: true }).click();
-  await form
-    .getByLabel('Search formats and leagues')
-    .fill('NSDA Lincoln-Douglas');
+  await expect(form.getByRole('searchbox')).toHaveCount(0);
   const templates = form.locator('[name="template"]');
   const option = templates
     .locator('option')

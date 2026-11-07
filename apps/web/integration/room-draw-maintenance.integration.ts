@@ -14,177 +14,195 @@ requireTestServices(process.env);
 setupRitewayBun();
 
 const lines = [1, 2, 3, 4, 5].map((n) => `Maintenance proof line ${n}`);
+// These cases wait for the immutable draw's real clock before exercising PostgreSQL.
+const automaticStrikeTestTimeoutMs = AUTOMATIC_STRIKE_DELAY_MS + 12_000;
 
-test('a tick settles only the strikes that are due, with nobody online', async () => {
-  await withRoomRuntime(async (f) => {
-    const overrides = await drawRoomOverrides(f, {
-      kind: 'host',
-      resolutions: lines,
-    });
-    // Two humans: the Negative's window is nowhere near due.
-    const cast = await f.freshCast();
-    const humans = await f.assemble(overrides, cast);
-    const humanRound = (
-      await f.command(cast.host, humans, { type: 'start-round' })
-    ).view.roundRef!.id;
-    // A bot Negative strikes first, automatically, three seconds after the start.
-    const botRoom = await f.seatBotOpponent(
-      (await f.create(overrides)).view,
-      (await f.bot()).actorId,
-    );
-    const botRound = (await f.command(f.host, botRoom, { type: 'start-round' }))
-      .view.roundRef!.id;
-    const tick = (roundId: string) =>
-      f.store.executeRoundTick({
-        roundId,
-        runsOpening: true,
-        buildProjection: roundTickProjection(createId),
+test(
+  'a tick settles only the strikes that are due, with nobody online',
+  async () => {
+    await withRoomRuntime(async (f) => {
+      const overrides = await drawRoomOverrides(f, {
+        kind: 'host',
+        resolutions: lines,
       });
-    const strikes = (roundId: string) => f.sql`
+      // Two humans: the Negative's window is nowhere near due.
+      const cast = await f.freshCast();
+      const humans = await f.assemble(overrides, cast);
+      const humanRound = (
+        await f.command(cast.host, humans, { type: 'start-round' })
+      ).view.roundRef!.id;
+      // A bot Negative strikes first, automatically, three seconds after the start.
+      const botRoom = await f.seatBotOpponent(
+        (await f.create(overrides)).view,
+        (await f.bot()).actorId,
+      );
+      const botRound = (
+        await f.command(f.host, botRoom, { type: 'start-round' })
+      ).view.roundRef!.id;
+      const tick = (roundId: string) =>
+        f.store.executeRoundTick({
+          roundId,
+          runsOpening: true,
+          buildProjection: roundTickProjection(createId),
+        });
+      const strikes = (roundId: string) => f.sql`
       select s.ordinal, s.kind, s.actor_id, s.side
         from round_resolution_strikes s
         join round_resolution_draws d on d.id = s.draw_id
        where d.round_id = ${roundId}`;
-    await tick(botRound);
-    const early = await strikes(botRound);
-    // Draw rows are immutable, so the automatic turn really falls due by the clock.
-    await new Promise((resolve) =>
-      setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
-    );
-    await tick(botRound);
-    await tick(botRound);
-    await tick(humanRound);
-    assert({
-      given:
-        'a Round waiting on a human window, and one whose automatic strike falls due after three seconds',
-      should:
-        'settle nothing early, then persist exactly the automatic strike, once, and leave the human window open',
-      actual: {
-        early: [...early],
-        due: [...(await strikes(botRound))],
-        human: [...(await strikes(humanRound))],
-      },
-      expected: {
-        early: [],
-        due: [
-          { ordinal: 0, kind: 'automatic', actor_id: null, side: 'negative' },
-        ],
-        human: [],
-      },
-    });
-  }, botAdmissionForTests);
-});
-
-test('a reveal no tick has stored reads the same from the Round, the Room and the Lobby (ISSUE-1127)', async () => {
-  await withRoomRuntime(async (f) => {
-    const overrides = await drawRoomOverrides(
-      f,
-      { kind: 'host', resolutions: lines },
-      2,
-    );
-    const room = await f.seatBotOpponent(
-      (await f.create(overrides)).view,
-      (await f.bot()).actorId,
-    );
-    const roundId = (await f.command(f.host, room, { type: 'start-round' }))
-      .view.roundRef!.id;
-    const lobbyTopic = async () =>
-      (
-        await f.operations.list(f.host, { q: room.title, pageSize: 20 })
-      ).rooms.find((entry) => entry.id === room.id)?.topic;
-    const before = [
-      (await f.operations.view(f.host, room.id)).topic,
-      await lobbyTopic(),
-    ];
-    // Draw rows are immutable, so the one automatic strike falls due by the clock.
-    await new Promise((resolve) =>
-      setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
-    );
-    const survivor = (await f.roundView(f.host, roundId)).topic;
-    const [stored] = await f.sql`
-      select resolution from rounds where id = ${roundId}`;
-    assert({
-      given:
-        'a draw settled by the clock, with no tick to store its resolution',
-      should: 'answer one resolution from all three reads',
-      actual: {
-        before,
-        stored: stored.resolution,
-        drawn: lines.includes(survivor ?? ''),
-        room: (await f.operations.view(f.host, room.id)).topic,
-        lobby: await lobbyTopic(),
-      },
-      expected: {
-        before: [null, null],
-        stored: null,
-        drawn: true,
-        room: survivor,
-        lobby: survivor,
-      },
-    });
-  }, botAdmissionForTests);
-});
-
-test('a tick persisting a bot strike does not refuse the debater whose turn it opened', async () => {
-  await withRoomRuntime(async (f) => {
-    const overrides = await drawRoomOverrides(f, {
-      kind: 'host',
-      resolutions: lines,
-    });
-    const room = await f.seatBotOpponent(
-      (await f.create(overrides)).view,
-      (await f.bot()).actorId,
-    );
-    const roundId = (await f.command(f.host, room, { type: 'start-round' }))
-      .view.roundRef!.id;
-    await new Promise((resolve) =>
-      setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
-    );
-    // The form the debater sees: settled on read, before any tick persists it.
-    const seen = await f.roundView(f.host, roundId);
-    const draw = seen.opening!.draw!;
-    if (draw.visibility !== 'debater') throw new Error('A debater view');
-    const struck = new Set(draw.strikes.map((s) => s.position));
-    const position = draw.items.find((i) => !struck.has(i.position))!.position;
-    const seat = seen.participants
-      .filter(isNamedSeat)
-      .find((p) => p.actorId === f.host.actorId)!;
-    await f.store.executeRoundTick({
-      roundId,
-      runsOpening: true,
-      buildProjection: roundTickProjection(createId),
-    });
-    const post = (ordinal: number) =>
-      createRoundRuntimeOperations({
-        store: f.store,
-        nextSegmentId: createId,
-      }).command({ kind: 'human', actorId: f.host.actorId }, roundId, {
-        version: 1,
-        commandId: createId(),
-        expectedVersion: seen.version,
-        command: {
-          type: 'strike_resolution',
-          participantId: seat.id,
-          ordinal,
-          position,
+      await tick(botRound);
+      const early = await strikes(botRound);
+      // Draw rows are immutable, so the automatic turn really falls due by the clock.
+      await new Promise((resolve) =>
+        setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
+      );
+      await tick(botRound);
+      await tick(botRound);
+      await tick(humanRound);
+      assert({
+        given:
+          'a Round waiting on a human window, and one whose automatic strike falls due after three seconds',
+        should:
+          'settle nothing early, then persist exactly the automatic strike, once, and leave the human window open',
+        actual: {
+          early: [...early],
+          due: [...(await strikes(botRound))],
+          human: [...(await strikes(humanRound))],
+        },
+        expected: {
+          early: [],
+          due: [
+            { ordinal: 0, kind: 'automatic', actor_id: null, side: 'negative' },
+          ],
+          human: [],
         },
       });
-    await post(1);
-    assert({
-      given: 'a strike form rendered before the tick persisted the bot strike',
-      should: 'take the strike, because its ordinal names the turn',
-      actual: (await f.roundView(f.host, roundId)).opening!.draw!.strikes
-        .length,
-      expected: 2,
-    });
-    await assertRejects({
-      given: 'the same turn struck again from a stale form',
-      should: 'still conflict on the ordinal',
-      actual: () => post(1),
-      code: 'CONFLICT',
-    });
-  }, botAdmissionForTests);
-});
+    }, botAdmissionForTests);
+  },
+  automaticStrikeTestTimeoutMs,
+);
+
+test(
+  'a reveal no tick has stored reads the same from the Round, the Room and the Lobby (ISSUE-1127)',
+  async () => {
+    await withRoomRuntime(async (f) => {
+      const overrides = await drawRoomOverrides(
+        f,
+        { kind: 'host', resolutions: lines },
+        2,
+      );
+      const room = await f.seatBotOpponent(
+        (await f.create(overrides)).view,
+        (await f.bot()).actorId,
+      );
+      const roundId = (await f.command(f.host, room, { type: 'start-round' }))
+        .view.roundRef!.id;
+      const lobbyTopic = async () =>
+        (
+          await f.operations.list(f.host, { q: room.title, pageSize: 20 })
+        ).rooms.find((entry) => entry.id === room.id)?.topic;
+      const before = [
+        (await f.operations.view(f.host, room.id)).topic,
+        await lobbyTopic(),
+      ];
+      // Draw rows are immutable, so the one automatic strike falls due by the clock.
+      await new Promise((resolve) =>
+        setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
+      );
+      const survivor = (await f.roundView(f.host, roundId)).topic;
+      const [stored] = await f.sql`
+      select resolution from rounds where id = ${roundId}`;
+      assert({
+        given:
+          'a draw settled by the clock, with no tick to store its resolution',
+        should: 'answer one resolution from all three reads',
+        actual: {
+          before,
+          stored: stored.resolution,
+          drawn: lines.includes(survivor ?? ''),
+          room: (await f.operations.view(f.host, room.id)).topic,
+          lobby: await lobbyTopic(),
+        },
+        expected: {
+          before: [null, null],
+          stored: null,
+          drawn: true,
+          room: survivor,
+          lobby: survivor,
+        },
+      });
+    }, botAdmissionForTests);
+  },
+  automaticStrikeTestTimeoutMs,
+);
+
+test(
+  'a tick persisting a bot strike does not refuse the debater whose turn it opened',
+  async () => {
+    await withRoomRuntime(async (f) => {
+      const overrides = await drawRoomOverrides(f, {
+        kind: 'host',
+        resolutions: lines,
+      });
+      const room = await f.seatBotOpponent(
+        (await f.create(overrides)).view,
+        (await f.bot()).actorId,
+      );
+      const roundId = (await f.command(f.host, room, { type: 'start-round' }))
+        .view.roundRef!.id;
+      await new Promise((resolve) =>
+        setTimeout(resolve, AUTOMATIC_STRIKE_DELAY_MS + 250),
+      );
+      // The form the debater sees: settled on read, before any tick persists it.
+      const seen = await f.roundView(f.host, roundId);
+      const draw = seen.opening!.draw!;
+      if (draw.visibility !== 'debater') throw new Error('A debater view');
+      const struck = new Set(draw.strikes.map((s) => s.position));
+      const position = draw.items.find(
+        (i) => !struck.has(i.position),
+      )!.position;
+      const seat = seen.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId === f.host.actorId)!;
+      await f.store.executeRoundTick({
+        roundId,
+        runsOpening: true,
+        buildProjection: roundTickProjection(createId),
+      });
+      const post = (ordinal: number) =>
+        createRoundRuntimeOperations({
+          store: f.store,
+          nextSegmentId: createId,
+        }).command({ kind: 'human', actorId: f.host.actorId }, roundId, {
+          version: 1,
+          commandId: createId(),
+          expectedVersion: seen.version,
+          command: {
+            type: 'strike_resolution',
+            participantId: seat.id,
+            ordinal,
+            position,
+          },
+        });
+      await post(1);
+      assert({
+        given:
+          'a strike form rendered before the tick persisted the bot strike',
+        should: 'take the strike, because its ordinal names the turn',
+        actual: (await f.roundView(f.host, roundId)).opening!.draw!.strikes
+          .length,
+        expected: 2,
+      });
+      await assertRejects({
+        given: 'the same turn struck again from a stale form',
+        should: 'still conflict on the ordinal',
+        actual: () => post(1),
+        code: 'CONFLICT',
+      });
+    }, botAdmissionForTests);
+  },
+  automaticStrikeTestTimeoutMs,
+);
 
 test('a tick starts a Round at the instant its prep ended, however late it runs', async () => {
   await withRoomRuntime(async (f) => {

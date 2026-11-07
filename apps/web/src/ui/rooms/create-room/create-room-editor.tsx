@@ -66,7 +66,6 @@ export function CreateRoomEditor({
       draft: parsed.ok ? parsed.draft : defaults,
     };
   });
-  const [query, setQuery] = useState('');
   const { values, draft } = model;
   const isCustom = values.format === 'custom' || draft.custom;
   const isRanked = values.ranked === 'on' && !isCustom;
@@ -116,13 +115,7 @@ export function CreateRoomEditor({
         draft: edited,
       };
     });
-  const templates = choices.filter(
-    (choice) =>
-      choice.role === 'template' &&
-      `${choice.label} ${choice.leagues.join(' ')} ${choice.searchTerms}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-  );
+  const templates = choices.filter((choice) => choice.role === 'template');
   return (
     <div className="create-room-layout">
       <fieldset disabled={pending} className="create-room-card">
@@ -279,15 +272,6 @@ export function CreateRoomEditor({
           {isCustom ? (
             <details className="create-room-library">
               <summary>Start from a league template</summary>
-              <label className="create-room-field">
-                <span>Search formats and leagues</span>
-                <input
-                  type="search"
-                  className={controlClass}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              </label>
               <label className="create-room-field">
                 <span>League template</span>
                 <select

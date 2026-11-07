@@ -70,14 +70,13 @@ export async function proveFormatPicker(browser: Browser) {
     });
     const before = await form.locator('[name="basis"]').inputValue();
     await disclosure.click();
-    await form
-      .getByRole('searchbox', { name: 'Search formats and leagues' })
-      .fill(chosen.label);
     const templates = form.getByRole('combobox', {
       name: 'League template',
       exact: true,
     });
-    await expect(templates.locator('option')).toHaveCount(2);
+    await expect(templates.locator('option')).toHaveCount(
+      choices.filter((choice) => choice.role === 'template').length + 1,
+    );
     // Browsing and dismissing the library never changes the current draft.
     await disclosure.click();
     await expect(form.locator('[name="basis"]')).toHaveValue(before);
