@@ -67,7 +67,7 @@ test('actual subscription application, new hints and ambiguous initialization re
           ],
           expected: [1, 1, null, 'applied', 1, 0, true, ['daisy_web']],
         });
-        await fixture.sql`update billing_subscriptions set created_at=observed_at where user_id=${userId}`;
+        await fixture.sql`update billing_subscriptions set observed_at=created_at where user_id=${userId} and current`;
         const notify = () =>
           worker.receive({
             eventId: `evt_${createId()}`,
@@ -76,7 +76,11 @@ test('actual subscription application, new hints and ambiguous initialization re
           });
         await notify();
         const equal = await reader.sample({ mode: 'test' });
-        await fixture.sql`update billing_subscriptions set created_at=clock_timestamp()-interval '30 minutes',observed_at=clock_timestamp()-interval '20 minutes' where user_id=${userId}`;
+        // Fresh owner-created history preserves immutable creation/identity on the real mapped row.
+        // This row is controlled provenance, not a claim of a historical vendor transaction.
+        await fixture.sql`update billing_subscriptions set current=false where user_id=${userId} and current`;
+        await fixture.sql`insert into billing_subscriptions(id,user_id,vendor_subscription_id,evidence,current,created_at,observed_at)
+          values(${createId()},${userId},${`sub_${createId()}`},'{"lifecycle":"incomplete","settlement":{"kind":"unpaid"}}'::jsonb,true,clock_timestamp()-interval '30 minutes',clock_timestamp()-interval '20 minutes')`;
         await notify();
         const hinted = await reader.sample({ mode: 'test' });
         await notify();
@@ -100,9 +104,9 @@ test('actual subscription application, new hints and ambiguous initialization re
           ],
           expected: [1, null, true, true, true, 0],
         });
-        await fixture.sql`update billing_subscriptions set observed_at=clock_timestamp()+interval '1 minute' where user_id=${userId}`;
+        await fixture.sql`update billing_subscriptions set observed_at=clock_timestamp()+interval '1 minute' where user_id=${userId} and current`;
         const future = await reader.sample({ mode: 'test' });
-        await fixture.sql`update billing_subscriptions set observed_at=created_at-interval '1 millisecond' where user_id=${userId}`;
+        await fixture.sql`update billing_subscriptions set observed_at=created_at-interval '1 millisecond' where user_id=${userId} and current`;
         const inconsistent = await reader.sample({ mode: 'test' });
         await fixture.sql`update billing_subscriptions set current=false where user_id=${userId}`;
         const missing = await reader.sample({ mode: 'test' });
