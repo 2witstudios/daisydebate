@@ -1,6 +1,6 @@
 import { once } from 'node:events';
 import { createId } from '@paralleldrive/cuid2';
-import { AudioStream, Room, RoomEvent, type Track } from '@livekit/rtc-node';
+import { AudioStream, Room, RoomEvent, Track } from '@livekit/rtc-node';
 import { createMediaService } from '../src/service';
 import { createAudioPublication } from '../src/audio-publication';
 import { NativeReception } from './native-reception.test-support';
@@ -33,6 +33,9 @@ export async function withNativePublication(
     identity: string;
     track: Track;
     reception: NativeReception;
+    getStats: () => ReturnType<Room['getRtcStats']>;
+    remoteParticipantSid: string | undefined;
+    waitForTrack: () => Promise<Track>;
     reader: import('node:stream/web').ReadableStreamDefaultReader<
       import('@livekit/rtc-node').AudioFrame
     >;
@@ -73,7 +76,7 @@ export async function withNativePublication(
       channels: 1,
       monotonicNowMs: () => performance.now(),
     });
-    const [track] = await subscribed;
+    const [track, , participant] = await subscribed;
     const reception = new NativeReception();
     const stream = new AudioStream(track, {
       sampleRate: 48000,
@@ -83,7 +86,25 @@ export async function withNativePublication(
     });
     const reader = stream.getReader();
     try {
-      await work({ publisher, reader, roomName, identity, track, reception });
+      await work({
+        publisher,
+        reader,
+        roomName,
+        identity,
+        track,
+        reception,
+        getStats: () => subscriber.getRtcStats(),
+        remoteParticipantSid:
+          typeof participant?.sid === 'string' ? participant.sid : undefined,
+        waitForTrack: async () => {
+          const [next] = await once(subscriber, RoomEvent.TrackSubscribed, {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (!(next instanceof Track))
+            throw new Error('Missing subscribed native track');
+          return next;
+        },
+      });
     } finally {
       await reader.cancel();
       reader.releaseLock();

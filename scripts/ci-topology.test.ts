@@ -5,7 +5,7 @@ type Job = {
   needs?: string | string[];
   if?: string;
   uses?: string;
-  strategy?: { matrix: { task: string[] } };
+  strategy?: { matrix: Record<string, string[]> };
   steps?: { run?: string }[];
 };
 const readJobs = async (name: string) =>
@@ -14,7 +14,13 @@ const readJobs = async (name: string) =>
       jobs: Record<string, Job>;
     }
   ).jobs;
-const width = (job: Job) => job.strategy?.matrix.task.length ?? 1;
+const width = (job: Job) =>
+  job.strategy
+    ? Object.values(job.strategy.matrix).reduce(
+        (total, dimension) => total * dimension.length,
+        1,
+      )
+    : 1;
 const initialWidth = (jobs: Record<string, Job>) =>
   Object.values(jobs)
     .filter((job) => !job.needs)
@@ -40,8 +46,8 @@ describe('CI quick prerequisite topology', () => {
         prerequisites: Array(3).fill('quick-check'),
         reusable: './.github/workflows/quick-check.yml',
         browserQuickCheck: false,
-        // quick-check, audit, migrations, reports; scope, e2e, admin.
-        initial: 7,
+        // quick-check, audit, migrations, reports; e2e, admin, three native cohorts.
+        initial: 9,
       },
     });
     assert({

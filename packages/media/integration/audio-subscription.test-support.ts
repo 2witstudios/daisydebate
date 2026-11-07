@@ -45,10 +45,17 @@ export const proveNativeCapture: Parameters<
     beforeMs: number;
     afterMs: number;
     sequence: number;
+    subscriptionGeneration: number;
+    subscriptionIncarnation: string;
   }[] = [];
   const first = Promise.withResolvers<void>(),
     closed = Promise.withResolvers<void>();
-  const started: { identity: string; trackId: string }[] = [];
+  const started: {
+    identity: string;
+    trackId: string;
+    generation: number;
+    incarnation: string;
+  }[] = [];
   const { capture } = await openCaptureProbe(roomName, identity, {
     onTrackStarted: (track) => started.push(track),
     onFrame: (frame) => {
@@ -113,9 +120,13 @@ export const proveNativeCapture: Parameters<
     assert({
       given: 'capture subscribed to the actual published microphone track',
       should:
-        "report it once, by the publisher's own track id, so a bot can tell capture hears it (ISSUE-514-r2)",
-      actual: started,
-      expected: [{ identity, trackId: publisher.trackSid }],
+        "report the subscription once by the publisher's track id and local generation; this event alone is not hearing (ISSUE-514-r2)",
+      actual: started.map(({ identity, trackId, generation }) => ({
+        identity,
+        trackId,
+        generation,
+      })),
+      expected: [{ identity, trackId: publisher.trackSid, generation: 1 }],
     });
     assert({
       given: 'actual microphone publication over local LiveKit',
@@ -127,6 +138,8 @@ export const proveNativeCapture: Parameters<
           (f) =>
             f.identity === identity &&
             f.trackId.length > 0 &&
+            f.subscriptionGeneration === 1 &&
+            f.subscriptionIncarnation === started[0]?.incarnation &&
             f.pcm.length === 160 &&
             f.beforeMs <= f.afterMs &&
             Number.isFinite(f.beforeMs),

@@ -1096,4 +1096,78 @@ continue, plus DTX and genuinely silent human-source cases. Recognition success,
 provider metadata or the fixture-only tone detector cannot discharge this
 obligation. The existing native tone proof establishes only bounded synthetic
 signal presence; it proves neither all source samples nor heard words. These
-source/readiness controls and clock/selection integration remain unimplemented.
+component controls do not settle the remaining source/readiness, human-source
+qualification or clock/selection integration obligations.
+
+### Track-bound native transport observation
+
+The pinned rtc-node 1.2.0 patch exposes public `Track.getStats` through the SDK's
+existing FFI singleton and concrete native track handle. It registers the async-ID
+waiter before dispatch and removes listeners on success, failure, deadline,
+caller abort, track close/unsubscribe and room disconnect. One request may be
+outstanding per Track; a dispatched uncertain outcome requires a new Track
+binding. Cancellation refuses late results, not already-issued native work.
+The monotonic deadline also rejects a reply after an event-loop stall; it does
+not guarantee preemption while that loop is stalled. No private SDK imports,
+second FFI client or room-total fallback is permitted.
+
+Actual local native execution returned distinct inbound RTP records for two
+same-name subscribed tracks: one remained at 10 packets while the other reached 20.
+Pre-abort, dispatched abort, deadline after a controlled event-loop stall and
+close controls passed. These are request-scope/lifecycle observations, not a
+microphone or hearing guarantee. Earlier held-source diagnostics showed packet
+counters stationary while PCM callbacks and total received/concealed samples
+advanced. An absent inbound record is unknown, not zero packets or silence.
+
+The local `@daisy/media` port exposes a bounded transport observation,
+not a coverage grant. Its input is the concrete subscribed Track, caller
+cancellation and injected monotonic clock. A fresh CSPRNG-backed CUID2
+incarnation namespaces each subscription object; generation is local to that
+object and restarts on replacement. Start/close/frame callbacks carry this
+namespace, and lookups require the exact incarnation/track/generation tuple.
+The same publisher track may survive subscriber replacement, so track and
+generation alone do not fence an old lookup routed to a new object. Neither
+namespace is capture authorization, an RTP sequence or a durable epoch. It
+retains no reusable native handles or raw reports. Its output is either unknown
+with a sanitized reason, or observation brackets plus exactly one validated audio
+inbound record's bounded counters. Native identity stays private to the binding.
+Reports are bounded to 512 entries before traversal; only validated audio records
+with bounded identity/SSRC and exact unsigned 64-bit counters are accepted. Missing,
+multiple, malformed, reset or replaced records remain unknown; counter decreases
+start a new observation baseline, never bridge runs. Polling is bounded and
+single-flight outside competitive transactions; teardown cancels the binding.
+Only whitelisted fields may leave the adapter, without network addresses or
+vendor error strings. Controls include two-track discrimination, replacement,
+late callbacks, missing/reset/ambiguous records and transport stalls.
+
+Real 16k `createAudioSubscription`/`AudioFrameProcessor` execution observed
+stationary packet counts while decoder callbacks and samples continued after
+source handoff stopped. With DTX explicitly requested and a continuously supplied
+known-zero synthetic source, packet progress was sparse; after that source
+stopped, received samples still grew with stationary packets and reported
+`concealedSamples` was 0. Therefore `received - concealed` is not a fresh-source
+watermark here. Disabling only the fixture DTX option fails the predeclared
+packet-sparsity control. These are synthetic source/component observations,
+not human silence, negotiated DTX proof for every session, a PG capture/coverage
+proof or peer hearing.
+
+Any future authoritative consumer must durably bind the observation namespace
+to the original Round/session/worker/capture epoch and frame/history provenance;
+recovery execution cannot rewrite that original scope or bridge uncertainty.
+The current necessary-evidence body does not yet adopt this transport namespace.
+The reader never changes capture coverage, clocks, selected text or finality.
+Minimum 250ms poll admission and the SDK's 1000ms operation limit bound this
+metadata reader; neither is a measured preservation or global hold guarantee.
+
+Packet progress can detect some unavailable-source intervals but cannot assign
+each decoded frame to an original packet, establish complete preservation,
+identify DTX versus lost source, or prove peer hearing. Therefore this port cannot
+alone authorize silence, advance protected permission, select a transcript or
+retire necessary audio. Before those writes, the actual 16k capture path must show
+source-withheld/transport-gap behavior while decoder callbacks continue and
+separate healthy DTX and genuinely silent-source controls. If the available
+metadata cannot positively establish the required continuity, the interval stays
+unknown and vulnerable play must remain held; no callback/energy heuristic may
+upgrade it. Exact source-to-decoder alignment requires further supported native
+evidence, not inferred packet/sample arithmetic. Production activation and REL-H
+remain unchanged.

@@ -1,7 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import {
   AudioStream,
-  dispose,
   Room,
   RoomEvent,
   TrackSource,
@@ -19,10 +18,14 @@ import {
   createSubscriptionRequests,
   livePublication,
 } from './subscription-requests';
+import { TransportObservation } from './transport-observation/transport-observation';
+import { createSubscriptionIncarnation } from './subscription-incarnation';
 
 type ClosedTrack = {
   readonly identity: string;
   readonly trackId: string;
+  readonly generation: number;
+  readonly incarnation: string;
   readonly reason:
     'unpublished' | 'disconnected' | 'closed' | 'invalid-callback';
 };
@@ -31,11 +34,18 @@ type SubscriptionInput = {
   readonly token: string;
   readonly identities: readonly string[];
   readonly nowMs: () => number;
-  readonly onFrame: (frame: RawAudioFrame) => void;
+  readonly onFrame: (
+    frame: RawAudioFrame & {
+      readonly subscriptionGeneration: number;
+      readonly subscriptionIncarnation: string;
+    },
+  ) => void;
   /** A track of an admitted identity is subscribed and being read. */
   readonly onTrackStarted: (track: {
     readonly identity: string;
     readonly trackId: string;
+    readonly generation: number;
+    readonly incarnation: string;
   }) => void;
   readonly onTrackClosed: (track: ClosedTrack) => void;
 };
@@ -60,9 +70,16 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     closing = false;
   const ended = Promise.withResolvers<'disconnected' | 'closed'>();
   const room = new Room();
+  const incarnation = createSubscriptionIncarnation();
+  let generation = 0;
   const streams = new Map<
     string,
-    { identity: string; stop: (reason: ClosedTrack['reason']) => Promise<void> }
+    {
+      identity: string;
+      generation: number;
+      stop: (reason: ClosedTrack['reason']) => Promise<void>;
+      transport: ReturnType<typeof TransportObservation.create>;
+    }
   >();
   const requests = createSubscriptionRequests({
     set: (run, ms) => setTimeout(run, ms),
@@ -77,6 +94,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
       identity = participant.identity;
     if (
       closing ||
+      generation >= Number.MAX_SAFE_INTEGER ||
       !trackId ||
       !/^[A-Za-z0-9_-]{1,128}$/.test(trackId) ||
       streams.has(trackId) ||
@@ -85,12 +103,23 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     )
       return;
     requests.subscribed(trackId);
+    const subscriptionGeneration = ++generation;
+    const transport = TransportObservation.create({
+      binding: { incarnation, trackId, generation: subscriptionGeneration },
+      nowMs: input.nowMs,
+      readStats: (options) => track.getStats(options),
+    });
     let finished = false;
     const processor = new AudioFrameProcessor({
       identity,
       trackId,
       nowMs: input.nowMs,
-      onFrame: input.onFrame,
+      onFrame: (frame) =>
+        input.onFrame({
+          ...frame,
+          subscriptionGeneration,
+          subscriptionIncarnation: incarnation,
+        }),
       onFault: () => {
         queueMicrotask(() => {
           void stop('invalid-callback');
@@ -111,19 +140,36 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     const stop = async (reason: ClosedTrack['reason']) => {
       if (finished) return;
       finished = true;
+      transport.close();
       processor.close();
       streams.delete(trackId);
       try {
-        input.onTrackClosed({ identity, trackId, reason });
+        input.onTrackClosed({
+          identity,
+          trackId,
+          generation: subscriptionGeneration,
+          incarnation,
+          reason,
+        });
       } catch {
         /* Consumer owns recovery; no raw exception enters SDK logs. */
       }
       // An errored stream rejects its cancel; the track is already closed.
       await reader.cancel().catch(() => undefined);
     };
-    streams.set(trackId, { identity, stop });
+    streams.set(trackId, {
+      identity,
+      generation: subscriptionGeneration,
+      stop,
+      transport,
+    });
     try {
-      input.onTrackStarted({ identity, trackId });
+      input.onTrackStarted({
+        identity,
+        trackId,
+        generation: subscriptionGeneration,
+        incarnation,
+      });
     } catch {
       /* Consumer owns its report; no raw exception enters SDK logs. */
     }
@@ -251,6 +297,23 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   let shutdown: Promise<void> | undefined;
   return {
     closed: ended.promise,
+    /** Bounded transport metadata only; no frame/source coverage or hearing authority. */
+    async transport(
+      binding: {
+        readonly incarnation: string;
+        readonly trackId: string;
+        readonly generation: number;
+      },
+      signal?: AbortSignal,
+    ): Promise<TransportObservation> {
+      if (closing) return { kind: 'unknown', reason: 'closed' };
+      if (binding.incarnation !== incarnation)
+        return { kind: 'unknown', reason: 'unbound' };
+      const stream = streams.get(binding.trackId);
+      return stream && stream.generation === binding.generation
+        ? stream.transport.read(signal)
+        : { kind: 'unknown', reason: 'unbound' };
+    },
     async setIdentities(identities: readonly string[]) {
       if (closing) throw subscriptionClosed();
       allowed = identitiesOf(identities);
@@ -284,7 +347,4 @@ export async function createAudioSubscription(input: SubscriptionInput) {
   };
 }
 
-/** Process owner only: all native rooms must already be closed. */
-export async function disposeAudioRuntime() {
-  await dispose();
-}
+export { disposeAudioRuntime } from './audio-runtime';

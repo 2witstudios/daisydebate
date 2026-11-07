@@ -115,6 +115,8 @@ const imageProblems = (source: string, all = workspaces) => {
     const expected = `RUN bun install --frozen-lockfile${stage === 'prod-deps' ? ' --production' : ''}`;
     if (lines[install] !== expected)
       problems.push(`${stage}: frozen install missing`);
+    if (!copies(lines.slice(0, Math.max(0, install)), 'patches/'))
+      problems.push(`${stage}: missing dependency patches before install`);
     for (const { path } of requiredWorkspaces(all, stage === 'prod-deps')) {
       if (!copies(lines.slice(0, Math.max(0, install)), `${path}/package.json`))
         problems.push(`${stage}: missing ${path}/package.json before install`);
