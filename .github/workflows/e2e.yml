@@ -321,7 +321,7 @@ jobs:
   room-launch:
     name: Isolated native browser (${{ matrix.cohort }})
     runs-on: ubuntu-24.04
-    # Launch alone measured57.9min before setup/reporting. Each full cohort
+    # Launch alone measured 57.9min before setup/reporting. Each full cohort
     # owns its worker/slot and retains sanitized evidence before another
     # cohort can exhaust its budget. No cases or execution counts are reduced.
     timeout-minutes: 70

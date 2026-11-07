@@ -13,7 +13,7 @@ type Ready = {
 type Mode =
   | Ready
   | { readonly kind: 'reading'; readonly controller: AbortController }
-  | { readonly kind: 'closed' | 'replaced' };
+  | { readonly kind: 'closed' | 'replaced' | 'unbound' };
 const unknown = (
   reason: Extract<TransportObservation, { kind: 'unknown' }>['reason'],
 ): TransportObservation => ({ kind: 'unknown', reason });
@@ -53,8 +53,14 @@ export function create(input: {
       return null;
     }
   };
-  const ended = () =>
-    unknown(current().kind === 'replaced' ? 'replaced' : 'closed');
+  const ended = () => {
+    const kind = current().kind;
+    return kind === 'replaced'
+      ? unknown('replaced')
+      : kind === 'unbound'
+        ? unknown('unbound')
+        : unknown('closed');
+  };
   return {
     async read(signal?: AbortSignal): Promise<TransportObservation> {
       const ready = current();
@@ -122,8 +128,25 @@ export function create(input: {
           baseline: decision.baseline,
           counters: { ...value.counters },
         };
-      } catch {
+      } catch (error) {
         if (current() !== reading) return ended();
+        const code =
+          error instanceof Error &&
+          'code' in error &&
+          typeof error.code === 'string'
+            ? error.code
+            : null;
+        // A post-dispatch native failure poisons the track binding in the
+        // patched SDK: every later read reports REBIND and can never succeed,
+        // so this binding is terminal and a caller needs a new subscription.
+        if (code === 'TRACK_STATS_REBIND') {
+          mode = { kind: 'unbound' };
+          return unknown('unbound');
+        }
+        if (code === 'TRACK_STATS_CLOSED') {
+          mode = { kind: 'closed' };
+          return unknown('closed');
+        }
         return refuse(controller.signal.aborted ? 'cancelled' : 'unavailable');
       } finally {
         signal?.removeEventListener('abort', cancel);

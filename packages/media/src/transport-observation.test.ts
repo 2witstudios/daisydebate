@@ -92,6 +92,37 @@ describe('bounded track transport observation is not coverage', () => {
         expected: { kind: 'unknown', reason },
       });
     });
+  test('a signed packetsLost decrease continues the baseline', async () => {
+    const lost = (value: bigint) => ({
+      stats: {
+        case: 'inboundRtp',
+        value: {
+          stream: { kind: 'audio', ssrc: 42 },
+          received: { packetsReceived: 10n, packetsLost: value },
+          inbound: {
+            trackIdentifier: 'original',
+            totalSamplesReceived: 20000n,
+            concealedSamples: 10000n,
+          },
+        },
+      },
+    });
+    const s = setup([[row()], [lost(5n)], [lost(3n)]]);
+    const outputs = [];
+    for (let i = 0; i < 3; i++) {
+      s.at(1000 + i * 500);
+      outputs.push(await s.observer.read());
+    }
+    assert({
+      given: 'late duplicates reducing only the signed packetsLost counter',
+      should:
+        'keep the same baseline without treating the decrease as a stream reset',
+      actual: outputs.map((r) =>
+        r.kind === 'unknown' ? r.reason : r.baseline,
+      ),
+      expected: [true, false, false],
+    });
+  });
   test('counter resets and missing reports break the baseline', async () => {
     const s = setup([[row()], [row(1n)], [], [row(2n)]]);
     const outputs = [];
@@ -193,7 +224,7 @@ describe('bounded track transport observation is not coverage', () => {
     now = 1100;
     const throttled = await o.read();
     assert({
-      given: 'an outstanding request then a poll before250ms',
+      given: 'an outstanding request then a poll before 250ms',
       should: 'preserve one outstanding call and a finite admission rate',
       actual: { busy, throttled, calls },
       expected: {

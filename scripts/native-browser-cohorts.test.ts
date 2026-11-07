@@ -23,22 +23,35 @@ const cohorts = [
     name: 'launch',
     command: 'bun test:e2e:room-launch',
     report: 'room-launch-results.json',
+    runnerIf: "matrix.cohort == 'launch'",
+    reporterIf:
+      "always() && !cancelled() && matrix.cohort == 'launch' && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure')",
   },
   {
     name: 'realtime',
     command: 'bun test:e2e:realtime',
     report: 'realtime-results.json',
+    runnerIf:
+      "matrix.cohort == 'realtime' && !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success'",
+    reporterIf:
+      "always() && !cancelled() && matrix.cohort == 'realtime' && (steps.realtime_room.outcome == 'success' || steps.realtime_room.outcome == 'failure')",
   },
   {
     name: 'messaging',
     command: 'bun test:e2e:messaging-realtime',
     report: 'messaging-realtime-results.json',
+    runnerIf:
+      "matrix.cohort == 'messaging' && !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success'",
+    reporterIf:
+      "always() && !cancelled() && matrix.cohort == 'messaging' && (steps.realtime_messaging.outcome == 'success' || steps.realtime_messaging.outcome == 'failure')",
   },
 ];
+const condition = (value: string | undefined) =>
+  value?.replace(/^\$\{\{\s*/, '').replace(/\s*\}\}$/, '') ?? null;
 describe('native browser cohort evidence survives later workload', () => {
   test('each full cohort owns an independent finite job', () => {
     assert({
-      given: 'the measured Launch150, generic3 and Messaging63 workload',
+      given: 'the measured Launch 150, generic 3 and Messaging 63 workload',
       should:
         'run all three independently without fail-fast cancellation or a larger deadline',
       actual: {
@@ -67,16 +80,14 @@ describe('native browser cohort evidence survives later workload', () => {
         );
         return {
           name,
-          runner: runner?.if?.includes(`matrix.cohort == '${name}'`) === true,
-          report: reporter?.if?.includes(`matrix.cohort == '${name}'`) === true,
-          reportAlways: reporter?.if?.includes('always()') === true,
+          runnerIf: condition(runner?.if),
+          reporterIf: condition(reporter?.if),
         };
       }),
-      expected: cohorts.map(({ name }) => ({
+      expected: cohorts.map(({ name, runnerIf, reporterIf }) => ({
         name,
-        runner: true,
-        report: true,
-        reportAlways: true,
+        runnerIf,
+        reporterIf,
       })),
     });
   });

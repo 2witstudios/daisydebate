@@ -79,6 +79,38 @@ test('a response delivered after its bound is unknown and supplied native errors
   });
 });
 
+for (const [name, code, reason] of [
+  ['rebind', 'TRACK_STATS_REBIND', 'unbound'],
+  ['closed', 'TRACK_STATS_CLOSED', 'closed'],
+] as const)
+  test(`a native ${name} failure is terminal for this subscription binding`, async () => {
+    let calls = 0;
+    const o = TransportObservation.create({
+      binding: {
+        incarnation: 'c'.repeat(24),
+        trackId: 'TR_original',
+        generation: 1,
+      },
+      nowMs: () => 1000,
+      readStats: async () => {
+        calls++;
+        throw Object.assign(new Error('Native track statistics unavailable'), {
+          code,
+        });
+      },
+    });
+    assert({
+      given: `a disjoint post-dispatch native ${name} failure`,
+      should:
+        'end this binding without further native reads, not retry forever',
+      actual: { first: await o.read(), again: await o.read(), calls },
+      expected: {
+        first: { kind: 'unknown', reason },
+        again: { kind: 'unknown', reason },
+        calls: 1,
+      },
+    });
+  });
 test('close during final clock sampling cannot reopen an observation', async () => {
   let reads = 0;
   let close: () => void = () => undefined;

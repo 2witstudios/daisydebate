@@ -221,7 +221,7 @@ test('two subscription objects cannot answer the old binding for one persistent 
         current = await b.subscription.transport(b.binding);
       assert({
         given:
-          'the same publisher track surviving subscriber-object replacement with both local generations starting1',
+          'the same publisher track surviving subscriber-object replacement with both local generations starting 1',
         should:
           'refuse an old lookup routed to the new object while allowing its own current binding',
         actual: {

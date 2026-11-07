@@ -10,8 +10,14 @@ const clockRefusal = (start: number, end: number | null) => {
     return 'clock' as const;
   return end - start >= 1000 ? ('deadline' as const) : null;
 };
+/** Cumulative counters only: signed packetsLost can fall as late duplicates arrive. */
+const monotonic = [
+  'packetsReceived',
+  'totalSamplesReceived',
+  'concealedSamples',
+] as const;
 const backwards = (previous: Sample, next: Sample) =>
-  (Object.keys(next.counters) as (keyof Sample['counters'])[]).some(
+  monotonic.some(
     (key) => BigInt(next.counters[key]) < BigInt(previous.counters[key]),
   );
 /** Pure metadata settlement; no observation bridges missing/reset data or replaces original identity. */

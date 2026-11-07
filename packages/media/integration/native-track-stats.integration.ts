@@ -71,7 +71,7 @@ test('actual subscribed trackHandle stats request responds under its bounded SDK
       );
       assert({
         given:
-          'the actual subscribed RemoteTrack and200ms of controlled native input',
+          'the actual subscribed RemoteTrack and 200ms of controlled native input',
         should:
           'execute the existing native trackHandle request and return bounded metadata, without claiming source coverage or multi-track binding yet',
         actual: {
