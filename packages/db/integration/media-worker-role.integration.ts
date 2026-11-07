@@ -214,6 +214,22 @@ test('the worker refuses a capture login with any broader privilege', async () =
         await problemsWith((r) => `alter role ${r} bypassrls`),
         await problemsWith((r) => `alter role ${r} replication`),
         await problemsWith((r) => `grant select on users to ${r}`),
+        await problemsWith(
+          (r) => `grant select (ciphertext) on necessary_evidence to ${r}`,
+        ),
+        await problemsWith(
+          (r) =>
+            `grant select (original_speaker) on necessary_evidence to ${r}`,
+        ),
+        await problemsWith(
+          (r) =>
+            `grant select (original_subject_actor_ids) on necessary_evidence to ${r}`,
+        ),
+        await problemsWith((r) => `grant select on necessary_evidence to ${r}`),
+        await problemsWith(
+          (r) =>
+            `grant select (actor_id) on necessary_evidence_erasure_requests to ${r}`,
+        ),
         await problemsWith((r) => `grant pg_read_all_data to ${r}`),
         await problemsWith(
           (r) =>
@@ -232,6 +248,11 @@ test('the worker refuses a capture login with any broader privilege', async () =
         ['createdb'],
         ['bypassrls'],
         ['replication'],
+        ['reads'],
+        ['reads'],
+        ['reads'],
+        ['reads'],
+        ['reads'],
         ['reads'],
         ['reads', 'other roles'],
         ['writes'],

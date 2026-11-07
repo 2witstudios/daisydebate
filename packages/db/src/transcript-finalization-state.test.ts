@@ -59,11 +59,13 @@ test('every expected stream sealed complete freezes complete before the cutoff',
   });
 });
 
-test('partial, missing, open or unexpected streams freeze incomplete', () => {
+test('partial streams wait through admission before freezing incomplete', () => {
   const closed = { expected: [a, b] };
   assert({
-    given: 'closed or cut-off stream sets that are not wholly complete',
-    should: 'freeze incomplete rather than claim a complete transcript',
+    given:
+      'a partial stream before cutoff and incomplete stream sets at cutoff',
+    should:
+      'preserve admission before cutoff without claiming completeness later',
     actual: [
       finalizationState(
         { ...closed, streams: [stream(a, 'complete'), stream(b, 'partial')] },
@@ -91,11 +93,39 @@ test('partial, missing, open or unexpected streams freeze incomplete', () => {
       finalizationState({ expected: [], streams: [] }, after, cutoff),
     ],
     expected: [
-      'incomplete',
+      'capture',
       'incomplete',
       'incomplete',
       'incomplete',
       'incomplete',
     ],
+  });
+});
+
+test('durable recognition work fences the single freeze beyond capture cutoff', () => {
+  const facts = {
+    expected: [{ segmentId: 'g', roundParticipantId: 'p' }],
+    streams: [{ segmentId: 'g', roundParticipantId: 'p', state: 'complete' }],
+  };
+  assert({
+    given:
+      'complete legacy stream seals but an unsettled original-audio/recognition obligation',
+    should:
+      'keep one frontier open both before and beyond the old cutoff without fabricating final text',
+    actual: [
+      finalizationState(
+        facts,
+        '2026-01-01T00:00:00.000Z',
+        '2026-01-01T00:00:01.000Z',
+        true,
+      ),
+      finalizationState(
+        facts,
+        '2026-01-01T00:00:02.000Z',
+        '2026-01-01T00:00:01.000Z',
+        true,
+      ),
+    ],
+    expected: ['capture', 'capture'],
   });
 });

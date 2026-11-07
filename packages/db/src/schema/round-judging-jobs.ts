@@ -4,6 +4,8 @@ import {
   judgingAttemptDiagnosticSchema,
   judgingAttemptOutcomes,
   judgingTerminalReasons,
+  judgingRecoveryReasons,
+  type JudgingRecoveryReason,
   type JudgingAttemptCategory,
   type JudgingAttemptOutcome,
   type JudgingTerminalReason,
@@ -40,7 +42,9 @@ export const roundJudgingJobs = pgTable(
     commandId: text('command_id'),
     judgeParticipantId: text('judge_participant_id').notNull(),
     status: text('status')
-      .$type<'queued' | 'leased' | 'succeeded' | 'failed'>()
+      .$type<
+        'queued' | 'leased' | 'recovering' | 'blocked' | 'succeeded' | 'failed'
+      >()
       .notNull(),
     leaseTokenDigest: text('lease_token_digest'),
     leaseExpiresAt: timestampColumn('lease_expires_at'),
@@ -52,10 +56,18 @@ export const roundJudgingJobs = pgTable(
     pendingBallotReceivedAt: timestampColumn('pending_ballot_received_at'),
     /** The AI judging budget, persisted at the freeze (DEC-275). Bounds provider work only. */
     generationDeadlineAt: timestampColumn('generation_deadline_at').notNull(),
+    /** The first lease epoch whose dispatch belongs to this bounded window. */
+    generationFirstEpoch: integer('generation_first_epoch')
+      .notNull()
+      .default(1),
     /** Pinned by the first claim, so a deploy cannot change a job's model between attempts. */
     model: text('model'),
     /** The job is not claimable before this; set by a retryable attempt failure. */
     retryAt: timestampColumn('retry_at'),
+    /** An actual service turn, retained even after this panel member finishes. */
+    lastClaimedAt: timestampColumn('last_claimed_at'),
+    /** Safe recovery cause; unlike a terminal reason, this does not end the obligation. */
+    recoveryReason: text('recovery_reason').$type<JudgingRecoveryReason>(),
     terminalReason: text('terminal_reason').$type<JudgingTerminalReason>(),
     createdAt: createdAtColumn(),
   },
@@ -116,11 +128,28 @@ export const roundJudgingJobs = pgTable(
     ),
     check(
       'round_judging_jobs_status_check',
-      oneOf(table.status, ['queued', 'leased', 'succeeded', 'failed']),
+      oneOf(table.status, [
+        'queued',
+        'leased',
+        'recovering',
+        'blocked',
+        'succeeded',
+        'failed',
+      ]),
+    ),
+    check(
+      'round_judging_jobs_recovery_check',
+      sql`(${table.status} in ('recovering','blocked')) = (${table.recoveryReason} is not null)
+        and (${table.recoveryReason} is null or ${oneOf(table.recoveryReason, judgingRecoveryReasons)})
+        and (${table.status} <> 'recovering' or ${table.retryAt} is not null)`,
     ),
     check(
       'round_judging_jobs_attempts_check',
       sql`${table.attempts} >= 0 and (${table.status} <> 'leased' or ${table.attempts} > 0)`,
+    ),
+    check(
+      'round_judging_jobs_generation_epoch_check',
+      sql`${table.generationFirstEpoch} >= 1 and ${table.generationFirstEpoch} <= ${table.attempts} + 1`,
     ),
     check(
       'round_judging_jobs_lease_check',

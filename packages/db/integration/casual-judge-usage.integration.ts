@@ -3,9 +3,32 @@ import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { withJudgingJob } from './round-judging.test-support';
 import { createBotSeat } from './bot-seat.test-support';
+import { sql } from 'drizzle-orm';
+import { judgingJobEndReason } from '@daisy/debate-engine';
+import type { BoundedTransaction } from '../src/bounded-transaction';
+import { endOpenJudgingJobs } from '../src/round-judging-end';
+import { sampleRoundExecutionTime } from '../src/round-execution-time';
 
 setupRitewayBun();
 requireTestServices(process.env);
+
+/** Seed actual Round closure, then exercise its owning terminal job/accounting writer. */
+const abandonAndSettle = (run: BoundedTransaction, roundId: string) =>
+  run(async (tx) => {
+    await tx.execute(
+      sql`select id from rounds where id=${roundId} for no key update`,
+    );
+    const now = await sampleRoundExecutionTime(tx);
+    await tx.execute(
+      sql`update rounds set status='abandoned',current_stage=null,completed_at=coalesce(completed_at,${now}::timestamptz) where id=${roundId}`,
+    );
+    return endOpenJudgingJobs(tx, {
+      roundId,
+      ending: 'abandoned',
+      now,
+      judgingEndReason: judgingJobEndReason,
+    });
+  });
 
 test('casual judge counts once at first model dispatch, not claim, and retains attribution', async () => {
   await withJudgingJob(async ({ fixture: f, roundId, target, jobs }) => {
@@ -61,23 +84,48 @@ test('revoked casual judge sponsor cannot dispatch an old reservation', async ()
 });
 
 for (const outcome of ['provider_refused', 'timeout'] as const) {
-  test(`casual judge terminal ${outcome} retains honest relief and late evidence`, async () => {
-    await withJudgingJob(async ({ fixture: f, roundId, target, jobs }) => {
+  test(`casual judge pending ${outcome} retains its debit until genuine terminal settlement and late evidence`, async () => {
+    await withJudgingJob(async ({ fixture: f, roundId, target, jobs, run }) => {
       const claim = await jobs.claim(target);
       await jobs.beginModelCall(claim.scope, claim.token);
       const [original] =
-        await f.sql`select source,state from usage_reservations where round_id=${roundId}`;
-      await jobs.recordAttemptFailure(claim.scope, claim.token, {
-        diagnostic: {
-          category: outcome,
-          finish: 'none',
-          issueCount: 0,
-          issues: [],
+        await f.sql`select id,source,state from usage_reservations where round_id=${roundId}`;
+      const failure = await jobs.recordAttemptFailure(
+        claim.scope,
+        claim.token,
+        {
+          diagnostic: {
+            category: outcome,
+            finish: 'none',
+            issueCount: 0,
+            issues: [],
+          },
+          final: outcome === 'provider_refused',
         },
-        final: true,
+      );
+      const [pending] =
+        await f.sql`select id,source,state from usage_reservations where round_id=${roundId}`;
+      const [job] =
+        await f.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
+      assert({
+        given: `an ended ${outcome} attempt whose Round still owes judging`,
+        should:
+          'retain the original dispatched debit and recoverable job without premature refund or terminal settlement',
+        actual: [failure, pending, job],
+        expected: [
+          outcome === 'provider_refused'
+            ? { kind: 'blocked', reason: 'provider_refused' }
+            : { kind: 'retry' },
+          original,
+          {
+            status: outcome === 'provider_refused' ? 'blocked' : 'queued',
+            terminal_reason: null,
+          },
+        ],
       });
+      await abandonAndSettle(run, roundId);
       const [settled] =
-        await f.sql`select source,state from usage_reservations where round_id=${roundId}`;
+        await f.sql`select id,source,state from usage_reservations where round_id=${roundId}`;
       assert({
         given: `a counted casual judge whose terminal provider result is ${outcome}`,
         should:
@@ -88,6 +136,16 @@ for (const outcome of ['provider_refused', 'timeout'] as const) {
           outcome === 'provider_refused' ? 'refunded' : 'unknown',
           original.state.countedAt,
         ],
+      });
+      await abandonAndSettle(run, roundId);
+      const [repeated] =
+        await f.sql`select id,source,state from usage_reservations where round_id=${roundId}`;
+      assert({
+        given: 'the same actual abandoned Round settled a second time',
+        should:
+          'retain exactly the first settlement and original reservation identity',
+        actual: repeated,
+        expected: { ...settled, id: original.id },
       });
       if (outcome === 'timeout') {
         await jobs.recordUsage(claim.scope, claim.token, {
@@ -129,7 +187,7 @@ for (const outcome of ['provider_refused', 'timeout'] as const) {
             }),
         });
         const [unchanged] =
-          await f.sql`select source,state from usage_reservations where round_id=${roundId}`;
+          await f.sql`select id,source,state from usage_reservations where round_id=${roundId}`;
         assert({
           given: 'rejected contradictory late evidence',
           should: 'preserve the one original refund',
@@ -142,7 +200,7 @@ for (const outcome of ['provider_refused', 'timeout'] as const) {
 }
 
 test('casual judge allowance waits for every frozen AI judge before terminal settlement', async () => {
-  await withJudgingJob(async ({ fixture: f, roundId, target, jobs }) => {
+  await withJudgingJob(async ({ fixture: f, roundId, target, jobs, run }) => {
     const next = await createBotSeat(f, roundId, 'judge', 1);
     const first = await jobs.claim(target);
     await jobs.beginModelCall(first.scope, first.token);
@@ -159,7 +217,7 @@ test('casual judge allowance waits for every frozen AI judge before terminal set
       await f.sql`select state from usage_reservations where round_id=${roundId}`;
     assert({
       given:
-        'one terminal refused judge and another frozen AI judge without its job yet',
+        'one blocked refused judge and another frozen AI judge without its job yet',
       should:
         'retain the counted allowance until the complete aggregate is terminal',
       actual: waiting.state.kind,
@@ -176,13 +234,24 @@ test('casual judge allowance waits for every frozen AI judge before terminal set
         issueCount: 0,
         issues: [],
       },
-      final: true,
+      final: false,
     });
+    const [stillPending] =
+      await f.sql`select state from usage_reservations where round_id=${roundId}`;
+    assert({
+      given:
+        'both frozen judges have ended attempts but their blocked/retry obligations remain open',
+      should:
+        'keep the shared debit dispatched until the Round actually closes',
+      actual: stillPending,
+      expected: waiting,
+    });
+    await abandonAndSettle(run, roundId);
     const [settled] =
       await f.sql`select state from usage_reservations where round_id=${roundId}`;
     assert({
       given:
-        'the remaining frozen judge terminates with an unknown provider outcome',
+        'the Round actually closes with one refused and one uncertain provider attempt',
       should: 'retain unknown exposure and the original count without relief',
       actual: settled.state,
       expected: { ...waiting.state, kind: 'unknown' },

@@ -334,3 +334,36 @@ describe('restrictions every no-restricted-syntax list carries', () => {
     });
   });
 });
+
+test('pure packages reject Bun runtime subpaths while delivery adapters retain SQLite access', async () => {
+  const eslint = repositoryEslint();
+  const results = await Promise.all(
+    ['protocol', 'debate-engine', 'auth', 'errors'].map(async (name) => {
+      const [result] = await eslint.lintText(
+        "import { Database } from 'bun:sqlite'; export const database = Database;",
+        { filePath: `packages/${name}/src/runtime-probe.ts` },
+      );
+      return result!.messages.some(
+        (message) =>
+          message.ruleId === 'no-restricted-imports' && message.severity === 2,
+      );
+    }),
+  );
+  const [adapter] = await eslint.lintText(
+    "import { Database } from 'bun:sqlite'; export const database = Database;",
+    { filePath: 'apps/web/src/features/media-capture/runtime-probe.ts' },
+  );
+  assert({
+    given:
+      'a Bun SQLite import in each framework-free package and its owning web storage edge',
+    should:
+      'reject every pure-runtime import without globally banning the approved adapter',
+    actual: {
+      pure: results,
+      adapter: adapter!.messages.some(
+        (message) => message.ruleId === 'no-restricted-imports',
+      ),
+    },
+    expected: { pure: [true, true, true, true], adapter: false },
+  });
+});

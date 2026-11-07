@@ -66,7 +66,7 @@ export async function settleCasualJudgeUsageLocked(tx: Tx, roundId: string) {
   const [round] = await tx.select().from(rounds).where(eq(rounds.id, roundId));
   if (!round || round.competitionType === 'ranked') return;
   const [jobs] = await tx.execute(sql`select count(*)::int as total,
-    count(*) filter(where j.status is null or j.status in ('queued','leased'))::int as open
+    count(*) filter(where j.status is null or j.status in ('queued','leased','recovering','blocked'))::int as open
     from round_participants p join actors a on a.id=p.actor_id and a.kind='bot'
     left join round_judging_jobs j on j.round_id=p.round_id and j.judge_participant_id=p.id
     where p.round_id=${roundId} and p.role='judge'`);

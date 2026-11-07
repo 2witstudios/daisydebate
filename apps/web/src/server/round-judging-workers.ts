@@ -1,3 +1,4 @@
+import { reportJudgingRecovery } from './round-judging-recovery-report';
 import type { JudgingTerminalReason } from '@daisy/protocol';
 import type { RoundJudgingPolicy } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
@@ -36,7 +37,7 @@ export function startRoundJudgingWorkers(input: {
     voice: app.aiVoice,
     // The service reserves before claiming and holds admission through retries.
     withProvider: (_signal, work) => work(),
-    jobEnded,
+    recoveryPending: (reason) => reportJudgingRecovery(app.logger, reason),
   });
   return startRoundJudgingService({
     reserveCapacity: () => input.budget.reserve(),

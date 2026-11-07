@@ -21,6 +21,7 @@ const captureOperations = [
   'seal',
   'release',
   'heard',
+  'evidence',
 ] as const;
 const route = (path: string) => {
   const parts = path.split('/');

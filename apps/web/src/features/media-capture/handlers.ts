@@ -1,4 +1,5 @@
 import type { Database } from '@daisy/db';
+import { prepareEvidenceBody } from './necessary-evidence-authentication';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
@@ -13,6 +14,8 @@ import {
   sealReply,
   tokenReply,
   type CaptureRefusal,
+  evidenceIngressReplySchema,
+  type NecessaryEvidenceIngressReply,
 } from '@daisy/protocol';
 import { z } from 'zod';
 import { handleOperation, parseValidated, readBytes } from '../../server/http';
@@ -43,6 +46,8 @@ export function createMediaCaptureHandlers(input: {
   readonly token: Broker['captureToken'];
   /** Capture hears a bot seat's track (DEC-226, ISSUE-514-r2). */
   readonly heard: Relay;
+  /** Explicit injected capability only. Missing production custody never activates collection. */
+  readonly evidence?: (body: unknown) => Promise<NecessaryEvidenceIngressReply>;
 }) {
   const relays = new Map([['heard', input.heard]]);
   return {
@@ -71,6 +76,26 @@ export function createMediaCaptureHandlers(input: {
           const payload = { ...JSON.parse(body), roundId: principal.roundId };
           const operation = url.pathname.split('/').at(-1);
           try {
+            if (operation === 'evidence') {
+              // Original authority/provenance is never rewritten to a successor request scope.
+              const original = prepareEvidenceBody(JSON.parse(body));
+              if (!original) throw createAppError('VALIDATION');
+              if (
+                original.body.roundId !== principal.roundId ||
+                original.body.workerId !== principal.workerId
+              )
+                throw createAppError('AUTHORIZATION');
+              if (!input.evidence) throw createAppError('INFRASTRUCTURE');
+              const reply = evidenceIngressReplySchema.parse(
+                await input.evidence(original.body),
+              );
+              if (
+                reply.kind !== 'refused' &&
+                reply.evidenceId !== original.body.evidenceId
+              )
+                throw createAppError('INVARIANT');
+              return Response.json(reply);
+            }
             if (operation === 'token')
               return Response.json(
                 tokenReply.parse(

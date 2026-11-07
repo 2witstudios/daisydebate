@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
+import { judgingPolicy } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { agentRuns } from './schema/agent-runs';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
@@ -60,6 +61,20 @@ export async function claimLockedJudgingJob(
     .for('update');
   const now = await readDatabaseTime(tx);
   requireClaimableJob(job, commandId, now);
+  const [other] = await tx
+    .select({ id: roundJudgingJobs.judgeParticipantId })
+    .from(roundJudgingJobs)
+    .where(
+      and(
+        eq(roundJudgingJobs.roundId, target.roundId),
+        sql`${roundJudgingJobs.judgeParticipantId}<>${target.judgeParticipantId}`,
+        eq(roundJudgingJobs.status, 'leased'),
+        sql`${roundJudgingJobs.leaseExpiresAt}>${now}`,
+      ),
+    )
+    .limit(1);
+  if (other)
+    throw createAppError('CONFLICT', 'Round already has active judging work');
   const frozen = await readLockedFrozenRoundTranscript(tx, round.id);
   if (!frozen || frozen.revision !== job.freezeRevision)
     throw createAppError('CONFLICT', 'Frozen judging input changed');
@@ -88,7 +103,8 @@ export async function claimLockedJudgingJob(
       executionTokenDigest: agentLeaseDigest(token),
     },
   });
-  const leaseExpiresAt = new Date(now.getTime() + input.leaseMs);
+  const claimedAt = await readDatabaseTime(tx);
+  const leaseExpiresAt = new Date(claimedAt.getTime() + input.leaseMs);
   await tx
     .update(roundJudgingJobs)
     .set({
@@ -97,6 +113,16 @@ export async function claimLockedJudgingJob(
       attempts: epoch,
       model,
       retryAt: null,
+      lastClaimedAt: claimedAt,
+      recoveryReason: null,
+      ...(job.status === 'recovering' && !job.pendingBallot
+        ? {
+            generationDeadlineAt: new Date(
+              claimedAt.getTime() + judgingPolicy.aiBudgetMs,
+            ),
+            generationFirstEpoch: epoch,
+          }
+        : {}),
       leaseTokenDigest: agentLeaseDigest(token),
       leaseExpiresAt,
     })

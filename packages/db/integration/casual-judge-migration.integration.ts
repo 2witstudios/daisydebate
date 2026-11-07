@@ -361,7 +361,7 @@ test(
           await f.sql`update agent_runs set requests=2 where round_participant_id=${target.judgeParticipantId}`;
           await scratch.migrate(() => true);
           const [before] =
-            await f.sql`select source,state from usage_reservations where round_id=${target.roundId}`;
+            await f.sql`select id,actor_id,source,state,reserved_at,binds_free_judge from usage_reservations where round_id=${target.roundId}`;
           const client = new SQL(scratch.url, { max: 4 });
           const run = createBoundedTransaction({
             lane: testLane(client, 4),
@@ -375,17 +375,31 @@ test(
               claimed.token,
             );
             const [after] =
-              await f.sql`select source,state,(select sum(requests)::int from agent_runs where round_participant_id=${target.judgeParticipantId}) as requests,
+              await f.sql`select id,actor_id,source,state,reserved_at,binds_free_judge,(select sum(requests)::int from agent_runs where round_participant_id=${target.judgeParticipantId}) as requests,
             (select count(*)::int from round_judging_attempts where round_id=${target.roundId}) as attempts from usage_reservations where round_id=${target.roundId}`;
+            const [pending] =
+              await f.sql`select status,recovery_reason,terminal_reason,
+              retry_at>clock_timestamp() and retry_at<=clock_timestamp()+interval '30 seconds' as bounded_backoff,
+              lease_token_digest is null and lease_expires_at is null as released_lease,
+              (select requests=0 and ended_at is not null from agent_runs where id=${claimed.scope.agentRunId}) as no_new_dispatch
+              from round_judging_jobs where round_id=${target.roundId}`;
             assert({
               given:
                 'two durable prior judge requests with missing attempt records, migrated before a retry claim',
               should:
-                'end at the existing provider budget without a new dispatch, relief or changed recognition/source',
-              actual: [begun, after],
+                'defer the spent window with bounded backoff and released capacity, preserving the original usage identity, historical budget and lack of new dispatch or relief',
+              actual: [begun, after, pending],
               expected: [
-                { kind: 'ended', reason: 'attempts_exhausted' },
+                { kind: 'deferred', reason: 'attempt_window' },
                 { ...before, requests: 2, attempts: 0 },
+                {
+                  status: 'recovering',
+                  recovery_reason: 'attempt_window',
+                  terminal_reason: null,
+                  bounded_backoff: true,
+                  released_lease: true,
+                  no_new_dispatch: true,
+                },
               ],
             });
           } finally {

@@ -93,6 +93,7 @@ test('every capture operation the worker client calls is admitted, the heard rep
     'observe',
     'seal',
     'heard',
+    'evidence',
   ];
   assert({
     given: 'a signed call to each capture operation',

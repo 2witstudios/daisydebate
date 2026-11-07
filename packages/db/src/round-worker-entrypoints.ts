@@ -44,8 +44,8 @@ export function roundWorkerEntrypoints(input: {
       })
     : undefined;
   return {
-    scanRoundJudgingJobs: (limit: number) =>
-      jobs ? jobs.scan(limit) : Promise.resolve([]),
+    scanRoundJudgingJobs: (...args: Parameters<Jobs['scan']>) =>
+      jobs ? jobs.scan(...args) : Promise.resolve([]),
     claimRoundJudgingJob: (...args: Parameters<Jobs['claim']>) =>
       configured(jobs).claim(...args),
     verifyRoundJudgingJob: (...args: Parameters<Jobs['verify']>) =>

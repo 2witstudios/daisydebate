@@ -150,7 +150,7 @@ export async function judgeWithCachedAi(
   roundId: string,
   ballot: Ballot,
 ) {
-  const target = (await f.store.scanRoundJudgingJobs(64)).find(
+  const target = (await f.store.scanRoundJudgingJobs(64, 'generation')).find(
     (j) => j.roundId === roundId,
   )!;
   const claim = await f.store.claimRoundJudgingJob(target);

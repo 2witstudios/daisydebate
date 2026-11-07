@@ -314,3 +314,10 @@ export const reservedWordIssue = (file: string, word: string): string | null =>
   !humanCoaching.some((path) => file.startsWith(path))
     ? `${file}: '${word}' uses the reserved word coach (human coaching only)`
     : null;
+
+/** Runtime modules are supplied by the pinned Bun runtime, never package dependencies. */
+export const isRuntimeImport = (specifier: string) =>
+  specifier.startsWith('node:') ||
+  specifier === 'bun' ||
+  specifier === 'bun:test' ||
+  specifier === 'bun:sqlite';

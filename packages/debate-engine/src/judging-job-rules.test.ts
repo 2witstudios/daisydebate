@@ -3,10 +3,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   aiSeatStanding,
   generationBudgetSpent,
-  heldBallotHoldEndsAtMs,
   judgingDispatchEnd,
   judgingEndIsReported,
   judgingJobEndReason,
+  planJudgingRecovery,
 } from './judging-job-rules';
 
 setupRitewayBun();
@@ -23,7 +23,6 @@ const held = {
   lastAttendanceDecisionAt: null,
   lastWriterResolvedAt: null,
 };
-const grace = judgingPolicy.heldBallotGraceMs;
 
 test('what an AI seat can still do', () => {
   const cases = [
@@ -33,7 +32,7 @@ test('what an AI seat can still do', () => {
       1_000,
       { state: 'generating', deadlineAt: at(5_000) },
     ],
-    ['the budget just spent', job(), 5_000, { state: 'ended' }],
+    ['the budget just spent', job(), 5_000, { state: 'recovering' }],
     [
       'budget left and a held ballot',
       job({ holdsBallot: true }),
@@ -50,7 +49,7 @@ test('what an AI seat can still do', () => {
       'a held ballot at the cutoff',
       job({ holdsBallot: true }),
       9_000,
-      { state: 'ended' },
+      { state: 'holding_ballot' },
     ],
     ['a failed job', job({ status: 'failed' }), 1_000, { state: 'ended' }],
     [
@@ -67,34 +66,6 @@ test('what an AI seat can still do', () => {
       actual: aiSeatStanding(facts, held, nowMs),
       expected,
     });
-});
-
-test('how long a held ballot may hold its Round', () => {
-  assert({
-    given: 'no attendance decision and no writer',
-    should: 'end at the cutoff',
-    actual: heldBallotHoldEndsAtMs(held),
-    expected: 9_000,
-  });
-  assert({
-    given: 'a decision after the cutoff',
-    should: 'end a grace after that decision',
-    actual: heldBallotHoldEndsAtMs({
-      ...held,
-      lastAttendanceDecisionAt: at(20_000),
-    }),
-    expected: 20_000 + grace,
-  });
-  assert({
-    given: 'a writer resolving last',
-    should: 'end a grace after it resolved',
-    actual: heldBallotHoldEndsAtMs({
-      ...held,
-      lastAttendanceDecisionAt: at(20_000),
-      lastWriterResolvedAt: at(30_000),
-    }),
-    expected: 30_000 + grace,
-  });
 });
 
 test('when a job buys nothing more', () => {
@@ -177,5 +148,50 @@ test('judging names why a Round’s end ended a job', () => {
       ['round_ended', 'ballot_hold_ended', 'generation_deadline'] as const
     ).map(judgingEndIsReported),
     expected: [false, true, true],
+  });
+});
+
+test('recovery releases attempt capacity and bounds automatic lifetime spending', () => {
+  const input = {
+    totalPaidCalls: 0,
+    windowPaidCalls: 0,
+    generationDeadlineAt: at(5_000),
+    definiteRefusal: false,
+  };
+  assert({
+    given:
+      'a transient failure, a spent window, repeated windows, lifetime spending exhausted, and an unhealable refusal',
+    should: 'schedule finite backoff or retain an explicit blocked obligation',
+    actual: [
+      planJudgingRecovery(input, 1_000),
+      planJudgingRecovery(
+        { ...input, totalPaidCalls: 2, windowPaidCalls: 2 },
+        1_000,
+      ),
+      planJudgingRecovery(
+        { ...input, totalPaidCalls: 12, windowPaidCalls: 2 },
+        1_000,
+      ),
+      planJudgingRecovery(
+        { ...input, totalPaidCalls: judgingPolicy.maxAutomaticPaidCalls },
+        1_000,
+      ),
+      planJudgingRecovery({ ...input, definiteRefusal: true }, 1_000),
+    ],
+    expected: [
+      {
+        status: 'queued',
+        reason: null,
+        retryAt: at(1_000 + judgingPolicy.retryMs),
+      },
+      {
+        status: 'recovering',
+        reason: 'attempt_window',
+        retryAt: at(1_000 + judgingPolicy.recoveryMs),
+      },
+      { status: 'recovering', reason: 'attempt_window', retryAt: at(301_000) },
+      { status: 'blocked', reason: 'automatic_spend', retryAt: null },
+      { status: 'blocked', reason: 'provider_refused', retryAt: null },
+    ],
   });
 });

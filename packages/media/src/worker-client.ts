@@ -4,7 +4,10 @@ import {
   captureMutationReply,
   sealReply,
   tokenReply,
+  canonicalCaptureEvidenceBody,
+  evidenceIngressReplySchema,
 } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
 import { unavailable } from './worker-response';
 import {
   createSignedWorkerCall,
@@ -28,6 +31,31 @@ export function createMediaWorkerClient(input: WorkerTransportDependencies) {
   const { scope, call, lease, calibratedRead } = createSignedWorkerCall(input);
   return {
     lease,
+    /** Original native unit only. A historical payload receipt is not publication/hearing permission. */
+    async preserve(raw: unknown, signal?: AbortSignal) {
+      const original = canonicalCaptureEvidenceBody(raw);
+      if (
+        original.kind !== 'encoded' ||
+        original.body.roundId !== scope.roundId ||
+        original.body.sessionId !== scope.sessionId ||
+        original.body.workerId !== scope.workerId
+      )
+        throw createAppError('VALIDATION');
+      const reply = (
+        await call(
+          'evidence',
+          original.body,
+          evidenceIngressReplySchema,
+          signal,
+        )
+      ).value;
+      if (
+        reply.kind !== 'refused' &&
+        reply.evidenceId !== original.body.evidenceId
+      )
+        throw unavailable();
+      return reply;
+    },
     read: (
       request: {
         readonly epoch: number;

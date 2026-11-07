@@ -258,12 +258,12 @@ test('when no judge rules by the deadline the Round completes without a winner',
   });
 });
 
-test('an undispatched AI judging job past its budget releases its uncounted identity without inventing provider failure', async () => {
+test('an unserved AI judging obligation survives its attempt window without spending allowance (DEC-370)', async () => {
   await withRoomRuntime(
     async (f) => {
       const { roundId } = await freezeBotJudge(f);
       await seedSettledAttendanceLedger(f, roundId);
-      // An AI seat is bounded by its own budget (DEC-275), not the human window.
+      // A finite attempt window cannot terminate an unserved durable obligation (DEC-370).
       await f.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
       await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
       const [job] =
@@ -275,13 +275,13 @@ test('an undispatched AI judging job past its budget releases its uncounted iden
         given:
           'an AI-judge-only Round frozen with no bot admission resource, its job never claimed (judging capacity exhausted) when the ballot deadline passes',
         should:
-          'complete without a winner, fail the job without a lease and retain one released, never-counted judge identity',
+          'retain the pending Round, unleased job and original reserved, never-counted judge identity',
         actual: [round.status, round.outcome, job, reservations],
         expected: [
-          'completed',
+          'active',
           null,
-          { status: 'failed', lease_token_digest: null },
-          [{ kind: 'casual_ai_judge', state: 'released', counted: false }],
+          { status: 'queued', lease_token_digest: null },
+          [{ kind: 'casual_ai_judge', state: 'reserved', counted: false }],
         ],
       });
     },
@@ -369,7 +369,7 @@ for (const captured of [true, false])
     });
   });
 
-test('an AI job out of budget with no worker running is reported once, with the real reason', async () => {
+test('maintenance cannot end an unclaimed AI recovery obligation at the old deadline', async () => {
   await withRoomRuntime(
     async (f) => {
       const { roundId } = await freezeBotJudge(f);
@@ -394,16 +394,17 @@ test('an AI job out of budget with no worker running is reported once, with the 
       await f.sql`delete from service_instances where instance_id=${instanceId}`;
       assert({
         given: 'no judging worker ever claiming the job',
-        should: 'record the budget as the reason and report it exactly once',
+        should:
+          'retain queued recovery without inventing a terminal failure report',
         actual: {
           job,
           reported,
           status: (await f.store.getRound(roundId))!.status,
         },
         expected: {
-          job: { status: 'failed', terminal_reason: 'generation_deadline' },
-          reported: ['generation_deadline'],
-          status: 'completed',
+          job: { status: 'queued', terminal_reason: null },
+          reported: [],
+          status: 'active',
         },
       });
     },
@@ -448,7 +449,7 @@ async function jobPastBudget(f: Fixture, holds: boolean) {
   return roundId;
 }
 
-test('a held ballot dropped at its bound is reported once, with the reason', async () => {
+test('maintenance preserves a validated ballot beyond the old hold bound (DEC-370)', async () => {
   await withRoomRuntime(async (f) => {
     const roundId = await jobPastBudget(f, true);
     await seedSettledAttendanceLedger(f, roundId);
@@ -468,17 +469,21 @@ test('a held ballot dropped at its bound is reported once, with the reason', asy
     await maintenance.finalize(roundId);
     await maintenance.finalize(roundId);
     const [job] =
-      await f.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
+      await f.sql`select status,terminal_reason,pending_ballot is not null as holds_ballot from round_judging_jobs where round_id=${roundId}`;
     await f.sql`delete from service_instances where instance_id=${instanceId}`;
     const done = (await f.store.getRound(roundId))!;
+    const [{ attempts }] =
+      await f.sql`select count(*)::int as attempts from round_judging_attempts where round_id=${roundId}`;
     assert({
       given: 'a held ballot that never submitted, past every bound',
-      should: 'end the job, end the Round with no winner, and report it once',
-      actual: { job, reported, done: [done.status, done.outcome] },
+      should:
+        'preserve its validated reply and pending Round without repeating a paid attempt or reporting a terminal loss',
+      actual: { job, reported, attempts, done: [done.status, done.outcome] },
       expected: {
-        job: { status: 'failed', terminal_reason: 'ballot_hold_ended' },
-        reported: ['ballot_hold_ended'],
-        done: ['completed', null],
+        job: { status: 'leased', terminal_reason: null, holds_ballot: true },
+        reported: [],
+        attempts: 1,
+        done: ['active', null],
       },
     });
   }, judgingOptions);

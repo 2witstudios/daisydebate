@@ -9,7 +9,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
  * pending tuple goes in the same statement; the guard trigger refuses any
  * other clear.
  */
-export const discardPendingJudgment = sql`status='failed',terminal_reason='ballot_discarded',lease_token_digest=null,lease_expires_at=null,
+export const discardPendingJudgment = sql`status='failed',terminal_reason='ballot_discarded',recovery_reason=null,retry_at=null,lease_token_digest=null,lease_expires_at=null,
   pending_ballot=null,pending_ballot_agent_run_id=null,pending_ballot_epoch=null,pending_ballot_received_at=null`;
 
 /**

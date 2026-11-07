@@ -357,6 +357,122 @@ leaf (PRIV-H). Before a processor goes live: the account belongs to the
 organization; the region and the transfer safeguard are recorded above; the
 DPA is executed and filed; secrets live only in the platform's secret store.
 
+## Necessary transcription recovery evidence (DEC-369)
+
+This class is separate from optional Recordings and ranked content. Its purpose
+is finishing and quality-reconciling authoritative transcription before the single immutable judging freeze, including recovery after platform failure. The authorized
+local implementation direction is encrypted admitted PCM plus original-authority
+provenance, with a hard maximum seven days from the ORIGINAL trusted receipt and
+no retry extension. Delete earlier only after durably authoritative selected
+transcript, adequate actual coverage AND explicit recognition settlement under the
+declared policy, or applicable erasure. Provider success alone
+is insufficient. Current production transcription still stores no recovery audio;
+production collection remains disabled pending REL-H infrastructure/privacy proof
+and human sign-off. Synthetic isolated qualification is not production collection.
+
+Provisional captions and unselected recognition candidates are separate private
+working text, linked to original receipts/speaker/sequence/time and attempt/model/
+configuration/version and reconciliation decisions. They are not final judging
+evidence and never prove coverage or recognition completeness. Their candidate
+lifecycle is minimized with the original evidence: the original seven-day receipt
+cap cannot be restarted by recognition or caption revision. Purge unnecessary
+candidate text on settlement/erasure, retaining only the selected authoritative
+transcript under its separate transcript policy and the minimal declared decision
+provenance. No candidate text or audio belongs in telemetry or ordinary realtime
+payloads. This candidate lifecycle is planned and production-disabled; implementation,
+export/erasure/restore and every-copy proof remain required before activation.
+
+PostgreSQL intent routing additionally retains the original bounded subject actor
+IDs, separately from the current cast or successor worker. These are linkable
+personal/private privacy-routing metadata, not anonymous identifiers. They permit
+immediate canonical subject fencing and bounded cleanup after aggregate erasure.
+Do not expose them through ordinary Round reads, worker discovery or telemetry;
+minimize them after confirmed retirement. Original capture and current execution
+worker identifiers remain separate private routing facts. The minimal sticky
+Round withdrawal marker follows its owning Round lifecycle; it contains no PCM,
+transcript or subject identities. Unknown original subjects cannot be
+backfilled from current membership or treated as an empty set. Integrated
+retirement/export/erasure remains incomplete and production-disabled.
+
+Private per-intent enrollment offer rows retain one original evidence ID and
+actual last-offered timestamp, without audio, transcript or key material. This is
+linkable traversal metadata, not evidence acceptance/current authority. It
+cascades with the owning intent; the same minimization/export/restore obligations
+apply, without a new permanent retention purpose or production approval.
+
+The private enrollment scan position retains at most two linkable Round IDs,
+ordering timestamps and a next-due instant, without payload/subjects/tokens. A
+completed or empty finite pass clears its cursor references. This bounded control
+row has no authority over an original receipt, custody erasure or transcript.
+An incomplete pass can survive restart/aggregate deletion; metadata minimization,
+export and restore obligations apply below, without production retention approval.
+
+Private transcription-recovery attempt metadata additionally retains original
+context/claim epoch, conservative call ordinal, pinned model/policy, outcome,
+candidate digest/byte count and admission/completion timestamps. These linkable
+private facts contain no candidate words and do not establish recognition quality.
+An unknown admission never creates another permission under the same epoch.
+Attempts cascade with their owning context on aggregate erasure and share the
+context metadata minimization/export/restore obligation below; no new permanent
+metadata retention or production privacy approval is asserted.
+
+Private transcription-recovery contexts and source manifests retain receipt IDs,
+original stream/grant/run digests, offsets/sequences, bounded context membership
+and work/selection provenance. These are linkable private metadata, not anonymous
+facts or permission to dispatch. They contain no PCM or unselected candidate text.
+The frozen original subject/speaker/custody scope participates in the context key;
+a successor cast never supplies missing privacy authority. Unselected candidate
+text remains transient; loss requires rerecognition from original evidence, never
+reconstruction from a digest. Minimize unnecessary context/source metadata after
+confirmed lifecycle completion, retaining only declared selected-transcript or
+exception/remedy provenance under its owning policy. Round aggregate deletion
+removes context metadata while original custody-cleanup routing survives in the
+evidence-owned intent. Full export/erasure/restore/metadata-minimization and
+production retention acceptance remain incomplete under REL-H.
+
+The independent local key authority additionally retains canonical original
+Round/subject scope bindings and accepted privacy-intent routing (exact actor/user
+or Round, opaque intent ID, authorization digest, original sequence and sticky
+pending/committed state). These are private/linkable necessary metadata, never
+authentication by themselves or evidence that restored PG is current. Pending
+refuses raw use without permitting uncertain material deletion. Committed denial
+remains effective against restored old material while current authority is
+available. Accepted privacy work must resume the same request after a crash; no
+missing restored event cancels it. Canonical erasure must still commit during
+custody/vendor outage. Actual public-closure integration, scheduled recovery,
+export and restore-lineage reconciliation are incomplete; no production capability
+is enabled.
+
+The key authority is separate from payload backups. Its opaque evidence IDs,
+original receipt/expiry, integrity digests and revocation tombstones are necessary
+anti-resurrection metadata; they contain no PCM, transcript or raw key. Retain the
+minimal fence while any old payload/material snapshot may be restored. Purging it
+requires verified retirement of all such copies or an independently irreversible
+replacement fence; no automatic seven-day metadata purge may re-enable old keys.
+The human privacy/infrastructure owner must approve the precise metadata retention
+and retirement evidence before activation. Local synthetic tests remove their
+isolated authority/material directories at cleanup.
+
+Private application recovery decodes necessary evidence only after original
+subject/withdrawal/frontier/expiry fences and current independent custody checks.
+Its original body stays private to the owning recovery job, never ordinary Round
+reads, realtime, telemetry or read-only worker discovery. Decoding is not new
+retention, a new processor or permission to dispatch: the consuming job must bound
+its transient plaintext, honor the ORIGINAL expiry and current erasure, cancel and
+clean up, and take its own current dispatch/commit fences. An already copied
+plaintext cannot be cryptographically recalled. Local synthetic tests demonstrate
+receipt/body recovery and future-use refusal, not every-copy deletion, public
+closure, full PG backup restoration or external-processor cancellation. Production
+remains disabled pending REL-H; capture/STT/job-lifecycle integration is incomplete.
+
+Encrypted backup bytes are not physically deleted by SQL DELETE or key revocation.
+Every-copy expiry, at-rest encryption, access, restore reconciliation and permanent
+key revocation remain unverified production obligations in REL-H. Rolling back all
+local authority copies has no local anti-rollback proof. Already dispatched
+plaintext cannot be recalled cryptographically: cancellation, future dispatch and
+commit fences, temporary-data cleanup and processor erasure must be demonstrated
+separately. No logs, ordinary Round reads or realtime output may expose this class.
+
 ## Security measures
 
 Zero trust at every boundary with validated input; passwordless sign-in

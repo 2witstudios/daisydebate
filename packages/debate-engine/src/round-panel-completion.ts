@@ -18,6 +18,8 @@ import { deriveRoundOutcome, participatingRulings } from './round-outcome';
 export type PanelWait =
   | { readonly on: 'human_window'; readonly deadlineAt: string }
   | { readonly on: 'ai_generating'; readonly deadlineAt: string }
+  | { readonly on: 'ai_recovering' }
+  | { readonly on: 'ai_blocked' }
   | { readonly on: 'held_ballot' };
 export type PanelDecision =
   | { readonly kind: 'pending'; readonly waiting: PanelWait }
@@ -115,6 +117,10 @@ function awaitedSeat(
   );
   if (generating.length > 0)
     return { on: 'ai_generating', deadlineAt: generating.sort().at(-1)! };
+  if (unruled.some((standing) => standing.state === 'recovering'))
+    return { on: 'ai_recovering' };
+  if (unruled.some((standing) => standing.state === 'blocked'))
+    return { on: 'ai_blocked' };
   return unruled.some((standing) => standing.state === 'holding_ballot')
     ? { on: 'held_ballot' }
     : null;

@@ -1,7 +1,19 @@
+import {
+  readCaptureEvidencePayload,
+  loadCaptureEvidencePayload,
+} from './necessary-evidence-read';
+import { adoptCaptureEvidencePayload } from './necessary-evidence-payload';
+import { reserveCaptureEvidenceIntent } from './capture-evidence-intents';
+import { evidencePolicyOf } from './necessary-evidence-policy';
+import { withdrawRoundEvidence } from './necessary-evidence-rounds';
+import { claimEvidenceAcquisition } from './necessary-evidence-reconciliation';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import {
   captureClipSchema,
+  captureRoundEvidenceSchema,
+  captureEvidenceReconciliationSchema,
+  captureEvidenceIntentSchema,
   captureReadSchema,
   captureWorkerIdentitySchema,
   captureLeaseSchema,
@@ -131,6 +143,44 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
           and session_id in (select id from media_sessions where round_id=${input.roundId})`);
       return null;
     });
+  },
+  /** Internal privacy/service operation, not mounted in the signed capture handler. */
+  withdrawCaptureEvidence(raw: unknown) {
+    evidencePolicyOf(dependencies);
+    const input = parseCapture(captureRoundEvidenceSchema, raw);
+    return dependencies.transaction((tx) =>
+      withdrawRoundEvidence(tx, input.roundId),
+    );
+  },
+  claimCaptureEvidenceReconciliation(raw: unknown) {
+    const input = parseCapture(captureEvidenceReconciliationSchema, raw);
+    return dependencies.transaction((tx) =>
+      claimEvidenceAcquisition(tx, input, dependencies),
+    );
+  },
+  loadCaptureEvidencePayload(raw: unknown) {
+    evidencePolicyOf(dependencies);
+    return dependencies.transaction((tx) =>
+      loadCaptureEvidencePayload(tx, raw),
+    );
+  },
+  readCaptureEvidencePayload(raw: unknown) {
+    evidencePolicyOf(dependencies);
+    return dependencies.transaction((tx) =>
+      readCaptureEvidencePayload(tx, raw),
+    );
+  },
+  adoptCaptureEvidence(raw: unknown) {
+    evidencePolicyOf(dependencies);
+    return dependencies.transaction((tx) =>
+      adoptCaptureEvidencePayload(tx, raw),
+    );
+  },
+  reserveCaptureEvidence(raw: unknown) {
+    const input = parseCapture(captureEvidenceIntentSchema, raw);
+    return dependencies.transaction((tx) =>
+      reserveCaptureEvidenceIntent(tx, input, dependencies),
+    );
   },
   appendCapturedTranscript(raw: unknown) {
     const input = parseCapture(captureClipSchema, raw);

@@ -72,6 +72,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'format_presets.config',
         'format_revisions.definition',
         'media_vendor_mutations.payload',
+        'necessary_evidence.original_speaker',
         'operator_command_receipts.result',
         'outbox.payload',
         'privacy_jobs.billing_cleanup',
@@ -112,6 +113,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         refusals:
           name === 'ballots.feedback' ||
           name === 'ballots.citations' ||
+          name === 'necessary_evidence.original_speaker' ||
           name === 'billing_refund_actions.claim' ||
           name === 'privacy_jobs.billing_cleanup' ||
           name === 'round_judging_attempts.diagnostic' ||

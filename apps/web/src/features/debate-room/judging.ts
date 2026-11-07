@@ -52,6 +52,12 @@ const decidingStatus = (
       return 'Settling the result';
     case 'ai_failed':
       return judge === 'ai' ? 'Could not rule' : 'Settling the result';
+    case 'ai_recovering':
+      return judge === 'ai' ? 'Recovering the ruling' : 'Settling the result';
+    case 'ai_blocked':
+      return judge === 'ai'
+        ? 'Ruling recovery needs attention'
+        : 'Settling the result';
     case 'ai_processing':
       return judge === 'ai' ? writing : 'Settling the result';
     default:

@@ -1,10 +1,16 @@
 import { isAppError } from '@daisy/errors';
-import type { JudgingTerminalReason } from '@daisy/protocol';
+import {
+  judgingPolicy,
+  judgingWorkKinds,
+  type JudgingWorkKind,
+  type JudgingTerminalReason,
+} from '@daisy/protocol';
 import type { WorkerTimers } from '../../lib/worker-timers';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Found = Target & { readonly holdsBallot?: boolean };
 type Claim = { readonly scope: Target; readonly token: string };
 type Entry<C> = {
+  readonly workKind: JudgingWorkKind;
   readonly claim: C;
   readonly freeCapacity: () => void;
   readonly abort: AbortController;
@@ -20,7 +26,10 @@ const awaitingAttendance = (error: unknown) =>
 /** Lease renewal never queues behind provider execution or attendance settlement. */
 export function startRoundJudgingService<C extends Claim>(input: {
   readonly store: {
-    readonly scanRoundJudgingJobs: (limit: number) => Promise<readonly Found[]>;
+    readonly scanRoundJudgingJobs: (
+      limit: number,
+      workKind: JudgingWorkKind,
+    ) => Promise<readonly Found[]>;
     readonly claimRoundJudgingJob: (target: Target) => Promise<C>;
     readonly renewRoundJudgingJob: (
       scope: C['scope'],
@@ -100,18 +109,55 @@ export function startRoundJudgingService<C extends Claim>(input: {
     if (stopped || scanning) return scanning ?? Promise.resolve();
     scanning = (async () => {
       try {
+        const visited = new Set(entries.keys());
         for (const entry of entries.values()) execute(entry);
-        const targets = await input.store.scanRoundJudgingJobs(
-          input.limits.scanBatch,
+        const discoveries = await Promise.allSettled(
+          judgingWorkKinds.map((kind) =>
+            input.store.scanRoundJudgingJobs(input.limits.scanBatch, kind),
+          ),
+        );
+        const refused = discoveries.find(
+          (result) => result.status === 'rejected',
+        );
+        if (refused?.status === 'rejected')
+          input.failed(refused.reason, 'scan');
+        const targets = discoveries.flatMap((result, index) =>
+          result.status === 'fulfilled'
+            ? result.value.filter(
+                (target) =>
+                  Boolean(target.holdsBallot) ===
+                  (judgingWorkKinds[index] === 'submission'),
+              )
+            : [],
         );
         for (const target of targets) {
-          if (stopped || entries.size >= input.limits.parallel) break;
+          if (stopped) break;
+          if (visited.has(key(target))) continue;
+          const workKind: JudgingWorkKind = target.holdsBallot
+            ? 'submission'
+            : 'generation';
+          const parallel =
+            workKind === 'submission'
+              ? judgingPolicy.submissionParallel
+              : input.limits.parallel;
+          if (
+            [...entries.values()].filter((entry) => entry.workKind === workKind)
+              .length >= parallel
+          )
+            continue;
           if (entries.has(key(target))) continue;
+          if (
+            [...entries.values()].some(
+              (entry) => entry.claim.scope.roundId === target.roundId,
+            )
+          )
+            continue;
           // Submitting a held ballot buys nothing, so it takes no provider slot.
           const freeCapacity = target.holdsBallot
             ? () => {}
             : input.reserveCapacity();
-          if (!freeCapacity) break;
+          // A later held reply needs no provider slot; still visit it.
+          if (!freeCapacity) continue;
           try {
             const claim = await input.store.claimRoundJudgingJob(target);
             if (stopped) {
@@ -121,6 +167,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
               break;
             }
             const entry: Entry<C> = {
+              workKind,
               claim,
               freeCapacity,
               abort: new AbortController(),
@@ -129,6 +176,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
               refusals: 0,
             };
             entries.set(key(target), entry);
+            visited.add(key(target));
             execute(entry);
           } catch {
             freeCapacity();
@@ -153,7 +201,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
             entry.claim.scope,
             entry.claim.token,
           );
-          // The budget ran out and the job has ended (DEC-275). Cancel the call.
+          // Canonical finality or privacy ended the job. Cancel this operation.
           if (renewed.kind === 'ended') {
             release(entry);
             input.jobEnded?.(renewed.reason);

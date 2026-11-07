@@ -5,6 +5,7 @@ import {
   type ClipCarry,
 } from './capture-clips';
 import {
+  contained,
   readCaptureHistory,
   straddlesGrantEdge,
   type CaptureClient,
@@ -92,6 +93,12 @@ export async function validateCaptureBatch(input: {
    * back to staging for the next batch instead of being cut or dropped.
    */
   readonly held: (frames: readonly StagedFrame[]) => void;
+  /** Explicit local evidence capability; production composition remains disabled. */
+  readonly preserveFrames?: (
+    state: Awaited<ReturnType<CaptureClient['read']>>['state'],
+    frames: readonly StagedFrame[],
+    signal: AbortSignal,
+  ) => Promise<void>;
   readonly carries: ClipCarries;
 }) {
   const groups = [...bySegmentSeat(input.frames)];
@@ -123,6 +130,21 @@ export async function validateCaptureBatch(input: {
     for (const { frame } of valid)
       if (straddlesGrantEdge(history.state, first.seat, frame))
         input.straddled(frame);
+    // The local evidence capability precedes WAV carry; edge observations stay separate.
+    try {
+      await input.preserveFrames?.(
+        history.state,
+        valid.filter((frame) =>
+          contained(history.state, first.seat, frame.frame),
+        ),
+        input.signal,
+      );
+      input.signal.throwIfAborted();
+    } catch (error) {
+      // Newer-than-read frames were already held above. Retain the remaining source once.
+      input.held([...valid, ...groups.slice(index + 1).flat()]);
+      throw error;
+    }
     // Each piece's carry leads the next, so a backlog cuts as one run.
     for (let at = 0; at === 0 || at < valid.length; at += MAX_CUT_FRAMES) {
       const cut = cutStream(

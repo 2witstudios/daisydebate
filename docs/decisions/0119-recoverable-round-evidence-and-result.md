@@ -1,0 +1,997 @@
+# 0119: Recoverable Round evidence and result
+
+Status: implementation direction accepted by the point guard and architecture,
+2026-11-07. Implementation and operational qualification remain in progress.
+Plan: [Debate evidence and result reliability](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/d4qpxtoq02wy2ttbsq2ict4y).
+
+## Intent and policy reconciliation
+
+Played human and bot Rounds must survive transient platform failures without
+discarding recoverable speech or a recoverable ruling. Nothing authorizes invented
+speech, coverage, silence, peer hearing or a ballot.
+
+DEC-118's missing-audio rule cannot authorize unsupported ratings. ADR 0110
+already refines DEC-208: a measured small gap may be judged with its disclosure;
+an unknown gap cannot be assumed small. This decision preserves that evidentiary
+rule while replacing avoidable loss with protected play and durable recovery.
+Human silence, unused interaction permission, unauthorized observed speech and
+failed owed bot generation are different facts. Failed bot CX is service work
+still owed, not evidence that a completed exchange contained silence.
+
+This decision amends ADR 0094's memory-only capture and late-STT-loss policy,
+ADR 0058/0067's terminal provider-budget policy and ADR 0110's start-anyway and
+single-worker capture assumptions for the new protected path. It does not claim
+that the incomplete transition has shipped: the slice must replace affected
+consumers together and prove the final path before acceptance.
+
+## One necessary-evidence home
+
+Necessary evidence is separate from optional user Recordings. The candidate
+home is bounded, application-encrypted PCM batches and original-authority
+receipts committed atomically in PostgreSQL through the existing bounded
+transactions and signed capture ingress. Capture's discovery database role
+remains read-only. No second competitive pool or direct worker DML is introduced.
+Evidence is excluded from ordinary Round reads, realtime and telemetry.
+
+Receipt precedes release of admitted PCM, including frames still in an uncut
+carry. Spooling only a WAV produced at a pause or sixty seconds is insufficient.
+Allocate a stable batch identity before encryption; a lost commit acknowledgement
+reuses it. Original capture epoch, seat, segment, track sequence, clock
+calibration, nominal frame times and historical permission are retained. Replay
+uses that receipt's authority, not the replacement worker's lease. Different runs
+may establish one stream only where their original evidence actually proves
+continuity; no missing frames or cross-epoch gap is bridged.
+
+Atomic payload and receipt remove the separate object-adoption failure state.
+Unknown commit, custody acquisition without a payload, transaction rollback and
+deletion still need recovery. Receipt time comes from trusted custody/database
+authority, never a retrying caller's new timestamp. The earliest original
+accepted receipt anchors expiry even if its acknowledgement was lost.
+
+Initial capacity candidates to qualify, not measured limits: at most 64 KiB per
+batch including provenance, 32 MiB outstanding per Round, 512 MiB globally, with
+serialized global admission and bounded replay/deletion batches. The declared
+load is fifty simultaneous Rounds with two 16 kHz mono 16-bit streams each:
+3.2 MB/s of PCM before metadata, ciphertext and WAL amplification. Measure
+transaction rate, WAL, backups, storage growth and clock-path latency. A full
+reservation holds vulnerable play before additional speech is accepted. These
+numbers cannot be adopted as production capacity without the measurement.
+
+## Durable key custody and privacy
+
+DEC-369 sets a hard maximum of seven days from ORIGINAL durable receipt, without
+retry extension. Delete earlier after verified durable authoritative transcript
+AND adequate coverage settlement, or applicable erasure. A provider success
+response alone is insufficient. Ranked Recording retention does not extend this
+spool's retention.
+
+Key custody is an injected durable authority, separate from payload database
+backups and expendable Redis. Acquisition/revocation are durable and idempotent
+under stable evidence identity and original expiry. Unavailable or uncertain
+custody refuses admission. Revocation and expiry remain authoritative through
+restart, takeover, caches and restore; possessing a previously obtained decryptor
+or plaintext never authorizes a later append or submission.
+
+There is NO asserted approved production custody implementation. Production
+collection remains disabled pending REL-H, owned by the human infrastructure
+and privacy owner: encryption, replica/backup/WAL retention, irreversible key
+revocation across custody backups/caches/restore, restore-before-read tombstone
+reconciliation and activation-refusal evidence. No new service, secret,
+production deploy or production data operation is authorized by this decision.
+
+Local qualification requires an isolated genuinely persistent key authority and
+fresh processes. A memory fake proves no durability. A shared local directory
+can prove process persistence only, not host-independent production custody.
+Test old ciphertext/metadata restored against current expiry/revocation, old
+custody restore attempts, stale decryptors and already-held plaintext across
+erasure, lost acknowledgements, concurrent erasure and retrying revocation.
+Ciphertext remaining in backups is not physically deleted by key revocation;
+report physical lifecycle and cryptographic unrecoverability separately.
+Every-copy privacy acceptance remains blocked until operational evidence exists.
+
+Erasure serializes with receipt, claim, decrypt, STT append, freeze, judging cache
+and ballot submission. A late effect cannot resurrect content. Deletion and
+custody-orphan cleanup remain durable obligations until confirmed. The existing
+ranked transcript/record retention policy remains a separate class.
+
+Before expiry, persist a visible recovery warning and operator escalation.
+Capacity/outage admission prevents new vulnerable work. At expiry, revoke and
+fence all late work, retain an honest unresolved recovery state, and offer a
+fresh no-charge replay/rematch opportunity. That exceptional remedy does NOT
+fulfil the no-wasted-time outcome. It never invents a result or reopens a decided
+Round. Finite retention is not a universal no-loss guarantee.
+
+## Protected time and interruption evidence
+
+Preservation progress, permission readiness and peer hearing are independent.
+A silent human or CX listener may produce no PCM because of DTX. A lease or track
+presence cannot advance captured coverage. Positive trusted readiness facts may
+permit silence without asserting PCM receipt or that speech was heard.
+
+Candidate receipt cadence is 250 ms and candidate maximum unprotected progress
+is 1000 ms. Neither is measured. A server poll cannot establish this bound if the
+server itself stalls. An expiring preservation permission must fail closed at
+EVERY clock and publication consumer, including through control-plane/database
+stalls. The concrete implementation must distinguish supported clock/network
+failure assumptions and prove them; it cannot infer a global bound from a batch
+schedule. This is a blocker before affected clock writes.
+
+On interruption, hold the existing system-controlled incident clock and return
+time from the last defensible durable checkpoint. For CX the common checkpoint
+is the minimum of the parties' progress; both receive the same returned-time
+opportunity. This restores TIME ONLY. A faster party's already-durable suffix,
+its original authority and any pending/late STT remain canonical evidence.
+Nothing supersedes, deletes or retracts it because the other party fell behind.
+
+The resumed interval contains linked NEW authorized contributions. Both parties
+see the returned interval and which speech was preserved. Absent original audio
+cannot be reconstructed or proven equal to a human's restatement. Preserve the
+ordered original speech, interruption and resumed speech for the unchanged
+shared rubric. Once-only receipts/source offsets are mechanical properties;
+avoiding duplicate argumentative credit is a judging obligation to test, not a
+claim of semantic deduplication or equivalent arguments.
+
+Bot replay needs an explicit source-offset-to-captured-receipt correlation. Source
+handoff or publication credit alone proves neither that correlation nor peer
+hearing. Retain the bounded source identity/audio under its declared privacy
+lifecycle until correlation settles. An in-flight word/frame needs an explicit
+overlap/gap rule; source text never becomes transcript evidence. ISSUE-1304's
+parked WIP is context, not accepted implementation or proof.
+
+## Settlement, scheduling and finality
+
+Accepted recovery work settles before ONE final immutable transcript freeze.
+An early partial seal or old admission cutoff cannot destroy its obligation.
+Never mutate a frozen frontier or reopen a historical terminal Round.
+
+DEC-370 separates a durable judging obligation from finite provider attempts,
+lease expiry and generation deadlines. Preserve a validated response under the
+same rubric/frontier, resubmit idempotently under current authority and attendance
+fences, and never discard it merely because its attempt window ended.
+
+A dispatched AI remains a seated shared-panel obligation when human judges have
+ruled, including on a measured-small-gap incomplete freeze. The existing human
+exception completes an unsupported freeze with no dispatched AI work; it does not
+convert a recoverable/blocked dispatched judge into no ruling. The generating-AI
+panel test already preserves that distinction. No historical result is reopened.
+
+Due STT/judging work needs bounded fair admission, not only a pending row. Order
+by due time and fair Round turn with stable receipt/ID tie-breakers; release
+capacity before backoff. Bound concurrent work globally and per Round. Track
+unknown paid outcomes, cap automatic lifetime spending and expose exhausted
+funding as blocked recovery rather than pretending an automatic eventual result.
+An operator may explicitly replenish; that is not evidence of automatic progress.
+Qualification must name its supported outage/funding window and demonstrate
+progress through a growing backlog, crash and takeover without starvation.
+
+## Required proof
+
+Storage receipt, heard evidence, authoritative transcript and final result each
+need independent evidence at the exact candidate. No source inspection is an
+execution PASS. Required faults include nonempty-carry capture death and host
+replacement; STT failure beyond 66.5 seconds and the old cutoff; pre-receipt media
+loss and control/database stalls; asymmetric CX receipts with already committed
+STT plus late original callbacks; bot CX opening-question and response failures;
+source-offset publication interruption; judging crash before/after validated
+cache, old budget/deadline and attendance holds; duplicate and foreign/stale
+authority; concurrent capacity admission and fair backlog progress; every late
+erasure/expiry seam, unknown commit, durable custody and backup/restore controls.
+Real played human-vs-human and bot journeys must reach exactly one supported
+result. Negative controls must fail without weakening existing timing bounds or
+assertions.
+
+## Local custody implementation boundary
+
+The local adapter uses a separately provisioned persistent SQLite **current
+identity/revocation authority** and a separate restorable key-material database.
+Ordinary restart opens existing authority only; missing authority never provisions
+a replacement. Every seal/open consults the injected current authority. This is
+an actual capability dependency, not a caller's `restoreReconciled` boolean.
+Authority reserves the original receipt/expiry and payload digest before binding
+one material digest. A bound key cannot be replaced after missing material or
+unknown acknowledgement. Unknown evidence IDs can be revoked before acquisition;
+revocation is committed before material cleanup and retries finish that cleanup.
+A bounded sweep removes expired/revoked local material without removing fences.
+
+Acquisition precedes the payload transaction. A reserve/bind acknowledgement lost
+before PostgreSQL commit must reuse the original identity, key and expiry. A
+known payload rollback needs durable compensation; unknown PostgreSQL commit
+must first reconcile that SAME evidence ID, never allocate replacement work.
+Until the payload adapter and compensation/reconciliation worker are implemented
+and tested, this custody adapter alone does not prove receipt durability or
+orphan recovery. An acquisition orphan keeps its original seven-day deadline.
+
+Old material/payload snapshots are read only through the latest independent
+authority. Restoring that authority itself requires an independently current
+authority; the local adapter cannot detect rollback of **all** authority copies.
+That case is BLOCKED for production, not a successful local anti-rollback proof.
+The SQLite files prove process persistence on one host. File mode 0600, FULL
+synchronous commits and authenticated encryption do not prove host durability,
+filesystem encryption, every-copy deletion or backup irreversibility. No
+production composition imports this local qualification adapter.
+
+Authority metadata contains opaque evidence IDs and original-authority/payload/key
+digests, receipt/expiry and a revocation fence, without PCM, text or raw keys.
+These integrity digests and tombstones have a separate minimization obligation:
+retain them until every restorable old payload/material copy is retired or an
+independently authoritative irreversible fence replaces them. No timer silently
+purges fences while old snapshots remain. The human infrastructure/privacy owner
+must specify that retirement evidence and metadata retention before activation.
+Local synthetic qualification deletes its isolated directory after each test.
+
+A caller may already hold plaintext when erasure happens. Cryptography cannot
+recall it. Rechecking before plaintext release limits new dispatch, while durable
+Round erasure fences must also refuse future STT commits, freeze, caches and
+submissions, cancel outstanding work and clean temporary buffers. Residual
+in-flight provider processing needs its own processor/erasure contract; this
+adapter does not claim to erase another process's memory or provider work.
+
+Restored ciphertext crosses a runtime envelope guard before current-authority
+reads or crypto: canonical sealed kind/receipt, fixed identifier/digest shapes,
+exact original seven-day expiry interval, at most 64 KiB nonempty ciphertext,
+12-byte nonce and 16-byte authentication tag. Integrity rejection after decrypt
+is insufficient to bound that edge.
+
+Local material cleanup uses an immutable autoincrement insertion sequence and
+persisted after/through cursor. Each pass captures its maximum sequence before
+reading at most the requested bound (1–64). New arrivals lie outside that finite
+pass. Completing or exhausting its captured range resets the cursor, so a key
+revoked after its visit is revisited on a following pass, including after adapter
+restart. Expiry is always checked against the original independent authority,
+never the traversal position or a caller clock. Unavailable/uncertain entries
+remain material and are revisited; refusal cannot become deletion permission.
+For a finite bounded admitted population this establishes traversal progress
+under repeated calls, not a wall-clock deletion promise. A running scheduler,
+per-ID payload compensation, crash recovery and load qualification are still
+required before claiming prompt eventual cleanup in the integrated feature.
+
+## Receipt admission and erasure ordering before payload integration
+
+Before the FIRST side-effectful custody request, commit a stable evidence intent
+and cleanup-routing obligation through the existing bounded PostgreSQL pool.
+Stable identity without this crash-discovery row is insufficient. Intent ownership
+is leased/fenced; a successor may reconcile/retire it, never invent original PCM
+or rewrite original capture authorization. The routing identity/tombstone survives
+Round aggregate erasure until custody revocation and payload deletion are confirmed.
+A crash after acquire but before payload commit is therefore discoverable. Reconcile
+unknown payload commits under that SAME ID before revoking; never mint replacement
+key/identity/expiry on lost acknowledgements. Unknown/unavailable custody keeps an
+explicit bounded due-work obligation, not a silently discarded orphan.
+
+Application privacy revocation linearizes at the committed PostgreSQL evidence
+fence under the existing Round lock. EVERY application revoker commits that fence
+before custody revocation. Receipt/settlement/freeze share that lock and current
+fence, preventing a late callback from adopting or submitting erased content.
+Sample authoritative database time AFTER relevant lock/admission waits immediately
+before the accepted durable mutation; original expiry bounds that admission instant.
+Do not label a pre-wait timestamp as commit time or imply a stronger distributed
+transaction than exists.
+
+A current custody read authorizes an admission/dispatch; it cannot atomically
+serialize an independent out-of-band SQLite revocation with a later PostgreSQL
+commit. External custody loss refuses future admission and dispatch. Already
+authorized processing may still be in flight and cannot be recalled; future
+application writes retain the PostgreSQL fence/receipt/expiry checks. Supported
+selective restore must additionally reconcile latest independent custody before
+accepting old pending rows or callbacks already holding plaintext. Test an older
+PG pending/tombstone-free snapshot against current revoked/expired authority and
+held-plaintext settlement. All-authority rollback remains explicitly unsupported
+and BLOCKED under REL-H. No implementation/proof PASS follows from this contract.
+
+The canonical frame clock now exposes a copied original mapping basis: raw native
+sequence/callback bracket, run's original calibration and first callback, the
+original predecessor and the computed window. Capture staging retains that basis
+with the frame even if admission waits for newer history. Refresh does not replace
+an existing run's calibration; a gap/reset retains its original predecessor and
+new anchor. Invalid callbacks expose no stale basis. This is read-only observation
+provenance, not a competitive receipt, admission, peer-hearing fact or independent
+proof of cross-run continuity. Stored original authority/history still has to be
+bound and checked at receipt before carry/WAV release and used unchanged by replay.
+The old PCM-only memory accounting is not a total heap/provenance bound: include
+encoded provenance, staging overhead, WAL and custody load in capacity qualification
+before claiming the declared workload or protected-time targets.
+
+The first PostgreSQL admission operation is intent-only: it validates current
+original capture/window authority, serializes evidence-owned per-Round/global
+byte and live-intent reservations, and commits a leased `acquiring` row before
+custody is called. Its reply is `claimed` or `pending`, never a PCM durability
+acknowledgement. Actual database time is resampled after waits/token creation;
+first admission stamps `created_at`, while takeover preserves original scope and
+advances only execution ownership. Lost intent COMMIT replies reconcile the same
+ID. The existing media-worker role has column-scoped discovery only, with no
+payload/lease-secret reads or DML. No second competitive pool is introduced.
+
+The evidence-owned row also holds the future encrypted payload and receipt in
+one atomic update. Aggregate Round deletion first fences rows as retiring and
+clears payload/reservation, then detaches the Round FK; revocation routing remains.
+Seven days in the SQL receipt constraint means 168 elapsed hours, unaffected by
+session timezone or daylight saving. The optional admission capability is absent
+from production composition. At this checkpoint payload commit, current subject
+fences/adoption, custody compensation/retirement worker, replay/STT settlement and
+freeze coordination are STILL INCOMPLETE. Intent tests do not claim any of them.
+Admission limits are local candidate ceilings, not measured throughput/heap/WAL or
+backlog-fairness acceptance. No source row or timer authorizes an invented result.
+
+Admission separately counts ALL unconfirmed evidence obligations: acquiring,
+retained AND retiring, including detached routing after aggregate erasure. Only
+confirmed retirement can release that count. `maxOutstandingIntents` is an injected
+bounded count ceiling; releasing current PG payload bytes cannot create unlimited
+custody-cleanup debt. Byte ceilings describe live PostgreSQL payload reservations,
+not the whole physical footprint of pending key material, routing, WAL, backups or
+retired anti-resurrection metadata. Those need separate quantitative capacity and
+retention proof; the live-byte numbers are not an all-storage bound.
+
+The intent's stored binding is derived by the server from original Round/session/
+worker/capture epoch/seat/segment/track, offset/duration/bracket, declared full-body
+digest and reservation. Retrying an eligible changed window under the same opaque
+digest is refused. The input is named `bodyDigest`, distinct from the resulting
+original-authority binding used by custody. This independently binds the envelope;
+it does NOT verify PCM/provenance authenticity. Before any payload adoption the
+application MUST validate and canonically encode the full original body and derive
+that body digest itself; raw worker-supplied hashes cannot substitute for it.
+
+Current intent retry/takeover still requires the ORIGINAL live capture lease and
+admission cutoff. Its proof is NOT capture-worker/session/epoch replacement or
+late-cutoff recovery. A separate recovery claimant must consume already-committed
+original intent/evidence authority and advance execution ownership only. An intent
+remains neither audio receipt nor preserved/heard watermark. That claimant and
+payload authenticity/receipt, custody compensation and late-commit fences remain
+unimplemented at this checkpoint.
+
+Local custody now serializes material creation/binding with revocation. Reserve
+FIRST commits original identity/receipt/expiry. A second authority-owned immediate
+transaction checks current authority, acquires the material transaction, and
+supplies an authority-owned revalidation capability after any material-lock wait.
+Only then may material be created/reused; expiry is checked again after its commit
+before binding the key+nonce digest. A process dying between material commit and
+authority binding leaves retained original material and the already committed
+reservation for reconciliation, never permission to mint new key/nonce/expiry.
+
+The lock order is authority then material. Revalidation inside the material
+transaction uses the ALREADY owned authority transaction, never an independently
+acquired reverse lock. Revoke commits its authority tombstone before material
+cleanup; future material creation must pass that same authority lock and therefore
+cannot create late rows after revocation. Sweep ends its cursor-only material
+transaction before reading authority and deleting eligible material. No material
+transaction independently calls an authority operation while another path owns
+that authority awaiting material. Unavailable/unknown cleanup stays retryable.
+`EvidenceCustodyReceipt` explicitly names a key-reservation receipt; it is NOT a
+PG audio durability acknowledgement. Revoked authority, current material cleanup,
+payload cleanup and whole retirement completion remain separate facts. The latter
+integrated retirement worker is not implemented/proven by these local tests.
+
+Necessary-evidence admission will reuse the canonical account authorization seam.
+Discover the bounded complete original content/cast subject set, acquire sorted
+`readAuthorizationActors` fences, then lock Round and revalidate the EXACT set.
+A cast change refuses/retries from discovery; never acquire new subject locks
+while holding Round. Existing agent and ballot writers already acquire exclusive
+`lockAuthorizationActors` fences: preserve that strongest lock and never prepend
+a shared fence that would require an exclusive upgrade. No second account-lock
+SQL or duplicate tombstone authority is introduced. Raw necessary-evidence
+privacy applies to all relevant Rounds independently of ranked transcript/result
+retention and membership/entitlement. Original content subjects differ from a
+successor execution worker. Their routing must survive aggregate closure until
+confirmed cleanup. Canonical erasure immediately denies read/adoption/replay/
+dispatch/commit even while bounded cleanup is delayed. Non-account withdrawal
+serializes on the Round evidence fence. Initial raw-intent admission now takes this shared account fence before Round
+and revalidates creator plus every bounded seat identity/actor/kind/role/slot.
+Tombstoned or uncertain account facts refuse; a live non-member is not erased.
+Existing agent/ballot exclusive paths are unchanged and never call this reader.
+Original-subject durable routing, payload read/adoption/dispatch/STT/freeze fences
+and delayed cleanup integration remain unimplemented at this checkpoint.
+
+The full original evidence body has one strict canonical JSON encoding covering
+PCM, original run calibration/sequence/callback windows, history/grant identity,
+original worker epoch and segment/seat scope. The server must derive the digest
+from that encoding; caller hashes do not authenticate payloads. A batch contains
+only adjacent observed frames from one original run; gaps/resets require separate
+units and cannot be credited by their elapsed bounding span. Original mapping
+verification uses the same unchanged frame-clock equations and exact retained
+inputs, never a replacement calibration. Shape, math and byte binding remain
+separate from actual occurrence, capture authority, durable receipt and hearing.
+No decoder or equation check can prove those independent facts. Their receipt/
+replay integration and supported-failure proof are still required before use.
+
+Restore admission also needs current privacy-fact lineage. A key that is still
+live does not prove an account tombstone absent: that tombstone may have committed
+in PostgreSQL while bounded retirement has not propagated revocation to custody.
+Restoring older PG metadata cannot erase that obligation. Selective-restore tests
+must identify the independently current revocation/expiry fact they actually
+exercise; current key liveness is not current account/withdrawal authority.
+Missing or uncertain current privacy lineage blocks restore admission. Local
+process persistence and revoked-key restore tests do not establish this wider
+operational capability; production restore/privacy acceptance remains REL-H.
+
+## Owner refinement: provisional captions and recognition reconciliation
+
+The mission now explicitly includes live captions as provisional output, separate
+from the final judging transcript. Preservation/coverage, recognition quality and
+judging readiness are independent facts. Provider success, fluent text, an empty
+answer, confidence/agreement or a model's opinion cannot prove all spoken words
+were retained. A questionable recognition remains recoverable work under a named
+reconciliation policy, not observed silence or fabricated completion.
+
+Preserve admitted PCM before energy/voice classification or downstream clip cuts.
+Current `capture-clips.ts` excludes low RMS and runs below100ms from paid STT;
+`capture-consumer.ts` can credit observed coverage after audible empty recognition;
+the OpenRouter transcription adapter returns trimmed text alone. These source
+facts motivate separate recognition uncertainty; they are not accuracy or physical
+measurements. Assess short/quiet speech, clipping and boundaries at their owning
+seams. Durable batch cadence is independent of paid recognition context length.
+
+Caption candidates carry explicit provisional status and version. Final segments
+reference original audio receipts, speaker/run/sequence/time provenance, attempts,
+model/configuration/version and a reconciliation decision. Reprocessing preserves
+original evidence and idempotence, with current erasure/claim/frontier fences on
+candidate display, dispatch and settlement. Before freeze, a later accepted
+candidate may correct provisional display. The single immutable freeze uses only
+a durably settled authoritative frontier; no later recognition mutates it or
+reopens a decided result.
+
+Settlement requires an explicit policy decision over actual coverage and retained
+recognition risk signals, including transport gaps, boundary/clipping risk,
+low-volume/short utterances, audible empty/implausible output and provider failures.
+Bound context overlap to original speaker and authority; retain original offsets
+and canonical once-only ingestion instead of concatenating repeated boundary text.
+Model confidence and agreement remain signals, never ground truth. Persist fair,
+bounded due review/retranscription work with backoff, finite spending, escalation
+and visible blocked recovery. Declare the supported outage/funding window and
+qualification thresholds before enabling its default. Exhaustion, an absent corpus
+or the seven-day cap cannot silently manufacture settlement or a result.
+
+Delete-on-transcript now explicitly requires durably accepted selected text,
+adequate actual coverage AND recognition settlement under the declared policy.
+DEC369's original seven-day ceiling, current erasure and exceptional-expiry remedy
+remain unchanged. Provisional/candidate text is personal/private, absent from
+telemetry and ordinary realtime payloads; minimize its lifecycle with the original
+evidence independently of final transcript retention. Production collection and
+new processors/secrets remain under REL-H and existing human gates.
+
+Recognition qualification is independent of storage and fault-to-result proof.
+Use authorized human debate audio and human reference text covering fast speech,
+accents, low volume, overlap/CX, short answers/negation, names/numbers/citations,
+clip boundaries and noise/silence. Pin corpus/license/consent provenance, exact
+audio/reference hashes, model/configuration/version and measurement scripts.
+Report word errors plus consequential omissions/substitutions, attribution,
+hallucinations on silence, boundary loss, latency and downstream judging stability.
+Synthetic controls do not qualify representative human recognition. Compare models
+only through approved interfaces with official version-matched documentation and
+authorized test capabilities; no arbitrary blanket substitution. Corpus intake,
+provisional/final implementation and quality qualification remain NOT RUN.
+
+Original content subjects are an evidence-owned durable admission fact, not a
+query against a successor cast. Initial intent admission persists the exact
+server-derived, sorted, bounded subject actor set under its account→Round fence,
+and includes that set in the custody binding digest before the first acquisition.
+The set and cleanup routing survive Round aggregate erasure. A successor worker,
+seat change or account closure never rewrites that original authority. Recovery
+must discover the stored original set, acquire its canonical account fences before
+Round and revalidate the exact stored set after waits; it must not acquire new
+subjects after Round or reauthorize old PCM against replacement capture rights.
+
+A nullable original-subject field explicitly means UNPROVEN, not an empty set.
+There is no migration backfill from current cast and no invented original
+membership/history. New admission always writes a proven set, including an actual
+empty set when there were no human subjects. Unknown-subject routing is retained
+for safe reconciliation/retirement; it cannot authorize payload adoption, replay,
+STT or judging. Do not silently delete recoverable work because metadata is
+uncertain. The worker's discovery role receives neither subject identities nor
+payload/lease secrets. Subject routing is private/linkable metadata, minimized
+only after confirmed retirement under the declared anti-resurrection lifecycle.
+This storage step alone is not an audio receipt or a working retirement/replay
+scheduler, and does not prove late held-plaintext settlement fences.
+
+The acquisition metadata path now has its own execution claimant. It reads the
+persisted original subjects, takes canonical shared account fences before Round,
+then locks/revalidates the exact immutable stored scope. A successor advances only
+execution worker/epoch/token; original capture worker/epoch/binding never changes.
+It may reconcile an already committed acquisition intent after capture replacement,
+closed session or the original cutoff. This is explicitly `reconcile-acquisition`,
+not fresh capture permission, audio receipt, STT dispatch or final-result authority.
+Initial capture admission still requires its original live capture lease/window.
+
+A private evidence-owned Round marker makes withdrawal sticky/idempotent under
+Round lock, with its first timestamp sampled by PostgreSQL after the lock wait.
+New initial admission and acquisition reconciliation refuse withdrawn scope before
+custody. Missing marker is unknown for existing evidence: only a genuinely new
+scope with no prior original-Round evidence can establish its initial open marker.
+No current-cast/account backfill establishes lost withdrawal history. The marker
+commits without looping through/deleting every payload; immediate refusal and
+bounded later cleanup are separate responsibilities. Current marker checks assume
+current canonical PostgreSQL, not proof of freshness after restoring an old open
+snapshot. Actual independent privacy-lineage capability below remains necessary
+before payload activation. No new method is mounted in signed capture routes and
+production evidence capability remains absent. Current known-expiry admission is
+sampled after row/account waits and again after token acquisition; execution lease
+and original data expiry remain different concepts.
+
+The independent local authority now stores immutable original Round/subject scope
+bindings and sticky accepted privacy intents. Its initializer provisions format2;
+an ordinary restart refuses a missing/different format rather than inventing
+missing privacy history. Reservation validates a bounded canonical scope before
+acquiring authority or material, and the same evidence ID cannot change that
+scope, payload, key, nonce or original receipt/expiry. Inspection rechecks current
+authority and returns only the receipt and payload digest for the expected scope,
+never a cached decryptor or proof that PostgreSQL is current.
+
+A prepared privacy intent is pending service work: affected existing/new evidence
+use refuses as uncertain, and cleanup retains uncertain material. A committed
+intent is sticky denial and allows material cleanup. Both serialize on the same
+authority transaction as reserve/bind, preserving authority→material lock order.
+Retries return the original accepted intent ID/sequence/scope; a different commit
+cannot replace it. These methods are private local primitives: their declared
+authorization digest is NOT authentication or proof of a canonical PG fence.
+The owning authenticated erasure workflow must accept exact authorized scope,
+commit the canonical account/optional Round fence and adopters, and only then
+finalize independent denial/key retirement. No vendor call belongs inside that
+PG transaction, and independent preparation is NOT a prerequisite that can block
+canonical account erasure during a custody/vendor outage. Current PG tombstones
+must immediately deny use while durable cleanup catches up.
+
+A crash or lost acknowledgement resumes the SAME accepted privacy service work;
+absence in an older PG snapshot never cancels it or un-revokes evidence. Available
+pending authority protects selective restoration of old material with current
+independent privacy facts. Missing/uncertain current lineage refuses restoration.
+If privacy was committed only in PG during journal outage and all relevant copies
+were rolled back before independent propagation, a live key cannot reconstruct
+that fact: activation remains BLOCKED/REL-H. Format/identity checks cannot detect
+all-authority rollback, and local process persistence is not host-independent
+custody or a production every-copy privacy proof.
+
+Fresh-process qualification separately exercises actual SIGKILL after accepted
+intent commit/before acknowledgement, original retry identity, reserve→prepare→
+attempted binding, and old material restoration against latest pending/committed
+authority. A stale process can still hold plaintext already released; current
+inspection refuses further use, but cryptography cannot recall those bytes.
+Actual dispatch cancellation, PG adoption/STT/freeze/cache/submission fences,
+public closure, old-PG-open/live-key restoration, scheduled accepted-intent
+recovery and prompt confirmed retirement remain unimplemented/unproven. No
+method-only liveness or whole privacy acceptance follows. Scope/intent digests
+and private routing metadata retain only their anti-resurrection purpose while
+old snapshots exist; no timer silently purges that authority. Production stays
+disabled under the named REL-H human infrastructure/privacy leaf.
+
+## Atomic payload receipt and compensation contract
+
+Before payload activation, the application derives the canonical full native-body
+bytes/digest, checks original frame equations and verifies authenticated ciphertext
+against those bytes. PostgreSQL independently derives canonical body digest/size
+and checks the stored original binding/scope, current original account fences,
+Round withdrawal, execution ownership, lease, original expiry and freeze. It then
+commits bounded ciphertext, original custody receipt and a distinct actual payload
+acceptance timestamp atomically. Only that committed payload receipt can release
+PCM or advance preservation; an intent or key reservation cannot. The earlier
+original custody receipt keeps its earlier seven-day ceiling; neither payload
+commit nor retry renews it. Identical confirmation returns the original committed
+receipt without replacing ciphertext, source body or acceptance time.
+
+Sample authoritative DB time after relevant waits for lease/expiry admission.
+Custody checks outside PG are not an atomic latest-authority read at PG commit.
+Application privacy revokers commit the owning canonical PG fence before actual
+key revocation; independent pending preparation may deny earlier. Out-of-band
+custody loss can invalidate future use of already-authorized in-flight work.
+Confirmation and subsequent dispatch/settlement must independently refuse current
+unavailable/uncertain/revoked authority; already-held plaintext remains residual.
+No vendor call runs inside a PG transaction.
+
+An unknown payload commit is reconciled under the same original ID/body/receipt
+before cleanup may revoke material. Retirement first commits a no-use PG fence,
+clears live ciphertext, and retains original routing/count debt. Bounded external
+revocation/material deletion then runs; only confirmed cleanup marks retired and
+releases outstanding-work count. Already-erased subjects and deleted aggregates
+must not strand cleanup behind a raw-use authorization check. Original expiry
+remains visible unresolved with its remedy, never silent successful completion.
+Atomic receipt, compensation, scheduled progress, original-subject/late-erasure
+races and actual selective PG restore proofs remain NOT RUN until implemented;
+production remains disabled under REL-H.
+
+## Application-authenticated payload and private original-body recovery
+
+The application capability validates the full canonical native body and original
+frame equations before admission or custody. It derives bytes/hash, commits the
+bounded original intent, rechecks exact original history/subjects, seals through
+injected custody and authenticates/decrypts those actual bytes before adoption.
+It then authenticates the stored ciphertext, checks current independent scope and
+rechecks current PG authority/unchanged receipt before replying with metadata
+only. Unknown commit is reconciled before any material revocation; no failed
+reply is treated as proof that payload is absent. Identical confirmation has its
+own private read; payload adoption still requires original execution credentials.
+
+A post-receipt recovery process need not remember source PCM or a lease token.
+An ID-scoped private load takes original account→Round→intent, withdrawal,
+frontier and expiry fences before reading sealed bytes. Current custody decodes
+the actual stored body; application validates canonical bytes/hash/IDs and the
+original frame equations, checks current independent scope, then rechecks the
+full original-body/history PG authority in a NEW transaction. No user lock is
+acquired after an owned Round lock. The returned private original body preserves
+original epoch/calibration/sequence/history, never successor capture authority.
+It is not an STT-dispatch, publication or hearing permission; every later external
+dispatch and settlement still requires its own current fences and claim.
+
+Only actual retained ciphertext permits bodyless restoration. A durable intent
+and real material key without payload return pending: neither can reconstruct
+missing words. Pre-receipt retry may use an actually retained sender body under
+the same identity; loss of that unreceived body still needs protected time and a
+visible new speech opportunity. Local fresh-process qualification distinguishes
+that case from SIGKILL after payload commit, where the new process receives ONLY
+Round/evidence IDs and authenticates the original stored body/receipt. This does
+not establish native nonempty-carry integration, acoustic occurrence or peer
+hearing, and process persistence is not host-independent production custody.
+
+A held plaintext copy is residual. Application clears its owned transient decoded
+buffer, but cannot recall a separate caller copy. Current PG withdrawal must deny
+later receipt/body use even while independent propagation/cleanup is delayed and
+key material remains live. Current independent pending privacy must also deny an
+old open PG payload, including preparation after custody has returned plaintext.
+Those are local application boundaries, not public account-closure, full PG
+backup-restore freshness, external processor cancellation or every-copy proof.
+Capture wiring, durable compensation/retirement scheduling, dispatch/settlement,
+STT/recognition/freeze, protected clocks, hearing/result and production REL-H
+acceptance remain incomplete. The capability is not mounted in production routes.
+
+### Original speaker and canonical subject cleanup admission
+
+The server freezes the original seat's actor, human/bot kind, debate role and
+slot under the same complete account→Round cast fence as initial intent
+admission. Canonical mapping participates in the original binding before custody.
+It survives cast changes and is returned only by private authenticated restore;
+it is publisher provenance, not acoustic identity or hearing proof. Unknown old
+mapping is not backfilled from current cast and refuses raw use. Destructive
+cleanup must retain opaque identity/routing independently of that uncertainty.
+
+Canonical account erasure queues one evidence-owned subject propagation request
+in its existing after-close adopter transaction. It adds no user/Round lock or
+external call and cannot be blocked by unavailable custody. The canonical account
+tombstone immediately denies raw use across all applicable Rounds; ranked
+transcript/result retention remains separate. Request routing survives aggregate
+deletion. Propagated means independent privacy-fence acknowledgement, never
+confirmed material deletion. Claim/propagation/retirement scheduling and complete
+own-audio export remain unimplemented. The current adopter exports only minimal
+request metadata and does not establish whole evidence-export acceptance.
+
+Before retirement integration, custody routing must name the original backing
+resource. A read-only identify operation reports its actual stored authority ID;
+it does not attest that privacy lineage is complete or detect a same-ID stale
+snapshot. Initial PG intent binds that ID before key acquisition, without
+claiming a key or PCM receipt. All custody admission/revocation requires this
+expected ID; a foreign resource refuses before side effects. Cleanup never
+chooses a replacement authority from current configuration. Unknown original
+routing remains blocked work. A local material-cache identity also prevents
+cross-authority restore/adoption; all-authority rollback remains REL-H. This
+routing refinement is locally implemented; exact-head qualification is recorded
+separately. It adds no production custody or privacy-lineage approval.
+
+### Local retirement execution
+
+Evidence retirement owns a separate private operation factory using the existing
+bounded competitive transaction. Positive persisted erasure, a retained item's
+original expiry, or an already committed retirement fence makes work eligible.
+Acquisition-only intents without an adopted key receipt still need custody
+reconciliation; age alone cannot authorize dropping them. No transcript-settled
+writer exists yet: provider success does not authorize retirement.
+
+Each claim commits retiring, clears live encrypted payload and retains count debt
+before external custody revocation. Completion requires the same identity/realm,
+worker, execution epoch and token and an unexpired lease. Only an actual matching
+resource's revocation plus current material-cache deletion acknowledgement
+permits completion. Failure/uncertainty schedules durable backoff; unknown claim
+or completion commit is recovered by lease takeover or observing the persisted
+state. No replacement key, identity, realm or expiry is minted. Cleanup does not
+require now-erased subject authorization or proven speaker mapping, and original
+opaque routing survives Round deletion. Missing realm remains blocked debt.
+
+Attached and detached work have independent one-item opportunities per service
+pass. Eligible distinct Rounds are selected before LIMIT, live claimed Rounds
+are excluded, and actual last-claimed time over ALL members (finished included)
+provides the Round turn. Never-claimed uses original creation time, not perpetual
+NULL priority. Retry time controls eligibility only. Locked attached Rounds and
+detached rows use SKIP LOCKED before the bound. The injected local polling loop
+waits between passes and permits crash takeover. It is not production startup.
+
+Local qualification separates actual SIGKILL after claim, after custody revoke
+and after PG completion from in-process fault wrappers. A separate process holds
+the actual SQLite authority write lock across its timeout; debt remains retiring
+and key remains live, then a new polling process progresses after release and
+backoff. Original receipt/expiry remain unchanged. Synthetic already-fenced PG
+metadata tests exercise more than64 siblings, other-worker claims, finished
+service history and new arrivals; these do not prove original audio admission.
+The initially weak live-claim test survived guard removal; adding a third claim
+while both Rounds are live makes that negative control fail. It is not reported
+as a prior finding in production. Exact-head receipts are recorded separately.
+
+SQLite busy timeouts bound local adapter lock waits; this does not establish
+arbitrary injected-resource hang cancellation, production operation deadlines,
+host-independent custody or every-copy erasure. Canonical request propagation,
+acquisition-only custody reconciliation, complete own-audio export, integrated
+quota/load proof, exceptional-expiry notice/remedy and downstream settlement
+remain incomplete. Plaintext already copied cannot be recalled. Production
+composition remains absent under REL-H.
+
+### Integration with current main
+
+The 2026-11-07 main integration retains Round-floor Messaging and native
+publication diagnostic observations. Diagnostics do not establish a timing
+repair or heard-audio recovery. Publication calibration remains the single
+protocol contract; main's rejection states and timing predicates are retained.
+Per the migration-concurrency procedure, the unpublished reliability migration
+tail is regenerated forward after main's Round-floor authority migration. The
+new snapshot includes both features and the SQL preserves the reviewed tail's
+statements, including narrow grants and aggregate-retirement trigger. Shared
+main migration files are unchanged. Prior immutable receipts still describe
+their original heads; merged-head verification is separately attributed. This
+integration does not complete the mission or enable production collection.
+
+Native receipt preparation must consume the actual callback shape. Clock
+provenance projects only sequence and the original before/after observations;
+PCM, publisher identity and track labels stay in their owning frame fields,
+never copied by object spread into clock metadata. This projection changes no
+mapping equation or timing threshold. Bounded original units preserve every
+eligible sample (low energy and short speech included), original grant/history
+and run/sequence discontinuities before clip heuristics. Pure preparation is not
+a receipt or coverage: the forthcoming native producer must retain stable
+IDs/bodies and source frames until actual durable acknowledgement. Carry wiring,
+protected publication/time, recognition reconciliation and played-result proof
+remain incomplete.
+
+### Local signed original-frame admission
+
+The signed capture protocol has an evidence operation that preserves the original
+Round/session/worker body rather than overwriting its authority from a successor
+request. Full canonical body and original clock equations are checked before the
+injected ingress owner runs. A received reply must contain a matching evidence
+identity, binding and committed payload timestamp within the original custody
+receipt span. Pending, key-only, malformed and foreign-unit replies cannot release
+source frames. Unknown acknowledgements retry the same canonical body/ID within
+the existing finite control-outage attempt bound; no retry renews expiry. A
+historical received reply establishes stored original bytes, not current privacy,
+publication permission, coverage, recognition settlement or peer hearing.
+
+The local capture batch accepts an explicitly injected preservation capability
+before any fully authorized frame enters the WAV carry. It preserves original
+low-energy/short frames before clipping heuristics. Original preparation splits
+real sequence/run discontinuities and at most 25 frames per unit; 250 ms is a
+unit-size bound, not a measured latency guarantee. Edge-straddling observations
+retain their distinct treatment and never become invented authorized PCM. This
+is an incomplete branch transition: production composition does not inject the
+capability, and the signed endpoint refuses collection without it. No fallback
+activation or local production custody approval is implied. Production replacement
+requires the remaining protected-clock/publication and lifecycle contracts.
+
+A fresh-process local integration fixture exercises real signed HTTP, persistent
+local custody and PostgreSQL, then SIGKILLs the producer with a nonempty one-frame
+carry and zero completed WAVs. Recovery authenticates the exact original body
+without using that killed carry. Its samples/calibration/history are synthetic,
+not actual LiveKit or human-reference audio. A separate injected lost HTTP reply
+after actual commit proves same-ID receipt recovery. These proofs do not establish
+pre-receipt crash fairness, genuine heard audio, quality reconciliation, final
+transcript freeze, a recovered ballot, host-independent durability, every-copy
+privacy or full mission completion. The owner-prioritized next milestone remains
+one actual human-vs-human capture-to-result vertical journey under those contracts.
+
+### Receipt-linked recognition obligations
+
+Payload adoption also commits a private transcription-recovery source. Original
+unit metadata comes from the validated canonical body, not an opaque caller
+assertion. Its run key binds original Round/session/worker/epoch, segment, speaker,
+track, grant, original clock anchor, custody realm and frozen original privacy
+subjects/speaker. Overlapping original sequences under that
+key refuse atomic adoption. Context grouping joins only actual contiguous offsets
+and sequences of that same original run, bounded at 30 seconds and 128 units.
+Different epochs/anchors remain separate contexts; no fabricated bridge or semantic
+equivalence is inferred. A quiet/size boundary only closes a recognition context,
+never establishes observed silence. Those numerical bounds concern storage/context
+formation, not measured recognition quality or latency.
+
+Unselected text stays transient/private. Persisted work records source references,
+attempt/model/configuration/policy and candidate digest/status, never an invented
+copy of missing text. A lost candidate requires explicit rerecognition from original
+evidence under finite funding. Durable selected text plus actual coverage and a
+versioned qualified quality decision must commit atomically before deletion for
+settlement or one immutable freeze. An uncertain selection commit is reconciled
+before paying again. Neither a digest, successful provider response, confidence,
+agreement nor an empty answer establishes recognition completeness.
+
+Finalization must check both original obligations and their recognition contexts
+under its existing Round serialization, even after the old capture cutoff. An
+acquiring intent is not a payload receipt; it still cannot be silently forgotten
+at cutoff. Expired/erased/unreceived unresolved work requires the explicit incident,
+privacy and remedy contract; a timer cannot manufacture text or a normal result.
+Production composition remains absent. Durable claims/fair scheduling, dispatch,
+selection, provisional display, qualification, cleanup and genuine played-to-result
+proof are incomplete until separately executed; new metadata alone is no liveness
+or full recognition acceptance.
+
+### Narrow local edge review
+
+Current receipt envelopes retain the accepted exact seven-day original reservation
+span. maxAgeMs is an immutable current policy constant, not a runtime setting;
+changing a lifetime policy requires explicit version/original-receipt treatment,
+not silently reinterpreting old envelopes or relaxing today's edge contract.
+The local authority rejects unsafe lifetime arithmetic before advancing durable
+time. Its injected wall clock remains trusted: a valid large forward step can
+expire earlier material and the adapter cannot distinguish skew from a long outage.
+No automatic clock reset may resurrect original expired/revoked work. Independent
+trustworthy time/restore currentness remains a REL-H infrastructure limitation.
+GCM authentication failure is a conflict, distinct from unavailable custody, and
+transient decrypted buffers are zeroed before refusal. This cannot recall plaintext
+already copied into a caller. lstat rejects dangling material symlinks before
+creation; an owner-only directory is still a local trust boundary, not protection
+against a malicious same-user process racing filesystem checks or host compromise.
+
+### Recognition execution and conservative call admission
+
+The local private recognition factory uses the existing competitive bounded
+transaction, with no media-worker DML or second pool. Discovery chooses one due
+context per eligible distinct Round before its eight-Round page bound; another
+worker's live Round claim excludes the whole Round. Fair turns use the maximum
+actual post-lock claim instant across every context, including selected siblings,
+with original creation time as a comparable never-served fallback. Retry time is
+eligibility/backoff, not a separate priority. Every candidate uses a fresh
+transaction: complete frozen original subject discovery, canonical account
+fences, Round serialization, then exact manifest revalidation and context lock.
+Every effect samples authoritative DB time after waits and checks original
+receipt expiry, withdrawal, frontier, lease token/epoch and pinned configuration.
+Capture-worker replacement supplies no authority over original audio.
+
+The complete validated execution/quality configuration is bound to a versioned
+server-computed digest on first claim. The injected lifetime call allowance is
+1–64. A private metadata-only attempt ledger reserves one ordinal per claim epoch
+before external I/O, atomically with the lifetime counter. Repeating an unknown
+admission returns already-admitted, never fresh dispatch permission. This counts
+conservative spending, not actual provider receipt or billing: a crash can consume
+an allowance without sending a request. A subsequent lease cannot reset spending;
+exhaustion is visible blocked recovery. Provider/uncertain failures release the
+lease into persisted bounded backoff, and quality uncertainty stays blocked.
+Already-held plaintext cannot be recalled; future candidate commit still checks
+current privacy/claim/frontier fences. Candidate recording computes only a digest
+and byte count from transient text; it does not store the words, settle evidence,
+select authoritative text, or permit freeze.
+
+These methods are a bounded execution contract, not an eventual-result claim.
+The fair polling/provider composition, interrupted-attempt scheduling,
+source-enrollment recovery, qualified recognition policy, authoritative selection,
+public provisional display and actual played-to-result outcome remain incomplete.
+Production composition remains absent. Supported automatic progress will require
+available resources and remaining finite funding within the original evidence
+lifetime, separately measured against the fault matrix; manual replenishment or
+a parked pending row is not automatic eventual progress.
+
+### Enrollment after a supported selective restore
+
+A retained authentic original payload may outlive missing transcription-recovery
+metadata in a supported older PG snapshot. Private missing-source discovery pages
+one eligible unit per distinct Round before its eight-Round bound. Metadata
+acceptance has its own actual post-lock enrolledAt timestamp; historical NULLs
+remain unknown, with original creation as a comparable fallback. The maximum
+enrollment time over all source members, including settled ones, supplies the
+Round turn. Keep that service history while the Round remains active; metadata
+minimization cannot silently reset its fair turn. This timestamp is neither a new
+PCM receipt nor a changed original expiry.
+
+The application first restores/authenticates original stored bytes against the
+current independent custody authority. Explicit enrollment then validates the
+same canonical full original binding/history under original account→Round→intent
+fences, checks retained payload presence and original expiry using post-wait DB
+time, and inserts source metadata once. It does not load ciphertext in the
+metadata-only query, acquire a new key, borrow successor capture authorization,
+rewrite receipt/admission times, create words, or reopen a frozen frontier.
+Current withdrawal/subject erasure denies even an already-held original body.
+Concurrent duplicate enrollment serializes under the same Round and does not
+restart its recorded service turn. Missing metadata is not evidence of current
+privacy authority; all-authority rollback remains unsupported REL-H.
+
+The methods alone do not schedule every supported restore automatically. Local
+poller/provider integration and independent privacy-lineage reconciliation are
+still required, along with qualified recognition and the genuine played result.
+
+### Finite enrollment traversal through refused custody
+
+Successful source enrollment alone cannot be the discovery turn: a full page of
+independently revoked/unavailable keys can otherwise hide later usable original
+payload indefinitely. The private enrollment scanner therefore persists one
+finite pass position independently of acceptance. It captures an upper
+(enrollment turn or original creation fallback, Round ID) key, commits each
+bounded eight-Round page position before returning external restore work, and
+clears a completed pass. Insertions above the captured upper key wait for the
+next pass, so an ongoing tail cannot prevent wrap/revisit. A crash after position
+commit can defer a unit until the next finite pass, never erase its obligation.
+Timestamp key comparisons stay entirely in PG at full precision; JavaScript Date
+truncation cannot skip adjacent microsecond keys.
+
+Independent workers serialize only this private control row, then release that
+transaction before any original account→Round enrollment locks or custody I/O.
+The scanner samples pacing eligibility after its lock wait and sets the next
+due instant at the actual position update, one second later. This is a durable
+minimum eligibility delay, not a polling, DB-load, capture-receipt or overall
+recovery-latency guarantee. An empty/completed pass clears cursor references;
+refusal is traversal progress only, never source acceptance, silence, coverage,
+delete permission or provider-call authorization. All original privacy/expiry
+and frontier fences still apply at authenticated restore/enrollment.
+
+The single seeded control row permits web SELECT and only its mutable position
+and pacing-column UPDATE. Runtime INSERT/DELETE, singleton mutation and media
+worker access remain forbidden. It retains at most two private Round identifiers
+and their ordering instants during an incomplete pass; there is no audio,
+unselected text, subject list, execution token or current-authority assertion.
+This is private linkable operational metadata, subject to the same declared
+metadata minimization/export/restore obligations. Its presence cannot make an
+old PG backup current, reverse independent revocation or extend original expiry.
+Production composition and every-copy retention acceptance remain disabled
+under REL-H. Automatic poller/provider/result qualification is still separate.
+
+A Round cursor does not by itself provide within-Round progress: its earliest
+missing original unit could remain revoked while later authentic units are
+never offered. Each existing evidence intent therefore has at most one private
+last-offered metadata row. Unit selection compares that actual offer time, or
+original creation for a never-offered unit; it never gives NULL a permanent
+priority. Each chosen unit's offer and the global finite-pass cursor commit
+atomically before external restore. Refusal, uncertainty or a process dying after
+commit can defer another offer but cannot erase the source obligation or make
+old key material usable. A fresh process uses the same stored turn. Original
+receipt, expiry, immutable run/body and source acceptance remain separate.
+The offer identity cannot be updated by the runtime role; only its timestamp can
+advance, and it cascades when the owning evidence intent is actually removed.
+These linkable per-intent operational facts share the declared metadata
+minimization/export/restore obligations, not a new unlimited retention purpose.
+The scope remains local and production-disabled; traversal is not provider or
+result completion.
+
+### Integration with Billing main100
+
+The combined forward tail preserves applied Billing migration bytes and its
+allowance/usage/analysis contracts. Recovery retains an original reserved,
+uncounted casual-judge identity across an expired undispatched window; queued,
+leased, recovering and blocked obligations remain open for usage settlement.
+Actual agent-run request counters continue to consume lifetime provider funding,
+including unknown requests without an attempt receipt. Generation-window
+attribution remains separately bounded and conservative for unclassified epochs;
+missing metadata never invents a free call or provider billing evidence. Held
+validated ballots, original freeze/rubric and historical terminal jobs are not
+rewritten by schema integration. No historical result is reopened. The original
+account fences and current allowance eligibility still apply at new dispatch.
+Old unpublished migration/test bytes stay archived with original provenance;
+combined schema/role/populated-predecessor proofs belong to their new candidate.
+
+### Original audio assembly and recovery readiness
+
+The local recognition application assembles only the exact ordered unique claimed
+original evidence IDs, at most128 units and30 seconds. It validates canonical
+bodies and original clock equations, preserves original worker/epoch/seat/grant/
+track/calibration identity, and requires contiguous actual sequence, offsets and
+previous-observation links across units. It refuses a gap rather than inserting
+silence or asserting cross-epoch continuity. Short and low-energy samples remain
+in the PCM. One pure16kHz mono S16LE WAV encoder also serves existing capture;
+encoding itself establishes neither hearing, speech classification nor coverage.
+The existing capture classifier is unchanged by that extraction and is not newly
+qualified by these encoding tests.
+
+Quiet eligibility measures actual source-metadata assembly progress, not original
+payload receipt age. Duplicate enrollment does not advance that progress. Original
+receivedAt/expiresAt/payloadAcceptedAt remain immutable. A known retained payload
+without recognition-source metadata excludes its Round before discovery's bounded
+page and prevents a fresh paid admission under original-scope/Round fences.
+This barrier does not claim all frames have arrived, or that acquiring intents,
+missing speech, silence or recognition quality are settled. Independently
+unrestorable/expired originals still require visible unresolved classification,
+escalation and the exceptional remedy; the barrier is not eventual-result proof.
+Other eligible Rounds retain their fair turn.
+
+Readiness gates new spending, not bookkeeping for an already admitted attempt.
+Unrelated backlog appearing afterward cannot by itself discard that attempt's
+provisional metadata or prevent persisted retry/backoff. Current original privacy,
+withdrawal, receipt expiry, pinned manifest/configuration and execution-token
+fences remain mandatory. No new units are appended to an already leased context.
+Candidate words stay transient, with only digest/size/attempt metadata persisted;
+this does not select authoritative transcript text or permit freeze/deletion.
+
+A fresh admission returns its actual authoritative admission instant and a call
+start-before bound no later than the original lease and every original receipt's
+expiry. Replayed/unknown admission never grants another call. The application
+must finish bounded assembly before fresh admission where practical and anchor
+its conservative monotonic start deadline BEFORE requesting that admission;
+adding returned remaining time after a delayed reply would extend permission.
+This only bounds starting a call within the declared trusted-time model. It
+cannot recall already authorized external processing, replace privacy/content
+commit fences, or prove host-independent custody/time under REL-H. The one-shot
+provider executor, delayed-response/erasure process proof, qualified quality
+selection, protected speech and genuine played-to-result outcome remain incomplete.

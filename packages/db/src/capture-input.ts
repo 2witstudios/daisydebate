@@ -58,6 +58,21 @@ export const captureClipSchema = z
     after: iso,
   })
   .strict();
+export const captureEvidenceReconciliationSchema = z.strictObject({
+  roundId: idSchema,
+  evidenceId: idSchema,
+  workerId: idSchema,
+});
+export const captureRoundEvidenceSchema = z.strictObject({ roundId: idSchema });
+export const captureEvidenceIntentSchema = captureClipSchema
+  .omit({ text: true })
+  .safeExtend({
+    evidenceId: idSchema,
+    authorityId: idSchema,
+    bodyDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    reservedBytes: z.number().int().min(1).max(65536),
+    durationMs: z.number().int().min(1).max(400),
+  });
 export const captureObservationSchema = z
   .object({ ...streamFields, trackId, observedFrom: iso, observedUntil: iso })
   .strict();

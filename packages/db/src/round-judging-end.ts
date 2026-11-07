@@ -36,7 +36,12 @@ export async function endOpenJudgingJobs(
     .where(
       and(
         eq(roundJudgingJobs.roundId, roundId),
-        inArray(roundJudgingJobs.status, ['queued', 'leased']),
+        inArray(roundJudgingJobs.status, [
+          'queued',
+          'leased',
+          'recovering',
+          'blocked',
+        ]),
       ),
     )
     .for('update');
@@ -44,7 +49,7 @@ export async function endOpenJudgingJobs(
   await tx.execute(sql`update agent_runs set ended_at=clock_timestamp()
     where kind='judging' and ended_at is null and round_participant_id in (
       select judge_participant_id from round_judging_jobs
-      where round_id=${roundId} and status in ('queued','leased'))`);
+      where round_id=${roundId} and status in ('queued','leased','recovering','blocked'))`);
   const nowMs = Date.parse(input.now);
   const reasons: JudgingTerminalReason[] = [];
   for (const job of open) {
@@ -60,6 +65,7 @@ export async function endOpenJudgingJobs(
       .update(roundJudgingJobs)
       .set({
         status: 'failed',
+        recoveryReason: null,
         terminalReason,
         retryAt: null,
         leaseTokenDigest: null,

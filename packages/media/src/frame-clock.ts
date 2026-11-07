@@ -1,15 +1,14 @@
-import {
-  calibrationOffsets,
-  publicationClock,
-  type ClockCalibration,
-} from './publication-clock';
+import type {
+  ClockCalibration,
+  FrameObservation,
+  FrameRunAnchor,
+  FrameClockEvidence,
+} from '@daisy/protocol';
+import { calibrationOffsets, publicationClock } from './publication-clock';
+import { frameClockEvidenceSchema } from '@daisy/protocol';
 
-type Observation = {
-  readonly sequence: number;
-  readonly beforeMs: number;
-  readonly afterMs: number;
-};
 type Run = {
+  readonly anchor: FrameRunAnchor;
   readonly sequence: number;
   readonly nominalStartMs: number;
   /** Server-time lower bound of the run's first frame start. */
@@ -18,7 +17,7 @@ type Run = {
   readonly upperMs: number;
 };
 
-const wellFormed = (frame: Observation) =>
+const wellFormed = (frame: FrameObservation) =>
   Number.isSafeInteger(frame.sequence) &&
   frame.sequence >= 0 &&
   Number.isFinite(frame.beforeMs) &&
@@ -29,6 +28,47 @@ const wellFormed = (frame: Observation) =>
 const usable = (calibration: ClockCalibration, atMs: number) =>
   publicationClock({ calibration, anchorMs: atMs, sampleRate: 16000 }).valid &&
   atMs - calibration.receivedAtMs <= 30000;
+
+function mapFrameRun(
+  calibration: ClockCalibration,
+  frame: FrameObservation,
+  last: FrameRunAnchor['previous'],
+): Run | null {
+  if (!usable(calibration, frame.afterMs)) return null;
+  const offsets = calibrationOffsets(
+    calibration,
+    frame.beforeMs - 10,
+    frame.afterMs,
+  );
+  const lowerMs = frame.beforeMs - 10 + offsets.lower;
+  return {
+    anchor: {
+      calibration: { ...calibration },
+      observation: { ...frame },
+      previous: last ? { ...last } : null,
+    },
+    sequence: frame.sequence,
+    nominalStartMs: !last
+      ? Math.ceil(lowerMs)
+      : frame.sequence > last.sequence
+        ? last.nominalStartMs + (frame.sequence - last.sequence) * 10
+        : // A counter reset is a new native stream: place it by the clock, never contiguous.
+          Math.max(Math.ceil(lowerMs), last.nominalStartMs + 20),
+    lowerMs,
+    upperMs: frame.afterMs + offsets.upper,
+  };
+}
+
+function frameRunWindow(run: Run, sequence: number) {
+  const elapsedMs = (sequence - run.sequence) * 10;
+  const driftMs = (elapsedMs + 10) * 0.0001;
+  const nominalStartMs = run.nominalStartMs + elapsedMs;
+  return {
+    nominalStartMs,
+    beforeMs: Math.min(run.lowerMs + elapsedMs - driftMs, nominalStartMs),
+    afterMs: Math.max(run.upperMs + elapsedMs + driftMs, nominalStartMs + 10),
+  };
+}
 
 /**
  * One native track's server-time timeline (DEC-215), for every role that reads audio. Gaps are decided by frame
@@ -46,61 +86,50 @@ const usable = (calibration: ClockCalibration, atMs: number) =>
  * it always contains the span. A rejected callback is never replayed.
  */
 export function createFrameClock(initial: ClockCalibration) {
-  let calibration = initial;
+  let calibration = { ...initial };
+  let observed: FrameClockEvidence | null = null;
   let run: Run | null = null;
   let last: {
     readonly sequence: number;
     readonly nominalStartMs: number;
   } | null = null;
-  const map = (frame: Observation): Run | null => {
-    if (!usable(calibration, frame.afterMs)) return null;
-    const offsets = calibrationOffsets(
-      calibration,
-      frame.beforeMs - 10,
-      frame.afterMs,
-    );
-    const lowerMs = frame.beforeMs - 10 + offsets.lower;
-    return {
-      sequence: frame.sequence,
-      nominalStartMs: !last
-        ? Math.ceil(lowerMs)
-        : frame.sequence > last.sequence
-          ? last.nominalStartMs + (frame.sequence - last.sequence) * 10
-          : // A counter reset is a new native stream: place it by the clock, never contiguous.
-            Math.max(Math.ceil(lowerMs), last.nominalStartMs + 20),
-      lowerMs,
-      upperMs: frame.afterMs + offsets.upper,
-    };
-  };
   return {
-    observe(frame: Observation): {
+    observe({ sequence, beforeMs, afterMs }: FrameObservation): {
       readonly beforeMs: number;
       readonly afterMs: number;
       readonly nominalStartMs: number;
     } | null {
+      // Native callbacks also carry PCM and identity; clock provenance owns only these facts.
+      const frame = { sequence, beforeMs, afterMs };
+      observed = null;
+      const previous = last ? { ...last } : null;
       if (!wellFormed(frame)) {
         run = null;
         return null;
       }
       if (!run || !last || frame.sequence !== last.sequence + 1)
-        run = map(frame);
+        run = mapFrameRun(calibration, frame, last);
       if (!run) return null;
-      const elapsedMs = (frame.sequence - run.sequence) * 10;
-      const driftMs = (elapsedMs + 10) * 0.0001;
-      const nominalStartMs = run.nominalStartMs + elapsedMs;
-      last = { sequence: frame.sequence, nominalStartMs };
-      return {
-        nominalStartMs,
-        beforeMs: Math.min(run.lowerMs + elapsedMs - driftMs, nominalStartMs),
-        afterMs: Math.max(
-          run.upperMs + elapsedMs + driftMs,
-          nominalStartMs + 10,
-        ),
+      const window = frameRunWindow(run, frame.sequence);
+      last = {
+        sequence: frame.sequence,
+        nominalStartMs: window.nominalStartMs,
       };
+      observed = {
+        observation: { ...frame },
+        anchor: run.anchor,
+        previous,
+        window: { ...window },
+      };
+      return window;
+    },
+    /** Immutable original mapping input only; this does not prove admission or sequence continuity. */
+    evidence(): FrameClockEvidence | null {
+      return observed ? structuredClone(observed) : null;
     },
     /** The calibration the next run maps with; a running run never moves. */
     refresh(next: ClockCalibration) {
-      calibration = next;
+      calibration = { ...next };
     },
   };
 }
@@ -115,7 +144,7 @@ export function createTrackClocks() {
   const clocks = new Map<string, ReturnType<typeof createFrameClock>>();
   return {
     observe(
-      frame: Observation & { readonly trackId: string },
+      frame: FrameObservation & { readonly trackId: string },
       calibration: ClockCalibration,
     ) {
       let clock = clocks.get(frame.trackId);
@@ -132,6 +161,9 @@ export function createTrackClocks() {
           }
         : null;
     },
+    evidence(trackId: string): FrameClockEvidence | null {
+      return clocks.get(trackId)?.evidence() ?? null;
+    },
     refresh(calibration: ClockCalibration) {
       for (const clock of clocks.values()) clock.refresh(calibration);
     },
@@ -142,4 +174,45 @@ export function createTrackClocks() {
       clocks.clear();
     },
   };
+}
+
+/** Validates original mapping equations only; this grants neither authority nor cross-run continuity. */
+export function verifyFrameClockEvidence(input: unknown): boolean {
+  const parsed = frameClockEvidenceSchema.safeParse(input);
+  if (!parsed.success) return false;
+  const evidence = parsed.data;
+  const { anchor, observation, previous } = evidence;
+  const run = mapFrameRun(
+    anchor.calibration,
+    anchor.observation,
+    anchor.previous,
+  );
+  if (!run) return false;
+  if (
+    observation.sequence === anchor.observation.sequence &&
+    (observation.beforeMs !== anchor.observation.beforeMs ||
+      observation.afterMs !== anchor.observation.afterMs)
+  )
+    return false;
+  const expectedPrevious =
+    observation.sequence === anchor.observation.sequence
+      ? anchor.previous
+      : {
+          sequence: observation.sequence - 1,
+          nominalStartMs:
+            run.nominalStartMs + (observation.sequence - 1 - run.sequence) * 10,
+        };
+  if (
+    previous?.sequence !== expectedPrevious?.sequence ||
+    previous?.nominalStartMs !== expectedPrevious?.nominalStartMs
+  )
+    return false;
+  const expected = frameRunWindow(run, observation.sequence);
+  return [expected.beforeMs, expected.afterMs, expected.nominalStartMs].every(
+    Number.isFinite,
+  )
+    ? expected.nominalStartMs === evidence.window.nominalStartMs &&
+        expected.beforeMs === evidence.window.beforeMs &&
+        expected.afterMs === evidence.window.afterMs
+    : false;
 }

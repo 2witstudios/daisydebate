@@ -129,6 +129,8 @@ export {
   judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
+  judgingRecoveryReasons,
+  type JudgingRecoveryReason,
   type JudgingAttemptCategory,
   type JudgingAttemptOutcome,
   type JudgingAttemptDiagnostic,
@@ -496,7 +498,11 @@ export {
   analyticsConsentSchema,
   type AnalyticsConsent,
 } from './analytics-consent';
-export { judgingPolicy } from './judging-policy';
+export {
+  judgingPolicy,
+  judgingWorkKinds,
+  type JudgingWorkKind,
+} from './judging-policy';
 export type {
   AiSeatStanding,
   HeldBallotFacts,
@@ -650,6 +656,46 @@ export {
   VIEWER_PULSES_PER_SECOND,
 } from './audience-state';
 export type { AudienceState } from './audience-state';
+export {
+  necessaryEvidencePolicy,
+  type EvidenceIdentity,
+  type EvidenceCustodyIdentity,
+  type EvidenceCustodyReceipt,
+  type EvidenceRefusal,
+  type SealedEvidence,
+  type NecessaryEvidenceCustody,
+  type NecessaryEvidencePayloadReceipt,
+  type NecessaryEvidenceIngressReply,
+} from './necessary-evidence';
+
+export type {
+  ClockCalibration,
+  FrameObservation,
+  FrameRunAnchor,
+  FrameClockEvidence,
+} from './frame-clock-evidence';
+export { frameClockEvidenceSchema } from './frame-clock-evidence';
+export {
+  canonicalCaptureEvidenceBody,
+  type CaptureEvidenceBody,
+} from './capture-evidence-body';
+
+export {
+  evidencePrivacyScopeSchema,
+  encodeEvidencePrivacyScope,
+  evidencePrivacyIntentSchema,
+  type EvidencePrivacyScope,
+  type EvidencePrivacyIntent,
+  type EvidencePrivacyIntentRecord,
+} from './evidence-privacy';
+
+export { evidenceEnvelopeSchema } from './evidence-envelope';
+
+export {
+  captureEvidenceSpeakerSchema,
+  type CaptureEvidenceSpeaker,
+} from './capture-evidence-speaker';
+export { evidenceIngressReplySchema } from './evidence-ingress-reply';
 
 export {
   analysisWorkBounds,

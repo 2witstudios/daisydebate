@@ -19,7 +19,8 @@ export function requireClaimableJob(
   if (
     !job ||
     (job.commandId !== null && job.commandId !== commandId) ||
-    !['queued', 'leased'].includes(job.status) ||
+    !['queued', 'leased', 'recovering'].includes(job.status) ||
+    (job.retryAt && job.retryAt.getTime() > now.getTime()) ||
     (job.leaseExpiresAt && job.leaseExpiresAt.getTime() > now.getTime())
   )
     throw createAppError('CONFLICT', 'Judging intent unavailable');

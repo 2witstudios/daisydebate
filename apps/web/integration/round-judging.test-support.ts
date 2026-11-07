@@ -166,7 +166,7 @@ export async function freezeBotJudge(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
 ) {
   const { roundId } = await frozenBotJudgeRound(f, true);
-  const target = (await f.store.scanRoundJudgingJobs(64)).find(
+  const target = (await f.store.scanRoundJudgingJobs(64, 'generation')).find(
     (job) => job.roundId === roundId,
   );
   if (!target) throw Error('Expected actual assigned judging intent');

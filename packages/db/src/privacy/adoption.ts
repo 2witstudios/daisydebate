@@ -1,3 +1,4 @@
+import { necessaryEvidencePrivacyAdopter } from '../necessary-evidence-privacy';
 import { agreementSignaturePrivacyAdopter } from '../agreement-signatures';
 import { audienceReactionPrivacyAdopter } from '../audience-reactions';
 import { debaterFollowPrivacyAdopter } from '../debater-follows';
@@ -53,6 +54,7 @@ export const subjectRightsAdoption = (
   debaterFollowPrivacyAdopter,
   watchHistoryPrivacyAdopter,
   notificationPrivacyAdopter,
+  necessaryEvidencePrivacyAdopter,
   roundTranscriptPrivacyAdopter,
   roundAnalysisPrivacyAdopter,
   recordingPrivacyAdopter,
