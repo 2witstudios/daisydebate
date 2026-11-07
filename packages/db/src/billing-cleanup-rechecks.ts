@@ -1,4 +1,5 @@
-import { asc, gt, sql } from 'drizzle-orm';
+import { and, asc, desc, gt, lte, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { billingCleanupSchema } from '@daisy/protocol/billing';
 import { createAppError } from '@daisy/errors';
@@ -9,16 +10,32 @@ import { privacyJobs } from './schema/privacy-jobs';
 import { enqueuePrivacyJob } from './privacy/enqueue-job';
 
 const batch = 32;
+const passSchema = z
+  .strictObject({ afterId: idSchema, throughId: idSchema })
+  .refine((pass) => pass.afterId < pass.throughId);
+type RecheckPass = z.infer<typeof passSchema>;
 /** PRIMARY KEY keyset pages return at most33 rows; due classification stays inside that page. */
 export function createBillingCleanupRechecks(input: {
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
 }) {
   return {
-    rechecks(afterId?: string) {
-      if (afterId !== undefined && !idSchema.safeParse(afterId).success)
+    rechecks(pass?: RecheckPass) {
+      if (pass !== undefined && !passSchema.safeParse(pass).success)
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
+        // One indexed maximum fixes this traversal's upper boundary. New higher
+        // IDs belong to the next pass, so tail growth cannot postpone its head.
+        const throughId =
+          pass?.throughId ??
+          (
+            await tx
+              .select({ id: privacyJobs.id })
+              .from(privacyJobs)
+              .orderBy(desc(privacyJobs.id))
+              .limit(1)
+          )[0]?.id;
+        if (throughId === undefined) return { rows: [], next: null };
         const rows = await tx
           .select({
             id: privacyJobs.id,
@@ -26,7 +43,10 @@ export function createBillingCleanupRechecks(input: {
           })
           .from(privacyJobs)
           .where(
-            afterId === undefined ? undefined : gt(privacyJobs.id, afterId),
+            and(
+              lte(privacyJobs.id, throughId),
+              pass === undefined ? undefined : gt(privacyJobs.id, pass.afterId),
+            ),
           )
           .orderBy(asc(privacyJobs.id))
           .limit(batch + 1);
@@ -47,8 +67,10 @@ export function createBillingCleanupRechecks(input: {
         });
         return {
           rows: eligible,
-          afterId: page.at(-1)?.id ?? null,
-          exhausted: rows.length <= batch,
+          next:
+            rows.length > batch
+              ? { afterId: page.at(-1)!.id, throughId }
+              : null,
         };
       });
     },

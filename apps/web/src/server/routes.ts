@@ -9,6 +9,7 @@ import { createRoundMediaHandlers } from '../features/round-media/handlers';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
+import { composeRoundFloorRoutes } from '../features/messaging/round-floor/composition';
 import { composeChallengeRoutes } from '../features/challenges/composition';
 import { composeFriendRoutes } from '../features/friends/composition';
 import { composeModerationRoutes } from '../features/moderation/composition';
@@ -85,6 +86,7 @@ export function createRoutes(app: App) {
     rooms,
     attendance: composeAttendanceRoutes(app),
     messaging: composeMessagingRoutes(app),
+    roundFloor: composeRoundFloorRoutes(app),
     friends: composeFriendRoutes(app),
     challenges: composeChallengeRoutes(app),
     reports: composeReportRoutes(app),

@@ -15,10 +15,9 @@ test('acknowledged cleanup rechecks advance past failed identities and revisit h
         return step === 1
           ? {
               rows: [{ jobId: 'a'.repeat(24) }, { jobId: 'b'.repeat(24) }],
-              afterId: 'c'.repeat(24),
-              exhausted: false,
+              next: { afterId: 'c'.repeat(24), throughId: 'z'.repeat(24) },
             }
-          : { rows: [], afterId: null, exhausted: true };
+          : { rows: [], next: null };
       },
       reopen: async (id) => {
         jobs.push(id);
@@ -39,7 +38,7 @@ test('acknowledged cleanup rechecks advance past failed identities and revisit h
       'continue later identities, advance exact page keyset and revisit head while stopping new admissions after shutdown',
     actual: [pages, jobs, failures],
     expected: [
-      [null, 'c'.repeat(24), null],
+      [null, { afterId: 'c'.repeat(24), throughId: 'z'.repeat(24) }, null],
       ['a'.repeat(24), 'b'.repeat(24)],
       ['reopen'],
     ],
@@ -59,8 +58,7 @@ test('page failure and shutdown after an in-flight read do not invent progress o
         worker.stop();
         return {
           rows: [{ jobId: 'a'.repeat(24) }],
-          afterId: 'a'.repeat(24),
-          exhausted: false,
+          next: { afterId: 'a'.repeat(24), throughId: 'z'.repeat(24) },
         };
       },
       reopen: async () => {

@@ -1,3 +1,4 @@
+import { evaluateRoundFloorPermits } from './round-floor-permits';
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSessions } from '@daisy/db/authorization';
@@ -143,7 +144,13 @@ export function channelMessagesResource({
         );
       } catch (error) {
         if (isAppError(error) && error.code === 'NOT_FOUND')
-          return principals.map(() => ({ status: 'denied' as const }));
+          return evaluateRoundFloorPermits({
+            reads,
+            id,
+            principals,
+            clock,
+            now,
+          });
         throw error;
       }
     },

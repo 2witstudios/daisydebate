@@ -98,3 +98,55 @@ test('an edit spends the limiter before its transaction, never for a replay, and
     ],
   });
 });
+
+test('a completed author removal acknowledges a lost response without a second mutation', async () => {
+  const removed = { ...message, text: null, removedAt: now, changeVersion: 2 };
+  const state = {
+    message: removed,
+    receipt: { messageId, payloadDigest: null },
+    counters,
+  };
+  let commits = 0,
+    limits = 0;
+  const store = {
+    readChannel: async (
+      _scope: unknown,
+      work: (f: unknown) => Promise<unknown>,
+    ) => work({ readRequestState: async () => state }),
+    withChannel: async (
+      _scope: unknown,
+      work: (f: unknown) => Promise<unknown>,
+    ) =>
+      work({
+        readMutationState: async () => state,
+        commitMutation: async () => {
+          commits++;
+        },
+      }),
+  } as MessagingChannelStore;
+  let result;
+  try {
+    result = await mutateMessagingMessage(
+      'remove',
+      { version: 1, channelId, messageId, requestId: command.requestId },
+      { kind: 'user', userId: 'u'.repeat(24), actorId },
+      {
+        bounds: { messageUnits: 4000, pageItems: 100 },
+        editWindowMs: 60000,
+        store,
+        clock: { now: () => now },
+        limit: async () => {
+          limits++;
+        },
+      },
+    );
+  } catch {
+    result = null;
+  }
+  assert({
+    given: 'an original author retrying a completed removal',
+    should: 'return only the tombstone without limiting or mutating again',
+    actual: [result, commits, limits],
+    expected: [removed, 0, 0],
+  });
+});

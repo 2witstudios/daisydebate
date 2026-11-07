@@ -80,7 +80,7 @@ enforces the ADR-linked, time-bounded exception registry.
    empties that database back to the baseline. A missing value makes the server refuse to start rather than
    fall back to another checkout's data.
    Dedicated realtime browser proofs run with `bun test:e2e:realtime`
-   (Room delivery) and `bun test:e2e:messaging-realtime` (DM delivery).
+   (Room delivery) and `bun test:e2e:messaging-realtime` (DM and Round-floor delivery).
    Their registered runners select one exact suite under Node 24 and the
    canonical machine-wide limiter. Both use the native slot's actual TLS
    realtime server, shared Redis namespace, configured WSS endpoint, durable
@@ -90,6 +90,11 @@ enforces the ADR-linked, time-bounded exception registry.
    excludes these two suites, while the same native CI job runs each dedicated
    profile and enforces its reporter count before sanitizing artifacts. Separate
    output directories preserve reports and traces from earlier profiles.
+   The Messaging profile uses full Chromium and a local TLS edge to the actual
+   LiveKit SFU for Round-floor continuity: prep publishes no media; after prep,
+   the same live stream/track objects must survive incoming messages. Its floor
+   journey also proves lost-response replay, permit expiry/reconnect, phone unread
+   state and retained terminal history.
 4. **CI parity** — `bun check` mirrors CI's blocking gates (format, lint,
    policy, invariants, typecheck, unit tests, production build). knip,
    duplication, evidence and the coverage trend are reports: CI runs them in

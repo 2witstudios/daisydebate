@@ -1,6 +1,7 @@
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { ProvisionalLinkPurposes } from '@daisy/db';
+import { roundFloorRetentionMs } from '@daisy/protocol/round-floor';
 import { MODERATION_RECORD_RETENTION_MS } from '../features/moderation/retention';
 
 const DAY_MS = 86_400_000;
@@ -87,6 +88,11 @@ export function retentionTargets({
     readonly purgeReadNotifications: (batch: Batch) => Promise<number>;
     readonly purgeExpiredWatchHistory: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSpectatorChat: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredRoundFloorReceipts: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredRoundFloorMessages: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredRoundFloorReadStates: (
+      batch: Batch,
+    ) => Promise<number>;
     readonly purgeExpiredAudienceReactions: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
@@ -297,6 +303,20 @@ export function retentionTargets({
       maxBatches: 20,
       purge: ({ now, limit }: { now: string; limit: number }) =>
         purge({ before: cutoff(now, 180 * DAY_MS), limit }),
+    })),
+    /** Floor expiry is measured from Round end; receipts drain before their referenced messages. */
+    ...(
+      [
+        ['round_floor_receipts', database.purgeExpiredRoundFloorReceipts],
+        ['round_floor_messages', database.purgeExpiredRoundFloorMessages],
+        ['round_floor_read_states', database.purgeExpiredRoundFloorReadStates],
+      ] as const
+    ).map(([name, purge]) => ({
+      name: `retention.${name}`,
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }: { now: string; limit: number }) =>
+        purge({ before: cutoff(now, roundFloorRetentionMs), limit }),
     })),
     /** Offers past their time; the list already ignores them (ADR 0103). */
     {

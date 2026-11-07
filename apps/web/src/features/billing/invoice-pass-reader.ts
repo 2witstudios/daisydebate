@@ -5,6 +5,7 @@ import {
   invoicePassHeadSchema,
   invoicePassInvoiceSchema,
   type InvoicePass,
+  type OwnedPaymentObservation,
 } from '@daisy/protocol/billing';
 import type { InvoicePassReadPort } from './invoice-pass-vendor';
 import { normalizePaymentObservation } from './payment-observation-reader';
@@ -26,10 +27,13 @@ export function createInvoicePassReader(input: {
   return async (pass: InvoicePass, claimId: string) => {
     if (
       !invoicePassSchema.safeParse(pass).success ||
-      pass.owner.mode !== input.mode
+      pass.owner.mode !== input.mode ||
+      !invoicePassHeadSchema.shape.claimId.safeParse(claimId).success
     )
       return unavailable;
     const startedAt = input.clock.now();
+    if (!invoicePassHeadSchema.shape.startedAt.safeParse(startedAt).success)
+      return unavailable;
     try {
       if (pass.phase === 'verify-invoice')
         return await readInvoice(input, pass, claimId, startedAt);
@@ -50,18 +54,23 @@ async function readPayments(
   const request = paymentPageRequest(pass);
   const raw = await input.port.payments(request);
   const observedAt = input.clock.now();
-  const parsed = pageSchema.safeParse(raw);
-  if (!parsed.success || (request.limit === 1 && parsed.data.data.length > 1))
+  const page = readPaymentPage(raw, request.limit);
+  if (!invoicePassHeadSchema.shape.observedAt.safeParse(observedAt).success)
     return unavailable;
-  const reads = normalizeMembers(parsed.data.data, pass, observedAt);
-  if (!reads) return unavailable;
+  if (page === null) return unavailable;
+  const normalized = normalizeMembers(page.data, pass, observedAt);
+  if (normalized.kind === 'incomplete')
+    return normalized.reads.length === 0
+      ? unavailable
+      : { kind: 'incomplete' as const, reads: normalized.reads };
+  const reads = normalized.reads;
   if (pass.phase === 'verify-head') {
     const receipt = invoicePassHeadSchema.safeParse({
       ...receiptBinding(pass, claimId, startedAt, observedAt),
       kind: 'head',
       request: { invoiceId: pass.owner.invoiceId, limit: 20 },
       reads,
-      hasMore: parsed.data.has_more,
+      hasMore: page.has_more,
     });
     return receipt.success
       ? {
@@ -71,7 +80,7 @@ async function readPayments(
       : unavailable;
   }
   if (reads.length === 0)
-    return parsed.data.has_more
+    return page.has_more
       ? unavailable
       : {
           kind: 'advance' as const,
@@ -83,9 +92,16 @@ async function readPayments(
       kind: 'retained' as const,
       beforeId: pass.afterId,
       read: reads[0]!,
-      more: parsed.data.has_more,
+      more: page.has_more,
     },
   };
+}
+
+function readPaymentPage(raw: unknown, limit: 1 | 20) {
+  const parsed = pageSchema.safeParse(raw);
+  return parsed.success && parsed.data.data.length <= limit
+    ? parsed.data
+    : null;
 }
 
 function paymentPageRequest(
@@ -105,10 +121,10 @@ function normalizeMembers(
   pass: InvoicePass,
   now: string,
 ) {
-  const reads = [];
+  const reads: OwnedPaymentObservation[] = [];
   for (const member of raw) {
     const id = z.object({ id: z.string() }).safeParse(member);
-    if (!id.success) return null;
+    if (!id.success) continue;
     const { mode, customerId, invoiceId, source } = pass.owner;
     const result = normalizePaymentObservation(member, {
       invoice: { mode, customerId, invoiceId, source },
@@ -116,13 +132,13 @@ function normalizeMembers(
       closedAt: pass.owner.closedAt,
       now,
     });
-    if (result.kind !== 'read') return null;
+    if (result.kind !== 'read') continue;
     reads.push(result.read);
   }
-  return new Set(reads.map((read) => read.invoicePaymentId)).size ===
-    reads.length
-    ? reads
-    : null;
+  return reads.length === raw.length &&
+    new Set(reads.map((read) => read.invoicePaymentId)).size === reads.length
+    ? { kind: 'complete' as const, reads }
+    : { kind: 'incomplete' as const, reads };
 }
 
 function receiptBinding(

@@ -58,6 +58,9 @@ describe('retention targets', () => {
         purgeReadNotifications: record('notifications'),
         purgeExpiredWatchHistory: record('watch_history'),
         purgeExpiredSpectatorChat: record('spectator_chat'),
+        purgeExpiredRoundFloorReceipts: record('round_floor_receipts'),
+        purgeExpiredRoundFloorMessages: record('round_floor_messages'),
+        purgeExpiredRoundFloorReadStates: record('round_floor_read_states'),
         purgeExpiredAudienceReactions: record('audience_reactions'),
       },
       redis: {
@@ -68,6 +71,41 @@ describe('retention targets', () => {
       },
     };
   };
+
+  test('floor retention drains receipts before reply leaves with the Round-end window', async () => {
+    const { calls, database, redis } = purges();
+    const targets = retentionTargets({
+      database,
+      redis,
+      provisionalLinks: provisionalLinkPurposes,
+    }).filter((target) => target.name.startsWith('retention.round_floor_'));
+    for (const target of targets)
+      await target.purge({ now, limit: target.batchSize });
+    assert({
+      given: 'the scheduled production retention targets',
+      should:
+        'drain floor receipts, messages and reader state in order with bounded end-date cutoffs',
+      actual: [targets.map((target) => [target.name, target.batchSize]), calls],
+      expected: [
+        [
+          ['retention.round_floor_receipts', 500],
+          ['retention.round_floor_messages', 500],
+          ['retention.round_floor_read_states', 500],
+        ],
+        {
+          round_floor_receipts: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          round_floor_messages: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          round_floor_read_states: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+        },
+      ],
+    });
+  });
 
   test('prunes each store with its own retention window and batch bounds', async () => {
     const { calls, sweeps, database, redis } = purges();
@@ -140,6 +178,21 @@ describe('retention targets', () => {
             batchSize: 1000,
             maxBatches: 20,
           },
+          {
+            name: 'retention.round_floor_receipts',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
+            name: 'retention.round_floor_messages',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
+            name: 'retention.round_floor_read_states',
+            batchSize: 500,
+            maxBatches: 20,
+          },
           { name: 'retention.challenges', batchSize: 1000, maxBatches: 50 },
           { name: 'retention.reports', batchSize: 1000, maxBatches: 50 },
           { name: 'retention.moderation', batchSize: 1000, maxBatches: 50 },
@@ -185,6 +238,15 @@ describe('retention targets', () => {
           spectator_chat: [{ before: '2026-03-24T12:00:00.000Z', limit: 1000 }],
           audience_reactions: [
             { before: '2026-03-24T12:00:00.000Z', limit: 1000 },
+          ],
+          round_floor_receipts: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          round_floor_messages: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          round_floor_read_states: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
           ],
         },
         sweeps: [1000],
@@ -240,6 +302,9 @@ describe('retention targets', () => {
           ['retention.watch_history', false],
           ['retention.spectator_chat', false],
           ['retention.audience_reactions', false],
+          ['retention.round_floor_receipts', false],
+          ['retention.round_floor_messages', false],
+          ['retention.round_floor_read_states', false],
           ['retention.challenges', false],
           ['retention.reports', false],
           ['retention.moderation', false],
@@ -247,7 +312,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 26,
+        failed: 29,
       },
     });
   });

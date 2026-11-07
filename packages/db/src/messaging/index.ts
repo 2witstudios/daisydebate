@@ -62,3 +62,16 @@ export type {
   MessagingInboxPage,
   MessagingInboxPolicy,
 } from './inbox-page';
+
+export {
+  createRoundFloorStore,
+  roundFloorMetadataOf,
+} from './round-floor-store';
+export type {
+  RoundFloorFence,
+  RoundFloorScope,
+  RoundFloorReadFrame,
+  RoundFloorWriteFrame,
+  RoundFloorAuthority,
+} from './round-floor-contracts';
+export { roundFloorModeration } from './round-floor-moderation';

@@ -11,6 +11,7 @@ import { cn } from '../cn';
 import { AgentPanel, Badge, ChatPanel } from './sidebar-panels';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
+import { FloorChat, type FloorChatProps } from '../round-floor/floor-chat';
 
 export const ROUND_SIDEBAR_ID = 'round-sidebar';
 
@@ -47,6 +48,10 @@ export function RoundSidebar({
   transcript,
   phoneClass,
   clock = systemClock,
+  floor,
+  floorActive = true,
+  floorUnread,
+  onFloorUnread,
 }: {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
@@ -55,8 +60,12 @@ export function RoundSidebar({
   /** Hides the sidebar on a phone unless one of its tabs is showing. */
   readonly phoneClass: string | false;
   readonly clock?: Clock;
+  readonly floor?: FloorChatProps | undefined;
+  readonly floorActive?: boolean;
+  readonly floorUnread?: number | undefined;
+  readonly onFloorUnread?: (count: number) => void;
 }) {
-  const unread = chatUnread(round, state);
+  const unread = floorUnread ?? chatUnread(round, state);
   const unseen = (tab: SidebarTab) =>
     tab === 'channels' && state.sidebar !== 'channels' ? unread : 0;
   const key = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -136,12 +145,20 @@ export function RoundSidebar({
       {panel(
         'channels',
         false,
-        <ChatPanel
-          round={round}
-          state={state}
-          dispatch={dispatch}
-          clock={clock}
-        />,
+        floor ? (
+          <FloorChat
+            {...floor}
+            active={floorActive && state.sidebar === 'channels'}
+            onUnread={onFloorUnread}
+          />
+        ) : (
+          <ChatPanel
+            round={round}
+            state={state}
+            dispatch={dispatch}
+            clock={clock}
+          />
+        ),
       )}
       {panel(
         'ai',

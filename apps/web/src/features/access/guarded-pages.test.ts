@@ -117,6 +117,8 @@ type Page = (props: {
 // Loaded lazily, after the mocks above, so no page pulls in the real guard.
 const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
   {
+    '(shell)/rounds/[id]/floor/page.tsx': () =>
+      import('../../app/(shell)/rounds/[id]/floor/page'),
     '(shell)/rounds/[id]/page.tsx': () =>
       import('../../app/(shell)/rounds/[id]/page'),
     '(shell)/rounds/[id]/audience-link/page.tsx': () =>

@@ -211,16 +211,22 @@ test('canonical message mutations serialize retries and scrub removed retry fing
         state: { text: null, removed: true, fingerprints: 0 },
       },
     });
-    await assertRejects({
+    const retriedRemoval = await mutateMessagingMessage(
+      'remove',
+      remove,
+      author,
+      {
+        ...dependencies,
+        store: removalStore,
+      },
+    );
+    assert({
       given:
         'retry of a removed message through the current removal capability',
-      should: 'report unavailable rather than recreate content',
-      actual: () =>
-        mutateMessagingMessage('remove', remove, author, {
-          ...dependencies,
-          store: removalStore,
-        }),
-      code: 'NOT_FOUND',
+      should:
+        'acknowledge the same scrubbed withdrawal without changing its content or version',
+      actual: retriedRemoval,
+      expected: removed,
     });
   } finally {
     await fixture.cleanup();

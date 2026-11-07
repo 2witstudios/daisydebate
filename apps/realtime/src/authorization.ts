@@ -1,3 +1,5 @@
+import { evaluateRoundFloorPermits } from './observation/round-floor-permits';
+import { isAppError } from '@daisy/errors';
 import { createHash } from 'node:crypto';
 import {
   authorize,
@@ -176,34 +178,54 @@ export function createRealtimeAuthorization({
     base: readonly unknown[],
     bound: number,
   ): Promise<SubscriptionAuthority | null> {
-    const result = await resources.database.messagingChannelAuthority(
-      { ...principal, channelId: channelId },
-      async ({ tx, fact, accounts: currentAccounts }) => {
-        const accounts = await loadAccountPolicyFacts({
-          accounts: currentAccounts,
-          now: resources.clock.now(),
-          readAgeFact: bindAuthorizationAgeFact(tx),
-        });
-        const session = await loadAuthorizationSession(tx, {
-          ...principal,
-          now: resources.clock.now(),
-        });
-        const viewer = decideChannelViewer({
-          session,
-          fact,
-          accounts,
-          principal,
-          readingPolicy,
-          clock: resources.clock,
-          deadline,
-        });
-        if (!viewer || viewer.accountRevision !== accountRevision) return null;
-        return {
-          revision: fingerprint([...base, viewer.revision]),
-          validUntil: Math.min(bound, viewer.validUntil),
-        };
-      },
-    );
+    let result: SubscriptionAuthority | null;
+    try {
+      result = await resources.database.messagingChannelAuthority(
+        { ...principal, channelId: channelId },
+        async ({ tx, fact, accounts: currentAccounts }) => {
+          const accounts = await loadAccountPolicyFacts({
+            accounts: currentAccounts,
+            now: resources.clock.now(),
+            readAgeFact: bindAuthorizationAgeFact(tx),
+          });
+          const session = await loadAuthorizationSession(tx, {
+            ...principal,
+            now: resources.clock.now(),
+          });
+          const viewer = decideChannelViewer({
+            session,
+            fact,
+            accounts,
+            principal,
+            readingPolicy,
+            clock: resources.clock,
+            deadline,
+          });
+          if (!viewer || viewer.accountRevision !== accountRevision)
+            return null;
+          return {
+            revision: fingerprint([...base, viewer.revision]),
+            validUntil: Math.min(bound, viewer.validUntil),
+          };
+        },
+      );
+    } catch (error) {
+      if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
+      const [permit] = await evaluateRoundFloorPermits({
+        reads: resources.database,
+        id: channelId,
+        principals: [principal],
+        clock: resources.clock,
+        now,
+      });
+      result =
+        permit?.status === 'allowed'
+          ? {
+              revision: fingerprint([...base, permit.disclosureRevision]),
+              validUntil: Math.min(bound, permit.validUntil),
+            }
+          : null;
+    }
     return result && now() < result.validUntil ? result : null;
   }
   return {

@@ -1,5 +1,6 @@
 'use client';
 import '../../lib/zod-jitless';
+import { FloorChat, type FloorChatProps } from '../round-floor/floor-chat';
 import { OpeningStatus } from '../debate-room/opening-strike';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import Link from 'next/link';
@@ -155,6 +156,7 @@ const stageNote = (watched: SpectatorView): string | null => {
  */
 export function LiveSpectatorRoom(props: {
   readonly transcript?: ReactNode;
+  readonly floor?: FloorChatProps | undefined;
   readonly view: RoundView;
   readonly spectatorKind: SpectatorKind;
   readonly renderedAtMs: number;
@@ -220,6 +222,7 @@ export function LiveSpectatorRoom(props: {
       </p>
       <SpeechOrder watched={watched} />
       {props.transcript}
+      {props.floor ? <FloorChat {...props.floor} /> : null}
       <section
         aria-labelledby="spectator-roster"
         className={`${cardClass} flex flex-col gap-3 px-5 py-4`}

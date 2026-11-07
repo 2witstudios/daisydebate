@@ -1,3 +1,4 @@
+import { createRoundFloorChannelCohortAuthority } from './messaging/round-floor-observation';
 import type { SQL } from 'bun';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { authorizationSessionOperations } from './authorization-session';
@@ -32,6 +33,8 @@ import {
  * separately, so an admission wave cannot consume renewal capacity.
  */
 const authorityReads = (database: BunSQLDatabase) => ({
+  roundFloorChannelCohortAuthority:
+    createRoundFloorChannelCohortAuthority(database),
   ...authorizationSessionOperations({ database }),
   ...roomAuthorizationRead({ database }),
   messagingChannelAuthority: createMessagingChannelAuthority(database),

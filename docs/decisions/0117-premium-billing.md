@@ -395,6 +395,16 @@ configuration selects transport only. Missing historical ownership stays owed.
 The Stripe delivery branch must own progress/completion before generic
 `Promise<void>` erasure dispatch; other vendors keep their existing contract.
 Independent refund reads continue after mapping deletion or job acknowledgement.
+Acknowledged-job discovery freezes the existing primary-key maximum at each new
+traversal and carries an execution-only `(afterId, throughId)` continuation.
+Each page still reads at most33 rows and classifies at most32; later higher IDs
+cannot extend the pass. Exhaustion (including deletion of its last key) starts a
+fresh head traversal. Per-row failures do not pin the page, page-read failures
+retain the same continuation, and process restart safely begins at head. This
+cursor grants no financial or account authority: reopening still takes the
+canonical account/current-job fences and samples current database time. Original
+financial facts, action keys and independently owed effects remain untouched.
+
 The typed state and DB guards are implementation checkpoints; bounded vendor
 composition and full lifecycle proof remain unfinished.
 

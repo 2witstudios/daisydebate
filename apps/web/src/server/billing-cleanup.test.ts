@@ -93,7 +93,7 @@ test('actual keyless scheduler separates Stripe closure from generic erase and d
           },
           rechecks: async () => {
             rechecks++;
-            return { rows: [], exhausted: true, afterId: null };
+            return { rows: [], next: null };
           },
         }),
         duePrivacyJobs: async (input) => {
@@ -205,7 +205,7 @@ test('actual scheduler reports private delivery failures while keeping subsequen
             claimedIds.push(id);
             throw problem;
           },
-          rechecks: async () => ({ rows: [], exhausted: true, afterId: null }),
+          rechecks: async () => ({ rows: [], next: null }),
         }),
         duePrivacyJobs: async () => [
           { id: jobId, vendor: 'stripe', attempts: 0 },
