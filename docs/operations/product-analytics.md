@@ -105,8 +105,13 @@ into `daisy-debate-staging`. The rolling update succeeded and readiness
 returned HTTP 200. The served `privacyDocument`, version `draft-0.3`, was
 verified live with the PostHog disclosure **before** capture was enabled.
 The project showed the organization-default **one-year** event retention;
-Daisy does not enforce the vendor's retention setting. Anonymous withdrawal
-cannot retroactively erase events no longer linked to a browser. No credential,
+Daisy does not enforce the vendor's retention setting. One year marks event
+expiry, not guaranteed physical deletion: PostHog may keep expired events
+longer and deletes them in batches. No fixed physical-deletion deadline has
+been confirmed. See PostHog's [events retention documentation](https://posthog.com/docs/data/events-retention).
+Anonymous withdrawal cannot retroactively erase events no longer linked to a
+browser. The served-notice clarification in `draft-0.4` states this distinction;
+the activation observation above remains the historical `draft-0.3` receipt. No credential,
 private address or document access token belongs in this record.
 
 The nonsecret activation receipt is recorded in the
@@ -135,8 +140,11 @@ This verifies the scoped credential and the empty-subject acknowledgement
 contract; it does not prove queued or physical deletion of a linked person.
 No participant was deleted.
 
-Signed-in, cross-tab and linked-person deletion behavior and the six admitted
-journey kinds have integration/browser coverage. This live activation session
+Signed-in, cross-tab and linked-person deletion behavior have
+integration/browser coverage. Browser tests exercise `page_viewed`; a server
+integration test exercises `room_created` delivery. Playback reporting has
+unit coverage. These tests do not establish integration/browser coverage of
+all six event journeys. This live activation session
 **did not exercise** the full signed-in Room/rematch/erasure journey or every
 event kind. Keep that distinction when repeating or extending the proof.
 Replay remains disabled. The following is the broader verification checklist,
