@@ -1,3 +1,4 @@
+import { knownDeliveryRejection } from '../mail/resend-sender';
 import { operatorConsoleOrigin } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import type { EmailMessage } from '../mail/types';
@@ -38,47 +39,71 @@ export function createMailIntentDelivery(input: {
     const delivery = await input.store.readMailIntentDelivery(claim.id);
     if (delivery.kind === 'recipient-gone' || delivery.kind === 'not-owed')
       return { kind: 'cancelled', errorCode: delivery.kind };
+    if (
+      delivery.kind === 'invitation' &&
+      Date.parse(input.now()) >= Date.parse(delivery.sendBefore)
+    )
+      return { kind: 'failed', errorCode: 'delivery-unknown' };
     if (delivery.kind === 'owner-digest' && !input.ownerAddress)
       return { kind: 'cancelled', errorCode: 'unconfigured' };
     const [to, rendered] =
-      delivery.kind === 'member'
+      delivery.kind === 'invitation'
         ? [
             delivery.to,
             renderBetaEmail({
-              kind: 'beta-approved',
-              username: delivery.username,
-              url: new URL('/play', input.appUrl).toString(),
+              kind: 'beta-invitation',
+              url: new URL('/sign-in', input.appUrl).toString(),
             }),
           ]
-        : [
-            input.ownerAddress!,
-            renderBetaEmail({
-              kind: 'beta-requests',
-              newRequests: delivery.newRequests,
-              waiting: delivery.waiting,
-              url: `${operatorConsoleOrigin}/accounts?access=pending`,
-            }),
-          ];
+        : delivery.kind === 'member'
+          ? [
+              delivery.to,
+              renderBetaEmail({
+                kind: 'beta-approved',
+                username: delivery.username,
+                url: new URL('/play', input.appUrl).toString(),
+              }),
+            ]
+          : [
+              input.ownerAddress!,
+              renderBetaEmail({
+                kind: 'beta-requests',
+                newRequests: delivery.newRequests,
+                waiting: delivery.waiting,
+                url: `${operatorConsoleOrigin}/accounts?access=pending`,
+              }),
+            ];
     try {
       const sent = await input.deliver({
         ...rendered,
         to,
         idempotencyKey: claim.id,
+        ...(delivery.kind === 'invitation'
+          ? { sendBefore: delivery.sendBefore }
+          : {}),
       });
       return sent === 'sent'
         ? { kind: 'sent' }
         : { kind: 'cancelled', errorCode: 'suppressed' };
-    } catch {
-      return retryOrFail(claim);
+    } catch (error) {
+      return retryOrFail(
+        claim,
+        claim.purpose === 'beta-invitation' && !knownDeliveryRejection(error)
+          ? 'delivery-unknown'
+          : 'delivery',
+      );
     }
   };
   /** A failed attempt backs off, and fails for good at the attempt cap. */
-  const retryOrFail = (claim: Claim): Outcome =>
+  const retryOrFail = (
+    claim: Claim,
+    errorCode: 'delivery' | 'delivery-unknown' = 'delivery',
+  ): Outcome =>
     claim.attempts >= MAIL_INTENT_MAX_ATTEMPTS
-      ? { kind: 'failed', errorCode: 'delivery' }
+      ? { kind: 'failed', errorCode }
       : {
           kind: 'retry',
-          errorCode: 'delivery',
+          errorCode,
           nextAttemptAt: new Date(
             Date.parse(input.now()) + mailRetryDelayMs(claim.attempts),
           ).toISOString(),

@@ -259,3 +259,19 @@ endpoint.
 - The media worker's earlier signer (`packages/media/src/worker-auth.ts`)
   authenticates a different principal for a different purpose, and stays
   as it is.
+
+## Email preapproval resources
+
+`GET /operator/v1/beta-preapprovals` requires `beta.preapproval.read` and
+accepts bounded `limit` and an opaque grant-id `cursor`. It returns normalized
+email, creation instant, revision, unused/claimed status and invitation status.
+`PUT` on the same resource requires `beta.preapproval.update` and a closed
+`PreapprovalCommand`: add(email, invite), invite(grant id, expected revision),
+or remove(grant id, expected revision). All variants carry command id and
+admin audit anchor. The separate admin app checks its current owner operator
+before signing. Participant authorization checks the configured service scope.
+The command digest binds normalized semantics. Receipts use
+`beta.preapproval.update`, contain no email, and replay through the existing
+command readback resource. Unknown admin outcomes retain the explicit typed
+preapproval command payload only until settlement, then delete it; their
+non-personal intent/outcome audit rows remain in the normal chain.

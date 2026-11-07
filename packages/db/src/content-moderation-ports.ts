@@ -100,14 +100,8 @@ export type RecordingModeration = {
  * What moderation needs from spectator chat (WATCH-7, SPECT-1.4), the same
  * way. It reaches spectator messages only, never a DM or a private group.
  */
-export type SpectatorChatModeration = {
-  readonly readReportFacts: (
-    tx: Tx,
-    input: { readonly messageId: string; readonly reporterActorId: string },
-  ) => Promise<{
-    readonly ownMessage: boolean;
-    readonly audience: ReportAudience;
-  } | null>;
+/** Operator-only message projection/removal, implemented separately by each chat owner. */
+export type ChatMessageModeration = {
   readonly readSubject: (
     tx: Tx,
     messageId: string,
@@ -119,6 +113,16 @@ export type SpectatorChatModeration = {
     tx: Tx,
     input: { readonly messageId: string; readonly now: Date },
   ) => Promise<ContentModerationOutcome>;
+};
+
+export type SpectatorChatModeration = ChatMessageModeration & {
+  readonly readReportFacts: (
+    tx: Tx,
+    input: { readonly messageId: string; readonly reporterActorId: string },
+  ) => Promise<{
+    readonly ownMessage: boolean;
+    readonly audience: ReportAudience;
+  } | null>;
 };
 
 /** Until its owner lands, there is no Recording to report or take down. */

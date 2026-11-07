@@ -107,7 +107,7 @@ export const privacyDocument: LegalDocument = {
       heading: 'Why we keep it',
       paragraphs: [
         'To run your account and the rounds you take part in, to keep ratings and standings correct, to keep the service safe, and to send the email you ask for.',
-        'Where we rely on your consent, such as the newsletter and optional analytics and replay, you can say no and you can change your mind at any time. Not answering counts as no.',
+        'Where we rely on your consent, such as the newsletter and optional analytics, you can say no and you can change your mind at any time. Not answering counts as no.',
       ],
     },
     {
@@ -123,8 +123,18 @@ export const privacyDocument: LegalDocument = {
       id: 'watching',
       heading: 'Watching, and cookies',
       paragraphs: [
-        'You can watch with no account. We then keep no profile of you: a random token in your browser counts viewers, your network address is only used briefly to limit abuse, and opening an unlisted link sets one cookie for that round.',
-        'Signed in, necessary cookies keep your session. Optional analytics and replay stay off unless you say yes.',
+        'You can watch with no account. Necessary viewer counting uses a random token in your browser, your network address is only used briefly to limit abuse, and opening an unlisted link sets one cookie for that round. Optional analytics is separate, as described below.',
+        'Signed in, necessary cookies keep your session. Optional analytics stays off unless you say yes. Session replay stays disabled.',
+      ],
+    },
+    {
+      id: 'analytics',
+      heading: 'Optional product analytics',
+      paragraphs: [
+        'When you opt in, we use PostHog in the United States to understand product use and playback quality: which product areas you visit, Room creation and rematches, analytics consent changes, and broadcast or recording player type, time to start, buffering time, time watched and video height.',
+        'Events use a random browser identifier or your account ID, never your name, username, email, debate content, the identity of what you watched, or raw URLs and referrers. PostHog receives connection metadata when your browser connects; location enrichment is disabled. We do not automatically capture clicks, form contents or screen activity. Session replay stays disabled.',
+        'This browser’s consent cookie lasts 180 days; account consent is stored until account erasure. Analytics identity cookies are set only after opt-in. Signing out resets analytics identity but keeps this browser’s consent choice. A newly signed-in account with no saved choice adopts this browser’s choice; an existing account choice takes priority.',
+        'You can refuse or withdraw at /analytics or in Settings. Withdrawal stops future capture and clears browser analytics identity. Signed-in withdrawal or account closure queues deletion of linked PostHog data; vendor outages are retried and physical deletion is asynchronous. Earlier unlinked anonymous events expire under the selected one-year retention.',
       ],
     },
     {
@@ -140,7 +150,7 @@ export const privacyDocument: LegalDocument = {
       heading: 'Your choices and rights',
       paragraphs: [
         `From Settings you can export your data records and close your account. An export holds your data records, not video: downloading a recording is a paid feature, for those who can watch it. To correct something, object to how we use your data, or make any other request, write to ${PRIVACY_CONTACT}.`,
-        'You can decline optional analytics and replay, and you can unsubscribe from the newsletter from any issue.',
+        'You can decline or withdraw optional analytics at /analytics or in Settings, and you can unsubscribe from the newsletter from any issue.',
       ],
     },
     {

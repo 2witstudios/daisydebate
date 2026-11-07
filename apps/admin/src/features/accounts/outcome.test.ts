@@ -71,3 +71,27 @@ describe('command outcomes', () => {
     });
   });
 });
+
+test('preapproval reconciliation preserves actual delivery states', () => {
+  assert({
+    given:
+      'a preapproval readback after provider delivery, suppression, failure or unsettled outcome',
+    should: 'audit the returned state rather than the original queued result',
+    actual: [
+      'sent',
+      'suppressed',
+      'failed',
+      'cancelled',
+      'unknown',
+      'none',
+    ].map((state) => mailDetail(state as Parameters<typeof mailDetail>[0])),
+    expected: [
+      'mail_sent',
+      'mail_suppressed',
+      'mail_failed',
+      'mail_cancelled',
+      'mail_unknown',
+      'mail_none',
+    ],
+  });
+});

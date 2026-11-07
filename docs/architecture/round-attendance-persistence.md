@@ -44,6 +44,10 @@ from multiplying requests against the probe member's ordinary shared rate
 limit. No probe bypasses session, origin, seat or receipt authorization. Each
 probe uses a new global command alias while preserving the operation's first
 receipt stamp. Missing configuration or unsuccessful probing remains unhealthy.
+The fixture secret holds only resource IDs and its cookie. Public destination
+and Origin are both derived from the trusted `PUBLIC_APP_URL`; fixture data
+cannot select a different origin. Telemetry suppresses these routine requests
+without changing their cadence, authority or receipt validation.
 
 The probe resource (`ATTENDANCE_PUBLIC_PROBE`) is a synthetic Round whose
 two speeches ended with on-time receipts, awaiting its judge. Its receipt

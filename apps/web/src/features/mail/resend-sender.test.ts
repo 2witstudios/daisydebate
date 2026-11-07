@@ -43,6 +43,7 @@ const create = (
     calls,
     sender: createResendSender({
       apiKey: 're_test_key',
+      nowMs: () => Date.parse('2026-11-06T00:00:00.000Z'),
       from: 'Daisy Debate <no-reply@daisy.example.com>',
       ids: sequentialId('idem'),
       fetch: fetchImpl,
@@ -274,3 +275,72 @@ describe('Resend sender', () => {
 // The recipient-hashing function moved to recipient-key.ts (recipientKey,
 // keyed by a subkey derived from RECIPIENT_HASH_SECRET rather than the raw
 // secret directly); see recipient-key.test.ts.
+
+test('a resumed invitation checks its deadline immediately before HTTP delivery', async () => {
+  let calls = 0;
+  const sender = createResendSender({
+    apiKey: 'test',
+    from: 'test@example.test',
+    ids: { next: () => 'intent' },
+    nowMs: () => Date.parse('2026-11-06T00:00:00.000Z'),
+    fetch: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ id: 'sent' }));
+    },
+  });
+  let rejected = false;
+  try {
+    await sender.send({
+      to: 'invitee@example.test',
+      subject: 'Invitation',
+      text: 'Sign in',
+      html: '<p>Sign in</p>',
+      idempotencyKey: 'intent',
+      sendBefore: '2026-11-05T23:00:00.000Z',
+    });
+  } catch {
+    rejected = true;
+  }
+  assert({
+    given:
+      'an old worker that resumes inside the transport after its invitation deadline',
+    should: 'refuse before even the first HTTP request',
+    actual: [rejected, calls],
+    expected: [true, 0],
+  });
+});
+
+test('an invitation retry cannot cross its send deadline after a lost response', async () => {
+  const deadline = Date.parse('2026-11-06T00:00:01.000Z');
+  let now = deadline - 1;
+  let calls = 0;
+  const sender = createResendSender({
+    apiKey: 'test',
+    from: 'test@example.test',
+    ids: { next: () => 'intent' },
+    elapsed: () => 0,
+    nowMs: () => now,
+    fetch: async () => {
+      calls += 1;
+      now = deadline + 1;
+      throw new Error('lost response');
+    },
+  });
+  let rejected = false;
+  try {
+    await sender.send({
+      ...message,
+      idempotencyKey: 'intent',
+      sendBefore: new Date(deadline).toISOString(),
+    });
+  } catch {
+    rejected = true;
+  }
+  assert({
+    given:
+      'an uncertain first attempt whose retry would start outside the send window',
+    should: 'retain uncertainty without making a second HTTP request',
+    actual: [rejected, calls],
+    expected: [true, 1],
+  });
+});

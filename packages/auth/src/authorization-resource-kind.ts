@@ -25,6 +25,8 @@ export function validResourceKind(
     'channel.retained.delete': 'messaging_collection',
     'member.history.read': 'member_history',
     'channel.file.cleanup': 'pending_file',
+    'beta.preapproval.read': 'account_collection',
+    'beta.preapproval.update': 'account_collection',
     'account.collection.read': 'account_collection',
     'flag.state.update': 'flag_control',
     'flag.override.update': 'flag_control',

@@ -70,7 +70,7 @@ test('requiresSecondApproval', () => {
     actual: operatorActions.map((action) =>
       requiresSecondApproval(twoPerson, action),
     ),
-    expected: [false, true, false, true, false, false, false, true, true],
+    expected: [true, false, true, false, true, false, false, false, true, true],
   });
 });
 

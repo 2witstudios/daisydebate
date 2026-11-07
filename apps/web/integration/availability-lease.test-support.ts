@@ -12,6 +12,7 @@ export async function verifyAvailabilityLeaseCadence(input: {
   readonly configuration: PublicCheckInProbeConfiguration;
 }) {
   const { app, sql } = input;
+  const { origin, ...fixture } = input.configuration;
   const held = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const renewed = Promise.withResolvers<void>();
@@ -26,7 +27,8 @@ export async function verifyAvailabilityLeaseCadence(input: {
       ...app,
       config: {
         ...app.config,
-        ATTENDANCE_PUBLIC_PROBE: JSON.stringify(input.configuration),
+        PUBLIC_APP_URL: origin,
+        ATTENDANCE_PUBLIC_PROBE: JSON.stringify(fixture),
       },
       logger: {
         ...app.logger,

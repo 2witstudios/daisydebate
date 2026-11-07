@@ -15,7 +15,10 @@ const resource = (
 ) => {
   const reads = {
     messagingChannelCohortAuthority: cohort,
-  } as RealtimeAuthorityReads;
+    roundFloorChannelCohortAuthority: async () => {
+      throw createAppError('NOT_FOUND');
+    },
+  } as unknown as RealtimeAuthorityReads;
   return channelMessagesResource({
     owner: null,
     authority: { admission: reads, renewal: reads },

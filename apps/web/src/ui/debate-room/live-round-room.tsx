@@ -1,6 +1,7 @@
 'use client';
 
 import '../../lib/zod-jitless';
+import type { FloorChatProps } from '../round-floor/floor-chat';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { clearAccountResumeRecords } from '../../features/rooms/resume-departure';
@@ -58,8 +59,10 @@ export function LiveRoundRoom({
   attendanceSlot,
   audienceSlot,
   transcript,
+  floor,
 }: {
   readonly transcript?: ReactNode;
+  readonly floor?: FloorChatProps | undefined;
   readonly view: RoundView;
   readonly commandIds: RoundCommandIds;
   readonly commandAction: FormAction<RoundFormState>;
@@ -177,30 +180,28 @@ export function LiveRoundRoom({
       onAnswer={onAnswer}
     >
       {(actions, feedback, form) =>
-        view.opening?.step.step === 'strike' && view.opening.draw ? (
-          <>
-            {notices}
-            {feedback}
-            <OpeningStrike
-              view={view}
-              opening={view.opening}
-              draw={view.opening.draw}
-              actorId={actorId}
-              nowMs={now}
-              commandId={ids.strike_resolution}
-              post={form.post}
-              pending={form.pending}
-            />
-          </>
-        ) : round ? (
+        round ? (
           <DebateRoom
             key={`${view.id}:${principalId}`}
             transcript={transcript}
+            floor={floor}
             notices={
               <>
                 {notices}
                 {feedback}
                 {audienceSlot}
+                {view.opening?.step.step === 'strike' && view.opening.draw ? (
+                  <OpeningStrike
+                    view={view}
+                    opening={view.opening}
+                    draw={view.opening.draw}
+                    actorId={actorId}
+                    nowMs={now}
+                    commandId={ids.strike_resolution}
+                    post={form.post}
+                    pending={form.pending}
+                  />
+                ) : null}
               </>
             }
             media={(mediaSlot ?? defaultMedia)(view)}

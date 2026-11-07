@@ -1,3 +1,4 @@
+import { roundFloorModeration } from './messaging/round-floor-moderation';
 import { createRoundIncidentStore } from './round-incident-store';
 import { createRoundStartGateStore } from './round-start-gate-store';
 export type { RoundHydration } from './round-hydration';
@@ -86,6 +87,7 @@ import {
 } from './messaging/spectator-chat';
 import { notificationOperations } from './notifications';
 import { watchHistoryOperations } from './watch-history';
+import { preapprovalOperations } from './beta-preapprovals';
 import { operatorAccountOperations } from './operator-accounts';
 import { flagOperations } from './flags-operations';
 import { provisionalRetentionOperations } from './provisional-retention';
@@ -349,10 +351,12 @@ export function createDatabase({
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
     ...flagOperations({ database: control, eventSink }),
+    ...preapprovalOperations({ database: control }),
     ...contentModerationOperations({
       database: control,
       eventSink,
       chat: spectatorChatModeration,
+      floor: roundFloorModeration,
       recordings: recordingModeration,
     }),
     ...actorOperations({ database: control, eventSink }),

@@ -1,3 +1,5 @@
+import { createRoundFloorStore } from './round-floor-store';
+import { roundFloorRetention } from './round-floor-retention';
 import { createMessagingTypingPrivacyPort } from '../privacy/typing-rights';
 import { createMessagingTypingStore } from './typing-store';
 import { createMessagingPreferenceStore } from './preference-store';
@@ -31,6 +33,9 @@ export function messagingOperations(
   reactions: ContactReactions,
 ) {
   return {
+    ...roundFloorRetention(database),
+    roundFloorStore: (authorize: Parameters<typeof createRoundFloorStore>[1]) =>
+      createRoundFloorStore(database, authorize),
     messagingInboxPage: createMessagingInboxPage(database),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],

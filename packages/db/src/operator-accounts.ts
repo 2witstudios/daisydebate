@@ -1,3 +1,5 @@
+import { preapprovalAction } from '@daisy/protocol/beta-preapproval';
+import { readPreapprovalCommandState } from './beta-preapprovals';
 import { createAppError } from '@daisy/errors';
 import { flagCommandActions } from '@daisy/protocol/flags';
 import {
@@ -47,6 +49,7 @@ const commandStateReaders = new Map<
 >([
   [betaAccessCommandAction, readBetaAccessCommandState],
   ...flagCommandActions.map((action) => [action, storedOnly] as const),
+  [preapprovalAction, readPreapprovalCommandState],
   // A content moderation command's readback is its stored result alone.
   ...contentModerationActions.map(
     (action) =>

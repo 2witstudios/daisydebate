@@ -13,6 +13,8 @@ export type EmailMessage = {
    * Absent, each send gets a fresh key.
    */
   readonly idempotencyKey?: string;
+  /** Internal UTC send deadline; never included in the provider payload or link. */
+  readonly sendBefore?: string;
 };
 /** Provider receipt; correlates later delivery events, holds no recipient data. */
 type EmailReceipt = { readonly providerMessageId: string };

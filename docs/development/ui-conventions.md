@@ -257,6 +257,10 @@ combined duration against the room's pinned format bounds. Speech order, seat
 identity and structural schedule authority remain with the pinned definition.
 The pre-round Room has no chat composer; Messages stays in the rail.
 
+Seat assignment pickers show the saved occupant, or an explicit empty choice.
+An acknowledged assignment follows the canonical Room view; a refused enhanced
+submission retains its selected participant and shows the refusal.
+
 ## Round room
 
 A debater's live round (`/rounds/[id]/room`, ADR 0054, ADR 0097) has no app

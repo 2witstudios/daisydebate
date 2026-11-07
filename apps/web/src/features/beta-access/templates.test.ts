@@ -58,3 +58,23 @@ describe('beta mail templates (ADR 0075)', () => {
     });
   });
 });
+
+test('an invitation has an ordinary sign-in destination without recipient or bearer authority', () => {
+  const rendered = renderBetaEmail({
+    kind: 'beta-invitation',
+    url: 'https://daisy.example.com/sign-in',
+  });
+  const links = [...rendered.text.matchAll(/https:\/\/\S+/g)].map(
+    (match) => new URL(match[0]),
+  );
+  assert({
+    given: 'a beta invitation',
+    should:
+      'link to normal sign-in with no email or token and explain that forwarding grants no access',
+    actual: [
+      links.map((link) => [link.pathname, link.search]),
+      rendered.text.includes('Forwarding this message grants no access'),
+    ],
+    expected: [[['/sign-in', '']], true],
+  });
+});

@@ -6,6 +6,7 @@ import { renderEmailLayout } from '../mail/layout';
  * member's own public username, the digest only counts.
  */
 export type BetaEmailInput =
+  | { readonly kind: 'beta-invitation'; readonly url: string }
   | {
       readonly kind: 'beta-approved';
       readonly username: string;
@@ -26,6 +27,21 @@ const accounts = (count: number) =>
 
 export function renderBetaEmail(input: BetaEmailInput) {
   switch (input.kind) {
+    case 'beta-invitation':
+      return renderEmailLayout({
+        subject: "You're invited to Daisy Debate",
+        preheader: 'Your beta place is ready.',
+        eyebrow: 'Beta invitation',
+        headline: 'Come debate with us.',
+        paragraphs: [
+          'Your email has been preapproved for the Daisy Debate beta.',
+          'Sign in with the email that received this invitation and complete the age, Terms and onboarding steps.',
+        ],
+        linkLabel: 'Sign in to Daisy',
+        url: input.url,
+        footerNote:
+          'You received this invitation from a Daisy Debate administrator. Forwarding this message grants no access.',
+      });
     case 'beta-approved':
       return renderEmailLayout({
         subject: "You're in: Daisy Debate beta",
