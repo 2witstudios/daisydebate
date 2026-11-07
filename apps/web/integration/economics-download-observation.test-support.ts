@@ -2,6 +2,7 @@ import { assert, setupRitewayBun } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { systemClock, systemId } from '@daisy/clock';
+import { mkdir } from 'node:fs/promises';
 import { createId } from '@paralleldrive/cuid2';
 import { createApp } from '../src/server/app';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
@@ -28,6 +29,7 @@ export async function observeAc3Downloads(
   },
 ) {
   const services = requireTestServices(process.env);
+  await mkdir(input.directory, { recursive: true, mode: 0o700 });
   const app = createApp({
     env: {
       ...authTestEnv,
