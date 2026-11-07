@@ -281,7 +281,6 @@ export {
 
 export {
   AI_ROUND_MONTHLY_CAP_MAX,
-  botAdmissionRefusals,
   botDifficulties,
   roomViewSchema,
   roomCatalogChoiceSchema,
@@ -657,18 +656,10 @@ export {
   analysisWorkSchema,
   analysisRequest,
 } from './round-analysis-work';
-export type {
-  AnalysisWork,
-  AnalysisCall,
-  AnalysisLease,
-  AnalysisRequest,
-} from './round-analysis-work';
+export type { AnalysisWork, AnalysisCall } from './round-analysis-work';
 export {
   advanceAnalysisWork,
   analysisUsageOutcome,
   remainingAnalysisCalls,
 } from './round-analysis-lifecycle';
-export type {
-  AnalysisWorkEvent,
-  AnalysisWorkTransition,
-} from './round-analysis-lifecycle';
+export type { AnalysisWorkEvent } from './round-analysis-lifecycle';

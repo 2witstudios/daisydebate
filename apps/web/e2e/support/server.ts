@@ -6,7 +6,11 @@ import { launchProofPolicy } from './room-launch-policy';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { nextWorkerToken } from '../../src/server/worker-token';
-import { adoptProcessApp } from '../../src/server/process-app';
+import { loadBillingRoutes } from '../../src/server/billing-route-loader';
+import {
+  adoptProcessApp,
+  initializeProcessBilling,
+} from '../../src/server/process-app';
 import { createMailCapture } from './mail-capture';
 import { withOpenRouterStub } from '@daisy/ai-voice/testing';
 import { startAudienceStateStandIn } from './audience-state-standin';
@@ -71,6 +75,7 @@ const app = createApp({
   nextWorkerToken,
 });
 adoptProcessApp(app);
+initializeProcessBilling(loadBillingRoutes);
 if (process.env.E2E_MESSAGING_RECOVERY === '1')
   await createMessagingRecoveryControl(app, appPort);
 

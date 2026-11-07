@@ -13,7 +13,7 @@ const instant = z.iso.datetime({ offset: true });
 const count = z.int().nonnegative();
 
 /** Original automatic-job observations: claims are possible calls, not dispatch proof. */
-export const historicalAnalysisSchema = z.strictObject({
+const historicalAnalysisSchema = z.strictObject({
   createdAt: instant,
   completedAt: instant.nullable(),
   claimedAttempts: count,
@@ -30,7 +30,7 @@ const callOutcome = z.discriminatedUnion('kind', [
     outputTokens: count,
   }),
 ]);
-export const analysisCallSchema = z.strictObject({
+const analysisCallSchema = z.strictObject({
   id: idSchema,
   tokenDigest: z.string().regex(/^[a-f0-9]{64}$/),
   model: z.string().min(1),
@@ -95,11 +95,10 @@ const work = z.discriminatedUnion('kind', [
     purgedAt: instant,
   }),
 ]);
-export type HistoricalAnalysis = z.infer<typeof historicalAnalysisSchema>;
 export type AnalysisCall = z.infer<typeof analysisCallSchema>;
 export type AnalysisWork = z.infer<typeof work>;
 export type AnalysisLease = z.infer<typeof lease>;
-export type AnalysisRequest = z.infer<typeof request>;
+type AnalysisRequest = z.infer<typeof request>;
 export type RequestedAnalysis = Extract<AnalysisWork, { requestedAt: string }>;
 
 /** Purging content preserves the original requested-use evidence. */

@@ -30,7 +30,7 @@ const roundRef = z
 /** The highest monthly AI-round cap any deploy may configure (DEC-183, ISSUE-646). */
 export const AI_ROUND_MONTHLY_CAP_MAX = 1000;
 /** Refusal order: the host's beta eligibility, its allowance, then global bot capacity. */
-export const botAdmissionRefusals = [
+const botAdmissionRefusals = [
   'not-eligible',
   'allowance',
   'capacity',

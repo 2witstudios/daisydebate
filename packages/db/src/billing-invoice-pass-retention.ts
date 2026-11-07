@@ -35,7 +35,7 @@ export type CleanupInvoiceRequest =
         | { readonly kind: 'invoice'; readonly receipt: unknown }
         | { readonly kind: 'exhausted'; readonly beforeId: string | null };
     };
-export async function retainPassRead(
+async function retainPassRead(
   tx: BoundedTransactionContext,
   event: Extract<CleanupInvoiceRequest, { kind: 'advance' }>['event'],
   witness: BillingPaymentObservation,

@@ -137,7 +137,7 @@ test('actual native composition uses the injected public display reader afresh w
     const unavailable = await runtime.settings(subject);
     assert({
       given:
-        'the real native composition, public isReleaseEnabled seam and successive owned display snapshots',
+        'the real native composition, published request reader and successive owned display snapshots',
       should:
         'read each display afresh without ambient Next request state and preserve management through kill/failure',
       actual: [
@@ -162,4 +162,34 @@ test('actual native composition uses the injected public display reader afresh w
   } finally {
     await app.close();
   }
+});
+
+test('the source Billing factory imports in a fresh Bun process before Next initializes', async () => {
+  const child = Bun.spawn(
+    [
+      'bun',
+      '--eval',
+      `await import('./src/server/billing-app.ts');
+       await import('next/dist/server/node-environment-baseline.js');
+       const { workAsyncStorage } = await import('next/dist/server/app-render/work-async-storage.external.js');
+       workAsyncStorage.run({}, () => {});`,
+    ],
+    {
+      cwd: new URL('../..', import.meta.url).pathname,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  );
+  const [exit, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+  ]);
+  assert({
+    given:
+      'the actual source factory in a fresh process without Next initialization',
+    should:
+      'leave Next request storage unpoisoned for its own subsequent initialization',
+    actual: { exit, stderr },
+    expected: { exit: 0, stderr: '' },
+  });
 });

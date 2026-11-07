@@ -27,7 +27,7 @@ const childEntry = new URL(
   '../../recording-worker/integration/billing-capture-build.test-support.ts',
   import.meta.url,
 ).pathname;
-export async function captureChild(input: Readonly<Record<string, unknown>>) {
+async function captureChild(input: Readonly<Record<string, unknown>>) {
   const child = Bun.spawn(['bun', childEntry], {
     cwd: process.cwd(),
     env: process.env,

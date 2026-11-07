@@ -24,10 +24,7 @@ const refuse = (reason: Refusal['reason']): Refusal => ({
 });
 
 /** Identity comparison never uses reservation time or the current calendar month. */
-export function sameUsageSource(
-  left: UsageSource,
-  right: UsageSource,
-): boolean {
+function sameUsageSource(left: UsageSource, right: UsageSource): boolean {
   if (left.kind !== right.kind) return false;
   switch (left.kind) {
     case 'lifetime':
