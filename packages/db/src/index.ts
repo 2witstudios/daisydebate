@@ -82,7 +82,9 @@ import {
 } from './messaging/spectator-chat';
 import { notificationOperations } from './notifications';
 import { watchHistoryOperations } from './watch-history';
+import { preapprovalOperations } from './beta-preapprovals';
 import { operatorAccountOperations } from './operator-accounts';
+import { flagOperations } from './flags-operations';
 import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
@@ -325,6 +327,8 @@ export function createDatabase({
     ...mailIntentOperations({ database: control, eventSink }),
     ...betaAccessOperations({ database: control, eventSink }),
     ...operatorAccountOperations({ database: control, eventSink }),
+    ...flagOperations({ database: control, eventSink }),
+    ...preapprovalOperations({ database: control }),
     ...contentModerationOperations({
       database: control,
       eventSink,

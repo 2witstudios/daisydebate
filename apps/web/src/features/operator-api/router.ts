@@ -1,9 +1,15 @@
+import { mayReadOperatorCommand } from './command-access';
 import {
   ageAdmitted,
   authorize,
   type AuthorizationCapability,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
+import {
+  preapprovalCommandSchema,
+  preapprovalPageSchema,
+  preapprovalQuerySchema,
+} from '@daisy/protocol/beta-preapproval';
 import { decideBetaAccessChange } from '@daisy/auth';
 import {
   verifyOperatorRequest,
@@ -16,6 +22,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import { restrictionRules } from '../moderation/restriction-rules';
 import { REPORT_EVIDENCE_RETENTION_MS } from '../reports/operations';
 import { boundedBody, json, refusal, transportRefusal } from './http';
+import { changeFlag } from './flags';
 import {
   contentModerationRoute,
   type ContentModerationStore,
@@ -46,7 +53,12 @@ import {
 const operatorService = {
   serviceId: 'daisy-admin',
   capabilities: [
+    'beta.preapproval.read',
+    'beta.preapproval.update',
     'account.collection.read',
+    'flag.state.update',
+    'flag.override.update',
+    'flag.command.read',
     'account.beta_access.update',
     'content_report.queue.read',
     'content_report.resolve',
@@ -69,7 +81,10 @@ const operatorService = {
 
 type Store = Pick<
   Database,
+  | 'listBetaPreapprovals'
+  | 'runPreapprovalCommand'
   | 'listOperatorAccounts'
+  | 'runFlagCommand'
   | 'runBetaAccessCommand'
   | 'readOperatorCommand'
   | 'listOperatorReports'
@@ -210,6 +225,13 @@ function dispatch(
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
   switch (route.route) {
+    case 'setFlagState':
+    case 'setFlagOverride':
+      return changeFlag(deps, principal, route.route, route.id!, request);
+    case 'listPreapprovals':
+      return listPreapprovals(deps, principal, url);
+    case 'updatePreapproval':
+      return updatePreapproval(deps, principal, request);
     case 'listAccounts':
       return listAccounts(deps, principal, url);
     case 'setBetaAccess':
@@ -541,11 +563,16 @@ async function readCommand(
   principal: AuthorizationPrincipal,
   commandId: string,
 ): Promise<OperatorCommandState> {
-  // A read-back reveals one account's access state, as a listing does, so
-  // it needs the same capability, decided by the shared evaluator (ISSUE-683).
+  if (principal.kind !== 'operator_service')
+    throw createAppError('AUTHORIZATION');
   if (
-    principal.kind !== 'operator_service' ||
-    !requireCapability(principal, 'account.collection.read')
+    !(
+      [
+        'account.beta_access.update',
+        'beta.preapproval.update',
+        'flag.state.update',
+      ] as const
+    ).some((action) => mayReadOperatorCommand(principal, action))
   )
     throw createAppError('AUTHORIZATION');
   const command = await deps.store.readOperatorCommand({
@@ -553,5 +580,66 @@ async function readCommand(
     serviceId: principal.serviceId,
   });
   if (!command) throw createAppError('NOT_FOUND');
+  if (!mayReadOperatorCommand(principal, command.action))
+    throw createAppError('AUTHORIZATION');
   return command;
+}
+
+async function listPreapprovals(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  url: URL,
+) {
+  if (!requireCapability(principal, 'beta.preapproval.read'))
+    throw createAppError('AUTHORIZATION');
+  const parsed = preapprovalQuerySchema.safeParse(
+    Object.fromEntries(url.searchParams),
+  );
+  if (!parsed.success) throw createAppError('VALIDATION');
+  const rows = await deps.store.listBetaPreapprovals({
+    limit: parsed.data.limit + 1,
+    ...(parsed.data.cursor === undefined ? {} : { cursor: parsed.data.cursor }),
+  });
+  const items = [...rows].slice(0, parsed.data.limit);
+  return preapprovalPageSchema.parse({
+    items,
+    nextCursor: rows.length > parsed.data.limit ? items.at(-1)!.id : null,
+  });
+}
+
+async function updatePreapproval(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  request: { readonly body: Uint8Array; readonly signedAtMs: number },
+) {
+  if (
+    principal.kind !== 'operator_service' ||
+    !requireCapability(principal, 'beta.preapproval.update')
+  )
+    throw createAppError('AUTHORIZATION');
+  const parsed = preapprovalCommandSchema.safeParse(parseBody(request.body));
+  if (!parsed.success) throw createAppError('VALIDATION');
+  const semantic =
+    parsed.data.operation === 'add'
+      ? [parsed.data.operation, parsed.data.email, parsed.data.invite]
+      : [
+          parsed.data.operation,
+          parsed.data.preapprovalId,
+          parsed.data.expectedRevision,
+        ];
+  return deps.store.runPreapprovalCommand({
+    command: parsed.data,
+    serviceId: principal.serviceId,
+    operatorRef: principal.operatorRef,
+    requestDigest: deps.crypto.sha3Hex(
+      JSON.stringify([
+        principal.serviceId,
+        principal.operatorRef,
+        'beta.preapproval.update',
+        semantic,
+      ]),
+    ),
+    nextId: deps.nextId,
+    live: () => deps.nowMs() <= request.signedAtMs + operatorLimits.skewMs,
+  });
 }

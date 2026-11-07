@@ -107,11 +107,9 @@
   }
 }
 
-/* The rail is dark in either theme: its tokens resolve in a dark scheme here. */
 @utility area-rail {
   grid-area: rail;
-  color-scheme: dark;
-  background: var(--surface-stage);
+  background: var(--surface);
 }
 
 /* A page that marks itself [data-workspace] fills the viewport and scrolls its
@@ -143,6 +141,8 @@
 
 @utility area-people {
   grid-area: people;
+  background: var(--surface);
+  color: var(--text);
 }
 
 /* The bottom tab bar keeps its tabs above the phone's home indicator. */

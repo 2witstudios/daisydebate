@@ -3,7 +3,6 @@ import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { PublicCheckInProbeConfiguration } from './public-probe';
 const probeConfiguration = z.strictObject({
-  origin: z.url(),
   roundId: idSchema,
   segmentId: idSchema,
   participantId: idSchema,
@@ -12,11 +11,22 @@ const probeConfiguration = z.strictObject({
 /** Process edge reads ATTENDANCE_PUBLIC_PROBE once; this pure parser never includes credential data in errors. */
 export function readPublicCheckInProbe(
   raw: string | undefined,
+  appUrl: string,
 ): PublicCheckInProbeConfiguration | null {
   if (raw === undefined) return null;
   try {
     const parsed = probeConfiguration.safeParse(JSON.parse(raw));
-    if (parsed.success) return parsed.data;
+    const origin = new URL(appUrl);
+    if (
+      parsed.success &&
+      ['http:', 'https:'].includes(origin.protocol) &&
+      !origin.username &&
+      !origin.password &&
+      origin.pathname === '/' &&
+      !origin.search &&
+      !origin.hash
+    )
+      return { ...parsed.data, origin: origin.origin };
   } catch {
     throw createAppError(
       'VALIDATION',

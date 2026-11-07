@@ -55,6 +55,8 @@ const mailText = (mail: Mail | null) =>
       : '';
 
 const notices: Readonly<Record<CommandNotice, string>> = {
+  saved: 'Preapproval saved.',
+  removed: 'Preapproval removed. Account access is unchanged.',
   changed: 'Done.',
   unchanged: 'Already in that state; nothing changed.',
   conflict:
@@ -68,4 +70,4 @@ const notices: Readonly<Record<CommandNotice, string>> = {
 };
 
 export const noticeText = (notice: CommandNotice, mail: Mail | null) =>
-  `${notices[notice]}${mailText(mail)}`;
+  `${notices[notice]}${notice === 'saved' && mail === 'queued' ? ' Invitation email queued.' : mailText(mail)}`;

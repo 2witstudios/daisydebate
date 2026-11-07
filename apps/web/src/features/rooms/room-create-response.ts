@@ -16,6 +16,7 @@ export type RoomCreateRefusal =
   | 'actor-ineligible'
   | 'seat-unavailable'
   | 'ai-judge-premium'
+  | 'capture-premium'
   | 'notice-changed';
 export type RoomCreateAnswer =
   | { readonly kind: 'created'; readonly roomId: string }
@@ -38,6 +39,7 @@ const conflictAnswer = (
     case 'actor-ineligible':
     case 'seat-unavailable':
     case 'ai-judge-premium':
+    case 'capture-premium':
       return { kind: 'refused', reason: body.refusal };
     case 'command-conflict':
       return { kind: 'refused', reason: 'replayed' };
@@ -55,7 +57,6 @@ const conflictAnswer = (
     case 'consent-conflict':
     case 'draw-unavailable':
     case 'bots-busy':
-    case 'capture-premium':
     case 'capture-host-limit':
     case 'capture-capacity':
     case 'broadcast-private':

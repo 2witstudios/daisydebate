@@ -1,5 +1,15 @@
 import { z } from 'zod';
 import {
+  flagCommandResultSchema,
+  flagCommandStateSchema,
+  flagOperatorRoutes,
+} from './flags';
+import {
+  preapprovalStateSchema,
+  preapprovalReceiptSchema,
+  preapprovalResultSchema,
+} from './beta-preapproval';
+import {
   betaAccessCommandAction,
   betaAccessCommandResultSchema,
   betaAccessCommandStateSchema,
@@ -53,6 +63,16 @@ export const operatorNonceSchema = z.string().regex(/^[A-Za-z0-9_-]{22}$/);
 
 /** Each route: its method, its path shape and the query keys it accepts. */
 export const operatorRoutes = {
+  listPreapprovals: {
+    method: 'GET',
+    path: /^\/operator\/v1\/beta-preapprovals$/,
+    query: ['limit', 'cursor'],
+  },
+  updatePreapproval: {
+    method: 'PUT',
+    path: /^\/operator\/v1\/beta-preapprovals$/,
+    query: [],
+  },
   listAccounts: {
     method: 'GET',
     path: /^\/operator\/v1\/accounts$/,
@@ -89,6 +109,7 @@ export const operatorRoutes = {
     query: [],
   },
   ...contentModerationOperatorRoutes,
+  ...flagOperatorRoutes,
 } as const;
 export type OperatorRoute = keyof typeof operatorRoutes;
 
@@ -234,6 +255,8 @@ export type ModerationLiftResult = z.infer<typeof moderationLiftResultSchema>;
  * receipt's action; each action's owner defines its variant.
  */
 export const operatorCommandStateSchema = z.discriminatedUnion('action', [
+  flagCommandStateSchema,
+  preapprovalStateSchema,
   betaAccessCommandStateSchema,
   contentModerationCommandStateSchema,
   z.strictObject({
@@ -248,6 +271,8 @@ export const operatorCommandStateSchema = z.discriminatedUnion('action', [
 
 /** What a receipt stores: the result of whichever action it records. */
 export const operatorCommandResultSchema = z.union([
+  flagCommandResultSchema,
+  preapprovalResultSchema,
   betaAccessCommandResultSchema,
   contentModerationCommandResultSchema,
   reportResolveResultSchema,
@@ -259,6 +284,8 @@ export const operatorCommandResultSchema = z.union([
  * so no row can pair an action with another action's result.
  */
 export const operatorCommandReceiptSchema = z.discriminatedUnion('action', [
+  flagCommandStateSchema,
+  preapprovalReceiptSchema,
   z.strictObject({
     action: z.literal(betaAccessCommandAction),
     result: betaAccessCommandResultSchema,

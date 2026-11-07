@@ -15,6 +15,20 @@ const stub = createOperatorApiStub({
   accounts: [{ ...e2ePendingAccount }],
 });
 
+// Explicit delivery-display fixtures; durable worker outcomes are proved in DB suites.
+for (const [letter, email, invitation] of [
+  ['f', 'failed-invitation@example.test', 'failed'],
+  ['u', 'unknown-invitation@example.test', 'unknown'],
+] as const)
+  stub.preapprovals.set(letter.repeat(24), {
+    id: letter.repeat(24),
+    email,
+    revision: 1,
+    createdAt: '2026-11-06T00:00:00.000Z',
+    status: 'unused',
+    invitation,
+  });
+
 Bun.serve({
   hostname: 'localhost',
   port: e2eOperatorApi.port,

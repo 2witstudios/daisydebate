@@ -179,7 +179,11 @@ own page, `/friends`. Minimize is a form posting a server action, so it
 works without JavaScript; it is named Minimize when extended and Expand when
 mini.
 
-The rail is dark in either theme (DEC-359). A page that marks itself
+Both shell sidebars follow the selected theme: light cream/white surfaces in
+light mode and normal green surfaces in dark mode (owner, 2026-11-04,
+overruling DEC-359). The navigation rail and people sidebar use `--surface`;
+the people sidebar uses `--text`, and neither forces a dark color scheme.
+A page that marks itself
 `data-workspace` fills the viewport and scrolls its own panes, and the rail is
 icon-only beside it whatever the saved choice says (ADR 0113), by CSS alone.
 

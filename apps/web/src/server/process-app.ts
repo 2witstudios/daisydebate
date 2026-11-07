@@ -8,6 +8,7 @@ import { createRouteBinder } from './route-binding';
 import { createRoutes, type Routes } from './routes';
 import { readStartOptions } from './start-options';
 import { nextWorkerToken } from './worker-token';
+import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
 
 /**
  * The web process edge, and the only module that reads `process.env` or
@@ -45,7 +46,7 @@ const outboundFetch = (env: Record<string, string | undefined>): Fetch => {
 
 /** Public probe reaches real ingress, independently of captured outbound mail. */
 export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
-  globalThis.fetch(url, init);
+  fetchWithoutTracing(url, init, globalThis.fetch);
 
 const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,

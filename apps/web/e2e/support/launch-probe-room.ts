@@ -165,23 +165,13 @@ const probeTarget = (round: RoundView) => {
     );
   return { segmentId: last.id, participantId: participant.id };
 };
-/** A real last-speech resource with actual on-time receipts, not prefilled attendance facts. */
-export async function createLaunchProbeResource(
+/** Both local launch and authorized staging repair earn the same public receipts. */
+export async function createPublicProbeRound(
   origin: string,
-  mailPort: number,
+  members: readonly LaunchProbeMember[],
 ) {
-  // The three probe sign-ups all share the isolated edge's client identity
-  // and therefore the real 3/minute magic-link bucket. Clear only this
-  // launch slot's namespace through its sanctioned capture seam before the
-  // startup resource is made; never flush the shared local Redis database.
-  const reset = await fetch(`http://127.0.0.1:${mailPort}/reset`, {
-    method: 'POST',
-  });
-  if (reset.status !== 204)
-    throw new Error('Isolated launch rate-limit reset refused');
-  const members: LaunchProbeMember[] = [];
-  for (let index = 0; index < 3; index++)
-    members.push(await createLaunchProbeMember(origin, mailPort));
+  if (members.length !== 3)
+    throw new Error('Public probe requires three synthetic members');
   const json = probeRequests(origin);
   const room = await createProbeRoom(json, members);
   const roundId = room.roundRef?.id;
@@ -202,5 +192,24 @@ export async function createLaunchProbeResource(
   });
   if (!(await probe()))
     throw new Error('Public probe resource failed its real receipt check');
-  return configuration;
+  return { roundId, ...target, cookie: members[1]!.cookie };
+}
+/** A real last-speech resource with actual on-time receipts, not prefilled attendance facts. */
+export async function createLaunchProbeResource(
+  origin: string,
+  mailPort: number,
+) {
+  // The three probe sign-ups all share the isolated edge's client identity
+  // and therefore the real 3/minute magic-link bucket. Clear only this
+  // launch slot's namespace through its sanctioned capture seam before the
+  // startup resource is made; never flush the shared local Redis database.
+  const reset = await fetch(`http://127.0.0.1:${mailPort}/reset`, {
+    method: 'POST',
+  });
+  if (reset.status !== 204)
+    throw new Error('Isolated launch rate-limit reset refused');
+  const members: LaunchProbeMember[] = [];
+  for (let index = 0; index < 3; index++)
+    members.push(await createLaunchProbeMember(origin, mailPort));
+  return createPublicProbeRound(origin, members);
 }

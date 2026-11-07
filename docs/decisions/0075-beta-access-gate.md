@@ -26,13 +26,13 @@ owes is delivered.
   admin app shows), `decided_at`, and `provenance` (`signup` or
   `grandfathered`). The state vocabulary lives in `@daisy/protocol`
   (`betaAccessStates`).
-- **It is not an entitlement.** An entitlement in the deferred FLAGS design
-  is a scoped feature toggle beneath an authorized participant. Beta access
+- **It is not an entitlement or a release flag.** Entitlements are durable
+  benefit grants (ADR 0085). Release and ops flags control rollout, never
+  access or grants ([ADR 0118](0118-release-and-ops-flags.md)). Beta access
   answers whether the person may use participant capabilities at all. It is
-  read with `member` and `erased` under the account fence (ADR 0048). Making
-  it the first `@daisy/features` entitlement would mean building that
-  platform for one consumer. DEC-19 stands, amended to say account access
-  states are authorization facts owned by `@daisy/auth` and `@daisy/db`.
+  read with `member` and `erased` under the account fence (ADR 0048).
+  Account access states are authorization facts owned by `@daisy/auth` and
+  `@daisy/db`.
 - **It is not a waitlist store (DEC-47).** Joining the waitlist is signing
   up. The row is created inside the username claim's transaction for an
   existing account. It holds no email, name or reservation.
@@ -260,3 +260,50 @@ The rest of this record describes BETA-2.
 - WAIT-5.1's name-claimed email is the queue's expected second consumer.
 - Ending the beta (approve everyone, or remove the gate) is a later forward
   migration plus deletion of the gate, recorded then (ADR 0023).
+
+## Email preapproval and invitations
+
+The admin Accounts screen manages `beta_preapprovals`, independently of
+`account_beta_access`. A normalized email (trimmed and case insensitive, with
+plus tags and dots preserved) can be entered before an account exists. Only a
+verified matching account, pending and age 16+, without erasure or moderation
+restrictions, consumes it once. Username enrollment and the required age step
+both attempt the claim. Adding a grant also approves an eligible existing
+waiting account immediately. Claims write access, its revision, beta
+entitlements and the access event atomically; they never send an approval
+email. Age, Terms and onboarding remain required. Revoked access is never
+automatically restored. Removing a claimed grant leaves account access alone.
+
+Invite by email saves the grant and owes one `beta-invitation` mail intent;
+Preapprove only owes no mail. Repeated adds do not resend an earlier invitation.
+Explicit Send/Resend and Remove carry the displayed grant revision. Account
+writers lock users before the normalized email advisory lock; removal locks
+only the email/grant because it has no account effect. Receipt identity and
+all state and owed mail commit together. The mail worker resolves grant-backed
+recipients fresh, retaining existing suppression, retry, lease and provider
+idempotency behavior. Removal, erasure and revocation cancel unsent work. A
+provider request already in flight cannot be recalled.
+
+Invitation links go to ordinary `/sign-in`, without an email or bearer token.
+Forwarding a link grants no access, and signing in with another email cannot
+consume the grant. Delivery states distinguish queued, sent, suppressed,
+failed, cancelled and unknown; an unsettled provider attempt is unknown.
+Terminal-intent retention may remove old delivery detail; the grant retains
+that an invitation was requested, so its status then reads unknown.
+
+For invitations, a lost or malformed provider reply remains `unknown` even
+when attempts are exhausted. Definite provider rejections can report `failed`.
+Uncertainty survives retries and expired leases until a positive send receipt;
+a later suppression cannot prove an earlier in-flight request was not sent.
+
+A claimed grant's queued invitation and resend also require the account's
+current verified email to still match, its age to remain eligible and its
+moderation state to permit access. Changing email never transfers the old
+grant or revokes the account, but cancels mail to the obsolete address.
+
+Invitation sends stop 23 hours after intent creation, conservatively inside
+[Resend's documented 24-hour idempotency window](https://resend.com/docs/dashboard/emails/idempotency-keys).
+The worker and transport both check the internal deadline (including transport
+retries and after suppression lookup), so a process resuming after a long
+outage cannot reuse an expired key and duplicate mail. It records unknown and
+leaves the preapproval valid. An owner can explicitly resend using a new intent.

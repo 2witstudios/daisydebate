@@ -65,7 +65,12 @@ const authorizationCapabilities = [
   'channel.request.decide',
   'channel.request.cancel',
   // ADR 0079: the operator service's closed capabilities, never a user's.
+  'beta.preapproval.read',
+  'beta.preapproval.update',
   'account.collection.read',
+  'flag.state.update',
+  'flag.override.update',
+  'flag.command.read',
   'account.beta_access.update',
   // WATCH-7: operator content moderation, recorded in ADR 0079.
   'content_report.queue.read',

@@ -10,4 +10,5 @@ import { initSentry } from './sentry-init';
 initSentry({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.SENTRY_ENVIRONMENT,
+  trustedOrigin: process.env.PUBLIC_APP_URL,
 });

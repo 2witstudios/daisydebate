@@ -648,3 +648,96 @@ step took 614 seconds; its whole Infrastructure contracts job took 675
 seconds. Shard summaries report execution duration and exit status; Actions
 job timestamps include setup and artifact overhead. The full unsplit local
 run remains available for diagnosing order-dependent failures.
+
+### Bounded CI ffmpeg preparation (ISSUE-1356)
+
+Each Infrastructure contracts worker runs `scripts/ci-ffmpeg.ts` as root before
+migrations or tests. The first workflow command reads `/proc/uptime`; the helper
+uses the same boot-relative clock for every phase, including sudo/Bun startup.
+The fixed work deadline is launch +230 seconds; TERM grace and bounded group
+quiescence/reaping end by +236 seconds. The four-minute step deadline includes
+reporting, and the job still has twenty minutes.
+
+Update and authenticated download-only share an 80-second acquisition window,
+with at most one retry. Recovery replaces the configured Azure Ubuntu hostname
+in source files and the runner's mirror list with the primary archive. Suites,
+components, signing keys and signature policy remain unchanged. Installation
+runs once with `--no-download`, after acquisition, followed by both `ffmpeg
+-version` and `ffprobe -version` under the original deadline. No lock is deleted
+and no interrupted installation is retried.
+
+Apt runs with `Dpkg::Use-Pty=0`: apt2.8.3 otherwise starts mutating dpkg
+in a new session for its PTY, outside the tracked apt group. The versioned
+[upstream implementation](https://salsa.debian.org/apt-team/apt/-/raw/2.8.3/apt-pkg/deb/dpkgpm.cc)
+(`StartPtyMagic` / `SetupSlavePtyMagic`) and
+[Ubuntu source package](https://archive.ubuntu.com/ubuntu/pool/main/a/apt/apt_2.8.3.tar.xz)
+were read before selecting this option. Real qualification reconstructs fork
+ancestry and session/group transitions before exec, identifies mutating
+`--unpack` and `--configure` PIDs, and tests interrupted actual dpkg invocation
+hooks using its documented
+[`--pre-invoke` contract](https://manpages.ubuntu.com/manpages/noble/man1/dpkg.1.html).
+A same-oracle re-evaluation of the original33ea trace must expose both escaped
+mutating dpkg processes; it is an attributed negative control, not a new run.
+
+Each child starts a new process group. Root signals that group, preserves its
+ID after leader exit, sends KILL even if a TERM-resistant member outlives the
+leader, and checks `/proc` for live members before admitting another phase.
+Zombies cannot hold locks or do work. SIGTERM/SIGINT stop admission and trigger
+bounded cleanup. Failed cleanup exits nonzero explicitly so a referenced child
+cannot extend supervisor lifetime; it does **not** claim that an unkillable or
+escaped process was terminated. This contains members remaining in the tracked
+PGID, not arbitrary `setsid`/`setpgid` escapes. The disposable proof records the
+actual Ubuntu apt methods, `_apt` identities, dpkg and hooks to check this limit
+against the supplied image. Four real shards, Recording tests, successful
+receipts, coverage and CI gate remain required. A preparation failure admits
+neither tests nor successful receipts.
+
+Run the disposable qualification through the normal machine-wide heavy queue:
+
+```sh
+bun scripts/heavy.ts sh scripts/ci-ffmpeg-proof/qualify.sh
+```
+
+It builds an native Ubuntu24.04/arm64 observer image with Bun1.4.2, then runs a fresh
+container per scenario with only this source and an evidence directory mounted.
+Real CI independently runs Ubuntu24.04/amd64. The slow-acquisition proxy maps
+synthetic Azure/primary archive aliases to the signed Ubuntu ports backend on
+arm64 via ordinary apt redirects (the backend bypasses the fault proxy); this tests recovery mechanics without asserting a mirror cause.
+Python, strace and procps belong only to the disposable fault/observer fixture;
+the production helper runs Bun. The image preparation installs observation
+tools, then removes apt indexes/archives; ffmpeg is absent at candidate start.
+Real cold/recovery apt runs and fault-controlled runs are reported separately.
+The fixtures never access host package state, shared databases or other slots.
+Original logs, process tables, traces, source hashes, image identity, exact
+candidate SHA, elapsed time, exit statuses and downstream markers are retained.
+Some fault controls age the launch stamp to simulate spent startup time; their
+reports disclose that separately from physical elapsed time. The full-budget
+installation stall uses an unaged original launch stamp.
+
+Primary references read for this mechanism:
+[Ubuntu apt-get](https://manpages.ubuntu.com/manpages/noble/man8/apt-get.8.html),
+[apt configuration](https://manpages.ubuntu.com/manpages/noble/man5/apt.conf.5.html),
+[HTTP acquisition timeouts](https://manpages.ubuntu.com/manpages/noble/man1/apt-transport-http.1.html),
+[source formats](https://manpages.ubuntu.com/manpages/noble/man5/sources.list.5.html),
+[process-group signal semantics](https://manpages.ubuntu.com/manpages/noble/man2/kill.2.html),
+[boot-relative uptime](https://manpages.ubuntu.com/manpages/noble/man5/proc_uptime.5.html),
+[Bun child-process compatibility](https://bun.sh/docs/runtime/child-process), and
+[child lifecycle handles](https://bun.com/reference/node/child_process/ChildProcess/unref).
+The [coreutils timeout manual](https://manpages.ubuntu.com/manpages/noble/man1/timeout.1.html)
+documents parent/foreground and kill-grace behavior; nested timeouts alone were
+not used as proof of aggregate descendant containment.
+
+The maintainer adverse controls have a precise additional boundary: authenticated
+package unpack is followed by disposable modification of one freshly unpacked
+package's actual `.postinst`; interruption occurs inside an injected gate. The
+configure pre-invoke injector returns promptly. It preserves the shebang and
+remaining original body and retains package/version/action/path, original bytes
+and hash, modified hash and exact diff. Only the real `.postinst` invocation
+publishes gate readiness, after root and `_apt` descendants have installed their
+TERM-resistant handlers. The oracle checks apt → mutating configure dpkg →
+actual `.postinst` → gate/descendant lineage, identities and group membership,
+then proves cancellation and the original unaged deadline with no surviving
+known descendant or downstream success. This is fault-controlled execution at
+the actual maintainer entry; it does not prove every unmodified script command
+or an arbitrary session-escaping script is safe. The unmodified normal cold
+trace remains separate evidence.

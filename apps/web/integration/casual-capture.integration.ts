@@ -161,3 +161,107 @@ test('a ready that read no notice is refused once the host opts in', async () =>
     });
   });
 });
+
+test('creation saves recording atomically, replays it, and refuses a host without the capture grant', async () => {
+  await withRoomRuntime(async (f) => {
+    const notice = roundCaptureNotice('opted-in')!;
+    const commandId = createId();
+    const open = await f.create({
+      commandId,
+      recording: true,
+      noticeVersion: notice.version,
+      selection: casualValue,
+    });
+    const before = await f.snapshot(open.view.id);
+    const replay = await f.create({
+      commandId,
+      recording: true,
+      noticeVersion: notice.version,
+      selection: casualValue,
+    });
+    const reread = await f.operations.view(f.host, open.view.id);
+    assert({
+      given:
+        'a recording requested during creation, then the same create retried',
+      should:
+        'persist one recording-only choice with the opted-in notice and replay without mutation',
+      actual: [
+        open.view.capture,
+        reread.capture,
+        reread.captureNotice,
+        replay.receipt.replayed,
+        await f.snapshot(open.view.id),
+      ],
+      expected: [
+        { broadcast: null, recording: true },
+        { broadcast: null, recording: true },
+        roundCaptureNotice('opted-in'),
+        true,
+        before,
+      ],
+    });
+    const stated =
+      await f.sql`select version,words from agreement_signatures where room_id=${open.view.id}`;
+    assert({
+      given: 'the exact casual notice carried by creation',
+      should: 'persist its version and words once across replay',
+      actual: stated,
+      expected: [{ version: notice.version, words: notice.text }],
+    });
+    const unshownHost = await f.member();
+    const unshown = await f.create(
+      { recording: true, selection: casualValue },
+      unshownHost,
+    );
+    const unshownNotices =
+      await f.sql`select version from agreement_signatures where room_id=${unshown.view.id}`;
+    assert({
+      given: 'a casual recording create stating no notice',
+      should: 'create without recording unseen notice words',
+      actual: [unshown.view.capture, unshownNotices],
+      expected: [{ broadcast: null, recording: true }, []],
+    });
+    const host = await f.member();
+    const bot = await f.bot();
+    await f.sql`delete from account_entitlement_grants where user_id=${host.userId} and entitlement='casual_capture'`;
+    const refusal = await f
+      .create(
+        {
+          recording: true,
+          noticeVersion: notice.version,
+          selection: casualValue,
+          cast: [{ actorId: bot.actorId, role: 'negative', slot: 0 }],
+        },
+        host,
+      )
+      .then(
+        () => 'created',
+        (error: { reason?: string }) => error.reason,
+      );
+    const seats =
+      await f.sql`select id from room_participants where actor_id=${bot.actorId}`;
+    const notices =
+      await f.sql`select id from agreement_signatures where user_id=${host.userId}`;
+    const [rooms] =
+      await f.sql`select count(*)::int as count from rooms where host_actor_id=${host.actorId}`;
+    assert({
+      given: 'a recording create from a host without the grant',
+      should: 'refuse atomically without leaving a room or active membership',
+      actual: [
+        refusal,
+        rooms.count,
+        seats,
+        notices,
+        await f.operations.activeRoom(host),
+      ],
+      expected: ['capture-premium', 0, [], [], null],
+    });
+    const plain = await f.create({ selection: casualValue }, host);
+    assert({
+      given: 'the same host creating without recording',
+      should: 'still create normally',
+      actual: plain.view.capture,
+      expected: null,
+    });
+  });
+});

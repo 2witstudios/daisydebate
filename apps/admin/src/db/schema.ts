@@ -11,6 +11,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -63,6 +64,8 @@ export const auditDetails = [
   'approval_missing',
   'approved',
   'revoked',
+  'mail_unknown',
+  'mail_suppressed',
   'mail_none',
   'mail_queued',
   'mail_sent',
@@ -233,15 +236,20 @@ export const pendingCommands = pgTable(
   {
     commandId: text('command_id').primaryKey(),
     operatorId: operatorRef(),
-    targetUserId: text('target_user_id').notNull(),
-    desiredState: text('desired_state').notNull(),
-    expectedRevision: integer('expected_revision').notNull(),
+    targetUserId: text('target_user_id'),
+    desiredState: text('desired_state'),
+    expectedRevision: integer('expected_revision'),
+    preapproval: jsonb('preapproval'),
     createdAt: at('created_at').notNull(),
     /** When the latest PUT for this command was signed (ADR 0077, A1). */
     lastSignedAt: at('last_signed_at').notNull(),
     resolvedAt: at('resolved_at'),
   },
   (table) => [
+    check(
+      'pending_commands_variant_check',
+      sql`(${table.preapproval} is null and ${table.targetUserId} is not null and ${table.desiredState} is not null and ${table.expectedRevision} is not null) or (${table.preapproval} is not null and ${table.targetUserId} is null and ${table.desiredState} is null and ${table.expectedRevision} is null)`,
+    ),
     check(
       'pending_commands_desired_state_check',
       inList('desired_state', desiredAccessStates),

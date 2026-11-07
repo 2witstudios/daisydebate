@@ -166,6 +166,13 @@ describe('the private operator API (ADR 0079)', () => {
   test('malformed, oversize, unknown and conflicting requests map to their codes', async () => {
     const conflicting = api({
       store: {
+        runFlagCommand: async () => {
+          throw new Error('Unexpected flag command');
+        },
+        listBetaPreapprovals: async () => [],
+        runPreapprovalCommand: async () => {
+          throw new Error('unused');
+        },
         listOperatorReports: async () => [],
         listOperatorRestrictions: async () => [],
         resolveReport: async () => {
@@ -277,6 +284,13 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
   const broken = api({
     reporter,
     store: {
+      runFlagCommand: async () => {
+        throw new Error('Unexpected flag command');
+      },
+      listBetaPreapprovals: async () => [],
+      runPreapprovalCommand: async () => {
+        throw new Error('unused');
+      },
       listOperatorReports: async () => [],
       listOperatorRestrictions: async () => [],
       resolveReport: async () => {
@@ -344,6 +358,13 @@ describe('the report routes (ADR 0103)', () => {
     const seen: unknown[] = [];
     const { handle } = api({
       store: {
+        runFlagCommand: async () => {
+          throw new Error('Unexpected flag command');
+        },
+        listBetaPreapprovals: async () => [],
+        runPreapprovalCommand: async () => {
+          throw new Error('unused');
+        },
         ...storeOf(),
         listOperatorReports: async (input) => {
           seen.push(input);
@@ -369,6 +390,13 @@ describe('the report routes (ADR 0103)', () => {
     const seen: Record<string, unknown>[] = [];
     const { handle } = api({
       store: {
+        runFlagCommand: async () => {
+          throw new Error('Unexpected flag command');
+        },
+        listBetaPreapprovals: async () => [],
+        runPreapprovalCommand: async () => {
+          throw new Error('unused');
+        },
         ...storeOf(),
         resolveReport: async (input) => {
           seen.push(input as unknown as Record<string, unknown>);
@@ -442,6 +470,13 @@ describe('the report routes (ADR 0103)', () => {
     const lifted: string[] = [];
     const { handle } = api({
       store: {
+        runFlagCommand: async () => {
+          throw new Error('Unexpected flag command');
+        },
+        listBetaPreapprovals: async () => [],
+        runPreapprovalCommand: async () => {
+          throw new Error('unused');
+        },
         ...storeOf(),
         liftModeration: async (input) => {
           lifted.push(input.actionId);

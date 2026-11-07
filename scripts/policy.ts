@@ -27,6 +27,7 @@ import {
 } from './policy-registry';
 import { utcToday } from './review-date';
 import { collectWorkflowHardeningProblems } from './workflow-hardening';
+import { collectFlagPolicyProblems } from './flag-policy';
 
 const root = resolve(import.meta.dir, '..');
 const registryPath = join(root, 'policy/exceptions.json');
@@ -339,6 +340,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
     (await filesIn(root, undefined)).map((file) => relative(root, file)),
   );
   const problems = [
+    ...(await collectFlagPolicyProblems()),
     ...validatePolicyRegistry(registry, { knownPaths }),
     ...(await auditPolicyProblems(knownPaths)),
     ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),

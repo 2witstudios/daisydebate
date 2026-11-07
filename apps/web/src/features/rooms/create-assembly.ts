@@ -32,6 +32,12 @@ export async function createAssembly(
     >;
     selection = { kind: 'ranked', formatId, formatVersion, presetVersion };
   }
+  const ranked =
+    selection !== null &&
+    typeof selection === 'object' &&
+    'kind' in selection &&
+    selection.kind === 'ranked';
+  const recording = !ranked && field(form, 'recording') === 'on';
   const parsed = roomCreateSchema.safeParse({
     commandId: field(form, 'commandId'),
     title: field(form, 'title'),
@@ -46,10 +52,11 @@ export async function createAssembly(
             },
     visibility: field(form, 'visibility'),
     selection,
+    ...(recording ? { recording: true } : {}),
     ...(form.getAll('holdSeatFor').length
       ? { holdSeatsFor: form.getAll('holdSeatFor') }
       : {}),
-    ...(field(form, 'noticeVersion')
+    ...((ranked || recording) && field(form, 'noticeVersion')
       ? { noticeVersion: field(form, 'noticeVersion') }
       : {}),
   });

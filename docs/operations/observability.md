@@ -5,7 +5,7 @@ exporters belong to deployment, not the repository. Error tracking and
 product analytics are the deliberate exception:
 [ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md) ships
 the [PostHog product analytics adapters](product-analytics.md), inert without
-deployment configuration and consent. Sentry remains planned. See
+deployment configuration and consent, alongside the Sentry error adapters. See
 [compliance](compliance.md) for the consent rules
 those adapters must follow. Any other vendor SDK still
 requires its own ADR before it may be added.
@@ -30,6 +30,57 @@ unconfigured deployment's CSP names no vendor host, and the only
 `@sentry/*` imports lint allows are inside those adapters plus
 `apps/web/next.config.ts`, whose source-map upload runs only when a
 deploy-time `SENTRY_AUTH_TOKEN` exists.
+
+## Trace volume and privacy
+
+DEC-368 sets an engineering policy shared by web server, edge, browser and
+realtime: check-in (`/api/rounds/:id/check-in`, including `attendance.check-in`)
+and health routes are not sampled; other roots have a local 1% probability.
+This is not an absolute monthly quota: one million ordinary requests with
+seven spans each estimates 70,000 spans. A single 1 Hz seven-span probe would
+otherwise produce 18,144,000 spans per 30 days; even 10% would leave 1,814,400.
+Suppression preserves its per-second public request and durable receipt.
+
+An explicit `tracesSampler` overrides inherited `sampled=true`. Sentry11 also
+accepts `sentry-sample_rand` baggage. The adapter's supported sampler callback
+therefore makes an independent local CSPRNG Bernoulli decision and returns
+0 or 1; upstream callers cannot force the 1% policy to become 100% by selecting
+that draw. Sentry records a conditional sample probability of 1 for admitted
+roots, so vendor extrapolated totals must not be interpreted as unbiased 1%
+traffic estimates. Independent local admission deliberately breaks trace
+continuity when downstream rejects a parent that was admitted upstream.
+Automatic outbound propagation is restricted to the full trusted
+`PUBLIC_APP_URL` origin on servers/realtime and current origin in the browser;
+lookalike hosts, other ports and untrusted vendors receive no trace headers.
+Routine check-in/health requests and `get-session` are excluded from propagation
+even within that trusted origin. This matters in the browser SDK, whose scoped
+`suppressTracing` stops span recording but still injects headers into an allowed
+request. The path exclusion prevents those requests seeding downstream traces
+while preserving ordinary trusted correlation.
+The probe's check-in and independent hourly session-refresh fetch each run in
+their own suppressed async scope. Other operations regain their context.
+
+Sentry11.10.0 is explicitly pinned to its streaming lifecycle: `beforeSendTransaction` is ignored and
+`beforeSendSpan` cannot drop a span. Root sampling and suppressed fetch scopes
+prevent routine root capture; shared `ignoreSpans` filters also exclude routine
+HTTP and named child spans under an ordinary sampled parent. Every delivered streamed span passes through the shared
+pure `scrubSpan`, which removes query-bearing names/URL attributes, query and
+SQL payload attributes, and scrubs linked attributes. Envelope dynamic-sampling
+metadata drops its copied transaction name. Errors keep `sampleRate: 1` and
+`scrubEvent` independently of trace sampling; missing DSNs remain inert. No new
+data class, purpose, processor, retention or consent category is introduced.
+
+Regression proof uses the actual installed SDK envelope transports and actual
+outgoing HTTP headers with forced inherited sampling and controlled local
+draws. The native Chromium SDK proof uses an isolated page and real HTTP targets;
+it is SDK proof, not an application journey. Deployment verification must inspect actual
+machine image SHA and runtime SDK options before interpreting delayed vendor
+ingestion. A quiet vendor dashboard alone is never proof.
+
+SDK references: [sampling](https://docs.sentry.io/platforms/javascript/guides/nextjs/sampling/)
+and the installed11.10.0 `tracing/sampling.js`, `tracing/trace.js`,
+`tracing/spans/beforeSendSpan.js` and `types/options.d.ts` are the checked
+sampling, inheritance and streaming contracts.
 
 ## Source of truth
 
@@ -215,6 +266,7 @@ diverge:
 | `db.capacity.holder`                     | warn     | One per operation holding a lane when it refused: `operation`, `cause` (the lane), `running` (connections). `unlabelled` is work no operation wraps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `db.lane.gauge`                          | info     | One lane over a five-second window, sampled every 250 ms (`lane`; `connections`; `samples`; `activeSum`, `activeMax`, `waitingSum`, `waitingMax`; a sum over `samples` is the time average)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `db.lane.hold`                           | info     | One operation's holds of a lane's connections in that window (`lane`; `operation`; `holds`; `durationMs` is their total; `maxMs`; `p95Ms` is a bucket's upper bound)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `flags.read.failed`                      | warn     | A request could not read release controls; it uses safe defaults. At most one diagnostic per request, with operation and bounded cause only, no subject, key, snapshot or raw error.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `retention.sweep.completed`              | info     | One retention target (`operation`) swept its bounded batches                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `retention.sweep.failed`                 | error    | One retention target failed; the sweep moved on and retries next hour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `retention.run.completed`                | info     | A retention run succeeded and drained on every target; the only event `cleanup_missed` reads                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |

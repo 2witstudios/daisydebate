@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { idSchema } from '@daisy/protocol';
+import { Preapprovals } from './preapprovals';
 import type { OperatorAccountsPage } from '@daisy/protocol/operator';
 import { reconcileOpenCommands } from '../../features/accounts/commands';
 import {
@@ -134,7 +136,8 @@ export default async function AccountsPage({
         <NotPermitted />
       </>
     );
-  const query = accountsQuery(await searchParams);
+  const params = await searchParams;
+  const query = accountsQuery(params);
   const { commands } = adminRuntime();
   if (!commands)
     return (
@@ -151,6 +154,11 @@ export default async function AccountsPage({
     access: query.access,
     limit: pageSize,
     ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+  });
+  const cursor = idSchema.safeParse(params.preapprovalCursor);
+  const preapprovals = await commands.client.listPreapprovals(operator.id, {
+    limit: pageSize,
+    ...(cursor.success ? { cursor: cursor.data } : {}),
   });
   return (
     <>
@@ -174,6 +182,9 @@ export default async function AccountsPage({
           <button type="submit">Reconcile</button>
         </form>
       ) : null}
+      <Preapprovals
+        page={preapprovals.kind === 'ok' ? preapprovals.value : null}
+      />
       <nav aria-label="Beta access" className="tabs">
         {accessTabs.map((tab) => (
           <Link

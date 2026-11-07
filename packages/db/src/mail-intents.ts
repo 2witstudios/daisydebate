@@ -1,3 +1,6 @@
+import { canInviteClaimedPreapproval } from './beta-preapproval-decision';
+import { normalizedEmailSql } from './email-identity';
+import { loadAuthorizationAccount } from './authorization';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -23,6 +26,11 @@ export type MailIntentClaim = {
 /** What a claimed intent should say right now; read fresh at send time. */
 export type MailIntentDelivery =
   | {
+      readonly kind: 'invitation';
+      readonly to: string;
+      readonly sendBefore: string;
+    }
+  | {
       readonly kind: 'member';
       readonly to: string;
       readonly username: string;
@@ -43,13 +51,14 @@ export type MailIntentOutcome =
   | { readonly kind: 'sent' }
   | {
       readonly kind: 'retry';
-      readonly errorCode: 'delivery';
+      readonly errorCode: 'delivery' | 'delivery-unknown';
       readonly nextAttemptAt: string;
     }
   | {
       readonly kind: 'failed' | 'cancelled';
       readonly errorCode:
         | 'delivery'
+        | 'delivery-unknown'
         | 'suppressed'
         | 'recipient-gone'
         | 'unconfigured'
@@ -115,6 +124,7 @@ export function mailIntentOperations({
           for (const { id } of due) {
             const token = input.nextToken();
             const [row] = (await tx.execute(sql`update mail_intents set
+                last_error_code = case when purpose = 'beta-invitation' and state = 'leased' then 'delivery-unknown' else last_error_code end,
                 state = 'leased', attempts = attempts + 1,
                 lease_token_digest = ${agentLeaseDigest(token)},
                 lease_expires_at = clock_timestamp() + ${input.leaseMs} * interval '1 millisecond'
@@ -129,13 +139,64 @@ export function mailIntentOperations({
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
         // A digest counts its own window, which retries never move.
         const [intent] =
-          (await database.execute(sql`select purpose, recipient_user_id, window_start
+          (await database.execute(sql`select purpose, recipient_user_id, preapproval_id, state, window_start,
+            to_char((created_at + interval '23 hours') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as invitation_deadline
           from mail_intents where id = ${id}`)) as unknown as {
             purpose: string;
+            invitation_deadline: string;
+            state: string;
+            preapproval_id: string | null;
             recipient_user_id: string | null;
             window_start: Date | null;
           }[];
         if (!intent) throw createAppError('NOT_FOUND');
+        if (intent.purpose === 'beta-invitation') {
+          if (intent.state !== 'leased') return { kind: 'not-owed' };
+          const [grant] =
+            (await database.execute(sql`select p.email, p.claimed_user_id from beta_preapprovals p
+            left join users u on u.id = p.claimed_user_id
+            left join account_beta_access b on b.user_id = p.claimed_user_id
+            where p.id = ${intent.preapproval_id} and (p.claimed_user_id is null or (u.deleted_at is null and u.email_verified and ${normalizedEmailSql(sql`u.email`)} = p.email and b.state = 'approved'))`)) as unknown as {
+              email: string;
+              claimed_user_id: string | null;
+            }[];
+          if (!grant) return { kind: 'not-owed' };
+          if (grant.claimed_user_id) {
+            const account = await loadAuthorizationAccount(
+              database,
+              grant.claimed_user_id,
+            );
+            if (
+              !account ||
+              !canInviteClaimedPreapproval({
+                verified: true,
+                emailMatches: true,
+                erased: account.erased,
+                restricted: account.restricted,
+                state: account.beta?.state ?? null,
+                ageBand: account.ageBand,
+              })
+            )
+              return { kind: 'not-owed' };
+          }
+          const accounts = (await database.execute(
+            sql`select id from users where ${normalizedEmailSql(sql`email`)} = ${grant.email} and email_verified`,
+          )) as unknown as { id: string }[];
+          for (const account of accounts) {
+            const fact = await loadAuthorizationAccount(database, account.id);
+            if (
+              fact?.erased ||
+              fact?.restricted ||
+              fact?.beta?.state === 'revoked'
+            )
+              return { kind: 'not-owed' };
+          }
+          return {
+            kind: 'invitation',
+            to: grant.email,
+            sendBefore: intent.invitation_deadline,
+          };
+        }
         if (intent.purpose === 'beta-approved') {
           const [row] =
             (await database.execute(sql`select u.email, u.username, b.state
@@ -179,14 +240,16 @@ export function mailIntentOperations({
             ? {
                 ...release,
                 state: 'queued' as const,
-                lastErrorCode: outcome.errorCode,
+                lastErrorCode: sql`case when purpose = 'beta-invitation' and last_error_code = 'delivery-unknown' then 'delivery-unknown' else ${outcome.errorCode} end`,
                 nextAttemptAt: sql`${outcome.nextAttemptAt}::timestamptz`,
               }
             : {
                 ...release,
                 state: outcome.kind,
                 lastErrorCode:
-                  outcome.kind === 'sent' ? null : outcome.errorCode,
+                  outcome.kind === 'sent'
+                    ? null
+                    : sql`case when purpose = 'beta-invitation' and last_error_code = 'delivery-unknown' then 'delivery-unknown' else ${outcome.errorCode} end`,
                 completedAt: sql`clock_timestamp()`,
               };
         const settled = await database

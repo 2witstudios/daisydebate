@@ -37,6 +37,7 @@ function serverEnv() {
 test('enroll a passkey, sign in, and approve a pending account', async ({
   page,
   context,
+  browser,
 }, testInfo) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
@@ -110,6 +111,58 @@ test('enroll a passkey, sign in, and approve a pending account', async ({
     'command.outcome',
   );
   await expect(page.locator('tbody tr').first()).toContainText('changed');
+
+  // Passkey authentication uses JavaScript; all subsequent account mutations
+  // must also work in a separate authenticated browser with JavaScript disabled.
+  const native = await browser.newContext({
+    javaScriptEnabled: false,
+    storageState: await context.storageState(),
+    ignoreHTTPSErrors: true,
+    viewport: { width: 390, height: 844 },
+  });
+  try {
+    const nativePage = await native.newPage();
+    await nativePage.goto(`${e2eAdmin.origin}/accounts`);
+    await expect(
+      nativePage.getByRole('row', { name: /failed-invitation@example.test/ }),
+    ).toContainText('failed');
+    await expect(
+      nativePage.getByRole('row', { name: /unknown-invitation@example.test/ }),
+    ).toContainText('unknown');
+    await nativePage
+      .getByLabel('Email', { exact: true })
+      .fill('silent-preapproval@example.test');
+    await nativePage.getByRole('button', { name: 'Preapprove only' }).click();
+    await expect(nativePage.getByTestId('command-notice')).toHaveText(
+      'Preapproval saved. No email sent.',
+    );
+    const silent = nativePage.getByRole('row', {
+      name: /silent-preapproval@example.test/,
+    });
+    await expect(silent).toContainText('unused');
+    await expect(silent).toContainText('none');
+    await silent.getByRole('button', { name: 'Send invitation' }).click();
+    await expect(nativePage.getByTestId('command-notice')).toHaveText(
+      'Preapproval saved. Invitation email queued.',
+    );
+    await expect(silent).toContainText('queued');
+    await silent.getByRole('button', { name: 'Resend invitation' }).click();
+    await expect(silent).toContainText('queued');
+    await silent.getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect(silent).toHaveCount(0);
+    await nativePage
+      .getByLabel('Email', { exact: true })
+      .fill('invited-preapproval@example.test');
+    await nativePage.getByRole('button', { name: 'Invite by email' }).click();
+    await expect(
+      nativePage.getByRole('row', { name: /invited-preapproval@example.test/ }),
+    ).toContainText('queued');
+    await nativePage.screenshot({
+      path: testInfo.outputPath('native-preapprovals.png'),
+    });
+  } finally {
+    await native.close();
+  }
 
   // The e2e server has no log store: the page says so, never empty tables.
   await page.getByRole('link', { name: 'Security' }).click();

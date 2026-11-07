@@ -1,4 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import { roundCaptureNotice } from '../src/features/legal/agreements';
 import { expect, openPage, test } from './support/fixtures';
 import { signUpMember, origin } from './support/accounts';
 import { closeRoom, createConfiguredRoom } from './support/room-launch-flow';
@@ -93,6 +97,27 @@ test('native format, resolution and speech editing create a room without JavaScr
     await form
       .getByLabel('Room name', { exact: true })
       .fill('Native custom room');
+    await form
+      .getByRole('checkbox', { name: 'Record match', exact: true })
+      .check();
+    const ranked = form.getByRole('checkbox', { name: 'Ranked', exact: true });
+    await ranked.check();
+    await form
+      .getByRole('button', { name: 'Create room', exact: true })
+      .click();
+    await expect(
+      form.getByText('Recording is on for ranked matches.', { exact: true }),
+    ).toBeVisible();
+    await ranked.uncheck();
+    await form
+      .getByRole('button', { name: 'Create room', exact: true })
+      .click();
+    await expect(
+      form.getByRole('checkbox', { name: 'Record match', exact: true }),
+    ).toBeChecked();
+    await expect(
+      form.getByText(roundCaptureNotice('opted-in')!.text, { exact: true }),
+    ).toBeVisible();
     // Settings render only for Custom, so the native editor applies Custom
     // first; the submission posts no settings and starts at the preset.
     await form.locator('[name="format"][value="custom"]').check();
@@ -151,6 +176,7 @@ test('native format, resolution and speech editing create a room without JavaScr
     await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
     const view = await createConfiguredRoom(page);
     roomId = view.id;
+    expect(view.capture).toEqual({ broadcast: null, recording: true });
     expect(view.topic).toBe('Cities should build more homes.');
     expect(view.format.standing.kind).toBe('custom');
   } finally {
@@ -272,4 +298,107 @@ test('current selection surfaces show exact owner-confirmed Season 1 publication
     'Owner-confirmed Daisy Beta Season 1 (2026-10-29)',
     'Owner-confirmed Daisy Beta Season 1 (2026-10-29)',
   ]);
+});
+
+test('Record match stays visible and Ranked shows automatic recording without losing the casual choice', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  await page.goto('/play/room');
+  await hydrated(formOf(page));
+  const form = formOf(page);
+  const recording = form.getByRole('checkbox', {
+    name: 'Record match',
+    exact: true,
+  });
+  const ranked = form.getByRole('checkbox', { name: 'Ranked', exact: true });
+  const notice = form.getByText('Recording is on for ranked matches.', {
+    exact: true,
+  });
+  await expect(recording).toBeVisible();
+  await expect(recording).not.toBeChecked();
+  await ranked.check();
+  await expect(recording).toBeChecked();
+  await expect(recording).toBeDisabled();
+  await expect(notice).toBeVisible();
+  await ranked.uncheck();
+  await expect(recording).not.toBeChecked();
+  await expect(recording).toBeEnabled();
+  await recording.check();
+  await ranked.check();
+  await ranked.uncheck();
+  await expect(recording).toBeChecked();
+  await form.getByLabel('Room name', { exact: true }).fill('Recorded match');
+  const view = await createConfiguredRoom(page);
+  try {
+    expect(view.capture).toEqual({ broadcast: null, recording: true });
+    await page.reload();
+    await page.getByRole('link', { name: 'Room setup', exact: true }).click();
+    await expect(
+      page.getByRole('checkbox', { name: 'Record this round', exact: true }),
+    ).toBeChecked();
+  } finally {
+    await closeRoom(page.request, view.id);
+  }
+});
+
+test('a recording subscription refusal keeps the draft and notice, and turning it off creates normally', async ({
+  page,
+}) => {
+  const { username } = await signUpMember(page.request);
+  await promisify(execFile)(
+    'bun',
+    [
+      fileURLToPath(
+        new URL(
+          './support/withdraw-casual-capture-process.ts',
+          import.meta.url,
+        ),
+      ),
+      username,
+    ],
+    { timeout: 20_000 },
+  );
+  await page.goto('/play/room');
+  await hydrated(formOf(page));
+  const form = formOf(page);
+  const recording = form.getByRole('checkbox', {
+    name: 'Record match',
+    exact: true,
+  });
+  await form
+    .getByLabel('Room name', { exact: true })
+    .fill('Retained recording draft');
+  await recording.check();
+  await expect(
+    form.getByText(roundCaptureNotice('opted-in')!.text, { exact: true }),
+  ).toBeVisible();
+  await form.getByRole('button', { name: 'Create room', exact: true }).click();
+  await expect(
+    form.getByText(
+      'Recording a casual match requires a subscription. Turn Record match off to create this room.',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(recording).toBeChecked();
+  await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
+    'Retained recording draft',
+  );
+  await expect(
+    form.locator('[name="format"][value="freestyle"]'),
+  ).toBeChecked();
+  await expect(
+    form.getByRole('checkbox', { name: 'Ranked', exact: true }),
+  ).not.toBeChecked();
+  await recording.uncheck();
+  await expect(
+    form.getByText(roundCaptureNotice('opted-in')!.text, { exact: true }),
+  ).toHaveCount(0);
+  await expect(form.locator('[name="noticeVersion"]')).toHaveCount(0);
+  const view = await createConfiguredRoom(page);
+  try {
+    expect(view.capture).toBeNull();
+  } finally {
+    await closeRoom(page.request, view.id);
+  }
 });
