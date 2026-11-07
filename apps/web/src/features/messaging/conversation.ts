@@ -3,6 +3,7 @@ import { realtimePublicUrlSchema } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import {
   createMessagingCoreSchemas,
+  createMessagingInboxSchemas,
   messagingTypingSchemas,
 } from '@daisy/protocol';
 
@@ -12,7 +13,7 @@ export type MessagingConversation = z.infer<
 
 /** The browser/server-render adapter validates the authorized wire response. */
 export async function readConversationResponse(response: Response) {
-  if (!response.ok) return null;
+  if (!response.ok) return conversationReadRefusal(response);
   const positive = z.coerce.number().int().positive().safe();
   const parsedBounds = z
     .object({ messageUnits: positive, pageItems: positive })
@@ -42,12 +43,58 @@ export async function readConversationResponse(response: Response) {
   if (recovery !== null && !recovery.success)
     throw createAppError('INFRASTRUCTURE');
   return {
+    kind: 'ready' as const,
     history,
     viewer,
     bounds,
     socketUrl,
     typingRefetchMs: recovery?.data ?? null,
   };
+}
+
+/** Only the server's bounded temporary503 advice authorizes page recovery. */
+function conversationReadRefusal(response: Response) {
+  const advice = response.headers.get('retry-after');
+  const seconds = advice !== null && /^\d+$/.test(advice) ? Number(advice) : 0;
+  return response.status === 503 &&
+    Number.isSafeInteger(seconds) &&
+    seconds >= 1 &&
+    seconds <= 10
+    ? { kind: 'temporary' as const, retryAfterMs: seconds * 1000 }
+    : { kind: 'unavailable' as const };
+}
+
+/** The title read has its own current authority and admission outcome. */
+export async function readConversationEntryResponse(response: Response) {
+  if (!response.ok) return conversationReadRefusal(response);
+  const parsed = createMessagingInboxSchemas(1).entry.safeParse(
+    await response.json(),
+  );
+  return parsed.success
+    ? { kind: 'ready' as const, entry: parsed.data.entry }
+    : { kind: 'unavailable' as const };
+}
+
+type PageAdmission =
+  | { readonly kind: 'ready' | 'unavailable' }
+  | { readonly kind: 'temporary'; readonly retryAfterMs: number };
+
+/** Neither required read can turn the other's permanent refusal into a retry. */
+export function conversationPageAdmission(
+  history: PageAdmission,
+  entry: PageAdmission,
+): PageAdmission {
+  if (history.kind === 'unavailable' || entry.kind === 'unavailable')
+    return { kind: 'unavailable' };
+  if (history.kind === 'temporary' || entry.kind === 'temporary')
+    return {
+      kind: 'temporary',
+      retryAfterMs: Math.max(
+        history.kind === 'temporary' ? history.retryAfterMs : 0,
+        entry.kind === 'temporary' ? entry.retryAfterMs : 0,
+      ),
+    };
+  return { kind: 'ready' };
 }
 
 /**

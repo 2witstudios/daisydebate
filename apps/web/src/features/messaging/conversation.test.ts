@@ -4,6 +4,7 @@ import {
   readConversationResponse,
   readThroughSequence,
   conversationNames,
+  conversationPageAdmission,
 } from './conversation';
 setupRitewayBun();
 test('conversation wire responses require authorized configured bounds and coherent portable history', async () => {
@@ -11,7 +12,7 @@ test('conversation wire responses require authorized configured bounds and coher
     given: 'a refused history read',
     should: 'provide no content to the conversation',
     actual: await readConversationResponse(new Response(null, { status: 403 })),
-    expected: null,
+    expected: { kind: 'unavailable' },
   });
   await assertRejects({
     given: 'an OK response missing its configured bounds',
@@ -35,6 +36,58 @@ test('conversation wire responses require authorized configured bounds and coher
         ),
       ),
     code: 'INFRASTRUCTURE',
+  });
+});
+
+test('conversation page admission decides both required reads together', () => {
+  const ready = { kind: 'ready' } as const;
+  const denied = { kind: 'unavailable' } as const;
+  const temporary = { kind: 'temporary', retryAfterMs: 1000 } as const;
+  assert({
+    given: 'every pair of ready, temporary and permanent required page reads',
+    should:
+      'stop on either permanent refusal and honor the slower temporary advice',
+    actual: [ready, temporary, denied].flatMap((history) =>
+      [ready, { ...temporary, retryAfterMs: 2000 }, denied].map((entry) =>
+        conversationPageAdmission(history, entry),
+      ),
+    ),
+    expected: [
+      ready,
+      { kind: 'temporary', retryAfterMs: 2000 },
+      denied,
+      temporary,
+      { kind: 'temporary', retryAfterMs: 2000 },
+      denied,
+      denied,
+      denied,
+      denied,
+    ],
+  });
+});
+
+test('conversation refusal preserves only explicit temporary admission advice', async () => {
+  const responses = [
+    new Response(null, { status: 503, headers: { 'retry-after': '1' } }),
+    new Response(null, { status: 503 }),
+    ...[429, 403, 404].map(
+      (status) =>
+        new Response(null, { status, headers: { 'retry-after': '1' } }),
+    ),
+    ...['0', '-1', 'NaN', '1000000', '0x1', '1e0', '+1', '1.0'].map(
+      (delay) =>
+        new Response(null, { status: 503, headers: { 'retry-after': delay } }),
+    ),
+  ];
+  assert({
+    given:
+      'an advised admission refusal, bare outage, rate/authority denial and invalid advice',
+    should: 'permit recovery only for the bounded advised temporary503',
+    actual: await Promise.all(responses.map(readConversationResponse)),
+    expected: [
+      { kind: 'temporary', retryAfterMs: 1000 },
+      ...Array.from({ length: 12 }, () => ({ kind: 'unavailable' })),
+    ],
   });
 });
 
@@ -63,7 +116,10 @@ test('authorized conversation carries only the explicitly supplied typing recove
     given: 'authorized history with explicit timing versus absent timing',
     should:
       'pass exactly configured timing to the browser without inventing a default',
-    actual: [supplied?.typingRefetchMs, absent?.typingRefetchMs],
+    actual: [
+      supplied.kind === 'ready' ? supplied.typingRefetchMs : null,
+      absent.kind === 'ready' ? absent.typingRefetchMs : null,
+    ],
     expected: [700, null],
   });
   for (const invalid of ['0', '-1', 'NaN', '0.5', '9007199254740992'])

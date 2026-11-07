@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { buttonClass } from '../components/button/button-class';
 import { DaisyMark } from '../components/daisy-mark/daisy-mark';
 

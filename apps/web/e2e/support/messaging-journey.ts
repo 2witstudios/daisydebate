@@ -78,6 +78,11 @@ async function openJourney(
       outsider,
       channelId,
       introduction,
+      pressureSelectors: {
+        channelId,
+        actorId: recipientAccount.actorId,
+        userId: recipientAccount.userId,
+      },
       senderUsername: signup.members[0].username,
       recipientUsername: signup.members[1].username,
       outsiderUsername: browserMemberUsername(signup.members, 2),

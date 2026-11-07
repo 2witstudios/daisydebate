@@ -136,6 +136,8 @@ describe('legal documents', () => {
         'asynchronous',
         'unlinked anonymous events',
         'one-year retention',
+        'may retain them longer',
+        'no confirmed deadline for physical deletion',
         'Session replay stays disabled',
       ].filter((word) => !analytics.includes(word)),
       expected: [],

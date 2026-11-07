@@ -1,5 +1,6 @@
 import { testRoundFloorLive } from './support/round-floor-live';
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
+import { testMessagingRecovery } from './support/messaging-recovery';
 import { STEP_LIMIT_MS } from './support/bounded-step';
 import { testPeopleList } from './support/people-list-live';
 import { testMessagingHistoryCompletion } from './support/messaging-history-completion';
@@ -43,6 +44,7 @@ testMessagingHistoryCompletion();
 testMessagingUnknownCommit();
 testProfileMessageEntry();
 testMessagesPage();
+testMessagingRecovery();
 
 test('an authenticated DM message reaches the other real browser as an observed snapshot', async ({
   browser,

@@ -48,6 +48,7 @@ export default defineConfig({
             ...server,
             env: {
               ...server.env,
+              E2E_MESSAGING_RECOVERY: '1',
               LIVEKIT_URL: launchLiveKit.url,
               LIVEKIT_PUBLIC_URL: `wss://localhost:${slot.port + 7}`,
               LIVEKIT_API_KEY: launchLiveKit.apiKey,

@@ -16,7 +16,7 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
     await messagePageContext(props);
   const query = new URLSearchParams();
   if (typeof intent.before === 'string') query.set('before', intent.before);
-  const conversation = await readConversationResponse(
+  const read = await readConversationResponse(
     await GET(
       new Request(
         `http://in-process.invalid/api/messaging/channels/${channelId}/messages?${query}`,
@@ -24,6 +24,7 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
       ),
     ),
   );
+  const conversation = read.kind === 'ready' ? read : null;
   const message = conversation?.history.messages.find(
     (item) => item.id === messageId,
   );

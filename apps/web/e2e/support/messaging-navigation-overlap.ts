@@ -65,6 +65,17 @@ export function holdConversationResponses(
   const deliveredNavigation = Promise.withResolvers<void>();
   const state = {
     sendReady: false,
+    sendStage: 'not-seen' as
+      | 'not-seen'
+      | 'fetching'
+      | 'outer-response'
+      | 'fetch-rejected'
+      | 'held'
+      | 'delivered',
+    fetchStarts: 0,
+    fetchFinishes: 0,
+    fetchRejected: 0,
+    sendOuterStatus: null as number | null,
     navigationReady: false,
     sends: 0,
     navigations: 0,
@@ -79,12 +90,23 @@ export function holdConversationResponses(
     if (kind === 'sentDestination') state.routeOrder.push('sent');
     if (kind === 'send') {
       state.sends++;
-      const response = await route.fetch();
+      state.fetchStarts++;
+      state.sendStage = 'fetching';
+      const response = await route.fetch().catch((error: unknown) => {
+        state.fetchRejected++;
+        state.sendStage = 'fetch-rejected';
+        throw error;
+      });
+      state.fetchFinishes++;
+      state.sendOuterStatus = response.status();
+      state.sendStage = 'outer-response';
       expect(response.status()).toBe(200);
       state.sendReady = true;
+      state.sendStage = 'held';
       await send.promise;
       if (sendResult === 'lose') await route.abort('internetdisconnected');
       else await route.fulfill({ response });
+      state.sendStage = 'delivered';
       deliveredSend.resolve();
     } else if (kind === 'navigation' && state.navigationReady) {
       // Next refreshes once after a discarded action that revalidated.
@@ -105,6 +127,17 @@ export function holdConversationResponses(
   };
   return {
     state,
+    sendDiagnostic: () => ({
+      stage: state.sendStage,
+      recognizedSends: state.sends,
+      fetchStarts: state.fetchStarts,
+      fetchFinishes: state.fetchFinishes,
+      fetchRejected: state.fetchRejected,
+      fetchStarted: state.fetchStarts > 0,
+      fetchFinished: state.fetchFinishes > 0,
+      outerStatus: state.sendOuterStatus,
+      sendReady: state.sendReady,
+    }),
     intercept,
     releaseSend: async () => {
       send.resolve();
@@ -145,7 +178,26 @@ export async function beginHeldSend(
     .getByRole('textbox', { name: 'Your message', exact: true })
     .fill(text);
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
-  await expect.poll(() => held.state.sendReady).toBe(true);
+  try {
+    await expect.poll(() => held.state.sendReady).toBe(true);
+  } catch (error) {
+    try {
+      await test.info().attach('held-send-primary-failure-safe', {
+        contentType: 'application/json',
+        body: JSON.stringify({
+          phase: 'sendReady-predicate-failure',
+          ...held.sendDiagnostic(),
+        }),
+      });
+    } catch (diagnosticError) {
+      throw new AggregateError(
+        [error, diagnosticError],
+        'Held send predicate and diagnostic attachment failed',
+        { cause: error },
+      );
+    }
+    throw error;
+  }
 }
 
 type HeldConversation = {
@@ -162,6 +214,7 @@ export async function withHeldConversation(
 ) {
   const journey = await openMessagingJourney(browser);
   let held: ReturnType<typeof holdConversationResponses> | undefined;
+  const failures: unknown[] = [];
   try {
     const { page, observed } = await openObservedConversation(journey);
     held = holdConversationResponses(
@@ -172,10 +225,40 @@ export async function withHeldConversation(
     );
     await page.route('**/messages/**', held.intercept);
     await verify({ page, observed, held, channelId: journey.channelId });
-  } finally {
-    held?.releaseAll();
-    await journey.close();
+  } catch (error) {
+    failures.push(error);
   }
+  try {
+    if (held)
+      await test.info().attach('held-send-before-disposal-safe', {
+        contentType: 'application/json',
+        body: JSON.stringify({
+          phase: 'before-disposal',
+          ...held.sendDiagnostic(),
+        }),
+      });
+  } catch (diagnosticError) {
+    failures.push(diagnosticError);
+  } finally {
+    try {
+      held?.releaseAll();
+    } catch (releaseError) {
+      failures.push(releaseError);
+    } finally {
+      try {
+        await journey.close();
+      } catch (closeError) {
+        failures.push(closeError);
+      }
+    }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(
+      failures,
+      'Held conversation verification and cleanup failed',
+      { cause: failures[0] },
+    );
 }
 
 export function testMessagingNavigationOverlap() {
