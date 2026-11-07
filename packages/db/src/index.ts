@@ -1,3 +1,4 @@
+import { TranscriptionRecovery } from './transcription-recovery/transcription-recovery';
 import { NecessaryEvidenceRetirement } from './necessary-evidence-retirement/necessary-evidence-retirement';
 import { roundFloorModeration } from './messaging/round-floor-moderation';
 import { createRoundIncidentStore } from './round-incident-store';
@@ -403,6 +404,10 @@ export function createDatabase({
     ...roundProtectedReads({ database }),
     ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
+    createTranscriptionRecovery: (
+      options: Omit<Parameters<typeof TranscriptionRecovery.create>[0], 'run'>,
+    ) =>
+      TranscriptionRecovery.create({ ...options, run: competitiveTransaction }),
     createNecessaryEvidenceRetirement: (
       options: Omit<
         Parameters<typeof NecessaryEvidenceRetirement.create>[0],

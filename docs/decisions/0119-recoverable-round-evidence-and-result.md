@@ -817,3 +817,41 @@ transient decrypted buffers are zeroed before refusal. This cannot recall plaint
 already copied into a caller. lstat rejects dangling material symlinks before
 creation; an owner-only directory is still a local trust boundary, not protection
 against a malicious same-user process racing filesystem checks or host compromise.
+
+### Recognition execution and conservative call admission
+
+The local private recognition factory uses the existing competitive bounded
+transaction, with no media-worker DML or second pool. Discovery chooses one due
+context per eligible distinct Round before its eight-Round page bound; another
+worker's live Round claim excludes the whole Round. Fair turns use the maximum
+actual post-lock claim instant across every context, including selected siblings,
+with original creation time as a comparable never-served fallback. Retry time is
+eligibility/backoff, not a separate priority. Every candidate uses a fresh
+transaction: complete frozen original subject discovery, canonical account
+fences, Round serialization, then exact manifest revalidation and context lock.
+Every effect samples authoritative DB time after waits and checks original
+receipt expiry, withdrawal, frontier, lease token/epoch and pinned configuration.
+Capture-worker replacement supplies no authority over original audio.
+
+The complete validated execution/quality configuration is bound to a versioned
+server-computed digest on first claim. The injected lifetime call allowance is
+1–64. A private metadata-only attempt ledger reserves one ordinal per claim epoch
+before external I/O, atomically with the lifetime counter. Repeating an unknown
+admission returns already-admitted, never fresh dispatch permission. This counts
+conservative spending, not actual provider receipt or billing: a crash can consume
+an allowance without sending a request. A subsequent lease cannot reset spending;
+exhaustion is visible blocked recovery. Provider/uncertain failures release the
+lease into persisted bounded backoff, and quality uncertainty stays blocked.
+Already-held plaintext cannot be recalled; future candidate commit still checks
+current privacy/claim/frontier fences. Candidate recording computes only a digest
+and byte count from transient text; it does not store the words, settle evidence,
+select authoritative text, or permit freeze.
+
+These methods are a bounded execution contract, not an eventual-result claim.
+The fair polling/provider composition, interrupted-attempt scheduling,
+source-enrollment recovery, qualified recognition policy, authoritative selection,
+public provisional display and actual played-to-result outcome remain incomplete.
+Production composition remains absent. Supported automatic progress will require
+available resources and remaining finite funding within the original evidence
+lifetime, separately measured against the fault matrix; manual replenishment or
+a parked pending row is not automatic eventual progress.

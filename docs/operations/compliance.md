@@ -291,6 +291,15 @@ transcript or subject identities. Unknown original subjects cannot be
 backfilled from current membership or treated as an empty set. Integrated
 retirement/export/erasure remains incomplete and production-disabled.
 
+Private transcription-recovery attempt metadata additionally retains original
+context/claim epoch, conservative call ordinal, pinned model/policy, outcome,
+candidate digest/byte count and admission/completion timestamps. These linkable
+private facts contain no candidate words and do not establish recognition quality.
+An unknown admission never creates another permission under the same epoch.
+Attempts cascade with their owning context on aggregate erasure and share the
+context metadata minimization/export/restore obligation below; no new permanent
+metadata retention or production privacy approval is asserted.
+
 Private transcription-recovery contexts and source manifests retain receipt IDs,
 original stream/grant/run digests, offsets/sequences, bounded context membership
 and work/selection provenance. These are linkable private metadata, not anonymous
