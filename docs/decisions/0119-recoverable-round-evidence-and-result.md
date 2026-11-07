@@ -1029,3 +1029,31 @@ refusal, not actual provider accuracy, peer hearing or a genuine debate result.
 The fair capacity/renewal poller, process executor recovery, richer provider
 response/quality qualification and authoritative selection remain incomplete.
 Production composition remains absent pending REL-H.
+
+### Local recognition service composition
+
+An injected local scheduler now independently polls bounded missing-source
+metadata and capacity-reserved recognition claims. Enrollment does not buy a
+provider slot; an unavailable original is reported while later offered units
+remain visitable. The existing database finite pass, original-body validation,
+claim ordering, backoff and lifetime attempt cap retain authority. Each scan has
+a finite claim budget and bounded local parallelism; capacity is reserved before
+claiming, with exactly one release after execution actually settles. A late
+claim acknowledgement after stop cannot dispatch.
+
+Renewal runs independently from enrollment/provider execution. Uncertain renewal
+aborts future execution steps and retains the occupied local slot until execution
+settles. Abort cannot recall already-authorized processing or an in-flight commit;
+existing PG original/canonical privacy/lease fences still serialize admission and
+candidate writes. Stop clears timers, cancels entries and drains in-flight scans,
+renewals, enrollment and execution. No guessed terminal result or lease release
+is written by this scheduler. Bounded lease expiry/takeover remains the recovery
+obligation after unknown claim outcomes and process death.
+
+This is local injected composition, with controlled scheduling tests and an
+injected-expiry actual-PG/custody case. It is not production startup, a measured
+outage/funding liveness window, process takeover proof, qualified provider/quality
+selection or an authoritative transcript/result. The actual shared capacity,
+lease/poll configuration, fair process restart, finite provider funding and
+qualified candidate handler still need integrated qualification before claiming
+automatic eventual progress. REL-H remains unchanged.
