@@ -125,20 +125,18 @@ try {
     Sentry.getClient()?.getTransport() === localTransport;
   if (!localTransportBound) throw Error('Local SDK transport not bound');
   const reporter = createSentryErrorReporter();
-  const result = await Sentry.withIsolationScope(async () => {
-    return createBillingEconomicsCollector({
-      store: { read: async () => snapshot },
-      feed: files.feed,
-      save: files.save,
-      now: () => now,
-      reporter: {
-        capture: (error, context) => {
-          captureAfterSave.push(existsSync(reportPath));
-          reporter.capture(error, context);
-        },
+  const result = await createBillingEconomicsCollector({
+    store: { read: async () => snapshot },
+    feed: files.feed,
+    save: files.save,
+    now: () => now,
+    reporter: {
+      capture: (error, context) => {
+        captureAfterSave.push(existsSync(reportPath));
+        reporter.capture(error, context);
       },
-    }).run(window);
-  });
+    },
+  }).run(window);
   const flushed = await Sentry.flush(1000);
   await Sentry.close(1000);
   const saved: unknown = JSON.parse(await readFile(reportPath, 'utf8'));
