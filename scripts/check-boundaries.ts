@@ -21,6 +21,7 @@ import {
   runnerOnlyIssue,
   testSupportIssue,
   forbiddenDependencyIssue,
+  isRuntimeImport,
 } from './boundaries-rules';
 
 type Manifest = {
@@ -146,11 +147,7 @@ for (const workspace of workspaces) {
           issues.push(
             `${relative(root, file)}: cross-package relative import ${specifier}`,
           );
-      } else if (
-        !specifier.startsWith('node:') &&
-        specifier !== 'bun' &&
-        specifier !== 'bun:test'
-      ) {
+      } else if (!isRuntimeImport(specifier)) {
         const packageName = specifier.startsWith('@')
           ? specifier.split('/').slice(0, 2).join('/')
           : specifier.split('/')[0]!;
