@@ -82,6 +82,10 @@ export function makeOperations(
     databaseNow: async () => now,
     readRoundBotAdmissionStatus: async () => null,
     readOwnEntitlementGrants: async () => [],
+    readOwnCasualJudgeAllowance: async () => ({
+      kind: 'refuse',
+      reason: 'free-judge-unbound',
+    }),
     readContentWaiverStanding: async () => 'signed',
     listRoomCatalogSources: async (
       _caller: typeof caller,

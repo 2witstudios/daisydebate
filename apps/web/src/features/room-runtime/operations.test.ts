@@ -155,6 +155,10 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
       readRoomAssemblyFacts: async () => ({ state, drawSeed: null }),
       databaseNow: async () => now,
       readOwnEntitlementGrants: async () => [],
+      readOwnCasualJudgeAllowance: async () => ({
+        kind: 'refuse',
+        reason: 'free-judge-unbound',
+      }),
     } as unknown as Store,
     redis: {
       setRoomConsent: async () => undefined,
@@ -231,9 +235,9 @@ test('Room creation hands the initial cast to the create transaction through the
   const seat = cast?.seats[0];
   const accepted =
     seat &&
-    cast?.apply({ ...state, participants: [] }, seat, botTarget, now, []);
+    cast?.apply({ ...state, participants: [] }, seat, botTarget, now, false);
   const refused =
-    seat && cast?.apply({ ...state, participants: [] }, seat, null, now, []);
+    seat && cast?.apply({ ...state, participants: [] }, seat, null, now, false);
   const wrongSeat =
     seat &&
     cast?.apply(
@@ -244,7 +248,7 @@ test('Room creation hands the initial cast to the create transaction through the
         seatRole: 'judge',
       },
       now,
-      [],
+      false,
     );
   assert({
     given: 'a create casting an eligible bot debater at negative',
@@ -290,7 +294,7 @@ test('Room creation hands the initial cast to the create transaction through the
         unavailableSeat,
         botTarget,
         now,
-        [],
+        false,
       );
   assert({
     given: 'a direct create request while the provider is unavailable',
@@ -325,7 +329,7 @@ test('Room creation hands the initial cast to the create transaction through the
           debater,
           botTarget,
           now,
-          [],
+          false,
         ).ok
       : null;
   };
@@ -438,7 +442,7 @@ test('Room creation asks the create transaction to recheck its catalog selection
   });
 });
 
-test('a create seating the AI judge passes the host grants through the entitlement policy (WATCH-16)', async () => {
+test('a create seating the AI judge consumes its fresh allowance decision (BILL-11)', async () => {
   const botActorId = 'j5n6p8r2t4v6x8z1k3b5c7d9';
   const judgeTarget = {
     actorId: botActorId,
@@ -472,21 +476,15 @@ test('a create seating the AI judge passes the host grants through the entitleme
     competitionType: 'casual' as const,
     rules: { ...state.rules, seats: { ...state.rules.seats, judge: 1 } },
   };
-  const outcome = (
-    grants: Parameters<NonNullable<typeof cast>['apply']>[4],
-  ) => {
-    const result = seat && cast?.apply(room, seat, judgeTarget, now, grants);
+  const outcome = (admitted: boolean) => {
+    const result = seat && cast?.apply(room, seat, judgeTarget, now, admitted);
     return result?.ok ? 'seated' : result?.refusal;
   };
   assert({
-    given: 'a casual create by a host with and without the grant',
-    should: 'seat the AI judge only for the grant holder',
-    actual: [
-      outcome([{ entitlement: 'casual_ai_judge', source: 'beta' }]),
-      outcome([{ entitlement: 'ai_rounds', source: 'beta' }]),
-      outcome([]),
-    ],
-    expected: ['seated', 'ai-judge-premium', 'ai-judge-premium'],
+    given: 'a casual create with a fresh allowance admission or refusal',
+    should: 'seat the AI judge only on admission',
+    actual: [outcome(true), outcome(false)],
+    expected: ['seated', 'ai-judge-premium'],
   });
 });
 

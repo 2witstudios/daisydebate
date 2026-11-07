@@ -35,6 +35,21 @@ columns and routes, so the baseline now matches the policy:
   (ADR 0023), so `users` and `debates` carry application-supplied cuid2 ids
   from the first migration onward.
 
+Historical accounting exception (BILL-9-r1/11/18): applied migration
+`packages/db/migrations/20261105051949_casual_judge_usage/migration.sql`
+may derive IDs only for its missing historical casual-judge usage cohort.
+The exact expression is `m` plus the first 23 hexadecimal characters of
+SHA-256 over UTF-8 `casual_judge_usage:<roundId>:<frozenSponsorActorId>`.
+These predictable 92-bit derived identifiers are not cuid2, unpredictable
+identities, anonymization, authorization, or bearer secrets. The original
+business key, source, count meaning and erasure fences remain authoritative.
+Replay preserves existing business-key IDs; it never generates live admission
+or actor identities. This narrow exception does not permit UUID exceptions,
+a general database-side generator, or relaxation of application-minted cuid2.
+The earlier beta backfill used MD5, not SHA-256; it is historical precedent,
+not authorization for this exception. See [ADR 0117](0117-premium-billing.md)
+for the accepted cohort and its proof.
+
 cuid2 IDs are identifiers, never bearer secrets: session tokens remain
 Better Auth-owned random values.
 

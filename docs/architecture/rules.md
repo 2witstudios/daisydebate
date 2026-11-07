@@ -67,7 +67,10 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   boundary, pure functions everywhere, unguessable cuid2 identifiers
   (`@paralleldrive/cuid2`) instead of UUIDs, SHA3-256 hashing for secret
   storage and comparison, and OS CSPRNG entropy (never `Math.random`)
-  wherever randomness touches anything security-adjacent.
+  wherever randomness touches anything security-adjacent. The exact
+  historical-accounting migration exception in [ADR 0018](../decisions/0018-cuid2-identifiers.md)
+  permits predictable derived usage IDs only, never actor/runtime generation
+  or authorization by identifier secrecy.
 - Prefer pure functions. Domain, protocol, and feature logic have no ambient
   clock, environment, randomness, or I/O. Inject time, IDs, and resources at
   the edges; rejected operations leave state unchanged.
@@ -93,7 +96,8 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   and must use validated namespaced keys with expiry. See
   [persistence](persistence.md) and
   [database operations](../operations/database.md).
-- Use UTC ISO timestamps, cuid2 application IDs, documented UUID exceptions,
+- Use UTC ISO timestamps, cuid2 application IDs (with only ADR 0018's exact
+  historical-accounting exception), documented UUID exceptions,
   and integer millisecond durations. cuid2 IDs are identifiers, never bearer
   secrets. Use structured logging; never log credentials, cookies, raw request
   bodies, or raw exceptions. Public errors must not expose internals.

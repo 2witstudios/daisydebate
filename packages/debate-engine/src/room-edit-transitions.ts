@@ -266,7 +266,7 @@ export const claimSeat = (
   if (
     target.kind === 'bot' &&
     command.role === 'judge' &&
-    !aiJudgeSeatAdmitted(room, edges.hostHoldsCasualAiJudge)
+    !aiJudgeSeatAdmitted(room, edges.hostMaySeatCasualAiJudge)
   )
     return refuse('ai-judge-premium');
   if (

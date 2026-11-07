@@ -1,3 +1,4 @@
+import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -13,14 +14,15 @@ requireTestServices(process.env);
 test('canonical erasure during an active Round prevents any round analysis after its later freeze', async () => {
   let erasedWhileActive = false;
   await withCompletedRound(
-    async ({ fixture, roundId, aff, neg, seats, jobs, facts }) => {
+    async ({ fixture, roundId, aff, neg, seats, jobs, facts, request }) => {
       const state = await facts(aff);
       const [before] =
         await fixture.sql`select count(*)::int as n from round_analyses where round_id=${roundId}`;
-      let decisions = 0;
-      const claimed = await jobs.claim(seats.neg, () => {
-        decisions++;
-        return 'claim';
+      await assertRejects({
+        given: 'an opponent erased before freeze',
+        should: 'refuse later explicit generation',
+        code: 'NOT_FOUND',
+        actual: () => request(seats.neg),
       });
       const [after] =
         await fixture.sql`select count(*)::int as n from round_analyses where round_id=${roundId}`;
@@ -34,11 +36,9 @@ test('canonical erasure during an active Round prevents any round analysis after
           status: state.status,
           frozen: state.frozen,
           lines: state.lines,
-          listed: (await jobs.scan(64, new Date(0).toISOString(), () => true))
+          listed: (await jobs.scan(64))
             .map((seat) => seat.roundParticipantId)
             .some((id) => [aff.id, neg.id].includes(id)),
-          claimed,
-          decisions,
           attempts: [before.n, after.n],
         },
         expected: {
@@ -47,8 +47,6 @@ test('canonical erasure during an active Round prevents any round analysis after
           frozen: true,
           lines: 1,
           listed: false,
-          claimed: null,
-          decisions: 0,
           attempts: [0, 0],
         },
       });

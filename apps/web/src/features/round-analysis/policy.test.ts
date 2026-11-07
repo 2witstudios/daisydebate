@@ -1,206 +1,121 @@
 import type { RoundAnalysisFacts } from '@daisy/db/rounds';
+import { advanceAnalysisWork, type AnalysisWork } from '@daisy/protocol';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  roundAnalysisClaimDecision,
-  roundAnalysisNeeded,
-  roundAnalysisBounds,
-  roundAnalysisView,
-} from './policy';
-
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { roundAnalysisView } from './policy';
 setupRitewayBun();
-
-const completedAt = '2026-10-26T12:00:00.000Z';
-const at = (ms: number) => new Date(Date.parse(completedAt) + ms).toISOString();
-const window = roundAnalysisBounds.windowMs;
-/** A seat of a Round that completed with frozen lines and no analysis yet. */
+const now = '2026-11-05T12:00:00.000Z';
 const facts = (
   overrides: Partial<RoundAnalysisFacts> = {},
 ): RoundAnalysisFacts => ({
   status: 'completed',
-  completedAt,
+  completedAt: '2025-01-01T00:00:00.000Z',
   frozen: true,
   lines: 4,
   analysis: null,
   ...overrides,
 });
-const leased = (attempts: number, expiresInMs: number) =>
-  ({
-    status: 'leased',
-    attempts,
-    leaseExpiresAt: at(expiresInMs),
-    report: null,
-  }) as const;
+const view = (
+  value: RoundAnalysisFacts,
+  allowance: 'free' | 'included' | 'unavailable' = 'free',
+  enabled = true,
+) => roundAnalysisView({ facts: value, allowance, enabled, now });
+const historical = {
+  createdAt: '2025-01-01T00:00:00.000Z',
+  completedAt: null,
+  claimedAttempts: 1,
+  model: 'historical',
+  inputTokens: 0,
+  outputTokens: 0,
+};
 
-describe('roundAnalysisNeeded()', () => {
-  test('the window', () => {
-    assert({
-      given: 'a seat just inside, at, and past 24 hours',
-      should: 'need an analysis only strictly inside the window',
-      actual: [window - 1, window, window + 1].map((ms) =>
-        roundAnalysisNeeded(facts(), at(ms)),
-      ),
-      expected: [true, false, false],
-    });
+test('analysis is requested only with actual evidence, without any Round-age window', () => {
+  assert({
+    given:
+      'a historical completed Round with remaining frozen evidence and free or included allowance',
+    should: 'offer an explicit request, never automatic pending work',
+    actual: [view(facts()), view(facts(), 'included')],
+    expected: [
+      { status: 'requestable', allowance: 'free' },
+      { status: 'requestable', allowance: 'included' },
+    ],
   });
-  test('the evidence', () => {
-    assert({
-      given:
-        'a Round with no freeze, a freeze with no lines, one not completed, and one with no completion time',
-      should: 'need no analysis: there is nothing to analyse',
-      actual: [
-        facts({ frozen: false }),
-        facts({ lines: 0 }),
-        facts({ status: 'active' }),
-        facts({ completedAt: null }),
-      ].map((f) => roundAnalysisNeeded(f, at(1))),
-      expected: [false, false, false, false],
-    });
-  });
-  test('no ballot enters the decision', () => {
-    assert({
-      given: 'the facts the decision reads',
-      should: 'carry no ballot field at all',
-      actual: Object.keys(facts()).some((key) => /ballot/i.test(key)),
-      expected: false,
-    });
+  assert({
+    given:
+      'missing freeze, no lines, active Round, no completion, missing worker, or exhausted allowance',
+    should: 'refuse generation and distinguish an allowance upsell',
+    actual: [
+      view(facts({ frozen: false })),
+      view(facts({ lines: 0 })),
+      view(facts({ status: 'active' })),
+      view(facts({ completedAt: null })),
+      view(facts(), 'free', false),
+      view(facts(), 'unavailable'),
+    ].map((s) => s.status),
+    expected: [
+      'unavailable',
+      'unavailable',
+      'unavailable',
+      'unavailable',
+      'unavailable',
+      'locked',
+    ],
   });
 });
-
-describe('roundAnalysisClaimDecision()', () => {
-  test('a seat with no analysis', () => {
-    assert({
-      given: 'a seat that needs an analysis, then one that does not',
-      should: 'claim the first and leave the second',
-      actual: [
-        roundAnalysisClaimDecision(facts(), at(1)),
-        roundAnalysisClaimDecision(facts({ lines: 0 }), at(1)),
-      ],
-      expected: ['claim', 'skip'],
-    });
+test('retained content survives lapse while terminal and exhausted identities cannot reopen', () => {
+  const retained: AnalysisWork = {
+    kind: 'retained',
+    historical: { ...historical, completedAt: '2025-01-01T00:01:00.000Z' },
+    report,
+  };
+  assert({
+    given:
+      'an authorized delivered report with no paid access, worker or transcript remaining',
+    should: 'return the stored report without generation',
+    actual: view(
+      facts({ analysis: retained, frozen: false, lines: 0 }),
+      'unavailable',
+      false,
+    ),
+    expected: { status: 'ready', report },
   });
-  test('a held lease and a finished analysis', () => {
-    assert({
-      given: 'a lease still held, and a finished analysis',
-      should: 'leave both alone',
-      actual: [
-        roundAnalysisClaimDecision(
-          facts({ analysis: leased(1, 60_000) }),
-          at(1),
-        ),
-        roundAnalysisClaimDecision(
-          facts({
-            analysis: {
-              status: 'succeeded',
-              attempts: 1,
-              leaseExpiresAt: null,
-              report,
-            },
-          }),
-          at(1),
-        ),
-      ],
-      expected: ['skip', 'skip'],
-    });
-  });
-  test('a lapsed lease', () => {
-    assert({
-      given:
-        'a lapsed first attempt, a lapsed attempt at the cap, and a lapsed first attempt after the window',
-      should:
-        'retake the first, and end the spent one and the one that is no longer needed',
-      actual: [
-        roundAnalysisClaimDecision(
-          facts({ analysis: leased(1, 1000) }),
-          at(2000),
-        ),
-        roundAnalysisClaimDecision(
-          facts({ analysis: leased(roundAnalysisBounds.maxCalls, 1000) }),
-          at(2000),
-        ),
-        roundAnalysisClaimDecision(
-          facts({ analysis: leased(1, window) }),
-          at(window + 1),
-        ),
-      ],
-      expected: ['claim', 'fail', 'fail'],
-    });
+  assert({
+    given:
+      'an erased terminal identity, retired old failure and an unrequested old job at its possible-call cap',
+    should: 'keep every seat unavailable for new generation',
+    actual: [
+      { kind: 'retired', historical, reason: 'erased' },
+      { kind: 'retired', historical, reason: 'failed' },
+      {
+        kind: 'unrequested',
+        historical: { ...historical, claimedAttempts: 2 },
+      },
+    ].map(
+      (analysis) => view(facts({ analysis: analysis as AnalysisWork })).status,
+    ),
+    expected: ['unavailable', 'unavailable', 'unavailable'],
   });
 });
-
-describe('roundAnalysisView()', () => {
-  const view = (f: RoundAnalysisFacts, entitled = true, enabled = true) =>
-    roundAnalysisView({ facts: f, entitled, now: at(1000), enabled });
-  test('without the entitlement', () => {
-    assert({
-      given: 'a debater without the entitlement, even with a stored report',
-      should: 'be locked, carrying nothing',
-      actual: view(
-        facts({
-          analysis: {
-            status: 'succeeded',
-            attempts: 1,
-            leaseExpiresAt: null,
-            report,
-          },
-        }),
-        false,
-      ),
-      expected: { status: 'locked' },
-    });
-  });
-  test('an analysis', () => {
-    assert({
-      given:
-        'a succeeded analysis, one leased, one leased but lapsed at the cap, and one failed',
-      should: 'show the report, pending, unavailable, and unavailable',
-      actual: [
-        view(
-          facts({
-            analysis: {
-              status: 'succeeded',
-              attempts: 1,
-              leaseExpiresAt: null,
-              report,
-            },
-          }),
-        ),
-        view(facts({ analysis: leased(1, 60_000) })),
-        view(facts({ analysis: leased(roundAnalysisBounds.maxCalls, 0) })),
-        view(
-          facts({
-            analysis: {
-              status: 'failed',
-              attempts: 2,
-              leaseExpiresAt: null,
-              report: null,
-            },
-          }),
-        ),
-      ],
-      expected: [
-        { status: 'ready', report },
-        { status: 'pending' },
-        { status: 'unavailable' },
-        { status: 'unavailable' },
-      ],
-    });
-  });
-  test('no analysis yet', () => {
-    assert({
-      given:
-        'a seat needing an analysis with round analysis configured, then not configured, then one with no transcript',
-      should: 'be pending only when an analysis will run',
-      actual: [
-        view(facts()),
-        view(facts(), true, false),
-        view(facts({ frozen: false })),
-      ],
-      expected: [
-        { status: 'pending' },
-        { status: 'unavailable' },
-        { status: 'unavailable' },
-      ],
-    });
+test('only admitted work is pending and its execution deadline never extends', () => {
+  const decision = advanceAnalysisWork(
+    null,
+    { kind: 'request', requestId: 'r'.repeat(24), evidenceLines: 4 },
+    { now, authorized: true, evidenceAvailable: true },
+  );
+  if (decision.kind !== 'changed') throw Error('Expected requested work');
+  assert({
+    given:
+      'one admitted request before and exactly at its fifteen-minute deadline',
+    should: 'be pending only while its bounded work can still finish',
+    actual: [
+      view(facts({ analysis: decision.state })).status,
+      roundAnalysisView({
+        facts: facts({ analysis: decision.state }),
+        allowance: 'included',
+        enabled: true,
+        now: '2026-11-05T12:15:00.000Z',
+      }).status,
+    ],
+    expected: ['pending', 'unavailable'],
   });
 });

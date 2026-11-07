@@ -60,6 +60,13 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.citations',
         'ballots.feedback',
         'ballots.scores',
+        'billing_customers.synchronization',
+        'billing_payment_observations.source',
+        'billing_payment_observations.state',
+        'billing_purchases.state',
+        'billing_refund_actions.claim',
+        'billing_refund_actions.state',
+        'billing_subscriptions.evidence',
         'broadcasts.release_policy',
         'broadcasts.release_skips',
         'format_presets.config',
@@ -67,6 +74,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'media_vendor_mutations.payload',
         'operator_command_receipts.result',
         'outbox.payload',
+        'privacy_jobs.billing_cleanup',
         'recording_processing_jobs.state',
         'recordings.eligibility',
         'recordings.lifecycle',
@@ -75,7 +83,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'rooms.config',
         'rooms.execution_plan',
         'rooms.rules_snapshot',
-        'round_analyses.report',
+        'round_analyses.work',
         'round_commands.result',
         'round_draw_private_inputs.inputs',
         'round_judging_attempts.diagnostic',
@@ -87,6 +95,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
         'rounds.runtime_state',
+        'usage_reservations.source',
+        'usage_reservations.state',
       ],
     });
     assert({
@@ -102,10 +112,11 @@ describe('jsonb columns (ISSUE-24)', () => {
         refusals:
           name === 'ballots.feedback' ||
           name === 'ballots.citations' ||
+          name === 'billing_refund_actions.claim' ||
+          name === 'privacy_jobs.billing_cleanup' ||
           name === 'round_judging_attempts.diagnostic' ||
           name === 'rooms.capture' ||
           name === 'rounds.capture' ||
-          name === 'round_analyses.report' ||
           name === 'round_judging_jobs.pending_ballot'
             ? ['VALIDATION', 'VALIDATION', 'VALIDATION', 'accepted']
             : ['VALIDATION', 'VALIDATION', 'VALIDATION', 'VALIDATION'],

@@ -36,6 +36,10 @@ import {
 } from './round-analysis-entrypoints';
 import { roundAnalysisReads } from './round-analysis-reads';
 import { roundAnalysisRetention } from './round-analysis-retention';
+import type { AiAllowanceOptions } from './usage-ledger';
+import { usageRecoveryOperations } from './usage-recovery';
+import { billingOperations } from './billing-operations';
+import { createCasualJudgeAdmission } from './casual-judge-admission';
 import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
@@ -167,6 +171,7 @@ export function createDatabase({
   fairnessKey,
   nextActorId,
   botAdmission,
+  aiAllowance,
   judging,
   botPublication,
   roundAnalysis,
@@ -176,6 +181,8 @@ export function createDatabase({
   profile?: WorkloadProfile;
   /** No implicit bot capacity or quota: absence truthfully refuses bot-debater admission. */
   botAdmission?: BotAdmissionOptions | undefined;
+  /** Shared account allowance; bot, judge and analysis capacity stay feature-owned. */
+  aiAllowance?: AiAllowanceOptions | undefined;
   judging?: JudgingOptions | undefined;
   botPublication?: BotPublicationOptions | undefined;
   /** Round analysis's own jobs (DEC-247); absent, none run. */
@@ -200,6 +207,10 @@ export function createDatabase({
   const browse = workload.lane('browse').database;
   const controlLane = workload.lane('control');
   const control = controlLane.database;
+  const controlTransaction = createBoundedTransaction({
+    lane: controlLane,
+    now: performance.now,
+  });
   const dedicated =
     injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
   const transcriptTransaction = createBoundedTransaction({
@@ -211,8 +222,11 @@ export function createDatabase({
       run: transcriptTransaction,
       nextId: nextActorId,
       botAdmission,
+      aiAllowance,
     });
   return namedLaneOperations({
+    ...usageRecoveryOperations(controlTransaction),
+    ...billingOperations({ run: controlTransaction, nextId: nextActorId }),
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
     ...roundPanelCompletionOperations(transcriptTransaction),
@@ -222,8 +236,16 @@ export function createDatabase({
       judging,
       botPublication,
     }),
-    ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
-    ...roundAnalysisReads({ database }),
+    ...roundAnalysisEntrypoints({
+      run: createBoundedTransaction({
+        lane: controlLane,
+        now: performance.now,
+      }),
+      nextId: nextActorId,
+      roundAnalysis,
+      allowance: aiAllowance,
+    }),
+    ...roundAnalysisReads({ database, allowance: aiAllowance }),
     roundIncidents: namedLaneOperations(
       createRoundIncidentStore({ run: transcriptTransaction }),
     ),
@@ -281,9 +303,9 @@ export function createDatabase({
       instrumented(eventSink, 'owedObservationPurges', () =>
         owedObservationPurges(control),
       ),
-    owedPrivacyJobs: () =>
+    owedPrivacyJobs: (input?: Parameters<typeof owedPrivacyJobs>[1]) =>
       instrumented(eventSink, 'owedPrivacyJobs', () =>
-        owedPrivacyJobs(control),
+        owedPrivacyJobs(control, input),
       ),
     /** ISSUE-833: due vendor deletion jobs, read for the scheduled worker. */
     duePrivacyJobs: (input: Parameters<typeof duePrivacyJobs>[1]) =>
@@ -385,6 +407,12 @@ export function createDatabase({
     ...roomCommandOperations({
       database,
       botAdmission: admission,
+      judgeAdmission: aiAllowance
+        ? createCasualJudgeAdmission({
+            policy: aiAllowance,
+            nextId: nextActorId,
+          })
+        : undefined,
       eventSink,
       commandTransaction: roomCommandTransaction(
         competitive.client,

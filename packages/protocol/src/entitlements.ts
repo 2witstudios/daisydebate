@@ -15,11 +15,16 @@ export const entitlementKinds = [
 ] as const;
 type EntitlementKind = (typeof entitlementKinds)[number];
 
-/** Today beta approval is the only source; billing adds its own later. */
-export const entitlementSources = ['beta'] as const;
-type EntitlementSource = (typeof entitlementSources)[number];
+export const entitlementSources = ['beta', 'subscription'] as const;
 
 export type EntitlementGrant = {
   readonly entitlement: EntitlementKind;
-  readonly source: EntitlementSource;
-};
+} & (
+  | { readonly source: 'beta' }
+  | {
+      readonly source: 'subscription';
+      /** Half-open validity, enforced on reads even when workers stop. */
+      readonly startsAt: string;
+      readonly expiresAt: string;
+    }
+);

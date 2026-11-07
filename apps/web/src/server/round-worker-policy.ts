@@ -1,6 +1,6 @@
 import { judgeContractVersion } from '@daisy/ai-voice';
 import { judgingJobRules } from '@daisy/debate-engine';
-import { aiRoundAllowance } from '@daisy/auth/authorization';
+import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
 import type { ServerConfig } from '@daisy/config';
 import type { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
@@ -35,6 +35,7 @@ export function roundWorkerDatabaseOptions(
             nextToken,
             contractVersion: judgeContractVersion,
             rules: judgingJobRules,
+            accountEligible: canUseAiAllowance,
           },
         }
       : {}),
@@ -48,6 +49,7 @@ export function roundWorkerDatabaseOptions(
             },
             ttsModel: bots.models.tts,
             speechBudget: 30_000,
+            accountEligible: canUseAiAllowance,
             nextToken,
           },
         }
@@ -56,6 +58,7 @@ export function roundWorkerDatabaseOptions(
     ...(analysis
       ? {
           roundAnalysis: {
+            capacity: analysis.concurrency * 4,
             leaseMs: analysis.callTimeoutMs + analysis.leaseMs,
             model: analysis.model,
             nextToken,
@@ -66,22 +69,26 @@ export function roundWorkerDatabaseOptions(
 }
 
 /**
- * Live bot-debater admission (DEC-183/DEC-186): an explicit busy cap and the
- * trusted flat quota on the account's own ai_rounds grant together. No busy
- * cap admits no bot debater.
+ * One account allowance policy for every AI consumer. A bot busy cap enables
+ * bot-debater admission only; judging and analysis keep their own capacity.
  */
-export function botAdmissionOptions(config: {
+export function aiAdmissionOptions(config: {
   readonly AI_ROUND_BUSY_CAP?: number | undefined;
   readonly AI_ROUND_MONTHLY_CAP: number;
-}): Pick<DatabaseOptions, 'botAdmission'> {
+  readonly PREMIUM_BETA_GRANT: boolean;
+}): Pick<DatabaseOptions, 'botAdmission' | 'aiAllowance'> {
   const busyCap = config.AI_ROUND_BUSY_CAP;
-  if (busyCap === undefined) return {};
   const monthlyCap = config.AI_ROUND_MONTHLY_CAP;
   return {
-    botAdmission: {
-      busyCap,
-      allowance: (account, grants) =>
-        aiRoundAllowance(account, grants, { monthlyCap }),
+    ...(busyCap === undefined ? {} : { botAdmission: { busyCap } }),
+    aiAllowance: {
+      accountEligible: canUseAiAllowance,
+      decide: (account, facts, request, now) =>
+        admitAllowance(account, facts, request, {
+          betaMonthlyCap: monthlyCap,
+          now,
+          betaGrantsPremium: config.PREMIUM_BETA_GRANT,
+        }),
     },
   };
 }

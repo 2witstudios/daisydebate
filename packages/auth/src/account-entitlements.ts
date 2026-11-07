@@ -1,5 +1,8 @@
 import type { EntitlementGrant } from '@daisy/protocol';
-import type { AccountAuthorizationFact } from './authorization-facts';
+import {
+  currentEntitlementGrants,
+  type EntitlementEvaluation,
+} from './entitlement-validity';
 
 /**
  * DEC-247 and ISSUE-779: premium entitlements come from the account's own
@@ -11,38 +14,15 @@ import type { AccountAuthorizationFact } from './authorization-facts';
  */
 export function accountEntitlements(
   grants: readonly EntitlementGrant[],
-  policy: { readonly betaGrantsPremium: boolean },
+  policy: EntitlementEvaluation,
 ) {
+  const current = currentEntitlementGrants(grants, policy);
   const holds = (entitlement: EntitlementGrant['entitlement']) =>
-    grants.some(
-      (grant) =>
-        grant.entitlement === entitlement &&
-        (grant.source !== 'beta' || policy.betaGrantsPremium),
-    );
+    current.some((grant) => grant.entitlement === entitlement);
   return {
     roundAnalysis: holds('round_analysis'),
     casualAiJudge: holds('casual_ai_judge'),
     casualCapture: holds('casual_capture'),
     recordingDownload: holds('recording_download'),
   };
-}
-
-/**
- * DEC-183 as amended 2026-10-26 (ISSUE-646): one flat policy. A live member
- * holding an `ai_rounds` grant may start up to the trusted monthly cap of AI
- * Rounds per UTC calendar month; any other account admits none (null). This
- * is a usage quota, never the round analysis entitlement.
- */
-export function aiRoundAllowance(
-  account: AccountAuthorizationFact | null,
-  grants: readonly EntitlementGrant[],
-  policy: { readonly monthlyCap: number },
-): number | null {
-  if (!Number.isSafeInteger(policy.monthlyCap) || policy.monthlyCap < 1)
-    throw new RangeError('A positive monthly AI-round cap is required');
-  return account?.member === true &&
-    !account.erased &&
-    grants.some((grant) => grant.entitlement === 'ai_rounds')
-    ? policy.monthlyCap
-    : null;
 }

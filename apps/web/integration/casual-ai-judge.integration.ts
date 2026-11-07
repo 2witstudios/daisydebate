@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { judgingJobRules } from '@daisy/debate-engine';
@@ -142,12 +143,12 @@ test('a casual create casting the AI judge refuses whole without the grant, and 
 test('the catalog tells a member whether they hold the casual AI judge', async () => {
   await withRoomRuntime(async (f) => {
     const member = await f.member();
-    const held = (await f.operations.catalog(member)).casualAiJudge;
+    const held = (await f.operations.catalog(member)).botDebateAiJudge;
     await f.sql`delete from account_entitlement_grants where user_id=${member.userId} and entitlement='casual_ai_judge'`;
     assert({
       given: 'an approved member, then the same member without the grant',
       should: 'say held, then not held',
-      actual: [held, (await f.operations.catalog(member)).casualAiJudge],
+      actual: [held, (await f.operations.catalog(member)).botDebateAiJudge],
       expected: [true, false],
     });
   });
@@ -269,6 +270,7 @@ test('a ballot that exists reads the same after the host loses the casual AI jud
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );

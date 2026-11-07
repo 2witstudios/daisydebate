@@ -105,6 +105,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
       expected: {
         observation_purges: 0,
         privacy_jobs: 2,
+        billing_cleanup: 0,
         messaging_file_maintenance: 0,
       },
     });
@@ -151,6 +152,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         workerRunFailuresByWorker: {
           observation_purges: 0,
           privacy_jobs: 0,
+          billing_cleanup: 0,
           messaging_file_maintenance: 0,
         },
         retentionSweepFailuresByOperation: {},
@@ -246,6 +248,7 @@ describe('formatPrometheusMetrics (AUTH-7.7)', () => {
       should: 'expose the failure and a zero for each other worker',
       actual: [
         'worker_run_failures_total{worker="privacy_jobs"} 1',
+        'worker_run_failures_total{worker="billing_cleanup"} 0',
         'worker_run_failures_total{worker="observation_purges"} 0',
         'worker_run_failures_total{worker="messaging_file_maintenance"} 0',
       ].every((line) => text.includes(line)),

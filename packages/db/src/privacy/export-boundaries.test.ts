@@ -50,7 +50,10 @@ test('canonical export rejects a table another step already exported and non-JSO
 });
 
 test('vendor success binds its due subject and acknowledges only its own pending job', async () => {
-  const fake = fakeSql([[{ subjectRef: subject.userId }], []]);
+  const fake = fakeSql([
+    [{ subjectRef: subject.userId }],
+    [{ id: input.jobId }],
+  ]);
   const called: string[] = [];
   const result = await deliverPrivacyJob(
     drizzle({ client: fake.client }),

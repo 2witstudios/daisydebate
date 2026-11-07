@@ -134,7 +134,11 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
     }).run();
     // Healthy workers through the real recorder. Running them here would read
     // jobs other suites leave in this shared database.
-    for (const operation of ['observation_purges', 'privacy_jobs'])
+    for (const operation of [
+      'observation_purges',
+      'privacy_jobs',
+      'billing_cleanup',
+    ])
       testApp.app.logger.log(
         'worker.run.completed',
         { operation },

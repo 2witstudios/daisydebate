@@ -13,7 +13,7 @@ const catalogSchema = z.strictObject({
   choices: z.array(roomCatalogChoiceSchema),
   bots: z.array(roomCastChoiceSchema),
   resolutions: z.array(publishedResolutionSchema),
-  casualAiJudge: z.boolean(),
+  botDebateAiJudge: z.boolean(),
 });
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -24,7 +24,7 @@ export async function readRoomTemplates(fetch: FetchLike): Promise<
       readonly resolutions: readonly PublishedResolution[];
       readonly bots: readonly RoomCastChoice[];
       /** The caller may seat an AI judge on a casual Round (WATCH-16). */
-      readonly casualAiJudge: boolean;
+      readonly botDebateAiJudge: boolean;
     }
   | { readonly kind: 'unavailable' }
 > {

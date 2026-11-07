@@ -55,8 +55,10 @@ export const ownSpeech = (
 export const botControlOptions = {
   ...botAdmissionForTests,
   botPublication: {
+    accountEligible: canUseAiAllowance,
     leaseMs: 30000,
     models: { speech: 'explicit-speech', cross_ex: 'explicit-cross' },
     nextToken: () => randomBytes(32).toString('base64url'),
   },
 };
+import { canUseAiAllowance } from '@daisy/auth/authorization';

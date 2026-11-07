@@ -1,18 +1,22 @@
-import {
-  entitlementKinds,
-  entitlementSources,
-  type EntitlementGrant,
-} from '@daisy/protocol';
+import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 
 type Executor = Pick<BunSQLDatabase, 'execute'>;
 
-const grantRow = z.object({
-  entitlement: z.enum(entitlementKinds),
-  source: z.enum(entitlementSources),
-});
+const grantRow = z.discriminatedUnion('source', [
+  z.object({
+    entitlement: z.enum(entitlementKinds),
+    source: z.literal('beta'),
+  }),
+  z.object({
+    entitlement: z.enum(entitlementKinds),
+    source: z.literal('subscription'),
+    startsAt: z.iso.datetime(),
+    expiresAt: z.iso.datetime(),
+  }),
+]);
 
 /**
  * An account's entitlement grants. Read inside the caller's transaction:
@@ -23,7 +27,9 @@ export async function readEntitlementGrants(
   tx: Executor,
   userId: string,
 ): Promise<readonly EntitlementGrant[]> {
-  const rows = (await tx.execute(sql`select entitlement, source
+  const rows = (await tx.execute(sql`select entitlement, source,
+      to_char(starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "startsAt",
+      to_char(expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt"
     from account_entitlement_grants where user_id = ${userId}
     order by entitlement, source`)) as unknown as unknown[];
   return rows.map((row) => grantRow.parse(row));

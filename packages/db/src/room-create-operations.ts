@@ -1,13 +1,13 @@
 import type { roomCommandTransaction } from './room-command-transaction';
+import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { recordCaptureNotice } from './agreement-signatures';
-import { readEntitlementGrants } from './entitlement-grants';
 import type {
-  EntitlementGrant,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
   FormatDefinition,
   FormatSelectionFacts,
+  EntitlementGrant,
 } from '@daisy/protocol';
 import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import {
@@ -29,6 +29,7 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import { lockAuthorizationActors } from './authorization';
+import { readEntitlementGrants } from './entitlement-grants';
 
 import { newRoomValues, type NewRoom } from './room-operations';
 import { readPublishedResolution } from './published-resolutions';
@@ -69,16 +70,17 @@ export type InitialCastApplier = (
   seat: InitialCastSeat,
   target: Actor | null,
   now: string,
-  /** The host's own grants, read under the host fence this create holds. */
-  grants: readonly EntitlementGrant[],
+  maySeatCasualAiJudge: boolean,
 ) => RoomMutationOutcome;
 
 export const roomCreateOperations = ({
   transaction,
   eventSink,
+  judgeAdmission,
 }: {
   readonly transaction: ReturnType<typeof roomCommandTransaction>;
   readonly eventSink?: DatabaseEventSink | undefined;
+  readonly judgeAdmission?: CasualJudgeAdmission | undefined;
 }) => ({
   async createRoomCommand(input: {
     readonly room: NewRoom;
@@ -218,7 +220,7 @@ export const roomCreateOperations = ({
               input.caller,
               input.room,
               input.cast,
-              now,
+              judgeAdmission,
             )
           : null;
         if (assembled)
@@ -288,7 +290,7 @@ const applyInitialCast = async (
     readonly seats: readonly InitialCastSeat[];
     readonly apply: InitialCastApplier;
   },
-  now: string,
+  judgeAdmission: CasualJudgeAdmission | undefined,
 ): Promise<RoomAssemblyState> => {
   const seats = cast.seats;
   if (new Set(seats.map((seat) => seat.actorId)).size !== seats.length)
@@ -296,7 +298,7 @@ const applyInitialCast = async (
   const fencedActors = [
     ...new Set([caller.actorId, ...seats.map((seat) => seat.actorId)]),
   ];
-  await lockAuthorizationActors(tx, fencedActors, {
+  const accounts = await lockAuthorizationActors(tx, fencedActors, {
     maxActors: fencedActors.length,
   });
   // Eligibility and seatRole live on these profile rows, not the account
@@ -318,11 +320,32 @@ const applyInitialCast = async (
   const [row] = await tx.select().from(rooms).where(eq(rooms.id, room.id));
   if (!row) throw createAppError('INFRASTRUCTURE');
   const { state } = await roomFacts(tx, row);
-  const grants = await readEntitlementGrants(tx, caller.userId);
+  const targets: (Actor | null)[] = [];
+  for (const seat of seats) targets.push(await actorFact(tx, seat.actorId));
+  const judgeQuote =
+    judgeAdmission && targets.some((target) => target?.seatRole === 'judge')
+      ? await judgeAdmission.quoteLocked(tx, {
+          account:
+            accounts.find((account) => account?.actorId === caller.actorId) ??
+            null,
+          roundId: null,
+          withBot: targets.some(
+            (target, index) =>
+              target?.seatRole === 'debater' && seats[index]?.role !== 'judge',
+          ),
+        })
+      : null;
+  // Creation's timestamp predates profile/allowance waits; it is not cast authority.
+  const now = judgeQuote?.now ?? (await transactionNow(tx));
   let assembled = state;
-  for (const seat of seats) {
-    const target = await actorFact(tx, seat.actorId);
-    const outcome = cast.apply(assembled, seat, target, now, grants);
+  for (const [index, seat] of seats.entries()) {
+    const outcome = cast.apply(
+      assembled,
+      seat,
+      targets[index] ?? null,
+      now,
+      judgeQuote?.decision.kind === 'admit',
+    );
     if (!outcome.ok) throw createRefusal('CONFLICT', outcome.refusal);
     assembled = outcome.mutation.state;
   }

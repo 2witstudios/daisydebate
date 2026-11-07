@@ -1,4 +1,4 @@
-import { requireCurrentWeb } from './round-service-authority';
+import { requireCurrentWeb } from './web-service-authority';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type JudgingTerminalReason } from '@daisy/protocol';

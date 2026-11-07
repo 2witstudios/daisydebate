@@ -28,7 +28,7 @@ const authorizationCapabilities = [
   'round.observe.undelayed',
   'round.transcript.read',
   'round.analysis.read',
-  'round.analysis.generate',
+  'round.analysis.request',
   'member.history.read',
   'room.create',
   'room.list',

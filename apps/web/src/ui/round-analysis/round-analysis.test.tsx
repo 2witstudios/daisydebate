@@ -14,7 +14,9 @@ const lines = [
   },
 ];
 const render = (view: Parameters<typeof RoundAnalysis>[0]['view']) =>
-  renderToStaticMarkup(<RoundAnalysis view={view} lines={lines} />);
+  renderToStaticMarkup(
+    <RoundAnalysis roundId={'r'.repeat(24)} view={view} lines={lines} />,
+  );
 
 test('a ready analysis shows the report, quoting the transcript lines it cites', () => {
   const html = render({
@@ -74,5 +76,31 @@ test('nothing on the card claims to decide the round', () => {
     should: 'never name a winner or a ballot',
     actual: /winner|ballot/i.test(render({ status: 'ready', report })),
     expected: false,
+  });
+});
+
+test('a requestable analysis renders a native mutation form with no authority inputs', () => {
+  assert({
+    given: 'free and included analysis allowances',
+    should:
+      'offer an explicit POST form that needs no client script or actor fields',
+    actual: (['free', 'included'] as const).map((allowance) => {
+      const html = render({ status: 'requestable', allowance });
+      return [
+        html.includes('method="post"'),
+        html.includes(`action="/api/rounds/${'r'.repeat(24)}/round-analysis"`),
+        html.includes('type="submit"'),
+        html.includes('<input'),
+        html.includes(
+          allowance === 'free'
+            ? 'one free analysis'
+            : 'Included with your access',
+        ),
+      ];
+    }),
+    expected: [
+      [true, true, true, false, true],
+      [true, true, true, false, true],
+    ],
   });
 });

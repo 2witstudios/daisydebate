@@ -1,5 +1,6 @@
 import { admitCasualCapture } from './casual-capture-admission';
 import type { RoundBotAdmission } from './round-bot-admission';
+import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
 import { eq } from 'drizzle-orm';
@@ -97,6 +98,7 @@ type CommandInput = {
       grants: readonly EntitlementGrant[],
       /** This member's standing on the waiver a Ready needs, under this lock. */
       contentWaiver: ContentWaiverStanding | null,
+      maySeatCasualAiJudge: boolean,
     ) => RoomMutationOutcome
   >;
 };
@@ -108,15 +110,20 @@ export const roomWriteOperations = ({
   transaction,
   eventSink,
   botAdmission,
+  judgeAdmission,
 }: {
   readonly transaction: ReturnType<typeof roomCommandTransaction>;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly botAdmission?: RoundBotAdmission | undefined;
+  readonly judgeAdmission?: CasualJudgeAdmission | undefined;
 }) => ({
   async executeRoomCommand(input: CommandInput): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'executeRoomCommand', () =>
       retryStale(
-        () => transaction((tx) => executeOnce(tx, input, botAdmission)),
+        () =>
+          transaction((tx) =>
+            executeOnce(tx, input, botAdmission, judgeAdmission),
+          ),
         (error) => error instanceof RoomMoved,
         ATTEMPTS,
         // The Room kept moving under the command: the caller rereads it.
@@ -135,6 +142,7 @@ async function executeOnce(
   tx: Tx,
   input: CommandInput,
   botAdmission: RoundBotAdmission | undefined,
+  judgeAdmission: CasualJudgeAdmission | undefined,
 ): Promise<RoomCommandReceipt> {
   const preparation = await prepareCommand(tx, input);
   if ('replay' in preparation) return preparation.replay;
@@ -171,7 +179,6 @@ async function executeOnce(
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
     throw new RoomMoved('Room changed while preparing consent');
-  const now = await transactionNow(tx);
   const target = input.targetActorId
     ? await actorFact(tx, input.targetActorId)
     : null;
@@ -193,22 +200,40 @@ async function executeOnce(
     : null;
   const agreements =
     input.type === 'ready' ? input.readyAgreements(state) : null;
+  const draw = await drawFacts(tx, input.type, state);
+  const grants = await readEntitlementGrants(tx, input.caller.userId);
+  const contentWaiver = agreements?.contentWaiverVersion
+    ? await readContentWaiverStanding(
+        tx,
+        input.caller.userId,
+        agreements.contentWaiverVersion,
+      )
+    : null;
+  const judgeQuote =
+    judgeAdmission &&
+    state.hostActorId === input.caller.actorId &&
+    (target?.seatRole === 'judge' ||
+      (input.type === 'start-round' &&
+        state.participants.some((p) => p.kind === 'bot' && p.role === 'judge')))
+      ? await judgeAdmission.quoteLocked(tx, {
+          account,
+          roundId: input.roundId,
+          withBot: input.seatsBotDebater(state),
+        })
+      : null;
+  // Facts can wait on SQL locks. Admission uses one instant after those waits.
+  const now = judgeQuote?.now ?? (await transactionNow(tx));
   const outcome = execute(
     state,
     now,
     target,
     account,
-    await drawFacts(tx, input.type, state),
+    draw,
     formatFacts,
     publication,
-    await readEntitlementGrants(tx, input.caller.userId),
-    agreements?.contentWaiverVersion
-      ? await readContentWaiverStanding(
-          tx,
-          input.caller.userId,
-          agreements.contentWaiverVersion,
-        )
-      : null,
+    grants,
+    contentWaiver,
+    judgeQuote?.decision.kind === 'admit',
   );
   if (!outcome.ok)
     throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);
@@ -227,6 +252,19 @@ async function executeOnce(
     botAdmission,
     botLocked,
   );
+  if (
+    outcome.mutation.freeze &&
+    !outcome.mutation.seatsBotDebater &&
+    next.competitionType !== 'ranked' &&
+    next.participants.some((p) => p.kind === 'bot' && p.role === 'judge')
+  ) {
+    if (!judgeAdmission)
+      throw createAppError('INFRASTRUCTURE', 'Judge admission unavailable');
+    await judgeAdmission.reserveLocked(tx, {
+      actorId: next.hostActorId,
+      roundId: input.roundId,
+    });
+  }
   if (
     outcome.mutation.freeze &&
     outcome.mutation.state.competitionType !== 'ranked' &&

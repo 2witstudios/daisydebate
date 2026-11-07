@@ -21,11 +21,19 @@ import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
  * else receives the app, or a part of it, as an argument, and tests build
  * their own with `createApp`.
  */
-type ProcessState = { readonly app: App; readonly routes: Routes };
+type ProcessState = {
+  readonly app: App;
+  readonly routes: Routes;
+  readonly vendorFetch: typeof globalThis.fetch;
+};
 
-const stateFor = (app: App): ProcessState => ({
+const stateFor = (
+  app: App,
+  vendorFetch: typeof globalThis.fetch,
+): ProcessState => ({
   app,
   routes: createRoutes(app),
+  vendorFetch,
 });
 
 /**
@@ -48,6 +56,10 @@ const outboundFetch = (env: Record<string, string | undefined>): Fetch => {
 export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
   fetchWithoutTracing(url, init, globalThis.fetch);
 
+/** Process-owned vendor transport; workers receive it explicitly and never read globals. */
+export const processVendorFetch = (): typeof globalThis.fetch =>
+  edge.get().vendorFetch;
+
 const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,
   () =>
@@ -60,6 +72,7 @@ const edge = createProcessEdge(
         nextWorkerToken,
         messagingPolicy: betaMessagingPolicy,
       }),
+      globalThis.fetch,
     ),
 );
 
@@ -67,13 +80,25 @@ const edge = createProcessEdge(
 export const processApp = (): App => edge.get().app;
 
 /** Binds a Next route export to this process's route table. */
-export const processRoute = createRouteBinder(() => edge.get().routes);
+export const processRoute = (
+  pick: (
+    routes: Routes,
+    app: App,
+    fetch: typeof globalThis.fetch,
+  ) => (request: Request) => Promise<Response>,
+) =>
+  createRouteBinder(() => edge.get())((state) =>
+    pick(state.routes, state.app, state.vendorFetch),
+  );
 /**
  * For a process entry that composes its own app before the server starts
  * (the browser suite's server, which captures outbound mail): makes it this
  * process's app. Refuses once one exists.
  */
-export const adoptProcessApp = (app: App) => edge.adopt(stateFor(app));
+export const adoptProcessApp = (
+  app: App,
+  vendorFetch: typeof globalThis.fetch = globalThis.fetch,
+) => edge.adopt(stateFor(app, vendorFetch));
 
 /** Closes this process's app if one was built. */
 export async function closeProcessApp() {

@@ -29,6 +29,8 @@ describe('secret configuration keys', () => {
         'REDIS_URL',
         'RESEND_API_KEY',
         'RESEND_WEBHOOK_SECRET',
+        'STRIPE_SECRET_KEY',
+        'STRIPE_WEBHOOK_SECRET',
       ],
     });
   });

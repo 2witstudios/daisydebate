@@ -6,6 +6,11 @@ items 3 to 6 and its premium section. ADR 0071 items 1, 2 and 7 stand: a
 ballot names only the kind of judge, a ballot's feedback reaches only its
 side, and seated debaters read the frozen transcript.
 
+Billing's owner-authorized scope and DEC-363 supersede the entitlement-only
+generation/read rules below as recorded in [ADR 0117](0117-premium-billing.md).
+The feature separation remains binding; requested generation and its migration
+are in progress in the existing Billing plan.
+
 ## Context
 
 The owner's intent: "This is basically a post-round chess.com: you want to
@@ -50,7 +55,8 @@ structure does not match the product's concepts, it is refactored first.
    replaces a ballot, and `check-boundaries` refuses imports between it and
    `round-judging` or `round-ballots`.
 3. **One debater seat per analysis.** A report is about one debater, so the
-   unit is the seat: only an entitled human debater's seat is analysed, and
+   unit is the seat: only an authorized human debater's own completed seat is
+   analysed on an explicit request, and
    each prompt can carry that debater's own earlier skill scores (patterns
    across Rounds). This can cost two calls where one would do; that is
    accepted.
@@ -68,13 +74,18 @@ structure does not match the product's concepts, it is refactored first.
    `round_analysis` grant in `account_entitlement_grants`, written by the
    beta access command in its transaction, never derived from beta state
    (ISSUE-779). The AI-round allowance reads its own `ai_rounds` grant the
-   same way. `PREMIUM_BETA_GRANT` says whether beta-sourced round analysis
-   grants count (false at launch). Capabilities are `round.analysis.read`
-   and `round.analysis.generate`.
+   same way. `PREMIUM_BETA_GRANT` applies to every beta-sourced capability
+   (false at launch). The shared allowance policy also admits the one lifetime
+   free requested analysis. Capabilities are `round.analysis.read` and
+   `round.analysis.request`; both require current own-seat authority. Fresh
+   requests additionally pass the single allowance policy and atomic ledger
+   admission; stored reads do not require a current entitlement.
 7. **Free and premium.** Every seated debater keeps the ballot and the
-   transcript. Without the entitlement, the round analysis view is `locked`:
-   an upsell with no content, since DEC-247 forbids generating for a debater
-   without it. The ballot read is identical with and without premium.
+   transcript. Delivered analysis stays readable to its authorized debater after
+   payment lapse, subject to privacy and content retention. New work requires
+   explicit allowance admission; it never runs from completed-Round discovery.
+   Eligibility follows actual authorized frozen evidence rather than a blanket
+   Round-age window. The ballot read is identical with and without premium.
 8. **Greenfield.** `round_feedback` is dropped with no data carried over
    (ADR 0023): its beta rows were expendable two-sentence reports within a
    180-day retention, and nothing depends on them.

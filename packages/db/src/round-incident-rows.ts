@@ -41,14 +41,19 @@ export async function writeRoundIncidentChanges(
         .where(thisIncident);
       continue;
     }
-    await tx
+    const [ended] = await tx
       .update(roundIncidents)
       .set({ endedAt: new Date(change.at) })
-      .where(thisIncident);
+      .where(thisIncident)
+      .returning({ id: roundIncidents.id });
     await tx
       .update(rounds)
       .set({ platformEnding: 'recovery_bound' })
       .where(eq(rounds.id, roundId));
-    await refundPlatformEndedLocked(tx, roundId);
+    if (ended)
+      await refundPlatformEndedLocked(tx, roundId, {
+        kind: 'recovery_bound',
+        incidentId: ended.id,
+      });
   }
 }

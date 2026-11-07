@@ -6,6 +6,10 @@ import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
 import type { Fixture } from './constraint-helpers';
+import { admissionSponsor, betaAllowance } from './bot-admission.test-support';
+import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
+import type { BoundedTransaction } from '../src/bounded-transaction';
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 
 /** A validated rubric response, as cached on a pending judging job. */
 export const syntheticPendingBallot = ballotSchema.parse({
@@ -21,15 +25,25 @@ export const syntheticPendingBallot = ballotSchema.parse({
   feedback: {},
 });
 
-export async function judgingSponsor(fixture: Fixture, roundId: string) {
-  const userId = await fixture.user();
-  await fixture.sql`update users set email_verified=true where id=${userId}`;
-  const actorId = await fixture.actor(userId);
-  await fixture.sql`update rounds set created_by_actor_id=${actorId} where id=${roundId}`;
+export async function judgingSponsor(
+  fixture: Fixture,
+  roundId: string,
+  run: BoundedTransaction,
+) {
+  const actorId = await admissionSponsor(fixture, [roundId]);
+  const policy = betaAllowance();
+  const admission = createCasualJudgeAdmission({
+    nextId: createId,
+    policy: {
+      decide: policy.allowance,
+      accountEligible: policy.accountEligible,
+    },
+  });
+  await run((tx) => admission.reserveLocked(tx, { actorId, roundId }));
   return actorId;
 }
 
-/** An active Round with an AI judge seat, a frozen transcript, a queued judging job; the AI judge is free, so nothing is reserved (DEC-186). */
+/** An admitted casual judge on an active Round, with frozen evidence and its durable job. */
 export const withJudgingJob = (
   work: (value: {
     fixture: Fixture;
@@ -45,7 +59,7 @@ export const withJudgingJob = (
 ) =>
   withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
-    await judgingSponsor(fixture, roundId);
+    await judgingSponsor(fixture, roundId, run);
     const target = { roundId, judgeParticipantId: seat.id };
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
     await beforeFreeze?.(fixture, target);
@@ -64,6 +78,7 @@ export const withJudgingJob = (
           model: 'anthropic/claude-sonnet-5.5',
           contractVersion: 'fixture-contract',
           rules: judgingJobRules,
+          accountEligible: canUseAiAllowance,
         }),
       });
     } finally {

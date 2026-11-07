@@ -22,7 +22,7 @@ import { hydrateRoundRows } from './round-hydration';
 import type { JudgingPanelFacts, JudgingTerminalReason } from '@daisy/protocol';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
-import { requireCurrentWeb } from './round-service-authority';
+import { requireCurrentWeb } from './web-service-authority';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import {
@@ -190,7 +190,11 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
       .update(rounds)
       .set({ platformEnding: 'capture_shortfall' })
       .where(eq(rounds.id, input.roundId));
-    await refundPlatformEndedLocked(tx, input.roundId);
+    await refundPlatformEndedLocked(tx, input.roundId, {
+      kind: 'capture_shortfall',
+      commandId: input.commandId,
+      freezeRevision: freeze.revision,
+    });
   }
   const receipt = panelReceipt({
     commandId: input.commandId,

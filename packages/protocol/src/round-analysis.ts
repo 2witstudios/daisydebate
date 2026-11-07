@@ -84,13 +84,17 @@ export type RoundAnalysisReport = z.infer<typeof roundAnalysisReportSchema>;
 
 /**
  * A seated debater's round analysis for a completed Round: written, still
- * being written, not available, or locked behind the premium entitlement
- * (DEC-247). Locked carries no content; it lets the page offer the upgrade.
+ * being written, available on explicit request, unavailable, or locked after
+ * its allowance is exhausted (DEC-363). Locked carries no content; it lets the page offer the upgrade.
  */
 export const roundAnalysisViewSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('ready'),
     report: roundAnalysisReportSchema,
+  }),
+  z.strictObject({
+    status: z.literal('requestable'),
+    allowance: z.enum(['included', 'free']),
   }),
   z.strictObject({ status: z.literal('pending') }),
   z.strictObject({ status: z.literal('unavailable') }),

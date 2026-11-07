@@ -12,6 +12,8 @@ export const entitlementGrantPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => {
     const rows = (await tx.execute(sql`select entitlement, source,
+        to_char(starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as starts_at,
+        to_char(expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as expires_at,
         to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from account_entitlement_grants where user_id = ${subject.userId}
       order by entitlement, source`)) as unknown as Record<string, unknown>[];

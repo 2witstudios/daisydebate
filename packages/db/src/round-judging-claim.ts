@@ -8,9 +8,9 @@ import { agentLeaseDigest } from './round-agent-lease';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
-  roundAgentNow,
   startLockedRoundAgentRun,
 } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
 import { nextEpoch } from './lease-policy';
 import { requireClaimableJob } from './round-judging-decisions';
@@ -58,7 +58,7 @@ export async function claimLockedJudgingJob(
     .from(roundJudgingJobs)
     .where(judgingJobWhere(target))
     .for('update');
-  const now = await roundAgentNow(tx);
+  const now = await readDatabaseTime(tx);
   requireClaimableJob(job, commandId, now);
   const frozen = await readLockedFrozenRoundTranscript(tx, round.id);
   if (!frozen || frozen.revision !== job.freezeRevision)

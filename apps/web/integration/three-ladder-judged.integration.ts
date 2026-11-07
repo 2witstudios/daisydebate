@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import {
   judgingJobRules,
   RANKED_DELAY_SECONDS,
@@ -209,6 +210,7 @@ for (const ladder of ratingLadders)
               nextToken: () => randomBytes(32).toString('base64url'),
               contractVersion: 'fixture-contract',
               rules: judgingJobRules,
+              accountEligible: canUseAiAllowance,
             },
           },
         );

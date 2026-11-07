@@ -96,6 +96,36 @@ const directives = (
 };
 
 describe('proxy content security policy', () => {
+  test('only the native Billing document permits fixed hosted form redirects', () => {
+    const formSources = (path: string) => {
+      const policy =
+        proxy(new NextRequest(`https://daisy.invalid${path}`)).headers.get(
+          'Content-Security-Policy',
+        ) ?? '';
+      return policy.split('; ').find((part) => part.startsWith('form-action '));
+    };
+    assert({
+      given:
+        'native Checkout and Portal forms on Billing and unrelated documents',
+      should:
+        'allow only their exact hosted destinations on the Billing document',
+      actual: [
+        '/settings/billing',
+        '/settings',
+        '/settings/billing/foreign',
+        '/premium',
+        '/api/billing/checkout',
+      ].map(formSources),
+      expected: [
+        "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
+        "form-action 'self'",
+        "form-action 'self'",
+        "form-action 'self'",
+        "form-action 'self'",
+      ],
+    });
+  });
+
   test('draws the nonce from 16 CSPRNG bytes, never a repeatable value', () => {
     const nonceOf = (sources: readonly string[]) =>
       sources

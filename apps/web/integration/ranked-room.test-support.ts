@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { judgingJobRules, ratingAwaited } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
@@ -122,6 +123,7 @@ export const cachedAiJudgingRuntime = {
     nextToken: () => randomBytes(32).toString('base64url'),
     contractVersion: 'fixture-contract',
     rules: judgingJobRules,
+    accountEligible: canUseAiAllowance,
   },
 };
 

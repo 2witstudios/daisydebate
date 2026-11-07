@@ -1,3 +1,4 @@
+import { analysisRequestNotice } from '../../../../features/round-analysis/request-notice';
 import { BoundedDocuments } from '../../../../ui/documents/bounded-documents';
 import { documentPrincipalOf } from '../../../../features/documents/document-principal';
 import {
@@ -137,6 +138,8 @@ export default async function RoundPage({
         ) : null}
         {analysis.value ? (
           <RoundAnalysis
+            roundId={id}
+            notice={(await searchParams).analysis === analysisRequestNotice}
             view={analysis.value.view}
             lines={analysis.value.lines}
           />

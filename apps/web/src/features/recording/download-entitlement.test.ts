@@ -11,6 +11,7 @@ const holds = (
   holdsRecordingDownload({
     readGrants: async () => grants,
     betaGrantsPremium,
+    now: () => '2026-11-05T00:00:00.000Z',
   })('user');
 
 describe('holdsRecordingDownload', () => {
