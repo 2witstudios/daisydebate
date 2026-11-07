@@ -147,6 +147,8 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
         result.nextBefore.sequence === result.messages.at(-1)?.sequence));
   return {
     message,
+    /** Mutation acknowledgements include content-free removal tombstones. */
+    messageResult: z.union([message, unavailableMessage]),
     /** Every member's view of a page: the only shape a shared body carries. */
     historyResult: z.strictObject(historyPage).refine(coherentHistory),
     /** An authorized HTTP read: the same page plus this reader's own state. */

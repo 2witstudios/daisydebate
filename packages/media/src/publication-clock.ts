@@ -1,13 +1,75 @@
 import type { ClockCalibration } from '@daisy/protocol';
 import type { SourceProgress } from './audio-publication';
 
-type PublicationClock = {
+type ClockFields = {
   readonly calibration: ClockCalibration;
   readonly anchorMs: number;
   readonly sampleRate: number;
   readonly eligibleSamples: number;
-  readonly valid: boolean;
 };
+type CalibrationRejection =
+  | 'calibration.nonfinite'
+  | 'calibration.sample-rate'
+  | 'calibration.rtt-order'
+  | 'calibration.rtt-limit'
+  | 'calibration.precision-order'
+  | 'calibration.precision-limit'
+  | 'calibration.anchor-order';
+type ClockRejection =
+  | CalibrationRejection
+  | 'receipt.nonfinite'
+  | 'receipt.noncontiguous'
+  | 'receipt.frame-size'
+  | 'receipt.early'
+  | 'receipt.reversed'
+  | 'receipt.late'
+  | 'receipt.before-calibration'
+  | 'receipt.stale'
+  | 'refresh.age-order'
+  | 'refresh.request-order'
+  | 'refresh.stale'
+  | 'refresh.offset-ahead'
+  | 'refresh.offset-behind';
+type PublicationClock = ClockFields &
+  (
+    | { readonly valid: true }
+    | { readonly valid: false; readonly rejection: ClockRejection }
+  );
+
+/** The first rejected predicate is evidence; a later snapshot cannot rename it. */
+function decide(
+  fields: ClockFields,
+  rejection: ClockRejection | null,
+): PublicationClock {
+  const clock = {
+    calibration: fields.calibration,
+    anchorMs: fields.anchorMs,
+    sampleRate: fields.sampleRate,
+    eligibleSamples: fields.eligibleSamples,
+  };
+  return rejection === null
+    ? { ...clock, valid: true }
+    : { ...clock, valid: false, rejection };
+}
+
+function calibrationRejection(
+  calibration: ClockCalibration,
+  anchorMs: number,
+  sampleRate: number,
+): CalibrationRejection | null {
+  const rtt = calibration.receivedAtMs - calibration.sentAtMs;
+  if (![anchorMs, ...Object.values(calibration)].every(Number.isFinite))
+    return 'calibration.nonfinite';
+  if (![16000, 24000, 48000].includes(sampleRate))
+    return 'calibration.sample-rate';
+  if (rtt < 0) return 'calibration.rtt-order';
+  if (rtt > 100) return 'calibration.rtt-limit';
+  if ((calibration.precisionMs ?? 0) < 0) return 'calibration.precision-order';
+  if ((calibration.precisionMs ?? 0) > 1) return 'calibration.precision-limit';
+  return anchorMs < calibration.receivedAtMs
+    ? 'calibration.anchor-order'
+    : null;
+}
 
 export function publicationClock(input: {
   readonly calibration: ClockCalibration;
@@ -15,19 +77,10 @@ export function publicationClock(input: {
   readonly sampleRate: number;
 }): PublicationClock {
   const { calibration, anchorMs, sampleRate } = input;
-  const rtt = calibration.receivedAtMs - calibration.sentAtMs;
-  return {
-    ...input,
-    eligibleSamples: 0,
-    valid:
-      [anchorMs, ...Object.values(calibration)].every(Number.isFinite) &&
-      [16000, 24000, 48000].includes(sampleRate) &&
-      rtt >= 0 &&
-      rtt <= 100 &&
-      (calibration.precisionMs ?? 0) >= 0 &&
-      (calibration.precisionMs ?? 0) <= 1 &&
-      anchorMs >= calibration.receivedAtMs,
-  };
+  return decide(
+    { ...input, eligibleSamples: 0 },
+    calibrationRejection(calibration, anchorMs, sampleRate),
+  );
 }
 
 /**
@@ -50,26 +103,29 @@ export function observeSourceProgress(
     clock.anchorMs + (clock.eligibleSamples / clock.sampleRate) * 1000;
   const due = periodStart + 10;
   const age = receipt.afterMs - clock.calibration.receivedAtMs;
-  if (
-    !clock.valid ||
-    !Object.values(receipt).every(Number.isFinite) ||
-    receipt.startSample !== clock.eligibleSamples ||
-    receipt.endSample - receipt.startSample !== frameSamples ||
-    receipt.beforeMs < due ||
-    receipt.afterMs < receipt.beforeMs ||
-    receipt.afterMs - due > 100 ||
-    age < 0 ||
-    age > 30000
-  ) {
-    return { clock: { ...clock, valid: false }, window: null };
-  }
+  const reject = (rejection: ClockRejection) => ({
+    clock: decide(clock, rejection),
+    window: null,
+  });
+  if (!clock.valid) return reject(clock.rejection);
+  if (!Object.values(receipt).every(Number.isFinite))
+    return reject('receipt.nonfinite');
+  if (receipt.startSample !== clock.eligibleSamples)
+    return reject('receipt.noncontiguous');
+  if (receipt.endSample - receipt.startSample !== frameSamples)
+    return reject('receipt.frame-size');
+  if (receipt.beforeMs < due) return reject('receipt.early');
+  if (receipt.afterMs < receipt.beforeMs) return reject('receipt.reversed');
+  if (receipt.afterMs - due > 100) return reject('receipt.late');
+  if (age < 0) return reject('receipt.before-calibration');
+  if (age > 30000) return reject('receipt.stale');
   const offsets = calibrationOffsets(
     clock.calibration,
     periodStart,
     receipt.afterMs,
   );
   return {
-    clock: { ...clock, eligibleSamples: receipt.endSample },
+    clock: decide({ ...clock, eligibleSamples: receipt.endSample }, null),
     window: {
       beforeMs: periodStart + offsets.lower,
       afterMs: receipt.afterMs + offsets.upper,
@@ -92,12 +148,14 @@ export function reanchorPublicationClock(
     anchorMs: nowMs,
     sampleRate: clock.sampleRate,
   });
-  return {
-    ...fresh,
-    anchorMs: nowMs - (clock.eligibleSamples / clock.sampleRate) * 1000,
-    eligibleSamples: clock.eligibleSamples,
-    valid: clock.valid && fresh.valid,
-  };
+  return decide(
+    {
+      ...fresh,
+      anchorMs: nowMs - (clock.eligibleSamples / clock.sampleRate) * 1000,
+      eligibleSamples: clock.eligibleSamples,
+    },
+    !clock.valid ? clock.rejection : !fresh.valid ? fresh.rejection : null,
+  );
 }
 
 /** Refresh offsets without manufacturing a new sample anchor after a gap. */
@@ -121,15 +179,17 @@ export function refreshPublicationClock(
     calibration.sentAtMs,
     calibration.receivedAtMs,
   );
-  const valid =
-    clock.valid &&
-    checked.valid &&
-    age >= 0 &&
-    calibration.sentAtMs >= clock.calibration.receivedAtMs &&
-    age <= 30000 &&
-    next.lower <= previous.upper &&
-    next.upper >= previous.lower;
-  return { ...clock, calibration, valid };
+  const reject = (rejection: ClockRejection) =>
+    decide({ ...clock, calibration }, rejection);
+  if (!clock.valid) return reject(clock.rejection);
+  if (!checked.valid) return reject(checked.rejection);
+  if (!(age >= 0)) return reject('refresh.age-order');
+  if (!(calibration.sentAtMs >= clock.calibration.receivedAtMs))
+    return reject('refresh.request-order');
+  if (!(age <= 30000)) return reject('refresh.stale');
+  if (!(next.lower <= previous.upper)) return reject('refresh.offset-ahead');
+  if (!(next.upper >= previous.lower)) return reject('refresh.offset-behind');
+  return decide({ ...clock, calibration }, null);
 }
 
 export function calibrationOffsets(

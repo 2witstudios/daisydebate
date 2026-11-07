@@ -30,7 +30,7 @@ export function AssemblyCommandForm({
   className,
 }: {
   readonly action: FormAction<RoomFormState>;
-  readonly children: ReactNode;
+  readonly children: ReactNode | ((state: RoomFormState) => ReactNode);
   readonly className?: string;
 }) {
   const [state, post, pending] = useFormAction(
@@ -55,7 +55,7 @@ export function AssemblyCommandForm({
         disabled={pending}
         className="flex flex-wrap items-center gap-2 border-0 p-0"
       >
-        {children}
+        {typeof children === 'function' ? children(state) : children}
       </fieldset>
       <div id={feedbackId} tabIndex={-1}>
         <FormError error={state.error} />

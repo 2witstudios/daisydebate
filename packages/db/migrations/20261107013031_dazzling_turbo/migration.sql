@@ -1,2 +1,0 @@
-ALTER TABLE "round_judging_jobs" ADD COLUMN "generation_first_epoch" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
-ALTER TABLE "round_judging_jobs" ADD CONSTRAINT "round_judging_jobs_generation_epoch_check" CHECK ("generation_first_epoch" >= 1 and "generation_first_epoch" <= "attempts" + 1);

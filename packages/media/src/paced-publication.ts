@@ -10,6 +10,7 @@ import {
   reanchorPublicationClock,
   refreshPublicationClock,
 } from './publication-clock';
+import type { createPublicationObserver } from './publication-observation';
 
 type Publication = Awaited<ReturnType<typeof createAudioPublication>>;
 
@@ -41,6 +42,8 @@ type PacedInput = {
    * first and credited after, so a resume continues past it.
    */
   readonly onSent?: (sentSamples: number) => void;
+  /** Synchronous evidence only; delivery validity is separate from authority. */
+  readonly observer?: ReturnType<typeof createPublicationObserver>;
 };
 
 function validateJob(input: PacedInput, data: Int16Array) {
@@ -61,10 +64,32 @@ const refreshInterval = (input: PacedInput) => {
   return value;
 };
 type Timeline = ReturnType<typeof publicationClock>;
+function observeClock(
+  input: PacedInput,
+  phase: 'initial' | 'refresh' | 'reanchor',
+  clock: Timeline,
+) {
+  input.observer?.observe({
+    kind: 'clock',
+    phase,
+    decision: clock.valid ? 'accepted' : clock.rejection,
+    anchorMs: clock.anchorMs,
+    clockSamples: clock.eligibleSamples,
+    sampleRate: clock.sampleRate,
+    sentAtMs: clock.calibration.sentAtMs,
+    receivedAtMs: clock.calibration.receivedAtMs,
+    serverNowMs: clock.calibration.serverNowMs,
+    precisionMs: clock.calibration.precisionMs,
+    precisionPresent: Object.hasOwn(clock.calibration, 'precisionMs') ? 1 : 0,
+  });
+}
 async function refresh(input: PacedInput, clock: Timeline, interval: number) {
-  return input.nowMs() - clock.calibration.receivedAtMs >= interval
-    ? refreshPublicationClock(clock, await input.calibrate())
-    : clock;
+  if (input.nowMs() - clock.calibration.receivedAtMs >= interval) {
+    const next = refreshPublicationClock(clock, await input.calibrate());
+    observeClock(input, 'refresh', next);
+    return next;
+  }
+  return clock;
 }
 /**
  * Sends one frame and reports it sent before its window is judged. The
@@ -76,14 +101,29 @@ async function captureFrame(
   clock: Timeline,
   data: Int16Array,
   base: number,
+  dueMs: number,
 ) {
   const receipt = await input.publication.capture10ms(data);
   input.onSent?.(clock.eligibleSamples + data.length / input.channels);
-  return observeSourceProgress(clock, {
+  const normalized = {
     ...receipt,
     startSample: receipt.startSample - base,
     endSample: receipt.endSample - base,
+  };
+  const observed = observeSourceProgress(clock, normalized);
+  input.observer?.observe({
+    kind: 'receipt',
+    decision: observed.clock.valid ? 'accepted' : observed.clock.rejection,
+    clockSamples: clock.eligibleSamples,
+    anchorMs: clock.anchorMs,
+    sampleRate: clock.sampleRate,
+    ...normalized,
+    dueMs,
+    calibrationReceivedAtMs: clock.calibration.receivedAtMs,
+    windowBeforeMs: observed.window?.beforeMs,
+    windowAfterMs: observed.window?.afterMs,
   });
+  return observed;
 }
 /** A sent frame, `late` when a stalled wake sent nothing, or null to stop. */
 async function writeFrame(
@@ -94,16 +134,48 @@ async function writeFrame(
   interval: number,
   base: number,
 ): Promise<{ clock: Timeline; window: FrameWindow } | 'late' | null> {
-  if (signal.aborted || !original.valid) return null;
+  if (signal.aborted) {
+    input.observer?.observe({
+      kind: 'cancellation',
+      phase: 'before-frame',
+      clockSamples: original.eligibleSamples,
+    });
+    return null;
+  }
+  if (!original.valid) return null;
   const clock = await refresh(input, original, interval);
   if (!clock.valid) return null;
   const due =
     clock.anchorMs + (clock.eligibleSamples / input.sampleRate) * 1000 + 10;
   await input.waitUntilMs(due, signal);
-  if (signal.aborted) return null;
-  if (input.nowMs() - due > 100) return 'late';
-  const observed = await captureFrame(input, clock, data, base);
-  if (signal.aborted || !observed.window) return null;
+  if (signal.aborted) {
+    input.observer?.observe({
+      kind: 'cancellation',
+      phase: 'after-wait',
+      clockSamples: clock.eligibleSamples,
+    });
+    return null;
+  }
+  const observedAtMs = input.nowMs();
+  const late = observedAtMs - due > 100;
+  input.observer?.observe({
+    kind: 'cadence',
+    decision: late ? 'late' : 'ready',
+    dueMs: due,
+    observedAtMs,
+    clockSamples: clock.eligibleSamples,
+  });
+  if (late) return 'late';
+  const observed = await captureFrame(input, clock, data, base, due);
+  if (signal.aborted) {
+    input.observer?.observe({
+      kind: 'cancellation',
+      phase: 'after-handoff',
+      clockSamples: observed.clock.eligibleSamples,
+    });
+    return null;
+  }
+  if (!observed.window) return null;
   return { clock: observed.clock, window: observed.window };
 }
 type FrameWindow = { readonly beforeMs: number; readonly afterMs: number };
@@ -119,19 +191,46 @@ async function authorizeUnion(
   input: PacedInput,
   pending: FrameWindow,
   signal: AbortSignal,
+  sourceSamples: number,
 ) {
   const afterMs = Math.min(
     pending.afterMs,
     (input.segmentEndsAtMs ?? Infinity) - 1,
   );
-  if (afterMs <= pending.beforeMs) return 'ended';
+  if (afterMs <= pending.beforeMs) {
+    input.observer?.observe({
+      kind: 'authorization',
+      decision: 'ended',
+      beforeMs: pending.beforeMs,
+      afterMs,
+      sourceSamples,
+      cancelled: signal.aborted ? 1 : 0,
+    });
+    return 'ended';
+  }
   // Transport rounds outward. The clamp lowers only the union's end to the
   // known segment end, and frames heard past it are never credited.
   const allowed = await input.authorizeWindow({
     before: new Date(Math.floor(pending.beforeMs)).toISOString(),
     after: new Date(Math.ceil(afterMs)).toISOString(),
   });
-  return allowed && !signal.aborted ? 'allowed' : 'refused';
+  const cancelled = signal.aborted;
+  const decision = allowed && !cancelled ? 'allowed' : 'refused';
+  input.observer?.observe({
+    kind: 'authorization',
+    decision,
+    beforeMs: pending.beforeMs,
+    afterMs,
+    sourceSamples,
+    cancelled: cancelled ? 1 : 0,
+  });
+  if (cancelled)
+    input.observer?.observe({
+      kind: 'cancellation',
+      phase: 'after-history',
+      clockSamples: sourceSamples,
+    });
+  return decision;
 }
 /** Frames sent since the last authorization, as one union window. */
 function createBatch(input: PacedInput, signal: AbortSignal) {
@@ -158,7 +257,12 @@ function createBatch(input: PacedInput, signal: AbortSignal) {
         sent = frames;
       pending = null;
       frames = [];
-      const verdict = await authorizeUnion(input, due, signal);
+      const verdict = await authorizeUnion(
+        input,
+        due,
+        signal,
+        sent.at(-1)!.samples,
+      );
       if (verdict !== 'allowed') return verdict;
       credited =
         sent.filter((frame) => Math.ceil(frame.afterMs) < endMs).at(-1)
@@ -189,6 +293,7 @@ async function sendFrames(
     anchorMs: input.nowMs(),
     sampleRate: input.sampleRate,
   });
+  observeClock(input, 'initial', clock);
   const size = (input.sampleRate / 100) * input.channels;
   const batch = createBatch(input, signal);
   /** Credits the batch; false when the job stops here. */
@@ -224,6 +329,7 @@ async function sendFrames(
         await input.calibrate(),
         input.nowMs(),
       );
+      observeClock(input, 'reanchor', clock);
       continue;
     }
     if (!next) {
@@ -259,16 +365,25 @@ async function writeJob(
   } catch (error) {
     if (!signal.aborted) throw error;
   }
-  return {
+  const cancelled = signal.aborted;
+  const result = {
     eligibleSamples: outcome.eligibleSamples,
     complete:
-      !signal.aborted &&
-      outcome.eligibleSamples * input.channels === data.length,
+      !cancelled && outcome.eligibleSamples * input.channels === data.length,
     /** The job stopped because its segment ended, not for timing or refusal. */
     segmentEnded: outcome.segmentEnded,
     /** Why the job stopped short otherwise, or null. */
-    stop: signal.aborted ? null : outcome.stop,
+    stop: cancelled ? null : outcome.stop,
   };
+  input.observer?.observe({
+    kind: 'terminal',
+    eligibleSamples: result.eligibleSamples,
+    complete: result.complete ? 1 : 0,
+    segmentEnded: result.segmentEnded ? 1 : 0,
+    cancelled: cancelled ? 1 : 0,
+    stop: result.stop,
+  });
+  return result;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { NecessaryEvidenceRetirement } from './necessary-evidence-retirement/necessary-evidence-retirement';
+import { roundFloorModeration } from './messaging/round-floor-moderation';
 import { createRoundIncidentStore } from './round-incident-store';
 import { createRoundStartGateStore } from './round-start-gate-store';
 export type { RoundHydration } from './round-hydration';
@@ -334,6 +335,7 @@ export function createDatabase({
       database: control,
       eventSink,
       chat: spectatorChatModeration,
+      floor: roundFloorModeration,
       recordings: recordingModeration,
     }),
     ...actorOperations({ database: control, eventSink }),

@@ -1,3 +1,7 @@
+import {
+  floorProps,
+  liveFloorProps,
+} from '../../../../(shell)/rounds/[id]/floor/floor-props';
 import { documentPrincipalOf } from '../../../../../features/documents/document-principal';
 import { shareLinkHref } from '../../../../../features/audience-link/audience-link';
 import {
@@ -94,6 +98,7 @@ async function watchingRoom(
       <LiveSpectatorRoom
         view={round}
         spectatorKind={room.spectatorKind}
+        floor={(await floorProps(id, actorId, socketUrl)) ?? undefined}
         transcript={transcript}
         renderedAtMs={Date.parse(systemClock.now())}
         read={readPersistedRound.bind(null, id)}
@@ -163,6 +168,7 @@ export default async function RoundRoomPage({
     <>
       <MediaDocument />
       <LiveRoundRoom
+        floor={liveFloorProps(id, actorId, result.socketUrl)}
         attendanceSlot={
           <>
             {shareHref ? (

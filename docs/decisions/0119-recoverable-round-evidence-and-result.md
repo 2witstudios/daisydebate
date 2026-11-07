@@ -700,3 +700,17 @@ acquisition-only custody reconciliation, complete own-audio export, integrated
 quota/load proof, exceptional-expiry notice/remedy and downstream settlement
 remain incomplete. Plaintext already copied cannot be recalled. Production
 composition remains absent under REL-H.
+
+### Integration with current main
+
+The 2026-11-07 main integration retains Round-floor Messaging and native
+publication diagnostic observations. Diagnostics do not establish a timing
+repair or heard-audio recovery. Publication calibration remains the single
+protocol contract; main's rejection states and timing predicates are retained.
+Per the migration-concurrency procedure, the unpublished reliability migration
+tail is regenerated forward after main's Round-floor authority migration. The
+new snapshot includes both features and the SQL preserves the reviewed tail's
+statements, including narrow grants and aggregate-retirement trigger. Shared
+main migration files are unchanged. Prior immutable receipts still describe
+their original heads; merged-head verification is separately attributed. This
+integration does not complete the mission or enable production collection.

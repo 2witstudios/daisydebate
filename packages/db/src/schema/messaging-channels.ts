@@ -21,8 +21,8 @@ import { rounds } from './rounds';
 import { messagingChannelLifecycles } from '@daisy/protocol';
 
 /**
- * DMs, private groups and one contextual kind with its real producer: a Round's
- * spectator channel (SPECT-1.4, ADR 0108), constrained to its exact Round.
+ * Social channels and separate Round floor/spectator conversations. Each
+ * contextual kind is constrained to its exact Round and its own policy.
  */
 export const messagingChannels = pgTable(
   'messaging_channels',
@@ -32,7 +32,7 @@ export const messagingChannels = pgTable(
     policyKey: text('policy_key').notNull(),
     policyRevision: integer('policy_revision').notNull(),
     lifecycle: text('lifecycle').notNull(),
-    /** The Round a spectator channel belongs to; every other kind has none. */
+    /** The exact Round of a floor or spectator conversation; social kinds have none. */
     roundId: text('round_id').references(() => rounds.id, {
       onDelete: 'cascade',
     }),
@@ -49,14 +49,22 @@ export const messagingChannels = pgTable(
   (table) => [
     index('messaging_channels_title_author_idx').on(table.titleAuthorActorId),
     unique('messaging_channels_id_kind_unique').on(table.id, table.kind),
-    uniqueIndex('messaging_channels_round_unique').on(table.roundId),
+    uniqueIndex('messaging_channels_round_kind_unique').on(
+      table.roundId,
+      table.kind,
+    ),
     check(
       'messaging_channels_kind',
-      oneOf(table.kind, ['dm', 'private_group', 'round_spectator']),
+      oneOf(table.kind, [
+        'dm',
+        'private_group',
+        'round_floor',
+        'round_spectator',
+      ]),
     ),
     check(
       'messaging_channels_round',
-      sql`(${table.kind} = 'round_spectator') = (${table.roundId} is not null)`,
+      sql`(${table.kind} in ('round_floor', 'round_spectator')) = (${table.roundId} is not null)`,
     ),
     check(
       'messaging_channels_lifecycle',
@@ -64,7 +72,7 @@ export const messagingChannels = pgTable(
     ),
     check(
       'messaging_channels_policy',
-      sql`${table.policyRevision} > 0 and ((${table.kind} = 'dm' and ${table.policyKey} = 'social.dm') or (${table.kind} = 'private_group' and ${table.policyKey} = 'social.private_group') or (${table.kind} = 'round_spectator' and ${table.policyKey} = 'round.spectator'))`,
+      sql`${table.policyRevision} > 0 and ((${table.kind} = 'dm' and ${table.policyKey} = 'social.dm') or (${table.kind} = 'private_group' and ${table.policyKey} = 'social.private_group') or (${table.kind} = 'round_floor' and ${table.policyKey} = 'round.floor') or (${table.kind} = 'round_spectator' and ${table.policyKey} = 'round.spectator'))`,
     ),
     check(
       'messaging_channels_authority_revision',

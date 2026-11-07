@@ -85,4 +85,60 @@ describe('legal documents', () => {
       expected: [true, true],
     });
   });
+
+  test('optional analytics is disclosed before activation', () => {
+    const analytics =
+      privacyDocument.sections
+        .find(({ id }) => id === 'analytics')
+        ?.paragraphs.join(' ') ?? '';
+    assert({
+      given: 'the served privacy notice',
+      should:
+        'explain the processor, all admitted usage facts and excluded content',
+      actual: [
+        'PostHog',
+        'United States',
+        'opt in',
+        'product areas',
+        'Room creation',
+        'rematches',
+        'consent changes',
+        'broadcast',
+        'recording',
+        'player type',
+        'time to start',
+        'buffering time',
+        'time watched',
+        'video height',
+        'browser identifier',
+        'account ID',
+        'username',
+        'email',
+        'debate content',
+        'raw URLs',
+        'referrers',
+        'connection metadata',
+      ].filter((word) => !analytics.includes(word)),
+      expected: [],
+    });
+    assert({
+      given: 'a participant deciding whether to consent',
+      should:
+        'state storage duration, withdrawal and the limits of retrospective deletion',
+      actual: [
+        '180 days',
+        'account erasure',
+        '/analytics',
+        'Settings',
+        'stops future capture',
+        'queues deletion',
+        'retried',
+        'asynchronous',
+        'unlinked anonymous events',
+        'one-year retention',
+        'Session replay stays disabled',
+      ].filter((word) => !analytics.includes(word)),
+      expected: [],
+    });
+  });
 });

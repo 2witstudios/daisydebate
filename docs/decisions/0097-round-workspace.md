@@ -50,9 +50,9 @@ text.
 
 ## Consequences
 
-- Channels and AI chat keep their existing panels with disabled composers until
-  messaging is built. A live Round has only its own channel and no direct
-  messages yet.
+- AI chat keeps its existing panel with a disabled composer. Round Channels
+  uses the contextual floor chat in ADR 0120; social direct messages stay outside
+  the live Round.
 - Ratings may reflect outside help. That follows from the stance and is
   accepted.
 - Nested folders and club drives belong to the prep-documents slice, which
@@ -61,3 +61,5 @@ text.
   step, which suits the pre-ship baseline (ADR 0023). A server still running
   the previous release cannot create, list or rename documents once it has
   run.
+
+Round Channels now uses the live Round floor chat described in [ADR 0120](0120-round-floor-chat.md).

@@ -16,6 +16,10 @@ import { dispose } from '@livekit/rtc-node';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { SourceProgress } from '../src/audio-publication';
 import { withNativePublication } from './native-room.test-support';
+import {
+  assertNativePublicationEvidence,
+  createNativePublicationEvidence,
+} from './publication-evidence.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -110,6 +114,7 @@ test(
       await withNativePublication(async ({ publisher, reader }) => {
         const start = performance.now();
         let calibrations = 0;
+        const evidence = createNativePublicationEvidence();
         const result = await createPacedAudioWriter({
           publication: publisher,
           sampleRate: 48000,
@@ -124,7 +129,10 @@ test(
           },
           refreshAfterMs: 50,
           authorizeWindow: history.authorizeWindow,
+          observer: evidence.observer,
         })(pcmJob(), new AbortController().signal);
+        // Diagnose before subscriber drain, which cannot establish source credit.
+        assertNativePublicationEvidence(evidence, result, 'complete');
         let receivedSamples = 0;
         let receivedEnergy = 0;
         while (receivedSamples < 9600) {
@@ -169,6 +177,7 @@ test('burst handoff, stalled callback and revoked history cannot credit queued f
     await withHistoricalSeat(databaseUrl, async (history) => {
       await withNativePublication(async ({ publisher }) => {
         const controller = new AbortController();
+        const evidence = createNativePublicationEvidence();
         const publication =
           fault !== 'stall'
             ? publisher
@@ -195,6 +204,7 @@ test('burst handoff, stalled callback and revoked history cannot credit queued f
           waitUntilMs: fault === 'burst' ? async () => {} : waitForCadence,
           calibrate: history.calibrate,
           authorizeWindow: history.authorizeWindow,
+          observer: evidence.observer,
           onAccepted: async (samples) => {
             if (samples === 1440 && fault === 'history')
               await history.closeEligibility();
@@ -203,6 +213,17 @@ test('burst handoff, stalled callback and revoked history cannot credit queued f
         });
         const result = await write(pcmJob(), controller.signal);
         const raw = await publisher.close();
+        assertNativePublicationEvidence(
+          evidence,
+          result,
+          fault === 'burst'
+            ? 'receipt.early'
+            : fault === 'stall'
+              ? 'receipt.late'
+              : fault === 'history'
+                ? 'refused'
+                : 'cancelled',
+        );
         assert({
           given: `a real native ${fault} fault during publication`,
           should:
