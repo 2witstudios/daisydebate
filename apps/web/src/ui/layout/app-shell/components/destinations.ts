@@ -62,6 +62,7 @@ export const moreDestination: Destination = {
     { href: '/help', label: 'Help' },
     { href: '/terms', label: 'Terms' },
     { href: '/privacy', label: 'Privacy' },
+    { href: '/analytics', label: 'Analytics preferences' },
   ],
 };
 

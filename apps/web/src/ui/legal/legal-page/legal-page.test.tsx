@@ -39,4 +39,21 @@ describe('LegalPage', () => {
       expected: [true, privacyDocument.sections.length],
     });
   });
+
+  test('an extra control closes the page', () => {
+    const html = renderToString(
+      h(LegalPage, {
+        document: privacyDocument,
+        extra: h('p', null, 'Change your analytics choices'),
+      }),
+    );
+    assert({
+      given: 'a document and the control it points at',
+      should: 'render the control after the last section',
+      actual:
+        html.indexOf('Change your analytics choices') >
+        html.lastIndexOf('<section'),
+      expected: true,
+    });
+  });
 });

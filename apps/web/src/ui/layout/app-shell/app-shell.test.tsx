@@ -135,6 +135,7 @@ describe('AppShell', () => {
           '/friends',
           '/profile/ada-byron',
           '/settings',
+          '/analytics',
         ],
       ],
     });
@@ -160,16 +161,17 @@ describe('AppShell', () => {
     assert({
       given: "a member's extended rail",
       should:
-        'put the avatar and username in the summary, with the account pages and sign-out in the menu beside it',
+        'put the avatar and username in the summary, with the account pages, analytics preferences and sign-out in the menu beside it',
       actual: [
         foot.includes('<summary'),
         foot.includes('aria-label="Your account, ada-byron"'),
         /<span aria-hidden="true" class="[^"]*">ada-byron<\/span>/.test(foot),
         /class="[^"]*\babsolute\b[^"]*\bleft-full\b/.test(foot),
         foot.includes('href="/settings"'),
+        foot.includes('href="/analytics"'),
         foot.includes('action="/auth/sign-out"'),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true, true],
     });
   });
 
@@ -268,6 +270,7 @@ describe('AppShell', () => {
         '/help',
         '/terms',
         '/privacy',
+        '/analytics',
       ],
     });
   });

@@ -165,12 +165,12 @@ Minimize as the group's last row (Expand when mini). The foot is the
 account: a member's avatar and username open an account menu to the right.
 The menu lists their ratings on each ladder under the season's name, each
 as the rating, "Provisional", "Unrated" or "Hidden while judging", then
-Profile, Settings, Help, Terms, Privacy and Sign out. It is a native
-disclosure, so it opens on a tap without script. The shell reads the
-ratings once per request and does not wait for them: the menu streams them
-in, and a failed read says so in the menu. A visitor's Sign in or Finish
-sign-up takes the foot instead. Mini shows the same order as icons only,
-with every name kept as screen-reader text.
+Profile, Settings, Help, Terms, Privacy, Analytics preferences and Sign out.
+It is a native disclosure, so it opens on a tap without script. The shell
+reads the ratings once per request and does not wait for them: the menu
+streams them in, and a failed read says so in the menu. A visitor's Sign in
+or Finish sign-up takes the foot instead. Mini shows the same order as icons
+only, with every name kept as screen-reader text.
 
 The full accessible name is unchanged in both modes: counts stay in it
 ("Friends, 5 online"), hover flyouts (Watch: Spectate live, Recordings)

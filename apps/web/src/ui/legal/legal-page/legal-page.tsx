@@ -1,12 +1,20 @@
+import type { ReactNode } from 'react';
 import type { LegalDocument } from '../../../features/legal/documents';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 
 /**
  * A legal document: a title and version, a contents list, and each section
- * under its own anchor so a link can name the part it means.
+ * under its own anchor so a link can name the part it means. `extra` closes
+ * the page with the controls the document points at, such as a consent choice.
  */
-export function LegalPage({ document }: { readonly document: LegalDocument }) {
+export function LegalPage({
+  document,
+  extra,
+}: {
+  readonly document: LegalDocument;
+  readonly extra?: ReactNode;
+}) {
   return (
     <ReadingPage>
       <PageHeader
@@ -51,6 +59,7 @@ export function LegalPage({ document }: { readonly document: LegalDocument }) {
           ))}
         </section>
       ))}
+      {extra}
     </ReadingPage>
   );
 }
