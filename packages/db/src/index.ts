@@ -1,3 +1,4 @@
+import { NecessaryEvidenceRetirement } from './necessary-evidence-retirement/necessary-evidence-retirement';
 import { createRoundIncidentStore } from './round-incident-store';
 import { createRoundStartGateStore } from './round-start-gate-store';
 export type { RoundHydration } from './round-hydration';
@@ -202,45 +203,45 @@ export function createDatabase({
   const control = controlLane.database;
   const dedicated =
     injectedClient ?? dialDedicated(url, Math.max(1, profile.dedicated));
-  const transcriptTransaction = createBoundedTransaction({
+  const competitiveTransaction = createBoundedTransaction({
     lane: competitive,
     now: performance.now,
   });
   const { admission, operations: botAdmissionOperations } =
     roundBotAdmissionEntrypoints({
-      run: transcriptTransaction,
+      run: competitiveTransaction,
       nextId: nextActorId,
       botAdmission,
     });
   return namedLaneOperations({
     ...botAdmissionOperations,
-    ...roundMaintenanceOperations(transcriptTransaction),
-    ...roundPanelCompletionOperations(transcriptTransaction),
+    ...roundMaintenanceOperations(competitiveTransaction),
+    ...roundPanelCompletionOperations(competitiveTransaction),
     ...roundWorkerEntrypoints({
-      run: transcriptTransaction,
+      run: competitiveTransaction,
       nextId: nextActorId,
       judging,
       botPublication,
     }),
-    ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
+    ...roundAnalysisEntrypoints({ run: competitiveTransaction, roundAnalysis }),
     ...roundAnalysisReads({ database }),
     roundIncidents: namedLaneOperations(
-      createRoundIncidentStore({ run: transcriptTransaction }),
+      createRoundIncidentStore({ run: competitiveTransaction }),
     ),
     roundStartGates: namedLaneOperations(
-      createRoundStartGateStore({ run: transcriptTransaction }),
+      createRoundStartGateStore({ run: competitiveTransaction }),
     ),
     broadcasts: createBroadcastStore(database),
     recordingCaptures: createRecordingCaptureStore(database),
     mediaSessions: namedLaneOperations(
       createMediaSessionStore({
         database,
-        run: transcriptTransaction,
+        run: competitiveTransaction,
         nextId: nextActorId,
       }),
     ),
     ...attendanceEntrypoints({
-      run: transcriptTransaction,
+      run: competitiveTransaction,
       nextId: nextActorId,
     }),
     ...availabilityOperations(controlLane.client, dedicated),
@@ -400,13 +401,23 @@ export function createDatabase({
     ...roundProtectedReads({ database }),
     ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
+    createNecessaryEvidenceRetirement: (
+      options: Omit<
+        Parameters<typeof NecessaryEvidenceRetirement.create>[0],
+        'run'
+      >,
+    ) =>
+      NecessaryEvidenceRetirement.create({
+        ...options,
+        run: competitiveTransaction,
+      }),
     createMediaCaptureOperations: (
       input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
     ) =>
       namedLaneOperations(
         mediaCaptureOperations({
           ...input,
-          transaction: transcriptTransaction,
+          transaction: competitiveTransaction,
         }),
       ),
     ...transcriptFinalizationOperations({ database }),

@@ -654,3 +654,49 @@ routing remains blocked work. A local material-cache identity also prevents
 cross-authority restore/adoption; all-authority rollback remains REL-H. This
 routing refinement is locally implemented; exact-head qualification is recorded
 separately. It adds no production custody or privacy-lineage approval.
+
+### Local retirement execution
+
+Evidence retirement owns a separate private operation factory using the existing
+bounded competitive transaction. Positive persisted erasure, a retained item's
+original expiry, or an already committed retirement fence makes work eligible.
+Acquisition-only intents without an adopted key receipt still need custody
+reconciliation; age alone cannot authorize dropping them. No transcript-settled
+writer exists yet: provider success does not authorize retirement.
+
+Each claim commits retiring, clears live encrypted payload and retains count debt
+before external custody revocation. Completion requires the same identity/realm,
+worker, execution epoch and token and an unexpired lease. Only an actual matching
+resource's revocation plus current material-cache deletion acknowledgement
+permits completion. Failure/uncertainty schedules durable backoff; unknown claim
+or completion commit is recovered by lease takeover or observing the persisted
+state. No replacement key, identity, realm or expiry is minted. Cleanup does not
+require now-erased subject authorization or proven speaker mapping, and original
+opaque routing survives Round deletion. Missing realm remains blocked debt.
+
+Attached and detached work have independent one-item opportunities per service
+pass. Eligible distinct Rounds are selected before LIMIT, live claimed Rounds
+are excluded, and actual last-claimed time over ALL members (finished included)
+provides the Round turn. Never-claimed uses original creation time, not perpetual
+NULL priority. Retry time controls eligibility only. Locked attached Rounds and
+detached rows use SKIP LOCKED before the bound. The injected local polling loop
+waits between passes and permits crash takeover. It is not production startup.
+
+Local qualification separates actual SIGKILL after claim, after custody revoke
+and after PG completion from in-process fault wrappers. A separate process holds
+the actual SQLite authority write lock across its timeout; debt remains retiring
+and key remains live, then a new polling process progresses after release and
+backoff. Original receipt/expiry remain unchanged. Synthetic already-fenced PG
+metadata tests exercise more than64 siblings, other-worker claims, finished
+service history and new arrivals; these do not prove original audio admission.
+The initially weak live-claim test survived guard removal; adding a third claim
+while both Rounds are live makes that negative control fail. It is not reported
+as a prior finding in production. Exact-head receipts are recorded separately.
+
+SQLite busy timeouts bound local adapter lock waits; this does not establish
+arbitrary injected-resource hang cancellation, production operation deadlines,
+host-independent custody or every-copy erasure. Canonical request propagation,
+acquisition-only custody reconciliation, complete own-audio export, integrated
+quota/load proof, exceptional-expiry notice/remedy and downstream settlement
+remain incomplete. Plaintext already copied cannot be recalled. Production
+composition remains absent under REL-H.

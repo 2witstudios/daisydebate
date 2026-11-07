@@ -8,6 +8,7 @@ import { createFrameClock } from '@daisy/media/observation';
 import {
   canonicalCaptureEvidenceBody,
   CAPTURE_STT_LAG_MS,
+  buildRoundTopic,
 } from '@daisy/protocol';
 import { withRoomRuntime } from './room-runtime.test-support';
 import {
@@ -127,6 +128,7 @@ export const withEvidenceIngress = (
       prepared.custody.close();
       prepared.authority.close();
       await f.sql`delete from necessary_evidence where original_round_id=${prepared.roundId}`;
+      await f.sql`delete from outbox where topic=${buildRoundTopic(prepared.roundId)}`;
       await rm(prepared.dir, { recursive: true, force: true });
     }
   });

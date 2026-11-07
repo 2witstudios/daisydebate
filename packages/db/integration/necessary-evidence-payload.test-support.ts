@@ -94,6 +94,7 @@ async function prepare(...[f, transaction, roundId, client]: Inputs) {
   };
   return {
     f,
+    transaction,
     client,
     roundId,
     store,
