@@ -761,3 +761,36 @@ pre-receipt crash fairness, genuine heard audio, quality reconciliation, final
 transcript freeze, a recovered ballot, host-independent durability, every-copy
 privacy or full mission completion. The owner-prioritized next milestone remains
 one actual human-vs-human capture-to-result vertical journey under those contracts.
+
+### Receipt-linked recognition obligations
+
+Payload adoption also commits a private transcription-recovery source. Original
+unit metadata comes from the validated canonical body, not an opaque caller
+assertion. Its run key binds original Round/session/worker/epoch, segment, speaker,
+track, grant, original clock anchor, custody realm and frozen original privacy
+subjects/speaker. Overlapping original sequences under that
+key refuse atomic adoption. Context grouping joins only actual contiguous offsets
+and sequences of that same original run, bounded at 30 seconds and 128 units.
+Different epochs/anchors remain separate contexts; no fabricated bridge or semantic
+equivalence is inferred. A quiet/size boundary only closes a recognition context,
+never establishes observed silence. Those numerical bounds concern storage/context
+formation, not measured recognition quality or latency.
+
+Unselected text stays transient/private. Persisted work records source references,
+attempt/model/configuration/policy and candidate digest/status, never an invented
+copy of missing text. A lost candidate requires explicit rerecognition from original
+evidence under finite funding. Durable selected text plus actual coverage and a
+versioned qualified quality decision must commit atomically before deletion for
+settlement or one immutable freeze. An uncertain selection commit is reconciled
+before paying again. Neither a digest, successful provider response, confidence,
+agreement nor an empty answer establishes recognition completeness.
+
+Finalization must check both original obligations and their recognition contexts
+under its existing Round serialization, even after the old capture cutoff. An
+acquiring intent is not a payload receipt; it still cannot be silently forgotten
+at cutoff. Expired/erased/unreceived unresolved work requires the explicit incident,
+privacy and remedy contract; a timer cannot manufacture text or a normal result.
+Production composition remains absent. Durable claims/fair scheduling, dispatch,
+selection, provisional display, qualification, cleanup and genuine played-to-result
+proof are incomplete until separately executed; new metadata alone is no liveness
+or full recognition acceptance.

@@ -291,6 +291,20 @@ transcript or subject identities. Unknown original subjects cannot be
 backfilled from current membership or treated as an empty set. Integrated
 retirement/export/erasure remains incomplete and production-disabled.
 
+Private transcription-recovery contexts and source manifests retain receipt IDs,
+original stream/grant/run digests, offsets/sequences, bounded context membership
+and work/selection provenance. These are linkable private metadata, not anonymous
+facts or permission to dispatch. They contain no PCM or unselected candidate text.
+The frozen original subject/speaker/custody scope participates in the context key;
+a successor cast never supplies missing privacy authority. Unselected candidate
+text remains transient; loss requires rerecognition from original evidence, never
+reconstruction from a digest. Minimize unnecessary context/source metadata after
+confirmed lifecycle completion, retaining only declared selected-transcript or
+exception/remedy provenance under its owning policy. Round aggregate deletion
+removes context metadata while original custody-cleanup routing survives in the
+evidence-owned intent. Full export/erasure/restore/metadata-minimization and
+production retention acceptance remain incomplete under REL-H.
+
 The independent local key authority additionally retains canonical original
 Round/subject scope bindings and accepted privacy-intent routing (exact actor/user
 or Round, opaque intent ID, authorization digest, original sequence and sticky

@@ -101,3 +101,31 @@ test('partial streams wait through admission before freezing incomplete', () => 
     ],
   });
 });
+
+test('durable recognition work fences the single freeze beyond capture cutoff', () => {
+  const facts = {
+    expected: [{ segmentId: 'g', roundParticipantId: 'p' }],
+    streams: [{ segmentId: 'g', roundParticipantId: 'p', state: 'complete' }],
+  };
+  assert({
+    given:
+      'complete legacy stream seals but an unsettled original-audio/recognition obligation',
+    should:
+      'keep one frontier open both before and beyond the old cutoff without fabricating final text',
+    actual: [
+      finalizationState(
+        facts,
+        '2026-01-01T00:00:00.000Z',
+        '2026-01-01T00:00:01.000Z',
+        true,
+      ),
+      finalizationState(
+        facts,
+        '2026-01-01T00:00:02.000Z',
+        '2026-01-01T00:00:01.000Z',
+        true,
+      ),
+    ],
+    expected: ['capture', 'capture'],
+  });
+});

@@ -7,7 +7,7 @@ type StreamState = { readonly state: string } & ExpectedTranscriptStream;
 
 /**
  * A partial seal does not close admission for evidence still arriving. Only a
- * wholly complete stream set may freeze before the admission cutoff.
+ * wholly complete stream set with no pending recovery may freeze before the admission cutoff.
  */
 export function finalizationState(
   facts: {
@@ -16,7 +16,9 @@ export function finalizationState(
   },
   now: string,
   cutoff: string,
+  recoveryPending = false,
 ): 'capture' | 'complete' | 'incomplete' {
+  if (recoveryPending) return 'capture';
   const states = new Map(
     facts.streams.map((stream) => [streamKey(stream), stream.state]),
   );

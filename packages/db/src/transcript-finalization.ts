@@ -1,3 +1,4 @@
+import { pending as transcriptionRecoveryPending } from './transcription-recovery/pending';
 import { readCaptureShortfall } from './capture-shortfall';
 import {
   frozenCaptureColumns,
@@ -126,9 +127,18 @@ export async function finalizeLockedRoundTranscript(
     request.roundId,
     request.botGrantUnused,
   );
+  const recoveryPending = await transcriptionRecoveryPending(
+    tx,
+    request.roundId,
+  );
   const now = await sampleRoundExecutionTime(tx);
   await assertCurrent();
-  const state = finalizationState(facts, now, clock.transcriptAdmissionCutoff);
+  const state = finalizationState(
+    facts,
+    now,
+    clock.transcriptAdmissionCutoff,
+    recoveryPending,
+  );
   if (state === 'capture')
     return { status: 'pending' as const, reason: 'capture' as const };
   // No network/provider work: serialize all committed text before closing its frontier.
