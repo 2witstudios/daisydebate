@@ -6,7 +6,10 @@ import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
 import { createRoutes, type Routes } from './routes';
-import { createLazyBillingRoutes } from './billing-route-table';
+import {
+  createLazyBillingRoutes,
+  type BillingRouteLoader,
+} from './billing-route-table';
 import { readStartOptions } from './start-options';
 import { nextWorkerToken } from './worker-token';
 import { fetchWithoutTracing } from '../features/telemetry/sentry-init';
@@ -28,19 +31,30 @@ type ProcessState = {
     readonly billing: ReturnType<typeof createLazyBillingRoutes>;
   };
   readonly vendorFetch: typeof globalThis.fetch;
+  readonly initializeBilling: (load: BillingRouteLoader) => void;
 };
 
 const stateFor = (
   app: App,
   vendorFetch: typeof globalThis.fetch,
-): ProcessState => ({
-  app,
-  routes: {
-    ...createRoutes(app),
-    billing: createLazyBillingRoutes(app, vendorFetch),
-  },
-  vendorFetch,
-});
+): ProcessState => {
+  let billingLoader: BillingRouteLoader | undefined;
+  return {
+    app,
+    routes: {
+      ...createRoutes(app),
+      billing: createLazyBillingRoutes(app, vendorFetch, () => {
+        if (!billingLoader)
+          throw new Error('Billing bootstrap is not initialized');
+        return billingLoader();
+      }),
+    },
+    vendorFetch,
+    initializeBilling: (load) => {
+      billingLoader ??= load;
+    },
+  };
+};
 
 /**
  * Outbound HTTP: the network, except in local development with
@@ -81,6 +95,10 @@ const edge = createProcessEdge(
       globalThis.fetch,
     ),
 );
+
+/** The originating bootstrap installs once; later Next instrumentation cannot replace it. */
+export const initializeProcessBilling = (load: BillingRouteLoader) =>
+  edge.get().initializeBilling(load);
 
 /** This process's app, built on first use. */
 export const processApp = (): App => edge.get().app;

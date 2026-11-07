@@ -14,7 +14,10 @@ export async function register() {
   }
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
   await import('./features/telemetry/sentry.server.config');
-  const { processApp } = await import('./server/process-app');
+  const { processApp, initializeProcessBilling } =
+    await import('./server/process-app');
+  const { loadBillingRoutes } = await import('./server/billing-route-loader');
+  initializeProcessBilling(loadBillingRoutes);
   // Provider-neutral spans bind to the host's OTel provider. Exporters belong to deployment.
   processApp().logger.log(
     'runtime.initialize',

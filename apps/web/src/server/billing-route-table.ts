@@ -1,17 +1,19 @@
 import type { App } from './app';
-import type { billingRoutes } from './billing-app';
+import type { composeBillingRoutes } from '../features/billing/native-composition';
 import type { BillingFetch } from './billing-stripe';
 import type { OperationName } from '../features/ops/operation-names';
 import { handleOperation } from './http';
 
-type BillingRoutes = ReturnType<typeof billingRoutes>;
+type BillingRoutes = ReturnType<typeof composeBillingRoutes>;
+export type BillingRouteLoader = () => Promise<{
+  readonly billingRoutes: (app: App, fetch: BillingFetch) => BillingRoutes;
+}>;
 
 /** The process that owns App also owns Billing's complete error/member boundary. */
 export function createLazyBillingRoutes(
   app: App,
   fetch: BillingFetch,
-  load: () => Promise<{ readonly billingRoutes: typeof billingRoutes }> = () =>
-    import('./billing-app'),
+  load: BillingRouteLoader,
 ) {
   let held: Promise<BillingRoutes> | undefined;
   const bind =
