@@ -198,9 +198,12 @@ for (const javaScriptEnabled of [true, false]) {
         .locator('..')
         .getByRole('button', { name: 'Assign', exact: true })
         .click();
-      await expect(host.getByRole('alert')).toContainText(
-        'That seat is unavailable',
-      );
+      const refusal = host
+        .getByRole('main')
+        .getByRole('alert')
+        .filter({ hasText: 'That seat is unavailable' });
+      await expect(refusal).toBeVisible();
+      await expect(refusal).toContainText('That seat is unavailable');
       if (javaScriptEnabled) await expect(occupiedPicker).toHaveValue(hostId);
       expect(
         seated(await reread(host.request, view.id), debater!.actorId)?.role,
