@@ -65,8 +65,8 @@ test('lost custody acknowledgements retain original identity and revocation', ()
         }
         return result;
       },
-      bindKey: (...args) => {
-        const result = authority.bindKey(...args);
+      bindMaterial: (...args) => {
+        const result = authority.bindMaterial(...args);
         if (loseBind) {
           loseBind = false;
           return { kind: 'refused', reason: 'unavailable' };

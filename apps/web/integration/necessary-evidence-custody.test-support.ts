@@ -1,3 +1,4 @@
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { EvidenceIdentity, SealedEvidence } from '@daisy/protocol';
@@ -18,16 +19,52 @@ if (import.meta.main) {
     process.stdout.write(JSON.stringify({ kind: 'initialized' }));
     process.exit(0);
   }
-  const authority = openLocalEvidenceAuthority({
+  const backingAuthority = openLocalEvidenceAuthority({
     path: join(request.dir, 'authority.sqlite'),
     authorityId: 'c'.repeat(24),
-    nowMs: () => request.now,
+    nowMs: () =>
+      request.clockFile
+        ? Number(readFileSync(request.clockFile, 'utf8'))
+        : request.now,
   });
+  const barrier = (at: string) => {
+    const gate = request.barriers?.find(
+      (candidate: { at: string }) => candidate.at === at,
+    );
+    if (!gate) return;
+    writeFileSync(gate.ready, at);
+    if (!gate.release) return;
+    const until = performance.now() + 5000;
+    while (!existsSync(gate.release)) {
+      if (performance.now() > until)
+        throw new Error('Custody proof barrier timed out');
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+    }
+  };
+  const authority = {
+    ...backingAuthority,
+    reserve: (...args: Parameters<typeof backingAuthority.reserve>) => {
+      const result = backingAuthority.reserve(...args);
+      if (result.kind === 'current') barrier('after-reserve');
+      return result;
+    },
+    bindMaterial: (
+      identity: EvidenceIdentity,
+      work: Parameters<typeof backingAuthority.bindMaterial>[1],
+    ) =>
+      backingAuthority.bindMaterial(identity, (current, revalidate) => {
+        barrier('before-material');
+        const result = work(current, revalidate);
+        barrier('after-material');
+        return result;
+      }),
+  };
   const custody = openLocalEvidenceCustody({
     path: join(request.dir, 'keys.sqlite'),
     authority,
   });
   try {
+    barrier('constructed');
     if (request.operation === 'seal') {
       const result = await custody.seal(
         request.identity as EvidenceIdentity,
@@ -64,6 +101,8 @@ if (import.meta.main) {
             : result,
         ),
       );
+    } else if (request.operation === 'sweep') {
+      process.stdout.write(JSON.stringify(custody.sweep(request.limit)));
     } else if (request.operation === 'revoke') {
       process.stdout.write(
         JSON.stringify(await custody.revoke(request.identity)),
@@ -74,3 +113,28 @@ if (import.meta.main) {
     authority.close();
   }
 }
+
+export function spawnCustodyProcess(request: object) {
+  const child = Bun.spawn([process.execPath, 'run', import.meta.filename], {
+    stdin: 'pipe',
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  child.stdin.write(JSON.stringify(request));
+  child.stdin.end();
+  return child;
+}
+export async function finishCustodyProcess(
+  child: ReturnType<typeof spawnCustodyProcess>,
+) {
+  const [output, error, code] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  if (code !== 0)
+    throw new Error('Custody qualification child failed', { cause: error });
+  return JSON.parse(output);
+}
+export const runCustodyProcess = (request: object) =>
+  finishCustodyProcess(spawnCustodyProcess(request));

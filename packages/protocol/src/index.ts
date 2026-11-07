@@ -660,7 +660,7 @@ export type { AudienceState } from './audience-state';
 export {
   necessaryEvidencePolicy,
   type EvidenceIdentity,
-  type EvidenceReceipt,
+  type EvidenceCustodyReceipt,
   type EvidenceRefusal,
   type SealedEvidence,
   type NecessaryEvidenceCustody,

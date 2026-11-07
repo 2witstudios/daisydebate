@@ -8,7 +8,8 @@ export type EvidenceIdentity = {
   /** Digest of original authority, sequence/calibration/history and payload. */
   readonly bindingDigest: string;
 };
-export type EvidenceReceipt = EvidenceIdentity & {
+/** Durable key reservation only: neither a PG audio receipt nor a hearing/coverage fact. */
+export type EvidenceCustodyReceipt = EvidenceIdentity & {
   readonly authorityId: string;
   readonly receivedAtMs: number;
   readonly expiresAtMs: number;
@@ -25,7 +26,7 @@ export type EvidenceRefusal = {
 };
 export type SealedEvidence = {
   readonly kind: 'sealed';
-  readonly receipt: EvidenceReceipt;
+  readonly receipt: EvidenceCustodyReceipt;
   readonly ciphertext: Uint8Array;
   readonly nonce: Uint8Array;
   readonly tag: Uint8Array;

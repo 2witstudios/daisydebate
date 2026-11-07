@@ -331,3 +331,25 @@ original intent/evidence authority and advance execution ownership only. An inte
 remains neither audio receipt nor preserved/heard watermark. That claimant and
 payload authenticity/receipt, custody compensation and late-commit fences remain
 unimplemented at this checkpoint.
+
+Local custody now serializes material creation/binding with revocation. Reserve
+FIRST commits original identity/receipt/expiry. A second authority-owned immediate
+transaction checks current authority, acquires the material transaction, and
+supplies an authority-owned revalidation capability after any material-lock wait.
+Only then may material be created/reused; expiry is checked again after its commit
+before binding the key+nonce digest. A process dying between material commit and
+authority binding leaves retained original material and the already committed
+reservation for reconciliation, never permission to mint new key/nonce/expiry.
+
+The lock order is authority then material. Revalidation inside the material
+transaction uses the ALREADY owned authority transaction, never an independently
+acquired reverse lock. Revoke commits its authority tombstone before material
+cleanup; future material creation must pass that same authority lock and therefore
+cannot create late rows after revocation. Sweep ends its cursor-only material
+transaction before reading authority and deleting eligible material. No material
+transaction independently calls an authority operation while another path owns
+that authority awaiting material. Unavailable/unknown cleanup stays retryable.
+`EvidenceCustodyReceipt` explicitly names a key-reservation receipt; it is NOT a
+PG audio durability acknowledgement. Revoked authority, current material cleanup,
+payload cleanup and whole retirement completion remain separate facts. The latter
+integrated retirement worker is not implemented/proven by these local tests.

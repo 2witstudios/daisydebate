@@ -5,13 +5,13 @@ import { Database } from 'bun:sqlite';
 import { idSchema, necessaryEvidencePolicy } from '@daisy/protocol';
 import type {
   EvidenceIdentity,
-  EvidenceReceipt,
+  EvidenceCustodyReceipt,
   EvidenceRefusal,
 } from '@daisy/protocol';
 
 export type EvidenceAuthorityRecord = {
   readonly kind: 'current';
-  readonly receipt: EvidenceReceipt;
+  readonly receipt: EvidenceCustodyReceipt;
   readonly payloadDigest: string;
   readonly keyDigest: string | null;
 };
@@ -23,9 +23,12 @@ export type EvidenceAuthority = {
   readonly read: (
     identity: EvidenceIdentity,
   ) => EvidenceAuthorityRecord | EvidenceRefusal;
-  readonly bindKey: (
+  readonly bindMaterial: (
     identity: EvidenceIdentity,
-    digest: string,
+    work: (
+      current: EvidenceAuthorityRecord,
+      revalidate: () => EvidenceAuthorityRecord | EvidenceRefusal,
+    ) => string | EvidenceRefusal,
   ) => EvidenceAuthorityRecord | EvidenceRefusal;
   readonly revoke: (
     identity: EvidenceIdentity,
@@ -164,19 +167,33 @@ export function openLocalEvidenceAuthority(input: {
         : found;
     });
   };
-  const bindKey: EvidenceAuthority['bindKey'] = (identity, digest) => {
-    if (!evidenceIdentityValid(identity) || !digestValid(digest))
-      return refused('invalid');
+  const bindMaterial: EvidenceAuthority['bindMaterial'] = (identity, work) => {
+    if (!evidenceIdentityValid(identity)) return refused('invalid');
     return guarded(() => {
-      const found = checked(identity, row(identity.evidenceId), now());
-      if (found.kind !== 'current') return found;
-      if (found.keyDigest && found.keyDigest !== digest)
+      const inspect = () => checked(identity, row(identity.evidenceId), now());
+      const current = inspect();
+      if (current.kind !== 'current') return current;
+      let active = true;
+      let result: string | EvidenceRefusal;
+      try {
+        result = work(current, () =>
+          active ? inspect() : refused('uncertain'),
+        );
+      } finally {
+        active = false;
+      }
+      if (typeof result !== 'string') return result;
+      if (!digestValid(result)) return refused('invalid');
+      // Material-lock waits and commits never renew original authority or expiry.
+      const latest = inspect();
+      if (latest.kind !== 'current') return latest;
+      if (latest.keyDigest && latest.keyDigest !== result)
         return refused('uncertain');
       db.query('UPDATE evidence SET key_digest=? WHERE id=?').run(
-        digest,
+        result,
         identity.evidenceId,
       );
-      return { ...found, keyDigest: digest };
+      return { ...latest, keyDigest: result };
     });
   };
   const revoke: EvidenceAuthority['revoke'] = (identity) => {
@@ -196,5 +213,5 @@ export function openLocalEvidenceAuthority(input: {
       return { kind: 'revoked' as const };
     });
   };
-  return { reserve, read, bindKey, revoke, close: () => db.close() };
+  return { reserve, read, bindMaterial, revoke, close: () => db.close() };
 }

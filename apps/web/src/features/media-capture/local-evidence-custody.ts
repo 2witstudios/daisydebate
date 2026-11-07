@@ -20,6 +20,8 @@ import type { EvidenceAuthority } from './local-evidence-authority';
 type Material = { key: Uint8Array; nonce: Uint8Array };
 const digest = (bytes: Uint8Array) =>
   createHash('sha3-256').update(bytes).digest('hex');
+const materialDigest = (material: Material) =>
+  digest(Buffer.concat([material.key, material.nonce]));
 const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({
   kind: 'refused',
   reason,
@@ -75,28 +77,42 @@ export function openLocalEvidenceCustody(input: {
     try {
       const current = input.authority.reserve(identity, digest(plaintext));
       if (current.kind !== 'current') return current;
-      const held = db
-        .transaction(() => {
-          let found = material(identity.evidenceId);
-          // A previously bound key may NEVER be replaced, even after a lost acknowledgement or restore.
-          if (!found && !current.keyDigest) {
-            db.query(
-              'INSERT INTO material(id,binding,expires,key,nonce) VALUES(?,?,?,?,?)',
-            ).run(
-              identity.evidenceId,
-              identity.bindingDigest,
-              current.receipt.expiresAtMs,
-              randomBytes(32),
-              randomBytes(12),
-            );
-            found = material(identity.evidenceId);
-          }
-          return found;
-        })
-        .immediate();
-      if (!held) return refused('uncertain');
-      const bound = input.authority.bindKey(identity, digest(held.key));
+      // All material creation takes authority -> material locks in that order.
+      const bound = input.authority.bindMaterial(
+        identity,
+        (record, revalidate) =>
+          db
+            .transaction(() => {
+              // The material lock may have waited across original expiry.
+              const fresh = revalidate();
+              if (fresh.kind !== 'current') return fresh;
+              let found = material(identity.evidenceId);
+              if (!found && !record.keyDigest) {
+                db.query(
+                  'INSERT INTO material(id,binding,expires,key,nonce) VALUES(?,?,?,?,?)',
+                ).run(
+                  identity.evidenceId,
+                  identity.bindingDigest,
+                  record.receipt.expiresAtMs,
+                  randomBytes(32),
+                  randomBytes(12),
+                );
+                found = material(identity.evidenceId);
+              }
+              if (
+                !found ||
+                found.key.byteLength !== 32 ||
+                found.nonce.byteLength !== 12
+              )
+                return refused('uncertain');
+              return materialDigest(found);
+            })
+            .immediate(),
+      );
       if (bound.kind !== 'current') return bound;
+      const held = material(identity.evidenceId);
+      if (!held || materialDigest(held) !== bound.keyDigest)
+        return refused('uncertain');
       const cipher = createCipheriv('aes-256-gcm', held.key, held.nonce);
       cipher.setAAD(aad(bound.receipt));
       const ciphertext = Buffer.concat([
@@ -126,7 +142,7 @@ export function openLocalEvidenceCustody(input: {
       if (!aad(current.receipt).equals(aad(evidence.receipt)))
         return refused('conflict');
       const held = material(evidence.receipt.evidenceId);
-      if (!held || digest(held.key) !== current.keyDigest)
+      if (!held || materialDigest(held) !== current.keyDigest)
         return refused('uncertain');
       const decipher = createDecipheriv(
         'aes-256-gcm',

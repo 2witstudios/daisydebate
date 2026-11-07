@@ -1,3 +1,4 @@
+import { runCustodyProcess as child } from './necessary-evidence-custody.test-support';
 import { copyFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -70,30 +71,6 @@ test('local custody preserves original identity across restart and irrevocable r
   }
 });
 
-const child = async (request: object) => {
-  const process = Bun.spawn(
-    [
-      processExecPath(),
-      'run',
-      join(import.meta.dir, 'necessary-evidence-custody.test-support.ts'),
-    ],
-    {
-      stdin: 'pipe',
-      stdout: 'pipe',
-      stderr: 'pipe',
-    },
-  );
-  process.stdin.write(JSON.stringify(request));
-  process.stdin.end();
-  const output = await new Response(process.stdout).text();
-  const code = await process.exited;
-  if (code !== 0)
-    throw new Error('Custody qualification child failed', {
-      cause: await new Response(process.stderr).text(),
-    });
-  return JSON.parse(output);
-};
-const processExecPath = () => process.execPath;
 test('fresh processes use stable authority after restoring old material and payload snapshots', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'daisy-evidence-process-'));
   try {
