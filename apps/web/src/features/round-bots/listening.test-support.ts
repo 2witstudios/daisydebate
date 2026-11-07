@@ -79,6 +79,8 @@ export function session(
           input.onFrame({
             identity,
             trackId: 'TR_peer',
+            subscriptionGeneration: 1,
+            subscriptionIncarnation: 's'.repeat(24),
             sequence,
             pcm: new Int16Array(160).fill(level),
             beforeMs: now,
@@ -88,6 +90,8 @@ export function session(
           input.onTrackClosed({
             identity,
             trackId: 'TR_peer',
+            generation: 1,
+            incarnation: 's'.repeat(24),
             reason: 'unpublished',
           }),
         drop: () => ended.resolve('disconnected'),
@@ -97,6 +101,10 @@ export function session(
       joined.resolve();
       return {
         closed: ended.promise,
+        transport: async () => ({
+          kind: 'unknown' as const,
+          reason: 'unavailable' as const,
+        }),
         setIdentities: async (identities: readonly string[]) => {
           entry.identities = [...identities];
         },

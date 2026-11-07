@@ -67,6 +67,8 @@ function fixture() {
     staging.observe({
       identity: 'i'.repeat(24),
       trackId: 'real-track',
+      subscriptionGeneration: 1,
+      subscriptionIncarnation: 's'.repeat(24),
       sequence,
       beforeMs,
       afterMs: now,
@@ -138,6 +140,8 @@ test('closing a track lets go of its own waiting frames only', () => {
   f.staging.observe({
     identity: 'i'.repeat(24),
     trackId: 'other-track',
+    subscriptionGeneration: 1,
+    subscriptionIncarnation: 's'.repeat(24),
     sequence: 0,
     beforeMs: 30.4,
     afterMs: 30.5,

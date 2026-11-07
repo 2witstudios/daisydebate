@@ -319,14 +319,16 @@ jobs:
           retention-days: 7
 
   room-launch:
-    name: Isolated Room Launch browser suite
+    name: Isolated native browser (${{ matrix.cohort }})
     runs-on: ubuntu-24.04
-    # One shared slot keeps the suite on a single worker: about 5 min of
-    # setup, about 45 min of Launch tests (multi-minute attendance outages and
-    # autonomous journeys), then the realtime proofs and artifact sanitizing.
-    # 55 cancelled a fully passing run in its cleanup; the suite itself stays
-    # bounded by heavy.ts (set on its step).
+    # Launch alone measured 57.9min before setup/reporting. Each full cohort
+    # owns its worker/slot and retains sanitized evidence before another
+    # cohort can exhaust its budget. No cases or execution counts are reduced.
     timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        cohort: [launch, realtime, messaging]
     env:
       CLAMD_TEST_PORT: '3310'
     defaults:
@@ -468,6 +470,7 @@ jobs:
           key: ${{ steps.launch-image-cache.outputs.cache-primary-key }}
       - name: Run real isolated Launch browser suite
         id: launch
+        if: ${{ matrix.cohort == 'launch' }}
         run: bun test:e2e:room-launch
         env:
           CI: true
@@ -476,26 +479,26 @@ jobs:
           DAISY_HEAVY_TIMEOUT_MINUTES: '60'
       - name: Run authenticated generic realtime browser proof
         id: realtime_room
-        if: ${{ !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
+        if: ${{ matrix.cohort == 'realtime' && !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
         run: bun test:e2e:realtime
         env:
           CI: true
           REALTIME_BROWSER_NODE: node
       - name: Report actual generic realtime outcomes
-        if: ${{ always() && !cancelled() }}
+        if: ${{ always() && !cancelled() && matrix.cohort == 'realtime' && (steps.realtime_room.outcome == 'success' || steps.realtime_room.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/realtime-results.json
       - name: Run authenticated messaging realtime browser proof
         id: realtime_messaging
-        if: ${{ !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
+        if: ${{ matrix.cohort == 'messaging' && !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
         run: bun test:e2e:messaging-realtime
         env:
           CI: true
           REALTIME_BROWSER_NODE: node
       - name: Report actual messaging realtime outcomes
-        if: ${{ always() && !cancelled() }}
+        if: ${{ always() && !cancelled() && matrix.cohort == 'messaging' && (steps.realtime_messaging.outcome == 'success' || steps.realtime_messaging.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/messaging-realtime-results.json
       - name: Report actual discovered and executed outcomes
-        if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && matrix.cohort == 'launch' && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json
       - name: Sanitize retained proof artifacts
         id: sanitize_launch
@@ -505,10 +508,10 @@ jobs:
         if: ${{ always() && !cancelled() && steps.sanitize_launch.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: room-launch-${{ github.run_id }}
+          name: room-launch-${{ matrix.cohort }}-${{ github.run_id }}
           path: .pu/worktrees/wt-roomlaunchci/apps/web/test-results/
           # Silence only when the suite never ran; a run with no evidence fails.
-          if-no-files-found: ${{ steps.launch.outcome == 'skipped' && 'ignore' || 'error' }}
+          if-no-files-found: ${{ steps.launch.outcome == 'skipped' && steps.realtime_room.outcome == 'skipped' && steps.realtime_messaging.outcome == 'skipped' && 'ignore' || 'error' }}
           retention-days: 7
       # No reviewer attaches to this ephemeral job's live slot. Evidence is
       # retained first; release checks its own derived scope and main sentinel.

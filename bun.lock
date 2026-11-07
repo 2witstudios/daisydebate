@@ -328,13 +328,13 @@
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@livekit/rtc-node": "1.2.0",
+        "@paralleldrive/cuid2": "3.3.0",
         "livekit-server-sdk": "2.19.0",
         "zod": "4.6.6",
       },
       "devDependencies": {
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
-        "@paralleldrive/cuid2": "3.3.0",
         "riteway": "9.3.0",
       },
     },
@@ -374,6 +374,9 @@
       "name": "@daisy/typescript-config",
       "version": "0.0.0",
     },
+  },
+  "patchedDependencies": {
+    "@livekit/rtc-node@1.2.0": "patches/@livekit%2Frtc-node@1.2.0.patch",
   },
   "overrides": {
     "happy-dom": "21.0.4",
