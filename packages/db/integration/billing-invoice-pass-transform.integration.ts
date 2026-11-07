@@ -15,15 +15,15 @@ import { sqlStateOf } from './constraint-helpers';
 requireTestServices(process.env);
 setupRitewayBun();
 const migration = new URL(
-  '../migrations/20261106110238_stripe_invoice_pass_authority/migration.sql',
+  './fixtures/billing-private-113/20261106110238_stripe_invoice_pass_authority.sql',
   import.meta.url,
 );
 const predecessor = new URL(
-  '../migrations/20261106023226_stripe_cleanup_failure_classification/migration.sql',
+  './fixtures/billing-private-113/20261106023226_stripe_cleanup_failure_classification.sql',
   import.meta.url,
 );
 const historicalNullProducer = new URL(
-  '../migrations/20261106004019_stripe_cleanup_observation_completion/migration.sql',
+  './fixtures/billing-private-113/20261106004019_stripe_cleanup_observation_completion.sql',
   import.meta.url,
 );
 

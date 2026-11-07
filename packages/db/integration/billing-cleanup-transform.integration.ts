@@ -12,11 +12,11 @@ import {
 requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261106015001_stripe_cleanup_five_lane/migration.sql',
+  './fixtures/billing-private-113/20261106015001_stripe_cleanup_five_lane.sql',
   import.meta.url,
 );
 const predecessor = new URL(
-  '../migrations/20261106004019_stripe_cleanup_observation_completion/migration.sql',
+  './fixtures/billing-private-113/20261106004019_stripe_cleanup_observation_completion.sql',
   import.meta.url,
 );
 

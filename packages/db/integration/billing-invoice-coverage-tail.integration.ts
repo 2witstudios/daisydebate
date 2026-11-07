@@ -10,15 +10,15 @@ import { seedInvoiceTailPredecessor } from './billing-invoice-pass-predecessor.t
 requireTestServices(process.env);
 setupRitewayBun();
 const previous = new URL(
-  '../migrations/20261106023226_stripe_cleanup_failure_classification/migration.sql',
+  './fixtures/billing-private-113/20261106023226_stripe_cleanup_failure_classification.sql',
   import.meta.url,
 );
 const authority = new URL(
-  '../migrations/20261106110238_stripe_invoice_pass_authority/migration.sql',
+  './fixtures/billing-private-113/20261106110238_stripe_invoice_pass_authority.sql',
   import.meta.url,
 );
 const forward = new URL(
-  '../migrations/20261106223739_stripe_invoice_coverage_repair/migration.sql',
+  './fixtures/billing-private-113/20261106223739_stripe_invoice_coverage_repair.sql',
   import.meta.url,
 );
 for (const target of ['invoices', 'observations'] as const)

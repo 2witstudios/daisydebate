@@ -1,6 +1,6 @@
 import type { TransactionSQL } from 'bun';
 const producer = new URL(
-  '../migrations/20261106000213_billing_payment_observations/migration.sql',
+  './fixtures/billing-private-113/20261106000213_billing_payment_observations.sql',
   import.meta.url,
 );
 

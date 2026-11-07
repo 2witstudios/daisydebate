@@ -6,11 +6,11 @@ import { withBillingRefunds } from './billing-refunds.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 const predecessor = new URL(
-  '../migrations/20261105141132_refund_claim_observation_guard/migration.sql',
+  './fixtures/billing-private-113/20261105141132_refund_claim_observation_guard.sql',
   import.meta.url,
 );
 const correction = new URL(
-  '../migrations/20261105204936_refund_payment_precision_authority/migration.sql',
+  './fixtures/billing-private-113/20261105204936_refund_payment_precision_authority.sql',
   import.meta.url,
 );
 

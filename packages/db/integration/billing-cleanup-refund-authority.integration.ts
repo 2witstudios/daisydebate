@@ -10,7 +10,7 @@ import { sqlStateOf } from './constraint-helpers';
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261106223739_stripe_invoice_coverage_repair/migration.sql',
+  '../migrations/20261107080513_fair_midnight/migration.sql',
   import.meta.url,
 );
 

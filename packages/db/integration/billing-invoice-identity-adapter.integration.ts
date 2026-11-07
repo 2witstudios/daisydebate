@@ -15,7 +15,7 @@ import { seedInvoicePassPredecessor } from './billing-invoice-pass-predecessor.t
 const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 const migration = new URL(
-  '../migrations/20261106110238_stripe_invoice_pass_authority/migration.sql',
+  './fixtures/billing-private-113/20261106110238_stripe_invoice_pass_authority.sql',
   import.meta.url,
 );
 
@@ -34,7 +34,7 @@ test('public current-service identity materialization validates exact producer b
       await tx.unsafe(
         await Bun.file(
           new URL(
-            '../migrations/20261106023226_stripe_cleanup_failure_classification/migration.sql',
+            './fixtures/billing-private-113/20261106023226_stripe_cleanup_failure_classification.sql',
             import.meta.url,
           ),
         ).text(),

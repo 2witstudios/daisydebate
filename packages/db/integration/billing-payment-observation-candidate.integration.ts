@@ -7,7 +7,7 @@ import { exerciseObservedMoney } from './billing-payment-observation-money.test-
 requireTestServices(process.env);
 setupRitewayBun();
 const candidate = new URL(
-  '../migrations/20261106000213_billing_payment_observations/migration.sql',
+  './fixtures/billing-private-113/20261106000213_billing_payment_observations.sql',
   import.meta.url,
 );
 
