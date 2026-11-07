@@ -2,13 +2,13 @@ import { createHash } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { captureObservationOutput } from '../src/features/billing/capture-observation-output.test-support';
 import { observeCaptureIntervals } from '../src/features/billing/capture-observation.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { observeAc3Downloads } from './economics-download-observation.test-support';
 import {
   captureHarness,
   captureWebPool,
-  makeCaptureRoot,
   prepareCaptureRoom,
 } from './billing-capture-observation.test-support';
 
@@ -16,7 +16,10 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 test('actual casual capture volume, verified output and independent transport overlap remain separate bounded TEST observations', async () => {
-  const root = await makeCaptureRoot(),
+  const output = await captureObservationOutput(
+      process.env.BILLING_CAPTURE_OUTPUT,
+    ),
+    root = output.directory,
     { pool, roles } = captureWebPool(databaseUrl);
   try {
     await withRoomRuntime(
@@ -197,5 +200,6 @@ test('actual casual capture volume, verified output and independent transport ov
     );
   } finally {
     await pool.close({ timeout: 0 });
+    await output.close();
   }
 }, 90_000);
