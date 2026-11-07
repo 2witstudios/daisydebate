@@ -6,6 +6,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { ROOM_SETUP_HREF, roomMeta, roomStatus } from './room-labels';
+import { CloseRoom } from './close-room';
 import { RoomInvite } from './room-invite';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import { ROOM_SETUP_HOME, ROOM_TITLE } from './room-setup-modal';
@@ -60,41 +61,6 @@ export function RoomResolution({
         </span>
       </p>
     </section>
-  );
-}
-
-/** The host closes the room for everyone, behind a native confirm. */
-function CloseRoom({
-  view,
-  commandId,
-  action,
-}: {
-  readonly view: Pick<RoomView, 'version'>;
-  readonly commandId: string;
-  readonly action: FormAction<RoomFormState>;
-}) {
-  return (
-    <details className="relative">
-      <summary className={`${buttonClass('secondary')} list-none`}>
-        Close room
-      </summary>
-      <div className="absolute top-full right-0 z-30 mt-2 flex w-room-dialog max-w-full flex-col gap-3 rounded-lg border border-border-strong bg-surface p-4 shadow-3">
-        <p className="text-sm">
-          Close this room for everyone? Nobody can join or start a round in it
-          again.
-        </p>
-        <AssemblyCommandForm action={action}>
-          <AssemblyCommandFields
-            type="close"
-            version={view.version}
-            commandId={commandId}
-          />
-          <button type="submit" className={buttonClass('primary')}>
-            Close room for everyone
-          </button>
-        </AssemblyCommandForm>
-      </div>
-    </details>
   );
 }
 
@@ -166,7 +132,7 @@ export function AssemblyHeader({
           {view.capabilities.host &&
           (view.status === 'assembling' || view.status === 'ready') ? (
             <CloseRoom
-              view={view}
+              version={view.version}
               commandId={commandIds.close}
               action={commandAction}
             />
