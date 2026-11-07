@@ -44,9 +44,18 @@ saved response without another paid call, and stale claimants remain refused.
 The former attendance grace does not expire a held response. Explicit final
 Round authority and the separate privacy/retention rules still apply.
 
-Discovery orders by the due service turn and stable identifiers; a claim records
-its turn so an repeatedly reclaimed job moves behind older due work. The service
-and Round-locked store admit at most one running judging operation per Round.
+Discovery samples eligibility once, excludes a Round with any live judging claim,
+prefers a validated reply within each Round, and selects one eligible judge per
+Round before applying the bounded page limit. The service still visits later
+cached replies when paid provider capacity is unavailable.
+
+`last_claimed_at` records the actual post-lock PostgreSQL claim instant in the
+claim transaction. The Round's turn is the latest actual claim across all its
+members, including finished members. A never-claimed Round uses its original job
+creation instant as an ordering fallback; that is not an invented historical
+claim timestamp. Retry time controls eligibility only, so new arrivals cannot
+gain permanent priority over already-served due recovery. The service and
+Round-locked store admit at most one running judging operation per Round.
 The growing-backlog and fleet fairness proofs remain required; a pending row or
 these source rules alone do not prove liveness.
 

@@ -117,7 +117,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
           const freeCapacity = target.holdsBallot
             ? () => {}
             : input.reserveCapacity();
-          if (!freeCapacity) break;
+          // A later held reply needs no provider slot; still visit it.
+          if (!freeCapacity) continue;
           try {
             const claim = await input.store.claimRoundJudgingJob(target);
             if (stopped) {

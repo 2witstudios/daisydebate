@@ -103,7 +103,8 @@ export async function claimLockedJudgingJob(
       executionTokenDigest: agentLeaseDigest(token),
     },
   });
-  const leaseExpiresAt = new Date(now.getTime() + input.leaseMs);
+  const claimedAt = await roundAgentNow(tx);
+  const leaseExpiresAt = new Date(claimedAt.getTime() + input.leaseMs);
   await tx
     .update(roundJudgingJobs)
     .set({
@@ -111,13 +112,13 @@ export async function claimLockedJudgingJob(
       status: 'leased',
       attempts: epoch,
       model,
-      // Retain this service turn for due-work ordering after a crash/takeover.
-      retryAt: now,
+      retryAt: null,
+      lastClaimedAt: claimedAt,
       recoveryReason: null,
       ...(job.status === 'recovering' && !job.pendingBallot
         ? {
             generationDeadlineAt: new Date(
-              now.getTime() + judgingPolicy.aiBudgetMs,
+              claimedAt.getTime() + judgingPolicy.aiBudgetMs,
             ),
             generationFirstEpoch: epoch,
           }

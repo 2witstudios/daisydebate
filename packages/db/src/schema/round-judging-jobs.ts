@@ -64,6 +64,8 @@ export const roundJudgingJobs = pgTable(
     model: text('model'),
     /** The job is not claimable before this; set by a retryable attempt failure. */
     retryAt: timestampColumn('retry_at'),
+    /** An actual service turn, retained even after this panel member finishes. */
+    lastClaimedAt: timestampColumn('last_claimed_at'),
     /** Safe recovery cause; unlike a terminal reason, this does not end the obligation. */
     recoveryReason: text('recovery_reason').$type<JudgingRecoveryReason>(),
     terminalReason: text('terminal_reason').$type<JudgingTerminalReason>(),

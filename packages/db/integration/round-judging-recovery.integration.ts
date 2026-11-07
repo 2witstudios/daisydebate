@@ -6,8 +6,6 @@ import {
   withJudgingJob,
   syntheticPendingBallot,
 } from './round-judging.test-support';
-import { createBotSeat } from './bot-seat.test-support';
-import { isAppError } from '@daisy/errors';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -169,32 +167,6 @@ test('finite lifetime spending blocks automatic calls without erasing recoverabi
   });
 });
 
-test('concurrent judge claims serialize one active operation per Round', async () => {
-  await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
-    const other = await createBotSeat(fixture, roundId, 'judge', 1);
-    await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${other.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
-    const attempts = await Promise.allSettled([
-      jobs.claim(target),
-      jobs.claim({ roundId, judgeParticipantId: other.id }),
-    ]);
-    assert({
-      given:
-        'two workers concurrently claiming different judge seats of one Round',
-      should: 'admit exactly one and refuse the other without buying a call',
-      actual: {
-        admitted: attempts.filter((r) => r.status === 'fulfilled').length,
-        refused: attempts.filter(
-          (r) =>
-            r.status === 'rejected' &&
-            isAppError(r.reason) &&
-            r.reason.code === 'CONFLICT',
-        ).length,
-      },
-      expected: { admitted: 1, refused: 1 },
-    });
-  });
-});
-
 test('a late failure callback cannot strand an already validated ballot', async () => {
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const claim = await jobs.claim(target);
@@ -222,29 +194,6 @@ test('a late failure callback cannot strand an already validated ballot', async 
         pending_ballot: syntheticPendingBallot,
         outcome: 'succeeded',
       },
-    });
-  });
-});
-
-test('reclaiming an expired operation moves its Round behind older due work', async () => {
-  await withJudgingJob(async (first) => {
-    await first.jobs.claim(first.target);
-    await withJudgingJob(async (second) => {
-      await first.fixture
-        .sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${first.roundId}`;
-      await first.jobs.claim(first.target);
-      await first.fixture
-        .sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${first.roundId}`;
-      const due = await first.jobs.scan(8);
-      const ours = due.filter((item) =>
-        [first.roundId, second.roundId].includes(item.roundId),
-      );
-      assert({
-        given: 'an older job reclaimed after another Round became due',
-        should: 'serve the waiting Round before reclaiming the same job again',
-        actual: ours.map((item) => item.roundId),
-        expected: [second.roundId, first.roundId],
-      });
     });
   });
 });

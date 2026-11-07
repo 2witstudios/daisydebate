@@ -1,0 +1,1 @@
+ALTER TABLE "round_judging_jobs" ADD COLUMN "last_claimed_at" timestamp with time zone;

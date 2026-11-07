@@ -1,4 +1,4 @@
-import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   ballotSchema,
@@ -14,7 +14,7 @@ import {
   roundJudgingAttempts,
   roundJudgingJobs,
 } from './schema/round-judging-jobs';
-import { rounds } from './schema/rounds';
+import { discoverRoundJudgingJobs } from './round-judging-discovery';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
@@ -185,43 +185,8 @@ export function createRoundJudgingJobs(input: {
       return work(tx, { ...lease, round: context.round });
     });
   return {
-    scan: (limit: number) => {
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
-        throw createAppError('VALIDATION');
-      return input.run((tx) =>
-        tx
-          .select({
-            roundId: roundJudgingJobs.roundId,
-            judgeParticipantId: roundJudgingJobs.judgeParticipantId,
-            holdsBallot: sql<boolean>`${roundJudgingJobs.pendingBallot} is not null`,
-          })
-          .from(roundJudgingJobs)
-          .innerJoin(rounds, eq(rounds.id, roundJudgingJobs.roundId))
-          .where(
-            and(
-              eq(rounds.status, 'active'),
-              or(
-                and(
-                  sql`${roundJudgingJobs.status} in ('queued','recovering')`,
-                  sql`coalesce(${roundJudgingJobs.retryAt}<=clock_timestamp(),true)`,
-                ),
-                and(
-                  eq(roundJudgingJobs.status, 'leased'),
-                  sql`${roundJudgingJobs.leaseExpiresAt}<=clock_timestamp()`,
-                ),
-              ),
-            ),
-          )
-          // A reclaimed job moves behind older due work, including held replies.
-          .orderBy(
-            sql`coalesce(${roundJudgingJobs.retryAt},${roundJudgingJobs.createdAt})`,
-            asc(roundJudgingJobs.createdAt),
-            asc(roundJudgingJobs.roundId),
-            asc(roundJudgingJobs.judgeParticipantId),
-          )
-          .limit(limit),
-      );
-    },
+    scan: (limit: number) =>
+      input.run((tx) => discoverRoundJudgingJobs(tx, limit)),
     claim: (target: Pick<JudgingScope, 'roundId' | 'judgeParticipantId'>) =>
       input.run((tx) => claimLockedJudgingJob(tx, target, input)),
     submitResult: (
