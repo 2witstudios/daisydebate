@@ -37,6 +37,12 @@ the limiter. Otherwise the Redis limiter runs before the write transaction,
 never inside a database fence, and the transaction then repeats the receipt
 lookup before any write (MSG-2.2-arch1).
 
+An author’s exact removal retry can acknowledge the same content-free tombstone
+under the current removal capability, without another mutation or change version.
+Removal still scrubs all associated payload fingerprints. Send/edit receipt
+replays return current message state, so a later edit does not make a confirmed
+command unknown again in the embedded form.
+
 Message sequence orders creation. Change version orders content changes and
 reconnect reads. Both live on the channel stream (`messaging_channel_streams`),
 apart from the channel's authority row and its `authority_revision`. Every

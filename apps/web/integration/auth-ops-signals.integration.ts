@@ -265,11 +265,14 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.watch_history',
             'retention.spectator_chat',
             'retention.audience_reactions',
+            'retention.round_floor_receipts',
+            'retention.round_floor_messages',
+            'retention.round_floor_read_states',
             'retention.challenges',
             'retention.reports',
             'retention.moderation',
           ],
-          failuresByTarget: Array.from({ length: 26 }, () => 1),
+          failuresByTarget: Array.from({ length: 29 }, () => 1),
           lastSuccessDuringOutage: null,
           recoveredAfterOutage: true,
         },
@@ -278,7 +281,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
       dbProxy.resume();
       await edge.close();
     }
-    // Sixteen database targets, each failing only once its connection attempt
-    // through the paused proxy gives up (about 3 s apiece locally).
-  }, 90_000);
+    // Twenty-nine database targets each wait for a real connection timeout
+    // (about 3 s apiece), followed by metrics reads and a complete recovery sweep.
+  }, 120_000);
 });
