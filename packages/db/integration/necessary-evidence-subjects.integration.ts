@@ -71,7 +71,12 @@ test('raw evidence privacy does not invent a membership entitlement rule', async
 });
 
 /** Observe actual lock dependencies; elapsed waiting is never the assertion. */
-async function blockedBy(observer: SQL, blocker: number, count = 1) {
+async function blockedBy(
+  observer: SQL,
+  blocker: number,
+  count = 1,
+  target?: number,
+) {
   const until = performance.now() + 600;
   let pids: number[] = [];
   while (performance.now() < until) {
@@ -82,7 +87,8 @@ async function blockedBy(observer: SQL, blocker: number, count = 1) {
           where a.datname=current_database() and d.depth<8
       ) select distinct pid from dependencies where pid<>${blocker}`;
     pids = rows.map((row: { pid: number }) => row.pid);
-    if (pids.length >= count) return pids;
+    if (target === undefined ? pids.length >= count : pids.includes(target))
+      return pids;
     await Bun.sleep(5);
   }
   return pids;
@@ -133,10 +139,10 @@ test('two evidence readers precede account closure without lock upgrades or reve
         await tx`update users set deleted_at=clock_timestamp(),email_verified=false,version=version+1 where id in (select user_id from actors where id=${subject!.actor_id})`;
       });
       const closerPid = await closing.promise;
-      const dependencies = await Promise.all(
-        readerPids.map((pid) => blockedBy(observer, pid)),
-      );
-      const fenced = dependencies.some((pids) => pids.includes(closerPid));
+      // Other readers can already depend on the first reader. They are not evidence
+      // that this closer has reached its account fence: wait for the exact PID.
+      const dependencies = await blockedBy(observer, holderPid, 1, closerPid);
+      const fenced = dependencies.includes(closerPid);
       release.resolve();
       const outcomes = await Promise.all(writers);
       await closure;
