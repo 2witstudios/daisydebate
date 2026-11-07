@@ -20,7 +20,7 @@ import { readAllowanceLocked, type AiAllowanceOptions } from './usage-ledger';
  * A caller's own round analysis facts: the caller must hold a human debater
  * seat in the Round, or the Round is NOT_FOUND to them, spectators, judges
  * and hosts alike. The injected read decision runs before private report
- * facts are loaded. Every frozen participant's account shares its canonical
+ * facts are loaded. Every human participant's account shares its canonical
  * fence with erasure for the entire read, in the single canonical lock order.
  */
 export const roundAnalysisReads = ({
@@ -63,15 +63,16 @@ export const roundAnalysisReads = ({
           ['affirmative', 'negative'].includes(p.role),
       );
       if (!seat) throw createAppError('NOT_FOUND');
+      // The shared selector accepts user-backed actors, not accountless bot seats.
+      const humans = participants.filter((p) => p.userId !== null);
       const accounts = await readAuthorizationActors(
         tx,
-        participants.map((p) => p.actorId),
+        humans.map((p) => p.actorId),
         { maxActors: MAX_FORMAT_SEATS },
       );
       if (
-        participants.some(
-          (p, index) =>
-            p.userId !== null && (!accounts[index] || accounts[index]!.erased),
+        humans.some(
+          (_participant, index) => !accounts[index] || accounts[index]!.erased,
         )
       )
         throw createAppError('NOT_FOUND');
