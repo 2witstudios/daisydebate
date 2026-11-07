@@ -1,1 +1,0 @@
-ALTER TABLE "privacy_jobs" DROP CONSTRAINT "privacy_jobs_vendor_valid", ADD CONSTRAINT "privacy_jobs_vendor_valid" CHECK ("vendor" in ('sentry', 'posthog', 'beehiiv', 'resend', 'object-storage', 'messaging-typing', 'stripe'));
