@@ -1,5 +1,5 @@
 import { SQL } from 'bun';
-import { mkdir, readdir } from 'node:fs/promises';
+import { mkdir, readdir, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { slotDatabaseOfRun } from '@daisy/db/test-runs';
@@ -112,6 +112,23 @@ function localPorts(
     now: () => new Date().toISOString(),
   };
 }
+/** The local hold really becomes empty; original source bytes remain archived for evidence. */
+async function archiveDiscard(root: string, prefix: string) {
+  if (!/^recording-hold\/[a-z0-9]{24}\/$/.test(prefix))
+    throw Error('Foreign hold namespace');
+  const from = join(root, 'hold', prefix),
+    target = join(root, 'retained-hold', prefix);
+  const files = await localFiles
+    .list(from)
+    .catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+  if (!files) return 0;
+  await mkdir(dirname(target.slice(0, -1)), { recursive: true });
+  await rename(from, target);
+  return files.size;
+}
 async function processJob(
   input: Extract<z.infer<typeof request>, { action: 'build' }>,
   url: URL,
@@ -126,17 +143,32 @@ async function processJob(
     failures: string[] = [];
   let built = false,
     output: unknown = null;
+  const stages: string[] = [];
+  let buildError: unknown = null;
   try {
     await runWorker({
       owner: input.owner,
-      store,
+      store: {
+        ...store,
+        claim: async (input) => {
+          const job = await store.claim(input);
+          if (job) stages.push('claim_' + job.status);
+          return job;
+        },
+      },
       build: async (job, run) => {
         if (job.recordingId !== input.recordingId)
           throw Error('Foreign recording job');
         const value = await buildRecording(
           localPorts(input.root, run.workDir, run.signal, run.progress),
           job,
-        );
+        ).catch((error) => {
+          buildError =
+            error instanceof Error
+              ? { name: error.name, message: error.message }
+              : { name: 'unknown' };
+          throw error;
+        });
         output =
           value.status === 'built'
             ? {
@@ -148,9 +180,7 @@ async function processJob(
         built = true;
         return value;
       },
-      discardPage: async () => {
-        throw Error('No discard in build qualification');
-      },
+      discardPage: (prefix) => archiveDiscard(input.root, prefix),
       strip: async () => {
         throw Error('No strip in build qualification');
       },
@@ -168,8 +198,17 @@ async function processJob(
       },
     });
     if (failures.length) throw Error('Actual worker reported a failure');
-    return { action: 'build', role: role.role, output };
+    return { action: 'build', role: role.role, output, stages };
   } finally {
+    await writeFile(
+      join(input.root, 'worker-' + input.recordingId + '.json'),
+      JSON.stringify(
+        { role: role.role, stages, output, failures, buildError },
+        null,
+        2,
+      ),
+      { mode: 0o600 },
+    );
     await store.close();
   }
 }
