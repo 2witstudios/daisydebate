@@ -114,6 +114,8 @@ export const transcriptionRecoverySources = pgTable(
       .references(() => transcriptionRecoveryContexts.id, {
         onDelete: 'cascade',
       }),
+    // Actual metadata enrollment only; historical NULL is never invented service history.
+    enrolledAt: timestampColumn('enrolled_at'),
     sourceKey: text('source_key').notNull(),
     startOffsetMs: integer('start_offset_ms').notNull(),
     durationMs: integer('duration_ms').notNull(),

@@ -10,6 +10,8 @@ import { current } from './current';
 import { begin } from './begin';
 import { retry } from './retry';
 import { candidate } from './candidate';
+import { missing } from './missing';
+import { enroll } from './enroll';
 
 /** Existing competitive transaction/pool only. Every candidate gets a fresh account-before-Round transaction. */
 export function create(
@@ -33,6 +35,13 @@ export function create(
     return result.data;
   };
   return {
+    missing() {
+      return run((tx) => missing(tx));
+    },
+    enroll(raw: unknown) {
+      const input = parsed(z.strictObject({ body: z.unknown() }), raw);
+      return run((tx) => enroll(tx, input.body));
+    },
     async claim(raw: unknown) {
       const worker = parsed(workerInput, raw),
         targets = await run((tx) => discover(tx, options));

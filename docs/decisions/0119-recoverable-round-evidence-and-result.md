@@ -855,3 +855,31 @@ Production composition remains absent. Supported automatic progress will require
 available resources and remaining finite funding within the original evidence
 lifetime, separately measured against the fault matrix; manual replenishment or
 a parked pending row is not automatic eventual progress.
+
+### Enrollment after a supported selective restore
+
+A retained authentic original payload may outlive missing transcription-recovery
+metadata in a supported older PG snapshot. Private missing-source discovery pages
+one eligible unit per distinct Round before its eight-Round bound. Metadata
+acceptance has its own actual post-lock enrolledAt timestamp; historical NULLs
+remain unknown, with original creation as a comparable fallback. The maximum
+enrollment time over all source members, including settled ones, supplies the
+Round turn. Keep that service history while the Round remains active; metadata
+minimization cannot silently reset its fair turn. This timestamp is neither a new
+PCM receipt nor a changed original expiry.
+
+The application first restores/authenticates original stored bytes against the
+current independent custody authority. Explicit enrollment then validates the
+same canonical full original binding/history under original account→Round→intent
+fences, checks retained payload presence and original expiry using post-wait DB
+time, and inserts source metadata once. It does not load ciphertext in the
+metadata-only query, acquire a new key, borrow successor capture authorization,
+rewrite receipt/admission times, create words, or reopen a frozen frontier.
+Current withdrawal/subject erasure denies even an already-held original body.
+Concurrent duplicate enrollment serializes under the same Round and does not
+restart its recorded service turn. Missing metadata is not evidence of current
+privacy authority; all-authority rollback remains unsupported REL-H.
+
+The methods alone do not schedule every supported restore automatically. Local
+poller/provider integration and independent privacy-lineage reconciliation are
+still required, along with qualified recognition and the genuine played result.

@@ -10,6 +10,7 @@ import {
   transcriptionRecoverySources as sources,
 } from '../schema/transcription-recovery';
 import { contextBoundary } from './context';
+import { sampleRoundExecutionTime } from '../round-execution-time';
 
 /** The caller owns the original subjects→Round→evidence fence and validated canonical body. */
 export async function register(
@@ -101,7 +102,10 @@ export async function register(
       lastSourceAt: admittedAt,
     });
   }
-  await tx
-    .insert(sources)
-    .values({ evidenceId: body.evidenceId, contextId, ...unit });
+  await tx.insert(sources).values({
+    evidenceId: body.evidenceId,
+    contextId,
+    ...unit,
+    enrolledAt: new Date(await sampleRoundExecutionTime(tx)),
+  });
 }
