@@ -1,0 +1,5 @@
+DROP INDEX "messaging_channels_round_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "messaging_channels_round_kind_unique" ON "messaging_channels" ("round_id","kind");--> statement-breakpoint
+ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_kind", ADD CONSTRAINT "messaging_channels_kind" CHECK ("kind" in ('dm', 'private_group', 'round_floor', 'round_spectator'));--> statement-breakpoint
+ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_round", ADD CONSTRAINT "messaging_channels_round" CHECK (("kind" in ('round_floor', 'round_spectator')) = ("round_id" is not null));--> statement-breakpoint
+ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_policy", ADD CONSTRAINT "messaging_channels_policy" CHECK ("policy_revision" > 0 and (("kind" = 'dm' and "policy_key" = 'social.dm') or ("kind" = 'private_group' and "policy_key" = 'social.private_group') or ("kind" = 'round_floor' and "policy_key" = 'round.floor') or ("kind" = 'round_spectator' and "policy_key" = 'round.spectator')));

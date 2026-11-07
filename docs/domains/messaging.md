@@ -5,6 +5,13 @@ social adapter supports DM pairs and private-group grants. Actor preferences,
 following and read cursors do not grant access. Other contextual channel kinds
 require their owning producers before admission.
 
+Round floor storage uses kind `round_floor` and policy `round.floor`, separate
+from `round_spectator` / `round.spectator`. A unique `(round_id, kind)` pair
+permits one of each per Round; social kinds have no Round association. Social
+authority readers explicitly accept only DM and private-group kinds. Storage
+support alone grants no floor access: the Round authority producer, permission
+policy and delivery composition must be present before floor posting is enabled.
+
 `@daisy/db/messaging` supplies a transaction frame over the application's existing
 pool. It discovers authority identities, locks current users in sorted order,
 then locks the canonical DM pair and channel. Membership is reread after waits;

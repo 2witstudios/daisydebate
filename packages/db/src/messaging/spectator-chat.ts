@@ -68,7 +68,7 @@ const openChannel = async (tx: Tx, roundId: string, channelId: string) => {
     tx,
     sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,round_id)
       values(${channelId},'round_spectator','round.spectator',1,'active',${roundId})
-      on conflict (round_id) do nothing returning id`,
+      on conflict (round_id,kind) do nothing returning id`,
   );
   if (created[0]) {
     await openStream(tx, channelId);
