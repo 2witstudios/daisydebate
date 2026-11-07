@@ -252,3 +252,34 @@ A scrubbed SDK capture, HTTP acceptance or event ID alone does not prove operato
 notification. Keep destination capabilities/URLs private. The economics report's
 financial details must not be attached. Actual measured-margin and actual operator
 receipt acceptance remain separate open requirements; neither is BILL-H activation.
+
+## Criterion-specific TEST qualification
+
+BILL-17-r1 AC1 permits billed **or estimated** usage. The qualification scenario
+uses explicitly hypothetical TEST rates and disjoint expense assumptions, with
+effective/observation dates, an original-October refund recognized in November,
+shared allocation, storage and free subsidy. Its private input, assumptions and
+report remain together. Estimated money stays estimated even below the floor;
+absent beta/free revenue and capture/download capacity remain unknown. This
+exercises the implementation, not a claim about supplier prices or real usage.
+
+AC2's installed-SDK proof uses the existing collector, mode0700/0600 file sink,
+reporter mapping and Sentry initialization. The SDK's own serializer delivers to
+an in-memory request executor with a dummy local TEST DSN. Client transport
+identity is checked before capture; no network transport is used.
+The private receipt retains exact wire bodies, save-before-capture/transport
+observations, strict-boundary and missing-floor/measurement controls. Every
+envelope item, including sessions, is checked for participant identifiers and
+financial fields. `alertDelivery` still says `unconfirmed`: this is local TEST
+transport handoff, never an operator notification or production rule match.
+
+The proof models the actual aggregate-only worker context. An initial test
+instead called Sentry's personal `setUser` API, which put its explicitly supplied
+email/IP into a separate SDK session despite scrubbing the Billing exception.
+That failed setup is retained; production web/observability code has no such
+call. This qualification does not establish that arbitrary personal SDK scope
+state is safe. No production SDK/reporter behavior is changed by these tests.
+
+AC3 requires separately observed feature workload and concurrent high-water.
+Neither hypothetical financial inputs nor the earlier1000-volume/1-capacity
+fixture establish that measurement. Unobserved feature capacity stays unknown.
