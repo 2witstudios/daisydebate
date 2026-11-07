@@ -1,4 +1,4 @@
-import type { Page, Response, TestInfo } from '@playwright/test';
+import type { JSHandle, Page, Response, TestInfo } from '@playwright/test';
 import type { watchConversationRecovery } from './messaging-recovery-evidence';
 import { committedRefusalState } from './messaging-committed-refusal';
 
@@ -7,6 +7,7 @@ type RecoveryPhase = {
     'unrelated-render-held' | 'after-held-predicate' | 'after-home-predicate';
   readonly response: Response | null;
   readonly previous: string | null;
+  readonly previousOwner?: JSHandle<ReturnType<typeof committedRefusalState>>;
   readonly timing?: {
     readonly step: ReturnType<
       ReturnType<typeof watchConversationRecovery>['eventStep']
@@ -17,6 +18,40 @@ type RecoveryPhase = {
 
 const sameObservedId = (left: string | null, right: string | null) =>
   left === null || right === null ? null : left === right;
+
+/** A private handle is never serialized; callers dispose it within the same journey. */
+export const captureRecoveryOwner = (page: Page) =>
+  page
+    .getByText(
+      /^(This conversation could not load\.|This conversation is still unavailable\. Try again\.)$/,
+    )
+    .evaluateHandle(committedRefusalState, 'private-owner' as const, {
+      timeout: 1000,
+    });
+
+async function compareRecoveryOwner(
+  page: Page,
+  previous: NonNullable<RecoveryPhase['previousOwner']>,
+) {
+  const current = await captureRecoveryOwner(page);
+  try {
+    return await current.evaluate((now, before) => {
+      const left = before.privateOwner;
+      const right = now.privateOwner;
+      if (!left || !right) return { comparable: false };
+      return {
+        comparable: true,
+        sameRouter: left.router === right.router,
+        sameRefresh: left.refresh === right.refresh,
+        sameRecovery: left.recovery === right.recovery,
+        sameOwnerRef: left.ownerRef === right.ownerRef,
+        sameStartTransition: left.startTransition === right.startTransition,
+      };
+    }, previous);
+  } finally {
+    await current.dispose();
+  }
+}
 
 /** One observational DOM read, no wait/retry or protected request. Identifiers stay private. */
 export async function recordRecoveryPhase(
@@ -44,6 +79,9 @@ export async function recordRecoveryPhase(
         sameAsSelectedHttpId: sameObservedId(id, selectedId),
         readiness: current?.diagnostic ?? null,
       },
+      lifetime: input.previousOwner
+        ? await compareRecoveryOwner(page, input.previousOwner)
+        : null,
       requests: observer.snapshot(),
       consumer:
         input.response === null ? null : observer.consumer(input.response),

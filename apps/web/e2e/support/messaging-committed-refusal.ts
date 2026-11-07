@@ -1,10 +1,10 @@
 /** Inspect only the mounted current tree; absence is a readiness precondition. */
 export function committedRefusalState(
   element: object,
-  requireSettlement = false,
+  requireSettlement: boolean | 'private-owner' = false,
 ) {
   const diagnostic = {
-    settlementRequested: requireSettlement,
+    settlementRequested: requireSettlement !== false,
     attachedFiber: false,
     currentRoot: false,
     currentNode: false,
@@ -46,9 +46,17 @@ export function committedRefusalState(
     | 'transition-not-settled'
     | 'current-owner'
     | 'settled';
+  let privateOwner: {
+    readonly router: object;
+    readonly refresh: unknown;
+    readonly recovery: unknown;
+    readonly ownerRef: unknown;
+    readonly startTransition: unknown;
+  } | null = null;
   const result = (requestId: string | null, reason: Reason) => ({
     requestId,
     diagnostic: { ...diagnostic, reason },
+    ...(requireSettlement === 'private-owner' ? { privateOwner } : {}),
   });
   type Hook = {
     readonly memoizedState?: unknown;
@@ -108,6 +116,15 @@ export function committedRefusalState(
       typeof owner?.current?.stop === 'function' &&
       typeof owner.current.refused === 'function';
     if (!diagnostic.ownerRefMounted) return 'owner-ref-unmounted';
+    if (requireSettlement === 'private-owner') {
+      privateOwner = {
+        router,
+        refresh: contextual.refresh,
+        recovery: owner!.current,
+        ownerRef: owner,
+        startTransition: start!.memoizedState,
+      };
+    }
     const state = transition!.memoizedState;
     if (state === false) diagnostic.transitionCategory = 'false';
     else if (state === true) diagnostic.transitionCategory = 'true';
