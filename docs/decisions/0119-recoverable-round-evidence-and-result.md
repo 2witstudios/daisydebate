@@ -305,3 +305,29 @@ fences/adoption, custody compensation/retirement worker, replay/STT settlement a
 freeze coordination are STILL INCOMPLETE. Intent tests do not claim any of them.
 Admission limits are local candidate ceilings, not measured throughput/heap/WAL or
 backlog-fairness acceptance. No source row or timer authorizes an invented result.
+
+Admission separately counts ALL unconfirmed evidence obligations: acquiring,
+retained AND retiring, including detached routing after aggregate erasure. Only
+confirmed retirement can release that count. `maxOutstandingIntents` is an injected
+bounded count ceiling; releasing current PG payload bytes cannot create unlimited
+custody-cleanup debt. Byte ceilings describe live PostgreSQL payload reservations,
+not the whole physical footprint of pending key material, routing, WAL, backups or
+retired anti-resurrection metadata. Those need separate quantitative capacity and
+retention proof; the live-byte numbers are not an all-storage bound.
+
+The intent's stored binding is derived by the server from original Round/session/
+worker/capture epoch/seat/segment/track, offset/duration/bracket, declared full-body
+digest and reservation. Retrying an eligible changed window under the same opaque
+digest is refused. The input is named `bodyDigest`, distinct from the resulting
+original-authority binding used by custody. This independently binds the envelope;
+it does NOT verify PCM/provenance authenticity. Before any payload adoption the
+application MUST validate and canonically encode the full original body and derive
+that body digest itself; raw worker-supplied hashes cannot substitute for it.
+
+Current intent retry/takeover still requires the ORIGINAL live capture lease and
+admission cutoff. Its proof is NOT capture-worker/session/epoch replacement or
+late-cutoff recovery. A separate recovery claimant must consume already-committed
+original intent/evidence authority and advance execution ownership only. An intent
+remains neither audio receipt nor preserved/heard watermark. That claimant and
+payload authenticity/receipt, custody compensation and late-commit fences remain
+unimplemented at this checkpoint.

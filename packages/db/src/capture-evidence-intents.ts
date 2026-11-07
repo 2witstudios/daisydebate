@@ -1,7 +1,10 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { z } from 'zod';
-import type { captureEvidenceIntentSchema } from './capture-input';
+import {
+  captureDigest,
+  type captureEvidenceIntentSchema,
+} from './capture-input';
 import { captureHistory } from './capture-history';
 import { requireCapturedWindow } from './capture-rules';
 import { nextEpoch, requireLeaseMs } from './lease-policy';
@@ -34,11 +37,32 @@ const policyOf = (dependencies: CaptureDependencies) => {
     policy.maxRoundBytes > 32 * 1024 * 1024 ||
     !Number.isSafeInteger(policy.maxGlobalBytes) ||
     policy.maxGlobalBytes < policy.maxRoundBytes ||
-    policy.maxGlobalBytes > 512 * 1024 * 1024
+    policy.maxGlobalBytes > 512 * 1024 * 1024 ||
+    !Number.isSafeInteger(policy.maxOutstandingIntents) ||
+    policy.maxOutstandingIntents < 1 ||
+    policy.maxOutstandingIntents > 65536
   )
     throw createAppError('VALIDATION');
   return policy;
 };
+/** Binds server-validated original scope/window independently of the declared full-body digest. */
+const originalBinding = (input: Intent) =>
+  captureDigest([
+    'necessary-evidence@1',
+    input.roundId,
+    input.sessionId,
+    input.segmentId,
+    input.roundParticipantId,
+    input.workerId,
+    input.epoch,
+    input.trackId,
+    input.startOffsetMs,
+    input.durationMs,
+    input.before,
+    input.after,
+    input.bodyDigest,
+    input.reservedBytes,
+  ]);
 const sameOriginal = (
   row: typeof necessaryEvidence.$inferSelect,
   input: Intent,
@@ -49,7 +73,7 @@ const sameOriginal = (
   row.roundParticipantId === input.roundParticipantId &&
   row.workerId === input.workerId &&
   row.captureEpoch === input.epoch &&
-  row.bindingDigest === input.bindingDigest &&
+  row.bindingDigest === originalBinding(input) &&
   row.reservedBytes === input.reservedBytes;
 
 /** Commits original authority and bounded crash discovery BEFORE custody has any side effect. */
@@ -91,20 +115,21 @@ export async function reserveCaptureEvidenceIntent(
       return {
         kind: 'pending' as const,
         evidenceId: input.evidenceId,
+        bindingDigest: existing.bindingDigest,
         retryAt: existing.leaseExpiresAt.toISOString(),
       };
   } else {
     const [capacity] = (await tx.execute(sql`select count(*)::integer as count,
       coalesce(sum(reserved_bytes),0)::integer as total,
       coalesce(sum(case when round_id=${input.roundId} then reserved_bytes else 0 end),0)::integer as round
-      from necessary_evidence where state in ('acquiring','retained')`)) as unknown as {
+      from necessary_evidence where state in ('acquiring','retained','retiring')`)) as unknown as {
       count: number;
       total: number;
       round: number;
     }[];
     if (
       !capacity ||
-      capacity.count >= 65536 ||
+      capacity.count >= policy.maxOutstandingIntents ||
       capacity.total + input.reservedBytes > policy.maxGlobalBytes ||
       capacity.round + input.reservedBytes > policy.maxRoundBytes
     )
@@ -153,7 +178,7 @@ export async function reserveCaptureEvidenceIntent(
       roundParticipantId: input.roundParticipantId,
       workerId: input.workerId,
       captureEpoch: input.epoch,
-      bindingDigest: input.bindingDigest,
+      bindingDigest: originalBinding(input),
       reservedBytes: input.reservedBytes,
       createdAt: admittedAt,
       ...claim,
@@ -161,6 +186,7 @@ export async function reserveCaptureEvidenceIntent(
   return {
     kind: 'claimed' as const,
     evidenceId: input.evidenceId,
+    bindingDigest: originalBinding(input),
     executionEpoch: epoch,
     token,
     leaseExpiresAt: leaseExpiresAt.toISOString(),

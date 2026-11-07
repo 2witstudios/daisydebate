@@ -62,7 +62,7 @@ export const captureEvidenceIntentSchema = captureClipSchema
   .omit({ text: true })
   .safeExtend({
     evidenceId: idSchema,
-    bindingDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    bodyDigest: z.string().regex(/^[a-f0-9]{64}$/),
     reservedBytes: z.number().int().min(1).max(65536),
     durationMs: z.number().int().min(1).max(400),
   });

@@ -39,6 +39,7 @@ export type CaptureDependencies = {
     readonly nextToken: () => string;
     readonly maxRoundBytes: number;
     readonly maxGlobalBytes: number;
+    readonly maxOutstandingIntents: number;
   };
   readonly transaction: BoundedTransaction;
   /** Injected policy: how long after a session closes earlier audio may still arrive (CAP-E.1-r8). */

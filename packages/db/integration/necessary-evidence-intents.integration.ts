@@ -1,124 +1,13 @@
 import { requireTestServices } from '@daisy/config';
-import { captureRule } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
-import { randomBytes } from 'node:crypto';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   withBoundedRound,
   loseTransactionCommitReply,
 } from './bounded-transaction.test-support';
-import { historicalCapture } from './media-capture.test-support';
-import { mediaCaptureOperations } from '../src/media-capture';
+import { configuredCapture } from './necessary-evidence.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-type TestContext = Parameters<Parameters<typeof withBoundedRound>[0]>;
-async function configuredCapture(
-  f: TestContext[0],
-  transaction: TestContext[1],
-  roundId: string,
-  maxGlobalBytes = 2048,
-) {
-  const original = await historicalCapture(f, transaction, roundId);
-  await original.store.claimMediaWorkerLease({
-    ...original.lease,
-    leaseMs: 15000,
-  });
-  const store = mediaCaptureOperations({
-    transaction,
-    captureRule,
-    sttLagMs: 60000,
-    nextId: createId,
-    buildProjection: () => {
-      throw new Error('Historical fixture cannot invent play');
-    },
-    evidence: {
-      leaseMs: 1000,
-      nextToken: () => randomBytes(32).toString('base64url'),
-      maxRoundBytes: 1024,
-      maxGlobalBytes,
-    },
-  });
-  const { trackId, startOffsetMs, durationMs, before, after } = original.clip;
-  const window = {
-    ...original.stream,
-    trackId,
-    startOffsetMs,
-    durationMs,
-    before,
-    after,
-  };
-  return { store, window, original };
-}
-test('capture commits discoverable bounded intent before any custody acquisition', async () => {
-  await withBoundedRound(async (f, transaction, roundId) => {
-    const { store, window } = await configuredCapture(f, transaction, roundId);
-    const evidenceId = createId();
-    const overflowId = createId();
-    try {
-      const intent = await store.reserveCaptureEvidence({
-        ...window,
-        evidenceId,
-        bindingDigest: 'b'.repeat(64),
-        reservedBytes: 600,
-      });
-      const [row] =
-        await f.sql`select id,state,reserved_bytes,ciphertext is null as no_payload,execution_epoch from necessary_evidence where id=${evidenceId}`;
-      assert({
-        given:
-          'authorized original capture, before the first custody side effect',
-        should:
-          'durably reserve one discoverable intent without claiming payload durability',
-        actual: { kind: intent.kind, row },
-        expected: {
-          kind: 'claimed',
-          row: {
-            id: evidenceId,
-            state: 'acquiring',
-            reserved_bytes: 600,
-            no_payload: true,
-            execution_epoch: 1,
-          },
-        },
-      });
-      const refused = await store
-        .reserveCaptureEvidence({
-          ...window,
-          evidenceId: overflowId,
-          bindingDigest: 'c'.repeat(64),
-          reservedBytes: 600,
-        })
-        .then(
-          () => 'accepted',
-          (error: { code: string }) => error.code,
-        );
-      assert({
-        given:
-          'another unit that would exceed the serialized per-Round reservation',
-        should: 'refuse before any custody call or unbounded pending work',
-        actual: refused,
-        expected: 'RATE_LIMIT',
-      });
-      await f.sql`delete from rounds where id=${roundId}`;
-      const [routing] =
-        await f.sql`select round_id,state,retirement_reason,reserved_bytes from necessary_evidence where id=${evidenceId}`;
-      assert({
-        given: 'aggregate erasure before acquisition finishes',
-        should:
-          'retain durable revocation routing while releasing reservation and fencing work',
-        actual: routing,
-        expected: {
-          round_id: null,
-          state: 'retiring',
-          retirement_reason: 'erased',
-          reserved_bytes: 0,
-        },
-      });
-    } finally {
-      await f.sql`delete from necessary_evidence where id in (${evidenceId},${overflowId})`;
-    }
-  });
-});
-
 test('lost intent commit acknowledgements and retries retain one original reservation', async () => {
   await withBoundedRound(async (f, transaction, roundId, client) => {
     const { store, window } = await configuredCapture(f, transaction, roundId);
@@ -126,7 +15,7 @@ test('lost intent commit acknowledgements and retries retain one original reserv
     const body = {
       ...window,
       evidenceId,
-      bindingDigest: 'b'.repeat(64),
+      bodyDigest: 'b'.repeat(64),
       reservedBytes: 600,
     };
     const restore = loseTransactionCommitReply(client, 2);
@@ -138,7 +27,7 @@ test('lost intent commit acknowledgements and retries retain one original reserv
       restore();
       const retried = await store.reserveCaptureEvidence(body);
       const conflict = await store
-        .reserveCaptureEvidence({ ...body, bindingDigest: 'c'.repeat(64) })
+        .reserveCaptureEvidence({ ...body, bodyDigest: 'c'.repeat(64) })
         .then(
           () => 'accepted',
           (error: { code: string }) => error.code,
@@ -179,43 +68,49 @@ test('lost intent commit acknowledgements and retries retain one original reserv
     }
   });
 });
-test('concurrent Rounds cannot overbook the evidence-owned global reservation', async () => {
-  await withBoundedRound(async (f, transaction, firstRound) => {
-    const secondRound = await f.round();
-    const first = await configuredCapture(f, transaction, firstRound, 1024);
-    const second = await configuredCapture(f, transaction, secondRound, 1024);
-    const ids = [createId(), createId()];
+test('an opaque body digest cannot hide altered original capture window metadata', async () => {
+  await withBoundedRound(async (f, transaction, roundId) => {
+    const { store, window } = await configuredCapture(f, transaction, roundId);
+    const evidenceId = createId();
+    const original = {
+      ...window,
+      evidenceId,
+      bodyDigest: 'b'.repeat(64),
+      reservedBytes: 600,
+    };
     try {
-      const admissions = await Promise.all(
-        [first, second].map((capture, index) =>
-          capture.store
-            .reserveCaptureEvidence({
-              ...capture.window,
-              evidenceId: ids[index],
-              bindingDigest: 'b'.repeat(64),
-              reservedBytes: 600,
-            })
-            .then(
-              (result) => result.kind,
-              (error: { code: string }) => error.code,
-            ),
-        ),
-      );
-      const [row] =
-        await f.sql`select count(*)::int as count,sum(reserved_bytes)::int as bytes from necessary_evidence where id in (${ids[0]},${ids[1]})`;
+      await store.reserveCaptureEvidence(original);
+      const shifted = {
+        startOffsetMs: window.startOffsetMs + 10,
+        before: new Date(Date.parse(window.before) + 10).toISOString(),
+        after: new Date(Date.parse(window.after) + 10).toISOString(),
+      };
+      const variants = [
+        { trackId: createId() },
+        shifted,
+        {
+          durationMs: 200,
+          after: new Date(Date.parse(window.after) + 100).toISOString(),
+        },
+      ];
+      const refused = [];
+      for (const change of variants)
+        refused.push(
+          await store.reserveCaptureEvidence({ ...original, ...change }).then(
+            () => 'accepted',
+            (error: { code: string }) => error.code,
+          ),
+        );
       assert({
         given:
-          'two independent Rounds concurrently reserving 600 bytes under a global 1024 byte limit',
-        should: 'commit exactly one intent and refuse the other before custody',
-        actual: { admissions: admissions.sort(), row },
-        expected: {
-          admissions: ['RATE_LIMIT', 'claimed'],
-          row: { count: 1, bytes: 600 },
-        },
+          'the same evidence ID and opaque digest but another track or independently eligible window/span',
+        should:
+          'refuse every changed original body envelope without creating new ownership',
+        actual: refused,
+        expected: ['CONFLICT', 'CONFLICT', 'CONFLICT'],
       });
     } finally {
-      await f.sql`delete from necessary_evidence where id in (${ids[0]},${ids[1]})`;
-      await f.sql`delete from rounds where id=${secondRound}`;
+      await f.sql`delete from necessary_evidence where id=${evidenceId}`;
     }
   });
 });
