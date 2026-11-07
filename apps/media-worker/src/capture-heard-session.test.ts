@@ -86,7 +86,12 @@ test('a stalled heard report cannot hold capture history, validation or sealing 
         await cancelWait(signal);
       },
       subscribe: async (setup) => {
-        setup.onTrackStarted?.({ identity: 'bot', trackId: 'track' });
+        setup.onTrackStarted?.({
+          identity: 'bot',
+          trackId: 'track',
+          generation: 1,
+          incarnation: 's'.repeat(24),
+        });
         return {
           closed: closed.promise,
           setIdentities: async () => {},

@@ -202,6 +202,12 @@ Public-root `.cts` and `.mts` compile controls cover Track and inherited aliases
 the require condition uses the canonical bundled Track declaration, rather than
 an unrelated shadow interface in `track.d.cts`.
 
+`@daisy/media` uses the existing pinned CUID2 foundation at runtime for a fresh
+subscription incarnation, with `init` supplied OS CSPRNG randomness. This is a
+non-bearer namespace for local stream generations and callback correlation,
+not capture authorization or a source/hearing proof. It must accompany original
+session/run provenance before any durable evidence consumer can rely on it.
+
 LiveKit server **1.13.7** runs only on loopback in the shared local stack. Its
 [version-matched configuration sample](https://github.com/livekit/livekit/blob/v1.13.7/config-sample.yaml)
 was read before adding the local service. It disables automatic room creation
