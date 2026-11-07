@@ -58,7 +58,7 @@ test('a judging job buys at most two model calls per window across lease expirie
         status: job.status,
         leased: job.lease_expires_at !== null,
         paid: paid.n,
-        discovered: (await jobs.scan(8)).length,
+        discovered: (await jobs.scan(8, 'generation')).length,
       },
       expected: {
         dispatched: [true, true, false],
@@ -124,7 +124,7 @@ test('the failed final permitted window call schedules recovery on that call', a
     );
     const [waiting] =
       await fixture.sql`select status,retry_at is not null as backing_off,lease_expires_at from round_judging_jobs where round_id=${roundId}`;
-    const hidden = await jobs.scan(8);
+    const hidden = await jobs.scan(8, 'generation');
     await fixture.sql`update round_judging_jobs set retry_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
     const second = await jobs.claim(target);
     await jobs.beginModelCall(second.scope, second.token);
@@ -156,7 +156,7 @@ test('the failed final permitted window call schedules recovery on that call', a
         leased: job.lease_expires_at !== null,
         epochs: job.attempts,
         ...counts,
-        discovered: (await jobs.scan(8)).length,
+        discovered: (await jobs.scan(8, 'generation')).length,
       },
       expected: {
         afterFirst: { kind: 'retry' },

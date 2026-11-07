@@ -28,7 +28,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
         given: 'no explicit Round worker policy',
         should: 'leave both worker discoveries inert',
         actual: [
-          await inert.scanRoundJudgingJobs(64),
+          await inert.scanRoundJudgingJobs(64, 'generation'),
           await inert.scanRoundBotWorkers(64),
         ],
         expected: [[], []],
@@ -101,7 +101,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
           nextToken: () => randomBytes(32).toString('base64url'),
         },
       });
-      const discovered = await store.scanRoundJudgingJobs(64);
+      const discovered = await store.scanRoundJudgingJobs(64, 'generation');
       const claim = await store.claimRoundJudgingJob({
         roundId,
         judgeParticipantId: seat.id,

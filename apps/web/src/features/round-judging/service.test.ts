@@ -65,7 +65,7 @@ test('judging renewal and discovery do not wait for a provider operation', async
     should:
       'renew its lease and keep discovery independent without a second claim',
     actual: [renewals, scans],
-    expected: [1, 2],
+    expected: [1, 4],
   });
   await service.stop();
   await finished.promise;

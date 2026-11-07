@@ -499,7 +499,11 @@ export {
   analyticsConsentSchema,
   type AnalyticsConsent,
 } from './analytics-consent';
-export { judgingPolicy } from './judging-policy';
+export {
+  judgingPolicy,
+  judgingWorkKinds,
+  type JudgingWorkKind,
+} from './judging-policy';
 export type {
   AiSeatStanding,
   HeldBallotFacts,

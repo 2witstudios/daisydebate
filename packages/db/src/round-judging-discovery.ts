@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { judgingWorkKinds, type JudgingWorkKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 
@@ -12,9 +13,12 @@ type DueJudge = {
 export async function discoverRoundJudgingJobs(
   tx: BoundedTransactionContext,
   limit: number,
+  workKind: JudgingWorkKind,
 ): Promise<readonly DueJudge[]> {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
     throw createAppError('VALIDATION');
+  if (!judgingWorkKinds.includes(workKind)) throw createAppError('VALIDATION');
+  const lane = sql`and holds_ballot=${workKind === 'submission'}`;
   return (await tx.execute(sql`
     with sampled as materialized (select clock_timestamp() as now),
     turns as (
@@ -43,7 +47,7 @@ export async function discoverRoundJudgingJobs(
     )
     select round_id as "roundId",judge_participant_id as "judgeParticipantId",
       holds_ballot as "holdsBallot"
-    from due where round_turn=1
+    from due where round_turn=1 ${lane}
     order by service_turn_at,round_id,created_at,judge_participant_id
     limit ${limit}
   `)) as unknown as readonly DueJudge[];

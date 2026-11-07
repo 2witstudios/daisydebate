@@ -29,6 +29,26 @@ export async function judgingSponsor(fixture: Fixture, roundId: string) {
   return actorId;
 }
 
+/** A synthetic durable judging intent, using the same real schema/account setup as worker proofs. */
+export async function seedJudgingIntent(
+  fixture: Fixture,
+  roundId: string,
+  completeness: 'complete' | 'incomplete' = 'complete',
+  beforeFreeze?: (
+    fixture: Fixture,
+    target: { roundId: string; judgeParticipantId: string },
+  ) => Promise<void>,
+) {
+  const seat = await createBotSeat(fixture, roundId, 'judge');
+  await judgingSponsor(fixture, roundId);
+  const target = { roundId, judgeParticipantId: seat.id };
+  await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
+  await beforeFreeze?.(fixture, target);
+  await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,${completeness})`;
+  await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+  return target;
+}
+
 /** An active Round with an AI judge seat, a frozen transcript, a queued judging job; the AI judge is free, so nothing is reserved (DEC-186). */
 export const withJudgingJob = (
   work: (value: {
@@ -44,13 +64,12 @@ export const withJudgingJob = (
   ) => Promise<void>,
 ) =>
   withBoundedRound(async (fixture, run, roundId) => {
-    const seat = await createBotSeat(fixture, roundId, 'judge');
-    await judgingSponsor(fixture, roundId);
-    const target = { roundId, judgeParticipantId: seat.id };
-    await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
-    await beforeFreeze?.(fixture, target);
-    await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,${completeness})`;
-    await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+    const target = await seedJudgingIntent(
+      fixture,
+      roundId,
+      completeness,
+      beforeFreeze,
+    );
     try {
       await work({
         fixture,

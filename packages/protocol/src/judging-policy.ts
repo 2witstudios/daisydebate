@@ -13,6 +13,10 @@ export const judgingPolicy = {
   maxAutomaticPaidCalls: 16,
   /** A spent generation window releases capacity before a later recovery window. */
   recoveryMs: 30_000,
+  /** Cached submissions have bounded local capacity independent of paid calls. */
+  submissionParallel: 1,
   /** Wait before another attempt after a failure that may be transient. */
   retryMs: 5_000,
 } as const;
+export const judgingWorkKinds = ['submission', 'generation'] as const;
+export type JudgingWorkKind = (typeof judgingWorkKinds)[number];

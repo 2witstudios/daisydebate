@@ -6,6 +6,7 @@ import {
   type JudgingAttemptDiagnostic,
   type JudgingTerminalReason,
   type JudgingRecoveryReason,
+  type JudgingWorkKind,
 } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -185,8 +186,8 @@ export function createRoundJudgingJobs(input: {
       return work(tx, { ...lease, round: context.round });
     });
   return {
-    scan: (limit: number) =>
-      input.run((tx) => discoverRoundJudgingJobs(tx, limit)),
+    scan: (limit: number, workKind: JudgingWorkKind) =>
+      input.run((tx) => discoverRoundJudgingJobs(tx, limit, workKind)),
     claim: (target: Pick<JudgingScope, 'roundId' | 'judgeParticipantId'>) =>
       input.run((tx) => claimLockedJudgingJob(tx, target, input)),
     submitResult: (

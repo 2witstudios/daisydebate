@@ -49,6 +49,15 @@ prefers a validated reply within each Round, and selects one eligible judge per
 Round before applying the bounded page limit. The service still visits later
 cached replies when paid provider capacity is unavailable.
 
+Cached submission and generation each have an explicit bounded discovery query;
+the work kind is mandatory and filters before pagination. A full page of older
+uncached Rounds therefore cannot hide a later held reply. Each service pass reads
+both bounded pages independently and can use one successful page if the other
+read is refused. Generation retains its configured local/provider capacity;
+cached submission has one separate local slot and consumes no provider slot.
+Cached work cannot monopolize the generation slots. Each key is visited at most
+once per pass, including retries already started before discovery.
+
 `last_claimed_at` records the actual post-lock PostgreSQL claim instant in the
 claim transaction. The Round's turn is the latest actual claim across all its
 members, including finished members. A never-claimed Round uses its original job

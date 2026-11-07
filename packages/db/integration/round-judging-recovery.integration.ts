@@ -35,7 +35,10 @@ test('a spent attempt window recovers after backoff without losing the obligatio
     assert({
       given: 'two transient failed paid calls',
       should: 'persist scheduled recovery, not a terminal result',
-      actual: { ...paused, discovered: (await jobs.scan(8)).length },
+      actual: {
+        ...paused,
+        discovered: (await jobs.scan(8, 'generation')).length,
+      },
       expected: {
         status: 'recovering',
         terminal_reason: null,
