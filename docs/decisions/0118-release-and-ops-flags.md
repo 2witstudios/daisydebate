@@ -26,10 +26,14 @@ Keys and ownership cannot be silently repurposed, and retired keys stay retired.
 
 `features/flags/server.ts` publishes
 `isReleaseEnabled(key: ReleaseFlagKey, accountId: string | null): Promise<boolean>`.
-It is a display read, deduplicated per request only at the React edge. Other
-server compositions may inject their per-request reader as its optional third
-argument; this is the allowed integration proof seam, without importing the
-process locator or weakening its boundary. Null means
+It is a display read, deduplicated per request only at the React edge. Its
+optional third argument accepts an explicit reader for Next server composition.
+A source process bootstrap must instead use the published
+`createRequestFlagReader` directly, constructing it afresh for each display
+request: importing the Next convenience adapter would eagerly load request
+cookies/AsyncLocalStorage into the non-Next process. Both use the same catalogue,
+resolver, failure defaults and bounded database snapshot; neither authorizes a
+purchase. No process locator or ambient-reader registry is introduced. Null means
 anonymous with no targeting; an account ID comes from the authenticated server
 principal. Only booleans reach UI clients. Client chunks are public. No flag
 read belongs in a proxy or a `use cache` scope. Read failures use safe defaults
