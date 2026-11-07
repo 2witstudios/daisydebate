@@ -16,6 +16,7 @@ import {
   type CaptureTx,
 } from './media-capture-context';
 import { necessaryEvidence } from './schema/necessary-evidence';
+import { lockNecessaryEvidenceRound } from './necessary-evidence-subjects';
 
 type Intent = z.infer<typeof captureEvidenceIntentSchema>;
 const leaseDigest = (token: string) => {
@@ -83,6 +84,7 @@ export async function reserveCaptureEvidenceIntent(
   dependencies: CaptureDependencies,
 ) {
   const policy = policyOf(dependencies);
+  await lockNecessaryEvidenceRound(tx, input.roundId);
   const context = await captureWriteContext(
     tx,
     input,

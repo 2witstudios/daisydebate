@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createFrameClock } from './frame-clock';
+import { createFrameClock, verifyFrameClockEvidence } from './frame-clock';
 setupRitewayBun();
 const calibration = {
   sentAtMs: 0,
@@ -81,5 +81,49 @@ test('snapshot consumers cannot mutate the retained mapping and refused callback
       'keep original mapping immutable and refuse to attach stale provenance to the rejected frame',
     actual: [retained, clock.evidence()],
     expected: [original, null],
+  });
+});
+
+test('serialized original frame mapping is verified without a replacement clock or invented continuity', () => {
+  const clock = createFrameClock(calibration);
+  const originals = [0, 1, 4, 5, 0].map((sequence, index) => {
+    clock.observe({
+      sequence,
+      beforeMs: 10 + index * 20,
+      afterMs: 10.1 + index * 20,
+    });
+    return clock.evidence()!;
+  });
+  const original = originals[1]!;
+  const mutations = [
+    {
+      ...originals[0]!,
+      observation: { ...originals[0]!.observation, beforeMs: 9 },
+    },
+    {
+      ...original,
+      window: { ...original.window, afterMs: original.window.afterMs + 1 },
+    },
+    { ...original, previous: { ...original.previous!, sequence: 99 } },
+    {
+      ...original,
+      anchor: {
+        ...original.anchor,
+        calibration: { ...calibration, serverNowMs: 90000 },
+      },
+    },
+    { ...original, observation: { ...original.observation, sequence: 7 } },
+    { ...original, unknown: true },
+  ];
+  assert({
+    given:
+      'serialized first, contiguous, gap and reset runs, with altered mapping inputs or output',
+    should:
+      'accept exact original equations and refuse altered mappings without granting continuity between runs',
+    actual: [
+      originals.map(verifyFrameClockEvidence),
+      mutations.map(verifyFrameClockEvidence),
+    ],
+    expected: [originals.map(() => true), mutations.map(() => false)],
   });
 });

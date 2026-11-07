@@ -672,3 +672,8 @@ export type {
   FrameRunAnchor,
   FrameClockEvidence,
 } from './frame-clock-evidence';
+export { frameClockEvidenceSchema } from './frame-clock-evidence';
+export {
+  canonicalCaptureEvidenceBody,
+  type CaptureEvidenceBody,
+} from './capture-evidence-body';

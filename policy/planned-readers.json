@@ -108,6 +108,24 @@
       "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
       "reason": "Persistent local custody qualification precedes the atomic necessary-evidence ingress/replay reader in this same incomplete slice. Production collection remains disabled under REL-H; process tests do not claim host durability or every-copy privacy.",
       "reviewBy": "2026-12-07"
+    },
+    {
+      "path": "packages/protocol/src/capture-evidence-body.ts",
+      "export": "canonicalCaptureEvidenceBody",
+      "task": "REL-1 / REL-2",
+      "owner": "media-capture (ag-7s11t7f7)",
+      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
+      "reason": "Full original PCM/provenance receipt validation precedes the application evidence adoption reader in this same incomplete slice. Shape/equation tests do not establish occurrence, authority, durable audio receipt or hearing. Production collection stays disabled under REL-H.",
+      "reviewBy": "2026-12-07"
+    },
+    {
+      "path": "packages/media/src/frame-clock.ts",
+      "export": "verifyFrameClockEvidence",
+      "task": "REL-1 / REL-2",
+      "owner": "media-capture (ag-7s11t7f7)",
+      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
+      "reason": "Full original PCM/provenance receipt validation precedes the application evidence adoption reader in this same incomplete slice. Shape/equation tests do not establish occurrence, authority, durable audio receipt or hearing. Production collection stays disabled under REL-H.",
+      "reviewBy": "2026-12-07"
     }
   ]
 }

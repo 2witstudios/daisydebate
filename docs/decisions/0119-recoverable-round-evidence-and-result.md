@@ -353,3 +353,45 @@ that authority awaiting material. Unavailable/unknown cleanup stays retryable.
 PG audio durability acknowledgement. Revoked authority, current material cleanup,
 payload cleanup and whole retirement completion remain separate facts. The latter
 integrated retirement worker is not implemented/proven by these local tests.
+
+Necessary-evidence admission will reuse the canonical account authorization seam.
+Discover the bounded complete original content/cast subject set, acquire sorted
+`readAuthorizationActors` fences, then lock Round and revalidate the EXACT set.
+A cast change refuses/retries from discovery; never acquire new subject locks
+while holding Round. Existing agent and ballot writers already acquire exclusive
+`lockAuthorizationActors` fences: preserve that strongest lock and never prepend
+a shared fence that would require an exclusive upgrade. No second account-lock
+SQL or duplicate tombstone authority is introduced. Raw necessary-evidence
+privacy applies to all relevant Rounds independently of ranked transcript/result
+retention and membership/entitlement. Original content subjects differ from a
+successor execution worker. Their routing must survive aggregate closure until
+confirmed cleanup. Canonical erasure immediately denies read/adoption/replay/
+dispatch/commit even while bounded cleanup is delayed. Non-account withdrawal
+serializes on the Round evidence fence. Initial raw-intent admission now takes this shared account fence before Round
+and revalidates creator plus every bounded seat identity/actor/kind/role/slot.
+Tombstoned or uncertain account facts refuse; a live non-member is not erased.
+Existing agent/ballot exclusive paths are unchanged and never call this reader.
+Original-subject durable routing, payload read/adoption/dispatch/STT/freeze fences
+and delayed cleanup integration remain unimplemented at this checkpoint.
+
+The full original evidence body has one strict canonical JSON encoding covering
+PCM, original run calibration/sequence/callback windows, history/grant identity,
+original worker epoch and segment/seat scope. The server must derive the digest
+from that encoding; caller hashes do not authenticate payloads. A batch contains
+only adjacent observed frames from one original run; gaps/resets require separate
+units and cannot be credited by their elapsed bounding span. Original mapping
+verification uses the same unchanged frame-clock equations and exact retained
+inputs, never a replacement calibration. Shape, math and byte binding remain
+separate from actual occurrence, capture authority, durable receipt and hearing.
+No decoder or equation check can prove those independent facts. Their receipt/
+replay integration and supported-failure proof are still required before use.
+
+Restore admission also needs current privacy-fact lineage. A key that is still
+live does not prove an account tombstone absent: that tombstone may have committed
+in PostgreSQL while bounded retirement has not propagated revocation to custody.
+Restoring older PG metadata cannot erase that obligation. Selective-restore tests
+must identify the independently current revocation/expiry fact they actually
+exercise; current key liveness is not current account/withdrawal authority.
+Missing or uncertain current privacy lineage blocks restore admission. Local
+process persistence and revoked-key restore tests do not establish this wider
+operational capability; production restore/privacy acceptance remains REL-H.
