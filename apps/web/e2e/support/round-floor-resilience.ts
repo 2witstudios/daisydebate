@@ -105,11 +105,6 @@ export async function proveFloorResilience({
   } finally {
     await peer.context().setOffline(false);
   }
-  const retry = floor(peer).getByRole('button', {
-    name: 'Try again',
-    exact: true,
-  });
-  if (await retry.isVisible()) await retry.click();
   await expect(
     history(peer).getByText('Arrived while peer was offline', { exact: true }),
   ).toBeVisible({ timeout: 20_000 });
