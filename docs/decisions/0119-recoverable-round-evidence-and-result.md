@@ -726,3 +726,38 @@ a receipt or coverage: the forthcoming native producer must retain stable
 IDs/bodies and source frames until actual durable acknowledgement. Carry wiring,
 protected publication/time, recognition reconciliation and played-result proof
 remain incomplete.
+
+### Local signed original-frame admission
+
+The signed capture protocol has an evidence operation that preserves the original
+Round/session/worker body rather than overwriting its authority from a successor
+request. Full canonical body and original clock equations are checked before the
+injected ingress owner runs. A received reply must contain a matching evidence
+identity, binding and committed payload timestamp within the original custody
+receipt span. Pending, key-only, malformed and foreign-unit replies cannot release
+source frames. Unknown acknowledgements retry the same canonical body/ID within
+the existing finite control-outage attempt bound; no retry renews expiry. A
+historical received reply establishes stored original bytes, not current privacy,
+publication permission, coverage, recognition settlement or peer hearing.
+
+The local capture batch accepts an explicitly injected preservation capability
+before any fully authorized frame enters the WAV carry. It preserves original
+low-energy/short frames before clipping heuristics. Original preparation splits
+real sequence/run discontinuities and at most 25 frames per unit; 250 ms is a
+unit-size bound, not a measured latency guarantee. Edge-straddling observations
+retain their distinct treatment and never become invented authorized PCM. This
+is an incomplete branch transition: production composition does not inject the
+capability, and the signed endpoint refuses collection without it. No fallback
+activation or local production custody approval is implied. Production replacement
+requires the remaining protected-clock/publication and lifecycle contracts.
+
+A fresh-process local integration fixture exercises real signed HTTP, persistent
+local custody and PostgreSQL, then SIGKILLs the producer with a nonempty one-frame
+carry and zero completed WAVs. Recovery authenticates the exact original body
+without using that killed carry. Its samples/calibration/history are synthetic,
+not actual LiveKit or human-reference audio. A separate injected lost HTTP reply
+after actual commit proves same-ID receipt recovery. These proofs do not establish
+pre-receipt crash fairness, genuine heard audio, quality reconciliation, final
+transcript freeze, a recovered ballot, host-independent durability, every-copy
+privacy or full mission completion. The owner-prioritized next milestone remains
+one actual human-vs-human capture-to-result vertical journey under those contracts.

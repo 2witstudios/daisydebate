@@ -250,3 +250,91 @@ test('an empty carry holds its run of speech until a pause has passed', () => {
     expected: [true, false],
   });
 });
+
+test('local evidence admission precedes nonempty carry and WAV cutting', async () => {
+  const carries: ClipCarries = new Map();
+  let release!: () => void;
+  const accepted = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let called = false;
+  const pending = validateCaptureBatch({
+    nowMs: () => 0,
+    waitUntilMs: async () => undefined,
+    frames: [
+      {
+        ...staged(10010, 10009, 10021),
+        frame: {
+          ...staged(10010, 10009, 10021).frame,
+          pcm: new Int16Array(160).fill(1000),
+        },
+      },
+    ],
+    current: openGrant,
+    client: {} as CaptureClient,
+    roundId: 'r'.repeat(24),
+    epoch: 1,
+    signal: new AbortController().signal,
+    dropped: () => {},
+    straddled: () => {},
+    clip: () => {},
+    held: () => {},
+    carries,
+    preserveFrames: async () => {
+      called = true;
+      await accepted;
+    },
+  });
+  await Promise.resolve();
+  const before = { called, carries: carries.size };
+  release();
+  await pending;
+  assert({
+    given:
+      'an explicitly injected durable admission still waiting for its payload acknowledgement',
+    should: 'leave even audible nonempty carry absent until admission resolves',
+    actual: {
+      before,
+      after: [...carries.values()].map((carry) => carry.frames.length),
+    },
+    expected: { before: { called: true, carries: 0 }, after: [1] },
+  });
+});
+
+test('failed local preservation keeps uncut frames owned upstream', async () => {
+  const source = staged(10010, 10009, 10021);
+  const held: StagedFrame[] = [];
+  const carries: ClipCarries = new Map();
+  let refused = false;
+  await validateCaptureBatch({
+    nowMs: () => 0,
+    waitUntilMs: async () => undefined,
+    frames: [source],
+    current: openGrant,
+    client: {} as CaptureClient,
+    roundId: 'r'.repeat(24),
+    epoch: 1,
+    signal: new AbortController().signal,
+    dropped: () => {},
+    straddled: () => {},
+    clip: () => {},
+    held: (frames) => held.push(...frames),
+    carries,
+    preserveFrames: async () => {
+      throw new Error('Injected unavailable receipt');
+    },
+  }).catch(() => {
+    refused = true;
+  });
+  assert({
+    given: 'a local payload admission that fails before a usable receipt',
+    should:
+      'return every still-uncut frame upstream without creating carry or reporting acceptance',
+    actual: {
+      refused,
+      retained: held.length === 1 && held[0] === source,
+      carries: carries.size,
+    },
+    expected: { refused: true, retained: true, carries: 0 },
+  });
+});

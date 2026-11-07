@@ -19,15 +19,17 @@ export type EvidenceCustodyReceipt = EvidenceCustodyIdentity & {
   readonly receivedAtMs: number;
   readonly expiresAtMs: number;
 };
+export const evidenceRefusalReasons = [
+  'unavailable',
+  'uncertain',
+  'revoked',
+  'expired',
+  'conflict',
+  'invalid',
+] as const;
 export type EvidenceRefusal = {
   readonly kind: 'refused';
-  readonly reason:
-    | 'unavailable'
-    | 'uncertain'
-    | 'revoked'
-    | 'expired'
-    | 'conflict'
-    | 'invalid';
+  readonly reason: (typeof evidenceRefusalReasons)[number];
 };
 export type SealedEvidence = {
   readonly kind: 'sealed';

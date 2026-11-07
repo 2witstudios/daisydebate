@@ -696,3 +696,4 @@ export {
   captureEvidenceSpeakerSchema,
   type CaptureEvidenceSpeaker,
 } from './capture-evidence-speaker';
+export { evidenceIngressReplySchema } from './evidence-ingress-reply';

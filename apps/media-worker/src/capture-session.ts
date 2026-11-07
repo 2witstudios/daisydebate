@@ -33,6 +33,10 @@ type Dependencies = {
   readonly consume: typeof consumeCaptureClips;
   /** This session's share of the worker's pending-audio bound (capture-memory.ts). */
   readonly pendingBytes: number;
+  /** Local-only capability until protected speech/publication and production custody qualify. */
+  readonly preserveFrames?: NonNullable<
+    Parameters<typeof validateCaptureBatch>[0]['preserveFrames']
+  >;
 };
 /** How long a stopping session may spend giving up its lease. */
 const RELEASE_BUDGET_MS = 2000;
