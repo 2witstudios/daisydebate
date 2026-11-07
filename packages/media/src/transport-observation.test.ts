@@ -92,6 +92,32 @@ describe('bounded track transport observation is not coverage', () => {
         expected: { kind: 'unknown', reason },
       });
     });
+  test('a negative packetsLost value is a valid signed observation', async () => {
+    const lost = (value: bigint) => ({
+      stats: {
+        case: 'inboundRtp',
+        value: {
+          stream: { kind: 'audio', ssrc: 42 },
+          received: { packetsReceived: 10n, packetsLost: value },
+          inbound: {
+            trackIdentifier: 'original',
+            totalSamplesReceived: 20000n,
+            concealedSamples: 10000n,
+          },
+        },
+      },
+    });
+    assert({
+      given: 'the native signed packetsLost counter at a negative value',
+      should: 'observe it rather than rejecting the whole report as malformed',
+      actual: await setup([[lost(-1n)]])
+        .observer.read()
+        .then((r) =>
+          r.kind === 'observed' ? r.counters.packetsLost : r.reason,
+        ),
+      expected: '-1',
+    });
+  });
   test('a signed packetsLost decrease continues the baseline', async () => {
     const lost = (value: bigint) => ({
       stats: {

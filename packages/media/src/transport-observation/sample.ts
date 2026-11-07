@@ -3,6 +3,11 @@ const counter = z
   .bigint()
   .min(0n)
   .max((1n << 64n) - 1n);
+/** Native packetsLost is proto int64 and may be negative; other counters are uint64. */
+const signedCounter = z
+  .bigint()
+  .min(-(1n << 63n))
+  .max((1n << 63n) - 1n);
 const envelope = z.object({
   stats: z.object({ case: z.string(), value: z.unknown() }),
 });
@@ -11,7 +16,7 @@ const audio = z.object({
     kind: z.literal('audio'),
     ssrc: z.number().int().min(0).max(0xffffffff),
   }),
-  received: z.object({ packetsReceived: counter, packetsLost: counter }),
+  received: z.object({ packetsReceived: counter, packetsLost: signedCounter }),
   inbound: z.object({
     trackIdentifier: z
       .string()
