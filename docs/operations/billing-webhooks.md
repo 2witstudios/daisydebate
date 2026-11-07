@@ -43,3 +43,50 @@ alone do not establish their completion. Genuine Stripe TEST delivery and
 crash/missed-event lifecycle evidence remain separate from controlled SDK-signed
 unit fixtures. All original Billing acceptance criteria and launch obligations
 remain in the existing plan.
+
+## Subscription observation freshness
+
+The existing subscription worker records private `billing.subscription.staleness`
+aggregates against a fifteen-minute successful-observation target, independently
+of its five-second tick and five-minute subscription polling policy. This signal
+never grants access, changes the purchase flag, or treats a successful tick as
+subscription evidence. The current web-service fence and database clock own each
+read; no vendor call participates in its bounded transaction.
+
+Each tick reads at most 33 open customer rows plus one continuation sentinel,
+using the existing closed/customer keyset before selecting the configured mode.
+Closed customers and erased accounts are excluded. The current subscription is
+joined through its owning customer's user; a missing current subscription stays
+unconfirmed. A settled customer with a matching current-subscription observation
+proves application. For pending/claimed work only an observation strictly later
+than that subscription's creation proves a prior applied read. Mapping initializes
+both timestamps, so equal, missing, future or inconsistent facts are unconfirmed;
+this does not assert they were never historically observed.
+
+`oldestRevisionRequestAgeMs` measures the oldest CURRENT REVISION request among
+observed pending/claimed customers. A new receipt replaces `requestedAt`, so this
+is not continuous unresolved backlog age. Repeated hints cannot hide a stale
+proven observation or turn an unconfirmed cohort healthy. Pending and claimed
+counts are separate; neither is a successful-observation timestamp.
+
+A cycle fixes a private local-ID upper bound and accumulates original timestamps,
+re-aged at the final database time. Its first page observation and latest page
+observation are exposed as `scanStartedAtMs` and `sampledAtMs`, with duration and
+page count. These describe a mixed-time observed traversal, not an atomic fleet
+snapshot. The fresh-coverage budget is twelve pages or sixty seconds; one page
+runs per ordinary worker tick. Exhaustion inside that budget can be within target
+only if all observed in-scope customers have proven fresh data. Over-budget or
+unfinished traversal remains partial but retains its constant-space cursor and
+oldest timestamps until actual exhaustion, so a stale tail is still observed.
+Only exhaustion (or a failed/invalid read) restarts at the head; larger cohorts
+cannot acquire a whole-cohort healthy claim from this bounded collector.
+New insertions behind the cursor and concurrent changes belong to later cycles.
+An overdue observation or revision request already found is a stale lower bound
+even during partial coverage. Empty, disabled, unavailable and unconfirmed results
+remain distinct from within-target coverage. A failed read discards the cycle.
+
+Only counts, ages, coverage and fixed status names enter the existing logger.
+No cursor, customer, user, subscription, vendor identity or payload is emitted.
+Transitions into stale/unavailable also use the existing scrubbed worker failure
+reporter; logging/reporting failure cannot stop reconciliation. These are private
+operational signals, not a participant-facing availability guarantee.
