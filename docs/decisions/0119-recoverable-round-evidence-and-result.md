@@ -474,3 +474,42 @@ payload/lease secrets. Subject routing is private/linkable metadata, minimized
 only after confirmed retirement under the declared anti-resurrection lifecycle.
 This storage step alone is not an audio receipt or a working retirement/replay
 scheduler, and does not prove late held-plaintext settlement fences.
+
+The acquisition metadata path now has its own execution claimant. It reads the
+persisted original subjects, takes canonical shared account fences before Round,
+then locks/revalidates the exact immutable stored scope. A successor advances only
+execution worker/epoch/token; original capture worker/epoch/binding never changes.
+It may reconcile an already committed acquisition intent after capture replacement,
+closed session or the original cutoff. This is explicitly `reconcile-acquisition`,
+not fresh capture permission, audio receipt, STT dispatch or final-result authority.
+Initial capture admission still requires its original live capture lease/window.
+
+A private evidence-owned Round marker makes withdrawal sticky/idempotent under
+Round lock, with its first timestamp sampled by PostgreSQL after the lock wait.
+New initial admission and acquisition reconciliation refuse withdrawn scope before
+custody. Missing marker is unknown for existing evidence: only a genuinely new
+scope with no prior original-Round evidence can establish its initial open marker.
+No current-cast/account backfill establishes lost withdrawal history. The marker
+commits without looping through/deleting every payload; immediate refusal and
+bounded later cleanup are separate responsibilities. Current marker checks assume
+current canonical PostgreSQL, not proof of freshness after restoring an old open
+snapshot. Actual independent privacy-lineage capability below remains necessary
+before payload activation. No new method is mounted in signed capture routes and
+production evidence capability remains absent. Current known-expiry admission is
+sampled after row/account waits and again after token acquisition; execution lease
+and original data expiry remain different concepts.
+
+For the remaining restore gap, the integration candidate is independent durable
+original Round/subject scope bindings and sticky accepted privacy intents. The
+owning authenticated workflow prepares exact authorized scope outside PostgreSQL,
+then commits the canonical subject/optional Round fence and adopters, and only then
+finalizes independent revocation/key cleanup. Pending authority refuses raw use;
+it does not claim completed account closure or delete keys before the PG fence.
+A crash or lost acknowledgement resumes the SAME accepted privacy service work,
+never treats an absent old-PG event as permission to cancel/un-revoke. No vendor
+call occurs inside canonical closure. This avoids mistaking a still-live key for
+an unpropagated tombstone and does not claim an atomic cross-store commit.
+Persistent/fresh-process/preparation-versus-bind/old-open-PG/live-key/late-plaintext
+and public-closure workflow proofs are NOT RUN; this candidate is not implemented.
+All-authority rollback and production restore/privacy remain REL-H. Scope/intent
+metadata needs minimized anti-resurrection retention while old snapshots exist.

@@ -283,7 +283,10 @@ IDs, separately from the current cast or successor worker. These are linkable
 personal/private privacy-routing metadata, not anonymous identifiers. They permit
 immediate canonical subject fencing and bounded cleanup after aggregate erasure.
 Do not expose them through ordinary Round reads, worker discovery or telemetry;
-minimize them after confirmed retirement. Unknown original subjects cannot be
+minimize them after confirmed retirement. Original capture and current execution
+worker identifiers remain separate private routing facts. The minimal sticky
+Round withdrawal marker follows its owning Round lifecycle; it contains no PCM,
+transcript or subject identities. Unknown original subjects cannot be
 backfilled from current membership or treated as an empty set. Integrated
 retirement/export/erasure remains incomplete and production-disabled.
 

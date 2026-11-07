@@ -48,6 +48,7 @@ export const necessaryEvidence = pgTable(
     ciphertext: encryptedBytes('ciphertext'),
     nonce: encryptedBytes('nonce'),
     tag: encryptedBytes('tag'),
+    executionWorkerId: text('execution_worker_id'),
     executionEpoch: integer('execution_epoch').notNull().default(0),
     leaseDigest: text('lease_digest'),
     leaseExpiresAt: timestampColumn('lease_expires_at'),
@@ -57,6 +58,7 @@ export const necessaryEvidence = pgTable(
   },
   (table) => [
     index('necessary_evidence_round_idx').on(table.roundId),
+    index('necessary_evidence_original_round_idx').on(table.originalRoundId),
     index('necessary_evidence_subjects_idx').using(
       'gin',
       table.originalSubjectActorIds,
@@ -116,6 +118,10 @@ export const necessaryEvidence = pgTable(
     check(
       'necessary_evidence_round_binding_check',
       sql`${table.roundId} is null or ${table.roundId}=${table.originalRoundId}`,
+    ),
+    check(
+      'necessary_evidence_execution_worker_check',
+      sql`${table.executionWorkerId} is null or ${table.executionWorkerId} ~ '^[a-z0-9]{24}$'`,
     ),
     check(
       'necessary_evidence_lease_check',

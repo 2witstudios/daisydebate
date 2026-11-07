@@ -11,8 +11,9 @@ export async function configuredCapture(
   roundId: string,
   maxGlobalBytes = 2048,
   maxOutstandingIntents = 65536,
+  endedAgoMs = 1000,
 ) {
-  const original = await historicalCapture(f, transaction, roundId);
+  const original = await historicalCapture(f, transaction, roundId, endedAgoMs);
   await original.store.claimMediaWorkerLease({
     ...original.lease,
     leaseMs: 15000,

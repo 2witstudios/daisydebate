@@ -1,8 +1,13 @@
 import { reserveCaptureEvidenceIntent } from './capture-evidence-intents';
+import { evidencePolicyOf } from './necessary-evidence-policy';
+import { withdrawRoundEvidence } from './necessary-evidence-rounds';
+import { claimEvidenceAcquisition } from './necessary-evidence-reconciliation';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import {
   captureClipSchema,
+  captureRoundEvidenceSchema,
+  captureEvidenceReconciliationSchema,
   captureEvidenceIntentSchema,
   captureReadSchema,
   captureWorkerIdentitySchema,
@@ -133,6 +138,20 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
           and session_id in (select id from media_sessions where round_id=${input.roundId})`);
       return null;
     });
+  },
+  /** Internal privacy/service operation, not mounted in the signed capture handler. */
+  withdrawCaptureEvidence(raw: unknown) {
+    evidencePolicyOf(dependencies);
+    const input = parseCapture(captureRoundEvidenceSchema, raw);
+    return dependencies.transaction((tx) =>
+      withdrawRoundEvidence(tx, input.roundId),
+    );
+  },
+  claimCaptureEvidenceReconciliation(raw: unknown) {
+    const input = parseCapture(captureEvidenceReconciliationSchema, raw);
+    return dependencies.transaction((tx) =>
+      claimEvidenceAcquisition(tx, input, dependencies),
+    );
   },
   reserveCaptureEvidence(raw: unknown) {
     const input = parseCapture(captureEvidenceIntentSchema, raw);

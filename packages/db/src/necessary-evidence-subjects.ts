@@ -6,6 +6,7 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { necessaryEvidence } from './schema/necessary-evidence';
 
 type Tx = BoundedTransactionContext;
 async function evidenceCast(tx: Tx, roundId: string) {
@@ -43,14 +44,7 @@ export async function lockNecessaryEvidenceRound(tx: Tx, roundId: string) {
       ...(original.creator === null ? [] : [original.creator]),
     ]),
   ].sort();
-  if (subjects.length) {
-    const facts = await readAuthorizationActors(tx, subjects, {
-      maxActors: MAX_FORMAT_SEATS + 1,
-    });
-    // Membership/entitlement is not raw-evidence erasure. Capture authorization is checked separately.
-    if (facts.some((fact) => !fact || fact.erased))
-      throw createAppError('AUTHORIZATION');
-  }
+  await lockEvidenceSubjects(tx, subjects);
   const [round] = await tx
     .select({ id: rounds.id })
     .from(rounds)
@@ -61,4 +55,86 @@ export async function lockNecessaryEvidenceRound(tx: Tx, roundId: string) {
   if (JSON.stringify(current) !== JSON.stringify(original))
     throw createAppError('CONFLICT', 'Evidence content subjects changed');
   return { subjects };
+}
+
+async function lockEvidenceSubjects(tx: Tx, subjects: readonly string[]) {
+  if (subjects.length) {
+    const facts = await readAuthorizationActors(tx, subjects, {
+      maxActors: MAX_FORMAT_SEATS + 1,
+    });
+    // Membership/entitlement is not raw-evidence erasure. Capture authorization is checked separately.
+    if (facts.some((fact) => !fact || fact.erased))
+      throw createAppError('AUTHORIZATION');
+  }
+}
+
+const originalScope = {
+  id: necessaryEvidence.id,
+  roundId: necessaryEvidence.roundId,
+  originalRoundId: necessaryEvidence.originalRoundId,
+  originalSubjectActorIds: necessaryEvidence.originalSubjectActorIds,
+  workerId: necessaryEvidence.workerId,
+  captureEpoch: necessaryEvidence.captureEpoch,
+  sessionId: necessaryEvidence.sessionId,
+  segmentId: necessaryEvidence.segmentId,
+  roundParticipantId: necessaryEvidence.roundParticipantId,
+  bindingDigest: necessaryEvidence.bindingDigest,
+  reservedBytes: necessaryEvidence.reservedBytes,
+  state: necessaryEvidence.state,
+};
+/** Original account fences precede Round; execution replacement never reads a successor cast as authority. */
+export async function lockOriginalEvidenceAcquisition(
+  tx: Tx,
+  input: { readonly roundId: string; readonly evidenceId: string },
+) {
+  if (
+    ![input.roundId, input.evidenceId].every(
+      (id) => idSchema.safeParse(id).success,
+    )
+  )
+    throw createAppError('VALIDATION');
+  const [original] = await tx
+    .select(originalScope)
+    .from(necessaryEvidence)
+    .where(eq(necessaryEvidence.id, input.evidenceId));
+  const subjects = original?.originalSubjectActorIds;
+  if (
+    !original ||
+    original.roundId !== input.roundId ||
+    original.originalRoundId !== input.roundId ||
+    original.state !== 'acquiring' ||
+    !subjects ||
+    subjects.length > MAX_FORMAT_SEATS + 1 ||
+    !subjects.every(
+      (id, index) =>
+        idSchema.safeParse(id).success &&
+        (index === 0 || subjects[index - 1]! < id),
+    )
+  )
+    throw createAppError(
+      'CONFLICT',
+      'Original evidence subjects or scope are unproven',
+    );
+  await lockEvidenceSubjects(tx, subjects);
+  const [round] = await tx
+    .select({ id: rounds.id })
+    .from(rounds)
+    .where(eq(rounds.id, input.roundId))
+    .for('no key update');
+  if (!round) throw createAppError('CONFLICT');
+  const [current] = await tx
+    .select({
+      ...originalScope,
+      executionEpoch: necessaryEvidence.executionEpoch,
+      leaseExpiresAt: necessaryEvidence.leaseExpiresAt,
+      expiresAt: necessaryEvidence.expiresAt,
+    })
+    .from(necessaryEvidence)
+    .where(eq(necessaryEvidence.id, input.evidenceId))
+    .for('update');
+  if (!current) throw createAppError('CONFLICT');
+  const { executionEpoch, leaseExpiresAt, expiresAt, ...checked } = current;
+  if (JSON.stringify(original) !== JSON.stringify(checked))
+    throw createAppError('CONFLICT', 'Original evidence scope changed');
+  return { original: checked, executionEpoch, leaseExpiresAt, expiresAt };
 }

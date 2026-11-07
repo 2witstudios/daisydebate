@@ -58,6 +58,12 @@ export const captureClipSchema = z
     after: iso,
   })
   .strict();
+export const captureEvidenceReconciliationSchema = z.strictObject({
+  roundId: idSchema,
+  evidenceId: idSchema,
+  workerId: idSchema,
+});
+export const captureRoundEvidenceSchema = z.strictObject({ roundId: idSchema });
 export const captureEvidenceIntentSchema = captureClipSchema
   .omit({ text: true })
   .safeExtend({

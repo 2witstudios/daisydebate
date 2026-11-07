@@ -1,3 +1,4 @@
+import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { z } from 'zod';
@@ -7,7 +8,7 @@ import {
 } from './capture-input';
 import { captureHistory } from './capture-history';
 import { requireCapturedWindow } from './capture-rules';
-import { nextEpoch, requireLeaseMs } from './lease-policy';
+import { nextEpoch } from './lease-policy';
 import {
   captureWriteContext,
   freshCaptureMutation,
@@ -17,35 +18,12 @@ import {
 } from './media-capture-context';
 import { necessaryEvidence } from './schema/necessary-evidence';
 import { lockNecessaryEvidenceRound } from './necessary-evidence-subjects';
+import {
+  evidenceLeaseDigest,
+  evidencePolicyOf,
+} from './necessary-evidence-policy';
 
 type Intent = z.infer<typeof captureEvidenceIntentSchema>;
-const leaseDigest = (token: string) => {
-  if (!/^[A-Za-z0-9_-]{43,128}$/.test(token))
-    throw createAppError('AUTHORIZATION');
-  return new Bun.CryptoHasher('sha3-256').update(token).digest('hex');
-};
-const policyOf = (dependencies: CaptureDependencies) => {
-  const policy = dependencies.evidence;
-  if (!policy)
-    throw createAppError(
-      'INFRASTRUCTURE',
-      'Necessary evidence is not configured',
-    );
-  requireLeaseMs(policy.leaseMs);
-  if (
-    !Number.isSafeInteger(policy.maxRoundBytes) ||
-    policy.maxRoundBytes < 1 ||
-    policy.maxRoundBytes > 32 * 1024 * 1024 ||
-    !Number.isSafeInteger(policy.maxGlobalBytes) ||
-    policy.maxGlobalBytes < policy.maxRoundBytes ||
-    policy.maxGlobalBytes > 512 * 1024 * 1024 ||
-    !Number.isSafeInteger(policy.maxOutstandingIntents) ||
-    policy.maxOutstandingIntents < 1 ||
-    policy.maxOutstandingIntents > 65536
-  )
-    throw createAppError('VALIDATION');
-  return policy;
-};
 /** Binds server-validated original scope/window independently of the declared full-body digest. */
 const originalBinding = (input: Intent, subjects: readonly string[]) =>
   captureDigest([
@@ -86,8 +64,9 @@ export async function reserveCaptureEvidenceIntent(
   input: Intent,
   dependencies: CaptureDependencies,
 ) {
-  const policy = policyOf(dependencies);
+  const policy = evidencePolicyOf(dependencies);
   const { subjects } = await lockNecessaryEvidenceRound(tx, input.roundId);
+  await requireRoundEvidenceOpen(tx, input.roundId, true);
   const context = await captureWriteContext(
     tx,
     input,
@@ -151,7 +130,7 @@ export async function reserveCaptureEvidenceIntent(
     'Evidence execution epoch exhausted',
   );
   const token = policy.nextToken();
-  const digest = leaseDigest(token);
+  const digest = evidenceLeaseDigest(token);
   // Re-sample after admission queries: neither a wait nor token acquisition renews authority.
   const admittedAt = await freshCaptureMutation(tx, input.roundId, context);
   await requireCaptureSession(tx, input, {
@@ -161,6 +140,7 @@ export async function reserveCaptureEvidenceIntent(
   });
   const leaseExpiresAt = new Date(admittedAt.getTime() + policy.leaseMs);
   const claim = {
+    executionWorkerId: input.workerId,
     executionEpoch: epoch,
     leaseDigest: digest,
     leaseExpiresAt,
