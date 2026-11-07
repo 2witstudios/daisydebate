@@ -664,6 +664,8 @@ export {
   type EvidenceRefusal,
   type SealedEvidence,
   type NecessaryEvidenceCustody,
+  type NecessaryEvidencePayloadReceipt,
+  type NecessaryEvidenceIngressReply,
 } from './necessary-evidence';
 
 export type {

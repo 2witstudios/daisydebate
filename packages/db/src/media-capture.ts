@@ -1,3 +1,7 @@
+import {
+  readCaptureEvidencePayload,
+  loadCaptureEvidencePayload,
+} from './necessary-evidence-read';
 import { adoptCaptureEvidencePayload } from './necessary-evidence-payload';
 import { reserveCaptureEvidenceIntent } from './capture-evidence-intents';
 import { evidencePolicyOf } from './necessary-evidence-policy';
@@ -152,6 +156,18 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
     const input = parseCapture(captureEvidenceReconciliationSchema, raw);
     return dependencies.transaction((tx) =>
       claimEvidenceAcquisition(tx, input, dependencies),
+    );
+  },
+  loadCaptureEvidencePayload(raw: unknown) {
+    evidencePolicyOf(dependencies);
+    return dependencies.transaction((tx) =>
+      loadCaptureEvidencePayload(tx, raw),
+    );
+  },
+  readCaptureEvidencePayload(raw: unknown) {
+    evidencePolicyOf(dependencies);
+    return dependencies.transaction((tx) =>
+      readCaptureEvidencePayload(tx, raw),
     );
   },
   adoptCaptureEvidence(raw: unknown) {

@@ -313,6 +313,18 @@ The human privacy/infrastructure owner must approve the precise metadata retenti
 and retirement evidence before activation. Local synthetic tests remove their
 isolated authority/material directories at cleanup.
 
+Private application recovery decodes necessary evidence only after original
+subject/withdrawal/frontier/expiry fences and current independent custody checks.
+Its original body stays private to the owning recovery job, never ordinary Round
+reads, realtime, telemetry or read-only worker discovery. Decoding is not new
+retention, a new processor or permission to dispatch: the consuming job must bound
+its transient plaintext, honor the ORIGINAL expiry and current erasure, cancel and
+clean up, and take its own current dispatch/commit fences. An already copied
+plaintext cannot be cryptographically recalled. Local synthetic tests demonstrate
+receipt/body recovery and future-use refusal, not every-copy deletion, public
+closure, full PG backup restoration or external-processor cancellation. Production
+remains disabled pending REL-H; capture/STT/job-lifecycle integration is incomplete.
+
 Encrypted backup bytes are not physically deleted by SQL DELETE or key revocation.
 Every-copy expiry, at-rest encryption, access, restore reconciliation and permanent
 key revocation remain unverified production obligations in REL-H. Rolling back all

@@ -65,3 +65,16 @@ export type NecessaryEvidenceCustody = {
     identity: EvidenceIdentity,
   ) => Promise<{ readonly kind: 'revoked' } | EvidenceRefusal>;
 };
+
+/** Historical committed payload metadata; never fresh capture/publication/hearing permission. */
+export type NecessaryEvidencePayloadReceipt = {
+  readonly kind: 'received';
+  readonly evidenceId: string;
+  readonly bindingDigest: string;
+  readonly payloadAcceptedAt: string;
+  readonly receipt: EvidenceCustodyReceipt;
+};
+export type NecessaryEvidenceIngressReply =
+  | NecessaryEvidencePayloadReceipt
+  | EvidenceRefusal
+  | { readonly kind: 'pending'; readonly evidenceId: string };

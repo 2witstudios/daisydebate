@@ -578,3 +578,47 @@ remains visible unresolved with its remedy, never silent successful completion.
 Atomic receipt, compensation, scheduled progress, original-subject/late-erasure
 races and actual selective PG restore proofs remain NOT RUN until implemented;
 production remains disabled under REL-H.
+
+## Application-authenticated payload and private original-body recovery
+
+The application capability validates the full canonical native body and original
+frame equations before admission or custody. It derives bytes/hash, commits the
+bounded original intent, rechecks exact original history/subjects, seals through
+injected custody and authenticates/decrypts those actual bytes before adoption.
+It then authenticates the stored ciphertext, checks current independent scope and
+rechecks current PG authority/unchanged receipt before replying with metadata
+only. Unknown commit is reconciled before any material revocation; no failed
+reply is treated as proof that payload is absent. Identical confirmation has its
+own private read; payload adoption still requires original execution credentials.
+
+A post-receipt recovery process need not remember source PCM or a lease token.
+An ID-scoped private load takes original account→Round→intent, withdrawal,
+frontier and expiry fences before reading sealed bytes. Current custody decodes
+the actual stored body; application validates canonical bytes/hash/IDs and the
+original frame equations, checks current independent scope, then rechecks the
+full original-body/history PG authority in a NEW transaction. No user lock is
+acquired after an owned Round lock. The returned private original body preserves
+original epoch/calibration/sequence/history, never successor capture authority.
+It is not an STT-dispatch, publication or hearing permission; every later external
+dispatch and settlement still requires its own current fences and claim.
+
+Only actual retained ciphertext permits bodyless restoration. A durable intent
+and real material key without payload return pending: neither can reconstruct
+missing words. Pre-receipt retry may use an actually retained sender body under
+the same identity; loss of that unreceived body still needs protected time and a
+visible new speech opportunity. Local fresh-process qualification distinguishes
+that case from SIGKILL after payload commit, where the new process receives ONLY
+Round/evidence IDs and authenticates the original stored body/receipt. This does
+not establish native nonempty-carry integration, acoustic occurrence or peer
+hearing, and process persistence is not host-independent production custody.
+
+A held plaintext copy is residual. Application clears its owned transient decoded
+buffer, but cannot recall a separate caller copy. Current PG withdrawal must deny
+later receipt/body use even while independent propagation/cleanup is delayed and
+key material remains live. Current independent pending privacy must also deny an
+old open PG payload, including preparation after custody has returned plaintext.
+Those are local application boundaries, not public account-closure, full PG
+backup-restore freshness, external processor cancellation or every-copy proof.
+Capture wiring, durable compensation/retirement scheduling, dispatch/settlement,
+STT/recognition/freeze, protected clocks, hearing/result and production REL-H
+acceptance remain incomplete. The capability is not mounted in production routes.

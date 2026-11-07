@@ -110,21 +110,12 @@
       "reviewBy": "2026-12-07"
     },
     {
-      "path": "packages/protocol/src/capture-evidence-body.ts",
-      "export": "canonicalCaptureEvidenceBody",
+      "path": "apps/web/src/features/media-capture/necessary-evidence-ingress.ts",
+      "export": "createNecessaryEvidenceIngress",
       "task": "REL-1 / REL-2",
       "owner": "media-capture (ag-7s11t7f7)",
       "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
-      "reason": "Full original PCM/provenance receipt validation precedes the application evidence adoption reader in this same incomplete slice. Shape/equation tests do not establish occurrence, authority, durable audio receipt or hearing. Production collection stays disabled under REL-H.",
-      "reviewBy": "2026-12-07"
-    },
-    {
-      "path": "packages/media/src/frame-clock.ts",
-      "export": "verifyFrameClockEvidence",
-      "task": "REL-1 / REL-2",
-      "owner": "media-capture (ag-7s11t7f7)",
-      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
-      "reason": "Full original PCM/provenance receipt validation precedes the application evidence adoption reader in this same incomplete slice. Shape/equation tests do not establish occurrence, authority, durable audio receipt or hearing. Production collection stays disabled under REL-H.",
+      "reason": "Actual persistent custody plus PG receipt/bodyless recovery qualification precedes the bounded signed capture/replay assembly in this same incomplete slice. Receipt is not fresh capture/hearing permission; production remains disabled under REL-H. Full carry, dispatch/settlement, retirement scheduling and played result proof are still required.",
       "reviewBy": "2026-12-07"
     }
   ]
