@@ -57,11 +57,53 @@ test('foreign acknowledgement keeps the change uncertain', async () => {
   });
 });
 test('a bound canonical tombstone confirms removal', async () => {
- const result = await submitFloorChange(async () => Response.json({id:messageId,channelId:scope.channelId,sequence:1,changeVersion:2,unavailable:true}),scope,{text:'',requestId},form(),()=> 'n'.repeat(24));
- assert({given:'the canonical own-removal reply',should:'settle the command instead of locking a successful removal as uncertain',actual:result,expected:{text:'',requestId:'n'.repeat(24),sent:messageId}});
+  const result = await submitFloorChange(
+    async () =>
+      Response.json({
+        id: messageId,
+        channelId: scope.channelId,
+        sequence: 1,
+        changeVersion: 2,
+        unavailable: true,
+      }),
+    scope,
+    { text: '', requestId },
+    form(),
+    () => 'n'.repeat(24),
+  );
+  assert({
+    given: 'the canonical own-removal reply',
+    should:
+      'settle the command instead of locking a successful removal as uncertain',
+    actual: result,
+    expected: { text: '', requestId: 'n'.repeat(24), sent: messageId },
+  });
 });
 test('a confirmed edit preserves the current text for another edit', async () => {
- const edit = form(); edit.set('kind','edit'); edit.set('text','Revised');
- const result = await submitFloorChange(async () => Response.json({id:messageId,channelId:scope.channelId,authorActorId:'a'.repeat(24),sequence:1,changeVersion:2,text:'Revised',createdAt:'2026-11-06T00:00:00.000Z',editedAt:'2026-11-06T00:00:01.000Z'}),scope,{text:'Old',requestId},edit,()=> 'n'.repeat(24));
- assert({given:'a confirmed author edit',should:'keep acknowledged text as the next editable draft',actual:result.text,expected:'Revised'});
+  const edit = form();
+  edit.set('kind', 'edit');
+  edit.set('text', 'Revised');
+  const result = await submitFloorChange(
+    async () =>
+      Response.json({
+        id: messageId,
+        channelId: scope.channelId,
+        authorActorId: 'a'.repeat(24),
+        sequence: 1,
+        changeVersion: 2,
+        text: 'Revised',
+        createdAt: '2026-11-06T00:00:00.000Z',
+        editedAt: '2026-11-06T00:00:01.000Z',
+      }),
+    scope,
+    { text: 'Old', requestId },
+    edit,
+    () => 'n'.repeat(24),
+  );
+  assert({
+    given: 'a confirmed author edit',
+    should: 'keep acknowledged text as the next editable draft',
+    actual: result.text,
+    expected: 'Revised',
+  });
 });

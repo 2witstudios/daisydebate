@@ -92,11 +92,19 @@ export async function submitFloorChange(
         return unknown;
       if (kind === 'remove' && !('unavailable' in parsed.data)) return unknown;
       if (kind === 'edit') {
-        if ('unavailable' in parsed.data || parsed.data.text !== form.get('text')) return unknown;
+        if (
+          'unavailable' in parsed.data ||
+          parsed.data.text !== form.get('text')
+        )
+          return unknown;
         acknowledgedText = parsed.data.text;
       }
     }
-    return { text: acknowledgedText, requestId: idSchema.parse(nextId()), sent: messageId };
+    return {
+      text: acknowledgedText,
+      requestId: idSchema.parse(nextId()),
+      sent: messageId,
+    };
   } catch {
     return unknown;
   }
