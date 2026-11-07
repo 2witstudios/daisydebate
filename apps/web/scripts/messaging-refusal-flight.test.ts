@@ -86,3 +86,26 @@ test('outlined Flight export names keep exact client-reference and own-props ass
     expected: [false, false, false, false],
   });
 });
+
+test('controlled delivery rejects redirects, non-Flight and missing advice before fulfillment', async () => {
+  const { advisedRecoveryResponse } =
+    await import('../e2e/support/messaging-refusal-flight');
+  const valid = {
+    status: 200,
+    contentType: 'text/x-component; charset=utf-8',
+    payload: moduleRow + model(['$', '$L7', null, props]),
+  };
+  assert({
+    given: 'real response status, MIME and its own named client boundary',
+    should:
+      'accept only an advised successful Flight response and never a redirect or HTML',
+    actual: [
+      valid,
+      { ...valid, status: 302 },
+      { ...valid, status: 500 },
+      { ...valid, contentType: 'text/html' },
+      { ...valid, payload: '0:{}\n' },
+    ].map((response) => advisedRecoveryResponse(response) !== null),
+    expected: [true, false, false, false, false],
+  });
+});

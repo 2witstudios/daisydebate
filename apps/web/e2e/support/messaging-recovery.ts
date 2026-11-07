@@ -23,7 +23,10 @@ import {
 } from './messaging-recovery-clock';
 import { awaitMessagingOperations } from './messaging-completed-operations';
 import { committedRefusalState } from './messaging-committed-refusal';
-import { hasAdvisedConversationBoundary } from './messaging-refusal-flight';
+import {
+  hasAdvisedConversationBoundary,
+  advisedRecoveryResponse,
+} from './messaging-refusal-flight';
 import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { boundedStep } from './bounded-step';
@@ -166,11 +169,40 @@ export function testMessagingRecovery() {
           !isMessagingRefetch(route.request().headers())
         )
           return route.continue();
-        const response = await route.fetch({
-          timeout: Math.max(1, deadline - Date.parse(systemClock.now())),
-          maxRetries: 0,
-        });
-        await route.fulfill({ response });
+        const budget = deadline - Date.parse(systemClock.now());
+        if (budget <= 0)
+          throw new Error(
+            'Controlled recovery delivery exceeded its existing10s budget',
+          );
+        await boundedStep(
+          'the actual controlled refusal delivery',
+          async () => {
+            const response = await route.fetch({
+              timeout: budget,
+              maxRetries: 0,
+              maxRedirects: 0,
+            });
+            const advice = advisedRecoveryResponse({
+              status: response.status(),
+              contentType: response.headers()['content-type'] ?? '',
+              payload: await response.text(),
+            });
+            await info.attach('controlled-refusal-response-safe', {
+              contentType: 'application/json',
+              body: JSON.stringify({
+                outerStatus: response.status(),
+                advisedFlight: advice !== null,
+              }),
+            });
+            if (advice === null)
+              throw new Error(
+                'Controlled recovery did not receive an advised Flight response',
+              );
+            observer!.includeResponse(response.headers()['x-request-id']);
+            await route.fulfill({ response });
+          },
+          budget,
+        );
       });
       await driveRefusalDeadlines(page, observer, initial, deadline);
       await page.clock.fastForward(12000);

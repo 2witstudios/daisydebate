@@ -60,3 +60,19 @@ export function advisedConversationBoundary(
 
 export const hasAdvisedConversationBoundary = (payload: string): boolean =>
   advisedConversationBoundary(payload) !== null;
+
+/** Controlled transport must carry the actual advised Flight, never a redirect or HTML. */
+export function advisedRecoveryResponse({
+  status,
+  contentType,
+  payload,
+}: {
+  readonly status: number;
+  readonly contentType: string;
+  readonly payload: string;
+}) {
+  return status === 200 &&
+    contentType.split(';', 1)[0]?.trim().toLowerCase() === 'text/x-component'
+    ? advisedConversationBoundary(payload)
+    : null;
+}
