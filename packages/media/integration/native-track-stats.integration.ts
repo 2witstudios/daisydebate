@@ -183,14 +183,13 @@ test('two same-name native tracks return distinct handle-bound RTP records witho
       try {
         other = await createAudioPublication({
           url: 'ws://127.0.0.1:7880',
-          token:
-            (await service.joinToken({
-              room: roomName,
-              identity: createId(),
-              publish: ['microphone'],
-              subscribe: false,
-              capture: false,
-            })) + '\n',
+          token: await service.joinToken({
+            room: roomName,
+            identity: createId(),
+            publish: ['microphone'],
+            subscribe: false,
+            capture: false,
+          }),
           trackName: track.name,
           sampleRate: 48000,
           channels: 1,

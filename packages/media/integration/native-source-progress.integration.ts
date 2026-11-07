@@ -26,55 +26,54 @@ const inbound = (
   subscriberKinds: [
     ...new Set(stats.subscriberStats.map((row) => row.stats.case ?? 'unknown')),
   ],
-  inbound:
-    [
-      ...stats.publisherStats.map((row) => ({ collection: 'publisher', row })),
-      ...stats.subscriberStats.map((row) => ({
-        collection: 'subscriber',
-        row,
-      })),
-    ].flatMap(({ collection, row }) => {
-      if (row.stats.case !== 'inboundRtp') return [];
-      const { stream, received, inbound: audio } = row.stats.value;
-      return [
-        {
-          collection,
-          kind: stream?.kind ?? null,
-          trackMatch:
-            audio?.trackIdentifier === undefined
-              ? null
-              : audio.trackIdentifier === trackId,
-          trackNameMatch:
-            audio?.trackIdentifier === undefined || trackName === undefined
-              ? null
-              : audio.trackIdentifier === trackName,
-          containsTrackSid:
-            audio?.trackIdentifier === undefined || trackId === undefined
-              ? null
-              : audio.trackIdentifier.includes(trackId),
-          compositeMatch:
-            audio?.trackIdentifier === undefined ||
-            trackId === undefined ||
-            participantSid === undefined
-              ? null
-              : audio.trackIdentifier === `${participantSid}|${trackId}`,
-          identifierLength: audio?.trackIdentifier?.length ?? null,
-          identifierIsUuid:
-            audio?.trackIdentifier === undefined
-              ? null
-              : /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(
-                  audio.trackIdentifier,
-                ),
-          packetsReceived: received?.packetsReceived?.toString() ?? null,
-          packetsLost: received?.packetsLost?.toString() ?? null,
-          totalSamplesReceived: audio?.totalSamplesReceived?.toString() ?? null,
-          concealedSamples: audio?.concealedSamples?.toString() ?? null,
-          silentConcealedSamples:
-            audio?.silentConcealedSamples?.toString() ?? null,
-          concealmentEvents: audio?.concealmentEvents?.toString() ?? null,
-        },
-      ];
-    }) + '\n',
+  inbound: [
+    ...stats.publisherStats.map((row) => ({ collection: 'publisher', row })),
+    ...stats.subscriberStats.map((row) => ({
+      collection: 'subscriber',
+      row,
+    })),
+  ].flatMap(({ collection, row }) => {
+    if (row.stats.case !== 'inboundRtp') return [];
+    const { stream, received, inbound: audio } = row.stats.value;
+    return [
+      {
+        collection,
+        kind: stream?.kind ?? null,
+        trackMatch:
+          audio?.trackIdentifier === undefined
+            ? null
+            : audio.trackIdentifier === trackId,
+        trackNameMatch:
+          audio?.trackIdentifier === undefined || trackName === undefined
+            ? null
+            : audio.trackIdentifier === trackName,
+        containsTrackSid:
+          audio?.trackIdentifier === undefined || trackId === undefined
+            ? null
+            : audio.trackIdentifier.includes(trackId),
+        compositeMatch:
+          audio?.trackIdentifier === undefined ||
+          trackId === undefined ||
+          participantSid === undefined
+            ? null
+            : audio.trackIdentifier === `${participantSid}|${trackId}`,
+        identifierLength: audio?.trackIdentifier?.length ?? null,
+        identifierIsUuid:
+          audio?.trackIdentifier === undefined
+            ? null
+            : /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(
+                audio.trackIdentifier,
+              ),
+        packetsReceived: received?.packetsReceived?.toString() ?? null,
+        packetsLost: received?.packetsLost?.toString() ?? null,
+        totalSamplesReceived: audio?.totalSamplesReceived?.toString() ?? null,
+        concealedSamples: audio?.concealedSamples?.toString() ?? null,
+        silentConcealedSamples:
+          audio?.silentConcealedSamples?.toString() ?? null,
+        concealmentEvents: audio?.concealmentEvents?.toString() ?? null,
+      },
+    ];
+  }),
 });
 test('held source input cannot be replaced by continuing decoder callbacks or received-sample totals', async () => {
   await withHistoricalSeat(databaseUrl, async (history) => {
@@ -156,6 +155,9 @@ test('held source input cannot be replaced by continuing decoder callbacks or re
             should:
               'preserve only the actual source prefix, cancel before any later handoff and keep callback progress separate from original source/coverage',
             actual: {
+              structured: [before, delivered, gap].every((snapshot) =>
+                Array.isArray(snapshot.inbound.inbound),
+              ),
               prelude: before.callbacks >= 20,
               beforeSource: before.handed,
               source: result.eligibleSamples,
@@ -166,6 +168,7 @@ test('held source input cannot be replaced by continuing decoder callbacks or re
               gapCallbacks: gap.callbacks - delivered.callbacks >= 20,
             },
             expected: {
+              structured: true,
               prelude: true,
               beforeSource: 0,
               source: 9600,
