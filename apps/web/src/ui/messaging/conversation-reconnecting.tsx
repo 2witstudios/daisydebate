@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { ConversationRecoveryOrigin } from './conversation-recovery';
 import { createConversationRecovery } from './conversation-recovery';
 import { shellNavigationEvent } from '../layout/app-shell/shell-navigation';
 
@@ -9,8 +10,10 @@ import { shellNavigationEvent } from '../layout/app-shell/shell-navigation';
 export function ConversationReconnecting({
   requestId,
   retryAfterMs,
+  origin,
 }: {
   readonly requestId: string;
+  readonly origin: ConversationRecoveryOrigin;
   readonly retryAfterMs: number;
 }) {
   const router = useRouter();
@@ -87,8 +90,8 @@ export function ConversationReconnecting({
     };
   }, [router, startTransition]);
   useEffect(() => {
-    if (!pending) owner.current?.refused(requestId, retryAfterMs);
-  }, [requestId, retryAfterMs, pending]);
+    if (!pending) owner.current?.refused(requestId, retryAfterMs, origin);
+  }, [requestId, retryAfterMs, pending, origin]);
   return (
     <div className="flex flex-1 flex-col gap-3 p-6 text-ink-muted">
       <p role="status">

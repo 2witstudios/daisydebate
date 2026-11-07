@@ -1,3 +1,5 @@
+export type ConversationRecoveryOrigin = 'page-read' | 'action-render';
+
 type Recovery =
   | { readonly kind: 'new' }
   | { readonly kind: 'stopped' }
@@ -9,6 +11,7 @@ type Recovery =
 type Event =
   | {
       readonly kind: 'refused';
+      readonly origin: ConversationRecoveryOrigin;
       readonly answer: string;
       readonly retryAfterMs: number;
     }
@@ -40,6 +43,9 @@ export function conversationRecovery(
         }
       : unchanged;
   if (state.kind === 'waiting') return unchanged;
+  // An action can rerender the same page while the actual refresh is still in flight.
+  if (state.kind === 'refreshing' && event.origin === 'action-render')
+    return unchanged;
   if (state.kind === 'refreshing' && state.answers.includes(event.answer))
     return unchanged;
   const attempts = state.kind === 'new' ? 0 : state.attempts;
@@ -93,7 +99,10 @@ export function createConversationRecovery(input: {
   };
   return {
     stop: () => accept({ kind: 'stop' }),
-    refused: (answer: string, retryAfterMs: number) =>
-      accept({ kind: 'refused', answer, retryAfterMs }),
+    refused: (
+      answer: string,
+      retryAfterMs: number,
+      origin: ConversationRecoveryOrigin,
+    ) => accept({ kind: 'refused', answer, retryAfterMs, origin }),
   };
 }
