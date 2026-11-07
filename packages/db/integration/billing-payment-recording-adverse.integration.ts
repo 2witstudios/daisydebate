@@ -33,69 +33,72 @@ const read = (customerId: string) => ({
 test(
   'a new exact late payment after a typed prior acknowledgement atomically reopens cleanup without recreating its deleted customer',
   async () =>
-    withBillingRefunds(
-      async ({ fixture, pool, instanceId, userId, vendorCustomerId }) => {
-        const reserve = pool.reserve.bind(pool);
-        pool.reserve = async (options) => {
-          const connection = await reserve(options);
-          await connection`set role daisy_web`;
-          return connection;
-        };
-        const database = createDatabase({
-          url: process.env.TEST_DATABASE_URL!,
-          client: pool,
-          nextActorId: createId,
+    withBillingRefunds(async (input) => {
+      const { fixture, pool, instanceId, userId, vendorCustomerId } = input;
+      const reserve = pool.reserve.bind(pool);
+      pool.reserve = async (options) => {
+        const connection = await reserve(options);
+        await connection`set role daisy_web`;
+        return connection;
+      };
+      const database = createDatabase({
+        url: process.env.TEST_DATABASE_URL!,
+        client: pool,
+        nextActorId: createId,
+      });
+      const cleanup = database.billingCleanup(instanceId);
+      const retained = await settledRefundRouting(input);
+      await completeControlledStripeCleanup({
+        owner: fixture.sql,
+        database,
+        userId,
+        instanceId,
+      });
+      const [prior] =
+        await fixture.sql`select id,status,billing_cleanup->>'kind' as kind from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
+      const payment = read(vendorCustomerId);
+      try {
+        const result = await cleanup.recordPayment(userId, payment);
+        const duplicate = await cleanup.recordPayment(userId, payment);
+        const [after] =
+          await fixture.sql`select id,status,billing_cleanup from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
+        const [counts] =
+          await fixture.sql`select (select count(*)::int from billing_payment_observations where user_id=${userId}) as observations,(select count(*)::int from billing_customers where user_id=${userId}) as customers`;
+        assert({
+          given:
+            'a controlled typed vendor-deleted ACK completed before newly verified owed payment identity',
+          should:
+            'commit the fact with a fresh pending job once, retain no-customer routing and keep duplicate idle',
+          actual: [
+            prior!.status,
+            prior!.kind,
+            result,
+            duplicate,
+            after!.id !== prior!.id,
+            after!.status,
+            after!.billing_cleanup,
+            counts,
+            (
+              await fixture.sql`select to_jsonb(action) as value from billing_refund_actions action where id=${retained.id}`
+            )[0]!.value,
+          ],
+          expected: [
+            'succeeded',
+            'acknowledged',
+            'recorded',
+            'unchanged',
+            true,
+            'pending',
+            null,
+            { observations: 1, customers: 0 },
+            retained,
+          ],
         });
-        const cleanup = database.billingCleanup(instanceId);
-        await completeControlledStripeCleanup({
-          owner: fixture.sql,
-          database,
-          userId,
-          instanceId,
-        });
-        const [prior] =
-          await fixture.sql`select id,status,billing_cleanup->>'kind' as kind from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
-        const payment = read(vendorCustomerId);
-        try {
-          const result = await cleanup.recordPayment(userId, payment);
-          await fixture.sql`delete from billing_customers where user_id=${userId}`;
-          const duplicate = await cleanup.recordPayment(userId, payment);
-          const [after] =
-            await fixture.sql`select id,status,billing_cleanup from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
-          const [counts] =
-            await fixture.sql`select (select count(*)::int from billing_payment_observations where user_id=${userId}) as observations,(select count(*)::int from billing_customers where user_id=${userId}) as customers`;
-          assert({
-            given:
-              'a controlled typed vendor-deleted ACK completed before newly verified owed payment identity',
-            should:
-              'commit the fact with a fresh pending job once, retain no-customer routing and keep duplicate idle',
-            actual: [
-              prior!.status,
-              prior!.kind,
-              result,
-              duplicate,
-              after!.id !== prior!.id,
-              after!.status,
-              after!.billing_cleanup,
-              counts,
-            ],
-            expected: [
-              'succeeded',
-              'acknowledged',
-              'recorded',
-              'unchanged',
-              true,
-              'pending',
-              null,
-              { observations: 1, customers: 0 },
-            ],
-          });
-        } finally {
-          await fixture.sql`delete from billing_payment_observations where user_id=${userId}`;
-          pool.reserve = reserve;
-        }
-      },
-    ),
+      } finally {
+        await fixture.sql`delete from billing_payment_observations where user_id=${userId}`;
+        pool.reserve = reserve;
+      }
+    }),
   15000,
 );
 
@@ -228,3 +231,28 @@ test('service authority lost behind the payment table lock rolls back both recog
       }
     },
   ));
+
+/** Controlled positive vendor refund result retains original routing after customer removal. */
+async function settledRefundRouting(
+  input: Parameters<Parameters<typeof withBillingRefunds>[0]>[0],
+) {
+  const admitted = await input.refunds.admit(input.userId, input.payment);
+  if (!('action' in admitted)) throw Error('Fixture original refund refused');
+  const claimed = await input.refunds.claim(admitted.action.id);
+  if (claimed?.work !== 'create' || !claimed.action.claim)
+    throw Error('Missing original refund claim');
+  await input.refunds.record(admitted.action.id, {
+    kind: 'observe',
+    claimId: claimed.action.claim.id,
+    refundId: `re_${createId()}`,
+    status: 'succeeded',
+  });
+  const [row] = await input.fixture
+    .sql`select to_jsonb(action) as value from billing_refund_actions action where id=${admitted.action.id}`;
+  if (
+    row?.value.state.kind !== 'known' ||
+    row.value.state.status !== 'succeeded'
+  )
+    throw Error('Missing positively settled original refund routing');
+  return row.value;
+}

@@ -3,7 +3,6 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createDatabase } from '../src/index';
-import { completeControlledStripeCleanup } from '../src/testing';
 import { exportPrivacySubject } from '../src/privacy';
 import { sqlStateOf } from './constraint-helpers';
 import {
@@ -53,31 +52,20 @@ test(
         });
         const cleanup = database.billingCleanup(instanceId);
         try {
-          // Prior ACK uses controlled vendor deletion through all five typed lanes while
-          // the original mapping still proves ownership. It is not Stripe lifecycle proof.
-          await completeControlledStripeCleanup({
-            owner: fixture.sql,
-            database,
-            userId,
-            instanceId,
-          });
-          const [prior] =
-            await fixture.sql`select status,billing_cleanup->>'kind' as kind,billing_cleanup->>'outcome' as outcome from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
+          // Observation-only cohort: establish positive routing before deletion.
+          // The separate late-payment adverse cohort preserves typed prior-ACK reopening
+          // using a settled original refund action; ACK cannot leave an ordinary mapping.
+          await witness(input, id);
+          const [routing] =
+            await fixture.sql`select (select count(*)::int from billing_customers where user_id=${userId}) as customers,(select count(*)::int from billing_payment_observations where user_id=${userId}) as observations`;
           assert({
             given:
-              'owned routing and controlled completed five-lane discovery/deletion',
+              'an owned mapping before retaining the first unknown invoice identity',
             should:
-              'reach a typed vendor-deleted acknowledgement before newly learned owed evidence',
-            actual: prior,
-            expected: {
-              status: 'succeeded',
-              kind: 'acknowledged',
-              outcome: 'vendor-deleted',
-            },
+              'establish truthful original observation provenance before deleting its sole ordinary mapping',
+            actual: routing,
+            expected: { customers: 1, observations: 1 },
           });
-          // Establish the new witness from the still-retained original ownership, then
-          // remove the ordinary mapping. The observation alone must route the late event.
-          await witness(input, id);
           await fixture.sql`delete from billing_customers where user_id=${userId}`;
           const [oldJob] =
             await fixture.sql`select id from privacy_jobs where subject_ref=${userId} and vendor='stripe'`;
