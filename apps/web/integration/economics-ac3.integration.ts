@@ -9,6 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import { composeBillingEconomics } from '../src/server/billing-economics';
 import {
@@ -23,6 +24,7 @@ import {
 } from './economics-ac3-cohort.test-support';
 
 setupRitewayBun();
+requireTestServices(process.env);
 
 test('actual composed AI workers observe increasing beta workload separately from dispatch high-water and persist equal private economics', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-ac3-observation-'));
