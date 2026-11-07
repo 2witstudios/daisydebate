@@ -85,29 +85,70 @@ and legal-policy publication. Retention remains an owner/counsel decision;
 there is no application override of the vendor project's retention setting.
 The served legal text is not silently replaced by this integration.
 
-### Selected live-beta configuration (owner-verified 2026-11-06)
+### Live-beta activation (owner-authorized 2026-11-07)
 
 - Organization: **2witstudios**; existing **Default** project **699106**.
 - Region: **US Cloud**, ingestion origin `https://us.i.posthog.com`.
 - Plan: **Free**, **1 million events/month**; selected event retention **one year**.
 - Session replay: **disabled**, regardless of vendor project toggles.
 
-These are the owner's verified setup selections, not evidence of live capture,
-legal approval or deployment. The DPA is **not executed**: the legal form still
-requires the human-supplied company name, registered address and signer email.
-Transfer safeguards and PRIV-H sign-off remain outstanding. Do not close
-PRIV-H or set ingestion/management credentials on the strength of project
-selection alone. The authorized activation operator must obtain scoped-key
-approval, configure credentials and complete live verification separately.
+The owner explicitly authorized signing and enabling PostHog. The activation
+operator completed the DPA signature; PostHog Legal shows **Signed**, and the
+canonical signed copy is retained in PandaDoc and PostHog. The agreement
+includes transfer provisions (DPF and applicable standard contractual clauses).
+This records the executed PostHog agreement, not approval of the broader
+counsel draft or completion of global PRIV-H.
 
-The served notice is `privacyDocument` in
-`apps/web/src/features/legal/documents.ts`, version `draft-0.3` in
-`versions.ts`. Publish that notice before configuring keys to enable capture.
-The broader [counsel draft](../legal/privacy-policy.md) remains unpublished;
-this focused notice update does not approve that draft or any unrelated legal
-claim. Confirm the selected retention in the vendor project before activation;
-Daisy does not enforce the vendor's retention setting. Anonymous withdrawal
-cannot retroactively erase events that are no longer linked to a browser.
+The operator verified a management credential restricted to project **699106**
+and `person:write`, then imported all five required values through Fly secrets
+into `daisy-debate-staging`. The rolling update succeeded and readiness
+returned HTTP 200. The served `privacyDocument`, version `draft-0.3`, was
+verified live with the PostHog disclosure **before** capture was enabled.
+The project showed the organization-default **one-year** event retention;
+Daisy does not enforce the vendor's retention setting. One year marks event
+expiry, not guaranteed physical deletion: PostHog may keep expired events
+longer and deletes them in batches. No fixed physical-deletion deadline has
+been confirmed. See PostHog's [events retention documentation](https://posthog.com/docs/data/events-retention).
+Anonymous withdrawal cannot retroactively erase events no longer linked to a
+browser. The served-notice clarification in `draft-0.4` states this distinction;
+the activation observation above remains the historical `draft-0.3` receipt. No credential,
+private address or document access token belongs in this record.
+
+The nonsecret activation receipt is recorded in the
+[PostHog plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/dknkvlneixdawuf77avw9p61)
+and [PRIV-H](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/s05ydlaxww9iccvyznjn9jjh).
+PRIV-H remains open for other processors and obligations. The broader
+[counsel draft](../legal/privacy-policy.md) remains unpublished.
+
+### Observed live proof and its limits
+
+The activation operator used a separate anonymous incognito browser, opted in
+at `/analytics`, and observed three `page_viewed` events from home and
+leaderboard navigation in PostHog Activity. An inspected US regional `/e/`
+POST returned HTTP 200 with status `Ok`. Its properties contained only bounded
+area, browser identity and required protocol/privacy fields; GeoIP was disabled
+and `$process_person_profile` was false. No raw URL, referrer, content, name or
+email properties appeared.
+
+After refusing analytics in that browser, the checkbox was false and a product
+page reload produced **zero PostHog requests** among 56 observed requests after
+the SDK flush window. The test incognito window was then closed.
+
+A random synthetic absent-subject bulk-delete returned HTTP 202,
+`persons_found: 0`, both deletion queue flags false and no `deletion_errors`.
+This verifies the scoped credential and the empty-subject acknowledgement
+contract; it does not prove queued or physical deletion of a linked person.
+No participant was deleted.
+
+Signed-in, cross-tab and linked-person deletion behavior have
+integration/browser coverage. Browser tests exercise `page_viewed`; a server
+integration test exercises `room_created` delivery. Playback reporting has
+unit coverage. These tests do not establish integration/browser coverage of
+all six event journeys. This live activation session
+**did not exercise** the full signed-in Room/rematch/erasure journey or every
+event kind. Keep that distinction when repeating or extending the proof.
+Replay remains disabled. The following is the broader verification checklist,
+not a claim that every step was executed in this live session.
 
 On the approved staging project, accept analytics in a dedicated test account,
 visit home and Rooms, create a Room and rematch it. Verify the registered page, consent and Room
@@ -144,9 +185,10 @@ the response cookie, so they perform no durable write, vendor call or shared
 missing-identity rate-limit lookup. Account mutations retain their own
 principal-keyed 30/minute budget.
 
-Before PRIV-H activation, repeat the bulk-delete proof for the same dedicated
+For live linked-person deletion verification, repeat the bulk-delete proof for the same dedicated
 staging subject after its person record has disappeared. Verify the explicit
 zero-person acknowledgement as well as the first queued deletion. This
 empty-match contract was checked in the upstream [PostHog server implementation](https://github.com/PostHog/posthog/blob/327ba7b2aa835f006f987ac05aa183e2fea51718/posthog/api/person.py)
-and is covered by the adapter's repeat-deletion test; the live project still
-needs its human activation proof.
+and is covered by the adapter's repeat-deletion test. The activation receipt
+above proves a synthetic empty match only; it does not establish the complete
+linked-person deletion and repeat-deletion journey.
