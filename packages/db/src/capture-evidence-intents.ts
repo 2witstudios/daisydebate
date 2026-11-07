@@ -47,7 +47,7 @@ const policyOf = (dependencies: CaptureDependencies) => {
   return policy;
 };
 /** Binds server-validated original scope/window independently of the declared full-body digest. */
-const originalBinding = (input: Intent) =>
+const originalBinding = (input: Intent, subjects: readonly string[]) =>
   captureDigest([
     'necessary-evidence@1',
     input.roundId,
@@ -63,10 +63,12 @@ const originalBinding = (input: Intent) =>
     input.after,
     input.bodyDigest,
     input.reservedBytes,
+    subjects,
   ]);
 const sameOriginal = (
   row: typeof necessaryEvidence.$inferSelect,
   input: Intent,
+  subjects: readonly string[],
 ) =>
   row.originalRoundId === input.roundId &&
   row.sessionId === input.sessionId &&
@@ -74,7 +76,8 @@ const sameOriginal = (
   row.roundParticipantId === input.roundParticipantId &&
   row.workerId === input.workerId &&
   row.captureEpoch === input.epoch &&
-  row.bindingDigest === originalBinding(input) &&
+  JSON.stringify(row.originalSubjectActorIds) === JSON.stringify(subjects) &&
+  row.bindingDigest === originalBinding(input, subjects) &&
   row.reservedBytes === input.reservedBytes;
 
 /** Commits original authority and bounded crash discovery BEFORE custody has any side effect. */
@@ -84,7 +87,7 @@ export async function reserveCaptureEvidenceIntent(
   dependencies: CaptureDependencies,
 ) {
   const policy = policyOf(dependencies);
-  await lockNecessaryEvidenceRound(tx, input.roundId);
+  const { subjects } = await lockNecessaryEvidenceRound(tx, input.roundId);
   const context = await captureWriteContext(
     tx,
     input,
@@ -111,7 +114,10 @@ export async function reserveCaptureEvidenceIntent(
     sttLagMs: dependencies.sttLagMs,
   });
   if (existing) {
-    if (!sameOriginal(existing, input) || existing.state !== 'acquiring')
+    if (
+      !sameOriginal(existing, input, subjects) ||
+      existing.state !== 'acquiring'
+    )
       throw createAppError('CONFLICT', 'Evidence identity is fenced');
     if (existing.leaseExpiresAt && existing.leaseExpiresAt > now)
       return {
@@ -175,12 +181,13 @@ export async function reserveCaptureEvidenceIntent(
       id: input.evidenceId,
       roundId: input.roundId,
       originalRoundId: input.roundId,
+      originalSubjectActorIds: subjects,
       sessionId: input.sessionId,
       segmentId: input.segmentId,
       roundParticipantId: input.roundParticipantId,
       workerId: input.workerId,
       captureEpoch: input.epoch,
-      bindingDigest: originalBinding(input),
+      bindingDigest: originalBinding(input, subjects),
       reservedBytes: input.reservedBytes,
       createdAt: admittedAt,
       ...claim,
@@ -188,7 +195,7 @@ export async function reserveCaptureEvidenceIntent(
   return {
     kind: 'claimed' as const,
     evidenceId: input.evidenceId,
-    bindingDigest: originalBinding(input),
+    bindingDigest: originalBinding(input, subjects),
     executionEpoch: epoch,
     token,
     leaseExpiresAt: leaseExpiresAt.toISOString(),

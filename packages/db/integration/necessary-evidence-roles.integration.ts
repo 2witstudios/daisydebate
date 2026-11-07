@@ -29,6 +29,7 @@ test('worker discovery reads only routing columns and cannot read payload or acq
       for (const statement of [
         'select ciphertext from necessary_evidence where id=$1',
         'select lease_digest from necessary_evidence where id=$1',
+        'select original_subject_actor_ids from necessary_evidence where id=$1',
         'update necessary_evidence set reserved_bytes=2 where id=$1',
         'delete from necessary_evidence where id=$1',
       ])
@@ -47,7 +48,7 @@ test('worker discovery reads only routing columns and cannot read payload or acq
         actual: { rows: [...rows], refusals },
         expected: {
           rows: [{ id, state: 'acquiring' }],
-          refusals: ['42501', '42501', '42501', '42501'],
+          refusals: ['42501', '42501', '42501', '42501', '42501'],
         },
       });
     } finally {

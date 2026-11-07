@@ -452,3 +452,25 @@ Synthetic controls do not qualify representative human recognition. Compare mode
 only through approved interfaces with official version-matched documentation and
 authorized test capabilities; no arbitrary blanket substitution. Corpus intake,
 provisional/final implementation and quality qualification remain NOT RUN.
+
+Original content subjects are an evidence-owned durable admission fact, not a
+query against a successor cast. Initial intent admission persists the exact
+server-derived, sorted, bounded subject actor set under its account→Round fence,
+and includes that set in the custody binding digest before the first acquisition.
+The set and cleanup routing survive Round aggregate erasure. A successor worker,
+seat change or account closure never rewrites that original authority. Recovery
+must discover the stored original set, acquire its canonical account fences before
+Round and revalidate the exact stored set after waits; it must not acquire new
+subjects after Round or reauthorize old PCM against replacement capture rights.
+
+A nullable original-subject field explicitly means UNPROVEN, not an empty set.
+There is no migration backfill from current cast and no invented original
+membership/history. New admission always writes a proven set, including an actual
+empty set when there were no human subjects. Unknown-subject routing is retained
+for safe reconciliation/retirement; it cannot authorize payload adoption, replay,
+STT or judging. Do not silently delete recoverable work because metadata is
+uncertain. The worker's discovery role receives neither subject identities nor
+payload/lease secrets. Subject routing is private/linkable metadata, minimized
+only after confirmed retirement under the declared anti-resurrection lifecycle.
+This storage step alone is not an audio receipt or a working retirement/replay
+scheduler, and does not prove late held-plaintext settlement fences.

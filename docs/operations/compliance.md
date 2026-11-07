@@ -278,6 +278,15 @@ provenance. No candidate text or audio belongs in telemetry or ordinary realtime
 payloads. This candidate lifecycle is planned and production-disabled; implementation,
 export/erasure/restore and every-copy proof remain required before activation.
 
+PostgreSQL intent routing additionally retains the original bounded subject actor
+IDs, separately from the current cast or successor worker. These are linkable
+personal/private privacy-routing metadata, not anonymous identifiers. They permit
+immediate canonical subject fencing and bounded cleanup after aggregate erasure.
+Do not expose them through ordinary Round reads, worker discovery or telemetry;
+minimize them after confirmed retirement. Unknown original subjects cannot be
+backfilled from current membership or treated as an empty set. Integrated
+retirement/export/erasure remains incomplete and production-disabled.
+
 The key authority is separate from payload backups. Its opaque evidence IDs,
 original receipt/expiry, integrity digests and revocation tombstones are necessary
 anti-resurrection metadata; they contain no PCM, transcript or raw key. Retain the

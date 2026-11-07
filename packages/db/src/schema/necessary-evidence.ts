@@ -25,6 +25,8 @@ export const necessaryEvidence = pgTable(
     }),
     // Original scope is routing/provenance, not a successor's capture authority.
     originalRoundId: text('original_round_id').notNull(),
+    /** Null means original subjects were not proven; never infer them from a successor cast. */
+    originalSubjectActorIds: text('original_subject_actor_ids').array(),
     sessionId: text('session_id').notNull(),
     segmentId: text('segment_id').notNull(),
     roundParticipantId: text('round_participant_id').notNull(),
@@ -55,6 +57,19 @@ export const necessaryEvidence = pgTable(
   },
   (table) => [
     index('necessary_evidence_round_idx').on(table.roundId),
+    index('necessary_evidence_subjects_idx').using(
+      'gin',
+      table.originalSubjectActorIds,
+    ),
+    check(
+      'necessary_evidence_subjects_check',
+      sql`${table.originalSubjectActorIds} is null or (
+      cardinality(${table.originalSubjectActorIds}) between 0 and 257 and (cardinality(${table.originalSubjectActorIds})=0 or (
+        array_ndims(${table.originalSubjectActorIds})=1 and array_lower(${table.originalSubjectActorIds},1)=1
+        and array_position(${table.originalSubjectActorIds},null) is null
+        and array_to_string(${table.originalSubjectActorIds},',') ~ '^[a-z0-9]{24}(,[a-z0-9]{24})*$'
+      )))`,
+    ),
     index('necessary_evidence_due_idx').on(table.nextAttemptAt, table.id),
     check(
       'necessary_evidence_state_check',
