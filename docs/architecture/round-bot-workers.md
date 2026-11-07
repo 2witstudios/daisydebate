@@ -167,7 +167,7 @@ journey.
 | Final buffered capture and late provider response                   | Authenticated capture lease, actual historical grant window, bounded native prefix, append/seal and frozen frontier; media/D2 race proofs, never browser text edits                                                  |
 | One judgment, no partial completion after a race                    | Actual frozen revision, scoped durable job, cached response, shared locked ballot and settled-attendance gate; D1/D4 owners                                                                                          |
 | Public/human/erased or foreign actor scope                          | Canonical shared account/seat/run authentication and masked public reads; runtime/privacy owners, no AI-only permission bypass                                                                                       |
-| Allowance, concurrent reservation and vendor-failure refund         | DEC183/DEC186 canonical host sponsorship and exact reservation/attempt; terminal quota settlement remains independent; E1 admission owner                                                                            |
+| Allowance, concurrent reservation and vendor-failure refund         | ADR0117 frozen sponsor/source/period and exact shared-ledger reservation/attempt; terminal quota settlement remains independent; E1 admission owner                                                                  |
 
 ## Ephemeral activity routing (DEC192)
 
