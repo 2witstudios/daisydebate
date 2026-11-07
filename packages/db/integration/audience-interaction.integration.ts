@@ -475,6 +475,79 @@ test('a retried post keeps one message, and a Round with no audience has no chat
   });
 });
 
+test('concurrent spectator first posts coexist with an unchanged floor stream (RCHAT-2)', async () => {
+  await withEnv(async (env) => {
+    const roundId = await env.audienceRound();
+    await broadcast(env.client, roundId);
+    const floorId = createId();
+    const floorAuthor = await member(env.f);
+    await env.client`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,round_id)
+      values(${floorId},'round_floor','round.floor',1,'active',${roundId})`;
+    await env.client`insert into messaging_channel_streams(channel_id,message_sequence,change_version)
+      values(${floorId},1,1)`;
+    await env.client`insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at)
+      values(${createId()},${floorId},${floorAuthor.actorId},1,1,'Private floor sentinel',${at(0)})`;
+    const floorState = () =>
+      env.client`select to_jsonb(c) as channel,to_jsonb(s) as stream,to_jsonb(m) as message
+        from messaging_channels c join messaging_channel_streams s on s.channel_id=c.id
+        join messaging_messages m on m.channel_id=c.id where c.id=${floorId}`;
+    const before = await floorState();
+    const firstCommand = {
+      roundId,
+      ...(await member(env.f)),
+      text: 'Spectator sentinel A',
+      seconds: 0,
+      requestId: createId(),
+    };
+    const secondCommand = {
+      ...firstCommand,
+      ...(await member(env.f)),
+      text: 'Spectator sentinel B',
+      requestId: createId(),
+    };
+    const [first, second, duplicate] = await Promise.all([
+      post(env, firstCommand),
+      post(env, secondCommand),
+      post(env, firstCommand),
+    ]);
+    const retry = await post(env, secondCommand);
+    const channels =
+      await env.client`select c.kind,s.message_sequence::int as sequence,
+        s.change_version::int as version from messaging_channels c
+      join messaging_channel_streams s on s.channel_id=c.id
+      where c.round_id=${roundId} order by c.kind`;
+    const read = await env.chat.readSpectatorChat({ roundId, limit: 10 });
+    const snapshot = await env.snapshot.readAudienceSnapshot({ roundId });
+    assert({
+      given:
+        'a populated floor stream and two simultaneous first spectator commands, one duplicated',
+      should:
+        'keep one spectator stream, canonical retries and ordered spectator-only history without changing floor state',
+      actual: {
+        channels,
+        retries: [first!.id === duplicate!.id, second!.id === retry!.id],
+        ids: read.map((m) => m.id).sort(),
+        sequences: read.map((m) => m.sequence),
+        text: read.map((m) => m.text).sort(),
+        snapshot: snapshot?.messages.map((m) => m.text).sort(),
+        floor: await floorState(),
+      },
+      expected: {
+        channels: [
+          { kind: 'round_floor', sequence: 1, version: 1 },
+          { kind: 'round_spectator', sequence: 2, version: 3 },
+        ],
+        retries: [true, true],
+        ids: [first!.id, second!.id].sort(),
+        sequences: [1, 2],
+        text: ['Spectator sentinel A', 'Spectator sentinel B'],
+        snapshot: ['Spectator sentinel A', 'Spectator sentinel B'],
+        floor: before,
+      },
+    });
+  });
+});
+
 test('chat keeps its history when a Broadcast fails or stops', async () => {
   await withEnv(async (env) => {
     const roundId = await env.audienceRound();
