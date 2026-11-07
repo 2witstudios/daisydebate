@@ -19,8 +19,11 @@ const botRoom = withBot('negative');
 const status = {
   limit: 20,
   remaining: 1,
-  periodStart: '2026-10-01T00:00:00.000Z',
-  periodEnd: '2026-11-01T00:00:00.000Z',
+  source: {
+    kind: 'beta' as const,
+    startsAt: '2026-10-01T00:00:00.000Z',
+    endsAt: '2026-11-01T00:00:00.000Z',
+  },
   refusal: null,
 };
 test('bot admission metadata is private to the current sponsoring human host', async () => {
@@ -46,16 +49,9 @@ test('bot admission metadata is private to the current sponsoring human host', a
     given:
       'host, unrelated viewer, human-only, ranked and AI-judge-only projections',
     should:
-      'read and reveal allowance only to the host of a bot-debater cast, and call the AI judge free',
+      'read and reveal allowance only to the host of a bot-debater cast, and leave judge entitlement display to its own projection',
     actual: [visible, hidden, humanOnly, ranked, judgeOnly, reads],
-    expected: [
-      { kind: 'allowance', ...status },
-      null,
-      null,
-      null,
-      { kind: 'free' },
-      1,
-    ],
+    expected: [{ kind: 'allowance', ...status }, null, null, null, null, 1],
   });
 });
 test('absent configuration and failed fresh reads are unavailable rather than inferred free', async () => {

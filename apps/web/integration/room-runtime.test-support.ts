@@ -16,6 +16,7 @@ import {
 import { roundViewReader } from '../src/features/round-runtime/reads';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
 import { foundationSelection } from './foundation-selection.test-support';
+import { aiAdmissionOptions } from '../src/server/round-worker-policy';
 
 import { drawEntropy } from '../src/features/room-runtime/entropy';
 const services = requireTestServices(process.env);
@@ -26,6 +27,7 @@ export async function withRoomRuntime(
     | 'client'
     | 'profile'
     | 'botAdmission'
+    | 'aiAllowance'
     | 'judging'
     | 'botPublication'
     | 'roundAnalysis'
@@ -44,6 +46,7 @@ async function fixture(
     | 'client'
     | 'profile'
     | 'botAdmission'
+    | 'aiAllowance'
     | 'judging'
     | 'botPublication'
     | 'roundAnalysis'
@@ -58,6 +61,10 @@ async function fixture(
   const store = createDatabase({
     url: services.databaseUrl,
     nextActorId: createId,
+    ...aiAdmissionOptions({
+      AI_ROUND_MONTHLY_CAP: 20,
+      PREMIUM_BETA_GRANT: true,
+    }),
     ...options,
   });
   const callers: { userId: string; actorId: string }[] = [],

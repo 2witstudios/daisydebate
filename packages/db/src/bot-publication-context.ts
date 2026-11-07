@@ -1,7 +1,8 @@
 import { and, eq, ne, sql, type SQL } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
-import { lockRoundAgentContext, roundAgentNow } from './round-agent-runs';
+import { lockRoundAgentContext } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import { requireAgentLeaseToken } from './round-agent-lease';
 import { agentRuns } from './schema/agent-runs';
 import { transcriptSegments } from './schema/transcript-segments';
@@ -276,7 +277,7 @@ export async function verifyLockedBotWorker(
     .for('update');
   requireClaimScope(claim, scope);
   requireAgentLeaseToken(token, claim.leaseTokenDigest);
-  const now = await roundAgentNow(tx);
+  const now = await readDatabaseTime(tx);
   if (claim.leaseExpiresAt.getTime() <= now.getTime())
     throw createAppError('CONFLICT', 'Publication lease expired');
   requireRunScope(run, scope);

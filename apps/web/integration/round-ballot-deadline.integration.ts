@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import {
@@ -257,7 +258,7 @@ test('when no judge rules by the deadline the Round completes without a winner',
   });
 });
 
-test('an AI judging job no provider ever served by its budget is a known failure and spends no allowance (DEC-186)', async () => {
+test('an undispatched AI judging job past its budget releases its uncounted identity without inventing provider failure', async () => {
   await withRoomRuntime(
     async (f) => {
       const { roundId } = await freezeBotJudge(f);
@@ -267,20 +268,20 @@ test('an AI judging job no provider ever served by its budget is a known failure
       await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
       const [job] =
         await f.sql`select status,lease_token_digest from round_judging_jobs where round_id=${roundId}`;
-      const [{ reservations }] =
-        await f.sql`select count(*)::int as reservations from usage_reservations where round_id=${roundId}`;
+      const reservations =
+        await f.sql`select kind,state->>'kind' as state,state ? 'countedAt' as counted from usage_reservations where round_id=${roundId}`;
       const round = (await f.store.getRound(roundId))!;
       assert({
         given:
           'an AI-judge-only Round frozen with no bot admission resource, its job never claimed (judging capacity exhausted) when the ballot deadline passes',
         should:
-          'complete without a winner, fail the job without a lease and leave the host allowance untouched',
+          'complete without a winner, fail the job without a lease and retain one released, never-counted judge identity',
         actual: [round.status, round.outcome, job, reservations],
         expected: [
           'completed',
           null,
           { status: 'failed', lease_token_digest: null },
-          0,
+          [{ kind: 'casual_ai_judge', state: 'released', counted: false }],
         ],
       });
     },
@@ -291,6 +292,7 @@ test('an AI judging job no provider ever served by its budget is a known failure
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );
@@ -412,6 +414,7 @@ test('an AI job out of budget with no worker running is reported once, with the 
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );
@@ -424,6 +427,7 @@ const judgingOptions = {
     nextToken: () => randomBytes(32).toString('base64url'),
     contractVersion: 'fixture-contract',
     rules: judgingJobRules,
+    accountEligible: canUseAiAllowance,
   },
 };
 /** A frozen AI-judged Round past its budget and cutoff, its worker holding a ballot or not. */

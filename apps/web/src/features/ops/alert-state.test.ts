@@ -208,6 +208,48 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
     });
   });
 
+  test('Billing cleanup retains its own missed alert while generic privacy is healthy', () => {
+    const threshold = ALERT_THRESHOLDS.workerMissedMs.billing_cleanup;
+    const snapshot = (elapsed: number) => ({
+      ...baseSnapshot,
+      retentionLastSuccessIso: NOW,
+      workers: [
+        {
+          name: 'privacy_jobs' as const,
+          missedAfterMs: threshold,
+          lastSuccessIso: NOW,
+        },
+        {
+          name: 'billing_cleanup' as const,
+          missedAfterMs: threshold,
+          lastSuccessIso: new Date(Date.parse(NOW) - elapsed).toISOString(),
+        },
+      ],
+    });
+    assert({
+      given:
+        'generic privacy is healthy and Billing has not passed its own threshold',
+      should: 'keep the Billing alert quiet until the exact boundary',
+      actual: evaluateAlerts(snapshot(threshold - 1)),
+      expected: [],
+    });
+    assert({
+      given:
+        'Billing last healthy exactly two hours ago despite healthy generic privacy',
+      should: 'emit the named Billing alert and its operator runbook',
+      actual: evaluateAlerts(snapshot(threshold)).map(({ id, runbook }) => ({
+        id,
+        runbook,
+      })),
+      expected: [
+        {
+          id: 'billing_cleanup_missed',
+          runbook: 'docs/operations/auth-delivery.md#scheduled-worker-missed',
+        },
+      ],
+    });
+  });
+
   test('each worker threshold outlasts its backoff ceiling, so one retry never pages', () => {
     assert({
       given: 'the thresholds and the backoff ceilings their workers use',
@@ -219,8 +261,11 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
         privacy:
           ALERT_THRESHOLDS.workerMissedMs.privacy_jobs >
           PRIVACY_JOBS_RETRY_MAX_MS,
+        billing:
+          ALERT_THRESHOLDS.workerMissedMs.billing_cleanup >
+          PRIVACY_JOBS_RETRY_MAX_MS,
       },
-      expected: { observation: true, privacy: true },
+      expected: { observation: true, privacy: true, billing: true },
     });
   });
 
@@ -229,9 +274,9 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       runningWorkers({ fileMaintenanceIntervalMs }).map(({ name }) => name);
     assert({
       given: 'no configured file maintenance',
-      should: 'expect only the two always-on workers',
+      should: 'expect the three always-on workers',
       actual: names(null),
-      expected: ['observation_purges', 'privacy_jobs'],
+      expected: ['observation_purges', 'privacy_jobs', 'billing_cleanup'],
     });
     assert({
       given: 'configured file maintenance',
@@ -240,6 +285,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       expected: [
         'observation_purges',
         'privacy_jobs',
+        'billing_cleanup',
         'messaging_file_maintenance',
       ],
     });

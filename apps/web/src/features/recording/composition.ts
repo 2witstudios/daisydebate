@@ -74,6 +74,7 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     holdsRecordingDownload: holdsRecordingDownload({
       readGrants: app.database.recordingCaptures.readAccountGrants,
       betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
+      now: () => app.clock.now(),
     }),
     findRecordingByRound: store.findByRound,
   };
@@ -112,7 +113,11 @@ export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
     port: composeRecordingCapture(app),
     egress,
     holdsCapture: (grants) =>
-      holdsCasualCapture(grants, app.config.PREMIUM_BETA_GRANT),
+      holdsCasualCapture(
+        grants,
+        app.config.PREMIUM_BETA_GRANT,
+        app.clock.now(),
+      ),
     phaseAt: (round, now) =>
       broadcastPhase(
         createRoundRuntime({

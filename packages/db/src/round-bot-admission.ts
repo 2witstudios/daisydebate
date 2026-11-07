@@ -1,44 +1,34 @@
+import { roundHasAiJudge } from './round-ai-judge';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors } from './authorization';
-import { roundAgentNow } from './round-agent-runs';
 import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
 import {
-  admissionRefusal,
   requireAdmissionTarget,
-  requireBusyCap,
-  requireOwnReservation,
-  requireUnrefundedReservation,
   requireSponsor,
-  utcMonth,
-} from './round-bot-admission-rules';
-import { readEntitlementGrants } from './entitlement-grants';
-import type { EntitlementGrant } from '@daisy/protocol';
+} from './round-usage-authority';
+import {
+  reserveUsageLocked,
+  readAllowanceLocked,
+  advanceUsageLocked,
+  type AllowancePolicy,
+  type AllowanceAccountPolicy,
+} from './usage-ledger';
+import { usageStateSchema } from '@daisy/protocol/billing';
+export {
+  refundUnservedPracticeLocked,
+  refundPlatformEndedLocked,
+} from './round-usage-settlement';
 
 type Target = { readonly actorId: string; readonly roundId: string };
-type SponsorAccount = Awaited<
-  ReturnType<typeof lockAuthorizationActors>
->[number];
-/**
- * The trusted quota policy (ISSUE-646), injected by composition and applied
- * only to the account fact locked in the admitting transaction and that
- * account's own entitlement grants (ISSUE-779). Null admits no AI Round.
- */
-export type AiRoundAllowance = (
-  account: SponsorAccount,
-  grants: readonly EntitlementGrant[],
-) => number | null;
 type Reservation = Target & { readonly id: string };
-/** Acquire before account/Room/Round locks in both admission and billable-call composition. */
+/** Global bot capacity precedes canonical account then Room/Round and usage fences. */
 export const lockBotAdmission = (tx: BoundedTransactionContext) =>
   tx.execute(sql`select pg_advisory_xact_lock(59003, 1)`);
-async function lockSponsor(
-  tx: BoundedTransactionContext,
-  target: Target,
-): Promise<SponsorAccount> {
+async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
   requireAdmissionTarget(target);
   const [account] = await lockAuthorizationActors(tx, [target.actorId], {
     maxActors: 1,
@@ -51,94 +41,44 @@ async function lockSponsor(
   requireSponsor(account ?? null, round, target.actorId);
   return account ?? null;
 }
-function reservationWhere(target: Target) {
-  return and(
-    eq(usageReservations.actorId, target.actorId),
-    eq(usageReservations.roundId, target.roundId),
-    eq(usageReservations.kind, 'ai_round'),
-  );
-}
-async function existingReservation(
-  tx: BoundedTransactionContext,
-  target: Target,
-) {
-  const [row] = await tx
-    .select()
-    .from(usageReservations)
-    .where(reservationWhere(target))
-    .for('update');
-  return requireUnrefundedReservation(row);
-}
-/** The first bot-debater model call counts the reservation, once. */
-async function countLockedReservation(
-  tx: BoundedTransactionContext,
-  reservation: Reservation,
-) {
-  await lockSponsor(tx, reservation);
-  const current = requireOwnReservation(
-    await existingReservation(tx, reservation),
-    reservation.id,
-  );
-  if (current.countedAt) return;
-  await tx
-    .update(usageReservations)
-    .set({ countedAt: sql`clock_timestamp()` })
-    .where(eq(usageReservations.id, reservation.id));
-}
-/**
- * Called once a Round turns terminal, under its lock. A counted AI practice
- * whose every bot-debater model call definitely failed, none received or
- * unknown, gives its allowance back; the free AI judge never counts or
- * decides a refund (DEC-186). An AI practice never counted needs no
- * refund: the allowance spends a reservation only once counted or while its
- * Round is live (ISSUE-469). The refunded_at guard makes a repeat a no-op on
- * any instance (ADR 0058, DEC-211).
- */
-export async function refundUnservedPracticeLocked(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
-  roundId: string,
-) {
-  await tx.execute(sql`
-    update usage_reservations set refunded_at = clock_timestamp()
-    where round_id = ${roundId} and kind = 'ai_round' and refunded_at is null
-      and counted_at is not null
-      and not exists (
-        select 1 from agent_runs a
-        join round_participants p on p.id = a.round_participant_id
-        where p.round_id = ${roundId} and p.role in ('affirmative', 'negative')
-          and a.configuration_snapshot->>'providerOutcome' in ('received', 'unknown'))`);
-}
-/**
- * A Round the platform ended charges nothing, even if a call was served: this
- * is its own path, and the refunded_at guard keeps it to once.
- */
-export async function refundPlatformEndedLocked(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
-  roundId: string,
-) {
-  await tx.execute(sql`
-    update usage_reservations set refunded_at = clock_timestamp()
-    where round_id = ${roundId} and kind = 'ai_round' and refunded_at is null
-      and counted_at is not null`);
-}
 
-/** Bot-debater calls only: the AI judge is free (DEC-186). Caller acquires admission serialization before command/account/Round fences. Never creates a reservation. */
+/** First model-call count and provider-run creation share the caller's transaction. */
 export async function markLockedRoundBotModelCall(
   tx: BoundedTransactionContext,
-  roundId: string,
+  input: {
+    readonly roundId: string;
+    readonly before: string;
+    readonly accountEligible: AllowanceAccountPolicy;
+  },
 ) {
   const [round] = await tx
     .select({ actorId: rounds.createdByActorId })
     .from(rounds)
-    .where(eq(rounds.id, roundId));
+    .where(eq(rounds.id, input.roundId));
   if (!round?.actorId) throw createAppError('AUTHORIZATION');
-  const target = { roundId, actorId: round.actorId };
-  const current = await existingReservation(tx, target);
+  const target = { roundId: input.roundId, actorId: round.actorId };
+  const account = await lockSponsor(tx, target);
+  if (!input.accountEligible(account)) throw createAppError('AUTHORIZATION');
+  const [current] = await tx
+    .select()
+    .from(usageReservations)
+    .where(
+      and(
+        eq(usageReservations.actorId, target.actorId),
+        eq(usageReservations.roundId, target.roundId),
+        eq(usageReservations.kind, 'ai_round'),
+      ),
+    );
   if (!current) throw createAppError('CONFLICT', 'Bot reservation missing');
-  const reservation = { ...target, id: current.id };
-  await countLockedReservation(tx, reservation);
-  return reservation;
+  await advanceUsageLocked(tx, {
+    ...target,
+    reservationId: current.id,
+    event: { kind: 'dispatch', before: input.before },
+    authorized: true,
+  });
+  return { ...target, id: current.id };
 }
+
 /**
  * Global bot-debater capacity: live Rounds holding a bot debater seat
  * (ADR 0058). Independent of the allowance's
@@ -150,44 +90,27 @@ const liveBotDebaterRounds = (exceptRoundId?: string) =>
     join round_participants p on p.round_id=r.id and p.role in ('affirmative','negative')
     join actors a on a.id=p.actor_id and a.kind='bot'
     where r.status in ('opening','active') and r.id<>${exceptRoundId ?? ''}`;
-/** The sponsor's AI-round allowance spent this UTC month (DEC-183/DEC-186). */
-const spentAllowance = (actorId: string, period: ReturnType<typeof utcMonth>) =>
-  sql`select count(*)::int from usage_reservations u
-    where u.actor_id=${actorId} and u.kind='ai_round' and u.refunded_at is null
-      and u.reserved_at>=${period.start} and u.reserved_at<${period.end}
-      and (u.counted_at is not null
-        or exists(select 1 from rounds r where r.id=u.round_id and r.status in ('opening','active')))`;
-async function admissionStatus(
-  tx: BoundedTransactionContext,
-  input: {
-    readonly actorId: string;
-    readonly limit: number | null;
-    readonly busyCap: number;
-    readonly now: Date;
-    readonly exceptRoundId?: string;
-  },
+
+function admissionRefusal(
+  decision: Awaited<ReturnType<typeof readAllowanceLocked>>['decision'],
+  busy: number,
+  busyCap: number,
 ) {
-  const { actorId, limit, busyCap } = input;
-  const period = utcMonth(input.now);
-  // Both counts in one statement: a reservation takes this under the lock.
-  const [facts] = await tx.execute(sql`select
-    (${spentAllowance(actorId, period)}) as spent,
-    (${liveBotDebaterRounds(input.exceptRoundId)}) as busy`);
-  const value = facts as { spent: number; busy: number };
-  return {
-    limit: limit ?? 0,
-    remaining: Math.max(0, (limit ?? 0) - value.spent),
-    periodStart: period.start.toISOString(),
-    periodEnd: period.end.toISOString(),
-    refusal: admissionRefusal(value, limit, busyCap),
-  };
+  if (decision.kind === 'refuse') {
+    if (decision.reason === 'allowance') return 'allowance' as const;
+    if (decision.reason === 'renewal-grace') return 'renewal-grace' as const;
+    return 'not-eligible' as const;
+  }
+  return busy >= busyCap ? ('capacity' as const) : null;
 }
-/** Trusted composition supplies a real bound and quota policy; no environment/default entitlement is inferred. */
+
+/** Explicit capacity plus the single source-aware allowance policy, injected by composition. */
 export function createRoundBotAdmission(input: {
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
   readonly busyCap: number;
-  readonly allowance: AiRoundAllowance;
+  readonly allowance: AllowancePolicy;
+  readonly accountEligible: AllowanceAccountPolicy;
 }) {
   requireBusyCap(input.busyCap);
   const reserveLocked = async (
@@ -195,31 +118,41 @@ export function createRoundBotAdmission(input: {
     target: Target,
   ): Promise<Reservation> => {
     const account = await lockSponsor(tx, target);
-    const current = await existingReservation(tx, target);
-    if (current) return { ...target, id: current.id };
-    const now = await roundAgentNow(tx);
-    const status = await admissionStatus(tx, {
-      actorId: target.actorId,
-      limit: input.allowance(
-        account,
-        account ? await readEntitlementGrants(tx, account.userId) : [],
-      ),
-      busyCap: input.busyCap,
-      now,
-      exceptRoundId: target.roundId,
+    const [existing] = await tx
+      .select()
+      .from(usageReservations)
+      .where(
+        and(
+          eq(usageReservations.actorId, target.actorId),
+          eq(usageReservations.roundId, target.roundId),
+          eq(usageReservations.kind, 'ai_round'),
+        ),
+      );
+    const rows = await reserveUsageLocked(tx, {
+      account,
+      nextId: input.nextId,
+      decide: input.allowance,
+      accountEligible: input.accountEligible,
+      request: {
+        kind: 'bot_debate',
+        roundId: target.roundId,
+        withJudge: await roundHasAiJudge(tx, target.roundId),
+      },
     });
-    if (status.refusal)
-      throw status.refusal === 'capacity'
-        ? createRefusal('CONFLICT', 'bots-busy')
-        : createAppError(
-            'CONFLICT',
-            `Bot admission refused: ${status.refusal}`,
-          );
-    const id = input.nextId();
-    await tx
-      .insert(usageReservations)
-      .values({ id, ...target, kind: 'ai_round', reservedAt: now });
-    return { ...target, id };
+    if (!existing) {
+      const [row] = await tx.execute(liveBotDebaterRounds(target.roundId));
+      if (Number((row as { count: number }).count) >= input.busyCap)
+        throw createRefusal('CONFLICT', 'bots-busy');
+    }
+    const bot = rows.find((row) => row.kind === 'ai_round');
+    if (
+      !bot ||
+      ['refunded', 'credited', 'released', 'definite_failure'].includes(
+        usageStateSchema.parse(bot.state).kind,
+      )
+    )
+      throw createAppError('CONFLICT', 'Bot request terminal');
+    return { ...target, id: bot.id };
   };
   return {
     lock: lockBotAdmission,
@@ -228,29 +161,43 @@ export function createRoundBotAdmission(input: {
         const [account] = await lockAuthorizationActors(tx, [actorId], {
           maxActors: 1,
         });
-        if (!account?.member || account.erased)
-          throw createAppError('AUTHORIZATION');
-        return admissionStatus(tx, {
-          actorId,
-          limit: input.allowance(
-            account,
-            await readEntitlementGrants(tx, account.userId),
-          ),
-          busyCap: input.busyCap,
-          now: await roundAgentNow(tx),
+        const [{ count: busy }] = (await tx.execute(
+          liveBotDebaterRounds(),
+        )) as unknown as [{ count: number }];
+        // Preview never establishes binding or grants dispatch authority.
+        const result = await readAllowanceLocked(tx, {
+          account: account ?? null,
+          request: { kind: 'bot_debate', roundId: null, withJudge: false },
+          decide: input.allowance,
         });
+        const reservation = result.quote?.reservations[0];
+        const limit = reservation?.limit ?? 0;
+        const spent = result.facts.usage[0]?.spent ?? 0;
+        const refusal = admissionRefusal(result.decision, busy, input.busyCap);
+        return {
+          limit,
+          remaining: Math.max(0, limit - spent),
+          source: reservation?.source ?? null,
+          refusal,
+        };
       }),
     reserveLocked,
-    reserve: (target: Target): Promise<Reservation> =>
+    reserve: (target: Target) =>
       input.run(async (tx) => {
         await lockBotAdmission(tx);
         return reserveLocked(tx, target);
       }),
   };
 }
-
 export type RoundBotAdmission = ReturnType<typeof createRoundBotAdmission>;
-
 export type BotAdmissionStatus = Awaited<
   ReturnType<RoundBotAdmission['readStatus']>
 >;
+
+function requireBusyCap(busyCap: number): void {
+  if (!Number.isSafeInteger(busyCap) || busyCap < 1)
+    throw createAppError(
+      'VALIDATION',
+      'Explicit positive bot capacity required',
+    );
+}

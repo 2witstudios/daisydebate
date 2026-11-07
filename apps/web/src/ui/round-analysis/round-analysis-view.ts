@@ -43,6 +43,7 @@ export type RoundAnalysisPanel =
       }[];
       readonly patterns: readonly string[];
     }
+  | { readonly kind: 'request'; readonly text: string }
   | { readonly kind: 'note'; readonly text: string }
   | { readonly kind: 'locked'; readonly text: string };
 
@@ -84,6 +85,14 @@ export function roundAnalysisPanel(
   switch (view.status) {
     case 'ready':
       return reportPanel(view.report, lines);
+    case 'requestable':
+      return {
+        kind: 'request',
+        text:
+          view.allowance === 'free'
+            ? 'Use your one free analysis.'
+            : 'Included with your access.',
+      };
     case 'pending':
       return {
         kind: 'note',

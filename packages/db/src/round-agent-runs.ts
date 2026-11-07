@@ -69,15 +69,6 @@ export async function lockRoundAgentContext(
   if (!bot) throw createAppError('AUTHORIZATION');
   return { round, seat };
 }
-export async function roundAgentNow(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
-) {
-  const rows = await tx.execute(sql`select clock_timestamp() as now`);
-  const now = (rows[0] as { now: Date } | undefined)?.now;
-  if (!(now instanceof Date) || !Number.isFinite(now.getTime()))
-    throw createAppError('INFRASTRUCTURE');
-  return now;
-}
 /** Called only within an already fenced Round transaction; no standalone authority bypass. */
 export async function startLockedRoundAgentRun(
   tx: BoundedTransactionContext,

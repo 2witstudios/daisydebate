@@ -30,6 +30,11 @@ import { submitLockedJudgingResult } from './round-judging-result';
 import type { LockedRoundBallotInput } from './round-ballot-operations';
 import { requireLeaseMs } from './lease-policy';
 import {
+  countCasualJudgeModelCall,
+  settleCasualJudgeUsageLocked,
+} from './casual-judge-usage';
+import type { AllowanceAccountPolicy } from './usage-ledger';
+import {
   pendingBallotAction,
   requireUndispatched,
 } from './round-judging-decisions';
@@ -65,22 +70,14 @@ export type JudgingJobRules = {
 };
 /** Calls that may have been served count; a call the vendor certainly refused does not. */
 async function paidCalls(tx: BoundedTransactionContext, scope: JudgingScope) {
-  const [row] = await tx
-    .select({ paid: sql<number>`count(*)::int` })
-    .from(roundJudgingAttempts)
-    .where(
-      and(
-        judgingAttemptWhere(scope),
-        sql`${roundJudgingAttempts.category} is distinct from 'provider_refused'`,
-      ),
-    );
-  return row!.paid;
+  const [row] = await tx.execute(sql`select (
+    coalesce(sum(a.requests),0) - count(*) filter(where t.answered_at is null and t.category='provider_refused')
+    )::int as paid
+    from agent_runs a left join round_judging_attempts t on t.agent_run_id=a.id
+    where a.round_participant_id=${scope.judgeParticipantId} and a.kind='judging' and a.requests>0`);
+  return Number(row!.paid);
 }
-const judgingAttemptWhere = (scope: JudgingScope) =>
-  and(
-    eq(roundJudgingAttempts.roundId, scope.roundId),
-    eq(roundJudgingAttempts.judgeParticipantId, scope.judgeParticipantId),
-  );
+
 const attemptOfRun = async (tx: BoundedTransactionContext, runId: string) =>
   (
     await tx
@@ -114,6 +111,7 @@ async function failLockedJudgingJob(
       leaseExpiresAt: null,
     })
     .where(judgingJobWhere(scope));
+  await settleCasualJudgeUsageLocked(tx, scope.roundId);
 }
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
@@ -125,6 +123,7 @@ export function createRoundJudgingJobs(input: {
   /** The ballot contract each dispatch is made under. */
   readonly contractVersion: string;
   readonly rules: JudgingJobRules;
+  readonly accountEligible: AllowanceAccountPolicy;
 }) {
   requireLeaseMs(input.leaseMs);
   if (!input.model.trim()) throw createAppError('VALIDATION');
@@ -229,7 +228,7 @@ export function createRoundJudgingJobs(input: {
         expectedVersion: round.version,
         pendingBallot: job.pendingBallot,
       })),
-    /** The AI judge is free (DEC-186): no reservation, no bot-admission lock. */
+    /** Ranked judging stays free; casual judging counts its admitted use before model I/O. */
     beginModelCall: (
       scope: JudgingScope,
       token: string,
@@ -241,6 +240,16 @@ export function createRoundJudgingJobs(input: {
           await failLockedJudgingJob(tx, scope, run.id, ended);
           return { kind: 'ended', reason: ended };
         }
+        await countCasualJudgeModelCall(tx, {
+          roundId: scope.roundId,
+          before: new Date(
+            Math.min(
+              job.generationDeadlineAt.getTime(),
+              job.leaseExpiresAt!.getTime(),
+            ),
+          ).toISOString(),
+          accountEligible: input.accountEligible,
+        });
         await tx
           .update(agentRuns)
           .set({ requests: run.requests + 1 })

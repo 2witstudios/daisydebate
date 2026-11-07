@@ -651,3 +651,24 @@ export {
   VIEWER_PULSES_PER_SECOND,
 } from './audience-state';
 export type { AudienceState } from './audience-state';
+
+export {
+  analysisWorkBounds,
+  analysisWorkSchema,
+  analysisRequest,
+} from './round-analysis-work';
+export type {
+  AnalysisWork,
+  AnalysisCall,
+  AnalysisLease,
+  AnalysisRequest,
+} from './round-analysis-work';
+export {
+  advanceAnalysisWork,
+  analysisUsageOutcome,
+  remainingAnalysisCalls,
+} from './round-analysis-lifecycle';
+export type {
+  AnalysisWorkEvent,
+  AnalysisWorkTransition,
+} from './round-analysis-lifecycle';

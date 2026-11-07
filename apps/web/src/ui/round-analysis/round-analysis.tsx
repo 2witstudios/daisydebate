@@ -1,3 +1,4 @@
+import { Button } from '../components/button/button';
 import type { RoundAnalysisView } from '@daisy/protocol';
 import {
   roundAnalysisPanel,
@@ -113,9 +114,13 @@ function Report({
  * the page already shows.
  */
 export function RoundAnalysis({
+  roundId,
+  notice = false,
   view,
   lines,
 }: {
+  readonly roundId: string;
+  readonly notice?: boolean;
   readonly view: RoundAnalysisView;
   readonly lines: readonly CitedLine[];
 }) {
@@ -131,11 +136,27 @@ export function RoundAnalysis({
           decision.
         </p>
       </div>
+      {notice ? (
+        <p role="status" className="text-ink-muted">
+          Your analysis request could not be accepted. Check its status and try
+          again.
+        </p>
+      ) : null}
       {panel.kind === 'report' ? (
         <Report panel={panel} />
       ) : (
         <p className="text-ink-muted">{panel.text}</p>
       )}
+      {panel.kind === 'request' ? (
+        <form method="post" action={`/api/rounds/${roundId}/round-analysis`}>
+          <Button type="submit">Request analysis</Button>
+        </form>
+      ) : null}
+      {panel.kind === 'locked' ? (
+        <a href="/premium" className="text-sm underline">
+          See Premium
+        </a>
+      ) : null}
     </section>
   );
 }

@@ -1,9 +1,11 @@
+import { withAnalysisFixture } from './analysis-fixture-fetch';
 import { withAnalyticsFixture } from './analytics-fixture-fetch';
 import { messagingBrowserFiles } from './messaging-files-runtime';
 import { messagingBrowserPolicy } from './messaging-policy';
 import { launchProofPolicy } from './room-launch-policy';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
+import { nextWorkerToken } from '../../src/server/worker-token';
 import { adoptProcessApp } from '../../src/server/process-app';
 import { createMailCapture } from './mail-capture';
 import { withOpenRouterStub } from '@daisy/ai-voice/testing';
@@ -57,12 +59,16 @@ const app = createApp({
   aiSeats: { debater: true, judge: true },
   // OpenRouter (AI debates) is answered locally; everything else goes
   // through the mail capture.
-  fetch: withOpenRouterStub(
+  fetch: withAnalysisFixture(
     process.env.OPENROUTER_API_KEY,
-    withAnalyticsFixture(mailCapture.captureFetch),
+    withOpenRouterStub(
+      process.env.OPENROUTER_API_KEY,
+      withAnalyticsFixture(mailCapture.captureFetch),
+    ),
   ),
   clock: systemClock,
   ids: systemId,
+  nextWorkerToken,
 });
 adoptProcessApp(app);
 if (process.env.E2E_MESSAGING_RECOVERY === '1')

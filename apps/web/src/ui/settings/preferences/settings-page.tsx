@@ -94,6 +94,12 @@ export function SettingsPage({
           aria-label="Settings sections"
           className="flex w-rail shrink-0 flex-col gap-1 max-compact:w-full"
         >
+          <Link
+            href="/settings/billing"
+            className="rounded-md px-3 py-2 text-base text-ink-muted no-underline hover:bg-surface hover:text-ink hover:no-underline"
+          >
+            Billing
+          </Link>
           {nav.map(([id, label]) => (
             <a
               key={id}

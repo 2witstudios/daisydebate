@@ -8,8 +8,11 @@ const allowance = (limit: number, remaining: number, refusal: unknown) => ({
   kind: 'allowance',
   limit,
   remaining,
-  periodStart: '2026-10-01T00:00:00.000Z',
-  periodEnd: '2026-11-01T00:00:00.000Z',
+  source: {
+    kind: 'beta' as const,
+    startsAt: '2026-10-01T00:00:00.000Z',
+    endsAt: '2026-11-01T00:00:00.000Z',
+  },
   refusal,
 });
 
@@ -29,7 +32,7 @@ test('Room botAdmission contract', () => {
     ['more remaining than the limit', allowance(20, 21, null)],
     ['a fractional limit', allowance(1.5, 0, null)],
     ['an unknown refusal', allowance(20, 0, 'premium')],
-    ['a free AI-judge-only cast', { kind: 'free' }],
+    ['a removed blanket-free AI-judge claim', { kind: 'free' }],
   ] as const;
   assert({
     given: 'allowance metadata at 0, 20, the maximum and beyond',
@@ -47,7 +50,7 @@ test('Room botAdmission contract', () => {
       ['more remaining than the limit', false],
       ['a fractional limit', false],
       ['an unknown refusal', false],
-      ['a free AI-judge-only cast', true],
+      ['a removed blanket-free AI-judge claim', false],
     ],
   });
 });

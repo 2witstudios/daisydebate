@@ -8,6 +8,13 @@ Status: accepted (owner request, 2026-10-06). `crossExModes[]` is retired by
 Extends [ADR 0013](0013-knip-dead-code-gate.md)'s decision via
 [ADR 0057](0057-planned-readers.md).
 
+The DEC183/DEC186 allowance and free-judge accounting descriptions below are
+historical. [ADR 0117](0117-premium-billing.md) supersedes those passages with
+current grant sources/periods and shared bot, casual-judge and requested-analysis
+usage accounting; their old no-grant/free-judge statements are not current
+billing authority. The shared Round model and bot-debater capacity distinction
+remain in force.
+
 The column-level target schema is the design canvas **Spec — target schema, v10**
 in the `Daisy Debate` drive, `Plans/Competitive schema foundation/`. This record
 states the decision and its invariants; the canvas carries the constraint

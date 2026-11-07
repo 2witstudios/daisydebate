@@ -11,13 +11,14 @@ import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
 import { judgingSponsor } from './round-judging.test-support';
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 setupRitewayBun();
 requireTestServices(process.env);
 
 test('durable judging claims fence epochs and preserve one command across recovery', async () => {
   await withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
-    await judgingSponsor(fixture, roundId);
+    await judgingSponsor(fixture, roundId, run);
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'complete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
@@ -30,6 +31,7 @@ test('durable judging claims fence epochs and preserve one command across recove
         model: 'anthropic/claude-sonnet-5.5',
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       });
       const target = { roundId, judgeParticipantId: seat.id };
       const attempts = await Promise.allSettled([
@@ -46,8 +48,8 @@ test('durable judging claims fence epochs and preserve one command across recove
       if (winner?.status !== 'fulfilled')
         throw new Error('Expected judge claim');
       const first = winner.value;
-      // The AI judge is free (DEC-186): its call takes no reservation and
-      // never waits on the fleet bot-admission lock (59003).
+      // Casual judging uses its own admitted allowance and never waits on
+      // the bot-debater capacity lock (59003).
       const holder = await fixture.sql.reserve();
       let dispatched: boolean;
       try {
@@ -61,14 +63,13 @@ test('durable judging claims fence epochs and preserve one command across recove
         holder.release();
       }
       assert({
-        given:
-          'an AI-judge-only Round with no reservation while bot admission is held',
-        should: 'dispatch the judge call without reserving the host allowance',
+        given: 'an admitted AI-judge-only Round while bot admission is held',
+        should: 'dispatch the judge call independently of bot capacity',
         actual: [
           dispatched,
           await fixture.count('usage_reservations', 'round_id', roundId),
         ],
-        expected: [true, 0],
+        expected: [true, 1],
       });
       await assertRejects({
         given: 'a duplicate dispatch in the same attempt',

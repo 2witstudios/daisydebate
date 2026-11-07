@@ -17,9 +17,11 @@ the judge seat, while a `bot_profiles` debater may hold only a side
 budget ([round analysis](round-analysis.md)). Configured application composition requires an
 injected OS-CSPRNG token producer. Only the process edge supplies that producer;
 the database uses the existing bounded transaction and connection pool. The
-busy cap on live bot-debater Rounds and the host AI-round allowance remain
-separate economic controls; the AI judge uses neither (DEC-186). Seating one on
-a casual Round has its own entitlement ([rooms](../domains/rooms.md#judging)).
+busy cap on live bot-debater Rounds and bot-debate allowance remain separate
+economic controls. An AI judge does not use bot-debater capacity or decide its
+refund; casual judging has its own entitlement and shared-ledger usage
+accounting under [ADR 0117](../decisions/0117-premium-billing.md)
+([rooms](../domains/rooms.md#judging)).
 
 A worker claims a scoped job/run/epoch with a memory-only bearer. Stored lease
 secrets are SHA3-256 digests. Renewal runs independently of provider calls and
@@ -165,7 +167,7 @@ journey.
 | Final buffered capture and late provider response                   | Authenticated capture lease, actual historical grant window, bounded native prefix, append/seal and frozen frontier; media/D2 race proofs, never browser text edits                                                  |
 | One judgment, no partial completion after a race                    | Actual frozen revision, scoped durable job, cached response, shared locked ballot and settled-attendance gate; D1/D4 owners                                                                                          |
 | Public/human/erased or foreign actor scope                          | Canonical shared account/seat/run authentication and masked public reads; runtime/privacy owners, no AI-only permission bypass                                                                                       |
-| Allowance, concurrent reservation and vendor-failure refund         | DEC183/DEC186 canonical host sponsorship and exact reservation/attempt; terminal quota settlement remains independent; E1 admission owner                                                                            |
+| Allowance, concurrent reservation and vendor-failure refund         | ADR0117 frozen sponsor/source/period and exact shared-ledger reservation/attempt; terminal quota settlement remains independent; E1 admission owner                                                                  |
 
 ## Ephemeral activity routing (DEC192)
 

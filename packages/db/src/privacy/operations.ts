@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
+import { enqueuePrivacyJob } from './enqueue-job';
 import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
@@ -137,14 +138,7 @@ export async function runPrivacyErasure(
       updated_at = ${plan.now}::timestamptz, version = version + 1
       where id = ${plan.subject.userId}`);
     await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-close');
-    for (const job of plan.jobs)
-      await tx.execute(sql`insert into privacy_jobs
-      (id, subject_ref, vendor, status, attempts, created_at, retry_at)
-      values (${job.id}, ${job.subjectRef}, ${job.vendor}, 'pending', 0,
-        ${job.createdAt}::timestamptz, ${job.createdAt}::timestamptz)
-      on conflict (subject_ref, vendor) do update set id=excluded.id,
-        status='pending', attempts=0, created_at=excluded.created_at,
-        retry_at=excluded.retry_at, succeeded_at=null`);
+    for (const job of plan.jobs) await enqueuePrivacyJob(tx, job);
     return { alreadyErased: false, jobs: plan.jobs };
   });
 }

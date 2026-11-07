@@ -1,72 +1,78 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { hostHoldsCasualAiJudge, roomAiJudgeSeating } from './ai-judge-seating';
+import type { AllowanceDecision } from '@daisy/protocol/billing';
+import { roomAiJudgeSeating } from './ai-judge-seating';
 
 setupRitewayBun();
-
 const room = {
   hostActorId: 'host',
   status: 'assembling',
   competitionType: 'casual',
 } as const;
+const free: AllowanceDecision = {
+  kind: 'admit',
+  reservations: [
+    { kind: 'casual_ai_judge', source: { kind: 'lifetime' }, limit: 1 },
+  ],
+};
+const included: AllowanceDecision = {
+  kind: 'admit',
+  reservations: [
+    {
+      kind: 'casual_ai_judge',
+      source: {
+        kind: 'beta',
+        startsAt: '2026-11-01T00:00:00.000Z',
+        endsAt: '2026-12-01T00:00:00.000Z',
+      },
+      limit: null,
+    },
+  ],
+};
+const refused: AllowanceDecision = {
+  kind: 'refuse',
+  reason: 'free-judge-unbound',
+};
 
-test('a host sees what seating an AI judge means in this Room', async () => {
+test('a host sees the allowance source for seating a judge in this Room', async () => {
   let reads = 0;
-  const read = (held: boolean) => async () => {
-    reads += 1;
-    return held;
+  const read = (decision: AllowanceDecision) => async () => {
+    reads++;
+    return decision;
   };
   assert({
-    given: 'a casual host with and without the entitlement',
-    should: 'say included, else premium',
-    actual: [
-      await roomAiJudgeSeating(room, 'host', read(true)),
-      await roomAiJudgeSeating(room, 'host', read(false)),
-    ],
-    expected: ['included', 'premium'],
+    given:
+      'a casual host with an included source, initial free bundle or refused allowance',
+    should: 'show included, free or Premium from the shared allowance decision',
+    actual: await Promise.all(
+      [included, free, refused].map((decision) =>
+        roomAiJudgeSeating(room, 'host', read(decision)),
+      ),
+    ),
+    expected: ['included', 'free', 'premium'],
   });
   reads = 0;
   assert({
-    given: 'a ranked host, a non-host, and a started or closed Room',
-    should: 'answer without reading any grant',
+    given: 'a ranked host, non-host, and started or closed Room',
+    should: 'answer without reading private allowance',
     actual: [
       await roomAiJudgeSeating(
         { ...room, competitionType: 'ranked' },
         'host',
-        read(false),
+        read(refused),
       ),
-      await roomAiJudgeSeating(room, 'someone', read(true)),
+      await roomAiJudgeSeating(room, 'someone', read(free)),
       await roomAiJudgeSeating(
         { ...room, status: 'started' },
         'host',
-        read(true),
+        read(free),
       ),
       await roomAiJudgeSeating(
         { ...room, status: 'closed' },
         'host',
-        read(true),
+        read(free),
       ),
       reads,
     ],
     expected: ['free', null, null, null, 0],
-  });
-});
-
-test('the casual AI judge entitlement comes from its own grant', () => {
-  const beta = { entitlement: 'casual_ai_judge', source: 'beta' } as const;
-  assert({
-    given: 'a beta grant with the switch on and off, and only other grants',
-    should: 'hold it only for its own counted grant',
-    actual: [
-      hostHoldsCasualAiJudge([beta], true),
-      hostHoldsCasualAiJudge([beta], false),
-      hostHoldsCasualAiJudge(
-        [
-          { entitlement: 'round_analysis', source: 'beta' },
-          { entitlement: 'ai_rounds', source: 'beta' },
-        ],
-        true,
-      ),
-    ],
-    expected: [true, false, false],
   });
 });

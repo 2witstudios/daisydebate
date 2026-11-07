@@ -1,4 +1,5 @@
 import type { RoundBotAdmission } from './round-bot-admission';
+import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { roomAuthorizationRead } from './room-authorization-read';
 import { commandRetention } from './command-retention';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -14,6 +15,7 @@ export const roomCommandOperations = (input: {
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly botAdmission?: RoundBotAdmission | undefined;
+  readonly judgeAdmission?: CasualJudgeAdmission | undefined;
   readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
 }) => ({
   ...commandRetention(input),
@@ -25,9 +27,11 @@ export const roomCommandOperations = (input: {
   ...roomCreateOperations({
     transaction: input.commandTransaction,
     eventSink: input.eventSink,
+    judgeAdmission: input.judgeAdmission,
   }),
   ...roomWriteOperations({
     botAdmission: input.botAdmission,
+    judgeAdmission: input.judgeAdmission,
     transaction: input.commandTransaction,
     eventSink: input.eventSink,
   }),

@@ -1,14 +1,9 @@
-import { expect } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  accountEntitlements,
-  aiRoundAllowance,
-  authorize,
-} from './authorization';
+import { accountEntitlements, authorize } from './authorization';
 import { input } from './channel.test-support';
 setupRitewayBun();
+const now = '2026-11-05T00:00:00.000Z';
 
-const account = input.context.account!;
 const beta = (entitlement: 'round_analysis' | 'ai_rounds') =>
   ({ entitlement, source: 'beta' }) as const;
 const allGrants = [beta('round_analysis'), beta('ai_rounds')];
@@ -23,7 +18,7 @@ test('round analysis premium is the account’s own grant fact, never its beta s
     actual: [true, false].map((betaGrantsPremium) =>
       grantSets.map(
         (grants) =>
-          accountEntitlements(grants, { betaGrantsPremium }).roundAnalysis,
+          accountEntitlements(grants, { betaGrantsPremium, now }).roundAnalysis,
       ),
     ),
     expected: [
@@ -34,49 +29,10 @@ test('round analysis premium is the account’s own grant fact, never its beta s
   assert({
     given: 'an approved beta account with no grant rows',
     should: 'entitle nothing: beta state alone is not premium',
-    actual: accountEntitlements([], { betaGrantsPremium: true }).roundAnalysis,
+    actual: accountEntitlements([], { betaGrantsPremium: true, now })
+      .roundAnalysis,
     expected: false,
   });
-});
-
-test('the AI-round allowance is the flat cap for live members holding an ai_rounds grant', () => {
-  const live = {
-    ...account,
-    beta: { state: 'approved' as const, revision: 1 },
-  };
-  const cases = [
-    [live, allGrants],
-    [live, [beta('round_analysis')]],
-    [live, []],
-    [{ ...live, erased: true }, allGrants],
-    [{ ...live, member: false }, allGrants],
-    [null, allGrants],
-  ] as const;
-  assert({
-    given: 'canonical account facts with and without the ai_rounds grant',
-    should:
-      'grant the cap only to a live member holding the grant, and never infer one',
-    actual: cases.map(([a, grants]) =>
-      aiRoundAllowance(a, grants, { monthlyCap: 20 }),
-    ),
-    expected: [20, null, null, null, null, null],
-  });
-  assert({
-    given: 'the round analysis switch off',
-    should: 'leave the separate AI-round quota unchanged',
-    actual: [
-      accountEntitlements(allGrants, { betaGrantsPremium: false })
-        .roundAnalysis,
-      aiRoundAllowance(live, allGrants, { monthlyCap: 20 }),
-    ],
-    expected: [false, 20],
-  });
-});
-
-test('an AI-round allowance needs a positive trusted cap', () => {
-  expect(() =>
-    aiRoundAllowance(input.context.account!, allGrants, { monthlyCap: 0 }),
-  ).toThrow('A positive monthly AI-round cap is required');
 });
 
 test('round analysis authorization never gates the official round read', () => {
@@ -97,7 +53,7 @@ test('round analysis authorization never gates the official round read', () => {
   };
   const evaluate = (roundAnalysis: boolean, role = 'affirmative') =>
     (
-      ['round.read', 'round.analysis.read', 'round.analysis.generate'] as const
+      ['round.read', 'round.analysis.read', 'round.analysis.request'] as const
     ).map(
       (capability) =>
         authorize({
@@ -113,17 +69,17 @@ test('round analysis authorization never gates the official round read', () => {
   assert({
     given: 'entitled or ordinary debaters and a judge seat',
     should:
-      'restrict round analysis to entitled debaters while keeping the official result available',
+      'authorize own report reads and requests independently of allowance, and keep the official result available',
     actual: [evaluate(true), evaluate(false), evaluate(true, 'judge')],
     expected: [
       [true, true, true],
-      [true, false, false],
+      [true, true, true],
       [true, false, false],
     ],
   });
 });
 
-test('premium spectators, host-only members and judges cannot read or generate a round analysis', () => {
+test('premium spectators, host-only members and judges cannot read or request a round analysis', () => {
   const actorId = input.context.account!.actorId!;
   const scenarios = [
     {
@@ -151,7 +107,7 @@ test('premium spectators, host-only members and judges cannot read or generate a
   ];
   for (const scenario of scenarios) {
     const actual = (
-      ['round.read', 'round.analysis.read', 'round.analysis.generate'] as const
+      ['round.read', 'round.analysis.read', 'round.analysis.request'] as const
     ).map(
       (capability) =>
         authorize({
@@ -191,7 +147,7 @@ test('premium entitlement cannot replace durable participant admission', () => {
     should: 'deny round analysis through canonical participant admission',
     actual: authorize({
       ...input,
-      capability: 'round.analysis.generate',
+      capability: 'round.analysis.request',
       resource: {
         kind: 'round',
         roundId: 'round',

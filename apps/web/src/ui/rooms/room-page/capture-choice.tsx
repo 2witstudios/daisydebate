@@ -32,7 +32,10 @@ export function CaptureChoice({
     return (
       <>
         <p role="status" className="text-sm text-ink-muted">
-          {capturePremiumText}
+          {capturePremiumText}{' '}
+          <a href="/premium" className="underline">
+            Explore Premium
+          </a>
         </p>
         {/* Losing the grant never traps a Room: no choice posted clears it. */}
         {view.capture ? (

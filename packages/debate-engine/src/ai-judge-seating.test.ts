@@ -54,7 +54,7 @@ test('seating the AI judge is premium on casual Rounds and free on ranked Rounds
   const seating = (
     competitionType: 'casual' | 'ranked',
     target: typeof aiJudge | typeof humanJudge,
-    hostHoldsCasualAiJudge: boolean,
+    hostMaySeatCasualAiJudge: boolean,
   ) => {
     const start = room(competitionType);
     return refusal(
@@ -63,7 +63,7 @@ test('seating the AI judge is premium on casual Rounds and free on ranked Rounds
         'host',
         assign(target.actorId, start.version),
         consent,
-        { ...edges, target, hostHoldsCasualAiJudge },
+        { ...edges, target, hostMaySeatCasualAiJudge },
       ),
     );
   };
@@ -101,14 +101,14 @@ test('Launch rechecks the AI judge seat against the host entitlement', () => {
       'host',
       assign(aiJudge.actorId, start.version),
       consent,
-      { ...edges, target: aiJudge, hostHoldsCasualAiJudge: true },
+      { ...edges, target: aiJudge, hostMaySeatCasualAiJudge: true },
     );
     if (!outcome.ok) throw new Error(outcome.refusal);
     return outcome.mutation.state;
   };
   const launch = (
     competitionType: 'casual' | 'ranked',
-    hostHoldsCasualAiJudge: boolean,
+    hostMaySeatCasualAiJudge: boolean,
   ) => {
     const ready = seated(competitionType);
     return refusal(
@@ -121,7 +121,7 @@ test('Launch rechecks the AI judge seat against the host entitlement', () => {
           expectedVersion: ready.version,
         },
         consent,
-        { ...edges, hostHoldsCasualAiJudge },
+        { ...edges, hostMaySeatCasualAiJudge },
       ),
     );
   };

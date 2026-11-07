@@ -6,6 +6,9 @@
  */
 const OPERATION_NAMES = [
   'account.age.answer',
+  'billing.checkout',
+  'billing.portal',
+  'billing.settings',
   'agreements.content-waiver',
   'moderation.report',
   'audience.chat',

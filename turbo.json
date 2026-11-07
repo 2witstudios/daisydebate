@@ -53,7 +53,11 @@
         "EMAIL_FROM",
         "RESEND_WEBHOOK_SECRET",
         "AUTH_TRUSTED_PROXIES",
-        "OPS_PROBE_TOKEN"
+        "OPS_PROBE_TOKEN",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_PREMIUM_PRICE_ID",
+        "STRIPE_PORTAL_CONFIGURATION_ID"
       ]
     },
     "build": {

@@ -399,13 +399,21 @@ export async function runMigrationCheck(
     : await Promise.all(
         readMigrations(headFiles, dir)
           .migrations.filter(({ tag }) => !shared.has(tag))
-          .map(async ({ tag, sql }) =>
-            findRewriteProblems({
+          .map(async ({ tag, sql }) => {
+            const proofFiles = await namedByIntegrationTests(tag);
+            return findRewriteProblems({
               tag,
               sql: await git(['cat-file', '-p', sql]),
-              proven: await namedByIntegrationTest(tag),
-            }),
-          ),
+              proven: proofFiles.length > 0,
+              history: {
+                path: `${dir}/${tag}/migration.sql`,
+                predecessorFingerprint: migrationsFingerprint(
+                  headFiles.filter((file) => file.path.split('/')[0]! < tag),
+                ),
+                proofFiles,
+              },
+            });
+          }),
       );
   const problems = [...result.problems, ...rewrites.flat()];
   return {
@@ -419,14 +427,18 @@ export async function runMigrationCheck(
 }
 
 /** A seeded proof names the migration it applies (ISSUE-788). */
-const namedByIntegrationTest = async (tag: string) =>
+const namedByIntegrationTests = async (tag: string) =>
   (
     await Bun.$`git grep -l -F ${tag} HEAD -- ${'*.integration.ts'}`
       .cwd(root)
       .quiet()
       .nothrow()
       .text()
-  ).trim() !== '';
+  )
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((file) => file.replace(/^HEAD:/, ''));
 
 if (import.meta.main) {
   try {

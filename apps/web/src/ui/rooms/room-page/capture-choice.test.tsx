@@ -122,3 +122,12 @@ describe('The summary before Ready', () => {
     });
   });
 });
+
+test('a locked capture offer has a native Premium destination', () => {
+  assert({
+    given: 'a subscription-locked casual capture offer',
+    should: 'link to existing Premium terms',
+    actual: render('premium').includes('href="/premium"'),
+    expected: true,
+  });
+});

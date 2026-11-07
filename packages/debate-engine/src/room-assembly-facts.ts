@@ -33,7 +33,7 @@ export type Edges = {
    * The host's casual AI judge entitlement (WATCH-16), read under the host's
    * account fence. It says nothing on a ranked Room, where the seat is free.
    */
-  readonly hostHoldsCasualAiJudge: boolean;
+  readonly hostMaySeatCasualAiJudge: boolean;
   /** The host's casual capture entitlement (WATCH-8), read the same way. */
   readonly hostHoldsCasualCapture: boolean;
   /** What the adapter loaded, under lock, for a select-format tuple (FMT-1). */

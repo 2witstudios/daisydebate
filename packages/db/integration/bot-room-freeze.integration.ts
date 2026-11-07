@@ -9,7 +9,8 @@ import { createAuthorizationSubject } from './authorization.test-support';
 import { validConfig, validRules } from './round-fixtures';
 import { roomCommandTransaction } from '../src/room-command-transaction';
 import { roomCommandOperations } from '../src/room-command-operations';
-import { testBotAdmission } from './bot-admission.test-support';
+import { betaAllowance, testBotAdmission } from './bot-admission.test-support';
+import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -78,6 +79,13 @@ const withBotRoom = (
     const common = {
       database: drizzle({ client: fixture.sql }),
       commandTransaction: roomCommandTransaction(fixture.sql, 2),
+      judgeAdmission: createCasualJudgeAdmission({
+        nextId: createId,
+        policy: {
+          decide: betaAllowance().allowance,
+          accountEligible: betaAllowance().accountEligible,
+        },
+      }),
     };
     const input: Parameters<
       ReturnType<typeof roomCommandOperations>['executeRoomCommand']
@@ -191,18 +199,22 @@ test('only a launch that seats a bot debater takes the bot-admission lock', asyn
   });
 });
 
-test('an AI judge alone is free: the freeze needs no bot admission and reserves nothing', async () => {
+test('an included casual AI judge reserves its own use without bot admission or bot quota', async () => {
   await withBotRoom('judge', async ({ fixture, roundId, common, input }) => {
     const accepted =
       await roomCommandOperations(common).executeRoomCommand(input);
     assert({
-      given: 'human debaters with only an AI judge and no admission resource',
-      should: 'freeze the Round without reserving the host allowance',
+      given:
+        'an included casual AI judge with independent admission and no bot-debater capacity',
+      should: 'freeze the Round with only an uncounted judge reservation',
       actual: [
         accepted.roundRef,
-        await fixture.count('usage_reservations', 'round_id', roundId),
+        await fixture.sql`select kind,state from usage_reservations where round_id=${roundId}`,
       ],
-      expected: [{ id: roundId, status: 'active' }, 0],
+      expected: [
+        { id: roundId, status: 'active' },
+        [{ kind: 'casual_ai_judge', state: { kind: 'reserved' } }],
+      ],
     });
   });
 });

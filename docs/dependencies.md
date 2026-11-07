@@ -57,6 +57,22 @@ held-back majors are ESLint 10 (below) and TypeScript 7 (below).
 | `posthog-node`                                                                                                 | `5.61.1`                | Product analytics server SDK, `apps/web` server only (ADR 0037)                                                                                                                                                                                                                                | [Docs](https://posthog.com/docs/libraries/node)                                                                                                                                                                                                                                                                                                    | Installed, pinned and verified 2026-10-30. Only the analytics server adapter imports it. Immediate bounded delivery checks browser and account consent. Management erasure uses the scoped HTTP API, not the ingestion token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | beehiiv API                                                                                                    | `v2` (HTTP, no package) | Newsletter subscription vendor for The Scoreboard, called only from `apps/web/src/features/newsletter/` with an injected `fetch` and a deadline; inert without `BEEHIIV_API_KEY` and `BEEHIIV_PUBLICATION_ID` (ADR 0047)                                                                       | [Create subscription](https://developers.beehiiv.com/api-reference/subscriptions/create), [Get by email](https://developers.beehiiv.com/api-reference/subscriptions/get-by-email), [Delete subscription](https://developers.beehiiv.com/api-reference/subscriptions/delete), [Rate limiting](https://developers.beehiiv.com/welcome/rate-limiting) | No SDK is installed. Read 2026-09-29. Every create sends `double_opt_override: "on"`. The Launch plan allows 2,500 subscribers and 180 requests per minute per organization.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
+### Stripe Premium billing
+
+`stripe` **23.1.0**, API **2026-10-28.endive**, is confined to
+`apps/web/src/features/billing`. Hosted Checkout and Customer Portal use Billing
+APIs; no card data enters Daisy. The injected adapter uses bounded requests and
+async signature verification on Bun. No-key configuration stays inert, and
+FLAGS-15 owns new-purchase release independently of existing-account management.
+
+Official references read 2026-11-04:
+[SDK 23.1.0](https://github.com/stripe/stripe-node/tree/v23.1.0),
+[matching API declaration](https://github.com/stripe/stripe-node/blob/v23.1.0/src/apiVersion.ts),
+[API versioning](https://docs.stripe.com/api/versioning),
+[subscription lifecycle](https://docs.stripe.com/billing/subscriptions/overview).
+See [ADR 0117](decisions/0117-premium-billing.md). Genuine sandbox compatibility
+and lifecycle proof are tracked separately from deterministic fixtures in BILL-18.
+
 ### Private messaging image decoding
 
 `sharp` `0.35.5` is a direct dependency of `apps/web`, imported only by the

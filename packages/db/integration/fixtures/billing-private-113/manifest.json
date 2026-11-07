@@ -1,0 +1,14 @@
+{
+  "source": "6a56ee944fda4490548d9ac4603634901b0e6b33",
+  "kind": "historical_sql_regression_inputs_not_migrations",
+  "sqlSha256": {
+    "20261106000213_billing_payment_observations": "3decbc085255b88ce76794bd072071e14f05abd488f68b3765ec4f91866bb10b",
+    "20261106223739_stripe_invoice_coverage_repair": "34191e225e5ccf15a23591bf82bdd8d2ae1f2c70b1f20f04dcf4ab329ec52427",
+    "20261106023226_stripe_cleanup_failure_classification": "dc9599b68a8f1da895d26dbdd0026d7439bc3ab722b30c9f81658bea9866aad1",
+    "20261106004019_stripe_cleanup_observation_completion": "f25909139bd978c25828d13af941d02903e3f9eefa2e6fbecb3434c63f40f37c",
+    "20261106110238_stripe_invoice_pass_authority": "ee20d25f9f88d3e192ec267a068c850f80a6aed74cf9245b33030305c60f1e9f",
+    "20261105141132_refund_claim_observation_guard": "155941311460fe8750750ffa5d17f69e8b7e19a7d2d6314e4762f7722c47e426",
+    "20261105204936_refund_payment_precision_authority": "1ab56a2346c5d385005da284b61de9a7d4dba56f42052dc1a15916f3904b66fc",
+    "20261106015001_stripe_cleanup_five_lane": "73501173ee36a4ad7db4f6edab299bbdfdf944fb1ce5d1d6b24bfc39dcd594f2"
+  }
+}

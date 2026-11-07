@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
@@ -43,13 +44,16 @@ test('the platform ending is written when the Round ends, not at the freeze', as
     const reservation = createId();
     const [seat] =
       await f.sql`select actor_id from round_participants where round_id=${roundId} and role<>'judge' limit 1`;
-    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, counted_at) values (${reservation}, ${seat!.actor_id}, ${roundId}, 'ai_round', statement_timestamp(), statement_timestamp())`;
+    const countedAt = new Date().toISOString();
+    await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, source, state)
+      values (${reservation}, ${seat!.actor_id}, ${roundId}, 'ai_round', ${countedAt}::timestamptz,
+      '{"kind":"lifetime"}', ${{ kind: 'unknown', countedAt, countBasis: 'dispatch_record' }}::jsonb)`;
     const [before] =
-      await f.sql`select refunded_at from usage_reservations where id=${reservation}`;
+      await f.sql`select state from usage_reservations where id=${reservation}`;
     await seedSettledAttendanceLedger(f, roundId);
     await finalizeByMaintenance(f, roundId);
     const [refund] =
-      await f.sql`select refunded_at from usage_reservations where id=${reservation}`;
+      await f.sql`select state from usage_reservations where id=${reservation}`;
     const [ended] =
       await f.sql`select platform_ending, status, outcome from rounds where id=${roundId}`;
     assert({
@@ -58,13 +62,22 @@ test('the platform ending is written when the Round ends, not at the freeze', as
         'say nothing at the freeze, and end on the platform at completion',
       actual: [
         atFreeze!.platform_ending,
-        before!.refunded_at,
+        before!.state.kind,
         ended!.platform_ending,
         ended!.status,
         ended!.outcome,
-        refund!.refunded_at !== null,
+        refund!.state.kind,
+        refund!.state.providerOutcome,
       ],
-      expected: [null, null, 'capture_shortfall', 'completed', null, true],
+      expected: [
+        null,
+        'unknown',
+        'capture_shortfall',
+        'completed',
+        null,
+        'credited',
+        'unknown',
+      ],
     });
   });
 });
@@ -135,6 +148,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );
@@ -212,6 +226,7 @@ const judgingOptions = {
     nextToken: () => randomBytes(32).toString('base64url'),
     contractVersion: 'fixture-contract',
     rules: judgingJobRules,
+    accountEligible: canUseAiAllowance,
   },
 };
 

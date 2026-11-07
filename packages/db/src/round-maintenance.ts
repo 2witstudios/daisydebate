@@ -1,4 +1,4 @@
-import { requireCurrentWeb } from './round-service-authority';
+import { requireCurrentWeb } from './web-service-authority';
 import { and, asc, eq, gt, or, sql, type SQL } from 'drizzle-orm';
 import { AUTOMATIC_STRIKE_DELAY_MS } from '@daisy/protocol/resolution-draw';
 import {
