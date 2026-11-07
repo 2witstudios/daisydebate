@@ -1,3 +1,4 @@
+import { controlLaunch } from './support/room-launch-settled';
 import { maintainHumanBallotFixtures } from './support/human-ballot-maintenance';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
@@ -27,11 +28,7 @@ test('native Start affirmative constructive and enhanced round controls retain c
   try {
     const formPage = await openPage(native, 'native Round commands');
     const path = `/rounds/${roundId}/room`;
-    const read = async () => {
-      const response = await native.request.get(`/api/rounds/${roundId}`);
-      expect(response.status()).toBe(200);
-      return roundViewSchema.parse(await response.json());
-    };
+    const read = () => readBallotRound(native.request, roundId);
     await formPage.goto(path);
     expect((await read()).status).toBe('active');
     await formPage
@@ -160,6 +157,15 @@ test('native Start affirmative constructive and enhanced round controls retain c
       0,
     );
     await expect(page.getByText(/^Attendance /)).toHaveCount(0);
+    // A full read lane refuses unrun work; it cannot retract the accepted yield.
+    await controlLaunch('refuse-round-reads');
+    try {
+      const refused = await native.request.get(`/api/rounds/${roundId}`);
+      expect(refused.status()).toBe(503);
+      expect(refused.headers()['retry-after']).toBe('1');
+    } finally {
+      await controlLaunch('allow-round-reads');
+    }
     const yielded = await read();
     expect(yielded.version).toBeGreaterThan(interrupted.version);
     expect(yielded.checkpoint?.floor).toBeNull();

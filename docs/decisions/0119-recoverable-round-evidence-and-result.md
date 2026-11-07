@@ -1076,3 +1076,24 @@ Existing model, ZDR policy and default response format are unchanged. No optiona
 timestamps or new model is enabled without the required quality qualification.
 Controlled response/actual local HTTP cancellation tests are not external STT
 execution or authorized human-corpus quality evidence.
+
+### Decoder output is not source preservation progress
+
+The native diagnostic observed50 subscriber PCM callbacks before any source
+handoff; a subsequently all-zero source also produced nonzero decoder output.
+Callback count, observed low/zero energy and track presence therefore cannot by
+themselves establish fresh original source delivery, genuine human silence or
+source-preservation readiness. Durable receipts preserve what was actually
+observed; they do not upgrade decoder/concealment output into an unobserved
+publisher frame. Callback sequence is its recorded observation order, not an
+invented RTP/source sequence.
+
+Before affected silence, protected-clock or authoritative-selection writes,
+independently qualify source/packet preservation progress and permission
+readiness. Missing source or uncertain transport coverage stays unknown. Required
+controls include source unavailable/transport gap while decoder callbacks
+continue, plus DTX and genuinely silent human-source cases. Recognition success,
+provider metadata or the fixture-only tone detector cannot discharge this
+obligation. The existing native tone proof establishes only bounded synthetic
+signal presence; it proves neither all source samples nor heard words. These
+source/readiness controls and clock/selection integration remain unimplemented.
