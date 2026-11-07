@@ -198,6 +198,9 @@ and production-dependency stages, must receive `patches/` before installation.
 Remove this patch when a qualified upstream public method supplies the same
 bounded lifecycle contract. Native request scope is locally tested; packet
 counters are not source continuity, silence, coverage or hearing authority.
+Public-root `.cts` and `.mts` compile controls cover Track and inherited aliases;
+the require condition uses the canonical bundled Track declaration, rather than
+an unrelated shadow interface in `track.d.cts`.
 
 LiveKit server **1.13.7** runs only on loopback in the shared local stack. Its
 [version-matched configuration sample](https://github.com/livekit/livekit/blob/v1.13.7/config-sample.yaml)

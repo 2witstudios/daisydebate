@@ -1,3 +1,16 @@
+diff --git a/dist/audio_stream-BTFe6PuV.d.cts b/dist/audio_stream-BTFe6PuV.d.cts
+index 8cd78e8357a51b7d1fd06d3fe0cbb7d9aebe3e73..10e0fd9c285e83a0f9d8db0a5388a275f825d148 100644
+--- a/dist/audio_stream-BTFe6PuV.d.cts
++++ b/dist/audio_stream-BTFe6PuV.d.cts
+@@ -493,6 +493,8 @@ declare abstract class Track {
+     get kind(): TrackKind | undefined;
+     get stream_state(): StreamState | undefined;
+     get muted(): boolean | undefined;
++    /** Native track-bound metadata; uncertain dispatch requires a fresh binding. */
++    getStats(options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<import('@livekit/rtc-ffi-bindings').RtcStats[]>;
+     close(): Promise<void>;
+ }
+ declare class LocalAudioTrack extends Track {
 diff --git a/dist/track.cjs b/dist/track.cjs
 index 6cc44e623cae8a4cb445086026960130b71610b2..2db6684559866077994e65940d570ef79498fa12 100644
 --- a/dist/track.cjs
@@ -110,19 +123,6 @@ index 6cc44e623cae8a4cb445086026960130b71610b2..2db6684559866077994e65940d570ef7
 +});
 +
  //# sourceMappingURL=track.cjs.map
-diff --git a/dist/track.d.cts b/dist/track.d.cts
-index 82dd55762d86e71e895ea367b8159f511be19403..f0e16d591e7cb8be20bc0f8992ed60a271d653f1 100644
---- a/dist/track.d.cts
-+++ b/dist/track.d.cts
-@@ -16,3 +16,8 @@ import './data_streams/stream_writer.cjs';
- import './rpc.cjs';
- import './transcription.cjs';
- import './types.cjs';
-+
-+export interface Track {
-+  /** Native track-bound metadata only. Failure after dispatch requires a fresh Track binding. */
-+  getStats(options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<import('@livekit/rtc-ffi-bindings').RtcStats[]>;
-+}
 diff --git a/dist/track.d.ts b/dist/track.d.ts
 index b4a51463a96967f9bc01f4735d619d3a2dfc1a51..3ddbbe1657418ac9b88f1cebeb8099a00eba6b56 100644
 --- a/dist/track.d.ts
