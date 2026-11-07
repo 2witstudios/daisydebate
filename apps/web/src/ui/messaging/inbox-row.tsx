@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import type { MouseEvent } from 'react';
 import { cn } from '../cn';
 import type { MessagingInboxEntry } from '../../features/messaging/inbox-view';

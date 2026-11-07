@@ -140,6 +140,22 @@ competing with the conversation's own history. The shell also avoids prefetching
 its already-active destination, including the Messages ancestor, on rail and phone.
 This does not change database
 admission or the shared read budget; genuine overload still refuses honestly.
+An initial conversation page preserves the independent history and title read
+outcomes. Either permanent refusal ends the page; only a 503 with bounded
+decimal `Retry-After` advice admits automatic recovery. The refused page owns
+at most three sequential refreshes, with increasing waits. A fresh server-minted
+render identity and a settled local transition are required before another wait;
+neither grants access. Each refresh repeats the real protected reads and may
+also reread shared layouts. This recovery is separate from inbox doorbells and
+never runs in a healthy conversation. An accepted same-tab shell, inbox or pane
+choice, an explicit shell form answer's navigation, or final disposal stops its
+owner; cancelled and new-tab choices do not. Native readers retain a fresh GET
+retry link. Capacity, read budgets, membership and erasure fences are unchanged.
+An otherwise unreported admission refusal reaching HTTP now records the same
+safe lane/reason/pressure summary as the database boundary before its holders,
+so controlled expiry can be distinguished from saturation or missing capacity.
+The historical 111 ms Messaging failure without that summary does not establish
+which admission reason occurred.
 The browser proof distinguishes explicit `next-router-prefetch: 1` traffic from
 RSC route reads and includes a real router-refresh negative control. Generic
 outbox position orders delivery; an uncertifiable reconnect requires HTTP

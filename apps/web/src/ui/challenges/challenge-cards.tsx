@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { challengeFormUnavailable } from '../../features/challenges/forms';
 import { cn } from '../cn';
 import { useFormAction } from '../form-action/form-action';
+import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import type { PersonActions } from '../people/person-actions';
 import { useChallenges } from './challenge-provider';
@@ -46,7 +47,7 @@ function IncomingCard({
     {},
     challengeFormUnavailable,
   );
-  useMovedOn(accepted.next);
+  useMovedOn(accepted.next, announceShellNavigation);
   const initial = useRef(declined);
   useEffect(() => {
     if (declined !== initial.current) refresh();

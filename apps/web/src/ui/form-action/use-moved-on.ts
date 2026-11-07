@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { browserDocument } from '../round-media/browser-document';
 import { replaceRoute } from '../round-media/replace-route';
 
@@ -17,9 +17,19 @@ export const followAnswer = (router: RouteReplacer, next: string): void =>
  * this is the hydrated page doing the same (`replaceRoute` loads a media
  * page as a document when this one lacks its Permissions-Policy).
  */
-export function useMovedOn(next: string | undefined): void {
+export function useMovedOn(
+  next: string | undefined,
+  beforeNavigate?: () => void,
+): void {
   const router = useRouter();
+  const before = useRef(beforeNavigate);
   useEffect(() => {
-    if (next !== undefined) followAnswer(router, next);
+    before.current = beforeNavigate;
+  }, [beforeNavigate]);
+  useEffect(() => {
+    if (next !== undefined) {
+      before.current?.();
+      followAnswer(router, next);
+    }
   }, [next, router]);
 }

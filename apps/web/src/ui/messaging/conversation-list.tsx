@@ -5,7 +5,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import Link from 'next/link';
+import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '../components/icon/icon';
 import { matchesRoute } from '../components/nav-item/nav-item';

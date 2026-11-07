@@ -1,7 +1,7 @@
 'use client';
 
 import type { Person } from '@daisy/protocol';
-import Link from 'next/link';
+import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useCallback, useRef, useState, type RefObject } from 'react';
 import { Avatar } from '../components/avatar/avatar';
 import { statusLabels } from '../components/presence-dot/status-labels';

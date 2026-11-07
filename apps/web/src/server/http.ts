@@ -1,7 +1,9 @@
 import type { OperationName } from '../features/ops/operation-names';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import {
+  capacityRefusalFields,
   isCapacityRefusal,
+  isReportedCapacityRefusal,
   isTemporaryRefusal,
   reportCapacityHolders,
 } from '@daisy/db/capacity';
@@ -117,6 +119,13 @@ export async function handleOperation(
             headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
           });
         }
+        const refusal = capacityRefusalFields(error);
+        if (refusal && !isReportedCapacityRefusal(error))
+          logger.log(
+            'db.capacity.refused',
+            refusal,
+            'Database admission refused unrun work',
+          );
         reportCapacityHolders(error, logger.log);
         const mapped = toPublicError(
           // A minted outer code is the answer; only an unminted wrapper
