@@ -4,6 +4,7 @@ import type { BoundedTransaction } from './bounded-transaction';
 import { currentWebTransaction } from './web-service-authority';
 import { createBillingInbox } from './billing-inbox';
 import { createBillingDiscovery } from './billing-discovery';
+import { createBillingSubscriptionStaleness } from './billing-subscription-staleness';
 import { createBillingSynchronization } from './billing-synchronization';
 import { createBillingPurchaseRecovery } from './billing-purchase-recovery';
 import { createBillingRefundActions } from './billing-refund-actions';
@@ -23,6 +24,11 @@ export function billingOperations(input: {
   readonly nextId: () => string;
 }) {
   return {
+    billingSubscriptionStaleness(instanceId: string) {
+      return createBillingSubscriptionStaleness(
+        currentWebTransaction(input.run, instanceId),
+      );
+    },
     billingEconomics(instanceId: string) {
       return createBillingEconomicsReader({ run: input.run, instanceId });
     },

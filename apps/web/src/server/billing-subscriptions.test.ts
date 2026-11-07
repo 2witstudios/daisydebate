@@ -89,6 +89,21 @@ function harness() {
       config: { ...app.config, billing },
       database: {
         ...app.database,
+        billingSubscriptionStaleness: () => ({
+          sample: async () => ({
+            sampledAt: '2026-11-06T12:00:00.000Z',
+            throughId: null,
+            afterId: null,
+            exhausted: true,
+            scanned: 0,
+            pending: 0,
+            claimed: 0,
+            settled: 0,
+            unconfirmed: 0,
+            oldestRevisionRequestedAt: null,
+            oldestObservedAt: null,
+          }),
+        }),
         billingSynchronization: (instanceId: string) => {
           calls.push(`service:${instanceId}`);
           return store;
