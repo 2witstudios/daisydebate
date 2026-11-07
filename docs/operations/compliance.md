@@ -253,6 +253,36 @@ leaf (PRIV-H). Before a processor goes live: the account belongs to the
 organization; the region and the transfer safeguard are recorded above; the
 DPA is executed and filed; secrets live only in the platform's secret store.
 
+## Necessary transcription recovery evidence (DEC-369)
+
+This class is separate from optional Recordings and ranked content. Its purpose
+is finishing authoritative transcription after platform failure. The authorized
+local implementation direction is encrypted admitted PCM plus original-authority
+provenance, with a hard maximum seven days from the ORIGINAL trusted receipt and
+no retry extension. Delete earlier only after durably authoritative transcript
+AND adequate coverage settlement, or applicable erasure. Provider success alone
+is insufficient. Current production transcription still stores no recovery audio;
+production collection remains disabled pending REL-H infrastructure/privacy proof
+and human sign-off. Synthetic isolated qualification is not production collection.
+
+The key authority is separate from payload backups. Its opaque evidence IDs,
+original receipt/expiry, integrity digests and revocation tombstones are necessary
+anti-resurrection metadata; they contain no PCM, transcript or raw key. Retain the
+minimal fence while any old payload/material snapshot may be restored. Purging it
+requires verified retirement of all such copies or an independently irreversible
+replacement fence; no automatic seven-day metadata purge may re-enable old keys.
+The human privacy/infrastructure owner must approve the precise metadata retention
+and retirement evidence before activation. Local synthetic tests remove their
+isolated authority/material directories at cleanup.
+
+Encrypted backup bytes are not physically deleted by SQL DELETE or key revocation.
+Every-copy expiry, at-rest encryption, access, restore reconciliation and permanent
+key revocation remain unverified production obligations in REL-H. Rolling back all
+local authority copies has no local anti-rollback proof. Already dispatched
+plaintext cannot be recalled cryptographically: cancellation, future dispatch and
+commit fences, temporary-data cleanup and processor erasure must be demonstrated
+separately. No logs, ordinary Round reads or realtime output may expose this class.
+
 ## Security measures
 
 Zero trust at every boundary with validated input; passwordless sign-in

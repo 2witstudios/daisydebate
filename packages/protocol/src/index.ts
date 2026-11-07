@@ -657,3 +657,11 @@ export {
   VIEWER_PULSES_PER_SECOND,
 } from './audience-state';
 export type { AudienceState } from './audience-state';
+export {
+  necessaryEvidencePolicy,
+  type EvidenceIdentity,
+  type EvidenceReceipt,
+  type EvidenceRefusal,
+  type SealedEvidence,
+  type NecessaryEvidenceCustody,
+} from './necessary-evidence';

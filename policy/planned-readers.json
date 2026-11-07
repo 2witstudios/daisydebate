@@ -81,6 +81,33 @@
       "adr": "docs/decisions/0118-release-and-ops-flags.md",
       "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
       "reviewBy": "2026-12-04"
+    },
+    {
+      "path": "apps/web/src/features/media-capture/local-evidence-authority.ts",
+      "export": "initializeLocalEvidenceAuthority",
+      "task": "REL-1 / REL-6",
+      "owner": "media-capture (ag-7s11t7f7)",
+      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
+      "reason": "Persistent local custody qualification precedes the atomic necessary-evidence ingress/replay reader in this same incomplete slice. Production collection remains disabled under REL-H; process tests do not claim host durability or every-copy privacy.",
+      "reviewBy": "2026-12-07"
+    },
+    {
+      "path": "apps/web/src/features/media-capture/local-evidence-authority.ts",
+      "export": "openLocalEvidenceAuthority",
+      "task": "REL-1 / REL-6",
+      "owner": "media-capture (ag-7s11t7f7)",
+      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
+      "reason": "Persistent local custody qualification precedes the atomic necessary-evidence ingress/replay reader in this same incomplete slice. Production collection remains disabled under REL-H; process tests do not claim host durability or every-copy privacy.",
+      "reviewBy": "2026-12-07"
+    },
+    {
+      "path": "apps/web/src/features/media-capture/local-evidence-custody.ts",
+      "export": "openLocalEvidenceCustody",
+      "task": "REL-1 / REL-6",
+      "owner": "media-capture (ag-7s11t7f7)",
+      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
+      "reason": "Persistent local custody qualification precedes the atomic necessary-evidence ingress/replay reader in this same incomplete slice. Production collection remains disabled under REL-H; process tests do not claim host durability or every-copy privacy.",
+      "reviewBy": "2026-12-07"
     }
   ]
 }

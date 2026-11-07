@@ -173,3 +173,49 @@ erasure/expiry seam, unknown commit, durable custody and backup/restore controls
 Real played human-vs-human and bot journeys must reach exactly one supported
 result. Negative controls must fail without weakening existing timing bounds or
 assertions.
+
+## Local custody implementation boundary
+
+The local adapter uses a separately provisioned persistent SQLite **current
+identity/revocation authority** and a separate restorable key-material database.
+Ordinary restart opens existing authority only; missing authority never provisions
+a replacement. Every seal/open consults the injected current authority. This is
+an actual capability dependency, not a caller's `restoreReconciled` boolean.
+Authority reserves the original receipt/expiry and payload digest before binding
+one material digest. A bound key cannot be replaced after missing material or
+unknown acknowledgement. Unknown evidence IDs can be revoked before acquisition;
+revocation is committed before material cleanup and retries finish that cleanup.
+A bounded sweep removes expired/revoked local material without removing fences.
+
+Acquisition precedes the payload transaction. A reserve/bind acknowledgement lost
+before PostgreSQL commit must reuse the original identity, key and expiry. A
+known payload rollback needs durable compensation; unknown PostgreSQL commit
+must first reconcile that SAME evidence ID, never allocate replacement work.
+Until the payload adapter and compensation/reconciliation worker are implemented
+and tested, this custody adapter alone does not prove receipt durability or
+orphan recovery. An acquisition orphan keeps its original seven-day deadline.
+
+Old material/payload snapshots are read only through the latest independent
+authority. Restoring that authority itself requires an independently current
+authority; the local adapter cannot detect rollback of **all** authority copies.
+That case is BLOCKED for production, not a successful local anti-rollback proof.
+The SQLite files prove process persistence on one host. File mode 0600, FULL
+synchronous commits and authenticated encryption do not prove host durability,
+filesystem encryption, every-copy deletion or backup irreversibility. No
+production composition imports this local qualification adapter.
+
+Authority metadata contains opaque evidence IDs and original-authority/payload/key
+digests, receipt/expiry and a revocation fence, without PCM, text or raw keys.
+These integrity digests and tombstones have a separate minimization obligation:
+retain them until every restorable old payload/material copy is retired or an
+independently authoritative irreversible fence replaces them. No timer silently
+purges fences while old snapshots remain. The human infrastructure/privacy owner
+must specify that retirement evidence and metadata retention before activation.
+Local synthetic qualification deletes its isolated directory after each test.
+
+A caller may already hold plaintext when erasure happens. Cryptography cannot
+recall it. Rechecking before plaintext release limits new dispatch, while durable
+Round erasure fences must also refuse future STT commits, freeze, caches and
+submissions, cancel outstanding work and clean temporary buffers. Residual
+in-flight provider processing needs its own processor/erasure contract; this
+adapter does not claim to erase another process's memory or provider work.
