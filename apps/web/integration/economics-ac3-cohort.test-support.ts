@@ -1,3 +1,4 @@
+import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { canUseRoundAnalysis } from '../src/features/round-analysis/authorization';
 import {
@@ -71,3 +72,18 @@ export const readAc3Analysis = (
     caller: target.caller,
     authorize: (access) => canUseRoundAnalysis(access, 'round.analysis.read'),
   });
+
+/** A controlled tombstone fact must still close every human participant's private read. */
+export async function refuseAc3AfterPeerErasure(
+  f: RuntimeFixture,
+  target: Awaited<ReturnType<typeof prepareAc3Round>>,
+) {
+  await f.sql`update users set deleted_at=clock_timestamp() where id=${f.guest.userId}`;
+  await assertRejects({
+    given:
+      'a stored report on a bot-judged Round after another human participant is tombstoned',
+    should: 'retain every human privacy fence and refuse the report',
+    actual: () => readAc3Analysis(f, target),
+    code: 'NOT_FOUND',
+  });
+}

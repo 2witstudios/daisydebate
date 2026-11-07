@@ -202,6 +202,7 @@ export async function withAc3Runtime(
           timers: analysisTimers.timers,
           reporter,
         });
+        let failed = false;
         try {
           await Promise.all([judges.started, analyses.started]);
           await work({
@@ -216,19 +217,23 @@ export async function withAc3Runtime(
             role: identity!.role,
           });
         } catch (error) {
-          process.stdout.write(
-            JSON.stringify({
-              kind: 'AC3_PARTIAL_FAILURE_OBSERVATION',
-              events: observer.events,
-              judge: observer.facts('casual_ai_judge'),
-              analysis: observer.facts('round_analysis'),
-            }) + '\n',
-          );
+          failed = true;
           throw error;
         } finally {
           clearInterval(heartbeat);
           await renewal;
           await Promise.all([judges.stop(), analyses.stop()]);
+          if (failed) {
+            process.stdout.write(
+              JSON.stringify({
+                kind: 'AC3_PARTIAL_FAILURE_OBSERVATION',
+                stage: 'after-worker-drain',
+                events: observer.events,
+                judge: observer.facts('casual_ai_judge'),
+                analysis: observer.facts('round_analysis'),
+              }) + '\n',
+            );
+          }
           await fixture.sql`delete from service_instances where instance_id=${instanceId}`;
         }
       },

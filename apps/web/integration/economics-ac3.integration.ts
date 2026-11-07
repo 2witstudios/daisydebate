@@ -19,6 +19,7 @@ import {
   prepareAc3Round,
   requestAc3Analysis,
   readAc3Analysis,
+  refuseAc3AfterPeerErasure,
 } from './economics-ac3-cohort.test-support';
 
 setupRitewayBun();
@@ -265,6 +266,7 @@ test('actual composed AI workers observe increasing beta workload separately fro
             limits: { judging: 3, analysis: 2 },
           },
         });
+        await refuseAc3AfterPeerErasure(f, targets[0]!);
         process.stdout.write(
           JSON.stringify({
             kind: 'BILLING_AC3_CONTROLLED_TEST_OBSERVATION',
