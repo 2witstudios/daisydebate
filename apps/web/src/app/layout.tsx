@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { AnalyticsClient } from '../ui/analytics/analytics-client';
 import { ConsentBanner } from '../ui/analytics/consent-banner';
 import {
@@ -99,11 +98,6 @@ export default async function RootLayout({
                   available={analytics.available}
                 />
               </div>
-              <footer className="p-4 text-center text-sm">
-                <Link href="/analytics" className="text-ink-muted underline">
-                  Analytics preferences
-                </Link>
-              </footer>
             </>
           ) : null}
         </ThemeProvider>

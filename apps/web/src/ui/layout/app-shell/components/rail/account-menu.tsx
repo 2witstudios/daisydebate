@@ -95,6 +95,9 @@ export function AccountMenu({
         <Link href="/privacy" className={navFlyoutLinkClass}>
           Privacy
         </Link>
+        <Link href="/analytics" className={navFlyoutLinkClass}>
+          Analytics preferences
+        </Link>
         <SignOutForm
           next="/"
           className={cn(navFlyoutLinkClass, 'w-full text-left')}

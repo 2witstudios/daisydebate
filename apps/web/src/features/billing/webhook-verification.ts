@@ -57,7 +57,7 @@ const refundReference = z.object({
 });
 
 /** Persist the hint, never the raw body or an entitlement asserted by it. */
-export type BillingWebhookHint =
+type BillingWebhookHint =
   | {
       readonly eventId: string;
       readonly customerId: string;

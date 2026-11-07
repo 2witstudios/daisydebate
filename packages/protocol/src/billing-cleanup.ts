@@ -22,7 +22,7 @@ const resourceId = z
   .min(1)
   .max(255)
   .regex(/^[A-Za-z0-9_]+$/);
-export const cleanupScanSchema = z.discriminatedUnion('kind', [
+const cleanupScanSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('page'), afterId: resourceId.nullable() }),
   z.strictObject({
     kind: z.literal('selected'),

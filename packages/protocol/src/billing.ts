@@ -30,7 +30,6 @@ export {
 export {
   billingCleanupSchema,
   cleanupWorkSchema,
-  cleanupBounds,
   cleanupWork,
   startCleanup,
 } from './billing-cleanup';
@@ -45,19 +44,12 @@ export {
   closurePaymentDisposition,
   mayDispatchRefund,
   refundActionSchema,
-  refundBounds,
   refundClaimSchema,
   refundIdempotencyKey,
   refundStateSchema,
   refundStatuses,
 } from './billing-refund';
-export type {
-  RefundAction,
-  RefundContext,
-  RefundEvent,
-  RefundState,
-  RefundStatus,
-} from './billing-refund';
+export type { RefundAction, RefundEvent, RefundStatus } from './billing-refund';
 export {
   advancePurchase,
   nextPurchaseWork,
@@ -71,18 +63,11 @@ export {
 } from './billing-purchase';
 export type {
   Purchase,
-  PurchaseContext,
   PurchaseEvent,
   PurchaseObservation,
-  PurchaseState,
 } from './billing-purchase';
 export { reconcileSubscriptionEvidence } from './billing-reconciliation';
-export {
-  advanceBillingSync,
-  billingSyncBounds,
-  billingSyncStateSchema,
-} from './billing-sync';
-export type { BillingSyncState } from './billing-sync';
+export { advanceBillingSync, billingSyncStateSchema } from './billing-sync';
 import type { EntitlementGrant } from './entitlements';
 import { z } from 'zod';
 import { idSchema } from './primitives';
@@ -233,7 +218,7 @@ export const usageHoldingStates = [
   'definite_failure',
 ] as const;
 
-export type UsageCountBasis = 'dispatch_record' | 'historical_observation';
+type UsageCountBasis = 'dispatch_record' | 'historical_observation';
 /** A historical recognition instant never asserts the vendor's exact dispatch time. */
 type UsageCount = {
   readonly countedAt: string;
@@ -407,7 +392,6 @@ export {
   invoicePassSchema,
   type InvoicePass,
   type InvoicePassOwner,
-  type InvoicePassHead,
   type InvoicePassEvent,
 } from './billing-invoice-pass';
 export { headRetention } from './billing-invoice-pass-evidence';

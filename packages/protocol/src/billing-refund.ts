@@ -61,7 +61,7 @@ export const refundStateSchema = z.discriminatedUnion('kind', [
     observedAt: instant,
   }),
 ]);
-export type RefundState = z.infer<typeof refundStateSchema>;
+type RefundState = z.infer<typeof refundStateSchema>;
 export const refundClaimSchema = z.strictObject({
   id: idSchema,
   work: z.enum(['create', 'discover', 'retrieve']),

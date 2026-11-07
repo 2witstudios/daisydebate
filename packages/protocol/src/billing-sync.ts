@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema } from './primitives';
 
 /** One customer synchronization, shared by verified hints and missed-event repair. */
-export const billingSyncBounds = {
+const billingSyncBounds = {
   leaseMs: 30_000,
   retryMs: 5_000,
   pollMs: 300_000,

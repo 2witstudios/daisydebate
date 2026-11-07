@@ -1,3 +1,4 @@
+import { loadBillingRoutes } from './billing-route-loader';
 import { recordingPersistence } from '../features/recording/persistence';
 import { startRecordingDeletions } from './recording-deletions';
 import { startUsageRecovery } from './usage-recovery';
@@ -40,6 +41,7 @@ import {
 } from '@daisy/observability';
 import {
   closeProcessApp,
+  initializeProcessBilling,
   processApp,
   processStartOptions,
   fetchPublicAttendanceProbe,
@@ -52,6 +54,7 @@ import { waitForHealthy } from './wait-for-healthy';
 
 // Refuses anything but NODE_ENV=production before building the app.
 const { port, host } = processStartOptions();
+initializeProcessBilling(loadBillingRoutes);
 const app = processApp();
 const nextApp = next({ dev: false, port });
 // Production must not boot without validated auth configuration (secret,

@@ -65,7 +65,7 @@ export async function lockPurchaseSubject(
   return { account, customer, subscription };
 }
 
-export async function findOwnedPurchase(
+async function findOwnedPurchase(
   tx: BoundedTransactionContext,
   subject: PurchaseSubject,
   id: string,

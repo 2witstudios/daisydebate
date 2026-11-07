@@ -32,9 +32,11 @@ and privacy proof; setting a remote project toggle cannot enable it.
 
 `necessary`, `analytics` and `replay` always exist in the versioned contract.
 Unanswered means denied. `/analytics` exposes native form POSTs for acceptance,
-refusal and withdrawal; the banner offers equally styled acceptance and
-refusal. A later enabled category asks only if unanswered, preserving earlier
-choices. Cookie consent lasts 180 days. Account choices live in
+refusal and withdrawal, and every viewer reaches it from the phone's More
+sheet or the privacy policy, a member also from their account menu; the
+banner offers equally styled acceptance and refusal. A later enabled
+category asks only if unanswered, preserving earlier choices. Cookie consent
+lasts 180 days. Account choices live in
 `consent_record` until erasure and are included in subject export. The SDK
 is never initialized before opt-in; afterward it initializes from the existing cookie so native navigation preserves identity. Sign-out or account change
 resets identified vendor state. A same-origin storage notification pauses

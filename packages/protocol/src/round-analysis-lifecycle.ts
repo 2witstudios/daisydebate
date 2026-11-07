@@ -41,7 +41,7 @@ export type AnalysisWorkEvent =
     }
   | { readonly kind: 'close'; readonly reason: 'authority' | 'evidence' }
   | { readonly kind: 'purge' };
-export type AnalysisWorkTransition =
+type AnalysisWorkTransition =
   | { readonly kind: 'refuse' | 'unchanged' }
   | { readonly kind: 'changed'; readonly state: AnalysisWork };
 type Context = {

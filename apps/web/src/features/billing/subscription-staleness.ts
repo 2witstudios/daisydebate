@@ -8,7 +8,7 @@ export type SubscriptionFreshnessFacts = Omit<
   'throughId' | 'afterId' | 'exhausted'
 >;
 export const subscriptionStalenessTargetMs = 15 * 60_000;
-export const subscriptionScanBudgetMs = 60_000;
+const subscriptionScanBudgetMs = 60_000;
 export const subscriptionScanPageLimit = 12;
 export type SubscriptionScan = {
   readonly startedAt: string;
