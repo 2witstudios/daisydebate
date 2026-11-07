@@ -6,7 +6,11 @@ import { createRecoveryRequestEvents } from './messaging-recovery-events';
 import { isMessagingRefetch } from './messaging-page-locators';
 
 /** All real RSC reads, including successor routes; explicit speculation stays separate. */
-export function watchConversationRecovery(page: Page, channelId: string) {
+export function watchConversationRecovery(
+  page: Page,
+  channelId: string,
+  consumer?: (response: Response) => object,
+) {
   const lifecycle = createRecoveryRequestEvents(() =>
     Date.parse(systemClock.now()),
   );
@@ -87,6 +91,7 @@ export function watchConversationRecovery(page: Page, channelId: string) {
     phases: () => phases,
     includeResponse,
     refetchResponses: () => refetchResponses,
+    consumer: (response: Response) => consumer?.(response) ?? null,
     eventStep: lifecycle.step,
     selectedRequestEvents: lifecycle.snapshot,
     requestBoundary: () => ({

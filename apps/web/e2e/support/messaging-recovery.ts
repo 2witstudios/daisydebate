@@ -27,6 +27,7 @@ import { hasAdvisedConversationBoundary } from './messaging-refusal-flight';
 import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { boundedStep } from './bounded-step';
+import { watchRecoveryConsumer } from './messaging-recovery-consumer';
 import type { Page } from '@playwright/test';
 import { watchRecoveredChannel } from './messaging-recovery-observation';
 import { postMessage } from './messaging-content-requests';
@@ -149,7 +150,8 @@ export function testMessagingRecovery() {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
       await pauseMessagingRecovery(page);
-      observer = watchConversationRecovery(page, journey.channelId);
+      const consumer = await watchRecoveryConsumer(page, journey.channelId);
+      observer = watchConversationRecovery(page, journey.channelId, consumer);
       await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       const deadline = recoveryDeadline();

@@ -146,6 +146,7 @@ export async function settledRefusalResponse(
         pendingAtEntry,
         pendingAtExit: observer.snapshot().pending,
         maximumPendingWholeObservation: observer.snapshot().maximumPending,
+        consumer: observer.consumer(response),
         selectedRequestEvents: observer.selectedRequestEvents(
           response,
           eventStep,
