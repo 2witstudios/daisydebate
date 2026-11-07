@@ -16,9 +16,9 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const migration = '20261105032232_conscious_spyke';
+const migration = '20261107080513_fair_midnight';
 const repair = new URL(
-  '../migrations/20261105041923_billing_usage_restoration/migration.sql',
+  '../migrations/20261107080513_fair_midnight/migration.sql',
   import.meta.url,
 );
 const reservedAt = '2026-10-31T23:59:58.000Z';
@@ -133,7 +133,7 @@ async function seed(f: Fixture, mode: Mode) {
 test(
   'forward repair preserves ambiguous recorded relief, proven capture provenance and later evidence',
   async () => {
-    const scratch = scratchDatabase(databaseUrl, 'billingrestoration');
+    const scratch = scratchDatabase(databaseUrl, 'can7vbrip0jrestoration');
     await scratch.create();
     try {
       await scratch.migrate((folder) => folder < migration);
@@ -146,14 +146,14 @@ test(
             () => f.sql`select id,actor_id,round_id,kind,source,state,reserved_at,binds_free_judge,binding_released_at
           from usage_reservations order by id`;
           const before = await read();
-          await scratch.migrate(
-            (folder) => folder <= '20261105041923_billing_usage_restoration',
-          );
           const repaired = await read();
           // Execute the actual repair body again (not the migration journal's no-op).
-          const statements = (await readFile(repair, 'utf8')).split(
-            '--> statement-breakpoint',
-          );
+          const statement = (await readFile(repair, 'utf8'))
+            .split('--> statement-breakpoint')
+            .find((part) => part.includes('WITH facts AS'));
+          if (!statement)
+            throw Error('Missing canonical restoration transform');
+          const statements = [statement];
           await f.sql.begin(async (tx) => {
             for (const statement of statements)
               if (statement.trim()) await tx.unsafe(statement);

@@ -30,9 +30,9 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const predecessor = '20261105041923_billing_usage_restoration';
+const predecessor = '20261107025259_round_floor_authority';
 const migrationPath = new URL(
-  '../migrations/20261105051949_casual_judge_usage/migration.sql',
+  '../migrations/20261107080513_fair_midnight/migration.sql',
   import.meta.url,
 );
 const source = {
@@ -56,18 +56,20 @@ const judgingJobs = (run: ReturnType<typeof createBoundedTransaction>) =>
 test(
   'historical casual judge migration preserves frozen sponsor, original period and truthful dispatch without inventing relief',
   async () => {
-    const scratch = scratchDatabase(databaseUrl, 'billingjudge');
+    const scratch = scratchDatabase(databaseUrl, 'can7vbrip0jjudge');
     await scratch.create();
     try {
       await scratch.migrate((folder) => folder <= predecessor);
       await withFixture(scratch.url, async (f) => {
         const seeded: Awaited<ReturnType<typeof seedHistoricalJudge>>[] = [];
         try {
-          for (const mode of judgeCases)
+          for (const mode of judgeCases.filter((mode) => mode !== 'existing'))
             seeded.push(await seedHistoricalJudge(f, mode));
           const beforeMigration = Date.now();
           await scratch.migrate(() => true);
           const afterMigration = Date.now();
+          // A judge debit cannot exist in main99; test existing-key retention on the final schema.
+          seeded.push(await seedHistoricalJudge(f, 'existing'));
           const facts = [];
           for (const row of seeded) {
             const [usage] =
@@ -281,7 +283,7 @@ test(
 test(
   'a live migrated judge with a served call can dispatch later and settle unknown without restoring its old period',
   async () => {
-    const scratch = scratchDatabase(databaseUrl, 'billingjudgelive');
+    const scratch = scratchDatabase(databaseUrl, 'can7vbrip0jjudgelive');
     await scratch.create();
     try {
       await scratch.migrate((folder) => folder <= predecessor);
@@ -347,7 +349,7 @@ test(
 test(
   'counter-only historical judge calls retain provider budget after migration',
   async () => {
-    const scratch = scratchDatabase(databaseUrl, 'billingjudgebudget');
+    const scratch = scratchDatabase(databaseUrl, 'can7vbrip0jjudgebudget');
     await scratch.create();
     try {
       await scratch.migrate((folder) => folder <= predecessor);

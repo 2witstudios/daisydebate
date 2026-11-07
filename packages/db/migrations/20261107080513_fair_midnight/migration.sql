@@ -513,6 +513,7 @@ WHERE state ? 'countedAt' AND NOT state ? 'countBasis';
 --> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;
 --> statement-breakpoint
+-- Historical casual judge cohort: exact original sponsor/period/ID recognition.
 WITH observed AS MATERIALIZED (SELECT clock_timestamp() AS now), cohort AS (
   SELECT r.*, a.id AS sponsor,
     to_char(date_trunc('month',r.created_at AT TIME ZONE 'UTC'),'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS period_start,
