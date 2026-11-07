@@ -101,6 +101,11 @@ export default async function ConversationPage({
             key={JSON.stringify(query)}
             requestId={requestId}
             retryAfterMs={retryAfterMs}
+            origin={
+              (await headers()).has('next-action')
+                ? 'action-render'
+                : 'page-read'
+            }
           />
         ) : conversation === null ? (
           <p role="status" className="flex-1 p-6 text-ink-muted">
