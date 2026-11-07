@@ -9,14 +9,14 @@ export function createCleanupRechecks(input: {
   readonly store: Store;
   readonly failed: (error: unknown, stage: 'page' | 'reopen') => void;
 }) {
-  let cursor: string | undefined,
+  let pass: Parameters<Store['rechecks']>[0],
     stopped = false;
   return {
     async run() {
       if (stopped) return;
       let page: Awaited<ReturnType<Store['rechecks']>>;
       try {
-        page = await input.store.rechecks(cursor);
+        page = await input.store.rechecks(pass);
       } catch (error) {
         input.failed(error, 'page');
         return;
@@ -29,8 +29,7 @@ export function createCleanupRechecks(input: {
           input.failed(error, 'reopen');
         }
       }
-      if (!stopped)
-        cursor = page.exhausted ? undefined : (page.afterId ?? undefined);
+      if (!stopped) pass = page.next ?? undefined;
     },
     stop() {
       stopped = true;
