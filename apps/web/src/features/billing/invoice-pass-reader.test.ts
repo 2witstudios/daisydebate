@@ -130,8 +130,19 @@ test('a duplicate, foreign or malformed list member cannot supply a final receip
     given:
       'duplicate identities, foreign expanded invoice ownership or an incomplete response',
     should:
-      'refuse each receipt without classifying any obligation as resolved',
-    actual: results,
-    expected: Array.from({ length: 3 }, () => ({ kind: 'unavailable' })),
+      'refuse each receipt while retaining independently owned duplicate facts and never classifying an obligation as resolved',
+    actual: results.map((result) =>
+      result.kind === 'incomplete'
+        ? {
+            kind: result.kind,
+            ids: result.reads.map((read) => read.invoicePaymentId),
+          }
+        : result,
+    ),
+    expected: [
+      { kind: 'incomplete', ids: [member.id, member.id] },
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
+    ],
   });
 });

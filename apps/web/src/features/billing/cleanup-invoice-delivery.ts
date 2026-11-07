@@ -118,6 +118,8 @@ async function advanceCurrent(
   if (!input.running()) return 'idle' as const;
   const read = await input.readPass(pass, request.claimId);
   if (!input.running()) return 'idle' as const;
+  if (read.kind === 'incomplete')
+    return retainIncompletePayments(input, request, current.userId, read.reads);
   if (read.kind !== 'advance') return failure(input, request);
   const result = await input.store.invoicePassStep(
     request.jobId,
@@ -127,6 +129,23 @@ async function advanceCurrent(
   );
   if (result !== 'idle' || !input.running()) return result;
   return retainLatePayments(input, current.userId, read.event);
+}
+/** Positive owned facts survive a failed page; only the independent writer may reopen the job. */
+async function retainIncompletePayments(
+  input: Resources,
+  request: CleanupDeliveryRequest,
+  userId: string,
+  reads: Extract<
+    Awaited<ReturnType<Resources['readPass']>>,
+    { kind: 'incomplete' }
+  >['reads'],
+) {
+  const retained = await input.store.recordPayments(userId, reads);
+  if (retained === 'refuse' || !input.running()) return 'idle' as const;
+  const result = await failure(input, request);
+  return result === 'idle' && retained === 'recorded'
+    ? ('reopened' as const)
+    : result;
 }
 async function retainLatePayments(
   input: Resources,
