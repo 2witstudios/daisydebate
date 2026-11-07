@@ -1,5 +1,4 @@
 import { SQL } from 'bun';
-import { mkdir } from 'node:fs/promises';
 import { createId } from '@paralleldrive/cuid2';
 import { broadcastPhase, createRoundRuntime } from '@daisy/debate-engine';
 import {
@@ -238,11 +237,4 @@ export function captureHarness(f: Fixture, root: string) {
     },
     settled: sweep.settled,
   };
-}
-export async function makeCaptureRoot() {
-  const root = process.env.BILLING_CAPTURE_OUTPUT;
-  if (!root?.startsWith('/tmp/billing-capture-') || root.includes('..'))
-    throw Error('Named private capture output required');
-  await mkdir(root, { recursive: true, mode: 0o700 });
-  return root;
 }

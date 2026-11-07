@@ -5,10 +5,10 @@ import { requireTestServices } from '@daisy/config';
 import { observeCaptureIntervals } from '../src/features/billing/capture-observation.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { observeAc3Downloads } from './economics-download-observation.test-support';
+import { makeCaptureRoot } from './billing-capture-output.test-support';
 import {
   captureHarness,
   captureWebPool,
-  makeCaptureRoot,
   prepareCaptureRoom,
 } from './billing-capture-observation.test-support';
 
@@ -16,7 +16,7 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 test('actual casual capture volume, verified output and independent transport overlap remain separate bounded TEST observations', async () => {
-  const root = await makeCaptureRoot(),
+  const root = await makeCaptureRoot(process.env.BILLING_CAPTURE_OUTPUT),
     { pool, roles } = captureWebPool(databaseUrl);
   try {
     await withRoomRuntime(
