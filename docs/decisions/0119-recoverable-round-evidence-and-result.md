@@ -395,3 +395,60 @@ exercise; current key liveness is not current account/withdrawal authority.
 Missing or uncertain current privacy lineage blocks restore admission. Local
 process persistence and revoked-key restore tests do not establish this wider
 operational capability; production restore/privacy acceptance remains REL-H.
+
+## Owner refinement: provisional captions and recognition reconciliation
+
+The mission now explicitly includes live captions as provisional output, separate
+from the final judging transcript. Preservation/coverage, recognition quality and
+judging readiness are independent facts. Provider success, fluent text, an empty
+answer, confidence/agreement or a model's opinion cannot prove all spoken words
+were retained. A questionable recognition remains recoverable work under a named
+reconciliation policy, not observed silence or fabricated completion.
+
+Preserve admitted PCM before energy/voice classification or downstream clip cuts.
+Current `capture-clips.ts` excludes low RMS and runs below100ms from paid STT;
+`capture-consumer.ts` can credit observed coverage after audible empty recognition;
+the OpenRouter transcription adapter returns trimmed text alone. These source
+facts motivate separate recognition uncertainty; they are not accuracy or physical
+measurements. Assess short/quiet speech, clipping and boundaries at their owning
+seams. Durable batch cadence is independent of paid recognition context length.
+
+Caption candidates carry explicit provisional status and version. Final segments
+reference original audio receipts, speaker/run/sequence/time provenance, attempts,
+model/configuration/version and a reconciliation decision. Reprocessing preserves
+original evidence and idempotence, with current erasure/claim/frontier fences on
+candidate display, dispatch and settlement. Before freeze, a later accepted
+candidate may correct provisional display. The single immutable freeze uses only
+a durably settled authoritative frontier; no later recognition mutates it or
+reopens a decided result.
+
+Settlement requires an explicit policy decision over actual coverage and retained
+recognition risk signals, including transport gaps, boundary/clipping risk,
+low-volume/short utterances, audible empty/implausible output and provider failures.
+Bound context overlap to original speaker and authority; retain original offsets
+and canonical once-only ingestion instead of concatenating repeated boundary text.
+Model confidence and agreement remain signals, never ground truth. Persist fair,
+bounded due review/retranscription work with backoff, finite spending, escalation
+and visible blocked recovery. Declare the supported outage/funding window and
+qualification thresholds before enabling its default. Exhaustion, an absent corpus
+or the seven-day cap cannot silently manufacture settlement or a result.
+
+Delete-on-transcript now explicitly requires durably accepted selected text,
+adequate actual coverage AND recognition settlement under the declared policy.
+DEC369's original seven-day ceiling, current erasure and exceptional-expiry remedy
+remain unchanged. Provisional/candidate text is personal/private, absent from
+telemetry and ordinary realtime payloads; minimize its lifecycle with the original
+evidence independently of final transcript retention. Production collection and
+new processors/secrets remain under REL-H and existing human gates.
+
+Recognition qualification is independent of storage and fault-to-result proof.
+Use authorized human debate audio and human reference text covering fast speech,
+accents, low volume, overlap/CX, short answers/negation, names/numbers/citations,
+clip boundaries and noise/silence. Pin corpus/license/consent provenance, exact
+audio/reference hashes, model/configuration/version and measurement scripts.
+Report word errors plus consequential omissions/substitutions, attribution,
+hallucinations on silence, boundary loss, latency and downstream judging stability.
+Synthetic controls do not qualify representative human recognition. Compare models
+only through approved interfaces with official version-matched documentation and
+authorized test capabilities; no arbitrary blanket substitution. Corpus intake,
+provisional/final implementation and quality qualification remain NOT RUN.

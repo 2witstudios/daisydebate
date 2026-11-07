@@ -256,7 +256,7 @@ DPA is executed and filed; secrets live only in the platform's secret store.
 ## Necessary transcription recovery evidence (DEC-369)
 
 This class is separate from optional Recordings and ranked content. Its purpose
-is finishing authoritative transcription after platform failure. The authorized
+is finishing and quality-reconciling authoritative transcription before the single immutable judging freeze, including recovery after platform failure. The authorized
 local implementation direction is encrypted admitted PCM plus original-authority
 provenance, with a hard maximum seven days from the ORIGINAL trusted receipt and
 no retry extension. Delete earlier only after durably authoritative transcript
@@ -264,6 +264,18 @@ AND adequate coverage settlement, or applicable erasure. Provider success alone
 is insufficient. Current production transcription still stores no recovery audio;
 production collection remains disabled pending REL-H infrastructure/privacy proof
 and human sign-off. Synthetic isolated qualification is not production collection.
+
+Provisional captions and unselected recognition candidates are separate private
+working text, linked to original receipts/speaker/sequence/time and attempt/model/
+configuration/version and reconciliation decisions. They are not final judging
+evidence and never prove coverage or recognition completeness. Their candidate
+lifecycle is minimized with the original evidence: the original seven-day receipt
+cap cannot be restarted by recognition or caption revision. Purge unnecessary
+candidate text on settlement/erasure, retaining only the selected authoritative
+transcript under its separate transcript policy and the minimal declared decision
+provenance. No candidate text or audio belongs in telemetry or ordinary realtime
+payloads. This candidate lifecycle is planned and production-disabled; implementation,
+export/erasure/restore and every-copy proof remain required before activation.
 
 The key authority is separate from payload backups. Its opaque evidence IDs,
 original receipt/expiry, integrity digests and revocation tombstones are necessary
