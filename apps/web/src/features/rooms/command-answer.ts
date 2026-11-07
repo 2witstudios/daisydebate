@@ -16,6 +16,8 @@ export const commandUnavailable = (form: FormData): FormState =>
   );
 
 const refusalWords: Partial<Record<RoomRefusal, string>> = {
+  'seat-unavailable':
+    'That seat is unavailable. To replace its occupant, remove them first.',
   'version-conflict': 'The room changed. Review the latest room and try again.',
   'format-unavailable':
     'That format is no longer offered. Choose from the list now.',

@@ -54,59 +54,106 @@ function SeatActions({
     <fieldset className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
       <legend>{seatLabel(seat.role, seat.slot)}</legend>
       {view.capabilities.host ? (
-        <AssemblyCommandForm action={action} className="flex gap-2">
-          <AssemblyCommandFields
-            type="assign-seat"
-            version={view.version}
-            commandId={ids.assign}
-          />
-          <input type="hidden" name="role" value={seat.role} />
-          <input type="hidden" name="slot" value={String(seat.slot)} />
-          <label
-            className="sr-only"
-            htmlFor={`assign-${seat.role}-${seat.slot}`}
-          >
-            Assign {seatLabel(seat.role, seat.slot)}
-          </label>
-          <select
-            id={`assign-${seat.role}-${seat.slot}`}
-            name="actorId"
-            className={controlClass}
-          >
-            {targets.map((member) => (
-              <option key={member.actorId} value={member.actorId}>
-                {member.label}
-              </option>
-            ))}
-            {props.bots
-              .filter(
-                (bot) =>
-                  bot.seatRole ===
-                  (seat.role === 'judge' ? 'judge' : 'debater'),
-              )
-              .map((bot) => {
-                const premium =
-                  bot.seatRole === 'judge' &&
-                  !aiJudgeSeatable(view.aiJudgeSeating);
-                return (
-                  <option
-                    key={bot.actorId}
-                    value={bot.actorId}
-                    disabled={!bot.eligible || premium}
-                  >
-                    {bot.label} · AI
-                    {premium
-                      ? ' · premium'
-                      : !bot.eligible
-                        ? ' · unavailable'
-                        : ''}
+        <AssemblyCommandForm
+          key={
+            occupant && isNamedSeat(occupant)
+              ? occupant.actorId
+              : occupant
+                ? 'anonymous'
+                : 'empty'
+          }
+          action={action}
+          className="flex gap-2"
+        >
+          {(state) => {
+            const saved =
+              occupant && isNamedSeat(occupant) ? occupant.actorId : '';
+            const selected = state.error
+              ? (state.values.actorId ?? saved)
+              : saved;
+            return (
+              <>
+                <AssemblyCommandFields
+                  type="assign-seat"
+                  version={view.version}
+                  commandId={ids.assign}
+                />
+                <input type="hidden" name="role" value={seat.role} />
+                <input type="hidden" name="slot" value={String(seat.slot)} />
+                <label
+                  className="sr-only"
+                  htmlFor={`assign-${seat.role}-${seat.slot}`}
+                >
+                  Assign {seatLabel(seat.role, seat.slot)}
+                </label>
+                <select
+                  key={selected}
+                  defaultValue={selected}
+                  required
+                  disabled={Boolean(occupant && !isNamedSeat(occupant))}
+                  id={`assign-${seat.role}-${seat.slot}`}
+                  name="actorId"
+                  className={controlClass}
+                >
+                  <option value="" disabled>
+                    {occupant && !isNamedSeat(occupant)
+                      ? 'Judge'
+                      : 'Choose participant'}
                   </option>
-                );
-              })}
-          </select>
-          <button type="submit" className={buttonClass('secondary')}>
-            Assign
-          </button>
+                  {occupant &&
+                  isNamedSeat(occupant) &&
+                  !targets.some(
+                    (target) => target.actorId === occupant.actorId,
+                  ) &&
+                  !props.bots.some(
+                    (bot) => bot.actorId === occupant.actorId,
+                  ) ? (
+                    <option value={occupant.actorId} disabled>
+                      {occupant.label}
+                      {occupant.kind === 'bot' ? ' · AI' : ''} · unavailable
+                    </option>
+                  ) : null}
+                  {targets.map((member) => (
+                    <option key={member.actorId} value={member.actorId}>
+                      {member.label}
+                    </option>
+                  ))}
+                  {props.bots
+                    .filter(
+                      (bot) =>
+                        bot.seatRole ===
+                        (seat.role === 'judge' ? 'judge' : 'debater'),
+                    )
+                    .map((bot) => {
+                      const premium =
+                        bot.seatRole === 'judge' &&
+                        !aiJudgeSeatable(view.aiJudgeSeating);
+                      return (
+                        <option
+                          key={bot.actorId}
+                          value={bot.actorId}
+                          disabled={!bot.eligible || premium}
+                        >
+                          {bot.label} · AI
+                          {premium
+                            ? ' · premium'
+                            : !bot.eligible
+                              ? ' · unavailable'
+                              : ''}
+                        </option>
+                      );
+                    })}
+                </select>
+                <button
+                  type="submit"
+                  disabled={Boolean(occupant && !isNamedSeat(occupant))}
+                  className={buttonClass('secondary')}
+                >
+                  Assign
+                </button>
+              </>
+            );
+          }}
         </AssemblyCommandForm>
       ) : null}
       {view.capabilities.host && occupant && isNamedSeat(occupant) ? (
