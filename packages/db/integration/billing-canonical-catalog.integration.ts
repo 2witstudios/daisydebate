@@ -56,8 +56,9 @@ test(
               body: m[3]!.trim(),
             }))
             .sort((a, b) => a.name.localeCompare(b.name));
-          const actualFunctions =
-            await f.sql`select proname as name,prosrc as body from pg_proc where pronamespace='public'::regnamespace and proname in (select jsonb_array_elements_text(${JSON.stringify(functions.map((f) => f.name))}::text::jsonb)) order by proname`;
+          const actualFunctions = await f.sql<
+            { name: string; body: string }[]
+          >`select proname as name,prosrc as body from pg_proc where pronamespace='public'::regnamespace and proname in (select jsonb_array_elements_text(${JSON.stringify(functions.map((f) => f.name))}::text::jsonb)) order by proname`;
           const triggers = [
             ...source.matchAll(
               /CREATE TRIGGER\s+(\w+) BEFORE (INSERT OR UPDATE|UPDATE) ON ([\w.]+)\s+FOR EACH ROW EXECUTE FUNCTION ([\w.]+)\(\);/g,
