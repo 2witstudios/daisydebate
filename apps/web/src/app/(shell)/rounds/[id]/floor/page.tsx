@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import { MediaPageLink } from '../../../../../ui/round-media/media-page-link';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { requireAccess } from '../../../../../lib/access';
@@ -32,7 +32,7 @@ export default async function RoundFloorPage({
   if (!props) notFound();
   return (
     <main className="mx-auto flex w-full max-w-reading flex-col gap-4 p-4">
-      <Link href={`/rounds/${id}`}>Back to Round</Link>
+      <MediaPageLink href={`/rounds/${id}`}>Back to Round</MediaPageLink>
       <h1 className="text-xl font-strong">Round chat</h1>
       <FloorChat {...props} />
     </main>
