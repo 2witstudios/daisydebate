@@ -259,8 +259,9 @@ This class is separate from optional Recordings and ranked content. Its purpose
 is finishing and quality-reconciling authoritative transcription before the single immutable judging freeze, including recovery after platform failure. The authorized
 local implementation direction is encrypted admitted PCM plus original-authority
 provenance, with a hard maximum seven days from the ORIGINAL trusted receipt and
-no retry extension. Delete earlier only after durably authoritative transcript
-AND adequate coverage settlement, or applicable erasure. Provider success alone
+no retry extension. Delete earlier only after durably authoritative selected
+transcript, adequate actual coverage AND explicit recognition settlement under the
+declared policy, or applicable erasure. Provider success alone
 is insufficient. Current production transcription still stores no recovery audio;
 production collection remains disabled pending REL-H infrastructure/privacy proof
 and human sign-off. Synthetic isolated qualification is not production collection.
