@@ -95,6 +95,22 @@ test('only the host of an open room is offered Close room, behind a confirm', ()
   });
 });
 
+test('Close room is a dialog, not a dropdown', () => {
+  const html = renderToStaticMarkup(
+    header(assemblySnapshot, assemblySnapshot.hostActorId),
+  );
+  assert({
+    given: 'the host’s assembling room',
+    should: 'open the close confirm as a dialog with no dropdown',
+    actual: [
+      html.includes('<dialog'),
+      html.includes('aria-labelledby="close-room-title"'),
+      html.includes('<details'),
+    ],
+    expected: [true, true, false],
+  });
+});
+
 test('a host keeps Leave seat apart from Close room, and a seatless host is labelled', () => {
   const hostId = assemblySnapshot.hostActorId!;
   const seatedHost = renderToStaticMarkup(
