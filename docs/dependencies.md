@@ -189,6 +189,16 @@ prebuilt native dependency, not new repository Rust or a provider activation.
 It must stay outside browser bundles; SDK output isolation remains a worker
 composition obligation before deployment.
 
+The root Bun `patchedDependencies` pins the checked-in rtc-node1.2.0 patch for
+public `Track.getStats`, owned by `@daisy/media` (ADR0119). The patch changes the
+shipped CJS runtime, both declaration formats and matching SDK source, using the
+existing ffi-bindings0.13.1 singleton. Reproduce with Bun's prepare/commit patch
+flow; never mutate a shared cached SDK. Frozen installs, including Docker build
+and production-dependency stages, must receive `patches/` before installation.
+Remove this patch when a qualified upstream public method supplies the same
+bounded lifecycle contract. Native request scope is locally tested; packet
+counters are not source continuity, silence, coverage or hearing authority.
+
 LiveKit server **1.13.7** runs only on loopback in the shared local stack. Its
 [version-matched configuration sample](https://github.com/livekit/livekit/blob/v1.13.7/config-sample.yaml)
 was read before adding the local service. It disables automatic room creation

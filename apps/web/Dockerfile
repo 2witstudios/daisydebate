@@ -18,6 +18,7 @@ WORKDIR /app
 # image, `bun check` covers it in CI).
 FROM base AS deps
 COPY package.json bun.lock .bun-version ./
+COPY patches/ patches/
 COPY apps/admin/package.json apps/admin/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/ai-voice/package.json packages/ai-voice/package.json
@@ -61,6 +62,7 @@ RUN DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps/web build \
 # devDependencies (eslint, jscpd, playwright, typescript, ...).
 FROM base AS prod-deps
 COPY package.json bun.lock .bun-version ./
+COPY patches/ patches/
 COPY apps/admin/package.json apps/admin/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/ai-voice/package.json packages/ai-voice/package.json

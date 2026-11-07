@@ -1,0 +1,225 @@
+diff --git a/dist/track.cjs b/dist/track.cjs
+index 6cc44e623cae8a4cb445086026960130b71610b2..2db6684559866077994e65940d570ef79498fa12 100644
+--- a/dist/track.cjs
++++ b/dist/track.cjs
+@@ -259,4 +259,107 @@ class RemoteAudioTrack extends Track {
+   RemoteVideoTrack,
+   Track
+ });
++
++const _daisyStatsState = new WeakMap;
++const _daisyStatsFailure = (code) => Object.assign(new Error("Native track statistics unavailable"), { code: `TRACK_STATS_${code}` });
++const _daisyStatsOf = (track) => {
++  let state = _daisyStatsState.get(track);
++  if (!state) {
++    state = { closed: false, uncertain: false, active: null };
++    _daisyStatsState.set(track, state);
++  }
++  return state;
++};
++const _daisyStatsClose = (track) => {
++  const state = _daisyStatsOf(track);
++  state.closed = true;
++  state.active?.abort(_daisyStatsFailure("CLOSED"));
++};
++const _daisyNativeClose = Track.prototype.close;
++Track.prototype.close = async function() {
++  _daisyStatsClose(this);
++  return _daisyNativeClose.call(this);
++};
++const _daisyNativeStreamsClose = Track.prototype.closeAudioStreams;
++Track.prototype.closeAudioStreams = function() {
++  _daisyStatsClose(this);
++  return _daisyNativeStreamsClose.call(this);
++};
++const _daisyNativeSetRoom = Track.prototype.setRoom;
++Track.prototype.setRoom = function(room) {
++  const previous = this.resolveRoom();
++  if (previous && previous !== room)
++    _daisyStatsClose(this);
++  return _daisyNativeSetRoom.call(this, room);
++};
++Object.defineProperty(Track.prototype, "getStats", {
++  configurable: true,
++  writable: true,
++  value: async function(options = {}) {
++    const timeoutMs = options.timeoutMs ?? 1000;
++    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 5000)
++      throw _daisyStatsFailure("INVALID");
++    if (options.signal?.aborted)
++      throw _daisyStatsFailure("CANCELLED");
++    const state = _daisyStatsOf(this), room = this.resolveRoom();
++    if (state.closed || !room?.isConnected)
++      throw _daisyStatsFailure("CLOSED");
++    if (state.uncertain)
++      throw _daisyStatsFailure("REBIND");
++    if (state.active)
++      throw _daisyStatsFailure("BUSY");
++    let handle;
++    try {
++      handle = this.ffi_handle.handle;
++    } catch {
++      throw _daisyStatsFailure("CLOSED");
++    }
++    const sid = this.sid, controller = new AbortController;
++    const started = performance.now();
++    if (!Number.isFinite(started))
++      throw _daisyStatsFailure("INVALID");
++    const cancelled = () => controller.abort(_daisyStatsFailure("CANCELLED"));
++    const disconnected = () => controller.abort(_daisyStatsFailure("CLOSED"));
++    state.active = controller;
++    options.signal?.addEventListener("abort", cancelled, { once: true });
++    room.on("disconnected", disconnected);
++    const timer = setTimeout(() => controller.abort(_daisyStatsFailure("DEADLINE")), timeoutMs);
++    let issued = false;
++    try {
++      const client = import_ffi_client.FfiClient.instance, requestId = client.getNextRequestAsyncId();
++      const pending = client.waitFor((event) => event.message.case === "getStats" && event.message.value.asyncId === requestId, { signal: controller.signal });
++      pending.catch(() => {
++        return;
++      });
++      issued = true;
++      const response = client.request({ message: { case: "getStats", value: { trackHandle: handle, requestAsyncId: requestId } } });
++      if (response.asyncId !== requestId)
++        throw _daisyStatsFailure("UNSUPPORTED");
++      const reply = await pending;
++      if (controller.signal.aborted)
++        throw controller.signal.reason;
++      const elapsed = performance.now() - started;
++      if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed >= timeoutMs)
++        throw _daisyStatsFailure("DEADLINE");
++      if (state.closed || !room.isConnected || this.resolveRoom() !== room || this.sid !== sid || this.ffi_handle.handle !== handle)
++        throw _daisyStatsFailure("CLOSED");
++      if (reply.error || !Array.isArray(reply.stats))
++        throw _daisyStatsFailure("NATIVE_ERROR");
++      return reply.stats;
++    } catch (error) {
++      if (issued)
++        state.uncertain = true;
++      const safe = error instanceof Error && "code" in error && typeof error.code === "string" && error.code.startsWith("TRACK_STATS_") ? error : _daisyStatsFailure("NATIVE_ERROR");
++      controller.abort(safe);
++      throw safe;
++    } finally {
++      clearTimeout(timer);
++      options.signal?.removeEventListener("abort", cancelled);
++      room.off("disconnected", disconnected);
++      if (state.active === controller)
++        state.active = null;
++    }
++  }
++});
++
+ //# sourceMappingURL=track.cjs.map
+diff --git a/dist/track.d.cts b/dist/track.d.cts
+index 82dd55762d86e71e895ea367b8159f511be19403..f0e16d591e7cb8be20bc0f8992ed60a271d653f1 100644
+--- a/dist/track.d.cts
++++ b/dist/track.d.cts
+@@ -16,3 +16,8 @@ import './data_streams/stream_writer.cjs';
+ import './rpc.cjs';
+ import './transcription.cjs';
+ import './types.cjs';
++
++export interface Track {
++  /** Native track-bound metadata only. Failure after dispatch requires a fresh Track binding. */
++  getStats(options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<import('@livekit/rtc-ffi-bindings').RtcStats[]>;
++}
+diff --git a/dist/track.d.ts b/dist/track.d.ts
+index b4a51463a96967f9bc01f4735d619d3a2dfc1a51..3ddbbe1657418ac9b88f1cebeb8099a00eba6b56 100644
+--- a/dist/track.d.ts
++++ b/dist/track.d.ts
+@@ -65,3 +65,7 @@ export type RemoteTrack = RemoteVideoTrack | RemoteAudioTrack;
+ export type AudioTrack = LocalAudioTrack | RemoteAudioTrack;
+ export type VideoTrack = LocalVideoTrack | RemoteVideoTrack;
+ //# sourceMappingURL=track.d.ts.map
++export interface Track {
++  /** Native track-bound metadata only. Failure after dispatch requires a fresh Track binding. */
++  getStats(options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<import('@livekit/rtc-ffi-bindings').RtcStats[]>;
++}
+diff --git a/src/track.ts b/src/track.ts
+index b3cbe84bb86c9944fc57659eb96ae1e5c6b8d473..937c2fa116f925797e8ac93eb6b2c6208b2143e6 100644
+--- a/src/track.ts
++++ b/src/track.ts
+@@ -283,3 +283,83 @@ export type LocalTrack = LocalVideoTrack | LocalAudioTrack;
+ export type RemoteTrack = RemoteVideoTrack | RemoteAudioTrack;
+ export type AudioTrack = LocalAudioTrack | RemoteAudioTrack;
+ export type VideoTrack = LocalVideoTrack | RemoteVideoTrack;
++
++// Daisy: expose the existing track-handle FFI request through its owning SDK.
++export interface Track {
++  /** Native track-bound metadata only. Failure after dispatch requires a fresh Track binding. */
++  getStats(options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<import('@livekit/rtc-ffi-bindings').RtcStats[]>;
++}
++const _daisyStatsState = new WeakMap<Track, { closed: boolean; uncertain: boolean; active: AbortController | null }>();
++const _daisyStatsFailure = (code: string) => Object.assign(new Error('Native track statistics unavailable'), { code: `TRACK_STATS_${code}` });
++const _daisyStatsOf = (track: Track) => {
++  let state = _daisyStatsState.get(track);
++  if (!state) { state = { closed: false, uncertain: false, active: null }; _daisyStatsState.set(track, state); }
++  return state;
++};
++const _daisyStatsClose = (track: Track) => {
++  const state = _daisyStatsOf(track);
++  state.closed = true;
++  state.active?.abort(_daisyStatsFailure('CLOSED'));
++};
++const _daisyNativeClose = Track.prototype.close;
++Track.prototype.close = async function(this: Track) { _daisyStatsClose(this); return _daisyNativeClose.call(this); };
++const _daisyNativeStreamsClose = Track.prototype.closeAudioStreams;
++Track.prototype.closeAudioStreams = function(this: Track) { _daisyStatsClose(this); return _daisyNativeStreamsClose.call(this); };
++const _daisyNativeSetRoom = Track.prototype.setRoom;
++Track.prototype.setRoom = function(this: Track, room: Room | null) {
++  const previous = this.resolveRoom();
++  if (previous && previous !== room) _daisyStatsClose(this);
++  return _daisyNativeSetRoom.call(this, room);
++};
++Object.defineProperty(Track.prototype, 'getStats', {
++  configurable: true, writable: true,
++  value: async function(this: Track, options: { signal?: AbortSignal; timeoutMs?: number } = {}) {
++    const timeoutMs = options.timeoutMs ?? 1000;
++    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 5000) throw _daisyStatsFailure('INVALID');
++    if (options.signal?.aborted) throw _daisyStatsFailure('CANCELLED');
++    const state = _daisyStatsOf(this), room = this.resolveRoom();
++    if (state.closed || !room?.isConnected) throw _daisyStatsFailure('CLOSED');
++    if (state.uncertain) throw _daisyStatsFailure('REBIND');
++    if (state.active) throw _daisyStatsFailure('BUSY');
++    let handle: bigint;
++    try { handle = this.ffi_handle.handle; } catch { throw _daisyStatsFailure('CLOSED'); }
++    const sid = this.sid, controller = new AbortController();
++    const started = performance.now();
++    if (!Number.isFinite(started)) throw _daisyStatsFailure('INVALID');
++    const cancelled = () => controller.abort(_daisyStatsFailure('CANCELLED'));
++    const disconnected = () => controller.abort(_daisyStatsFailure('CLOSED'));
++    state.active = controller;
++    options.signal?.addEventListener('abort', cancelled, { once: true });
++    room.on('disconnected', disconnected);
++    const timer = setTimeout(() => controller.abort(_daisyStatsFailure('DEADLINE')), timeoutMs);
++    let issued = false;
++    try {
++      const client = FfiClient.instance, requestId = client.getNextRequestAsyncId();
++      const pending = client.waitFor<import('@livekit/rtc-ffi-bindings').GetStatsCallback>(
++        event => event.message.case === 'getStats' && event.message.value.asyncId === requestId,
++        { signal: controller.signal },
++      );
++      void pending.catch(() => undefined);
++      issued = true;
++      const response = client.request<import('@livekit/rtc-ffi-bindings').GetStatsResponse>({ message: { case: 'getStats', value: { trackHandle: handle, requestAsyncId: requestId } } });
++      if (response.asyncId !== requestId) throw _daisyStatsFailure('UNSUPPORTED');
++      const reply = await pending;
++      if (controller.signal.aborted) throw controller.signal.reason;
++      const elapsed = performance.now() - started;
++      if (!Number.isFinite(elapsed) || elapsed < 0 || elapsed >= timeoutMs) throw _daisyStatsFailure('DEADLINE');
++      if (state.closed || !room.isConnected || this.resolveRoom() !== room || this.sid !== sid || this.ffi_handle.handle !== handle) throw _daisyStatsFailure('CLOSED');
++      if (reply.error || !Array.isArray(reply.stats)) throw _daisyStatsFailure('NATIVE_ERROR');
++      return reply.stats;
++    } catch (error) {
++      if (issued) state.uncertain = true;
++      const safe = error instanceof Error && 'code' in error && typeof error.code === 'string' && error.code.startsWith('TRACK_STATS_') ? error : _daisyStatsFailure('NATIVE_ERROR');
++      controller.abort(safe);
++      throw safe;
++    } finally {
++      clearTimeout(timer);
++      options.signal?.removeEventListener('abort', cancelled);
++      room.off('disconnected', disconnected);
++      if (state.active === controller) state.active = null;
++    }
++  },
++});

@@ -1097,3 +1097,49 @@ provider metadata or the fixture-only tone detector cannot discharge this
 obligation. The existing native tone proof establishes only bounded synthetic
 signal presence; it proves neither all source samples nor heard words. These
 source/readiness controls and clock/selection integration remain unimplemented.
+
+### Track-bound native transport observation
+
+The pinned rtc-node1.2.0 patch exposes public `Track.getStats` through the SDK's
+existing FFI singleton and concrete native track handle. It registers the async-ID
+waiter before dispatch and removes listeners on success, failure, deadline,
+caller abort, track close/unsubscribe and room disconnect. One request may be
+outstanding per Track; a dispatched uncertain outcome requires a new Track
+binding. Cancellation refuses late results, not already-issued native work.
+The monotonic deadline also rejects a reply after an event-loop stall; it does
+not guarantee preemption while that loop is stalled. No private SDK imports,
+second FFI client or room-total fallback is permitted.
+
+Actual local native execution returned distinct inbound RTP records for two
+same-name subscribed tracks: one remained at10 packets while the other reached20.
+Pre-abort, dispatched abort, deadline after a controlled event-loop stall and
+close controls passed. These are request-scope/lifecycle observations, not a
+microphone or hearing guarantee. Earlier held-source diagnostics showed packet
+counters stationary while PCM callbacks and total received/concealed samples
+advanced. An absent inbound record is unknown, not zero packets or silence.
+
+The next owning `@daisy/media` port will expose a bounded transport observation,
+not a coverage grant. Its input is the concrete subscribed Track and immutable
+session/binding epoch, caller cancellation and injected monotonic clock. It
+retains no reusable native handles or raw reports. Its output is either unknown
+with a sanitized reason, or observation brackets plus exactly one validated audio
+inbound record's bounded counters and an opaque binding-local identity. Missing,
+multiple, malformed, reset or replaced records remain unknown; counter decreases
+start a new observation baseline, never bridge runs. Polling is bounded and
+single-flight outside competitive transactions; teardown cancels the binding.
+Only whitelisted fields may leave the adapter, without network addresses or
+vendor error strings. Tests must include two-track discrimination, replacement,
+late callbacks, missing/reset/ambiguous records and transport stalls.
+
+Packet progress can detect some unavailable-source intervals but cannot assign
+each decoded frame to an original packet, establish complete preservation,
+identify DTX versus lost source, or prove peer hearing. Therefore this port cannot
+alone authorize silence, advance protected permission, select a transcript or
+retire necessary audio. Before those writes, the actual16k capture path must show
+source-withheld/transport-gap behavior while decoder callbacks continue and
+separate healthy DTX and genuinely silent-source controls. If the available
+metadata cannot positively establish the required continuity, the interval stays
+unknown and vulnerable play must remain held; no callback/energy heuristic may
+upgrade it. Exact source-to-decoder alignment requires further supported native
+evidence, not inferred packet/sample arithmetic. Production activation and REL-H
+remain unchanged.
