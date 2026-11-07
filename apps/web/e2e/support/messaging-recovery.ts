@@ -27,6 +27,7 @@ import { hasAdvisedConversationBoundary } from './messaging-refusal-flight';
 import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { boundedStep } from './bounded-step';
+import { systemClock } from '@daisy/clock';
 import { watchRecoveryConsumer } from './messaging-recovery-consumer';
 import type { Page } from '@playwright/test';
 import { watchRecoveredChannel } from './messaging-recovery-observation';
@@ -157,6 +158,20 @@ export function testMessagingRecovery() {
       const deadline = recoveryDeadline();
       await effectsRan(page);
       const initial = await settledRefusal(page, deadline);
+      // Controlled transport of the real authorized response, as in the held proof.
+      // No status/body is synthesized and every automatic read runs exactly once.
+      await page.route(`**/messages/${journey.channelId}?*`, async (route) => {
+        if (
+          route.request().method() !== 'GET' ||
+          !isMessagingRefetch(route.request().headers())
+        )
+          return route.continue();
+        const response = await route.fetch({
+          timeout: Math.max(1, deadline - Date.parse(systemClock.now())),
+          maxRetries: 0,
+        });
+        await route.fulfill({ response });
+      });
       await driveRefusalDeadlines(page, observer, initial, deadline);
       await page.clock.fastForward(12000);
       expect(observer.snapshot()).toMatchObject({
