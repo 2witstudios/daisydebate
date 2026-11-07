@@ -16,7 +16,8 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 test('actual casual capture volume, verified output and independent transport overlap remain separate bounded TEST observations', async () => {
-  const root = await makeCaptureRoot(process.env.BILLING_CAPTURE_OUTPUT),
+  const output = await makeCaptureRoot(process.env.BILLING_CAPTURE_OUTPUT),
+    root = output.path,
     { pool, roles } = captureWebPool(databaseUrl);
   try {
     await withRoomRuntime(
@@ -196,6 +197,10 @@ test('actual casual capture volume, verified output and independent transport ov
       { client: pool },
     );
   } finally {
-    await pool.close({ timeout: 0 });
+    try {
+      await pool.close({ timeout: 0 });
+    } finally {
+      await output.close();
+    }
   }
 }, 90_000);

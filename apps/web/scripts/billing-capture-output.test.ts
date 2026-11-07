@@ -7,14 +7,20 @@ test('ordinary integration runners allocate unique private capture roots without
   const second = await makeCaptureRoot(undefined);
   try {
     expect([
-      first !== second,
-      first.startsWith('/tmp/billing-capture-'),
-      (await stat(first)).mode & 0o777,
-      (await stat(second)).mode & 0o777,
+      first.path !== second.path,
+      first.path.startsWith('/tmp/billing-capture-'),
+      (await stat(first.path)).mode & 0o777,
+      (await stat(second.path)).mode & 0o777,
     ]).toEqual([true, true, 0o700, 0o700]);
+    await first.close();
+    await second.close();
+    expect([
+      await stat(first.path).catch(() => null),
+      await stat(second.path).catch(() => null),
+    ]).toEqual([null, null]);
   } finally {
-    await rm(first, { recursive: true, force: true });
-    await rm(second, { recursive: true, force: true });
+    await first.close();
+    await second.close();
   }
 });
 
@@ -24,8 +30,10 @@ test('explicit private proof roots preserve existing artifacts', async () => {
   try {
     await mkdir(directory, { mode: 0o700 });
     await writeFile(directory + '/retained', 'TEST receipt', { mode: 0o600 });
+    const output = await makeCaptureRoot(directory);
+    await output.close();
     expect([
-      await makeCaptureRoot(directory),
+      output.path,
       await Bun.file(directory + '/retained').text(),
       (await stat(directory)).mode & 0o777,
     ]).toEqual([directory, 'TEST receipt', 0o700]);
