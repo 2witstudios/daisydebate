@@ -4,6 +4,14 @@ import { createAppError } from '@daisy/errors';
 import { RUNTIME_SESSION } from './session-bounds';
 
 /** The only relations `daisy_media_worker` is granted SELECT on. */
+const EVIDENCE_DISCOVERY_COLUMNS = [
+  'id',
+  'round_id',
+  'session_id',
+  'state',
+  'next_attempt_at',
+  'last_claimed_at',
+];
 const CAPTURE_TABLES = [
   'rounds',
   'round_participants',
@@ -105,7 +113,16 @@ export function createMediaWorkerDatabase(input: {
             where c.relkind in ('r', 'p', 'v', 'm', 'f')
               and n.nspname <> 'information_schema'
               and left(n.nspname, 3) <> 'pg_'
-              and not (n.nspname = 'public' and c.relname in ${client(CAPTURE_TABLES)})
+              and not (n.nspname = 'public' and (
+                c.relname in ${client(CAPTURE_TABLES)} or (
+                  c.relname='necessary_evidence'
+                  and not has_table_privilege(c.oid,'SELECT')
+                  and not exists(select 1 from pg_attribute a
+                    where a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
+                      and has_column_privilege(c.oid,a.attnum,'SELECT')
+                      and a.attname not in ${client(EVIDENCE_DISCOVERY_COLUMNS)})
+                )
+              ))
               and has_any_column_privilege(c.oid, 'SELECT')
           ) as reads,
           exists (select 1 from pg_roles o

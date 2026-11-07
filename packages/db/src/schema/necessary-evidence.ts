@@ -13,6 +13,7 @@ import {
   oneOf,
   timestampColumn,
   jsonbColumnNullable,
+  jsonbIsObject,
 } from './columns';
 import { rounds } from './rounds';
 
@@ -71,6 +72,7 @@ export const necessaryEvidence = pgTable(
     createdAt: createdAtColumn(),
   },
   (table) => [
+    jsonbIsObject('necessary_evidence', table.originalSpeaker),
     index('necessary_evidence_round_idx').on(table.roundId),
     index('necessary_evidence_original_round_idx').on(table.originalRoundId),
     index('necessary_evidence_subjects_idx').using(

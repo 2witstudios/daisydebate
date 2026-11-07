@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createFrameClock, verifyFrameClockEvidence } from './frame-clock';
+import {
+  createFrameClock,
+  createTrackClocks,
+  verifyFrameClockEvidence,
+} from './frame-clock';
 setupRitewayBun();
 const calibration = {
   sentAtMs: 0,
@@ -125,5 +129,35 @@ test('serialized original frame mapping is verified without a replacement clock 
       mutations.map(verifyFrameClockEvidence),
     ],
     expected: [originals.map(() => true), mutations.map(() => false)],
+  });
+});
+
+test('track clock evidence projects only original scalar observation facts', () => {
+  const clocks = createTrackClocks();
+  const raw = {
+    sequence: 0,
+    beforeMs: 10,
+    afterMs: 10.1,
+    trackId: 'native-track',
+    identity: 'private-publisher',
+    pcm: new Int16Array(160).fill(-1),
+  };
+  clocks.observe(raw, calibration);
+  const evidence = clocks.evidence(raw.trackId)!;
+  assert({
+    given:
+      'the actual native callback shape, including publisher and PCM outside the clock observation contract',
+    should:
+      'retain only original scalar clock facts and produce strictly verifiable provenance without copying raw audio/identity into clock metadata',
+    actual: {
+      observation: Object.keys(evidence.observation).sort(),
+      anchor: Object.keys(evidence.anchor.observation).sort(),
+      verified: verifyFrameClockEvidence(evidence),
+    },
+    expected: {
+      observation: ['afterMs', 'beforeMs', 'sequence'],
+      anchor: ['afterMs', 'beforeMs', 'sequence'],
+      verified: true,
+    },
   });
 });

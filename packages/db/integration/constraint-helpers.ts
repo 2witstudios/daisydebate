@@ -295,6 +295,15 @@ export class Fixture {
         await this
           .sql`delete from round_finalizations where round_id=${roundId}`;
       }
+    // Erasure routing intentionally survives account deletion. Remove only this fixture's requests.
+    const [evidencePrivacy] = await this
+      .sql`select to_regclass('public.necessary_evidence_erasure_requests') is not null as present`;
+    if (evidencePrivacy?.present)
+      await this.deleteWhere(
+        'necessary_evidence_erasure_requests',
+        'actor_id',
+        this.tracked.get('actors'),
+      );
     // A round may append canonical phase events through an accepted write.
     // Remove only this fixture's topics before deleting their owning rows.
     for (const roundId of this.tracked.get('rounds') ?? [])

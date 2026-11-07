@@ -94,11 +94,13 @@ export function createFrameClock(initial: ClockCalibration) {
     readonly nominalStartMs: number;
   } | null = null;
   return {
-    observe(frame: FrameObservation): {
+    observe({ sequence, beforeMs, afterMs }: FrameObservation): {
       readonly beforeMs: number;
       readonly afterMs: number;
       readonly nominalStartMs: number;
     } | null {
+      // Native callbacks also carry PCM and identity; clock provenance owns only these facts.
+      const frame = { sequence, beforeMs, afterMs };
       observed = null;
       const previous = last ? { ...last } : null;
       if (!wellFormed(frame)) {

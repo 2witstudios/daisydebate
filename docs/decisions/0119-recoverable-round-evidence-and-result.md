@@ -714,3 +714,15 @@ statements, including narrow grants and aggregate-retirement trigger. Shared
 main migration files are unchanged. Prior immutable receipts still describe
 their original heads; merged-head verification is separately attributed. This
 integration does not complete the mission or enable production collection.
+
+Native receipt preparation must consume the actual callback shape. Clock
+provenance projects only sequence and the original before/after observations;
+PCM, publisher identity and track labels stay in their owning frame fields,
+never copied by object spread into clock metadata. This projection changes no
+mapping equation or timing threshold. Bounded original units preserve every
+eligible sample (low energy and short speech included), original grant/history
+and run/sequence discontinuities before clip heuristics. Pure preparation is not
+a receipt or coverage: the forthcoming native producer must retain stable
+IDs/bodies and source frames until actual durable acknowledgement. Carry wiring,
+protected publication/time, recognition reconciliation and played-result proof
+remain incomplete.
