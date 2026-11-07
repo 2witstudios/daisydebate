@@ -31,7 +31,7 @@ export default async function RoundFloorPage({
   );
   if (!props) notFound();
   return (
-    <main className="max-w-4xl mx-auto flex w-full flex-col gap-4 p-4">
+    <main className="mx-auto flex w-full max-w-reading flex-col gap-4 p-4">
       <Link href={`/rounds/${id}`}>Back to Round</Link>
       <h1 className="text-xl font-strong">Round chat</h1>
       <FloorChat {...props} />
