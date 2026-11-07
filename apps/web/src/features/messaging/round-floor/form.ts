@@ -11,6 +11,7 @@ export type FloorFormState = {
   readonly notice?: string;
   readonly uncertain?: boolean;
   readonly command?: string;
+  readonly changeVersion?: number;
   readonly sent?: string;
 };
 
@@ -72,12 +73,9 @@ export async function submitFloorMessage(
           ? { uncertain: true }
           : {}),
       };
+    // Receipt replay returns current content, which may include a later edit.
     const result = schemas.message.safeParse(await response.json());
-    if (
-      !result.success ||
-      result.data.channelId !== scope.channelId ||
-      result.data.text !== command.text
-    )
+    if (!result.success || result.data.channelId !== scope.channelId)
       return floorFormUnavailable(form);
     return {
       text: '',

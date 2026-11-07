@@ -110,6 +110,7 @@ export function FloorChat({
                     ) : null}
                     <FloorMessageControls
                       messageId={message.id}
+                      changeVersion={message.changeVersion}
                       text={message.text}
                       own={message.authorActorId === props.actorId}
                       locked={hidden || expired}

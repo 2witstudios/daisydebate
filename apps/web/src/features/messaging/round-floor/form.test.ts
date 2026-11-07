@@ -175,3 +175,25 @@ describe('embedded Round floor send', () => {
     });
   });
 });
+test('a canonical send retry can return a later edit of the committed message', async () => {
+  const answer = await submitFloorMessage(
+    async () =>
+      Response.json({
+        ...message,
+        text: 'Later canonical edit',
+        changeVersion: 3,
+      }),
+    scope,
+    { text: 'Keep this draft', requestId, uncertain: true },
+    draft(),
+    () => nextId,
+  );
+  assert({
+    given:
+      'a committed send edited on another device before its lost-response retry',
+    should:
+      'settle the valid canonical reply instead of keeping the command uncertain',
+    actual: answer,
+    expected: { text: '', requestId: nextId, sent: messageId },
+  });
+});

@@ -7,7 +7,7 @@ import {
 } from '../../features/messaging/round-floor/form';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { CountedTextarea } from '../messaging/counted-textarea';
-import { floorEditSeed } from './edit-draft';
+import { floorEditSeed, type FloorEditDraft } from './edit-draft';
 
 const reasons = {
   harassment: 'Harassment',
@@ -25,6 +25,7 @@ export function FloorMessageControls({
   own,
   locked,
   editingLocked = false,
+  changeVersion,
   maxUnits,
   mutateAction,
   reportAction,
@@ -35,6 +36,7 @@ export function FloorMessageControls({
   readonly own: boolean;
   readonly locked: boolean;
   readonly editingLocked?: boolean;
+  readonly changeVersion: number;
   readonly maxUnits: number;
   readonly mutateAction: FormAction<FloorFormState>;
   readonly reportAction: FormAction<FloorFormState>;
@@ -44,7 +46,7 @@ export function FloorMessageControls({
     own ? 'edit' : 'report',
   );
   const [reason, setReason] = useState('harassment');
-  const [dirty, setDirty] = useState<string | null>(null);
+  const [dirty, setDirty] = useState<FloorEditDraft | null>(null);
   const [initial] = useState<FloorFormState>(() => ({
     text,
     requestId: systemId.next(),
@@ -61,12 +63,7 @@ export function FloorMessageControls({
       onSent(answer.sent);
     }
   }, [answer, onSent]);
-  useEffect(() => {
-    if (!answer.sent || answer.text !== text) return;
-    const timer = setTimeout(() => setDirty(null), 0);
-    return () => clearTimeout(timer);
-  }, [answer.sent, answer.text, text]);
-  const seed = floorEditSeed(answer, text, dirty !== null);
+  const seed = floorEditSeed(answer, { text, changeVersion }, dirty);
   return (
     <details className="text-sm">
       <summary className="cursor-pointer">
@@ -96,14 +93,20 @@ export function FloorMessageControls({
         ) : null}
         {kind === 'edit' ? (
           <CountedTextarea
-            key={`${answer.requestId}:${dirty ?? text}`}
+            key={seed.key}
             id={`floor-edit-${messageId}`}
             name="text"
             aria-label="Edit message"
-            defaultValue={seed}
+            defaultValue={seed.text}
             maxUnits={maxUnits}
             required
-            onInput={() => setDirty((current) => current ?? text)}
+            onInput={() =>
+              setDirty((current) =>
+                current?.requestId === answer.requestId
+                  ? current
+                  : { requestId: answer.requestId, baseline: seed.baseline },
+              )
+            }
             readOnly={locked || editingLocked || answer.uncertain === true}
             disabled={pending}
             className="rounded-sm border border-border bg-background p-2"

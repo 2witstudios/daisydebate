@@ -54,6 +54,7 @@ export async function submitFloorChange(
     };
   const unknown = { ...kept, command: signature };
   let acknowledgedText = '';
+  let changeVersion: number | undefined;
   try {
     const response = await send(
       kind,
@@ -90,13 +91,10 @@ export async function submitFloorChange(
         parsed.data.channelId !== scope.channelId
       )
         return unknown;
+      changeVersion = parsed.data.changeVersion;
       if (kind === 'remove' && !('unavailable' in parsed.data)) return unknown;
       if (kind === 'edit') {
-        if (
-          'unavailable' in parsed.data ||
-          parsed.data.text !== form.get('text')
-        )
-          return unknown;
+        if ('unavailable' in parsed.data) return unknown;
         acknowledgedText = parsed.data.text;
       }
     }
@@ -104,6 +102,7 @@ export async function submitFloorChange(
       text: acknowledgedText,
       requestId: idSchema.parse(nextId()),
       sent: messageId,
+      ...(changeVersion === undefined ? {} : { changeVersion }),
     };
   } catch {
     return unknown;

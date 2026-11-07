@@ -76,7 +76,12 @@ test('a bound canonical tombstone confirms removal', async () => {
     should:
       'settle the command instead of locking a successful removal as uncertain',
     actual: result,
-    expected: { text: '', requestId: 'n'.repeat(24), sent: messageId },
+    expected: {
+      text: '',
+      requestId: 'n'.repeat(24),
+      sent: messageId,
+      changeVersion: 2,
+    },
   });
 });
 test('a confirmed edit preserves the current text for another edit', async () => {
@@ -103,7 +108,40 @@ test('a confirmed edit preserves the current text for another edit', async () =>
   assert({
     given: 'a confirmed author edit',
     should: 'keep acknowledged text as the next editable draft',
-    actual: result.text,
-    expected: 'Revised',
+    actual: [result.text, result.changeVersion],
+    expected: ['Revised', 2],
+  });
+});
+test('an exact edit retry acknowledges the newer current message', async () => {
+  const edit = form();
+  edit.set('kind', 'edit');
+  edit.set('text', 'First saved edit');
+  const result = await submitFloorChange(
+    async () =>
+      Response.json({
+        id: messageId,
+        channelId: scope.channelId,
+        authorActorId: 'a'.repeat(24),
+        sequence: 1,
+        changeVersion: 3,
+        text: 'Later edit from another device',
+        createdAt: '2026-11-06T00:00:00.000Z',
+        editedAt: '2026-11-06T00:00:02.000Z',
+      }),
+    scope,
+    { text: 'First saved edit', requestId, uncertain: true },
+    edit,
+    () => 'n'.repeat(24),
+  );
+  assert({
+    given: 'the canonical current-state reply after a digest-validated replay',
+    should: 'settle uncertainty with current text and revision',
+    actual: [
+      result.text,
+      result.changeVersion,
+      result.uncertain,
+      result.requestId,
+    ],
+    expected: ['Later edit from another device', 3, undefined, 'n'.repeat(24)],
   });
 });

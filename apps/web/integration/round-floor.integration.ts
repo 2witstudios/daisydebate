@@ -175,10 +175,11 @@ test('real floor HTTP binds debaters and host, denies judges, and retains read-o
       await withSql(async (sql) => {
         await sql`delete from content_reports where target_id=${message.id}`;
       });
+      const editRequestId = createId();
       const edited = await post(host, 'edit', {
         version: 1,
         channelId,
-        requestId: createId(),
+        requestId: editRequestId,
         messageId: message.id,
         text: 'Corrected host text',
       });
@@ -187,6 +188,34 @@ test('real floor HTTP binds debaters and host, denies judges, and retains read-o
         should: 'edit their own floor message',
         actual: edited.status,
         expected: 200,
+      });
+      const replaySend = await post(host, 'send', command);
+      assert({
+        given: 'a committed send edited before its retry',
+        should:
+          'return the current canonical state after checking the original receipt',
+        actual: [replaySend.status, (await replaySend.json()).text],
+        expected: [200, 'Corrected host text'],
+      });
+      await post(host, 'edit', {
+        version: 1,
+        channelId,
+        requestId: createId(),
+        messageId: message.id,
+        text: 'Latest canonical text',
+      });
+      const replayEdit = await post(host, 'edit', {
+        version: 1,
+        channelId,
+        requestId: editRequestId,
+        messageId: message.id,
+        text: 'Corrected host text',
+      });
+      assert({
+        given: 'an edit receipt retried after a later edit',
+        should: 'acknowledge the original command with the newest state',
+        actual: [replayEdit.status, (await replayEdit.json()).text],
+        expected: [200, 'Latest canonical text'],
       });
       const current = roundViewSchema.parse(
         await (
