@@ -1057,3 +1057,22 @@ selection or an authoritative transcript/result. The actual shared capacity,
 lease/poll configuration, fair process restart, finite provider funding and
 qualified candidate handler still need integrated qualification before claiming
 automatic eventual progress. REL-H remains unchanged.
+
+### Bounded STT response evidence
+
+The existing STT adapter bounds the entire response to1MiB before UTF8 decoding
+or JSON parsing, and bounds transcript text to64KiB UTF8 before whitespace
+trimming. Declared or streamed oversize refuses rather than truncating. The
+reader is cancelled/unlocked and its mutable byte buffer cleared; immutable
+strings already decoded cannot be recalled. Stream, parse and cleanup errors
+are sanitized without retaining vendor content in nested error causes.
+
+When supplied, finite nonnegative usage values and a bounded generation ID are
+returned as reported provenance. Missing metadata stays missing, including cost;
+no zero-cost/default provider receipt is invented. This is not independent proof
+of actual billing, provider identity, speech, coverage or quality, and the current
+attempt metadata writer does not yet durably adopt these additional fields.
+Existing model, ZDR policy and default response format are unchanged. No optional
+timestamps or new model is enabled without the required quality qualification.
+Controlled response/actual local HTTP cancellation tests are not external STT
+execution or authorized human-corpus quality evidence.

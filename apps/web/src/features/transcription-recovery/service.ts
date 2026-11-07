@@ -61,14 +61,11 @@ export function startTranscriptionRecoveryService(input: {
       }
     })();
   };
+  const mayClaim = () => !stopped && entries.size < parallel;
   const scan = (): Promise<void> => {
     if (stopped || scanning) return scanning ?? Promise.resolve();
     scanning = (async () => {
-      for (
-        let index = 0;
-        index < claimBatch && !stopped && entries.size < parallel;
-        index++
-      ) {
+      for (let index = 0; index < claimBatch && mayClaim(); index++) {
         const reserved = input.reserveCapacity();
         if (!reserved) break;
         let released = false;

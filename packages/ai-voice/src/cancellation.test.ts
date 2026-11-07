@@ -67,14 +67,33 @@ for (const kind of ['complete', 'transcribe'] as const) {
       timeoutMs: 2000,
       fetch: async (_url, init) => {
         const response = await fetch(server.url, init);
-        const read = response.json.bind(response);
-        Object.defineProperty(response, 'json', {
-          value: () => {
-            const body = read();
-            received();
-            return body;
-          },
-        });
+        if (kind === 'complete') {
+          const read = response.json.bind(response);
+          Object.defineProperty(response, 'json', {
+            value: () => {
+              const body = read();
+              received();
+              return body;
+            },
+          });
+        } else {
+          const body = response.body!;
+          const getReader = body.getReader.bind(body);
+          Object.defineProperty(body, 'getReader', {
+            value: () => {
+              const reader = getReader();
+              const read = reader.read.bind(reader);
+              Object.defineProperty(reader, 'read', {
+                value: () => {
+                  const pending = read();
+                  received();
+                  return pending;
+                },
+              });
+              return reader;
+            },
+          });
+        }
         return response;
       },
     });
