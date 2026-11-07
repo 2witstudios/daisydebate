@@ -51,20 +51,21 @@ const world = () => {
       target('retention.verification'),
     ],
   });
-  const workers = (['observation_purges', 'privacy_jobs'] as const).map(
-    (name) =>
-      createScheduledWorker({
-        name,
-        clock,
-        logger,
-        pass: async () => ({ deleted: 0, retried: 0, owed: 0 }),
-      }),
+  const workers = (
+    ['observation_purges', 'privacy_jobs', 'billing_cleanup'] as const
+  ).map((name) =>
+    createScheduledWorker({
+      name,
+      clock,
+      logger,
+      pass: async () => ({ deleted: 0, retried: 0, owed: 0 }),
+    }),
   );
   return {
     breakTarget: () => {
       targetFails = true;
     },
-    /** Advances time, running the sweep and both workers at each step. */
+    /** Advances time, running the sweep and all workers at each step. */
     runFor: async (ms: number) => {
       const end = nowMs + ms;
       for (; nowMs < end; nowMs += 5 * MINUTE_MS) {
@@ -99,7 +100,7 @@ describe('cleanup_missed through the composed signal path (ISSUE-1007)', () => {
     await runFor(20 * MINUTE_MS);
     assert({
       given:
-        'one target failing past the threshold, while its sibling target and both workers keep succeeding every few minutes',
+        'one target failing past the threshold, while its sibling target and all workers keep succeeding every few minutes',
       should: 'fire cleanup_missed and no worker alert',
       actual: await firing(),
       expected: ['cleanup_missed'],

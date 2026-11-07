@@ -3,7 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { requireClaimScope, requireRunScope } from './bot-publication-context';
-import { roundAgentNow } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import { agentRuns } from './schema/agent-runs';
 import { roundBotPublications } from './schema/round-bot-publications';
 
@@ -70,7 +70,7 @@ export async function verifyBotWorkerPrincipalLocked(
   };
   requireClaimScope(claim, scope);
   requireRunScope(run, scope);
-  const now = await roundAgentNow(tx);
+  const now = await readDatabaseTime(tx);
   if (claim.leaseExpiresAt.getTime() <= now.getTime())
     throw createAppError('CONFLICT', 'Worker lease expired');
 }

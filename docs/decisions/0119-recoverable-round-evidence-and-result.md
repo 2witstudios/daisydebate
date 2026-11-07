@@ -883,3 +883,71 @@ privacy authority; all-authority rollback remains unsupported REL-H.
 The methods alone do not schedule every supported restore automatically. Local
 poller/provider integration and independent privacy-lineage reconciliation are
 still required, along with qualified recognition and the genuine played result.
+
+### Finite enrollment traversal through refused custody
+
+Successful source enrollment alone cannot be the discovery turn: a full page of
+independently revoked/unavailable keys can otherwise hide later usable original
+payload indefinitely. The private enrollment scanner therefore persists one
+finite pass position independently of acceptance. It captures an upper
+(enrollment turn or original creation fallback, Round ID) key, commits each
+bounded eight-Round page position before returning external restore work, and
+clears a completed pass. Insertions above the captured upper key wait for the
+next pass, so an ongoing tail cannot prevent wrap/revisit. A crash after position
+commit can defer a unit until the next finite pass, never erase its obligation.
+Timestamp key comparisons stay entirely in PG at full precision; JavaScript Date
+truncation cannot skip adjacent microsecond keys.
+
+Independent workers serialize only this private control row, then release that
+transaction before any original account→Round enrollment locks or custody I/O.
+The scanner samples pacing eligibility after its lock wait and sets the next
+due instant at the actual position update, one second later. This is a durable
+minimum eligibility delay, not a polling, DB-load, capture-receipt or overall
+recovery-latency guarantee. An empty/completed pass clears cursor references;
+refusal is traversal progress only, never source acceptance, silence, coverage,
+delete permission or provider-call authorization. All original privacy/expiry
+and frontier fences still apply at authenticated restore/enrollment.
+
+The single seeded control row permits web SELECT and only its mutable position
+and pacing-column UPDATE. Runtime INSERT/DELETE, singleton mutation and media
+worker access remain forbidden. It retains at most two private Round identifiers
+and their ordering instants during an incomplete pass; there is no audio,
+unselected text, subject list, execution token or current-authority assertion.
+This is private linkable operational metadata, subject to the same declared
+metadata minimization/export/restore obligations. Its presence cannot make an
+old PG backup current, reverse independent revocation or extend original expiry.
+Production composition and every-copy retention acceptance remain disabled
+under REL-H. Automatic poller/provider/result qualification is still separate.
+
+A Round cursor does not by itself provide within-Round progress: its earliest
+missing original unit could remain revoked while later authentic units are
+never offered. Each existing evidence intent therefore has at most one private
+last-offered metadata row. Unit selection compares that actual offer time, or
+original creation for a never-offered unit; it never gives NULL a permanent
+priority. Each chosen unit's offer and the global finite-pass cursor commit
+atomically before external restore. Refusal, uncertainty or a process dying after
+commit can defer another offer but cannot erase the source obligation or make
+old key material usable. A fresh process uses the same stored turn. Original
+receipt, expiry, immutable run/body and source acceptance remain separate.
+The offer identity cannot be updated by the runtime role; only its timestamp can
+advance, and it cascades when the owning evidence intent is actually removed.
+These linkable per-intent operational facts share the declared metadata
+minimization/export/restore obligations, not a new unlimited retention purpose.
+The scope remains local and production-disabled; traversal is not provider or
+result completion.
+
+### Integration with Billing main100
+
+The combined forward tail preserves applied Billing migration bytes and its
+allowance/usage/analysis contracts. Recovery retains an original reserved,
+uncounted casual-judge identity across an expired undispatched window; queued,
+leased, recovering and blocked obligations remain open for usage settlement.
+Actual agent-run request counters continue to consume lifetime provider funding,
+including unknown requests without an attempt receipt. Generation-window
+attribution remains separately bounded and conservative for unclassified epochs;
+missing metadata never invents a free call or provider billing evidence. Held
+validated ballots, original freeze/rubric and historical terminal jobs are not
+rewritten by schema integration. No historical result is reopened. The original
+account fences and current allowance eligibility still apply at new dispatch.
+Old unpublished migration/test bytes stay archived with original provenance;
+combined schema/role/populated-predecessor proofs belong to their new candidate.

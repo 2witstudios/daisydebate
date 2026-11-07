@@ -1,5 +1,10 @@
 import { recordingPersistence } from '../features/recording/persistence';
 import { startRecordingDeletions } from './recording-deletions';
+import { startUsageRecovery } from './usage-recovery';
+import { startBillingEconomics } from './billing-economics';
+import { startBillingSubscriptions } from './billing-subscriptions';
+import { startBillingRefunds } from './billing-refunds';
+import { startBillingPurchases } from './billing-purchases';
 import { startBroadcastSweep } from '../features/broadcast/composition';
 import { startStrayEgressSweep } from '../features/stage-capture/composition';
 import { startNotificationSweep } from '../features/spectating/audience-composition';
@@ -16,7 +21,12 @@ import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRunSchedule } from './run-schedule';
 import { startObservationPurges } from './observation-purges';
-import { privacyJobPort, startPrivacyJobs } from './privacy-jobs';
+import {
+  privacyJobPort,
+  startPrivacyJobs,
+  genericPrivacyJobVendors,
+} from './privacy-jobs';
+import { startBillingCleanup } from './billing-cleanup';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
@@ -33,6 +43,7 @@ import {
   processApp,
   processStartOptions,
   fetchPublicAttendanceProbe,
+  processVendorFetch,
 } from './process-app';
 import { createRetentionSweep, retentionTargets } from './retention-sweep';
 import { startProductionServer } from './listen-first';
@@ -138,6 +149,40 @@ const roundMaintenance = startRoundCompetitiveMaintenance({
   timers: workerTimers,
   reporter: app.reporter,
 });
+const usageRecovery = startUsageRecovery({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+});
+const billingEconomics = startBillingEconomics({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+});
+const billingSubscriptions = startBillingSubscriptions({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+  fetch: processVendorFetch(),
+});
+const billingRefunds = startBillingRefunds({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+  fetch: processVendorFetch(),
+});
+const billingPurchases = startBillingPurchases({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+  fetch: processVendorFetch(),
+});
+const billingCleanup = startBillingCleanup({
+  app,
+  instanceId: availability.instanceId,
+  timers: workerTimers,
+  fetch: processVendorFetch(),
+});
 const roomMaintenance = startRoomLifecycleMaintenance({
   app,
   timers: workerTimers,
@@ -215,8 +260,13 @@ const observationPurges = startObservationPurges({
 // ISSUE-833: an erasure's queued vendor deletion jobs are delivered here,
 // retried with backoff and recorded, so no processor copy outlives its job.
 const privacyJobs = startPrivacyJobs({
-  due: (batch) => app.database.duePrivacyJobs(batch),
-  owed: () => app.database.owedPrivacyJobs(),
+  due: (batch) =>
+    app.database.duePrivacyJobs({
+      ...batch,
+      vendors: genericPrivacyJobVendors(app),
+    }),
+  owed: () =>
+    app.database.owedPrivacyJobs({ vendors: genericPrivacyJobVendors(app) }),
   deliver: (job, now, retryAt) =>
     app.database.deliverPrivacyJob(
       { jobId: job.id, vendor: job.vendor, now, retryAt },
@@ -243,6 +293,12 @@ async function shutdown() {
   app.drain();
   // Ends any sweep between batches; awaited before the pools close below.
   const retentionStopped = retention.stop();
+  const usageRecoveryStopped = usageRecovery.stop();
+  const billingEconomicsStopped = billingEconomics.stop();
+  const billingSubscriptionsStopped = billingSubscriptions?.stop();
+  const billingRefundsStopped = billingRefunds?.stop();
+  const billingPurchasesStopped = billingPurchases?.stop();
+  const billingCleanupStopped = billingCleanup.stop();
   const betaMailStopped = betaMail.stop();
   const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
@@ -281,6 +337,12 @@ async function shutdown() {
       await nextApp.close();
       await Promise.all([
         retentionStopped,
+        usageRecoveryStopped,
+        billingEconomicsStopped,
+        billingSubscriptionsStopped,
+        billingRefundsStopped,
+        billingPurchasesStopped,
+        billingCleanupStopped,
         betaMailStopped,
         operatorApiStopped,
         filesStopped,

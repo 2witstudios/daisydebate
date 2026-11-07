@@ -1,1 +1,0 @@
-ALTER TABLE "transcription_recovery_sources" ADD COLUMN "enrolled_at" timestamp with time zone;

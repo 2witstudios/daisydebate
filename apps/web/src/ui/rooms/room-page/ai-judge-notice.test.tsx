@@ -7,12 +7,14 @@ setupRitewayBun();
 const render = (
   aiJudgeSeating: 'free' | 'included' | 'premium' | null,
   judge = 1,
+  competitionType: 'ranked' | 'casual' = 'ranked',
 ) =>
   renderToString(
     <AiJudgeNotice
       view={
         {
           aiJudgeSeating,
+          competitionType,
           definition: { seats: { affirmative: 1, negative: 1, judge } },
         } as never
       }
@@ -36,6 +38,14 @@ test('the host is told plainly what judging is available', () => {
     expected: true,
   });
   assert({
+    given: 'a free casual bot bundle',
+    should: 'describe its lifetime judge without claiming ranked play',
+    actual: render('free', 1, 'casual').includes(
+      'Your one free bot debate includes an optional AI judge.',
+    ),
+    expected: true,
+  });
+  assert({
     given: 'an entitled casual host, a non-host, and a Room with no judge seat',
     should: 'say nothing',
     actual: [render('included'), render(null), render('premium', 0)],
@@ -51,5 +61,17 @@ test('only free and included seating offers the AI judge', () => {
       aiJudgeSeatable,
     ),
     expected: [true, true, false, false],
+  });
+});
+
+test('a genuinely Premium-locked judge offers the existing Premium destination', () => {
+  assert({
+    given: 'premium or included AI-judge seating',
+    should: 'offer Premium only while locked',
+    actual: [
+      render('premium').includes('href="/premium"'),
+      render('included').includes('href="/premium"'),
+    ],
+    expected: [true, false],
   });
 });

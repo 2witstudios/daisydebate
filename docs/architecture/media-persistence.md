@@ -262,28 +262,28 @@ provider call, source frame or transcript credit.
 
 ### AI-round allowance
 
-DEC-183 as amended 2026-10-26 (ISSUE-646) is one flat beta policy with no grant
-table and no grant setter. The pure `aiRoundAllowance` policy in `@daisy/auth`
-admits the trusted `AI_ROUND_MONTHLY_CAP` (default 20, at most 1000) for an
-approved, live beta member and nothing (`not-eligible`) for any other account
-fact. Composition injects it into the bot admission adapter, which applies it
-only to the account row it locks in the admitting transaction, so a host
-revoked mid-month is refused at the next admission. The period is the exact UTC
-calendar month of fresh PostgreSQL time under the actor lock, and a new
-reservation is dated with that same instant.
+[ADR 0117](../decisions/0117-premium-billing.md) supersedes the earlier flat
+beta accounting description. One pure allowance policy and shared usage ledger
+serve bot debates, casual AI judging and requested analysis. Admission locks
+current account authority and required facts before sampling PostgreSQL time
+for source/expiry selection. Attribution freezes the lifetime, beta calendar
+period or subscription billing period; later configuration or grant changes do
+not move a reservation into another source or period.
 
-Only a bot debater spends the host's allowance (DEC-186 as amended): the pure
-engine marks a freeze `spendsAiRound`, an AI-judge-only cast reserves nothing,
-and judge model calls never count, refund or take the bot-admission lock.
+The cast's `seatsBotDebater` marker controls bot-debater admission and capacity.
+An AI judge does not consume that bot capacity or independently decide a bot
+refund, but casual judging has its own entitlement and usage reservation.
+Ranked judging remains free under its distinct admission policy.
 
-`usage_reservations.reserved_at` and `refunded_at` are category none.
-`reserved_at` is NOT NULL; admission writes the instant it selected the month
-with (a PostgreSQL `clock_timestamp()` read), so no admission time is invented,
-and Round creation time is not one. A refund
-requires a recorded first vendor call and cannot predate it; the reservation
-time cannot follow its first call. Actor/kind/reservation-time indexing
-supports serialized actor/period accounting. These records add no generated text or PCM. Production
-identity, entitlement provisioning and legal activation remain human gates.
+`usage_reservations.reserved_at`, immutable `source` and typed `state` retain
+admission and accounting evidence without generated text or PCM. Counted states
+carry `countedAt` and `countBasis`: `dispatch_record` records actual dispatch;
+`historical_observation` records corroborated historical accounting recognition,
+not an invented precise dispatch time. Unknown outcomes remain counted; a
+definite provider failure can restore allowance once. Historical recorded
+restorations and qualifying bot-only platform credits preserve their separate
+provenance and original period. Production identity, entitlement provisioning
+and legal activation remain human gates.
 
 ### Bounded capture producer
 

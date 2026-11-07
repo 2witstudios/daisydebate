@@ -12,7 +12,6 @@ import type {
   RoomCommandResponse,
 } from '@daisy/protocol';
 import { can, capabilityOf, digest } from './authority';
-import { hostHoldsCasualAiJudge } from './ai-judge-seating';
 import { hostHoldsCasualCapture } from './capture-offer';
 import {
   captureNoticeRefusal,
@@ -109,7 +108,7 @@ export function roomCommandOperation({
               participantId: ids.next(),
               formatId: ids.next(),
               // Ready seats nobody; only seating and Launch read this.
-              hostHoldsCasualAiJudge: false,
+              hostMaySeatCasualAiJudge: false,
               hostHoldsCasualCapture: false,
               target: null,
               drawStart: null,
@@ -140,6 +139,7 @@ export function roomCommandOperation({
           resolutionPublication,
           grants,
           contentWaiver,
+          maySeatCasualAiJudge,
         ) => {
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
@@ -157,13 +157,11 @@ export function roomCommandOperation({
               now,
               participantId: ids.next(),
               formatId: ids.next(),
-              // Only the host's own grants speak for the host.
-              hostHoldsCasualAiJudge:
-                state.hostActorId === caller.actorId &&
-                hostHoldsCasualAiJudge(grants, betaGrantsPremium),
+              hostMaySeatCasualAiJudge:
+                state.hostActorId === caller.actorId && maySeatCasualAiJudge,
               hostHoldsCasualCapture:
                 state.hostActorId === caller.actorId &&
-                hostHoldsCasualCapture(grants, betaGrantsPremium),
+                hostHoldsCasualCapture(grants, betaGrantsPremium, now),
               formatFacts,
               resolutionPublication,
               target: target

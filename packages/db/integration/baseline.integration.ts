@@ -222,8 +222,14 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and has_column_privilege('daisy_web', c.oid, 'txid', 'UPDATE')
           and has_column_privilege('daisy_web', c.oid, 'seq', 'UPDATE')
           and not has_column_privilege('daisy_web', c.oid, 'singleton', 'UPDATE')
+        when c.relname = 'transcription_recovery_enrollment_progress' then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
+          and (select bool_and(has_column_privilege('daisy_web', c.oid, a.attname, 'UPDATE') =
+            (a.attname = any(array['after_at','after_round_id','until_at','until_round_id','next_scan_at'])))
+            from pg_attribute a where a.attrelid=c.oid and a.attnum>0 and not a.attisdropped)
         -- Recognition may advance work, but cannot rewrite original source provenance.
-        when c.relname in ('transcription_recovery_contexts', 'transcription_recovery_sources', 'transcription_recovery_attempts') then
+        when c.relname in ('transcription_recovery_contexts', 'transcription_recovery_sources', 'transcription_recovery_attempts', 'transcription_recovery_enrollment_offers') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE,DELETE')
@@ -236,7 +242,7 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
                 'blocked_reason','selected_revision','selected_digest','selected_at'
               ]) or (c.relname = 'transcription_recovery_attempts' and a.attname = any(array[
                 'outcome','completed_at','candidate_digest','candidate_bytes'
-              ])))
+              ])) or (c.relname = 'transcription_recovery_enrollment_offers' and a.attname = 'last_offered_at'))
           ) from pg_attribute a
             where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped)
         -- ADR 0075 / ADR 0090 / ADR 0118: audit and terminal provenance are append-only.
@@ -245,8 +251,8 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
-        -- Flag identity/revision history cannot be reset by a runtime DELETE.
-        when c.relname = 'release_flags' then
+        -- Flag, analysis-request and original refund-action identities cannot be reset by runtime DELETE.
+        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')

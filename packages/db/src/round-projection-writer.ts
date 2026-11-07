@@ -16,6 +16,7 @@ import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
 import { appendRoundStrikes, revealEvidence } from './room-draw-persistence';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
+import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
 import { writeRoundIncidentChanges } from './round-incident-rows';
 import { releaseRoundRoomMembers } from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
@@ -114,8 +115,10 @@ export async function writeProjectionWithPhaseSignal(
     projection.incidentChanges ?? [],
   );
   await writePrivateSpans(tx, roundId, current, projection, now);
-  if (endsRound(current, projection))
+  if (endsRound(current, projection)) {
     await refundUnservedPracticeLocked(tx, roundId);
+    await settleCasualJudgeUsageLocked(tx, roundId);
+  }
   // The engine rules when a Round stops holding its Room's members (ADR 0070).
   if (projection.releasesRoomMembers)
     await releaseRoundRoomMembers(tx, roundId);

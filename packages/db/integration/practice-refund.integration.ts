@@ -44,7 +44,7 @@ const abandon = ({ run, target }: Generation) =>
 
 const refunded = async ({ fixture, reservation }: Generation) =>
   (
-    await fixture.sql`select refunded_at from usage_reservations where id=${reservation.id}`
+    await fixture.sql`select (state->>'refundedAt')::timestamptz as refunded_at from usage_reservations where id=${reservation.id}`
   )[0].refunded_at as Date | null;
 
 test('an AI practice is refunded once when its Round ends without a served model call', async () => {
@@ -130,7 +130,7 @@ test('concurrent refund attempts after a Round ended refund the practice exactly
   });
 });
 
-test('the free AI judge never decides the bot-debater refund (DEC-186)', async () => {
+test('the AI judge never decides the separate bot-debater refund (ADR 0117)', async () => {
   const outcomes: Record<string, boolean> = {};
   for (const bot of ['failed', 'unknown'] as const)
     await withGeneration(async (generation) => {

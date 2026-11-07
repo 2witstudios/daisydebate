@@ -7,6 +7,8 @@ import {
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
 import type { SpectatorClock } from './spectator-release-sql';
 import type { roomCommandTransaction } from './room-command-transaction';
+import type { CasualJudgeAdmission } from './casual-judge-admission';
+import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
 import {
   roomListQuerySchema,
@@ -137,8 +139,10 @@ export const roomReadOperations = ({
   database,
   eventSink,
   commandTransaction,
+  judgeAdmission,
 }: {
   readonly database: BunSQLDatabase;
+  readonly judgeAdmission?: CasualJudgeAdmission | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
 }) => ({
@@ -344,6 +348,25 @@ export const roomReadOperations = ({
           }),
         );
         return bots.filter((bot): bot is Actor => bot !== null);
+      }),
+    );
+  },
+  /** Display preview only; every mutation rereads the same policy under its fence. */
+  async readOwnCasualJudgeAllowance(
+    caller: Caller,
+    withBot: boolean,
+  ): Promise<AllowanceDecision> {
+    return instrumented(eventSink, 'readOwnCasualJudgeAllowance', () =>
+      database.transaction(async (tx) => {
+        const account = await sharedAccount(tx, caller);
+        if (!judgeAdmission) return { kind: 'refuse', reason: 'not-eligible' };
+        return (
+          await judgeAdmission.quoteLocked(tx, {
+            account,
+            roundId: null,
+            withBot,
+          })
+        ).decision;
       }),
     );
   },

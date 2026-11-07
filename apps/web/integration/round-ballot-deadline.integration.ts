@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import {
@@ -267,20 +268,20 @@ test('an unserved AI judging obligation survives its attempt window without spen
       await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
       const [job] =
         await f.sql`select status,lease_token_digest from round_judging_jobs where round_id=${roundId}`;
-      const [{ reservations }] =
-        await f.sql`select count(*)::int as reservations from usage_reservations where round_id=${roundId}`;
+      const reservations =
+        await f.sql`select kind,state->>'kind' as state,state ? 'countedAt' as counted from usage_reservations where round_id=${roundId}`;
       const round = (await f.store.getRound(roundId))!;
       assert({
         given:
           'an AI-judge-only Round frozen with no bot admission resource, its job never claimed (judging capacity exhausted) when the ballot deadline passes',
         should:
-          'retain the pending Round and unleased job while leaving the host allowance untouched',
+          'retain the pending Round, unleased job and original reserved, never-counted judge identity',
         actual: [round.status, round.outcome, job, reservations],
         expected: [
           'active',
           null,
           { status: 'queued', lease_token_digest: null },
-          0,
+          [{ kind: 'casual_ai_judge', state: 'reserved', counted: false }],
         ],
       });
     },
@@ -291,6 +292,7 @@ test('an unserved AI judging obligation survives its attempt window without spen
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );
@@ -413,6 +415,7 @@ test('maintenance cannot end an unclaimed AI recovery obligation at the old dead
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        accountEligible: canUseAiAllowance,
       },
     },
   );
@@ -425,6 +428,7 @@ const judgingOptions = {
     nextToken: () => randomBytes(32).toString('base64url'),
     contractVersion: 'fixture-contract',
     rules: judgingJobRules,
+    accountEligible: canUseAiAllowance,
   },
 };
 /** A frozen AI-judged Round past its budget and cutoff, its worker holding a ballot or not. */

@@ -2,7 +2,11 @@ import { assertRejects } from '@daisy/errors/testing';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readRoundAnalysisFacts } from './round-analysis-facts';
-import { factsRow, plainFacts } from './round-analysis-facts.test-support';
+import {
+  factsRow,
+  plainFacts,
+  history,
+} from './round-analysis-facts.test-support';
 
 setupRitewayBun();
 
@@ -28,17 +32,23 @@ describe('readRoundAnalysisFacts()', () => {
             {
               ...factsRow,
               analysis: {
-                status: 'succeeded',
-                attempts: 1,
-                leaseExpiresAt: null,
+                kind: 'retained',
+                historical: {
+                  ...history,
+                  completedAt: '2026-10-26T12:01:00.000Z',
+                },
                 report,
               },
             },
           ]),
           seat,
         )
-      ).analysis?.report,
-      expected: report,
+      ).analysis,
+      expected: {
+        kind: 'retained',
+        historical: { ...history, completedAt: '2026-10-26T12:01:00.000Z' },
+        report,
+      },
     });
     await assertRejects({
       given: 'no Round',

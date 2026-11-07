@@ -1,1 +1,0 @@
-ALTER TABLE "necessary_evidence" ADD CONSTRAINT "necessary_evidence_original_speaker_is_object" CHECK (jsonb_typeof("original_speaker") = 'object');

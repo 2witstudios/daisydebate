@@ -6,28 +6,32 @@ import { createRoundAnalysisHandlers } from './handlers';
 import { roundAnalysisView } from './policy';
 
 /**
- * The round analysis read: the only place its premium gate meets a reader.
- * A seated debater of a completed Round gets their own view, `locked`
- * without the entitlement; anyone else, a Round still running included,
- * gets NOT_FOUND.
+ * The completed Round's own debater may read their delivered report after
+ * paid access lapses. Fresh requests separately pass atomic allowance admission.
  */
 export function composeRoundAnalysisRoutes(app: App) {
   return createRoundAnalysisHandlers({
     ...composeRoundMemberDependencies(app),
-    read: async (caller, roundId) => {
-      const { access, facts } = await app.database.readRoundAnalysis({
+    request: async (caller, roundId) =>
+      app.database.requestRoundAnalysis({
         caller,
         roundId,
+        authorize: (access) =>
+          canUseRoundAnalysis(access, 'round.analysis.request'),
+      }),
+    read: async (caller, roundId) => {
+      const { facts, allowance } = await app.database.readRoundAnalysis({
+        caller,
+        roundId,
+        authorize: (access) =>
+          canUseRoundAnalysis(access, 'round.analysis.read'),
       });
       if (facts.status !== 'completed') throw createAppError('NOT_FOUND');
+      const now = app.clock.now();
       return roundAnalysisView({
         facts,
-        entitled: canUseRoundAnalysis(
-          access,
-          app.config.PREMIUM_BETA_GRANT,
-          'round.analysis.read',
-        ),
-        now: app.clock.now(),
+        allowance,
+        now,
         enabled: app.config.ROUND_ANALYSIS_POLICY !== undefined,
       });
     },

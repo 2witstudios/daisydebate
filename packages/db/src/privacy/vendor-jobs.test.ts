@@ -69,7 +69,10 @@ test('malformed due-jobs reads are refused', async () => {
   });
 });
 test('vendor failure stores retry without raw errors', async () => {
-  const fake = fakeSql([[{ subjectRef: 'bcdefghijklmnopqrstuvwxy' }], []]);
+  const fake = fakeSql([
+    [{ subjectRef: 'bcdefghijklmnopqrstuvwxy' }],
+    [{ id: input.jobId }],
+  ]);
   const result = await deliverPrivacyJob(
     drizzle({ client: fake.client }),
     input,
@@ -108,5 +111,27 @@ test('missing or not-due configured vendor jobs make no external calls', async (
     should: 'perform no vendor action',
     actual: [result, calls, fake.queries.length],
     expected: ['idle', 0, 1],
+  });
+});
+
+test('superseded privacy delivery cannot report success or retry for its replacement', async () => {
+  const outcomes = [];
+  for (const fails of [false, true]) {
+    const fake = fakeSql([[{ subjectRef: 'bcdefghijklmnopqrstuvwxy' }], []]);
+    outcomes.push(
+      await deliverPrivacyJob(drizzle({ client: fake.client }), input, {
+        erase: async () => {
+          if (fails) throw new Error('vendor unavailable');
+        },
+      }),
+    );
+  }
+  assert({
+    given:
+      'new facts rotate the job identity while old vendor work is in flight',
+    should:
+      'report both old outcomes idle when their final conditional writes affect no row',
+    actual: outcomes,
+    expected: ['idle', 'idle'],
   });
 });

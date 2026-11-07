@@ -11,7 +11,7 @@ import { opponents, practiceJudge } from './bots';
 export type PracticeCatalog = {
   readonly bots: readonly RoomCastChoice[];
   /** The member may seat an AI judge on this casual Round (WATCH-16). */
-  readonly casualAiJudge: boolean;
+  readonly botDebateAiJudge: boolean;
   readonly freestyle: {
     readonly formatId: 'freestyle';
     readonly formatVersion: number;
@@ -48,8 +48,8 @@ export function preparePractice(
       kind: 'refused',
       error: 'Choose an opponent to practise against.',
     };
-  const judge = catalog.casualAiJudge ? practiceJudge(catalog.bots) : null;
-  if (catalog.casualAiJudge && !judge)
+  const judge = catalog.botDebateAiJudge ? practiceJudge(catalog.bots) : null;
+  if (catalog.botDebateAiJudge && !judge)
     return {
       kind: 'refused',
       error: 'The AI judge is unavailable, so a practice room can’t assemble.',

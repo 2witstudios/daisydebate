@@ -23,7 +23,11 @@ const MAX_DUE_BATCH = 128;
  */
 export async function duePrivacyJobs(
   database: Execute,
-  input: { readonly now: string; readonly limit: number },
+  input: {
+    readonly now: string;
+    readonly limit: number;
+    readonly vendors?: readonly PrivacyVendor[];
+  },
 ): Promise<readonly DuePrivacyJob[]> {
   const due = new Date(input.now);
   if (
@@ -34,9 +38,10 @@ export async function duePrivacyJobs(
     input.limit > MAX_DUE_BATCH
   )
     throw createAppError('VALIDATION');
+  const scope = vendorScope(input.vendors);
   const read =
     (await database.execute(sql`select id, vendor, attempts from privacy_jobs
-    where status = 'pending' and retry_at <= ${input.now}::timestamptz
+    where status = 'pending' and retry_at <= ${input.now}::timestamptz ${scope}
     order by retry_at, id limit ${input.limit}`)) as unknown as DuePrivacyJob[];
   // A row the database checks admit is malformed: refuse before delivery.
   if (
@@ -54,10 +59,14 @@ export async function duePrivacyJobs(
  * Jobs not yet delivered, in backoff or past the batch: an unpaid obligation
  * that a run must not report as healthy (ISSUE-1007).
  */
-export async function owedPrivacyJobs(database: Execute): Promise<number> {
+export async function owedPrivacyJobs(
+  database: Execute,
+  input: { readonly vendors?: readonly PrivacyVendor[] } = {},
+): Promise<number> {
+  const scope = vendorScope(input.vendors);
   const rows = (await database.execute(sql`select count(*)::int as owed
     from privacy_jobs
-    where status = 'pending'`)) as unknown as {
+    where status = 'pending' ${scope}`)) as unknown as {
     owed: number;
   }[];
   return rows[0]?.owed ?? 0;
@@ -89,15 +98,17 @@ export async function deliverPrivacyJob(
     await port.erase(row.subjectRef);
   } catch {
     // Vendor failures are deliberately absent from durable fields/telemetry.
-    await database.execute(sql`update privacy_jobs set attempts = attempts + 1,
+    const retried =
+      await database.execute(sql`update privacy_jobs set attempts = attempts + 1,
       retry_at = ${input.retryAt}::timestamptz
-      where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'`);
-    return 'retry';
+      where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending' returning id`);
+    return retried.length === 1 ? 'retry' : 'idle';
   }
-  await database.execute(sql`update privacy_jobs set status = 'succeeded', attempts = attempts + 1,
+  const completed =
+    await database.execute(sql`update privacy_jobs set status = 'succeeded', attempts = attempts + 1,
     succeeded_at = ${input.now}::timestamptz
-    where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'`);
-  return 'succeeded';
+    where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending' returning id`);
+  return completed.length === 1 ? 'succeeded' : 'idle';
 }
 
 function checkJobInput(input: {
@@ -118,4 +129,20 @@ function checkJobInput(input: {
     retryAt <= now
   )
     throw createAppError('VALIDATION');
+}
+
+function vendorScope(vendors: readonly PrivacyVendor[] | undefined) {
+  if (vendors === undefined) return sql``;
+  if (
+    vendors.length > privacyVendors.length ||
+    new Set(vendors).size !== vendors.length ||
+    vendors.some((value) => !privacyVendors.includes(value))
+  )
+    throw createAppError('VALIDATION');
+  return vendors.length
+    ? sql`and vendor in (${sql.join(
+        vendors.map((value) => sql`${value}`),
+        sql`, `,
+      )})`
+    : sql`and false`;
 }

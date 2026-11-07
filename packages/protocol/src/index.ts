@@ -697,3 +697,24 @@ export {
   type CaptureEvidenceSpeaker,
 } from './capture-evidence-speaker';
 export { evidenceIngressReplySchema } from './evidence-ingress-reply';
+
+export {
+  analysisWorkBounds,
+  analysisWorkSchema,
+  analysisRequest,
+} from './round-analysis-work';
+export type {
+  AnalysisWork,
+  AnalysisCall,
+  AnalysisLease,
+  AnalysisRequest,
+} from './round-analysis-work';
+export {
+  advanceAnalysisWork,
+  analysisUsageOutcome,
+  remainingAnalysisCalls,
+} from './round-analysis-lifecycle';
+export type {
+  AnalysisWorkEvent,
+  AnalysisWorkTransition,
+} from './round-analysis-lifecycle';

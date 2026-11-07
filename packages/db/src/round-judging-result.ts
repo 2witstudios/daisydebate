@@ -12,6 +12,7 @@ import {
 } from './round-judging-context';
 import { endLockedRoundAgentRun } from './round-agent-runs';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
+import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
 
 /** Feature supplies the actual shared ballot preparation. D1 owns lock acquisition order. */
 export async function submitLockedJudgingResult(
@@ -61,5 +62,6 @@ export async function submitLockedJudgingResult(
     })
     .where(judgingJobWhere(scope));
   await endLockedRoundAgentRun(tx, scope.agentRunId, scope.judgeParticipantId);
+  await settleCasualJudgeUsageLocked(tx, scope.roundId);
   return receipt;
 }

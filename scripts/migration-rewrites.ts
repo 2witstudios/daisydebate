@@ -24,6 +24,20 @@ const ddl = new RegExp(
 );
 const flush = /^SET\s+CONSTRAINTS\s+ALL\s+IMMEDIATE/i;
 
+// Applied 51949 has a proven false positive: its state-only UPDATE queues no
+// deferred events in this exact predecessor. Never exempt ENABLE TRIGGER in
+// general (PostgreSQL 18 checks pending events there too). Any history, SQL or
+// proof-path change invalidates this one exception; see database.md.
+const judgeCountProof = {
+  tag: '20261105051949_casual_judge_usage',
+  path: 'packages/db/migrations/20261105051949_casual_judge_usage/migration.sql',
+  sqlDigest:
+    'sha256:f22c554a4dd1bc7b6862ad6ca98fc62785064f52f27ff172869c0a75f1de02ce',
+  predecessor:
+    'sha256:22f15babca01acf4ec7329fbbbf03620cb0ba799cc402cd1e360e77d2ce363fd',
+  proof: 'packages/db/integration/usage-count-basis-migration.integration.ts',
+} as const;
+
 /** Top-level statements, without comments or dollar-quoted bodies. */
 const statements = (sql: string) =>
   sql
@@ -33,12 +47,30 @@ const statements = (sql: string) =>
     .map((statement) => statement.trim())
     .filter(Boolean);
 
-export function findRewriteProblems(input: {
+type RewriteInput = {
   readonly tag: string;
   readonly sql: string;
   /** Whether an integration test names this migration. */
   readonly proven: boolean;
-}): readonly RewriteProblem[] {
+  readonly history?: {
+    readonly path: string;
+    readonly predecessorFingerprint: string;
+    readonly proofFiles: readonly string[];
+  };
+};
+
+const judgeCountRewriteProven = (input: RewriteInput) =>
+  input.proven &&
+  input.tag === judgeCountProof.tag &&
+  input.history?.path === judgeCountProof.path &&
+  input.history.predecessorFingerprint === judgeCountProof.predecessor &&
+  input.history.proofFiles.includes(judgeCountProof.proof) &&
+  `sha256:${new Bun.CryptoHasher('sha256').update(input.sql).digest('hex')}` ===
+    judgeCountProof.sqlDigest;
+
+export function findRewriteProblems(
+  input: RewriteInput,
+): readonly RewriteProblem[] {
   const own = new Set<string>();
   const rewritten = new Set<string>();
   const pending = new Set<string>();
@@ -56,6 +88,7 @@ export function findRewriteProblems(input: {
     if (ddlTable && pending.has(ddlTable)) hazards.add(ddlTable);
     if (flush.test(statement)) pending.clear();
   }
+  const provenJudgeCount = judgeCountRewriteProven(input);
   return [
     ...(rewritten.size > 0 && !input.proven
       ? [
@@ -65,9 +98,11 @@ export function findRewriteProblems(input: {
           },
         ]
       : []),
-    ...[...hazards].map((table) => ({
-      code: 'PENDING_TRIGGER_HAZARD' as const,
-      detail: `${input.tag} alters ${table} after rewriting its rows; a deferred trigger on ${table} fails that DDL with pending trigger events. Put SET CONSTRAINTS ALL IMMEDIATE before it, or split the migration`,
-    })),
+    ...[...hazards]
+      .filter((table) => !(table === 'usage_reservations' && provenJudgeCount))
+      .map((table) => ({
+        code: 'PENDING_TRIGGER_HAZARD' as const,
+        detail: `${input.tag} alters ${table} after rewriting its rows; a deferred trigger on ${table} fails that DDL with pending trigger events. Put SET CONSTRAINTS ALL IMMEDIATE before it, or split the migration`,
+      })),
   ];
 }

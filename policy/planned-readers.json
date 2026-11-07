@@ -47,42 +47,6 @@
       "reviewBy": "2026-12-01"
     },
     {
-      "path": "apps/web/src/features/flags/server.ts",
-      "export": "isReleaseEnabled",
-      "task": "BILL-7 / FLAGS-15",
-      "owner": "billing (ag-glhq8ogr)",
-      "adr": "docs/decisions/0118-release-and-ops-flags.md",
-      "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
-      "reviewBy": "2026-12-04"
-    },
-    {
-      "path": "apps/web/src/features/flags/admission.ts",
-      "export": "releaseAdmission",
-      "task": "BILL-7 / FLAGS-15",
-      "owner": "billing (ag-glhq8ogr)",
-      "adr": "docs/decisions/0118-release-and-ops-flags.md",
-      "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
-      "reviewBy": "2026-12-04"
-    },
-    {
-      "path": "apps/web/src/features/flags/route.ts",
-      "export": "requireReleaseRoute",
-      "task": "BILL-7 / FLAGS-15",
-      "owner": "billing (ag-glhq8ogr)",
-      "adr": "docs/decisions/0118-release-and-ops-flags.md",
-      "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
-      "reviewBy": "2026-12-04"
-    },
-    {
-      "path": "packages/db/src/flags.ts",
-      "export": "requireFlagAdmission",
-      "task": "BILL-7 / FLAGS-15",
-      "owner": "billing (ag-glhq8ogr)",
-      "adr": "docs/decisions/0118-release-and-ops-flags.md",
-      "reason": "FLAGS core lands on main before Billing imports this real tested release read/admission surface. Billing owns actual FLAGS-8 route/operation and FLAGS-15 checkout proof. No production consumer is claimed by core fixtures.",
-      "reviewBy": "2026-12-04"
-    },
-    {
       "path": "apps/web/src/features/media-capture/local-evidence-authority.ts",
       "export": "initializeLocalEvidenceAuthority",
       "task": "REL-1 / REL-6",

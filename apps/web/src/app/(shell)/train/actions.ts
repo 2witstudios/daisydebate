@@ -35,7 +35,7 @@ export async function startPracticeAction(
     form,
     {
       bots: templates.bots,
-      casualAiJudge: templates.casualAiJudge,
+      botDebateAiJudge: templates.botDebateAiJudge,
       freestyle: freestyle
         ? {
             formatId: 'freestyle',

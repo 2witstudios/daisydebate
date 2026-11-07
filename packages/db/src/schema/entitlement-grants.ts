@@ -1,6 +1,7 @@
+import { sql } from 'drizzle-orm';
 import { entitlementKinds, entitlementSources } from '@daisy/protocol';
 import { check, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
-import { createdAtColumn, oneOf } from './columns';
+import { createdAtColumn, oneOf, timestampColumn } from './columns';
 import { users } from './users';
 
 /**
@@ -17,9 +18,19 @@ export const accountEntitlementGrants = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     entitlement: text('entitlement').notNull(),
     source: text('source').notNull(),
+    startsAt: timestampColumn('starts_at'),
+    expiresAt: timestampColumn('expires_at'),
     createdAt: createdAtColumn(),
   },
   (table) => [
+    check(
+      'account_entitlement_grants_validity_check',
+      sql`
+      (${table.source} = 'beta' and ${table.startsAt} is null and ${table.expiresAt} is null)
+      or (${table.source} = 'subscription' and ${table.startsAt} is not null and ${table.expiresAt} is not null
+        and isfinite(${table.startsAt}) and isfinite(${table.expiresAt}) and ${table.startsAt} < ${table.expiresAt})
+    `,
+    ),
     primaryKey({
       name: 'account_entitlement_grants_pkey',
       columns: [table.userId, table.entitlement, table.source],

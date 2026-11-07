@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -5,7 +6,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createDatabase } from '../src/index';
-import { admissionSponsor } from './bot-admission.test-support';
+import { judgingSponsor } from './round-judging.test-support';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 setupRitewayBun();
@@ -14,7 +15,7 @@ const services = requireTestServices(process.env);
 test('configured root judging aliases share the owned pool and claim actual frozen input', async () =>
   withBoundedRound(async (fixture, run, roundId, client) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
-    await admissionSponsor(fixture, [roundId]);
+    await judgingSponsor(fixture, roundId, run);
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
@@ -98,6 +99,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
           model: 'fixture-judge',
           contractVersion: 'fixture-contract',
           rules: judgingJobRules,
+          accountEligible: canUseAiAllowance,
           nextToken: () => randomBytes(32).toString('base64url'),
         },
       });
@@ -143,15 +145,24 @@ test('configured root judging aliases share the owned pool and claim actual froz
         await fixture.sql`select answered_at is not null as answered from round_judging_attempts where agent_run_id=${claim.scope.agentRunId}`;
       const [usage] =
         await fixture.sql`select input_tokens,output_tokens,configuration_snapshot from agent_runs where id=${claim.scope.agentRunId}`;
+      const [reservation] =
+        await fixture.sql`select state->>'kind' as kind, state ? 'countedAt' as counted
+        from usage_reservations where round_id=${roundId} and kind='casual_ai_judge'`;
       assert({
-        given: 'a free AI judge model call dispatched on the configured root',
+        given:
+          'an admitted casual AI judge model call dispatched on the configured root',
         should:
           'settle the exact counters through the bound usage alias and record the received outcome',
         actual: {
           tokens: [usage!.input_tokens, usage!.output_tokens],
           answered: attempt!.answered,
+          allowance: [reservation!.kind, reservation!.counted],
         },
-        expected: { tokens: [11, 5], answered: true },
+        expected: {
+          tokens: [11, 5],
+          answered: true,
+          allowance: ['dispatched', true],
+        },
       });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;

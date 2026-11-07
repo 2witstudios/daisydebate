@@ -13,6 +13,7 @@ export const privacyVendors = [
   'resend',
   'object-storage',
   'messaging-typing',
+  'stripe',
 ] as const;
 export type PrivacyVendor = (typeof privacyVendors)[number];
 /** Every feature's subject-rights step, in the order they run. */

@@ -1,0 +1,110 @@
+# Native Billing journeys
+
+The Billing plan and ADR 0117 own the policy and activation decisions. The
+native routes compose the existing purchase and allowance authorities; they
+never grant access from a browser return parameter.
+
+`composeNativeBilling(app, stripe)` accepts the integration root's Stripe
+instance. The Billing route binder receives the process App and vendor fetch
+resource explicitly. Its resolver honors an injected adopted-App runtime or
+lazily composes the pinned SDK resource for that App. Only resource composition
+is cached; member authority and release decisions are read for each operation.
+Configured but unavailable transport refuses; no-Stripe beta remains inert.
+
+Display uses `isReleaseEnabled` with the same explicitly injected core request
+reader. Billing management and admitted-attempt recovery remain reachable when
+new purchases are dark; only fresh intent admission obtains mutation authority
+from `requireFlagAdmission` inside its canonical account-fenced transaction.
+
+- `POST /api/billing/checkout` accepts an empty native URL-encoded form only.
+  Same-origin, authenticated identity and member budget precede durable
+  admission. Price, quantity, customer, return origin and purchase identity are
+  server-owned. Existing pending work recovers the same purchase. Unknown
+  vendor results retain possible execution; they do not create a new customer
+  or subscription. A validated open URL is exposed only after recording and
+  re-reading the current owned session.
+- `POST /api/billing/portal` uses the current account-fenced retained customer,
+  configured mode and Portal configuration. A second ownership read after
+  bounded vendor I/O prevents disclosing a session after closure wins. Portal
+  operations do not read the new-purchase release flag.
+- `GET /api/billing/settings` returns only the current member's projection.
+  Bot debates remaining come from the existing locked allowance quote and its
+  exact source/period. Reserved and unknown use count under the ledger's
+  existing rules; unavailable reads never invent a zero or free reset.
+- `/settings/billing` renders ordinary POST forms without client JavaScript.
+  Return query values are fixed notices only. The display Flag reader is new
+  for each settings call; the durable purchase transaction independently
+  obtains current Flags authority. Killing purchases does not disable Portal,
+  reconciliation or erasure.
+
+The exact `/settings/billing` document permits form redirects to
+`https://checkout.stripe.com` and `https://billing.stripe.com` in its CSP.
+Chromium applies `form-action` to the native POST's redirect as well as its
+initial same-origin destination. Other documents retain `form-action 'self'`;
+the native handlers still validate ownership, origin and the fixed vendor URL.
+
+The configured hosted Checkout Session collects payment in Stripe. Portal
+configuration and actual period-end cancellation must be qualified in test
+mode before activation. Current paid/grace access is read from verified
+subscription evidence using the existing policy, never from a successful
+return URL or an active vendor label alone.
+
+## Evidence boundaries
+
+The server-only Billing route edge uses `createBillingNativeResolver` to lazily
+compose its native operations with the pinned Stripe23.1/API2026-10-28.endive resource. Requests
+have a five-second timeout and no automatic SDK retries; durable purchase
+identity owns retries. Without Stripe configuration the resource is absent
+and Checkout/Portal refuse while existing local allowance remains available.
+The shared App/proxy imports only the operation contract and never the release
+reader or its runtime composition. An adopted test app can use the same resolver
+with its explicit transport or provide the existing native-runtime injection.
+This route binding does not
+establish background reconciliation, vendor cleanup or genuine hosted payment
+qualification; those have separate runtime and proof obligations.
+
+The native companion's port, boundary and server-render tests prove source
+behavior only. The isolated PostgreSQL member fixture proves canonical account
+fences, lifetime usage, completed-Session routing without paid grants and an
+explicit `daisy_web` execution. Those fixtures use controlled observations,
+not a claim of genuine Stripe payment or a browser journey.
+
+Retain genuine test-mode Checkout/Portal lifecycle and actual production-server
+browser proof separately with source hashes, commands, complete counts and
+artifacts. Required scenarios include JS-off purchase, double submission and
+lost response, foreign fields/origin, stale return claims, current release
+kill, cancellation/management while purchases are dark, and correct usage.
+Missing vendor configuration or resource admission is a named proof gap, never
+a skipped or fake successful vendor flow. BILL-H/live identity, secrets,
+production activation and the recorded minors/legal decisions remain human.
+
+## Existing attempt repair
+
+A current-service process sweep independently scans at most three existing
+purchase identities per five-second single-flight tick. Its worker has no
+creation operation. It reads only the admitted mode, original offer and Session
+identity; a replacement configured price cannot reprice an old attempt. Failed
+identities remain durable while the indexed scan advances and revisits its head.
+A read failure or absent response remains unknown, never an invented expiration.
+
+Expiration first retrieves the same owned Session. The endive API errors when a
+Session is already expired or no longer expirable, so retrying an expiration
+whose successful reply was lost must recover its positive terminal state by GET.
+An open result may proceed to one bounded expire request; a terminal completed or
+expired result is recorded without another POST. Identity/source validation
+still precedes all later effects. The two requests are bounded independently.
+See [Stripe's pinned expiration contract](https://docs.stripe.com/api/checkout/sessions/expire).
+
+Verified late Session facts use the existing current-service/account-fenced
+recovery transaction, preserving the original purchase/key and atomically
+reopening closed-account cleanup when facts change. Drain waits for an in-flight
+positive effect to be accounted for. This source and controlled fault tests do
+not establish genuine paid lifecycle or browser acceptance.
+
+An explicitly composed process may adopt its App together with its vendor
+transport through `adoptProcessApp(app, vendorFetch)`. Routes and the real
+subscription, purchase and refund workers share that frozen transport. Adoption
+refuses after process initialization; it cannot replace transport mid-attempt.
+Ordinary startup uses real fetch. Mail capture and the public ingress probe keep
+their separate existing resources. This permits authenticated TEST transport at
+the resource edge without replacing business workers or copying credentials.

@@ -172,7 +172,7 @@ test('typing deletion outage remains a durable retry until physical producer ACK
     const fake = fakeSql([
       [{ subjectRef: subject.userId }],
       [{ ...account, member: false, erased: true }],
-      [],
+      [{ id: 'j'.repeat(24) }],
     ]);
     const database = drizzle({ client: fake.client });
     const calls: string[] = [];

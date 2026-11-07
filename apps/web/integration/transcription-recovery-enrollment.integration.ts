@@ -9,6 +9,8 @@ requireTestServices(process.env);
 test('restored original payload enrolls missing recognition work without capture reauthorization or a replacement receipt', async () => {
   await withEvidenceIngress(async (f) => {
     const work = await readyRecognition(f);
+    await f.f
+      .sql`update transcription_recovery_enrollment_progress set after_at=null,after_round_id=null,until_at=null,until_round_id=null,next_scan_at=clock_timestamp()-interval '1 millisecond' where singleton`;
     const [before] = await f.f
       .sql`select authority_id,binding_digest,received_at,expires_at,payload_accepted_at from necessary_evidence where id=${f.body.evidenceId}`;
     await f.f
@@ -32,6 +34,9 @@ test('restored original payload enrolls missing recognition work without capture
       );
     const first = await work.enroll({ body: restored.body });
     const second = await work.enroll({ body: restored.body });
+    // Advance only test pacing eligibility, not the cursor or original receipt clock.
+    await f.f
+      .sql`update transcription_recovery_enrollment_progress set next_scan_at=clock_timestamp()-interval '1 millisecond' where singleton`;
     const later = await work.missing();
     const [after] = await f.f
       .sql`select authority_id,binding_digest,received_at,expires_at,payload_accepted_at from necessary_evidence where id=${f.body.evidenceId}`;
@@ -58,6 +63,8 @@ test('restored original payload enrolls missing recognition work without capture
 test('current withdrawal refuses enrollment even when original plaintext was already restored', async () => {
   await withEvidenceIngress(async (f) => {
     const work = await readyRecognition(f);
+    await f.f
+      .sql`update transcription_recovery_enrollment_progress set after_at=null,after_round_id=null,until_at=null,until_round_id=null,next_scan_at=clock_timestamp()-interval '1 millisecond' where singleton`;
     const restored = await createNecessaryEvidenceIngress({
       store: f.capture,
       custody: f.custody,
@@ -70,6 +77,8 @@ test('current withdrawal refuses enrollment even when original plaintext was alr
       () => false,
       () => true,
     );
+    await f.f
+      .sql`update transcription_recovery_enrollment_progress set next_scan_at=clock_timestamp()-interval '1 millisecond' where singleton`;
     const missing = await work.missing();
     const [row] = await f.f
       .sql`select count(*)::integer as count from transcription_recovery_sources where evidence_id=${f.body.evidenceId}`;
@@ -100,6 +109,8 @@ test('missing-source discovery gives an enrolled Round a fair turn without hidin
       throw new Error('Expected second original unit');
     const work = await readyRecognition(first);
     await first.f
+      .sql`update transcription_recovery_enrollment_progress set after_at=null,after_round_id=null,until_at=null,until_round_id=null,next_scan_at=clock_timestamp()-interval '1 millisecond' where singleton`;
+    await first.f
       .sql`delete from transcription_recovery_contexts where round_id=${first.roundId}`;
     await withEvidenceIngress(async (second) => {
       await readyRecognition(second);
@@ -113,6 +124,8 @@ test('missing-source discovery gives an enrolled Round a fair turn without hidin
       if (body.kind !== 'restored')
         throw new Error('Expected original private body');
       await work.enroll({ body: body.body });
+      await first.f
+        .sql`update transcription_recovery_enrollment_progress set next_scan_at=clock_timestamp()-interval '1 millisecond' where singleton`;
       const next = await work.missing();
       const [actual] = await first.f
         .sql`select enrolled_at>created_at as later from transcription_recovery_sources s join transcription_recovery_contexts c on c.id=s.context_id where evidence_id=${first.body.evidenceId}`;

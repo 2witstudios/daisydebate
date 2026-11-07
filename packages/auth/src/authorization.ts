@@ -1,7 +1,12 @@
+export { subscriptionAccess, subscriptionGrants } from './subscription-policy';
+export { canManageBilling, canPurchasePremium } from './billing-policy';
+export { admitAllowance, canUseAiAllowance } from './allowance';
+export { canReleaseFreeJudgeBinding } from './free-judge-binding';
 import { admitsCapability } from './participant-access';
 import { validResourceKind } from './authorization-resource-kind';
 import { operatorDecision, operatorResource } from './authorization-operator';
-export { accountEntitlements, aiRoundAllowance } from './account-entitlements';
+export { accountEntitlements } from './account-entitlements';
+export { currentEntitlementGrants } from './entitlement-validity';
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
@@ -317,7 +322,7 @@ function memberDecision(
   if ('allow' in resolved) return resolved;
   if (!positiveRevision(resolved.revision)) return deny('denied');
   if (resolved.kind === 'round')
-    return decision(roundAllowed(actorId, capability, resolved, context));
+    return decision(roundAllowed(actorId, capability, resolved));
   return resolved.kind === 'room'
     ? decision(roomAllowed(actorId, capability, resolved))
     : channelDecision(actorId, capability, resolved, context);

@@ -5,6 +5,32 @@ import { withBotPublication } from './bot-publication.test-support';
 import { withGeneration } from './bot-generation.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
+test('an admitted bot reservation cannot dispatch after its sponsor loses participant authority', async () => {
+  await withGeneration(async ({ fixture, target, operations, reservation }) => {
+    const claim = await operations.claimWorker(target);
+    await fixture.sql`update account_beta_access set state='revoked',revision=revision+1
+      where user_id=(select user_id from actors where id=${reservation.actorId})`;
+    await assertRejects({
+      given:
+        'a valid old worker claim and reservation after sponsor revocation, with grants unchanged',
+      should: 'refuse a model call from current fenced authority',
+      code: 'AUTHORIZATION',
+      actual: () =>
+        operations.beginGeneration(claim.scope, claim.token, {
+          kind: 'language',
+        }),
+    });
+    const [row] = await fixture.sql`select state->>'kind' as state,
+      (select coalesce(sum(requests),0)::int from agent_runs where round_participant_id=${target.roundParticipantId}) as requests
+      from usage_reservations where id=${reservation.id}`;
+    assert({
+      given: 'revoked continuation',
+      should: 'leave reservation and provider execution count unchanged',
+      actual: [row.state, row.requests],
+      expected: ['reserved', 0],
+    });
+  });
+});
 test('actual bot generation fences speaking before admission and separately settles real call usage after terminal', async () => {
   await withGeneration(async ({ fixture, target, operations, reservation }) => {
     const claim = await operations.claimWorker(target);
@@ -19,7 +45,7 @@ test('actual bot generation fences speaking before admission and separately sett
       code: 'CONFLICT',
     });
     const [before] =
-      await fixture.sql`select counted_at,(select coalesce(sum(requests),0)::int from agent_runs where round_participant_id=${target.roundParticipantId}) requests from usage_reservations where id=${reservation.id}`;
+      await fixture.sql`select state->>'countedAt' as counted_at,(select coalesce(sum(requests),0)::int from agent_runs where round_participant_id=${target.roundParticipantId}) requests from usage_reservations where id=${reservation.id}`;
     assert({
       given: 'a refused model request',
       should: 'preserve quota and execution counts',
@@ -74,7 +100,7 @@ test('actual bot generation fences speaking before admission and separately sett
       code: 'CONFLICT',
     });
     const [charged] =
-      await fixture.sql`select counted_at is not null as counted from usage_reservations where id=${reservation.id}`;
+      await fixture.sql`select state ? 'countedAt' as counted from usage_reservations where id=${reservation.id}`;
     assert({
       given: 'the first admitted actual model dispatch',
       should: 'durably count the existing reservation once',

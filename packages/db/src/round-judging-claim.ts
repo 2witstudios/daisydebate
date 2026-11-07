@@ -9,9 +9,9 @@ import { agentLeaseDigest } from './round-agent-lease';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
-  roundAgentNow,
   startLockedRoundAgentRun,
 } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
 import { nextEpoch } from './lease-policy';
 import { requireClaimableJob } from './round-judging-decisions';
@@ -59,7 +59,7 @@ export async function claimLockedJudgingJob(
     .from(roundJudgingJobs)
     .where(judgingJobWhere(target))
     .for('update');
-  const now = await roundAgentNow(tx);
+  const now = await readDatabaseTime(tx);
   requireClaimableJob(job, commandId, now);
   const [other] = await tx
     .select({ id: roundJudgingJobs.judgeParticipantId })
@@ -103,7 +103,7 @@ export async function claimLockedJudgingJob(
       executionTokenDigest: agentLeaseDigest(token),
     },
   });
-  const claimedAt = await roundAgentNow(tx);
+  const claimedAt = await readDatabaseTime(tx);
   const leaseExpiresAt = new Date(claimedAt.getTime() + input.leaseMs);
   await tx
     .update(roundJudgingJobs)

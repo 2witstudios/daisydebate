@@ -152,14 +152,19 @@ describe('competitive schema child tables', () => {
         },
         reservations: {
           checks: [
-            'usage_reservations_admission_check',
+            'usage_reservations_binding_check',
+            'usage_reservations_count_check',
             'usage_reservations_kind_check',
-            'usage_reservations_refund_check',
+            'usage_reservations_reserved_at_check',
+            'usage_reservations_source_check',
+            'usage_reservations_source_is_object',
+            'usage_reservations_state_check',
+            'usage_reservations_state_is_object',
           ],
           indexes: [
             'unique usage_reservations_actor_round_kind_unique',
-            'usage_reservations_actor_period_idx',
-            'usage_reservations_counted_idx',
+            'unique usage_reservations_free_binding_unique',
+            'usage_reservations_actor_source_idx',
             'usage_reservations_round_idx',
           ],
           uniques: [],

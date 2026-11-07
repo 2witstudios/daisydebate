@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { judgingJobWhere } from './round-judging-context';
+import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
 
 /** The engine's rule: judging names why a Round's end ended a job. */
 export type JudgingEndRule = (
@@ -82,5 +83,6 @@ export async function endOpenJudgingJobs(
       );
     reasons.push(terminalReason);
   }
+  await settleCasualJudgeUsageLocked(tx, roundId);
   return reasons;
 }

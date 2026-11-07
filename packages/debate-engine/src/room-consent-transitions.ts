@@ -64,7 +64,7 @@ export const startRound = (
 ): RoomMutationOutcome => {
   const blocker = startBlocker(room, consent);
   if (blocker) return refuse(blocker);
-  if (castHoldsUnadmittedAiJudge(room, edges.hostHoldsCasualAiJudge))
+  if (castHoldsUnadmittedAiJudge(room, edges.hostMaySeatCasualAiJudge))
     return refuse('ai-judge-premium');
   if (captureUnadmitted(room, edges.hostHoldsCasualCapture))
     return refuse('capture-premium');

@@ -1,3 +1,4 @@
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { createBotSeat } from './bot-seat.test-support';
@@ -37,6 +38,7 @@ export const withBotPublication = (
         run,
         target: { roundId, roundParticipantId: seat.id, segmentId },
         operations: createBotPublicationOperations({
+          accountEligible: canUseAiAllowance,
           ...speech,
           run,
           nextId: createId,

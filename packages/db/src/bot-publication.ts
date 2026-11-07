@@ -1,3 +1,4 @@
+import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -7,9 +8,9 @@ import { agentLeaseDigest } from './round-agent-lease';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
-  roundAgentNow,
   startLockedRoundAgentRun,
 } from './round-agent-runs';
+import { readDatabaseTime } from './database-clock';
 import {
   botSegmentDueAt,
   verifyLockedBotWorker,
@@ -45,6 +46,7 @@ export function createBotPublicationOperations(input: {
   readonly models: { readonly speech: string; readonly cross_ex: string };
   readonly ttsModel?: string;
   readonly speechBudget?: number;
+  readonly accountEligible: AllowanceAccountPolicy;
 }) {
   requireLeaseMs(input.leaseMs);
   const claimWhere = (
@@ -81,7 +83,7 @@ export function createBotPublicationOperations(input: {
           .from(roundBotPublications)
           .where(claimWhere(target))
           .for('update');
-        const now = await roundAgentNow(tx);
+        const now = await readDatabaseTime(tx);
         await requireBotControlSegment(tx, target);
         const epoch = nextPublicationClaim(current, now);
         const segment = round.segments.find(

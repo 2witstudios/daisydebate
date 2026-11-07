@@ -7,3 +7,11 @@ export const GET = processRoute(
       new URL(request.url).pathname.split('/')[3] ?? '',
     ),
 );
+
+export const POST = processRoute(
+  (routes) => (request) =>
+    routes.rounds.requestRoundAnalysis(
+      request,
+      new URL(request.url).pathname.split('/')[3] ?? '',
+    ),
+);

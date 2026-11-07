@@ -12,9 +12,12 @@ if (import.meta.main) {
   });
   try {
     const work = database.createTranscriptionRecovery(recognitionTestOptions);
-    const result = await work.begin(request.claim);
+    const result =
+      request.operation === 'scan'
+        ? await work.missing()
+        : await work.begin(request.claim);
     if (request.ready) {
-      writeFileSync(request.ready, 'admission committed, reply withheld');
+      writeFileSync(request.ready, JSON.stringify(result), { mode: 0o600 });
       const until = performance.now() + 10000;
       while (!existsSync(request.release)) {
         if (performance.now() > until)

@@ -23,19 +23,19 @@ const failure = {
 };
 
 test('cached discovery is independent of a full page of older uncached Rounds', async () => {
-  await withJudgingJob(async ({ fixture, target, jobs }) => {
+  await withJudgingJob(async ({ fixture, target, jobs, run }) => {
     const created: string[] = [];
     try {
       const older = [target.roundId];
       for (let at = 0; at < 64; at++) {
         const roundId = await fixture.round();
         created.push(roundId);
-        await seedJudgingIntent(fixture, roundId);
+        await seedJudgingIntent(fixture, roundId, run);
         older.push(roundId);
       }
       const cachedId = await fixture.round();
       created.push(cachedId);
-      const cached = await seedJudgingIntent(fixture, cachedId);
+      const cached = await seedJudgingIntent(fixture, cachedId, run);
       const holder = await jobs.claim(cached);
       await jobs.beginModelCall(holder.scope, holder.token);
       await jobs.saveResult(
