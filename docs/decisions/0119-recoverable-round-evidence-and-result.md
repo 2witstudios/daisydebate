@@ -499,17 +499,48 @@ production evidence capability remains absent. Current known-expiry admission is
 sampled after row/account waits and again after token acquisition; execution lease
 and original data expiry remain different concepts.
 
-For the remaining restore gap, the integration candidate is independent durable
-original Round/subject scope bindings and sticky accepted privacy intents. The
-owning authenticated workflow prepares exact authorized scope outside PostgreSQL,
-then commits the canonical subject/optional Round fence and adopters, and only then
-finalizes independent revocation/key cleanup. Pending authority refuses raw use;
-it does not claim completed account closure or delete keys before the PG fence.
-A crash or lost acknowledgement resumes the SAME accepted privacy service work,
-never treats an absent old-PG event as permission to cancel/un-revoke. No vendor
-call occurs inside canonical closure. This avoids mistaking a still-live key for
-an unpropagated tombstone and does not claim an atomic cross-store commit.
-Persistent/fresh-process/preparation-versus-bind/old-open-PG/live-key/late-plaintext
-and public-closure workflow proofs are NOT RUN; this candidate is not implemented.
-All-authority rollback and production restore/privacy remain REL-H. Scope/intent
-metadata needs minimized anti-resurrection retention while old snapshots exist.
+The independent local authority now stores immutable original Round/subject scope
+bindings and sticky accepted privacy intents. Its initializer provisions format2;
+an ordinary restart refuses a missing/different format rather than inventing
+missing privacy history. Reservation validates a bounded canonical scope before
+acquiring authority or material, and the same evidence ID cannot change that
+scope, payload, key, nonce or original receipt/expiry. Inspection rechecks current
+authority and returns only the receipt and payload digest for the expected scope,
+never a cached decryptor or proof that PostgreSQL is current.
+
+A prepared privacy intent is pending service work: affected existing/new evidence
+use refuses as uncertain, and cleanup retains uncertain material. A committed
+intent is sticky denial and allows material cleanup. Both serialize on the same
+authority transaction as reserve/bind, preserving authority→material lock order.
+Retries return the original accepted intent ID/sequence/scope; a different commit
+cannot replace it. These methods are private local primitives: their declared
+authorization digest is NOT authentication or proof of a canonical PG fence.
+The owning authenticated erasure workflow must accept exact authorized scope,
+commit the canonical account/optional Round fence and adopters, and only then
+finalize independent denial/key retirement. No vendor call belongs inside that
+PG transaction, and independent preparation is NOT a prerequisite that can block
+canonical account erasure during a custody/vendor outage. Current PG tombstones
+must immediately deny use while durable cleanup catches up.
+
+A crash or lost acknowledgement resumes the SAME accepted privacy service work;
+absence in an older PG snapshot never cancels it or un-revokes evidence. Available
+pending authority protects selective restoration of old material with current
+independent privacy facts. Missing/uncertain current lineage refuses restoration.
+If privacy was committed only in PG during journal outage and all relevant copies
+were rolled back before independent propagation, a live key cannot reconstruct
+that fact: activation remains BLOCKED/REL-H. Format/identity checks cannot detect
+all-authority rollback, and local process persistence is not host-independent
+custody or a production every-copy privacy proof.
+
+Fresh-process qualification separately exercises actual SIGKILL after accepted
+intent commit/before acknowledgement, original retry identity, reserve→prepare→
+attempted binding, and old material restoration against latest pending/committed
+authority. A stale process can still hold plaintext already released; current
+inspection refuses further use, but cryptography cannot recall those bytes.
+Actual dispatch cancellation, PG adoption/STT/freeze/cache/submission fences,
+public closure, old-PG-open/live-key restoration, scheduled accepted-intent
+recovery and prompt confirmed retirement remain unimplemented/unproven. No
+method-only liveness or whole privacy acceptance follows. Scope/intent digests
+and private routing metadata retain only their anti-resurrection purpose while
+old snapshots exist; no timer silently purges that authority. Production stays
+disabled under the named REL-H human infrastructure/privacy leaf.

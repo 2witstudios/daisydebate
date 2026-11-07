@@ -1,3 +1,5 @@
+import type { EvidencePrivacyScope } from './evidence-privacy';
+
 /** Necessary evidence is not an optional Recording or a claim of peer hearing. */
 export const necessaryEvidencePolicy = {
   maxAgeMs: 7 * 24 * 60 * 60 * 1000,
@@ -36,8 +38,21 @@ export type NecessaryEvidenceCustody = {
   readonly seal: (
     identity: EvidenceIdentity,
     plaintext: Uint8Array,
+    privacyScope: EvidencePrivacyScope,
   ) => Promise<
     ({ readonly kind: 'sealed' } & SealedEvidence) | EvidenceRefusal
+  >;
+  /** Fresh current authority/material check; no reusable key/decryptor or caller currentness assertion. */
+  readonly inspect: (
+    identity: EvidenceIdentity,
+    privacyScope: EvidencePrivacyScope,
+  ) => Promise<
+    | {
+        readonly kind: 'available';
+        readonly receipt: EvidenceCustodyReceipt;
+        readonly payloadDigest: string;
+      }
+    | EvidenceRefusal
   >;
   readonly open: (
     evidence: SealedEvidence,

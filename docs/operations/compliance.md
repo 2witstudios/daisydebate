@@ -290,6 +290,19 @@ transcript or subject identities. Unknown original subjects cannot be
 backfilled from current membership or treated as an empty set. Integrated
 retirement/export/erasure remains incomplete and production-disabled.
 
+The independent local key authority additionally retains canonical original
+Round/subject scope bindings and accepted privacy-intent routing (exact actor/user
+or Round, opaque intent ID, authorization digest, original sequence and sticky
+pending/committed state). These are private/linkable necessary metadata, never
+authentication by themselves or evidence that restored PG is current. Pending
+refuses raw use without permitting uncertain material deletion. Committed denial
+remains effective against restored old material while current authority is
+available. Accepted privacy work must resume the same request after a crash; no
+missing restored event cancels it. Canonical erasure must still commit during
+custody/vendor outage. Actual public-closure integration, scheduled recovery,
+export and restore-lineage reconciliation are incomplete; no production capability
+is enabled.
+
 The key authority is separate from payload backups. Its opaque evidence IDs,
 original receipt/expiry, integrity digests and revocation tombstones are necessary
 anti-resurrection metadata; they contain no PCM, transcript or raw key. Retain the

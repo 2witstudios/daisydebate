@@ -677,3 +677,12 @@ export {
   canonicalCaptureEvidenceBody,
   type CaptureEvidenceBody,
 } from './capture-evidence-body';
+
+export {
+  evidencePrivacyScopeSchema,
+  encodeEvidencePrivacyScope,
+  evidencePrivacyIntentSchema,
+  type EvidencePrivacyScope,
+  type EvidencePrivacyIntent,
+  type EvidencePrivacyIntentRecord,
+} from './evidence-privacy';

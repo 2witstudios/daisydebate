@@ -1,4 +1,13 @@
 import { requirePrivateEvidenceDirectory } from './local-evidence-storage';
+import {
+  initializeEvidencePrivacyLedger,
+  localEvidencePrivacyLedger,
+  evidencePrivacyDigest,
+} from './local-evidence-privacy';
+import {
+  encodeEvidencePrivacyScope,
+  type EvidencePrivacyScope,
+} from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { chmodSync, closeSync, openSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
@@ -13,12 +22,14 @@ export type EvidenceAuthorityRecord = {
   readonly kind: 'current';
   readonly receipt: EvidenceCustodyReceipt;
   readonly payloadDigest: string;
+  readonly privacyScopeDigest: string;
   readonly keyDigest: string | null;
 };
 export type EvidenceAuthority = {
   readonly reserve: (
     identity: EvidenceIdentity,
     payloadDigest: string,
+    privacyScope: EvidencePrivacyScope,
   ) => EvidenceAuthorityRecord | EvidenceRefusal;
   readonly read: (
     identity: EvidenceIdentity,
@@ -42,6 +53,7 @@ type Row = {
   received: number;
   expires: number;
   revoked: number;
+  scope_digest: string | null;
 };
 const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({
   kind: 'refused',
@@ -72,10 +84,12 @@ export function initializeLocalEvidenceAuthority(input: {
     db.run(`CREATE TABLE authority (id TEXT PRIMARY KEY, last_now INTEGER NOT NULL);
       CREATE TABLE evidence (id TEXT PRIMARY KEY, binding TEXT NOT NULL,
       payload TEXT, key_digest TEXT, received INTEGER NOT NULL, expires INTEGER NOT NULL,
-      revoked INTEGER NOT NULL DEFAULT 0)`);
+      revoked INTEGER NOT NULL DEFAULT 0,scope_digest TEXT)`);
+    initializeEvidencePrivacyLedger(db);
     db.query('INSERT INTO authority(id,last_now) VALUES(?,0)').run(
       input.authorityId,
     );
+    db.run('PRAGMA user_version=2');
   } finally {
     db.close();
   }
@@ -99,6 +113,14 @@ export function openLocalEvidenceAuthority(input: {
   chmodSync(input.path, 0o600);
   db.run('PRAGMA journal_mode=DELETE');
   db.run('PRAGMA synchronous=FULL');
+  const format = db
+    .query<{ user_version: number }, []>('PRAGMA user_version')
+    .get();
+  if (format?.user_version !== 2) {
+    db.close();
+    throw createAppError('CONFLICT');
+  }
+  const privacy = localEvidencePrivacyLedger(db);
   const stored = db.query<{ id: string }, []>('SELECT id FROM authority').get();
   if (!stored || stored.id !== input.authorityId) {
     db.close();
@@ -124,12 +146,19 @@ export function openLocalEvidenceAuthority(input: {
     if (current.revoked) return refused('revoked');
     if (current.expires <= time) return refused('expired');
     if (current.binding !== identity.bindingDigest) return refused('conflict');
+    if (!current.scope_digest) return refused('uncertain');
+    const scope = privacy.scope(current.scope_digest);
+    if ('kind' in scope) return scope;
+    const privacyStatus = privacy.status(scope);
+    if (privacyStatus) return privacyStatus;
     return {
       kind: 'current',
       payloadDigest: current.payload!,
+      privacyScopeDigest: current.scope_digest,
       keyDigest: current.key_digest,
       receipt: {
-        ...identity,
+        evidenceId: identity.evidenceId,
+        bindingDigest: identity.bindingDigest,
         authorityId: input.authorityId,
         receivedAtMs: current.received,
         expiresAtMs: current.expires,
@@ -147,24 +176,49 @@ export function openLocalEvidenceAuthority(input: {
     if (!evidenceIdentityValid(identity)) return refused('invalid');
     return guarded(() => checked(identity, row(identity.evidenceId), now()));
   };
-  const reserve: EvidenceAuthority['reserve'] = (identity, payloadDigest) => {
-    if (!evidenceIdentityValid(identity) || !digestValid(payloadDigest))
+  const reserve: EvidenceAuthority['reserve'] = (
+    identity,
+    payloadDigest,
+    privacyScope,
+  ) => {
+    const encoded = encodeEvidencePrivacyScope(privacyScope);
+    if (
+      !evidenceIdentityValid(identity) ||
+      !digestValid(payloadDigest) ||
+      !encoded
+    )
       return refused('invalid');
+    const scopeDigest = evidencePrivacyDigest(encoded.document);
     return guarded(() => {
       const time = now();
+      const existing = row(identity.evidenceId);
+      if (existing) {
+        const found = checked(identity, existing, time);
+        if (found.kind !== 'current') return found;
+        return found.payloadDigest !== payloadDigest ||
+          found.privacyScopeDigest !== scopeDigest
+          ? refused('conflict')
+          : found;
+      }
+      const privacyStatus = privacy.status(encoded.scope);
+      if (privacyStatus) return privacyStatus;
+      const remembered = privacy.remember(
+        encoded.scope,
+        encoded.document,
+        scopeDigest,
+      );
+      if ('kind' in remembered) return remembered;
       db.query(
-        'INSERT OR IGNORE INTO evidence(id,binding,payload,received,expires) VALUES(?,?,?,?,?)',
+        'INSERT INTO evidence(id,binding,payload,received,expires,scope_digest) VALUES(?,?,?,?,?,?)',
       ).run(
         identity.evidenceId,
         identity.bindingDigest,
         payloadDigest,
         time,
         time + necessaryEvidencePolicy.maxAgeMs,
+        scopeDigest,
       );
-      const found = checked(identity, row(identity.evidenceId), time);
-      return found.kind === 'current' && found.payloadDigest !== payloadDigest
-        ? refused('conflict')
-        : found;
+      return checked(identity, row(identity.evidenceId), time);
     });
   };
   const bindMaterial: EvidenceAuthority['bindMaterial'] = (identity, work) => {
@@ -213,5 +267,13 @@ export function openLocalEvidenceAuthority(input: {
       return { kind: 'revoked' as const };
     });
   };
-  return { reserve, read, bindMaterial, revoke, close: () => db.close() };
+  return {
+    reserve,
+    read,
+    bindMaterial,
+    revoke,
+    preparePrivacy: (intent: unknown) => guarded(() => privacy.prepare(intent)),
+    commitPrivacy: (intent: unknown) => guarded(() => privacy.commit(intent)),
+    close: () => db.close(),
+  };
 }

@@ -3,6 +3,7 @@ import {
   fixture,
   identity,
   payload,
+  privacyScope,
 } from './necessary-evidence-custody-fixture.test-support';
 setupRitewayBun();
 test('bounded cleanup advances past a live prefix after authority revocation interrupts material deletion', () =>
@@ -13,7 +14,7 @@ test('bounded cleanup advances past a live prefix after authority revocation int
       evidenceId: letter.repeat(24),
     }));
     for (const scope of identities) {
-      const sealed = await custody.seal(scope, payload);
+      const sealed = await custody.seal(scope, payload, privacyScope);
       if (sealed.kind !== 'sealed') throw new Error('Synthetic fixture failed');
     }
     // Actual durable authority commit; the material-delete step never ran.
@@ -40,17 +41,18 @@ test('a finite persisted cleanup pass revisits earlier revocations despite new a
       ...identity,
       evidenceId: letter.repeat(24),
     }));
-    for (const scope of scopes.slice(0, 3)) await custody.seal(scope, payload);
+    for (const scope of scopes.slice(0, 3))
+      await custody.seal(scope, payload, privacyScope);
     const first = custody.sweep(1);
     // Revoke AFTER this item was visited, then restart with the persisted cursor.
     authority.revoke(scopes[0]!);
     custody.close();
     custody = connect();
-    await custody.seal(scopes[3]!, payload);
+    await custody.seal(scopes[3]!, payload, privacyScope);
     const second = custody.sweep(1);
-    await custody.seal(scopes[4]!, payload);
+    await custody.seal(scopes[4]!, payload, privacyScope);
     const third = custody.sweep(1);
-    await custody.seal(scopes[5]!, payload);
+    await custody.seal(scopes[5]!, payload, privacyScope);
     const revisit = custody.sweep(1);
     assert({
       given:
@@ -69,7 +71,7 @@ test('a finite persisted cleanup pass revisits earlier revocations despite new a
 test('unavailable or uncertain authority retains material and the cleanup retry obligation', () =>
   fixture(async ({ authority, connect }) => {
     const current = connect();
-    const sealed = await current.seal(identity, payload);
+    const sealed = await current.seal(identity, payload, privacyScope);
     if (sealed.kind !== 'sealed') throw new Error('Synthetic fixture failed');
     let reason: 'unavailable' | 'uncertain' = 'unavailable';
     const refused = connect({

@@ -1,3 +1,4 @@
+import { privacyScope } from './necessary-evidence-custody-fixture.test-support';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -41,6 +42,22 @@ if (import.meta.main) {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
     }
   };
+  if (
+    request.operation === 'prepare-privacy' ||
+    request.operation === 'commit-privacy'
+  ) {
+    try {
+      const result =
+        request.operation === 'prepare-privacy'
+          ? backingAuthority.preparePrivacy(request.intent)
+          : backingAuthority.commitPrivacy(request.intent);
+      barrier('after-privacy-commit');
+      process.stdout.write(JSON.stringify(result));
+    } finally {
+      backingAuthority.close();
+    }
+    process.exit(0);
+  }
   const authority = {
     ...backingAuthority,
     reserve: (...args: Parameters<typeof backingAuthority.reserve>) => {
@@ -69,6 +86,7 @@ if (import.meta.main) {
       const result = await custody.seal(
         request.identity as EvidenceIdentity,
         new Uint8Array(request.payload),
+        request.privacyScope,
       );
       process.stdout.write(
         JSON.stringify(
@@ -82,23 +100,48 @@ if (import.meta.main) {
             : result,
         ),
       );
-    } else if (request.operation === 'open') {
+    } else if (
+      request.operation === 'open' ||
+      request.operation === 'hold-open'
+    ) {
       const result = await custody.open({
         ...request.evidence,
         ciphertext: new Uint8Array(request.evidence.ciphertext),
         nonce: new Uint8Array(request.evidence.nonce),
         tag: new Uint8Array(request.evidence.tag),
       } as SealedEvidence);
+      if (request.operation === 'hold-open') {
+        barrier('after-plaintext');
+        const permission = await custody.inspect(
+          request.evidence.receipt,
+          request.privacyScope,
+        );
+        process.stdout.write(
+          JSON.stringify({
+            heldDigest:
+              result.kind === 'opened'
+                ? createHash('sha3-256').update(result.plaintext).digest('hex')
+                : null,
+            permission,
+          }),
+        );
+      } else
+        process.stdout.write(
+          JSON.stringify(
+            result.kind === 'opened'
+              ? {
+                  kind: result.kind,
+                  digest: createHash('sha3-256')
+                    .update(result.plaintext)
+                    .digest('hex'),
+                }
+              : result,
+          ),
+        );
+    } else if (request.operation === 'inspect') {
       process.stdout.write(
         JSON.stringify(
-          result.kind === 'opened'
-            ? {
-                kind: result.kind,
-                digest: createHash('sha3-256')
-                  .update(result.plaintext)
-                  .digest('hex'),
-              }
-            : result,
+          await custody.inspect(request.identity, request.privacyScope),
         ),
       );
     } else if (request.operation === 'sweep') {
@@ -120,7 +163,7 @@ export function spawnCustodyProcess(request: object) {
     stdout: 'pipe',
     stderr: 'pipe',
   });
-  child.stdin.write(JSON.stringify(request));
+  child.stdin.write(JSON.stringify({ privacyScope, ...request }));
   child.stdin.end();
   return child;
 }

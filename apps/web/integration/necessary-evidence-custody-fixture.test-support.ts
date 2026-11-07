@@ -12,6 +12,10 @@ export const identity = {
   bindingDigest: 'b'.repeat(64),
 };
 export const payload = new Uint8Array([1, 2, 3, 4]);
+export const privacyScope = {
+  roundId: 'd'.repeat(24),
+  subjectActorIds: ['e'.repeat(24)],
+};
 export async function fixture(
   work: (f: {
     readonly authority: ReturnType<typeof openLocalEvidenceAuthority>;

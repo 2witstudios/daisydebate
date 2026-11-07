@@ -8,7 +8,11 @@ import {
   createHash,
   randomBytes,
 } from 'node:crypto';
-import { necessaryEvidencePolicy } from '@daisy/protocol';
+import {
+  necessaryEvidencePolicy,
+  encodeEvidencePrivacyScope,
+} from '@daisy/protocol';
+import { evidencePrivacyDigest } from './local-evidence-privacy';
 import type {
   EvidenceIdentity,
   EvidenceRefusal,
@@ -68,14 +72,21 @@ export function openLocalEvidenceCustody(input: {
   const seal: NecessaryEvidenceCustody['seal'] = async (
     identity,
     plaintext,
+    privacyScope,
   ) => {
+    const scope = encodeEvidencePrivacyScope(privacyScope);
+    if (!scope) return refused('invalid');
     if (
       !plaintext.byteLength ||
       plaintext.byteLength > necessaryEvidencePolicy.maxPayloadBytes
     )
       return refused('invalid');
     try {
-      const current = input.authority.reserve(identity, digest(plaintext));
+      const current = input.authority.reserve(
+        identity,
+        digest(plaintext),
+        scope.scope,
+      );
       if (current.kind !== 'current') return current;
       // All material creation takes authority -> material locks in that order.
       const bound = input.authority.bindMaterial(
@@ -128,6 +139,36 @@ export function openLocalEvidenceCustody(input: {
         ciphertext,
         nonce: held.nonce,
         tag: cipher.getAuthTag(),
+      };
+    } catch {
+      return refused('unavailable');
+    }
+  };
+  const inspect: NecessaryEvidenceCustody['inspect'] = async (
+    identity,
+    privacyScope,
+  ) => {
+    const scope = encodeEvidencePrivacyScope(privacyScope);
+    if (!scope) return refused('invalid');
+    try {
+      const current = input.authority.read(identity);
+      if (current.kind !== 'current') return current;
+      if (current.privacyScopeDigest !== evidencePrivacyDigest(scope.document))
+        return refused('conflict');
+      const held = material(identity.evidenceId);
+      if (
+        !held ||
+        held.key.byteLength !== 32 ||
+        held.nonce.byteLength !== 12 ||
+        materialDigest(held) !== current.keyDigest
+      )
+        return refused('uncertain');
+      const latest = input.authority.read(identity);
+      if (latest.kind !== 'current') return latest;
+      return {
+        kind: 'available',
+        receipt: latest.receipt,
+        payloadDigest: latest.payloadDigest,
       };
     } catch {
       return refused('unavailable');
@@ -245,5 +286,5 @@ export function openLocalEvidenceCustody(input: {
       return refused('unavailable');
     }
   };
-  return { seal, open, revoke, sweep, close: () => db.close() };
+  return { seal, open, inspect, revoke, sweep, close: () => db.close() };
 }

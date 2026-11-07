@@ -1,3 +1,4 @@
+import { privacyScope } from './necessary-evidence-custody-fixture.test-support';
 import { runCustodyProcess as child } from './necessary-evidence-custody.test-support';
 import { copyFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -28,7 +29,7 @@ test('local custody preserves original identity across restart and irrevocable r
     openLocalEvidenceCustody({ path: join(dir, 'keys.sqlite'), authority });
   let custody = connect();
   try {
-    const first = await custody.seal(identity, payload);
+    const first = await custody.seal(identity, payload, privacyScope);
     assert({
       given: 'a first durable local acquisition',
       should: 'produce ciphertext with the original trusted receipt',
@@ -37,7 +38,7 @@ test('local custody preserves original identity across restart and irrevocable r
     });
     custody.close();
     custody = connect();
-    const retried = await custody.seal(identity, payload);
+    const retried = await custody.seal(identity, payload, privacyScope);
     assert({
       given:
         'a lost seal acknowledgement and a restarted adapter with stable authority',
@@ -55,7 +56,10 @@ test('local custody preserves original identity across restart and irrevocable r
         given: 'an existing client and ciphertext obtained before revocation',
         should:
           'consult current authority and refuse decryption and reacquisition',
-        actual: [refusal, await staleClient.seal(identity, payload)],
+        actual: [
+          refusal,
+          await staleClient.seal(identity, payload, privacyScope),
+        ],
         expected: [
           { kind: 'refused', reason: 'revoked' },
           { kind: 'refused', reason: 'revoked' },
