@@ -19,6 +19,7 @@ export function createTranscriptionAttempt(input: {
 }) {
   return async (claim: Claim, signal: AbortSignal) => {
     let audio: Uint8Array | undefined;
+    let admitted: Awaited<ReturnType<Work['begin']>> | undefined;
     const live = () => {
       if (signal.aborted)
         throw createAppError('CONFLICT', 'Transcription cancelled');
@@ -72,7 +73,7 @@ export function createTranscriptionAttempt(input: {
       ).toString('base64');
       live();
       const beforeAdmissionMs = input.monotonicNow();
-      const admitted = await input.store.begin(claim);
+      admitted = await input.store.begin(claim);
       if (admitted.kind === 'already-admitted')
         return { kind: 'reconciled' as const, ordinal: admitted.ordinal };
       if (admitted.kind === 'blocked') return admitted;
@@ -122,7 +123,8 @@ export function createTranscriptionAttempt(input: {
       return { ...recorded, text: response.text };
     } catch (error) {
       try {
-        await input.store.retry({ ...claim, reason: 'uncertain' });
+        if (admitted?.kind === 'admitted')
+          await input.store.retry({ ...claim, reason: 'uncertain' });
       } catch {
         /* A stale/privacy-denied claim cannot be revived; its durable recovery/retirement owns the remainder. */
       }

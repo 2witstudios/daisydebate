@@ -1005,8 +1005,11 @@ fresh durable admission. The start window subtracts one complete millisecond for
 Date serialization and floors the local anchor; invalid/regressed/subprecision or
 expired windows refuse dispatch. Admission replay returns reconciliation metadata,
 never another call or a lease release that could cancel its original in-flight
-attempt. An unknown acknowledgement requests uncertain persisted backoff; another
-invocation requires a new bounded ordinal, not a repeated old grant.
+attempt. Only a positively received fresh admission permits this invocation to
+write retry/backoff. Pre-admission failures and unknown acknowledgements cannot
+prove that ownership and leave the existing durable lease/ordinal intact for
+bounded expiry/takeover. Another invocation needs a new bounded ordinal, never
+a repeated old grant.
 
 After fresh admission, current original restoration and claim verification run
 again before invoking STT, with the final monotonic check after those waits. The

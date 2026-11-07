@@ -196,8 +196,8 @@ test('an unknown admission acknowledgement never becomes a provider retry', asyn
   assert({
     given: 'the admission commit reply is unknown',
     should:
-      'return failure, request retry bookkeeping and make zero external calls',
+      'return failure without releasing an admission it cannot prove it owns',
     actual: { failed, events: f.events },
-    expected: { failed: true, events: ['begin', 'retry'] },
+    expected: { failed: true, events: ['begin'] },
   });
 });
