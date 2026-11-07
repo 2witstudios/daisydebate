@@ -1,3 +1,4 @@
+import { readRoundReply } from './round-read-reply';
 import { CONTENT_WAIVER_VERSION } from '../../src/features/legal/agreements';
 import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
@@ -28,12 +29,10 @@ export const readBallotRound = async (
   request: APIRequestContext,
   roundId: string,
 ) => {
-  // A full lane answers 503 and the Round page asks again by itself; so does this.
-  let response = await request.get(`/api/rounds/${roundId}`);
-  for (let attempt = 0; attempt < 5 && response.status() === 503; attempt++) {
-    await new Promise((done) => setTimeout(done, 2_000));
-    response = await request.get(`/api/rounds/${roundId}`);
-  }
+  // Only the canonical advertised temporary refusal permits another read.
+  const response = await readRoundReply(() =>
+    request.get(`/api/rounds/${roundId}`),
+  );
   expect(response.status()).toBe(200);
   return roundViewSchema.parse(await response.json());
 };

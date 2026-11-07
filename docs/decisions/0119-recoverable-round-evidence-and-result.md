@@ -995,3 +995,105 @@ cannot recall already authorized external processing, replace privacy/content
 commit fences, or prove host-independent custody/time under REL-H. The one-shot
 provider executor, delayed-response/erasure process proof, qualified quality
 selection, protected speech and genuine played-to-result outcome remain incomplete.
+
+### One-shot original recognition attempt
+
+The local attempt executor consumes a capacity-reserved claim, authenticated
+original restore port and existing STT port. It assembles/prepares original audio
+before buying a call, then captures the local monotonic anchor BEFORE requesting
+fresh durable admission. The start window subtracts one complete millisecond for
+Date serialization and floors the local anchor; invalid/regressed/subprecision or
+expired windows refuse dispatch. Admission replay returns reconciliation metadata,
+never another call or a lease release that could cancel its original in-flight
+attempt. Only a positively received fresh admission permits this invocation to
+write retry/backoff. Pre-admission failures and unknown acknowledgements cannot
+prove that ownership and leave the existing durable lease/ordinal intact for
+bounded expiry/takeover. Another invocation needs a new bounded ordinal, never
+a repeated old grant.
+
+After fresh admission, current original restoration and claim verification run
+again before invoking STT, with the final monotonic check after those waits. The
+same original/custody/privacy and PG candidate fences run after the response.
+Canonical application privacy revocation commits its PG fence first. Independent
+custody revocation observed by a fresh check denies later use; these checks do not
+atomically serialize arbitrary SQLite revocation with a later PG operation or
+recall already authorized external processing. Mutable WAV/decoded buffers are
+cleared. Immutable body/base64 strings and plaintext already held by callers
+cannot be cryptographically recalled. No unselected words are written to PG;
+returned provisional text supplies no authoritative selection or freeze authority.
+
+Controlled local tests use actual PG receipts and persistent SQLite custody but
+explicitly synthetic provider responses. They qualify one-shot/replay/unknown-ack,
+canonical before-dispatch withdrawal and post-call Round/independent-custody
+refusal, not actual provider accuracy, peer hearing or a genuine debate result.
+The fair capacity/renewal poller, process executor recovery, richer provider
+response/quality qualification and authoritative selection remain incomplete.
+Production composition remains absent pending REL-H.
+
+### Local recognition service composition
+
+An injected local scheduler now independently polls bounded missing-source
+metadata and capacity-reserved recognition claims. Enrollment does not buy a
+provider slot; an unavailable original is reported while later offered units
+remain visitable. The existing database finite pass, original-body validation,
+claim ordering, backoff and lifetime attempt cap retain authority. Each scan has
+a finite claim budget and bounded local parallelism; capacity is reserved before
+claiming, with exactly one release after execution actually settles. A late
+claim acknowledgement after stop cannot dispatch.
+
+Renewal runs independently from enrollment/provider execution. Uncertain renewal
+aborts future execution steps and retains the occupied local slot until execution
+settles. Abort cannot recall already-authorized processing or an in-flight commit;
+existing PG original/canonical privacy/lease fences still serialize admission and
+candidate writes. Stop clears timers, cancels entries and drains in-flight scans,
+renewals, enrollment and execution. No guessed terminal result or lease release
+is written by this scheduler. Bounded lease expiry/takeover remains the recovery
+obligation after unknown claim outcomes and process death.
+
+This is local injected composition, with controlled scheduling tests and an
+injected-expiry actual-PG/custody case. It is not production startup, a measured
+outage/funding liveness window, process takeover proof, qualified provider/quality
+selection or an authoritative transcript/result. The actual shared capacity,
+lease/poll configuration, fair process restart, finite provider funding and
+qualified candidate handler still need integrated qualification before claiming
+automatic eventual progress. REL-H remains unchanged.
+
+### Bounded STT response evidence
+
+The existing STT adapter bounds the entire response to1MiB before UTF8 decoding
+or JSON parsing, and bounds transcript text to64KiB UTF8 before whitespace
+trimming. Declared or streamed oversize refuses rather than truncating. The
+reader is cancelled/unlocked and its mutable byte buffer cleared; immutable
+strings already decoded cannot be recalled. Stream, parse and cleanup errors
+are sanitized without retaining vendor content in nested error causes.
+
+When supplied, finite nonnegative usage values and a bounded generation ID are
+returned as reported provenance. Missing metadata stays missing, including cost;
+no zero-cost/default provider receipt is invented. This is not independent proof
+of actual billing, provider identity, speech, coverage or quality, and the current
+attempt metadata writer does not yet durably adopt these additional fields.
+Existing model, ZDR policy and default response format are unchanged. No optional
+timestamps or new model is enabled without the required quality qualification.
+Controlled response/actual local HTTP cancellation tests are not external STT
+execution or authorized human-corpus quality evidence.
+
+### Decoder output is not source preservation progress
+
+The native diagnostic observed50 subscriber PCM callbacks before any source
+handoff; a subsequently all-zero source also produced nonzero decoder output.
+Callback count, observed low/zero energy and track presence therefore cannot by
+themselves establish fresh original source delivery, genuine human silence or
+source-preservation readiness. Durable receipts preserve what was actually
+observed; they do not upgrade decoder/concealment output into an unobserved
+publisher frame. Callback sequence is its recorded observation order, not an
+invented RTP/source sequence.
+
+Before affected silence, protected-clock or authoritative-selection writes,
+independently qualify source/packet preservation progress and permission
+readiness. Missing source or uncertain transport coverage stays unknown. Required
+controls include source unavailable/transport gap while decoder callbacks
+continue, plus DTX and genuinely silent human-source cases. Recognition success,
+provider metadata or the fixture-only tone detector cannot discharge this
+obligation. The existing native tone proof establishes only bounded synthetic
+signal presence; it proves neither all source samples nor heard words. These
+source/readiness controls and clock/selection integration remain unimplemented.

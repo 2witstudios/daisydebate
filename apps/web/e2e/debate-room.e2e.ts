@@ -156,11 +156,41 @@ test('the round room: no app shell, Files closes, the sidebar switches, Leave as
   ).toBeHidden();
   await page.getByRole('button', { name: 'Show files' }).click();
   await page.getByRole('tab', { name: 'Channels', exact: true }).click();
-  await page.getByRole('button', { name: '# round' }).click();
+  const floor = page.getByRole('region', { name: 'Round floor chat' });
+  const editor = page.getByRole('textbox', { name: 'Untitled', exact: true });
+  await editor.evaluate((node) => Reflect.set(window, '__floorEditor', node));
+  await page
+    .locator('[data-room-media="grid"]')
+    .evaluate((node) => Reflect.set(window, '__floorMedia', node));
+  await expect(floor).toBeVisible();
+  const message = floor.getByRole('textbox', {
+    name: 'Message debaters and host',
+  });
+  await expect(message).toBeEditable();
+  const text = `Round floor proof ${roundId}`;
+  await message.fill(text);
+  await floor
+    .getByRole('button', { name: 'Send message', exact: true })
+    .click();
   await expect(
-    page.getByRole('textbox', { name: 'Message # round' }),
-  ).toBeDisabled();
-  await page.getByRole('button', { name: 'Back to channels' }).click();
+    floor
+      .getByRole('list', { name: 'Floor messages' })
+      .getByRole('listitem')
+      .filter({ has: page.getByText(text, { exact: true }) }),
+  ).toHaveCount(1);
+  const denied = await liveRoom.stranger.get(`/api/rounds/${roundId}/floor`);
+  expect(denied.status()).toBe(404);
+  expect(await denied.text()).not.toContain(text);
+  expect(
+    await editor.evaluate(
+      (node) => Reflect.get(window, '__floorEditor') === node,
+    ),
+  ).toBe(true);
+  expect(
+    await page
+      .locator('[data-room-media="grid"]')
+      .evaluate((node) => Reflect.get(window, '__floorMedia') === node),
+  ).toBe(true);
   await page.getByRole('tab', { name: 'AI chat', exact: true }).click();
   await expect(
     page.getByRole('textbox', { name: 'Ask Assistant' }),

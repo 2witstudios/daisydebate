@@ -2,6 +2,7 @@ import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
 import { requireProviderNotCancelled } from './cancellation';
+import { readTranscription } from './transcription-response';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -67,7 +68,6 @@ const finishOf = (reason: string | null | undefined): CompletionFinish => {
     ? reason
     : 'other';
 };
-const transcriptionSchema = z.object({ text: z.string() });
 
 const definiteFailures = new WeakSet<Error>();
 /**
@@ -296,12 +296,11 @@ export function createOpenRouter({
         },
         signal,
       );
-      const body = parse(
-        transcriptionSchema,
-        await reading('/audio/transcriptions', () => response.json(), signal),
+      return reading(
         '/audio/transcriptions',
+        () => readTranscription(response, signal),
+        signal,
       );
-      return { text: body.text.trim() };
     },
   };
 }
