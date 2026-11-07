@@ -36,7 +36,7 @@ columns and routes, so the baseline now matches the policy:
   from the first migration onward.
 
 Historical accounting exception (BILL-9-r1/11/18): applied migration
-`packages/db/migrations/20261105051949_casual_judge_usage/migration.sql`
+`packages/db/migrations/20261107080513_fair_midnight/migration.sql`
 may derive IDs only for its missing historical casual-judge usage cohort.
 The exact expression is `m` plus the first 23 hexadecimal characters of
 SHA-256 over UTF-8 `casual_judge_usage:<roundId>:<frozenSponsorActorId>`.
@@ -77,3 +77,9 @@ Acceptance criteria:
   rule are documented in the exception registry.
 - Given migration or framework/tooling compatibility code, should pass when its
   exception is explicit, ADR-linked, and not past its review date.
+
+Canonical main99 note: this preserves the exact historical-accounting namespace,
+inputs and first23 SHA256 hex digits originally reviewed in private
+`20261105051949_casual_judge_usage`; it grants no new runtime ID generator or
+application-provisioning backfill. The new main predecessor requires its own
+populated transition proof; original private-tail receipts remain historical.

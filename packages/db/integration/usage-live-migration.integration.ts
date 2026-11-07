@@ -24,7 +24,7 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const ledgerMigration = '20261105032232_conscious_spyke';
+const ledgerMigration = '20261107080513_fair_midnight';
 const originalAt = '2026-10-31T23:59:59.000Z';
 
 for (const ending of ['ordinary', 'recovery_bound'] as const) {

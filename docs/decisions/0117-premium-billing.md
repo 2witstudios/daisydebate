@@ -173,7 +173,7 @@ crosses a month or follows Round terminalization; never substitute a claim,
 lease or run-creation time, clamp timestamps or invent relief. Count chronology
 is admission <= recognition <= database time. Export retains this meaning.
 
-Applied `20261105051949_casual_judge_usage` has the exact historical-accounting
+Applied `20261107080513_fair_midnight` has the exact historical-accounting
 ID exception recorded in ADR 0018: `m` plus 23 hexadecimal characters of
 SHA-256 over UTF-8 `casual_judge_usage:<roundId>:<frozenSponsorActorId>`.
 The fixed namespace and original frozen Round/sponsor inputs identify only
@@ -528,3 +528,9 @@ The BILL-18 matrix distinguishes deterministic adapter tests, real PostgreSQL
 race/crash evidence and genuine Stripe test-mode lifecycle evidence. Unit
 signature fixtures are not vendor lifecycle proof. BILL-H, live keys, production
 deployment/data/identity, tax and legal/minors activation remain human-controlled.
+
+Canonical main99 note: this preserves the exact historical-accounting namespace,
+inputs and first23 SHA256 hex digits originally reviewed in private
+`20261105051949_casual_judge_usage`; it grants no new runtime ID generator or
+application-provisioning backfill. The new main predecessor requires its own
+populated transition proof; original private-tail receipts remain historical.

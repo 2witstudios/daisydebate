@@ -18,8 +18,8 @@ import {
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const migration = '20261105032232_conscious_spyke';
-const scratch = scratchDatabase(databaseUrl, 'billingusage');
+const migration = '20261107080513_fair_midnight';
+const scratch = scratchDatabase(databaseUrl, 'can7vbrip0jusage');
 afterAll(() => scratch.drop());
 const reservedAt = new Date('2026-10-31T23:59:58.000Z');
 const countedAt = new Date('2026-10-31T23:59:59.000Z');

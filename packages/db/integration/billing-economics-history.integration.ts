@@ -24,9 +24,7 @@ test(
     const instanceId = createId();
     try {
       await scratch.create();
-      await scratch.migrate(
-        (tag) => tag < '20261105082020_requested_round_analysis',
-      );
+      await scratch.migrate((tag) => tag < '20261107080513_fair_midnight');
       await withFixture(scratch.url, async (fixture) => {
         const round = await fixture.round();
         const { aff } = await completedRound(fixture, round, true);

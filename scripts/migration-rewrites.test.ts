@@ -78,7 +78,9 @@ test('a rewrite followed by DDL on the same table must flush deferred triggers f
 test('the applied judge basis exception requires exact SQL, path, predecessor and named proof', async () => {
   const tag = '20261105051949_casual_judge_usage';
   const path = `packages/db/migrations/${tag}/migration.sql`;
-  const sql = await Bun.file(new URL(`../${path}`, import.meta.url)).text();
+  const sql = await Bun.file(
+    new URL('./fixtures/billing-judge-basis-applied.sql', import.meta.url),
+  ).text();
   const input = {
     tag,
     sql,
