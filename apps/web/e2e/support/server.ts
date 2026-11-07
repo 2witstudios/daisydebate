@@ -15,6 +15,7 @@ import {
   startBroadcastFeedServer,
 } from './broadcast-feed-server';
 import { createSelfSignedTlsEdge } from './tls-edge';
+import { createMessagingRecoveryControl } from './messaging-recovery-control';
 
 /**
  * The browser suite's production server, with exactly three additions around it
@@ -48,29 +49,30 @@ const mailCapture = createMailCapture({
 // The production server below runs this app: the real environment, with
 // only its mail transport captured. Nothing process-wide is replaced.
 const files = await messagingBrowserFiles(process.env);
-adoptProcessApp(
-  createApp({
-    env: process.env,
-    messagingPolicy: messagingBrowserPolicy,
-    ...(files.runtime === null ? {} : { messagingFiles: files.runtime }),
-    roomPolicy: launchProofPolicy,
-    // Bot-cast journeys reach the admission and eligibility gates; this
-    // server runs no AI worker, so it states the seats rather than deriving them.
-    aiSeats: { debater: true, judge: true },
-    // OpenRouter (AI debates) is answered locally; everything else goes
-    // through the mail capture.
-    fetch: withAnalysisFixture(
+const app = createApp({
+  env: process.env,
+  messagingPolicy: messagingBrowserPolicy,
+  ...(files.runtime === null ? {} : { messagingFiles: files.runtime }),
+  roomPolicy: launchProofPolicy,
+  // Bot-cast journeys reach the admission and eligibility gates; this
+  // server runs no AI worker, so it states the seats rather than deriving them.
+  aiSeats: { debater: true, judge: true },
+  // OpenRouter (AI debates) is answered locally; everything else goes
+  // through the mail capture.
+  fetch: withAnalysisFixture(
+    process.env.OPENROUTER_API_KEY,
+    withOpenRouterStub(
       process.env.OPENROUTER_API_KEY,
-      withOpenRouterStub(
-        process.env.OPENROUTER_API_KEY,
-        withAnalyticsFixture(mailCapture.captureFetch),
-      ),
+      withAnalyticsFixture(mailCapture.captureFetch),
     ),
-    clock: systemClock,
-    ids: systemId,
-    nextWorkerToken,
-  }),
-);
+  ),
+  clock: systemClock,
+  ids: systemId,
+  nextWorkerToken,
+});
+adoptProcessApp(app);
+if (process.env.E2E_MESSAGING_RECOVERY === '1')
+  await createMessagingRecoveryControl(app, appPort);
 
 createSelfSignedTlsEdge({ appPort, edgePort });
 startBroadcastFeedServer(Number(env('E2E_FEED_PORT')));

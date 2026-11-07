@@ -11,7 +11,7 @@ import {
   type Person,
   type ReportReason,
 } from '@daisy/protocol';
-import Link from 'next/link';
+import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useEffect, useRef, useState } from 'react';
 import { challengeFormUnavailable } from '../../features/challenges/forms';
 import { friendFormUnavailable } from '../../features/friends/forms';
@@ -21,6 +21,7 @@ import { reportFailedNotice } from '../../features/reports/form';
 import { cn } from '../cn';
 import { buttonClass } from '../components/button/button-class';
 import { useFormAction } from '../form-action/form-action';
+import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { anchorAt, MemberCardBody } from './member-card';
 import { useChallenges } from '../challenges/challenge-provider';
@@ -132,7 +133,7 @@ function MessageItem({
     { requestId: '', recipients: username, title: '', introduction: '' },
     creationFormUnavailable,
   );
-  useMovedOn(answer.next);
+  useMovedOn(answer.next, announceShellNavigation);
   return (
     <form action={post}>
       <input type="hidden" name="recipients" value={username} />

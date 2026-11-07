@@ -6,11 +6,7 @@ import {
 } from '../../../../ui/messaging/conversation-navigation';
 import { notFound } from 'next/navigation';
 import { systemClock, systemId } from '@daisy/clock';
-import {
-  createMessagingInboxSchemas,
-  idSchema,
-  messagingBetaLimits,
-} from '@daisy/protocol';
+import { idSchema, messagingBetaLimits } from '@daisy/protocol';
 import { requireAccess } from '../../../../lib/access';
 import {
   messagingFilesAvailable,
@@ -19,6 +15,8 @@ import {
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   readConversationResponse,
+  readConversationEntryResponse,
+  conversationPageAdmission,
   readThroughSequence,
   conversationNames,
 } from '../../../../features/messaging/conversation';
@@ -34,6 +32,7 @@ import {
 import { ConversationLive } from '../../../../ui/messaging/conversation-live';
 import { MessageHistory } from '../../../../ui/messaging/message-history';
 import { MessageComposer } from '../../../../ui/messaging/message-composer';
+import { ConversationReconnecting } from '../../../../ui/messaging/conversation-reconnecting';
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
 import { GET as SEARCH } from '../../../api/messaging/channels/[channelId]/messages/search/route';
 import { GET as ENTRY } from '../../../api/messaging/channels/[channelId]/entry/route';
@@ -52,10 +51,16 @@ export default async function ConversationPage({
   if (!id.success) notFound();
   const query = await searchParams;
   const requestId = systemId.next();
-  const [{ searchQuery, conversation }, entry] = await Promise.all([
+  const [{ searchQuery, read }, entryRead] = await Promise.all([
     readPageConversation(id.data, query),
     readChannelEntry(id.data),
   ]);
+  const admission = conversationPageAdmission(read, entryRead);
+  const conversation =
+    read.kind === 'ready' && admission.kind === 'ready' ? read : null;
+  const entry = entryRead.kind === 'ready' ? entryRead.entry : null;
+  const retryAfterMs =
+    admission.kind === 'temporary' ? admission.retryAfterMs : null;
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
   const names = conversationNames(entry);
@@ -91,7 +96,13 @@ export default async function ConversationPage({
           </>
         }
       >
-        {conversation === null ? (
+        {retryAfterMs !== null ? (
+          <ConversationReconnecting
+            key={JSON.stringify(query)}
+            requestId={requestId}
+            retryAfterMs={retryAfterMs}
+          />
+        ) : conversation === null ? (
           <p role="status" className="flex-1 p-6 text-ink-muted">
             This conversation is unavailable. Refresh to try again.
           </p>
@@ -177,7 +188,7 @@ function viewerFrom<V extends { readonly readSequence: number }>(
     : viewer;
 }
 
-/** This conversation's own inbox entry, or null when it cannot be read. */
+/** This conversation's own protected title read, including refusal advice. */
 async function readChannelEntry(channelId: string) {
   const response = await ENTRY(
     new Request(
@@ -185,11 +196,7 @@ async function readChannelEntry(channelId: string) {
       { headers: new Headers(await headers()) },
     ),
   );
-  if (!response.ok) return null;
-  const parsed = createMessagingInboxSchemas(1).entry.safeParse(
-    await response.json(),
-  );
-  return parsed.success ? parsed.data.entry : null;
+  return readConversationEntryResponse(response);
 }
 
 async function readPageConversation(channelId: string, query: SearchParams) {
@@ -208,7 +215,7 @@ async function readPageConversation(channelId: string, query: SearchParams) {
   );
   return {
     searchQuery,
-    conversation: await readConversationResponse(response),
+    read: await readConversationResponse(response),
   };
 }
 const searchTool =

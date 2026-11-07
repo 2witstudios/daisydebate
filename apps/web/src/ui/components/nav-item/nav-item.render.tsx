@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ShellLink as Link } from '../../layout/app-shell/shell-link';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../icon/icon';
 import {

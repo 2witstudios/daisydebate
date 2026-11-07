@@ -24,6 +24,7 @@ export async function closeSettledLaunchContexts(
 export async function callLaunchControl(
   path: string,
   operation: LaunchControlOperation,
+  body?: string,
 ) {
   await new Promise<void>((accept, reject) => {
     const call = request(
@@ -41,7 +42,7 @@ export async function callLaunchControl(
       call.destroy(new Error('Launch control deadline')),
     );
     call.once('error', reject);
-    call.end();
+    call.end(body);
   });
 }
 /** Test driver capability for only this dedicated fixture's owned ingress and processes. */

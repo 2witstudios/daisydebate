@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ShellLink as Link } from '../layout/app-shell/shell-link';
 
 /** A survivor's conversations with deleted accounts (DEC-126); none renders nothing. */
 export function RetainedConversationList({

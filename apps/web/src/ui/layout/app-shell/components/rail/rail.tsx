@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
+import { ShellLink as Link } from '../../shell-link';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 import { Icon } from '../../../../components/icon/icon';
 import { NavItem } from '../../../../components/nav-item/nav-item';
