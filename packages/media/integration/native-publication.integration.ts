@@ -111,12 +111,18 @@ test(
   'paced native PCM uses the real database clock and historical eligibility for a 200ms job',
   () =>
     withHistoricalSeat(databaseUrl, async (history) => {
-      await withNativePublication(async ({ publisher, reader }) => {
+      await withNativePublication(async ({ publisher, reception }) => {
         const start = performance.now();
         let calibrations = 0;
         const evidence = createNativePublicationEvidence();
         const result = await createPacedAudioWriter({
-          publication: publisher,
+          publication: {
+            ...publisher,
+            capture10ms: (data) => {
+              reception.begin();
+              return publisher.capture10ms(data);
+            },
+          },
           sampleRate: 48000,
           channels: 1,
           // Per-frame evidence is what these proofs pin.
@@ -133,17 +139,7 @@ test(
         })(pcmJob(), new AbortController().signal);
         // Diagnose before subscriber drain, which cannot establish source credit.
         assertNativePublicationEvidence(evidence, result, 'complete');
-        let receivedSamples = 0;
-        let receivedEnergy = 0;
-        while (receivedSamples < 9600) {
-          const frame = await reader.read();
-          if (frame.done) break;
-          receivedSamples += frame.value.samplesPerChannel;
-          receivedEnergy += frame.value.data.reduce(
-            (sum, sample) => sum + sample * sample,
-            0,
-          );
-        }
+        const received = await reception.read();
         assert({
           given:
             '9600 PCM samples paced in 10ms native frames and authorized by real PostgreSQL history',
@@ -153,8 +149,9 @@ test(
             ...result,
             cadenceElapsed: performance.now() - start >= 200,
             refreshed: calibrations >= 2,
-            receivedSamples,
-            audible: receivedEnergy > 0,
+            receivedSamples: received.samples,
+            audible: received.energy > 0,
+            sourceTone: received.toneAmplitude >= 100,
           },
           expected: {
             eligibleSamples: 9600,
@@ -165,6 +162,7 @@ test(
             refreshed: true,
             receivedSamples: 9600,
             audible: true,
+            sourceTone: true,
           },
         });
       }, history.binding);

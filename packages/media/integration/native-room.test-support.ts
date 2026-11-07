@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { AudioStream, Room, RoomEvent, type Track } from '@livekit/rtc-node';
 import { createMediaService } from '../src/service';
 import { createAudioPublication } from '../src/audio-publication';
+import { NativeReception } from './native-reception.test-support';
 
 export const config = {
   url: 'http://127.0.0.1:7880',
@@ -31,6 +32,7 @@ export async function withNativePublication(
     roomName: string;
     identity: string;
     track: Track;
+    reception: NativeReception;
     reader: import('node:stream/web').ReadableStreamDefaultReader<
       import('@livekit/rtc-node').AudioFrame
     >;
@@ -72,14 +74,16 @@ export async function withNativePublication(
       monotonicNowMs: () => performance.now(),
     });
     const [track] = await subscribed;
+    const reception = new NativeReception();
     const stream = new AudioStream(track, {
       sampleRate: 48000,
       numChannels: 1,
       frameSizeMs: 10,
+      noiseCancellation: reception,
     });
     const reader = stream.getReader();
     try {
-      await work({ publisher, reader, roomName, identity, track });
+      await work({ publisher, reader, roomName, identity, track, reception });
     } finally {
       await reader.cancel();
       reader.releaseLock();

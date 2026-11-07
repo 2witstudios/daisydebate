@@ -7,7 +7,7 @@ import { createNecessaryEvidenceIngress } from '../src/features/media-capture/ne
 import { createTranscriptionAttempt } from '../src/features/transcription-recovery/attempt';
 setupRitewayBun();
 requireTestServices(process.env);
-for (const replay of ['cancelled', 'restore-failed'] as const)
+for (const replay of ['cancelled', 'restore-failed', 'begin-unknown'] as const)
   test(`a ${replay} replay cannot release the original in-flight admission`, async () => {
     await withEvidenceIngress(async (f) => {
       const work = await readyRecognition(f),
@@ -20,6 +20,7 @@ for (const replay of ['cancelled', 'restore-failed'] as const)
       let entered!: () => void,
         resume!: () => void,
         failRestore = false,
+        failBegin = false,
         calls = 0;
       const started = new Promise<void>((resolve) => {
           entered = resolve;
@@ -28,7 +29,15 @@ for (const replay of ['cancelled', 'restore-failed'] as const)
           resume = resolve;
         });
       const execute = createTranscriptionAttempt({
-        store: work,
+        store: {
+          ...work,
+          begin: async (raw) => {
+            const grant = await work.begin(raw);
+            if (failBegin)
+              throw new Error('Controlled lost replay admission reply');
+            return grant;
+          },
+        },
         restore: async (raw) => {
           if (failRestore) throw new Error('Controlled replay restore outage');
           return ingress.restore(raw);
@@ -53,7 +62,8 @@ for (const replay of ['cancelled', 'restore-failed'] as const)
           throw new Error('Original never reached controlled provider');
         const abort = new AbortController();
         if (replay === 'cancelled') abort.abort();
-        else failRestore = true;
+        else if (replay === 'restore-failed') failRestore = true;
+        else failBegin = true;
         let rejected = false;
         try {
           await execute(claim, abort.signal);
