@@ -1,6 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { necessaryEvidencePolicy } from '@daisy/protocol';
+import {
+  evidenceIngressReplySchema,
+  necessaryEvidencePolicy,
+} from '@daisy/protocol';
 import { createFrameClock } from './frame-clock';
 import { localClient } from './worker-client.test-support';
 setupRitewayBun();
@@ -47,7 +50,10 @@ const receipt = {
   },
 };
 test('capture preserves only a matching historical payload receipt and keeps pending as pending', async () => {
-  const responses = [receipt, { kind: 'pending', evidenceId: body.evidenceId }];
+  const responses = [
+    receipt,
+    { kind: 'pending', evidenceId: body.evidenceId },
+  ].map((reply) => evidenceIngressReplySchema.parse(reply));
   const f = localClient((n) => Response.json(responses[n - 1]));
   try {
     assert({

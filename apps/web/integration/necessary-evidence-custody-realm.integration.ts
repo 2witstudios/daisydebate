@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   fixture,
@@ -7,6 +8,7 @@ import {
 } from './necessary-evidence-custody-fixture.test-support';
 
 setupRitewayBun();
+requireTestServices(process.env);
 test('custody refuses foreign original routing before acquisition or retirement', async () => {
   await fixture(async ({ connect, authority }) => {
     const custody = connect();

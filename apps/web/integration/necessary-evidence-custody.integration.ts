@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { privacyScope } from './necessary-evidence-custody-fixture.test-support';
 import { runCustodyProcess as child } from './necessary-evidence-custody.test-support';
 import { copyFile, mkdtemp, rm } from 'node:fs/promises';
@@ -12,6 +13,7 @@ import {
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
 
 setupRitewayBun();
+requireTestServices(process.env);
 const identity = {
   authorityId: 'c'.repeat(24),
   evidenceId: 'a'.repeat(24),

@@ -45,6 +45,7 @@ export const eventRegistry = {
   'round.media.request_deferred': 'info',
   'round.media.fairness_degraded': 'warn',
   'round.judging.failed': 'error',
+  'round.judging.recovery_pending': 'warn',
   'round.analysis.failed': 'error',
   'beta.mail.failed': 'error',
   'operator.request.refused': 'warn',

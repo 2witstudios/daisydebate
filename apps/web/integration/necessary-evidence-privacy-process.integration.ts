@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { Database } from 'bun:sqlite';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -15,6 +16,7 @@ import {
   spawnCustodyProcess,
 } from './necessary-evidence-custody.test-support';
 setupRitewayBun();
+requireTestServices(process.env);
 const intent = {
   intentId: 'g'.repeat(24),
   scope: { kind: 'round' as const, roundId: privacyScope.roundId },

@@ -543,6 +543,7 @@ export default [
             'drizzle-orm',
             'drizzle-orm/*',
             'bun',
+            'bun:sqlite',
             // RITEway's Bun-native test helper subpath, not the Bun runtime.
             '!riteway/bun',
             'node:*',
@@ -573,6 +574,7 @@ export default [
             'drizzle-orm',
             'drizzle-orm/*',
             'bun',
+            'bun:sqlite',
             '!riteway/bun',
             'node:*',
             '@adobe/*',

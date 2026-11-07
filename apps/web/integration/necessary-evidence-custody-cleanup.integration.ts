@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   fixture,
@@ -6,6 +7,7 @@ import {
   privacyScope,
 } from './necessary-evidence-custody-fixture.test-support';
 setupRitewayBun();
+requireTestServices(process.env);
 test('bounded cleanup advances past a live prefix after authority revocation interrupts material deletion', () =>
   fixture(async ({ authority, connect }) => {
     const custody = connect();

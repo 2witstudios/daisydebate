@@ -77,7 +77,7 @@ async function blockedBy(
   count = 1,
   target?: number,
 ) {
-  const until = performance.now() + 600;
+  const until = performance.now() + 3000;
   let pids: number[] = [];
   while (performance.now() < until) {
     const rows = await observer`with recursive dependencies(pid, depth) as (
@@ -91,7 +91,7 @@ async function blockedBy(
       return pids;
     await Bun.sleep(5);
   }
-  return pids;
+  throw new Error('Expected evidence lock dependency did not appear');
 }
 
 test('two evidence readers precede account closure without lock upgrades or reverse acquisition', async () => {

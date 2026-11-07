@@ -188,3 +188,37 @@ test('recovery grants preserve immutable original provenance and exclude worker 
     });
   });
 });
+
+test('web aggregate erasure removes recognition manifests but retains original custody debt', async () => {
+  await withEvidenceIngress(async ({ f, capture, custody, body }) => {
+    await createNecessaryEvidenceIngress({ store: capture, custody }).receive(
+      body,
+    );
+    await f.sql.begin(async (tx) => {
+      await tx`set local role daisy_web`;
+      await tx`delete from rounds where id=${body.roundId}`;
+    });
+    const [evidence] =
+      await f.sql`select round_id,state,retirement_reason from necessary_evidence where id=${body.evidenceId}`;
+    const [contexts] =
+      await f.sql`select count(*)::int as count from transcription_recovery_contexts where round_id=${body.roundId}`;
+    const [sources] =
+      await f.sql`select count(*)::int as count from transcription_recovery_sources where evidence_id=${body.evidenceId}`;
+    assert({
+      given:
+        'actual adopted original audio and recognition metadata erased through the existing web Round-delete principal',
+      should:
+        'cascade private recognition work while preserving detached custody retirement routing without a definer escalation',
+      actual: { evidence, contexts: contexts!.count, sources: sources!.count },
+      expected: {
+        evidence: {
+          round_id: null,
+          state: 'retiring',
+          retirement_reason: 'erased',
+        },
+        contexts: 0,
+        sources: 0,
+      },
+    });
+  });
+});

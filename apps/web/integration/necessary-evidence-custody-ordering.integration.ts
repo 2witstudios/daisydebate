@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { Database } from 'bun:sqlite';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -12,6 +13,7 @@ import {
   spawnCustodyProcess,
 } from './necessary-evidence-custody.test-support';
 setupRitewayBun();
+requireTestServices(process.env);
 const identity = {
   authorityId: 'c'.repeat(24),
   evidenceId: 'a'.repeat(24),

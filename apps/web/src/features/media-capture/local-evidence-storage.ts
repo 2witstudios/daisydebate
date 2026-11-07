@@ -1,4 +1,4 @@
-import { existsSync, lstatSync } from 'node:fs';
+import { lstatSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createAppError } from '@daisy/errors';
 
@@ -7,6 +7,6 @@ export function requirePrivateEvidenceDirectory(path: string) {
   const directory = lstatSync(dirname(path));
   if (!directory.isDirectory() || (directory.mode & 0o077) !== 0)
     throw createAppError('INFRASTRUCTURE');
-  if (existsSync(path) && !lstatSync(path).isFile())
-    throw createAppError('INFRASTRUCTURE');
+  const existing = lstatSync(path, { throwIfNoEntry: false });
+  if (existing && !existing.isFile()) throw createAppError('INFRASTRUCTURE');
 }

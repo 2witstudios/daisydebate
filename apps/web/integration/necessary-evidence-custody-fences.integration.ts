@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   fixture,
@@ -8,6 +9,7 @@ import {
 import { necessaryEvidencePolicy, type SealedEvidence } from '@daisy/protocol';
 import type { EvidenceAuthority } from '../src/features/media-capture/local-evidence-authority';
 setupRitewayBun();
+requireTestServices(process.env);
 test('original expiry and payload binding survive retries and clock regression', () =>
   fixture(async ({ connect, advance }) => {
     const custody = connect();

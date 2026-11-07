@@ -145,12 +145,22 @@ export function openLocalEvidenceAuthority(input: {
     db.query<Row, [string]>('SELECT * FROM evidence WHERE id=?').get(id);
   const now = () => {
     const sampled = input.nowMs();
-    if (!Number.isSafeInteger(sampled) || sampled < 0)
+    if (
+      !Number.isSafeInteger(sampled) ||
+      sampled < 0 ||
+      sampled > Number.MAX_SAFE_INTEGER - necessaryEvidencePolicy.maxAgeMs
+    )
       throw createAppError('INFRASTRUCTURE');
     db.query('UPDATE authority SET last_now=max(last_now,?)').run(sampled);
-    return db
+    const time = db
       .query<{ last_now: number }, []>('SELECT last_now FROM authority')
       .get()!.last_now;
+    if (
+      !Number.isSafeInteger(time) ||
+      time > Number.MAX_SAFE_INTEGER - necessaryEvidencePolicy.maxAgeMs
+    )
+      throw createAppError('INFRASTRUCTURE');
+    return time;
   };
   const checked = (
     identity: EvidenceIdentity,

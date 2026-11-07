@@ -228,41 +228,54 @@ export function openLocalEvidenceCustody(input: {
     }
   };
   const open: NecessaryEvidenceCustody['open'] = async (evidence) => {
-    if (!evidenceEnvelopeSchema.safeParse(evidence).success)
-      return refused('invalid');
+    const parsed = evidenceEnvelopeSchema.safeParse(evidence);
+    if (!parsed.success) return refused('invalid');
+    const envelope = {
+      ...parsed.data,
+      ciphertext: Uint8Array.from(parsed.data.ciphertext),
+      nonce: Uint8Array.from(parsed.data.nonce),
+      tag: Uint8Array.from(parsed.data.tag),
+    };
+    let plaintext: Buffer | undefined;
+    let released = false;
     try {
-      const denial = requireRealm(evidence.receipt);
+      const denial = requireRealm(envelope.receipt);
       if (denial) return denial;
-      const current = input.authority.read(evidence.receipt);
+      const current = input.authority.read(envelope.receipt);
       if (current.kind !== 'current') return current;
-      if (!aad(current.receipt).equals(aad(evidence.receipt)))
+      if (!aad(current.receipt).equals(aad(envelope.receipt)))
         return refused('conflict');
-      const held = material(evidence.receipt.evidenceId);
+      const held = material(envelope.receipt.evidenceId);
       if (!held || materialDigest(held) !== current.keyDigest)
         return refused('uncertain');
       const decipher = createDecipheriv(
         'aes-256-gcm',
         held.key,
-        evidence.nonce,
+        envelope.nonce,
       );
       decipher.setAAD(aad(current.receipt));
-      decipher.setAuthTag(evidence.tag);
-      const plaintext = Buffer.concat([
-        decipher.update(evidence.ciphertext),
-        decipher.final(),
-      ]);
-      if (digest(plaintext) !== current.payloadDigest) {
-        plaintext.fill(0);
+      decipher.setAuthTag(envelope.tag);
+      const produced = decipher.update(envelope.ciphertext);
+      let authenticated: Buffer;
+      try {
+        authenticated = decipher.final();
+      } catch {
+        produced.fill(0);
         return refused('conflict');
       }
-      const latest = input.authority.read(evidence.receipt);
-      if (latest.kind !== 'current') {
-        plaintext.fill(0);
-        return latest;
-      }
+      plaintext = Buffer.concat([produced, authenticated]);
+      produced.fill(0);
+      authenticated.fill(0);
+      if (digest(plaintext) !== current.payloadDigest)
+        return refused('conflict');
+      const latest = input.authority.read(envelope.receipt);
+      if (latest.kind !== 'current') return latest;
+      released = true;
       return { kind: 'opened', plaintext };
     } catch {
       return refused('unavailable');
+    } finally {
+      if (!released) plaintext?.fill(0);
     }
   };
   const revoke: NecessaryEvidenceCustody['revoke'] = async (

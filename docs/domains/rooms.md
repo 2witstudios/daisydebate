@@ -249,9 +249,12 @@ Under DEC-370 and ADR 0119, a dispatched AI job's finite provider window can
 pause into durable recovery without completing the Round. Validated replies
 survive deadlines and takeover; finite automatic spending exhaustion is visible
 as recovery needing attention, never an invented ruling.
-Human judges still rule. Once every human judge has ruled decisively, the
-Round completes without waiting for the AI seats. The receipt records each
-judge seat that gave no ruling.
+Human judges still rule. On an unsupported freeze with no dispatched AI job,
+completed human rulings can finish the Round and the receipt records the AI seats
+that gave no ruling. A dispatched AI judge remains part of the shared panel:
+generating, held-ballot, recovering and blocked obligations still hold completion,
+including on a judgeable incomplete freeze. Human rulings do not discard that
+recoverable seated judgment or reopen a later decided result.
 
 ## Another match
 

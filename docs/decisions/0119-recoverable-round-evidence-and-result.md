@@ -149,6 +149,12 @@ lease expiry and generation deadlines. Preserve a validated response under the
 same rubric/frontier, resubmit idempotently under current authority and attendance
 fences, and never discard it merely because its attempt window ended.
 
+A dispatched AI remains a seated shared-panel obligation when human judges have
+ruled, including on a measured-small-gap incomplete freeze. The existing human
+exception completes an unsupported freeze with no dispatched AI work; it does not
+convert a recoverable/blocked dispatched judge into no ruling. The generating-AI
+panel test already preserves that distinction. No historical result is reopened.
+
 Due STT/judging work needs bounded fair admission, not only a pending row. Order
 by due time and fair Round turn with stable receipt/ID tie-breakers; release
 capacity before backoff. Bound concurrent work globally and per Round. Track
@@ -794,3 +800,20 @@ Production composition remains absent. Durable claims/fair scheduling, dispatch,
 selection, provisional display, qualification, cleanup and genuine played-to-result
 proof are incomplete until separately executed; new metadata alone is no liveness
 or full recognition acceptance.
+
+### Narrow local edge review
+
+Current receipt envelopes retain the accepted exact seven-day original reservation
+span. maxAgeMs is an immutable current policy constant, not a runtime setting;
+changing a lifetime policy requires explicit version/original-receipt treatment,
+not silently reinterpreting old envelopes or relaxing today's edge contract.
+The local authority rejects unsafe lifetime arithmetic before advancing durable
+time. Its injected wall clock remains trusted: a valid large forward step can
+expire earlier material and the adapter cannot distinguish skew from a long outage.
+No automatic clock reset may resurrect original expired/revoked work. Independent
+trustworthy time/restore currentness remains a REL-H infrastructure limitation.
+GCM authentication failure is a conflict, distinct from unavailable custody, and
+transient decrypted buffers are zeroed before refusal. This cannot recall plaintext
+already copied into a caller. lstat rejects dangling material symlinks before
+creation; an owner-only directory is still a local trust boundary, not protection
+against a malicious same-user process racing filesystem checks or host compromise.

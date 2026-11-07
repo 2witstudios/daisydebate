@@ -71,3 +71,49 @@ test('worker discovery reads only routing columns and cannot read payload or acq
       await f.sql`delete from necessary_evidence where id=${id}`;
     }
   }));
+
+test('approved Round deleters retire opaque evidence under their existing invoker rights', () =>
+  withFixture(databaseUrl, async (f) => {
+    const roundId = await f.round(),
+      id = createId();
+    await f.insert('necessary_evidence', {
+      id,
+      round_id: roundId,
+      original_round_id: roundId,
+      session_id: createId(),
+      segment_id: createId(),
+      round_participant_id: createId(),
+      worker_id: createId(),
+      capture_epoch: 1,
+      binding_digest: 'b'.repeat(64),
+      reserved_bytes: 1,
+    });
+    try {
+      const missing =
+        await f.sql`select rolname from pg_roles where not rolsuper and has_table_privilege(oid,'rounds','DELETE') and not has_table_privilege(oid,'necessary_evidence','UPDATE')`;
+      await f.sql.begin(async (tx) => {
+        await tx`set local role daisy_web`;
+        await tx`delete from rounds where id=${roundId}`;
+      });
+      const [row] =
+        await f.sql`select round_id,state,retirement_reason,reserved_bytes from necessary_evidence where id=${id}`;
+      assert({
+        given:
+          'all currently approved non-superuser Round-delete principals and an actual web-role aggregate deletion with an opaque pending intent',
+        should:
+          'retire cleanup routing under existing invoker privileges without adding a speculative SECURITY DEFINER escalation',
+        actual: { missing: Array.from(missing), row },
+        expected: {
+          missing: [],
+          row: {
+            round_id: null,
+            state: 'retiring',
+            retirement_reason: 'erased',
+            reserved_bytes: 0,
+          },
+        },
+      });
+    } finally {
+      await f.sql`delete from necessary_evidence where id=${id}`;
+    }
+  }));
