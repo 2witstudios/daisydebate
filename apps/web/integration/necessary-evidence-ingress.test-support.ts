@@ -117,6 +117,15 @@ async function prepare(f: RoomFixture, maxOutstandingIntents: number) {
   };
 }
 export type EvidenceIngressFixture = Awaited<ReturnType<typeof prepare>>;
+async function dispose(prepared: EvidenceIngressFixture) {
+  prepared.custody.close();
+  prepared.authority.close();
+  await prepared.f
+    .sql`delete from necessary_evidence where original_round_id=${prepared.roundId}`;
+  await prepared.f
+    .sql`delete from outbox where topic=${buildRoundTopic(prepared.roundId)}`;
+  await rm(prepared.dir, { recursive: true, force: true });
+}
 export const withEvidenceIngress = (
   work: (f: EvidenceIngressFixture) => Promise<void>,
   options: { readonly maxOutstandingIntents?: number } = {},
@@ -126,10 +135,30 @@ export const withEvidenceIngress = (
     try {
       await work(prepared);
     } finally {
-      prepared.custody.close();
-      prepared.authority.close();
-      await f.sql`delete from necessary_evidence where original_round_id=${prepared.roundId}`;
-      await f.sql`delete from outbox where topic=${buildRoundTopic(prepared.roundId)}`;
-      await rm(prepared.dir, { recursive: true, force: true });
+      await dispose(prepared);
+    }
+  });
+/** Many independent Rounds share one owning runtime; cohort size never multiplies pools. */
+export const withEvidenceIngressCohort = (
+  work: (create: () => Promise<EvidenceIngressFixture>) => Promise<void>,
+) =>
+  withRoomRuntime(async (f) => {
+    const prepared: EvidenceIngressFixture[] = [];
+    try {
+      await work(async () => {
+        const cast = await f.freshCast();
+        const member = await prepare(
+          {
+            ...f,
+            ...cast,
+            assemble: (overrides) => f.assemble(overrides, cast),
+          },
+          128,
+        );
+        prepared.push(member);
+        return member;
+      });
+    } finally {
+      for (const member of prepared.slice().reverse()) await dispose(member);
     }
   });
