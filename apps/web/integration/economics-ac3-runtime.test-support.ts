@@ -167,6 +167,8 @@ export async function withAc3Runtime(
           ...app,
           database: fixture.store,
           aiVoice: () => observedVoice,
+          // AC2 owns transport qualification; this component never sends an external alert.
+          reporter: { capture: () => undefined },
         };
         const judgeTimers = manualWorkerTimers(),
           analysisTimers = manualWorkerTimers(),
