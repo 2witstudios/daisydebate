@@ -79,7 +79,7 @@ export function createRoundJudgingOperations(input: {
           scope,
           token,
         );
-        // The job may buy no more calls: it has ended failed (ISSUE-461).
+        // This finite window may buy no more calls; durable recovery remains pending.
         if (begun.kind === 'deferred') {
           input.recoveryPending?.(begun.reason);
           return 'concluded';

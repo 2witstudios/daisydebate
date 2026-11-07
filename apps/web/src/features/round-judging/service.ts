@@ -201,7 +201,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
             entry.claim.scope,
             entry.claim.token,
           );
-          // The budget ran out and the job has ended (DEC-275). Cancel the call.
+          // Canonical finality or privacy ended the job. Cancel this operation.
           if (renewed.kind === 'ended') {
             release(entry);
             input.jobEnded?.(renewed.reason);
