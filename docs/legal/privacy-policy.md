@@ -1,6 +1,6 @@
 # Privacy Policy — draft for counsel
 
-**DRAFT, not in force.** Version `draft-2`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app: `/privacy` and `/terms` keep their current text until WAIT-6.2 (owner and counsel) approves this draft and WAIT-6.3 publishes it, together with the clickwrap version.
+**DRAFT, not in force.** Version `draft-3`. This file is the source of truth for the draft (WAIT-6.1); the PageSpace page of the same name mirrors it. It is not served by the app. Publishing this broader draft still waits on WAIT-6.2 (owner and counsel) and WAIT-6.3, together with the clickwrap version. The separately owner-authorized analytics notice update to the served `/privacy` is described under “Analytics publication scope” below; it does not publish this draft.
 
 Placeholders: **[OWNER: …]** is a business fact the owner supplies; **[COUNSEL: …]** is a legal judgment for counsel. Neither may remain in a published version.
 
@@ -86,7 +86,11 @@ Sentry receives our error reports, when error tracking is on: the technical deta
 
 OpenRouter routes speech-to-text and AI requests to the AI models we use. It receives speech clips and anonymised transcripts as described above. [COUNSEL: confirm whether the model providers OpenRouter routes to must be listed individually.]
 
-We do not use advertising, analytics, session-replay or newsletter providers during the beta.
+When optional analytics is enabled and you opt in, PostHog processes bounded product usage and playback-quality facts in the United States, using a random browser identifier or your account identifier. These facts cover product areas visited, Room creation and rematches, analytics consent changes, and broadcast or recording player type, time to start, buffering time, time watched and video height. They do not include names, usernames, emails, debate content, the identity of what you watched, raw URLs, referrers or form contents. PostHog receives connection metadata; location enrichment and automatic click capture are disabled. Session replay stays disabled. We use analytics to understand product use and playback quality, on your consent, which you can refuse or withdraw at /analytics or in Settings. Not answering counts as no.
+
+The owner selected the existing 2witstudios Default project 699106, US Cloud, Free plan (1M events/month), with one-year event retention, on 2026-11-06. This records configuration selection, not live activation. [COUNSEL: review transfer safeguards and processing terms under PRIV-H. The DPA is not executed; the form requires company name, registered address and signer email from the human operator. No execution or legal approval is claimed.]
+
+We do not use advertising, session-replay or newsletter providers during the beta.
 
 These providers are based in the United States, so your data is transferred to and processed in the United States. [COUNSEL: name the transfer safeguard relied on for each provider, such as the EU-US Data Privacy Framework or standard contractual clauses, and confirm data processing agreements are in place.]
 
@@ -134,7 +138,9 @@ For as long as a tab stays open, your browser keeps the ids of challenge rooms t
 
 Your browser also keeps copies of unsaved edits to your documents in its local storage, not in a cookie, so unsaved work can be recovered. Each copy is deleted seven days after it was saved, or sooner when you sign out, close your account from this browser, or another account signs in here. If your session simply expires the copies stay in this browser, hidden, until you return or they expire. [COUNSEL: confirm this description and the retention for a shared computer; the owner's decision is DEC-290.]
 
-We use no advertising or analytics cookies and no other tracking technologies, and we do not set a cookie that carries a chosen username between pages. [COUNSEL: confirm that no consent banner is required for this set of cookies.]
+Consent cookie: records this browser's analytics answer. Strictly necessary, HttpOnly, lasts 180 days. Account consent is stored until account erasure. Analytics identity cookies are set only after opt-in, with a one-year SDK expiry; browser storage also holds consent/identity synchronization and SDK session state. Signing out resets analytics identity but preserves this browser's consent. A newly signed-in account without a recorded choice adopts the browser choice; an existing account choice takes priority. [COUNSEL: review device-scoped consent adoption before activation (PRIV-H).]
+
+We use no advertising cookies. Withdrawing analytics stops future capture and clears browser analytics identity. Signed-in withdrawal or account closure queues deletion of linked PostHog data; outages are retried and physical deletion is asynchronous. Earlier unlinked anonymous events expire under the selected one-year vendor retention. Local account erasure does not wait for the vendor.
 
 ## Your rights
 
@@ -160,14 +166,14 @@ The draft describes the beta as the code behaves on main after #471, not as a pl
 - **No re-acceptance on a new version, and the privacy version is not recorded:** [ISSUE-720](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ka7qt1wj6nwde0k8agw3ok4c).
 - **Provisional accounts are never purged:** [ISSUE-721](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/bz2ejqkv8jkreve7ow1ywq70). The retention section has an [OWNER] placeholder for the period.
 - **Settings privacy, newsletter and ladder controls save nothing:** [ISSUE-722](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/xsj3wvnwe385a3ouh3zabvqw).
-- **Not in the beta, so not in the policy:** a newsletter (beehiiv), analytics and session replay (PostHog), direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on.
+- **Not in the beta, so not in the policy:** a newsletter (beehiiv), direct messages and file attachments (built but switched off). Each needs a policy update before it is turned on. PostHog product analytics is described above as preparation for consented activation; session replay stays disabled.
 - **Error tracking (Sentry) is wired in code, inert without its keys** (ADR 0037), and the draft above now describes it (scrubbed events, `user.id` only). Keys stay off until PRIV-H records the account, region and DPA; the processor row in [compliance](../operations/compliance.md) says the same.
 - **Lawful basis for birth month:** DEC-244 (owner) names legal obligation and contract; the waitlist plan names contract and legitimate interests. The draft states all three with a [COUNSEL] placeholder.
 - **Clickwrap wording:** the sign-up checkbox reads "I agree to the Terms and the Privacy notice", but the terms draft says the privacy policy is not a contract. WAIT-6.3 should make the checkbox "I agree to the Terms of Service and have read the Privacy Policy", and link the page title "Privacy policy" consistently.
 - **Publishing is a material change:** WAIT-6.3 raises the beta floor in the text to 16, adds a content licence, beta withdrawal and username reclaiming. Existing members accepted `draft-0`, so re-acceptance ([ISSUE-720](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/ka7qt1wj6nwde0k8agw3ok4c)) should ship before or with publication.
 - **Build prerequisites before WAIT-6.3 publishes** (moved out of the text; each is tracked):
   - Direct messages, groups and file attachments are built but switched off in the beta; the policy must describe them, with their retention, before they are switched on.
-  - Any newsletter (beehiiv) or analytics or session replay (PostHog) needs a policy update before it is configured. Error tracking (Sentry) now has that policy text in this draft; configuring its keys additionally waits on PRIV-H (account, region, DPA).
+  - Any newsletter (beehiiv) or session replay needs a policy update before it is configured. PostHog product analytics and Sentry error tracking now have disclosure text in this draft; keys still wait on PRIV-H. PostHog DPA execution and transfer safeguards remain outstanding.
   - An operator or self-service entry point for deletion and export (PRIV-4), and the Settings controls the rights section should then point to.
   - Erasure of room titles, topics and resolutions, debate-room documents (ISSUE-383) and judge reasons, so the rights section can promise full deletion.
   - Re-acceptance of a new terms version (ISSUE-720); the terms promise it under “Changes to these terms”.
@@ -175,8 +181,6 @@ The draft describes the beta as the code behaves on main after #471, not as a pl
   - The terms reserve the right to reserve and reclaim usernames and to correct results; neither has a mechanism yet.
   - The documents.test.ts guard (every placeholder is OWNER or COUNSEL, none survives a non-draft version) should come back when WAIT-6.3 imports this text into the app.
 
-## Proposed beta analytics addition — requires counsel approval before activation
+## Analytics publication scope (owner-authorized 2026-11-06)
 
-With your optional consent, PostHog would receive bounded product usage facts (which product area you visit, successful Room creation and rematches) and a pseudonymous browser or account identifier. We would not send names, email addresses, debate content, raw page URLs or form contents as analytics properties. You could reject optional analytics or change your choice at `/analytics`; necessary storage remains enabled. Session replay would remain off. Account analytics deletion would be requested with account erasure. [OWNER: approve and state the PostHog region, organization account and event retention period.] [COUNSEL: approve this addition and reconcile the processor/cookie sections before publication; the preceding exclusion continues to describe the unactivated beta.]
-
-On activation the Cookies section would add these. Consent cookie: records your analytics answer. Strictly necessary, httpOnly, lasts 180 days; a signed-in member's answer is also kept in the account's consent record while the account exists. Analytics cookie: first-party, set in your browser only after you opt in. It holds an identifier, your random account identifier once you are signed in, with session state, and lasts one year. Browser storage: a marker of your answer and account identifier in local storage, whatever you answered, and after opt-in the analytics SDK's opt-in marker and session keys.
+The focused served analytics notice is maintained separately in `apps/web/src/features/legal/documents.ts`, with privacy version `draft-0.3`. It covers the existing adapter and event registry, including playback quality, and must be published before keys enable capture. Owner authorization of that notice does not approve or publish this broader counsel draft. The operational selection and remaining human obligations are recorded in [product analytics](../operations/product-analytics.md) and [compliance](../operations/compliance.md). PRIV-H remains open; no keys or live capture are enabled by the documentation change.

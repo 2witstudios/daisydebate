@@ -6,12 +6,14 @@ deployments do not initialize a vendor SDK or show optional controls.
 
 ## Beta event contract
 
-| Event             | Meaning                                         | Properties                                   |
-| ----------------- | ----------------------------------------------- | -------------------------------------------- |
-| `page_viewed`     | A consented browser enters a known product area | `area`, a closed enum; never a path or query |
-| `room_created`    | The server successfully creates a Room          | none                                         |
-| `room_rematched`  | The server successfully creates a rematch       | none                                         |
-| `consent_updated` | A signed-in account explicitly grants analytics | `replay`, false in this beta                 |
+| Event                | Meaning                                         | Properties                                                                                           |
+| -------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `page_viewed`        | A consented browser enters a known product area | `area`, a closed enum; never a path or query                                                         |
+| `room_created`       | The server successfully creates a Room          | none                                                                                                 |
+| `room_rematched`     | The server successfully creates a rematch       | none                                                                                                 |
+| `consent_updated`    | A signed-in account explicitly grants analytics | `replay`, false in this beta                                                                         |
+| `broadcast_playback` | Consented broadcast playback quality            | `engine` (`hlsjs`/`native`), nonnegative integer `startup_ms`, `rebuffer_ms`, `watched_ms`, `height` |
+| `recording_playback` | Consented recording playback quality            | Same bounded quality fields; no content or Recording ID                                              |
 
 The adapter supplies exactly one `anonymousId` or `userId`; person
 identification uses only the account's cuid2 ID. No names, emails, Room IDs,
@@ -60,7 +62,7 @@ not wait for the vendor; outages leave jobs pending for bounded-backoff retry.
 ## Configuration and activation
 
 The owner supplies these through the platform's secret/configuration store
-after PRIV-H sign-off; never put real values in this document or a PR:
+after PRIV-H sign-off; never put credential values in this document or a PR:
 
 - `NEXT_PUBLIC_POSTHOG_KEY`: public project ingestion token (`phc_…`).
 - `NEXT_PUBLIC_POSTHOG_HOST`: `https://us.i.posthog.com` or
@@ -83,9 +85,35 @@ and legal-policy publication. Retention remains an owner/counsel decision;
 there is no application override of the vendor project's retention setting.
 The served legal text is not silently replaced by this integration.
 
+### Selected live-beta configuration (owner-verified 2026-11-06)
+
+- Organization: **2witstudios**; existing **Default** project **699106**.
+- Region: **US Cloud**, ingestion origin `https://us.i.posthog.com`.
+- Plan: **Free**, **1 million events/month**; selected event retention **one year**.
+- Session replay: **disabled**, regardless of vendor project toggles.
+
+These are the owner's verified setup selections, not evidence of live capture,
+legal approval or deployment. The DPA is **not executed**: the legal form still
+requires the human-supplied company name, registered address and signer email.
+Transfer safeguards and PRIV-H sign-off remain outstanding. Do not close
+PRIV-H or set ingestion/management credentials on the strength of project
+selection alone. The parent activation operator handles scoped-key approval,
+configuration and live verification; this code/documentation PR does none of them.
+
+The served notice is `privacyDocument` in
+`apps/web/src/features/legal/documents.ts`, version `draft-0.3` in
+`versions.ts`. Publish that notice before configuring keys to enable capture.
+The broader [counsel draft](../legal/privacy-policy.md) remains unpublished;
+this focused notice update does not approve that draft or any unrelated legal
+claim. Confirm the selected retention in the vendor project before activation;
+Daisy does not enforce the vendor's retention setting. Anonymous withdrawal
+cannot retroactively erase events that are no longer linked to a browser.
+
 On the approved staging project, accept analytics in a dedicated test account,
-visit home and Rooms, create a Room and rematch it. Verify the four registered
-events, their closed properties and distinct ID in Live Events. Reject
+visit home and Rooms, create a Room and rematch it. Verify the registered page, consent and Room
+events, their closed properties and distinct ID in Live Events. Play a
+broadcast and a recording to verify both playback-quality events against the
+registry, without content identities or media URLs. Reject
 analytics, repeat the journey, and confirm no further capture. Verify
 cross-tab withdrawal, sign-out identity reset and the existing subject-erasure
 job reaching vendor acknowledgement. Never perform this proof with participant
