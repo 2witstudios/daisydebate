@@ -121,7 +121,10 @@ test('the serialized page witness preserves fetch identity and excludes speculat
       script = content;
     },
   } as unknown as import('@playwright/test').Page;
-  const snapshot = await watchRecoveryConsumer(page, 'controlled');
+  const snapshot = await watchRecoveryConsumer(page, {
+    kind: 'conversation',
+    channelId: 'controlled',
+  });
   const response = new Response('actual bytes', {
     headers: { 'x-request-id': 'private-controlled-correlation' },
   });
@@ -142,6 +145,10 @@ test('the serialized page witness preserves fetch identity and excludes speculat
   await invoke('/messages/other', { headers: { rsc: '1' } });
   await invoke('/messages/controlled', {
     headers: { rsc: '1', 'next-router-prefetch': '1' },
+  });
+  await invoke('/messages/controlled', {
+    method: 'POST',
+    headers: { rsc: '1' },
   });
   const selected = {
     headers: () => ({ 'x-request-id': 'private-controlled-correlation' }),
@@ -168,6 +175,72 @@ test('the serialized page witness preserves fetch identity and excludes speculat
       promise: true,
       wrapperInstalled: true,
       target: {
+        sameHttpCorrelation: true,
+        readerOpened: true,
+        eof: true,
+        readRejected: false,
+        readerCancelled: false,
+        bodyCancelled: false,
+        lockReleased: false,
+        signalSupplied: false,
+        signalAborted: false,
+      },
+    },
+  });
+});
+
+test('the same passive witness observes only the accepted Home GET consumer', async () => {
+  const { watchRecoveryConsumer } =
+    await import('../e2e/support/messaging-recovery-consumer');
+  let binding: (id: string, value: Record<string, boolean>) => void = () => {};
+  let script = '';
+  const page = {
+    exposeFunction: async (_name: string, callback: typeof binding) => {
+      binding = callback;
+    },
+    addInitScript: async ({ content }: { content: string }) => {
+      script = content;
+    },
+  } as unknown as import('@playwright/test').Page;
+  const snapshot = await watchRecoveryConsumer(page, { kind: 'shell-home' });
+  const response = new Response('actual Home bytes', {
+    headers: { 'x-request-id': 'private-home-correlation' },
+  });
+  const original = Promise.resolve(response);
+  const browser = {
+    fetch: () => original,
+    __messagingRecoveryConsumer: async (
+      id: string,
+      value: Record<string, boolean>,
+    ) => binding(id, value),
+  };
+  new Function('window', 'location', script)(browser, {
+    href: 'https://example.invalid/messages/controlled',
+  });
+  const invoke = browser.fetch as unknown as typeof fetch;
+  const selected = {
+    headers: () => ({ 'x-request-id': 'private-home-correlation' }),
+  } as unknown as import('@playwright/test').Response;
+  await invoke('/messages/controlled', { headers: { rsc: '1' } });
+  const unrelated = snapshot(selected);
+  const returned = invoke('/', { headers: { rsc: '1' } });
+  await returned;
+  const reader = response.body!.getReader();
+  await reader.read();
+  await reader.read();
+  assert({
+    given: 'an accepted Home RSC GET after unrelated conversation data',
+    should:
+      'observe only its actual decoder EOF without replacing the fetch promise',
+    actual: {
+      unrelated,
+      samePromise: returned === original,
+      result: snapshot(selected),
+    },
+    expected: {
+      unrelated: { sameHttpCorrelation: false },
+      samePromise: true,
+      result: {
         sameHttpCorrelation: true,
         readerOpened: true,
         eof: true,

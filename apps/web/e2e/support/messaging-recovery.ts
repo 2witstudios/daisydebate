@@ -29,6 +29,10 @@ import { boundedStep, STEP_LIMIT_MS } from './bounded-step';
 import { readControlledRefusal } from './messaging-controlled-refusal';
 import { systemClock } from '@daisy/clock';
 import { watchRecoveryConsumer } from './messaging-recovery-consumer';
+import {
+  recordRecoveryPhase,
+  recordRecoveryFailure,
+} from './messaging-recovery-phase';
 import type { Page } from '@playwright/test';
 import { watchRecoveredChannel } from './messaging-recovery-observation';
 import { postMessage } from './messaging-content-requests';
@@ -151,7 +155,10 @@ export function testMessagingRecovery() {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
       await pauseMessagingRecovery(page);
-      const consumer = await watchRecoveryConsumer(page, journey.channelId);
+      const consumer = await watchRecoveryConsumer(page, {
+        kind: 'conversation',
+        channelId: journey.channelId,
+      });
       observer = watchConversationRecovery(page, journey.channelId, consumer);
       await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
@@ -291,6 +298,10 @@ export function testMessagingRecovery() {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
       await pauseMessagingRecovery(page);
+      const consumer = await watchRecoveryConsumer(page, {
+        kind: 'conversation',
+        channelId: journey.channelId,
+      });
       const held = Promise.withResolvers<boolean>();
       const gate = Promise.withResolvers<void>();
       release = gate.resolve;
@@ -330,7 +341,7 @@ export function testMessagingRecovery() {
           remaining,
         );
       });
-      observer = watchConversationRecovery(page, journey.channelId);
+      observer = watchConversationRecovery(page, journey.channelId, consumer);
       await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
@@ -386,6 +397,11 @@ export function testMessagingRecovery() {
         contentType: 'application/json',
         body: JSON.stringify({ changedConversationRender: true }),
       });
+      await recordRecoveryPhase(info, page, observer, {
+        phase: 'unrelated-render-held',
+        response: null,
+        previous: before,
+      });
       await page.clock.fastForward(12000);
       expect(observer.snapshot()).toMatchObject({
         dispatches: 1,
@@ -396,13 +412,23 @@ export function testMessagingRecovery() {
       const deadline = recoveryDeadline();
       deliveryDeadline = deadline;
       release();
+      const step = observer.eventStep();
+      const phase = () => ({
+        phase: 'after-held-predicate' as const,
+        response: observer!.refetchResponses()[0] ?? null,
+        previous: before,
+        timing: { step, deadline },
+      });
       const settled = await settledRefusalResponse(
         page,
         observer,
         1,
         before!,
         deadline,
+      ).catch((error) =>
+        recordRecoveryFailure(info, page, observer!, phase(), error),
       );
+      await recordRecoveryPhase(info, page, observer, phase());
       await driveRefusalDeadlines(page, observer, settled, deadline, 1);
       expect(observer.snapshot()).toMatchObject({
         dispatches: 3,

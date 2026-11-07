@@ -1,4 +1,5 @@
-import type { Page } from '@playwright/test';
+import type { Page, Response } from '@playwright/test';
+import { systemClock } from '@daisy/clock';
 import { expect, test, openPage } from './fixtures';
 import { boundedStep } from './bounded-step';
 import {
@@ -12,6 +13,11 @@ import {
   evidence,
 } from './messaging-recovery-driver';
 import { watchConversationRecovery } from './messaging-recovery-evidence';
+import {
+  recordRecoveryPhase,
+  recordRecoveryFailure,
+} from './messaging-recovery-phase';
+import { watchRecoveryConsumer } from './messaging-recovery-consumer';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { effectsRan } from './hydration';
 
@@ -45,17 +51,36 @@ export function testMessagingRecoveryNavigation() {
   }, info) => {
     const journey = await openMessagingJourney(browser);
     let release = () => {};
+    let unwatchDestination = () => {};
     let observer: ReturnType<typeof watchConversationRecovery> | undefined;
     try {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
       await pause(page);
-      observer = watchConversationRecovery(page, journey.channelId);
+      const consumer = await watchRecoveryConsumer(page, {
+        kind: 'shell-home',
+      });
+      observer = watchConversationRecovery(page, journey.channelId, consumer);
       await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
       const held = await holdDestination(page, '/');
       release = held.release;
+      let destinationResponse: Response | null = null;
+      const destination = (response: Response) => {
+        const request = response.request();
+        if (
+          destinationResponse === null &&
+          request.method() === 'GET' &&
+          new URL(request.url()).pathname === '/' &&
+          isMessagingRefetch(request.headers())
+        ) {
+          destinationResponse = response;
+        }
+      };
+      page.on('response', destination);
+      unwatchDestination = () => page.off('response', destination);
+      const step = observer.eventStep();
       observer.phase('member choice with held destination');
       observer.memberNavigation();
       await page
@@ -71,7 +96,19 @@ export function testMessagingRecoveryNavigation() {
       });
       await control('allow-messaging-reads');
       release();
-      await expect(page).toHaveURL(/\/$/);
+      const deadline = Date.parse(systemClock.now()) + 5000;
+      const phase = () => ({
+        phase: 'after-home-predicate' as const,
+        response: destinationResponse,
+        previous: null,
+        timing: { step, deadline },
+      });
+      try {
+        await expect(page).toHaveURL(/\/$/);
+      } catch (error) {
+        await recordRecoveryFailure(info, page, observer, phase(), error);
+      }
+      await recordRecoveryPhase(info, page, observer, phase());
       await page.clock.fastForward(12000);
       expect(observer.snapshot()).toMatchObject({
         dispatches: 0,
@@ -79,6 +116,7 @@ export function testMessagingRecoveryNavigation() {
       });
       await evidence(info, observer);
     } finally {
+      unwatchDestination();
       release();
       try {
         await control('allow-messaging-reads');
