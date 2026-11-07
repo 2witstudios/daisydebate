@@ -141,3 +141,59 @@ test('each seat offers only the AI actors that may hold it', () => {
     expected: [sideSeats, judgeSeats],
   });
 });
+
+test('seat pickers show the saved occupant and leave empty seats unselected', () => {
+  const actorId = 'd'.repeat(24);
+  const html = renderToStaticMarkup(
+    <AssemblyCast
+      view={{
+        ...assemblySnapshot,
+        participants: [
+          {
+            id: 'p'.repeat(24),
+            actorId,
+            label: 'Saved bot',
+            kind: 'bot',
+            role: 'negative',
+            slot: 0,
+            eligible: true,
+            needsReady: false,
+            ready: 'ready',
+            consentVersion: 0,
+          },
+        ],
+      }}
+      viewer={{
+        actorId: assemblySnapshot.hostActorId,
+        label: assemblySnapshot.hostLabel,
+      }}
+      bots={[
+        {
+          actorId,
+          label: 'Saved bot',
+          kind: 'bot',
+          seatRole: 'debater',
+          eligible: true,
+        },
+      ]}
+      {...nativeIntents}
+    />,
+  );
+  const picker = (id: string) =>
+    html.match(new RegExp(`<select[^>]*id="${id}"[^>]*>(.*?)</select>`))?.[1] ??
+    '';
+  assert({
+    given: 'a saved bot in Negative 1 and an empty Affirmative 1',
+    should:
+      'select the saved bot only in its seat and require an explicit choice for the empty seat',
+    actual: [
+      picker('assign-negative-0').includes(`value="${actorId}" selected=""`),
+      /<option[^>]*value=""[^>]*selected=""/.test(
+        picker('assign-affirmative-0'),
+      ),
+      picker('assign-affirmative-0').includes('Choose participant'),
+      html.includes('required=""'),
+    ],
+    expected: [true, true, true, true],
+  });
+});

@@ -132,147 +132,187 @@ test('native Train Start practice creates a Room and recovers an active Room wit
   }
 });
 
-test('an ordinary host fills side and judge seats with bots through Manage seats, and refusals leave the cast unchanged', async ({
-  browser,
-}, info) => {
-  test.setTimeout(120_000);
-  const hostContext = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-  });
-  const outsiderContext = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-  });
-  try {
-    await resetRateLimits(hostContext.request);
-    await signUpMember(hostContext.request);
-    await signUpMember(outsiderContext.request);
-    const host = await openPage(hostContext, 'Manage host');
-    const outsider = await openPage(outsiderContext, 'Manage outsider');
-    const roster = await readRoomBotRoster(host.request);
-    const debater = roster.find((bot) => bot.seatRole === 'debater');
-    const judge = roster.find((bot) => bot.seatRole === 'judge');
-    let view = await createFromPlay(
-      host,
-      `Manage bots ${createId().slice(0, 8)}`,
-      'value',
-    );
-    await host.getByText('Manage seats', { exact: true }).click();
-    const seatBot = async (seat: string, actorId: string) => {
-      const select = host.getByLabel(`Assign ${seat}`, { exact: true });
-      await select.selectOption(actorId);
-      await select
+for (const javaScriptEnabled of [true, false]) {
+  test(`an ordinary host fills side and judge seats through Manage seats (${javaScriptEnabled ? 'enhanced' : 'native'}), and refusals leave the cast unchanged`, async ({
+    browser,
+  }, info) => {
+    test.setTimeout(120_000);
+    const hostContext = await browser.newContext({
+      javaScriptEnabled,
+      baseURL: origin,
+      ignoreHTTPSErrors: true,
+    });
+    const outsiderContext = await browser.newContext({
+      baseURL: origin,
+      ignoreHTTPSErrors: true,
+    });
+    try {
+      await resetRateLimits(hostContext.request);
+      await signUpMember(hostContext.request);
+      await signUpMember(outsiderContext.request);
+      const host = await openPage(hostContext, 'Manage host');
+      const outsider = await openPage(outsiderContext, 'Manage outsider');
+      const roster = await readRoomBotRoster(host.request);
+      const debater = roster.find((bot) => bot.seatRole === 'debater');
+      const judge = roster.find((bot) => bot.seatRole === 'judge');
+      let view = await createFromPlay(
+        host,
+        `Manage bots ${createId().slice(0, 8)}`,
+        'value',
+      );
+      await host.getByText('Manage seats', { exact: true }).click();
+      await expect(
+        host.getByLabel('Assign Negative 1', { exact: true }),
+      ).toHaveValue('');
+      const seatBot = async (seat: string, actorId: string) => {
+        const select = host.getByLabel(`Assign ${seat}`, { exact: true });
+        if (!(await select.isVisible()))
+          await host.getByText('Manage seats', { exact: true }).click();
+        await select.selectOption(actorId);
+        await select
+          .locator('..')
+          .getByRole('button', { name: 'Assign', exact: true })
+          .click();
+        await expect(async () => {
+          view = await reread(host.request, view.id);
+          expect(seated(view, actorId) !== undefined).toBe(true);
+        }).toPass({ timeout: 10_000 });
+        await expect(select).toHaveValue(actorId);
+      };
+      await seatBot('Negative 1', debater!.actorId);
+      await seatBot('Judge 1', judge!.actorId);
+      // A form answer and a reload must both keep the saved picker value.
+      await expect(
+        host.getByLabel('Assign Negative 1', { exact: true }),
+      ).toHaveValue(debater!.actorId);
+      const hostId = view.hostActorId;
+      if (!hostId) throw new Error('Host identity was redacted to itself');
+      await seatBot('Affirmative 1', hostId);
+      const occupiedPicker = host.getByLabel('Assign Negative 1', {
+        exact: true,
+      });
+      if (!(await occupiedPicker.isVisible()))
+        await host.getByText('Manage seats', { exact: true }).click();
+      await occupiedPicker.selectOption(hostId);
+      await occupiedPicker
         .locator('..')
         .getByRole('button', { name: 'Assign', exact: true })
         .click();
-      await expect(async () => {
-        view = await reread(host.request, view.id);
-        expect(seated(view, actorId) !== undefined).toBe(true);
-      }).toPass({ timeout: 10_000 });
-    };
-    await seatBot('Negative 1', debater!.actorId);
-    await seatBot('Judge 1', judge!.actorId);
-    // The cast is durable: a reload still shows both bots seated.
-    await host.reload();
-    view = await reread(host.request, view.id);
-    expect(seated(view, debater!.actorId)).toMatchObject({
-      role: 'negative',
-      slot: 0,
-    });
-    expect(seated(view, judge!.actorId)).toMatchObject({
-      role: 'judge',
-      slot: 0,
-    });
-    const castOf = (v: RoomView) =>
-      v.participants
-        .filter(isNamedSeat)
-        .map((p) => [p.actorId, p.role, p.slot])
-        .sort();
-    const managed = await reread(host.request, view.id);
-    // A nonhost commands nothing here.
-    const nonhost = await deniedCommand(outsider.request, view, {
-      type: 'assign-seat',
-      actorId: debater!.actorId,
-      role: 'affirmative',
-      slot: 0,
-    });
-    expect(nonhost.status()).toBe(403);
-    // A bot debater never judges (ISSUE-750).
-    const wrongRole = await deniedCommand(host.request, view, {
-      type: 'assign-seat',
-      actorId: debater!.actorId,
-      role: 'judge',
-      slot: 0,
-    });
-    expect(wrongRole.status()).toBe(409);
-    expect(((await wrongRole.json()) as { refusal: string }).refusal).toBe(
-      'actor-ineligible',
-    );
-    expect(castOf(await reread(host.request, view.id))).toEqual(
-      castOf(managed),
-    );
-    // Ranked play admits no bot debater; the refusal is visible and the cast
-    // stays exactly as the host left it.
-    await new Promise<void>((resolve, reject) =>
-      execFile(
-        'bun',
-        [
-          fileURLToPath(
-            new URL('./support/rating-season-worker.ts', import.meta.url),
-          ),
-        ],
-        { timeout: 20_000 },
-        (error) =>
-          error ? reject(new Error('Season setup refused')) : resolve(),
-      ),
-    );
-    await host.request.post(`/api/rooms/${view.id}/commands`, {
-      headers: { origin },
-      data: {
-        type: 'close',
-        commandId: createId(),
-        expectedVersion: view.version,
-      },
-    });
-    await host.goto('/play/room');
-    const rankedView = await submitCreateRoom(
-      host,
-      `Ranked bots ${createId().slice(0, 8)}`,
-      'value',
-      true,
-    );
-    const rankedCast = await host.request.post(
-      `/api/rooms/${rankedView.id}/commands`,
-      {
+      await expect(host.getByRole('alert')).toContainText(
+        'That seat is unavailable',
+      );
+      if (javaScriptEnabled) await expect(occupiedPicker).toHaveValue(hostId);
+      expect(
+        seated(await reread(host.request, view.id), debater!.actorId)?.role,
+      ).toBe('negative');
+      // The cast is durable: a reload still shows both bots seated.
+      await host.reload();
+      await host.getByText('Manage seats', { exact: true }).click();
+      await expect(
+        host.getByLabel('Assign Negative 1', { exact: true }),
+      ).toHaveValue(debater!.actorId);
+      await expect(
+        host.getByLabel('Assign Judge 1', { exact: true }),
+      ).toHaveValue(judge!.actorId);
+      view = await reread(host.request, view.id);
+      expect(seated(view, debater!.actorId)).toMatchObject({
+        role: 'negative',
+        slot: 0,
+      });
+      expect(seated(view, judge!.actorId)).toMatchObject({
+        role: 'judge',
+        slot: 0,
+      });
+      const castOf = (v: RoomView) =>
+        v.participants
+          .filter(isNamedSeat)
+          .map((p) => [p.actorId, p.role, p.slot])
+          .sort();
+      const managed = await reread(host.request, view.id);
+      // A nonhost commands nothing here.
+      const nonhost = await deniedCommand(outsider.request, view, {
+        type: 'assign-seat',
+        actorId: debater!.actorId,
+        role: 'affirmative',
+        slot: 0,
+      });
+      expect(nonhost.status()).toBe(403);
+      // A bot debater never judges (ISSUE-750).
+      const wrongRole = await deniedCommand(host.request, view, {
+        type: 'assign-seat',
+        actorId: debater!.actorId,
+        role: 'judge',
+        slot: 0,
+      });
+      expect(wrongRole.status()).toBe(409);
+      expect(((await wrongRole.json()) as { refusal: string }).refusal).toBe(
+        'actor-ineligible',
+      );
+      expect(castOf(await reread(host.request, view.id))).toEqual(
+        castOf(managed),
+      );
+      // Ranked play admits no bot debater; the refusal is visible and the cast
+      // stays exactly as the host left it.
+      await new Promise<void>((resolve, reject) =>
+        execFile(
+          'bun',
+          [
+            fileURLToPath(
+              new URL('./support/rating-season-worker.ts', import.meta.url),
+            ),
+          ],
+          { timeout: 20_000 },
+          (error) =>
+            error ? reject(new Error('Season setup refused')) : resolve(),
+        ),
+      );
+      await host.request.post(`/api/rooms/${view.id}/commands`, {
         headers: { origin },
         data: {
-          type: 'assign-seat',
+          type: 'close',
           commandId: createId(),
-          expectedVersion: rankedView.version,
-          actorId: debater!.actorId,
-          role: 'affirmative',
-          slot: 0,
+          expectedVersion: view.version,
         },
-      },
-    );
-    expect(rankedCast.status()).toBe(409);
-    expect(((await rankedCast.json()) as { refusal: string }).refusal).toBe(
-      'actor-ineligible',
-    );
-    const after = await reread(host.request, rankedView.id);
-    // The refusal leaves the ranked cast exactly as it was: empty.
-    expect(after.participants).toHaveLength(0);
-    await info.attach('manage-seats-evidence', {
-      body: JSON.stringify({
-        candidate: process.env.GIT_COMMIT,
-        roomId: view.id,
-        rankedId: rankedView.id,
-      }),
-      contentType: 'application/json',
-    });
-  } finally {
-    await hostContext.close();
-    await outsiderContext.close();
-  }
-});
+      });
+      await host.goto('/play/room');
+      const rankedView = await submitCreateRoom(
+        host,
+        `Ranked bots ${createId().slice(0, 8)}`,
+        'value',
+        true,
+      );
+      const rankedCast = await host.request.post(
+        `/api/rooms/${rankedView.id}/commands`,
+        {
+          headers: { origin },
+          data: {
+            type: 'assign-seat',
+            commandId: createId(),
+            expectedVersion: rankedView.version,
+            actorId: debater!.actorId,
+            role: 'affirmative',
+            slot: 0,
+          },
+        },
+      );
+      expect(rankedCast.status()).toBe(409);
+      expect(((await rankedCast.json()) as { refusal: string }).refusal).toBe(
+        'actor-ineligible',
+      );
+      const after = await reread(host.request, rankedView.id);
+      // The refusal leaves the ranked cast exactly as it was: empty.
+      expect(after.participants).toHaveLength(0);
+      await info.attach('manage-seats-evidence', {
+        body: JSON.stringify({
+          candidate: process.env.GIT_COMMIT,
+          roomId: view.id,
+          rankedId: rankedView.id,
+        }),
+        contentType: 'application/json',
+      });
+    } finally {
+      await hostContext.close();
+      await outsiderContext.close();
+    }
+  });
+}
