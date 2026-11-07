@@ -13,6 +13,10 @@ import { claim, startRoundInBrowser } from './room-launch-flow';
 import { countMediaAdmissions, expectConnected } from './round-media';
 import { createMemberDocument } from './live-room-documents';
 import { forfeitOwnSeat, settleLeftRounds } from './settle-left-round';
+import {
+  proveFloorOlderDraft,
+  revealFloorMessage,
+} from './round-floor-pagination';
 import { proveFloorControlFocus } from './round-floor-controls';
 import { proveFloorResilience } from './round-floor-resilience';
 
@@ -444,6 +448,14 @@ export function testRoundFloorLive() {
       ).toEqual([draft, second, first]);
       await proveFloorControlFocus(host, peer);
       await proveFloorResilience({ host, peer, roundId, channelId });
+      const retainedOwnText = await proveFloorOlderDraft({
+        host,
+        peer,
+        roundId,
+        channelId,
+        ownText: first,
+        peerText: draft,
+      });
       // The durable document remains the same entity after all floor mutations.
       expect(document.id).toMatch(/^[a-z0-9]{24}$/);
       await expect(editor).toHaveAttribute(
@@ -457,7 +469,8 @@ export function testRoundFloorLive() {
       );
       for (const page of [host, peer]) {
         await page.goto(`/rounds/${roundId}/floor`);
-        await expect(message(page, first)).toBeVisible();
+        await revealFloorMessage(page, retainedOwnText);
+        await expect(message(page, retainedOwnText)).toBeVisible();
         await expect(message(page, second)).toBeVisible();
         await expect(message(page, draft)).toBeVisible();
         await expect(

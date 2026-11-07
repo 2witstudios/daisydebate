@@ -35,8 +35,12 @@ export function FloorMessageControls({
   reportAction,
   onSent,
   returnFocusId,
+  keepDraft,
+  releaseDraft,
 }: {
   readonly returnFocusId: string;
+  readonly keepDraft?: () => void;
+  readonly releaseDraft?: () => void;
   readonly messageId: string;
   readonly text: string;
   readonly own: boolean;
@@ -66,10 +70,23 @@ export function FloorMessageControls({
   useEffect(() => {
     if (answer.sent && answer !== seen.current) {
       seen.current = answer;
+      if (kind === 'remove') releaseDraft?.();
       onSent(answer.sent);
     }
-  }, [answer, onSent]);
+  }, [answer, onSent, kind, releaseDraft]);
   const removing = useRef(false);
+  const form = useRef<HTMLFormElement>(null);
+  const ownedFocus = useRef(false);
+  useEffect(() => {
+    if (!locked || !ownedFocus.current) return;
+    if (
+      document.activeElement === document.body ||
+      form.current?.contains(document.activeElement)
+    )
+      document.getElementById(returnFocusId)?.focus();
+    ownedFocus.current = false;
+  }, [locked, returnFocusId]);
+
   useEffect(
     () => () => {
       if (removing.current && document.activeElement === document.body)
@@ -85,22 +102,50 @@ export function FloorMessageControls({
     (kind === 'report' && answer.sent ? 'Report received.' : null);
   useFocusAfterAnswer(
     answer,
-    notice
-      ? noticeId
-      : kind === 'remove'
-        ? returnFocusId
-        : kind === 'edit'
-          ? fieldId
-          : submitId,
+    locked
+      ? returnFocusId
+      : notice
+        ? noticeId
+        : kind === 'remove'
+          ? returnFocusId
+          : kind === 'edit'
+            ? fieldId
+            : submitId,
     !pending,
   );
   const seed = floorEditSeed(answer, { text, changeVersion }, dirty);
   return (
-    <details className="text-sm">
-      <summary className="cursor-pointer">
+    <details
+      className="text-sm"
+      onToggle={(event) => {
+        const hasDraft =
+          dirty?.requestId === answer.requestId ||
+          pending ||
+          answer.uncertain ||
+          answer.notice;
+        if (own && !event.currentTarget.open && !hasDraft) releaseDraft?.();
+      }}
+    >
+      <summary
+        className="cursor-pointer"
+        onClick={() => {
+          if (own) keepDraft?.();
+        }}
+      >
         {own ? 'Message options' : 'Report message'}
       </summary>
       <form
+        ref={form}
+        onFocusCapture={() => {
+          ownedFocus.current = true;
+        }}
+        onBlurCapture={(event) => {
+          if (
+            event.relatedTarget &&
+            !event.currentTarget.contains(event.relatedTarget as Node)
+          )
+            ownedFocus.current = false;
+        }}
         action={post}
         onSubmit={() => {
           removing.current = kind === 'remove';

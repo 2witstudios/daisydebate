@@ -1,12 +1,25 @@
 'use client';
 import { idSchema } from '@daisy/protocol';
 import { FloorComposer } from './composer';
-import { FloorMessageControls } from './message-controls';
+import { FloorMessages } from './floor-messages';
 import { useFloorChat, type FloorChatProps } from './use-floor-chat';
 export type { FloorChatProps } from './use-floor-chat';
 const buttonClass =
   'min-h-room-target cursor-pointer rounded-sm border border-border px-3 text-sm font-strong disabled:opacity-60';
-export function FloorChat({
+export function FloorChat(
+  props: FloorChatProps & {
+    readonly active?: boolean;
+    readonly onUnread?: ((count: number) => void) | undefined;
+  },
+) {
+  return (
+    <BoundFloorChat
+      key={`${props.roundId}:${props.actorId}:${props.socketUrl ?? ''}`}
+      {...props}
+    />
+  );
+}
+function BoundFloorChat({
   active = true,
   onUnread,
   ...props
@@ -24,7 +37,7 @@ export function FloorChat({
     live,
     hidden,
     history,
-    renderedMessages,
+    messages,
     expired,
     locked,
     initial,
@@ -75,64 +88,22 @@ export function FloorChat({
             {paging ? 'Loading…' : 'Older messages'}
           </button>
         ) : null}
-        {
-          <ol
-            aria-label="Floor messages"
-            className="flex flex-col gap-3"
+        {channelId ? (
+          <FloorMessages
+            key={channelId}
+            channelId={channelId}
+            actorId={props.actorId}
+            roundId={props.roundId}
+            messages={messages}
+            authors={page?.authors ?? []}
             hidden={hidden || expired}
-          >
-            {[...renderedMessages].reverse().map((message) => (
-              <li
-                key={message.id}
-                className="rounded-sm bg-surface-raised p-3 text-sm"
-              >
-                {'unavailable' in message ? (
-                  <p className="text-ink-muted">Message removed.</p>
-                ) : (
-                  <>
-                    {!hidden && !expired ? (
-                      <>
-                        <p className="font-strong">
-                          {message.authorActorId === props.actorId
-                            ? 'You'
-                            : (page?.authors.find(
-                                (author) =>
-                                  author.actorId === message.authorActorId,
-                              )?.label ?? 'Member')}
-                        </p>
-                        <p className="wrap-anywhere whitespace-pre-wrap">
-                          {message.text}
-                        </p>
-                        {message.editedAt ? (
-                          <span className="text-xs text-ink-muted">Edited</span>
-                        ) : null}
-                      </>
-                    ) : null}
-                    <FloorMessageControls
-                      messageId={message.id}
-                      returnFocusId={`floor-message-${props.roundId}`}
-                      changeVersion={message.changeVersion}
-                      text={message.text}
-                      own={message.authorActorId === props.actorId}
-                      locked={hidden || expired}
-                      editingLocked={locked}
-                      maxUnits={page?.bounds.messageUnits ?? 4000}
-                      mutateAction={props.mutateAction.bind(
-                        null,
-                        message.channelId,
-                      )}
-                      reportAction={props.reportAction.bind(
-                        null,
-                        message.channelId,
-                      )}
-                      onSent={refresh}
-                    />
-                  </>
-                )}
-              </li>
-            ))}
-          </ol>
-        }
+            locked={locked}
+            maxUnits={page?.bounds.messageUnits ?? 4000}
+            mutateAction={props.mutateAction}
+            reportAction={props.reportAction}
+            refresh={refresh}
+          />
+        ) : null}
       </div>
       {props.readOnlyHint ||
       (state.kind === 'ready' && state.metadata.readOnly) ? (

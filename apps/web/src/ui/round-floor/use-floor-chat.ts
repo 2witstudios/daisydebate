@@ -213,12 +213,6 @@ export function useFloorChat({
   const { messages, before } = history
     ? floorPagedHistory(history, older)
     : { messages: [], before: null };
-  const retainedDrafts =
-    page?.history.messages.filter(
-      (message) =>
-        !('unavailable' in message) && message.authorActorId === props.actorId,
-    ) ?? [];
-  const renderedMessages = hidden || expired ? retainedDrafts : messages;
   const unread = floorUnread(messages, readSequence, props.actorId);
   useEffect(() => {
     onUnread?.(unread);
@@ -321,7 +315,7 @@ export function useFloorChat({
     live,
     hidden,
     history,
-    renderedMessages,
+    messages,
     expired,
     locked,
     initial,
