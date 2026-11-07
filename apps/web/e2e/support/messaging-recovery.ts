@@ -23,13 +23,10 @@ import {
 } from './messaging-recovery-clock';
 import { awaitMessagingOperations } from './messaging-completed-operations';
 import { committedRefusalState } from './messaging-committed-refusal';
-import {
-  hasAdvisedConversationBoundary,
-  advisedRecoveryResponse,
-} from './messaging-refusal-flight';
 import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
-import { boundedStep } from './bounded-step';
+import { boundedStep, STEP_LIMIT_MS } from './bounded-step';
+import { readControlledRefusal } from './messaging-controlled-refusal';
 import { systemClock } from '@daisy/clock';
 import { watchRecoveryConsumer } from './messaging-recovery-consumer';
 import type { Page } from '@playwright/test';
@@ -177,27 +174,11 @@ export function testMessagingRecovery() {
         await boundedStep(
           'the actual controlled refusal delivery',
           async () => {
-            const response = await route.fetch({
-              timeout: budget,
-              maxRetries: 0,
-              maxRedirects: 0,
-            });
-            const advice = advisedRecoveryResponse({
-              status: response.status(),
-              contentType: response.headers()['content-type'] ?? '',
-              payload: await response.text(),
-            });
-            await info.attach('controlled-refusal-response-safe', {
-              contentType: 'application/json',
-              body: JSON.stringify({
-                outerStatus: response.status(),
-                advisedFlight: advice !== null,
-              }),
-            });
-            if (advice === null)
-              throw new Error(
-                'Controlled recovery did not receive an advised Flight response',
-              );
+            const { response } = await readControlledRefusal(
+              route,
+              info,
+              budget,
+            );
             observer!.includeResponse(response.headers()['x-request-id']);
             await route.fulfill({ response });
           },
@@ -314,15 +295,40 @@ export function testMessagingRecovery() {
       const gate = Promise.withResolvers<void>();
       release = gate.resolve;
       let captured = false;
+      let deliveryDeadline: number | null = null;
       await page.route(`**/messages/${journey.channelId}?*`, async (route) => {
-        if (captured || !isMessagingRefetch(route.request().headers()))
+        if (
+          route.request().method() !== 'GET' ||
+          !isMessagingRefetch(route.request().headers())
+        )
           return route.continue();
+        const first = !captured;
         captured = true;
-        const response = await route.fetch();
+        const budget =
+          deliveryDeadline === null
+            ? STEP_LIMIT_MS
+            : deliveryDeadline - Date.parse(systemClock.now());
+        const { response, advice } = await readControlledRefusal(
+          route,
+          info,
+          budget,
+        );
         observer!.includeResponse(response.headers()['x-request-id']);
-        held.resolve(hasAdvisedConversationBoundary(await response.text()));
-        await gate.promise;
-        await route.fulfill({ response });
+        if (first) {
+          held.resolve(advice !== null);
+          await gate.promise;
+        }
+        if (deliveryDeadline === null) return route.abort();
+        const remaining = deliveryDeadline - Date.parse(systemClock.now());
+        if (remaining <= 0)
+          throw new Error(
+            'Held recovery delivery exceeded its existing10s budget',
+          );
+        await boundedStep(
+          'the controlled refusal delivery after release',
+          () => route.fulfill({ response }),
+          remaining,
+        );
       });
       observer = watchConversationRecovery(page, journey.channelId);
       await control('refuse-messaging-history', journey.pressureSelectors);
@@ -388,6 +394,7 @@ export function testMessagingRecovery() {
       });
       observer.phase('held refusal released in place');
       const deadline = recoveryDeadline();
+      deliveryDeadline = deadline;
       release();
       const settled = await settledRefusalResponse(
         page,
