@@ -18,7 +18,7 @@ import {
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
 
 type RoomFixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
-async function prepare(f: RoomFixture) {
+async function prepare(f: RoomFixture, maxOutstandingIntents: number) {
   const assembled = await f.assemble();
   const launched = await f.command(f.host, assembled, { type: 'start-round' });
   const roundId = launched.view.roundRef!.id;
@@ -48,7 +48,7 @@ async function prepare(f: RoomFixture) {
       nextToken: () => randomBytes(32).toString('base64url'),
       maxRoundBytes: 1024 * 1024,
       maxGlobalBytes: 4 * 1024 * 1024,
-      maxOutstandingIntents: 128,
+      maxOutstandingIntents,
     },
   });
   await capture.claimMediaWorkerLease({
@@ -119,9 +119,10 @@ async function prepare(f: RoomFixture) {
 export type EvidenceIngressFixture = Awaited<ReturnType<typeof prepare>>;
 export const withEvidenceIngress = (
   work: (f: EvidenceIngressFixture) => Promise<void>,
+  options: { readonly maxOutstandingIntents?: number } = {},
 ) =>
   withRoomRuntime(async (f) => {
-    const prepared = await prepare(f);
+    const prepared = await prepare(f, options.maxOutstandingIntents ?? 128);
     try {
       await work(prepared);
     } finally {
