@@ -307,7 +307,7 @@ type RoomMutation = {
     readonly commandId: string;
   } | null;
   readonly freeze: boolean;
-  /** A freeze seating a bot debater: it spends the host's allowance (DEC-186) and takes a capacity slot (ADR 0058). */
+  /** Bot-debater admission/allowance (ADR 0117) and capacity (ADR 0058); a judge has separate usage accounting. */
   readonly seatsBotDebater: boolean;
   readonly publishDefinition: boolean;
   /** The draw a Start round creates with its Round, secrets never delivered. */

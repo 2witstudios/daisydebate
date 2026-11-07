@@ -130,7 +130,7 @@ test('concurrent refund attempts after a Round ended refund the practice exactly
   });
 });
 
-test('the free AI judge never decides the bot-debater refund (DEC-186)', async () => {
+test('the AI judge never decides the separate bot-debater refund (ADR 0117)', async () => {
   const outcomes: Record<string, boolean> = {};
   for (const bot of ['failed', 'unknown'] as const)
     await withGeneration(async (generation) => {
