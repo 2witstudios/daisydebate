@@ -339,7 +339,7 @@ test('floor subject export and erasure preserve the other debater contribution',
       assert({
         given: 'ordinary subject erasure after the export',
         should: 'scrub the subject while preserving the other debater text',
-        actual: rows.map((row) => row.text),
+        actual: rows.map((row: { text: string | null }) => row.text),
         expected: [null, 'Keep the other debater contribution'],
       });
     } finally {
