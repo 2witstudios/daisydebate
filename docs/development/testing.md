@@ -87,9 +87,13 @@ enforces the ADR-linked, time-bounded exception registry.
    sessions and canonical authorization. Explicit isolated test policy evidence
    is supplied through the public auth testing seam; production has no default.
    WebSocket events prompt protected HTTP reads. The default Chromium profile
-   excludes these two suites, while the same native CI job runs each dedicated
-   profile and enforces its reporter count before sanitizing artifacts. Separate
-   output directories preserve reports and traces from earlier profiles.
+   excludes these two suites. The native CI matrix runs each full Launch,
+   generic realtime and Messaging profile on its own worker and derived slot,
+   retaining the70min job cap with fail-fast disabled. Each cohort enforces its
+   reporter count and sanitizes/uploads its uniquely named artifacts before any
+   unrelated cohort can exhaust a shared budget. The required native gate
+   requires success of the entire matrix. Separate output directories preserve
+   the profiles' reports and traces; sanitizer failure still refuses upload.
    The Messaging profile uses full Chromium and a local TLS edge to the actual
    LiveKit SFU for Round-floor continuity: prep publishes no media; after prep,
    the same live stream/track objects must survive incoming messages. Its floor
