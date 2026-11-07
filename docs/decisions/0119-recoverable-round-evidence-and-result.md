@@ -238,3 +238,49 @@ For a finite bounded admitted population this establishes traversal progress
 under repeated calls, not a wall-clock deletion promise. A running scheduler,
 per-ID payload compensation, crash recovery and load qualification are still
 required before claiming prompt eventual cleanup in the integrated feature.
+
+## Receipt admission and erasure ordering before payload integration
+
+Before the FIRST side-effectful custody request, commit a stable evidence intent
+and cleanup-routing obligation through the existing bounded PostgreSQL pool.
+Stable identity without this crash-discovery row is insufficient. Intent ownership
+is leased/fenced; a successor may reconcile/retire it, never invent original PCM
+or rewrite original capture authorization. The routing identity/tombstone survives
+Round aggregate erasure until custody revocation and payload deletion are confirmed.
+A crash after acquire but before payload commit is therefore discoverable. Reconcile
+unknown payload commits under that SAME ID before revoking; never mint replacement
+key/identity/expiry on lost acknowledgements. Unknown/unavailable custody keeps an
+explicit bounded due-work obligation, not a silently discarded orphan.
+
+Application privacy revocation linearizes at the committed PostgreSQL evidence
+fence under the existing Round lock. EVERY application revoker commits that fence
+before custody revocation. Receipt/settlement/freeze share that lock and current
+fence, preventing a late callback from adopting or submitting erased content.
+Sample authoritative database time AFTER relevant lock/admission waits immediately
+before the accepted durable mutation; original expiry bounds that admission instant.
+Do not label a pre-wait timestamp as commit time or imply a stronger distributed
+transaction than exists.
+
+A current custody read authorizes an admission/dispatch; it cannot atomically
+serialize an independent out-of-band SQLite revocation with a later PostgreSQL
+commit. External custody loss refuses future admission and dispatch. Already
+authorized processing may still be in flight and cannot be recalled; future
+application writes retain the PostgreSQL fence/receipt/expiry checks. Supported
+selective restore must additionally reconcile latest independent custody before
+accepting old pending rows or callbacks already holding plaintext. Test an older
+PG pending/tombstone-free snapshot against current revoked/expired authority and
+held-plaintext settlement. All-authority rollback remains explicitly unsupported
+and BLOCKED under REL-H. No implementation/proof PASS follows from this contract.
+
+The canonical frame clock now exposes a copied original mapping basis: raw native
+sequence/callback bracket, run's original calibration and first callback, the
+original predecessor and the computed window. Capture staging retains that basis
+with the frame even if admission waits for newer history. Refresh does not replace
+an existing run's calibration; a gap/reset retains its original predecessor and
+new anchor. Invalid callbacks expose no stale basis. This is read-only observation
+provenance, not a competitive receipt, admission, peer-hearing fact or independent
+proof of cross-run continuity. Stored original authority/history still has to be
+bound and checked at receipt before carry/WAV release and used unchanged by replay.
+The old PCM-only memory accounting is not a total heap/provenance bound: include
+encoded provenance, staging overhead, WAL and custody load in capacity qualification
+before claiming the declared workload or protected-time targets.

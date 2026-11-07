@@ -1,4 +1,7 @@
-import { createTrackClocks } from '@daisy/media/observation';
+import {
+  createTrackClocks,
+  type FrameClockEvidence,
+} from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import type { cutCaptureClips } from './capture-clips';
 import {
@@ -12,6 +15,7 @@ type Raw = Parameters<
   Parameters<typeof createAudioSubscription>[0]['onFrame']
 >[0];
 export type StagedFrame = {
+  readonly clockEvidence: FrameClockEvidence;
   readonly seat: string;
   readonly segmentId: string;
   readonly frame: Parameters<typeof cutCaptureClips>[0]['frames'][number];
@@ -53,9 +57,17 @@ export function createCaptureStaging(input: {
     input.dropped(excess);
   };
   type Window = NonNullable<ReturnType<typeof clocks.observe>>;
-  type Waiting = { readonly raw: Raw; readonly window: Window };
+  type Waiting = {
+    readonly raw: Raw;
+    readonly window: Window;
+    readonly clockEvidence: FrameClockEvidence;
+  };
   let waiting: Waiting[] = [];
-  const admit = ({ raw, window }: Waiting): StagedFrame | null => {
+  const admit = ({
+    raw,
+    window,
+    clockEvidence,
+  }: Waiting): StagedFrame | null => {
     const current = input.current();
     const peer = current.state.participants.find(
       (p) => p.identity === raw.identity,
@@ -75,6 +87,7 @@ export function createCaptureStaging(input: {
       return null;
     }
     return {
+      clockEvidence,
       seat: peer.roundParticipantId,
       segmentId: current.state.segment.id,
       frame: {
@@ -99,9 +112,14 @@ export function createCaptureStaging(input: {
         input.dropped(1);
         return null;
       }
-      const frame = admit({ raw, window });
+      const clockEvidence = clocks.evidence(raw.trackId);
+      if (!clockEvidence) {
+        input.dropped(1);
+        return null;
+      }
+      const frame = admit({ raw, window, clockEvidence });
       if (!frame) {
-        waiting.push({ raw, window });
+        waiting.push({ raw, window, clockEvidence });
         const excess = waiting.length - MAX_WAITING_FRAMES;
         if (excess > 0) {
           waiting = waiting.slice(excess);

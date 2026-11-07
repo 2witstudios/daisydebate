@@ -1,3 +1,4 @@
+import { clockEvidenceForFrame } from './capture-frame.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   flushClipCarry,
@@ -54,17 +55,20 @@ const staged = (
   nominalStartMs: number,
   beforeMs: number,
   afterMs: number,
-): StagedFrame => ({
-  seat,
-  segmentId,
-  frame: {
-    pcm: new Int16Array(160),
-    trackId: 'track',
-    nominalStartMs,
-    beforeMs,
-    afterMs,
-  },
-});
+): StagedFrame => {
+  return {
+    clockEvidence: clockEvidenceForFrame(nominalStartMs, 0.5),
+    seat,
+    segmentId,
+    frame: {
+      pcm: new Int16Array(160),
+      trackId: 'track',
+      nominalStartMs,
+      beforeMs,
+      afterMs,
+    },
+  };
+};
 
 test('a batch frame crossing a grant end the staging cache missed becomes edge evidence', async () => {
   const straddled: number[] = [];

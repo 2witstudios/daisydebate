@@ -369,3 +369,33 @@ test('a requeue never lets staging grow past its bound', () => {
     expected: { frames: 4096, dropped: 2 },
   });
 });
+
+test('staging retains the callback original clock basis across delayed admission and refresh', () => {
+  const f = fixture();
+  const original = { ...f.state.calibration };
+  const interval = f.state.state.intervals[0]!;
+  f.state.state.intervals = [];
+  f.observe(0, 10);
+  f.state.state.intervals = [{ ...interval, startedAt: iso(9990) }];
+  f.state.calibration = {
+    sentAtMs: 20,
+    receivedAtMs: 21,
+    serverNowMs: 50000,
+    precisionMs: 1,
+  };
+  f.staging.refresh(f.state.calibration);
+  const stored = f.staging.take()[0];
+  assert({
+    given:
+      'a native callback waiting for history while a later calibration arrives',
+    should:
+      'retain its original raw sequence and original mapping calibration rather than the refreshed clock',
+    actual: stored?.clockEvidence
+      ? {
+          sequence: stored.clockEvidence.observation.sequence,
+          calibration: stored.clockEvidence.anchor.calibration,
+        }
+      : null,
+    expected: { sequence: 0, calibration: original },
+  });
+});

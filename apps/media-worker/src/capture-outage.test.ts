@@ -1,3 +1,4 @@
+import { clockEvidenceForFrame } from './capture-frame.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -322,6 +323,7 @@ test('a held frame whose history read fails goes back to staging', async () => {
   const held: unknown[] = [];
   const old = 'o'.repeat(24);
   const frame = (segment: string, at: number) => ({
+    clockEvidence: clockEvidenceForFrame(at),
     seat,
     segmentId: segment,
     frame: {
@@ -464,6 +466,7 @@ test('a backlog past one cut cuts in pieces, as one run', async () => {
     return {
       seat,
       segmentId,
+      clockEvidence: clockEvidenceForFrame(at),
       frame: {
         pcm: new Int16Array(160).fill(8000),
         trackId: 'track',

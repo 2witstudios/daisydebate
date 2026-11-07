@@ -4,12 +4,34 @@ import {
   type ClockCalibration,
 } from './publication-clock';
 
-type Observation = {
+export type FrameObservation = {
   readonly sequence: number;
   readonly beforeMs: number;
   readonly afterMs: number;
 };
+export type FrameRunAnchor = {
+  readonly calibration: ClockCalibration;
+  readonly observation: FrameObservation;
+  readonly previous: {
+    readonly sequence: number;
+    readonly nominalStartMs: number;
+  } | null;
+};
+export type FrameClockEvidence = {
+  readonly observation: FrameObservation;
+  readonly anchor: FrameRunAnchor;
+  readonly previous: {
+    readonly sequence: number;
+    readonly nominalStartMs: number;
+  } | null;
+  readonly window: {
+    readonly beforeMs: number;
+    readonly afterMs: number;
+    readonly nominalStartMs: number;
+  };
+};
 type Run = {
+  readonly anchor: FrameRunAnchor;
   readonly sequence: number;
   readonly nominalStartMs: number;
   /** Server-time lower bound of the run's first frame start. */
@@ -18,7 +40,7 @@ type Run = {
   readonly upperMs: number;
 };
 
-const wellFormed = (frame: Observation) =>
+const wellFormed = (frame: FrameObservation) =>
   Number.isSafeInteger(frame.sequence) &&
   frame.sequence >= 0 &&
   Number.isFinite(frame.beforeMs) &&
@@ -46,13 +68,14 @@ const usable = (calibration: ClockCalibration, atMs: number) =>
  * it always contains the span. A rejected callback is never replayed.
  */
 export function createFrameClock(initial: ClockCalibration) {
-  let calibration = initial;
+  let calibration = { ...initial };
+  let observed: FrameClockEvidence | null = null;
   let run: Run | null = null;
   let last: {
     readonly sequence: number;
     readonly nominalStartMs: number;
   } | null = null;
-  const map = (frame: Observation): Run | null => {
+  const map = (frame: FrameObservation): Run | null => {
     if (!usable(calibration, frame.afterMs)) return null;
     const offsets = calibrationOffsets(
       calibration,
@@ -61,6 +84,11 @@ export function createFrameClock(initial: ClockCalibration) {
     );
     const lowerMs = frame.beforeMs - 10 + offsets.lower;
     return {
+      anchor: {
+        calibration: { ...calibration },
+        observation: { ...frame },
+        previous: last ? { ...last } : null,
+      },
       sequence: frame.sequence,
       nominalStartMs: !last
         ? Math.ceil(lowerMs)
@@ -73,11 +101,13 @@ export function createFrameClock(initial: ClockCalibration) {
     };
   };
   return {
-    observe(frame: Observation): {
+    observe(frame: FrameObservation): {
       readonly beforeMs: number;
       readonly afterMs: number;
       readonly nominalStartMs: number;
     } | null {
+      observed = null;
+      const previous = last ? { ...last } : null;
       if (!wellFormed(frame)) {
         run = null;
         return null;
@@ -89,7 +119,7 @@ export function createFrameClock(initial: ClockCalibration) {
       const driftMs = (elapsedMs + 10) * 0.0001;
       const nominalStartMs = run.nominalStartMs + elapsedMs;
       last = { sequence: frame.sequence, nominalStartMs };
-      return {
+      const window = {
         nominalStartMs,
         beforeMs: Math.min(run.lowerMs + elapsedMs - driftMs, nominalStartMs),
         afterMs: Math.max(
@@ -97,10 +127,21 @@ export function createFrameClock(initial: ClockCalibration) {
           nominalStartMs + 10,
         ),
       };
+      observed = {
+        observation: { ...frame },
+        anchor: run.anchor,
+        previous,
+        window: { ...window },
+      };
+      return window;
+    },
+    /** Immutable original mapping input only; this does not prove admission or sequence continuity. */
+    evidence(): FrameClockEvidence | null {
+      return observed ? structuredClone(observed) : null;
     },
     /** The calibration the next run maps with; a running run never moves. */
     refresh(next: ClockCalibration) {
-      calibration = next;
+      calibration = { ...next };
     },
   };
 }
@@ -115,7 +156,7 @@ export function createTrackClocks() {
   const clocks = new Map<string, ReturnType<typeof createFrameClock>>();
   return {
     observe(
-      frame: Observation & { readonly trackId: string },
+      frame: FrameObservation & { readonly trackId: string },
       calibration: ClockCalibration,
     ) {
       let clock = clocks.get(frame.trackId);
@@ -131,6 +172,9 @@ export function createTrackClocks() {
             nominalStartMs: window.nominalStartMs,
           }
         : null;
+    },
+    evidence(trackId: string): FrameClockEvidence | null {
+      return clocks.get(trackId)?.evidence() ?? null;
     },
     refresh(calibration: ClockCalibration) {
       for (const clock of clocks.values()) clock.refresh(calibration);
