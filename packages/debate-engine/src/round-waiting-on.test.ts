@@ -118,7 +118,7 @@ describe('roundWaitingOn', () => {
         { state: 'settling' },
       ],
       [
-        'a held ballot past its bound',
+        'a held ballot beyond its old expiry still submitting',
         ended(
           frozen({
             aiJudgeSeatIds: [ai],
@@ -130,7 +130,7 @@ describe('roundWaitingOn', () => {
             },
           }),
         ),
-        { state: 'ai_failed' },
+        { state: 'settling' },
       ],
       [
         'a human seat with no persisted deadline: no invented window',

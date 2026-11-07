@@ -49,6 +49,8 @@ export async function submitLockedJudgingResult(
     .update(roundJudgingJobs)
     .set({
       status: 'succeeded',
+      recoveryReason: null,
+      retryAt: null,
       resultBallotId: receipt.ballotId,
       leaseTokenDigest: null,
       leaseExpiresAt: null,

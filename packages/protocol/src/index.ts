@@ -129,6 +129,8 @@ export {
   judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
+  judgingRecoveryReasons,
+  type JudgingRecoveryReason,
   type JudgingAttemptCategory,
   type JudgingAttemptOutcome,
   type JudgingAttemptDiagnostic,

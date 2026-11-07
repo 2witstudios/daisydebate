@@ -74,6 +74,14 @@ export const judgingTerminalReasons = [
 ] as const;
 export type JudgingTerminalReason = (typeof judgingTerminalReasons)[number];
 
+/** A recoverable obligation is distinct from a terminal judgment failure. */
+export const judgingRecoveryReasons = [
+  'attempt_window',
+  'provider_refused',
+  'automatic_spend',
+] as const;
+export type JudgingRecoveryReason = (typeof judgingRecoveryReasons)[number];
+
 const MAX_RECORDED_ISSUES = 16;
 
 /**

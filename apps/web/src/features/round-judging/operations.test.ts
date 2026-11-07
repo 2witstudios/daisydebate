@@ -16,8 +16,8 @@ test('a judging job that may buy no more calls never reaches the provider', asyn
         pendingBallot: null,
       }),
       beginRoundJudgingModelCall: async () => ({
-        kind: 'ended' as const,
-        reason: 'attempts_exhausted' as const,
+        kind: 'deferred' as const,
+        reason: 'attempt_window' as const,
       }),
       recordRoundJudgingUsage: async () => undefined,
       saveRoundJudgingResult: async () => ({ kind: 'held' as const }),
@@ -54,10 +54,8 @@ function harness(complete: (request: unknown) => Promise<unknown>) {
     saved: 0,
     submitted: 0,
     failures: [] as { category: string; final: boolean }[],
-    ended: [] as string[],
     usage: 0,
   };
-  let next: 'retry' | 'attempts_exhausted' = 'retry';
   const operations = createRoundJudgingOperations({
     store: {
       verifyRoundJudgingJob: async () => ({
@@ -80,7 +78,7 @@ function harness(complete: (request: unknown) => Promise<unknown>) {
           category: input.diagnostic.category,
           final: input.final,
         });
-        return next;
+        return { kind: 'retry' };
       },
       saveRoundJudgingResult: async () => {
         log.saved++;
@@ -99,9 +97,8 @@ function harness(complete: (request: unknown) => Promise<unknown>) {
         },
       }) as never,
     withProvider: (_signal, work) => work(),
-    jobEnded: (category) => log.ended.push(category),
   });
-  return { log, operations, exhaust: () => (next = 'attempts_exhausted') };
+  return { log, operations };
 }
 const reply = (text: string, finish = 'stop') => ({
   text,
@@ -131,7 +128,7 @@ test('the judging request asks only for what its route can serve (ISSUE-884)', a
 });
 
 test('a rejected answer is durable at once, with usage kept and nothing submitted', async () => {
-  const { log, operations, exhaust } = harness(async () => reply('{"a":1}'));
+  const { log, operations } = harness(async () => reply('{"a":1}'));
   await operations.executeClaim(claim, new AbortController().signal);
   assert({
     given: 'a schema-rejected answer with attempts left',
@@ -142,17 +139,8 @@ test('a rejected answer is durable at once, with usage kept and nothing submitte
       saved: 0,
       submitted: 0,
       failures: [{ category: 'schema_rejected', final: false }],
-      ended: [],
       usage: 1,
     },
-  });
-  exhaust();
-  await operations.executeClaim(claim, new AbortController().signal);
-  assert({
-    given: 'the final permitted answer also rejected',
-    should: 'report the durable reason once, on that call',
-    actual: log.ended,
-    expected: ['attempts_exhausted'],
   });
 });
 

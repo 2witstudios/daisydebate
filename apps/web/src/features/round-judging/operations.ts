@@ -8,7 +8,7 @@ import {
 import type {
   JudgingAttemptCategory,
   JudgingAttemptDiagnostic,
-  JudgingTerminalReason,
+  JudgingRecoveryReason,
 } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
@@ -50,8 +50,7 @@ export function createRoundJudgingOperations(input: {
   readonly nextId: () => string;
   readonly voice: () => Pick<OpenRouter, 'complete'>;
   readonly withProvider: ProviderCall;
-  /** Once, when a job ends with no ballot. Holds only a closed reason. */
-  readonly jobEnded?: (reason: JudgingTerminalReason) => void;
+  readonly recoveryPending?: (reason: JudgingRecoveryReason) => void;
 }) {
   return {
     async executeClaim(claim: Claim, signal: AbortSignal) {
@@ -62,12 +61,12 @@ export function createRoundJudgingOperations(input: {
         diagnostic: JudgingAttemptDiagnostic,
         final: boolean,
       ): Promise<AttemptOutcome> => {
-        const next = await input.store.recordRoundJudgingAttemptFailure(
+        const deferred = await input.store.recordRoundJudgingAttemptFailure(
           scope,
           token,
           { diagnostic, final },
         );
-        if (next !== 'retry') input.jobEnded?.(next);
+        if (deferred.kind !== 'retry') input.recoveryPending?.(deferred.reason);
         return 'concluded';
       };
       /** One provider attempt: a ballot is held for submission, or this attempt has nothing further to do. */
@@ -81,8 +80,8 @@ export function createRoundJudgingOperations(input: {
           token,
         );
         // The job may buy no more calls: it has ended failed (ISSUE-461).
-        if (begun.kind === 'ended') {
-          input.jobEnded?.(begun.reason);
+        if (begun.kind === 'deferred') {
+          input.recoveryPending?.(begun.reason);
           return 'concluded';
         }
         let answer: Awaited<ReturnType<typeof voice.complete>>;
@@ -114,9 +113,7 @@ export function createRoundJudgingOperations(input: {
           judged.ballot,
           usage,
         );
-        if (saved.kind === 'held') return 'ballot_held';
-        input.jobEnded?.(saved.reason);
-        return 'concluded';
+        return saved.kind === 'held' ? 'ballot_held' : 'concluded';
       };
       requireNotCancelled(signal);
       const outcome = (await verify()).pendingBallot

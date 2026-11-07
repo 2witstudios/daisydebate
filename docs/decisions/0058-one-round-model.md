@@ -205,8 +205,12 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
 - **Judges rule within a ballot deadline (DEC-201, DEC-207).** The freeze
   persists `rounds.ballot_deadline_at`, 30 minutes (injected policy) after the
   freeze time, and it is immutable. A human ballot at or after it is refused by
-  the database clock. An AI seat is bounded by its own budget instead
-  ([ADR 0095](0095-honest-round-completion.md)). A judged Round whose judges have not all ruled by then
+  the database clock. AI provider work has bounded attempt windows; under
+  DEC-370 and [ADR 0119](0119-recoverable-round-evidence-and-result.md), a spent
+  window schedules durable recovery instead of ending the result obligation.
+  A validated reply survives that window and attendance delays. Automatic
+  lifetime spending is finite and its exhaustion is visible blocked recovery.
+  The human deadline still closes missing human rulings. A judged Round whose eligible judges have not all ruled by then
   completes through the same finalizer: missing ballots are recorded as no
   ruling in the receipt, and submitted ballots decide a winner by the existing
   rule. With none, or a tie the absent rulings would turn into a draw, the

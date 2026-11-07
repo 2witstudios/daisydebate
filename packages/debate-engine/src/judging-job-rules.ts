@@ -13,34 +13,20 @@ export const generationBudgetSpent = (
   nowMs: number,
 ): boolean => !job.holdsBallot && Date.parse(job.generationDeadlineAt) <= nowMs;
 
-/**
- * A held ballot waits out attendance, so its bound runs from whichever is
- * latest: the attendance cutoff, the last attendance decision, or the last
- * uncertain writer resolving, plus a grace for a worker to submit. Only past
- * that does a ballot that can never submit stop holding the Round.
- */
-export function heldBallotHoldEndsAtMs(facts: HeldBallotFacts): number {
-  const graced = [facts.lastAttendanceDecisionAt, facts.lastWriterResolvedAt]
-    .filter((at): at is string => at !== null)
-    .map((at) => Date.parse(at) + judgingPolicy.heldBallotGraceMs);
-  return Math.max(Date.parse(facts.attendanceCutoffAt), ...graced);
-}
-
 /** Whether a job can still produce or submit a ballot; one rule for the panel and the room. */
 export function aiSeatStanding(
   job: JudgingJobFacts,
-  held: HeldBallotFacts,
+  _held: HeldBallotFacts,
   nowMs: number,
 ): AiSeatStanding {
   if (job.status === 'succeeded') return { state: 'succeeded' };
   if (job.status === 'failed') return { state: 'ended' };
+  if (job.holdsBallot) return { state: 'holding_ballot' };
+  if (job.status === 'blocked') return { state: 'blocked' };
+  if (job.status === 'recovering') return { state: 'recovering' };
   if (Date.parse(job.generationDeadlineAt) > nowMs)
-    return job.holdsBallot
-      ? { state: 'holding_ballot' }
-      : { state: 'generating', deadlineAt: job.generationDeadlineAt };
-  return job.holdsBallot && heldBallotHoldEndsAtMs(held) > nowMs
-    ? { state: 'holding_ballot' }
-    : { state: 'ended' };
+    return { state: 'generating', deadlineAt: job.generationDeadlineAt };
+  return { state: 'recovering' };
 }
 
 /**
@@ -60,6 +46,65 @@ export function judgingDispatchEnd(
   return Date.parse(input.generationDeadlineAt) <= nowMs
     ? 'generation_deadline'
     : null;
+}
+
+/** Finite automatic spending and backoff never erase the result obligation. */
+export function planJudgingRecovery(
+  input: {
+    readonly totalPaidCalls: number;
+    readonly windowPaidCalls: number;
+    readonly generationDeadlineAt: string;
+    readonly definiteRefusal: boolean;
+  },
+  nowMs: number,
+):
+  | {
+      readonly status: 'blocked';
+      readonly reason: 'automatic_spend' | 'provider_refused';
+      readonly retryAt: null;
+    }
+  | {
+      readonly status: 'recovering';
+      readonly reason: 'attempt_window';
+      readonly retryAt: string;
+    }
+  | {
+      readonly status: 'queued';
+      readonly reason: null;
+      readonly retryAt: string;
+    } {
+  if (input.totalPaidCalls >= judgingPolicy.maxAutomaticPaidCalls)
+    return { status: 'blocked', reason: 'automatic_spend', retryAt: null };
+  if (input.definiteRefusal)
+    return { status: 'blocked', reason: 'provider_refused', retryAt: null };
+  if (
+    judgingDispatchEnd(
+      {
+        paidCalls: input.windowPaidCalls,
+        generationDeadlineAt: input.generationDeadlineAt,
+      },
+      nowMs,
+    )
+  ) {
+    const windows = Math.max(
+      0,
+      Math.floor(input.totalPaidCalls / judgingPolicy.maxPaidCalls) - 1,
+    );
+    const delayMs = Math.min(
+      300_000,
+      judgingPolicy.recoveryMs * 2 ** Math.min(windows, 4),
+    );
+    return {
+      status: 'recovering',
+      reason: 'attempt_window',
+      retryAt: new Date(nowMs + delayMs).toISOString(),
+    };
+  }
+  return {
+    status: 'queued',
+    reason: null,
+    retryAt: new Date(nowMs + judgingPolicy.retryMs).toISOString(),
+  };
 }
 
 /**
@@ -86,6 +131,5 @@ export const judgingEndIsReported = (reason: JudgingTerminalReason): boolean =>
 
 /** The rules the judging store applies, injected because the db never imports the engine. */
 export const judgingJobRules = {
-  budgetSpent: generationBudgetSpent,
-  dispatchEnd: judgingDispatchEnd,
+  recover: planJudgingRecovery,
 };

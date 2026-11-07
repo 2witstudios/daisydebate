@@ -36,7 +36,11 @@ export function startRoundJudgingWorkers(input: {
     voice: app.aiVoice,
     // The service reserves before claiming and holds admission through retries.
     withProvider: (_signal, work) => work(),
-    jobEnded,
+    recoveryPending: (reason) =>
+      reportEnded(
+        createAppError('INFRASTRUCTURE', `Judging recovery pending: ${reason}`),
+        'execute',
+      ),
   });
   return startRoundJudgingService({
     reserveCapacity: () => input.budget.reserve(),

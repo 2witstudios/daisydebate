@@ -6,6 +6,10 @@ export type AiSeatStanding =
   /** No job: an AI judge never decides from an incomplete transcript (DEC-208). */
   | { readonly state: 'not_dispatched' }
   | { readonly state: 'generating'; readonly deadlineAt: string }
+  /** Provider work paused; its durable obligation still holds the Round. */
+  | { readonly state: 'recovering' }
+  /** Automatic spending exhausted; recovery needs explicit intervention. */
+  | { readonly state: 'blocked' }
   /** A validated ballot waiting for attendance and a worker to submit it. */
   | { readonly state: 'holding_ballot' }
   /** Its job ended, or ran out of budget, with no ballot. */
@@ -38,7 +42,8 @@ export type JudgeRuling = z.infer<typeof judgeRulingSchema>;
 /** One judging job as read; the engine decides what it means. */
 export type JudgingJobFacts = {
   readonly judgeParticipantId: string;
-  readonly status: 'queued' | 'leased' | 'succeeded' | 'failed';
+  readonly status:
+    'queued' | 'leased' | 'recovering' | 'blocked' | 'succeeded' | 'failed';
   readonly generationDeadlineAt: string;
   readonly holdsBallot: boolean;
 };

@@ -19,6 +19,37 @@ consumes this validated cache, never an unvalidated provider envelope or a usage
 counter. Direct job deletion or deletion through its freeze is refused while a validated response remains and its owning Round exists. Owning Round erasure cascades the job and its cache; the scoped origin
 run FK is deferred NO ACTION so whole-aggregate erasure remains possible.
 
+## Attempt windows and durable recovery
+
+DEC-370 and [ADR 0119](../decisions/0119-recoverable-round-evidence-and-result.md)
+separate the result obligation from a provider attempt window. A job buys at most
+two potentially paid calls in one generation window, identified by its first
+lease epoch rather than timestamp coincidence. A spent window releases its lease
+and enters `recovering`, with exponential backoff from 30 seconds to five minutes.
+Claiming due recovery starts a new bounded window under the same freeze, command
+and pinned model. Uncertain dispatched calls remain counted after a crash.
+
+Automatic lifetime spending is finite: sixteen potentially paid calls. Exhaustion
+enters `blocked` with `automatic_spend`; a refusal that requires intervention also
+blocks automatic work. Neither state is a no-result ruling. The room distinguishes
+recovering work from work needing attention. This supports automatic recovery
+within the remaining funding/outage window; it makes no unconditional eventual
+result claim beyond that window. Operator replenishment/reconfiguration and its
+authorized interface remain part of the slice's unfinished recovery remedy.
+
+A validated current response is saved even if its generation window has just
+ended. The provider call's independent timeout still bounds execution. Renewal
+does not discard a current result at the window edge. Takeover must consume the
+saved response without another paid call, and stale claimants remain refused.
+The former attendance grace does not expire a held response. Explicit final
+Round authority and the separate privacy/retention rules still apply.
+
+Discovery orders by the due service turn and stable identifiers; a claim records
+its turn so an repeatedly reclaimed job moves behind older due work. The service
+and Round-locked store admit at most one running judging operation per Round.
+The growing-backlog and fleet fairness proofs remain required; a pending row or
+these source rules alone do not prove liveness.
+
 Privacy: pending ballot reason, feedback, scores and citations are personal,
 private derived judging data. Purpose: recover the validated provider result
 without duplicate dispatch while attendance settlement remains unresolved.

@@ -49,6 +49,8 @@ export const roundWaitingOnSchema = z.discriminatedUnion('state', [
   z.strictObject({ state: z.literal('human_window'), deadlineAt: instant }),
   z.strictObject({ state: z.literal('ai_processing'), deadlineAt: instant }),
   z.strictObject({ state: z.literal('ai_failed') }),
+  z.strictObject({ state: z.literal('ai_recovering') }),
+  z.strictObject({ state: z.literal('ai_blocked') }),
   z.strictObject({
     state: z.literal('awaiting_attendance'),
     deadlineAt: instant,

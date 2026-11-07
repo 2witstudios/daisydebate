@@ -32,7 +32,7 @@ const expire = (
 ) =>
   fixture.sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${roundId} and status='leased'`;
 
-test('a judging job buys at most two model calls across lease expiries, then ends failed', async () => {
+test('a judging job buys at most two model calls per window across lease expiries, then recovers', async () => {
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const dispatched: boolean[] = [];
     for (let i = 0; i < 4; i++) {
@@ -52,7 +52,7 @@ test('a judging job buys at most two model calls across lease expiries, then end
       given:
         'a judging job whose model call never answers, its lease expiring after each dispatch',
       should:
-        'dispatch twice, refuse a third dispatch, end the job failed and leave it out of discovery (ISSUE-461)',
+        'dispatch twice, refuse a third dispatch, release the lease and hide recovery until due (DEC-370)',
       actual: {
         dispatched,
         status: job.status,
@@ -62,7 +62,7 @@ test('a judging job buys at most two model calls across lease expiries, then end
       },
       expected: {
         dispatched: [true, true, false],
-        status: 'failed',
+        status: 'recovering',
         leased: false,
         paid: 2,
         discovered: 0,
@@ -80,12 +80,12 @@ test('a judging job past its AI budget buys no model call, whatever the human de
       await fixture.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
     assert({
       given: 'a judging job claimed after its generation deadline (DEC-275)',
-      should: 'refuse the model call and end the job with that reason',
+      should: 'defer the model call and preserve scheduled recovery',
       actual: { begun, status: job.status, reason: job.terminal_reason },
       expected: {
-        begun: { kind: 'ended', reason: 'generation_deadline' },
-        status: 'failed',
-        reason: 'generation_deadline',
+        begun: { kind: 'deferred', reason: 'attempt_window' },
+        status: 'recovering',
+        reason: null,
       },
     });
   });
@@ -109,7 +109,7 @@ const rejected: JudgingAttemptDiagnostic = {
 };
 const usage = { inputTokens: 10, outputTokens: 5 };
 
-test('the failed final permitted call ends the job on that call, not on a later claim', async () => {
+test('the failed final permitted window call schedules recovery on that call', async () => {
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const first = await jobs.claim(target);
     await jobs.beginModelCall(first.scope, first.token);
@@ -145,7 +145,7 @@ test('the failed final permitted call ends the job on that call, not on a later 
     assert({
       given: 'two rejected answers',
       should:
-        'back off after the first, then end attempts_exhausted at once, with two calls, two attempts and no open run',
+        'back off after the first, then schedule recovery with exactly two calls, two attempts and no open run',
       actual: {
         afterFirst,
         backingOff: waiting.backing_off,
@@ -159,12 +159,12 @@ test('the failed final permitted call ends the job on that call, not on a later 
         discovered: (await jobs.scan(8)).length,
       },
       expected: {
-        afterFirst: 'retry',
+        afterFirst: { kind: 'retry' },
         backingOff: true,
         hidden: 0,
-        afterSecond: 'attempts_exhausted',
-        status: 'failed',
-        reason: 'attempts_exhausted',
+        afterSecond: { kind: 'recovering', reason: 'attempt_window' },
+        status: 'recovering',
+        reason: null,
         leased: false,
         epochs: 2,
         attempts: 2,
@@ -198,19 +198,22 @@ test('a call the vendor certainly refused buys nothing; an uncertain one still c
       await fixture.sql`update round_judging_jobs set retry_at=null where round_id=${roundId}`;
       const claim = await jobs.claim(target);
       await jobs.beginModelCall(claim.scope, claim.token);
-      return jobs.recordAttemptFailure(claim.scope, claim.token, {
-        diagnostic: {
-          category: definite ? 'provider_refused' : 'provider_error',
-          finish: 'none',
-          issueCount: 0,
-          issues: [],
-        },
-        final: false,
-      });
+      return (
+        await jobs.recordAttemptFailure(claim.scope, claim.token, {
+          diagnostic: {
+            category: definite ? 'provider_refused' : 'provider_error',
+            finish: 'none',
+            issueCount: 0,
+            issues: [],
+          },
+          final: false,
+        })
+      ).kind;
     };
     assert({
       given: 'three definite refusals then two uncertain failures',
-      should: 'end only on the second uncertain failure',
+      should:
+        'preserve recovery after uncertain failures while definite refusals consume no paid allowance',
       actual: [
         await attempt(true),
         await attempt(true),
@@ -218,29 +221,30 @@ test('a call the vendor certainly refused buys nothing; an uncertain one still c
         await attempt(false),
         await attempt(false),
       ],
-      expected: ['retry', 'retry', 'retry', 'retry', 'attempts_exhausted'],
+      expected: ['retry', 'retry', 'retry', 'retry', 'recovering'],
     });
   });
 });
 
-test('the budget fences an active lease: renewal cancels, and a late answer gains no authority but keeps its usage', async () => {
+test('a generation window never discards a current valid response or its usage', async () => {
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const claim = await jobs.claim(target);
     await jobs.beginModelCall(claim.scope, claim.token);
     await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
     assert({
       given: 'a renewal after the budget',
-      should: 'answer that the job ended, and why, so the worker cancels',
-      actual: await jobs.renew(claim.scope, claim.token),
-      expected: { kind: 'ended', reason: 'generation_deadline' },
+      should:
+        'keep current authority while the independently bounded provider call settles',
+      actual: (await jobs.renew(claim.scope, claim.token)).kind,
+      expected: 'renewed',
     });
     const [job] =
       await fixture.sql`select status,terminal_reason from round_judging_jobs where round_id=${roundId}`;
     assert({
       given: 'that renewal',
-      should: 'end the job durably',
+      should: 'retain the leased obligation',
       actual: { status: job.status, reason: job.terminal_reason },
-      expected: { status: 'failed', reason: 'generation_deadline' },
+      expected: { status: 'leased', reason: null },
     });
   });
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
@@ -259,7 +263,7 @@ test('the budget fences an active lease: renewal cancels, and a late answer gain
       await fixture.sql`select input_tokens from agent_runs where id=${claim.scope.agentRunId}`;
     assert({
       given: 'a valid answer arriving after the budget',
-      should: 'keep its usage, hold no ballot and end the job',
+      should: 'keep its usage and durably hold the validated ballot',
       actual: {
         saved,
         status: job.status,
@@ -267,9 +271,9 @@ test('the budget fences an active lease: renewal cancels, and a late answer gain
         tokens: run.input_tokens,
       },
       expected: {
-        saved: { kind: 'ended', reason: 'generation_deadline' },
-        status: 'failed',
-        held: false,
+        saved: { kind: 'held' },
+        status: 'leased',
+        held: true,
         tokens: usage.inputTokens,
       },
     });
@@ -320,7 +324,7 @@ test('the first claim pins the model for later attempts', async () => {
   });
 });
 
-test('a refusal that cannot heal ends the job at once, having bought nothing', async () => {
+test('an unhealable refusal blocks automatic work without terminating the obligation', async () => {
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const claim = await jobs.claim(target);
     await jobs.beginModelCall(claim.scope, claim.token);
@@ -339,7 +343,7 @@ test('a refusal that cannot heal ends the job at once, having bought nothing', a
       await fixture.sql`select count(*)::int as n from round_judging_attempts where agent_run_id=${claim.scope.agentRunId} and category is distinct from 'provider_refused'`;
     assert({
       given: 'no endpoint able to serve the request',
-      should: 'end now, not retry for the whole budget, and count no paid call',
+      should: 'block automatic retry, preserve recovery and count no paid call',
       actual: {
         next,
         status: job.status,
@@ -347,9 +351,9 @@ test('a refusal that cannot heal ends the job at once, having bought nothing', a
         paid: paid.n,
       },
       expected: {
-        next: 'provider_refused',
-        status: 'failed',
-        reason: 'provider_refused',
+        next: { kind: 'blocked', reason: 'provider_refused' },
+        status: 'blocked',
+        reason: null,
         paid: 0,
       },
     });
@@ -471,6 +475,7 @@ test('a failed job names its reason, and only a failed attempt names a category'
       await jobs.beginModelCall(claim.scope, claim.token);
       await expire(fixture, roundId);
     }
+    await fixture.sql`update round_judging_jobs set status='failed',terminal_reason='round_ended',recovery_reason=null,retry_at=null,lease_token_digest=null,lease_expires_at=null where round_id=${roundId}`;
     assert({
       given: 'a failed job with no reason, and a queued one with a reason',
       should: 'refuse both',

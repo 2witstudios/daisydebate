@@ -49,6 +49,31 @@ const at = (nowMs: number, ballots: ReturnType<typeof ballot>[] = []) =>
     nowMs,
   });
 
+test('recoverable AI work cannot complete a played Round without its ruling', () => {
+  for (const state of ['recovering', 'blocked'] as const) {
+    assert({
+      given: `a frozen complete Round whose AI obligation is ${state}`,
+      should:
+        'remain pending instead of becoming an unsupported no-result completion',
+      actual: decidePanelCompletion({
+        completeness: 'complete',
+        panel: {
+          humanWindow: null,
+          aiSeats: [{ id: judges[0]!, standing: { state } }],
+        },
+        ballots: [],
+        nowMs: 9_000_000,
+      }),
+      expected: {
+        kind: 'pending',
+        waiting: {
+          on: state === 'recovering' ? 'ai_recovering' : 'ai_blocked',
+        },
+      },
+    });
+  }
+});
+
 test('the ballot deadline decides when a Round without a full ruling completes (DEC-201)', () => {
   assert({
     given: 'no judge seats',

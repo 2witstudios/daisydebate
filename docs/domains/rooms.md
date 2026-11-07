@@ -241,9 +241,14 @@ audience of a ranked Round gets the winner, scores and reason on the spectator
 timeline, once the Broadcast's watermark has passed them, and never a side's
 feedback; a casual Round's audience gets no ballot.
 
-An AI judge never rules on a transcript frozen incomplete (DEC-208). No AI
-job is queued for such a freeze. With no human judge, the Round completes at
-the freeze with no outcome, and its result reads "Transcript incomplete".
+ADR 0110 refines DEC-208: an incomplete freeze may dispatch AI judging only
+when the measured unheard share is within the judging limit, with gaps stated.
+Unknown loss is never assumed small. An unsupported freeze queues no AI job;
+with no human judge it has no outcome and reads "Transcript incomplete".
+Under DEC-370 and ADR 0119, a dispatched AI job's finite provider window can
+pause into durable recovery without completing the Round. Validated replies
+survive deadlines and takeover; finite automatic spending exhaustion is visible
+as recovery needing attention, never an invented ruling.
 Human judges still rule. Once every human judge has ruled decisively, the
 Round completes without waiting for the AI seats. The receipt records each
 judge seat that gave no ruling.

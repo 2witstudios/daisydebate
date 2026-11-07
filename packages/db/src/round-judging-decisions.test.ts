@@ -72,6 +72,10 @@ test('a judging job is claimable when queued or expired and not bound elsewhere'
       job({ leaseExpiresAt: null, commandId: 'other' }),
     ],
     ['a live lease', job()],
+    [
+      'a queued retry before its due time',
+      job({ status: 'queued', leaseExpiresAt: null, retryAt: later }),
+    ],
     ['a succeeded job', job({ status: 'succeeded', leaseExpiresAt: null })],
   ] as const)
     await assertRejects({

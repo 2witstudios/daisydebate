@@ -30,6 +30,10 @@ export function roundWaitingOn(
     return { state: 'human_window', deadlineAt: decision.waiting.deadlineAt };
   if (decision.kind === 'pending' && decision.waiting.on === 'ai_generating')
     return { state: 'ai_processing', deadlineAt: decision.waiting.deadlineAt };
+  if (decision.kind === 'pending' && decision.waiting.on === 'ai_recovering')
+    return { state: 'ai_recovering' };
+  if (decision.kind === 'pending' && decision.waiting.on === 'ai_blocked')
+    return { state: 'ai_blocked' };
   if (!attendanceSettled(input.attendance, input.nowMs))
     return {
       state: 'awaiting_attendance',

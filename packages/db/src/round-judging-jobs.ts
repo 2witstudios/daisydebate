@@ -3,9 +3,9 @@ import { createAppError } from '@daisy/errors';
 import {
   ballotSchema,
   judgingAttemptDiagnosticSchema,
-  judgingPolicy,
   type JudgingAttemptDiagnostic,
   type JudgingTerminalReason,
+  type JudgingRecoveryReason,
 } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -37,34 +37,52 @@ export type { JudgingScope } from './round-judging-context';
 /** Whether a dispatch may go ahead, or why the job ended instead. */
 export type ModelCallBegun =
   | { readonly kind: 'dispatched' }
-  | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason };
+  | { readonly kind: 'deferred'; readonly reason: JudgingRecoveryReason };
 /** A lease renewed to a new expiry, or its budget had passed and the job ended. */
 export type LeaseRenewed =
   | { readonly kind: 'renewed'; readonly leaseExpiresAt: string }
   | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason };
 /** A valid answer is held for submission, or its budget had passed and the job ended. */
-export type AnswerSaved =
-  | { readonly kind: 'held' }
-  | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason };
+export type AnswerSaved = { readonly kind: 'held' };
+export type AttemptDeferred =
+  | { readonly kind: 'retry' }
+  | {
+      readonly kind: 'recovering' | 'blocked';
+      readonly reason: JudgingRecoveryReason;
+    };
 /** The engine's rules for a job, injected; the facts and the clock come from here. */
 export type JudgingJobRules = {
-  readonly budgetSpent: (
-    job: {
+  readonly recover: (
+    facts: {
+      readonly totalPaidCalls: number;
+      readonly windowPaidCalls: number;
       readonly generationDeadlineAt: string;
-      readonly holdsBallot: boolean;
+      readonly definiteRefusal: boolean;
     },
     nowMs: number,
-  ) => boolean;
-  readonly dispatchEnd: (
-    input: {
-      readonly paidCalls: number;
-      readonly generationDeadlineAt: string;
-    },
-    nowMs: number,
-  ) => JudgingTerminalReason | null;
+  ) =>
+    | {
+        readonly status: 'blocked';
+        readonly reason: JudgingRecoveryReason;
+        readonly retryAt: null;
+      }
+    | {
+        readonly status: 'recovering';
+        readonly reason: JudgingRecoveryReason;
+        readonly retryAt: string;
+      }
+    | {
+        readonly status: 'queued';
+        readonly reason: null;
+        readonly retryAt: string;
+      };
 };
 /** Calls that may have been served count; a call the vendor certainly refused does not. */
-async function paidCalls(tx: BoundedTransactionContext, scope: JudgingScope) {
+async function paidCalls(
+  tx: BoundedTransactionContext,
+  scope: JudgingScope,
+  firstEpoch?: number,
+) {
   const [row] = await tx
     .select({ paid: sql<number>`count(*)::int` })
     .from(roundJudgingAttempts)
@@ -72,6 +90,9 @@ async function paidCalls(tx: BoundedTransactionContext, scope: JudgingScope) {
       and(
         judgingAttemptWhere(scope),
         sql`${roundJudgingAttempts.category} is distinct from 'provider_refused'`,
+        firstEpoch !== undefined
+          ? sql`${roundJudgingAttempts.jobEpoch}>=${firstEpoch}`
+          : undefined,
       ),
     );
   return row!.paid;
@@ -89,27 +110,20 @@ const attemptOfRun = async (tx: BoundedTransactionContext, runId: string) =>
       .where(eq(roundJudgingAttempts.agentRunId, runId))
       .for('update')
   )[0];
-/** What a late answer's attempt says: no text, only that its budget had passed. */
-const lateAnswer: JudgingAttemptDiagnostic = {
-  category: 'timeout',
-  finish: 'none',
-  issueCount: 0,
-  issues: [],
-};
-/** The terminal state: no lease, never rediscovered; panel completion reads it. */
-async function failLockedJudgingJob(
+/** Release a bounded attempt while preserving its durable obligation and held reply. */
+async function deferLockedJudgingJob(
   tx: BoundedTransactionContext,
   scope: JudgingScope,
   runId: string,
-  terminalReason: JudgingTerminalReason,
+  recovery: ReturnType<JudgingJobRules['recover']>,
 ) {
   await endLockedRoundAgentRun(tx, runId, scope.judgeParticipantId);
   await tx
     .update(roundJudgingJobs)
     .set({
-      status: 'failed',
-      terminalReason,
-      retryAt: null,
+      status: recovery.status,
+      recoveryReason: recovery.reason,
+      retryAt: recovery.retryAt === null ? null : new Date(recovery.retryAt),
       leaseTokenDigest: null,
       leaseExpiresAt: null,
     })
@@ -128,30 +142,22 @@ export function createRoundJudgingJobs(input: {
 }) {
   requireLeaseMs(input.leaseMs);
   if (!input.model.trim()) throw createAppError('VALIDATION');
-  const dispatchEnded = async (
+  const recoveryFor = async (
     tx: BoundedTransactionContext,
     scope: JudgingScope,
-    job: { readonly generationDeadlineAt: Date },
-    now: Date,
-  ) =>
-    input.rules.dispatchEnd(
-      {
-        paidCalls: await paidCalls(tx, scope),
-        generationDeadlineAt: job.generationDeadlineAt.toISOString(),
-      },
-      now.getTime(),
-    );
-  const budgetSpent = (
     job: {
       readonly generationDeadlineAt: Date;
-      readonly pendingBallot: unknown;
+      readonly generationFirstEpoch: number;
     },
     now: Date,
+    definiteRefusal = false,
   ) =>
-    input.rules.budgetSpent(
+    input.rules.recover(
       {
+        totalPaidCalls: await paidCalls(tx, scope),
+        windowPaidCalls: await paidCalls(tx, scope, job.generationFirstEpoch),
         generationDeadlineAt: job.generationDeadlineAt.toISOString(),
-        holdsBallot: job.pendingBallot !== null,
+        definiteRefusal,
       },
       now.getTime(),
     );
@@ -196,7 +202,7 @@ export function createRoundJudgingJobs(input: {
               eq(rounds.status, 'active'),
               or(
                 and(
-                  eq(roundJudgingJobs.status, 'queued'),
+                  sql`${roundJudgingJobs.status} in ('queued','recovering')`,
                   sql`coalesce(${roundJudgingJobs.retryAt}<=clock_timestamp(),true)`,
                 ),
                 and(
@@ -206,9 +212,9 @@ export function createRoundJudgingJobs(input: {
               ),
             ),
           )
-          // Work against a budget first: a held ballot's retry buys nothing.
+          // A reclaimed job moves behind older due work, including held replies.
           .orderBy(
-            sql`${roundJudgingJobs.pendingBallot} is not null`,
+            sql`coalesce(${roundJudgingJobs.retryAt},${roundJudgingJobs.createdAt})`,
             asc(roundJudgingJobs.createdAt),
             asc(roundJudgingJobs.roundId),
             asc(roundJudgingJobs.judgeParticipantId),
@@ -236,10 +242,10 @@ export function createRoundJudgingJobs(input: {
     ): Promise<ModelCallBegun> =>
       withLease(scope, token, async (tx, { run, job, now }) => {
         requireUndispatched(job, await attemptOfRun(tx, run.id));
-        const ended = await dispatchEnded(tx, scope, job, now);
-        if (ended) {
-          await failLockedJudgingJob(tx, scope, run.id, ended);
-          return { kind: 'ended', reason: ended };
+        const recovery = await recoveryFor(tx, scope, job, now);
+        if (recovery.status !== 'queued') {
+          await deferLockedJudgingJob(tx, scope, run.id, recovery);
+          return { kind: 'deferred', reason: recovery.reason };
         }
         await tx
           .update(agentRuns)
@@ -278,24 +284,6 @@ export function createRoundJudgingJobs(input: {
           const attempt = await attemptOfRun(tx, run.id);
           if (pendingBallotAction(job, attempt, parsed.data) === 'kept')
             return { kind: 'held' };
-          // A late answer keeps its accounted usage above and gains no authority.
-          if (budgetSpent(job, now)) {
-            await tx
-              .update(roundJudgingAttempts)
-              .set({
-                outcome: 'failed',
-                category: lateAnswer.category,
-                diagnostic: lateAnswer,
-              })
-              .where(eq(roundJudgingAttempts.agentRunId, run.id));
-            await failLockedJudgingJob(
-              tx,
-              scope,
-              run.id,
-              'generation_deadline',
-            );
-            return { kind: 'ended', reason: 'generation_deadline' };
-          }
           await tx
             .update(roundJudgingAttempts)
             .set({ outcome: 'succeeded' })
@@ -326,11 +314,14 @@ export function createRoundJudgingJobs(input: {
         /** The refusal will not heal by retrying, such as no supporting endpoint. */
         readonly final: boolean;
       },
-    ): Promise<'retry' | JudgingTerminalReason> => {
+    ): Promise<AttemptDeferred> => {
       const diagnostic = judgingAttemptDiagnosticSchema.parse(
         input_.diagnostic,
       );
       return withLease(scope, token, async (tx, { run, job, now }) => {
+        // The first validated reply won. An out-of-order failure cannot
+        // rewrite its successful attempt or remove its submission authority.
+        if (job.pendingBallot) return { kind: 'retry' as const };
         if (!(await attemptOfRun(tx, run.id)))
           throw createAppError('CONFLICT', 'Model call not dispatched');
         // A provider_refused attempt was certainly not served, so it buys nothing.
@@ -342,34 +333,17 @@ export function createRoundJudgingJobs(input: {
             diagnostic,
           })
           .where(eq(roundJudgingAttempts.agentRunId, run.id));
-        const ended = input_.final
-          ? 'provider_refused'
-          : await dispatchEnded(tx, scope, job, now);
-        if (ended && !job.pendingBallot) {
-          await failLockedJudgingJob(tx, scope, run.id, ended);
-          return ended;
-        }
-        await endLockedRoundAgentRun(tx, run.id, scope.judgeParticipantId);
-        await tx
-          .update(roundJudgingJobs)
-          .set({
-            status: 'queued',
-            leaseTokenDigest: null,
-            leaseExpiresAt: null,
-            retryAt: new Date(now.getTime() + judgingPolicy.retryMs),
-          })
-          .where(judgingJobWhere(scope));
-        return 'retry';
+        const recovery = await recoveryFor(tx, scope, job, now, input_.final);
+        await deferLockedJudgingJob(tx, scope, run.id, recovery);
+        return recovery.status === 'queued'
+          ? { kind: 'retry' as const }
+          : { kind: recovery.status, reason: recovery.reason };
       });
     },
     renew: (scope: JudgingScope, token: string): Promise<LeaseRenewed> =>
-      withLease(scope, token, async (tx, { run, job, now }) => {
-        // Cancels the running call: the worker releases on this answer.
-        if (budgetSpent(job, now)) {
-          const reason = 'generation_deadline';
-          await failLockedJudgingJob(tx, scope, run.id, reason);
-          return { kind: 'ended', reason };
-        }
+      withLease(scope, token, async (tx, { now }) => {
+        // A provider call has its own finite timeout. Renewal preserves its
+        // current authority so a validated response is not discarded at a window edge.
         const expires = new Date(now.getTime() + input.leaseMs);
         await tx
           .update(roundJudgingJobs)

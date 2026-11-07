@@ -140,7 +140,8 @@ const freezeAfter = async (
   const frozen = await finalizeAsWeb(f, roundId);
   return {
     seal: seal.state,
-    freeze: frozen.status === 'frozen' && frozen.freeze.completeness,
+    freeze:
+      frozen.status === 'frozen' ? frozen.freeze.completeness : frozen.status,
     jobs: await judgingJobs(f, roundId),
   };
 };
@@ -166,7 +167,7 @@ test('a bot that never answered in cross-examination seals complete and the AI j
   }, botControlOptions);
 });
 
-test('a bot that never spoke its scheduled turn still freezes incomplete (ISSUE-965)', async () => {
+test('a bot with no evidence for its scheduled turn stays partial with admission open (ISSUE-965)', async () => {
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f);
     const sealSilent = await silentSeals(f, played.roundId);
@@ -175,14 +176,15 @@ test('a bot that never spoke its scheduled turn still freezes incomplete (ISSUE-
     const seal = await sealSilent(played.asking, played.bot.id);
     assert({
       given: 'a bot silent in the cross-examination it was scheduled to open',
-      should: 'seal partial, freeze incomplete and queue no AI judge',
+      should:
+        'seal partial, preserve admission before cutoff and queue no AI judge',
       actual: await freezeAfter(f, played.roundId, seal),
-      expected: { seal: 'partial', freeze: 'incomplete', jobs: [] },
+      expected: { seal: 'partial', freeze: 'pending', jobs: [] },
     });
   }, botControlOptions);
 });
 
-test('a silent human respondent still seals partial and freezes incomplete (ISSUE-965)', async () => {
+test('a human respondent without captured evidence stays partial with admission open (ISSUE-965)', async () => {
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f);
     const sealSilent = await silentSeals(f, played.roundId);
@@ -193,9 +195,9 @@ test('a silent human respondent still seals partial and freezes incomplete (ISSU
     const seal = await sealSilent(played.asking, played.human.id);
     assert({
       given: 'a human grant in cross-examination with no captured evidence',
-      should: 'seal partial and freeze incomplete',
+      should: 'seal partial and preserve admission before cutoff',
       actual: await freezeAfter(f, played.roundId, seal),
-      expected: { seal: 'partial', freeze: 'incomplete', jobs: [] },
+      expected: { seal: 'partial', freeze: 'pending', jobs: [] },
     });
   }, botControlOptions);
 });

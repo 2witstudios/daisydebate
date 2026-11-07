@@ -107,6 +107,12 @@ export function startRoundJudgingService<C extends Claim>(input: {
         for (const target of targets) {
           if (stopped || entries.size >= input.limits.parallel) break;
           if (entries.has(key(target))) continue;
+          if (
+            [...entries.values()].some(
+              (entry) => entry.claim.scope.roundId === target.roundId,
+            )
+          )
+            continue;
           // Submitting a held ballot buys nothing, so it takes no provider slot.
           const freeCapacity = target.holdsBallot
             ? () => {}
