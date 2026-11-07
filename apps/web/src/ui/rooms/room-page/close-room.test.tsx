@@ -25,6 +25,21 @@ describe('CloseRoom', () => {
     });
   });
 
+  test('the dialog stays hidden until the host opens it', () => {
+    assert({
+      given: 'the dialog markup',
+      should:
+        'display the confirm only while open, never as an unconditional flex',
+      actual: [
+        html.includes('open:flex'),
+        /(?:^|\s)flex(?:\s|$)/.test(
+          html.match(/<dialog[^>]*class="([^"]*)"/)?.[1] ?? '',
+        ),
+      ],
+      expected: [true, false],
+    });
+  });
+
   test('a named dialog carries the consequence and the close command', () => {
     assert({
       given: 'the dialog markup',

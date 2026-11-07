@@ -31,7 +31,7 @@ export function CloseRoom({
       <dialog
         ref={dialog}
         aria-labelledby="close-room-title"
-        className="m-auto flex w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex"
+        className="m-auto w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex"
       >
         <h2 id="close-room-title" className="font-display text-lg">
           Close this room for everyone?
