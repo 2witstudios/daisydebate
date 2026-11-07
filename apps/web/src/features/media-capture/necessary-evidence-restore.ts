@@ -4,10 +4,8 @@ import { z } from 'zod';
 import {
   idSchema,
   type EvidenceRefusal,
-  type CaptureEvidenceSpeaker,
   type NecessaryEvidenceCustody,
-  type NecessaryEvidencePayloadReceipt,
-  type NecessaryEvidenceIngressReply,
+  type NecessaryEvidenceRestoreReply,
 } from '@daisy/protocol';
 import {
   createEvidenceAuthentication,
@@ -33,17 +31,7 @@ export function createStoredEvidenceRestore({
   readonly custody: NecessaryEvidenceCustody;
 }) {
   const { currentCustody } = createEvidenceAuthentication(custody);
-  return async (
-    raw: unknown,
-  ): Promise<
-    | {
-        readonly kind: 'restored';
-        readonly body: PreparedEvidenceBody['body'];
-        readonly speaker: CaptureEvidenceSpeaker;
-        readonly receipt: NecessaryEvidencePayloadReceipt;
-      }
-    | Exclude<NecessaryEvidenceIngressReply, NecessaryEvidencePayloadReceipt>
-  > => {
+  return async (raw: unknown): Promise<NecessaryEvidenceRestoreReply> => {
     const parsed = z
       .strictObject({ roundId: idSchema, evidenceId: idSchema })
       .safeParse(raw);

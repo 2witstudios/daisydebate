@@ -995,3 +995,34 @@ cannot recall already authorized external processing, replace privacy/content
 commit fences, or prove host-independent custody/time under REL-H. The one-shot
 provider executor, delayed-response/erasure process proof, qualified quality
 selection, protected speech and genuine played-to-result outcome remain incomplete.
+
+### One-shot original recognition attempt
+
+The local attempt executor consumes a capacity-reserved claim, authenticated
+original restore port and existing STT port. It assembles/prepares original audio
+before buying a call, then captures the local monotonic anchor BEFORE requesting
+fresh durable admission. The start window subtracts one complete millisecond for
+Date serialization and floors the local anchor; invalid/regressed/subprecision or
+expired windows refuse dispatch. Admission replay returns reconciliation metadata,
+never another call or a lease release that could cancel its original in-flight
+attempt. An unknown acknowledgement requests uncertain persisted backoff; another
+invocation requires a new bounded ordinal, not a repeated old grant.
+
+After fresh admission, current original restoration and claim verification run
+again before invoking STT, with the final monotonic check after those waits. The
+same original/custody/privacy and PG candidate fences run after the response.
+Canonical application privacy revocation commits its PG fence first. Independent
+custody revocation observed by a fresh check denies later use; these checks do not
+atomically serialize arbitrary SQLite revocation with a later PG operation or
+recall already authorized external processing. Mutable WAV/decoded buffers are
+cleared. Immutable body/base64 strings and plaintext already held by callers
+cannot be cryptographically recalled. No unselected words are written to PG;
+returned provisional text supplies no authoritative selection or freeze authority.
+
+Controlled local tests use actual PG receipts and persistent SQLite custody but
+explicitly synthetic provider responses. They qualify one-shot/replay/unknown-ack,
+canonical before-dispatch withdrawal and post-call Round/independent-custody
+refusal, not actual provider accuracy, peer hearing or a genuine debate result.
+The fair capacity/renewal poller, process executor recovery, richer provider
+response/quality qualification and authoritative selection remain incomplete.
+Production composition remains absent pending REL-H.

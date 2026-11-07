@@ -1,3 +1,5 @@
+import type { CaptureEvidenceBody } from './capture-evidence-body';
+import type { CaptureEvidenceSpeaker } from './capture-evidence-speaker';
 import type { EvidencePrivacyScope } from './evidence-privacy';
 
 /** Necessary evidence is not an optional Recording or a claim of peer hearing. */
@@ -88,3 +90,16 @@ export type NecessaryEvidenceIngressReply =
   | NecessaryEvidencePayloadReceipt
   | EvidenceRefusal
   | { readonly kind: 'pending'; readonly evidenceId: string };
+
+/** Private authenticated original read output. Never current dispatch, hearing or quality permission. */
+export type NecessaryEvidenceRestoreReply =
+  | {
+      readonly kind: 'restored';
+      readonly body: CaptureEvidenceBody;
+      readonly speaker: CaptureEvidenceSpeaker;
+      readonly receipt: NecessaryEvidencePayloadReceipt;
+    }
+  | Exclude<NecessaryEvidenceIngressReply, NecessaryEvidencePayloadReceipt>;
+export type NecessaryEvidenceRestore = (
+  input: unknown,
+) => Promise<NecessaryEvidenceRestoreReply>;
