@@ -35,15 +35,13 @@ export async function begin(
     return { kind: 'blocked' as const, reason: 'budget' as const };
   }
   const ordinal = owned.context.attempts + 1;
-  await tx
-    .insert(attempts)
-    .values({
-      contextId: input.contextId,
-      claimEpoch: input.claim.epoch,
-      ordinal,
-      outcome: 'admitted',
-      admittedAt: owned.now,
-    });
+  await tx.insert(attempts).values({
+    contextId: input.contextId,
+    claimEpoch: input.claim.epoch,
+    ordinal,
+    outcome: 'admitted',
+    admittedAt: owned.now,
+  });
   await tx
     .update(contexts)
     .set({ attempts: ordinal })
