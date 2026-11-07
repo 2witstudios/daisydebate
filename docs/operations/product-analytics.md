@@ -97,8 +97,8 @@ legal approval or deployment. The DPA is **not executed**: the legal form still
 requires the human-supplied company name, registered address and signer email.
 Transfer safeguards and PRIV-H sign-off remain outstanding. Do not close
 PRIV-H or set ingestion/management credentials on the strength of project
-selection alone. The parent activation operator handles scoped-key approval,
-configuration and live verification; this code/documentation PR does none of them.
+selection alone. The authorized activation operator must obtain scoped-key
+approval, configure credentials and complete live verification separately.
 
 The served notice is `privacyDocument` in
 `apps/web/src/features/legal/documents.ts`, version `draft-0.3` in
