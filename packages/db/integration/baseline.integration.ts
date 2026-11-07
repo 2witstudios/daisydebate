@@ -222,6 +222,21 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and has_column_privilege('daisy_web', c.oid, 'txid', 'UPDATE')
           and has_column_privilege('daisy_web', c.oid, 'seq', 'UPDATE')
           and not has_column_privilege('daisy_web', c.oid, 'singleton', 'UPDATE')
+        -- Recognition may advance work, but cannot rewrite original source provenance.
+        when c.relname in ('transcription_recovery_contexts', 'transcription_recovery_sources') then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and has_table_privilege('daisy_web', c.oid, 'INSERT')
+          and not has_table_privilege('daisy_web', c.oid, 'UPDATE,DELETE')
+          and (select bool_and(
+            has_column_privilege('daisy_web', c.oid, a.attname, 'UPDATE') =
+              (c.relname = 'transcription_recovery_contexts' and a.attname = any(array[
+                'duration_ms','last_sequence','units','status','last_source_at',
+                'next_attempt_at','last_claimed_at','claim_epoch','worker_id',
+                'lease_digest','lease_expires_at','attempts','model','policy_digest',
+                'blocked_reason','selected_revision','selected_digest','selected_at'
+              ]))
+          ) from pg_attribute a
+            where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped)
         -- ADR 0075 / ADR 0090 / ADR 0118: audit and terminal provenance are append-only.
         when c.relname in ('account_access_events', 'operator_command_receipts', 'round_finalizations', 'round_finalization_ballots', 'flag_change_events') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')

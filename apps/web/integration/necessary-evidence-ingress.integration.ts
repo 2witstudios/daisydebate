@@ -94,19 +94,43 @@ test('invalid original frame equations are refused before intent or custody acqu
 
 test('tampered actual ciphertext cannot become a payload receipt', async () => {
   await withEvidenceIngress(async ({ f, capture, custody, body }) => {
+    let intactOpened = false;
+    let tamperedOpen: unknown;
+    let inspections = 0;
+    let adoptions = 0;
     const ingress = createNecessaryEvidenceIngress({
-      store: capture,
+      store: {
+        ...capture,
+        adoptCaptureEvidence: (...args) => {
+          adoptions++;
+          return capture.adoptCaptureEvidence(...args);
+        },
+      },
       custody: {
         ...custody,
         seal: async (...args) => {
           const reply = await custody.seal(...args);
-          if (reply.kind === 'sealed')
+          if (reply.kind === 'sealed') {
+            // Positive control uses the same real authority, key, nonce and tag.
+            const opened = await custody.open(reply);
+            intactOpened = opened.kind === 'opened';
+            if (opened.kind === 'opened') opened.plaintext.fill(0);
             reply.ciphertext[0] = reply.ciphertext[0]! ^ 1;
+          }
           return reply;
+        },
+        open: async (...args) => {
+          const opened = await custody.open(...args);
+          tamperedOpen = opened;
+          return opened;
+        },
+        inspect: (...args) => {
+          inspections++;
+          return custody.inspect(...args);
         },
       },
     });
-    // The existing custody edge collapses authenticated-decryption exceptions to unavailable.
+    // Real GCM authentication refuses before the app's plaintext digest/current-custody checks.
     const reply = await ingress.receive(body);
     const [row] =
       await f.sql`select state,ciphertext is null as empty,payload_accepted_at is null as unreceived from necessary_evidence where id=${body.evidenceId}`;
@@ -114,10 +138,21 @@ test('tampered actual ciphertext cannot become a payload receipt', async () => {
       given: 'actual AES-GCM output altered before application adoption',
       should:
         'refuse authentication, retain its bounded intent for reconciliation and issue no PCM acknowledgement',
-      actual: { reply, row },
+      actual: {
+        reply,
+        row,
+        intactOpened,
+        tamperedOpen,
+        inspections,
+        adoptions,
+      },
       expected: {
-        reply: { kind: 'refused', reason: 'unavailable' },
+        reply: { kind: 'refused', reason: 'conflict' },
         row: { state: 'acquiring', empty: true, unreceived: true },
+        intactOpened: true,
+        tamperedOpen: { kind: 'refused', reason: 'conflict' },
+        inspections: 0,
+        adoptions: 0,
       },
     });
   });
