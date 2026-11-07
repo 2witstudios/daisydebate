@@ -1,2 +1,4 @@
-/** Only process entries capture this loader; the proxy never imports Billing's vendor/Flags graph. */
-export const loadBillingRoutes = () => import('./billing-app');
+import { billingRoutes } from './billing-app';
+
+/** Source entries capture the factory; handler/runtime construction stays lazy and proxy imports none of it. */
+export const loadBillingRoutes = async () => ({ billingRoutes });
