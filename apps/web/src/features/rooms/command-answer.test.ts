@@ -115,7 +115,7 @@ test('a hydrated refusal stays on the room with its reason', () => {
         values: { type: 'claim-seat', role: 'negative' },
         error: 'The room changed. Review the latest room and try again.',
       },
-      'That seat is unavailable. To replace its occupant, remove them first.',
+      'That seat is unavailable. It may be held for another member. If it is occupied, remove its occupant before assigning someone else.',
       undefined,
     ],
   });
