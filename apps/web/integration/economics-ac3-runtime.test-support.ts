@@ -11,18 +11,8 @@ import { createProviderBudget } from '../src/server/provider-budget';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 import { sampleRoundAnalysisReport } from '@daisy/protocol/round-analysis-testing';
-import { canUseRoundAnalysis } from '../src/features/round-analysis/authorization';
-import {
-  withRoomRuntime,
-  launchRuntimeRound,
-} from './round-runtime.test-support';
-import {
-  assignAiJudgeAndReady,
-  fixtureBallot,
-  playOut,
-} from './round-judging.test-support';
-import { finalizeAsWeb } from './round-maintenance.test-support';
-import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
+import { withRoomRuntime } from './round-runtime.test-support';
+import { fixtureBallot } from './round-judging.test-support';
 import { observeDispatches } from './economics-ac3-observation.test-support';
 import type { WorkerTimers } from '../src/lib/worker-timers';
 
@@ -225,6 +215,16 @@ export async function withAc3Runtime(
             limits: { judging: limit, analysis: analysisPolicy.concurrency },
             role: identity!.role,
           });
+        } catch (error) {
+          process.stdout.write(
+            JSON.stringify({
+              kind: 'AC3_PARTIAL_FAILURE_OBSERVATION',
+              events: observer.events,
+              judge: observer.facts('casual_ai_judge'),
+              analysis: observer.facts('round_analysis'),
+            }) + '\n',
+          );
+          throw error;
         } finally {
           clearInterval(heartbeat);
           await renewal;
@@ -239,58 +239,3 @@ export async function withAc3Runtime(
     await app.close();
   }
 }
-
-type RuntimeFixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
-/** Existing legal Round/attendance/transcript TEST fixtures; no usage, attempt, dispatch or paid rows inserted. */
-export async function prepareAc3Round(f: RuntimeFixture, fresh: boolean) {
-  const cast = fresh ? await f.freshCast() : { host: f.host, guest: f.guest };
-  const room = await f.assemble(
-    { selection: await assembleJudgedRoomSelection() },
-    cast,
-  );
-  const ready = await assignAiJudgeAndReady(f, room, [cast.host, cast.guest]);
-  const { roundId } = await launchRuntimeRound(f, ready.room);
-  await playOut(f, roundId, true);
-  const round = (await f.store.getRound(roundId))!,
-    segment = round.segments[0]!,
-    seat = round.participants.find((p) => p.actorId === cast.host.actorId)!;
-  await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values(${createId()},${roundId},${segment.id},${seat.id},0,'Controlled admitted TEST speech for economics volume qualification')`;
-  await f.sql`insert into round_transcripts(round_id,revision) values(${roundId},1) on conflict(round_id) do update set revision=1`;
-  await finalizeAsWeb(f, roundId);
-  await seedSettledAttendanceLedger(f, roundId);
-  return { roundId, caller: cast.host, roundParticipantId: seat.id };
-}
-
-async function assembleJudgedRoomSelection() {
-  const { oneOnOneDefinition, oneOnOneSettings } =
-    await import('@daisy/db/reference-formats');
-  return {
-    kind: 'custom' as const,
-    definition: {
-      ...oneOnOneDefinition,
-      seats: { ...oneOnOneDefinition.seats, judge: 1 },
-    },
-    config: oneOnOneSettings,
-    competitionType: 'casual' as const,
-  };
-}
-
-export const requestAc3Analysis = (
-  f: RuntimeFixture,
-  target: Awaited<ReturnType<typeof prepareAc3Round>>,
-) =>
-  f.store.requestRoundAnalysis({
-    roundId: target.roundId,
-    caller: target.caller,
-    authorize: (access) =>
-      canUseRoundAnalysis(access, 'round.analysis.request'),
-  });
-export const readAc3Analysis = (
-  f: RuntimeFixture,
-  target: Awaited<ReturnType<typeof prepareAc3Round>>,
-) =>
-  f.store.readRoundAnalysis({
-    roundId: target.roundId,
-    caller: target.caller,
-    authorize: (access) => canUseRoundAnalysis(access, 'round.analysis.read'),
-  });
