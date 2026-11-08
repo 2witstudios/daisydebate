@@ -272,8 +272,7 @@ export const claimSeat = (
   const occupant = room.participants.find(
     (p) => p.role === command.role && p.slot === command.slot,
   );
-  const other =
-    occupant && occupant.actorId !== targetId ? occupant : null;
+  const other = occupant && occupant.actorId !== targetId ? occupant : null;
   // One host assign replaces the occupant outright (ADR 0121); removing to
   // empty is the separate remove-seat command. A claim never displaces, and
   // a judge the host may not name stays beyond their reach (DEC-331).
