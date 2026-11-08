@@ -15,6 +15,9 @@ import { processRoute } from '../../../server/process-app';
 const create = processRoute((routes) => routes.rooms.create);
 const catalog = processRoute((routes) => routes.rooms.catalog);
 
+/** The standards a practice may run, in the catalog's own order (DEC-269). */
+const practiceFormatIds = ['freestyle', 'policy', 'value'];
+
 /**
  * Start practice: the form's one act. It reads the one catalog (the same
  * roster the Room's seat controls use), asks for the practice create, and
@@ -28,21 +31,17 @@ export async function startPracticeAction(
   const templates = await readRoomTemplates(inProcessFetch(catalog, incoming));
   if (templates.kind !== 'found')
     return refused(form, 'Practice is unavailable. Try again.');
-  const freestyle = templates.choices.find(
-    (choice) => choice.formatId === 'freestyle' && choice.role === 'standard',
+  const formats = templates.choices.filter(
+    (choice) =>
+      choice.role === 'standard' && practiceFormatIds.includes(choice.formatId),
   );
   const request = preparePractice(
     form,
     {
       bots: templates.bots,
       botDebateAiJudge: templates.botDebateAiJudge,
-      freestyle: freestyle
-        ? {
-            formatId: 'freestyle',
-            formatVersion: freestyle.formatVersion,
-            presetVersion: freestyle.preset.version,
-          }
-        : null,
+      formats,
+      resolutions: templates.resolutions,
     },
     systemId.next(),
   );

@@ -74,10 +74,10 @@ function Portrait({ name }: { readonly name: string }) {
 }
 
 /**
- * The Train landing: the real bot roster, one large card for the chosen
- * opponent, and a Start practice post that opens the ordinary Room with
- * that bot seated. Choosing rides in the address, so every control is a
- * link and it works before hydration.
+ * The Train landing: the real bot roster, the practice format, one large card
+ * for the chosen opponent, and a Start practice post that opens the ordinary
+ * Room with that bot seated. Choosing rides in the address, so every control
+ * is a link and it works before hydration.
  */
 export function BotSelectorPage({
   view,
@@ -89,7 +89,8 @@ export function BotSelectorPage({
   /** The catalog read failed; nothing here can promise a practice. */
   readonly unavailable?: boolean;
 }) {
-  const { chosen, opponents, available, judge } = view;
+  const { chosen, opponents, available, judge, formats } = view;
+  const chosenFormat = formats.find((format) => format.selected);
   const canPractice = available && chosen?.eligible;
   const chosenIndex = opponents.findIndex((card) => card.selected);
   const previous = chosenIndex > 0 ? opponents[chosenIndex - 1] : null;
@@ -102,6 +103,30 @@ export function BotSelectorPage({
       <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
         Train
       </h1>
+      {formats.length > 1 ? (
+        <nav aria-label="Practice format">
+          <ul className="flex flex-wrap justify-center gap-2">
+            {formats.map((format) => (
+              <li key={format.id}>
+                <Link
+                  href={format.href}
+                  scroll={false}
+                  aria-current={format.selected ? 'true' : undefined}
+                  aria-label={format.label}
+                  className={cn(
+                    'rounded-round border px-4 py-2 text-sm no-underline hover:no-underline',
+                    format.selected
+                      ? 'border-accent bg-surface font-strong text-ink'
+                      : 'border-border text-ink-muted hover:border-ink-muted hover:text-ink',
+                  )}
+                >
+                  {format.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
       <section
         aria-label="Choose an opponent"
         className="mx-auto flex w-full max-w-reading flex-col gap-6"
@@ -149,6 +174,11 @@ export function BotSelectorPage({
                         </p>
                       ) : null}
                       <input type="hidden" name="bot" value={chosen.actorId} />
+                      <input
+                        type="hidden"
+                        name="format"
+                        value={chosenFormat?.id ?? 'freestyle'}
+                      />
                       <button
                         type="submit"
                         disabled={pending}

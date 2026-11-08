@@ -6,18 +6,39 @@ import {
   type PracticeCatalog,
 } from './start-practice';
 import { debater, judge } from './roster.test-support';
+import { unequalTemplate } from '../rooms/assembly.test-support';
 
 setupRitewayBun();
+
+/** A standard catalog choice as the practice catalog reads it. */
+const format = (formatId: string, label = formatId) => ({
+  ...unequalTemplate,
+  formatId,
+  label,
+  role: 'standard' as const,
+});
+
+const policyPublication = {
+  id: 'p'.repeat(24),
+  kind: 'policy' as const,
+  text: 'Resolved: the standard is worth it',
+  provenance: 'Daisy Beta Season 1',
+  publishedAt: '2026-09-01T00:00:00.000Z',
+  edition: null,
+  theme: null,
+};
 
 const catalog: PracticeCatalog = {
   bots: [debater('wren-actor-id-000000', { label: 'Wren' }), judge()],
   botDebateAiJudge: true,
-  freestyle: { formatId: 'freestyle', formatVersion: 1, presetVersion: 1 },
+  formats: [format('freestyle', 'Freestyle'), format('policy', 'Policy')],
+  resolutions: [policyPublication],
 };
 
-const form = (bot: string) => {
+const form = (bot: string, extra: Record<string, string> = {}) => {
   const data = new FormData();
   data.set('bot', bot);
+  for (const [name, value] of Object.entries(extra)) data.set(name, value);
   return data;
 };
 
@@ -48,8 +69,8 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
       {
         kind: 'catalog',
         formatId: 'freestyle',
-        formatVersion: 1,
-        presetVersion: 1,
+        formatVersion: unequalTemplate.formatVersion,
+        presetVersion: unequalTemplate.preset.version,
         competitionType: 'casual',
       },
       [
@@ -60,20 +81,47 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
   });
 });
 
+test('Start practice names the published resolution the addressed format debates', () => {
+  const ready = preparePractice(
+    form('wren-actor-id-000000', { format: 'policy' }),
+    catalog,
+    'command-1',
+  );
+  assert({
+    given: 'a Policy practice with its publication present',
+    should: 'select Policy at its canonical preset against the publication',
+    actual:
+      ready.kind === 'ready'
+        ? [ready.body.resolution, ready.body.selection]
+        : ready,
+    expected: [
+      { kind: 'policy', id: policyPublication.id },
+      {
+        kind: 'catalog',
+        formatId: 'policy',
+        formatVersion: unequalTemplate.formatVersion,
+        presetVersion: unequalTemplate.preset.version,
+        competitionType: 'casual',
+      },
+    ],
+  });
+});
+
 test('Start practice refuses truthfully before any request', () => {
   const refusalOf = (
     bots: PracticeCatalog['bots'],
     bot: string,
-    freestyle: PracticeCatalog['freestyle'] = catalog.freestyle,
+    overrides: Partial<PracticeCatalog> = {},
+    extra: Record<string, string> = {},
   ) =>
     preparePractice(
-      form(bot),
-      { bots, freestyle, botDebateAiJudge: true },
+      form(bot, extra),
+      { ...catalog, bots, ...overrides },
       'command-1',
     );
   assert({
     given:
-      'an unknown opponent, an ineligible roster, a missing judge and a missing format',
+      'an unknown opponent, an ineligible roster, a missing judge, a missing format, an unknown format and an unpublished format',
     should: 'refuse each with its own truthful message',
     actual: [
       refusalOf(catalog.bots, 'nobody').kind,
@@ -82,9 +130,24 @@ test('Start practice refuses truthfully before any request', () => {
         'wren-actor-id-000000',
       ).kind,
       refusalOf([debater('wren-actor-id-000000')], 'wren-actor-id-000000').kind,
-      refusalOf(catalog.bots, 'wren-actor-id-000000', null).kind,
+      refusalOf(catalog.bots, 'wren-actor-id-000000', { formats: [] }).kind,
+      refusalOf(catalog.bots, 'wren-actor-id-000000', {}, { format: 'parli' })
+        .kind,
+      refusalOf(
+        catalog.bots,
+        'wren-actor-id-000000',
+        { resolutions: [] },
+        { format: 'policy' },
+      ).kind,
     ],
-    expected: ['refused', 'refused', 'refused', 'refused'],
+    expected: [
+      'refused',
+      'refused',
+      'refused',
+      'refused',
+      'refused',
+      'refused',
+    ],
   });
 });
 
