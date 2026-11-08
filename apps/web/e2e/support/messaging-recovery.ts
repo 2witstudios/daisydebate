@@ -398,6 +398,8 @@ export function testMessagingRecovery() {
           return current !== null && current !== before;
         })
         .toBe(true);
+      const afterActionId = await refusalRenderId(page);
+      expect(afterActionId).not.toBeNull();
       await info.attach('unrelated-render-observed', {
         contentType: 'application/json',
         body: JSON.stringify({ changedConversationRender: true }),
@@ -426,12 +428,19 @@ export function testMessagingRecovery() {
         previousOwner: ownerBeforeAction,
         timing: { step, deadline },
       });
+      // Why expectedId: Next reconciles concurrent RSC payloads newest-wins,
+      // discarding the stale held refresh after the Minimize action render
+      // commits. The newest committed render (afterActionId, the action
+      // render's own refusal) is therefore the settlement; the held HTTP
+      // response still finishes (response-completion evidence) but its stale
+      // Flight does not commit. Budget assertions below stay exact.
       const settled = await settledRefusalResponse(
         page,
         observer,
         1,
         before!,
         deadline,
+        afterActionId!,
       ).catch((error) =>
         recordRecoveryFailure(info, page, observer!, phase(), error),
       );
