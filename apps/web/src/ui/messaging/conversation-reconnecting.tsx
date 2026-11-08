@@ -37,6 +37,63 @@ export function ConversationReconnecting({
       exhausted: () => setExhausted(true),
     });
     owner.current = recovery;
+    // A discarded held refresh settles its transition on discard while its
+    // network request is still in flight. Adopt the buffered newest render
+    // only once that network fetch finishes, so a wait never dispatches
+    // while a held refresh is still on the wire.
+    const originalFetch = window.fetch.bind(window);
+    let inFlight = 0;
+    let armed = false;
+    const isConversationRefetch = (
+      input: Parameters<typeof window.fetch>[0],
+      init: Parameters<typeof window.fetch>[1],
+    ) => {
+      try {
+        const raw =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : (input as Request).url;
+        const url = new URL(raw, window.location.href);
+        if (
+          url.origin !== window.location.origin ||
+          url.pathname !== new URL(address).pathname
+        )
+          return false;
+        const method =
+          init?.method ?? (input instanceof Request ? input.method : 'GET');
+        if (String(method).toUpperCase() !== 'GET') return false;
+        const headers = new Headers(
+          (init?.headers ??
+            (input instanceof Request ? input.headers : undefined)) as
+            HeadersInit | undefined,
+        );
+        return (
+          headers.has('rsc') && headers.get('next-router-prefetch') !== '1'
+        );
+      } catch {
+        return false;
+      }
+    };
+    const wrappedFetch = async (
+      ...args: Parameters<typeof window.fetch>
+    ): Promise<Response> => {
+      if (!isConversationRefetch(args[0], args[1]))
+        return originalFetch(...args);
+      inFlight += 1;
+      armed = true;
+      try {
+        return await originalFetch(...args);
+      } finally {
+        inFlight -= 1;
+        if (inFlight === 0 && armed) {
+          armed = false;
+          recovery.settled();
+        }
+      }
+    };
+    window.fetch = wrappedFetch as typeof window.fetch;
     // Native default actions are separate from Next's accepted-link notice.
     const navigate = (event: MouseEvent) => {
       if (
@@ -82,6 +139,8 @@ export function ConversationReconnecting({
     return () => {
       recovery.stop();
       owner.current = null;
+      if (window.fetch === (wrappedFetch as typeof window.fetch))
+        window.fetch = originalFetch;
       document.removeEventListener('click', navigate);
       document.removeEventListener('submit', submit);
       document.removeEventListener(shellNavigationEvent, recovery.stop);
