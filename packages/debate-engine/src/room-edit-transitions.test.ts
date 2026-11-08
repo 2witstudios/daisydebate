@@ -141,7 +141,8 @@ test('seat and configuration refusals leave the room intact', () => {
     edges,
   );
   assert({
-    given: 'a claim onto an occupied seat, an unjoined human and out-of-bounds timing',
+    given:
+      'a claim onto an occupied seat, an unjoined human and out-of-bounds timing',
     should: 'refuse each mutation without changing any room state',
     actual: [displacedClaim, unjoinedHuman, badConfig, JSON.stringify(room)],
     expected: [
@@ -197,9 +198,7 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
   });
   const held = {
     ...room,
-    seatHolds: [
-      { actorId: 'alice', until: '2026-10-09T00:10:00.000Z' },
-    ],
+    seatHolds: [{ actorId: 'alice', until: '2026-10-09T00:10:00.000Z' }],
   };
   const replacedPastHold = executeRoomCommand(
     held,
@@ -223,7 +222,7 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
   });
 });
 
-test('one assign moves the target and displaces the target seat\'s occupant', () => {
+test("one assign moves the target and displaces the target seat's occupant", () => {
   const room = state();
   const wide = {
     ...room,
@@ -256,7 +255,15 @@ test('one assign moves the target and displaces the target seat\'s occupant', ()
       slot: 1,
     },
     consent,
-    { ...edges, target: { ...other!, id: 'p2' } },
+    {
+      ...edges,
+      target: {
+        ...other!,
+        id: 'p2',
+        kind: 'human' as const,
+        seatRole: null,
+      },
+    },
   );
   assert({
     given: 'a seated member assigned to a seat another member holds',
@@ -320,7 +327,10 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
     actual: assign({ ...withJudge }),
     expected: { ok: false, refusal: 'seat-unavailable' },
   });
-  const seatlessHost = { ...withJudge, participants: withJudge.participants.filter((p) => p.actorId !== 'host') };
+  const seatlessHost = {
+    ...withJudge,
+    participants: withJudge.participants.filter((p) => p.actorId !== 'host'),
+  };
   const replaced = assign(seatlessHost);
   assert({
     given: 'a seatless host replacing the seated human judge with the AI judge',
