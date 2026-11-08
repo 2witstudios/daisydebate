@@ -70,14 +70,15 @@ export function preparePractice(
   const publication = catalog.resolutions.find(
     (resolution) => resolution.kind === format.formatId,
   );
-  const resolution: RoomCreate['resolution'] =
-    format.formatId === 'freestyle'
-      ? { kind: 'strike' }
-      : publication &&
-          (format.formatId === 'policy' || format.formatId === 'value')
-        ? { kind: format.formatId, id: publication.id }
-        : null;
-  if (!resolution) return { kind: 'refused', error: formatUnavailable };
+  let resolution: RoomCreate['resolution'] = { kind: 'strike' };
+  if (format.formatId !== 'freestyle') {
+    if (
+      (format.formatId !== 'policy' && format.formatId !== 'value') ||
+      !publication
+    )
+      return { kind: 'refused', error: formatUnavailable };
+    resolution = { kind: format.formatId, id: publication.id };
+  }
   return {
     kind: 'ready',
     body: {

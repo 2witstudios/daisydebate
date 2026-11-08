@@ -1,5 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { executeRoomCommand } from './room-assembly';
+import { oneOnOneSettings } from './runtime.test-support';
 import { consent, edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
@@ -484,5 +486,88 @@ test('a ranked Room is always public', () => {
     should: 'accept the edit',
     actual: details('public').ok,
     expected: true,
+  });
+});
+
+test('choosing a standard keeps the seated cast, bots included (FMT-1)', () => {
+  const room = {
+    ...state(),
+    participants: [
+      state().participants[0]!,
+      {
+        id: 'p2',
+        actorId: 'wren-bot',
+        label: 'Wren',
+        kind: 'bot' as const,
+        role: 'negative' as const,
+        slot: 0,
+        eligible: true,
+        seatRole: 'debater' as const,
+        consentVersion: 0,
+        consentCommandId: null,
+      },
+    ],
+  };
+  const outcome = executeRoomCommand(
+    room,
+    'host',
+    {
+      type: 'select-format',
+      commandId: 'choose-policy',
+      expectedVersion: room.version,
+      intent: 'choose',
+      formatId: 'policy',
+      formatVersion: 1,
+      presetVersion: 3,
+    },
+    consent,
+    {
+      ...edges,
+      formatFacts: {
+        format: {
+          id: 'policy',
+          name: 'Policy',
+          leagues: [],
+          catalogOwned: true,
+          role: 'standard' as const,
+          currentVersion: 1,
+        },
+        definition: oneOnOneFormatFixture,
+        preset: {
+          version: 3,
+          formatVersion: 1,
+          config: oneOnOneSettings,
+          rankedEligible: false,
+          current: true,
+        },
+      },
+      resolutionPublication: {
+        id: 'p'.repeat(24),
+        kind: 'policy' as const,
+        text: 'Resolved: the standard is worth it',
+        provenance: 'Daisy Beta Season 1',
+        publishedAt: '2026-09-01T00:00:00.000Z',
+        edition: null,
+        theme: null,
+      },
+    },
+  );
+  assert({
+    given: 'a Room with a bot debater seated choosing the Policy standard',
+    should:
+      'keep the bot seated, adopt the standard and take its publication as the topic',
+    actual: outcome.ok && [
+      outcome.mutation.state.formatId,
+      outcome.mutation.state.participants.map((p) => [p.actorId, p.kind]),
+      outcome.mutation.state.topic,
+    ],
+    expected: [
+      'policy',
+      [
+        ['host', 'human'],
+        ['wren-bot', 'bot'],
+      ],
+      'Resolved: the standard is worth it',
+    ],
   });
 });

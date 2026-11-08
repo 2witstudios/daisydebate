@@ -197,3 +197,35 @@ test('seat pickers show the saved occupant and leave empty seats unselected', ()
     expected: [true, true, true, true],
   });
 });
+
+test('ranked rooms show their debater bots but mark them unseatable', () => {
+  const html = renderToStaticMarkup(
+    <AssemblyCast
+      view={{ ...assemblySnapshot, competitionType: 'ranked' }}
+      viewer={{
+        actorId: assemblySnapshot.hostActorId,
+        label: assemblySnapshot.hostLabel,
+      }}
+      bots={[
+        {
+          actorId: 'w'.repeat(24),
+          kind: 'bot',
+          label: 'Ranked bot',
+          seatRole: 'debater',
+          eligible: true,
+        },
+      ]}
+      {...nativeIntents}
+    />,
+  );
+  assert({
+    given: 'a ranked room with an eligible debater bot',
+    should:
+      'list the bot with its ranked reason and disable it instead of refusing the post',
+    actual: [
+      html.includes('Ranked bot · AI · ranked rooms seat people'),
+      /<option[^>]*value="w{24}"[^>]*disabled=""/.test(html),
+    ],
+    expected: [true, true],
+  });
+});
