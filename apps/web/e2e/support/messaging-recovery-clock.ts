@@ -105,13 +105,14 @@ export async function settledRefusal(page: Page, deadline: number) {
   return id!;
 }
 
-/** One actual response must finish and commit its own refusal before another deadline. */
+/** One actual response must finish and commit the newest refusal before another deadline. */
 export async function settledRefusalResponse(
   page: Page,
   observer: ReturnType<typeof watchConversationRecovery>,
   attempt: number,
   previous: string,
   deadline: number,
+  expectedId?: string,
 ) {
   await expect
     .poll(() => observer.refetchResponses().length, {
@@ -166,6 +167,12 @@ export async function settledRefusalResponse(
     );
   const advice = advisedConversationBoundary(payload!);
   expect(advice !== null).toBe(true);
+  // Next reconciles concurrent RSC payloads: when an unrelated action render
+  // commits while a refresh is in flight, the stale refresh payload is
+  // discarded and the newest committed render (expectedId, here the action
+  // render's own refusal) is the settlement. Otherwise the held response's
+  // own advice is the settlement.
+  const expected = expectedId ?? advice!.requestId;
   let id: string | null = null;
   let readiness: ReturnType<typeof committedRefusalState>['diagnostic'] | null =
     null;
@@ -186,7 +193,7 @@ export async function settledRefusalResponse(
           return (
             id !== null &&
             id !== previous &&
-            id === advice!.requestId &&
+            id === expected &&
             observer.snapshot().pending === 0
           );
         },

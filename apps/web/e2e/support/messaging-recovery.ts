@@ -29,6 +29,11 @@ import { boundedStep, STEP_LIMIT_MS } from './bounded-step';
 import { readControlledRefusal } from './messaging-controlled-refusal';
 import { systemClock } from '@daisy/clock';
 import { watchRecoveryConsumer } from './messaging-recovery-consumer';
+import {
+  recordRecoveryPhase,
+  captureRecoveryOwner,
+  recordRecoveryFailure,
+} from './messaging-recovery-phase';
 import type { Page } from '@playwright/test';
 import { watchRecoveredChannel } from './messaging-recovery-observation';
 import { postMessage } from './messaging-content-requests';
@@ -151,7 +156,10 @@ export function testMessagingRecovery() {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
       await pauseMessagingRecovery(page);
-      const consumer = await watchRecoveryConsumer(page, journey.channelId);
+      const consumer = await watchRecoveryConsumer(page, {
+        kind: 'conversation',
+        channelId: journey.channelId,
+      });
       observer = watchConversationRecovery(page, journey.channelId, consumer);
       await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
@@ -286,11 +294,17 @@ export function testMessagingRecovery() {
   }, info) => {
     const journey = await openMessagingJourney(browser);
     let release = () => {};
+    let previousOwner:
+      Awaited<ReturnType<typeof captureRecoveryOwner>> | undefined;
     let observer: ReturnType<typeof watchConversationRecovery> | undefined;
     try {
       const page = await acceptMessagingJourney(journey);
       await effectsRan(page);
       await pauseMessagingRecovery(page);
+      const consumer = await watchRecoveryConsumer(page, {
+        kind: 'conversation',
+        channelId: journey.channelId,
+      });
       const held = Promise.withResolvers<boolean>();
       const gate = Promise.withResolvers<void>();
       release = gate.resolve;
@@ -330,7 +344,7 @@ export function testMessagingRecovery() {
           remaining,
         );
       });
-      observer = watchConversationRecovery(page, journey.channelId);
+      observer = watchConversationRecovery(page, journey.channelId, consumer);
       await control('refuse-messaging-history', journey.pressureSelectors);
       await page.goto(`/messages/${journey.channelId}`);
       await expect(refused(page)).toBeVisible();
@@ -371,6 +385,8 @@ export function testMessagingRecovery() {
       await expect.poll(() => refusalRenderId(page)).not.toBeNull();
       const before = await refusalRenderId(page);
       expect(before).not.toBeNull();
+      const ownerBeforeAction = await captureRecoveryOwner(page);
+      previousOwner = ownerBeforeAction;
       observer.phase('unrelated shell action while recovery is held');
       await page.getByRole('button', { name: 'Minimize', exact: true }).click();
       await expect(
@@ -382,9 +398,17 @@ export function testMessagingRecovery() {
           return current !== null && current !== before;
         })
         .toBe(true);
+      const afterActionId = await refusalRenderId(page);
+      expect(afterActionId).not.toBeNull();
       await info.attach('unrelated-render-observed', {
         contentType: 'application/json',
         body: JSON.stringify({ changedConversationRender: true }),
+      });
+      await recordRecoveryPhase(info, page, observer, {
+        phase: 'unrelated-render-held',
+        response: null,
+        previous: before,
+        previousOwner: ownerBeforeAction,
       });
       await page.clock.fastForward(12000);
       expect(observer.snapshot()).toMatchObject({
@@ -396,13 +420,31 @@ export function testMessagingRecovery() {
       const deadline = recoveryDeadline();
       deliveryDeadline = deadline;
       release();
+      const step = observer.eventStep();
+      const phase = () => ({
+        phase: 'after-held-predicate' as const,
+        response: observer!.refetchResponses()[0] ?? null,
+        previous: before,
+        previousOwner: ownerBeforeAction,
+        timing: { step, deadline },
+      });
+      // Why expectedId: Next reconciles concurrent RSC payloads newest-wins,
+      // discarding the stale held refresh after the Minimize action render
+      // commits. The newest committed render (afterActionId, the action
+      // render's own refusal) is therefore the settlement; the held HTTP
+      // response still finishes (response-completion evidence) but its stale
+      // Flight does not commit. Budget assertions below stay exact.
       const settled = await settledRefusalResponse(
         page,
         observer,
         1,
         before!,
         deadline,
+        afterActionId!,
+      ).catch((error) =>
+        recordRecoveryFailure(info, page, observer!, phase(), error),
       );
+      await recordRecoveryPhase(info, page, observer, phase());
       await driveRefusalDeadlines(page, observer, settled, deadline, 1);
       expect(observer.snapshot()).toMatchObject({
         dispatches: 3,
@@ -420,7 +462,11 @@ export function testMessagingRecovery() {
         await control('allow-messaging-reads');
       } finally {
         observer?.stop();
-        await journey.close();
+        try {
+          await previousOwner?.dispose();
+        } finally {
+          await journey.close();
+        }
       }
     }
   });

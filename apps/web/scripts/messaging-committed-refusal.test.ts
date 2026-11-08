@@ -164,3 +164,53 @@ test('settlement follows the installed router memo then transition hooks, never 
     expected: null,
   });
 });
+
+test('private owner capture separates router wrapper replacement from recovery lifetime', () => {
+  const refresh = () => {};
+  const original = { refresh };
+  const recovery = { stop() {}, refused() {} };
+  const ownerRef = { current: recovery };
+  const start = () => {};
+  const element: Record<string, unknown> = {};
+  const memo = {
+    memoizedState: [{ refresh, bfcacheId: '_b_1_' }, [original, 1]],
+    next: {
+      memoizedState: false,
+      queue: { dispatch: null, lastRenderedReducer() {} },
+      next: { memoizedState: start, next: { memoizedState: ownerRef } },
+    },
+  };
+  const owner = {
+    memoizedProps: { requestId: 'c'.repeat(24), retryAfterMs: 1000 },
+    memoizedState: memo,
+    child: { stateNode: element },
+  };
+  const { host } = hostRoot(owner);
+  element['__reactFiber$fixture'] = { return: host };
+  const ordinary = committedRefusalState(element, true);
+  const before = committedRefusalState(element, 'private-owner').privateOwner;
+  memo.memoizedState = [{ refresh, bfcacheId: '_b_2_' }, [original, 2]];
+  const changed = committedRefusalState(element, 'private-owner').privateOwner;
+  ownerRef.current = { stop() {}, refused() {} };
+  const reset = committedRefusalState(element, 'private-owner').privateOwner;
+  assert({
+    given:
+      'a validated current tree with changed contextual router, then a replaced recovery',
+    should:
+      'retain private reference identity only for explicit handle capture and distinguish both changes',
+    actual: {
+      ordinaryHasHandles: 'privateOwner' in ordinary,
+      sameRouter: before?.router === changed?.router,
+      sameRefresh: before?.refresh === changed?.refresh,
+      sameRecovery: before?.recovery === changed?.recovery,
+      replacedRecovery: changed?.recovery !== reset?.recovery,
+    },
+    expected: {
+      ordinaryHasHandles: false,
+      sameRouter: false,
+      sameRefresh: true,
+      sameRecovery: true,
+      replacedRecovery: true,
+    },
+  });
+});

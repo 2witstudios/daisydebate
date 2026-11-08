@@ -65,7 +65,14 @@ export function observeRecoveryConsumer(
 }
 
 /** One hypothesis witness on the real consumer, with private HTTP correlation only. */
-export async function watchRecoveryConsumer(page: Page, channelId: string) {
+export async function watchRecoveryConsumer(
+  page: Page,
+  target:
+    | { readonly kind: 'conversation'; readonly channelId: string }
+    | { readonly kind: 'shell-home' },
+) {
+  const pathname =
+    target.kind === 'shell-home' ? '/' : `/messages/${target.channelId}`;
   const observations = new Map<string, Record<string, boolean>>();
   await page.exposeFunction(
     '__messagingRecoveryConsumer',
@@ -93,7 +100,7 @@ export async function watchRecoveryConsumer(page: Page, channelId: string) {
     },
   );
   await page.addInitScript({
-    content: `(${installRecoveryConsumer.toString()})(${JSON.stringify(channelId)}, ${observeRecoveryConsumer.toString()});`,
+    content: `(${installRecoveryConsumer.toString()})(${JSON.stringify(pathname)}, ${observeRecoveryConsumer.toString()});`,
   });
   return (response: PageResponse) => {
     const value = observations.get(response.headers()['x-request-id'] ?? '');
@@ -102,7 +109,7 @@ export async function watchRecoveryConsumer(page: Page, channelId: string) {
 }
 
 function installRecoveryConsumer(
-  channelId: string,
+  pathname: string,
   observe: typeof observeRecoveryConsumer,
 ) {
   const notify = (
@@ -121,8 +128,11 @@ function installRecoveryConsumer(
     const headers = new Headers(
       init?.headers ?? (input instanceof Request ? input.headers : undefined),
     );
+    const method =
+      init?.method ?? (input instanceof Request ? input.method : 'GET');
     if (
-      url.pathname !== `/messages/${channelId}` ||
+      method.toUpperCase() !== 'GET' ||
+      url.pathname !== pathname ||
       headers.get('rsc') !== '1' ||
       headers.get('next-router-prefetch') === '1'
     )
