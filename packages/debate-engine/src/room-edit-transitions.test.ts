@@ -571,3 +571,76 @@ test('choosing a standard keeps the seated cast, bots included (FMT-1)', () => {
     ],
   });
 });
+
+test('a seated host swaps one AI judge for another (ADR 0121, DEC-331)', () => {
+  const seatedPanel = {
+    id: 'panel-seat',
+    actorId: 'panel-bot',
+    label: 'The Panel',
+    kind: 'bot' as const,
+    role: 'judge' as const,
+    slot: 0,
+    eligible: true,
+    seatRole: 'judge' as const,
+    consentVersion: 0,
+    consentCommandId: null,
+  };
+  const room = {
+    ...state(),
+    rules: { ...state().rules, seats: { ...state().rules.seats, judge: 1 } },
+    participants: [...state().participants, seatedPanel],
+  };
+  const nextPanel = {
+    ...seatedPanel,
+    id: 'next-panel',
+    actorId: 'panel-two-bot',
+    label: 'The Other Panel',
+  };
+  const swapped = executeRoomCommand(
+    room,
+    'host',
+    {
+      type: 'assign-seat',
+      commandId: 'swap-ai-judge',
+      expectedVersion: room.version,
+      actorId: 'panel-two-bot',
+      role: 'judge',
+      slot: 0,
+    },
+    consent,
+    { ...edges, target: nextPanel },
+  );
+  assert({
+    given: 'a host who may not name judges replacing a seated AI judge',
+    should:
+      'accept the swap, because bots are public: only human judges are unnamed (DEC-331)',
+    actual:
+      swapped.ok &&
+      swapped.mutation.state.participants.find((p) => p.role === 'judge'),
+    expected: {
+      ...nextPanel,
+      id: edges.participantId,
+      consentCommandId: null,
+    },
+  });
+  const heir = executeRoomCommand(
+    { ...room, hostInherited: true },
+    'host',
+    {
+      type: 'assign-seat',
+      commandId: 'heir-swap',
+      expectedVersion: room.version,
+      actorId: 'panel-two-bot',
+      role: 'judge',
+      slot: 0,
+    },
+    consent,
+    { ...edges, target: nextPanel },
+  );
+  assert({
+    given: 'an heir swapping the seated AI judge',
+    should: 'accept for the same reason',
+    actual: heir.ok,
+    expected: true,
+  });
+});
