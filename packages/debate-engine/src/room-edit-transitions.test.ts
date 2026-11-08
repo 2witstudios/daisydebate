@@ -72,29 +72,28 @@ test('claim and leave operate on the caller seat while removal targets the seat 
 test('seat and configuration refusals leave the room intact', () => {
   const room = state();
   const before = JSON.stringify(room);
-  const refusedSeat = executeRoomCommand(
+  const displacedClaim = executeRoomCommand(
     room,
-    'host',
+    'extra',
     {
-      type: 'assign-seat',
-      commandId: 'full-seat',
+      type: 'claim-seat',
+      commandId: 'taken-seat',
       expectedVersion: room.version,
-      actorId: 'extra',
-      role: 'affirmative',
+      role: 'negative',
       slot: 0,
     },
     consent,
     {
       ...edges,
       target: {
-        id: 'bot',
+        id: 'extra',
         actorId: 'extra',
-        label: 'Bot',
-        kind: 'bot',
-        role: 'judge',
+        label: 'Extra',
+        kind: 'human',
+        role: 'negative',
         slot: 0,
         eligible: true,
-        seatRole: 'debater',
+        seatRole: null,
         consentVersion: 0,
       },
     },
@@ -142,15 +141,194 @@ test('seat and configuration refusals leave the room intact', () => {
     edges,
   );
   assert({
-    given: 'an occupied seat, an unjoined human and out-of-bounds timing',
+    given: 'a claim onto an occupied seat, an unjoined human and out-of-bounds timing',
     should: 'refuse each mutation without changing any room state',
-    actual: [refusedSeat, unjoinedHuman, badConfig, JSON.stringify(room)],
+    actual: [displacedClaim, unjoinedHuman, badConfig, JSON.stringify(room)],
     expected: [
       { ok: false, refusal: 'seat-unavailable' },
       { ok: false, refusal: 'actor-ineligible' },
       { ok: false, refusal: 'illegal-config' },
       before,
     ],
+  });
+});
+
+test('a host assign replaces the occupant in one command (ADR 0121)', () => {
+  const room = state();
+  const wren = {
+    id: 'wren',
+    actorId: 'wren-bot',
+    label: 'Wren',
+    kind: 'bot' as const,
+    role: 'negative' as const,
+    slot: 0,
+    eligible: true,
+    seatRole: 'debater' as const,
+    consentVersion: 0,
+  };
+  const replaced = executeRoomCommand(
+    room,
+    'host',
+    {
+      type: 'assign-seat',
+      commandId: 'replace',
+      expectedVersion: room.version,
+      actorId: 'wren-bot',
+      role: 'negative',
+      slot: 0,
+    },
+    consent,
+    { ...edges, target: wren },
+  );
+  assert({
+    given: 'a bot debater assigned over a seated human',
+    should: 'seat the bot and free the human in the same mutation',
+    actual:
+      replaced.ok &&
+      replaced.mutation.state.participants.map((p) => [
+        p.actorId,
+        p.role,
+        p.slot,
+      ]),
+    expected: [
+      ['host', 'affirmative', 0],
+      ['wren-bot', 'negative', 0],
+    ],
+  });
+  const held = {
+    ...room,
+    seatHolds: [
+      { actorId: 'alice', until: '2026-10-09T00:10:00.000Z' },
+    ],
+  };
+  const replacedPastHold = executeRoomCommand(
+    held,
+    'host',
+    {
+      type: 'assign-seat',
+      commandId: 'replace-held',
+      expectedVersion: held.version,
+      actorId: 'wren-bot',
+      role: 'negative',
+      slot: 0,
+    },
+    consent,
+    { ...edges, target: wren },
+  );
+  assert({
+    given: 'a replacement while free seats stay held for an absent member',
+    should: 'still replace, because a seat taken is not a seat held (ADR 0103)',
+    actual: replacedPastHold.ok,
+    expected: true,
+  });
+});
+
+test('one assign moves the target and displaces the target seat\'s occupant', () => {
+  const room = state();
+  const wide = {
+    ...room,
+    rules: { ...room.rules, seats: { ...room.rules.seats, negative: 2 } },
+    participants: [
+      ...room.participants,
+      {
+        id: 'p3',
+        actorId: 'third',
+        label: 'Third',
+        kind: 'human' as const,
+        role: 'negative' as const,
+        slot: 1,
+        eligible: true,
+        consentVersion: 0,
+        consentCommandId: null,
+      },
+    ],
+  };
+  const other = wide.participants.find((p) => p.actorId === 'other');
+  const moved = executeRoomCommand(
+    wide,
+    'host',
+    {
+      type: 'assign-seat',
+      commandId: 'move',
+      expectedVersion: wide.version,
+      actorId: 'other',
+      role: 'negative',
+      slot: 1,
+    },
+    consent,
+    { ...edges, target: { ...other!, id: 'p2' } },
+  );
+  assert({
+    given: 'a seated member assigned to a seat another member holds',
+    should: 'move the member and free both their old seat and the occupant',
+    actual:
+      moved.ok &&
+      moved.mutation.state.participants.map((p) => [p.actorId, p.slot]),
+    expected: [
+      ['host', 0],
+      ['other', 1],
+    ],
+  });
+});
+
+test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
+  const seatedJudge = {
+    id: 'judge-seat',
+    actorId: 'judge-human',
+    label: 'Judge',
+    kind: 'human' as const,
+    role: 'judge' as const,
+    slot: 0,
+    eligible: true,
+    consentVersion: 0,
+    consentCommandId: null,
+  };
+  const withJudge = {
+    ...state(),
+    rules: { ...state().rules, seats: { ...state().rules.seats, judge: 1 } },
+    participants: [...state().participants, seatedJudge],
+  };
+  const panel = {
+    id: 'panel',
+    actorId: 'panel-bot',
+    label: 'The Panel',
+    kind: 'bot' as const,
+    role: 'judge' as const,
+    slot: 0,
+    eligible: true,
+    seatRole: 'judge' as const,
+    consentVersion: 0,
+  };
+  const assign = (room: typeof withJudge) =>
+    executeRoomCommand(
+      room,
+      'host',
+      {
+        type: 'assign-seat',
+        commandId: 'replace-judge',
+        expectedVersion: room.version,
+        actorId: 'panel-bot',
+        role: 'judge',
+        slot: 0,
+      },
+      consent,
+      { ...edges, target: panel },
+    );
+  assert({
+    given: 'a host who may not name judges replacing a seated human judge',
+    should: 'refuse the replacement without changing the room',
+    actual: assign({ ...withJudge }),
+    expected: { ok: false, refusal: 'seat-unavailable' },
+  });
+  const seatlessHost = { ...withJudge, participants: withJudge.participants.filter((p) => p.actorId !== 'host') };
+  const replaced = assign(seatlessHost);
+  assert({
+    given: 'a seatless host replacing the seated human judge with the AI judge',
+    should: 'accept and seat the AI judge in the same mutation',
+    actual:
+      replaced.ok &&
+      replaced.mutation.state.participants.find((p) => p.role === 'judge'),
+    expected: { ...panel, id: edges.participantId, consentCommandId: null },
   });
 });
 
