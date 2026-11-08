@@ -42,8 +42,8 @@ export function ConversationReconnecting({
     // only once that network fetch finishes, so a wait never dispatches
     // while a held refresh is still on the wire.
     const originalFetch = window.fetch.bind(window);
-    let inFlight = 0;
-    let armed = false;
+    let pendingRefetches = 0;
+    let awaitingNetworkSettle = false;
     const isConversationRefetch = (
       input: Parameters<typeof window.fetch>[0],
       init: Parameters<typeof window.fetch>[1],
@@ -81,14 +81,14 @@ export function ConversationReconnecting({
     ): Promise<Response> => {
       if (!isConversationRefetch(args[0], args[1]))
         return originalFetch(...args);
-      inFlight += 1;
-      armed = true;
+      pendingRefetches += 1;
+      awaitingNetworkSettle = true;
       try {
         return await originalFetch(...args);
       } finally {
-        inFlight -= 1;
-        if (inFlight === 0 && armed) {
-          armed = false;
+        pendingRefetches -= 1;
+        if (pendingRefetches === 0 && awaitingNetworkSettle) {
+          awaitingNetworkSettle = false;
           recovery.settled();
         }
       }
