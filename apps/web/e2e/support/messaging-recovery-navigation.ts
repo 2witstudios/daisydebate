@@ -92,7 +92,12 @@ export function testMessagingRecoveryNavigation() {
         .first()
         .click();
       await held.entered();
-      await page.clock.fastForward(12000);
+      // The held destination response must be delivered before the fake clock
+      // advances: Next's navigation write path cannot survive the 12 s clock
+      // jump landing between the request's start and its delivery, and the
+      // payload then lands on an abandoned task (the URL never commits). The
+      // waiting Messaging retry window is elapsed after the commit instead —
+      // the same window, the same counts, with the payload arriving live.
       expect(observer.snapshot()).toMatchObject({
         dispatches: 0,
         otherDispatches: 1,
