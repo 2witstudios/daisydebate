@@ -33,9 +33,13 @@ async function holdDestination(page: Page, path: string) {
         return route.continue();
       captured = true;
       const response = await route.fetch();
+      // Buffer the nested Flight payload before holding: fulfilling the raw
+      // APIResponse without its bytes can deliver a truncated commit on a
+      // streamed destination, leaving the URL on the held origin.
+      const body = await response.body();
       held.resolve();
       await gate.promise;
-      await route.fulfill({ response });
+      await route.fulfill({ response, body });
     },
   );
   return {

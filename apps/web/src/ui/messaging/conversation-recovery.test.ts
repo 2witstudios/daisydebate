@@ -107,3 +107,31 @@ test('an unrelated action render cannot answer a held recovery page read', () =>
     },
   });
 });
+
+test('a held refresh that settles stale adopts the newest action render', () => {
+  const page = world();
+  page.recovery.refused('initial', 1000, 'page-read');
+  page.fire();
+  page.recovery.refused('newest', 1000, 'action-render');
+  page.recovery.refused('newer', 1000, 'action-render');
+  const held = { refreshes: page.refreshes(), waits: [...page.waits] };
+  page.recovery.settled();
+  const adopted = { refreshes: page.refreshes(), waits: [...page.waits] };
+  page.fire();
+  assert({
+    given:
+      'a held refresh whose stale payload is discarded while newer action renders commit',
+    should:
+      'buffer the newest render without dispatching while held and adopt it after settle',
+    actual: {
+      held,
+      adopted,
+      afterSettle: { refreshes: page.refreshes(), waits: page.waits },
+    },
+    expected: {
+      held: { refreshes: 1, waits: [1000] },
+      adopted: { refreshes: 1, waits: [1000, 2000] },
+      afterSettle: { refreshes: 2, waits: [1000, 2000] },
+    },
+  });
+});

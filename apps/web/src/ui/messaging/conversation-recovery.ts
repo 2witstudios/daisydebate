@@ -4,9 +4,18 @@ type Recovery =
   | { readonly kind: 'new' }
   | { readonly kind: 'stopped' }
   | {
-      readonly kind: 'waiting' | 'refreshing';
+      readonly kind: 'waiting';
       readonly attempts: number;
       readonly answers: readonly string[];
+    }
+  | {
+      readonly kind: 'refreshing';
+      readonly attempts: number;
+      readonly answers: readonly string[];
+      readonly deferred: {
+        readonly answer: string;
+        readonly retryAfterMs: number;
+      } | null;
     };
 type Event =
   | {
@@ -16,6 +25,7 @@ type Event =
       readonly retryAfterMs: number;
     }
   | { readonly kind: 'elapsed'; readonly answer: string }
+  | { readonly kind: 'settled' }
   | { readonly kind: 'stop' };
 type Effect =
   | { readonly kind: 'none' | 'refresh' | 'stop' | 'exhausted' }
@@ -38,14 +48,50 @@ export function conversationRecovery(
   if (event.kind === 'elapsed')
     return state.kind === 'waiting' && state.answers.at(-1) === event.answer
       ? {
-          state: { ...state, kind: 'refreshing', attempts: state.attempts + 1 },
+          state: {
+            ...state,
+            kind: 'refreshing',
+            attempts: state.attempts + 1,
+            deferred: null,
+          },
           effect: { kind: 'refresh' },
         }
       : unchanged;
+  // An unrelated action render while a refresh is held is buffered, never
+  // scheduled: the newest committed render still owns the page, but budget
+  // must not dispatch until the held refresh settles. The actual page answer
+  // adopts immediately; a stale-discarded hold adopts on settled.
+  if (event.kind === 'settled') {
+    if (state.kind !== 'refreshing' || state.deferred === null)
+      return unchanged;
+    const { answer, retryAfterMs } = state.deferred;
+    if (state.attempts >= 3)
+      return { state: { kind: 'stopped' }, effect: { kind: 'exhausted' } };
+    return {
+      state: {
+        kind: 'waiting',
+        attempts: state.attempts,
+        answers: [...state.answers, answer],
+      },
+      effect: {
+        kind: 'wait',
+        answer,
+        waitMs: Math.min(retryAfterMs * 2 ** state.attempts, 10_000),
+      },
+    };
+  }
   if (state.kind === 'waiting') return unchanged;
-  // An action can rerender the same page while the actual refresh is still in flight.
-  if (state.kind === 'refreshing' && event.origin === 'action-render')
-    return unchanged;
+  if (state.kind === 'refreshing' && event.origin === 'action-render') {
+    if (state.answers.includes(event.answer)) return unchanged;
+    if (state.deferred?.answer === event.answer) return unchanged;
+    return {
+      state: {
+        ...state,
+        deferred: { answer: event.answer, retryAfterMs: event.retryAfterMs },
+      },
+      effect: { kind: 'none' as const },
+    };
+  }
   if (state.kind === 'refreshing' && state.answers.includes(event.answer))
     return unchanged;
   const attempts = state.kind === 'new' ? 0 : state.attempts;
@@ -99,6 +145,7 @@ export function createConversationRecovery(input: {
   };
   return {
     stop: () => accept({ kind: 'stop' }),
+    settled: () => accept({ kind: 'settled' }),
     refused: (
       answer: string,
       retryAfterMs: number,
