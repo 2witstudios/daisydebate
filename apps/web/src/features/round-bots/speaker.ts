@@ -10,7 +10,12 @@ type Answer<T> = {
   /** Idempotent: safe to call again after a refusal. */
   readonly settle: () => Promise<void>;
 };
-/** The next phrase, voiced while the current one plays (ADR 0122). */
+/**
+ * How many phrases are voiced ahead of the one playing. One is not enough:
+ * a long phrase can take longer to voice than a short one before it plays.
+ */
+const VOICED_AHEAD = 2;
+/** A later phrase, voiced while the current one plays (ADR 0122). */
 type Upcoming = {
   readonly index: number;
   /** Settles once the answer is bought and its usage recorded. */
@@ -26,7 +31,8 @@ type Progress = {
   /** The phrase being spoken, and whether its usage and authority settled. */
   synthesized: Answer<BotSpeechJob> | null;
   ready: boolean;
-  upcoming: Upcoming | null;
+  /** The phrases voiced ahead, each bought once and kept across retries. */
+  ahead: Upcoming[];
   /**
    * The spoken phrase's line id. A retry keeps it, so a phrase start that
    * committed but whose answer was lost is not written twice; it changes
@@ -49,7 +55,7 @@ const freshProgress = (): Progress => ({
   spoken: 0,
   synthesized: null,
   ready: false,
-  upcoming: null,
+  ahead: [],
   lineId: null,
   confirming: null,
 });
@@ -166,17 +172,21 @@ export function createBotSpeaker(input: {
     upcoming.done.catch(() => undefined);
     return upcoming;
   };
-  /** Holds the phrase after the one now due voiced ahead, once. */
+  /** Keeps the phrases after the one now due voiced ahead, each once. */
   const voiceAhead = (phrases: readonly string[], signal: AbortSignal) => {
-    if (progress.spoken + 1 < phrases.length && !progress.upcoming)
-      progress.upcoming = prefetch(phrases, progress.spoken + 1, signal);
+    const last = Math.min(phrases.length - 1, progress.spoken + VOICED_AHEAD);
+    for (let index = progress.spoken + 1; index <= last; index += 1)
+      if (!progress.ahead.some((held) => held.index === index))
+        progress.ahead.push(prefetch(phrases, index, signal));
   };
   /** The phrase now due: the voiced-ahead one, or bought now. */
   const take = async (phrases: readonly string[], signal: AbortSignal) => {
-    const upcoming = progress.upcoming;
-    if (upcoming?.index === progress.spoken) {
+    const upcoming = progress.ahead.find(
+      (held) => held.index === progress.spoken,
+    );
+    if (upcoming) {
+      progress.ahead = progress.ahead.filter((held) => held !== upcoming);
       await upcoming.done.catch(() => undefined);
-      progress.upcoming = null;
       // An answer bought but not settled is kept and settled again; one never
       // bought is voiced now, in turn, rather than deferring the whole turn.
       if (upcoming.answer)
@@ -189,7 +199,7 @@ export function createBotSpeaker(input: {
       phrases[progress.spoken]!,
       signal,
     );
-    // The next phrase is voiced alongside this one, so even a short phrase
+    // Later phrases are voiced alongside this one, so even a short phrase
     // never leaves the next waiting for its voice.
     voiceAhead(phrases, signal);
     return { answer: await buying, ready: false };

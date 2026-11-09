@@ -56,12 +56,12 @@ test('a speech that reaches its segment end stops quietly at its last whole phra
   });
 });
 
-test('the next phrase is voiced while the current one plays (ADR 0122)', async () => {
+test('the next two phrases are voiced while the current one plays (ADR 0122)', async () => {
   const run = harness('speech', {
     generate: async () =>
       answered({
-        text: 'One. Two. Three.',
-        phrases: ['One.', 'Two.', 'Three.'],
+        text: 'One. Two. Three. Four.',
+        phrases: ['One.', 'Two.', 'Three.', 'Four.'],
       }),
   });
   run.speaker.wake();
@@ -71,31 +71,27 @@ test('the next phrase is voiced while the current one plays (ADR 0122)', async (
   const whilePlayingSecond = [...run.log];
   await run.release();
   await run.release();
+  await run.release();
   await run.speaker.stop();
   assert({
-    given: 'a three-phrase speech whose first phrase is still playing',
+    given: 'a four-phrase speech whose first phrase is still playing',
     should:
-      'read the deadline once, voice phrase two during phrase one, and voice each phrase exactly once',
-    actual: { whilePlayingFirst, whilePlayingSecond, all: run.log },
+      'read the deadline once, keep two phrases voiced ahead, and voice each phrase exactly once',
+    actual: {
+      whilePlayingFirst,
+      whilePlayingSecond: whilePlayingSecond.slice(whilePlayingFirst.length),
+      bought: run.log.filter((entry) => entry.startsWith('tts:')),
+    },
     expected: {
-      whilePlayingFirst: ['deadline', 'tts:One.', 'tts:Two.', 'publish:One.'],
-      whilePlayingSecond: [
+      whilePlayingFirst: [
         'deadline',
         'tts:One.',
         'tts:Two.',
-        'publish:One.',
         'tts:Three.',
-        'publish:Two.',
-      ],
-      all: [
-        'deadline',
-        'tts:One.',
-        'tts:Two.',
         'publish:One.',
-        'tts:Three.',
-        'publish:Two.',
-        'publish:Three.',
       ],
+      whilePlayingSecond: ['tts:Four.', 'publish:Two.'],
+      bought: ['tts:One.', 'tts:Two.', 'tts:Three.', 'tts:Four.'],
     },
   });
 });

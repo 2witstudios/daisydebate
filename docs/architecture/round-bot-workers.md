@@ -202,10 +202,10 @@ When media is configured, each owned control claim also gets one speaker
 it, so receipts continue through model, voice or media failure. One turn runs
 at a time per claim. A turn generates text, reads its segment's due time once
 (calibrated against the database clock, off the audio path), then voices and
-plays its phrases in order. The next phrase is voiced while the current one
-plays, so sentences follow each other with no gap; at most one phrase is held
-ahead, bought and settled once, and kept across retries, so nothing is bought
-twice ([ADR 0122](../decisions/0122-authored-bot-speech.md)).
+plays its phrases in order. The next two phrases are voiced while the
+current one plays, so sentences follow each other with no gap even when a
+long phrase follows a short one; each is bought and settled once and kept
+across retries, so nothing is bought twice ([ADR 0122](../decisions/0122-authored-bot-speech.md)).
 
 Each phrase streams into a buffered native source in real time, and its
 authored utterance is written beside it, never in front of it

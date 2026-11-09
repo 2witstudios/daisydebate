@@ -74,8 +74,9 @@ its delivery instead of fitting it into the human capture pipeline.
    clear is asked again, up to three times, under the same line id. A start
    refused, or still failing, puts the speech back on that phrase, the last
    one included: it is said again under the same line id, and that time its
-   start is written before any of its audio plays. The next phrase is voiced
-   alongside the current one's voicing: at most one held ahead, bought and
+   start is written before any of its audio plays. The next two phrases
+   are voiced alongside the current one (a long phrase can take longer to
+   voice than a short one before it plays), each bought and
    settled once, kept across retries, so nothing is bought twice. A retry
    keeps its line id until that line is closed, so a phrase start that
    committed but whose answer was lost is never written twice; a phrase cut
