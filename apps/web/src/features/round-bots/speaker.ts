@@ -15,6 +15,12 @@ type Answer<T> = {
  * a long phrase can take longer to voice than a short one before it plays.
  */
 const VOICED_AHEAD = 2;
+/**
+ * A first phrase shorter than this waits for the second to be voiced before
+ * it plays: voicing a long phrase can outlast a short one, and a speech that
+ * stalls after its first words sounds broken. A late start does not.
+ */
+const SHORT_OPENING_MS = 4000;
 /** A later phrase, voiced while the current one plays (ADR 0122). */
 type Upcoming = {
   readonly index: number;
@@ -192,6 +198,16 @@ export function createBotSpeaker(input: {
     if (playing && upcoming.answer && upcoming.settled)
       input.writeAhead({ ...upcoming.answer.value, phraseId: upcoming.lineId });
   };
+  /** Waits, for a short opening phrase, until the second phrase is voiced. */
+  const holdShortOpening = async (signal: AbortSignal) => {
+    const job = progress.synthesized?.value;
+    const second = progress.ahead.find((held) => held.index === 1);
+    if (!job || !second || (job.pcm.length / 24000) * 1000 >= SHORT_OPENING_MS)
+      return;
+    const stopped = Promise.withResolvers<void>();
+    signal.addEventListener('abort', () => stopped.resolve(), { once: true });
+    await Promise.race([second.done.catch(() => undefined), stopped.promise]);
+  };
   /** Keeps the phrases after the one now due voiced ahead, each once. */
   const voiceAhead = (phrases: readonly string[], signal: AbortSignal) => {
     // A voice-ahead that bought nothing is asked again now, a phrase early,
@@ -253,6 +269,7 @@ export function createBotSpeaker(input: {
         progress.ready = true;
       }
       voiceAhead(phrases, signal);
+      if (progress.spoken === 0) await holdShortOpening(signal);
       stage = 'publish';
       const speaking = speak(progress.synthesized.value, signal, stopAtMs);
       // The next phrase, if already voiced, has its line written as this plays.

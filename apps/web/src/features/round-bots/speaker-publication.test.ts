@@ -370,3 +370,33 @@ test('a voice-ahead refused a pool slot is asked again at the next phrase, not a
     expected: { askedAgainEarly: 2, stages: [] },
   });
 });
+
+test('a short opening phrase waits for the second to be voiced, so the speech never stalls after it', async () => {
+  const second = Promise.withResolvers<void>();
+  const run = harness('speech', {
+    synthesize: async (phraseId, text) => {
+      if (text === 'Two.') await second.promise;
+      // One. is 0.1 s, far shorter than voicing the next phrase can take.
+      return answered(job(phraseId, text));
+    },
+  });
+  run.speaker.wake();
+  await run.settle();
+  const beforeSecondVoiced = run.log.filter((entry) =>
+    entry.startsWith('publish:'),
+  );
+  second.resolve();
+  await run.settle();
+  const afterSecondVoiced = run.log.filter((entry) =>
+    entry.startsWith('publish:'),
+  );
+  await run.release();
+  await run.release();
+  await run.speaker.stop();
+  assert({
+    given: 'a 0.1 s first phrase whose second phrase is still being voiced',
+    should: 'play nothing until the second is voiced, then play the first',
+    actual: { beforeSecondVoiced, afterSecondVoiced },
+    expected: { beforeSecondVoiced: [], afterSecondVoiced: ['publish:One.'] },
+  });
+});

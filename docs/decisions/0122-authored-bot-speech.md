@@ -79,7 +79,9 @@ its delivery instead of fitting it into the human capture pipeline.
    segment's end) is withdrawn. The next two phrases are voiced alongside the
    current one, since a long phrase can take longer to voice than a short
    one before it plays; each is bought and settled once and kept across
-   retries, a voice-ahead refused a pool slot is asked again a phrase early,
+   retries, a voice-ahead refused a pool slot is asked again a phrase early, a
+   first phrase shorter than 4 s waits for the second to be voiced so the
+   speech never stalls after its opening words,
    and once the speech is over (its end, a final refusal, its last attempt or
    a stop) voicing ahead is aborted. A retry keeps its line id until that line
    is closed; a phrase cut and closed is said again whole, as a new line.

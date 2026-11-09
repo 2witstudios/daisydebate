@@ -175,7 +175,8 @@ test('the speech ending stops voicing ahead: nothing more is bought', async () =
         phrases: ['One.', 'Two.', 'Three.'],
       }),
     synthesize: async (phraseId, text, signal) => {
-      if (text === 'One.') return answered(job(phraseId, text));
+      // A 5 s first phrase: long enough to play without waiting for the next.
+      if (text === 'One.') return answered(job(phraseId, text, 24000 * 5));
       // Held until aborted: the speech ends before these are needed.
       return new Promise((_, reject) =>
         signal.addEventListener('abort', () => {
@@ -213,7 +214,8 @@ for (const ending of ['a final refusal', 'a stop'] as const)
           phrases: ['One.', 'Two.', 'Three.'],
         }),
       synthesize: async (phraseId, text, signal) => {
-        if (text === 'One.') return answered(job(phraseId, text));
+        // A 5 s first phrase: long enough to play without waiting for the next.
+        if (text === 'One.') return answered(job(phraseId, text, 24000 * 5));
         return new Promise((_, reject) =>
           signal.addEventListener('abort', () => {
             aborted.push(text);
