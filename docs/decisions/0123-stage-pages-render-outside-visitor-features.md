@@ -25,7 +25,9 @@ which.
 - Stage pages live in the `(stage)` route group, whose layout renders the
   stage and nothing a person would answer. URLs are unchanged.
 - The boundary scan (`stageSurfaceIssue`) fails when the root layout or any
-  `(stage)` file imports a visitor feature.
+  `(stage)` file imports a visitor feature or the analytics feature. It checks
+  direct imports only; the analytics-native e2e proves at runtime that
+  `/stage` shows no banner and sends no analytics.
 
 ## Consequences
 

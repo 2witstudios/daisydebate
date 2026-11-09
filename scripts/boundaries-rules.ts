@@ -301,11 +301,14 @@ export const documentManagerIssue = (
  * ADR 0123: a recorder renders the stage, never a person, so the root layout
  * and every `(stage)` file stay clear of the visitor features (consent
  * banner, analytics, session refresh, draft privacy). Each visitor group's
- * layout renders them instead; a new overlay cannot reach a recording.
+ * layout renders them instead; a new overlay cannot reach a recording. The
+ * rule checks direct imports only: a stage component that pulled one in
+ * transitively would pass it, and the analytics-native e2e (no banner, no
+ * analytics request on `/stage`) is the runtime proof.
  */
 const STAGE_SURFACE = /^apps\/web\/src\/app\/(layout\.tsx$|\(stage\)\/)/;
 const VISITOR_FEATURES =
-  /^apps\/web\/src\/(app\/visitor-features|ui\/analytics\/|ui\/auth\/session-refresh\/|ui\/documents\/document-draft-privacy)/;
+  /^apps\/web\/src\/(app\/visitor-features|ui\/analytics\/|features\/analytics\/|ui\/auth\/session-refresh\/|ui\/documents\/document-draft-privacy)/;
 export const stageSurfaceIssue = (
   specifier: string,
   importer: string,

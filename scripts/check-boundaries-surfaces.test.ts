@@ -392,6 +392,10 @@ describe('the stage surface renders no visitor features (ADR 0123)', () => {
           '../../../../ui/documents/document-draft-privacy',
           'apps/web/src/app/(stage)/stage/[captureId]/page.tsx',
         ),
+        stageSurfaceIssue(
+          '../../../../features/analytics/client-adapter',
+          'apps/web/src/app/(stage)/stage/[captureId]/page.tsx',
+        ),
       ],
       expected: [
         'apps/web/src/app/layout.tsx: a visitor feature on the stage surface ./visitor-features (ADR 0123)',
@@ -400,6 +404,7 @@ describe('the stage surface renders no visitor features (ADR 0123)', () => {
         'apps/web/src/app/(stage)/stage/[captureId]/page.tsx: a visitor feature on the stage surface ../../../../ui/analytics/analytics-client (ADR 0123)',
         'apps/web/src/app/(stage)/stage/[captureId]/page.tsx: a visitor feature on the stage surface ../../../../ui/auth/session-refresh/session-refresh (ADR 0123)',
         'apps/web/src/app/(stage)/stage/[captureId]/page.tsx: a visitor feature on the stage surface ../../../../ui/documents/document-draft-privacy (ADR 0123)',
+        'apps/web/src/app/(stage)/stage/[captureId]/page.tsx: a visitor feature on the stage surface ../../../../features/analytics/client-adapter (ADR 0123)',
       ],
     });
   });
