@@ -916,3 +916,22 @@ test('a line end that keeps failing is asked again at the next phrase', async ()
     expected: { afterFirst: [], closed: ['a', 'b'] },
   });
 });
+
+test('a phrase shorter than the lead is revealed when its audio starts, not when it is handed over', async () => {
+  const { claim, reveals } = harness();
+  claim.start();
+  await Bun.sleep(10);
+  const first = claim.publish(job(600, 'a'.repeat(24)), signal(), far());
+  claim.writeAhead(job(150, 'b'.repeat(24)));
+  await first;
+  await claim.publish(job(150, 'b'.repeat(24)), signal(), far());
+  await tailPlays();
+  const at = (id: string) => reveals.find((row) => row.phraseId[0] === id)!.at;
+  assert({
+    given:
+      'a 600 ms phrase, then a 150 ms one handed over well before it plays',
+    should: 'reveal the short one 600 ms after the first, as its audio starts',
+    actual: Math.abs(at('b') - at('a') - 600) < 40,
+    expected: true,
+  });
+});

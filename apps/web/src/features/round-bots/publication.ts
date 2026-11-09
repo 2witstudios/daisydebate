@@ -499,11 +499,11 @@ export function createBotPublisher(input: {
       // floor are checked again then, the line is dated then and its doorbell
       // rings, so it is read exactly from when it is said. A refusal stops it.
       const revealing = (async () => {
-        await input.waitUntilMs(
-          audioStartsAtMs,
-          AbortSignal.any([played.signal, refused.signal]),
-        );
-        if (refused.signal.aborted) return;
+        // Never tied to the writer's return: a phrase shorter than the lead is
+        // handed over before its audio starts, and is still revealed then.
+        const stopped = AbortSignal.any([refused.signal, ended.signal, signal]);
+        await input.waitUntilMs(audioStartsAtMs, stopped);
+        if (stopped.aborted) return;
         // Its audio start on the database clock, fixed now: a reveal that
         // waits on a lock still dates the line by its audio.
         const startedAt =
