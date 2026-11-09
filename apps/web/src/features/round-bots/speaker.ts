@@ -363,8 +363,11 @@ export function createBotSpeaker(input: {
       // A tail still queued is the bot speaking too: a peer cuts it at once.
       if (kind === 'speech-start' && !playing && !running && !input.audible())
         return;
+      // A phrase being written stops itself, counting only what played; a
+      // tail left after its publish returned is silenced here.
+      const writing = playing;
       cancel();
-      input.silence();
+      if (!writing) input.silence();
     },
     playing: () => playing || input.audible(),
     async stop() {

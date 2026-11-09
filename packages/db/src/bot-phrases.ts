@@ -16,7 +16,7 @@ import {
 } from './bot-publication-context';
 import { roundBotPublications } from './schema/round-bot-publications';
 import { roundSegments } from './schema/round-segments';
-import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
+import { requireTranscriptUnfrozen } from './transcript-unfrozen';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
 
@@ -37,12 +37,6 @@ export type BotPhraseEnd =
   | { readonly kind: 'cut'; readonly spoken: string };
 
 const MAX_PHRASE_MS = 60_000;
-/**
- * How far the fit allows a phrase's estimated start (`startsInMs`, read on
- * the worker's clock) to drift. The writer's local hard stop still cuts the
- * audio at the due time, and a cut line keeps only what played.
- */
-const PHRASE_START_SKEW_MS = 500;
 function requirePhrase(phrase: BotPhrase) {
   if (
     !idSchema.safeParse(phrase.phraseId).success ||
@@ -57,13 +51,6 @@ function requirePhrase(phrase: BotPhrase) {
     (phrase.startsInMs ?? 0) > MAX_PHRASE_MS
   )
     throw createAppError('VALIDATION');
-}
-async function requireUnfrozen(tx: BoundedTransactionContext, roundId: string) {
-  const [freeze] = await tx
-    .select({ id: roundTranscriptFreezes.roundId })
-    .from(roundTranscriptFreezes)
-    .where(eq(roundTranscriptFreezes.roundId, roundId));
-  if (freeze) throw createAppError('CONFLICT', 'Transcript is frozen');
 }
 async function phraseRow(tx: BoundedTransactionContext, phraseId: string) {
   const [row] = await tx
@@ -115,7 +102,7 @@ export async function beginLockedBotPhrase(
   );
   if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
   await requireBotSpeakingWindow(tx, scope);
-  await requireUnfrozen(tx, scope.roundId);
+  await requireTranscriptUnfrozen(tx, scope.roundId);
   const existing = await phraseRow(tx, phrase.phraseId);
   if (existing) {
     if (!sameSeat(existing, scope) || existing.text !== phrase.text)
@@ -128,7 +115,7 @@ export async function beginLockedBotPhrase(
   // Orders sequence allocation against every other writer of this segment.
   const [fits] = await tx
     .select({
-      fits: sql<boolean>`clock_timestamp()+${(phrase.startsInMs ?? 0) + phrase.durationMs - PHRASE_START_SKEW_MS}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
+      fits: sql<boolean>`clock_timestamp()+${(phrase.startsInMs ?? 0) + phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
     })
     .from(roundSegments)
     .where(
@@ -213,7 +200,7 @@ export async function endLockedBotPhrase(
   if (row && !sameSeat(row, scope)) throw createAppError('NOT_FOUND');
   // Closed already, by this worker, a takeover or the freeze; or cut before a word.
   if (!row || row.complete) return { changed: false };
-  await requireUnfrozen(tx, scope.roundId);
+  await requireTranscriptUnfrozen(tx, scope.roundId);
   if (end.kind === 'whole') {
     await tx
       .update(utterances)

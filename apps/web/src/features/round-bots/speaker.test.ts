@@ -114,9 +114,9 @@ test('cross-examination answers each peer turn once and cancels the active phras
   assert({
     given: 'a peer barge-in during playback',
     should:
-      'cancel the active phrase, silence what is queued, and wait for the peer turn to end',
-    actual: [speaker.playing(), log.length, log.at(-1)],
-    expected: [false, 6, 'silence'],
+      'cancel the active phrase, whose writer clears its own queue, and wait for the peer turn to end',
+    actual: [speaker.playing(), log.length],
+    expected: [false, 5],
   });
   speaker.peer('end-of-turn');
   speaker.peer('end-of-turn');

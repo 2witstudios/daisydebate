@@ -134,7 +134,7 @@ export type PhraseOutcome = {
 const BEGIN_ATTEMPTS = 3;
 const BEGIN_RETRY_MS = 100;
 /** A refusal is an answer; anything else (a lost reply, a timeout) is worth asking again. */
-const transientBegin = (error: unknown) =>
+const transient = (error: unknown) =>
   !isAppError(error) ||
   !['CONFLICT', 'AUTHORIZATION', 'VALIDATION', 'NOT_FOUND'].includes(
     error.code,
@@ -226,6 +226,21 @@ export function createBotPublisher(input: {
      * closed from the first attempt, so a retry of its phrase is a new line
      * whether or not an end whose answer was lost committed.
      */
+    /** Asks again, backing off, while a call fails for a passing reason. */
+    const retryTransient = async (call: () => Promise<unknown>) => {
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          await call();
+          return;
+        } catch (error) {
+          if (!transient(error) || attempt >= BEGIN_ATTEMPTS) throw error;
+          await input.waitUntilMs(
+            input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
+            new AbortController().signal,
+          );
+        }
+      }
+    };
     const endLine = async (job: BotSpeechJob, playedFraction: number) => {
       closed.add(job.phraseId);
       const end =
@@ -235,23 +250,9 @@ export function createBotPublisher(input: {
               kind: 'cut',
               spoken: spokenPrefix(job.text, playedFraction),
             } as const);
-      for (let attempt = 1; ; attempt += 1) {
-        try {
-          await input.store.endRoundBotPhrase(
-            job.scope,
-            job.token,
-            job.phraseId,
-            end,
-          );
-          return;
-        } catch (error) {
-          if (!transientBegin(error) || attempt >= BEGIN_ATTEMPTS) throw error;
-          await input.waitUntilMs(
-            input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
-            new AbortController().signal,
-          );
-        }
-      }
+      await retryTransient(() =>
+        input.store.endRoundBotPhrase(job.scope, job.token, job.phraseId, end),
+      );
     };
     /** Whole 10 ms frames: an exact integer, as the line's length must be. */
     const durationOf = (job: BotSpeechJob) =>
@@ -262,31 +263,19 @@ export function createBotPublisher(input: {
      * where an exact retry writes nothing twice.
      */
     const begin = (job: BotSpeechJob, joined: string, startsInMs: number) => {
-      const line = (async () => {
-        for (let attempt = 1; ; attempt += 1) {
-          try {
-            await input.store.beginRoundBotPhrase(
-              job.scope,
-              job.token,
-              {
-                phraseId: job.phraseId,
-                text: job.text,
-                durationMs: durationOf(job),
-                startsInMs,
-              },
-              joined,
-            );
-            return;
-          } catch (error) {
-            if (!transientBegin(error) || attempt >= BEGIN_ATTEMPTS)
-              throw error;
-            await input.waitUntilMs(
-              input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
-              new AbortController().signal,
-            );
-          }
-        }
-      })();
+      const line = retryTransient(() =>
+        input.store.beginRoundBotPhrase(
+          job.scope,
+          job.token,
+          {
+            phraseId: job.phraseId,
+            text: job.text,
+            durationMs: durationOf(job),
+            startsInMs,
+          },
+          joined,
+        ),
+      );
       // Read when its phrase plays; a rejection nobody waits for is not unhandled.
       line.catch(() => undefined);
       return line;
@@ -407,6 +396,10 @@ export function createBotPublisher(input: {
         throw error;
       }
       if (signal.aborted) {
+        // Stopped before its audio: the tail before it is silenced too.
+        cleared();
+        native.clearQueue();
+        discard();
         await endLine(job, 0);
         throw createAppError('CONFLICT');
       }
@@ -426,9 +419,13 @@ export function createBotPublisher(input: {
             played.signal,
           );
           if (played.signal.aborted) return;
+          // A read that fails for a passing reason is read again next time;
+          // only a refusal of the floor stops the audio.
           await input.store
             .verifyRoundBotPublication(job.scope, job.token)
-            .catch(refuse);
+            .catch((error: unknown) => {
+              if (!transient(error)) refuse(error);
+            });
         }
       })();
       const write = createStreamingAudioWriter({

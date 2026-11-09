@@ -659,3 +659,27 @@ test('a phrase’s length reaches its start as an exact whole number of millisec
     expected: 2010,
   });
 });
+
+test('a floor read that fails for a passing reason does not cut the phrase', async () => {
+  const { claim, ends, handoffs } = harness({
+    verify: async (call) => {
+      if (call === 1) throw new Error('statement timeout');
+    },
+  });
+  const outcome = await claim.publish(job(800), signal(), far());
+  await tailPlays();
+  assert({
+    given: 'an 800 ms phrase whose first floor read times out',
+    should: 'read again next time and play the phrase whole',
+    actual: {
+      outcome,
+      frames: handoffs.length,
+      ends: ends.map((row) => row.end),
+    },
+    expected: {
+      outcome: { complete: true, segmentEnded: false },
+      frames: 80,
+      ends: [{ kind: 'whole' }],
+    },
+  });
+});

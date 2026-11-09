@@ -194,8 +194,7 @@ test('a phrase that would end past its segment is a final refusal and credits no
       )
       .catch((error: unknown) => error);
     assert({
-      given:
-        'a 60 s phrase starting 1 s into a 60 s segment, past the 0.5 s start allowance',
+      given: 'a 60 s phrase starting 1 s into a 60 s segment',
       should: 'refuse it for good, so the speech stops, and author nothing',
       actual: {
         final: isFinalBotSpeechRefusal(refusal),
@@ -284,19 +283,17 @@ test('an end authenticates its claim even after the lease lapsed, and refuses a 
   );
 });
 
-test('a phrase starting just behind its audio still fits its segment', async () => {
+test('a phrase that ends just before its segment is due is written', async () => {
   await withSpeakingBot(async ({ operations, claim, room, lines }) => {
     await operations.beginBotPhrase(
       claim.scope,
       claim.token,
-      phrase(createId(), 59_300),
+      phrase(createId(), 58_500),
       room,
     );
     assert({
-      given:
-        'a 59.3 s phrase whose start commits 1 s into a 60 s segment, within the 0.5 s allowance',
-      should:
-        'author its line: the start runs beside playback, and the local hard stop cuts any audio past the end',
+      given: 'a 58.5 s phrase starting about 1 s into a 60 s segment',
+      should: 'author its line',
       actual: (await lines()).length,
       expected: 1,
     });

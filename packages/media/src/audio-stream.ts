@@ -60,7 +60,10 @@ export function createStreamingAudioWriter(input: {
     const perFrame = size / input.channels;
     let sent = 0;
     const stopped = () => {
-      const queued = Math.min(sent * 10, Math.max(0, input.target.queuedMs()));
+      const queued = Math.min(
+        sent * 10,
+        Math.max(0, input.target.queuedMs() || 0),
+      );
       input.target.clearQueue();
       const playedFrames = Math.max(0, sent - Math.ceil(queued / 10));
       return {
