@@ -40,7 +40,10 @@ export async function createAudioPublication(input: {
   readonly channels: number;
   /**
    * The native playout buffer: frames handed over within it never wait on
-   * anything but the source itself, and `clearQueue` drops them at once.
+   * anything but the source itself, and `clearQueue` drops them at once. A
+   * buffered source plays silence while idle. Zero hands each frame straight
+   * through and sends nothing between frames, as a microphone that stops
+   * does; only proofs of capture transport use it.
    */
   readonly queueMs?: number;
 }) {
@@ -50,7 +53,7 @@ export async function createAudioPublication(input: {
     ![1, 2].includes(input.channels) ||
     !idSchema.safeParse(input.trackName).success ||
     !Number.isSafeInteger(queueMs) ||
-    queueMs < 10 ||
+    queueMs < 0 ||
     queueMs > 2000
   )
     throw createAppError('VALIDATION', 'Unsupported native PCM format');

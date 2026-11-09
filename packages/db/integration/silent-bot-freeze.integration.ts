@@ -81,6 +81,7 @@ const authored = async (
     text: 'No harm was shown.',
     complete: true,
     bot_phrase_id: createId(),
+    bot_duration_ms: 1500,
   });
   await sealed(fixture, roundId, segmentId, roundParticipantId, 'complete');
 };

@@ -137,6 +137,8 @@ async function publishContinuously(
     trackName: nextId(),
     sampleRate: 24000,
     channels: 1,
+    // A stand-in human microphone: nothing is sent between frames.
+    queueMs: 0,
   });
   const silence = new Int16Array(240);
   const anchor = performance.now();

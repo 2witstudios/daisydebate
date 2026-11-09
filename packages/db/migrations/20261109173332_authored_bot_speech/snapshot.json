@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "9a1b5d42-7717-4457-844a-99d209108bd1",
+  "id": "f5262851-95dc-4466-a744-184c28db7bbb",
   "prevIds": [
     "9939bd0a-3599-42af-9b1d-d22a194aaaa8"
   ],
@@ -14752,6 +14752,19 @@
       "generated": null,
       "identity": null,
       "name": "bot_phrase_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "bot_duration_ms",
       "entityType": "columns",
       "schema": "public",
       "table": "utterances"
@@ -30646,7 +30659,7 @@
       "table": "utterances"
     },
     {
-      "value": "\"bot_phrase_id\" is null or char_length(\"bot_phrase_id\") between 1 and 64",
+      "value": "(\"bot_phrase_id\" is null and \"bot_duration_ms\" is null) or (char_length(\"bot_phrase_id\") between 1 and 64 and \"bot_duration_ms\" > 0 and \"bot_duration_ms\" <= 60000)",
       "name": "utterances_bot_phrase_check",
       "entityType": "checks",
       "schema": "public",

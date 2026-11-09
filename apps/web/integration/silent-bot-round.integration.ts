@@ -90,17 +90,22 @@ async function playedBotRound(
   };
 }
 
-/** Every stream except `leaving` as a full capture leaves it: the bot's speech credited. */
-async function captureAllExcept(
+/**
+ * Every stream except the bot's in `leaving` as a played Round leaves it: each
+ * human stream captured complete, and the bot's speech authored, its stream
+ * complete by construction (ADR 0122). The bot answers nothing in `answering`.
+ */
+async function speakAllExcept(
   f: Fixture,
   played: Awaited<ReturnType<typeof playedBotRound>>,
   leaving: string,
 ) {
-  await f.sql`insert into round_bot_publication_windows(id,round_id,segment_id,round_participant_id,credited_from,credited_until)
-    select md5(i.segment_id),i.round_id,i.segment_id,i.round_participant_id,i.started_at,i.started_at+interval '1 second'
-    from round_speaking_intervals i
-    where i.round_id=${played.roundId} and i.round_participant_id=${played.bot.id} and i.segment_id<>${leaving}
-      and i.segment_id<>${played.answering}`;
+  await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete,bot_phrase_id,bot_duration_ms,created_at)
+    select md5(i.segment_id||'line'),i.round_id,i.segment_id,i.round_participant_id,0,'An authored line.',true,md5(i.segment_id||'phrase'),1000,i.started_at
+    from (select distinct on (segment_id) * from round_speaking_intervals
+      where round_id=${played.roundId} and round_participant_id=${played.bot.id}
+        and segment_id<>${leaving} and segment_id<>${played.answering}
+      order by segment_id, started_at) i`;
   await f.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,chunk_count,sealed_chunk_count,sealed_at)
     select distinct i.round_id,i.segment_id,i.round_participant_id,'complete',0,0,clock_timestamp()
     from round_speaking_intervals i
@@ -131,15 +136,10 @@ async function silentSeals(f: Fixture, roundId: string) {
     });
 }
 
-/** What the seal said, what the real finalizer froze, and the jobs it queued. */
-const freezeAfter = async (
-  f: Fixture,
-  roundId: string,
-  seal: { readonly state: string },
-) => {
+/** What the real finalizer froze, and the jobs it queued. */
+const freezeOf = async (f: Fixture, roundId: string) => {
   const frozen = await finalizeAsWeb(f, roundId);
   return {
-    seal: seal.state,
     freeze:
       frozen.status === 'frozen' ? frozen.freeze.completeness : frozen.status,
     jobs: await judgingJobs(f, roundId),
@@ -151,35 +151,46 @@ const judgingJobs = async (f: Fixture, roundId: string) =>
     await f.sql`select status from round_judging_jobs where round_id=${roundId}`
   ).map((job: { status: string }) => job.status);
 
-test('a bot that never answered in cross-examination seals complete and the AI judge rules (ISSUE-965)', async () => {
+test('a bot that never answered in cross-examination owes nothing and the AI judge rules (ISSUE-965)', async () => {
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f);
-    const sealSilent = await silentSeals(f, played.roundId);
-    await captureAllExcept(f, played, played.answering);
-    const seal = await sealSilent(played.answering, played.bot.id);
+    await speakAllExcept(f, played, played.answering);
     assert({
       given:
-        'a live capture worker sealing a bot respondent it never heard, with every other stream complete',
-      should: 'seal complete, freeze complete and queue the AI judge',
-      actual: await freezeAfter(f, played.roundId, seal),
-      expected: { seal: 'complete', freeze: 'complete', jobs: ['queued'] },
+        'a bot respondent that authored nothing, with every other stream complete',
+      should: 'freeze complete and queue the AI judge',
+      actual: await freezeOf(f, played.roundId),
+      expected: { freeze: 'complete', jobs: ['queued'] },
     });
   }, botControlOptions);
 });
 
-test('a bot with no evidence for its scheduled turn stays partial with admission open (ISSUE-965)', async () => {
+test('a bot silent in its scheduled turn stays owed with admission open (ISSUE-965)', async () => {
+  await withRoomRuntime(async (f) => {
+    const played = await playedBotRound(f);
+    await speakAllExcept(f, played, played.asking);
+    assert({
+      given: 'a bot that authored nothing in the cross-examination it opens',
+      should:
+        'keep admission open before cutoff and queue no AI judge: a silent bot is a failure',
+      actual: await freezeOf(f, played.roundId),
+      expected: { freeze: 'pending', jobs: [] },
+    });
+  }, botControlOptions);
+});
+
+test('capture never seals a bot seat: its words are authored (ADR 0122)', async () => {
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f);
     const sealSilent = await silentSeals(f, played.roundId);
-    await captureAllExcept(f, played, played.asking);
-    await sealSilent(played.answering, played.bot.id);
-    const seal = await sealSilent(played.asking, played.bot.id);
     assert({
-      given: 'a bot silent in the cross-examination it was scheduled to open',
-      should:
-        'seal partial, preserve admission before cutoff and queue no AI judge',
-      actual: await freezeAfter(f, played.roundId, seal),
-      expected: { seal: 'partial', freeze: 'pending', jobs: [] },
+      given: 'a live capture worker sealing a bot seat’s stream',
+      should: 'refuse it as bot-authored',
+      actual: await sealSilent(played.answering, played.bot.id).then(
+        () => 'sealed',
+        (error: { reason?: string }) => error.reason,
+      ),
+      expected: 'bot-authored',
     });
   }, botControlOptions);
 });
@@ -188,15 +199,14 @@ test('a human respondent without captured evidence stays partial with admission 
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f);
     const sealSilent = await silentSeals(f, played.roundId);
-    await captureAllExcept(f, played, played.answering);
-    await sealSilent(played.answering, played.bot.id);
+    await speakAllExcept(f, played, played.answering);
     await f.sql`delete from transcript_segments where round_id=${played.roundId}
       and segment_id=${played.asking} and round_participant_id=${played.human.id}`;
     const seal = await sealSilent(played.asking, played.human.id);
     assert({
       given: 'a human grant in cross-examination with no captured evidence',
       should: 'seal partial and preserve admission before cutoff',
-      actual: await freezeAfter(f, played.roundId, seal),
+      actual: { seal: seal.state, ...(await freezeOf(f, played.roundId)) },
       expected: { seal: 'partial', freeze: 'pending', jobs: [] },
     });
   }, botControlOptions);
@@ -205,7 +215,7 @@ test('a human respondent without captured evidence stays partial with admission 
 test('a turn the rules cannot name stays owed (ISSUE-965)', async () => {
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f);
-    const sealSilent = await silentSeals(f, played.roundId);
+    await speakAllExcept(f, played, played.answering);
     const [segment] = await f.sql<
       { sequence: number }[]
     >`select sequence from round_segments where id=${played.answering}`;
@@ -213,12 +223,12 @@ test('a turn the rules cannot name stays owed (ISSUE-965)', async () => {
       await tx`set local session_replication_role = replica`;
       await tx`update rounds set rules_snapshot=rules_snapshot #- ${`{segments,${segment!.sequence},side}`}::text[] where id=${played.roundId}`;
     });
-    const seal = await sealSilent(played.answering, played.bot.id);
     assert({
-      given: 'a bot grant in a segment whose rule names no scheduled side',
-      should: 'treat it as owed and seal partial',
-      actual: seal.state,
-      expected: 'partial',
+      given:
+        'a silent bot grant in a segment whose rule names no scheduled side',
+      should: 'treat it as owed: admission stays open',
+      actual: (await freezeOf(f, played.roundId)).freeze,
+      expected: 'pending',
     });
   }, botControlOptions);
 });
@@ -229,17 +239,17 @@ test("a bot silent during open questioning in another seat's speech owes nothing
       mode: 'open',
       minRemainingMs: 0,
     });
-    const sealSilent = await silentSeals(f, played.roundId);
     const round = (await f.store.getRound(played.roundId))!;
     const humanSpeech = played.segments.find((segment) => {
       const rule = round.rules.segments[segment.sequence]!;
       return rule.type === 'speech' && rule.side === played.human.role;
     })!.id;
-    const seal = await sealSilent(humanSpeech, played.bot.id);
+    await speakAllExcept(f, played, humanSpeech);
     assert({
-      given: 'a bot granted the floor by open questioning that never spoke',
-      should: 'seal complete, as nothing was owed',
-      actual: seal.state,
+      given:
+        'a bot granted the floor by open questioning that never spoke, every other stream complete',
+      should: 'freeze complete, as nothing was owed',
+      actual: (await freezeOf(f, played.roundId)).freeze,
       expected: 'complete',
     });
   }, botControlOptions);

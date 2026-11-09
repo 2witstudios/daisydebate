@@ -44,6 +44,8 @@ export const utterances = pgTable(
      * A line is either captured (clip key) or authored (phrase id), never both.
      */
     botPhraseId: text('bot_phrase_id'),
+    /** An authored phrase's known length, from its samples. */
+    botDurationMs: integer('bot_duration_ms'),
     /** An authored line cut off mid-play: its text stops where playout did. */
     interrupted: boolean('interrupted').notNull().default(false),
     createdAt: createdAtColumn(),
@@ -95,7 +97,7 @@ export const utterances = pgTable(
     ),
     check(
       'utterances_bot_phrase_check',
-      sql`${table.botPhraseId} is null or char_length(${table.botPhraseId}) between 1 and 64`,
+      sql`(${table.botPhraseId} is null and ${table.botDurationMs} is null) or (char_length(${table.botPhraseId}) between 1 and 64 and ${table.botDurationMs} > 0 and ${table.botDurationMs} <= 60000)`,
     ),
     check('utterances_sequence_check', sql`${table.sequence} >= 0`),
     check('utterances_text_length', sql`char_length(${table.text}) <= 20000`),

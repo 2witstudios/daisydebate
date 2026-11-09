@@ -38,11 +38,12 @@ than injecting speech, provider replies, coverage or freeze rows. A run consumes
 one normal AI practice and must finish within seven minutes.
 
 Passing requires decisive completion, a submitted AI ballot, a COMPLETE frozen
-transcript, exactly the two expected debater streams sealed complete, captured
-text and observed/credited publication time for both seats, and received real
-OpenRouter speech and TTS accounting. STT evidence is captured utterance/coverage
-from the deployed native worker, whose production path calls Whisper through
-OpenRouter; it is not a separate provider billing receipt. The summary names
+transcript, exactly the two expected debater streams complete, at least one
+authored line each seat played whole, and received real OpenRouter speech and
+TTS accounting. A bot's transcript is authored from its own words, never
+transcribed ([ADR 0122](../decisions/0122-authored-bot-speech.md)), so this
+all-bot Round exercises no STT; the human capture path is proved by
+`bun proof:media-worker`. The summary names
 the Round, Room, release SHA, frontier, stream counts and each condition.
 
 This is a deployed bot publication proof across all configured speaking grants.

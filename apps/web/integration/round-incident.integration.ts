@@ -258,13 +258,14 @@ test('a speech resumes from the last confirmed audio', async () => {
     expected: human.expectedMs,
   });
   const bot = await pointOf(async (f, { segment, seat, at }) => {
-    await f.sql`insert into round_bot_publication_windows(id, round_id, segment_id, round_participant_id, credited_from, credited_until) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, ${new Date(at.getTime() - 100)}, ${new Date(at.getTime() + 5_000)})`;
-    await f.sql`insert into transcript_segments(round_id, segment_id, round_participant_id) values (${f.roundId}, ${segment}, ${seat})`;
-    await f.sql`insert into transcript_observations(id, round_id, segment_id, round_participant_id, track_id, worker_epoch, observed_from, observed_until) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, 'track', 1, ${new Date(at.getTime() - 100)}, ${at})`;
+    // A phrase played whole ending at `at`, then one cut short starting at `at`.
+    await f.sql`insert into utterances(id, round_id, segment_id, round_participant_id, sequence, text, complete, interrupted, bot_phrase_id, bot_duration_ms, created_at) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, 0, 'Whole.', true, false, ${createId()}, 2000, ${new Date(at.getTime() - 2_000)})`;
+    await f.sql`insert into utterances(id, round_id, segment_id, round_participant_id, sequence, text, complete, interrupted, bot_phrase_id, bot_duration_ms, created_at) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, 1, 'Cut', true, true, ${createId()}, 5000, ${at})`;
   });
   assert({
-    given: 'a bot holder credited past what capture heard',
-    should: 'resume from what capture heard: a credit confirms nothing',
+    given: 'a bot holder that played a phrase whole, then was cut mid-phrase',
+    should:
+      'resume where the cut phrase began, which it says again whole (ADR 0122)',
     actual: bot.confirmedMs,
     expected: bot.expectedMs,
   });

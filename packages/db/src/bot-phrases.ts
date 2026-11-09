@@ -136,6 +136,7 @@ export async function beginLockedBotPhrase(
     text: phrase.text,
     complete: false,
     botPhraseId: phrase.phraseId,
+    botDurationMs: phrase.durationMs,
     createdAt: sql`clock_timestamp()`,
   });
   // The bot's stream is complete by construction once it has spoken.
