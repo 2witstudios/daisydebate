@@ -103,16 +103,32 @@ function createClaimPublication(input: {
     },
   };
 }
+/**
+ * The share of a phrase that played (AMEND-1): what was handed over, less the
+ * tail a clear dropped before it played out. The base is what was handed,
+ * never the phrase's whole length, so a phrase stopped at the hard stop and
+ * then cleared never counts the cleared part as heard.
+ */
+export function playedFraction(input: {
+  readonly sentSamples: number;
+  readonly phraseSamples: number;
+  readonly playsUntilMs: number;
+  readonly cutAtMs: number | null;
+}): number {
+  const dropped =
+    input.cutAtMs === null
+      ? 0
+      : ((input.playsUntilMs - input.cutAtMs) * SAMPLE_RATE) / 1000;
+  return Math.min(
+    1,
+    Math.max(0, input.sentSamples - dropped) / input.phraseSamples,
+  );
+}
 /** How a published phrase ended: played whole, cut at the segment end, or stopped. */
 export type PhraseOutcome = {
   readonly complete: boolean;
   /** It reached the speech's hard stop: the segment is over for this bot. */
   readonly segmentEnded: boolean;
-  /**
-   * Settles once the phrase's line is authored, or rejects with why it never
-   * was: a phrase counts as spoken only once this settles (ADR 0122).
-   */
-  readonly line: Promise<void>;
 };
 /** Attempts at a phrase start that failed for no reason a retry cannot clear. */
 const BEGIN_ATTEMPTS = 3;
@@ -167,10 +183,22 @@ export function createBotPublisher(input: {
     /** Each played phrase's line closes here, in order, beside the next one's audio. */
     let closing: Promise<void> = Promise.resolve();
     /**
-     * Lines whose start was refused or never confirmed: said again, each
-     * starts before any of its audio plays, so nothing is heard unwritten.
+     * When the audio handed over so far finishes playing: a line written
+     * ahead is dated by it, so its start and fit match its playout.
      */
-    const doubtful = new Set<string>();
+    let scheduledEndMs = -Infinity;
+    /** A phrase is between its publish and its first frame: its schedule is not known yet. */
+    let starting = false;
+    /** A line asked to be written ahead while the schedule was not known yet. */
+    let waitingPrepare: BotSpeechJob | null = null;
+    /**
+     * Lines written ahead of their audio, while the phrase before them plays,
+     * so no phrase waits on its own start and none is heard unwritten.
+     */
+    const prepared = new Map<
+      string,
+      { readonly job: BotSpeechJob; readonly line: Promise<void> }
+    >();
     /** Lines this claim closed; a retry of any other line reuses its id. */
     const closed = new Set<string>();
     const ended = new AbortController();
@@ -225,6 +253,74 @@ export function createBotPublisher(input: {
         }
       }
     };
+    /** Whole 10 ms frames: an exact integer, as the line's length must be. */
+    const durationOf = (job: BotSpeechJob) =>
+      wholeFrames(job.pcm).length / (SAMPLE_RATE / 1000);
+    /**
+     * Writes a phrase's line, dated `startsInMs` ahead. A start that failed
+     * for no reason a retry cannot clear is asked again under the same id,
+     * where an exact retry writes nothing twice.
+     */
+    const begin = (job: BotSpeechJob, joined: string, startsInMs: number) => {
+      const line = (async () => {
+        for (let attempt = 1; ; attempt += 1) {
+          try {
+            await input.store.beginRoundBotPhrase(
+              job.scope,
+              job.token,
+              {
+                phraseId: job.phraseId,
+                text: job.text,
+                durationMs: durationOf(job),
+                startsInMs,
+              },
+              joined,
+            );
+            return;
+          } catch (error) {
+            if (!transientBegin(error) || attempt >= BEGIN_ATTEMPTS)
+              throw error;
+            await input.waitUntilMs(
+              input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
+              new AbortController().signal,
+            );
+          }
+        }
+      })();
+      // Read when its phrase plays; a rejection nobody waits for is not unhandled.
+      line.catch(() => undefined);
+      return line;
+    };
+    /** Deletes lines written ahead whose audio will never play. */
+    const discard = () => {
+      for (const { job, line } of prepared.values())
+        void line.then(
+          () => endLine(job, 0).catch(() => undefined),
+          () => undefined,
+        );
+      prepared.clear();
+    };
+    /**
+     * Writes the next phrase's line while the current one plays, dated by
+     * when its audio will start, so it is written before any of its audio
+     * and the phrase never waits on it. Its publish uses this line.
+     */
+    const writeAhead = (job: BotSpeechJob) => {
+      if (room === undefined || prepared.has(job.phraseId)) return;
+      // Dated by the phrase now starting: written once its schedule is known.
+      if (starting) {
+        waitingPrepare = job;
+        return;
+      }
+      const startsInMs = Math.max(
+        0,
+        Math.round(scheduledEndMs - input.monotonicNowMs()),
+      );
+      prepared.set(job.phraseId, {
+        job,
+        line: begin(job, room, Math.min(startsInMs, 60_000)),
+      });
+    };
     /**
      * The monotonic instant the claim's segment is due, read once per speech
      * off the audio path: the database clock's reading bracketed by the
@@ -256,22 +352,35 @@ export function createBotPublisher(input: {
       )
         throw createAppError('VALIDATION');
       if (signal.aborted) throw createAppError('CONFLICT');
+      starting = true;
+      try {
+        return await play(job, signal, stopAtMs);
+      } finally {
+        starting = false;
+        const waiting = waitingPrepare;
+        waitingPrepare = null;
+        if (waiting) writeAhead(waiting);
+      }
+    };
+    const play = async (
+      job: BotSpeechJob,
+      signal: AbortSignal,
+      stopAtMs: number,
+    ): Promise<PhraseOutcome> => {
       const frames = wholeFrames(job.pcm);
-      // Whole 10 ms frames: an exact integer, as the line's length must be.
-      const durationMs = frames.length / (SAMPLE_RATE / 1000);
+      const durationMs = durationOf(job);
       const native = await publication.use();
       current = native;
       if (signal.aborted) throw createAppError('CONFLICT');
-      // A whole phrase that cannot finish before the cutoff is never started.
+      // A whole phrase that cannot finish before the cutoff is never started,
+      // and a line written ahead for it, or any later one, is withdrawn.
       if (
         input.monotonicNowMs() + Math.max(0, native.queuedMs()) + durationMs >
         stopAtMs
-      )
-        return {
-          complete: false,
-          segmentEnded: true,
-          line: Promise.resolve(),
-        };
+      ) {
+        discard();
+        return { complete: false, segmentEnded: true };
+      }
       // A publisher is always opened first, so this only refuses a broken order.
       if (room === undefined) throw createAppError('CONFLICT');
       const refused = new AbortController();
@@ -283,43 +392,31 @@ export function createBotPublisher(input: {
         roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
         refused.abort();
       };
-      // The phrase's authority and utterance, beside the audio: never awaited
-      // by it. An exact retry under the same id writes nothing twice.
-      const joined = room;
-      const line = (async () => {
-        for (let attempt = 1; ; attempt += 1) {
-          try {
-            await input.store.beginRoundBotPhrase(
-              job.scope,
-              job.token,
-              { phraseId: job.phraseId, text: job.text, durationMs },
-              joined,
-            );
-            doubtful.delete(job.phraseId);
-            return;
-          } catch (error) {
-            if (!transientBegin(error) || attempt >= BEGIN_ATTEMPTS) {
-              doubtful.add(job.phraseId);
-              throw error;
-            }
-            await input.waitUntilMs(
-              input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
-              new AbortController().signal,
-            );
-          }
-        }
-      })();
-      // Read by the speaker; a rejection nobody waits for is not unhandled.
-      line.catch(() => undefined);
-      const begun = line.then(
-        () => true,
-        (error: unknown) => {
-          refuse(error);
-          return false;
-        },
-      );
-      // A line whose start failed before starts before any audio this time.
-      if (doubtful.has(job.phraseId) && !(await begun)) throw refusal;
+      // Its line is written before any of its audio: usually written ahead,
+      // while the phrase before played, so this does not wait.
+      const ahead = prepared.get(job.phraseId);
+      prepared.delete(job.phraseId);
+      const line =
+        ahead?.line ??
+        begin(job, room, Math.round(Math.max(0, native.queuedMs())));
+      try {
+        await line;
+      } catch (error) {
+        // The next attempt joins the session's fresh room (ADR 0110).
+        roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
+        throw error;
+      }
+      if (signal.aborted) {
+        await endLine(job, 0);
+        throw createAppError('CONFLICT');
+      }
+      scheduledEndMs =
+        input.monotonicNowMs() + Math.max(0, native.queuedMs()) + durationMs;
+      // Its schedule is known: a line asked for ahead is written now.
+      starting = false;
+      const waiting = waitingPrepare;
+      waitingPrepare = null;
+      if (waiting) writeAhead(waiting);
       // The floor, re-read while the phrase plays: a refusal stops the audio.
       const played = new AbortController();
       const watching = (async () => {
@@ -355,42 +452,43 @@ export function createBotPublisher(input: {
         Math.min(1, samples / job.pcm.length);
       if (result.aborted) {
         cleared();
-        // The speech is stopping: close the line now, at what played.
-        if (await begun) await endLine(job, fractionOf(result.playedSamples));
+        scheduledEndMs = input.monotonicNowMs();
+        // The speech is stopping: close the line now, at what played, and
+        // withdraw any line written ahead for audio that will never play.
+        discard();
+        await endLine(job, fractionOf(result.playedSamples));
         if (refusal !== undefined) throw refusal;
         if (result.failure !== undefined) throw result.failure;
-        return { complete: false, segmentEnded: false, line };
+        return { complete: false, segmentEnded: false };
       }
       // Its last frames are still queued: the line closes once they have
       // played, beside the next phrase's audio, never in front of it.
       const handedAtMs = input.monotonicNowMs();
       const playsUntilMs = handedAtMs + Math.max(0, native.queuedMs());
-      const wholeFraction = result.cut ? fractionOf(result.playedSamples) : 1;
       closing = closing.then(async () => {
-        // A start that was never written has no line to close: the speaker
-        // learns why from `line` and says the phrase again.
-        if (!(await begun)) return;
         await input.waitUntilMs(playsUntilMs, ended.signal);
         // The first clear before its tail played out cut it there (AMEND-1).
         const cutAtMs =
           clears.find((at) => at > handedAtMs && at < playsUntilMs) ?? null;
-        // What it handed over, less the tail the clear dropped.
-        const fraction =
-          cutAtMs === null
-            ? wholeFraction
-            : fractionOf(
-                result.sentSamples -
-                  ((playsUntilMs - cutAtMs) * SAMPLE_RATE) / 1000,
-              );
+        const fraction = playedFraction({
+          sentSamples: result.sentSamples,
+          phraseSamples: job.pcm.length,
+          playsUntilMs,
+          cutAtMs,
+        });
         // An end that fails leaves the line unfinished, never invented.
-        await endLine(job, Math.max(0, fraction)).catch(() => undefined);
+        await endLine(job, fraction).catch(() => undefined);
       });
-      return { complete: !result.cut, segmentEnded: result.cut, line };
+      if (result.cut) discard();
+      return { complete: !result.cut, segmentEnded: result.cut };
     };
     return {
       /** Joins the Room ahead of speech. */
       start: publication.start,
       deadline,
+      writeAhead,
+      /** Withdraws every line written ahead: the speech will not say them. */
+      discard,
       publish,
       /** Whether this claim closed the line: a retry then needs a new one. */
       lineClosed: (phraseId: string) => closed.has(phraseId),
@@ -411,6 +509,7 @@ export function createBotPublisher(input: {
           cleared();
           current?.clearQueue();
           ended.abort();
+          discard();
           await closing;
           await publication.close();
         })()),

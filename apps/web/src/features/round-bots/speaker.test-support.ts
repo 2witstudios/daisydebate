@@ -43,6 +43,8 @@ export function harness(
   } = {},
 ) {
   const log: string[] = [];
+  /** Lines written ahead, as `text:lineId`, in order. */
+  const prepared: string[] = [];
   const failures: unknown[] = [];
   let ids = 0;
   const gates: ReturnType<typeof Promise.withResolvers<void>>[] = [];
@@ -66,6 +68,10 @@ export function harness(
         : answered(job(phraseId, text));
     },
     lineClosed: options.lineClosed ?? (() => false),
+    writeAhead: (job) => {
+      prepared.push(`${job.text}:${job.phraseId}`);
+    },
+    discard: () => undefined,
     audible: options.audible ?? (() => false),
     silence: () => {
       log.push('silence');
@@ -84,7 +90,7 @@ export function harness(
         signal.addEventListener('abort', () => gate.reject(signal.reason));
         log.push(`publish:${job.text}`);
         await gate.promise;
-        return { complete: true, segmentEnded: false, line: Promise.resolve() };
+        return { complete: true, segmentEnded: false };
       }),
     nextId: () => `phrase-${++ids}`,
     maxAttempts: 2,
@@ -106,6 +112,7 @@ export function harness(
     release,
     settle,
     failures: () => failures.length,
+    prepared,
     stages: () => failures,
   };
 }

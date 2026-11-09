@@ -19,13 +19,10 @@ const TEXT = 'The affirmative has not shown any harm at all.';
 async function publishOnce(stopInMs: number | 'deadline') {
   let outcome:
     | {
-        readonly result: Omit<
-          Awaited<
-            ReturnType<
-              ReturnType<ReturnType<typeof createBotPublisher>>['publish']
-            >
-          >,
-          'line'
+        readonly result: Awaited<
+          ReturnType<
+            ReturnType<ReturnType<typeof createBotPublisher>>['publish']
+          >
         >;
         readonly lines: readonly {
           text: string;
@@ -59,7 +56,7 @@ async function publishOnce(stopInMs: number | 'deadline') {
           ? await claimed.deadline()
           : performance.now() + stopInMs;
       const phraseId = createId();
-      const { line, ...result } = await claimed.publish(
+      const result = await claimed.publish(
         {
           scope: claim.scope,
           token: claim.token,
@@ -73,8 +70,7 @@ async function publishOnce(stopInMs: number | 'deadline') {
         AbortSignal.timeout(5000),
         stopAtMs,
       );
-      // Written before the phrase counts as spoken; closed once its tail played.
-      await line;
+      // Its line closes once its queued tail has played.
       await Bun.sleep(400);
       await claimed.close();
       outcome = {

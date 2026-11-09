@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
+import { refuseFinalSpeech } from '@daisy/db/testing';
 import { answered, harness, job } from './speaker.test-support';
 setupRitewayBun();
 test('a speech claim delivers its generated phrases once without overlapping turns', async () => {
@@ -148,7 +149,6 @@ test('a peer speaking over a cross-examination tail still queued silences it at 
     publish: async () => ({
       complete: true,
       segmentEnded: false,
-      line: Promise.resolve(),
     }),
   });
   speaker.wake();
@@ -187,7 +187,6 @@ test('the speech ending stops voicing ahead: nothing more is bought', async () =
     publish: async () => ({
       complete: false,
       segmentEnded: true,
-      line: Promise.resolve(),
     }),
   });
   speaker.wake();
@@ -202,3 +201,43 @@ test('the speech ending stops voicing ahead: nothing more is bought', async () =
   });
   await speaker.stop();
 });
+
+for (const ending of ['a final refusal', 'a stop'] as const)
+  test(`${ending} stops voicing ahead: nothing more is bought (delta minor 2)`, async () => {
+    const aborted: string[] = [];
+    const gate = Promise.withResolvers<void>();
+    const { speaker, settle } = harness('speech', {
+      generate: async () =>
+        answered({
+          text: 'One. Two. Three.',
+          phrases: ['One.', 'Two.', 'Three.'],
+        }),
+      synthesize: async (phraseId, text, signal) => {
+        if (text === 'One.') return answered(job(phraseId, text));
+        return new Promise((_, reject) =>
+          signal.addEventListener('abort', () => {
+            aborted.push(text);
+            reject(signal.reason);
+          }),
+        );
+      },
+      publish: async (_job, signal) => {
+        if (ending === 'a final refusal')
+          throw refuseFinalSpeech('Bot phrase would end past its segment');
+        signal.addEventListener('abort', () => gate.resolve());
+        await gate.promise;
+        return { complete: false, segmentEnded: false };
+      },
+    });
+    speaker.wake();
+    await settle();
+    if (ending === 'a stop') await speaker.stop();
+    assert({
+      given: `a speech ended by ${ending} while two phrases are voicing ahead`,
+      should: 'abort both voicings',
+      actual: aborted.sort(),
+      expected: ['Three.', 'Two.'],
+    });
+    gate.resolve();
+    await speaker.stop();
+  });

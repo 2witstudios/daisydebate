@@ -24,6 +24,8 @@ type Upcoming = {
   settled: boolean;
   /** It bought nothing (a refused pool slot, a provider error): voice it again. */
   failed: boolean;
+  /** The line id it will be spoken under. */
+  readonly lineId: string;
 };
 /** How far one turn got; kept across deferrals so no step is bought twice. */
 type Progress = {
@@ -43,15 +45,6 @@ type Progress = {
    * only once the line was closed, so a cut phrase said again is a new line.
    */
   lineId: string | null;
-  /**
-   * The phrase played last, until its line is settled: only then has it been
-   * spoken. A line never written puts the speech back on that phrase.
-   */
-  confirming: {
-    readonly answer: Answer<BotSpeechJob>;
-    readonly lineId: string;
-    readonly line: Promise<void>;
-  } | null;
 };
 const freshProgress = (): Progress => ({
   generated: null,
@@ -62,7 +55,6 @@ const freshProgress = (): Progress => ({
   ahead: [],
   voicing: new AbortController(),
   lineId: null,
-  confirming: null,
 });
 const STOPPED = 'Bot publication stopped before the phrase was sent';
 const isPlatformIncidentRefusal = (error: unknown) =>
@@ -110,6 +102,10 @@ export function createBotSpeaker(input: {
   readonly audible: () => boolean;
   /** Drops whatever is still queued, at once. */
   readonly silence: () => void;
+  /** Writes a phrase's line while the one before it plays (ADR 0122). */
+  readonly writeAhead: (job: BotSpeechJob) => void;
+  /** Withdraws lines written ahead whose phrases will not be said. */
+  readonly discard: () => void;
   /** Plays one phrase and authors its line; never plays past `stopAtMs`. */
   readonly publish: (
     job: BotSpeechJob,
@@ -165,6 +161,7 @@ export function createBotSpeaker(input: {
       answer: null,
       settled: false,
       failed: false,
+      lineId: input.nextId(),
       done: Promise.resolve(),
     };
     upcoming.done = (async () => {
@@ -177,12 +174,23 @@ export function createBotSpeaker(input: {
       );
       await upcoming.answer.settle();
       upcoming.settled = true;
+      // Voiced while the phrase before it plays: its line is written now.
+      if (
+        progress.ahead.includes(upcoming) &&
+        upcoming.index === progress.spoken + 1
+      )
+        prepareAhead(upcoming);
     })();
     // Read when its turn comes; one that bought nothing is voiced again.
     upcoming.done.catch(() => {
       if (!upcoming.answer) upcoming.failed = true;
     });
     return upcoming;
+  };
+  /** Writes a voiced-ahead phrase's line while the phrase before it plays. */
+  const prepareAhead = (upcoming: Upcoming) => {
+    if (playing && upcoming.answer && upcoming.settled)
+      input.writeAhead({ ...upcoming.answer.value, phraseId: upcoming.lineId });
   };
   /** Keeps the phrases after the one now due voiced ahead, each once. */
   const voiceAhead = (phrases: readonly string[], signal: AbortSignal) => {
@@ -204,8 +212,10 @@ export function createBotSpeaker(input: {
       await upcoming.done.catch(() => undefined);
       // An answer bought but not settled is kept and settled again; one never
       // bought is voiced now, in turn, rather than deferring the whole turn.
-      if (upcoming.answer)
+      if (upcoming.answer) {
+        progress.lineId ??= upcoming.lineId;
         return { answer: upcoming.answer, ready: upcoming.settled };
+      }
     }
     const buying = input.synthesize(
       scope,
@@ -218,27 +228,6 @@ export function createBotSpeaker(input: {
     // never leaves the next waiting for its voice.
     voiceAhead(phrases, signal);
     return { answer: await buying, ready: false };
-  };
-  /**
-   * Waits for the last played phrase's line. Its start runs beside its audio
-   * and has had that whole phrase to settle, so this rarely waits. A line
-   * never written puts the speech back on that phrase, under the same line
-   * id, so it is said again and written before the speech counts it spoken.
-   */
-  const confirm = async () => {
-    const played = progress.confirming;
-    if (!played) return;
-    try {
-      await played.line;
-      progress.confirming = null;
-    } catch (error) {
-      progress.confirming = null;
-      progress.spoken -= 1;
-      progress.synthesized = played.answer;
-      progress.ready = true;
-      progress.lineId = played.lineId;
-      throw error;
-    }
   };
   /** Resumes the turn at its first unfinished step. */
   const deliver = async (signal: AbortSignal) => {
@@ -265,49 +254,56 @@ export function createBotSpeaker(input: {
       }
       voiceAhead(phrases, signal);
       stage = 'publish';
-      await confirm();
-      const outcome = await speak(progress.synthesized.value, signal, stopAtMs);
+      const speaking = speak(progress.synthesized.value, signal, stopAtMs);
+      // The next phrase, if already voiced, has its line written as this plays.
+      const next = progress.ahead.find(
+        (held) => held.index === progress.spoken + 1,
+      );
+      if (next) prepareAhead(next);
+      const outcome = await speaking;
       // The segment is over: the speech ends at its last whole phrase, once
       // what it did play (cut at the hard stop) has its line.
-      if (outcome.segmentEnded) {
-        await outcome.line;
-        return dropAhead();
-      }
+      if (outcome.segmentEnded) return dropAhead();
       if (!outcome.complete) throw createAppError('CONFLICT', STOPPED);
-      progress.confirming = {
-        answer: progress.synthesized,
-        lineId: progress.lineId!,
-        line: outcome.line,
-      };
       progress.spoken += 1;
       progress.synthesized = null;
       progress.ready = false;
       progress.lineId = null;
     }
-    // The last phrase is spoken only once its line is written too.
-    stage = 'publish';
-    await confirm();
     dropAhead();
   };
-  /** The speech is over: voicing ahead stops, and nothing more is bought. */
+  /**
+   * The speech is over, or this answer is: voicing ahead stops, nothing more
+   * is bought, and lines written ahead are withdrawn.
+   */
   const dropAhead = () => {
     progress.voicing.abort();
     progress.ahead = [];
+    input.discard();
+  };
+  /** A fresh start, with nothing left voicing ahead of the last one. */
+  const resetProgress = () => {
+    dropAhead();
+    progress = freshProgress();
   };
   /** A failed attempt keeps a usable answer for the next one. */
   const spendAttempt = (error: unknown) => {
     // An answer with nothing to say is unusable: the next attempt buys another.
-    if (progress.generated?.value.phrases.length === 0)
-      progress = freshProgress();
+    if (progress.generated?.value.phrases.length === 0) resetProgress();
     attempts += 1;
     if (crossEx) owed = attempts < input.maxAttempts;
+    // The last attempt is spent: nothing more is bought for this speech.
+    if (attempts >= input.maxAttempts) dropAhead();
     input.failed(error, stage);
   };
   /** Settles one failed turn by the rule above; never rethrows. */
   const recover = (error: unknown, aborted: boolean) => {
-    if (aborted) return void (progress = freshProgress());
+    if (aborted) return void resetProgress();
     // A spent voice budget or an answered segment cannot clear: stop.
-    if (isFinalBotSpeechRefusal(error)) return void (finished = true);
+    if (isFinalBotSpeechRefusal(error)) {
+      finished = true;
+      return dropAhead();
+    }
     // Pool backpressure is a deferral: the next wake resumes at the refused step.
     if (isCapacityRefusal(error)) {
       if (crossEx) owed = true;
@@ -325,7 +321,7 @@ export function createBotSpeaker(input: {
     if (isAppError(error) && error.code === 'CONFLICT') {
       if (crossEx) {
         owed = true;
-        progress = freshProgress();
+        resetProgress();
       }
       return;
     }
@@ -334,7 +330,7 @@ export function createBotSpeaker(input: {
   const turn = async (abort: AbortController) => {
     try {
       await deliver(abort.signal);
-      progress = freshProgress();
+      resetProgress();
       if (!crossEx) finished = true;
     } catch (error) {
       recover(error, abort.signal.aborted);
@@ -351,8 +347,7 @@ export function createBotSpeaker(input: {
       owed = false;
       if (stale) {
         stale = false;
-        progress.voicing.abort();
-        progress = freshProgress();
+        resetProgress();
       }
       const abort = new AbortController();
       running = { abort, done: Promise.resolve() };
@@ -377,6 +372,7 @@ export function createBotSpeaker(input: {
       const current = running;
       cancel();
       await current?.done;
+      dropAhead();
     },
   };
 }

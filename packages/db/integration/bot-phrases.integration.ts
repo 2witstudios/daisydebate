@@ -403,3 +403,39 @@ test('an exact retry of a phrase start is checked like the first: a closed floor
     },
   );
 });
+
+test('a line written ahead is dated by when its audio starts, and fits with that wait', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, fixture, target }) => {
+      const ahead = phrase(createId(), 2_000);
+      await operations.beginBotPhrase(
+        claim.scope,
+        claim.token,
+        { ...ahead, startsInMs: 5_000 },
+        room,
+      );
+      const [row] =
+        await fixture.sql`select extract(epoch from (created_at - clock_timestamp()))*1000 as ahead_ms from utterances where bot_phrase_id=${ahead.phraseId}`;
+      const late = await operations
+        .beginBotPhrase(
+          claim.scope,
+          claim.token,
+          { ...phrase(createId(), 50_000), startsInMs: 10_000 },
+          room,
+        )
+        .catch((error: unknown) => error);
+      void target;
+      assert({
+        given:
+          'a 2 s line written 5 s ahead, then a 50 s phrase starting 10 s from now in a segment with 59 s left',
+        should:
+          'date the first by its playout, and refuse the second as ending past the segment',
+        actual: {
+          datedAhead: Number(row!.ahead_ms) > 4_000,
+          refusedFinal: isFinalBotSpeechRefusal(late),
+        },
+        expected: { datedAhead: true, refusedFinal: true },
+      });
+    },
+  );
+});
