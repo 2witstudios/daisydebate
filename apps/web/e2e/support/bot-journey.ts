@@ -19,8 +19,18 @@ import {
 } from './transcript-proof';
 import { botSpeechEvidence } from './bot-speech-evidence';
 
-/** The shortest legal bot speech; the bot holds the floor until its clock ends. */
-const BOT_SPEECH_MS = 60_000;
+/**
+ * The bot's constructive: the shortest legal speech, unless a local proof asks
+ * for a full one (`E2E_BOT_SPEECH_MS=240000`, Freestyle's constructive length).
+ * The bot holds the floor until its clock ends.
+ */
+const BOT_SPEECH_MS = Number(process.env.E2E_BOT_SPEECH_MS ?? 60_000);
+if (
+  !Number.isSafeInteger(BOT_SPEECH_MS) ||
+  BOT_SPEECH_MS < 60_000 ||
+  BOT_SPEECH_MS > 600_000
+)
+  throw new Error('E2E_BOT_SPEECH_MS must be a legal speech length');
 /** How long the human holds the floor before yielding to the bot. */
 const HUMAN_SPEECH_MS = 3_000;
 
