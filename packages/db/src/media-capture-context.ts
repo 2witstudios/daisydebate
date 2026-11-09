@@ -16,6 +16,8 @@ import {
   transcriptSegments,
 } from './schema/transcript-segments';
 import { rounds } from './schema/rounds';
+import { actors } from './schema/actors';
+import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import {
   captureAdmissionClosed,
@@ -204,6 +206,19 @@ async function lockCaptureStream(
     )
     .for('update');
   if (!segment) throw createAppError('NOT_FOUND');
+  // A bot's transcript is authored from its own text, never captured (ADR 0122).
+  const [seat] = await tx
+    .select({ kind: actors.kind })
+    .from(roundParticipants)
+    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
+    .where(
+      and(
+        eq(roundParticipants.id, input.roundParticipantId),
+        eq(roundParticipants.roundId, input.roundId),
+      ),
+    );
+  if (seat?.kind === 'bot')
+    throw createRefusal('CONFLICT', 'bot-authored', 'A bot is never captured');
   const created = await tx
     .insert(transcriptSegments)
     .values({

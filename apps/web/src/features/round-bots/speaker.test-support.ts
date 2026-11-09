@@ -36,6 +36,7 @@ export function harness(
       text: string,
     ) => ReturnType<SpeakerInput['synthesize']>;
     readonly publish?: SpeakerInput['publish'];
+    readonly deadline?: SpeakerInput['deadline'];
   } = {},
 ) {
   const log: string[] = [];
@@ -61,6 +62,12 @@ export function harness(
         ? options.synthesize(phraseId, text)
         : answered(job(phraseId, text));
     },
+    deadline:
+      options.deadline ??
+      (async () => {
+        log.push('deadline');
+        return 1e12;
+      }),
     publish:
       options.publish ??
       (async (job, signal) => {

@@ -39,6 +39,13 @@ export const utterances = pgTable(
     captureDurationMs: integer('capture_duration_ms'),
     captureWorkerEpoch: integer('capture_worker_epoch'),
     captureBodyDigest: text('capture_body_digest'),
+    /**
+     * The bot phrase this line was authored from (ADR 0122): its retry key.
+     * A line is either captured (clip key) or authored (phrase id), never both.
+     */
+    botPhraseId: text('bot_phrase_id'),
+    /** An authored line cut off mid-play: its text stops where playout did. */
+    interrupted: boolean('interrupted').notNull().default(false),
     createdAt: createdAtColumn(),
   },
   (table) => [
@@ -57,6 +64,7 @@ export const utterances = pgTable(
       table.sequence,
     ),
     uniqueIndex('utterances_capture_clip_unique').on(table.clipKey),
+    uniqueIndex('utterances_bot_phrase_unique').on(table.botPhraseId),
     uniqueIndex('utterances_capture_position_unique').on(
       table.segmentId,
       table.roundParticipantId,
@@ -80,6 +88,14 @@ export const utterances = pgTable(
     check(
       'utterances_capture_metadata_check',
       sql`${table.clipKey} is null or (${table.clipKey} ~ '^[0-9a-f]{64}$' and ${table.captureBodyDigest} ~ '^[0-9a-f]{64}$' and char_length(${table.captureTrackId}) between 1 and 128 and ${table.captureStartOffsetMs} >= 0 and ${table.captureDurationMs} > 0 and ${table.captureDurationMs} <= 60000 and ${table.captureWorkerEpoch} > 0)`,
+    ),
+    check(
+      'utterances_source_check',
+      sql`(${table.botPhraseId} is null or ${table.clipKey} is null) and (${table.botPhraseId} is not null or not ${table.interrupted})`,
+    ),
+    check(
+      'utterances_bot_phrase_check',
+      sql`${table.botPhraseId} is null or char_length(${table.botPhraseId}) between 1 and 64`,
     ),
     check('utterances_sequence_check', sql`${table.sequence} >= 0`),
     check('utterances_text_length', sql`char_length(${table.text}) <= 20000`),

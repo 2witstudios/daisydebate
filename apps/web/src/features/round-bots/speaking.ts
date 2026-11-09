@@ -11,6 +11,18 @@ import { createBotSeat } from './seat';
 import { createBotSpeaker } from './speaker';
 import type { WorkerTimers } from '../../lib/worker-timers';
 
+/** Resolves at a `performance.now()` instant, or at once when `signal` aborts. */
+const waitUntilMonotonic = (due: number, signal: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    if (signal.aborted) return resolve();
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, Math.max(0, due - performance.now()));
+    signal.addEventListener('abort', done, { once: true });
+  });
 type Claim = Awaited<ReturnType<Database['claimRoundBotWorker']>>;
 const ACTIVITY_POLL_MS = 50;
 const MAX_TOKENS = 2000;
@@ -22,6 +34,8 @@ export function createSpeakingBotControl(input: {
     | 'beginRoundBotGeneration'
     | 'finishRoundBotGeneration'
     | 'verifyRoundBotPublication'
+    | 'beginRoundBotPhrase'
+    | 'endRoundBotPhrase'
     | 'databaseNow'
   >;
   readonly voice: () => Pick<OpenRouter, 'complete' | 'speakPcm'>;
@@ -37,8 +51,6 @@ export function createSpeakingBotControl(input: {
   /** The bot seat's own listen-only grant for cross-examination (ISSUE-764). */
   readonly listenToken: Parameters<typeof createBotListening>[0]['listenToken'];
   readonly readPeers: Parameters<typeof createBotListening>[0]['readPeers'];
-  /** The seat capture reports hearing a track for (ISSUE-514-r2). */
-  readonly readHeard: Parameters<typeof createBotPublisher>[0]['heard'];
   readonly timers: WorkerTimers;
   readonly nextId: () => string;
   readonly nowMs: () => number;
@@ -58,13 +70,9 @@ export function createSpeakingBotControl(input: {
     store: input.store,
     botToken: input.botToken,
     connect: createAudioPublication,
-    heard: input.readHeard,
     nextId: input.nextId,
     monotonicNowMs: () => performance.now(),
-    waitUntilMs: async (due, signal) => {
-      while (!signal.aborted && performance.now() < due)
-        await Bun.sleep(Math.max(1, due - performance.now()));
-    },
+    waitUntilMs: waitUntilMonotonic,
   });
   const bounded = (signal: AbortSignal) =>
     AbortSignal.any([signal, AbortSignal.timeout(input.callTimeoutMs)]);
@@ -79,6 +87,7 @@ export function createSpeakingBotControl(input: {
         generation.generate(scope, token, bounded(signal)),
       synthesize: (scope, token, phraseId, text, signal) =>
         generation.synthesize(scope, token, phraseId, text, bounded(signal)),
+      deadline: publication.deadline,
       publish: publication.publish,
       nextId: input.nextId,
       maxAttempts: MAX_ATTEMPTS,

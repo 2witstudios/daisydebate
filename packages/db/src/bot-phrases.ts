@@ -1,0 +1,213 @@
+import { and, eq, sql } from 'drizzle-orm';
+import { createAppError, createRefusal } from '@daisy/errors';
+import { idSchema, isSpokenPrefix } from '@daisy/protocol';
+import type { BoundedTransactionContext } from './transaction-context';
+import { advanceTranscriptRevision } from './capture-history';
+import { appendTranscriptChanged } from './transcript-signal';
+import { lockRoundAgentContext } from './round-agent-runs';
+import { requireAgentLeaseToken } from './round-agent-lease';
+import { refuseFinalSpeech } from './bot-generation-rules';
+import {
+  botSegmentDueAt,
+  requireBotSpeakingWindow,
+  requireClaimScope,
+  verifyLockedBotWorker,
+  type BotPublicationScope,
+} from './bot-publication-context';
+import { roundBotPublications } from './schema/round-bot-publications';
+import { roundSegments } from './schema/round-segments';
+import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
+import { transcriptSegments } from './schema/transcript-segments';
+import { utterances } from './schema/utterances';
+
+/** One phrase a bot is about to say: its own words and its known length. */
+export type BotPhrase = {
+  readonly phraseId: string;
+  readonly text: string;
+  readonly durationMs: number;
+};
+/** How a started phrase ended: played whole, or cut with only `spoken` heard. */
+export type BotPhraseEnd =
+  | { readonly kind: 'whole' }
+  | { readonly kind: 'cut'; readonly spoken: string };
+
+const MAX_PHRASE_MS = 60_000;
+function requirePhrase(phrase: BotPhrase) {
+  if (
+    !idSchema.safeParse(phrase.phraseId).success ||
+    typeof phrase.text !== 'string' ||
+    !phrase.text.trim() ||
+    phrase.text.length > 4000 ||
+    !Number.isSafeInteger(phrase.durationMs) ||
+    phrase.durationMs <= 0 ||
+    phrase.durationMs > MAX_PHRASE_MS
+  )
+    throw createAppError('VALIDATION');
+}
+async function requireUnfrozen(tx: BoundedTransactionContext, roundId: string) {
+  const [freeze] = await tx
+    .select({ id: roundTranscriptFreezes.roundId })
+    .from(roundTranscriptFreezes)
+    .where(eq(roundTranscriptFreezes.roundId, roundId));
+  if (freeze) throw createAppError('CONFLICT', 'Transcript is frozen');
+}
+async function phraseRow(tx: BoundedTransactionContext, phraseId: string) {
+  const [row] = await tx
+    .select()
+    .from(utterances)
+    .where(eq(utterances.botPhraseId, phraseId))
+    .for('update');
+  return row;
+}
+const sameSeat = (
+  row: typeof utterances.$inferSelect,
+  scope: BotPublicationScope,
+) =>
+  row.roundId === scope.roundId &&
+  row.segmentId === scope.segmentId &&
+  row.roundParticipantId === scope.roundParticipantId;
+async function signalChange(tx: BoundedTransactionContext, roundId: string) {
+  const revision = await advanceTranscriptRevision(tx, roundId);
+  await appendTranscriptChanged(tx, roundId, revision);
+}
+
+/**
+ * Starts one authored phrase (ADR 0122), in one transaction: the live claim,
+ * its room, an open floor in the live segment with no incident, an unfrozen
+ * transcript, and a phrase that ends on the database clock before its
+ * segment is due. Its utterance is written then, still arriving, with the
+ * transcript doorbell. An exact retry writes nothing; a different body under
+ * the same phrase id is refused. A phrase that would end past its segment is
+ * a final refusal: the speech stops at its last whole phrase.
+ */
+export async function beginLockedBotPhrase(
+  tx: BoundedTransactionContext,
+  input: {
+    readonly scope: BotPublicationScope;
+    readonly token: string;
+    readonly phrase: BotPhrase;
+    /** The vendor room the publisher joined; a retired one hears nobody (ADR 0110). */
+    readonly room: string;
+    readonly nextId: () => string;
+  },
+) {
+  const { scope, phrase } = input;
+  requirePhrase(phrase);
+  await verifyLockedBotWorker(tx, scope, input.token);
+  const existing = await phraseRow(tx, phrase.phraseId);
+  if (existing) {
+    if (!sameSeat(existing, scope) || existing.text !== phrase.text)
+      throw createAppError('CONFLICT', 'Conflicting bot phrase retry');
+    return {
+      duplicate: true,
+      segmentDueAt: await botSegmentDueAt(tx, scope),
+    };
+  }
+  const named = await tx.execute(
+    sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${input.room} limit 1`,
+  );
+  if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
+  await requireBotSpeakingWindow(tx, scope);
+  await requireUnfrozen(tx, scope.roundId);
+  // Orders sequence allocation against every other writer of this segment.
+  const [fits] = await tx
+    .select({
+      fits: sql<boolean>`clock_timestamp()+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
+    })
+    .from(roundSegments)
+    .where(
+      and(
+        eq(roundSegments.id, scope.segmentId),
+        eq(roundSegments.roundId, scope.roundId),
+      ),
+    )
+    .for('update');
+  if (!fits) throw createAppError('CONFLICT');
+  if (!fits.fits)
+    throw refuseFinalSpeech('Bot phrase would end past its segment');
+  const id = input.nextId();
+  if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
+  await tx.insert(utterances).values({
+    id,
+    roundId: scope.roundId,
+    segmentId: scope.segmentId,
+    roundParticipantId: scope.roundParticipantId,
+    sequence: sql`(select coalesce(max(${utterances.sequence})+1,0) from ${utterances} where ${utterances.segmentId}=${scope.segmentId})`,
+    text: phrase.text,
+    complete: false,
+    botPhraseId: phrase.phraseId,
+    createdAt: sql`clock_timestamp()`,
+  });
+  // The bot's stream is complete by construction once it has spoken.
+  await tx
+    .insert(transcriptSegments)
+    .values({
+      roundId: scope.roundId,
+      segmentId: scope.segmentId,
+      roundParticipantId: scope.roundParticipantId,
+      state: 'complete',
+      chunkCount: 0,
+      sealedChunkCount: 0,
+      sealedAt: sql`clock_timestamp()`,
+    })
+    .onConflictDoNothing();
+  await signalChange(tx, scope.roundId);
+  return { duplicate: false, segmentDueAt: await botSegmentDueAt(tx, scope) };
+}
+
+/**
+ * Ends a started phrase: complete when it played whole, or interrupted with
+ * only the words heard when it was cut, never words it did not say. It
+ * authenticates the claim's own token even after its lease lapsed, so a stop
+ * that races expiry still marks the cut. The first end stands; a later one
+ * changes nothing.
+ */
+export async function endLockedBotPhrase(
+  tx: BoundedTransactionContext,
+  input: {
+    readonly scope: BotPublicationScope;
+    readonly token: string;
+    readonly phraseId: string;
+    readonly end: BotPhraseEnd;
+  },
+) {
+  const { scope, end } = input;
+  if (
+    !idSchema.safeParse(input.phraseId).success ||
+    (end.kind !== 'whole' &&
+      (end.kind !== 'cut' || typeof end.spoken !== 'string'))
+  )
+    throw createAppError('VALIDATION');
+  await lockRoundAgentContext(tx, scope.roundId, scope.roundParticipantId);
+  const [claim] = await tx
+    .select()
+    .from(roundBotPublications)
+    .where(
+      and(
+        eq(roundBotPublications.roundId, scope.roundId),
+        eq(roundBotPublications.roundParticipantId, scope.roundParticipantId),
+      ),
+    )
+    .for('update');
+  requireClaimScope(claim, scope);
+  requireAgentLeaseToken(input.token, claim.leaseTokenDigest);
+  const row = await phraseRow(tx, input.phraseId);
+  if (!row || !sameSeat(row, scope)) throw createAppError('NOT_FOUND');
+  if (row.complete) return { changed: false };
+  await requireUnfrozen(tx, scope.roundId);
+  if (end.kind === 'whole') {
+    await tx
+      .update(utterances)
+      .set({ complete: true })
+      .where(eq(utterances.id, row.id));
+  } else {
+    const spoken = end.spoken.trim().split(/\s+/).filter(Boolean).join(' ');
+    if (!isSpokenPrefix(row.text, spoken)) throw createAppError('VALIDATION');
+    await tx
+      .update(utterances)
+      .set({ complete: true, interrupted: true, text: spoken })
+      .where(eq(utterances.id, row.id));
+  }
+  await signalChange(tx, scope.roundId);
+  return { changed: true };
+}

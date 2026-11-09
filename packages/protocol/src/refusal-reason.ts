@@ -10,6 +10,8 @@ import type { RoundRefusal } from './round-command';
 type RoundCompletionRefusal = 'panel-ineligible';
 /** Expected media backpressure: a retryable 503 that needs no one to look. */
 type RoundMediaRefusal = 'media-deferred' | 'bot-room-changed';
+/** A bot's transcript is authored, never captured (ADR 0122). */
+type TranscriptRefusal = 'bot-authored';
 
 /** A report its reporter may not make (WATCH-7). */
 type ReportRefusal = 'report-not-eligible';
@@ -34,6 +36,7 @@ type AudienceRefusal =
  */
 export type RefusalReason =
   | AttendanceRefusal
+  | TranscriptRefusal
   | CaptureRefusal
   | ReportRefusal
   | AudienceRefusal

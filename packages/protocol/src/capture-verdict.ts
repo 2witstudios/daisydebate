@@ -45,14 +45,6 @@ export type CoverageEdges = {
   readonly openMs: number;
   /** Its last stretch, after speech ended: a yield reaches the server late (DEC-220). */
   readonly closeMs: number;
-  /**
-   * The last stretch before the authority's terminal close, for a bot's
-   * credited windows only (DEC-212, ISSUE-806): the speaker cannot see the
-   * cutoff, so its last windows may open after its final frame. A human's
-   * grants have none, so a microphone that dies before a final grant still
-   * seals partial.
-   */
-  readonly terminalCloseMs?: number;
 };
 export type StreamCoverage = {
   readonly authority: readonly CaptureInterval[];
@@ -72,8 +64,6 @@ export type CaptureFacts = StreamCoverage & {
     { readonly count: number; readonly otherEpochChunks: number } | undefined;
   readonly storedChunks: number;
   readonly expectedChunks: number;
-  /** A bot's grant it did not use: with no evidence of speech, nothing was owed. */
-  readonly grantUnused?: boolean;
 };
 /** One seat's grant in one segment, as read for the engine's rule. */
 export type SeatGrantFacts = {
@@ -86,7 +76,8 @@ export type SeatGrantFacts = {
   readonly turn:
     | { readonly side?: string | undefined; readonly slot?: number | undefined }
     | undefined;
-  readonly hasCreditedWindow: boolean;
+  /** The seat authored speech in the grant's segment (ADR 0122). */
+  readonly hasAuthoredSpeech: boolean;
 };
 
 /**
@@ -95,7 +86,7 @@ export type SeatGrantFacts = {
  */
 export type CaptureRule = {
   readonly decideStreamCapture: (facts: CaptureFacts) => CaptureVerdict;
-  /** Whether a bot's grant owes no stream. The seal and the freeze both ask it. */
+  /** Whether a bot's grant owes no stream. The freeze asks it. */
   readonly botGrantUnused: (facts: SeatGrantFacts) => boolean;
   /**
    * What the tolerances forgave at a speech's edges: unheard all the same, so it is stated,
@@ -111,13 +102,9 @@ export type CaptureRule = {
     observed: readonly CaptureInterval[],
   ) => readonly CaptureGap[];
   /**
-   * What a seat's stream must cover and how far its edges may move (DEC-218,
-   * DEC-220): a human's speaking grants; a bot's credited publication windows.
-   * Silence outside a bot's windows is not speech.
+   * What a human seat's stream must cover and how far its edges may move
+   * (DEC-218, DEC-220): its speaking grants. A bot's transcript is authored,
+   * so it owes no captured coverage (ADR 0122).
    */
-  readonly coverage: (
-    kind: 'human' | 'bot',
-    grants: readonly CaptureInterval[],
-    botWindows: readonly CaptureGap[],
-  ) => StreamCoverage;
+  readonly coverage: (grants: readonly CaptureInterval[]) => StreamCoverage;
 };

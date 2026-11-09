@@ -9,9 +9,10 @@ test('a speech claim delivers its generated phrases once without overlapping tur
   await settle();
   assert({
     given: 'an actual speech claim woken twice while publishing',
-    should: 'run one turn and keep the phrase in memory for publication',
+    should:
+      'run one turn, voicing the next phrase while the first one plays',
     actual: [...log],
-    expected: ['generate', 'tts:One.', 'publish:One.'],
+    expected: ['generate', 'deadline', 'tts:One.', 'tts:Two.', 'publish:One.'],
   });
   await release();
   await release();
@@ -23,9 +24,10 @@ test('a speech claim delivers its generated phrases once without overlapping tur
     actual: log,
     expected: [
       'generate',
+      'deadline',
       'tts:One.',
-      'publish:One.',
       'tts:Two.',
+      'publish:One.',
       'publish:Two.',
     ],
   });
@@ -103,7 +105,7 @@ test('cross-examination answers each peer turn once and cancels the active phras
     given: 'a cross-examination claim',
     should: 'open the exchange once and report playback',
     actual: [log.length, speaker.playing()],
-    expected: [3, true],
+    expected: [5, true],
   });
   speaker.peer('barge-in');
   await settle();
@@ -113,7 +115,7 @@ test('cross-examination answers each peer turn once and cancels the active phras
     given: 'a peer barge-in during playback',
     should: 'cancel the active phrase and wait for the peer turn to end',
     actual: [speaker.playing(), log.length],
-    expected: [false, 3],
+    expected: [false, 5],
   });
   speaker.peer('end-of-turn');
   speaker.peer('end-of-turn');

@@ -2,8 +2,7 @@ import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
 import { createAppError, isAppError } from '@daisy/errors';
-import { publicationStopError, type PublicationStop } from '@daisy/media/audio';
-import type { BotSpeechJob } from './publication';
+import type { BotSpeechJob, PhraseOutcome } from './publication';
 
 /** A provider answer held in memory until its usage and authority settle. */
 type Answer<T> = {
@@ -11,21 +10,31 @@ type Answer<T> = {
   /** Idempotent: safe to call again after a refusal. */
   readonly settle: () => Promise<void>;
 };
+/** The next phrase, voiced while the current one plays (ADR 0122). */
+type Upcoming = {
+  readonly index: number;
+  /** Settles once the answer is bought and its usage recorded. */
+  done: Promise<void>;
+  answer: Answer<BotSpeechJob> | null;
+  settled: boolean;
+};
 /** How far one turn got; kept across deferrals so no step is bought twice. */
 type Progress = {
   generated: Answer<{ readonly phrases: readonly string[] }> | null;
   settled: boolean;
   spoken: number;
+  /** The phrase being spoken, and whether its usage and authority settled. */
   synthesized: Answer<BotSpeechJob> | null;
-  /** Samples of the held phrase already sent, so a refused publication resumes there. */
-  sent: number;
+  ready: boolean;
+  upcoming: Upcoming | null;
 };
 const freshProgress = (): Progress => ({
   generated: null,
   settled: false,
   spoken: 0,
   synthesized: null,
-  sent: 0,
+  ready: false,
+  upcoming: null,
 });
 const STOPPED = 'Bot publication stopped before the phrase was sent';
 const isPlatformIncidentRefusal = (error: unknown) =>
@@ -33,10 +42,12 @@ const isPlatformIncidentRefusal = (error: unknown) =>
 export type PeerActivity =
   'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
 /**
- * One speaking turn at a time per owned claim. Phrases stay in memory; capture
- * alone credits transcript. A speech buys one provider answer and keeps it
- * through every failure until it is delivered, so a retry resumes at the failed
- * step and no answer is bought or phrase spoken twice. Refused authority and
+ * One speaking turn at a time per owned claim. Each phrase is authored into
+ * the transcript as it plays (ADR 0122), and the next phrase is voiced while
+ * the current one plays, so there is no gap between them. A speech buys one
+ * provider answer and keeps it through every failure until it is delivered,
+ * so a retry resumes at the failed phrase and no answer is bought twice; a
+ * phrase cut by a failure is said again whole, as a new line. Refused authority and
  * refused pool admission wait without spending an attempt; a final refusal
  * ends the speech. The speaker never issues floor commands or touches control
  * receipts.
@@ -63,20 +74,14 @@ export function createBotSpeaker(input: {
     text: string,
     signal: AbortSignal,
   ) => Promise<Answer<BotSpeechJob>>;
-  /**
-   * `onSent` reports the samples of `job` sent so far, after each frame is
-   * sent. `segmentEnded` says an incomplete job stopped at its segment end;
-   * `stop` says why it stopped short otherwise.
-   */
+  /** The monotonic instant the claim's segment is due, read once per speech. */
+  readonly deadline: () => Promise<number>;
+  /** Plays one phrase and authors its line; never plays past `stopAtMs`. */
   readonly publish: (
     job: BotSpeechJob,
     signal: AbortSignal,
-    onSent?: (samples: number) => void,
-  ) => Promise<{
-    readonly complete: boolean;
-    readonly segmentEnded: boolean;
-    readonly stop?: PublicationStop | null;
-  }>;
+    stopAtMs: number,
+  ) => Promise<PhraseOutcome>;
   readonly nextId: () => string;
   readonly maxAttempts: number;
   /** `stage` names the work that failed: generate, synthesize or publish. */
@@ -96,33 +101,74 @@ export function createBotSpeaker(input: {
     stale = false;
   let stage = 'generate';
   let progress = freshProgress();
-  /**
-   * Publishes what is left of the held phrase; true once all of it was sent,
-   * false when the segment or the turn ended. A phrase sent in full before a
-   * refusal is already heard. Any other early stop (a stall the writer could
-   * not re-anchor, ISSUE-497) is a failed attempt that resumes from the
-   * samples sent, never a quietly finished speech.
-   */
-  const publishRest = async (phrase: BotSpeechJob, signal: AbortSignal) => {
-    const from = progress.sent;
-    if (from >= phrase.pcm.length) return true;
+  /** Plays one phrase under a fresh line id: a retry is a new line. */
+  const speak = async (
+    phrase: BotSpeechJob,
+    signal: AbortSignal,
+    stopAtMs: number,
+  ) => {
     playing = true;
     try {
-      const { complete, segmentEnded, stop } = await input.publish(
-        { ...phrase, pcm: phrase.pcm.subarray(from) },
+      return await input.publish(
+        { ...phrase, phraseId: input.nextId() },
         signal,
-        (samples) => {
-          progress.sent = Math.min(phrase.pcm.length, from + samples);
-        },
+        stopAtMs,
       );
-      if (!complete && !segmentEnded && !signal.aborted)
-        throw stop
-          ? publicationStopError(stop, STOPPED)
-          : createAppError('INFRASTRUCTURE', STOPPED);
-      return complete;
     } finally {
       playing = false;
     }
+  };
+  /** Voices phrase `index` ahead of its turn, holding the answer once bought. */
+  const prefetch = (
+    phrases: readonly string[],
+    index: number,
+    signal: AbortSignal,
+  ): Upcoming => {
+    const upcoming: Upcoming = {
+      index,
+      answer: null,
+      settled: false,
+      done: Promise.resolve(),
+    };
+    upcoming.done = (async () => {
+      upcoming.answer = await input.synthesize(
+        scope,
+        token,
+        input.nextId(),
+        phrases[index]!,
+        signal,
+      );
+      await upcoming.answer.settle();
+      upcoming.settled = true;
+    })();
+    // Read when its turn comes; a failure there is that phrase's failure.
+    upcoming.done.catch(() => undefined);
+    return upcoming;
+  };
+  /** The phrase now due: the voiced-ahead one, or bought now. */
+  const take = async (phrases: readonly string[], signal: AbortSignal) => {
+    const upcoming = progress.upcoming;
+    if (upcoming?.index === progress.spoken) {
+      try {
+        await upcoming.done;
+      } catch (error) {
+        // An answer bought but not settled is kept and settled again.
+        if (!upcoming.answer) {
+          progress.upcoming = null;
+          throw error;
+        }
+      }
+      progress.upcoming = null;
+      return { answer: upcoming.answer!, ready: upcoming.settled };
+    }
+    const answer = await input.synthesize(
+      scope,
+      token,
+      input.nextId(),
+      phrases[progress.spoken]!,
+      signal,
+    );
+    return { answer, ready: false };
   };
   /** Resumes the turn at its first unfinished step. */
   const deliver = async (signal: AbortSignal) => {
@@ -133,21 +179,34 @@ export function createBotSpeaker(input: {
       progress.settled = true;
     }
     const { phrases } = progress.generated.value;
+    stage = 'publish';
+    // Once per speech, off the audio path: no phrase plays past the cutoff.
+    const stopAtMs = await input.deadline();
     while (progress.spoken < phrases.length) {
       stage = 'synthesize';
-      progress.synthesized ??= await input.synthesize(
-        scope,
-        token,
-        input.nextId(),
-        phrases[progress.spoken]!,
-        signal,
-      );
-      await progress.synthesized.settle();
+      if (!progress.synthesized) {
+        const next = await take(phrases, signal);
+        progress.synthesized = next.answer;
+        progress.ready = next.ready;
+      }
+      if (!progress.ready) {
+        await progress.synthesized.settle();
+        progress.ready = true;
+      }
+      if (progress.spoken + 1 < phrases.length && !progress.upcoming)
+        progress.upcoming = prefetch(phrases, progress.spoken + 1, signal);
       stage = 'publish';
-      if (!(await publishRest(progress.synthesized.value, signal))) return;
+      const outcome = await speak(
+        progress.synthesized.value,
+        signal,
+        stopAtMs,
+      );
+      // The segment is over: the speech ends at its last whole phrase.
+      if (outcome.segmentEnded) return;
+      if (!outcome.complete) throw createAppError('CONFLICT', STOPPED);
       progress.spoken += 1;
       progress.synthesized = null;
-      progress.sent = 0;
+      progress.ready = false;
     }
   };
   /** A failed attempt keeps a usable answer for the next one. */

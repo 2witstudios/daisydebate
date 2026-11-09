@@ -3,7 +3,6 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { grantWindows } from './capture-history';
 import { speakingEndMs, type CaptureRule } from '@daisy/protocol';
 import { actors } from './schema/actors';
-import { roundBotPublicationWindows } from './schema/round-bot-publications';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
@@ -82,23 +81,8 @@ export async function closedStreamGaps(
     .from(roundParticipants)
     .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
     .where(eq(roundParticipants.roundId, roundId));
-  const windows = await tx
-    .select({
-      segmentId: roundBotPublicationWindows.segmentId,
-      roundParticipantId: roundBotPublicationWindows.roundParticipantId,
-      start: roundBotPublicationWindows.creditedFrom,
-      end: roundBotPublicationWindows.creditedUntil,
-    })
-    .from(roundBotPublicationWindows)
-    .where(
-      and(
-        eq(roundBotPublicationWindows.roundId, roundId),
-        inArray(roundBotPublicationWindows.segmentId, segmentIds),
-      ),
-    );
   const grantsOf = groupBy(grants, streamKey);
   const observedOf = groupBy(observed, streamKey);
-  const windowsOf = groupBy(windows, streamKey);
   for (const stream of streams) {
     const segment = segments.find((row) => row.id === stream.segmentId);
     if (!segment) continue;
@@ -109,21 +93,19 @@ export async function closedStreamGaps(
       durationMs: segment.durationMs,
       returnedMs: segment.returnedMs,
     });
-    const kind = seats.find(
-      (seat) => seat.id === stream.roundParticipantId,
-    )?.kind;
+    // A bot's transcript is authored, not captured: it has no gaps (ADR 0122).
+    if (
+      seats.find((seat) => seat.id === stream.roundParticipantId)?.kind ===
+      'bot'
+    )
+      continue;
     const coverage = rule.coverage(
-      kind === 'bot' ? 'bot' : 'human',
       grantWindows(grantsOf.get(streamKey(stream)) ?? [], segment).map(
         (grant) => ({
           start: grant.start,
           end: grant.end ?? speakingEnd,
         }),
       ),
-      (windowsOf.get(streamKey(stream)) ?? []).map((row) => ({
-        start: row.start.getTime(),
-        end: row.end.getTime(),
-      })),
     );
     const heard = (observedOf.get(streamKey(stream)) ?? []).map((row) => ({
       start: row.start.getTime(),

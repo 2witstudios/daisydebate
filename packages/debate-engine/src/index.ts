@@ -114,6 +114,7 @@ export {
 export type { RoundEndingDecision } from './attendance';
 export { captureRule } from './capture-verdict';
 export { botGrantUnused } from './bot-grant';
+export { spokenPrefix } from './authored-speech';
 export {
   BROADCAST_INTERRUPTED_AFTER_MS,
   projectSpectatorTimeline,

@@ -36,7 +36,10 @@ for (const [label, error] of [
       should:
         'settle the same answer on the next wake and speak it, buying one answer',
       actual: { generated: calls.generate, log },
-      expected: { generated: 1, log: ['tts:One.', 'publish:One.'] },
+      expected: {
+        generated: 1,
+        log: ['deadline', 'tts:One.', 'publish:One.'],
+      },
     });
     await speaker.stop();
   });

@@ -14,6 +14,8 @@ export type StreamResult = {
   readonly aborted: boolean;
   /** The stream stopped short at its local hard stop (`stopAtMs`). */
   readonly cut: boolean;
+  /** Why the native handoff failed, when it did: the stream stopped there. */
+  readonly failure?: unknown;
 };
 
 /**
@@ -92,9 +94,14 @@ export function createStreamingAudioWriter(input: {
         input.nowMs() + Math.max(0, input.target.queuedMs() || 0) + 10,
       );
       if (playsUntil > stopAtMs) return cut();
-      await input.target.capture10ms(
-        pcm.subarray(frame * size, (frame + 1) * size),
-      );
+      try {
+        await input.target.capture10ms(
+          pcm.subarray(frame * size, (frame + 1) * size),
+        );
+      } catch (failure) {
+        // Still says how far playout got, so the line is cut where audio was.
+        return { ...stopped(), failure };
+      }
       sent += 1;
     }
     if (signal.aborted) return stopped();

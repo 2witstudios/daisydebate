@@ -181,6 +181,28 @@ test('the hard stop counts audio already queued ahead of the job (AMEND-2)', asy
   });
 });
 
+test('a failed handoff stops the stream and still reports what played', async () => {
+  const h = harness({ leadMs: 100 });
+  const capture = h.target.capture10ms;
+  const failure = new Error('handoff');
+  h.target.capture10ms = async (frame) => {
+    if (h.handed.length === 12) throw failure;
+    await capture(frame);
+  };
+  const result = await h.write(pcm(50), new AbortController().signal);
+  assert({
+    given: 'a native handoff that fails at the 13th frame',
+    should: 'stop, clear the queue and report the failure with the played prefix',
+    actual: {
+      sent: result.sentSamples / FRAME,
+      played: result.playedSamples / FRAME,
+      failure: result.failure,
+      cleared: h.cleared(),
+    },
+    expected: { sent: 12, played: 2, failure, cleared: 1 },
+  });
+});
+
 test('the writer refuses PCM that is not whole 10 ms frames', async () => {
   const { write } = harness();
   await assertRejects({

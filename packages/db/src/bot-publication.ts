@@ -15,11 +15,15 @@ import {
   botSegmentDueAt,
   verifyLockedBotWorker,
   requireBotSpeakingWindow,
-  creditBotPublicationWindow,
   requireBotControlSegment,
   type BotPublicationScope,
-  type PublicationWindow,
 } from './bot-publication-context';
+import {
+  beginLockedBotPhrase,
+  endLockedBotPhrase,
+  type BotPhrase,
+  type BotPhraseEnd,
+} from './bot-phrases';
 import { agentRuns } from './schema/agent-runs';
 import { scanBotWorkers } from './bot-worker-discovery';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -29,10 +33,8 @@ import {
   publicationClaim,
   requirePublishingSeat,
 } from './bot-publication-rules';
-export type {
-  BotPublicationScope,
-  PublicationWindow,
-} from './bot-publication-context';
+export type { BotPublicationScope } from './bot-publication-context';
+export type { BotPhrase, BotPhraseEnd } from './bot-phrases';
 type Target = Pick<
   BotPublicationScope,
   'roundId' | 'roundParticipantId' | 'segmentId'
@@ -143,27 +145,39 @@ export function createBotPublicationOperations(input: {
             .map((row) => row.id),
         };
       }),
-    verifyBotPublication: (
-      scope: BotPublicationScope,
-      token: string,
-      window?: PublicationWindow,
-      /** The vendor room this publisher joined; a retired one hears nobody (ADR 0110). */
-      room?: string,
-    ) =>
+    /** The claim's live floor now, and when its segment is due. */
+    verifyBotPublication: (scope: BotPublicationScope, token: string) =>
       input.run(async (tx) => {
         await verifyLockedBotWorker(tx, scope, token);
-        if (room !== undefined) {
-          const named = await tx.execute(
-            sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${room} limit 1`,
-          );
-          if (named.length !== 1)
-            throw createRefusal('CONFLICT', 'bot-room-changed');
-        }
-        await requireBotSpeakingWindow(tx, scope, window);
-        if (window)
-          await creditBotPublicationWindow(tx, scope, window, input.nextId);
+        await requireBotSpeakingWindow(tx, scope);
         return { segmentDueAt: await botSegmentDueAt(tx, scope) };
       }),
+    /** Authors one phrase's utterance as it starts playing (ADR 0122). */
+    beginBotPhrase: (
+      scope: BotPublicationScope,
+      token: string,
+      phrase: BotPhrase,
+      room: string,
+    ) =>
+      input.run((tx) =>
+        beginLockedBotPhrase(tx, {
+          scope,
+          token,
+          phrase,
+          room,
+          nextId: input.nextId,
+        }),
+      ),
+    /** Closes a started phrase: whole, or cut at what was heard. */
+    endBotPhrase: (
+      scope: BotPublicationScope,
+      token: string,
+      phraseId: string,
+      end: BotPhraseEnd,
+    ) =>
+      input.run((tx) =>
+        endLockedBotPhrase(tx, { scope, token, phraseId, end }),
+      ),
     verifyBotWorker: (scope: BotPublicationScope, token: string) =>
       input.run(async (tx) => {
         await verifyLockedBotWorker(tx, scope, token);
