@@ -69,7 +69,8 @@ const markSignOutIntent = (event: Event) => {
 };
 
 /**
- * Root lifetime: private recovery outlives rooms and an expired session, but
+ * Rendered by the visitor features on every page a person uses (ADR 0123):
+ * private recovery outlives rooms and an expired session, but
  * never an explicit sign-out, a closed account or a different account. An
  * anonymous page is not proof of sign-out, so it keeps the copies, hidden, for
  * the same person.
