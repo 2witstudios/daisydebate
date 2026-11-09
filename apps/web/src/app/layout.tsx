@@ -1,9 +1,4 @@
-import { AnalyticsClient } from '../ui/analytics/analytics-client';
-import { ConsentBanner } from '../ui/analytics/consent-banner';
-import {
-  requestAnalytics,
-  requestBrowserCapture,
-} from '../lib/request-session';
+import { requestBrowserCapture } from '../lib/request-session';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { connection } from 'next/server';
@@ -14,13 +9,9 @@ import {
   THEME_COOKIE,
 } from '../features/theme/theme-preference';
 import {
-  requestIdentity,
   requestMetadataBase,
   requestSearchIndexing,
-  sessionRefreshDueNow,
 } from '../lib/request-session';
-import { SessionRefresh } from '../ui/auth/session-refresh/session-refresh';
-import { DocumentDraftPrivacy } from '../ui/documents/document-draft-privacy';
 import { robotsMetadataOf } from '../features/search-indexing/search-indexing';
 import './globals.css';
 
@@ -53,6 +44,12 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+/**
+ * The document every page shares: <html>, fonts, theme, metadata and error
+ * capture, and nothing a person answers. Visitor features belong to each
+ * visitor group's layout (`VisitorFeatures`), never here, so the `(stage)`
+ * pages Egress records carry none of them (ADR 0123).
+ */
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -65,15 +62,6 @@ export default async function RootLayout({
   // flash, no hydration mismatch.
   const jar = await cookies();
   const theme = parseThemePreference(jar.get(THEME_COOKIE)?.value);
-  const refreshSession = await sessionRefreshDueNow();
-  const analytics = await requestAnalytics();
-  const identity = await requestIdentity();
-  const draftsPrincipal =
-    identity.state === 'unavailable'
-      ? undefined
-      : identity.state === 'anonymous'
-        ? null
-        : identity.principal.userId;
   return (
     <html
       lang="en"
@@ -82,25 +70,7 @@ export default async function RootLayout({
       className={`${sans.variable} ${display.variable}`}
     >
       <body>
-        <ThemeProvider initialPreference={theme}>
-          <DocumentDraftPrivacy principalId={draftsPrincipal} />
-          {children}
-          {refreshSession ? <SessionRefresh /> : null}
-          {analytics.capture ? (
-            <>
-              <AnalyticsClient
-                {...analytics.capture}
-                consent={analytics.choice.consent}
-              />
-              <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-reading">
-                <ConsentBanner
-                  consent={analytics.choice.consent}
-                  available={analytics.available}
-                />
-              </div>
-            </>
-          ) : null}
-        </ThemeProvider>
+        <ThemeProvider initialPreference={theme}>{children}</ThemeProvider>
       </body>
     </html>
   );

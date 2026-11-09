@@ -5,6 +5,7 @@ import {
   featureUiIssue,
   reservedWordIssue,
   runnerOnlyIssue,
+  stageSurfaceIssue,
   testSupportIssue,
 } from './boundaries-rules';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -360,6 +361,73 @@ describe('the document manager', () => {
         ),
       ],
       expected: [null, null, null],
+    });
+  });
+});
+
+describe('the stage surface renders no visitor features (ADR 0123)', () => {
+  test('flags a visitor feature in the root layout or a (stage) file', () => {
+    assert({
+      given: 'the root layout and stage files importing each visitor feature',
+      should: 'name each',
+      actual: [
+        stageSurfaceIssue('./visitor-features', 'apps/web/src/app/layout.tsx'),
+        stageSurfaceIssue(
+          '../ui/analytics/consent-banner',
+          'apps/web/src/app/layout.tsx',
+        ),
+        stageSurfaceIssue(
+          '../../visitor-features',
+          'apps/web/src/app/(stage)/stage/layout.tsx',
+        ),
+        stageSurfaceIssue(
+          '../../../../ui/analytics/analytics-client',
+          'apps/web/src/app/(stage)/stage/[captureId]/page.tsx',
+        ),
+        stageSurfaceIssue(
+          '../../../../ui/auth/session-refresh/session-refresh',
+          'apps/web/src/app/(stage)/stage/[captureId]/page.tsx',
+        ),
+        stageSurfaceIssue(
+          '../../../../ui/documents/document-draft-privacy',
+          'apps/web/src/app/(stage)/stage/[captureId]/page.tsx',
+        ),
+      ],
+      expected: [
+        'apps/web/src/app/layout.tsx: a visitor feature on the stage surface ./visitor-features (ADR 0123)',
+        'apps/web/src/app/layout.tsx: a visitor feature on the stage surface ../ui/analytics/consent-banner (ADR 0123)',
+        'apps/web/src/app/(stage)/stage/layout.tsx: a visitor feature on the stage surface ../../visitor-features (ADR 0123)',
+        'apps/web/src/app/(stage)/stage/[captureId]/page.tsx: a visitor feature on the stage surface ../../../../ui/analytics/analytics-client (ADR 0123)',
+        'apps/web/src/app/(stage)/stage/[captureId]/page.tsx: a visitor feature on the stage surface ../../../../ui/auth/session-refresh/session-refresh (ADR 0123)',
+        'apps/web/src/app/(stage)/stage/[captureId]/page.tsx: a visitor feature on the stage surface ../../../../ui/documents/document-draft-privacy (ADR 0123)',
+      ],
+    });
+  });
+
+  test('allows visitor layouts and the stage itself', () => {
+    assert({
+      given:
+        'the visitor groups rendering the visitor features, and the stage importing the stage room',
+      should: 'report nothing',
+      actual: [
+        stageSurfaceIssue(
+          '../visitor-features',
+          'apps/web/src/app/(shell)/layout.tsx',
+        ),
+        stageSurfaceIssue(
+          '../visitor-features',
+          'apps/web/src/app/(bare)/layout.tsx',
+        ),
+        stageSurfaceIssue(
+          '../../../../ui/broadcast/stage-room',
+          'apps/web/src/app/(stage)/stage/[captureId]/page.tsx',
+        ),
+        stageSurfaceIssue(
+          '../ui/theme/theme-provider',
+          'apps/web/src/app/layout.tsx',
+        ),
+      ],
+      expected: [null, null, null, null],
     });
   });
 });

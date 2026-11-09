@@ -100,3 +100,35 @@ test('consent acceptance and withdrawal work with JavaScript disabled', async ({
     await context.close();
   }
 });
+
+test('the stage Egress records carries no consent banner and no analytics (ADR 0123)', async ({
+  page,
+  context,
+}) => {
+  const { requests } = await captureAnalytics(context);
+  const banner = page.getByRole('complementary', {
+    name: 'Analytics preferences',
+  });
+  await page.goto('/');
+  await expect(banner).toBeVisible();
+  await page.goto('/stage/e2e-no-capture?c=absent');
+  await expect(page.locator('main')).toBeAttached();
+  await expect(banner).toHaveCount(0);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Accept optional' }).click();
+  await expect(page).toHaveURL(/\/analytics\?saved=1$/);
+  const before = requests.length;
+  // The stage polls its own read each second: three answers mean the page
+  // has run for seconds, long enough for any analytics client to have sent.
+  const stageRead = () =>
+    page.waitForResponse((response) =>
+      response.url().includes('/api/stage/e2e-no-capture'),
+    );
+  const first = stageRead();
+  await page.goto('/stage/e2e-no-capture?c=absent');
+  await first;
+  await stageRead();
+  await stageRead();
+  await expect(banner).toHaveCount(0);
+  expect(requests.length).toBe(before);
+});

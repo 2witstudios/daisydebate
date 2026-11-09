@@ -298,6 +298,28 @@ export const documentManagerIssue = (
 };
 
 /**
+ * ADR 0123: a recorder renders the stage, never a person, so the root layout
+ * and every `(stage)` file stay clear of the visitor features (consent
+ * banner, analytics, session refresh, draft privacy). Each visitor group's
+ * layout renders them instead; a new overlay cannot reach a recording.
+ */
+const STAGE_SURFACE = /^apps\/web\/src\/app\/(layout\.tsx$|\(stage\)\/)/;
+const VISITOR_FEATURES =
+  /^apps\/web\/src\/(app\/visitor-features|ui\/analytics\/|ui\/auth\/session-refresh\/|ui\/documents\/document-draft-privacy)/;
+export const stageSurfaceIssue = (
+  specifier: string,
+  importer: string,
+): string | null => {
+  if (!specifier.startsWith('.') || !STAGE_SURFACE.test(importer)) return null;
+  const target = posix.normalize(
+    posix.join(posix.dirname(importer), specifier),
+  );
+  return VISITOR_FEATURES.test(target)
+    ? `${importer}: a visitor feature on the stage surface ${specifier} (ADR 0123)`
+    : null;
+};
+
+/**
  * "Coach" and "coaching" are reserved for future human coaches (owner,
  * 2026-10-27): no AI feature may use the words. Product code is checked
  * (tests may name the word to prove it is absent); the only current users
