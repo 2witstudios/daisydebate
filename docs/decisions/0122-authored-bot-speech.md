@@ -40,7 +40,12 @@ its delivery instead of fitting it into the human capture pipeline.
    when its audio starts, with the revision and the `transcript-changed`
    doorbell. The line is written before any of its audio plays: for every
    phrase after the first, while the phrase before it still plays, so no
-   phrase waits on its own start. A refusal therefore plays nothing. While a
+   phrase waits on its own start. A refusal therefore plays nothing. No one
+   reads a line before it is said: every live read (the transcript, the
+   bot's own next prompt, the resume point) leaves out lines dated after the
+   database's now, and the line before it closes at that very instant, so its
+   doorbell is when the new line becomes readable. Spectators read only
+   closed lines, and a line withdrawn before its audio is never read. While a
    phrase plays, its floor is re-read about every 250 ms, beside the audio, so
    a lost floor still silences the bot at once.
 3. **The segment cutoff stays authoritative.** A phrase that cannot finish

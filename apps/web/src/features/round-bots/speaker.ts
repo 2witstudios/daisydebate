@@ -202,7 +202,11 @@ export function createBotSpeaker(input: {
   const holdShortOpening = async (signal: AbortSignal) => {
     const job = progress.synthesized?.value;
     const second = progress.ahead.find((held) => held.index === 1);
-    if (!job || !second || (job.pcm.length / 24000) * 1000 >= SHORT_OPENING_MS)
+    if (
+      !job ||
+      !second ||
+      (job.pcm.length / job.sampleRate) * 1000 >= SHORT_OPENING_MS
+    )
       return;
     const stopped = Promise.withResolvers<void>();
     signal.addEventListener('abort', () => stopped.resolve(), { once: true });

@@ -220,12 +220,6 @@ export function createBotPublisher(input: {
         });
       },
     });
-    /**
-     * Closes a line at what played, asked again on a failure: an end left
-     * undone would later be estimated from time alone. The line counts as
-     * closed from the first attempt, so a retry of its phrase is a new line
-     * whether or not an end whose answer was lost committed.
-     */
     /** Asks again, backing off, while a call fails for a passing reason. */
     const retryTransient = async (call: () => Promise<unknown>) => {
       for (let attempt = 1; ; attempt += 1) {
@@ -241,6 +235,12 @@ export function createBotPublisher(input: {
         }
       }
     };
+    /**
+     * Closes a line at what played, asked again on a failure: an end left
+     * undone would later be estimated from time alone. The line counts as
+     * closed from the first attempt, so a retry of its phrase is a new line
+     * whether or not an end whose answer was lost committed.
+     */
     const endLine = async (job: BotSpeechJob, playedFraction: number) => {
       closed.add(job.phraseId);
       const end =
@@ -344,11 +344,15 @@ export function createBotPublisher(input: {
       starting = true;
       try {
         return await play(job, signal, stopAtMs);
+      } catch (error) {
+        // Its own line was never written, or it stopped: nothing after it may
+        // be written ahead of it, so lines stay in the order they are said.
+        waitingPrepare = null;
+        discard();
+        throw error;
       } finally {
         starting = false;
-        const waiting = waitingPrepare;
         waitingPrepare = null;
-        if (waiting) writeAhead(waiting);
       }
     };
     const play = async (

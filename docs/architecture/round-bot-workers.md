@@ -213,7 +213,9 @@ before it still plays, dated by when its own audio will start, so no phrase
 waits on its start. One transaction checks the claim, its vendor room, the
 floor, the segment and the incident state, refuses a phrase that would end
 past its segment, and writes the line still arriving. A refusal plays
-nothing. The phrase then streams into a buffered native source in real time,
+nothing. A line written ahead is read by no one until its audio starts: live
+reads leave out lines dated after now, and the previous line's close at that
+instant rings the transcript doorbell. The phrase then streams into a buffered native source in real time,
 and its floor is re-read about every 250 ms beside the audio. Its line closes
 (`endRoundBotPhrase`) in order beside the next phrase's audio, once its
 queued tail has played: complete, or interrupted with only the whole words

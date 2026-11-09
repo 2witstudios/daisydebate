@@ -4,6 +4,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { isFinalBotSpeechRefusal } from '../src/bot-publication';
 import { closeAbandonedBotLines } from '../src/bot-phrases';
+import { readOrderedRoundUtterances } from '../src/round-utterance-projection';
 import {
   claimAtFloorStart,
   withBotPublication,
@@ -432,6 +433,93 @@ test('a line written ahead is dated by when its audio starts, and fits with that
           refusedFinal: isFinalBotSpeechRefusal(late),
         },
         expected: { datedAhead: true, refusedFinal: true },
+      });
+    },
+  );
+});
+
+test('a line written ahead stays unread until its audio starts, and one withdrawn is never read (ADR 0122)', async () => {
+  await withSpeakingBot(async ({ operations, claim, room, run, target }) => {
+    const live = () =>
+      run(async (tx) =>
+        (
+          await readOrderedRoundUtterances(tx as never, target.roundId, 'live')
+        ).map((line) => line.text),
+      );
+    const spoken = () =>
+      run(async (tx) =>
+        (
+          await readOrderedRoundUtterances(
+            tx as never,
+            target.roundId,
+            'spoken',
+          )
+        ).map((line) => line.text),
+      );
+    const next = phrase(createId(), 2_000, 'The next sentence, said later.');
+    await operations.beginBotPhrase(
+      claim.scope,
+      claim.token,
+      { ...next, startsInMs: 400 },
+      room,
+    );
+    const withdrawn = phrase(createId(), 2_000, 'A sentence never said.');
+    await operations.beginBotPhrase(
+      claim.scope,
+      claim.token,
+      { ...withdrawn, startsInMs: 400 },
+      room,
+    );
+    const before = { live: await live(), spoken: await spoken() };
+    // The barge-in comes before it starts: it is withdrawn, never said.
+    await operations.endBotPhrase(
+      claim.scope,
+      claim.token,
+      withdrawn.phraseId,
+      {
+        kind: 'cut',
+        spoken: '',
+      },
+    );
+    await Bun.sleep(500);
+    assert({
+      given:
+        'two lines written 400 ms ahead of their audio, one then withdrawn before it starts',
+      should:
+        'show neither to a live reader or the bot before they start, then only the one said',
+      actual: { before, after: { live: await live(), spoken: await spoken() } },
+      expected: {
+        before: { live: [], spoken: [] },
+        after: {
+          live: ['The next sentence, said later.'],
+          spoken: ['The next sentence, said later.'],
+        },
+      },
+    });
+  });
+});
+
+test('the freeze and the judge read only lines that started', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, run, target, lines }) => {
+      const said = phrase();
+      await operations.beginBotPhrase(claim.scope, claim.token, said, room);
+      await operations.endBotPhrase(claim.scope, claim.token, said.phraseId, {
+        kind: 'whole',
+      });
+      await operations.beginBotPhrase(
+        claim.scope,
+        claim.token,
+        { ...phrase(createId(), 2_000, 'Never reached.'), startsInMs: 30_000 },
+        room,
+      );
+      // As the freeze does before it reads its frontier.
+      await run((tx) => closeAbandonedBotLines(tx, target.roundId));
+      assert({
+        given: 'a said line and one written ahead whose audio never started',
+        should: 'leave only the said line for the freeze and its judge',
+        actual: (await lines()).map((line) => line.text),
+        expected: [TEXT],
       });
     },
   );

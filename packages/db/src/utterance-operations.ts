@@ -1,4 +1,5 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
+import { utteranceStarted } from './round-utterance-projection';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { utterances } from './schema/utterances';
@@ -23,7 +24,7 @@ export const utteranceOperations = ({
           createdAt: utterances.createdAt,
         })
         .from(utterances)
-        .where(eq(utterances.segmentId, segmentId));
+        .where(and(eq(utterances.segmentId, segmentId), utteranceStarted));
       return rows.sort((a, b) => a.sequence - b.sequence);
     });
   },
@@ -41,7 +42,7 @@ export const utteranceOperations = ({
           createdAt: utterances.createdAt,
         })
         .from(utterances)
-        .where(eq(utterances.roundId, roundId))
+        .where(and(eq(utterances.roundId, roundId), utteranceStarted))
         .orderBy(asc(utterances.createdAt), asc(utterances.sequence));
     });
   },

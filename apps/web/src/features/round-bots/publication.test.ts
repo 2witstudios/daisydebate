@@ -35,7 +35,7 @@ const waitUntil = (due: number, signal: AbortSignal) =>
     const timer = setTimeout(done, Math.max(0, due - performance.now()));
     signal.addEventListener('abort', done, { once: true });
   });
-type End = { phraseId: string; end: unknown };
+type End = { phraseId: string; end: unknown; at?: number };
 /**
  * A claim's publisher in real time over a stub native track whose queue
  * plays out in real time, and a stub store. `begin` and `verify` decide each
@@ -71,7 +71,7 @@ function harness(
         phrase: unknown,
         room: unknown,
       ) => {
-        begins.push({ phrase, room });
+        begins.push({ phrase, room, at: performance.now() });
         await options.begin?.();
         return { duplicate: false, segmentDueAt: '' };
       },
@@ -82,7 +82,7 @@ function harness(
         end: unknown,
       ) => {
         await options.end?.();
-        ends.push({ phraseId, end });
+        ends.push({ phraseId, end, at: performance.now() });
         return { changed: true };
       },
     } as never,
@@ -152,7 +152,7 @@ test('phrases stream on the one track joined ahead of speech and close whole', a
       first,
       second,
       events,
-      ends,
+      ends: ends.map(({ phraseId, end }) => ({ phraseId, end })),
       // When each line's audio starts depends on the queue: checked elsewhere.
       begins: begins.map((row) => {
         const { phrase, room } = row as {
@@ -681,5 +681,62 @@ test('a floor read that fails for a passing reason does not cut the phrase', asy
       frames: 80,
       ends: [{ kind: 'whole' }],
     },
+  });
+});
+
+test('after a refused phrase start, nothing after it is written ahead of it', async () => {
+  let refuseA = true;
+  const { claim, begins } = harness({
+    begin: async () => {
+      const last = begins.at(-1) as { phrase: { phraseId: string } };
+      if (last.phrase.phraseId[0] === 'a' && refuseA) {
+        refuseA = false;
+        throw createAppError('CONFLICT', 'floor lost');
+      }
+    },
+  });
+  const a = job(200, 'a'.repeat(24));
+  const b = job(200, 'b'.repeat(24));
+  const first = claim.publish(a, signal(), far());
+  // As the speaker does: the next line is asked for as the current one starts.
+  claim.writeAhead(b);
+  await first.catch(() => undefined);
+  await claim.publish(a, signal(), far());
+  claim.writeAhead(b);
+  await claim.publish(b, signal(), far());
+  await tailPlays();
+  assert({
+    given:
+      'a phrase whose start is refused once while the next was asked for ahead, then both said',
+    should:
+      'write the next line only after the refused phrase’s retry, keeping their order',
+    actual: begins.map(
+      (row) => (row as { phrase: { phraseId: string } }).phrase.phraseId[0],
+    ),
+    expected: ['a', 'a', 'b'],
+  });
+});
+
+test('a line written ahead is read once its audio starts, when the line before it closes and rings (ADR 0122)', async () => {
+  const { claim, ends, begins } = harness();
+  const second = job(400, 'b'.repeat(24));
+  const first = claim.publish(job(400, 'a'.repeat(24)), signal(), far());
+  claim.writeAhead(second);
+  await first;
+  await claim.publish(second, signal(), far());
+  await tailPlays();
+  const ahead = begins.find(
+    (row) =>
+      (row as { phrase: { phraseId: string } }).phrase.phraseId[0] === 'b',
+  ) as { at: number; phrase: { startsInMs: number } };
+  const closed = ends.find((row) => row.phraseId[0] === 'a')!;
+  const startsAt = ahead.at + ahead.phrase.startsInMs;
+  assert({
+    given:
+      'a second line written ahead while the first phrase plays, then the first closing',
+    should:
+      'date the second line to where the first closes, so the doorbell of that close is when it becomes readable',
+    actual: Math.abs(closed.at! - startsAt) < 60,
+    expected: true,
   });
 });

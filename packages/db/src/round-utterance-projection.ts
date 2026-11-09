@@ -1,17 +1,26 @@
-import { and, asc, eq, isNotNull, or } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, lte, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundSegments } from './schema/round-segments';
 import { utterances } from './schema/utterances';
 
 /**
+ * Lines that have been said by now: a bot's line written ahead of its audio
+ * (ADR 0122) is dated by when that audio starts, and stays unread until then.
+ */
+export const utteranceStarted = lte(
+  utterances.createdAt,
+  sql`clock_timestamp()`,
+);
+/**
  * Shared evidence ordering; callers supply either an existing freeze or
- * fresh generation fences. `spoken` reads only lines someone said: captured
- * from a microphone, or authored by a bot as it played (ADR 0122).
+ * fresh generation fences. `live` reads every line said so far; `spoken`
+ * reads only lines someone said, captured from a microphone or authored by
+ * a bot as it played; `frozen` reads a freeze, which holds only said lines.
  */
 export function readOrderedRoundUtterances(
   reader: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
-  source: 'frozen' | 'spoken',
+  source: 'frozen' | 'live' | 'spoken',
 ) {
   return reader
     .select({
@@ -36,6 +45,7 @@ export function readOrderedRoundUtterances(
     .where(
       and(
         eq(utterances.roundId, roundId),
+        source === 'frozen' ? undefined : utteranceStarted,
         source === 'spoken'
           ? or(
               isNotNull(utterances.captureTrackId),
