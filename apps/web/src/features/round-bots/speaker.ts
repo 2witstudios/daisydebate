@@ -33,6 +33,15 @@ type Progress = {
    * only once the line was closed, so a cut phrase said again is a new line.
    */
   lineId: string | null;
+  /**
+   * The phrase played last, until its line is settled: only then has it been
+   * spoken. A line never written puts the speech back on that phrase.
+   */
+  confirming: {
+    readonly answer: Answer<BotSpeechJob>;
+    readonly lineId: string;
+    readonly line: Promise<void>;
+  } | null;
 };
 const freshProgress = (): Progress => ({
   generated: null,
@@ -42,6 +51,7 @@ const freshProgress = (): Progress => ({
   ready: false,
   upcoming: null,
   lineId: null,
+  confirming: null,
 });
 const STOPPED = 'Bot publication stopped before the phrase was sent';
 const isPlatformIncidentRefusal = (error: unknown) =>
@@ -184,6 +194,27 @@ export function createBotSpeaker(input: {
     voiceAhead(phrases, signal);
     return { answer: await buying, ready: false };
   };
+  /**
+   * Waits for the last played phrase's line. Its start runs beside its audio
+   * and has had that whole phrase to settle, so this rarely waits. A line
+   * never written puts the speech back on that phrase, under the same line
+   * id, so it is said again and written before the speech counts it spoken.
+   */
+  const confirm = async () => {
+    const played = progress.confirming;
+    if (!played) return;
+    try {
+      await played.line;
+      progress.confirming = null;
+    } catch (error) {
+      progress.confirming = null;
+      progress.spoken -= 1;
+      progress.synthesized = played.answer;
+      progress.ready = true;
+      progress.lineId = played.lineId;
+      throw error;
+    }
+  };
   /** Resumes the turn at its first unfinished step. */
   const deliver = async (signal: AbortSignal) => {
     stage = 'generate';
@@ -209,15 +240,24 @@ export function createBotSpeaker(input: {
       }
       voiceAhead(phrases, signal);
       stage = 'publish';
+      await confirm();
       const outcome = await speak(progress.synthesized.value, signal, stopAtMs);
       // The segment is over: the speech ends at its last whole phrase.
       if (outcome.segmentEnded) return;
       if (!outcome.complete) throw createAppError('CONFLICT', STOPPED);
+      progress.confirming = {
+        answer: progress.synthesized,
+        lineId: progress.lineId!,
+        line: outcome.line,
+      };
       progress.spoken += 1;
       progress.synthesized = null;
       progress.ready = false;
       progress.lineId = null;
     }
+    // The last phrase is spoken only once its line is written too.
+    stage = 'publish';
+    await confirm();
   };
   /** A failed attempt keeps a usable answer for the next one. */
   const spendAttempt = (error: unknown) => {

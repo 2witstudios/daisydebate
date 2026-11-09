@@ -65,15 +65,21 @@ its delivery instead of fitting it into the human capture pipeline.
    of playout on a monotonic clock and awaits nothing but the handoff, so
    timer or collection jitter cannot drain it. An abort clears the queue at
    once.
-6. **No gaps between sentences.** No database call stands between one
-   phrase's last frame and the next phrase's first: each line closes in
-   order, beside the next phrase's audio, and a phrase start refused only
-   after its audio played stops the speech at the next phrase. The next
-   phrase is voiced while the current one plays: at most one held ahead,
-   bought and settled once, kept across retries, so nothing is bought twice.
-   A retry keeps its line id until that line is closed, so a phrase start
-   that committed but whose answer was lost is never written twice; a phrase
-   cut and closed is said again whole, as a new line.
+6. **No gaps between sentences, and no voiced phrase without a line.** No
+   database call stands between one phrase's last frame and the next
+   phrase's first: each line closes in order, beside the next phrase's audio.
+   A phrase counts as spoken only once its line is written. Its start runs
+   beside its audio and has had that whole phrase to settle, so the next
+   phrase rarely waits on it. A start that fails for no reason a retry cannot
+   clear is asked again, up to three times, under the same line id. A start
+   refused, or still failing, puts the speech back on that phrase, the last
+   one included: it is said again under the same line id, and that time its
+   start is written before any of its audio plays. The next phrase is voiced
+   alongside the current one's voicing: at most one held ahead, bought and
+   settled once, kept across retries, so nothing is bought twice. A retry
+   keeps its line id until that line is closed, so a phrase start that
+   committed but whose answer was lost is never written twice; a phrase cut
+   and closed is said again whole, as a new line.
 7. **Coverage.** A bot's stream is complete by construction once it authors
    a line. A grant it did not use owes nothing (ISSUE-965, now read from
    authored speech). Its scheduled turn with no authored line still freezes

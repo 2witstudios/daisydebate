@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
 import { publicationStopError } from '@daisy/media/audio';
 import { answered, harness, job } from './speaker.test-support';
 setupRitewayBun();
@@ -14,7 +15,7 @@ test('a phrase cut by a failed native handoff is a recorded failure, said again 
         failed = true;
         throw publicationStopError('handoff', 'Native audio handoff failed');
       }
-      return { complete: true, segmentEnded: false };
+      return { complete: true, segmentEnded: false, line: Promise.resolve() };
     },
   });
   for (let i = 0; i < 3; i++) {
@@ -39,7 +40,7 @@ test('a speech that reaches its segment end stops quietly at its last whole phra
   const run = harness('speech', {
     publish: async (sent) => {
       offered.push(sent.text);
-      return { complete: false, segmentEnded: true };
+      return { complete: false, segmentEnded: true, line: Promise.resolve() };
     },
   });
   for (let i = 0; i < 3; i++) {
@@ -105,7 +106,7 @@ test('every phrase plays against the one speech deadline', async () => {
     deadline: async () => 4321,
     publish: async (_sent, _signal, stopAtMs) => {
       stops.push(stopAtMs);
-      return { complete: true, segmentEnded: false };
+      return { complete: true, segmentEnded: false, line: Promise.resolve() };
     },
   });
   run.speaker.wake();
@@ -130,7 +131,11 @@ test('a prefetched answer whose settlement failed is settled again, never bought
           throw publicationStopError('handoff', 'settlement refused once');
       },
     }),
-    publish: async () => ({ complete: true, segmentEnded: false }),
+    publish: async () => ({
+      complete: true,
+      segmentEnded: false,
+      line: Promise.resolve(),
+    }),
   });
   for (let i = 0; i < 3; i++) {
     run.speaker.wake();
@@ -183,7 +188,11 @@ test('a voiced-ahead phrase that failed is voiced again in turn, never deferring
       }
       return answered(job(phraseId, text));
     },
-    publish: async () => ({ complete: true, segmentEnded: false }),
+    publish: async () => ({
+      complete: true,
+      segmentEnded: false,
+      line: Promise.resolve(),
+    }),
   });
   run.speaker.wake();
   await run.settle();
@@ -197,5 +206,77 @@ test('a voiced-ahead phrase that failed is voiced again in turn, never deferring
       stages: run.stages(),
     },
     expected: { bought: ['tts:One.', 'tts:Two.', 'tts:Two.'], stages: [] },
+  });
+});
+
+test('a final phrase whose line is never written is said again, under its line id, before the speech is done', async () => {
+  const offered: string[] = [];
+  let lines = 0;
+  const run = harness('speech', {
+    publish: async (sent) => {
+      offered.push(`${sent.text}:${sent.phraseId}`);
+      lines += 1;
+      // The final phrase's first start fails for good after hand-over.
+      const line =
+        sent.text === 'Two.' && lines === 2
+          ? Promise.reject(
+              createAppError('INFRASTRUCTURE', 'statement timeout'),
+            )
+          : Promise.resolve();
+      line.catch(() => undefined);
+      return { complete: true, segmentEnded: false, line };
+    },
+  });
+  for (let i = 0; i < 3; i++) {
+    run.speaker.wake();
+    await run.settle();
+  }
+  await run.speaker.stop();
+  const [, second, third] = offered.map((entry) => entry.split(':'));
+  assert({
+    given: 'a two-phrase speech whose final line fails to be written once',
+    should:
+      'record one failure, say the final phrase again under the same line id, and buy nothing twice',
+    actual: {
+      offered: offered.map((entry) => entry.split(':')[0]),
+      sameLine: second?.[1] === third?.[1],
+      stages: run.stages(),
+      bought: run.log.filter((entry) => entry.startsWith('tts:')),
+    },
+    expected: {
+      offered: ['One.', 'Two.', 'Two.'],
+      sameLine: true,
+      stages: ['publish'],
+      bought: ['tts:One.', 'tts:Two.'],
+    },
+  });
+});
+
+test('a refused line puts the speech back on its phrase without spending an attempt', async () => {
+  const offered: string[] = [];
+  let refused = false;
+  const run = harness('speech', {
+    publish: async (sent) => {
+      offered.push(sent.text);
+      const line =
+        sent.text === 'One.' && !refused
+          ? ((refused = true),
+            Promise.reject(createAppError('CONFLICT', 'floor lost')))
+          : Promise.resolve();
+      line.catch(() => undefined);
+      return { complete: true, segmentEnded: false, line };
+    },
+  });
+  for (let i = 0; i < 3; i++) {
+    run.speaker.wake();
+    await run.settle();
+  }
+  await run.speaker.stop();
+  assert({
+    given: 'a first phrase whose line start is refused after hand-over',
+    should:
+      'stop before the next phrase, then say the first again on the next wake with no failure recorded',
+    actual: { offered, stages: run.stages() },
+    expected: { offered: ['One.', 'One.', 'Two.'], stages: [] },
   });
 });

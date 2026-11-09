@@ -108,7 +108,21 @@ export type PhraseOutcome = {
   readonly complete: boolean;
   /** It reached the speech's hard stop: the segment is over for this bot. */
   readonly segmentEnded: boolean;
+  /**
+   * Settles once the phrase's line is authored, or rejects with why it never
+   * was: a phrase counts as spoken only once this settles (ADR 0122).
+   */
+  readonly line: Promise<void>;
 };
+/** Attempts at a phrase start that failed for no reason a retry cannot clear. */
+const BEGIN_ATTEMPTS = 3;
+const BEGIN_RETRY_MS = 100;
+/** A refusal is an answer; anything else (a lost reply, a timeout) is worth asking again. */
+const transientBegin = (error: unknown) =>
+  !isAppError(error) ||
+  !['CONFLICT', 'AUTHORIZATION', 'VALIDATION', 'NOT_FOUND'].includes(
+    error.code,
+  );
 /**
  * A claim's publisher (ADR 0122). Each phrase streams in real time into a
  * buffered native source while its authored utterance is written beside it,
@@ -146,8 +160,11 @@ export function createBotPublisher(input: {
     let clearedAtMs = -Infinity;
     /** Each played phrase's line closes here, in order, beside the next one's audio. */
     let closing: Promise<void> = Promise.resolve();
-    /** A phrase start refused after its audio played: the next phrase stops on it. */
-    let lateRefusal: { readonly error: unknown } | null = null;
+    /**
+     * Lines whose start was refused or never confirmed: said again, each
+     * starts before any of its audio plays, so nothing is heard unwritten.
+     */
+    const doubtful = new Set<string>();
     /** Lines this claim closed; a retry of any other line reuses its id. */
     const closed = new Set<string>();
     const ended = new AbortController();
@@ -211,11 +228,6 @@ export function createBotPublisher(input: {
       )
         throw createAppError('VALIDATION');
       if (signal.aborted) throw createAppError('CONFLICT');
-      if (lateRefusal) {
-        const { error } = lateRefusal;
-        lateRefusal = null;
-        throw error;
-      }
       const frames = wholeFrames(job.pcm);
       const durationMs = (frames.length / SAMPLE_RATE) * 1000;
       const native = await publication.use();
@@ -226,7 +238,11 @@ export function createBotPublisher(input: {
         input.monotonicNowMs() + Math.max(0, native.queuedMs()) + durationMs >
         stopAtMs
       )
-        return { complete: false, segmentEnded: true };
+        return {
+          complete: false,
+          segmentEnded: true,
+          line: Promise.resolve(),
+        };
       // A publisher is always opened first, so this only refuses a broken order.
       if (room === undefined) throw createAppError('CONFLICT');
       const refused = new AbortController();
@@ -238,21 +254,43 @@ export function createBotPublisher(input: {
         roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
         refused.abort();
       };
-      // The phrase's authority and utterance, beside the audio: never awaited by it.
-      const begun = input.store
-        .beginRoundBotPhrase(
-          job.scope,
-          job.token,
-          { phraseId: job.phraseId, text: job.text, durationMs },
-          room,
-        )
-        .then(
-          () => true,
-          (error: unknown) => {
-            refuse(error);
-            return false;
-          },
-        );
+      // The phrase's authority and utterance, beside the audio: never awaited
+      // by it. An exact retry under the same id writes nothing twice.
+      const joined = room;
+      const line = (async () => {
+        for (let attempt = 1; ; attempt += 1) {
+          try {
+            await input.store.beginRoundBotPhrase(
+              job.scope,
+              job.token,
+              { phraseId: job.phraseId, text: job.text, durationMs },
+              joined,
+            );
+            doubtful.delete(job.phraseId);
+            return;
+          } catch (error) {
+            if (!transientBegin(error) || attempt >= BEGIN_ATTEMPTS) {
+              doubtful.add(job.phraseId);
+              throw error;
+            }
+            await input.waitUntilMs(
+              input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
+              new AbortController().signal,
+            );
+          }
+        }
+      })();
+      // Read by the speaker; a rejection nobody waits for is not unhandled.
+      line.catch(() => undefined);
+      const begun = line.then(
+        () => true,
+        (error: unknown) => {
+          refuse(error);
+          return false;
+        },
+      );
+      // A line whose start failed before starts before any audio this time.
+      if (doubtful.has(job.phraseId) && !(await begun)) throw refusal;
       // The floor, re-read while the phrase plays: a refusal stops the audio.
       const played = new AbortController();
       const watching = (async () => {
@@ -292,7 +330,7 @@ export function createBotPublisher(input: {
         if (await begun) await endLine(job, fractionOf(result.playedSamples));
         if (refusal !== undefined) throw refusal;
         if (result.failure !== undefined) throw result.failure;
-        return { complete: false, segmentEnded: false };
+        return { complete: false, segmentEnded: false, line };
       }
       // Its last frames are still queued: the line closes once they have
       // played, beside the next phrase's audio, never in front of it.
@@ -300,10 +338,9 @@ export function createBotPublisher(input: {
       const playsUntilMs = handedAtMs + Math.max(0, native.queuedMs());
       const wholeFraction = result.cut ? fractionOf(result.playedSamples) : 1;
       closing = closing.then(async () => {
-        if (!(await begun)) {
-          lateRefusal ??= { error: refusal };
-          return;
-        }
+        // A start that was never written has no line to close: the speaker
+        // learns why from `line` and says the phrase again.
+        if (!(await begun)) return;
         await input.waitUntilMs(playsUntilMs, ended.signal);
         // A clear before its tail played out cut it there (AMEND-1).
         const cutAtMs =
@@ -323,7 +360,7 @@ export function createBotPublisher(input: {
         // An end that fails leaves the line unfinished, never invented.
         await endLine(job, Math.max(0, fraction)).catch(() => undefined);
       });
-      return { complete: !result.cut, segmentEnded: result.cut };
+      return { complete: !result.cut, segmentEnded: result.cut, line };
     };
     return {
       /** Joins the Room ahead of speech. */

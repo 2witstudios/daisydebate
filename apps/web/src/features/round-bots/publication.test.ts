@@ -114,8 +114,18 @@ function harness(
     monotonicNowMs: () => performance.now(),
     waitUntilMs: waitUntil,
   });
+  const raw = publisher({ scope, token: 't' });
   return {
-    claim: publisher({ scope, token: 't' }),
+    raw,
+    /** The claim, its outcomes without the line each phrase settles. */
+    claim: {
+      ...raw,
+      publish: async (...args: Parameters<typeof raw.publish>) => {
+        const { line, ...outcome } = await raw.publish(...args);
+        line.catch(() => undefined);
+        return outcome;
+      },
+    },
     events,
     handoffs,
     ends,
@@ -408,5 +418,67 @@ test('a tail cleared after its phrase was handed over closes cut, not whole (AME
       aboutThreeQuarters: true,
       nextCut: 'cut',
     },
+  });
+});
+
+test('a final phrase whose start fails once after hand-over is retried and written (ADR 0122)', async () => {
+  let attempts = 0;
+  const { raw, ends } = harness({
+    begin: async () => {
+      attempts += 1;
+      // Lost after hand-over: the 100 ms phrase is fully queued by then.
+      await Bun.sleep(150);
+      if (attempts === 1) throw new Error('statement timeout');
+    },
+  });
+  const outcome = await raw.publish(job(100), signal(), far());
+  await outcome.line;
+  await tailPlays();
+  assert({
+    given:
+      'the last phrase of a speech whose start times out once, after its audio was handed over',
+    should:
+      'ask again under the same line id before the phrase counts as spoken, and close its line whole',
+    actual: { attempts, ends: ends.map((row) => row.end) },
+    expected: { attempts: 2, ends: [{ kind: 'whole' }] },
+  });
+});
+
+test('a phrase whose start was refused starts before any of its audio plays when said again', async () => {
+  let refuse = true;
+  const { raw, handoffs } = harness({
+    begin: async () => {
+      await Bun.sleep(150);
+      if (refuse) throw createAppError('CONFLICT', 'floor lost');
+    },
+  });
+  const first = await raw.publish(job(100, 'a'.repeat(24)), signal(), far());
+  const firstLine = await first.line.then(
+    () => 'written',
+    () => 'refused',
+  );
+  handoffs.length = 0;
+  const again = raw.publish(job(100, 'a'.repeat(24)), signal(), far());
+  await Bun.sleep(100);
+  const framesWhileStarting = handoffs.length;
+  await assertRejects({
+    given: 'the same line said again while its start is still refused',
+    should: 'refuse it before playing',
+    actual: () => again,
+    code: 'CONFLICT',
+  });
+  refuse = false;
+  const third = await raw.publish(job(100, 'a'.repeat(24)), signal(), far());
+  await third.line;
+  assert({
+    given: 'a phrase whose start was refused after hand-over, said again twice',
+    should:
+      'report the first line refused, hand no frame over while the second start is pending, and play once it is written',
+    actual: {
+      firstLine,
+      framesWhileStarting,
+      played: handoffs.length,
+    },
+    expected: { firstLine: 'refused', framesWhileStarting: 0, played: 10 },
   });
 });

@@ -21,7 +21,7 @@ test('a platform incident stops the job and the same answer resumes', async () =
           throw held();
         }
         sent.push(job.text);
-        return { complete: true, segmentEnded: false };
+        return { complete: true, segmentEnded: false, line: Promise.resolve() };
       },
     });
     for (let wake = 0; wake < 12; wake += 1) {

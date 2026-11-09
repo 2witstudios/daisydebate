@@ -78,7 +78,7 @@ export function harness(
         signal.addEventListener('abort', () => gate.reject(signal.reason));
         log.push(`publish:${job.text}`);
         await gate.promise;
-        return { complete: true, segmentEnded: false };
+        return { complete: true, segmentEnded: false, line: Promise.resolve() };
       }),
     nextId: () => `phrase-${++ids}`,
     maxAttempts: 2,
