@@ -101,7 +101,7 @@ test('consent acceptance and withdrawal work with JavaScript disabled', async ({
   }
 });
 
-test('the stage Egress records carries no consent banner and no analytics (ADR 0123)', async ({
+test('the stage that Egress records carries no consent banner and no analytics (ADR 0123)', async ({
   page,
   context,
 }) => {
