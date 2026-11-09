@@ -175,9 +175,13 @@ Unranked Custom rules can use points of information (POI): both sides have
 permission to speak and begin with their local microphones muted, with a
 simple mute/unmute control. Raised-hand requests and acceptance are roadmap work (ISSUE-871).
 
-Media is a scoped LiveKit session. The capture worker turns the published
-audio of every debater, human or bot, into the transcript; bot speech enters
-the transcript only this way (DEC-212, DEC-213, DEC-215). When the final
+Media is a scoped LiveKit session. The capture worker turns each person's
+published audio into the transcript. A bot's transcript is authored from its
+own words as it speaks them, never recovered by speech-to-text, and its voice
+is still published into the same session, so people, recording and broadcast
+hear it ([ADR 0122](../decisions/0122-authored-bot-speech.md)). No bot text is
+credited past its segment's end, and a cut-off line keeps only the words that
+played. When the final
 segment ends and the admission cutoff passes, round maintenance freezes the
 transcript once. The freeze is immutable, and it is recorded as complete or
 incomplete.

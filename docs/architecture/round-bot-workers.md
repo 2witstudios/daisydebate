@@ -131,8 +131,10 @@ The bot publication factory also owns generation admission. `beginGeneration`
 requires the current memory bearer, fresh scoped control claim and current
 speaking authority. It counts the existing admitted Round reservation and
 creates a separate child AgentRun with one uncertain provider request. It reads
-only captured utterances in actual segment order; generated text never becomes
-an utterance. TTS additionally requires an explicit model and per-seat character
+only spoken utterances in actual segment order: captured from a microphone, or
+authored by a bot as it played. A generated answer becomes an utterance only
+phrase by phrase, as each phrase starts playing
+([ADR 0122](../decisions/0122-authored-bot-speech.md)). TTS additionally requires an explicit model and per-seat character
 budget. It reserves the input character count before the external call; unknown
 provider outcomes retain that reservation.
 
@@ -152,8 +154,10 @@ actual provider-to-native publication or full played-Round acceptance.
 ## Retired AI orchestration replacement obligations
 
 The shared Room/runtime and scoped workers own these requirements. The retired
-AI-only operation tree, generated-text transcript writer, browser heard reports,
-client transcription and its operation-specific tests are removed. Historical
+AI-only operation tree, its whole-answer transcript writer, browser heard
+reports, client transcription and its operation-specific tests are removed;
+a bot's lines are authored per played phrase under the shared fences instead
+(ADR 0122). Historical
 criteria remain; storage/component evidence does not satisfy a pending played
 journey.
 
@@ -196,29 +200,34 @@ remain required before this transport is accepted.
 When media is configured, each owned control claim also gets one speaker
 (`round-bots/speaking.ts`). The control pulse wakes the speaker but never awaits
 it, so receipts continue through model, voice or media failure. One turn runs
-at a time per claim. A turn generates text, then voices and publishes one phrase
-at a time. The next phrase is voiced only after the previous one finishes
-publishing. A partial publication ends the turn. Phrases and PCM stay in memory;
-only capture credits transcript. Each authorized window is stored as server
-credit in `round_bot_publication_windows`, one row per contiguous run; those
-windows, not the whole floor, are the coverage a bot stream needs to seal
-complete (DEC-218).
+at a time per claim. A turn generates text, reads its segment's due time once
+(calibrated against the database clock, off the audio path), then voices and
+plays its phrases in order. The next phrase is voiced while the current one
+plays, so sentences follow each other with no gap; at most one phrase is held
+ahead, bought and settled once, and kept across retries, so nothing is bought
+twice ([ADR 0122](../decisions/0122-authored-bot-speech.md)).
+
+Each phrase streams into a buffered native source in real time, and its
+authored utterance is written beside it, never in front of it
+(`beginRoundBotPhrase`): one transaction checks the claim, its vendor room, the
+floor, the segment and the incident state, refuses a phrase that would end
+past its segment, and writes the line still arriving. A refusal stops the
+audio at the next frame. The floor is re-read about every 250 ms while the
+phrase plays, also beside the audio. At its end the line closes complete, or
+interrupted with only the words that played (`endRoundBotPhrase`): samples
+sent less samples still queued. The writer stops locally at the segment's due
+time, so no audio plays past the cutoff. A phrase that cannot finish in time is
+never started, and the speech ends at its last whole phrase.
 
 Each claim joins one native publication when its seat starts, ahead of
-generation and synthesis, and every attempt reuses it (DEC-225). The track is
-used only once capture reports hearing it: the capture worker reports each bot
-track it subscribes to through its signed ingress, admitted by media capture
-for a bound bot seat in the open segment under a current lease, into
-capture's expiring Redis key `captureheard` (Round and track id, 30 s), which
-the bot reads as a named input. The bot polls that key every 50 ms
-after joining, so no window is credited before capture can see the track
-(DEC-226, ISSUE-514-r2). A track not reported within 10 s is closed and the
-attempt fails as `unheard`. The key grants no authority.
-
-A refused speaking window (`CONFLICT`) waits for the next wake and consumes no
-attempt. Other failures count toward a bound of two attempts per claim and log
-`round.speaking.failed`. A speech claim delivers its speech once. Bots issue no
-floor commands; the runtime clock opens and closes segments.
+generation and synthesis, and every attempt reuses it (DEC-225). A refused
+phrase start or a lost floor (`CONFLICT`) waits for the next wake and consumes
+no attempt; a changed vendor room rejoins the session's fresh room. Other
+failures (a provider call, a connect or a native handoff) count toward a
+bound of two attempts per claim and log `round.speaking.failed`; a phrase cut
+by one is said again whole, as a new line. A speech claim delivers its speech
+once. Bots issue no floor commands; the runtime clock opens and closes
+segments.
 
 In cross-examination the scheduled seat opens the exchange once, and every
 other seat stays silent until a question ends. After that each answers once per
