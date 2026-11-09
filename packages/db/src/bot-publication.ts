@@ -195,9 +195,16 @@ export function createBotPublicationOperations(input: {
       token: string,
       phraseId: string,
       room: string,
+      startedAt?: string,
     ) =>
       input.run((tx) =>
-        revealLockedBotPhrase(tx, { scope, token, phraseId, room }),
+        revealLockedBotPhrase(tx, {
+          scope,
+          token,
+          phraseId,
+          room,
+          ...(startedAt === undefined ? {} : { startedAt }),
+        }),
       ),
     /** Authors one phrase's utterance as it starts playing (ADR 0122). */
     beginBotPhrase: (

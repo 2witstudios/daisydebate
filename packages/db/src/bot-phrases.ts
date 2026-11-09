@@ -195,10 +195,20 @@ export async function revealLockedBotPhrase(
     readonly token: string;
     readonly phraseId: string;
     readonly room: string;
+    /**
+     * When its audio started on the database clock, as the worker read it:
+     * the line is dated there, never later than now, so a reveal that waited
+     * on a lock still dates the line by its audio.
+     */
+    readonly startedAt?: string;
   },
 ) {
   const { scope } = input;
-  if (!idSchema.safeParse(input.phraseId).success)
+  if (
+    !idSchema.safeParse(input.phraseId).success ||
+    (input.startedAt !== undefined &&
+      !Number.isFinite(Date.parse(input.startedAt)))
+  )
     throw createAppError('VALIDATION');
   await verifyLockedBotWorker(tx, scope, input.token);
   const named = await tx.execute(
@@ -212,7 +222,12 @@ export async function revealLockedBotPhrase(
   const revealed = row
     ? await tx
         .update(utterances)
-        .set({ createdAt: sql`clock_timestamp()` })
+        .set({
+          createdAt:
+            input.startedAt === undefined
+              ? sql`clock_timestamp()`
+              : sql`least(clock_timestamp(),${new Date(input.startedAt)}::timestamptz)`,
+        })
         .where(
           and(
             eq(utterances.id, row.id),

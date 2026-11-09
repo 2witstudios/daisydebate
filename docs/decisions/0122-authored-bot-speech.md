@@ -42,7 +42,8 @@ its delivery instead of fitting it into the human capture pipeline.
    before it still plays, so no phrase waits on its own start. A refusal
    therefore plays nothing. As the phrase's audio starts, its **reveal**,
    beside the audio, checks the claim, room and floor again, dates the line
-   then and rings the transcript doorbell: the line is read exactly from when
+   at its audio start (fixed on the database clock, never later than the
+   reveal) and rings the transcript doorbell: the line is read exactly from when
    it is said, never before, and a refused reveal stops the audio at once.
    Every live read leaves out unrevealed lines; the bot's own next prompt
    reads a bot line only once it closed; spectators read only closed lines,

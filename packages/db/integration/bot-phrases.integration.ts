@@ -628,3 +628,43 @@ test('a bot caption is released only once its words have all played', async () =
     });
   });
 });
+
+test('a reveal dates its line at the audio start it was given, never later than now', async () => {
+  await withSpeakingBot(async ({ operations, claim, room, fixture }) => {
+    const [{ now }] = await fixture.sql`select clock_timestamp() as now`;
+    const earlier = phrase();
+    const future = phrase();
+    for (const line of [earlier, future])
+      await operations.beginBotPhrase(claim.scope, claim.token, line, room);
+    const startedAt = new Date(new Date(now).getTime() - 800).toISOString();
+    await operations.revealBotPhrase(
+      claim.scope,
+      claim.token,
+      earlier.phraseId,
+      room,
+      startedAt,
+    );
+    await operations.revealBotPhrase(
+      claim.scope,
+      claim.token,
+      future.phraseId,
+      room,
+      new Date(new Date(now).getTime() + 60_000).toISOString(),
+    );
+    const rows =
+      await fixture.sql`select bot_phrase_id, created_at, created_at <= clock_timestamp() as said from utterances where bot_phrase_id in (${earlier.phraseId}, ${future.phraseId})`;
+    const of = (id: string) =>
+      rows.find((row: { bot_phrase_id: string }) => row.bot_phrase_id === id);
+    assert({
+      given:
+        'a reveal that arrived 800 ms after its audio started, and one naming a start still to come',
+      should:
+        'date the first at its audio start, and the second no later than now',
+      actual: [
+        new Date(of(earlier.phraseId).created_at).toISOString(),
+        of(future.phraseId).said,
+      ],
+      expected: [startedAt, true],
+    });
+  });
+});

@@ -504,6 +504,12 @@ export function createBotPublisher(input: {
           AbortSignal.any([played.signal, refused.signal]),
         );
         if (refused.signal.aborted) return;
+        // Its audio start on the database clock, fixed now: a reveal that
+        // waits on a lock still dates the line by its audio.
+        const startedAt =
+          dbOffsetMs === null
+            ? undefined
+            : new Date(audioStartsAtMs + dbOffsetMs).toISOString();
         await retryTransient(
           () =>
             input.store.revealRoundBotPhrase(
@@ -511,6 +517,7 @@ export function createBotPublisher(input: {
               job.token,
               job.phraseId,
               joined,
+              startedAt,
             ),
           true,
         );
