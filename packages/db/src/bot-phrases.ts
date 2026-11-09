@@ -8,7 +8,6 @@ import { lockRoundAgentContext } from './round-agent-runs';
 import { requireAgentLeaseToken } from './round-agent-lease';
 import { refuseFinalSpeech } from './bot-generation-rules';
 import {
-  botSegmentDueAt,
   requireBotSpeakingWindow,
   requireClaimScope,
   verifyLockedBotWorker,
@@ -60,6 +59,15 @@ function requirePhrase(phrase: BotPhrase) {
   )
     throw createAppError('VALIDATION');
 }
+/** A line not yet said: unread by everyone until its reveal dates it. */
+const UNSAID = sql`'infinity'::timestamptz`;
+/**
+ * A line closed without its reveal (a reveal that never landed) is dated by
+ * when its audio could have started, so it is read as said, not as unsaid.
+ */
+const saidAt = sql`case when ${utterances.createdAt}='infinity'::timestamptz then clock_timestamp()-${utterances.botDurationMs}*interval '1 millisecond' else ${utterances.createdAt} end`;
+/** How far a start may be fixed past one whole phrase: the queue ahead of it. */
+const MAX_AHEAD_SLACK_MS = 1_000;
 /** When the phrase's audio starts on the database clock: never before now. */
 const startOf = (phrase: BotPhrase) =>
   phrase.startsAt === undefined
@@ -116,20 +124,11 @@ export async function beginLockedBotPhrase(
   if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
   await requireBotSpeakingWindow(tx, scope);
   await requireTranscriptUnfrozen(tx, scope.roundId);
-  const existing = await phraseRow(tx, phrase.phraseId);
-  if (existing) {
-    if (!sameSeat(existing, scope) || existing.text !== phrase.text)
-      throw createAppError('CONFLICT', 'Conflicting bot phrase retry');
-    return {
-      duplicate: true,
-      segmentDueAt: await botSegmentDueAt(tx, scope),
-    };
-  }
   // Orders sequence allocation against every other writer of this segment.
   const [fits] = await tx
     .select({
       fits: sql<boolean>`${startOf(phrase)}+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
-      ahead: sql<boolean>`${startOf(phrase)}<=clock_timestamp()+${MAX_PHRASE_MS}*interval '1 millisecond'`,
+      ahead: sql<boolean>`${startOf(phrase)}<=clock_timestamp()+${MAX_PHRASE_MS + MAX_AHEAD_SLACK_MS}*interval '1 millisecond'`,
     })
     .from(roundSegments)
     .where(
@@ -141,8 +140,15 @@ export async function beginLockedBotPhrase(
     .for('update');
   if (!fits) throw createAppError('CONFLICT');
   if (!fits.ahead) throw createAppError('VALIDATION');
+  // An exact retry is checked like the first, its fit included.
   if (!fits.fits)
     throw refuseFinalSpeech('Bot phrase would end past its segment');
+  const existing = await phraseRow(tx, phrase.phraseId);
+  if (existing) {
+    if (!sameSeat(existing, scope) || existing.text !== phrase.text)
+      throw createAppError('CONFLICT', 'Conflicting bot phrase retry');
+    return { duplicate: true };
+  }
   const id = input.nextId();
   if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
   await tx.insert(utterances).values({
@@ -155,8 +161,8 @@ export async function beginLockedBotPhrase(
     complete: false,
     botPhraseId: phrase.phraseId,
     botDurationMs: phrase.durationMs,
-    // When its audio starts: a line written ahead is dated by its playout.
-    createdAt: startOf(phrase),
+    // Unsaid until its audio starts: its reveal dates it then (ADR 0122).
+    createdAt: UNSAID,
   });
   // The bot's stream is complete by construction once it has spoken.
   await tx
@@ -171,8 +177,52 @@ export async function beginLockedBotPhrase(
       sealedAt: sql`clock_timestamp()`,
     })
     .onConflictDoNothing();
-  await signalChange(tx, scope.roundId);
-  return { duplicate: false, segmentDueAt: await botSegmentDueAt(tx, scope) };
+  // Nothing readable changed: the line is read once its reveal dates it.
+  return { duplicate: false };
+}
+
+/**
+ * Reveals a written line as its audio starts (ADR 0122): one transaction,
+ * beside the audio, that checks the claim, its room and the floor again at
+ * the moment the phrase is heard, dates the line then, and rings the
+ * transcript doorbell, so it is read exactly from when it is said. A refusal
+ * stops the audio. A line already revealed, or withdrawn, changes nothing.
+ */
+export async function revealLockedBotPhrase(
+  tx: BoundedTransactionContext,
+  input: {
+    readonly scope: BotPublicationScope;
+    readonly token: string;
+    readonly phraseId: string;
+    readonly room: string;
+  },
+) {
+  const { scope } = input;
+  if (!idSchema.safeParse(input.phraseId).success)
+    throw createAppError('VALIDATION');
+  await verifyLockedBotWorker(tx, scope, input.token);
+  const named = await tx.execute(
+    sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${input.room} limit 1`,
+  );
+  if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
+  await requireBotSpeakingWindow(tx, scope);
+  await requireTranscriptUnfrozen(tx, scope.roundId);
+  const row = await phraseRow(tx, input.phraseId);
+  if (row && !sameSeat(row, scope)) throw createAppError('NOT_FOUND');
+  const revealed = row
+    ? await tx
+        .update(utterances)
+        .set({ createdAt: sql`clock_timestamp()` })
+        .where(
+          and(
+            eq(utterances.id, row.id),
+            sql`${utterances.createdAt}=${UNSAID}`,
+          ),
+        )
+        .returning({ id: utterances.id })
+    : [];
+  if (revealed.length) await signalChange(tx, scope.roundId);
+  return { revealed: revealed.length > 0 };
 }
 
 /**
@@ -219,7 +269,7 @@ export async function endLockedBotPhrase(
   if (end.kind === 'whole') {
     await tx
       .update(utterances)
-      .set({ complete: true })
+      .set({ complete: true, createdAt: saidAt })
       .where(eq(utterances.id, row.id));
   } else {
     const spoken = end.spoken.trim().split(/\s+/).filter(Boolean).join(' ');
@@ -249,7 +299,7 @@ async function closeLine(
   if (spoken) {
     await tx
       .update(utterances)
-      .set({ complete: true, interrupted, text: spoken })
+      .set({ complete: true, interrupted, text: spoken, createdAt: saidAt })
       .where(eq(utterances.id, row.id));
     return;
   }
@@ -275,10 +325,11 @@ export async function closeAbandonedBotLines(
   const rows =
     (await tx.execute(sql`select u.id, u.text, u.round_id as "roundId",
       u.segment_id as "segmentId", u.round_participant_id as "roundParticipantId",
+      case when u.created_at='infinity'::timestamptz then 0 else
       extract(epoch from (least(clock_timestamp(),
         u.created_at+u.bot_duration_ms*interval '1 millisecond',
         coalesce(s.ended_at,'infinity'::timestamptz), s.due_at)-u.created_at))*1000
-        / u.bot_duration_ms as fraction
+        / u.bot_duration_ms end as fraction
     from utterances u join round_segments s on s.id=u.segment_id and s.round_id=u.round_id
     where u.round_id=${roundId} and u.bot_phrase_id is not null and not u.complete
       ${roundParticipantId === undefined ? sql`` : sql`and u.round_participant_id=${roundParticipantId}`}

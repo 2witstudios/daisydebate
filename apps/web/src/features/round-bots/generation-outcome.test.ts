@@ -27,6 +27,7 @@ async function settlementOf(
       },
       verifyRoundBotPublication: async () => ({
         segmentDueAt: '2026-10-23T10:01:00.000Z',
+        now: '2026-10-23T10:00:00.000Z',
       }),
     },
     voice: () => createOpenRouter({ apiKey: 'key', fetch }),

@@ -2,6 +2,7 @@ import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import {
+  captionHeardAtSql,
   captionKnownPublicSql,
   factReleasedSql,
   roundAliasR as round,
@@ -10,6 +11,10 @@ import {
 
 type Tx = Pick<BoundedTransactionContext, 'execute'>;
 
+const heardAt = captionHeardAtSql({
+  createdAt: sql`u.created_at`,
+  botDurationMs: sql`u.bot_duration_ms`,
+});
 const margin = sql.raw(`interval '${SPECTATOR_MARGIN_MS} milliseconds'`);
 
 /**
@@ -30,9 +35,9 @@ const factsOfRound = sql`(
   select 'rating', c.id, greatest(c.occurred_at,r.completed_at) from rating_changes c
     where c.round_id=r.id
   union all
-  select 'caption', u.id, u.created_at from utterances u
+  select 'caption', u.id, ${heardAt} from utterances u
     where u.round_id=r.id and r.competition_type='ranked' and u.complete
-      and ${captionKnownPublicSql({ segmentId: sql`u.segment_id`, createdAt: sql`u.created_at` })}
+      and ${captionKnownPublicSql({ segmentId: sql`u.segment_id`, createdAt: heardAt })}
 ) f`;
 
 /**

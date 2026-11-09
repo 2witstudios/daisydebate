@@ -36,6 +36,8 @@ export function createSpeakingBotControl(input: {
     | 'verifyRoundBotPublication'
     | 'beginRoundBotPhrase'
     | 'endRoundBotPhrase'
+    | 'revealRoundBotPhrase'
+    | 'watchRoundBotFloor'
     | 'databaseNow'
   >;
   readonly voice: () => Pick<OpenRouter, 'complete' | 'speakPcm'>;

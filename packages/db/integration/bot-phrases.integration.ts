@@ -5,6 +5,8 @@ import { assertRejects } from '@daisy/errors/testing';
 import { isFinalBotSpeechRefusal } from '../src/bot-publication';
 import { closeAbandonedBotLines } from '../src/bot-phrases';
 import { readOrderedRoundUtterances } from '../src/round-utterance-projection';
+import { captionHeardAtSql } from '../src/spectator-release-sql';
+import { sql } from 'drizzle-orm';
 import {
   claimAtFloorStart,
   withBotPublication,
@@ -27,6 +29,8 @@ const withSpeakingBot = (
     >;
     readonly revision: () => Promise<number>;
     readonly doorbells: () => Promise<number>;
+    /** What a live reader reads now: only lines said so far. */
+    readonly live: () => Promise<string[]>;
     readonly run: Harness['run'];
   }) => Promise<void>,
 ) =>
@@ -35,6 +39,16 @@ const withSpeakingBot = (
     await fixture.sql`insert into media_sessions(id,round_id,room_name) values(${createId()},${target.roundId},${room})`;
     const { claim } = await claimAtFloorStart({ operations, target, fixture });
     await work({
+      live: () =>
+        run(async (tx) =>
+          (
+            await readOrderedRoundUtterances(
+              tx as never,
+              target.roundId,
+              'live',
+            )
+          ).map((line) => line.text),
+        ),
       run,
       fixture,
       operations,
@@ -61,68 +75,6 @@ const phrase = (phraseId = createId(), durationMs = 2000, text = TEXT) => ({
   phraseId,
   text,
   durationMs,
-});
-
-test('a phrase start authors its line, still arriving, with its stream and doorbell, once (ADR 0122)', async () => {
-  await withSpeakingBot(
-    async ({
-      operations,
-      claim,
-      room,
-      lines,
-      revision,
-      doorbells,
-      fixture,
-      target,
-    }) => {
-      const spoken = phrase();
-      const first = await operations.beginBotPhrase(
-        claim.scope,
-        claim.token,
-        spoken,
-        room,
-      );
-      const retry = await operations.beginBotPhrase(
-        claim.scope,
-        claim.token,
-        spoken,
-        room,
-      );
-      const [stream] =
-        await fixture.sql`select state from transcript_segments where round_id=${target.roundId} and round_participant_id=${target.roundParticipantId}`;
-      assert({
-        given: 'one phrase started, then the same start retried',
-        should:
-          'write one line with exactly its text, still arriving, a complete stream, and one revision and doorbell',
-        actual: {
-          duplicates: [first.duplicate, retry.duplicate],
-          lines: await lines(),
-          stream: stream?.state,
-          revision: await revision(),
-          doorbells: await doorbells(),
-        },
-        expected: {
-          duplicates: [false, true],
-          lines: [{ text: TEXT, complete: false, interrupted: false }],
-          stream: 'complete',
-          revision: 1,
-          doorbells: 1,
-        },
-      });
-      await assertRejects({
-        given: 'a retry under the same phrase id with other words',
-        should: 'refuse the conflicting body',
-        actual: () =>
-          operations.beginBotPhrase(
-            claim.scope,
-            claim.token,
-            { ...spoken, text: 'Other words.' },
-            room,
-          ),
-        code: 'CONFLICT',
-      });
-    },
-  );
 });
 
 test('a phrase played whole closes complete; the first end stands', async () => {
@@ -408,103 +360,6 @@ test('an exact retry of a phrase start is checked like the first: a closed floor
   );
 });
 
-test('a line written ahead is dated by when its audio starts, and fits with that wait', async () => {
-  await withSpeakingBot(
-    async ({ operations, claim, room, fixture, target }) => {
-      const ahead = phrase(createId(), 2_000);
-      await operations.beginBotPhrase(
-        claim.scope,
-        claim.token,
-        { ...ahead, startsInMs: 5_000 },
-        room,
-      );
-      const [row] =
-        await fixture.sql`select extract(epoch from (created_at - clock_timestamp()))*1000 as ahead_ms from utterances where bot_phrase_id=${ahead.phraseId}`;
-      const late = await operations
-        .beginBotPhrase(
-          claim.scope,
-          claim.token,
-          { ...phrase(createId(), 50_000), startsInMs: 10_000 },
-          room,
-        )
-        .catch((error: unknown) => error);
-      void target;
-      assert({
-        given:
-          'a 2 s line written 5 s ahead, then a 50 s phrase starting 10 s from now in a segment with 59 s left',
-        should:
-          'date the first by its playout, and refuse the second as ending past the segment',
-        actual: {
-          datedAhead: Number(row!.ahead_ms) > 4_000,
-          refusedFinal: isFinalBotSpeechRefusal(late),
-        },
-        expected: { datedAhead: true, refusedFinal: true },
-      });
-    },
-  );
-});
-
-test('a line written ahead stays unread until its audio starts, and one withdrawn is never read (ADR 0122)', async () => {
-  await withSpeakingBot(async ({ operations, claim, room, run, target }) => {
-    const live = () =>
-      run(async (tx) =>
-        (
-          await readOrderedRoundUtterances(tx as never, target.roundId, 'live')
-        ).map((line) => line.text),
-      );
-    const spoken = () =>
-      run(async (tx) =>
-        (
-          await readOrderedRoundUtterances(
-            tx as never,
-            target.roundId,
-            'spoken',
-          )
-        ).map((line) => line.text),
-      );
-    const next = phrase(createId(), 2_000, 'The next sentence, said later.');
-    await operations.beginBotPhrase(
-      claim.scope,
-      claim.token,
-      { ...next, startsInMs: 400 },
-      room,
-    );
-    const withdrawn = phrase(createId(), 2_000, 'A sentence never said.');
-    await operations.beginBotPhrase(
-      claim.scope,
-      claim.token,
-      { ...withdrawn, startsInMs: 400 },
-      room,
-    );
-    const before = { live: await live(), spoken: await spoken() };
-    // The barge-in comes before it starts: it is withdrawn, never said.
-    await operations.endBotPhrase(
-      claim.scope,
-      claim.token,
-      withdrawn.phraseId,
-      {
-        kind: 'cut',
-        spoken: '',
-      },
-    );
-    await Bun.sleep(500);
-    assert({
-      given:
-        'two lines written 400 ms ahead of their audio, one then withdrawn before it starts',
-      should:
-        'show neither to a live reader or the bot before they start, then only the one said',
-      actual: { before, after: { live: await live(), spoken: await spoken() } },
-      expected: {
-        before: { live: [], spoken: [] },
-        after: {
-          live: ['The next sentence, said later.'],
-          spoken: ['The next sentence, said later.'],
-        },
-      },
-    });
-  });
-});
-
 test('the freeze and the judge read only lines that started', async () => {
   await withSpeakingBot(
     async ({ operations, claim, room, run, target, lines }) => {
@@ -531,25 +386,245 @@ test('the freeze and the judge read only lines that started', async () => {
   );
 });
 
-test('a line written ahead is dated by the start the worker fixed, not by when it commits', async () => {
-  await withSpeakingBot(async ({ operations, claim, room, fixture }) => {
-    const [{ now }] = await fixture.sql`select clock_timestamp() as now`;
-    const startsAt = new Date(new Date(now).getTime() + 3_000).toISOString();
-    const ahead = phrase(createId(), 2_000);
-    await operations.beginBotPhrase(
-      claim.scope,
-      claim.token,
-      { ...ahead, startsAt },
+test('a phrase start writes its line unread; its reveal as the audio starts makes it read and rings, once (ADR 0122)', async () => {
+  await withSpeakingBot(
+    async ({
+      operations,
+      claim,
       room,
-    );
-    const [row] =
-      await fixture.sql`select created_at from utterances where bot_phrase_id=${ahead.phraseId}`;
+      lines,
+      live,
+      revision,
+      doorbells,
+      fixture,
+      target,
+    }) => {
+      const spoken = phrase();
+      const first = await operations.beginBotPhrase(
+        claim.scope,
+        claim.token,
+        spoken,
+        room,
+      );
+      const retry = await operations.beginBotPhrase(
+        claim.scope,
+        claim.token,
+        spoken,
+        room,
+      );
+      const written = {
+        live: await live(),
+        revision: await revision(),
+        doorbells: await doorbells(),
+      };
+      const revealed = await operations.revealBotPhrase(
+        claim.scope,
+        claim.token,
+        spoken.phraseId,
+        room,
+      );
+      const again = await operations.revealBotPhrase(
+        claim.scope,
+        claim.token,
+        spoken.phraseId,
+        room,
+      );
+      const [row] =
+        await fixture.sql`select extract(epoch from (clock_timestamp()-created_at))*1000 as ago from utterances where bot_phrase_id=${spoken.phraseId}`;
+      const [stream] =
+        await fixture.sql`select state from transcript_segments where round_id=${target.roundId} and round_participant_id=${target.roundParticipantId}`;
+      assert({
+        given: 'a phrase started, its start retried, then revealed twice',
+        should:
+          'write one line read by no one until its reveal, then read with exactly its text, dated then, its stream complete, with one revision and doorbell',
+        actual: {
+          duplicates: [first.duplicate, retry.duplicate],
+          written,
+          reveals: [revealed.revealed, again.revealed],
+          lines: await lines(),
+          live: await live(),
+          datedNow: Number(row!.ago) >= 0 && Number(row!.ago) < 5_000,
+          stream: stream?.state,
+          revision: await revision(),
+          doorbells: await doorbells(),
+        },
+        expected: {
+          duplicates: [false, true],
+          written: { live: [], revision: 0, doorbells: 0 },
+          reveals: [true, false],
+          lines: [{ text: TEXT, complete: false, interrupted: false }],
+          live: [TEXT],
+          datedNow: true,
+          stream: 'complete',
+          revision: 1,
+          doorbells: 1,
+        },
+      });
+      await assertRejects({
+        given: 'a retry under the same phrase id with other words',
+        should: 'refuse the conflicting body',
+        actual: () =>
+          operations.beginBotPhrase(
+            claim.scope,
+            claim.token,
+            { ...spoken, text: 'Other words.' },
+            room,
+          ),
+        code: 'CONFLICT',
+      });
+    },
+  );
+});
+
+test('a line written ahead is read by no one until revealed, and one withdrawn is never read', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, live, run, target }) => {
+      const spokenLines = () =>
+        run(async (tx) =>
+          (
+            await readOrderedRoundUtterances(
+              tx as never,
+              target.roundId,
+              'spoken',
+            )
+          ).map((line) => line.text),
+        );
+      const next = phrase(createId(), 2_000, 'The next sentence, said later.');
+      const withdrawn = phrase(createId(), 2_000, 'A sentence never said.');
+      for (const ahead of [next, withdrawn])
+        await operations.beginBotPhrase(
+          claim.scope,
+          claim.token,
+          { ...ahead, startsInMs: 2_000 },
+          room,
+        );
+      const before = await live();
+      await operations.endBotPhrase(
+        claim.scope,
+        claim.token,
+        withdrawn.phraseId,
+        {
+          kind: 'cut',
+          spoken: '',
+        },
+      );
+      await operations.revealBotPhrase(
+        claim.scope,
+        claim.token,
+        next.phraseId,
+        room,
+      );
+      const whilePlaying = { live: await live(), spoken: await spokenLines() };
+      await operations.endBotPhrase(claim.scope, claim.token, next.phraseId, {
+        kind: 'whole',
+      });
+      assert({
+        given:
+          'two lines written ahead, one withdrawn before its audio, the other revealed, played and closed',
+        should:
+          'read neither before; once revealed, live readers read the said one while the bot’s own history waits for it to close; never the withdrawn one',
+        actual: {
+          before,
+          whilePlaying,
+          closed: { live: await live(), spoken: await spokenLines() },
+        },
+        expected: {
+          before: [],
+          whilePlaying: {
+            live: ['The next sentence, said later.'],
+            spoken: [],
+          },
+          closed: {
+            live: ['The next sentence, said later.'],
+            spoken: ['The next sentence, said later.'],
+          },
+        },
+      });
+    },
+  );
+});
+
+test('a phrase’s reveal is checked again as its audio starts: a lost floor refuses it', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, live, fixture, target }) => {
+      const ahead = phrase();
+      await operations.beginBotPhrase(claim.scope, claim.token, ahead, room);
+      await fixture.sql`update round_speaking_intervals set ended_at=clock_timestamp(),ended_version=2 where round_id=${target.roundId}`;
+      await assertRejects({
+        given:
+          'a line written ahead whose floor closed before its audio started',
+        should: 'refuse its reveal, so its audio stops',
+        actual: () =>
+          operations.revealBotPhrase(
+            claim.scope,
+            claim.token,
+            ahead.phraseId,
+            room,
+          ),
+        code: 'CONFLICT',
+      });
+      assert({
+        given: 'the refused reveal',
+        should: 'leave the line unread',
+        actual: await live(),
+        expected: [],
+      });
+    },
+  );
+});
+
+test('a line written ahead fits its segment counting the wait until its audio starts', async () => {
+  await withSpeakingBot(async ({ operations, claim, room }) => {
+    const late = await operations
+      .beginBotPhrase(
+        claim.scope,
+        claim.token,
+        { ...phrase(createId(), 50_000), startsInMs: 10_000 },
+        room,
+      )
+      .catch((error: unknown) => error);
+    const [now] = await Promise.all([Date.now()]);
+    const lateByStart = await operations
+      .beginBotPhrase(
+        claim.scope,
+        claim.token,
+        {
+          ...phrase(createId(), 50_000),
+          startsAt: new Date(now + 10_000).toISOString(),
+        },
+        room,
+      )
+      .catch((error: unknown) => error);
     assert({
       given:
-        'a line written ahead with its audio start fixed on the database clock',
-      should: 'date it exactly there, however long its start took to commit',
-      actual: new Date(row!.created_at).toISOString(),
-      expected: startsAt,
+        'a 50 s phrase whose audio starts 10 s from now in a segment with 59 s left, by delay and by fixed start',
+      should: 'refuse both as ending past the segment',
+      actual: [
+        isFinalBotSpeechRefusal(late),
+        isFinalBotSpeechRefusal(lateByStart),
+      ],
+      expected: [true, true],
+    });
+  });
+});
+
+test('a bot caption is released only once its words have all played', async () => {
+  await withSpeakingBot(async ({ run }) => {
+    const [row] = (await run((tx) =>
+      tx.execute(
+        sql`select ${captionHeardAtSql({ createdAt: sql`'2026-01-01T00:00:00Z'::timestamptz`, botDurationMs: 2_500 })} as bot, ${captionHeardAtSql({ createdAt: sql`'2026-01-01T00:00:00Z'::timestamptz`, botDurationMs: null })} as captured`,
+      ),
+    )) as unknown as { bot: Date; captured: Date }[];
+    assert({
+      given:
+        'a bot line dated at its audio start, 2.5 s long, and a captured line',
+      should:
+        'release the bot caption at its end, and the captured one at its writing',
+      actual: [
+        new Date(row!.bot).toISOString(),
+        new Date(row!.captured).toISOString(),
+      ],
+      expected: ['2026-01-01T00:00:02.500Z', '2026-01-01T00:00:00.000Z'],
     });
   });
 });

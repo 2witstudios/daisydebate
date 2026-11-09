@@ -31,25 +31,25 @@ its delivery instead of fitting it into the human capture pipeline.
    id), never both. Capture still subscribes to, records and broadcasts a bot
    track, but never transcribes it, and the server refuses any captured clip,
    observation or seal for a bot seat (`bot-authored`).
-2. **Authority once per phrase, before its audio.** One transaction per
+2. **Authority before the audio, again as it starts.** One transaction per
    phrase verifies the live claim, its vendor room (ADR 0110), an open floor
    in the live segment with no incident, and an unfrozen transcript, an exact
    retry included. It checks that the phrase, whose length is known from its
    samples, ends on the database clock before the segment is due, counting
    from when its audio starts, fixed on the database clock when the worker
-   asks (`startsAt`), so a start that waits on a lock is still dated by its
-   audio, never by its commit. It writes the line, still arriving (`complete=false`), dated by
-   when its audio starts, with the revision and the `transcript-changed`
-   doorbell. The line is written before any of its audio plays: for every
-   phrase after the first, while the phrase before it still plays, so no
-   phrase waits on its own start. A refusal therefore plays nothing. No one
-   reads a line before it is said: every live read (the transcript, the
-   bot's own next prompt, the resume point) leaves out lines dated after the
-   database's now, and the line before it closes at that very instant, so its
-   doorbell is when the new line becomes readable. Spectators read only
-   closed lines, and a line withdrawn before its audio is never read. While a
-   phrase plays, its floor is re-read about every 250 ms, beside the audio, so
-   a lost floor still silences the bot at once.
+   asks (`startsAt`). It writes the line, still arriving (`complete=false`)
+   and unread by anyone: for every phrase after the first, while the phrase
+   before it still plays, so no phrase waits on its own start. A refusal
+   therefore plays nothing. As the phrase's audio starts, its **reveal**,
+   beside the audio, checks the claim, room and floor again, dates the line
+   then and rings the transcript doorbell: the line is read exactly from when
+   it is said, never before, and a refused reveal stops the audio at once.
+   Every live read leaves out unrevealed lines; the bot's own next prompt
+   reads a bot line only once it closed; spectators read only closed lines,
+   released once their words have all played. A line withdrawn before its
+   audio is never read. While a phrase plays, its floor and room are re-read
+   about every 250 ms without a lock, beside the audio, so a lost floor still
+   silences the bot at once.
 3. **The segment cutoff stays authoritative.** A phrase that cannot finish
    before the segment is due is never started (a final refusal: the speech
    ends at its last whole phrase). The writer also stops locally at the
@@ -64,9 +64,11 @@ its delivery instead of fitting it into the human capture pipeline.
    queued, never the samples merely sent. A line cut before its first word is
    deleted. The database accepts only a whole-word prefix of the authored
    text. The close authenticates the claim's own token even after its lease
-   lapsed. A line its worker never closed (a lost worker) is closed at the
-   seat's takeover, and at the freeze, to the words that could have played
-   by then, by its known length and its segment's end.
+   lapsed, and an end that keeps failing is asked again at the next phrase
+   and at the claim's end. A line its worker never closed (a lost worker) is
+   closed at the seat's takeover, and at the freeze before it reads its
+   streams, to the words that could have played by then, by its known length
+   and its segment's end; an unrevealed one said nothing and is withdrawn.
 5. **Guaranteed delivery.** The bot still publishes into LiveKit, so people,
    recording and broadcast hear it with no new client path. The native
    source has a 500 ms queue; the writer hands 10 ms frames over 300 ms ahead

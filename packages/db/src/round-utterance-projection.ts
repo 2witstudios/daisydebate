@@ -46,10 +46,15 @@ export function readOrderedRoundUtterances(
       and(
         eq(utterances.roundId, roundId),
         source === 'frozen' ? undefined : utteranceStarted,
+        // A bot line is history once it closed: while it plays, its words
+        // are not all said yet, and may be cut.
         source === 'spoken'
           ? or(
               isNotNull(utterances.captureTrackId),
-              isNotNull(utterances.botPhraseId),
+              and(
+                isNotNull(utterances.botPhraseId),
+                eq(utterances.complete, true),
+              ),
             )
           : undefined,
       ),

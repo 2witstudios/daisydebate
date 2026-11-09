@@ -1,10 +1,10 @@
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBotGenerationOperations } from './bot-generation';
 export { isFinalBotSpeechRefusal } from './bot-generation-rules';
-import { agentLeaseDigest } from './round-agent-lease';
+import { agentLeaseDigest, requireAgentLeaseToken } from './round-agent-lease';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
@@ -16,11 +16,13 @@ import {
   verifyLockedBotWorker,
   requireBotSpeakingWindow,
   requireBotControlSegment,
+  requireClaimScope,
   type BotPublicationScope,
 } from './bot-publication-context';
 import {
   beginLockedBotPhrase,
   closeAbandonedBotLines,
+  revealLockedBotPhrase,
   endLockedBotPhrase,
   type BotPhrase,
   type BotPhraseEnd,
@@ -158,8 +160,45 @@ export function createBotPublicationOperations(input: {
       input.run(async (tx) => {
         await verifyLockedBotWorker(tx, scope, token);
         await requireBotSpeakingWindow(tx, scope);
-        return { segmentDueAt: await botSegmentDueAt(tx, scope) };
+        return {
+          segmentDueAt: await botSegmentDueAt(tx, scope),
+          /** The database clock as read here, for a worker's clock offset. */
+          now: (await readDatabaseTime(tx)).toISOString(),
+        };
       }),
+    /**
+     * The floor while a phrase plays, read without taking a lock: the claim,
+     * its token and lease, its vendor room, and an open floor in the live
+     * segment with no incident. Cheap enough to read four times a second.
+     */
+    watchBotFloor: (scope: BotPublicationScope, token: string, room: string) =>
+      input.run(async (tx) => {
+        const [claim] = await tx
+          .select()
+          .from(roundBotPublications)
+          .where(claimWhere(scope));
+        requireClaimScope(claim, scope);
+        requireAgentLeaseToken(token, claim.leaseTokenDigest);
+        const now = await readDatabaseTime(tx);
+        if (claim.leaseExpiresAt.getTime() <= now.getTime())
+          throw createAppError('CONFLICT', 'Publication lease expired');
+        const named = await tx.execute(
+          sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${room} limit 1`,
+        );
+        if (named.length !== 1)
+          throw createRefusal('CONFLICT', 'bot-room-changed');
+        await requireBotSpeakingWindow(tx, scope);
+      }),
+    /** Dates a written line as its audio starts, and rings the doorbell. */
+    revealBotPhrase: (
+      scope: BotPublicationScope,
+      token: string,
+      phraseId: string,
+      room: string,
+    ) =>
+      input.run((tx) =>
+        revealLockedBotPhrase(tx, { scope, token, phraseId, room }),
+      ),
     /** Authors one phrase's utterance as it starts playing (ADR 0122). */
     beginBotPhrase: (
       scope: BotPublicationScope,

@@ -46,6 +46,7 @@ function harness(
     readonly begin?: () => Promise<unknown>;
     readonly verify?: (call: number) => Promise<unknown>;
     readonly end?: (phraseId: string) => Promise<unknown>;
+    readonly reveal?: (phraseId: string) => Promise<unknown>;
   } = {},
 ) {
   const events: string[] = [];
@@ -54,16 +55,34 @@ function harness(
   const silences: number[] = [];
   const ends: End[] = [];
   const begins: unknown[] = [];
+  /** Each line's reveal, as its audio starts. */
+  const reveals: { phraseId: string; at: number }[] = [];
   let joins = 0,
     verifies = 0;
   let playedUntil = 0;
   const publisher = createBotPublisher({
     store: {
-      databaseNow: async () => new Date(1_000_000).toISOString(),
       verifyRoundBotPublication: async () => {
         const call = verifies++;
         await options.verify?.(call);
-        return { segmentDueAt: new Date(1_060_000).toISOString() };
+        return {
+          segmentDueAt: new Date(1_060_000).toISOString(),
+          now: new Date(1_000_000).toISOString(),
+        };
+      },
+      // The floor watch shares the read count with the open's read.
+      watchRoundBotFloor: async () => {
+        const call = verifies++;
+        await options.verify?.(call);
+      },
+      revealRoundBotPhrase: async (
+        _scope: unknown,
+        _token: unknown,
+        phraseId: string,
+      ) => {
+        await options.reveal?.(phraseId);
+        reveals.push({ phraseId, at: performance.now() });
+        return { revealed: true };
       },
       beginRoundBotPhrase: async (
         _scope: unknown,
@@ -73,7 +92,7 @@ function harness(
       ) => {
         begins.push({ phrase, room, at: performance.now() });
         await options.begin?.();
-        return { duplicate: false, segmentDueAt: '' };
+        return { duplicate: false };
       },
       endRoundBotPhrase: async (
         _scope: unknown,
@@ -130,6 +149,7 @@ function harness(
     silences,
     ends,
     begins,
+    reveals,
   };
 }
 const signal = () => new AbortController().signal;
@@ -167,7 +187,8 @@ test('phrases stream on the one track joined ahead of speech and close whole', a
     expected: {
       first: { complete: true, segmentEnded: false },
       second: { complete: true, segmentEnded: false },
-      events: ['join:TR_0', 'clear', 'close:TR_0'],
+      // Its tail had played out by the end: nothing was left to clear.
+      events: ['join:TR_0', 'close:TR_0'],
       ends: [
         { phraseId: 'a'.repeat(24), end: { kind: 'whole' } },
         { phraseId: 'b'.repeat(24), end: { kind: 'whole' } },
@@ -235,9 +256,10 @@ test('a phrase start refused because the room changed plays nothing and rejoins'
   });
   assert({
     given: 'the refused phrase',
-    should: 'hand no frame over and close no line',
-    actual: { frames: handoffs.length, ends },
-    expected: { frames: 0, ends: [] },
+    should:
+      'hand no frame over, and withdraw its start in case it committed unanswered',
+    actual: { frames: handoffs.length, ends: ends.map((row) => row.end) },
+    expected: { frames: 0, ends: [{ kind: 'cut', spoken: '' }] },
   });
   await claim.publish(job(20), signal(), far());
   assert({
@@ -720,30 +742,6 @@ test('after a refused phrase start, nothing after it is written ahead of it', as
   });
 });
 
-test('a line written ahead is read once its audio starts, when the line before it closes and rings (ADR 0122)', async () => {
-  const { claim, ends, begins } = harness();
-  const second = job(400, 'b'.repeat(24));
-  const first = claim.publish(job(400, 'a'.repeat(24)), signal(), far());
-  claim.writeAhead(second);
-  await first;
-  await claim.publish(second, signal(), far());
-  await tailPlays();
-  const ahead = begins.find(
-    (row) =>
-      (row as { phrase: { phraseId: string } }).phrase.phraseId[0] === 'b',
-  ) as { at: number; phrase: { startsInMs: number } };
-  const closed = ends.find((row) => row.phraseId[0] === 'a')!;
-  const startsAt = ahead.at + ahead.phrase.startsInMs;
-  assert({
-    given:
-      'a second line written ahead while the first phrase plays, then the first closing',
-    should:
-      'date the second line to where the first closes, so the doorbell of that close is when it becomes readable',
-    actual: Math.abs(closed.at! - startsAt) < 60,
-    expected: true,
-  });
-});
-
 test('a stop that lands before a phrase’s audio silences the tail before it', async () => {
   const { claim, events } = harness();
   await claim.publish(job(400, 'a'.repeat(24)), signal(), far());
@@ -837,5 +835,84 @@ test('once the speech’s deadline is read, a line written ahead is dated on the
       'carry when its audio starts on the database clock, fixed at the asking',
     actual: startsAt >= 1_000_000 && startsAt < 1_002_000,
     expected: true,
+  });
+});
+
+test('each line is revealed as its audio starts: the next one just as the one before it finishes (ADR 0122)', async () => {
+  const { claim, reveals, handoffs } = harness();
+  claim.start();
+  await Bun.sleep(10);
+  const startAt = performance.now();
+  const first = claim.publish(job(400, 'a'.repeat(24)), signal(), far());
+  claim.writeAhead(job(400, 'b'.repeat(24)));
+  await first;
+  await claim.publish(job(400, 'b'.repeat(24)), signal(), far());
+  await tailPlays();
+  const at = (id: string) => reveals.find((row) => row.phraseId[0] === id)!.at;
+  assert({
+    given: 'two 400 ms phrases played back to back',
+    should:
+      'reveal the first as its audio starts, and the second 400 ms later, as the first finishes playing',
+    actual: {
+      firstAtStart: at('a') - startAt < 30,
+      secondAtBoundary: Math.abs(at('b') - at('a') - 400) < 40,
+      beforeAudio: handoffs.length > 0,
+    },
+    expected: { firstAtStart: true, secondAtBoundary: true, beforeAudio: true },
+  });
+});
+
+test('a reveal refused as the audio starts stops the phrase at once', async () => {
+  const lost = createAppError('CONFLICT', 'Bot speaking authority changed');
+  const { claim, handoffs, ends } = harness({
+    reveal: async () => {
+      throw lost;
+    },
+  });
+  const started = performance.now();
+  await assertRejects({
+    given: 'a one-second phrase whose floor is lost just as its audio starts',
+    should: 'reject with the refusal',
+    actual: () => claim.publish(job(1000), signal(), far()),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'the refused reveal',
+    should:
+      'stop handing frames over within the lead, and withdraw the line, nothing of it said',
+    actual: {
+      stoppedEarly: handoffs.every((at) => at - started < 400),
+      ends: ends.map((row) => row.end),
+    },
+    expected: { stoppedEarly: true, ends: [{ kind: 'cut', spoken: '' }] },
+  });
+});
+
+test('a line end that keeps failing is asked again at the next phrase', async () => {
+  let failing = 4;
+  const ended: string[] = [];
+  const { claim } = harness({
+    end: async (phraseId) => {
+      if (phraseId[0] === 'a' && failing > 0) {
+        failing -= 1;
+        throw new Error('connection reset');
+      }
+      ended.push(phraseId[0]!);
+    },
+  });
+  await claim.publish(job(50, 'a'.repeat(24)), signal(), far());
+  await tailPlays();
+  await Bun.sleep(400);
+  const afterFirst = [...ended];
+  await claim.publish(job(50, 'b'.repeat(24)), signal(), far());
+  await tailPlays();
+  await claim.close();
+  assert({
+    given:
+      'a line whose end fails past its retries, then the next phrase plays',
+    should:
+      'ask its end again at the next phrase, so no line is left unfinished',
+    actual: { afterFirst, closed: ended.sort() },
+    expected: { afterFirst: [], closed: ['a', 'b'] },
   });
 });
