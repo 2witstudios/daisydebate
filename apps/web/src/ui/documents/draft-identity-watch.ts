@@ -25,7 +25,7 @@ export type DraftIdentityResources = {
 };
 
 /**
- * Follows this browser's identity for the root's lifetime. An unavailable
+ * Follows this browser's identity for the visitor layout's lifetime (ADR 0123). An unavailable
  * server identity is not evidence of logout, so without closure proof that mount
  * publishes nothing, yet still listens for changes from other tabs and settles a
  * sign-out mark on its first session answer. Returns the way to stop.

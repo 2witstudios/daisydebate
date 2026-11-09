@@ -22,7 +22,8 @@ export type SessionReader = Pick<
  *
  * The read never refreshes: server components cannot set cookies, so a
  * refresh here would slide the database row while the browser kept the old
- * cookie. When a refresh is due, the root layout has the browser call the
+ * cookie. When a refresh is due, the visitor features (app/visitor-features)
+ * have the browser call the
  * real `/api/auth/get-session` handler (ui/auth/session-refresh), which can.
  */
 export async function identify(
