@@ -188,26 +188,27 @@ for (const javaScriptEnabled of [true, false]) {
       const hostId = view.hostActorId;
       if (!hostId) throw new Error('Host identity was redacted to itself');
       await seatBot('Affirmative 1', hostId);
-      const occupiedPicker = host.getByLabel('Assign Negative 1', {
-        exact: true,
+      // Assigning over an occupied seat replaces its occupant in one command
+      // (ADR 0121): a second bot takes Negative 1 and the first leaves the
+      // cast, then the first takes it back the same way.
+      const understudy = roster.find(
+        (bot) =>
+          bot.seatRole === 'debater' &&
+          bot.eligible &&
+          bot.actorId !== debater!.actorId,
+      );
+      await seatBot('Negative 1', understudy!.actorId);
+      view = await reread(host.request, view.id);
+      expect(seated(view, understudy!.actorId)).toMatchObject({
+        role: 'negative',
+        slot: 0,
       });
-      if (!(await occupiedPicker.isVisible()))
-        await host.getByText('Manage seats', { exact: true }).click();
-      await occupiedPicker.selectOption(hostId);
-      await occupiedPicker
-        .locator('..')
-        .getByRole('button', { name: 'Assign', exact: true })
-        .click();
-      const refusal = host
-        .getByRole('main')
-        .getByRole('alert')
-        .filter({ hasText: 'That seat is unavailable' });
-      await expect(refusal).toBeVisible();
-      await expect(refusal).toContainText('That seat is unavailable');
-      if (javaScriptEnabled) await expect(occupiedPicker).toHaveValue(hostId);
-      expect(
-        seated(await reread(host.request, view.id), debater!.actorId)?.role,
-      ).toBe('negative');
+      expect(seated(view, debater!.actorId)).toBeUndefined();
+      expect(seated(view, hostId)?.role).toBe('affirmative');
+      await seatBot('Negative 1', debater!.actorId);
+      view = await reread(host.request, view.id);
+      expect(seated(view, understudy!.actorId)).toBeUndefined();
+      expect(seated(view, debater!.actorId)?.role).toBe('negative');
       // The cast is durable: a reload still shows both bots seated.
       await host.reload();
       await host.getByText('Manage seats', { exact: true }).click();
