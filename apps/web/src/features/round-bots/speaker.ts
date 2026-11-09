@@ -170,14 +170,22 @@ export function createBotSpeaker(input: {
       lineId: input.nextId(),
       done: Promise.resolve(),
     };
+    const voicing = progress.voicing.signal;
     upcoming.done = (async () => {
-      upcoming.answer = await input.synthesize(
-        scope,
-        token,
-        input.nextId(),
-        phrases[index]!,
-        AbortSignal.any([signal, progress.voicing.signal]),
-      );
+      try {
+        upcoming.answer = await input.synthesize(
+          scope,
+          token,
+          input.nextId(),
+          phrases[index]!,
+          AbortSignal.any([signal, voicing]),
+        );
+      } catch (error) {
+        upcoming.failed = true;
+        throw error;
+      }
+      // A voice was bought, so a pool slot is free: one refused is asked again.
+      if (!signal.aborted && !voicing.aborted) voiceAhead(phrases, signal);
       await upcoming.answer.settle();
       upcoming.settled = true;
       // Voiced while the phrase before it plays: its line is written now.
@@ -188,9 +196,7 @@ export function createBotSpeaker(input: {
         prepareAhead(upcoming);
     })();
     // Read when its turn comes; one that bought nothing is voiced again.
-    upcoming.done.catch(() => {
-      if (!upcoming.answer) upcoming.failed = true;
-    });
+    upcoming.done.catch(() => undefined);
     return upcoming;
   };
   /** Writes a voiced-ahead phrase's line while the phrase before it plays. */
@@ -257,7 +263,10 @@ export function createBotSpeaker(input: {
     // Later phrases are voiced alongside this one, so even a short phrase
     // never leaves the next waiting for its voice.
     voiceAhead(phrases, signal);
-    return { answer: await buying, ready: false };
+    const answer = await buying;
+    // A voice was bought, so a pool slot is free: one refused is asked again.
+    voiceAhead(phrases, signal);
+    return { answer, ready: false };
   };
   /** Resumes the turn at its first unfinished step. */
   const deliver = async (signal: AbortSignal) => {

@@ -442,3 +442,43 @@ test('a line written ahead under an id already closed is written under a new one
     expected: { writtenAhead: 2, distinctIds: 2, spokenTwo: 1 },
   });
 });
+
+test('a voice-ahead refused a pool slot is asked again as soon as another voice is bought', async () => {
+  let refusedThree = false;
+  const first = Promise.withResolvers<void>();
+  const run = harness('speech', {
+    generate: async () =>
+      answered({
+        text: 'One. Two. Three. Four.',
+        phrases: ['One.', 'Two.', 'Three.', 'Four.'],
+      }),
+    synthesize: async (phraseId, text) => {
+      if (text === 'Three.' && !refusedThree) {
+        refusedThree = true;
+        throw refuseCapacity();
+      }
+      // The first phrase's voice is slow: its slot frees only once bought.
+      if (text === 'One.') await first.promise;
+      return answered(job(phraseId, text, 24000 * 5));
+    },
+  });
+  run.speaker.wake();
+  await run.settle();
+  const beforeAnyPlayed = run.log.filter(
+    (entry) => entry === 'tts:Three.',
+  ).length;
+  first.resolve();
+  await run.settle();
+  const threeAskedAgain = run.log.filter(
+    (entry) => entry === 'tts:Three.',
+  ).length;
+  await run.speaker.stop();
+  assert({
+    given:
+      'a third phrase refused a pool slot while the first two are voiced, before anything plays',
+    should:
+      'ask for it again the moment another voice is bought, not a phrase later',
+    actual: { beforeAnyPlayed, threeAskedAgain },
+    expected: { beforeAnyPlayed: 1, threeAskedAgain: 2 },
+  });
+});
