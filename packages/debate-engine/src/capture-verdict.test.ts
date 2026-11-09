@@ -206,22 +206,6 @@ test('a human grant whose microphone dies in its last second still seals partial
   });
 });
 
-/** Deterministic xorshift32: reproducible cases, no ambient randomness. */
-const generator = (seed: number) => {
-  let state = seed;
-  return (below: number) => {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    return (state >>> 0) % below;
-  };
-};
-const arbitraryRanges = (next: (below: number) => number, count: number) =>
-  Array.from({ length: count }, () => {
-    const start = next(12_000);
-    return range(start, start + 1 + next(4_000));
-  });
-
 const tolerance = { openMs: 4000, closeMs: 1000 };
 test('gaps are the required speech with no capture, by the coverage edges', () => {
   const gaps = (

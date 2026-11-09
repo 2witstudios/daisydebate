@@ -56,8 +56,7 @@ test('the writer hands frames over on a 10 ms schedule, `leadMs` ahead', async (
   const result = await write(pcm(20), new AbortController().signal);
   assert({
     given: 'a 200 ms job and a 50 ms lead into an empty queue',
-    should:
-      'hand the first 50 ms over at once and then one frame every 10 ms',
+    should: 'hand the first 50 ms over at once and then one frame every 10 ms',
     actual: { result, handed },
     expected: {
       result: {
@@ -141,7 +140,8 @@ test('an abort clears the queue and counts only samples that played (AMEND-1)', 
     expected: { sent: 5, played: 0, aborted: true, cleared: 1, queued: 0 },
   });
   assert({
-    given: 'an abort after 30 frames, with the lead and the frame just handed still queued',
+    given:
+      'an abort after 30 frames, with the lead and the frame just handed still queued',
     should: 'count as played what was sent less what was still queued',
     actual: await run(30),
     expected: { sent: 30, played: 19, aborted: true, cleared: 1, queued: 0 },
@@ -174,7 +174,8 @@ test('the hard stop counts audio already queued ahead of the job (AMEND-2)', asy
   // The first job's last 100 ms is still queued when the next one starts.
   const second = await write(pcm(50), new AbortController().signal, 300);
   assert({
-    given: 'a second job starting behind 100 ms of queued audio, stop at 300 ms',
+    given:
+      'a second job starting behind 100 ms of queued audio, stop at 300 ms',
     should: 'schedule after the queue and stop where playout would pass 300 ms',
     actual: { cut: second.cut, frames: handed.length - 10 },
     expected: { cut: true, frames: 20 },
@@ -192,7 +193,8 @@ test('a failed handoff stops the stream and still reports what played', async ()
   const result = await h.write(pcm(50), new AbortController().signal);
   assert({
     given: 'a native handoff that fails at the 13th frame',
-    should: 'stop, clear the queue and report the failure with the played prefix',
+    should:
+      'stop, clear the queue and report the failure with the played prefix',
     actual: {
       sent: result.sentSamples / FRAME,
       played: result.playedSamples / FRAME,
@@ -208,7 +210,8 @@ test('the writer refuses PCM that is not whole 10 ms frames', async () => {
   await assertRejects({
     given: 'a partial frame',
     should: 'refuse before any handoff',
-    actual: () => write(new Int16Array(FRAME + 1), new AbortController().signal),
+    actual: () =>
+      write(new Int16Array(FRAME + 1), new AbortController().signal),
     code: 'VALIDATION',
   });
 });

@@ -196,11 +196,7 @@ export function createBotSpeaker(input: {
       if (progress.spoken + 1 < phrases.length && !progress.upcoming)
         progress.upcoming = prefetch(phrases, progress.spoken + 1, signal);
       stage = 'publish';
-      const outcome = await speak(
-        progress.synthesized.value,
-        signal,
-        stopAtMs,
-      );
+      const outcome = await speak(progress.synthesized.value, signal, stopAtMs);
       // The segment is over: the speech ends at its last whole phrase.
       if (outcome.segmentEnded) return;
       if (!outcome.complete) throw createAppError('CONFLICT', STOPPED);

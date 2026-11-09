@@ -86,6 +86,7 @@ its delivery instead of fitting it into the human capture pipeline.
 - `@daisy/media/publication` is the streaming writer. The paced writer,
   publication observation and the receipt half of the publication clock are
   deleted; `frame-clock` keeps the calibration it shares.
-- The transcript read contract is version 2 (`interrupted` on every line).
+- Every transcript line carries `interrupted`; an open tab reads through
+  the added field, so the transcript read contract keeps version 1.
 - Product intent "speak only through heard, captured audio" (DEC-226) now
   reads "speak with authored transcripts and guaranteed delivery".

@@ -143,8 +143,14 @@ test('phrases stream on the one track joined ahead of speech and close whole', a
         { phraseId: 'b'.repeat(24), end: { kind: 'whole' } },
       ],
       begins: [
-        { phrase: { phraseId: 'a'.repeat(24), text: words, durationMs: 50 }, room: 'room' },
-        { phrase: { phraseId: 'b'.repeat(24), text: words, durationMs: 50 }, room: 'room' },
+        {
+          phrase: { phraseId: 'a'.repeat(24), text: words, durationMs: 50 },
+          room: 'room',
+        },
+        {
+          phrase: { phraseId: 'b'.repeat(24), text: words, durationMs: 50 },
+          room: 'room',
+        },
       ],
     },
   });
@@ -252,7 +258,8 @@ test('a barge-in cuts the line to the words played, not the words queued (AMEND-
   const spoken = end!.end.spoken.split(' ').filter(Boolean).length;
   const sent = handoffs.length;
   assert({
-    given: 'a ten-word one-second phrase aborted about 300 ms in, 100 ms queued',
+    given:
+      'a ten-word one-second phrase aborted about 300 ms in, 100 ms queued',
     should:
       'cut the line to about three words, fewer than the frames sent would claim',
     actual: {

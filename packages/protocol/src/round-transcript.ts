@@ -19,7 +19,7 @@ const utteranceFields = {
 };
 export const roundUtteranceSchema = z.strictObject(utteranceFields);
 /** Raised only when an open tab could not render the new reply correctly. */
-export const TRANSCRIPT_CONTRACT_VERSION = 2;
+export const TRANSCRIPT_CONTRACT_VERSION = 1;
 /** The current private transcript audience's snapshot, independent of Round version. */
 export const roundTranscriptReadSchema = z.strictObject({
   contractVersion: z.literal(TRANSCRIPT_CONTRACT_VERSION),

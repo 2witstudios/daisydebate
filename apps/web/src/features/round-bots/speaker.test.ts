@@ -9,8 +9,7 @@ test('a speech claim delivers its generated phrases once without overlapping tur
   await settle();
   assert({
     given: 'an actual speech claim woken twice while publishing',
-    should:
-      'run one turn, voicing the next phrase while the first one plays',
+    should: 'run one turn, voicing the next phrase while the first one plays',
     actual: [...log],
     expected: ['generate', 'deadline', 'tts:One.', 'tts:Two.', 'publish:One.'],
   });

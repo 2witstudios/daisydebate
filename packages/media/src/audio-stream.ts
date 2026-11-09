@@ -40,11 +40,7 @@ export function createStreamingAudioWriter(input: {
   readonly waitUntilMs: (dueMs: number, signal: AbortSignal) => Promise<void>;
   readonly leadMs: number;
 }) {
-  if (
-    !Number.isFinite(input.leadMs) ||
-    input.leadMs < 0 ||
-    input.leadMs > 1000
-  )
+  if (!Number.isFinite(input.leadMs) || input.leadMs < 0 || input.leadMs > 1000)
     throw createAppError('VALIDATION', 'Invalid stream lead');
   const size = (input.sampleRate / 100) * input.channels;
   return async (
@@ -60,8 +56,7 @@ export function createStreamingAudioWriter(input: {
     )
       throw createAppError('VALIDATION', 'PCM must be whole 10 ms frames');
     const frames = pcm.length / size;
-    const startMs =
-      input.nowMs() + Math.max(0, input.target.queuedMs() || 0);
+    const startMs = input.nowMs() + Math.max(0, input.target.queuedMs() || 0);
     const perFrame = size / input.channels;
     let sent = 0;
     const stopped = () => {

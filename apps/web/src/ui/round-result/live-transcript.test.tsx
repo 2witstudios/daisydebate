@@ -15,7 +15,7 @@ const read = (
   state: 'open' | 'partial' | 'complete',
   frozen = false,
 ): LiveTranscriptRead => ({
-  contractVersion: 2,
+  contractVersion: 1,
   round: { ...completed.round, status: 'active' },
   revision: 3,
   freeze: frozen

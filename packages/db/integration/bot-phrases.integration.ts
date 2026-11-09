@@ -61,7 +61,16 @@ const phrase = (phraseId = createId(), durationMs = 2000, text = TEXT) => ({
 
 test('a phrase start authors its line, still arriving, with its stream and doorbell, once (ADR 0122)', async () => {
   await withSpeakingBot(
-    async ({ operations, claim, room, lines, revision, doorbells, fixture, target }) => {
+    async ({
+      operations,
+      claim,
+      room,
+      lines,
+      revision,
+      doorbells,
+      fixture,
+      target,
+    }) => {
       const spoken = phrase();
       const first = await operations.beginBotPhrase(
         claim.scope,
@@ -130,7 +139,8 @@ test('a phrase played whole closes complete; the first end stands', async () => 
     );
     assert({
       given: 'a whole phrase ended, then a late cut for it',
-      should: 'close the line complete with its whole text, ignoring the late end',
+      should:
+        'close the line complete with its whole text, ignoring the late end',
       actual: { ended, again, lines: await lines() },
       expected: {
         ended: { changed: true },
@@ -173,7 +183,12 @@ test('a cut phrase keeps only the words that played, and can claim no other word
 test('a phrase that would end past its segment is a final refusal and credits nothing', async () => {
   await withSpeakingBot(async ({ operations, claim, room, lines }) => {
     const refusal = await operations
-      .beginBotPhrase(claim.scope, claim.token, phrase(createId(), 59_500), room)
+      .beginBotPhrase(
+        claim.scope,
+        claim.token,
+        phrase(createId(), 59_500),
+        room,
+      )
       .catch((error: unknown) => error);
     assert({
       given: 'a 59.5 s phrase starting 1 s into a 60 s segment',
@@ -204,52 +219,63 @@ test('a lost floor, a changed room or an incident starts nothing', async () => {
     ],
   ] as const;
   for (const [given, change, roomName] of cases)
-    await withSpeakingBot(async ({ operations, claim, room, lines, fixture, target }) => {
-      await change(fixture.sql, target.roundId);
-      await assertRejects({
-        given,
-        should: 'refuse the phrase start',
-        actual: () =>
-          operations.beginBotPhrase(
-            claim.scope,
-            claim.token,
-            phrase(),
-            roomName === undefined ? room : createId(),
-          ),
-        code: 'CONFLICT',
-      });
-      assert({
-        given,
-        should: 'author no line',
-        actual: await lines(),
-        expected: [],
-      });
-    });
+    await withSpeakingBot(
+      async ({ operations, claim, room, lines, fixture, target }) => {
+        await change(fixture.sql, target.roundId);
+        await assertRejects({
+          given,
+          should: 'refuse the phrase start',
+          actual: () =>
+            operations.beginBotPhrase(
+              claim.scope,
+              claim.token,
+              phrase(),
+              roomName === undefined ? room : createId(),
+            ),
+          code: 'CONFLICT',
+        });
+        assert({
+          given,
+          should: 'author no line',
+          actual: await lines(),
+          expected: [],
+        });
+      },
+    );
 });
 
 test('an end authenticates its claim even after the lease lapsed, and refuses a stranger', async () => {
-  await withSpeakingBot(async ({ operations, claim, room, lines, fixture, target }) => {
-    const spoken = phrase();
-    await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
-    await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp() where round_id=${target.roundId}`;
-    await assertRejects({
-      given: 'an end with a token that is not the claim’s',
-      should: 'refuse it',
-      actual: () =>
-        operations.endBotPhrase(claim.scope, 'not-the-token', spoken.phraseId, {
-          kind: 'whole',
-        }),
-      code: 'AUTHORIZATION',
-    });
-    await operations.endBotPhrase(claim.scope, claim.token, spoken.phraseId, {
-      kind: 'cut',
-      spoken: 'The affirmative',
-    });
-    assert({
-      given: 'a cut reported just after the claim’s lease lapsed',
-      should: 'still mark the line cut where it stopped',
-      actual: await lines(),
-      expected: [{ text: 'The affirmative', complete: true, interrupted: true }],
-    });
-  });
+  await withSpeakingBot(
+    async ({ operations, claim, room, lines, fixture, target }) => {
+      const spoken = phrase();
+      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+      await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp() where round_id=${target.roundId}`;
+      await assertRejects({
+        given: 'an end with a token that is not the claim’s',
+        should: 'refuse it',
+        actual: () =>
+          operations.endBotPhrase(
+            claim.scope,
+            'not-the-token',
+            spoken.phraseId,
+            {
+              kind: 'whole',
+            },
+          ),
+        code: 'AUTHORIZATION',
+      });
+      await operations.endBotPhrase(claim.scope, claim.token, spoken.phraseId, {
+        kind: 'cut',
+        spoken: 'The affirmative',
+      });
+      assert({
+        given: 'a cut reported just after the claim’s lease lapsed',
+        should: 'still mark the line cut where it stopped',
+        actual: await lines(),
+        expected: [
+          { text: 'The affirmative', complete: true, interrupted: true },
+        ],
+      });
+    },
+  );
 });

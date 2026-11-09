@@ -2,17 +2,6 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { calibrationOffsets, publicationClock } from './publication-clock';
 
 setupRitewayBun();
-const initial = () =>
-  publicationClock({
-    calibration: {
-      sentAtMs: 0,
-      receivedAtMs: 0,
-      serverNowMs: 1000,
-      precisionMs: 1,
-    },
-    anchorMs: 0,
-    sampleRate: 48000,
-  });
 const reason = (clock: ReturnType<typeof publicationClock>) =>
   clock.valid ? null : clock.rejection;
 

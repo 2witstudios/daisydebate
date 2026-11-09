@@ -1,12 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { CaptureTx, CaptureStream } from './media-capture-context';
-import {
-  speakingEndMs,
-  type CaptureInterval,
-  type CaptureRule,
-  type SeatGrantFacts,
-} from '@daisy/protocol';
+import { speakingEndMs, type SeatGrantFacts } from '@daisy/protocol';
 import { rounds } from './schema/rounds';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { roundTranscripts } from './schema/transcript-segments';

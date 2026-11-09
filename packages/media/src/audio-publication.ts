@@ -30,7 +30,7 @@ export function publicationStopOf(error: unknown): PublicationStop | undefined {
   return STOPS.find((known) => known === stop);
 }
 /** The native queue a publication buffers ahead of playout by default. */
-export const DEFAULT_QUEUE_MS = 500;
+const DEFAULT_QUEUE_MS = 500;
 
 export async function createAudioPublication(input: {
   readonly url: string;

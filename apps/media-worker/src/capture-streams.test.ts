@@ -39,7 +39,11 @@ test('a bot seat owes capture no stream: its transcript is authored (ADR 0122)',
   tracker.remember(
     state(
       [
-        interval('human', '2026-10-22T12:00:00.000Z', '2026-10-22T12:00:20.000Z'),
+        interval(
+          'human',
+          '2026-10-22T12:00:00.000Z',
+          '2026-10-22T12:00:20.000Z',
+        ),
         interval('bot', '2026-10-22T12:00:20.000Z', '2026-10-22T12:00:40.000Z'),
       ],
       ['bot'],
