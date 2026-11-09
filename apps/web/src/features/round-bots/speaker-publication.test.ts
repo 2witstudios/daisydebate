@@ -148,3 +148,54 @@ test('a prefetched answer whose settlement failed is settled again, never bought
     expected: { bought: ['tts:One.', 'tts:Two.'], stages: [] },
   });
 });
+
+test('the second phrase is voiced while the first is still being voiced', async () => {
+  const first = Promise.withResolvers<void>();
+  const run = harness('speech', {
+    synthesize: async (phraseId, text) => {
+      if (text === 'One.') await first.promise;
+      return answered(job(phraseId, text));
+    },
+  });
+  run.speaker.wake();
+  await run.settle();
+  const beforeFirstVoiced = [...run.log];
+  first.resolve();
+  await run.release();
+  await run.release();
+  await run.speaker.stop();
+  assert({
+    given: 'a first phrase whose voice is still on its way',
+    should:
+      'already be voicing the second, so a short first phrase never leaves a gap',
+    actual: beforeFirstVoiced,
+    expected: ['generate', 'deadline', 'tts:One.', 'tts:Two.'],
+  });
+});
+
+test('a voiced-ahead phrase that failed is voiced again in turn, never deferring the turn', async () => {
+  let failedOnce = false;
+  const run = harness('speech', {
+    synthesize: async (phraseId, text) => {
+      if (text === 'Two.' && !failedOnce) {
+        failedOnce = true;
+        throw new Error('provider hiccup');
+      }
+      return answered(job(phraseId, text));
+    },
+    publish: async () => ({ complete: true, segmentEnded: false }),
+  });
+  run.speaker.wake();
+  await run.settle();
+  await run.speaker.stop();
+  assert({
+    given: 'a second phrase whose voice-ahead failed with nothing bought',
+    should:
+      'voice it again when its turn comes and speak the whole speech in one turn, with no failure',
+    actual: {
+      bought: run.log.filter((line) => line.startsWith('tts:')),
+      stages: run.stages(),
+    },
+    expected: { bought: ['tts:One.', 'tts:Two.', 'tts:Two.'], stages: [] },
+  });
+});

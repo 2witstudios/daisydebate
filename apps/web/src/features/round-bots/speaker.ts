@@ -156,30 +156,33 @@ export function createBotSpeaker(input: {
     upcoming.done.catch(() => undefined);
     return upcoming;
   };
+  /** Holds the phrase after the one now due voiced ahead, once. */
+  const voiceAhead = (phrases: readonly string[], signal: AbortSignal) => {
+    if (progress.spoken + 1 < phrases.length && !progress.upcoming)
+      progress.upcoming = prefetch(phrases, progress.spoken + 1, signal);
+  };
   /** The phrase now due: the voiced-ahead one, or bought now. */
   const take = async (phrases: readonly string[], signal: AbortSignal) => {
     const upcoming = progress.upcoming;
     if (upcoming?.index === progress.spoken) {
-      try {
-        await upcoming.done;
-      } catch (error) {
-        // An answer bought but not settled is kept and settled again.
-        if (!upcoming.answer) {
-          progress.upcoming = null;
-          throw error;
-        }
-      }
+      await upcoming.done.catch(() => undefined);
       progress.upcoming = null;
-      return { answer: upcoming.answer!, ready: upcoming.settled };
+      // An answer bought but not settled is kept and settled again; one never
+      // bought is voiced now, in turn, rather than deferring the whole turn.
+      if (upcoming.answer)
+        return { answer: upcoming.answer, ready: upcoming.settled };
     }
-    const answer = await input.synthesize(
+    const buying = input.synthesize(
       scope,
       token,
       input.nextId(),
       phrases[progress.spoken]!,
       signal,
     );
-    return { answer, ready: false };
+    // The next phrase is voiced alongside this one, so even a short phrase
+    // never leaves the next waiting for its voice.
+    voiceAhead(phrases, signal);
+    return { answer: await buying, ready: false };
   };
   /** Resumes the turn at its first unfinished step. */
   const deliver = async (signal: AbortSignal) => {
@@ -204,8 +207,7 @@ export function createBotSpeaker(input: {
         await progress.synthesized.settle();
         progress.ready = true;
       }
-      if (progress.spoken + 1 < phrases.length && !progress.upcoming)
-        progress.upcoming = prefetch(phrases, progress.spoken + 1, signal);
+      voiceAhead(phrases, signal);
       stage = 'publish';
       const outcome = await speak(progress.synthesized.value, signal, stopAtMs);
       // The segment is over: the speech ends at its last whole phrase.
