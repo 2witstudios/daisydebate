@@ -65,20 +65,25 @@ const sealed = (
     'segment_id',
   );
 
-const credit = (
+/** One authored bot line and its stream, as a started phrase writes them (ADR 0122). */
+const authored = async (
   fixture: Fixture,
   roundId: string,
   segmentId: string,
   roundParticipantId: string,
-) =>
-  fixture.insert('round_bot_publication_windows', {
+) => {
+  await fixture.insert('utterances', {
     id: createId(),
     round_id: roundId,
     segment_id: segmentId,
     round_participant_id: roundParticipantId,
-    credited_from: start,
-    credited_until: new Date(start.getTime() + 1000),
+    sequence: 0,
+    text: 'No harm was shown.',
+    complete: true,
+    bot_phrase_id: createId(),
   });
+  await sealed(fixture, roundId, segmentId, roundParticipantId, 'complete');
+};
 
 /** The freeze's own read and decision, then the rows closing leaves behind. */
 const freezeOf = async (
@@ -143,40 +148,20 @@ test('a bot respondent that never spoke is not a capture gap (ISSUE-965)', async
   });
 });
 
-test('a bot that published and lost its audio still freezes incomplete (ISSUE-965)', async () => {
+test('a bot that spoke freezes complete by its authored lines (ADR 0122)', async () => {
   assert({
-    given: 'a credited bot publication with no captured stream',
-    should: 'wait for it, then record it partial and freeze incomplete',
+    given:
+      'a cross-examination whose bot respondent authored a line, its stream complete by construction',
+    should: 'freeze complete without waiting for capture',
     actual: await freezeOf(async (fixture, roundId, seats) => {
       await sealed(fixture, roundId, seats.segmentId, seats.asker, 'complete');
-      await credit(fixture, roundId, seats.segmentId, seats.respondent);
+      await authored(fixture, roundId, seats.segmentId, seats.respondent);
     }),
     expected: {
-      beforeCutoff: 'capture',
-      atCutoff: 'incomplete',
+      beforeCutoff: 'complete',
+      atCutoff: 'complete',
       asker: 'complete',
-      respondent: 'partial',
-    },
-  });
-  assert({
-    given: 'a credited bot publication whose stream sealed partial',
-    should: 'keep admission open before cutoff, then freeze incomplete',
-    actual: await freezeOf(async (fixture, roundId, seats) => {
-      await sealed(fixture, roundId, seats.segmentId, seats.asker, 'complete');
-      await credit(fixture, roundId, seats.segmentId, seats.respondent);
-      await sealed(
-        fixture,
-        roundId,
-        seats.segmentId,
-        seats.respondent,
-        'partial',
-      );
-    }),
-    expected: {
-      beforeCutoff: 'capture',
-      atCutoff: 'incomplete',
-      asker: 'complete',
-      respondent: 'partial',
+      respondent: 'complete',
     },
   });
 });

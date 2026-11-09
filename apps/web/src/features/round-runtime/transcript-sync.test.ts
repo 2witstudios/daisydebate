@@ -14,7 +14,7 @@ import {
 } from './transcript-sync';
 setupRitewayBun();
 const transcript = (revision: number): LiveTranscriptRead => ({
-  contractVersion: 1,
+  contractVersion: 2,
   round,
   revision,
   freeze: null,

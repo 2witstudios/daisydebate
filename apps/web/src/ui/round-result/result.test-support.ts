@@ -43,6 +43,7 @@ export const completed: RoundBallotRead = {
         roundParticipantId: aff.id,
         text: 'Access improves.',
         complete: true,
+        interrupted: false,
       },
       {
         id: 'u2',
@@ -53,6 +54,7 @@ export const completed: RoundBallotRead = {
         roundParticipantId: neg.id,
         text: 'Costs displace services',
         complete: false,
+        interrupted: false,
       },
     ],
   },

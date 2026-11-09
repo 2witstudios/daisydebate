@@ -33,7 +33,11 @@ test('a stalled heard report cannot hold capture history, validation or sealing 
           returnedMs: 0,
         },
         participants: [
-          { roundParticipantId: 'p'.repeat(24), kind: 'bot', identity: 'bot' },
+          {
+            roundParticipantId: 'p'.repeat(24),
+            kind: 'human',
+            identity: 'human',
+          },
         ],
         intervals: [
           {
@@ -87,7 +91,7 @@ test('a stalled heard report cannot hold capture history, validation or sealing 
       },
       subscribe: async (setup) => {
         setup.onTrackStarted?.({
-          identity: 'bot',
+          identity: 'human',
           trackId: 'track',
           generation: 1,
           incarnation: 's'.repeat(24),
@@ -107,7 +111,7 @@ test('a stalled heard report cannot hold capture history, validation or sealing 
   try {
     await sealed.promise;
     assert({
-      given: 'a bot heard call still pending while the segment closes',
+      given: 'a heard call still pending while the segment closes',
       should:
         'continue through the next history and seal without another concurrent report',
       actual: [reads, reports],

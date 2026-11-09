@@ -37,6 +37,13 @@ const SEAL_SETTLE_MS = FRAME_ARRIVAL_MS + CAPTURE_BATCH_INTERVAL_MS;
  * flight, so it seals before the admission cutoff (VIDEO-4.1); shutdown seals
  * whatever is left.
  */
+/** Whether a seat is a bot's, whose transcript is authored, never captured (ADR 0122). */
+export const botSeat = (state: CaptureState, roundParticipantId: string) =>
+  state.participants.some(
+    (participant) =>
+      participant.roundParticipantId === roundParticipantId &&
+      participant.kind === 'bot',
+  );
 export function createStreamTracker(ceiling: number) {
   const streams = new Map<string, Stream>();
   const forClip = (key: Key) => {
@@ -76,7 +83,11 @@ export function createStreamTracker(ceiling: number) {
             returnedMs: segment.returnedMs,
           }),
         );
-        if (Date.parse(interval.startedAt) < end)
+        // A bot owes capture no stream: its transcript is authored (ADR 0122).
+        if (
+          Date.parse(interval.startedAt) < end &&
+          !botSeat(state, interval.roundParticipantId)
+        )
           forClip({
             segmentId: segment.id,
             roundParticipantId: interval.roundParticipantId,

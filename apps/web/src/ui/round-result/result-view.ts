@@ -37,7 +37,11 @@ type TranscriptLine = {
   readonly id: string;
   readonly speaker: string;
   readonly text: string;
-  readonly partial: boolean;
+  /**
+   * `arriving` while a live line is still being spoken; `cut` when it was cut
+   * off, or never finished before the freeze (ADR 0122).
+   */
+  readonly mark: 'arriving' | 'cut' | null;
   readonly startOffsetMs: number | null;
 };
 type TranscriptGap = {
@@ -106,7 +110,7 @@ export function transcriptSections(
 ): readonly TranscriptSection[] {
   const transcript = view.transcript;
   if (!transcript) return [];
-  const sections = sectionsOf(view.round, transcript.utterances);
+  const sections = sectionsOf(view.round, transcript.utterances, false);
   const placeless = transcript.partialStreams.filter(
     (stream) =>
       partialReasonsStateLoss(stream.reasons) &&
@@ -190,6 +194,7 @@ const speakerOf = (round: TranscriptRound, participantId: string) =>
 function sectionsOf(
   round: TranscriptRound,
   utterances: NonNullable<RoundBallotRead['transcript']>['utterances'],
+  live: boolean,
 ): readonly TranscriptSection[] {
   const speaker = (participantId: string) => speakerOf(round, participantId);
   const sections = new Map<number, TranscriptSection>();
@@ -205,7 +210,13 @@ function sectionsOf(
           id: line.id,
           speaker: speaker(line.roundParticipantId),
           text: line.text,
-          partial: !line.complete,
+          mark: line.interrupted
+            ? 'cut'
+            : line.complete
+              ? null
+              : live
+                ? 'arriving'
+                : 'cut',
           startOffsetMs: line.startOffsetMs,
         },
       ],
@@ -228,7 +239,7 @@ export function transcriptState(
 export function liveTranscriptSections(
   view: LiveTranscriptRead,
 ): readonly TranscriptSection[] {
-  const sections = sectionsOf(view.round, view.utterances);
+  const sections = sectionsOf(view.round, view.utterances, !view.freeze);
   return view.round.segments.map((segment) => {
     const existing = sections.find((s) => s.key === `${segment.sequence}`);
     const streams = view.streams.filter((s) => s.segmentId === segment.id);

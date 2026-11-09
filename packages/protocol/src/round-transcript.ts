@@ -14,10 +14,12 @@ const utteranceFields = {
   roundParticipantId: idSchema,
   text: z.string(),
   complete: z.boolean(),
+  /** A bot line cut off mid-play: its text stops where playout did (ADR 0122). */
+  interrupted: z.boolean(),
 };
 export const roundUtteranceSchema = z.strictObject(utteranceFields);
 /** Raised only when an open tab could not render the new reply correctly. */
-export const TRANSCRIPT_CONTRACT_VERSION = 1;
+export const TRANSCRIPT_CONTRACT_VERSION = 2;
 /** The current private transcript audience's snapshot, independent of Round version. */
 export const roundTranscriptReadSchema = z.strictObject({
   contractVersion: z.literal(TRANSCRIPT_CONTRACT_VERSION),

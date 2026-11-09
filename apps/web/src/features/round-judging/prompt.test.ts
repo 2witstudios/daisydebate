@@ -39,3 +39,43 @@ test('foreign frozen seat, segment or Round cannot become judge evidence', () =>
       'Frozen transcript scope changed',
     );
 });
+
+test('the judge reads a bot’s exact authored words, with a cut line marked (ADR 0122)', () => {
+  const authored = 'Free transit crowds out road repair budgets.';
+  const messages = frozenJudgingMessages({
+    round,
+    frozen: {
+      ...frozen,
+      completeness: 'complete',
+      utterances: [
+        { ...frozen.utterances[0]!, text: authored, complete: true },
+        {
+          ...frozen.utterances[0]!,
+          id: 'cut',
+          sequence: 1,
+          text: 'And the second',
+          complete: true,
+          interrupted: true,
+        },
+      ],
+    },
+  });
+  const evidence = JSON.parse(
+    messages[1]!.content.split('Frozen evidence:\n')[1]!.split('\n\n')[0]!,
+  );
+  assert({
+    given: 'a frozen bot speech: one whole authored line and one cut short',
+    should:
+      'give the judge each line word for word, and say which one was cut off',
+    actual: evidence.utterances.map(
+      (line: { text: string; interrupted: boolean }) => [
+        line.text,
+        line.interrupted,
+      ],
+    ),
+    expected: [
+      [authored, false],
+      ['And the second', true],
+    ],
+  });
+});

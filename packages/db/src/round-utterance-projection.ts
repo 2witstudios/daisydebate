@@ -1,13 +1,17 @@
-import { and, asc, eq, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, or } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundSegments } from './schema/round-segments';
 import { utterances } from './schema/utterances';
 
-/** Shared evidence ordering; callers supply either an existing freeze or fresh generation fences. */
+/**
+ * Shared evidence ordering; callers supply either an existing freeze or
+ * fresh generation fences. `spoken` reads only lines someone said: captured
+ * from a microphone, or authored by a bot as it played (ADR 0122).
+ */
 export function readOrderedRoundUtterances(
   reader: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
-  source: 'frozen' | 'captured',
+  source: 'frozen' | 'spoken',
 ) {
   return reader
     .select({
@@ -19,6 +23,7 @@ export function readOrderedRoundUtterances(
       roundParticipantId: utterances.roundParticipantId,
       text: utterances.text,
       complete: utterances.complete,
+      interrupted: utterances.interrupted,
     })
     .from(utterances)
     .innerJoin(
@@ -31,8 +36,11 @@ export function readOrderedRoundUtterances(
     .where(
       and(
         eq(utterances.roundId, roundId),
-        source === 'captured'
-          ? isNotNull(utterances.captureTrackId)
+        source === 'spoken'
+          ? or(
+              isNotNull(utterances.captureTrackId),
+              isNotNull(utterances.botPhraseId),
+            )
           : undefined,
       ),
     )

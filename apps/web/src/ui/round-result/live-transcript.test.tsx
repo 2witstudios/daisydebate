@@ -15,7 +15,7 @@ const read = (
   state: 'open' | 'partial' | 'complete',
   frozen = false,
 ): LiveTranscriptRead => ({
-  contractVersion: 1,
+  contractVersion: 2,
   round: { ...completed.round, status: 'active' },
   revision: 3,
   freeze: frozen
@@ -268,5 +268,43 @@ test('a completed speech partial with no gap says the same, even with no lines',
     should: 'keep its section and name the loss',
     actual: sections.map((section) => section.losses?.length),
     expected: [1],
+  });
+});
+
+test('a bot line being spoken reads as arriving, and a cut one as cut off (ADR 0122)', () => {
+  const base = read('complete');
+  const [first, second] = base.utterances;
+  const value: LiveTranscriptRead = {
+    ...base,
+    utterances: [
+      { ...first!, complete: false, interrupted: false },
+      { ...second!, complete: true, interrupted: true },
+    ],
+  };
+  const marks = (view: LiveTranscriptRead) =>
+    liveTranscriptSections(view).flatMap((section) =>
+      section.lines.map((line) => line.mark),
+    );
+  const html = renderToString(
+    h(TranscriptContent, {
+      sections: liveTranscriptSections(value),
+      empty: 'No speech was captured.',
+    }),
+  );
+  assert({
+    given:
+      'a live line still being spoken and one cut off, then the same Round frozen',
+    should:
+      'mark the first arriving and the second cut off; once frozen, an unfinished line is cut off',
+    actual: {
+      live: marks(value),
+      frozen: marks({ ...value, freeze: { completeness: 'complete' } }),
+      rendered: [html.includes('…'), html.includes('(cut off)')],
+    },
+    expected: {
+      live: ['arriving', 'cut'],
+      frozen: ['cut', 'cut'],
+      rendered: [true, true],
+    },
   });
 });

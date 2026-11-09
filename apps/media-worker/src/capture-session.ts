@@ -13,7 +13,7 @@ import {
 import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
 import type { CutClip } from './capture-clips';
 import { createHeardReporter, reportHeardTracks } from './capture-heard';
-import { createStreamTracker } from './capture-streams';
+import { botSeat, createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';
 import { captureSessionClosed, createSessionOutcome } from './capture-outcome';
 import { sealCaptureStreams } from './capture-seal';
@@ -134,6 +134,9 @@ async function captureSession(
     nowMs: input.nowMs,
   });
   const enqueue = (clip: CutClip) => {
+    // A bot's words are authored from its own text (ADR 0122): its frames are
+    // still recorded, but never transcribed, so its clips stop here.
+    if (botSeat(current.state, clip.roundParticipantId)) return;
     if (clip.kind === 'silent') stats.silentClips++;
     else stats.audibleClips++;
     const queued: QueuedClip = {

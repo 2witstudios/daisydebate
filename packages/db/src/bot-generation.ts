@@ -116,7 +116,7 @@ export function createBotGenerationOperations(input: {
         const history = await readOrderedRoundUtterances(
           tx,
           scope.roundId,
-          'captured',
+          'spoken',
         );
         const reservation = await markLockedRoundBotModelCall(tx, {
           roundId: scope.roundId,

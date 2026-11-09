@@ -15,16 +15,43 @@ const interval = (
   startedAt: string,
   endedAt: string | null,
 ) => ({ roundParticipantId, startedAt, endedAt });
-const state = (intervals: ReturnType<typeof interval>[]) =>
+const state = (
+  intervals: ReturnType<typeof interval>[],
+  bots: readonly string[] = [],
+) =>
   ({
     segment,
     intervals,
+    participants: bots.map((roundParticipantId) => ({
+      roundParticipantId,
+      kind: 'bot',
+      identity: roundParticipantId,
+    })),
     serverNow: '2026-10-22T12:00:50.000Z',
   }) as unknown as CaptureState;
 const keys = (tracker: ReturnType<typeof createStreamTracker>) =>
   [...tracker.values()].map(
     (s) => `${s.segmentId}/${s.roundParticipantId}:${s.count}`,
   );
+
+test('a bot seat owes capture no stream: its transcript is authored (ADR 0122)', () => {
+  const tracker = createStreamTracker(16);
+  tracker.remember(
+    state(
+      [
+        interval('human', '2026-10-22T12:00:00.000Z', '2026-10-22T12:00:20.000Z'),
+        interval('bot', '2026-10-22T12:00:20.000Z', '2026-10-22T12:00:40.000Z'),
+      ],
+      ['bot'],
+    ),
+  );
+  assert({
+    given: 'a human grant and a bot grant in one segment',
+    should: 'expect a captured stream for the human only',
+    actual: keys(tracker),
+    expected: ['seg1/human:0'],
+  });
+});
 
 test('a committed speaking interval with no clips is still an expected stream', () => {
   const tracker = createStreamTracker(16);
@@ -167,12 +194,14 @@ test('a segment the history has moved past counts as ended when first seen super
   tracker.remember({
     segment: { ...segment, endedAt: null },
     intervals: [interval('speaker', '2026-10-22T12:00:00.000Z', null)],
+    participants: [],
     serverNow: '2026-10-22T12:00:20.000Z',
   } as unknown as CaptureState);
   const open = due(tracker, '2026-10-22T12:00:30.000Z');
   tracker.remember({
     segment: null,
     intervals: [],
+    participants: [],
     serverNow: '2026-10-22T12:00:30.000Z',
   } as unknown as CaptureState);
   assert({

@@ -32,12 +32,13 @@ export function roundDebaterMessages(input: {
     readonly segment: string;
     readonly text: string;
     readonly complete: boolean;
+    readonly interrupted?: boolean;
   }[];
 }): ChatMessage[] {
   const history = input.transcript
     .map(
       (line) =>
-        `[${line.segment}; ${line.side} seat ${line.slot}; ${line.complete ? 'complete' : 'incomplete capture'}] ${line.text}`,
+        `[${line.segment}; ${line.side} seat ${line.slot}; ${line.interrupted ? 'cut off' : line.complete ? 'complete' : 'incomplete capture'}] ${line.text}`,
     )
     .join('\n');
   const task =
