@@ -77,9 +77,11 @@ The link grants neither beta approval nor a seat. This continuation lasts for
 the sign-up journey; later beta approval emails use their normal destination.
 
 A host creates a Room from the catalog or a custom definition. Members take
-debater or judge seats; the host may seat bots. Changing settings or seats
-clears every Ready consent, so nobody plays under rules they did not see.
-Consent lives in expiring Redis behind a durable revision fence.
+debater or judge seats; the host may seat bots. A host assign replaces the
+seat's occupant outright, person or bot, in one command (ADR 0121); removing
+to empty is the separate remove command. Changing settings or seats clears
+every Ready consent, so nobody plays under rules they did not see. Consent
+lives in expiring Redis behind a durable revision fence.
 
 Start round is one atomic operation. When every required seat is filled and
 every human is Ready, the host's click freezes the seats and rules into one

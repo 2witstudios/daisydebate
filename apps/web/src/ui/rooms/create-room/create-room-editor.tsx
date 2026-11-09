@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { roundCaptureNotice } from '../../../features/legal/agreements';
 import type { PublishedResolution, RoomCatalogChoice } from '@daisy/protocol';
-import { createRoomDraft } from '../../../features/rooms/create-room-draft';
 import {
-  draftFormValues,
-  readRoomDraft,
-  roomChoiceKey,
-} from '../../../features/rooms/create-room-fields';
-import { changeDraftSchedule } from '../../../features/rooms/prepare-room-draft';
+  changeRoomValue,
+  chooseRoomChoice,
+  initialRoomModel,
+  scheduleRoomDraft,
+} from '../../../features/rooms/create-room-model';
+import { roomChoiceKey } from '../../../features/rooms/create-room-fields';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { FormError } from '../../components/form-field/form-field';
@@ -46,28 +46,11 @@ export function CreateRoomEditor({
   readonly pending: boolean;
   readonly error?: string | undefined;
 }) {
-  const [model, setModel] = useState(() => {
-    const defaults = createRoomDraft(initialChoice);
-    const values: Record<string, string> = {
-      ...draftFormValues(defaults),
-      title: '',
-      visibility: 'unlisted',
-      ...kept,
-    };
-    if (
-      initialRanked &&
-      Object.keys(kept).length === 0 &&
-      initialChoice.preset.rankedEligible
-    )
-      values.ranked = 'on';
-    const parsed = readRoomDraft(values, choices);
-    return {
-      values: values as Readonly<Record<string, string>>,
-      draft: parsed.ok ? parsed.draft : defaults,
-    };
-  });
+  const [model, setModel] = useState(() =>
+    initialRoomModel(initialChoice, choices, kept, initialRanked),
+  );
   const { values, draft } = model;
-  const isCustom = values.format === 'custom' || draft.custom;
+  const isCustom = draft.custom;
   const isRanked = values.ranked === 'on' && !isCustom;
   const publication = resolutions.find(
     (resolution) => resolution.kind === values.resolutionMethod,
@@ -77,44 +60,16 @@ export function CreateRoomEditor({
       values.resolutionMethod === 'value') &&
     !publication;
   const change = (name: string, value: string) =>
-    setModel((current) => {
-      const next = {
-        ...current.values,
-        [name]: value,
-        format: 'custom',
-        ranked: '',
-      };
-      const read = readRoomDraft(next, choices);
-      return {
-        values: next,
-        draft: read.ok
-          ? read.draft
-          : { ...current.draft, custom: true, ranked: false },
-      };
-    });
+    setModel((current) => changeRoomValue(current, name, value, choices));
   const metadata = (name: string, value: string) =>
     setModel((current) => ({
       ...current,
       values: { ...current.values, [name]: value },
     }));
   const choose = (choice: RoomCatalogChoice) =>
-    setModel((current) => {
-      const selected = createRoomDraft(choice);
-      return {
-        values: { ...current.values, ...draftFormValues(selected) },
-        draft: selected,
-      };
-    });
+    setModel((current) => chooseRoomChoice(current, choice));
   const schedule = (intent: string) =>
-    setModel((current) => {
-      const read = readRoomDraft(current.values, choices);
-      if (!read.ok) return current;
-      const edited = changeDraftSchedule(read.draft, intent);
-      return {
-        values: { ...current.values, ...draftFormValues(edited) },
-        draft: edited,
-      };
-    });
+    setModel((current) => scheduleRoomDraft(current, intent, choices));
   const templates = choices.filter((choice) => choice.role === 'template');
   return (
     <div className="create-room-layout">
@@ -167,7 +122,11 @@ export function CreateRoomEditor({
                   type="radio"
                   name="format"
                   value={id}
-                  checked={values.format === id}
+                  checked={
+                    id === 'custom'
+                      ? draft.custom
+                      : !draft.custom && values.format === id
+                  }
                   disabled={
                     id !== 'custom' &&
                     !choices.some(

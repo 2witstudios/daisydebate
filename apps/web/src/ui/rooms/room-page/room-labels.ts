@@ -110,7 +110,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'host-required': 'the host',
   'room-closed': 'nothing: this room is closed',
   'illegal-config': 'round settings the format allows',
-  'seat-unavailable': 'an open seat',
+  'seat-unavailable': 'a free seat',
   'actor-ineligible': 'an eligible debater',
   'not-seated': 'every seat to be filled',
   'incomplete-cast': 'every seat to be filled',

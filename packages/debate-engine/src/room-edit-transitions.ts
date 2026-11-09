@@ -269,22 +269,36 @@ export const claimSeat = (
     !aiJudgeSeatAdmitted(room, edges.hostMaySeatCasualAiJudge)
   )
     return refuse('ai-judge-premium');
+  const occupant = room.participants.find(
+    (p) => p.role === command.role && p.slot === command.slot,
+  );
+  const other = occupant && occupant.actorId !== targetId ? occupant : null;
+  // One host assign replaces the occupant outright (ADR 0121); removing to
+  // empty is the separate remove-seat command. A claim never displaces, and
+  // a human judge the host may not name stays beyond their reach (DEC-331):
+  // an AI judge is public, so any host may swap one.
   if (
     command.slot >= room.rules.seats[command.role] ||
-    (command.role !== 'judge' && takesHeldSeat(room, targetId, edges.now)) ||
-    room.participants.some(
-      (p) =>
-        p.role === command.role &&
-        p.slot === command.slot &&
-        p.actorId !== targetId,
-    )
+    (command.role !== 'judge' &&
+      !other &&
+      takesHeldSeat(room, targetId, edges.now)) ||
+    (other &&
+      (command.type === 'claim-seat' ||
+        (other.role === 'judge' &&
+          other.kind === 'human' &&
+          !hostNamesJudges(room))))
   )
     return refuse('seat-unavailable');
   const existing = room.participants.find((p) => p.actorId === targetId);
+  // The displaced occupant leaves the Room in the same mutation; a human
+  // loses membership exactly as remove-seat frees them.
+  const displaced = other ? other.id : null;
   next = {
     ...room,
     participants: [
-      ...room.participants.filter((p) => p.actorId !== targetId),
+      ...room.participants.filter(
+        (p) => p.actorId !== targetId && p.id !== displaced,
+      ),
       {
         ...target,
         id: existing?.id ?? edges.participantId,

@@ -16,12 +16,21 @@ export default async function TrainPage({
 }) {
   await requireAccess('/train', searchParams);
   const templates = await roomTemplates();
+  const formats =
+    templates.kind === 'found'
+      ? templates.choices.filter(
+          (choice) =>
+            choice.role === 'standard' &&
+            ['freestyle', 'policy', 'value'].includes(choice.formatId),
+        )
+      : [];
   return (
     <BotSelectorPage
       view={trainLanding(
         await searchParams,
         templates.kind === 'found' ? templates.bots : [],
         templates.kind === 'found' && templates.botDebateAiJudge,
+        formats,
       )}
       action={startPracticeAction}
       unavailable={templates.kind !== 'found'}

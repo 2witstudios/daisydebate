@@ -128,18 +128,23 @@ function SeatActions({
                       const premium =
                         bot.seatRole === 'judge' &&
                         !aiJudgeSeatable(view.aiJudgeSeating);
+                      const ranked =
+                        view.competitionType === 'ranked' &&
+                        bot.seatRole === 'debater';
                       return (
                         <option
                           key={bot.actorId}
                           value={bot.actorId}
-                          disabled={!bot.eligible || premium}
+                          disabled={!bot.eligible || premium || ranked}
                         >
                           {bot.label} · AI
                           {premium
                             ? ' · premium'
-                            : !bot.eligible
-                              ? ' · unavailable'
-                              : ''}
+                            : ranked
+                              ? ' · ranked rooms seat people'
+                              : !bot.eligible
+                                ? ' · unavailable'
+                                : ''}
                         </option>
                       );
                     })}
