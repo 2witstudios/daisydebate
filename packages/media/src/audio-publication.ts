@@ -158,8 +158,18 @@ export async function createAudioPublication(input: {
     },
     /** Milliseconds handed over but not yet played out. */
     queuedMs: () => source.queuedDuration,
-    /** Drops every queued frame now: a stop or barge-in is silent at once. */
-    clearQueue: () => source.clearQueue(),
+    /**
+     * Drops every queued frame now: a stop or barge-in is silent at once. A
+     * closed or failed publication has nothing left to play.
+     */
+    clearQueue: () => {
+      if (closing || failed) return;
+      try {
+        source.clearQueue();
+      } catch {
+        failed = true;
+      }
+    },
     /**
      * Ends the publication by leaving the room, which ends its track for
      * every subscriber. It never unpublishes first: rtc-node holds the room's

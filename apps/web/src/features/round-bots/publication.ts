@@ -2,7 +2,7 @@ import type { createAudioPublication } from '@daisy/media/audio';
 import { createStreamingAudioWriter } from '@daisy/media/publication';
 import type { Database } from '@daisy/db';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { spokenPrefix } from '@daisy/debate-engine';
+import { spokenPrefix } from '@daisy/protocol';
 import { createAppError, isAppError } from '@daisy/errors';
 
 type Publication = Awaited<ReturnType<typeof createAudioPublication>>;
@@ -19,7 +19,7 @@ export type BotSpeechJob = {
 const FRAME_SAMPLES = 240;
 const SAMPLE_RATE = 24000;
 /** How far ahead of playout frames are handed to the native queue. */
-const LEAD_MS = 100;
+const LEAD_MS = 300;
 /** The native queue: comfortably above the lead, so a handoff never waits. */
 const QUEUE_MS = 500;
 /**
@@ -140,6 +140,18 @@ export function createBotPublisher(input: {
   }) => {
     let room: string | undefined;
     let roomLeft = false;
+    /** The native track in use, so a close can silence it at once. */
+    let current: Publication | null = null;
+    /** When the native queue was last cleared: an abort, a failure or the end. */
+    let clearedAtMs = -Infinity;
+    /** Each played phrase's line closes here, in order, beside the next one's audio. */
+    let closing: Promise<void> = Promise.resolve();
+    /** A phrase start refused after its audio played: the next phrase stops on it. */
+    let lateRefusal: { readonly error: unknown } | null = null;
+    /** Lines this claim closed; a retry of any other line reuses its id. */
+    const closed = new Set<string>();
+    const ended = new AbortController();
+    let closing_down: Promise<void> | undefined;
     const publication = createClaimPublication({
       roomLeft: () => roomLeft,
       open: async () => {
@@ -157,6 +169,17 @@ export function createBotPublisher(input: {
         });
       },
     });
+    const endLine = async (job: BotSpeechJob, playedFraction: number) => {
+      await input.store.endRoundBotPhrase(
+        job.scope,
+        job.token,
+        job.phraseId,
+        playedFraction >= 1
+          ? { kind: 'whole' }
+          : { kind: 'cut', spoken: spokenPrefix(job.text, playedFraction) },
+      );
+      closed.add(job.phraseId);
+    };
     /**
      * The monotonic instant the claim's segment is due, read once per speech
      * off the audio path: the database clock's reading bracketed by the
@@ -188,9 +211,15 @@ export function createBotPublisher(input: {
       )
         throw createAppError('VALIDATION');
       if (signal.aborted) throw createAppError('CONFLICT');
+      if (lateRefusal) {
+        const { error } = lateRefusal;
+        lateRefusal = null;
+        throw error;
+      }
       const frames = wholeFrames(job.pcm);
       const durationMs = (frames.length / SAMPLE_RATE) * 1000;
       const native = await publication.use();
+      current = native;
       if (signal.aborted) throw createAppError('CONFLICT');
       // A whole phrase that cannot finish before the cutoff is never started.
       if (
@@ -254,36 +283,67 @@ export function createBotPublisher(input: {
       // Never awaited: a read still in flight must not delay the next phrase.
       played.abort();
       void watching;
-      // A phrase whose start was refused wrote no line: nothing to close.
-      if (!(await begun)) throw refusal;
-      const whole =
-        !result.aborted && !result.cut && result.failure === undefined;
-      await input.store.endRoundBotPhrase(
-        job.scope,
-        job.token,
-        job.phraseId,
-        whole
-          ? { kind: 'whole' }
-          : {
-              kind: 'cut',
-              // The padded tail is silence: count only the phrase's own samples.
-              spoken: spokenPrefix(
-                job.text,
-                Math.min(1, result.playedSamples / job.pcm.length),
-              ),
-            },
-      );
-      if (refusal !== undefined) throw refusal;
-      if (result.failure !== undefined) throw result.failure;
-      return { complete: whole, segmentEnded: result.cut };
+      // The padded tail is silence: count only the phrase's own samples.
+      const fractionOf = (samples: number) =>
+        Math.min(1, samples / job.pcm.length);
+      if (result.aborted) {
+        clearedAtMs = input.monotonicNowMs();
+        // The speech is stopping: close the line now, at what played.
+        if (await begun) await endLine(job, fractionOf(result.playedSamples));
+        if (refusal !== undefined) throw refusal;
+        if (result.failure !== undefined) throw result.failure;
+        return { complete: false, segmentEnded: false };
+      }
+      // Its last frames are still queued: the line closes once they have
+      // played, beside the next phrase's audio, never in front of it.
+      const handedAtMs = input.monotonicNowMs();
+      const playsUntilMs = handedAtMs + Math.max(0, native.queuedMs());
+      const wholeFraction = result.cut ? fractionOf(result.playedSamples) : 1;
+      closing = closing.then(async () => {
+        if (!(await begun)) {
+          lateRefusal ??= { error: refusal };
+          return;
+        }
+        await input.waitUntilMs(playsUntilMs, ended.signal);
+        // A clear before its tail played out cut it there (AMEND-1).
+        const cutAtMs =
+          clearedAtMs > handedAtMs && clearedAtMs < playsUntilMs
+            ? clearedAtMs
+            : null;
+        const fraction =
+          cutAtMs === null
+            ? wholeFraction
+            : Math.min(
+                wholeFraction,
+                fractionOf(
+                  ((durationMs - (playsUntilMs - cutAtMs)) * SAMPLE_RATE) /
+                    1000,
+                ),
+              );
+        // An end that fails leaves the line unfinished, never invented.
+        await endLine(job, Math.max(0, fraction)).catch(() => undefined);
+      });
+      return { complete: !result.cut, segmentEnded: result.cut };
     };
     return {
       /** Joins the Room ahead of speech. */
       start: publication.start,
       deadline,
       publish,
-      /** Ends the claim's publication; every later publish is refused. */
-      close: publication.close,
+      /** Whether this claim closed the line: a retry then needs a new one. */
+      lineClosed: (phraseId: string) => closed.has(phraseId),
+      /**
+       * Ends the claim's publication: silences it at once, closes every
+       * played line at what was heard, and refuses every later publish.
+       */
+      close: () =>
+        (closing_down ??= (async () => {
+          clearedAtMs = input.monotonicNowMs();
+          current?.clearQueue();
+          ended.abort();
+          await closing;
+          await publication.close();
+        })()),
     };
   };
 }

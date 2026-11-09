@@ -37,6 +37,7 @@ export function harness(
     ) => ReturnType<SpeakerInput['synthesize']>;
     readonly publish?: SpeakerInput['publish'];
     readonly deadline?: SpeakerInput['deadline'];
+    readonly lineClosed?: SpeakerInput['lineClosed'];
   } = {},
 ) {
   const log: string[] = [];
@@ -62,6 +63,7 @@ export function harness(
         ? options.synthesize(phraseId, text)
         : answered(job(phraseId, text));
     },
+    lineClosed: options.lineClosed ?? (() => false),
     deadline:
       options.deadline ??
       (async () => {

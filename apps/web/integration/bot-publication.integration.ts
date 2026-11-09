@@ -70,6 +70,9 @@ async function publishOnce(stopInMs: number | 'deadline') {
         AbortSignal.timeout(5000),
         stopAtMs,
       );
+      // Its line closes once its queued tail has played, beside any next phrase.
+      await Bun.sleep(400);
+      await claimed.close();
       outcome = {
         result,
         lines:

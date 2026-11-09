@@ -41,6 +41,7 @@ function harness(
   options: {
     readonly begin?: () => Promise<unknown>;
     readonly verify?: (call: number) => Promise<unknown>;
+    readonly end?: () => Promise<unknown>;
   } = {},
 ) {
   const events: string[] = [];
@@ -74,6 +75,7 @@ function harness(
         phraseId: string,
         end: unknown,
       ) => {
+        await options.end?.();
         ends.push({ phraseId, end });
         return { changed: true };
       },
@@ -121,6 +123,8 @@ function harness(
   };
 }
 const signal = () => new AbortController().signal;
+/** Long enough for a phrase's queued tail (the 300 ms lead) to play out. */
+const tailPlays = () => Bun.sleep(450);
 const far = () => performance.now() + 60_000;
 
 test('phrases stream on the one track joined ahead of speech and close whole', async () => {
@@ -128,6 +132,7 @@ test('phrases stream on the one track joined ahead of speech and close whole', a
   claim.start();
   const first = await claim.publish(job(50, 'a'.repeat(24)), signal(), far());
   const second = await claim.publish(job(50, 'b'.repeat(24)), signal(), far());
+  await tailPlays();
   await claim.close();
   assert({
     given: 'two phrases published by one claim',
@@ -137,7 +142,7 @@ test('phrases stream on the one track joined ahead of speech and close whole', a
     expected: {
       first: { complete: true, segmentEnded: false },
       second: { complete: true, segmentEnded: false },
-      events: ['join:TR_0', 'close:TR_0'],
+      events: ['join:TR_0', 'clear', 'close:TR_0'],
       ends: [
         { phraseId: 'a'.repeat(24), end: { kind: 'whole' } },
         { phraseId: 'b'.repeat(24), end: { kind: 'whole' } },
@@ -160,6 +165,7 @@ test('the audio keeps its 10 ms cadence while the phrase start stalls 200 ms (AD
   const { claim, handoffs, ends } = harness({ begin: () => Bun.sleep(200) });
   const start = performance.now();
   const outcome = await claim.publish(job(400), signal(), far());
+  await tailPlays();
   const duringStall = handoffs.filter((at) => at - start < 195).length;
   const gaps = handoffs.slice(1).map((at, index) => at - handoffs[index]!);
   assert({
@@ -300,6 +306,7 @@ test('a phrase that just fits plays whole inside the hard stop (AMEND-2)', async
   const { claim, ends, handoffs } = harness();
   const stopAt = performance.now() + 330;
   const outcome = await claim.publish(job(300), signal(), stopAt);
+  await tailPlays();
   assert({
     given: 'a 300 ms phrase with a hard stop 330 ms away',
     should: 'hand every frame over before the stop and close the line whole',
@@ -328,5 +335,78 @@ test('a speech’s deadline is its segment end on the local clock, never later',
     should: 'stop 60 s after the earliest instant the read could mean',
     actual: deadline >= before + 60_000 && deadline <= after + 60_000,
     expected: true,
+  });
+});
+
+test('a phrase’s close stalling 200 ms never delays the next phrase’s audio (ADR 0122)', async () => {
+  const { claim, handoffs, ends } = harness({ end: () => Bun.sleep(200) });
+  const first = await claim.publish(job(400, 'a'.repeat(24)), signal(), far());
+  const boundary = handoffs.length;
+  await claim.publish(job(400, 'b'.repeat(24)), signal(), far());
+  const gap = handoffs[boundary]! - handoffs[boundary - 1]!;
+  const gaps = handoffs.slice(1).map((at, index) => at - handoffs[index]!);
+  await tailPlays();
+  await Bun.sleep(300);
+  assert({
+    given: 'two 400 ms phrases whose line closes each take 200 ms',
+    should:
+      'hand the second phrase’s first frame over at once, keep a 10 ms cadence across the boundary, and close both lines whole in order',
+    actual: {
+      first,
+      boundaryUnder30: gap < 30,
+      maxGapUnder60: Math.max(...gaps) < 60,
+      ends: ends.map((row) => [row.phraseId[0], row.end]),
+    },
+    expected: {
+      first: { complete: true, segmentEnded: false },
+      boundaryUnder30: true,
+      maxGapUnder60: true,
+      ends: [
+        ['a', { kind: 'whole' }],
+        ['b', { kind: 'whole' }],
+      ],
+    },
+  });
+});
+
+test('a tail cleared after its phrase was handed over closes cut, not whole (AMEND-1)', async () => {
+  const { claim, ends } = harness();
+  await claim.publish(job(1000, 'a'.repeat(24)), signal(), far());
+  // The last 300 ms of phrase a is still queued: a barge-in now cuts it.
+  const controller = new AbortController();
+  const next = claim.publish(
+    job(1000, 'b'.repeat(24)),
+    controller.signal,
+    far(),
+  );
+  await Bun.sleep(50);
+  controller.abort();
+  await next;
+  await tailPlays();
+  const byId = (id: string) =>
+    (ends.find((row) => row.phraseId[0] === id)?.end ?? null) as {
+      kind: string;
+      spoken?: string;
+    } | null;
+  const a = byId('a');
+  assert({
+    given:
+      'a ten-word one-second phrase handed over whole, then a barge-in about 250 ms before its tail played',
+    should:
+      'close it cut to a strict word prefix, about three-quarters of it, never whole',
+    actual: {
+      kind: a?.kind,
+      prefix: words.startsWith(a?.spoken ?? 'x'),
+      aboutThreeQuarters:
+        (a?.spoken?.split(' ').length ?? 0) >= 6 &&
+        (a?.spoken?.split(' ').length ?? 0) <= 8,
+      nextCut: byId('b')?.kind,
+    },
+    expected: {
+      kind: 'cut',
+      prefix: true,
+      aboutThreeQuarters: true,
+      nextCut: 'cut',
+    },
   });
 });

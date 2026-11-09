@@ -1,21 +1,23 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { isSpokenPrefix } from '@daisy/protocol';
-import { spokenPrefix } from './authored-speech';
+import { isSpokenPrefix, spokenPrefix } from './authored-speech';
 
 setupRitewayBun();
 const phrase = 'The affirmative has not shown any harm at all.';
 
-test('a cut phrase keeps the whole words nearest the fraction played (ADR 0122)', () => {
+test('a cut phrase keeps only the whole words fully played (ADR 0122)', () => {
   assert({
-    given: 'a nine-word phrase cut at none, a third, half, all and past all',
-    should: 'keep that many whole words, never more than the phrase holds',
-    actual: [0, 1 / 3, 0.5, 1, 1.4, Number.NaN].map((at) =>
+    given:
+      'a nine-word phrase cut at none, a third, half, just short of all, all and past all',
+    should:
+      'keep only words fully played, never a half-played one, never more than the phrase holds',
+    actual: [0, 1 / 3, 0.5, 0.99, 1, 1.4, Number.NaN].map((at) =>
       spokenPrefix(phrase, at),
     ),
     expected: [
       '',
       'The affirmative has',
-      'The affirmative has not shown',
+      'The affirmative has not',
+      'The affirmative has not shown any harm at',
       phrase,
       phrase,
       '',

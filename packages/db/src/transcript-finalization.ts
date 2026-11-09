@@ -1,3 +1,4 @@
+import { closeAbandonedBotLines } from './bot-phrases';
 import { pending as transcriptionRecoveryPending } from './transcription-recovery/pending';
 import { readCaptureShortfall } from './capture-shortfall';
 import {
@@ -142,6 +143,8 @@ export async function finalizeLockedRoundTranscript(
   if (state === 'capture')
     return { status: 'pending' as const, reason: 'capture' as const };
   // No network/provider work: serialize all committed text before closing its frontier.
+  // A bot line its worker never closed keeps only what could have played (ADR 0122).
+  await closeAbandonedBotLines(tx, request.roundId);
   await closeUnresolvedStreams(tx, request.roundId, facts);
   const [frontier] = await tx
     .select()

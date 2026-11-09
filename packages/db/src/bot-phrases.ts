@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { idSchema, isSpokenPrefix } from '@daisy/protocol';
+import { idSchema, isSpokenPrefix, spokenPrefix } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { advanceTranscriptRevision } from './capture-history';
 import { appendTranscriptChanged } from './transcript-signal';
@@ -32,6 +32,12 @@ export type BotPhraseEnd =
   | { readonly kind: 'cut'; readonly spoken: string };
 
 const MAX_PHRASE_MS = 60_000;
+/**
+ * How long after its audio started a phrase's start may commit: the start
+ * runs beside playback, so the fit allows for it. The writer's local hard stop
+ * still cuts the audio at the due time, and a cut line keeps only what played.
+ */
+const PHRASE_START_SKEW_MS = 500;
 function requirePhrase(phrase: BotPhrase) {
   if (
     !idSchema.safeParse(phrase.phraseId).success ||
@@ -112,7 +118,7 @@ export async function beginLockedBotPhrase(
   // Orders sequence allocation against every other writer of this segment.
   const [fits] = await tx
     .select({
-      fits: sql<boolean>`clock_timestamp()+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
+      fits: sql<boolean>`clock_timestamp()+${phrase.durationMs - PHRASE_START_SKEW_MS}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
     })
     .from(roundSegments)
     .where(
@@ -161,7 +167,7 @@ export async function beginLockedBotPhrase(
  * only the words heard when it was cut, never words it did not say. It
  * authenticates the claim's own token even after its lease lapsed, so a stop
  * that races expiry still marks the cut. The first end stands; a later one
- * changes nothing.
+ * changes nothing, as does an end for a line already deleted unheard.
  */
 export async function endLockedBotPhrase(
   tx: BoundedTransactionContext,
@@ -193,8 +199,9 @@ export async function endLockedBotPhrase(
   requireClaimScope(claim, scope);
   requireAgentLeaseToken(input.token, claim.leaseTokenDigest);
   const row = await phraseRow(tx, input.phraseId);
-  if (!row || !sameSeat(row, scope)) throw createAppError('NOT_FOUND');
-  if (row.complete) return { changed: false };
+  if (row && !sameSeat(row, scope)) throw createAppError('NOT_FOUND');
+  // Closed already, by this worker, a takeover or the freeze; or cut before a word.
+  if (!row || row.complete) return { changed: false };
   await requireUnfrozen(tx, scope.roundId);
   if (end.kind === 'whole') {
     await tx
@@ -204,11 +211,59 @@ export async function endLockedBotPhrase(
   } else {
     const spoken = end.spoken.trim().split(/\s+/).filter(Boolean).join(' ');
     if (!isSpokenPrefix(row.text, spoken)) throw createAppError('VALIDATION');
-    await tx
-      .update(utterances)
-      .set({ complete: true, interrupted: true, text: spoken })
-      .where(eq(utterances.id, row.id));
+    await closeLine(tx, row.id, spoken, true);
   }
   await signalChange(tx, scope.roundId);
   return { changed: true };
+}
+/** A cut line keeps the words heard; one cut before any word was said nothing. */
+async function closeLine(
+  tx: BoundedTransactionContext,
+  id: string,
+  spoken: string,
+  interrupted: boolean,
+) {
+  if (!spoken) await tx.delete(utterances).where(eq(utterances.id, id));
+  else
+    await tx
+      .update(utterances)
+      .set({ complete: true, interrupted, text: spoken })
+      .where(eq(utterances.id, id));
+}
+
+/**
+ * Closes authored lines their worker never closed (a lost worker, a takeover):
+ * each keeps only the words that could have played by now, by its known
+ * length and its segment's end, so no unfinished line is frozen whole.
+ * Call within the Round's lock, before a takeover's new claim or the freeze.
+ */
+export async function closeAbandonedBotLines(
+  tx: BoundedTransactionContext,
+  roundId: string,
+  roundParticipantId?: string,
+) {
+  const rows = (await tx.execute(sql`select u.id, u.text,
+      extract(epoch from (least(clock_timestamp(),
+        u.created_at+u.bot_duration_ms*interval '1 millisecond',
+        coalesce(s.ended_at,'infinity'::timestamptz), s.due_at)-u.created_at))*1000
+        / u.bot_duration_ms as fraction
+    from utterances u join round_segments s on s.id=u.segment_id and s.round_id=u.round_id
+    where u.round_id=${roundId} and u.bot_phrase_id is not null and not u.complete
+      ${roundParticipantId === undefined ? sql`` : sql`and u.round_participant_id=${roundParticipantId}`}
+    for update of u`)) as unknown as {
+    id: string;
+    text: string;
+    fraction: number | string;
+  }[];
+  for (const row of rows) {
+    const fraction = Number(row.fraction);
+    await closeLine(
+      tx,
+      row.id,
+      spokenPrefix(row.text, fraction),
+      !(fraction >= 1),
+    );
+  }
+  if (rows.length) await signalChange(tx, roundId);
+  return rows.length;
 }

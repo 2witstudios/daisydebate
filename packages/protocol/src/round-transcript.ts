@@ -106,6 +106,12 @@ export const liveTranscriptReadSchema = z.looseObject({
       ),
     }),
   ),
-  utterances: z.array(z.looseObject(utteranceFields)),
+  // A server built before ADR 0122 sends no `interrupted`: its lines were never cut.
+  utterances: z.array(
+    z.looseObject({
+      ...utteranceFields,
+      interrupted: z.boolean().default(false),
+    }),
+  ),
 });
 export type LiveTranscriptRead = z.infer<typeof liveTranscriptReadSchema>;

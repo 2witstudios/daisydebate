@@ -35,7 +35,8 @@ its delivery instead of fitting it into the human capture pipeline.
    start verifies the live claim, its vendor room (ADR 0110), an open floor
    in the live segment with no incident, and an unfrozen transcript. It
    checks that the phrase, whose length is known from its samples, ends on
-   the database clock before the segment is due. It then writes the line,
+   the database clock before the segment is due, allowing 500 ms for the
+   start committing behind the audio it runs beside. It then writes the line,
    still arriving (`complete=false`), with the revision and the
    `transcript-changed` doorbell. It runs concurrently with playback and is
    never awaited by it; a refusal stops the audio at the next frame. While a
@@ -47,23 +48,32 @@ its delivery instead of fitting it into the human capture pipeline.
    segment's due time, calibrated once per speech against the database
    clock, and never hands over a frame whose playout would end past it, so
    neither the queue lead nor clock skew plays audio past the cutoff.
-4. **A cut phrase is marked, not invented.** A phrase played whole closes
-   `complete`. One cut short by a barge-in, a refusal, a stop or a failed
-   handoff closes `interrupted`, its text cut to the whole words nearest the
-   fraction of audio actually played: samples sent less samples still
-   queued, never the samples merely sent. The database accepts only a
-   whole-word prefix of the authored text. The close authenticates the
-   claim's own token even after its lease lapsed. A worker lost mid-phrase
-   leaves an honest unfinished line.
+4. **A cut phrase is marked, not invented.** A phrase closes `complete` only
+   once its queued tail has played out. One cut short by a barge-in, a
+   refusal, a stop or a failed handoff, including one whose tail is cleared
+   after its last frame was handed over, closes `interrupted`. Its text keeps
+   only the whole words fully played: samples sent less samples still
+   queued, never the samples merely sent. A line cut before its first word is
+   deleted. The database accepts only a whole-word prefix of the authored
+   text. The close authenticates the claim's own token even after its lease
+   lapsed. A line its worker never closed (a lost worker) is closed at the
+   seat's takeover, and at the freeze, to the words that could have played
+   by then, by its known length and its segment's end.
 5. **Guaranteed delivery.** The bot still publishes into LiveKit, so people,
    recording and broadcast hear it with no new client path. The native
-   source has a 500 ms queue; the writer hands 10 ms frames over 100 ms ahead
-   of playout on a monotonic clock and awaits nothing but the handoff. An
-   abort clears the queue at once.
-6. **No gaps between sentences.** The next phrase is voiced while the
-   current one plays: at most one held ahead, bought and settled once, kept
-   across retries, so nothing is bought twice. A phrase cut by a failure is
-   said again whole, as a new line.
+   source has a 500 ms queue; the writer hands 10 ms frames over 300 ms ahead
+   of playout on a monotonic clock and awaits nothing but the handoff, so
+   timer or collection jitter cannot drain it. An abort clears the queue at
+   once.
+6. **No gaps between sentences.** No database call stands between one
+   phrase's last frame and the next phrase's first: each line closes in
+   order, beside the next phrase's audio, and a phrase start refused only
+   after its audio played stops the speech at the next phrase. The next
+   phrase is voiced while the current one plays: at most one held ahead,
+   bought and settled once, kept across retries, so nothing is bought twice.
+   A retry keeps its line id until that line is closed, so a phrase start
+   that committed but whose answer was lost is never written twice; a phrase
+   cut and closed is said again whole, as a new line.
 7. **Coverage.** A bot's stream is complete by construction once it authors
    a line. A grant it did not use owes nothing (ISSUE-965, now read from
    authored speech). Its scheduled turn with no authored line still freezes
@@ -87,6 +97,7 @@ its delivery instead of fitting it into the human capture pipeline.
   publication observation and the receipt half of the publication clock are
   deleted; `frame-clock` keeps the calibration it shares.
 - Every transcript line carries `interrupted`; an open tab reads through
-  the added field, so the transcript read contract keeps version 1.
+  the added field, and a new tab reading an older server defaults it to
+  false, so the transcript read contract keeps version 1.
 - Product intent "speak only through heard, captured audio" (DEC-226) now
   reads "speak with authored transcripts and guaranteed delivery".

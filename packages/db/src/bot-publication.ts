@@ -20,6 +20,7 @@ import {
 } from './bot-publication-context';
 import {
   beginLockedBotPhrase,
+  closeAbandonedBotLines,
   endLockedBotPhrase,
   type BotPhrase,
   type BotPhraseEnd,
@@ -102,6 +103,13 @@ export function createBotPublicationOperations(input: {
           now,
           leaseMs: input.leaseMs,
         });
+        // A takeover first closes what the lost worker left open.
+        if (current)
+          await closeAbandonedBotLines(
+            tx,
+            target.roundId,
+            target.roundParticipantId,
+          );
         if (current)
           await endLockedRoundAgentRun(
             tx,

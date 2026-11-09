@@ -213,9 +213,12 @@ authored utterance is written beside it, never in front of it
 floor, the segment and the incident state, refuses a phrase that would end
 past its segment, and writes the line still arriving. A refusal stops the
 audio at the next frame. The floor is re-read about every 250 ms while the
-phrase plays, also beside the audio. At its end the line closes complete, or
-interrupted with only the words that played (`endRoundBotPhrase`): samples
-sent less samples still queued. The writer stops locally at the segment's due
+phrase plays, also beside the audio. Its line closes (`endRoundBotPhrase`)
+in order beside the next phrase's audio, once its queued tail has played:
+complete, or interrupted with only the whole words that played (samples
+sent less samples still queued). Nothing is awaited between one phrase's
+last frame and the next one's first. A seat's takeover, and the freeze,
+close any line a lost worker left open to the words that could have played. The writer stops locally at the segment's due
 time, so no audio plays past the cutoff. A phrase that cannot finish in time is
 never started, and the speech ends at its last whole phrase.
 

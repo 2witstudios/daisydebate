@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { isFinalBotSpeechRefusal } from '../src/bot-publication';
+import { closeAbandonedBotLines } from '../src/bot-phrases';
 import {
   claimAtFloorStart,
   withBotPublication,
@@ -25,13 +26,15 @@ const withSpeakingBot = (
     >;
     readonly revision: () => Promise<number>;
     readonly doorbells: () => Promise<number>;
+    readonly run: Harness['run'];
   }) => Promise<void>,
 ) =>
-  withBotPublication(async ({ operations, target, fixture }) => {
+  withBotPublication(async ({ operations, target, fixture, run }) => {
     const room = createId();
     await fixture.sql`insert into media_sessions(id,round_id,room_name) values(${createId()},${target.roundId},${room})`;
     const { claim } = await claimAtFloorStart({ operations, target, fixture });
     await work({
+      run,
       fixture,
       operations,
       target,
@@ -186,12 +189,13 @@ test('a phrase that would end past its segment is a final refusal and credits no
       .beginBotPhrase(
         claim.scope,
         claim.token,
-        phrase(createId(), 59_500),
+        phrase(createId(), 60_000),
         room,
       )
       .catch((error: unknown) => error);
     assert({
-      given: 'a 59.5 s phrase starting 1 s into a 60 s segment',
+      given:
+        'a 60 s phrase starting 1 s into a 60 s segment, past the 0.5 s start allowance',
       should: 'refuse it for good, so the speech stops, and author nothing',
       actual: {
         final: isFinalBotSpeechRefusal(refusal),
@@ -275,6 +279,109 @@ test('an end authenticates its claim even after the lease lapsed, and refuses a 
         expected: [
           { text: 'The affirmative', complete: true, interrupted: true },
         ],
+      });
+    },
+  );
+});
+
+test('a phrase starting just behind its audio still fits its segment', async () => {
+  await withSpeakingBot(async ({ operations, claim, room, lines }) => {
+    await operations.beginBotPhrase(
+      claim.scope,
+      claim.token,
+      phrase(createId(), 59_300),
+      room,
+    );
+    assert({
+      given:
+        'a 59.3 s phrase whose start commits 1 s into a 60 s segment, within the 0.5 s allowance',
+      should:
+        'author its line: the start runs beside playback, and the local hard stop cuts any audio past the end',
+      actual: (await lines()).length,
+      expected: 1,
+    });
+  });
+});
+
+test('a frozen transcript takes no phrase start and no phrase end', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, fixture, target, revision }) => {
+      const spoken = phrase();
+      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+      await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${target.roundId},1,${await revision()},'complete')`;
+      await assertRejects({
+        given: 'a phrase start after the freeze, the floor still open',
+        should: 'refuse it',
+        actual: () =>
+          operations.beginBotPhrase(claim.scope, claim.token, phrase(), room),
+        code: 'CONFLICT',
+      });
+      await assertRejects({
+        given: 'a phrase end after the freeze',
+        should: 'refuse it, leaving the frozen line as it was',
+        actual: () =>
+          operations.endBotPhrase(claim.scope, claim.token, spoken.phraseId, {
+            kind: 'whole',
+          }),
+        code: 'CONFLICT',
+      });
+    },
+  );
+});
+
+test('a phrase cut before its first word leaves no line', async () => {
+  await withSpeakingBot(async ({ operations, claim, room, lines }) => {
+    const spoken = phrase();
+    await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+    await operations.endBotPhrase(claim.scope, claim.token, spoken.phraseId, {
+      kind: 'cut',
+      spoken: '',
+    });
+    const again = await operations.endBotPhrase(
+      claim.scope,
+      claim.token,
+      spoken.phraseId,
+      { kind: 'whole' },
+    );
+    assert({
+      given: 'a phrase barged in on before a word was heard, then a late end',
+      should: 'delete its line, and take the late end as a no-op',
+      actual: { lines: await lines(), again },
+      expected: { lines: [], again: { changed: false } },
+    });
+  });
+});
+
+test('a line its worker never closed keeps only what could have played, at takeover and at the freeze', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, lines, fixture, target, run }) => {
+      const lost = phrase(createId(), 10_000);
+      await operations.beginBotPhrase(claim.scope, claim.token, lost, room);
+      // Started 4 s ago: four tenths of its nine words, three whole, could have played.
+      await fixture.sql`update utterances set created_at=clock_timestamp()-interval '4 seconds' where bot_phrase_id=${lost.phraseId}`;
+      // The worker is lost: its lease lapses and another takes the seat over.
+      await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${target.roundId}`;
+      const next = await operations.claimWorker(target);
+      const afterTakeover = await lines();
+      const open = phrase(createId(), 2_000);
+      await operations.beginBotPhrase(next.scope, next.token, open, room);
+      await fixture.sql`update utterances set created_at=clock_timestamp()-interval '5 seconds' where bot_phrase_id=${open.phraseId}`;
+      await run((tx) => closeAbandonedBotLines(tx, target.roundId));
+      assert({
+        given:
+          'a nine-word phrase left open 4 s into its 10 s, then a 2 s phrase left open long after it ended',
+        should:
+          'cut the first to its first three words at takeover, and close the second whole at the freeze',
+        actual: { afterTakeover, final: await lines() },
+        expected: {
+          afterTakeover: [
+            { text: 'The affirmative has', complete: true, interrupted: true },
+          ],
+          final: [
+            { text: 'The affirmative has', complete: true, interrupted: true },
+            { text: TEXT, complete: true, interrupted: false },
+          ],
+        },
       });
     },
   );

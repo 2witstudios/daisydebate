@@ -27,6 +27,12 @@ type Progress = {
   synthesized: Answer<BotSpeechJob> | null;
   ready: boolean;
   upcoming: Upcoming | null;
+  /**
+   * The spoken phrase's line id. A retry keeps it, so a phrase start that
+   * committed but whose answer was lost is not written twice; it changes
+   * only once the line was closed, so a cut phrase said again is a new line.
+   */
+  lineId: string | null;
 };
 const freshProgress = (): Progress => ({
   generated: null,
@@ -35,6 +41,7 @@ const freshProgress = (): Progress => ({
   synthesized: null,
   ready: false,
   upcoming: null,
+  lineId: null,
 });
 const STOPPED = 'Bot publication stopped before the phrase was sent';
 const isPlatformIncidentRefusal = (error: unknown) =>
@@ -76,6 +83,8 @@ export function createBotSpeaker(input: {
   ) => Promise<Answer<BotSpeechJob>>;
   /** The monotonic instant the claim's segment is due, read once per speech. */
   readonly deadline: () => Promise<number>;
+  /** Whether the publisher closed this line, so a retry needs a new one. */
+  readonly lineClosed: (phraseId: string) => boolean;
   /** Plays one phrase and authors its line; never plays past `stopAtMs`. */
   readonly publish: (
     job: BotSpeechJob,
@@ -101,16 +110,18 @@ export function createBotSpeaker(input: {
     stale = false;
   let stage = 'generate';
   let progress = freshProgress();
-  /** Plays one phrase under a fresh line id: a retry is a new line. */
+  /** Plays one phrase under its line id, a new one once its line closed. */
   const speak = async (
     phrase: BotSpeechJob,
     signal: AbortSignal,
     stopAtMs: number,
   ) => {
+    if (progress.lineId === null || input.lineClosed(progress.lineId))
+      progress.lineId = input.nextId();
     playing = true;
     try {
       return await input.publish(
-        { ...phrase, phraseId: input.nextId() },
+        { ...phrase, phraseId: progress.lineId },
         signal,
         stopAtMs,
       );
@@ -203,6 +214,7 @@ export function createBotSpeaker(input: {
       progress.spoken += 1;
       progress.synthesized = null;
       progress.ready = false;
+      progress.lineId = null;
     }
   };
   /** A failed attempt keeps a usable answer for the next one. */

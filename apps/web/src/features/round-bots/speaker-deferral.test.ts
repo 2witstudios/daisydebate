@@ -70,6 +70,7 @@ test('a deferred turn resumes at its refused step without buying or speaking any
       };
     },
     deadline: async () => 1e12,
+    lineClosed: () => false,
     publish: async (job) => {
       refuse(`publish:${job.text}`);
       spoken.push(job.text);
@@ -100,16 +101,19 @@ test('a deferred turn resumes at its refused step without buying or speaking any
   });
   await speaker.stop();
 });
-/** The phrase ids and samples offered when the first publish is refused once. */
-async function offeredAfterOneRefusal() {
+/** The phrase ids offered when the first publish is refused once. */
+async function offeredAfterOneRefusal(closedAfterRefusal: boolean) {
   const offered: string[] = [];
   let refused = false;
+  const closed = new Set<string>();
   const { speaker, settle } = harness('speech', {
     synthesize: async (phraseId, text) => answered(job(phraseId, text, 960)),
+    lineClosed: (id) => closed.has(id),
     publish: async (sent) => {
-      offered.push(`${sent.text}:${sent.pcm.length}:${sent.phraseId}`);
+      offered.push(`${sent.text}:${sent.phraseId}`);
       if (!refused) {
         refused = true;
+        if (closedAfterRefusal) closed.add(sent.phraseId);
         throw refuseCapacity();
       }
       return { complete: true, segmentEnded: false };
@@ -122,19 +126,28 @@ async function offeredAfterOneRefusal() {
   await speaker.stop();
   return offered;
 }
-test('a phrase refused mid-publication is said again whole, as a new line (ADR 0122)', async () => {
-  const offered = await offeredAfterOneRefusal();
+test('a phrase whose start outcome is unknown is retried under the same line id', async () => {
+  const offered = await offeredAfterOneRefusal(false);
   assert({
-    given: 'a first phrase whose publication is refused once by pool capacity',
+    given: 'a first phrase refused once before its line was closed',
     should:
-      'offer the same whole phrase again on the next wake under a new line id, then the next phrase',
-    actual: {
-      phrases: offered.map((entry) => entry.split(':').slice(0, 2).join(':')),
-      newLine: new Set(offered.map((entry) => entry.split(':')[2])).size,
-    },
-    expected: {
-      phrases: ['One.:960', 'One.:960', 'Two.:960'],
-      newLine: 3,
-    },
+      'say it again under the same line id, so a start that committed is not written twice',
+    actual: offered.map((entry) => entry.split(':')[0]),
+    expected: ['One.', 'One.', 'Two.'],
+  });
+  assert({
+    given: 'the same retry',
+    should: 'reuse the first line id, then give the next phrase its own',
+    actual: [offered[0] === offered[1], offered[1] !== offered[2]],
+    expected: [true, true],
+  });
+});
+test('a phrase cut and closed is said again whole, as a new line (ADR 0122)', async () => {
+  const offered = await offeredAfterOneRefusal(true);
+  assert({
+    given: 'a first phrase whose line was closed cut before the retry',
+    should: 'say it again whole under a new line id',
+    actual: new Set(offered.map((entry) => entry.split(':')[1])).size,
+    expected: 3,
   });
 });
