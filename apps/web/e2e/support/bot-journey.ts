@@ -102,7 +102,7 @@ export async function proveHumanBotJourney(browser: Browser) {
         `panel ruling ${round.panelRuling}`,
       ).toContain(round.outcome);
     }).toPass({ timeout: BOT_SPEECH_MS + 240_000 });
-    const runs = await botSpeechEvidence(view.id);
+    const { runs, lines } = await botSpeechEvidence(view.id);
     const received = (role: string, kind: string) =>
       runs.filter(
         (run) =>
@@ -119,6 +119,19 @@ export async function proveHumanBotJourney(browser: Browser) {
     expect(received('negative', 'tts').every((run) => run.characters > 0)).toBe(
       true,
     );
+    // Every voiced phrase that played became one whole authored line, character
+    // for character; at most the one phrase voiced ahead was never started
+    // because it would not fit before the segment end (ADR 0122).
+    const voiced = received('negative', 'tts').map((run) => run.characters);
+    const spoken = lines.filter((line) => line.role === 'negative');
+    expect(spoken.length).toBeGreaterThan(0);
+    expect(spoken.every((line) => line.complete && !line.interrupted)).toBe(
+      true,
+    );
+    expect(spoken.map((line) => line.characters)).toEqual(
+      voiced.slice(0, spoken.length),
+    );
+    expect(voiced.length - spoken.length).toBeLessThanOrEqual(1);
     expect(received('judge', 'judging')).toHaveLength(1);
     expect(runs.filter((run) => run.role === 'affirmative')).toEqual([]);
     const receipt = await openPage(host.context, 'human/bot receipt');
