@@ -404,6 +404,7 @@ test('a short opening phrase waits for the second to be voiced, so the speech ne
 test('a line written ahead under an id already closed is written under a new one', async () => {
   const closed = new Set<string>();
   let failed = false;
+  let spokenTwo = 0;
   const run = harness('speech', {
     generate: async () =>
       answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] }),
@@ -418,6 +419,7 @@ test('a line written ahead under an id already closed is written under a new one
         throw publicationStopError('handoff', 'Native audio handoff failed');
       }
       void signal;
+      if (sent.text === 'Two.') spokenTwo += 1;
       return { complete: true, segmentEnded: false };
     },
   });
@@ -435,7 +437,8 @@ test('a line written ahead under an id already closed is written under a new one
     actual: {
       writtenAhead: twos.length,
       distinctIds: new Set(twos.map((entry) => entry.split(':')[1])).size,
+      spokenTwo,
     },
-    expected: { writtenAhead: 2, distinctIds: 2 },
+    expected: { writtenAhead: 2, distinctIds: 2, spokenTwo: 1 },
   });
 });
