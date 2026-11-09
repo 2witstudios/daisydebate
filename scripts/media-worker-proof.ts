@@ -137,7 +137,6 @@ async function publishContinuously(
     trackName: nextId(),
     sampleRate: 24000,
     channels: 1,
-    monotonicNowMs: performance.now,
   });
   const silence = new Int16Array(240);
   const anchor = performance.now();

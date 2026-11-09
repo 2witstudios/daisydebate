@@ -193,7 +193,6 @@ test('two same-name native tracks return distinct handle-bound RTP records witho
           trackName: track.name,
           sampleRate: 48000,
           channels: 1,
-          monotonicNowMs: performance.now,
         });
         const second = await next;
         if (second.sid !== other.trackSid || second.sid === track.sid)

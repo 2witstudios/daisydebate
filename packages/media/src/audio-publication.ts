@@ -11,21 +11,11 @@ import {
 } from '@livekit/rtc-node';
 
 /**
- * Why a publication stopped short: the native connect or handoff failed,
- * capture never reported hearing the track (ISSUE-514-r2), or the paced
- * writer stopped (a wake still late after re-anchoring, an invalid clock or
- * receipt, a refused window). Codes only, safe to log (ISSUE-514-r1).
+ * Why a publication stopped short: the native connect or a frame handoff
+ * failed. Codes only, safe to log (ISSUE-514-r1).
  */
-export type PublicationStop =
-  'connect' | 'unheard' | 'handoff' | 'stall' | 'clock' | 'refused';
-const STOPS: readonly PublicationStop[] = [
-  'connect',
-  'unheard',
-  'handoff',
-  'stall',
-  'clock',
-  'refused',
-];
+export type PublicationStop = 'connect' | 'handoff';
+const STOPS: readonly PublicationStop[] = ['connect', 'handoff'];
 /** An INFRASTRUCTURE error that names its stop as its cause. */
 export const publicationStopError = (stop: PublicationStop, message: string) =>
   createAppError('INFRASTRUCTURE', message, { stop });
@@ -39,14 +29,8 @@ export function publicationStopOf(error: unknown): PublicationStop | undefined {
       : undefined;
   return STOPS.find((known) => known === stop);
 }
-
-/** Acknowledged native handoff bracket, not an estimated playout timestamp. */
-export type SourceProgress = {
-  readonly startSample: number;
-  readonly endSample: number;
-  readonly beforeMs: number;
-  readonly afterMs: number;
-};
+/** The native queue a publication buffers ahead of playout by default. */
+export const DEFAULT_QUEUE_MS = 500;
 
 export async function createAudioPublication(input: {
   readonly url: string;
@@ -54,12 +38,20 @@ export async function createAudioPublication(input: {
   readonly trackName: string;
   readonly sampleRate: number;
   readonly channels: number;
-  readonly monotonicNowMs: () => number;
+  /**
+   * The native playout buffer: frames handed over within it never wait on
+   * anything but the source itself, and `clearQueue` drops them at once.
+   */
+  readonly queueMs?: number;
 }) {
+  const queueMs = input.queueMs ?? DEFAULT_QUEUE_MS;
   if (
     ![24000, 48000].includes(input.sampleRate) ||
     ![1, 2].includes(input.channels) ||
-    !idSchema.safeParse(input.trackName).success
+    !idSchema.safeParse(input.trackName).success ||
+    !Number.isSafeInteger(queueMs) ||
+    queueMs < 10 ||
+    queueMs > 2000
   )
     throw createAppError('VALIDATION', 'Unsupported native PCM format');
   const endpoint = new URL(input.url);
@@ -70,14 +62,14 @@ export async function createAudioPublication(input: {
   )
     throw createAppError('VALIDATION', 'Invalid media transport endpoint');
   const room = new Room();
-  // Zero disables the native pacing queue. Each acknowledgement follows the
-  // synchronous OnData handoff of exactly one 10ms frame (ffi 0.13.1).
-  const source = new AudioSource(input.sampleRate, input.channels, 0);
+  // A real native queue: the source plays out in real time from it, so a
+  // writer's handoff never stalls the stream (ADR 0122).
+  const source = new AudioSource(input.sampleRate, input.channels, queueMs);
   const track = LocalAudioTrack.createAudioTrack(input.trackName, source);
   let closing = false;
   let failed = false;
   let samples = 0;
-  let pending: Promise<SourceProgress> | undefined;
+  let pending: Promise<void> | undefined;
   let shutdown: Promise<{ readonly consumedSamples: number }> | undefined;
   const disconnected = Promise.withResolvers<void>();
   // A dropped connection ends the publication: no later frame reaches anyone.
@@ -115,7 +107,11 @@ export async function createAudioPublication(input: {
     usable: () => !closing && !failed,
     /** Samples per channel handed to the source so far, across every job. */
     sentSamples: () => samples,
-    capture10ms(data: Int16Array): Promise<SourceProgress> {
+    /**
+     * Hands one 10 ms frame to the native queue. It settles at once while the
+     * queue has room, and otherwise once playout frees it.
+     */
+    capture10ms(data: Int16Array): Promise<void> {
       if (closing || failed)
         return Promise.reject(
           createAppError('CONFLICT', 'Audio publication is closed'),
@@ -135,9 +131,6 @@ export async function createAudioPublication(input: {
           ),
         );
       const capture = async () => {
-        const beforeMs = input.monotonicNowMs();
-        if (!Number.isFinite(beforeMs))
-          throw createAppError('VALIDATION', 'Invalid monotonic instant');
         try {
           // The SDK's pointer helper addresses the underlying buffer, so own a
           // tightly sized copy even when the caller passed an offset subarray.
@@ -149,12 +142,7 @@ export async function createAudioPublication(input: {
               input.sampleRate / 100,
             ),
           );
-          const afterMs = input.monotonicNowMs();
-          if (!Number.isFinite(afterMs) || afterMs < beforeMs)
-            throw new Error('Invalid clock');
-          const startSample = samples;
           samples += input.sampleRate / 100;
-          return { startSample, endSample: samples, beforeMs, afterMs };
         } catch {
           failed = true;
           throw publicationStopError('handoff', 'Native audio handoff failed');
@@ -165,6 +153,10 @@ export async function createAudioPublication(input: {
       });
       return pending;
     },
+    /** Milliseconds handed over but not yet played out. */
+    queuedMs: () => source.queuedDuration,
+    /** Drops every queued frame now: a stop or barge-in is silent at once. */
+    clearQueue: () => source.clearQueue(),
     /**
      * Ends the publication by leaving the room, which ends its track for
      * every subscriber. It never unpublishes first: rtc-node holds the room's

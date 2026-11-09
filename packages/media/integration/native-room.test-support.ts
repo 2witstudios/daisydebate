@@ -74,7 +74,6 @@ export async function withNativePublication(
       trackName: createId(),
       sampleRate: 48000,
       channels: 1,
-      monotonicNowMs: () => performance.now(),
     });
     const [track, , participant] = await subscribed;
     const reception = new NativeReception();

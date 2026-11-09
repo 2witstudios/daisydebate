@@ -8,99 +8,84 @@ import {
   waitForCadence,
   pcmJob,
 } from './native-fixtures.test-support';
-import { createPacedAudioWriter } from '../src/paced-publication';
+import { createStreamingAudioWriter } from '../src/audio-stream';
 import { afterAll } from 'bun:test';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { dispose } from '@livekit/rtc-node';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { SourceProgress } from '../src/audio-publication';
 import { withNativePublication } from './native-room.test-support';
-import {
-  assertNativePublicationEvidence,
-  createNativePublicationEvidence,
-} from './publication-evidence.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 afterAll(async () => {
   await dispose();
 });
+const writer = (
+  publisher: Parameters<typeof createStreamingAudioWriter>[0]['target'],
+) =>
+  createStreamingAudioWriter({
+    target: publisher,
+    sampleRate: 48000,
+    channels: 1,
+    nowMs: () => performance.now(),
+    waitUntilMs: waitForCadence,
+    leadMs: 100,
+  });
 
 test(
-  'Bun zero-buffer native publication acknowledges actual 10ms source handoffs',
+  'buffered native publication streams a whole job in real time to a real subscriber (ADR 0122)',
   () =>
-    withNativePublication(async ({ publisher, reader }) => {
-      const progress: SourceProgress[] = [];
-      for (let index = 0; index < 20; index++) {
-        const frame = new Int16Array(480);
-        for (let sample = 0; sample < frame.length; sample++)
-          frame[sample] = (sample + index * 480) % 80 < 40 ? 1000 : -1000;
-        progress.push(await publisher.capture10ms(frame));
-      }
-      const received = await reader.read();
+    withNativePublication(async ({ publisher, reception }) => {
+      reception.begin();
+      const start = performance.now();
+      // A concurrent stall the stream never awaits, as a slow database call would be.
+      const stall = Bun.sleep(200);
+      const result = await writer({
+        ...publisher,
+        capture10ms: (data) => publisher.capture10ms(data),
+      })(pcmJob(), new AbortController().signal);
+      const elapsed = performance.now() - start;
+      await stall;
+      const received = await reception.read();
       assert({
-        given: 'twenty acknowledged real zero-buffer native handoffs',
+        given: '200 ms of PCM streamed through the buffered source',
         should:
-          'count a contiguous 9600-sample source prefix with monotonic timing brackets',
+          'hand every frame over in real time less the lead, and the subscriber should hear all of it',
         actual: {
-          start: progress[0]!.startSample,
-          end: progress.at(-1)!.endSample,
-          bracketed: progress.every(
-            (p, index) =>
-              p.beforeMs <= p.afterMs &&
-              p.endSample - p.startSample === 480 &&
-              (index === 0 || p.startSample === progress[index - 1]!.endSample),
-          ),
+          ...result,
+          paced: elapsed >= 90 && elapsed < 400,
+          receivedSamples: received.samples,
+          audible: received.energy > 0,
+          sourceTone: received.toneAmplitude >= 100,
         },
-        expected: { start: 0, end: 9600, bracketed: true },
-      });
-      assert({
-        given: 'the independent LiveKit subscriber',
-        should: 'receive real 48kHz mono 10ms PCM frames',
-        actual: received.done
-          ? null
-          : {
-              rate: received.value.sampleRate,
-              channels: received.value.channels,
-              samples: received.value.samplesPerChannel,
-            },
-        expected: { rate: 48000, channels: 1, samples: 480 },
-      });
-      const inFlight = publisher.capture10ms(new Int16Array(480));
-      // A deliberate event-loop stall, not a wait for an expected result: native
-      // dispatch/ack occurs while JS is blocked, so its bracket must stay wide.
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150);
-      const stalled = await inFlight;
-      assert({
-        given:
-          'the real native callback delayed by a deliberate 150ms JS stall',
-        should:
-          'retain the full uncertainty bracket instead of inventing a playout instant',
-        actual: {
-          wide: stalled.afterMs - stalled.beforeMs >= 100,
-          start: stalled.startSample,
-          end: stalled.endSample,
+        expected: {
+          sentSamples: 9600,
+          playedSamples: 9600,
+          aborted: false,
+          cut: false,
+          paced: true,
+          receivedSamples: 9600,
+          audible: true,
+          sourceTone: true,
         },
-        expected: { wide: true, start: 9600, end: 10080 },
       });
       await assertRejects({
         given: 'a malformed PCM frame',
         should: 'refuse before native publication',
-        actual: () => publisher!.capture10ms(new Int16Array(479)),
+        actual: () => publisher.capture10ms(new Int16Array(479)),
         code: 'VALIDATION',
       });
       assert({
-        given: 'cancellation after acknowledged native handoffs',
-        should:
-          'report only the consumed contiguous prefix with no native queue remaining',
+        given: 'a close after the stream',
+        should: 'report every sample handed over',
         actual: await publisher.close(),
-        expected: { consumedSamples: 10080 },
+        expected: { consumedSamples: 9600 },
       });
       await assertRejects({
-        given: 'a frame after cancellation',
+        given: 'a frame after close',
         should: 'refuse any later source handoff',
-        actual: () => publisher!.capture10ms(new Int16Array(480)),
+        actual: () => publisher.capture10ms(new Int16Array(480)),
         code: 'CONFLICT',
       });
     }),
@@ -108,149 +93,38 @@ test(
 );
 
 test(
-  'paced native PCM uses the real database clock and historical eligibility for a 200ms job',
+  'an abort clears the native queue and counts only the audio that played (AMEND-1)',
   () =>
-    withHistoricalSeat(databaseUrl, async (history) => {
-      await withNativePublication(async ({ publisher, reception }) => {
-        const start = performance.now();
-        let calibrations = 0;
-        const evidence = createNativePublicationEvidence();
-        const result = await createPacedAudioWriter({
-          publication: {
-            ...publisher,
-            capture10ms: (data) => {
-              reception.begin();
-              return publisher.capture10ms(data);
-            },
-          },
-          sampleRate: 48000,
-          channels: 1,
-          // Per-frame evidence is what these proofs pin.
-          framesPerAuthorization: 1,
-          nowMs: () => performance.now(),
-          waitUntilMs: waitForCadence,
-          calibrate: async () => {
-            calibrations++;
-            return history.calibrate();
-          },
-          refreshAfterMs: 50,
-          authorizeWindow: history.authorizeWindow,
-          observer: evidence.observer,
-        })(pcmJob(), new AbortController().signal);
-        // Diagnose before subscriber drain, which cannot establish source credit.
-        assertNativePublicationEvidence(evidence, result, 'complete');
-        const received = await reception.read();
-        assert({
-          given:
-            '9600 PCM samples paced in 10ms native frames and authorized by real PostgreSQL history',
-          should:
-            'credit the complete source prefix only after at least 200ms of actual cadence',
-          actual: {
-            ...result,
-            cadenceElapsed: performance.now() - start >= 200,
-            refreshed: calibrations >= 2,
-            receivedSamples: received.samples,
-            audible: received.energy > 0,
-            sourceTone: received.toneAmplitude >= 100,
-          },
-          expected: {
-            eligibleSamples: 9600,
-            complete: true,
-            segmentEnded: false,
-            stop: null,
-            cadenceElapsed: true,
-            refreshed: true,
-            receivedSamples: 9600,
-            audible: true,
-            sourceTone: true,
-          },
-        });
-      }, history.binding);
+    withNativePublication(async ({ publisher }) => {
+      const controller = new AbortController();
+      const long = new Int16Array(48000);
+      long.fill(1000);
+      const writing = writer(publisher)(long, controller.signal);
+      await Bun.sleep(300);
+      controller.abort();
+      const result = await writing;
+      assert({
+        given: 'a one-second job aborted after about 300 ms with a 100 ms lead',
+        should:
+          'stop at once, clear the queue, and count as played less than was sent',
+        actual: {
+          aborted: result.aborted,
+          queued: publisher.queuedMs(),
+          playedBelowSent: result.playedSamples < result.sentSamples,
+          playedNearAbort:
+            result.playedSamples >= 48000 * 0.2 &&
+            result.playedSamples <= 48000 * 0.4,
+        },
+        expected: {
+          aborted: true,
+          queued: 0,
+          playedBelowSent: true,
+          playedNearAbort: true,
+        },
+      });
     }),
   15000,
 );
-
-test('burst handoff, stalled callback and revoked history cannot credit queued future PCM', async () => {
-  for (const fault of ['burst', 'stall', 'history', 'cancel'] as const) {
-    await withHistoricalSeat(databaseUrl, async (history) => {
-      await withNativePublication(async ({ publisher }) => {
-        const controller = new AbortController();
-        const evidence = createNativePublicationEvidence();
-        const publication =
-          fault !== 'stall'
-            ? publisher
-            : {
-                ...publisher,
-                capture10ms: (data: Int16Array) => {
-                  const dispatched = publisher.capture10ms(data);
-                  Atomics.wait(
-                    new Int32Array(new SharedArrayBuffer(4)),
-                    0,
-                    0,
-                    150,
-                  );
-                  return dispatched;
-                },
-              };
-        const write = createPacedAudioWriter({
-          publication,
-          sampleRate: 48000,
-          channels: 1,
-          // Per-frame evidence is what these proofs pin.
-          framesPerAuthorization: 1,
-          nowMs: () => performance.now(),
-          waitUntilMs: fault === 'burst' ? async () => {} : waitForCadence,
-          calibrate: history.calibrate,
-          authorizeWindow: history.authorizeWindow,
-          observer: evidence.observer,
-          onAccepted: async (samples) => {
-            if (samples === 1440 && fault === 'history')
-              await history.closeEligibility();
-            if (samples === 1440 && fault === 'cancel') controller.abort();
-          },
-        });
-        const result = await write(pcmJob(), controller.signal);
-        const raw = await publisher.close();
-        assertNativePublicationEvidence(
-          evidence,
-          result,
-          fault === 'burst'
-            ? 'receipt.early'
-            : fault === 'stall'
-              ? 'receipt.late'
-              : fault === 'history'
-                ? 'refused'
-                : 'cancelled',
-        );
-        assert({
-          given: `a real native ${fault} fault during publication`,
-          should:
-            'retain only the authorized paced prefix and stop future source dispatch',
-          actual: { ...result, rawSamples: raw.consumedSamples },
-          expected: {
-            eligibleSamples: fault === 'burst' || fault === 'stall' ? 0 : 1440,
-            complete: false,
-            segmentEnded: false,
-            // A burst or a stalled callback breaks the receipt cadence; a
-            // revoked history refuses the window; a cancelled job names none.
-            stop:
-              fault === 'history'
-                ? 'refused'
-                : fault === 'cancel'
-                  ? null
-                  : 'clock',
-            rawSamples:
-              fault === 'burst' || fault === 'stall'
-                ? 480
-                : fault === 'cancel'
-                  ? 1440
-                  : 1920,
-          },
-        });
-      }, history.binding);
-    });
-  }
-}, 30000);
 
 test(
   'real hidden capture receives callback-stamped 16k mono PCM and closes unpublished streams',
