@@ -230,8 +230,10 @@ export function createBotPublisher(input: {
           if (!transient(error) || attempt >= BEGIN_ATTEMPTS) throw error;
           await input.waitUntilMs(
             input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
-            new AbortController().signal,
+            ended.signal,
           );
+          // A claim ended while backing off writes nothing more.
+          if (ended.signal.aborted) throw error;
         }
       }
     };
@@ -279,6 +281,14 @@ export function createBotPublisher(input: {
       // Read when its phrase plays; a rejection nobody waits for is not unhandled.
       line.catch(() => undefined);
       return line;
+    };
+    /** Stopped before a phrase's audio: the tail before it is silenced too. */
+    const stopEarly = () => {
+      if ((current?.queuedMs() ?? 0) > 0) {
+        cleared();
+        current?.clearQueue();
+      }
+      discard();
     };
     /** Deletes lines written ahead whose audio will never play. */
     const discard = () => {
@@ -340,7 +350,10 @@ export function createBotPublisher(input: {
         !Number.isFinite(stopAtMs)
       )
         throw createAppError('VALIDATION');
-      if (signal.aborted) throw createAppError('CONFLICT');
+      if (signal.aborted) {
+        stopEarly();
+        throw createAppError('CONFLICT');
+      }
       starting = true;
       try {
         return await play(job, signal, stopAtMs);
@@ -364,7 +377,10 @@ export function createBotPublisher(input: {
       const durationMs = durationOf(job);
       const native = await publication.use();
       current = native;
-      if (signal.aborted) throw createAppError('CONFLICT');
+      if (signal.aborted) {
+        stopEarly();
+        throw createAppError('CONFLICT');
+      }
       // A whole phrase that cannot finish before the cutoff is never started,
       // and a line written ahead for it, or any later one, is withdrawn.
       if (

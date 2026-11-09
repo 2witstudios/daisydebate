@@ -400,3 +400,27 @@ test('a short opening phrase waits for the second to be voiced, so the speech ne
     expected: { beforeSecondVoiced: [], afterSecondVoiced: ['publish:One.'] },
   });
 });
+
+test('a line written ahead under an id already closed is written under a new one', async () => {
+  const closed = new Set<string>();
+  const run = harness('speech', {
+    generate: async () =>
+      answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] }),
+    lineClosed: (id) => closed.has(id),
+  });
+  run.speaker.wake();
+  await run.settle();
+  const [first] = run.prepared;
+  // The publisher withdraws that line (the phrase before it was cut).
+  closed.add(first!.split(':')[1]!);
+  await run.release();
+  await run.release();
+  await run.speaker.stop();
+  const spokenTwo = run.log.filter((entry) => entry === 'publish:Two.');
+  assert({
+    given: 'a next phrase written ahead whose line the publisher then closed',
+    should: 'never speak it under that closed id',
+    actual: { prepared: run.prepared.length, spokenTwo: spokenTwo.length },
+    expected: { prepared: 1, spokenTwo: 1 },
+  });
+});

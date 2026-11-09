@@ -30,8 +30,8 @@ type Upcoming = {
   settled: boolean;
   /** It bought nothing (a refused pool slot, a provider error): voice it again. */
   failed: boolean;
-  /** The line id it will be spoken under. */
-  readonly lineId: string;
+  /** The line id it will be spoken under; a new one once that line closed. */
+  lineId: string;
 };
 /** How far one turn got; kept across deferrals so no step is bought twice. */
 type Progress = {
@@ -195,8 +195,10 @@ export function createBotSpeaker(input: {
   };
   /** Writes a voiced-ahead phrase's line while the phrase before it plays. */
   const prepareAhead = (upcoming: Upcoming) => {
-    if (playing && upcoming.answer && upcoming.settled)
-      input.writeAhead({ ...upcoming.answer.value, phraseId: upcoming.lineId });
+    if (!playing || !upcoming.answer || !upcoming.settled) return;
+    // A line withdrawn or closed is never written again under its id.
+    if (input.lineClosed(upcoming.lineId)) upcoming.lineId = input.nextId();
+    input.writeAhead({ ...upcoming.answer.value, phraseId: upcoming.lineId });
   };
   /** Waits, for a short opening phrase, until the second phrase is voiced. */
   const holdShortOpening = async (signal: AbortSignal) => {
@@ -208,9 +210,15 @@ export function createBotSpeaker(input: {
       (job.pcm.length / job.sampleRate) * 1000 >= SHORT_OPENING_MS
     )
       return;
+    if (signal.aborted) return;
     const stopped = Promise.withResolvers<void>();
-    signal.addEventListener('abort', () => stopped.resolve(), { once: true });
-    await Promise.race([second.done.catch(() => undefined), stopped.promise]);
+    const stop = () => stopped.resolve();
+    signal.addEventListener('abort', stop, { once: true });
+    try {
+      await Promise.race([second.done.catch(() => undefined), stopped.promise]);
+    } finally {
+      signal.removeEventListener('abort', stop);
+    }
   };
   /** Keeps the phrases after the one now due voiced ahead, each once. */
   const voiceAhead = (phrases: readonly string[], signal: AbortSignal) => {
@@ -229,6 +237,8 @@ export function createBotSpeaker(input: {
     );
     if (upcoming) {
       progress.ahead = progress.ahead.filter((held) => held !== upcoming);
+      // Later phrases keep being voiced while this one is readied.
+      voiceAhead(phrases, signal);
       await upcoming.done.catch(() => undefined);
       // An answer bought but not settled is kept and settled again; one never
       // bought is voiced now, in turn, rather than deferring the whole turn.
@@ -272,7 +282,6 @@ export function createBotSpeaker(input: {
         await progress.synthesized.settle();
         progress.ready = true;
       }
-      voiceAhead(phrases, signal);
       if (progress.spoken === 0) await holdShortOpening(signal);
       stage = 'publish';
       const speaking = speak(progress.synthesized.value, signal, stopAtMs);

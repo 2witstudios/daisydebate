@@ -209,24 +209,41 @@ export async function endLockedBotPhrase(
   } else {
     const spoken = end.spoken.trim().split(/\s+/).filter(Boolean).join(' ');
     if (!isSpokenPrefix(row.text, spoken)) throw createAppError('VALIDATION');
-    await closeLine(tx, row.id, spoken, true);
+    await closeLine(tx, row, spoken, true);
   }
   await signalChange(tx, scope.roundId);
   return { changed: true };
 }
-/** A cut line keeps the words heard; one cut before any word was said nothing. */
+type LineRow = {
+  readonly id: string;
+  readonly roundId: string;
+  readonly segmentId: string;
+  readonly roundParticipantId: string;
+};
+/**
+ * A cut line keeps the words heard; one cut before any word said nothing and
+ * is deleted. A bot's stream is complete only because it spoke, so a stream
+ * left with no line is dropped with it: its turn stays owed (ADR 0122).
+ */
 async function closeLine(
   tx: BoundedTransactionContext,
-  id: string,
+  row: LineRow,
   spoken: string,
   interrupted: boolean,
 ) {
-  if (!spoken) await tx.delete(utterances).where(eq(utterances.id, id));
-  else
+  if (spoken) {
     await tx
       .update(utterances)
       .set({ complete: true, interrupted, text: spoken })
-      .where(eq(utterances.id, id));
+      .where(eq(utterances.id, row.id));
+    return;
+  }
+  await tx.delete(utterances).where(eq(utterances.id, row.id));
+  await tx.execute(sql`delete from transcript_segments t
+    where t.round_id=${row.roundId} and t.segment_id=${row.segmentId}
+      and t.round_participant_id=${row.roundParticipantId} and t.chunk_count=0
+      and not exists(select 1 from utterances u where u.round_id=t.round_id
+        and u.segment_id=t.segment_id and u.round_participant_id=t.round_participant_id)`);
 }
 
 /**
@@ -240,7 +257,9 @@ export async function closeAbandonedBotLines(
   roundId: string,
   roundParticipantId?: string,
 ) {
-  const rows = (await tx.execute(sql`select u.id, u.text,
+  const rows =
+    (await tx.execute(sql`select u.id, u.text, u.round_id as "roundId",
+      u.segment_id as "segmentId", u.round_participant_id as "roundParticipantId",
       extract(epoch from (least(clock_timestamp(),
         u.created_at+u.bot_duration_ms*interval '1 millisecond',
         coalesce(s.ended_at,'infinity'::timestamptz), s.due_at)-u.created_at))*1000
@@ -249,15 +268,18 @@ export async function closeAbandonedBotLines(
     where u.round_id=${roundId} and u.bot_phrase_id is not null and not u.complete
       ${roundParticipantId === undefined ? sql`` : sql`and u.round_participant_id=${roundParticipantId}`}
     for update of u`)) as unknown as {
-    id: string;
-    text: string;
-    fraction: number | string;
-  }[];
+      id: string;
+      text: string;
+      fraction: number | string;
+      roundId: string;
+      segmentId: string;
+      roundParticipantId: string;
+    }[];
   for (const row of rows) {
     const fraction = Number(row.fraction);
     await closeLine(
       tx,
-      row.id,
+      row,
       spokenPrefix(row.text, fraction),
       !(fraction >= 1),
     );

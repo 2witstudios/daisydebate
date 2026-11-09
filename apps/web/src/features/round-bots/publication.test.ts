@@ -740,3 +740,49 @@ test('a line written ahead is read once its audio starts, when the line before i
     expected: true,
   });
 });
+
+test('a stop that lands before a phrase’s audio silences the tail before it', async () => {
+  const { claim, events } = harness();
+  await claim.publish(job(400, 'a'.repeat(24)), signal(), far());
+  // a's 300 ms tail is still queued when the next phrase is stopped.
+  const controller = new AbortController();
+  controller.abort();
+  await assertRejects({
+    given: 'a next phrase stopped before any of its audio',
+    should: 'refuse it',
+    actual: () =>
+      claim.publish(job(400, 'b'.repeat(24)), controller.signal, far()),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'the stop',
+    should: 'clear the queued tail of the phrase before it at once',
+    actual: events.includes('clear'),
+    expected: true,
+  });
+  await claim.close();
+});
+
+test('a phrase start backing off after a failure writes nothing once the claim ends', async () => {
+  let attempts = 0;
+  const { claim } = harness({
+    begin: async () => {
+      attempts += 1;
+      throw new Error('statement timeout');
+    },
+  });
+  const publishing = claim
+    .publish(job(100), signal(), far())
+    .catch(() => 'stopped');
+  await Bun.sleep(20);
+  await claim.close();
+  await publishing;
+  await Bun.sleep(400);
+  assert({
+    given:
+      'a phrase start that keeps timing out, its claim closed while it backs off',
+    should: 'ask no more once the claim ended',
+    actual: attempts,
+    expected: 1,
+  });
+});

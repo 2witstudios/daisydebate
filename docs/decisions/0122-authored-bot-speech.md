@@ -91,7 +91,7 @@ its delivery instead of fitting it into the human capture pipeline.
    a stop) voicing ahead is aborted. A retry keeps its line id until that line
    is closed; a phrase cut and closed is said again whole, as a new line.
 7. **Coverage.** A bot's stream is complete by construction once it authors
-   a line. A grant it did not use owes nothing (ISSUE-965, now read from
+   a line, and dropped again if its only line is withdrawn unsaid. A grant it did not use owes nothing (ISSUE-965, now read from
    authored speech). Its scheduled turn with no authored line still freezes
    incomplete (`never-sealed`): a silent bot is a failure, not "nothing
    lost". Credited publication windows, their table and the bot branches of

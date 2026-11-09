@@ -328,26 +328,32 @@ test('a frozen transcript takes no phrase start and no phrase end', async () => 
 });
 
 test('a phrase cut before its first word leaves no line', async () => {
-  await withSpeakingBot(async ({ operations, claim, room, lines }) => {
-    const spoken = phrase();
-    await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
-    await operations.endBotPhrase(claim.scope, claim.token, spoken.phraseId, {
-      kind: 'cut',
-      spoken: '',
-    });
-    const again = await operations.endBotPhrase(
-      claim.scope,
-      claim.token,
-      spoken.phraseId,
-      { kind: 'whole' },
-    );
-    assert({
-      given: 'a phrase barged in on before a word was heard, then a late end',
-      should: 'delete its line, and take the late end as a no-op',
-      actual: { lines: await lines(), again },
-      expected: { lines: [], again: { changed: false } },
-    });
-  });
+  await withSpeakingBot(
+    async ({ operations, claim, room, lines, fixture, target }) => {
+      const spoken = phrase();
+      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+      await operations.endBotPhrase(claim.scope, claim.token, spoken.phraseId, {
+        kind: 'cut',
+        spoken: '',
+      });
+      const again = await operations.endBotPhrase(
+        claim.scope,
+        claim.token,
+        spoken.phraseId,
+        { kind: 'whole' },
+      );
+      const streams =
+        await fixture.sql`select 1 from transcript_segments where round_id=${target.roundId} and round_participant_id=${target.roundParticipantId}`;
+      assert({
+        given:
+          'a bot’s only phrase barged in on before a word was heard, then a late end',
+        should:
+          'delete its line and the stream it made complete, so the turn stays owed, and take the late end as a no-op',
+        actual: { lines: await lines(), streams: streams.length, again },
+        expected: { lines: [], streams: 0, again: { changed: false } },
+      });
+    },
+  );
 });
 
 test('a line its worker never closed keeps only what could have played, at takeover and at the freeze', async () => {

@@ -28,6 +28,13 @@ const FRAME_ARRIVAL_MS = 500;
 /** One batch interval on top of the frame-arrival allowance. */
 const SEAL_SETTLE_MS = FRAME_ARRIVAL_MS + CAPTURE_BATCH_INTERVAL_MS;
 
+/** Whether a seat is a bot's, whose transcript is authored, never captured (ADR 0122). */
+export const botSeat = (state: CaptureState, roundParticipantId: string) =>
+  state.participants.some(
+    (participant) =>
+      participant.roundParticipantId === roundParticipantId &&
+      participant.kind === 'bot',
+  );
 /**
  * Bounded segment/seat streams this worker seals. A committed nonempty
  * speaking interval is expected even when no clip arrives, so a silent seat
@@ -37,13 +44,6 @@ const SEAL_SETTLE_MS = FRAME_ARRIVAL_MS + CAPTURE_BATCH_INTERVAL_MS;
  * flight, so it seals before the admission cutoff (VIDEO-4.1); shutdown seals
  * whatever is left.
  */
-/** Whether a seat is a bot's, whose transcript is authored, never captured (ADR 0122). */
-export const botSeat = (state: CaptureState, roundParticipantId: string) =>
-  state.participants.some(
-    (participant) =>
-      participant.roundParticipantId === roundParticipantId &&
-      participant.kind === 'bot',
-  );
 export function createStreamTracker(ceiling: number) {
   const streams = new Map<string, Stream>();
   const forClip = (key: Key) => {
