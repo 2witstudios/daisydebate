@@ -171,21 +171,22 @@ written at phrase start inside the live claim, room, floor and segment, and
 only if it ends before the segment is due; it closes `complete`, or
 `interrupted` with only a whole-word prefix of its text (ADR 0122). These schema tables alone do not prove a working capture producer.
 
-| Table                   | Columns                                                            | Category         | Purpose                                                  |
-| ----------------------- | ------------------------------------------------------------------ | ---------------- | -------------------------------------------------------- |
-| round_transcripts       | round_id                                                           | identifier       | Bind the committed frontier to its Round                 |
-| round_transcripts       | revision                                                           | none             | Monotonic committed transcript frontier                  |
-| transcript_segments     | round_id, segment_id, round_participant_id                         | identifier       | Bind a stream to authoritative segment and seat          |
-| transcript_segments     | state, partial_reasons, chunk_count, sealed_chunk_count, sealed_at | none             | Preserve honest complete/partial write closure           |
-| transcript_observations | id, round_id, segment_id, round_participant_id, track_id           | identifier       | Bind trusted observation coverage to the media stream    |
-| transcript_observations | worker_epoch, observed_from, observed_until                        | none             | Prove continuous coverage without persisting PCM         |
-| utterances              | bot_phrase_id                                                      | identifier       | Key a bot's authored line to its phrase (ADR 0122)       |
-| utterances              | interrupted                                                        | none             | Mark an authored line cut off where its playout stopped  |
-| media_worker_leases     | session_id, worker_id                                              | identifier       | Identify the active capture worker                       |
-| media_worker_leases     | epoch, expires_at                                                  | none             | Fence takeover and stale ingress                         |
-| utterances              | clip_key, capture_track_id                                         | identifier       | Deduplicate the captured clip                            |
-| utterances              | capture_start_offset_ms, capture_duration_ms, capture_worker_epoch | none             | Bind clip placement and worker epoch                     |
-| utterances              | capture_body_digest                                                | personal/private | Detect conflicting retries of private transcript content |
+| Table                   | Columns                                                            | Category         | Purpose                                                      |
+| ----------------------- | ------------------------------------------------------------------ | ---------------- | ------------------------------------------------------------ |
+| round_transcripts       | round_id                                                           | identifier       | Bind the committed frontier to its Round                     |
+| round_transcripts       | revision                                                           | none             | Monotonic committed transcript frontier                      |
+| transcript_segments     | round_id, segment_id, round_participant_id                         | identifier       | Bind a stream to authoritative segment and seat              |
+| transcript_segments     | state, partial_reasons, chunk_count, sealed_chunk_count, sealed_at | none             | Preserve honest complete/partial write closure               |
+| transcript_observations | id, round_id, segment_id, round_participant_id, track_id           | identifier       | Bind trusted observation coverage to the media stream        |
+| transcript_observations | worker_epoch, observed_from, observed_until                        | none             | Prove continuous coverage without persisting PCM             |
+| utterances              | bot_phrase_id                                                      | identifier       | Key a bot's authored line to its phrase (ADR 0122)           |
+| utterances              | interrupted                                                        | none             | Mark an authored line cut off where its playout stopped      |
+| utterances              | bot_duration_ms                                                    | none             | An authored phrase's known length, for a held Round's resume |
+| media_worker_leases     | session_id, worker_id                                              | identifier       | Identify the active capture worker                           |
+| media_worker_leases     | epoch, expires_at                                                  | none             | Fence takeover and stale ingress                             |
+| utterances              | clip_key, capture_track_id                                         | identifier       | Deduplicate the captured clip                                |
+| utterances              | capture_start_offset_ms, capture_duration_ms, capture_worker_epoch | none             | Bind clip placement and worker epoch                         |
+| utterances              | capture_body_digest                                                | personal/private | Detect conflicting retries of private transcript content     |
 
 Capture body digests follow transcript retention of 180 days and subject erasure;
 hashing does not anonymize transcript-derived data. Raw transcript text remains
