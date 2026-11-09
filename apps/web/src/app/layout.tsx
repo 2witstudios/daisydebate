@@ -1,4 +1,3 @@
-import { requestBrowserCapture } from '../lib/request-session';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { connection } from 'next/server';
@@ -9,6 +8,7 @@ import {
   THEME_COOKIE,
 } from '../features/theme/theme-preference';
 import {
+  requestBrowserCapture,
   requestMetadataBase,
   requestSearchIndexing,
 } from '../lib/request-session';
