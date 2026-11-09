@@ -482,3 +482,20 @@ test('a phrase whose start was refused starts before any of its audio plays when
     expected: { firstLine: 'refused', framesWhileStarting: 0, played: 10 },
   });
 });
+
+test('a phrase’s length reaches its start as an exact whole number of milliseconds', async () => {
+  const { claim, begins } = harness();
+  // 201 frames: (48240 / 24000) * 1000 is 2009.9999999999998 in floating point.
+  await claim.publish(
+    { ...job(10), pcm: new Int16Array(240 * 201).fill(1) },
+    signal(),
+    far(),
+  );
+  await tailPlays();
+  assert({
+    given: 'a phrase of 201 whole frames',
+    should: 'start its line with a length of exactly 2010 ms',
+    actual: (begins[0] as { phrase: { durationMs: number } }).phrase.durationMs,
+    expected: 2010,
+  });
+});

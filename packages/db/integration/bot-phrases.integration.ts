@@ -386,3 +386,20 @@ test('a line its worker never closed keeps only what could have played, at takeo
     },
   );
 });
+
+test('an exact retry of a phrase start is checked like the first: a closed floor refuses it', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, fixture, target }) => {
+      const spoken = phrase();
+      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+      await fixture.sql`update round_speaking_intervals set ended_at=clock_timestamp(),ended_version=2 where round_id=${target.roundId}`;
+      await assertRejects({
+        given: 'the same phrase start retried after the floor closed',
+        should: 'refuse it, so a retry never plays on authority it lost',
+        actual: () =>
+          operations.beginBotPhrase(claim.scope, claim.token, spoken, room),
+        code: 'CONFLICT',
+      });
+    },
+  );
+});

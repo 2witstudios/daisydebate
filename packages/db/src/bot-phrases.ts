@@ -82,7 +82,7 @@ async function signalChange(tx: BoundedTransactionContext, roundId: string) {
  * its room, an open floor in the live segment with no incident, an unfrozen
  * transcript, and a phrase that ends on the database clock before its
  * segment is due. Its utterance is written then, still arriving, with the
- * transcript doorbell. An exact retry writes nothing; a different body under
+ * transcript doorbell. An exact retry, under the same checks, writes nothing; a different body under
  * the same phrase id is refused. A phrase that would end past its segment is
  * a final refusal: the speech stops at its last whole phrase.
  */
@@ -100,6 +100,14 @@ export async function beginLockedBotPhrase(
   const { scope, phrase } = input;
   requirePhrase(phrase);
   await verifyLockedBotWorker(tx, scope, input.token);
+  // Every start, an exact retry included, needs the room, floor and transcript:
+  // a retry's audio must not play on authority the first start had.
+  const named = await tx.execute(
+    sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${input.room} limit 1`,
+  );
+  if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
+  await requireBotSpeakingWindow(tx, scope);
+  await requireUnfrozen(tx, scope.roundId);
   const existing = await phraseRow(tx, phrase.phraseId);
   if (existing) {
     if (!sameSeat(existing, scope) || existing.text !== phrase.text)
@@ -109,12 +117,6 @@ export async function beginLockedBotPhrase(
       segmentDueAt: await botSegmentDueAt(tx, scope),
     };
   }
-  const named = await tx.execute(
-    sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${input.room} limit 1`,
-  );
-  if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
-  await requireBotSpeakingWindow(tx, scope);
-  await requireUnfrozen(tx, scope.roundId);
   // Orders sequence allocation against every other writer of this segment.
   const [fits] = await tx
     .select({

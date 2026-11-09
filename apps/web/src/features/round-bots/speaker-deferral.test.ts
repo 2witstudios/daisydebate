@@ -71,6 +71,8 @@ test('a deferred turn resumes at its refused step without buying or speaking any
     },
     deadline: async () => 1e12,
     lineClosed: () => false,
+    audible: () => false,
+    silence: () => undefined,
     publish: async (job) => {
       refuse(`publish:${job.text}`);
       spoken.push(job.text);

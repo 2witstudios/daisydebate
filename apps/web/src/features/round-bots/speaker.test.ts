@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import { harness } from './speaker.test-support';
+import { answered, harness, job } from './speaker.test-support';
 setupRitewayBun();
 test('a speech claim delivers its generated phrases once without overlapping turns', async () => {
   const { speaker, log, release, settle } = harness('speech');
@@ -112,9 +112,10 @@ test('cross-examination answers each peer turn once and cancels the active phras
   await settle();
   assert({
     given: 'a peer barge-in during playback',
-    should: 'cancel the active phrase and wait for the peer turn to end',
-    actual: [speaker.playing(), log.length],
-    expected: [false, 5],
+    should:
+      'cancel the active phrase, silence what is queued, and wait for the peer turn to end',
+    actual: [speaker.playing(), log.length, log.at(-1)],
+    expected: [false, 6, 'silence'],
   });
   speaker.peer('end-of-turn');
   speaker.peer('end-of-turn');
@@ -138,4 +139,66 @@ test('cross-examination answers each peer turn once and cancels the active phras
     actual: speaker.playing(),
     expected: false,
   });
+});
+
+test('a peer speaking over a cross-examination tail still queued silences it at once', async () => {
+  let queued = true;
+  const { speaker, log, settle } = harness('cross_ex', {
+    audible: () => queued,
+    publish: async () => ({
+      complete: true,
+      segmentEnded: false,
+      line: Promise.resolve(),
+    }),
+  });
+  speaker.wake();
+  await settle();
+  const playingTail = speaker.playing();
+  speaker.peer('speech-start');
+  queued = false;
+  assert({
+    given:
+      'an answer whose last phrase returned with its tail still queued, then the peer starts speaking',
+    should: 'still read as playing, and drop the queued tail at once',
+    actual: [playingTail, log.at(-1), speaker.playing()],
+    expected: [true, 'silence', false],
+  });
+  await speaker.stop();
+});
+
+test('the speech ending stops voicing ahead: nothing more is bought', async () => {
+  const aborted: string[] = [];
+  const { speaker, settle } = harness('speech', {
+    generate: async () =>
+      answered({
+        text: 'One. Two. Three.',
+        phrases: ['One.', 'Two.', 'Three.'],
+      }),
+    synthesize: async (phraseId, text, signal) => {
+      if (text === 'One.') return answered(job(phraseId, text));
+      // Held until aborted: the speech ends before these are needed.
+      return new Promise((_, reject) =>
+        signal.addEventListener('abort', () => {
+          aborted.push(text);
+          reject(signal.reason);
+        }),
+      );
+    },
+    publish: async () => ({
+      complete: false,
+      segmentEnded: true,
+      line: Promise.resolve(),
+    }),
+  });
+  speaker.wake();
+  await settle();
+  assert({
+    given:
+      'a first phrase that ends the segment while two more are being voiced',
+    should:
+      'abort both voicings, so neither is bought, and leave nothing playing',
+    actual: { aborted, playing: speaker.playing() },
+    expected: { aborted: ['Two.', 'Three.'], playing: false },
+  });
+  await speaker.stop();
 });

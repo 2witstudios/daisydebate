@@ -35,6 +35,8 @@ type Progress = {
   ready: boolean;
   /** The phrases voiced ahead, each bought once and kept across retries. */
   ahead: Upcoming[];
+  /** Ends the voicing ahead once the speech is over: nothing more is bought. */
+  voicing: AbortController;
   /**
    * The spoken phrase's line id. A retry keeps it, so a phrase start that
    * committed but whose answer was lost is not written twice; it changes
@@ -58,6 +60,7 @@ const freshProgress = (): Progress => ({
   synthesized: null,
   ready: false,
   ahead: [],
+  voicing: new AbortController(),
   lineId: null,
   confirming: null,
 });
@@ -103,6 +106,10 @@ export function createBotSpeaker(input: {
   readonly deadline: () => Promise<number>;
   /** Whether the publisher closed this line, so a retry needs a new one. */
   readonly lineClosed: (phraseId: string) => boolean;
+  /** Whether audio already handed over is still playing out of the queue. */
+  readonly audible: () => boolean;
+  /** Drops whatever is still queued, at once. */
+  readonly silence: () => void;
   /** Plays one phrase and authors its line; never plays past `stopAtMs`. */
   readonly publish: (
     job: BotSpeechJob,
@@ -166,7 +173,7 @@ export function createBotSpeaker(input: {
         token,
         input.nextId(),
         phrases[index]!,
-        signal,
+        AbortSignal.any([signal, progress.voicing.signal]),
       );
       await upcoming.answer.settle();
       upcoming.settled = true;
@@ -260,8 +267,12 @@ export function createBotSpeaker(input: {
       stage = 'publish';
       await confirm();
       const outcome = await speak(progress.synthesized.value, signal, stopAtMs);
-      // The segment is over: the speech ends at its last whole phrase.
-      if (outcome.segmentEnded) return;
+      // The segment is over: the speech ends at its last whole phrase, once
+      // what it did play (cut at the hard stop) has its line.
+      if (outcome.segmentEnded) {
+        await outcome.line;
+        return dropAhead();
+      }
       if (!outcome.complete) throw createAppError('CONFLICT', STOPPED);
       progress.confirming = {
         answer: progress.synthesized,
@@ -276,6 +287,12 @@ export function createBotSpeaker(input: {
     // The last phrase is spoken only once its line is written too.
     stage = 'publish';
     await confirm();
+    dropAhead();
+  };
+  /** The speech is over: voicing ahead stops, and nothing more is bought. */
+  const dropAhead = () => {
+    progress.voicing.abort();
+    progress.ahead = [];
   };
   /** A failed attempt keeps a usable answer for the next one. */
   const spendAttempt = (error: unknown) => {
@@ -334,6 +351,7 @@ export function createBotSpeaker(input: {
       owed = false;
       if (stale) {
         stale = false;
+        progress.voicing.abort();
         progress = freshProgress();
       }
       const abort = new AbortController();
@@ -347,10 +365,13 @@ export function createBotSpeaker(input: {
         stale = true;
         return;
       }
-      if (kind === 'speech-start' && !playing && !running) return;
+      // A tail still queued is the bot speaking too: a peer cuts it at once.
+      if (kind === 'speech-start' && !playing && !running && !input.audible())
+        return;
       cancel();
+      input.silence();
     },
-    playing: () => playing,
+    playing: () => playing || input.audible(),
     async stop() {
       stopped = true;
       const current = running;

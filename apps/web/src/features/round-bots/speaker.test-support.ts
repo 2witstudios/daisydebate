@@ -34,10 +34,12 @@ export function harness(
     readonly synthesize?: (
       phraseId: string,
       text: string,
+      signal: AbortSignal,
     ) => ReturnType<SpeakerInput['synthesize']>;
     readonly publish?: SpeakerInput['publish'];
     readonly deadline?: SpeakerInput['deadline'];
     readonly lineClosed?: SpeakerInput['lineClosed'];
+    readonly audible?: SpeakerInput['audible'];
   } = {},
 ) {
   const log: string[] = [];
@@ -57,13 +59,17 @@ export function harness(
         log.push('generate');
         return answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] });
       }),
-    synthesize: async (_scope, _token, phraseId, text) => {
+    synthesize: async (_scope, _token, phraseId, text, signal) => {
       log.push(`tts:${text}`);
       return options.synthesize
-        ? options.synthesize(phraseId, text)
+        ? options.synthesize(phraseId, text, signal)
         : answered(job(phraseId, text));
     },
     lineClosed: options.lineClosed ?? (() => false),
+    audible: options.audible ?? (() => false),
+    silence: () => {
+      log.push('silence');
+    },
     deadline:
       options.deadline ??
       (async () => {

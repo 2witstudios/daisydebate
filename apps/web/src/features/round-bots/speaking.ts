@@ -89,6 +89,8 @@ export function createSpeakingBotControl(input: {
         generation.synthesize(scope, token, phraseId, text, bounded(signal)),
       deadline: publication.deadline,
       lineClosed: publication.lineClosed,
+      audible: publication.audible,
+      silence: publication.silence,
       publish: publication.publish,
       nextId: input.nextId,
       maxAttempts: MAX_ATTEMPTS,

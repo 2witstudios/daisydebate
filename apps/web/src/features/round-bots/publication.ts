@@ -156,8 +156,14 @@ export function createBotPublisher(input: {
     let roomLeft = false;
     /** The native track in use, so a close can silence it at once. */
     let current: Publication | null = null;
-    /** When the native queue was last cleared: an abort, a failure or the end. */
-    let clearedAtMs = -Infinity;
+    /**
+     * When the native queue was cleared (an abort, a failure, a silence or the
+     * end), recent ones kept, so each phrase finds the clear that cut it.
+     */
+    let clears: number[] = [];
+    const cleared = () => {
+      clears = [...clears.slice(-31), input.monotonicNowMs()];
+    };
     /** Each played phrase's line closes here, in order, beside the next one's audio. */
     let closing: Promise<void> = Promise.resolve();
     /**
@@ -186,16 +192,38 @@ export function createBotPublisher(input: {
         });
       },
     });
+    /**
+     * Closes a line at what played, asked again on a failure: an end left
+     * undone would later be estimated from time alone. The line counts as
+     * closed from the first attempt, so a retry of its phrase is a new line
+     * whether or not an end whose answer was lost committed.
+     */
     const endLine = async (job: BotSpeechJob, playedFraction: number) => {
-      await input.store.endRoundBotPhrase(
-        job.scope,
-        job.token,
-        job.phraseId,
-        playedFraction >= 1
-          ? { kind: 'whole' }
-          : { kind: 'cut', spoken: spokenPrefix(job.text, playedFraction) },
-      );
       closed.add(job.phraseId);
+      const end =
+        playedFraction >= 1
+          ? ({ kind: 'whole' } as const)
+          : ({
+              kind: 'cut',
+              spoken: spokenPrefix(job.text, playedFraction),
+            } as const);
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          await input.store.endRoundBotPhrase(
+            job.scope,
+            job.token,
+            job.phraseId,
+            end,
+          );
+          return;
+        } catch (error) {
+          if (!transientBegin(error) || attempt >= BEGIN_ATTEMPTS) throw error;
+          await input.waitUntilMs(
+            input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
+            new AbortController().signal,
+          );
+        }
+      }
     };
     /**
      * The monotonic instant the claim's segment is due, read once per speech
@@ -229,7 +257,8 @@ export function createBotPublisher(input: {
         throw createAppError('VALIDATION');
       if (signal.aborted) throw createAppError('CONFLICT');
       const frames = wholeFrames(job.pcm);
-      const durationMs = (frames.length / SAMPLE_RATE) * 1000;
+      // Whole 10 ms frames: an exact integer, as the line's length must be.
+      const durationMs = frames.length / (SAMPLE_RATE / 1000);
       const native = await publication.use();
       current = native;
       if (signal.aborted) throw createAppError('CONFLICT');
@@ -325,7 +354,7 @@ export function createBotPublisher(input: {
       const fractionOf = (samples: number) =>
         Math.min(1, samples / job.pcm.length);
       if (result.aborted) {
-        clearedAtMs = input.monotonicNowMs();
+        cleared();
         // The speech is stopping: close the line now, at what played.
         if (await begun) await endLine(job, fractionOf(result.playedSamples));
         if (refusal !== undefined) throw refusal;
@@ -342,20 +371,16 @@ export function createBotPublisher(input: {
         // learns why from `line` and says the phrase again.
         if (!(await begun)) return;
         await input.waitUntilMs(playsUntilMs, ended.signal);
-        // A clear before its tail played out cut it there (AMEND-1).
+        // The first clear before its tail played out cut it there (AMEND-1).
         const cutAtMs =
-          clearedAtMs > handedAtMs && clearedAtMs < playsUntilMs
-            ? clearedAtMs
-            : null;
+          clears.find((at) => at > handedAtMs && at < playsUntilMs) ?? null;
+        // What it handed over, less the tail the clear dropped.
         const fraction =
           cutAtMs === null
             ? wholeFraction
-            : Math.min(
-                wholeFraction,
-                fractionOf(
-                  ((durationMs - (playsUntilMs - cutAtMs)) * SAMPLE_RATE) /
-                    1000,
-                ),
+            : fractionOf(
+                result.sentSamples -
+                  ((playsUntilMs - cutAtMs) * SAMPLE_RATE) / 1000,
               );
         // An end that fails leaves the line unfinished, never invented.
         await endLine(job, Math.max(0, fraction)).catch(() => undefined);
@@ -369,13 +394,21 @@ export function createBotPublisher(input: {
       publish,
       /** Whether this claim closed the line: a retry then needs a new one. */
       lineClosed: (phraseId: string) => closed.has(phraseId),
+      /** Whether audio handed over is still playing out of the queue. */
+      audible: () => (current?.queuedMs() ?? 0) > 0,
+      /** Drops whatever is still queued: a barge-in on a tail is silent at once. */
+      silence: () => {
+        if ((current?.queuedMs() ?? 0) <= 0) return;
+        cleared();
+        current?.clearQueue();
+      },
       /**
        * Ends the claim's publication: silences it at once, closes every
        * played line at what was heard, and refuses every later publish.
        */
       close: () =>
         (closing_down ??= (async () => {
-          clearedAtMs = input.monotonicNowMs();
+          cleared();
           current?.clearQueue();
           ended.abort();
           await closing;
