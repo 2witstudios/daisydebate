@@ -187,6 +187,8 @@ export function createBotPublisher(input: {
      * ahead is dated by it, so its start and fit match its playout.
      */
     let scheduledEndMs = -Infinity;
+    /** The database clock less the monotonic one, read with the speech's deadline. */
+    let dbOffsetMs: number | null = null;
     /** A phrase is between its publish and its first frame: its schedule is not known yet. */
     let starting = false;
     /** A line asked to be written ahead while the schedule was not known yet. */
@@ -220,8 +222,16 @@ export function createBotPublisher(input: {
         });
       },
     });
-    /** Asks again, backing off, while a call fails for a passing reason. */
-    const retryTransient = async (call: () => Promise<unknown>) => {
+    /**
+     * Asks again, backing off, while a call fails for a passing reason. A
+     * start (`writes`) stops once the claim ended, so nothing new is written
+     * after it; an end or a withdrawal only closes or removes text, so it is
+     * asked again whatever happens: left undone, it would be read as said.
+     */
+    const retryTransient = async (
+      call: () => Promise<unknown>,
+      writes: boolean,
+    ) => {
       for (let attempt = 1; ; attempt += 1) {
         try {
           await call();
@@ -230,10 +240,9 @@ export function createBotPublisher(input: {
           if (!transient(error) || attempt >= BEGIN_ATTEMPTS) throw error;
           await input.waitUntilMs(
             input.monotonicNowMs() + BEGIN_RETRY_MS * attempt,
-            ended.signal,
+            writes ? ended.signal : new AbortController().signal,
           );
-          // A claim ended while backing off writes nothing more.
-          if (ended.signal.aborted) throw error;
+          if (writes && ended.signal.aborted) throw error;
         }
       }
     };
@@ -252,8 +261,15 @@ export function createBotPublisher(input: {
               kind: 'cut',
               spoken: spokenPrefix(job.text, playedFraction),
             } as const);
-      await retryTransient(() =>
-        input.store.endRoundBotPhrase(job.scope, job.token, job.phraseId, end),
+      await retryTransient(
+        () =>
+          input.store.endRoundBotPhrase(
+            job.scope,
+            job.token,
+            job.phraseId,
+            end,
+          ),
+        false,
       );
     };
     /** Whole 10 ms frames: an exact integer, as the line's length must be. */
@@ -265,18 +281,29 @@ export function createBotPublisher(input: {
      * where an exact retry writes nothing twice.
      */
     const begin = (job: BotSpeechJob, joined: string, startsInMs: number) => {
-      const line = retryTransient(() =>
-        input.store.beginRoundBotPhrase(
-          job.scope,
-          job.token,
-          {
-            phraseId: job.phraseId,
-            text: job.text,
-            durationMs: durationOf(job),
-            startsInMs,
-          },
-          joined,
-        ),
+      // Dated on the database clock now, at the asking, so a start that
+      // waits on a lock is still dated by its audio, never by its commit.
+      const startsAt =
+        dbOffsetMs === null
+          ? undefined
+          : new Date(
+              input.monotonicNowMs() + startsInMs + dbOffsetMs,
+            ).toISOString();
+      const line = retryTransient(
+        () =>
+          input.store.beginRoundBotPhrase(
+            job.scope,
+            job.token,
+            {
+              phraseId: job.phraseId,
+              text: job.text,
+              durationMs: durationOf(job),
+              startsInMs,
+              ...(startsAt === undefined ? {} : { startsAt }),
+            },
+            joined,
+          ),
+        true,
       );
       // Read when its phrase plays; a rejection nobody waits for is not unhandled.
       line.catch(() => undefined);
@@ -290,13 +317,18 @@ export function createBotPublisher(input: {
       }
       discard();
     };
+    /** Withdrawals still being written: the claim's end waits for them. */
+    let withdrawing: Promise<unknown> = Promise.resolve();
     /** Deletes lines written ahead whose audio will never play. */
     const discard = () => {
       for (const { job, line } of prepared.values())
-        void line.then(
-          () => endLine(job, 0).catch(() => undefined),
-          () => undefined,
-        );
+        withdrawing = Promise.all([
+          withdrawing,
+          line.then(
+            () => endLine(job, 0).catch(() => undefined),
+            () => undefined,
+          ),
+        ]);
       prepared.clear();
     };
     /**
@@ -333,8 +365,10 @@ export function createBotPublisher(input: {
       const sentAtMs = input.monotonicNowMs();
       const serverNowMs = Date.parse(await input.store.databaseNow());
       // The server read happened somewhere after `sentAtMs`: assume the
-      // earliest, so the local stop is never later than the database's.
-      return Date.parse(segmentDueAt) - serverNowMs + sentAtMs;
+      // earliest, so the local stop is never later than the database's, and
+      // a line's start is dated no earlier than its audio.
+      dbOffsetMs = serverNowMs - sentAtMs;
+      return Date.parse(segmentDueAt) - dbOffsetMs;
     };
     const publish = async (
       job: BotSpeechJob,
@@ -528,6 +562,7 @@ export function createBotPublisher(input: {
           ended.abort();
           discard();
           await closing;
+          await withdrawing;
           await publication.close();
         })()),
     };

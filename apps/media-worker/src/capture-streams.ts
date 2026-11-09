@@ -35,6 +35,7 @@ export const botSeat = (state: CaptureState, roundParticipantId: string) =>
       participant.roundParticipantId === roundParticipantId &&
       participant.kind === 'bot',
   );
+
 /**
  * Bounded segment/seat streams this worker seals. A committed nonempty
  * speaking interval is expected even when no clip arrives, so a silent seat

@@ -530,3 +530,26 @@ test('the freeze and the judge read only lines that started', async () => {
     },
   );
 });
+
+test('a line written ahead is dated by the start the worker fixed, not by when it commits', async () => {
+  await withSpeakingBot(async ({ operations, claim, room, fixture }) => {
+    const [{ now }] = await fixture.sql`select clock_timestamp() as now`;
+    const startsAt = new Date(new Date(now).getTime() + 3_000).toISOString();
+    const ahead = phrase(createId(), 2_000);
+    await operations.beginBotPhrase(
+      claim.scope,
+      claim.token,
+      { ...ahead, startsAt },
+      room,
+    );
+    const [row] =
+      await fixture.sql`select created_at from utterances where bot_phrase_id=${ahead.phraseId}`;
+    assert({
+      given:
+        'a line written ahead with its audio start fixed on the database clock',
+      should: 'date it exactly there, however long its start took to commit',
+      actual: new Date(row!.created_at).toISOString(),
+      expected: startsAt,
+    });
+  });
+});

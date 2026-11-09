@@ -262,6 +262,18 @@ test('a speech resumes from the last confirmed audio', async () => {
     await f.sql`insert into utterances(id, round_id, segment_id, round_participant_id, sequence, text, complete, interrupted, bot_phrase_id, bot_duration_ms, created_at) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, 0, 'Whole.', true, false, ${createId()}, 2000, ${new Date(at.getTime() - 2_000)})`;
     await f.sql`insert into utterances(id, round_id, segment_id, round_participant_id, sequence, text, complete, interrupted, bot_phrase_id, bot_duration_ms, created_at) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, 1, 'Cut', true, true, ${createId()}, 5000, ${at})`;
   });
+  const ahead = await pointOf(async (f, { segment, seat, at }) => {
+    await f.sql`insert into utterances(id, round_id, segment_id, round_participant_id, sequence, text, complete, interrupted, bot_phrase_id, bot_duration_ms, created_at) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, 0, 'Whole.', true, false, ${createId()}, 2000, ${new Date(at.getTime() - 2_000)})`;
+    // The next line, written ahead and dated by an audio start still to come.
+    await f.sql`insert into utterances(id, round_id, segment_id, round_participant_id, sequence, text, complete, interrupted, bot_phrase_id, bot_duration_ms, created_at) values (${createId()}, ${f.roundId}, ${segment}, ${seat}, 1, 'Not yet said.', false, false, ${createId()}, 5000, clock_timestamp() + interval '30 seconds')`;
+  });
+  assert({
+    given: 'a bot holder whose next line is written ahead of its audio',
+    should:
+      'resume where its last said phrase ended, never at a start still to come',
+    actual: ahead.confirmedMs,
+    expected: ahead.expectedMs,
+  });
   assert({
     given: 'a bot holder that played a phrase whole, then was cut mid-phrase',
     should:

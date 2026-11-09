@@ -403,24 +403,39 @@ test('a short opening phrase waits for the second to be voiced, so the speech ne
 
 test('a line written ahead under an id already closed is written under a new one', async () => {
   const closed = new Set<string>();
+  let failed = false;
   const run = harness('speech', {
     generate: async () =>
       answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] }),
     lineClosed: (id) => closed.has(id),
+    publish: async (sent, signal) => {
+      // Two.'s line was written ahead as One. began; One.'s handoff then fails,
+      // and the publisher withdraws (closes) that ahead line.
+      if (sent.text === 'One.' && !failed) {
+        await Promise.resolve();
+        failed = true;
+        for (const entry of run.prepared) closed.add(entry.split(':')[1]!);
+        throw publicationStopError('handoff', 'Native audio handoff failed');
+      }
+      void signal;
+      return { complete: true, segmentEnded: false };
+    },
   });
-  run.speaker.wake();
-  await run.settle();
-  const [first] = run.prepared;
-  // The publisher withdraws that line (the phrase before it was cut).
-  closed.add(first!.split(':')[1]!);
-  await run.release();
-  await run.release();
+  for (let i = 0; i < 3; i++) {
+    run.speaker.wake();
+    await run.settle();
+  }
   await run.speaker.stop();
-  const spokenTwo = run.log.filter((entry) => entry === 'publish:Two.');
+  const twos = run.prepared.filter((entry) => entry.startsWith('Two.:'));
   assert({
-    given: 'a next phrase written ahead whose line the publisher then closed',
-    should: 'never speak it under that closed id',
-    actual: { prepared: run.prepared.length, spokenTwo: spokenTwo.length },
-    expected: { prepared: 1, spokenTwo: 1 },
+    given:
+      'a next phrase written ahead, withdrawn when the phrase before it failed, the speech then said again',
+    should:
+      'write it ahead again under a new id, never the withdrawn one, and speak it once',
+    actual: {
+      writtenAhead: twos.length,
+      distinctIds: new Set(twos.map((entry) => entry.split(':')[1])).size,
+    },
+    expected: { writtenAhead: 2, distinctIds: 2 },
   });
 });

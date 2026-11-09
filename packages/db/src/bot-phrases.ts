@@ -30,6 +30,12 @@ export type BotPhrase = {
    * one before it still plays, so it is written before any of its own audio.
    */
   readonly startsInMs?: number;
+  /**
+   * When its audio starts on the database clock, fixed by the worker when it
+   * asks: a start that waits on a lock is still dated by its audio, never by
+   * when it commits. Within a minute ahead; the start is never before now.
+   */
+  readonly startsAt?: string;
 };
 /** How a started phrase ended: played whole, or cut with only `spoken` heard. */
 export type BotPhraseEnd =
@@ -48,10 +54,17 @@ function requirePhrase(phrase: BotPhrase) {
     phrase.durationMs > MAX_PHRASE_MS ||
     !Number.isSafeInteger(phrase.startsInMs ?? 0) ||
     (phrase.startsInMs ?? 0) < 0 ||
-    (phrase.startsInMs ?? 0) > MAX_PHRASE_MS
+    (phrase.startsInMs ?? 0) > MAX_PHRASE_MS ||
+    (phrase.startsAt !== undefined &&
+      !Number.isFinite(Date.parse(phrase.startsAt)))
   )
     throw createAppError('VALIDATION');
 }
+/** When the phrase's audio starts on the database clock: never before now. */
+const startOf = (phrase: BotPhrase) =>
+  phrase.startsAt === undefined
+    ? sql`clock_timestamp()+${phrase.startsInMs ?? 0}*interval '1 millisecond'`
+    : sql`greatest(clock_timestamp(),${new Date(phrase.startsAt)}::timestamptz)`;
 async function phraseRow(tx: BoundedTransactionContext, phraseId: string) {
   const [row] = await tx
     .select()
@@ -115,7 +128,8 @@ export async function beginLockedBotPhrase(
   // Orders sequence allocation against every other writer of this segment.
   const [fits] = await tx
     .select({
-      fits: sql<boolean>`clock_timestamp()+${(phrase.startsInMs ?? 0) + phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
+      fits: sql<boolean>`${startOf(phrase)}+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
+      ahead: sql<boolean>`${startOf(phrase)}<=clock_timestamp()+${MAX_PHRASE_MS}*interval '1 millisecond'`,
     })
     .from(roundSegments)
     .where(
@@ -126,6 +140,7 @@ export async function beginLockedBotPhrase(
     )
     .for('update');
   if (!fits) throw createAppError('CONFLICT');
+  if (!fits.ahead) throw createAppError('VALIDATION');
   if (!fits.fits)
     throw refuseFinalSpeech('Bot phrase would end past its segment');
   const id = input.nextId();
@@ -141,7 +156,7 @@ export async function beginLockedBotPhrase(
     botPhraseId: phrase.phraseId,
     botDurationMs: phrase.durationMs,
     // When its audio starts: a line written ahead is dated by its playout.
-    createdAt: sql`clock_timestamp()+${phrase.startsInMs ?? 0}*interval '1 millisecond'`,
+    createdAt: startOf(phrase),
   });
   // The bot's stream is complete by construction once it has spoken.
   await tx

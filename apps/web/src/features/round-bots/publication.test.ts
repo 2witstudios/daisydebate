@@ -45,7 +45,7 @@ function harness(
   options: {
     readonly begin?: () => Promise<unknown>;
     readonly verify?: (call: number) => Promise<unknown>;
-    readonly end?: () => Promise<unknown>;
+    readonly end?: (phraseId: string) => Promise<unknown>;
   } = {},
 ) {
   const events: string[] = [];
@@ -81,7 +81,7 @@ function harness(
         phraseId: string,
         end: unknown,
       ) => {
-        await options.end?.();
+        await options.end?.(phraseId);
         ends.push({ phraseId, end, at: performance.now() });
         return { changed: true };
       },
@@ -697,6 +697,9 @@ test('after a refused phrase start, nothing after it is written ahead of it', as
   });
   const a = job(200, 'a'.repeat(24));
   const b = job(200, 'b'.repeat(24));
+  // Joined ahead of speech, as the seat does: a line can be written ahead.
+  claim.start();
+  await Bun.sleep(10);
   const first = claim.publish(a, signal(), far());
   // As the speaker does: the next line is asked for as the current one starts.
   claim.writeAhead(b);
@@ -784,5 +787,55 @@ test('a phrase start backing off after a failure writes nothing once the claim e
     should: 'ask no more once the claim ended',
     actual: attempts,
     expected: 1,
+  });
+});
+
+test('a withdrawal at the claim’s end that fails once is asked again, and the end waits for it', async () => {
+  let failedOnce = false;
+  const { claim, ends } = harness({
+    end: async (phraseId) => {
+      if (phraseId[0] === 'b' && !failedOnce) {
+        failedOnce = true;
+        throw new Error('statement timeout');
+      }
+    },
+  });
+  claim.start();
+  await Bun.sleep(10);
+  const first = claim.publish(job(400, 'a'.repeat(24)), signal(), far());
+  claim.writeAhead(job(400, 'b'.repeat(24)));
+  await first;
+  await claim.close();
+  assert({
+    given:
+      'a phrase playing with the next one’s line written ahead, the claim then ending, that withdrawal timing out once',
+    should: 'still withdraw the unsaid line before the end resolves',
+    actual: ends.find((row) => row.phraseId[0] === 'b')?.end,
+    expected: { kind: 'cut', spoken: '' },
+  });
+});
+
+test('once the speech’s deadline is read, a line written ahead is dated on the database clock', async () => {
+  const { claim, begins } = harness();
+  claim.start();
+  await Bun.sleep(10);
+  await claim.deadline();
+  const first = claim.publish(job(400, 'a'.repeat(24)), signal(), far());
+  claim.writeAhead(job(400, 'b'.repeat(24)));
+  await first;
+  await tailPlays();
+  await claim.close();
+  const ahead = begins.find(
+    (row) =>
+      (row as { phrase: { phraseId: string } }).phrase.phraseId[0] === 'b',
+  ) as { phrase: { startsAt?: string } };
+  // The stub's database clock reads 1_000_000 ms; the line starts ~400 ms on.
+  const startsAt = Date.parse(ahead.phrase.startsAt ?? '');
+  assert({
+    given: 'a line written ahead after the speech read its database deadline',
+    should:
+      'carry when its audio starts on the database clock, fixed at the asking',
+    actual: startsAt >= 1_000_000 && startsAt < 1_002_000,
+    expected: true,
   });
 });

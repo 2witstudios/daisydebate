@@ -36,7 +36,9 @@ its delivery instead of fitting it into the human capture pipeline.
    in the live segment with no incident, and an unfrozen transcript, an exact
    retry included. It checks that the phrase, whose length is known from its
    samples, ends on the database clock before the segment is due, counting
-   the wait until its audio starts (`startsInMs`). It writes the line, still arriving (`complete=false`), dated by
+   from when its audio starts, fixed on the database clock when the worker
+   asks (`startsAt`), so a start that waits on a lock is still dated by its
+   audio, never by its commit. It writes the line, still arriving (`complete=false`), dated by
    when its audio starts, with the revision and the `transcript-changed`
    doorbell. The line is written before any of its audio plays: for every
    phrase after the first, while the phrase before it still plays, so no
