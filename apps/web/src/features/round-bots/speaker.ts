@@ -22,6 +22,8 @@ type Upcoming = {
   done: Promise<void>;
   answer: Answer<BotSpeechJob> | null;
   settled: boolean;
+  /** It bought nothing (a refused pool slot, a provider error): voice it again. */
+  failed: boolean;
 };
 /** How far one turn got; kept across deferrals so no step is bought twice. */
 type Progress = {
@@ -155,6 +157,7 @@ export function createBotSpeaker(input: {
       index,
       answer: null,
       settled: false,
+      failed: false,
       done: Promise.resolve(),
     };
     upcoming.done = (async () => {
@@ -168,12 +171,17 @@ export function createBotSpeaker(input: {
       await upcoming.answer.settle();
       upcoming.settled = true;
     })();
-    // Read when its turn comes; a failure there is that phrase's failure.
-    upcoming.done.catch(() => undefined);
+    // Read when its turn comes; one that bought nothing is voiced again.
+    upcoming.done.catch(() => {
+      if (!upcoming.answer) upcoming.failed = true;
+    });
     return upcoming;
   };
   /** Keeps the phrases after the one now due voiced ahead, each once. */
   const voiceAhead = (phrases: readonly string[], signal: AbortSignal) => {
+    // A voice-ahead that bought nothing is asked again now, a phrase early,
+    // never left to be bought only when its own turn comes.
+    progress.ahead = progress.ahead.filter((held) => !held.failed);
     const last = Math.min(phrases.length - 1, progress.spoken + VOICED_AHEAD);
     for (let index = progress.spoken + 1; index <= last; index += 1)
       if (!progress.ahead.some((held) => held.index === index))

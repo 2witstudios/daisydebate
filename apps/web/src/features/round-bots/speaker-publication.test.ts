@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { publicationStopError } from '@daisy/media/audio';
+import { refuseCapacity } from '@daisy/db/testing';
 import { answered, harness, job } from './speaker.test-support';
 setupRitewayBun();
 
@@ -274,5 +275,44 @@ test('a refused line puts the speech back on its phrase without spending an atte
       'stop before the next phrase, then say the first again on the next wake with no failure recorded',
     actual: { offered, stages: run.stages() },
     expected: { offered: ['One.', 'One.', 'Two.'], stages: [] },
+  });
+});
+
+test('a voice-ahead refused a pool slot is asked again at the next phrase, not at its own turn', async () => {
+  let refusedThree = false;
+  const run = harness('speech', {
+    generate: async () =>
+      answered({
+        text: 'One. Two. Three. Four.',
+        phrases: ['One.', 'Two.', 'Three.', 'Four.'],
+      }),
+    synthesize: async (phraseId, text) => {
+      if (text === 'Three.' && !refusedThree) {
+        refusedThree = true;
+        throw refuseCapacity();
+      }
+      return answered(job(phraseId, text));
+    },
+  });
+  run.speaker.wake();
+  await run.settle();
+  await run.release();
+  const whilePlayingSecond = [...run.log];
+  await run.release();
+  await run.release();
+  await run.release();
+  await run.speaker.stop();
+  assert({
+    given:
+      'a third phrase whose voice-ahead is refused a pool slot while the first plays',
+    should:
+      'voice it again as the second starts, so it is ready before its turn, with no failure',
+    actual: {
+      askedAgainEarly: whilePlayingSecond.filter(
+        (entry) => entry === 'tts:Three.',
+      ).length,
+      stages: run.stages(),
+    },
+    expected: { askedAgainEarly: 2, stages: [] },
   });
 });
