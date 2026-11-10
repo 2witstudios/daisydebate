@@ -56,7 +56,7 @@ export async function collectDownloadObservation(input: {
       instanceId,
       directory,
     ).run(window);
-    if (collected.kind !== 'reported' || collected.report.kind !== 'report')
+    if (collected.kind !== 'reported')
       throw Error('Actual private download collector did not report');
     const files = (await readdir(directory)).filter((name) =>
       name.startsWith('report-'),

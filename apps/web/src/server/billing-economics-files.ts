@@ -23,13 +23,16 @@ async function prunePrivateFiles(
   protectFrom: string,
 ) {
   if (!economicsInstant.safeParse(now).success)
-    throw new Error('Billing economics clock invalid');
+    throw createAppError('INTERNAL', 'Billing economics clock invalid');
   const stream = await opendir(directory);
   let count = 0,
     visited = 0;
   for await (const entry of stream) {
     if (++visited > 1000)
-      throw new Error('Billing economics directory capacity exceeded');
+      throw createAppError(
+        'INFRASTRUCTURE',
+        'Billing economics directory capacity exceeded',
+      );
     count++;
     if (
       !/^(report-[a-z][a-z0-9]{23}|feed-\d{4}-\d{2})\.json$/.test(entry.name) ||
@@ -51,7 +54,10 @@ async function privateDirectory(directory: string) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const info = await lstat(directory);
   if (!info.isDirectory() || (info.mode & 0o077) !== 0)
-    throw new Error('Billing economics directory is not private');
+    throw createAppError(
+      'VALIDATION',
+      'Billing economics directory is not private',
+    );
 }
 async function readBoundedJson(file: FileHandle) {
   const bytes = Buffer.alloc(maximumFeedBytes + 1);
@@ -97,7 +103,10 @@ async function readPrivateFeed(path: string) {
         'VALIDATION',
         'Billing economics feed is not bounded and private',
       );
-    throw new Error('Billing economics feed unavailable');
+    throw createAppError(
+      'INFRASTRUCTURE',
+      'Billing economics feed unavailable',
+    );
   }
   try {
     const stat = await file.stat();
@@ -150,7 +159,7 @@ export function createBillingEconomicsFiles(input: {
           !economicsInstant.safeParse(window.startsAt).success ||
           !economicsInstant.safeParse(window.endsAt).success
         )
-          throw new Error('Billing economics window invalid');
+          throw createAppError('INTERNAL', 'Billing economics window invalid');
         // The reader keeps its own privacy check: a caller need not open the sink first.
         await privateDirectory(input.directory);
         return readPrivateFeed(
@@ -165,10 +174,16 @@ export function createBillingEconomicsFiles(input: {
         (await prunePrivateFiles(input.directory, input.now(), protectFrom)) >=
         1000
       )
-        throw new Error('Billing economics directory capacity exceeded');
+        throw createAppError(
+          'INFRASTRUCTURE',
+          'Billing economics directory capacity exceeded',
+        );
       const id = input.nextId();
       if (!idSchema.safeParse(id).success)
-        throw new Error('Billing economics report identity invalid');
+        throw createAppError(
+          'INTERNAL',
+          'Billing economics report identity invalid',
+        );
       const file = await open(
         join(input.directory, `report-${id}.json`),
         'wx',

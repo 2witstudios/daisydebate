@@ -172,10 +172,12 @@ a financial report or claims low-margin delivery:
   month it cannot measure.
 - **Failed** (a stage threw). The worker reports it exactly once through the
   worker failure sink: one `billing.economics.failed` line whose `operation` is
-  `billing.economics.<reason>`, and one capture. The captured error is typed
-  (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and `report_invalid`,
-  `INTERNAL` for `report_failed`, otherwise `INFRASTRUCTURE`), so `errorCode`
-  stays meaningful, and it carries the caught error as its `cause`, so the real
+  `billing.economics.<reason>`, and one capture. The captured error is typed:
+  a typed cause keeps its own code (every throw in the private file edge is
+  typed, so a non-private sink directory is `VALIDATION`), and an untyped one
+  takes its stage's (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and
+  `report_invalid`, `INTERNAL` for `report_failed`, otherwise
+  `INFRASTRUCTURE`). So `errorCode` stays meaningful, and it carries the caught error as its `cause`, so the real
   cause reaches the scrubbed tracker. A capacity refusal is first
   deferred by the shared bound (eight per stage) and only then reported, so it
   never counts as raised and never mutes a later genuine failure of that month.
@@ -245,16 +247,33 @@ sign-off; no agent performs it. The exact step:
    BILLING_ECONOMICS_DIRECTORY = "/data/billing-economics/sink"
    ```
 
-   The path is a subdirectory, so the sink creates it as mode 0700, owned by
-   the runtime user (`daisy`, uid 1001), instead of inheriting the volume root's
-   owner and mode.
+   The path is a subdirectory, because a Fly volume's root is owned by root:
+   the web process runs as `daisy` (uid 1001) and cannot create it there.
 
-3. Deploy through the normal staging pipeline. The next tick logs
-   `billing.economics.feed_missing` and raises `BILLING_ECONOMICS_INCOMPLETE`
-   once for the previous month.
-4. To measure a month, place `feed-YYYY-MM.json` (mode 0600, the
-   [minimal private input](#minimal-private-input) or a reconciled feed) in
-   that directory with `fly ssh console -a daisy-debate-staging`.
+3. Deploy through the normal staging pipeline, then create the sink directory
+   once, owned by the runtime user and private:
+
+   ```sh
+   fly ssh console -a daisy-debate-staging -C \
+     "install -d -o daisy -g daisy -m 0700 /data/billing-economics/sink"
+   ```
+
+   Until this runs, ticks fail once as `sink_unavailable`. After it, the next
+   tick logs `billing.economics.feed_missing` and raises
+   `BILLING_ECONOMICS_INCOMPLETE` once for the previous month.
+
+4. To measure a month, place `feed-YYYY-MM.json` (the
+   [minimal private input](#minimal-private-input) or a reconciled feed) owned
+   by `daisy` with mode 0600. `fly ssh console` runs as root, so write it with
+   `install` rather than a plain copy; a root-owned feed is unreadable to the
+   process and fails as `feed_invalid`:
+
+   ```sh
+   fly ssh console -a daisy-debate-staging -C \
+     "install -o daisy -g daisy -m 0600 /tmp/feed-2026-10.json /data/billing-economics/sink/feed-2026-10.json"
+   ```
+
+   (Upload the file to `/tmp` first with `fly sftp shell`.)
 
 ## Source availability and operator handoff
 

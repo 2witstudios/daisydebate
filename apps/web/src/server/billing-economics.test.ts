@@ -218,7 +218,7 @@ test('a genuine failure is reported once with its caught error, and a changed ou
       given:
         'a sink directory that is not private for two ticks, then repaired before the third',
       should:
-        'capture one typed INFRASTRUCTURE error carrying the caught error as sink_unavailable, then raise the new feed-missing outcome',
+        'capture one typed error carrying the caught error as sink_unavailable (VALIDATION: the directory is misconfigured), then raise the new feed-missing outcome',
       actual: {
         captured: run.captured.map((c) => [
           c.route,
@@ -235,7 +235,7 @@ test('a genuine failure is reported once with its caught error, and a changed ou
         captured: [
           [
             'billing.economics.sink_unavailable',
-            'INFRASTRUCTURE',
+            'VALIDATION',
             'Billing economics directory is not private',
           ],
           [
@@ -662,7 +662,7 @@ test('invalid data is captured as VALIDATION, an unavailable resource as INFRAST
     given:
       'a snapshot for another window, a feed stating a 10% floor, a truncated feed file, a non-private sink, a feed with repeated revenue sequences, and a feed over 1 MiB',
     should:
-      'capture snapshot_invalid, feed_invalid, report_invalid and an oversized feed as VALIDATION, and sink_unavailable as INFRASTRUCTURE',
+      'capture each misconfiguration or bad datum as VALIDATION, a non-private sink included',
     actual: [
       await codes(
         async () => undefined,
@@ -703,7 +703,7 @@ test('invalid data is captured as VALIDATION, an unavailable resource as INFRAST
       [['billing.economics.snapshot_invalid', 'VALIDATION']],
       [['billing.economics.feed_invalid', 'VALIDATION']],
       [['billing.economics.feed_invalid', 'VALIDATION']],
-      [['billing.economics.sink_unavailable', 'INFRASTRUCTURE']],
+      [['billing.economics.sink_unavailable', 'VALIDATION']],
       [['billing.economics.report_invalid', 'VALIDATION']],
       [['billing.economics.feed_invalid', 'VALIDATION']],
     ],
@@ -866,5 +866,43 @@ test('a feed_missing line the log sink refused is written on a later tick', asyn
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a failure outside any collection is reported once, not every hour', async () => {
+  const app = build(await mkdtemp(join(tmpdir(), 'billing-economics-worker-')));
+  const { logged, logger } = createEventRecorder();
+  let tick: (() => Promise<void>) | null = null;
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger,
+      clock: { now: () => 'not an instant' },
+      database: { ...app.database, billingEconomics: snapshotStore() },
+    },
+    instanceId: 'service-fixture',
+    timers: {
+      setInterval: (run) => {
+        tick = run;
+        return 1;
+      },
+      clearInterval: () => undefined,
+    },
+  });
+  try {
+    await service.started;
+    for (let n = 0; n < 3; n++)
+      await (tick as (() => Promise<void>) | null)?.();
+    assert({
+      given: 'a clock that never yields an instant, over four ticks',
+      should: 'log billing.economics.collect once',
+      actual: logged
+        .filter((line) => line.event === 'billing.economics.failed')
+        .map((line) => line.fields.operation),
+      expected: ['billing.economics.collect'],
+    });
+  } finally {
+    await service.stop();
+    await app.close();
   }
 });

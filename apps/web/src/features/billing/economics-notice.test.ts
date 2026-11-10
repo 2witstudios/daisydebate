@@ -68,7 +68,7 @@ test('the same failure every hour is one notice; a different code in the stage i
     ],
     expected: [
       '2026-10:save_failed:INTERNAL:',
-      '2026-10:save_failed:INFRASTRUCTURE:',
+      '2026-10:save_failed:INFRASTRUCTURE:capacity',
     ],
   });
 });
@@ -194,5 +194,22 @@ test('a saved report re-arms stage failures even when its signals did not go thr
       isFailureRaised(raised, '2026-10', signal),
     ],
     expected: [false, true],
+  });
+});
+
+test('two typed problems in one stage are two notices', () => {
+  const sink = (message: string) => ({
+    ...failed('2026-10', 'save_failed'),
+    reason: 'sink_unavailable' as const,
+    cause: createAppError('INFRASTRUCTURE', message),
+  });
+  assert({
+    given:
+      'a sink stage refused first for privacy and later for capacity, both typed',
+    should: 'give each problem its own notice',
+    actual:
+      failureNotice(sink('Billing economics directory is not private')) !==
+      failureNotice(sink('Billing economics directory capacity exceeded')),
+    expected: true,
   });
 });

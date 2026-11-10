@@ -16,8 +16,9 @@ type Collection<K extends EconomicsCollection['kind']> = Extract<
 export function failureNotice(collection: Collection<'failed'>): string {
   const { cause } = collection;
   const code = isAppError(cause) ? cause.code : 'INTERNAL';
-  // Our own VALIDATION refusals carry fixed messages, so each distinct data defect is its own notice.
-  const check = isAppError(cause) && code === 'VALIDATION' ? cause.message : '';
+  // A typed error carries a fixed, code-authored message, so each distinct typed problem is its own
+  // notice; an untyped error's text is not trusted to be fixed, so all of a stage's are one.
+  const check = isAppError(cause) ? cause.message : '';
   return `${collection.month}:${collection.reason}:${code}:${check}`;
 }
 

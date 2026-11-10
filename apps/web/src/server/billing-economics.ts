@@ -1,5 +1,5 @@
 import { isCapacityRefusal } from '@daisy/db/capacity';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import type { App } from './app';
 import {
   createBillingEconomicsCollector,
@@ -78,6 +78,8 @@ export function startBillingEconomics(input: {
     'Private billing economics remain incomplete',
   );
   let raised = nothingRaised;
+  /** The last failure outside any collection that was reported, until one completes. */
+  let collectFailure: string | null = null;
   /** Report a failure notice once until a report settles; only a failure the sink reported counts. */
   const reportOnce = (
     month: string,
@@ -91,8 +93,11 @@ export function startBillingEconomics(input: {
   };
   const raise = (collection: EconomicsCollection) => {
     if (collection.kind === 'failed') {
+      // A typed cause names its own problem; an untyped one takes its stage's code.
       const error = createAppError(
-        economicsFailureCode[collection.reason],
+        isAppError(collection.cause)
+          ? collection.cause.code
+          : economicsFailureCode[collection.reason],
         undefined,
         collection.cause,
       );
@@ -146,11 +151,19 @@ export function startBillingEconomics(input: {
   return startSingleFlightWorker({
     timers: input.timers,
     everyMs: 3_600_000,
-    failed: (error) => failed(error, 'collect'),
+    // A failure outside any collection (an invalid clock, a defect) is reported once per
+    // distinct problem until a collection completes again, never every hour.
+    failed: (error) => {
+      const notice = `collect:${isAppError(error) ? `${error.code}:${error.message}` : 'INTERNAL'}`;
+      if (collectFailure === notice) return;
+      if (failed(error, 'collect') === 'reported') collectFailure = notice;
+    },
     run: async () => {
       const window = previousEconomicsMonth(app.clock.now());
-      if (!window) throw createAppError('VALIDATION');
+      if (!window)
+        throw createAppError('VALIDATION', 'Billing economics clock invalid');
       raise(await collector.run(window));
+      collectFailure = null;
     },
   });
 }
