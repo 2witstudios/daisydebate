@@ -19,8 +19,18 @@ import {
 } from './transcript-proof';
 import { botSpeechEvidence } from './bot-speech-evidence';
 
-/** The shortest legal bot speech; the bot holds the floor until its clock ends. */
-const BOT_SPEECH_MS = 60_000;
+/**
+ * The bot's constructive: the shortest legal speech, unless a local proof asks
+ * for a full one (`E2E_BOT_SPEECH_MS=240000`, Freestyle's constructive length).
+ * The bot holds the floor until its clock ends.
+ */
+const BOT_SPEECH_MS = Number(process.env.E2E_BOT_SPEECH_MS ?? 60_000);
+if (
+  !Number.isSafeInteger(BOT_SPEECH_MS) ||
+  BOT_SPEECH_MS < 60_000 ||
+  BOT_SPEECH_MS > 600_000
+)
+  throw new Error('E2E_BOT_SPEECH_MS must be a legal speech length');
 /** How long the human holds the floor before yielding to the bot. */
 const HUMAN_SPEECH_MS = 3_000;
 
@@ -102,7 +112,7 @@ export async function proveHumanBotJourney(browser: Browser) {
         `panel ruling ${round.panelRuling}`,
       ).toContain(round.outcome);
     }).toPass({ timeout: BOT_SPEECH_MS + 240_000 });
-    const runs = await botSpeechEvidence(view.id);
+    const { runs, lines } = await botSpeechEvidence(view.id);
     const received = (role: string, kind: string) =>
       runs.filter(
         (run) =>
@@ -119,6 +129,33 @@ export async function proveHumanBotJourney(browser: Browser) {
     expect(received('negative', 'tts').every((run) => run.characters > 0)).toBe(
       true,
     );
+    // Every voiced phrase that played became one whole authored line, character
+    // for character. The speech ends at its last whole phrase that fits before
+    // the segment end, so at most the phrases voiced ahead of it (two, the
+    // speaker's VOICED_AHEAD) were never said (ADR 0122). Phrases are voiced
+    // ahead concurrently, so the runs are matched as a set, not in order.
+    const voiced = received('negative', 'tts').map((run) => run.characters);
+    const spoken = lines
+      .filter((line) => line.role === 'negative')
+      .map((line) => ({ ...line }));
+    expect(spoken.length).toBeGreaterThan(0);
+    expect(spoken.every((line) => line.complete && !line.interrupted)).toBe(
+      true,
+    );
+    const unmatched = [...voiced];
+    for (const line of spoken) {
+      const at = unmatched.indexOf(line.characters);
+      expect(at, `line of ${line.characters} characters was voiced`).not.toBe(
+        -1,
+      );
+      unmatched.splice(at, 1);
+    }
+    expect(unmatched.length).toBeLessThanOrEqual(2);
+    // Those unsaid are the last voiced: no phrase in the middle was dropped.
+    const byLength = (a: number, b: number) => a - b;
+    expect(
+      voiced.slice(voiced.length - unmatched.length).sort(byLength),
+    ).toEqual([...unmatched].sort(byLength));
     expect(received('judge', 'judging')).toHaveLength(1);
     expect(runs.filter((run) => run.role === 'affirmative')).toEqual([]);
     const receipt = await openPage(host.context, 'human/bot receipt');

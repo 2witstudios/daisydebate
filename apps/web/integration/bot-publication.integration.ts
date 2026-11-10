@@ -6,12 +6,17 @@ import { createBotPublisher } from '../src/features/round-bots/publication';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { ownSpeech, botControlOptions } from './bot-control.test-support';
-import { hearRoundTracks, mediaDependencies } from './round-media.test-support';
+import { mediaDependencies } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-/** Publishes one 241-sample phrase on an owned speech claim, then reads its transcript after teardown. */
-async function publishOnce(segmentDueAt?: string) {
+const TEXT = 'The affirmative has not shown any harm at all.';
+/**
+ * Publishes one phrase on an owned speech claim through the real broker,
+ * native publication and database, with its hard stop `stopInMs` away, then
+ * reads what was authored.
+ */
+async function publishOnce(stopInMs: number | 'deadline') {
   let outcome:
     | {
         readonly result: Awaited<
@@ -19,34 +24,23 @@ async function publishOnce(segmentDueAt?: string) {
             ReturnType<ReturnType<typeof createBotPublisher>>['publish']
           >
         >;
-        readonly transcript: number;
+        readonly lines: readonly {
+          text: string;
+          complete: boolean;
+          interrupted: boolean;
+          bot_phrase_id: string | null;
+        }[];
+        readonly streams: readonly { state: string }[];
       }
     | undefined;
   // Awaiting the fixture, not resolving inside it, lets its row cleanup finish first.
   await withRoomRuntime(async (f) => {
     const { roundId, claim } = await ownSpeech(f);
-    const deps = mediaDependencies(f);
-    const media = createRoundMediaOperations(deps);
-    const capture = hearRoundTracks(
-      f,
-      deps,
-      roundId,
-      claim.scope.roundParticipantId,
-    );
+    const media = createRoundMediaOperations(mediaDependencies(f));
     const claimed = createBotPublisher({
-      store: segmentDueAt
-        ? {
-            ...f.store,
-            // The row's due instant as this test needs it, through the real check.
-            verifyRoundBotPublication: async (...args) => {
-              await f.store.verifyRoundBotPublication(...args);
-              return { segmentDueAt };
-            },
-          }
-        : f.store,
+      store: f.store,
       botToken: media.botToken,
       connect: createAudioPublication,
-      heard: capture.heard,
       nextId: createId,
       monotonicNowMs: () => performance.now(),
       waitUntilMs: async (due, signal) => {
@@ -57,64 +51,73 @@ async function publishOnce(segmentDueAt?: string) {
     try {
       // Joined with the claim, ahead of speech, as the seat does.
       claimed.start();
+      const stopAtMs =
+        stopInMs === 'deadline'
+          ? await claimed.deadline()
+          : performance.now() + stopInMs;
+      const phraseId = createId();
       const result = await claimed.publish(
         {
           scope: claim.scope,
           token: claim.token,
-          phraseId: createId(),
-          text: 'Memory-only phrase',
-          pcm: new Int16Array(241),
+          phraseId,
+          text: TEXT,
+          // 241 samples: the tail frame is padded with silence (ISSUE-454).
+          pcm: new Int16Array(241).fill(500),
           sampleRate: 24000,
           channels: 1,
         },
         AbortSignal.timeout(5000),
+        stopAtMs,
       );
+      // Its line closes once its queued tail has played.
+      await Bun.sleep(400);
+      await claimed.close();
       outcome = {
         result,
-        transcript: (
-          await f.sql`select id from utterances where round_id=${roundId}`
-        ).length,
+        lines:
+          await f.sql`select text,complete,interrupted,bot_phrase_id from utterances where round_id=${roundId}`,
+        streams:
+          await f.sql`select state from transcript_segments where round_id=${roundId} and round_participant_id=${claim.scope.roundParticipantId}`,
       };
     } finally {
       await claimed.close();
-      await capture.close();
     }
   }, botControlOptions);
   return outcome!;
 }
 
-test('actual bot broker/native publisher sends a phrase in whole frames, padding its tail, without generated text credit', async () => {
-  const { result, transcript } = await publishOnce();
+test('a bot phrase plays through the real broker and native track and authors its exact text (ADR 0122)', async () => {
+  const { result, lines, streams } = await publishOnce('deadline');
   assert({
-    given: 'actual 241 content samples and native 240-sample frames',
+    given: 'one phrase published on a live speech claim',
     should:
-      'pad the last frame with silence, publish all the content and report the phrase complete (ISSUE-454)',
-    actual: [
-      result.originalSamples,
-      result.transportSamples,
-      result.eligibleSamples,
-      result.complete,
-      result.segmentEnded,
-    ],
-    expected: [241, 480, 480, true, false],
-  });
-  assert({
-    given: 'actual native publication through the bot broker',
-    should: 'create no transcript from generated text',
-    actual: transcript,
-    expected: 0,
+      'play it whole and author one complete line with exactly its text, its stream complete by construction',
+    actual: {
+      result,
+      lines: lines.map(({ text, complete, interrupted }) => ({
+        text,
+        complete,
+        interrupted,
+      })),
+      keyed: lines.every((line) => line.bot_phrase_id !== null),
+      streams: streams.map((row) => row.state),
+    },
+    expected: {
+      result: { complete: true, segmentEnded: false },
+      lines: [{ text: TEXT, complete: true, interrupted: false }],
+      keyed: true,
+      streams: ['complete'],
+    },
   });
 });
 
-test('a phrase whose known segment end has passed is not credited', async () => {
-  const { result } = await publishOnce(
-    new Date(Date.now() - 60_000).toISOString(),
-  );
+test('a phrase that cannot finish before its hard stop is never started or credited', async () => {
+  const { result, lines } = await publishOnce(5);
   assert({
-    given: 'a segment due a minute ago, as read when the phrase is published',
-    should:
-      'reach the writer clamp and credit nothing, so the end is wired from the read to the writer (ISSUE-460-r1)',
-    actual: [result.eligibleSamples, result.complete],
-    expected: [0, false],
+    given: 'a 20 ms phrase with 5 ms left before the hard stop',
+    should: 'start nothing and author no line',
+    actual: { result, lines: lines.length },
+    expected: { result: { complete: false, segmentEnded: true }, lines: 0 },
   });
 });

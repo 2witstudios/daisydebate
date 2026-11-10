@@ -52,7 +52,6 @@ const publication = await createAudioPublication({
   trackName: createId(),
   sampleRate: 24000,
   channels: 1,
-  monotonicNowMs: () => performance.now(),
 });
 for (let frame = 0; frame < FRAMES; frame++)
   await publication.capture10ms(new Int16Array(240));

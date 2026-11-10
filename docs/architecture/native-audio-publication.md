@@ -1,98 +1,46 @@
-# Native audio publication timing
+# Native audio publication
 
 The Bun adapter uses `@livekit/rtc-node` 1.2.0 and its prebuilt FFI 0.13.1
 under ADR 0053 and ADR 0067. Versioned official source links are in
 [the dependency registry](../dependencies.md#round-media-vendor-adapter).
-`AudioSource(..., queueSize = 0)` accepts exactly 10ms frames. Its native
-fast path calls the source sinks synchronously before the capture completion
-callback. The adapter records monotonic time immediately before dispatch and
-after that callback. The acknowledged sample prefix is raw source handoff
-progress, never browser delivery, drain duration or eligible transcript credit.
+Only bot seats publish natively; people publish from the browser.
 
-`@daisy/media/audio` exports `createAudioPublication`;
-`@daisy/media/publication` exports `createPacedAudioWriter`. Each writer owns one
-PCM job and closes its publication on completion, rejection or cancellation.
-The worker must inject its monotonic clock, cancellable cadence wait, database
-clock calibration and fresh historical eligibility reader. Native source output
-is not a promise of audibility or remote playback.
+`@daisy/media/audio` exports `createAudioPublication`. It joins the Room,
+publishes one microphone track and feeds it from an `AudioSource` with a real
+native queue (`queueMs`, 500 ms by default), which plays out in real time. A
+10 ms handoff settles at once while the queue has room. `queuedMs` reads what
+is handed over but not yet played, and `clearQueue` drops it at once, so a
+stop or a barge-in is silent immediately. A failed handoff or a dropped
+connection makes the publication unusable; `close` leaves the Room without
+unpublishing first (ISSUE-789).
 
-## Conservative clock mapping
+`@daisy/media/publication` exports `createStreamingAudioWriter`, a plain
+real-time writer ([ADR 0122](../decisions/0122-authored-bot-speech.md)). It
+hands each 10 ms frame over on a monotonic schedule, `leadMs` ahead of its
+playout, starting after whatever is already queued, so consecutive phrases
+play back to back. It awaits nothing but the clock and the handoff: no
+authority check or database call can stall the stream. It returns the samples
+sent and the samples played: an abort clears the queue and counts the queued
+samples as unplayed. With `stopAtMs` it never hands over a frame whose playout
+would end after that instant, on schedule or after an underrun. A failed
+handoff stops the stream and reports the failure with the played prefix.
+Native source output is not a promise of remote playback.
 
-A calibration brackets a fresh database timestamp D between monotonic sends m0
-and receives m1. Reject negative RTT or RTT above 100ms. The initial server offset
-interval is [D-m1, D-m0+p], where p is the timestamp quantization uncertainty
-(1ms for the database ISO representation). Refresh at most every 15 seconds;
-receipts or refreshes older than 30 seconds are rejected. A refreshed interval
-must intersect the previous interval; both intervals are widened by 100ppm drift
-across both endpoints of the new calibration bracket. A discontinuity
-invalidates the existing publication anchor; calibration cannot revive a gap.
-
-For acknowledged prefix n at sample rate r, the next nominal period starts at
-s = anchor + 1000*n/r and ends at s+10ms. Dispatch waits for that end. Reject an
-early dispatch, noncontiguous sample count, non-10ms frame, reversed native
-bracket or acknowledgement later than the due time plus 100ms. For acknowledgement
-time a, use drift d = 0.0001*max(abs(s-m0), abs(s-m1), abs(a-m0), abs(a-m1)).
-The full uncertainty window is [s+D-m1-d, a+D-m0+p+d], rounded outward to ISO
-milliseconds. This covers the nominal frame and native handoff bracket, including
-a frame beginning before a refreshed calibration. It is not a point timestamp.
-
-Every full nonempty window must pass the committed historical speaking reader.
-Only then does the eligible prefix advance. A stalled acknowledgement can
-increase raw source progress while granting zero additional eligible credit.
-After any gap or lost authority the job stops; it cannot re-anchor and later
-credit that raw prefix. Cancellation is checked before dispatch, after native
-acknowledgement and after authorization, and prevents queued future frames.
-No audio failure decides a competitive result.
-
-## Reproducible evidence and remaining integration
+## Reproducible evidence
 
 The real integration suite is
 `packages/media/integration/native-publication.integration.ts`. Run it through
 `bun scripts/heavy.ts bun --env-file=.env run --cwd packages/media test:integration integration/native-publication.integration.ts`
-after `bun slot:up`. It uses the loopback LiveKit 1.13.7 service, actual native
-publication/subscription and isolated PostgreSQL history. It proves a paced
-200ms job with refreshed calibration, nonzero received PCM, and burst, stalled
-callback, historical closure and cancellation controls. Subscriber sample totals
-only corroborate transport; authorization uses the native source brackets.
+after `bun slot:up`. Against the loopback LiveKit service it proves a whole
+job streamed in real time to a real subscriber while a concurrent 200 ms
+stall goes unawaited, and an abort that clears the native queue and counts
+only the audio that played. Unit tests (`audio-stream.test.ts`) pin the
+schedule, the lead, the hard stop, queue-aware scheduling and failed
+handoffs on a fake clock.
 
-### Qualification observations
-
-The canonical clock retains the first rejected predicate as data on invalid
-state. A later refresh or reanchor cannot replace that reason or revive the
-gap. A reason identifies a decision mechanism, not its environmental cause.
-
-The paced writer may receive a synchronous `createPublicationObserver` handle.
-It receives copied, frozen scalar observations of already computed calibration,
-source-receipt, cadence, history, cancellation and terminal decisions. It reads
-no additional clock and awaits no observer. Callback failure, non-void or async
-results, malformed records and exceeded limits make delivery sticky-invalid;
-returned promise rejection is consumed without becoming a publication decision.
-No PCM, identity, credential or raw error is copied, and no production logging
-or environment switch is added. Nonfinite numbers have explicit serialized
-tags. Observation overhead remains real elapsed time and can cause a later
-timing guard to refuse; this is not timing-transparent instrumentation.
-
-The native test owns its evidence collector, capped at 20 source receipts and
-64 other records per job. Classification reads final delivery validity and
-requires ordered records and a matching terminal result. Complete qualification
-still requires all 20 source decisions, all historical windows and exactly
-9600 eligible samples with `complete=true` and no stop, followed by independent
-transport checks. Missing, truncated, malformed or wrong-reason evidence cannot
-confirm qualification. An adverse guard confirmation does not turn a partial
-clock refusal into a successful happy path. These observations alone do not
-establish the cause or repair of a historical CI failure.
-
-Two source sabotage controls were observed: disabling raw prefix advancement
-fails the expected 9600-sample native assertion; removing early-dispatch rejection
-makes the burst control reach the real historical reader with an invalid window
-and fail. Unit tests separately reject excessive RTT, stale/discontinuous clocks,
-and prove conservative drift across refreshed calibration.
-
-This foundation does not establish provider PCM support, worker capture/sealing,
-lease fencing, durable append/freeze races, browser media, teardown recovery or
-CI service availability. Those remain delivery obligations. Worker composition
-must also isolate SDK logging through Daisy's privacy-aware adapters before
-production use. No production service, credentials or deployment is activated.
+The calibration helpers in `publication-clock.ts` (`publicationClock`,
+`calibrationOffsets`) remain only for the frame clock that times received
+audio (`@daisy/media/observation`).
 
 ## Native receive callback foundation
 

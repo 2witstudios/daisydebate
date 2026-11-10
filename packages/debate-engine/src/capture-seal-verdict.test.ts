@@ -159,66 +159,14 @@ test('a seal is complete only with this epoch’s full evidence', () => {
   });
 });
 
-test('a bot grant it did not use seals complete only with no evidence of speech (ISSUE-965)', () => {
-  const silent = {
-    epoch: 1,
-    observations: [],
-    chunks: { count: 0, otherEpochChunks: 0 },
-    storedChunks: 0,
-    expectedChunks: 0,
-    authority: [],
-    tolerance: { openMs: 0, closeMs: 0 },
-    grantUnused: true,
-  };
-  const heard = {
-    start: new Date(1000),
-    end: new Date(1100),
-    epoch: 1,
-  };
-  assert({
-    given:
-      'an unused grant with no evidence, a grant that is owed, then interruption, lost frames, an observation, a stored chunk and an expected chunk',
-    should: 'seal only the first complete',
-    actual: [
-      sealState(silent),
-      sealState({ ...silent, grantUnused: false }),
-      sealState({ ...silent, interrupted: true }),
-      sealState({ ...silent, framesLost: true }),
-      sealState({ ...silent, observations: [heard] }),
-      sealState({ ...silent, storedChunks: 1 }),
-      sealState({ ...silent, expectedChunks: 1 }),
-    ],
-    expected: [
-      'complete',
-      'partial',
-      'partial',
-      'partial',
-      'partial',
-      'partial',
-      'partial',
-    ],
-  });
-});
-
-test('what a stream must cover depends on who holds the seat (DEC-218, DEC-219)', () => {
+test('what a human stream must cover is its grants (DEC-218, DEC-219, ADR 0122)', () => {
   const rule = createCaptureRule({ joinMs: 4000, relayMs: 1000 });
   const grants = [{ start: 1000, end: 6000 }];
-  const windows = [{ start: 1880, end: 4790 }];
   assert({
     given: 'a human seat',
     should:
       'require its grants, opening by join tolerance and closing by relay',
-    actual: rule.coverage('human', grants, windows),
+    actual: rule.coverage(grants),
     expected: { authority: grants, tolerance: { openMs: 4000, closeMs: 1000 } },
-  });
-  assert({
-    given: 'a bot seat',
-    should:
-      'require only its credited windows, with relay edges and a terminal zone',
-    actual: rule.coverage('bot', grants, windows),
-    expected: {
-      authority: windows,
-      tolerance: { openMs: 1000, closeMs: 1000, terminalCloseMs: 1000 },
-    },
   });
 });

@@ -8,8 +8,6 @@ import { captureObservationSchema, captureSealSchema } from './capture-input';
 import {
   captureHistory,
   advanceTranscriptRevision,
-  readSeatGrants,
-  coverageAuthority,
   transcriptRevision,
 } from './capture-history';
 import {
@@ -134,17 +132,8 @@ export async function sealCapturedStream(
         eq(transcriptObservations.roundParticipantId, input.roundParticipantId),
       ),
     );
-  const [seatGrant] = await readSeatGrants(tx, input);
-  const coverage = await coverageAuthority(
-    tx,
-    input,
-    required,
-    dependencies.captureRule,
-  );
+  const coverage = dependencies.captureRule.coverage(required);
   const verdict = dependencies.captureRule.decideStreamCapture({
-    grantUnused:
-      seatGrant !== undefined &&
-      dependencies.captureRule.botGrantUnused(seatGrant.grant),
     interrupted: await captureSessionInterrupted(tx, input.sessionId, segment),
     framesLost: input.framesLost,
     epoch: input.epoch,

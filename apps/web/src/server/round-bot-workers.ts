@@ -50,7 +50,6 @@ export function startRoundBotWorkers(input: {
         voice: app.aiVoice,
         withProvider: input.budget,
         ...input.botMedia,
-        readHeard: app.redis.readCaptureHeard,
         timers: input.timers,
         nextId: () => app.ids.next(),
         nowMs: () => Date.parse(app.clock.now()),
@@ -59,7 +58,7 @@ export function startRoundBotWorkers(input: {
           'round.speaking.failed',
           'round.speaking',
           'Bot speech stays uncredited',
-          // Says whether a publish stopped at a stall or a native failure.
+          // Says whether a publish stopped at its connect or a native handoff.
           publicationStopOf,
         ),
         hearingFailed: (error) => hearing(error, 'join'),

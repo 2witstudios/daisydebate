@@ -38,12 +38,9 @@ async function main() {
       const [freeze] =
         await sql`select completeness,frontier from round_transcript_freezes where round_id=${round.roundId}`;
       const streams: TranscriptProofStream[] = await sql`select p.role,s.state,
-        (select count(*)::int from utterances u where u.segment_id=s.segment_id and u.round_participant_id=p.id and u.capture_worker_epoch is not null) as chunks,
-        coalesce((select sum(extract(epoch from (o.observed_until-o.observed_from))*1000)::float8 from transcript_observations o where o.segment_id=s.segment_id and o.round_participant_id=p.id),0)::float8 as "observedMs",
-        coalesce((select sum(extract(epoch from (w.credited_until-w.credited_from))*1000)::float8 from round_bot_publication_windows w where w.segment_id=s.segment_id and w.round_participant_id=p.id),0)::float8 as "publishedMs",
+        (select count(*)::int from utterances u where u.segment_id=s.segment_id and u.round_participant_id=p.id and u.bot_phrase_id is not null and u.complete and not u.interrupted) as "authoredLines",
         exists(select 1 from agent_runs a where a.round_participant_id=p.id and a.kind='speech' and a.provider='openrouter' and a.configuration_snapshot->>'providerOutcome'='received' and a.input_tokens+a.output_tokens>0) as "realSpeech",
-        exists(select 1 from agent_runs a where a.round_participant_id=p.id and a.kind='tts' and a.provider='openrouter' and a.configuration_snapshot->>'providerOutcome'='received' and a.characters>0) as "realTts",
-        exists(select 1 from utterances u where u.segment_id=s.segment_id and u.round_participant_id=p.id and u.capture_worker_epoch is not null) as "realStt"
+        exists(select 1 from agent_runs a where a.round_participant_id=p.id and a.kind='tts' and a.provider='openrouter' and a.configuration_snapshot->>'providerOutcome'='received' and a.characters>0) as "realTts"
         from transcript_segments s join round_participants p on p.id=s.round_participant_id where s.round_id=${round.roundId} order by p.role`;
       const proof = {
         ...round,

@@ -41,6 +41,8 @@ export async function withNativePublication(
     >;
   }) => Promise<void>,
   binding?: { roomName: string; identity: string },
+  /** A stand-in microphone by default; a bot's buffered source with a queue. */
+  queueMs = 0,
 ) {
   const service = createMediaService({ config });
   const roomName = binding?.roomName ?? createId();
@@ -74,7 +76,7 @@ export async function withNativePublication(
       trackName: createId(),
       sampleRate: 48000,
       channels: 1,
-      monotonicNowMs: () => performance.now(),
+      queueMs,
     });
     const [track, , participant] = await subscribed;
     const reception = new NativeReception();

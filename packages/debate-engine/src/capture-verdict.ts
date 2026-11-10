@@ -39,24 +39,6 @@ function captureRuns(observed: readonly Range[]): Range[] {
 const overlaps = (a: Range, b: Range) => a.start < b.end && a.end > b.start;
 
 /**
- * The instant from which the terminal zone is forgiven, or null: speech
- * ended there when a capture run carrying credited speech reaches into it.
- */
-function terminalZone(
-  windows: readonly Range[],
-  runs: readonly Range[],
-  terminalCloseMs: number | undefined,
-): number | null {
-  if (terminalCloseMs === undefined) return null;
-  const from = Math.max(...windows.map((w) => w.end)) - terminalCloseMs;
-  return runs.some(
-    (run) => run.end >= from && windows.some((w) => overlaps(run, w)),
-  )
-    ? from
-    : null;
-}
-
-/**
  * Where speech began in a window: the first capture run inside its open zone,
  * else its opening, so a dead microphone stays partial (DEC-218).
  */
@@ -97,11 +79,8 @@ function uncovered(range: Range, runs: readonly Range[]): Range[] {
 
 /**
  * The one traversal of a stream's required speech: where it has no capture, and
- * what stops the coverage being whole. For a bot, once capture of its credited
- * speech reaches the terminal zone, nothing in that fixed zone is required
- * (ISSUE-806), so more captured evidence near the cutoff never turns complete
- * into partial (ISSUE-807). Coverage is producer evidence, independent of
- * transcript text or lease ownership.
+ * what stops the coverage being whole. Coverage is producer evidence,
+ * independent of transcript text or lease ownership.
  */
 function traverseCoverage({
   authority,
@@ -132,30 +111,16 @@ function gapsOf(
   runs: readonly Range[],
   tolerance: CoverageEdges,
 ) {
-  const terminal = terminalZone(windows, runs, tolerance.terminalCloseMs);
   return windows.flatMap((w) =>
     uncovered(
       {
         start: speechBegan(w, runs, tolerance.openMs),
-        end: Math.min(
-          speechEnded(w, runs, tolerance.closeMs),
-          terminal ?? Infinity,
-        ),
+        end: speechEnded(w, runs, tolerance.closeMs),
       },
       runs,
     ),
   );
 }
-
-const nothingOwed = (facts: CaptureFacts) =>
-  facts.grantUnused === true &&
-  !facts.interrupted &&
-  !facts.framesLost &&
-  facts.observations.length === 0 &&
-  facts.chunks?.count === 0 &&
-  facts.chunks.otherEpochChunks === 0 &&
-  facts.storedChunks === 0 &&
-  facts.expectedChunks === 0;
 
 const chunksCounted = ({
   chunks,
@@ -185,7 +150,6 @@ const evidenceReasons = (facts: CaptureFacts): CapturePartialReason[] => [
  * old PCM. State, gaps and reasons all come from this one decision.
  */
 export function decideStreamCapture(facts: CaptureFacts): CaptureVerdict {
-  if (nothingOwed(facts)) return { state: 'complete', gaps: [] };
   const { problem, gaps } = traverseCoverage({
     authority: facts.authority,
     tolerance: facts.tolerance,
@@ -198,28 +162,6 @@ export function decideStreamCapture(facts: CaptureFacts): CaptureVerdict {
   return first
     ? { state: 'partial', reasons: [first, ...rest], gaps }
     : { state: 'complete', gaps: [] };
-}
-
-/**
- * A bot's credited windows separated by less than relay latency are one window
- * for coverage (DEC-294): a publisher stall must not create a tiny window that
- * has to hold a frame. A real hole stays, and still fails contiguity.
- */
-function coalesceCreditedWindows(
-  windows: readonly Range[],
-  relayMs: number,
-): Range[] {
-  const merged: Range[] = [];
-  for (const window of [...windows].sort((a, b) => a.start - b.start)) {
-    const last = merged.at(-1);
-    if (last && window.start - last.end < relayMs)
-      merged[merged.length - 1] = {
-        start: last.start,
-        end: Math.max(last.end, window.end),
-      };
-    else merged.push(window);
-  }
-  return merged;
 }
 
 /** Below one audio packet, a measured gap is the measure's own grain. */
@@ -247,21 +189,10 @@ export function createCaptureRule(tolerance: {
             !tolerated.some((other) => overlaps(gap, other)),
         );
     },
-    coverage: (kind, grants, botWindows) =>
-      kind === 'bot'
-        ? {
-            authority: coalesceCreditedWindows(botWindows, tolerance.relayMs),
-            tolerance: {
-              openMs: tolerance.relayMs,
-              closeMs: tolerance.relayMs,
-              // Only credited windows end at a cutoff the speaker cannot see (ISSUE-806).
-              terminalCloseMs: tolerance.relayMs,
-            },
-          }
-        : {
-            authority: grants,
-            tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
-          },
+    coverage: (grants) => ({
+      authority: grants,
+      tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
+    }),
   };
 }
 export const captureRule = createCaptureRule(CAPTURE_COVERAGE_TOLERANCE);

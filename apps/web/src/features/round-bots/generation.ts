@@ -73,6 +73,7 @@ function messagesFor(
               segment: spoken.rulesSegmentKey,
               text: line.text,
               complete: line.complete,
+              interrupted: line.interrupted,
             },
           ]
         : [];

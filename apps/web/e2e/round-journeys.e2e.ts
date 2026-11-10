@@ -26,7 +26,9 @@ test('actual zero-judge Round finishes unjudged through autonomous maintenance',
 test('actual human against a bot is spoken by the provider and decided by the AI judge', async ({
   browser,
 }) => {
-  test.setTimeout(420_000);
+  test.setTimeout(
+    420_000 + Math.max(0, Number(process.env.E2E_BOT_SPEECH_MS ?? 0) - 60_000),
+  );
   await proveHumanBotJourney(browser);
 });
 

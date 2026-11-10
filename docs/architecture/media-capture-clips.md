@@ -45,9 +45,10 @@ A pause is 500 ms (`CLIP_PAUSE_MS`) of consecutive low-energy frames after at
 least one frame of speech; the clip ends after the pause. Low-energy frames alone
 never end a clip, so a silent seat accumulates toward the bound instead of
 emitting a clip per batch. Frames that stop altogether are a pause too: the
-worker ends any carry whose last frame is `CLIP_PAUSE_MS` old by server time. A
-bot's track goes quiet when its speech ends, and its transcript must not wait for
-its segment's end, which the Round's completion follows within seconds.
+worker ends any carry whose last frame is `CLIP_PAUSE_MS` old by server time, so
+a speaker who stops is transcribed before the segment's end. A bot seat's
+frames are recorded but its clips are dropped before transcription: its words
+are authored ([ADR 0122](../decisions/0122-authored-bot-speech.md)).
 Low energy is an observed PCM RMS at most 64 signed sample units. Clips contain
 at most 60,000ms. At that limit, the latest low-energy frame ending in the final
 5,000ms is preferred, and with no such frame the hard sixty-second boundary is

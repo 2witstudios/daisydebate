@@ -1,16 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { CaptureTx, CaptureStream } from './media-capture-context';
-import {
-  speakingEndMs,
-  type CaptureInterval,
-  type CaptureRule,
-  type SeatGrantFacts,
-} from '@daisy/protocol';
-import { actors } from './schema/actors';
+import { speakingEndMs, type SeatGrantFacts } from '@daisy/protocol';
 import { rounds } from './schema/rounds';
-import { roundBotPublicationWindows } from './schema/round-bot-publications';
-import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { roundTranscripts } from './schema/transcript-segments';
 import type { roundSegments } from './schema/round-segments';
@@ -81,9 +73,10 @@ export async function readSeatGrants(
   const rows = (await tx.execute(sql`select distinct
       i.segment_id as "segmentId", i.round_participant_id as "roundParticipantId",
       a.kind, p.role, p.slot, s.sequence,
-      exists(select 1 from round_bot_publication_windows w
-        where w.round_id=i.round_id and w.segment_id=i.segment_id
-          and w.round_participant_id=i.round_participant_id) as credited
+      exists(select 1 from utterances u
+        where u.round_id=i.round_id and u.segment_id=i.segment_id
+          and u.round_participant_id=i.round_participant_id
+          and u.bot_phrase_id is not null) as authored
     from round_speaking_intervals i
     join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     join actors a on a.id=p.actor_id
@@ -98,7 +91,7 @@ export async function readSeatGrants(
     role: string;
     slot: number;
     sequence: number | null;
-    credited: boolean;
+    authored: boolean;
   }[];
   return rows.map((row) => ({
     segmentId: row.segmentId,
@@ -107,54 +100,11 @@ export async function readSeatGrants(
       seat: { kind: row.kind, role: row.role, slot: row.slot },
       turn:
         row.sequence === null ? undefined : round?.rules.segments[row.sequence],
-      hasCreditedWindow: row.credited,
+      hasAuthoredSpeech: row.authored,
     } satisfies SeatGrantFacts,
   }));
 }
 
-/** A seat's kind and credited windows, read for the rule that decides from them. */
-export async function coverageAuthority(
-  tx: Reader,
-  input: StreamScope,
-  grants: readonly CaptureInterval[],
-  rule: CaptureRule,
-) {
-  const [seat] = await tx
-    .select({ kind: actors.kind })
-    .from(roundParticipants)
-    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
-    .where(
-      and(
-        eq(roundParticipants.id, input.roundParticipantId),
-        eq(roundParticipants.roundId, input.roundId),
-      ),
-    );
-  if (seat?.kind !== 'bot') return rule.coverage('human', grants, []);
-  const windows = await tx
-    .select({
-      start: roundBotPublicationWindows.creditedFrom,
-      end: roundBotPublicationWindows.creditedUntil,
-    })
-    .from(roundBotPublicationWindows)
-    .where(
-      and(
-        eq(roundBotPublicationWindows.segmentId, input.segmentId),
-        eq(roundBotPublicationWindows.roundId, input.roundId),
-        eq(
-          roundBotPublicationWindows.roundParticipantId,
-          input.roundParticipantId,
-        ),
-      ),
-    );
-  return rule.coverage(
-    'bot',
-    grants,
-    windows.map((row) => ({
-      start: row.start.getTime(),
-      end: row.end.getTime(),
-    })),
-  );
-}
 export const transcriptRevision = async (
   tx: Pick<CaptureTx, 'select'>,
   roundId: string,

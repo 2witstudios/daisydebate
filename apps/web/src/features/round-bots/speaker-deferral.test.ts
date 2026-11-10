@@ -26,7 +26,7 @@ test('pool capacity refusals defer the speech without spending attempts', async 
       expected: [
         4,
         ['generate', 'generate', 'generate'],
-        ['generate', 'tts:One.', 'publish:One.'],
+        ['generate', 'deadline', 'tts:One.', 'publish:One.'],
       ],
     });
     await speaker.stop();
@@ -69,6 +69,13 @@ test('a deferred turn resumes at its refused step without buying or speaking any
         settle: async () => refuse(`settle:${text}`),
       };
     },
+    deadline: async () => 1e12,
+    lineClosed: () => false,
+    tailCut: () => false,
+    writeAhead: () => undefined,
+    discard: () => undefined,
+    audible: () => false,
+    silence: () => undefined,
     publish: async (job) => {
       refuse(`publish:${job.text}`);
       spoken.push(job.text);
@@ -86,35 +93,35 @@ test('a deferred turn resumes at its refused step without buying or speaking any
   }
   assert({
     given:
-      'a speech whose shared pool refuses the language settlement twice, the second phrase settlement once and its publication twice',
+      'a speech whose shared pool refuses the language settlement twice, the voiced-ahead second phrase settlement once and its publication twice',
     should:
       'call the language provider once, synthesize each phrase once and speak each phrase once',
     actual: { calls, spoken, stages },
     expected: {
       calls: { language: 1, speech: 2 },
       spoken: ['One.', 'Two.'],
-      stages: ['generate', 'generate', 'synthesize', 'publish', 'publish'],
+      // The voiced-ahead phrase's refused settlement is retried in turn, unpaid.
+      stages: ['generate', 'generate', 'publish', 'publish'],
     },
   });
   await speaker.stop();
 });
-/**
- * The samples offered per publish when the first phrase (960 samples) has
- * `sentBeforeRefusal` samples sent before one capacity refusal.
- */
-async function offeredAfterOneRefusal(sentBeforeRefusal: number) {
-  const offered: number[] = [];
+/** The phrase ids offered when the first publish is refused once. */
+async function offeredAfterOneRefusal(closedAfterRefusal: boolean) {
+  const offered: string[] = [];
   let refused = false;
+  const closed = new Set<string>();
   const { speaker, settle } = harness('speech', {
     synthesize: async (phraseId, text) => answered(job(phraseId, text, 960)),
-    publish: async (sent, _signal, onSent) => {
-      offered.push(sent.pcm.length);
+    lineClosed: (id) => closed.has(id),
+    tailCut: () => false,
+    publish: async (sent) => {
+      offered.push(`${sent.text}:${sent.phraseId}`);
       if (!refused) {
         refused = true;
-        onSent?.(sentBeforeRefusal);
+        if (closedAfterRefusal) closed.add(sent.phraseId);
         throw refuseCapacity();
       }
-      onSent?.(sent.pcm.length);
       return { complete: true, segmentEnded: false };
     },
   });
@@ -125,23 +132,28 @@ async function offeredAfterOneRefusal(sentBeforeRefusal: number) {
   await speaker.stop();
   return offered;
 }
-test('a phrase refused mid-publication resumes from the samples already sent', async () => {
+test('a phrase whose start outcome is unknown is retried under the same line id', async () => {
+  const offered = await offeredAfterOneRefusal(false);
   assert({
-    given:
-      'a 960-sample first phrase whose window authorization is refused after 480 samples were sent',
+    given: 'a first phrase refused once before its line was closed',
     should:
-      'offer only the unsent 480 samples on the next wake, then the next phrase whole',
-    actual: await offeredAfterOneRefusal(480),
-    expected: [960, 480, 960],
+      'say it again under the same line id, so a start that committed is not written twice',
+    actual: offered.map((entry) => entry.split(':')[0]),
+    expected: ['One.', 'One.', 'Two.'],
+  });
+  assert({
+    given: 'the same retry',
+    should: 'reuse the first line id, then give the next phrase its own',
+    actual: [offered[0] === offered[1], offered[1] !== offered[2]],
+    expected: [true, true],
   });
 });
-
-test('a phrase fully sent before a refusal counts as spoken on resume', async () => {
+test('a phrase cut and closed is said again whole, as a new line (ADR 0122)', async () => {
+  const offered = await offeredAfterOneRefusal(true);
   assert({
-    given:
-      'a first phrase whose every sample was sent before its last window was refused',
-    should: 'never offer an empty remainder, and go on to the next phrase',
-    actual: await offeredAfterOneRefusal(960),
-    expected: [960, 960],
+    given: 'a first phrase whose line was closed cut before the retry',
+    should: 'say it again whole under a new line id',
+    actual: new Set(offered.map((entry) => entry.split(':')[1])).size,
+    expected: 3,
   });
 });

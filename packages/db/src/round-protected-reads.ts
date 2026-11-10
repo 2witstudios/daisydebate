@@ -80,6 +80,6 @@ export async function readTranscriptSnapshot(
         ({ fromOffsetMs, untilOffsetMs }) => ({ fromOffsetMs, untilOffsetMs }),
       ),
     })),
-    utterances: await readOrderedRoundUtterances(tx, roundId, 'frozen'),
+    utterances: await readOrderedRoundUtterances(tx, roundId, 'all'),
   };
 }

@@ -138,52 +138,85 @@ test('a human grant is required from the first frame within the join tolerance t
   });
 });
 
-test('a bot stream is required only over its credited publication windows (DEC-218)', async () => {
-  // The runtime lane's NC: a 60 s floor, phrases observed 0.912-3.802 s in.
-  const cases = [
-    ['its phrases captured behind their credit', [[912, 3802]], 'complete'],
-    ['a phrase heard after relay tolerance', [[1912, 3802]], 'partial'],
-    [
-      'a dropout inside its phrases',
-      [
-        [912, 2000],
-        [2100, 3802],
-      ],
-      'partial',
-    ],
-  ] as const;
-  const actual: string[] = [];
-  for (const [, observed] of cases)
-    await withBoundedRound(async (fixture, transaction, roundId) => {
-      try {
-        const capture = await historicalCapture(
-          fixture,
-          transaction,
-          roundId,
-          1000,
-          60_000,
-          { durationMs: 60_000, bot: true },
+test('capture never writes, observes or seals a bot seat: its words are authored (ADR 0122)', async () => {
+  const refusals: (string | undefined)[] = [];
+  await withBoundedRound(async (fixture, transaction, roundId) => {
+    try {
+      const capture = await historicalCapture(
+        fixture,
+        transaction,
+        roundId,
+        1000,
+        60_000,
+        { durationMs: 60_000, bot: true },
+      );
+      const { store, lease, stream, clip, start } = capture;
+      const at = (ms: number) => new Date(start.getTime() + ms).toISOString();
+      await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
+      const reason = (work: () => Promise<unknown>) =>
+        work().then(
+          () => undefined,
+          (error: { reason?: string }) => error.reason,
         );
-        const at = (ms: number) => new Date(capture.start.getTime() + ms);
-        await fixture.insert('round_bot_publication_windows', {
-          id: createId(),
-          round_id: roundId,
-          segment_id: capture.stream.segmentId,
-          round_participant_id: capture.stream.roundParticipantId,
-          credited_from: at(880),
-          credited_until: at(3790),
-        });
-        actual.push(await sealObserved(capture, observed));
-      } finally {
-        await fixture.sql`delete from rounds where id=${roundId}`;
-      }
-    });
+      refusals.push(
+        await reason(() =>
+          store.appendCapturedTranscript({
+            ...clip,
+            startOffsetMs: 1000,
+            durationMs: 500,
+            before: at(999),
+            after: at(1501),
+          }),
+        ),
+        await reason(() =>
+          store.observeCapturedStream({
+            ...stream,
+            trackId: clip.trackId,
+            observedFrom: at(900),
+            observedUntil: at(3000),
+          }),
+        ),
+        await reason(() =>
+          store.sealCapturedStream({
+            ...stream,
+            expectedChunkCount: 0,
+            framesLost: false,
+          }),
+        ),
+      );
+      // Once the bot has spoken, its stream exists, sealed by its authored speech.
+      await fixture.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,chunk_count,sealed_chunk_count,sealed_at) values(${roundId},${stream.segmentId},${stream.roundParticipantId},'complete',0,0,clock_timestamp())`;
+      refusals.push(
+        await reason(() =>
+          store.appendCapturedTranscript({
+            ...clip,
+            startOffsetMs: 2000,
+            durationMs: 500,
+            before: at(1999),
+            after: at(2501),
+          }),
+        ),
+      );
+      const [{ lines }] =
+        await fixture.sql`select count(*)::int lines from utterances where round_id=${roundId}`;
+      refusals.push(String(lines));
+    } finally {
+      await fixture.sql`delete from rounds where id=${roundId}`;
+    }
+  });
   assert({
-    given: cases.map(([given]) => given).join('; '),
+    given:
+      'a bot seat speaking under a live capture lease, before and after its authored speech made its stream',
     should:
-      'seal complete when its credited phrases are captured, never requiring the silent floor',
-    actual,
-    expected: cases.map(([, , state]) => state),
+      'refuse its captured clip, observation and seal as bot-authored, writing no line',
+    actual: refusals,
+    expected: [
+      'bot-authored',
+      'bot-authored',
+      'bot-authored',
+      'bot-authored',
+      '0',
+    ],
   });
 });
 

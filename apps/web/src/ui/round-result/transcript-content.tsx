@@ -44,8 +44,10 @@ export function TranscriptSections({
             <li key={item.id} className="text-sm wrap-anywhere text-ink">
               <span className="font-strong">{item.speaker}: </span>
               {item.text}
-              {item.partial ? (
+              {item.mark === 'cut' ? (
                 <span className="text-ink-muted"> (cut off)</span>
+              ) : item.mark === 'arriving' ? (
+                <span className="text-ink-muted"> …</span>
               ) : null}
             </li>
           ),

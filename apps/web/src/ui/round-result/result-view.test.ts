@@ -59,17 +59,17 @@ describe('transcriptSections()', () => {
         'group them by speech in played order, named as the room names them, each line with its speaker and partial lines marked',
       actual: transcriptSections(completed).map(({ heading, lines }) => ({
         heading,
-        lines: lines.map(({ speaker, text, partial }) => ({
+        lines: lines.map(({ speaker, text, mark }) => ({
           speaker,
           text,
-          partial,
+          mark,
         })),
       })),
       expected: [
         {
           heading: heading(0),
           lines: [
-            { speaker: 'Sam Reyes', text: 'Access improves.', partial: false },
+            { speaker: 'Sam Reyes', text: 'Access improves.', mark: null },
           ],
         },
         {
@@ -78,7 +78,7 @@ describe('transcriptSections()', () => {
             {
               speaker: 'Practice bot',
               text: 'Costs displace services',
-              partial: true,
+              mark: 'cut',
             },
           ],
         },

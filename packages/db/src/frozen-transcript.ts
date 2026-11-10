@@ -59,7 +59,7 @@ export async function readLockedFrozenRoundTranscript(
       'INVARIANT',
       'Frozen transcript has unresolved coverage',
     );
-  const lines = await readOrderedRoundUtterances(reader, roundId, 'frozen');
+  const lines = await readOrderedRoundUtterances(reader, roundId, 'all');
   return {
     ...freeze,
     coverage: coverage.map((stream) => ({

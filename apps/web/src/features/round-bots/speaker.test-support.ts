@@ -34,11 +34,18 @@ export function harness(
     readonly synthesize?: (
       phraseId: string,
       text: string,
+      signal: AbortSignal,
     ) => ReturnType<SpeakerInput['synthesize']>;
     readonly publish?: SpeakerInput['publish'];
+    readonly deadline?: SpeakerInput['deadline'];
+    readonly lineClosed?: SpeakerInput['lineClosed'];
+    readonly tailCut?: SpeakerInput['tailCut'];
+    readonly audible?: SpeakerInput['audible'];
   } = {},
 ) {
   const log: string[] = [];
+  /** Phrases authorized ahead, as `text:lineId`, in order. */
+  const prepared: string[] = [];
   const failures: unknown[] = [];
   let ids = 0;
   const gates: ReturnType<typeof Promise.withResolvers<void>>[] = [];
@@ -55,12 +62,28 @@ export function harness(
         log.push('generate');
         return answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] });
       }),
-    synthesize: async (_scope, _token, phraseId, text) => {
+    synthesize: async (_scope, _token, phraseId, text, signal) => {
       log.push(`tts:${text}`);
       return options.synthesize
-        ? options.synthesize(phraseId, text)
+        ? options.synthesize(phraseId, text, signal)
         : answered(job(phraseId, text));
     },
+    lineClosed: options.lineClosed ?? (() => false),
+    tailCut: options.tailCut ?? (() => false),
+    writeAhead: (job) => {
+      prepared.push(`${job.text}:${job.phraseId}`);
+    },
+    discard: () => undefined,
+    audible: options.audible ?? (() => false),
+    silence: () => {
+      log.push('silence');
+    },
+    deadline:
+      options.deadline ??
+      (async () => {
+        log.push('deadline');
+        return 1e12;
+      }),
     publish:
       options.publish ??
       (async (job, signal) => {
@@ -91,6 +114,7 @@ export function harness(
     release,
     settle,
     failures: () => failures.length,
+    prepared,
     stages: () => failures,
   };
 }

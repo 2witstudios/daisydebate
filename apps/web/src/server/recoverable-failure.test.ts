@@ -144,7 +144,7 @@ test('a bot publish failure names its stop, and nothing else of the error', () =
     message: 'Bot speech stays uncredited',
     cause: publicationStopOf,
   });
-  failed(publicationStopError('stall', 'stopped token=abc'), 'publish');
+  failed(publicationStopError('connect', 'stopped token=abc'), 'publish');
   failed(
     publicationStopError('handoff', 'Native audio handoff failed'),
     'publish',
@@ -155,15 +155,15 @@ test('a bot publish failure names its stop, and nothing else of the error', () =
   );
   assert({
     given:
-      'a stalled publish, a failed native handoff and an error with a forged stop (ISSUE-514-r1)',
+      'a failed connect, a failed native handoff and an error with a forged stop (ISSUE-514-r1)',
     should:
-      'log the stall and handoff as the cause, and no cause for a code outside the fixed set',
+      'log the connect and handoff as the cause, and no cause for a code outside the fixed set',
     actual: lines.map((line) => line[1]),
     expected: [
       {
         operation: 'round.speaking.publish',
         errorCode: 'INFRASTRUCTURE',
-        cause: 'stall',
+        cause: 'connect',
       },
       {
         operation: 'round.speaking.publish',

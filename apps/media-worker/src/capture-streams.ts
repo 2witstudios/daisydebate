@@ -28,6 +28,35 @@ const FRAME_ARRIVAL_MS = 500;
 /** One batch interval on top of the frame-arrival allowance. */
 const SEAL_SETTLE_MS = FRAME_ARRIVAL_MS + CAPTURE_BATCH_INTERVAL_MS;
 
+/** Each history's bot seats and identities, built once: frames ask per 10 ms. */
+const botsOf = new WeakMap<
+  CaptureState,
+  {
+    readonly seats: ReadonlySet<string>;
+    readonly identities: ReadonlySet<string>;
+  }
+>();
+const bots = (state: CaptureState) => {
+  let known = botsOf.get(state);
+  if (!known) {
+    const seated = state.participants.filter((p) => p.kind === 'bot');
+    known = {
+      seats: new Set(seated.map((p) => p.roundParticipantId)),
+      identities: new Set(
+        seated.flatMap((p) => (p.identity ? [p.identity] : [])),
+      ),
+    };
+    botsOf.set(state, known);
+  }
+  return known;
+};
+/** A track identity that is a bot's seat: its frames are never staged. */
+export const botIdentity = (state: CaptureState, identity: string) =>
+  bots(state).identities.has(identity);
+/** Whether a seat is a bot's, whose transcript is authored, never captured (ADR 0122). */
+export const botSeat = (state: CaptureState, roundParticipantId: string) =>
+  bots(state).seats.has(roundParticipantId);
+
 /**
  * Bounded segment/seat streams this worker seals. A committed nonempty
  * speaking interval is expected even when no clip arrives, so a silent seat
@@ -76,7 +105,11 @@ export function createStreamTracker(ceiling: number) {
             returnedMs: segment.returnedMs,
           }),
         );
-        if (Date.parse(interval.startedAt) < end)
+        // A bot owes capture no stream: its transcript is authored (ADR 0122).
+        if (
+          Date.parse(interval.startedAt) < end &&
+          !botSeat(state, interval.roundParticipantId)
+        )
           forClip({
             segmentId: segment.id,
             roundParticipantId: interval.roundParticipantId,

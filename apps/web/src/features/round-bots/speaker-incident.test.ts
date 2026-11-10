@@ -38,3 +38,55 @@ test('a platform incident stops the job and the same answer resumes', async () =
     await speaker.stop();
   }
 });
+
+test('an incident that cuts the tail of the phrase before resumes at that phrase, said again whole', async () => {
+  const sent: string[] = [];
+  const voiced: string[] = [];
+  let refusedTwo = false;
+  const { speaker, settle } = harness('speech', {
+    generate: async () =>
+      answered({
+        text: 'One. Two. Three.',
+        phrases: ['One.', 'Two.', 'Three.'],
+      }),
+    synthesize: async (phraseId, text) => {
+      voiced.push(text);
+      return answered({
+        scope: undefined as never,
+        token: 't',
+        phraseId,
+        text,
+        pcm: new Int16Array(24_000 * 5),
+        sampleRate: 24_000,
+        channels: 1,
+      });
+    },
+    // Two. is stopped by an incident (its floor watch) during its first frames,
+    // while One.'s queued tail still plays: the clear cuts One.
+    publish: async (job) => {
+      if (job.text === 'Two.' && !refusedTwo) {
+        refusedTwo = true;
+        throw held();
+      }
+      sent.push(job.text);
+      return { complete: true, segmentEnded: false };
+    },
+    tailCut: () => refusedTwo && sent.length === 1,
+  });
+  for (let wake = 0; wake < 6; wake += 1) {
+    speaker.wake();
+    await settle();
+  }
+  assert({
+    given:
+      'a phrase whose start is held by an incident, cutting the queued tail of the phrase before it',
+    should:
+      'say the cut phrase again whole once the hold lifts, then go on, voicing nothing twice',
+    actual: { sent, voiced: [...voiced].sort() },
+    expected: {
+      sent: ['One.', 'One.', 'Two.', 'Three.'],
+      voiced: ['One.', 'Three.', 'Two.'],
+    },
+  });
+  await speaker.stop();
+});
