@@ -1,6 +1,6 @@
 import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { isCapacityRefusal } from '@daisy/db/capacity';
-import { isAppError } from '@daisy/errors';
+import { errorCodeOf, type ErrorCode } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
 import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
 import type { App } from './app';
@@ -44,31 +44,25 @@ export function recoverableFailure(input: {
       /* A failing sink is never its caller's fault (ISSUE-789). */
     }
   };
-  const codeOf = (error: unknown) =>
-    isAppError(error) ? error.code : 'INTERNAL';
+  const codeOf = (error: unknown) => errorCodeOf(error, 'INTERNAL');
   const log = (
-    operation: string,
-    errorCode: ReturnType<typeof codeOf>,
-    cause?: string,
+    line: {
+      readonly operation: string;
+      readonly errorCode: ErrorCode;
+      readonly cause?: string;
+    },
+    event: EventName = input.event,
+    message: string = input.message,
   ) =>
     attempt(() => {
       input.logger.log(
-        input.event,
-        { operation, errorCode, ...(cause ? { cause } : {}) },
-        input.message,
-      );
-    });
-  /** A lapse is expected and clears on renewal: a warning, never a failure. */
-  const lapsed = (operation: string) =>
-    attempt(() => {
-      input.logger.log(
-        'service.lease_lapsed',
+        event,
         {
-          operation,
-          errorCode: 'AUTHORIZATION',
-          cause: 'service-lease-lapsed',
+          operation: line.operation,
+          errorCode: line.errorCode,
+          ...(line.cause ? { cause: line.cause } : {}),
         },
-        'Service lease not current; the next renewal restores it',
+        message,
       );
     });
   const report = (error: unknown, operation: string) => {
@@ -78,7 +72,7 @@ export function recoverableFailure(input: {
     attempt(() => {
       cause = input.cause?.(error);
     });
-    log(operation, errorCode, cause);
+    log({ operation, errorCode, ...(cause ? { cause } : {}) });
     attempt(() =>
       input.reporter.capture(error, {
         requestId: input.nextId(),
@@ -97,7 +91,17 @@ export function recoverableFailure(input: {
     attempt(() => {
       lapse = input.isLeaseLapse(error);
     });
-    if (lapse) return lapsed(`${operation}.lease`);
+    // A lapse is expected and clears on renewal: a warning, never a failure.
+    if (lapse)
+      return log(
+        {
+          operation: `${operation}.lease`,
+          errorCode: 'AUTHORIZATION',
+          cause: 'service-lease-lapsed',
+        },
+        'service.lease_lapsed',
+        'Service lease not current; the next renewal restores it',
+      );
     let capacity = false;
     attempt(() => {
       capacity = input.isCapacity(error);

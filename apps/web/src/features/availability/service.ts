@@ -40,7 +40,8 @@ export function startAvailabilityService(deps: {
   /** Monotonic milliseconds. */
   readonly nowMs: () => number;
   readonly timers: WorkerTimers;
-  readonly failed: () => void;
+  /** A renewal or availability cycle failed, with its own error. */
+  readonly failed: (error: unknown) => void;
   /**
    * This instance's lease has gone unproven by a timely renewal for 10 s,
    * then every 5 minutes while it stays so (DAISY-WEB-9). Never on a stop.
@@ -96,13 +97,16 @@ export function startAvailabilityService(deps: {
   };
   /** Checked on every tick, so a renewal that hangs still counts as unproven. */
   const checkHealth = () => {
+    const { reportedAtMs } = lease;
     const checked = checkLease(lease, nowMs());
     lease = checked.health;
     if (!checked.lapse) return;
     try {
       deps.lapsing(checked.lapse);
     } catch {
-      /* Reporting a lapse never stops the renewals that end it. */
+      // Unsent, so not counted: the next tick tries again. Reporting a lapse
+      // never stops the renewals that end it.
+      lease = { ...lease, reportedAtMs };
     }
   };
   const renew = () => {
@@ -117,7 +121,7 @@ export function startAvailabilityService(deps: {
       })
       .catch((error: unknown) => {
         observe({ kind: 'failed', error });
-        deps.failed();
+        deps.failed(error);
         return false;
       })
       .finally(() => {
@@ -132,8 +136,8 @@ export function startAvailabilityService(deps: {
     if (running) return;
     running = renewal
       .then((renewed) => (renewed ? cycle() : undefined))
-      .catch(() => {
-        deps.failed();
+      .catch((error: unknown) => {
+        deps.failed(error);
       })
       .finally(() => {
         running = null;

@@ -1,4 +1,4 @@
-import { isAppError } from '@daisy/errors';
+import { errorCodeOf } from '@daisy/errors';
 import { systemClock, systemId } from '@daisy/clock';
 import {
   drainWithDeadline,
@@ -73,7 +73,7 @@ const lease = startRealtimeServiceLease({
   deliveredThrough: drain.cursor,
   failed: (error) => {
     // A typed refusal keeps its own code (a lease another role holds is CONFLICT).
-    const errorCode = isAppError(error) ? error.code : 'INFRASTRUCTURE';
+    const errorCode = errorCodeOf(error, 'INFRASTRUCTURE');
     resources.logger.log(
       'service.lease_failed',
       { operation: 'realtime.lease', errorCode },

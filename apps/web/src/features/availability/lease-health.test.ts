@@ -131,18 +131,29 @@ test('a renewal that settles after a long hang does not report the same lapse tw
   });
 });
 
-test('a timely renewal ends the lapse, and a later one reports once five minutes have passed', () => {
+test('a separate outage after a real recovery reports, even within five minutes', () => {
   assert({
     given:
-      'fifteen seconds of failures from start, timely renewals, then failures again at 75 s and at 400 s',
+      'fifteen seconds of failures from start, a minute of timely renewals, then failures from 75 s to 280 s',
     should:
-      'report the first lapse, hold the second inside five minutes of it, and report the third',
-    actual: lapsesOver(420, (second) =>
-      second < 15 || (second >= 75 && second < 90) || second >= 400
-        ? failing
-        : timely,
+      'report the first lapse, and the second ten seconds after its last proof',
+    actual: lapsesOver(300, (second) =>
+      second < 15 || (second >= 75 && second < 280) ? failing : timely,
     ).map(({ atMs }) => atMs),
-    expected: [10_000, 412_000],
+    expected: [10_000, 87_000],
+  });
+});
+
+test('a recovery shorter than thirty seconds keeps the five-minute limit', () => {
+  assert({
+    given:
+      'failures from start, ten timely seconds at 15 s, then failures again until 200 s',
+    should:
+      'report only the first lapse, since the lease never truly recovered',
+    actual: lapsesOver(200, (second) =>
+      second >= 15 && second < 25 ? timely : failing,
+    ).map(({ atMs }) => atMs),
+    expected: [10_000],
   });
 });
 

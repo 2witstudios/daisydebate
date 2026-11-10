@@ -275,7 +275,7 @@ test('a lease left unproven for ten seconds reports once, and a stop never does'
     },
     lapsing: (lapse) => {
       lapses.push(lapse);
-      throw new Error('reporter broke');
+      if (lapses.length === 1) throw new Error('reporter broke');
     },
     failed: () => {},
   });
@@ -295,13 +295,17 @@ test('a lease left unproven for ten seconds reports once, and a stop never does'
   tick();
   assert({
     given:
-      'renewals failing for twelve one-second ticks from start, a timely renewal, then a stop a minute later',
+      'renewals failing for twelve one-second ticks from start with a reporter that throws once, a timely renewal, then a stop a minute later',
     should:
-      'report one lapse of ten seconds caused by the renewal failure, survive a throwing reporter, and stay silent after the stop',
+      'retry a report whose send threw on the next tick, count only the one sent, and stay silent after the stop',
     actual: lapses,
     expected: [
       {
         lapsedMs: 10_000,
+        unproven: { kind: 'renewal_failed', error: refused },
+      },
+      {
+        lapsedMs: 11_000,
         unproven: { kind: 'renewal_failed', error: refused },
       },
     ],

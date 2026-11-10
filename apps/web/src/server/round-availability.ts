@@ -1,3 +1,4 @@
+import { errorCodeOf } from '@daisy/errors';
 import type { App } from './app';
 import { readPublicCheckInProbe } from '../features/availability/configuration';
 import { createPublicCheckInProbe } from '../features/availability/public-probe';
@@ -42,10 +43,14 @@ export function startRoundAvailability(input: {
       reporter: app.reporter,
       nextId: () => app.ids.next(),
     }),
-    failed: () =>
+    failed: (error) =>
       app.logger.log(
         'availability.sample_failed',
-        { operation: 'availability.sample', errorCode: 'INFRASTRUCTURE' },
+        {
+          operation: 'availability.sample',
+          // A typed refusal keeps its own code (a lease another role holds is CONFLICT).
+          errorCode: errorCodeOf(error, 'INFRASTRUCTURE'),
+        },
         'Availability evidence unavailable',
       ),
   });

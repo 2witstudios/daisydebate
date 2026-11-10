@@ -9,10 +9,17 @@ export const RENEW_INTERVAL_MS = 1000;
  */
 const PERSIST_MS = 10_000;
 /**
- * The fewest ms between two reports from one instance, across recoveries,
- * so a lease that flaps cannot flood the tracker.
+ * The fewest ms between two reports from one instance, unless the lease has
+ * recovered in between, so a lapse that lasts, or one that flaps, cannot
+ * flood the tracker.
  */
 const REPEAT_MS = 5 * 60_000;
+/**
+ * How long the lease must stay proven before a recovery counts: a flapping
+ * lease never stays proven this long, while a separate later outage, after
+ * a real recovery, reports even within five minutes of the last report.
+ */
+const RECOVERED_MS = 30_000;
 
 /** Why the lease is not proven. */
 export type Unproven =
@@ -38,8 +45,10 @@ export type LeaseHealth = {
   readonly settled: Settled;
   /** Monotonic ms the renewal now in flight started, if one is. */
   readonly inFlightSinceMs: number | null;
-  /** Monotonic ms of this instance's latest report, if any. */
+  /** Monotonic ms of this instance's latest report since it last recovered. */
   readonly reportedAtMs: number | null;
+  /** Monotonic ms since which every check has found the lease proven. */
+  readonly provenSinceMs: number | null;
 };
 
 export type LeaseRenewal =
@@ -64,6 +73,7 @@ export const startingLease = (nowMs: number): LeaseHealth => ({
   settled: null,
   inFlightSinceMs: null,
   reportedAtMs: null,
+  provenSinceMs: null,
 });
 
 /** The health after one renewal event. Pure and total. */
@@ -109,13 +119,26 @@ export function checkLease(
   nowMs: number,
 ): { readonly health: LeaseHealth; readonly lapse: LeaseLapse | null } {
   const lapsedMs = nowMs - health.currentUntilMs;
+  if (lapsedMs < 0) {
+    const provenSinceMs = health.provenSinceMs ?? nowMs;
+    return {
+      health: {
+        ...health,
+        provenSinceMs,
+        reportedAtMs:
+          nowMs - provenSinceMs >= RECOVERED_MS ? null : health.reportedAtMs,
+      },
+      lapse: null,
+    };
+  }
   const due =
     lapsedMs >= PERSIST_MS &&
     (health.reportedAtMs === null || nowMs - health.reportedAtMs >= REPEAT_MS);
+  const unrecovered = { ...health, provenSinceMs: null };
   return due
     ? {
-        health: { ...health, reportedAtMs: nowMs },
+        health: { ...unrecovered, reportedAtMs: nowMs },
         lapse: { lapsedMs, unproven: unprovenAt(health, nowMs) },
       }
-    : { health, lapse: null };
+    : { health: unrecovered, lapse: null };
 }
