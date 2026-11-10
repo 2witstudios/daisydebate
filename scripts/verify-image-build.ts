@@ -1,4 +1,4 @@
-import { uncommented } from './deploy-config-text';
+import { dockerInstructions, uncommented } from './deploy-config-text';
 
 /**
  * ISSUE-527: the image's `next build` skips its own TypeScript pass, which
@@ -19,9 +19,12 @@ export function findImageTypecheckProblem(input: {
     ) && (config.match(/ignoreBuildErrors/g) ?? []).length === 1;
   const docker = uncommented(input.dockerfile);
   const settings = docker.match(/DAISY_IMAGE_BUILD=1/g) ?? [];
+  // The build RUN read whole across its continuations: only secret mounts
+  // and variable assignments may stand before the build command, so the
+  // variable is set on next build itself (ADR 0037 source maps).
   const inBuild =
-    /RUN DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps\/web build/.test(
-      docker,
+    /^RUN (?:--mount=\S+ +)*(?:[A-Z_]+=(?:"[^"]*"|\S+) +)*DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps\/web build\b/m.test(
+      dockerInstructions(input.dockerfile),
     );
   return scoped && inBuild && settings.length === 1
     ? null
@@ -144,13 +147,15 @@ const shellCommands = (script: string): string[][] =>
 /** `fly` or `flyctl`, however the command names its path (ISSUE-549). */
 const isFly = (word: string) => /(?:^|\/)fly(?:ctl)?$/.test(word);
 
+/** Each `fly deploy`/`flyctl deploy` command one step's script runs. */
+export const deployCommandsIn = (script: string): string[][] =>
+  shellCommands(script).filter((words) =>
+    words.some((word, at) => isFly(word) && words[at + 1] === 'deploy'),
+  );
+
 /** Each `fly deploy`/`flyctl deploy` command, or null when unreadable. */
 const deployCommands = (workflow: string): string[][] | null =>
-  runScripts(workflow)
-    ?.flatMap(shellCommands)
-    .filter((words) =>
-      words.some((word, at) => isFly(word) && words[at + 1] === 'deploy'),
-    ) ?? null;
+  runScripts(workflow)?.flatMap(deployCommandsIn) ?? null;
 
 /**
  * ISSUE-542: deploy-staging builds every image on the GitHub runner, whose
