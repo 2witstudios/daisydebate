@@ -60,10 +60,7 @@ export async function releaseMemberFromRooms(
   // member on the page only needs to read that the seat is free.
   const written = new Set(held.map((row) => row.id));
   // Their invitations, sent or received, end with them (ADR 0124).
-  const invited = await endMemberRoomInvitations(tx, actorId, {
-    now: context.now,
-    written,
-  });
+  const invited = await endMemberRoomInvitations(tx, actorId, context.now);
   const heldOnly = [
     ...new Set([...released.map((hold) => hold.roomId), ...invited]),
   ]
