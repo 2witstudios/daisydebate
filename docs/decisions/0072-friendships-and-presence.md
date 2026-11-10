@@ -105,7 +105,7 @@ fence (accounts, then the pair, then a channel).
    (only idle ones) or `offline`. Presence
    never grants a relationship, channel, room or attendance fact, and an
    expired lease changes no relationship.
-8. **Challenge** creates an unlisted casual room on the catalog's default
+8. **Challenge** creates a public casual room on the catalog's default
    template, named for the two members, delivers the challenge to the
    friend, and takes the challenger to the room. Delivery is a
    `friend_challenges` row (room, challenger, challenged), written
@@ -122,6 +122,8 @@ fence (accounts, then the pair, then a channel).
    (30 a minute), never the friend-change one. It answers its own
    `challengeCommandResultSchema` result, and it asks Rooms' open-room
    predicate (`room-open.ts`) rather than naming Room statuses.
+   _Amended 2026-11-10 (owner):_ the room was unlisted until then; Rooms
+   are public by default, and ADR 0103 §4 supersedes this point.
 
 ## Consequences
 

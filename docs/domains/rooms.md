@@ -67,6 +67,28 @@ resolution. Standing is derived from the Room and its basis, never
 stored. Templates set structure only, never judging (DEC-243). Ranked Rooms
 run their format unchanged. See ADR 0078.
 
+## Visibility
+
+**Rooms are public by default, everywhere, always** (owner, 2026-11-10). A
+public Room is listed in the lobby. Unlisted (anyone with the link) and private
+(by invite, not offered until ISSUE-443) exist only as explicit casual choices
+the host makes. No surface ever defaults a Room to unlisted: the create
+editor opens on public, and every list of choices puts public first. A Room
+opened for someone, such as an accepted challenge, is public too. Ranked Rooms
+are always public, enforced by the create contract and the
+`rooms_ranked_public_check` constraint.
+
+The default, the ordered choices and their words have one home,
+`apps/web/src/features/rooms/room-visibility.ts`. A surface that has to pick a
+visibility nobody chose, such as the create editor, a practice Room or a casual
+challenge, reads `defaultRoomVisibility` and never spells out a value of its
+own. The ranked lock is the one exception: code that makes a ranked Room
+public writes `'public'` because it enforces the lock, not a default. The
+create contract keeps `visibility` required, so the wire always carries an
+explicit value. Tests pin the default, the order, the create editor, the
+details form, the practice Room and the challenge room, so a regression fails
+CI.
+
 ## Assembly and Launch
 
 An unlisted Room's reusable URL can be shared before its recipient has an

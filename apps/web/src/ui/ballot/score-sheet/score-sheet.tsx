@@ -11,6 +11,7 @@ import type { DebateSide as Side } from '@daisy/protocol';
 import type { BallotDebaters } from '../../../features/judge/ballot';
 import { scoreField } from '../../../features/judge/ballot';
 import { cn } from '../../cn';
+import { Icon } from '../../components/icon/icon';
 import {
   ballotEyebrowClass,
   ballotGridClass,
@@ -33,7 +34,7 @@ export type SheetScores = Readonly<
  * debater, and each side's total out of 50. Every slider is a named range
  * input the browser owns (`defaultValue`), so the sheet posts without
  * JavaScript and a form reset after a refusal restores what was posted; the
- * category name opens what a 1, a 3 and a 5 look like. The numbers beside
+ * disclosure under each category opens what a 1, a 3 and a 5 look like. The numbers beside
  * the sliders and the totals follow the sliders only with script running,
  * so without it they are left out rather than shown stale.
  */
@@ -93,24 +94,31 @@ export function ScoreSheet({
                 index > 0 && 'border-t border-border',
               )}
             >
-              <details className={ballotLabelCellClass}>
-                <summary className="w-fit cursor-pointer list-none font-strong text-ink">
-                  {category.name}
-                  <span className="block text-sm font-book text-ink-muted">
-                    {category.rewards}
-                  </span>
-                </summary>
-                <dl className="mt-2 flex flex-col gap-1 text-sm text-ink-muted">
-                  {category.anchors.map((anchor, index) => (
-                    <div key={anchorLevels[index]} className="flex gap-2">
-                      <dt className="w-4 shrink-0 font-bold text-ink tabular-nums">
-                        {anchorLevels[index]}
-                      </dt>
-                      <dd>{anchor}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </details>
+              <div className={ballotLabelCellClass}>
+                <p className="font-strong text-ink">{category.name}</p>
+                <p className="text-sm text-ink-muted">{category.rewards}</p>
+                <details className="group">
+                  <summary className="inline-flex min-h-room-target w-fit cursor-pointer list-none items-center gap-1 text-sm font-strong text-ink underline underline-offset-2">
+                    What a 1, 3 and 5 look like
+                    <span className="sr-only">{` in ${category.name}`}</span>
+                    <Icon
+                      name="chevron-down"
+                      size={14}
+                      className="shrink-0 transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <dl className="mt-1 flex flex-col gap-1 text-sm text-ink-muted">
+                    {category.anchors.map((anchor, index) => (
+                      <div key={anchorLevels[index]} className="flex gap-2">
+                        <dt className="w-4 shrink-0 font-bold text-ink tabular-nums">
+                          {anchorLevels[index]}
+                        </dt>
+                        <dd>{anchor}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
+              </div>
               {debateSides.map((side) => {
                 const value = scores[side][category.id];
                 return (

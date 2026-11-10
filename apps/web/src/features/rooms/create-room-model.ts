@@ -2,6 +2,7 @@ import type { RoomCatalogChoice } from '@daisy/protocol';
 import { createRoomDraft, type CreateRoomDraft } from './create-room-draft';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
 import { changeDraftSchedule } from './prepare-room-draft';
+import { defaultRoomVisibility } from './room-visibility';
 
 /** The editor's one state: the form's named values and the draft they decode to. */
 export type CreateRoomModel = {
@@ -20,7 +21,7 @@ export function initialRoomModel(
   const values: Record<string, string> = {
     ...draftFormValues(defaults),
     title: '',
-    visibility: 'unlisted',
+    visibility: defaultRoomVisibility,
     ...kept,
     // A native post's intent was its submitter's act, already consumed; a
     // stale one would make readRoomDraft reset the preset on the next edit.

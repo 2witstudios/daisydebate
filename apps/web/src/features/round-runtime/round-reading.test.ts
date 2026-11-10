@@ -6,7 +6,7 @@ import {
   judgeKindOf,
   sideName,
 } from './round-reading';
-import { spectatorViewOf } from '../spectating/spectator-view';
+import { observedRoundOf } from './observed-round';
 import { liveRoundOf } from '../../ui/debate-room/live-round';
 import {
   neg,
@@ -60,7 +60,7 @@ test('an accepted interruption gives the floor to the interrupter for spectators
     },
   };
   const segment = { side: 'affirmative' as const, floorParticipantId: neg.id };
-  const spectator = spectatorViewOf(open, nowMs);
+  const spectator = observedRoundOf(open, nowMs);
   const debater = liveRoundOf(open, neg.actorId, nowMs);
   assert({
     given: "the affirmative's speech with the negative's interruption accepted",

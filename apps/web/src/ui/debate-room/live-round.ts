@@ -15,10 +15,8 @@ import {
 } from '../../features/round-runtime/round-reading';
 import { initialsOf } from '../../lib/initials';
 import type { Side, SpeechSlot } from '../../features/debate-room/speeches';
-import {
-  judgingBallotsOf,
-  judgingClockOf,
-} from '../../features/debate-room/judging';
+import { judgingBallotsOf } from '../../features/debate-room/judging';
+import { judgingClockOf } from '../../features/round-runtime/judging-window';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { Debater, RoundPerson, RoundSnapshot } from './round';
 

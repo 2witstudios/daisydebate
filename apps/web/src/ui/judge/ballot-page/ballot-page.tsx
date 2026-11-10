@@ -24,6 +24,8 @@ import { BallotEntry, roundBallotErrorId as errorId } from './ballot-entry';
 import { BallotEvidence } from './ballot-evidence';
 import { MediaPageLink } from '../../round-media/media-page-link';
 import { BallotOpensNotice, useBallotOpensIn } from './ballot-opens';
+import { BallotRules } from './ballot-rules';
+import { useBallotDraft } from './use-ballot-draft';
 /** Mounted above every canonical state, so an unknown acknowledgement always keeps its original retry. */
 export function BallotPage({
   view,
@@ -61,6 +63,7 @@ export function BallotPage({
   }, [view.round.status, view.freeze, answer.unacknowledged, router]);
   const debaters = ballotDebaters(view);
   const display = ballotDisplay(view, answer);
+  const draft = useBallotDraft(view, display, answer.values);
   const own = display === 'retry' ? null : view.own?.ballot;
   const opensInMs = useBallotOpensIn(
     view.round,
@@ -84,11 +87,19 @@ export function BallotPage({
         opensInMs={opensInMs}
         renderedAtMs={renderedAtMs}
       />
+      {display === 'open' || display === 'waiting' ? (
+        <BallotRules
+          waitingOn={view.round.waitingOn}
+          renderedAtMs={renderedAtMs}
+        />
+      ) : null}
       <BallotEntry
         display={display}
         view={view}
         answer={answer}
-        fieldsRevision={rendered.revision}
+        fieldsRevision={`${rendered.revision}-${draft.restored ? 'draft' : 'fresh'}`}
+        fieldValues={draft.values}
+        onFieldsChange={draft.save}
         post={post}
         pending={pending}
         commandId={commandId}

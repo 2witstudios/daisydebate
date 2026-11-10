@@ -5,7 +5,7 @@ import { judge, view } from './live-round.test-support';
 
 setupRitewayBun();
 await mockNextRouter();
-const { LiveJudgeRoom } = await import('./live-judge-room');
+const { LiveJudgeRoom } = await import('../judging-room/live-judge-room');
 const { roundEnded } = await import('./round-ended');
 
 test('which Rounds have ended', () => {

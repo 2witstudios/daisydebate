@@ -11,7 +11,12 @@ type EntryProps = {
   readonly display: BallotDisplay;
   readonly view: RoundBallotRead;
   readonly answer: RoundBallotFormState;
-  readonly fieldsRevision: number;
+  /** Remounts the fields when what they render from is replaced. */
+  readonly fieldsRevision: string;
+  /** What the fields render from: the refused answer, a restored draft, or nothing. */
+  readonly fieldValues: Readonly<Record<string, string>>;
+  /** Called with the form after each edit, to keep the draft. */
+  readonly onFieldsChange: (form: HTMLFormElement) => void;
   readonly post: (form: FormData) => void;
   readonly pending: boolean;
   readonly commandId: string;
@@ -38,8 +43,8 @@ export function BallotEntry(props: EntryProps) {
         <p role="status">
           Ballot submitted.{' '}
           {props.view.round.status === 'completed'
-            ? 'The Round result is recorded.'
-            : 'Other votes or attendance settlement are still pending.'}
+            ? 'The round is over and its result is recorded. Both debaters now see your decision and reason, and each sees their own feedback.'
+            : 'The result is recorded once any other ballots and attendance for the last speeches settle.'}
         </p>
       );
     case 'open':
@@ -101,6 +106,8 @@ function OpenBallot({
   debaters,
   answer,
   fieldsRevision,
+  fieldValues,
+  onFieldsChange,
   opensInMs,
 }: EntryProps) {
   if (!view.own || !view.freeze) throw createAppError('INVARIANT');
@@ -109,6 +116,7 @@ function OpenBallot({
       action={post}
       aria-label="Your ballot"
       aria-busy={pending}
+      onChange={(event) => onFieldsChange(event.currentTarget)}
       className="flex flex-col gap-6"
     >
       <input type="hidden" name="version" value="1" />
@@ -124,7 +132,7 @@ function OpenBallot({
         <BallotFields
           key={fieldsRevision}
           debaters={debaters}
-          values={answer.values}
+          values={fieldValues}
           error={answer.error}
           errorId={roundBallotErrorId}
           pending={pending}

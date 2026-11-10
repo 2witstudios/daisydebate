@@ -82,3 +82,29 @@ test('the edit form never offers private', () => {
     expected: [true, true, false],
   });
 });
+
+test('the edit form lists public first and checks the saved choice', () => {
+  const radios = (visibility: 'public' | 'unlisted') =>
+    [
+      ...renderToStaticMarkup(
+        <AssemblyDetailsFields
+          view={{ ...assemblySnapshot, visibility }}
+          commandId="fresh-command"
+          state={{ values: {} }}
+          pending={false}
+        />,
+      ).matchAll(/<input[^>]*name="visibility"[^>]*>/g),
+    ].map(([input]) => {
+      const value = /value="(\w+)"/.exec(input)?.[1];
+      return `${value}${input.includes('checked') ? '*' : ''}`;
+    });
+  assert({
+    given: 'a public Room, then an unlisted one',
+    should: 'offer public first, with the Room’s own visibility checked',
+    actual: [radios('public'), radios('unlisted')],
+    expected: [
+      ['public*', 'unlisted'],
+      ['public', 'unlisted*'],
+    ],
+  });
+});

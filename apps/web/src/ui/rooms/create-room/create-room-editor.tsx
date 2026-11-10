@@ -10,6 +10,10 @@ import {
   scheduleRoomDraft,
 } from '../../../features/rooms/create-room-model';
 import { roomChoiceKey } from '../../../features/rooms/create-room-fields';
+import {
+  defaultRoomVisibility,
+  roomVisibilityChoices,
+} from '../../../features/rooms/room-visibility';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { FormError } from '../../components/form-field/form-field';
@@ -363,7 +367,7 @@ export function CreateRoomEditor({
               <p>
                 Listed in the lobby. Ranked Rounds are always public, and are
                 broadcast with a delay and recorded when capture has capacity.
-                Play casual to keep a Round out of public view.
+                Play casual to choose who can join.
               </p>
               <p>{rankedNotice.text}</p>
             </div>
@@ -373,11 +377,14 @@ export function CreateRoomEditor({
               <select
                 name="visibility"
                 className={controlClass}
-                value={values.visibility ?? 'unlisted'}
+                value={values.visibility ?? defaultRoomVisibility}
                 onChange={(event) => metadata('visibility', event.target.value)}
               >
-                <option value="unlisted">Anyone with the link</option>
-                <option value="public">Listed in the lobby</option>
+                {roomVisibilityChoices.map((choice) => (
+                  <option key={choice.value} value={choice.value}>
+                    {choice.label}
+                  </option>
+                ))}
               </select>
               <small>
                 Choosing Ranked makes the Room public: ranked Rounds are always

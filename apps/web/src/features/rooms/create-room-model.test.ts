@@ -19,6 +19,20 @@ const freestyle = catalog[0]!;
 const policy = catalog[1]!;
 
 describe('the create-room model', () => {
+  test('a Room opens public, and a kept host choice stands', () => {
+    assert({
+      given: 'a fresh editor, then one carrying a refused post set to unlisted',
+      should:
+        'open public (never unlisted) and keep the host’s explicit choice',
+      actual: [
+        initialRoomModel(policy, catalog, {}, false).values.visibility,
+        initialRoomModel(policy, catalog, { visibility: 'unlisted' }, false)
+          .values.visibility,
+      ],
+      expected: ['public', 'unlisted'],
+    });
+  });
+
   test('an edit and its revert both follow the decoded draft, not a forced format', () => {
     let model = initialRoomModel(policy, catalog, {}, false);
     assert({
