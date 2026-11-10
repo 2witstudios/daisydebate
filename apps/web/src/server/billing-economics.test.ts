@@ -1291,3 +1291,99 @@ test('a hostile cause in a stage still reports that stage', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a defect while raising a report is one collect failure, not one an hour', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
+  const { logged, logger } = createEventRecorder();
+  const reporter = { capture: () => undefined };
+  let reads = 0;
+  let tick: (() => Promise<void>) | null = null;
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger,
+      database: { ...app.database, billingEconomics: snapshotStore() },
+      // The worker reads the reporter once at start; every later read is a defect inside raise.
+      get reporter() {
+        if (++reads > 1) throw new TypeError('reporter defect');
+        return reporter;
+      },
+    },
+    instanceId: 'service-fixture',
+    timers: {
+      setInterval: (run) => {
+        tick = run;
+        return 1;
+      },
+      clearInterval: () => undefined,
+    },
+  });
+  try {
+    await service.started;
+    for (let n = 0; n < 2; n++)
+      await (tick as (() => Promise<void>) | null)?.();
+    assert({
+      given: 'a defect thrown while raising each of three saved reports',
+      should: 'log one billing.economics.collect failure',
+      actual: logged
+        .filter((line) => line.event === 'billing.economics.failed')
+        .map((line) => line.fields.operation),
+      expected: ['billing.economics.collect'],
+    });
+  } finally {
+    await service.stop();
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('an unreadable failure outside any collection is reported once', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
+  const { logged, logger } = createEventRecorder();
+  const hostile = new Error('hostile');
+  Object.defineProperty(hostile, 'code', {
+    get() {
+      throw new Error('getter');
+    },
+  });
+  let tick: (() => Promise<void>) | null = null;
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger,
+      clock: {
+        now: () => {
+          throw hostile;
+        },
+      },
+      database: { ...app.database, billingEconomics: snapshotStore() },
+    },
+    instanceId: 'service-fixture',
+    timers: {
+      setInterval: (run) => {
+        tick = run;
+        return 1;
+      },
+      clearInterval: () => undefined,
+    },
+  });
+  try {
+    await service.started;
+    for (let n = 0; n < 2; n++)
+      await (tick as (() => Promise<void>) | null)?.();
+    assert({
+      given: 'a run that rejects with an unreadable error on three ticks',
+      should: 'log one collect failure, naming its stage',
+      actual: logged
+        .filter((line) => line.event === 'billing.economics.failed')
+        .map((line) => [line.fields.operation, line.fields.cause]),
+      expected: [['billing.economics.collect', 'economics-collect-failed']],
+    });
+  } finally {
+    await service.stop();
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
