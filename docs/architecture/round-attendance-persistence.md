@@ -46,12 +46,11 @@ for a second). A lease that does lapse refuses with `AUTHORIZATION` and reason
 `service-lease-lapsed`, which workers treat as a deferral. The 3 s staleness
 window is also web liveness in availability evidence and stays fixed.
 
-Before public probing, the
-sampler checks lock ownership on that same reserved PostgreSQL session; only
-the elected producer performs the synthetic route check and inserts a sample.
-The insert independently rechecks election. This prevents rolling web peers
-from multiplying requests against the probe member's ordinary shared rate
-limit. No probe bypasses session, origin, seat or receipt authorization. Each
+Before public probing, the sampler checks lock ownership on that same reserved
+PostgreSQL session; only the elected producer performs the synthetic route
+check and inserts a sample. The insert independently rechecks election. This
+prevents rolling web peers from multiplying requests against the probe member's
+ordinary shared rate limit. No probe bypasses session, origin, seat or receipt authorization. Each
 probe uses a new global command alias while preserving the operation's first
 receipt stamp. Missing configuration or unsuccessful probing remains unhealthy.
 The fixture secret holds only resource IDs and its cookie. Public destination

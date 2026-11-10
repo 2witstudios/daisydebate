@@ -17,6 +17,7 @@ type RoundMediaRefusal = 'media-deferred' | 'bot-room-changed';
  * the next renewal (DAISY-WEB-9).
  */
 type ServiceAuthorityRefusal = 'service-lease-lapsed';
+
 /** A report its reporter may not make (WATCH-7). */
 type ReportRefusal = 'report-not-eligible';
 /** Audience interaction an account may not make right now (SPECT-1.4). */

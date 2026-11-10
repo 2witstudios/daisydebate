@@ -4,11 +4,15 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { recoverableFailure } from './recoverable-failure';
 setupRitewayBun();
 
-const record = (isCapacity: (error: unknown) => boolean = () => false) => {
+const record = (
+  isCapacity: (error: unknown) => boolean = () => false,
+  now: () => number = () => 0,
+) => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity,
+    now,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -130,6 +134,7 @@ test('a bot publish failure names its stop, and nothing else of the error', () =
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    now: () => 0,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => undefined },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -173,6 +178,7 @@ test('a sink that throws never fails its caller, and its other steps still run (
   const captured: unknown[] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    now: () => 0,
     logger: {
       log: () => {
         throw new Error('log transport down');
@@ -198,6 +204,7 @@ test('a sink that throws never fails its caller, and its other steps still run (
     isCapacity: () => {
       throw new Error('capacity check broke');
     },
+    now: () => 0,
     logger: { log: () => {} },
     reporter: {
       capture: () => {
@@ -227,6 +234,7 @@ test('a cause reader that throws costs only the cause, never the log line (ISSUE
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    now: () => 0,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => {} },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -297,5 +305,53 @@ test('a lapsed service lease is logged each time and reported only once it persi
         ['denied', 'round.maintenance.tick'],
       ],
     },
+  });
+});
+
+test('isolated lease lapses apart by more than the quiet gap never add up to a report', () => {
+  const lapse = createRefusal('AUTHORIZATION', 'service-lease-lapsed');
+  let nowMs = 0;
+  const { lines, captured, failed } = record(
+    () => false,
+    () => nowMs,
+  );
+  for (let i = 0; i < 20; i++) {
+    failed(lapse, 'tick');
+    nowMs += 30_001;
+  }
+  const isolated = { lines: lines.length, captured: captured.length };
+  for (let i = 0; i < 9; i++) {
+    failed(lapse, 'tick');
+    nowMs += 500;
+  }
+  assert({
+    given:
+      'twenty one-off lapses of a stage each more than 30 s apart, then nine lapses 500 ms apart',
+    should:
+      'log all of them, report none of the isolated ones, and report the run that persists once',
+    actual: { isolated, captured: captured.length },
+    expected: { isolated: { lines: 20, captured: 0 }, captured: 1 },
+  });
+});
+
+test('a clock that throws costs only the lapse report, never its log line', () => {
+  const lapse = createRefusal('AUTHORIZATION', 'service-lease-lapsed');
+  const { lines, captured, failed } = record(
+    () => false,
+    () => {
+      throw new Error('clock broke');
+    },
+  );
+  let thrown: unknown = null;
+  try {
+    for (let i = 0; i < 9; i++) failed(lapse, 'tick');
+  } catch (error) {
+    thrown = error;
+  }
+  assert({
+    given: 'nine lease lapses with a clock that throws',
+    should: 'log each lapse, report none, and never throw to the worker',
+    actual: { thrown, lines: lines.length, captured: captured.length },
+    expected: { thrown: null, lines: 9, captured: 0 },
   });
 });

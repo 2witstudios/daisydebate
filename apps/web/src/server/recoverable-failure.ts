@@ -29,6 +29,37 @@ const deferralOf = (
   return isCapacity(error) ? 'capacity' : undefined;
 };
 
+/**
+ * A lease lapse more than this long after the stage's last one starts a new
+ * streak: the earlier lapse cleared on the next renewal, so isolated blips
+ * never add up to a report. A lapse belongs to the whole instance, and round
+ * maintenance pulses every 500 ms, so a lease that stays lapsed reaches the
+ * bound within seconds there even when a slower stage never does.
+ */
+const LEASE_QUIET_MS = 30_000;
+
+/** A stage's deferrals of one kind since its count last started. */
+type Streak = { readonly count: number; readonly lastMs: number };
+
+/**
+ * The next streak after one more deferral at `nowMs`, and whether it passed
+ * the bound, which starts the count again. Capacity counts every refusal at
+ * any cadence (ISSUE-431); a lease lapse after a quiet gap starts afresh.
+ */
+const nextStreak = (
+  kind: Deferral,
+  previous: Streak | undefined,
+  nowMs: number,
+): { readonly streak: Streak; readonly persisted: boolean } => {
+  const quiet =
+    kind === 'service-lease-lapsed' &&
+    previous !== undefined &&
+    nowMs - previous.lastMs > LEASE_QUIET_MS;
+  const count = (quiet ? 0 : (previous?.count ?? 0)) + 1;
+  const persisted = count > DEFERRAL_LIMIT;
+  return { streak: { count: persisted ? 0 : count, lastMs: nowMs }, persisted };
+};
+
 /** The operation suffix a deferral's log line and report carry. */
 const deferralRoute: Readonly<Record<Deferral, string>> = {
   capacity: 'capacity',
@@ -39,23 +70,25 @@ const deferralRoute: Readonly<Record<Deferral, string>> = {
  * A background worker's recoverable failure: the log line names the stage
  * and the error's own code; only the scrubbed reporter sees the raw error
  * (ADR 0037). An untyped error carries no trustworthy code, so it is INTERNAL.
- * A deferral counts per kind and stage, and each one past the bound is
- * reported, after which that count starts again. Capacity refusals are
- * silent within the bound; a lease lapse logs every occurrence and is
- * reported only once lapses persist.
+ * A deferral counts per kind and stage (`nextStreak`), and each one past the
+ * bound is reported, after which that count starts again. Capacity refusals
+ * are silent within the bound; a lease lapse logs every occurrence and is
+ * reported only once lapses persist without a quiet gap.
  */
 export function recoverableFailure(input: {
   readonly logger: Pick<Logger, 'log'>;
   readonly reporter: ErrorReporter;
   readonly nextId: () => string;
   readonly isCapacity: (error: unknown) => boolean;
+  /** Monotonic milliseconds, which time a lease lapse streak. */
+  readonly now: () => number;
   readonly event: EventName;
   readonly operation: string;
   readonly message: string;
   /** A fixed code naming why the work failed, read from a typed error. */
   readonly cause?: (error: unknown) => string | undefined;
 }) {
-  const deferrals = new Map<`${Deferral}:${string}`, number>();
+  const streaks = new Map<`${Deferral}:${string}`, Streak>();
   /** One sink step; a step that throws never stops the next or its caller. */
   const attempt = (step: () => void) => {
     try {
@@ -89,12 +122,12 @@ export function recoverableFailure(input: {
         errorCode: codeOf(error),
       }),
     );
-  /** Whether this deferral is past its bound, which starts the count again. */
+  /** Records one deferral and answers whether it persisted past the bound. */
   const persisted = (kind: Deferral, stage: string) => {
     const key = `${kind}:${stage}` as const;
-    const count = (deferrals.get(key) ?? 0) + 1;
-    deferrals.set(key, count > DEFERRAL_LIMIT ? 0 : count);
-    return count > DEFERRAL_LIMIT;
+    const next = nextStreak(kind, streaks.get(key), input.now());
+    streaks.set(key, next.streak);
+    return next.persisted;
   };
   /**
    * Never throws, so no worker promise ever rejects because reporting its
@@ -106,13 +139,18 @@ export function recoverableFailure(input: {
     attempt(() => {
       kind = deferralOf(error, input.isCapacity);
     });
-    if (kind === undefined) {
+    const deferral = kind;
+    if (deferral === undefined) {
       log(error, operation);
       return capture(error, operation);
     }
-    const route = `${operation}.${deferralRoute[kind]}`;
-    const report = persisted(kind, stage);
-    if (kind === 'service-lease-lapsed') log(error, route, kind);
+    const route = `${operation}.${deferralRoute[deferral]}`;
+    let report = false;
+    // A clock that throws costs the report, never the log line.
+    attempt(() => {
+      report = persisted(deferral, stage);
+    });
+    if (deferral === 'service-lease-lapsed') log(error, route, deferral);
     else if (report) log(error, route);
     if (report) capture(error, route);
   };
@@ -132,6 +170,7 @@ export const workerFailures =
       reporter,
       nextId: () => app.ids.next(),
       isCapacity: isCapacityRefusal,
+      now: () => performance.now(),
       event,
       operation,
       message,

@@ -103,6 +103,7 @@ test('a worker sink whose log throws never rejects the service’s promises, and
       // The production sink, with a log transport that always throws.
       failed: recoverableFailure({
         isCapacity: () => false,
+        now: () => 0,
         logger: {
           log: () => {
             throw new Error('log transport down');
