@@ -2,6 +2,7 @@ import type { FileHandle } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, opendir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { economicsInstant } from '../features/billing/economics-input';
 import type { createBillingEconomicsCollector } from '../features/billing/economics-collector';
@@ -51,15 +52,19 @@ async function readBoundedJson(file: FileHandle) {
     length += read.bytesRead;
   }
   if (length > maximumFeedBytes)
-    throw new Error('Billing economics feed exceeds size limit');
+    throw createAppError(
+      'VALIDATION',
+      'Billing economics feed exceeds size limit',
+    );
   let parsed: unknown;
   try {
     parsed = JSON.parse(bytes.subarray(0, length).toString('utf8'));
   } catch {
-    throw new Error('Billing economics feed is invalid');
+    throw createAppError('VALIDATION', 'Billing economics feed is invalid');
   }
   // `null` means an absent file to every caller, so a file whose body is null is invalid, never missing.
-  if (parsed === null) throw new Error('Billing economics feed is invalid');
+  if (parsed === null)
+    throw createAppError('VALIDATION', 'Billing economics feed is invalid');
   return parsed;
 }
 async function readPrivateFeed(path: string) {
@@ -99,9 +104,16 @@ export function createBillingEconomicsFiles(input: {
   readonly now: () => string;
 }) {
   return {
-    /** The sink itself: its directory exists and is private. Retention runs once per tick, in `save`. */
+    /**
+     * The sink itself: its directory exists and is private, and its bounded
+     * retention sweep runs every tick, whether or not the collection reaches
+     * `save` (which sweeps again as the capacity authority).
+     */
     sink: {
-      open: () => privateDirectory(input.directory),
+      async open() {
+        await privateDirectory(input.directory);
+        await prunePrivateFiles(input.directory, input.now());
+      },
     },
     feed: {
       async read(window: {

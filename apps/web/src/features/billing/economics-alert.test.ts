@@ -4,6 +4,12 @@ import { buildEconomicsReport } from './economics-report';
 import { dataset, now } from './economics.test-support';
 setupRitewayBun();
 
+const validReport = () => {
+  const report = buildEconomicsReport(dataset(), now);
+  if (report.kind !== 'report') throw Error('Expected a valid report');
+  return report;
+};
+
 const captured = () => {
   const events: unknown[] = [];
   return {
@@ -21,6 +27,7 @@ const captured = () => {
 
 test('a known crossing raises only fixed private low-margin and completeness signals', () => {
   const report = buildEconomicsReport(dataset(), now);
+  if (report.kind !== 'report') throw Error('Expected a valid report');
   const { events, reporter } = captured();
   const raised = raiseEconomicsSignals(reporter, {
     month: '2026-10',
@@ -64,31 +71,6 @@ test('a known crossing raises only fixed private low-margin and completeness sig
   });
 });
 
-test('an invalid report is incomplete, correlated by its month', () => {
-  const report = buildEconomicsReport({}, now);
-  const { events, reporter } = captured();
-  raiseEconomicsSignals(reporter, {
-    month: '2026-10',
-    signals: economicsSignals(report),
-  });
-  assert({
-    given: 'a report the builder refused as invalid input',
-    should:
-      'raise one Premium completeness signal carrying the month, never a placeholder correlation value',
-    actual: events,
-    expected: [
-      {
-        message: 'BILLING_ECONOMICS_INCOMPLETE',
-        context: {
-          route: 'billing.economics.premium',
-          errorCode: 'BILLING_ECONOMICS_INCOMPLETE',
-          requestId: '2026-10',
-        },
-      },
-    ],
-  });
-});
-
 test('a throwing reporter is a failed submission carrying its cause', () => {
   const cause = new Error('private adapter');
   const raised = raiseEconomicsSignals(
@@ -99,7 +81,7 @@ test('a throwing reporter is a failed submission carrying its cause', () => {
     },
     {
       month: '2026-10',
-      signals: economicsSignals(buildEconomicsReport(dataset(), now)),
+      signals: economicsSignals(validReport()),
     },
   );
   assert({
@@ -116,7 +98,7 @@ test('a void reporter submission is not a delivery receipt', () => {
     { capture: () => undefined },
     {
       month: '2026-10',
-      signals: economicsSignals(buildEconomicsReport(dataset(), now)),
+      signals: economicsSignals(validReport()),
     },
   );
   assert({

@@ -254,3 +254,32 @@ test('the feed reader keeps its own privacy check without the sink being opened'
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('opening the sink runs retention even when the collection never reaches save', async () => {
+  const { utimes, readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const expired = join(directory, `report-${'f'.repeat(24)}.json`);
+    await writeFile(expired, '{}', { mode: 0o600 });
+    await utimes(
+      expired,
+      new Date('2026-09-01T00:00:00.000Z'),
+      new Date('2026-09-01T00:00:00.000Z'),
+    );
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'f'.repeat(24),
+    });
+    await files.sink.open();
+    assert({
+      given:
+        'a report older than the thirty-day retention and a sink opened without a save',
+      should: 'remove the expired file on open',
+      actual: await readdir(directory),
+      expected: [],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

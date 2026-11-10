@@ -66,6 +66,8 @@ async function runWorker(input: {
   readonly between?: (tick: number) => Promise<void>;
   /** Replaces the snapshot read on the given read number (1-based). */
   readonly refuse?: (read: number) => unknown;
+  /** Replaces the stored snapshot the store returns. */
+  readonly snapshot?: (period: { startsAt: string; endsAt: string }) => unknown;
   /** Makes the logger throw for an event, after recording it. */
   readonly logThrows?: (event: string) => boolean;
 }) {
@@ -97,6 +99,13 @@ async function runWorker(input: {
               if (refusal !== undefined) {
                 reads.push({ instanceId, ...period });
                 throw refusal;
+              }
+              if (input.snapshot) {
+                reads.push({ instanceId, ...period });
+                // A deliberately malformed snapshot, past the store's type, for the worker to refuse.
+                return input.snapshot(period) as Awaited<
+                  ReturnType<typeof store.read>
+                >;
               }
               return store.read(period);
             },
@@ -163,7 +172,7 @@ test('a provisioned sink without a feed raises completeness once per month, not 
     );
     assert({
       given:
-        'a provisioned private sink with no feed for the previous month, over three hourly ticks',
+        'a provisioned private sink with no feed for the previous month, over three collections',
       should:
         'read the original calendar window each tick, save incomplete reports, and raise one completeness signal per plan once, logged as feed_missing',
       actual: {
@@ -622,4 +631,62 @@ test('a failure neither sink took is retried on the next tick, then settled', as
     await chmod(directory, 0o700);
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('invalid data is captured as VALIDATION, an unavailable resource as INFRASTRUCTURE', async () => {
+  const codes = async (
+    prepare: (directory: string) => Promise<void>,
+    snapshot?: (period: { startsAt: string; endsAt: string }) => unknown,
+  ) => {
+    const directory = await mkdtemp(
+      join(tmpdir(), 'billing-economics-worker-'),
+    );
+    try {
+      await prepare(directory);
+      const run = await runWorker({
+        directory,
+        ticks: 0,
+        ...(snapshot ? { snapshot } : {}),
+      });
+      return run.captured.map((c) => [c.route, c.errorCode]);
+    } finally {
+      await chmod(directory, 0o700);
+      await rm(directory, { recursive: true, force: true });
+    }
+  };
+  const feedFile = (directory: string, body: string) =>
+    writeFile(join(directory, 'feed-2026-10.json'), body, { mode: 0o600 });
+  assert({
+    given:
+      'a snapshot for another window, a feed stating a 10% floor, a truncated feed file, and a non-private sink',
+    should:
+      'capture snapshot_invalid, feed_invalid and feed_invalid as VALIDATION, and sink_unavailable as INFRASTRUCTURE',
+    actual: [
+      await codes(
+        async () => undefined,
+        (period) => ({
+          ...period,
+          startsAt: '2026-09-01T00:00:00.000Z',
+          observedAt: now,
+          attempts: [],
+          usage: [],
+          complete: true,
+        }),
+      ),
+      await codes((directory) =>
+        feedFile(
+          directory,
+          JSON.stringify({ ...dataset(), floorBasisPoints: 1000 }),
+        ),
+      ),
+      await codes((directory) => feedFile(directory, '{"startsAt":')),
+      await codes((directory) => chmod(directory, 0o755)),
+    ],
+    expected: [
+      [['billing.economics.snapshot_invalid', 'VALIDATION']],
+      [['billing.economics.feed_invalid', 'VALIDATION']],
+      [['billing.economics.feed_invalid', 'VALIDATION']],
+      [['billing.economics.sink_unavailable', 'INFRASTRUCTURE']],
+    ],
+  });
 });

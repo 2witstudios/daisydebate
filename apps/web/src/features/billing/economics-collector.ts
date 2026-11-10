@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isAppError } from '@daisy/errors';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
@@ -11,7 +12,7 @@ import {
   hasRecordedEconomicsFloor,
   recordedMarginFloorBasisPoints,
 } from './economics-policy';
-import { buildEconomicsReport } from './economics-report';
+import { buildEconomicsReport, type EconomicsReport } from './economics-report';
 
 const privateFeed = economicsInput
   .omit({ modelUsage: true, volume: true })
@@ -179,6 +180,7 @@ export type EconomicsCollectionFailure =
   | 'snapshot_invalid'
   | 'feed_unreadable'
   | 'feed_invalid'
+  | 'report_invalid'
   | 'save_failed';
 
 /**
@@ -191,7 +193,7 @@ export type EconomicsCollection =
       readonly kind: 'reported';
       readonly month: string;
       readonly feed: 'supplied' | 'missing';
-      readonly report: ReturnType<typeof buildEconomicsReport>;
+      readonly report: EconomicsReport;
       readonly signals: readonly EconomicsSignal[];
     }
   | {
@@ -244,7 +246,14 @@ export function createBillingEconomicsCollector(input: {
       });
       if (!snapshot.ok) return failed('snapshot_invalid', snapshot.cause);
       const feed = await stage(() => input.feed.read(window));
-      if (!feed.ok) return failed('feed_unreadable', feed.cause);
+      // The files edge marks a malformed feed's contents VALIDATION; anything else is the read failing.
+      if (!feed.ok)
+        return failed(
+          isAppError(feed.cause) && feed.cause.code === 'VALIDATION'
+            ? 'feed_invalid'
+            : 'feed_unreadable',
+          feed.cause,
+        );
       const report = await stage(() =>
         buildEconomicsReport(
           dataset(window, snapshot.value, feed.value),
@@ -252,6 +261,9 @@ export function createBillingEconomicsCollector(input: {
         ),
       );
       if (!report.ok) return failed('feed_invalid', report.cause);
+      // The joined feed and snapshot fail the report's own schema or coherence: nothing worth keeping.
+      if (report.value.kind === 'invalid')
+        return failed('report_invalid', report.value);
       const saved = await stage(() =>
         input.save({ report: report.value, snapshot: snapshot.value }),
       );

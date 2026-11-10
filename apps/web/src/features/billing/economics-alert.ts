@@ -1,5 +1,5 @@
 import type { ErrorReporter } from '@daisy/observability';
-import type { buildEconomicsReport } from './economics-report';
+import type { EconomicsReport } from './economics-report';
 import type { EconomicsPlan } from './economics-input';
 
 /** A saved month's fixed private signal: a product statement about that month, never a worker failure. */
@@ -10,10 +10,8 @@ export type EconomicsSignal = {
 
 /** Closed private signal names; no source financial details or participant identity reaches telemetry. */
 export function economicsSignals(
-  report: ReturnType<typeof buildEconomicsReport>,
+  report: EconomicsReport,
 ): readonly EconomicsSignal[] {
-  if (report.kind === 'invalid')
-    return [{ name: 'BILLING_ECONOMICS_INCOMPLETE', plan: 'premium' }];
   return report.plansReported.flatMap<EconomicsSignal>((plan) => {
     const margin = report.plans[plan].margin;
     if (margin.kind === 'below_floor')

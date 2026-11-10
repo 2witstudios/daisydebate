@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
 import { createBillingEconomicsCollector } from './economics-collector';
 import { dataset, month, now } from './economics.test-support';
 setupRitewayBun();
@@ -319,5 +320,42 @@ test('possible unknown calls cannot be priced as measured zero even when a bille
       r.report.kind === 'report' &&
       r.report.plans.premium.margin.kind,
     expected: 'unknown',
+  });
+});
+
+test('a malformed feed body is invalid, and an incoherent report is report_invalid', async () => {
+  const saved: unknown[] = [];
+  const run = (read: () => Promise<unknown>) =>
+    createBillingEconomicsCollector({
+      sink: { open: async () => undefined },
+      store: { read: async () => snapshot() },
+      feed: { read },
+      now: () => now,
+      save: async (value) => {
+        saved.push(value);
+      },
+    }).run(window);
+  const malformed = await run(async () => {
+    throw createAppError('VALIDATION', 'Billing economics feed is invalid');
+  });
+  const unreadable = await run(async () => {
+    throw new Error('Billing economics feed unavailable');
+  });
+  const incoherent = await run(async () => {
+    const supplied = feed();
+    return { ...supplied, revenue: [...supplied.revenue, ...supplied.revenue] };
+  });
+  assert({
+    given:
+      'a feed whose contents the files edge refused as VALIDATION, an unreadable feed, and a feed whose revenue sequences repeat',
+    should:
+      'fail as feed_invalid, feed_unreadable and report_invalid, and save nothing',
+    actual: [
+      malformed.kind === 'failed' && malformed.reason,
+      unreadable.kind === 'failed' && unreadable.reason,
+      incoherent.kind === 'failed' && incoherent.reason,
+      saved,
+    ],
+    expected: ['feed_invalid', 'feed_unreadable', 'report_invalid', []],
   });
 });

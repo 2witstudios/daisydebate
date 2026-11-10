@@ -7,7 +7,13 @@ import {
   recordReport,
   reportProgress,
 } from './economics-notice';
+import { buildEconomicsReport } from './economics-report';
+import { dataset, now } from './economics.test-support';
 setupRitewayBun();
+
+const built = buildEconomicsReport(dataset(), now);
+if (built.kind !== 'report') throw Error('Expected a valid report');
+const validReport = built;
 
 const failed = (month: string, reason: 'feed_unreadable' | 'save_failed') =>
   ({
@@ -25,7 +31,7 @@ const reported = (
     kind: 'reported',
     month,
     feed,
-    report: { kind: 'invalid', reason: 'invalid_input' },
+    report: validReport,
     signals: plans.map((plan) => ({
       name: 'BILLING_ECONOMICS_INCOMPLETE' as const,
       plan,

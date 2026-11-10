@@ -48,11 +48,15 @@ and saves the private report. It returns one typed collection: `reported` (the
 saved report, the signals it implies and whether the feed was `supplied` or
 `missing`) or `failed` with one closed reason and the error that stage caught:
 `sink_unavailable` (the private directory cannot be created or is not
-private), `snapshot_failed` (the read threw), `snapshot_invalid` (schema,
-window or a future observation), `feed_unreadable`, `feed_invalid`
-(window, schema or a floor other than the recorded policy) or `save_failed`
-(including the save's bounded retention sweep and file cap). A feed file
-whose body is the JSON literal `null` is invalid, never a missing feed. The
+private, or its bounded retention sweep refused; the sweep runs on every
+collection, whether or not it reaches the save), `snapshot_failed` (the read
+threw), `snapshot_invalid` (schema, window or a future observation),
+`feed_unreadable` (the file could not be opened or is not a private regular
+file), `feed_invalid` (malformed or oversized contents, the JSON literal
+`null`, window, schema, or a floor other than the recorded policy),
+`report_invalid` (the joined feed and snapshot fail the report's own schema or
+coherence, so nothing is saved) or `save_failed` (including the save's file
+cap). A feed file whose body is `null` is invalid, never a missing feed. The
 collector never reports.
 `raiseEconomicsSignals` submits a saved report's fixed signals through the
 existing ErrorReporter: `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`;
@@ -163,7 +167,7 @@ a financial report or claims low-margin delivery:
 - **Failed** (a stage threw). The worker reports it exactly once through the
   worker failure sink: one `billing.economics.failed` line whose `operation` is
   `billing.economics.<reason>`, and one capture. The captured error is typed
-  (`VALIDATION` for `feed_invalid` and `snapshot_invalid`, otherwise
+  (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and `report_invalid`, otherwise
   `INFRASTRUCTURE`), so `errorCode`
   stays meaningful, and it carries the caught error as its `cause`, so the real
   cause reaches the scrubbed tracker. A capacity refusal is first
@@ -187,7 +191,7 @@ A month that cannot be measured therefore reaches the error tracker either as
 `billing.economics.<reason>` failure, never both for one failure. An operator
 alert for an unmeasured month should match the route prefix
 `billing.economics.`, not the completeness code alone.
-The collector's reporter remains a void port: runtime registration and unit
+The reporter `raiseEconomicsSignals` submits through remains a void port: runtime registration and unit
 transport capture do not confirm an operator/Sentry notification. Actual approved
 measurement-feed and private-destination delivery receipts remain required
 acceptance evidence, distinct from controlled threshold tests. This registration
@@ -313,7 +317,7 @@ it also starts the other registered workers. Review that process's existing loca
 TEST-mode worker configuration before invocation. Do not launch a second process
 against an active instance or use this example to activate production. The current
 assignment has not executed that full process command. For a one-off/late-month
-correction the existing `composeBillingEconomics(app, instanceId).run(window)`
+correction the existing `composeBillingEconomics(app, instanceId, directory).run(window)`
 seam is available to the integrating process owner, retaining the same bounded
 current-service reader and private sink; there is no participant/admin endpoint.
 

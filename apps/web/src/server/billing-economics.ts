@@ -79,7 +79,8 @@ export function startBillingEconomics(input: {
       const verdict = failed(
         createAppError(
           collection.reason === 'feed_invalid' ||
-            collection.reason === 'snapshot_invalid'
+            collection.reason === 'snapshot_invalid' ||
+            collection.reason === 'report_invalid'
             ? 'VALIDATION'
             : 'INFRASTRUCTURE',
           undefined,
