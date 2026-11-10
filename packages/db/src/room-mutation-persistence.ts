@@ -17,7 +17,7 @@ import {
   type Tx,
   publishDefinition,
 } from './room-command-facts';
-import { isOpenRoomStatus } from './room-open';
+import { isOpenRoomStatus } from '@daisy/protocol';
 import { settleRoomInvitationsAfter } from './room-invitations/store';
 
 /** The room row a mutation writes; the idle anchor moves only on an accepted command. */

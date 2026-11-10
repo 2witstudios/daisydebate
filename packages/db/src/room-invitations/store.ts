@@ -189,7 +189,8 @@ export const roomInvitationOperations = ({
         await touchRoom(tx, room);
         // One email an hour per host, member and Room, however often the
         // host withdraws and invites again: only an email this Room's earlier
-        // invitation queued or sent counts. The inbox row is always written.
+        // invitation actually sent counts, since a queued one for an ended
+        // invitation is cancelled at send time. The inbox row is always written.
         const [recent] = await rowsOf(
           tx,
           sql`select 1 from room_invitations i
@@ -197,8 +198,8 @@ export const roomInvitationOperations = ({
             join notification_emails j on j.notification_id=n.id
             where i.room_id=${room.id} and i.inviter_actor_id=${input.caller.actorId}
               and i.invitee_actor_id=${found.actor_id} and i.id<>${input.ids.invitation}
-              and j.state in ('queued','leased','sent')
-              and j.created_at > ${now}::timestamptz - interval '1 hour' limit 1`,
+              and j.state='sent'
+              and j.completed_at > ${now}::timestamptz - interval '1 hour' limit 1`,
         );
         await oweNotification(tx, {
           kind: 'room_invitation',

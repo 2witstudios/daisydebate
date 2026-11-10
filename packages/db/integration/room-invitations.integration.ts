@@ -383,17 +383,37 @@ test('a host who withdraws and invites again sends one email an hour', async () 
           (select count(*)::int from notifications where user_id=${env.coach.userId}) as notifications,
           (select count(*)::int from notification_emails where user_id=${env.coach.userId}) as emails`
       )[0];
-    for (let round = 0; round < 3; round += 1) {
-      const { invitationId } = await invite(env, env.coach.userId);
-      if (round < 2) await withdraw(invitationId);
-    }
+    const pendingId = async () =>
+      (
+        (await env.f.sql`select id from room_invitations
+          where room_id=${env.roomId} and state='pending'`) as { id: string }[]
+      )[0]!.id;
+    const owed = async () =>
+      (
+        (await env.f.sql`select count(*)::int as n from notification_emails j
+          join notifications n on n.id=j.notification_id
+          join room_invitations i on i.id=n.room_invitation_id
+          where j.user_id=${env.coach.userId} and i.state='pending'`) as {
+          n: number;
+        }[]
+      )[0]!.n;
+    // Withdrawn and sent again before the first email went: the live
+    // invitation still owes its own (the first will be cancelled not-owed).
+    await invite(env, env.coach.userId);
+    await withdraw(await pendingId());
+    await invite(env, env.coach.userId);
+    const beforeSent = { ...(await counts()), owed: await owed() };
+    // Once an email was sent, withdrawing and inviting again owes no more.
+    await env.f
+      .sql`update notification_emails set state='sent',completed_at=clock_timestamp()
+      where user_id=${env.coach.userId}`;
+    await withdraw(await pendingId());
+    await invite(env, env.coach.userId);
     const reinvited = await counts();
-    // The one email was cancelled before it went: the next invite owes one.
+    // An email cancelled before it went never counts as the hour's email.
     await env.f.sql`update notification_emails set state='cancelled',
       last_error_code='rate-limited',completed_at=clock_timestamp() where user_id=${env.coach.userId}`;
-    const pending = await env.f.sql`select id from room_invitations
-      where room_id=${env.roomId} and state='pending'`;
-    await withdraw((pending[0] as { id: string }).id);
+    await withdraw(await pendingId());
     await invite(env, env.coach.userId);
     const afterCancelled = await counts();
     // Another Room of the same host is its own invitation and its own email.
@@ -408,14 +428,15 @@ test('a host who withdraws and invites again sends one email an hour', async () 
       const otherRoom = await counts();
       assert({
         given:
-          'an invitation withdrawn and sent again twice, then again after its email was cancelled, then to another Room, all within the hour',
+          'a reinvite before the first email went, one after an email was sent, one after it was cancelled, then an invite to another Room, all within the hour',
         should:
-          'tell the member in the inbox each time and email once per Room while an email is queued or sent',
-        actual: { reinvited, afterCancelled, otherRoom },
+          'tell the member in the inbox each time, and owe the live invitation an email unless one was sent for this Room',
+        actual: { beforeSent, reinvited, afterCancelled, otherRoom },
         expected: {
-          reinvited: { notifications: 3, emails: 1 },
-          afterCancelled: { notifications: 4, emails: 2 },
-          otherRoom: { notifications: 5, emails: 3 },
+          beforeSent: { notifications: 2, emails: 2, owed: 1 },
+          reinvited: { notifications: 3, emails: 2 },
+          afterCancelled: { notifications: 4, emails: 3 },
+          otherRoom: { notifications: 5, emails: 4 },
         },
       });
     } finally {
