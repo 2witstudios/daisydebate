@@ -3,6 +3,7 @@ import { isCapacityRefusal } from '@daisy/db/capacity';
 import { errorCodeOf } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
 import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
+import { guarded } from '../lib/sink-guard';
 import type { App } from './app';
 
 /**
@@ -37,13 +38,7 @@ export function recoverableFailure(input: {
 }) {
   const deferrals = new Map<string, number>();
   /** One sink step; a step that throws never stops the next or its caller. */
-  const attempt = (step: () => void) => {
-    try {
-      step();
-    } catch {
-      /* A failing sink is never its caller's fault (ISSUE-789). */
-    }
-  };
+  const attempt = (step: () => void) => void guarded(step);
   const report = (error: unknown, operation: string) => {
     const errorCode = errorCodeOf(error, 'INTERNAL');
     let cause: string | undefined;

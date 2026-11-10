@@ -1,4 +1,4 @@
-import { isAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { leaseLapseReport } from './lease-lapse-report';
 setupRitewayBun();
@@ -38,6 +38,7 @@ test('a lapse caused by a failing renewal is logged with its length and linked t
           'availability.lease_lapsing',
           {
             operation: 'availability.lease',
+            errorCode: 'INFRASTRUCTURE',
             cause: 'renewal_failed',
             durationMs: 10_000,
           },
@@ -103,5 +104,35 @@ test('a report reached someone if either its log line or its capture went out', 
       reached(false, false),
     ],
     expected: [true, true, true, false],
+  });
+});
+
+test('a lapse caused by a typed refusal keeps the refusal’s own code', () => {
+  const conflict = createAppError(
+    'CONFLICT',
+    'Service lease belongs to another role',
+  );
+  const { lines, captured, report } = recorded();
+  report({
+    lapsedMs: 10_000,
+    unproven: { kind: 'renewal_failed', error: conflict },
+  });
+  const [error, context] = captured[0] ?? [];
+  assert({
+    given:
+      'a lapse whose renewals are refused because another role holds the row',
+    should: 'log and report it as CONFLICT, linked to the refusal',
+    actual: {
+      logged: (lines[0]?.[1] as { errorCode: string }).errorCode,
+      code: isAppError(error) ? error.code : null,
+      tag: (context as { errorCode: string }).errorCode,
+      cause: error instanceof Error ? error.cause : null,
+    },
+    expected: {
+      logged: 'CONFLICT',
+      code: 'CONFLICT',
+      tag: 'CONFLICT',
+      cause: conflict,
+    },
   });
 });

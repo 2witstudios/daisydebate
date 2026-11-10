@@ -5,7 +5,7 @@ import { isAppError } from '@daisy/errors';
  * renewal is stamped (ADR 0033 §7). `requireCurrentWeb` refuses a web
  * instance past it, and the availability sampler counts a peer of either
  * role live only within it. A renewal that took longer than this to settle
- * committed a lease that had already lapsed.
+ * proves nothing: its stamp may already have lapsed.
  */
 export const SERVICE_LEASE_WINDOW_MS = 3000;
 

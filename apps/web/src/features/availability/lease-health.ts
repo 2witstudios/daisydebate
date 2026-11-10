@@ -26,8 +26,8 @@ export type Unproven =
   /** A renewal has been in flight for the whole window. */
   | { readonly kind: 'renewal_pending' }
   /**
-   * No renewal is in flight and the last one proved the lease: the process
-   * did not start one in time (a stalled timer or event loop).
+   * No renewal was hung and the last settled one proved the lease: the
+   * process did not start one in time (a stalled timer or event loop).
    */
   | { readonly kind: 'renewal_not_started' }
   /** The latest renewal wrote the row only after its window had passed. */
@@ -45,7 +45,8 @@ type Settled = Extract<
  * renewals alone. A renewal called at `startedMs` and settled at `settledMs`
  * was stamped between the two and visible from the settle, so it proves the
  * lease current from its settle until its call plus the window. One that
- * settled after that proves nothing: it committed a lease already stale.
+ * settled after that proves nothing, since its stamp may be stale by the
+ * time it is visible.
  */
 export type LeaseHealth = {
   /** Monotonic ms until which the lease is proven current. */
@@ -120,10 +121,9 @@ const unprovenAt = (health: LeaseHealth, nowMs: number): Unproven => {
     nowMs - health.inFlightSinceMs >= SERVICE_LEASE_WINDOW_MS
   )
     return { kind: 'renewal_pending' };
-  if (health.settled !== null) return health.settled;
-  return health.inFlightSinceMs === null
-    ? { kind: 'renewal_not_started' }
-    : { kind: 'renewal_pending' };
+  // No hung renewal and no settled failure: for most of a lapse this long,
+  // no renewal ran at all (a stalled timer), whatever has started since.
+  return health.settled ?? { kind: 'renewal_not_started' };
 };
 
 /** The tick's check at `nowMs`: the health, and a lapse to report, if due. */

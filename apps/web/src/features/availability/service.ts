@@ -1,3 +1,4 @@
+import { guarded } from '../../lib/sink-guard';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import {
   afterRenewal,
@@ -94,13 +95,8 @@ export function startAvailabilityService(deps: {
     });
   };
   /** A failure sink that throws never rejects the renewal or the cycle. */
-  const failedSafely = (error: unknown) => {
-    try {
-      deps.failed(error);
-    } catch {
-      /* The renewal's outcome is already recorded in the lease health. */
-    }
-  };
+  const failedSafely = (error: unknown) =>
+    void guarded(() => deps.failed(error));
   let lease = startingLease(nowMs());
   const observe = (renewal: LeaseRenewal) => {
     lease = afterRenewal(lease, renewal);
@@ -111,12 +107,12 @@ export function startAvailabilityService(deps: {
     const checked = checkLease(lease, nowMs());
     lease = checked.health;
     if (!checked.lapse) return;
+    const { lapse } = checked;
     let reached = false;
-    try {
-      reached = deps.lapsing(checked.lapse);
-    } catch {
-      /* Reporting a lapse never stops the renewals that end it. */
-    }
+    // Reporting a lapse never stops the renewals that end it.
+    guarded(() => {
+      reached = deps.lapsing(lapse);
+    });
     // A report that reached no one is not counted: the next tick retries it.
     if (!reached) lease = { ...lease, reportedAtMs };
   };
@@ -124,8 +120,15 @@ export function startAvailabilityService(deps: {
     if (renewing) return renewing;
     const startedMs = nowMs();
     observe({ kind: 'started', startedMs });
-    renewing = deps.store
-      .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
+    // A store that throws synchronously still settles as a failed renewal.
+    renewing = new Promise<void>((resolve) =>
+      resolve(
+        deps.store.renewServiceInstance({
+          instanceId: deps.instanceId,
+          role: 'web',
+        }),
+      ),
+    )
       .then(() => {
         observe({ kind: 'renewed', startedMs, settledMs: nowMs() });
         return true;

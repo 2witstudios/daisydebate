@@ -401,3 +401,32 @@ test('a failure sink that throws never rejects the renewal', async () => {
     expected: null,
   });
 });
+
+test('a store that throws before returning a promise is still a failed renewal', async () => {
+  const thrown = new Error('adapter broke synchronously');
+  const { lapses, advance, service } = ticked(() => {
+    throw thrown;
+  });
+  let rejected: unknown = null;
+  try {
+    await advance(12);
+    await service.stop();
+  } catch (error) {
+    rejected = error;
+  }
+  assert({
+    given: 'a store whose renewal throws synchronously on every tick',
+    should:
+      'record each as a failed renewal and report the lapse without throwing',
+    actual: { rejected, lapses },
+    expected: {
+      rejected: null,
+      lapses: [
+        {
+          lapsedMs: 10_000,
+          unproven: { kind: 'renewal_failed', error: thrown },
+        },
+      ],
+    },
+  });
+});

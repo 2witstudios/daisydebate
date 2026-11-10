@@ -1,4 +1,5 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, errorCodeOf } from '@daisy/errors';
+import { guarded } from '../../lib/sink-guard';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import type { LeaseLapse } from './lease-health';
@@ -9,8 +10,9 @@ const ROUTE = 'web.service-lease.lapsed';
 /**
  * How a persisting lapse reaches people (DAISY-WEB-9). The log line carries
  * why the lease is unproven and for how long; the error tracker gets one
- * `INFRASTRUCTURE` error under one route, linked to the renewal failure when
- * there was one, since the reporter port carries no other fields (ADR 0037).
+ * error under one route, linked to the renewal failure when there was one,
+ * since the reporter port carries no other fields (ADR 0037). Its code is
+ * the failure's own, `INFRASTRUCTURE` when there is none.
  */
 export const leaseLapseReport =
   (deps: {
@@ -20,38 +22,31 @@ export const leaseLapseReport =
   }) =>
   /** Whether the report reached anyone: its log line, the tracker, or both. */
   (lapse: LeaseLapse): boolean => {
-    let logged = false;
-    try {
-      deps.logger.log(
-        'availability.lease_lapsing',
-        {
-          operation: 'availability.lease',
-          cause: lapse.unproven.kind,
-          durationMs: Math.max(0, Math.round(lapse.lapsedMs)),
-        },
-        'Web service lease unproven',
-      );
-      logged = true;
-    } catch {
-      /* A log that fails never costs the report. */
-    }
     const failure =
       lapse.unproven.kind === 'renewal_failed' &&
       lapse.unproven.error instanceof Error
         ? lapse.unproven.error
         : undefined;
-    try {
-      deps.reporter.capture(
-        createAppError('INFRASTRUCTURE', 'Web service lease lapsing', failure),
+    // A typed refusal (another role holds the row) keeps its own code.
+    const errorCode = errorCodeOf(failure, 'INFRASTRUCTURE');
+    const logged = guarded(() =>
+      deps.logger.log(
+        'availability.lease_lapsing',
         {
-          requestId: deps.nextId(),
-          route: ROUTE,
-          errorCode: 'INFRASTRUCTURE',
+          operation: 'availability.lease',
+          errorCode,
+          cause: lapse.unproven.kind,
+          durationMs: Math.max(0, Math.round(lapse.lapsedMs)),
         },
-      );
-      return true;
-    } catch {
-      // Logged is reached: retrying would repeat the log line every tick.
-      return logged;
-    }
+        'Web service lease unproven',
+      ),
+    );
+    const sent = guarded(() =>
+      deps.reporter.capture(
+        createAppError(errorCode, 'Web service lease lapsing', failure),
+        { requestId: deps.nextId(), route: ROUTE, errorCode },
+      ),
+    );
+    // Either reached someone; retrying would repeat what already went out.
+    return logged || sent;
   };
