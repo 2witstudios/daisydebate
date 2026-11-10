@@ -66,11 +66,21 @@ async function runWorker(input: {
   readonly between?: (tick: number) => Promise<void>;
   /** Replaces the snapshot read on the given read number (1-based). */
   readonly refuse?: (read: number) => unknown;
+  /** Makes the logger throw for an event, after recording it. */
+  readonly logThrows?: (event: string) => boolean;
 }) {
   const app = build(input.directory),
     reads: unknown[] = [],
     captured: Captured[] = [];
-  const { logged, logger } = createEventRecorder();
+  const recorder = createEventRecorder();
+  const { logged } = recorder;
+  const logger = {
+    ...recorder.logger,
+    log: (...line: Parameters<typeof recorder.logger.log>) => {
+      recorder.logger.log(...line);
+      if (input.logThrows?.(line[0])) throw new Error('logger sink');
+    },
+  };
   let tick: (() => Promise<void>) | null = null;
   let cadence = 0;
   const service = startBillingEconomics({
@@ -480,6 +490,64 @@ test('a reporter that keeps throwing is reported as signal_failed once, and retr
         ],
         captured: [['INFRASTRUCTURE', 'private adapter']],
       },
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a failure that returns after a recovery is raised again', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    await chmod(directory, 0o500);
+    const run = await runWorker({
+      directory,
+      ticks: 3,
+      between: async (n) => {
+        if (n === 1) await chmod(directory, 0o700);
+        if (n === 2) await chmod(directory, 0o500);
+      },
+    });
+    assert({
+      given:
+        'a sink that refuses the save, then saves, then refuses again for two ticks',
+      should:
+        'raise save_failed, then the signals, then save_failed once more as a regression',
+      actual: run.captured.map((c) => c.route),
+      expected: [
+        'billing.economics.save_failed',
+        'billing.economics.free',
+        'billing.economics.beta',
+        'billing.economics.premium',
+        'billing.economics.save_failed',
+      ],
+    });
+  } finally {
+    await chmod(directory, 0o700);
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a throwing logger after submission never makes the next tick re-send signals', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 2,
+      logThrows: (event) => event === 'billing.economics.feed_missing',
+    });
+    assert({
+      given:
+        'a logger that throws when feed_missing is logged, over three ticks',
+      should: 'still capture each completeness signal exactly once',
+      actual: run.captured
+        .filter((c) => c.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
+        .map((c) => c.route),
+      expected: [
+        'billing.economics.free',
+        'billing.economics.beta',
+        'billing.economics.premium',
+      ],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });

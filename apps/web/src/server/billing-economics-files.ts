@@ -52,11 +52,15 @@ async function readBoundedJson(file: FileHandle) {
   }
   if (length > maximumFeedBytes)
     throw new Error('Billing economics feed exceeds size limit');
+  let parsed: unknown;
   try {
-    return JSON.parse(bytes.subarray(0, length).toString('utf8')) as unknown;
+    parsed = JSON.parse(bytes.subarray(0, length).toString('utf8'));
   } catch {
     throw new Error('Billing economics feed is invalid');
   }
+  // `null` means an absent file to every caller, so a file whose body is null is invalid, never missing.
+  if (parsed === null) throw new Error('Billing economics feed is invalid');
+  return parsed;
 }
 async function readPrivateFeed(path: string) {
   let file;
@@ -95,12 +99,9 @@ export function createBillingEconomicsFiles(input: {
   readonly now: () => string;
 }) {
   return {
-    /** The sink itself: a private directory whose bounded retention sweep completes. */
+    /** The sink itself: its directory exists and is private. Retention runs once per tick, in `save`. */
     sink: {
-      async open() {
-        await privateDirectory(input.directory);
-        await prunePrivateFiles(input.directory, input.now());
-      },
+      open: () => privateDirectory(input.directory),
     },
     feed: {
       async read(window: {
@@ -112,6 +113,8 @@ export function createBillingEconomicsFiles(input: {
           !economicsInstant.safeParse(window.endsAt).success
         )
           throw new Error('Billing economics window invalid');
+        // The reader keeps its own privacy check: a caller need not open the sink first.
+        await privateDirectory(input.directory);
         return readPrivateFeed(
           join(input.directory, `feed-${window.startsAt.slice(0, 7)}.json`),
         );

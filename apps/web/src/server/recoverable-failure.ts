@@ -39,7 +39,7 @@ export function recoverableFailure(input: {
       /* A failing sink is never its caller's fault (ISSUE-789). */
     }
   };
-  const report = (error: unknown, operation: string) => {
+  const report = (error: unknown, operation: string): 'reported' => {
     const errorCode = isAppError(error) ? error.code : 'INTERNAL';
     let cause: string | undefined;
     // A cause reader that throws costs only the cause, never the log line.
@@ -60,12 +60,15 @@ export function recoverableFailure(input: {
         errorCode,
       }),
     );
+    return 'reported';
   };
   /**
    * Never throws, so no worker promise ever rejects because reporting its
-   * failure failed (ISSUE-789).
+   * failure failed (ISSUE-789). It answers what it did: `reported` (logged
+   * and handed to the reporter) or `deferred` (absorbed as capacity
+   * backpressure within the bound), so a caller never re-derives the rule.
    */
-  return (error: unknown, stage: string) => {
+  return (error: unknown, stage: string): 'reported' | 'deferred' => {
     const operation = `${input.operation}.${stage}`;
     let capacity = false;
     attempt(() => {
@@ -73,10 +76,12 @@ export function recoverableFailure(input: {
     });
     if (!capacity) return report(error, operation);
     const deferred = (deferrals.get(stage) ?? 0) + 1;
-    if (deferred <= CAPACITY_DEFERRAL_LIMIT)
-      return void deferrals.set(stage, deferred);
+    if (deferred <= CAPACITY_DEFERRAL_LIMIT) {
+      deferrals.set(stage, deferred);
+      return 'deferred';
+    }
     deferrals.set(stage, 0);
-    report(error, `${operation}.capacity`);
+    return report(error, `${operation}.capacity`);
   };
 }
 

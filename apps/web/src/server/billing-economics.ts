@@ -1,4 +1,3 @@
-import { isCapacityRefusal } from '@daisy/db/capacity';
 import { createAppError } from '@daisy/errors';
 import type { App } from './app';
 import {
@@ -7,10 +6,8 @@ import {
 } from '../features/billing/economics-collector';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
-  isSettled,
-  isSignalFailureReported,
   nothingRaised,
-  owedSignals,
+  raisedFor,
   recordRaised,
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
@@ -70,9 +67,11 @@ export function startBillingEconomics(input: {
   );
   let raised = nothingRaised;
   const raise = (collection: EconomicsCollection) => {
-    if (isSettled(raised, collection)) return;
+    const prior = raisedFor(raised, collection);
     if (collection.kind === 'failed') {
-      failed(
+      if (prior?.failureReported) return;
+      // Only a failure the sink reported settles; a deferred capacity refusal stays news.
+      const verdict = failed(
         createAppError(
           collection.reason === 'feed_invalid'
             ? 'VALIDATION'
@@ -82,41 +81,43 @@ export function startBillingEconomics(input: {
         ),
         collection.reason,
       );
-      // The failure sink defers a capacity refusal unreported, so it settles nothing.
-      if (!isCapacityRefusal(collection.cause))
+      if (verdict === 'reported')
         raised = recordRaised(raised, collection, {
           owed: [],
-          signalFailureReported: false,
+          failureReported: true,
         });
       return;
     }
-    const owed = owedSignals(raised, collection);
+    if (prior?.owed.length === 0) return;
+    const owed = prior?.owed ?? collection.signals;
     const submitted = raiseEconomicsSignals(app.reporter, {
       month: collection.month,
       signals: owed,
     });
     if (submitted.kind === 'failed') {
-      if (!isSignalFailureReported(raised, collection))
-        failed(
-          createAppError('INFRASTRUCTURE', undefined, submitted.cause),
-          'signal_failed',
-        );
+      const verdict = prior?.failureReported
+        ? 'reported'
+        : failed(
+            createAppError('INFRASTRUCTURE', undefined, submitted.cause),
+            'signal_failed',
+          );
       raised = recordRaised(raised, collection, {
         owed: owed.slice(submitted.submitted),
-        signalFailureReported: true,
+        failureReported: verdict === 'reported',
       });
       return;
     }
+    // Record before logging: a throwing logger must not make the next tick re-send these signals.
+    raised = recordRaised(raised, collection, {
+      owed: [],
+      failureReported: false,
+    });
     if (collection.feed === 'missing')
       app.logger.log(
         'billing.economics.feed_missing',
         { operation: 'billing.economics.collect', cause: 'feed_missing' },
         'Private billing economics feed is missing for the month; the report stays incomplete',
       );
-    raised = recordRaised(raised, collection, {
-      owed: [],
-      signalFailureReported: false,
-    });
   };
   return startSingleFlightWorker({
     timers: input.timers,

@@ -251,3 +251,24 @@ test('a cause reader that throws costs only the cause, never the log line (ISSUE
     ],
   });
 });
+
+test('the failure sink says whether it reported or deferred a failure', () => {
+  const capacity = createAppError('INFRASTRUCTURE', 'capacity');
+  const { failed } = record((error) => error === capacity);
+  const verdicts = [
+    failed(new Error('genuine'), 'tick'),
+    ...Array.from({ length: 9 }, () => failed(capacity, 'tick')),
+  ];
+  assert({
+    given:
+      'a genuine failure, then nine capacity refusals for one stage (the bound is eight)',
+    should:
+      'answer reported for the genuine failure, deferred for the eight absorbed refusals, and reported for the ninth',
+    actual: verdicts,
+    expected: [
+      'reported',
+      ...Array.from({ length: 8 }, () => 'deferred'),
+      'reported',
+    ],
+  });
+});

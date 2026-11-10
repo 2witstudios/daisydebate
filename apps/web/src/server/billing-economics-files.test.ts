@@ -203,3 +203,54 @@ test('the private sink removes expired operational reports and refuses to overwr
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+const window = { startsAt: month, endsAt: '2026-11-01T00:00:00.000Z' };
+const refusalOf = (read: Promise<unknown>) =>
+  read.then(
+    () => null,
+    (error: unknown) => (error instanceof Error ? error.message : null),
+  );
+
+test('a feed file whose body is null is invalid, never a missing feed', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'd'.repeat(24),
+    });
+    await writeFile(join(directory, 'feed-2026-10.json'), 'null', {
+      mode: 0o600,
+    });
+    assert({
+      given: 'a private feed file containing the JSON literal null',
+      should:
+        'refuse it as invalid rather than report the month as feed-missing',
+      actual: await refusalOf(files.feed.read(window)),
+      expected: 'Billing economics feed is invalid',
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('the feed reader keeps its own privacy check without the sink being opened', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const { chmod } = await import('node:fs/promises');
+    await chmod(directory, 0o755);
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'e'.repeat(24),
+    });
+    assert({
+      given: 'a group-readable directory read directly through feed.read',
+      should: 'refuse it, as the sink would',
+      actual: await refusalOf(files.feed.read(window)),
+      expected: 'Billing economics directory is not private',
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

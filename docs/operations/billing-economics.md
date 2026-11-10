@@ -47,9 +47,12 @@ separate observable facts. No rates or invoices are seeded as production truth.
 and saves the private report. It returns one typed collection: `reported` (the
 saved report, the signals it implies and whether the feed was `supplied` or
 `missing`) or `failed` with one closed reason and the error that stage caught:
-`sink_unavailable` (the private directory is not private or its bounded
-retention sweep refused), `snapshot_failed`, `feed_unreadable`, `feed_invalid`
-(window, schema or a floor other than the recorded policy) or `save_failed`. The collector never reports.
+`sink_unavailable` (the private directory cannot be created or is not
+private), `snapshot_failed`, `feed_unreadable`, `feed_invalid`
+(window, schema or a floor other than the recorded policy) or `save_failed`
+(including the save's bounded retention sweep and file cap). A feed file
+whose body is the JSON literal `null` is invalid, never a missing feed. The
+collector never reports.
 `raiseEconomicsSignals` submits a saved report's fixed signals through the
 existing ErrorReporter: `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`;
 routes identify only free/beta/premium and the correlation value is always the
@@ -169,11 +172,19 @@ a financial report or claims low-margin delivery:
   taken, so no plan's signal is duplicated.
 
 Each hourly tick collects again, so late corrections land, but the worker raises
-each outcome of a month once per process. It remembers every outcome raised for
-the month, so a tick with an outcome already raised (same reason, or the same
-feed state and signals) raises nothing, even after a different outcome came in
-between. An outcome new to the month raises, and a new month starts afresh. A
-restart may raise the current month once more.
+each outcome of a month once per process. A report's signals (the same feed
+state and signals) are raised once a month, even after a failure came in
+between. A failure reason is raised once until a report settles again; after
+that the same failure is a regression and raises again. Only a failure the
+worker failure sink actually reported counts as raised, so a deferred capacity
+refusal never mutes what follows. A new month starts afresh, and a restart may
+raise the current month once more.
+
+A month that cannot be measured therefore reaches the error tracker either as
+`BILLING_ECONOMICS_INCOMPLETE` (a saved, incomplete report) or as one
+`billing.economics.<reason>` failure, never both for one failure. An operator
+alert for an unmeasured month should match the route prefix
+`billing.economics.`, not the completeness code alone.
 The collector's reporter remains a void port: runtime registration and unit
 transport capture do not confirm an operator/Sentry notification. Actual approved
 measurement-feed and private-destination delivery receipts remain required
