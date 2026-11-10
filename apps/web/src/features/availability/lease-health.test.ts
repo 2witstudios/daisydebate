@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   afterRenewal,
   checkLease,
+  delivered,
   startingLease,
   type LeaseHealth,
   type LeaseLapse,
@@ -44,7 +45,10 @@ const lapsesOver = (seconds: number, at: (second: number) => Second) => {
     if (ms % 1000 !== 0) continue;
     const checked = checkLease(health, ms);
     health = checked.health;
-    if (checked.lapse) lapses.push({ ...checked.lapse, atMs: ms });
+    if (checked.due) {
+      lapses.push({ ...checked.due.lapse, atMs: ms });
+      health = delivered(delivered(health, 'log', ms), 'report', ms);
+    }
     if (inFlight) continue;
     const second = at(ms / 1000);
     health = afterRenewal(health, { kind: 'started', startedMs: ms });
@@ -180,16 +184,56 @@ test('a lease that flaps between short recoveries reports at most once in five m
   });
 });
 
-test('a stalled process that started no renewal is named as such, not a hung renewal', () => {
-  const proven = afterRenewal(
+const provenAtStart = () =>
+  afterRenewal(
     afterRenewal(startingLease(0), { kind: 'started', startedMs: 0 }),
     { kind: 'renewed', startedMs: 0, settledMs: 50 },
   );
+
+test('a stalled process is named as such, whatever renewal it has started since', () => {
+  const stalled = provenAtStart();
+  const resumed = afterRenewal(provenAtStart(), {
+    kind: 'started',
+    startedMs: 12_900,
+  });
+  const hangingThroughStall = afterRenewal(provenAtStart(), {
+    kind: 'started',
+    startedMs: 500,
+  });
   assert({
     given:
-      'a timely renewal at start, then no tick for thirteen seconds (a stalled timer)',
-    should: 'report the lapse as no renewal started',
-    actual: checkLease(proven, 13_000).lapse,
-    expected: { lapsedMs: 10_000, unproven: { kind: 'renewal_not_started' } },
+      'a timely renewal at start, then no check for thirteen seconds: with nothing in flight, with a renewal started just before the check, and with one in flight through the stall',
+    should: 'report each lapse as a stalled process, not a hung renewal',
+    actual: [stalled, resumed, hangingThroughStall].map(
+      (health) => checkLease(health, 13_000).due?.lapse.unproven.kind,
+    ),
+    expected: ['process_stalled', 'process_stalled', 'process_stalled'],
+  });
+});
+
+test('a renewal hung while the process keeps checking is named a pending renewal', () => {
+  let health = afterRenewal(provenAtStart(), {
+    kind: 'started',
+    startedMs: 1000,
+  });
+  for (let ms = 1000; ms < 13_000; ms += 1000)
+    health = checkLease(health, ms).health;
+  assert({
+    given: 'a renewal started at 1 s that never settles, checked every second',
+    should: 'report the lapse at 13 s as a pending renewal',
+    actual: checkLease(health, 13_000).due?.lapse.unproven,
+    expected: { kind: 'renewal_pending' },
+  });
+});
+
+test('a lapse is due on a channel only until that channel delivers', () => {
+  const lapsed = checkLease(provenAtStart(), 13_000);
+  const logged = delivered(lapsed.health, 'log', 13_000);
+  const next = checkLease(logged, 14_000).due;
+  assert({
+    given: 'a due lapse whose log went out at 13 s but whose report did not',
+    should: 'be due at 14 s on the report alone',
+    actual: next && { log: next.log, report: next.report },
+    expected: { log: false, report: true },
   });
 });

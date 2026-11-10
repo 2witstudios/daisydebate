@@ -6,21 +6,23 @@ setupRitewayBun();
 const recorded = () => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
-  const report = leaseLapseReport({
+  const channels = leaseLapseReport({
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
   });
-  return { lines, captured, report };
+  return { lines, captured, channels };
 };
 
-test('a lapse caused by a failing renewal is logged with its length and linked to the failure', () => {
+test('a lapse caused by a failing renewal is logged with its length and reported linked to the failure', () => {
   const refused = new Error('renewal refused');
-  const { lines, captured, report } = recorded();
-  report({
+  const { lines, captured, channels } = recorded();
+  const lapse = {
     lapsedMs: 10_000.4,
     unproven: { kind: 'renewal_failed', error: refused },
-  });
+  } as const;
+  channels.log(lapse);
+  channels.report(lapse);
   const [error, context] = captured[0] ?? [];
   assert({
     given: 'a lapse of ten seconds whose latest renewal failed',
@@ -56,15 +58,22 @@ test('a lapse caused by a failing renewal is logged with its length and linked t
   });
 });
 
-test('a lapse from a hung renewal, or a failure that is no Error, links no cause', () => {
-  const { lines, captured, report } = recorded();
-  report({ lapsedMs: 15_000, unproven: { kind: 'renewal_pending' } });
-  report({
-    lapsedMs: 20_000,
-    unproven: { kind: 'renewal_failed', error: 'not an error' },
-  });
+test('a lapse from a hung renewal, a stall or a failure that is no Error links no cause', () => {
+  const { lines, captured, channels } = recorded();
+  for (const lapse of [
+    { lapsedMs: 15_000, unproven: { kind: 'renewal_pending' } },
+    { lapsedMs: 16_000, unproven: { kind: 'process_stalled' } },
+    {
+      lapsedMs: 20_000,
+      unproven: { kind: 'renewal_failed', error: 'not an error' },
+    },
+  ] as const) {
+    channels.log(lapse);
+    channels.report(lapse);
+  }
   assert({
-    given: 'a hung-renewal lapse, and a failure that is not an Error',
+    given:
+      'a hung-renewal lapse, a stalled-process lapse, and a failure that is not an Error',
     should: 'log each reason and link no cause',
     actual: {
       causes: lines.map(([, fields]) => (fields as { cause: string }).cause),
@@ -73,37 +82,9 @@ test('a lapse from a hung renewal, or a failure that is no Error, links no cause
       ),
     },
     expected: {
-      causes: ['renewal_pending', 'renewal_failed'],
-      linked: [undefined, undefined],
+      causes: ['renewal_pending', 'process_stalled', 'renewal_failed'],
+      linked: [undefined, undefined, undefined],
     },
-  });
-});
-
-test('a report reached someone if either its log line or its capture went out', () => {
-  const lapse = {
-    lapsedMs: 10_000,
-    unproven: { kind: 'renewal_pending' },
-  } as const;
-  const failing = () => {
-    throw new Error('down');
-  };
-  const reached = (log: boolean, capture: boolean) =>
-    leaseLapseReport({
-      logger: { log: log ? () => {} : failing },
-      reporter: { capture: capture ? () => {} : failing },
-      nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
-    })(lapse);
-  assert({
-    given:
-      'every combination of a working or throwing log and reporter (log, capture)',
-    should: 'answer false only when both failed, and never throw',
-    actual: [
-      reached(true, true),
-      reached(true, false),
-      reached(false, true),
-      reached(false, false),
-    ],
-    expected: [true, true, true, false],
   });
 });
 
@@ -112,11 +93,13 @@ test('a lapse caused by a typed refusal keeps the refusal’s own code', () => {
     'CONFLICT',
     'Service lease belongs to another role',
   );
-  const { lines, captured, report } = recorded();
-  report({
+  const { lines, captured, channels } = recorded();
+  const lapse = {
     lapsedMs: 10_000,
     unproven: { kind: 'renewal_failed', error: conflict },
-  });
+  } as const;
+  channels.log(lapse);
+  channels.report(lapse);
   const [error, context] = captured[0] ?? [];
   assert({
     given:
@@ -134,5 +117,37 @@ test('a lapse caused by a typed refusal keeps the refusal’s own code', () => {
       tag: 'CONFLICT',
       cause: conflict,
     },
+  });
+});
+
+test('a channel that cannot deliver throws, so the loop tries it again', () => {
+  const failing = () => {
+    throw new Error('down');
+  };
+  const channels = leaseLapseReport({
+    logger: { log: failing },
+    reporter: { capture: failing },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+  });
+  const lapse = {
+    lapsedMs: 10_000,
+    unproven: { kind: 'renewal_pending' },
+  } as const;
+  const threw = (send: () => void) => {
+    try {
+      send();
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  assert({
+    given: 'a log and a tracker that both throw',
+    should: 'throw from each channel',
+    actual: [
+      threw(() => channels.log(lapse)),
+      threw(() => channels.report(lapse)),
+    ],
+    expected: [true, true],
   });
 });

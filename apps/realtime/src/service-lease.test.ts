@@ -90,3 +90,38 @@ test('a failed renewal surfaces its error to the failed sink and the lease keeps
     expected: ['1', '2'],
   });
 });
+
+test('a failure sink that throws never rejects the renewal', async () => {
+  let tick: () => unknown = () => {};
+  const lease = startRealtimeServiceLease({
+    instanceId: 'c'.repeat(24),
+    deliveredThrough: () => ({ txid: '1', seq: 1n }),
+    renew: async () => {
+      throw new Error('renewal outage');
+    },
+    failed: () => {
+      throw new Error('reporter misconfigured');
+    },
+    timers: {
+      setInterval: (callback) => {
+        tick = callback;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+  });
+  let rejected: unknown = null;
+  try {
+    await tick();
+    await tick();
+    await lease.stop();
+  } catch (error) {
+    rejected = error;
+  }
+  assert({
+    given: 'failing renewals whose failure sink throws',
+    should: 'never reject a renewal or the stop',
+    actual: rejected,
+    expected: null,
+  });
+});

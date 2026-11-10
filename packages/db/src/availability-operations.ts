@@ -75,12 +75,13 @@ export function createAvailabilitySampler(client: SQL) {
       try {
         if (!(await electSession()) || !session) return null;
         const [row] = await session`
-          with instant as (select statement_timestamp() as at),
+          with instant as (select statement_timestamp() as at,
+            statement_timestamp()-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond' as live_after),
           facts as (
             select at,
-              exists(select 1 from service_instances where role='web' and renewed_at > at-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond') as web,
-              exists(select 1 from service_instances where role='realtime' and renewed_at > at-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond') as realtime,
-              exists(select 1 from service_instances s where role='realtime' and renewed_at > at-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond'
+              exists(select 1 from service_instances where role='web' and renewed_at > live_after) as web,
+              exists(select 1 from service_instances where role='realtime' and renewed_at > live_after) as realtime,
+              exists(select 1 from service_instances s where role='realtime' and renewed_at > live_after
                 and not exists(select 1 from outbox o where o.created_at < at-interval '2 seconds'
                   and (o.txid,o.seq) > (s.delivered_through_txid,s.delivered_through))) as delivered
             from instant

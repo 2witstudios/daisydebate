@@ -3,6 +3,7 @@ import type { WorkerTimers } from '../../lib/worker-timers';
 import {
   afterRenewal,
   checkLease,
+  delivered,
   RENEW_INTERVAL_MS,
   startingLease,
   type LeaseLapse,
@@ -44,12 +45,15 @@ export function startAvailabilityService(deps: {
   /** A renewal or availability cycle failed, with its own error. */
   readonly failed: (error: unknown) => void;
   /**
-   * This instance's lease has gone unproven by a timely renewal for 10 s:
-   * then at most once every 5 minutes, unless the lease has stayed proven
-   * for 30 s (DAISY-WEB-9). Never on a stop. Answers whether the report
-   * reached anyone; one that reached no one is retried on the next tick.
+   * This instance's lease has gone unproven by a timely renewal for 10 s
+   * (DAISY-WEB-9): each channel is told at most once every 5 minutes,
+   * unless the lease has stayed proven for 30 s, and never on a stop. A
+   * channel that throws was not delivered, and is tried again next tick.
    */
-  readonly lapsing: (lapse: LeaseLapse) => boolean;
+  readonly lapsing: {
+    readonly log: (lapse: LeaseLapse) => void;
+    readonly report: (lapse: LeaseLapse) => void;
+  };
 }) {
   const { nowMs } = deps;
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
@@ -103,18 +107,16 @@ export function startAvailabilityService(deps: {
   };
   /** Checked on every tick, so a renewal that hangs still counts as unproven. */
   const checkHealth = () => {
-    const { reportedAtMs } = lease;
-    const checked = checkLease(lease, nowMs());
+    const checkedMs = nowMs();
+    const checked = checkLease(lease, checkedMs);
     lease = checked.health;
-    if (!checked.lapse) return;
-    const { lapse } = checked;
-    let reached = false;
-    // Reporting a lapse never stops the renewals that end it.
-    guarded(() => {
-      reached = deps.lapsing(lapse);
-    });
-    // A report that reached no one is not counted: the next tick retries it.
-    if (!reached) lease = { ...lease, reportedAtMs };
+    const { due } = checked;
+    if (!due) return;
+    // A channel counts only once it went out; reporting never stops renewals.
+    if (due.log && guarded(() => deps.lapsing.log(due.lapse)))
+      lease = delivered(lease, 'log', checkedMs);
+    if (due.report && guarded(() => deps.lapsing.report(due.lapse)))
+      lease = delivered(lease, 'report', checkedMs);
   };
   const renew = () => {
     if (renewing) return renewing;

@@ -26,7 +26,13 @@ export function startRealtimeServiceLease(input: {
         role: 'realtime',
         deliveredThrough: input.deliveredThrough(),
       })
-      .catch((error: unknown) => input.failed(error))
+      .catch((error: unknown) => {
+        try {
+          input.failed(error);
+        } catch {
+          // A failure sink that throws never rejects the renewal (ISSUE-789).
+        }
+      })
       .finally(() => {
         work = null;
       });

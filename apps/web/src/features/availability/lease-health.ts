@@ -3,15 +3,15 @@ import { SERVICE_LEASE_WINDOW_MS } from '@daisy/db/service-lease-lapse';
 /** How often the instance renews its lease, and checks its own health. */
 export const RENEW_INTERVAL_MS = 1000;
 /**
- * How long the lease may go unproven before the instance reports it: past
+ * How long the lease may go unproven before the instance tells anyone: past
  * the 3 s window and any one transaction's budget, so a lapse the next
- * renewal clears never reaches the error tracker (DAISY-WEB-9).
+ * renewal clears never reaches a person (DAISY-WEB-9).
  */
 const PERSIST_MS = 10_000;
 /**
- * The fewest ms between two reports from one instance, unless the lease has
- * recovered in between, so a lapse that lasts, or one that flaps, cannot
- * flood the tracker.
+ * The fewest ms between two deliveries on one channel (the log line or the
+ * error tracker), unless the lease has recovered in between, so a lapse that
+ * lasts, or one that flaps, cannot flood either.
  */
 const REPEAT_MS = 5 * 60_000;
 /**
@@ -25,20 +25,26 @@ const RECOVERED_MS = 30_000;
 export type Unproven =
   /** A renewal has been in flight for the whole window. */
   | { readonly kind: 'renewal_pending' }
-  /**
-   * No renewal was hung and the last settled one proved the lease: the
-   * process did not start one in time (a stalled timer or event loop).
-   */
-  | { readonly kind: 'renewal_not_started' }
   /** The latest renewal wrote the row only after its window had passed. */
   | { readonly kind: 'renewal_late'; readonly tookMs: number }
-  | { readonly kind: 'renewal_failed'; readonly error: unknown };
+  | { readonly kind: 'renewal_failed'; readonly error: unknown }
+  /**
+   * The process did not run its checks and renewals in time (a stalled
+   * timer or event loop), whatever renewal it has started since.
+   */
+  | { readonly kind: 'process_stalled' };
 
 /** How the latest settled renewal failed to prove the lease, if it did. */
 type Settled = Extract<
   Unproven,
   { readonly kind: 'renewal_late' | 'renewal_failed' }
 > | null;
+
+/** One delivery channel's latest delivery since the lease last recovered. */
+type Delivered = {
+  readonly logMs: number | null;
+  readonly reportMs: number | null;
+};
 
 /**
  * What this web instance can prove about its own service lease, from its
@@ -54,8 +60,9 @@ export type LeaseHealth = {
   readonly settled: Settled;
   /** Monotonic ms the renewal now in flight started, if one is. */
   readonly inFlightSinceMs: number | null;
-  /** Monotonic ms of this instance's latest report since it last recovered. */
-  readonly reportedAtMs: number | null;
+  /** Monotonic ms of the previous check, to tell a stalled process. */
+  readonly checkedMs: number;
+  readonly delivered: Delivered;
   /** Monotonic ms since which every check has found the lease proven. */
   readonly provenSinceMs: number | null;
 };
@@ -76,12 +83,22 @@ export type LeaseLapse = {
   readonly unproven: Unproven;
 };
 
+/** The channels a persisting lapse is now due on. */
+export type LeaseLapseDue = {
+  readonly lapse: LeaseLapse;
+  readonly log: boolean;
+  readonly report: boolean;
+};
+
+const nothingDelivered: Delivered = { logMs: null, reportMs: null };
+
 /** A process starts with its lease to prove, from the moment it starts. */
 export const startingLease = (nowMs: number): LeaseHealth => ({
   currentUntilMs: nowMs,
   settled: null,
   inFlightSinceMs: null,
-  reportedAtMs: null,
+  checkedMs: nowMs,
+  delivered: nothingDelivered,
   provenSinceMs: null,
 });
 
@@ -114,44 +131,72 @@ export function afterRenewal(
   };
 }
 
-/** Why the lease is unproven at `nowMs`: a hung renewal outranks the past. */
+/** Why the lease is unproven at `nowMs`. A stall outranks a hung renewal. */
 const unprovenAt = (health: LeaseHealth, nowMs: number): Unproven => {
+  if (nowMs - health.checkedMs >= SERVICE_LEASE_WINDOW_MS)
+    return { kind: 'process_stalled' };
   if (
     health.inFlightSinceMs !== null &&
     nowMs - health.inFlightSinceMs >= SERVICE_LEASE_WINDOW_MS
   )
     return { kind: 'renewal_pending' };
-  // No hung renewal and no settled failure: for most of a lapse this long,
-  // no renewal ran at all (a stalled timer), whatever has started since.
-  return health.settled ?? { kind: 'renewal_not_started' };
+  // No stall seen now, no hung renewal and no settled failure: for most of
+  // a lapse this long, no renewal ran at all.
+  return health.settled ?? { kind: 'process_stalled' };
 };
 
-/** The tick's check at `nowMs`: the health, and a lapse to report, if due. */
+const isDue = (deliveredMs: number | null, nowMs: number) =>
+  deliveredMs === null || nowMs - deliveredMs >= REPEAT_MS;
+
+/**
+ * The tick's check at `nowMs`: the health, and the channels a persisting
+ * lapse is due on. Nothing counts as delivered here: the caller marks each
+ * channel with `delivered` only once it actually went out.
+ */
 export function checkLease(
   health: LeaseHealth,
   nowMs: number,
-): { readonly health: LeaseHealth; readonly lapse: LeaseLapse | null } {
+): { readonly health: LeaseHealth; readonly due: LeaseLapseDue | null } {
+  const checked = { ...health, checkedMs: nowMs };
   const lapsedMs = nowMs - health.currentUntilMs;
   if (lapsedMs < 0) {
     const provenSinceMs = health.provenSinceMs ?? nowMs;
     return {
       health: {
-        ...health,
+        ...checked,
         provenSinceMs,
-        reportedAtMs:
-          nowMs - provenSinceMs >= RECOVERED_MS ? null : health.reportedAtMs,
+        delivered:
+          nowMs - provenSinceMs >= RECOVERED_MS
+            ? nothingDelivered
+            : health.delivered,
       },
-      lapse: null,
+      due: null,
     };
   }
-  const due =
-    lapsedMs >= PERSIST_MS &&
-    (health.reportedAtMs === null || nowMs - health.reportedAtMs >= REPEAT_MS);
-  const unrecovered = { ...health, provenSinceMs: null };
-  return due
+  const unrecovered = { ...checked, provenSinceMs: null };
+  const log = isDue(health.delivered.logMs, nowMs);
+  const report = isDue(health.delivered.reportMs, nowMs);
+  return lapsedMs >= PERSIST_MS && (log || report)
     ? {
-        health: { ...unrecovered, reportedAtMs: nowMs },
-        lapse: { lapsedMs, unproven: unprovenAt(health, nowMs) },
+        health: unrecovered,
+        due: {
+          lapse: { lapsedMs, unproven: unprovenAt(health, nowMs) },
+          log,
+          report,
+        },
       }
-    : { health: unrecovered, lapse: null };
+    : { health: unrecovered, due: null };
 }
+
+/** The health once a channel delivered a lapse at `nowMs`. */
+export const delivered = (
+  health: LeaseHealth,
+  channel: 'log' | 'report',
+  nowMs: number,
+): LeaseHealth => ({
+  ...health,
+  delivered: {
+    ...health.delivered,
+    [channel === 'log' ? 'logMs' : 'reportMs']: nowMs,
+  },
+});

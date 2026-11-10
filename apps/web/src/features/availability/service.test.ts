@@ -39,7 +39,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
         events.push('clear');
       },
     },
-    lapsing: () => true,
+    lapsing: { log: () => {}, report: () => {} },
     failed: () => {
       events.push('failed');
     },
@@ -127,7 +127,7 @@ test('missing probe resources are named at start and hourly, and never decide he
       clearInterval: () => {},
     },
     failed: () => {},
-    lapsing: () => true,
+    lapsing: { log: () => {}, report: () => {} },
   });
   const settle = async () => {
     for (let n = 0; n < 12; n++) await Promise.resolve();
@@ -181,7 +181,7 @@ test('every process checks the probe resources at start, elected or not', async 
     nowMs: () => 0,
     timers: { setInterval: () => 1, clearInterval: () => {} },
     failed: () => {},
-    lapsing: () => true,
+    lapsing: { log: () => {}, report: () => {} },
   });
   await service.probeChecked;
   assert({
@@ -224,7 +224,7 @@ test('a failing probe check waits a minute, not a second', async () => {
       clearInterval: () => {},
     },
     failed: () => {},
-    lapsing: () => true,
+    lapsing: { log: () => {}, report: () => {} },
   });
   await service.probeChecked;
   const pass = async () => {
@@ -245,12 +245,13 @@ test('a failing probe check waits a minute, not a second', async () => {
   await service.stop();
 });
 
-test('a lease left unproven for ten seconds reports once, and a stop never does', async () => {
+test('a lease left unproven for ten seconds is told once per channel, and a stop never is', async () => {
   const refused = new Error('renewal refused');
-  const lapses: unknown[] = [];
+  const told: unknown[] = [];
   let tick = () => {};
   let nowMs = 0;
   let failing = true;
+  let reports = 0;
   const service = startAvailabilityService({
     instanceId: 'a'.repeat(24),
     store: {
@@ -273,10 +274,12 @@ test('a lease left unproven for ten seconds reports once, and a stop never does'
       },
       clearInterval: () => {},
     },
-    lapsing: (lapse) => {
-      lapses.push(lapse);
-      if (lapses.length === 1) throw new Error('reporter broke');
-      return true;
+    lapsing: {
+      log: (lapse) => void told.push(['log', lapse.lapsedMs]),
+      report: (lapse) => {
+        told.push(['report', lapse.lapsedMs, lapse.unproven]);
+        if (++reports === 1) throw new Error('tracker down');
+      },
     },
     failed: () => {},
   });
@@ -294,28 +297,31 @@ test('a lease left unproven for ten seconds reports once, and a stop never does'
   await service.stop();
   nowMs += 60_000;
   tick();
+  const why = { kind: 'renewal_failed', error: refused };
   assert({
     given:
-      'renewals failing for twelve one-second ticks from start with a reporter that throws once, a timely renewal, then a stop a minute later',
+      'renewals failing for twelve ticks from start with a tracker that throws once, a timely renewal, then a stop a minute later',
     should:
-      'retry a report whose send threw on the next tick, count only the one sent, and stay silent after the stop',
-    actual: lapses,
+      'log once, retry only the report that threw on the next tick, and stay silent after the stop',
+    actual: told,
     expected: [
-      {
-        lapsedMs: 10_000,
-        unproven: { kind: 'renewal_failed', error: refused },
-      },
-      {
-        lapsedMs: 11_000,
-        unproven: { kind: 'renewal_failed', error: refused },
-      },
+      ['log', 10_000],
+      ['report', 10_000, why],
+      ['report', 11_000, why],
     ],
   });
 });
 
 /** A service whose every renewal behaves as `renew` says, ticked by hand. */
-function ticked(renew: () => Promise<void>, reached = true) {
-  const lapses: unknown[] = [];
+function ticked(
+  renew: () => Promise<void>,
+  channels: {
+    readonly logThrows?: boolean;
+    readonly reportThrows?: boolean;
+  } = {},
+) {
+  const logs: unknown[] = [];
+  const reports: unknown[] = [];
   const state = { nowMs: 0, tick: () => {} };
   const service = startAvailabilityService({
     instanceId: 'a'.repeat(24),
@@ -337,9 +343,15 @@ function ticked(renew: () => Promise<void>, reached = true) {
       },
       clearInterval: () => {},
     },
-    lapsing: (lapse) => {
-      lapses.push(lapse);
-      return reached;
+    lapsing: {
+      log: (lapse) => {
+        logs.push(lapse);
+        if (channels.logThrows) throw new Error('log down');
+      },
+      report: (lapse) => {
+        reports.push(lapse);
+        if (channels.reportThrows) throw new Error('tracker down');
+      },
     },
     failed: () => {
       throw new Error('failure sink broke');
@@ -352,33 +364,39 @@ function ticked(renew: () => Promise<void>, reached = true) {
       state.tick();
     }
   };
-  return { lapses, advance, service };
+  return { logs, reports, advance, service };
 }
 
+const hung = () => new Promise<void>(() => {});
+
 test('a renewal that never settles is still checked on every tick, and reports', async () => {
-  const { lapses, advance } = ticked(() => new Promise(() => {}));
+  const { logs, reports, advance } = ticked(hung);
   await advance(12);
+  const lapse = { lapsedMs: 10_000, unproven: { kind: 'renewal_pending' } };
   assert({
     given:
       'a renewal that hangs from start, with the ticks running for twelve seconds',
-    should: 'report one lapse of ten seconds with the renewal still pending',
-    actual: lapses,
-    expected: [{ lapsedMs: 10_000, unproven: { kind: 'renewal_pending' } }],
+    should: 'log and report one lapse of ten seconds with the renewal pending',
+    actual: { logs, reports },
+    expected: { logs: [lapse], reports: [lapse] },
   });
 });
 
-test('a report that reached no one is retried every tick, one that was logged is not', async () => {
-  const unreached = ticked(() => new Promise(() => {}), false);
-  await unreached.advance(15);
-  const logged = ticked(() => new Promise(() => {}));
-  await logged.advance(60);
+test('each channel that failed is retried alone, never repeating the other', async () => {
+  const tracker = ticked(hung, { reportThrows: true });
+  await tracker.advance(20);
+  const log = ticked(hung, { logThrows: true });
+  await log.advance(20);
   assert({
     given:
-      'a hung renewal reported through a sink that reached no one for five ticks, and one that was logged, over a minute',
+      'a hung renewal over twenty seconds, once with a tracker that always throws and once with a log that always throws',
     should:
-      'retry the unreached report on each tick, and count the logged one once',
-    actual: [unreached.lapses.length, logged.lapses.length],
-    expected: [6, 1],
+      'retry only the failing channel on each tick from 10 s, and deliver the working one once',
+    actual: {
+      trackerDown: [tracker.logs.length, tracker.reports.length],
+      logDown: [log.logs.length, log.reports.length],
+    },
+    expected: { trackerDown: [1, 11], logDown: [11, 1] },
   });
 });
 
@@ -404,7 +422,7 @@ test('a failure sink that throws never rejects the renewal', async () => {
 
 test('a store that throws before returning a promise is still a failed renewal', async () => {
   const thrown = new Error('adapter broke synchronously');
-  const { lapses, advance, service } = ticked(() => {
+  const { reports, advance, service } = ticked(() => {
     throw thrown;
   });
   let rejected: unknown = null;
@@ -418,10 +436,10 @@ test('a store that throws before returning a promise is still a failed renewal',
     given: 'a store whose renewal throws synchronously on every tick',
     should:
       'record each as a failed renewal and report the lapse without throwing',
-    actual: { rejected, lapses },
+    actual: { rejected, reports },
     expected: {
       rejected: null,
-      lapses: [
+      reports: [
         {
           lapsedMs: 10_000,
           unproven: { kind: 'renewal_failed', error: thrown },
