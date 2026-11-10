@@ -5,7 +5,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { refuseCapacity } from '@daisy/db/testing';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { createApp } from './app';
 import { createEventRecorder, silentLogger } from './test-loggers.test-support';
 import {
@@ -944,8 +944,8 @@ test('each failed check is named on its log line', async () => {
         .filter((line) => line.event === 'billing.economics.failed')
         .map((line) => [line.fields.operation, line.fields.cause]),
       expected: [
-        ['billing.economics.feed_invalid', 'Economics_feed_window_mismatch'],
-        ['billing.economics.feed_invalid', 'Conflicting_model_cost_bases'],
+        ['billing.economics.feed_invalid', 'economics-feed-window-mismatch'],
+        ['billing.economics.feed_invalid', 'economics-feed-conflicting-basis'],
       ],
     });
   } finally {
@@ -953,43 +953,38 @@ test('each failed check is named on its log line', async () => {
   }
 });
 
-test('the log line names a typed check as a closed code', () => {
-  const typed = (message: string) => createAppError('VALIDATION', message);
+test('the log line names a check by its closed reason, never its message', () => {
+  const check = createRefusal(
+    'VALIDATION',
+    'economics-feed-conflicting-basis',
+    'Any wording at all',
+  );
   assert({
     given:
-      'a wrapper with a typed cause, a typed error with no cause, a digit-first message, a stage wrapper with an untyped cause, and an untyped error',
+      'a stage error wrapping a reasoned check, a reasoned error with no cause, a stage error wrapping an untyped error, a typed error with no reason, and an untyped error',
     should:
-      'name the typed check (or the stage), start with a letter, and name nothing for an untyped error',
+      'name the check, then the error itself, then the stage, and nothing where no reason exists',
     actual: [
       economicsFailureCheck(
-        createAppError(
-          'VALIDATION',
-          undefined,
-          typed('Conflicting model cost bases'),
-        ),
+        createRefusal('VALIDATION', 'economics-feed-invalid', 'x', check),
       ),
-      economicsFailureCheck(typed('Billing economics clock invalid')),
+      economicsFailureCheck(check),
       economicsFailureCheck(
-        createAppError(
+        createRefusal(
           'INFRASTRUCTURE',
-          undefined,
-          typed('1000 files reached'),
-        ),
-      ),
-      economicsFailureCheck(
-        createAppError(
-          'INFRASTRUCTURE',
-          'Billing economics snapshot_failed',
+          'economics-snapshot-failed',
+          'x',
           new Error('driver'),
         ),
       ),
+      economicsFailureCheck(createAppError('INFRASTRUCTURE', 'no reason')),
       economicsFailureCheck(new Error('driver')),
     ],
     expected: [
-      'Conflicting_model_cost_bases',
-      'Billing_economics_clock_invalid',
-      'files_reached',
-      'Billing_economics_snapshot_failed',
+      'economics-feed-conflicting-basis',
+      'economics-feed-conflicting-basis',
+      'economics-snapshot-failed',
+      undefined,
       undefined,
     ],
   });
@@ -1059,9 +1054,7 @@ test('captures carry a fixed per-stage message, and signal_failed keeps a typed 
         signals.captured
           .filter((c) => c.route === 'billing.economics.signal_failed')
           .map((c) => [c.errorCode, messageOf(c)]),
-        economicsFailureCheck(
-          createAppError('INFRASTRUCTURE', 'Billing economics snapshot_failed'),
-        ),
+        stage.captured.map((c) => economicsFailureCheck(c.error)),
       ],
       expected: [
         [
@@ -1071,7 +1064,7 @@ test('captures carry a fixed per-stage message, and signal_failed keeps a typed 
           ],
         ],
         [['VALIDATION', 'Billing economics signal_failed']],
-        'Billing_economics_snapshot_failed',
+        ['economics-snapshot-failed'],
       ],
     });
   } finally {
@@ -1118,11 +1111,36 @@ test('two different defects outside any collection are each reported', async () 
       actual: logged
         .filter((line) => line.event === 'billing.economics.failed')
         .map((line) => line.fields.cause),
-      expected: ['Billing_economics_collect', 'Billing_economics_collect'],
+      expected: ['economics-collect-failed', 'economics-collect-failed'],
     });
   } finally {
     await service.stop();
     await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a reporter that throws for everything logs signal_failed once', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 3,
+      capture: () => {
+        throw new Error('tracker down');
+      },
+    });
+    assert({
+      given:
+        'a reporter that throws on every capture, the failure report included, over four collections',
+      should:
+        'log signal_failed once, since the log line is the only channel left',
+      actual: run.logged
+        .filter((line) => line.event === 'billing.economics.failed')
+        .map((line) => line.fields.operation),
+      expected: ['billing.economics.signal_failed'],
+    });
+  } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });

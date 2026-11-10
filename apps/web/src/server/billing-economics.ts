@@ -1,10 +1,12 @@
 import { isCapacityRefusal } from '@daisy/db/capacity';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
+import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
 import type { App } from './app';
 import {
   createBillingEconomicsCollector,
   type EconomicsCollection,
   type EconomicsCollectionFailure,
+  typedCodeOr,
 } from '../features/billing/economics-collector';
 
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
@@ -70,27 +72,34 @@ function logSafely(
   }
 }
 
+/** The closed word each stage's reported error carries (ADR 0102). */
+const stageRefusal: Readonly<Record<EconomicsStage, BillingEconomicsRefusal>> =
+  {
+    sink_unavailable: 'economics-sink-unavailable',
+    snapshot_failed: 'economics-snapshot-failed',
+    snapshot_invalid: 'economics-snapshot-invalid',
+    feed_unreadable: 'economics-feed-unreadable',
+    feed_invalid: 'economics-feed-invalid',
+    report_invalid: 'economics-report-invalid',
+    report_failed: 'economics-report-failed',
+    save_failed: 'economics-save-failed',
+    signal_failed: 'economics-signal-failed',
+    collect: 'economics-collect-failed',
+  };
+
+/** The error a stage reports: its own closed word, the code, and the caught error as cause. */
+const stageError = (stage: EconomicsStage, code: ErrorCode, cause: unknown) =>
+  createRefusal(code, stageRefusal[stage], `Billing economics ${stage}`, cause);
+
 /**
- * The log line's closed `cause`: which fixed check failed when the cause is
- * typed, otherwise the stage the worker's wrapper names
- * (`Billing_economics_<reason>`). Only a bare untyped error names nothing.
+ * The log line's closed `cause` (ADR 0102: a reason, never a message): the
+ * typed cause's own check when it names one, otherwise the stage the reported
+ * error names. Only an error with no reason anywhere names nothing.
  */
 export const economicsFailureCheck = (error: unknown) => {
-  // The worker's wrapper carries the typed cause; otherwise a typed error names itself
-  // (the collect path, or a wrapper whose cause is untyped names its stage).
   const cause = error instanceof Error ? error.cause : undefined;
-  const typed = isAppError(cause)
-    ? cause
-    : isAppError(error)
-      ? error
-      : undefined;
-  if (!typed) return undefined;
-  // The logger's code kind starts with a letter and holds at most 80 characters.
-  const check = typed.message
-    .replace(/[^A-Za-z0-9]+/g, '_')
-    .replace(/^[^A-Za-z]+/, '')
-    .slice(0, 80);
-  return check === '' ? undefined : check;
+  if (isAppError(cause) && cause.reason) return cause.reason;
+  return isAppError(error) ? error.reason : undefined;
 };
 
 /**
@@ -124,7 +133,11 @@ export function startBillingEconomics(input: {
   let raised = nothingRaised;
   /** The last failure outside any collection that was reported, until one completes. */
   let collectFailure: string | null = null;
-  /** Report a failure notice once until a report settles; only a failure the sink reported counts. */
+  /**
+   * Report a failure notice once until a report settles. A failure counts as
+   * raised once the tracker took it; when the tracker is itself what failed
+   * (signal_failed), its log line is the only channel left, so that settles it.
+   */
   const reportOnce = (
     month: string,
     notice: string,
@@ -132,16 +145,20 @@ export function startBillingEconomics(input: {
     stage: EconomicsStage,
   ) => {
     if (isFailureRaised(raised, month, notice)) return;
-    if (failed(error, stage) === 'reported')
+    const verdict = failed(error, stage);
+    if (
+      verdict === 'reported' ||
+      (stage === 'signal_failed' && verdict === 'logged')
+    )
       raised = recordFailure(raised, month, notice);
   };
   const raise = (collection: EconomicsCollection) => {
     if (collection.kind === 'failed') {
-      // A fixed per-stage message. The tracker's scrubber replaces exception text, so stages are told
-      // apart there by the route; the message names the stage on the log line when the cause is untyped.
-      const error = createAppError(
+      // The tracker's scrubber replaces exception text, so stages are told apart there by route;
+      // the stage's closed word names it on the log line when the cause carries none.
+      const error = stageError(
+        collection.reason,
         collection.code,
-        `Billing economics ${collection.reason}`,
         collection.cause,
       );
       // Capacity backpressure is bounded by the shared sink itself and is never a notice,
@@ -190,9 +207,9 @@ export function startBillingEconomics(input: {
       return reportOnce(
         collection.month,
         signalFailureNotice(collection.month),
-        createAppError(
-          isAppError(submitted.cause) ? submitted.cause.code : 'INFRASTRUCTURE',
-          'Billing economics signal_failed',
+        stageError(
+          'signal_failed',
+          typedCodeOr(submitted.cause, 'INFRASTRUCTURE'),
           submitted.cause,
         ),
         'signal_failed',
@@ -208,16 +225,21 @@ export function startBillingEconomics(input: {
     failed: (error) => {
       const notice = collectFailureNotice(error);
       if (collectFailure === notice) return;
-      // An untyped defect is wrapped so the line names its stage; a typed error names itself.
-      const named = isAppError(error)
-        ? error
-        : createAppError('INTERNAL', 'Billing economics collect', error);
+      // An error that names no check is wrapped, so the line names its stage.
+      const named =
+        isAppError(error) && error.reason
+          ? error
+          : stageError('collect', typedCodeOr(error, 'INTERNAL'), error);
       if (failed(named, 'collect') === 'reported') collectFailure = notice;
     },
     run: async () => {
       const window = previousEconomicsMonth(app.clock.now());
       if (!window)
-        throw createAppError('VALIDATION', 'Billing economics clock invalid');
+        throw createRefusal(
+          'VALIDATION',
+          'economics-clock-invalid',
+          'Billing economics clock invalid',
+        );
       raise(await collector.run(window));
       collectFailure = null;
     },

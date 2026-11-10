@@ -2,7 +2,7 @@ import type { FileHandle } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, opendir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createAppError } from '@daisy/errors';
+import { createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { economicsInstant } from '../features/billing/economics-input';
 import type { createBillingEconomicsCollector } from '../features/billing/economics-collector';
@@ -24,14 +24,19 @@ async function prunePrivateFiles(
   protectFrom: string,
 ) {
   if (!economicsInstant.safeParse(now).success)
-    throw createAppError('INTERNAL', 'Billing economics clock invalid');
+    throw createRefusal(
+      'INTERNAL',
+      'economics-clock-invalid',
+      'Billing economics clock invalid',
+    );
   const stream = await opendir(directory);
   let count = 0,
     visited = 0;
   for await (const entry of stream) {
     if (++visited > 1000)
-      throw createAppError(
+      throw createRefusal(
         'INFRASTRUCTURE',
+        'economics-sink-full',
         'Billing economics directory capacity exceeded',
       );
     count++;
@@ -61,8 +66,9 @@ async function privateDirectory(directory: string) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const info = await lstat(directory);
   if (!info.isDirectory() || (info.mode & 0o077) !== 0)
-    throw createAppError(
+    throw createRefusal(
       'VALIDATION',
+      'economics-sink-not-private',
       'Billing economics directory is not private',
     );
 }
@@ -75,23 +81,29 @@ async function readBoundedJson(file: FileHandle) {
     length += read.bytesRead;
   }
   if (length > maximumFeedBytes)
-    throw createAppError(
+    throw createRefusal(
       'VALIDATION',
+      'economics-feed-too-large',
       'Billing economics feed exceeds size limit',
     );
   let parsed: unknown;
   try {
     parsed = JSON.parse(bytes.subarray(0, length).toString('utf8'));
   } catch (error) {
-    throw createAppError(
+    throw createRefusal(
       'VALIDATION',
+      'economics-feed-unparseable',
       'Billing economics feed is invalid',
       error,
     );
   }
   // `null` means an absent file to every caller, so a file whose body is null is invalid, never missing.
   if (parsed === null)
-    throw createAppError('VALIDATION', 'Billing economics feed is invalid');
+    throw createRefusal(
+      'VALIDATION',
+      'economics-feed-unparseable',
+      'Billing economics feed is invalid',
+    );
   return parsed;
 }
 async function readPrivateFeed(path: string) {
@@ -110,13 +122,15 @@ async function readPrivateFeed(path: string) {
     // A symbolic link in the feed's place, or a file this process may not read, is the
     // operator's file being wrong, not the disk failing.
     if (code === 'ELOOP' || code === 'EACCES' || code === 'EPERM')
-      throw createAppError(
+      throw createRefusal(
         'VALIDATION',
+        'economics-feed-not-private',
         'Billing economics feed is not bounded and private',
         error,
       );
-    throw createAppError(
+    throw createRefusal(
       'INFRASTRUCTURE',
+      'economics-feed-unavailable',
       'Billing economics feed unavailable',
       error,
     );
@@ -124,13 +138,15 @@ async function readPrivateFeed(path: string) {
   try {
     const stat = await file.stat();
     if (!stat.isFile() || (stat.mode & 0o077) !== 0)
-      throw createAppError(
+      throw createRefusal(
         'VALIDATION',
+        'economics-feed-not-private',
         'Billing economics feed is not bounded and private',
       );
     if (stat.size > maximumFeedBytes)
-      throw createAppError(
+      throw createRefusal(
         'VALIDATION',
+        'economics-feed-too-large',
         'Billing economics feed exceeds size limit',
       );
     return await readBoundedJson(file);
@@ -160,7 +176,11 @@ export function createBillingEconomicsFiles(input: {
           !economicsInstant.safeParse(window.startsAt).success ||
           !economicsInstant.safeParse(window.endsAt).success
         )
-          throw createAppError('INTERNAL', 'Billing economics window invalid');
+          throw createRefusal(
+            'INTERNAL',
+            'economics-window-invalid',
+            'Billing economics window invalid',
+          );
         await privateDirectory(input.directory);
         await prunePrivateFiles(
           input.directory,
@@ -178,14 +198,19 @@ export function createBillingEconomicsFiles(input: {
           !economicsInstant.safeParse(window.startsAt).success ||
           !economicsInstant.safeParse(window.endsAt).success
         )
-          throw createAppError('INTERNAL', 'Billing economics window invalid');
+          throw createRefusal(
+            'INTERNAL',
+            'economics-window-invalid',
+            'Billing economics window invalid',
+          );
         // The reader keeps its own privacy check, so a caller need not open the sink first. A
         // directory fault here is the sink's, never the feed file's, so it reads as unavailable.
         try {
           await privateDirectory(input.directory);
         } catch (error) {
-          throw createAppError(
+          throw createRefusal(
             'INFRASTRUCTURE',
+            'economics-sink-unreadable',
             'Billing economics sink unavailable to the feed reader',
             error,
           );
@@ -202,14 +227,16 @@ export function createBillingEconomicsFiles(input: {
         (await prunePrivateFiles(input.directory, input.now(), protectFrom)) >=
         1000
       )
-        throw createAppError(
+        throw createRefusal(
           'INFRASTRUCTURE',
+          'economics-sink-full',
           'Billing economics directory capacity exceeded',
         );
       const id = input.nextId();
       if (!idSchema.safeParse(id).success)
-        throw createAppError(
+        throw createRefusal(
           'INTERNAL',
+          'economics-report-identity-invalid',
           'Billing economics report identity invalid',
         );
       const file = await open(

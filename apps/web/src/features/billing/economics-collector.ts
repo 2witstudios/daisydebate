@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
+import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
@@ -117,8 +117,9 @@ function usageRows(
 function parseFeed(value: unknown) {
   const parsed = privateFeed.safeParse(value);
   if (!parsed.success)
-    throw createAppError(
+    throw createRefusal(
       'VALIDATION',
+      'economics-feed-schema-invalid',
       'Economics feed schema invalid',
       parsed.error,
     );
@@ -141,22 +142,35 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
       : parseFeed(value);
   // Checked after the schema, so a malformed feed is named as malformed, not as a floor change.
   if (!hasRecordedEconomicsFloor(feed))
-    throw createAppError(
+    throw createRefusal(
       'VALIDATION',
+      'economics-feed-floor-changed',
       'Economics feed floor is not the recorded policy',
     );
   if (feed.startsAt !== window.startsAt || feed.endsAt !== window.endsAt)
-    throw createAppError('VALIDATION', 'Economics feed window mismatch');
+    throw createRefusal(
+      'VALIDATION',
+      'economics-feed-window-mismatch',
+      'Economics feed window mismatch',
+    );
   if (
     new Set(feed.volume.map((v) => `${v.plan}:${v.feature}`)).size !==
     feed.volume.length
   )
-    throw createAppError('VALIDATION', 'Duplicate capacity measurements');
+    throw createRefusal(
+      'VALIDATION',
+      'economics-feed-duplicate-capacity',
+      'Duplicate capacity measurements',
+    );
   if (
     feed.modelCostBasis === 'usage_counters' &&
     feed.costs.some((c) => c.category === 'models')
   )
-    throw createAppError('VALIDATION', 'Conflicting model cost bases');
+    throw createRefusal(
+      'VALIDATION',
+      'economics-feed-conflicting-basis',
+      'Conflicting model cost bases',
+    );
   const unassigned = snapshot.attempts.some(
     (a) => planFor(a.sourceKind) === null,
   );
@@ -235,6 +249,10 @@ export type EconomicsCollection =
       readonly cause: unknown;
     };
 
+/** The code a failure is reported under: a typed cause keeps its own, an untyped one takes the fallback. */
+export const typedCodeOr = (cause: unknown, fallback: ErrorCode): ErrorCode =>
+  isAppError(cause) ? cause.code : fallback;
+
 /** A typed VALIDATION refusal is the operator's feed being wrong; anything else is the given stage's. */
 const feedFault = (
   cause: unknown,
@@ -272,7 +290,7 @@ export function createBillingEconomicsCollector(input: {
           kind: 'failed',
           month,
           reason,
-          code: isAppError(cause) ? cause.code : economicsFailureCode[reason],
+          code: typedCodeOr(cause, economicsFailureCode[reason]),
           cause,
         }) as const;
       const sink = await stage(() => input.sink.open(window));
@@ -285,13 +303,15 @@ export function createBillingEconomicsCollector(input: {
           parsed.startsAt !== window.startsAt ||
           parsed.endsAt !== window.endsAt
         )
-          throw createAppError(
+          throw createRefusal(
             'VALIDATION',
+            'economics-snapshot-window-mismatch',
             'Economics snapshot window mismatch',
           );
         if (parsed.observedAt > input.now())
-          throw createAppError(
+          throw createRefusal(
             'VALIDATION',
+            'economics-snapshot-from-future',
             'Economics snapshot observed in the future',
           );
         return parsed;
@@ -316,7 +336,11 @@ export function createBillingEconomicsCollector(input: {
       if (report.value.kind === 'invalid')
         return failed(
           'report_invalid',
-          createAppError('VALIDATION', 'Economics report input invalid'),
+          createRefusal(
+            'VALIDATION',
+            'economics-report-input-invalid',
+            'Economics report input invalid',
+          ),
         );
       const accepted = report.value;
       const saved = await stage(() =>

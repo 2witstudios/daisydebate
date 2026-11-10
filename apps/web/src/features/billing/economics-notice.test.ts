@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
+import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
 import {
   failureNotice,
   isFailureRaised,
@@ -70,7 +71,7 @@ test('the same failure every hour is one notice; a different code in the stage i
     ],
     expected: [
       '2026-10:save_failed:INTERNAL:Error/',
-      '2026-10:save_failed:INFRASTRUCTURE:capacity',
+      '2026-10:save_failed:INFRASTRUCTURE:/',
     ],
   });
 });
@@ -160,18 +161,19 @@ test('a new month starts afresh', () => {
 });
 
 test('each distinct data defect in a stage is its own notice', () => {
-  const defect = (message: string) => ({
+  const defect = (check: BillingEconomicsRefusal) => ({
     ...failed('2026-10', 'save_failed'),
     reason: 'feed_invalid' as const,
     code: 'VALIDATION' as const,
-    cause: createAppError('VALIDATION', message),
+    cause: createRefusal('VALIDATION', check, 'the same words for both'),
   });
   assert({
-    given: 'two VALIDATION refusals of the feed with different fixed checks',
+    given:
+      'two VALIDATION refusals of the feed with different reasons and identical messages',
     should: 'be distinct notices, so fixing one and breaking another is news',
     actual:
-      failureNotice(defect('Economics feed window mismatch')) !==
-      failureNotice(defect('Duplicate capacity measurements')),
+      failureNotice(defect('economics-feed-window-mismatch')) !==
+      failureNotice(defect('economics-feed-duplicate-capacity')),
     expected: true,
   });
 });
@@ -202,19 +204,19 @@ test('a saved report re-arms stage failures even when its signals did not go thr
 });
 
 test('two typed problems in one stage are two notices', () => {
-  const sink = (message: string) => ({
+  const sink = (check: BillingEconomicsRefusal, message: string) => ({
     ...failed('2026-10', 'save_failed'),
     reason: 'sink_unavailable' as const,
     code: 'INFRASTRUCTURE' as const,
-    cause: createAppError('INFRASTRUCTURE', message),
+    cause: createRefusal('INFRASTRUCTURE', check, message),
   });
   assert({
     given:
       'a sink stage refused first for privacy and later for capacity, both typed',
     should: 'give each problem its own notice',
     actual:
-      failureNotice(sink('Billing economics directory is not private')) !==
-      failureNotice(sink('Billing economics directory capacity exceeded')),
+      failureNotice(sink('economics-sink-not-private', 'a')) !==
+      failureNotice(sink('economics-sink-full', 'a')),
     expected: true,
   });
 });
@@ -241,5 +243,46 @@ test('untyped failures differ by their class and system code, never their text',
         failureNotice(untyped('connect ECONNREFUSED 10.0.0.2', 'ECONNREFUSED')),
     ],
     expected: [false, true],
+  });
+});
+
+test('a reworded message never changes a notice', () => {
+  const check = (message: string) => ({
+    ...failed('2026-10', 'save_failed'),
+    reason: 'feed_invalid' as const,
+    code: 'VALIDATION' as const,
+    cause: createRefusal(
+      'VALIDATION',
+      'economics-feed-window-mismatch',
+      message,
+    ),
+  });
+  assert({
+    given: 'the same refusal reason with two different messages',
+    should: 'be one notice (ADR 0102: no behaviour reads a message)',
+    actual:
+      failureNotice(check('Economics feed window mismatch')) ===
+      failureNotice(check('The feed is for another month')),
+    expected: true,
+  });
+});
+
+test('a typed refusal wrapping different system errors gives different notices', () => {
+  const open = (errno: string) => ({
+    ...failed('2026-10', 'save_failed'),
+    reason: 'feed_unreadable' as const,
+    code: 'INFRASTRUCTURE' as const,
+    cause: createRefusal(
+      'INFRASTRUCTURE',
+      'economics-feed-unavailable',
+      undefined,
+      Object.assign(new Error(errno), { code: errno }),
+    ),
+  });
+  assert({
+    given: 'the feed open refused with EMFILE, then with EIO',
+    should: 'be two notices, keyed on the wrapped errno',
+    actual: failureNotice(open('EMFILE')) === failureNotice(open('EIO')),
+    expected: false,
   });
 });

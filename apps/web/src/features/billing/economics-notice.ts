@@ -18,18 +18,25 @@ export function failureNotice(collection: Collection<'failed'>): string {
   return `${collection.month}:${collection.reason}:${code}:${problemOf(cause)}`;
 }
 
+/** A system error's own closed code: an errno such as ECONNREFUSED, or a SQLSTATE. */
+const systemCode = (error: Error) =>
+  'code' in error && typeof error.code === 'string' ? error.code : '';
+
 /**
- * What distinguishes one problem from another without trusting free text: a
- * typed error's fixed, code-authored message, or an untyped error's class and
- * its system code (an errno such as ECONNREFUSED, or a SQLSTATE), both closed
- * vocabularies. An untyped error with neither is one problem per stage.
+ * What distinguishes one problem from another without reading free text (ADR
+ * 0102): a typed refusal's closed reason, plus the system code of an untyped
+ * error it wraps (so EMFILE and EIO differ), or an untyped error's class and
+ * system code. A typed error with no reason is one problem per code.
  */
 export function problemOf(cause: unknown): string {
-  if (isAppError(cause)) return cause.message;
+  if (isAppError(cause)) {
+    const inner = cause.cause;
+    const system =
+      inner instanceof Error && !isAppError(inner) ? systemCode(inner) : '';
+    return `${cause.reason ?? ''}/${system}`;
+  }
   if (!(cause instanceof Error)) return '';
-  const system =
-    'code' in cause && typeof cause.code === 'string' ? cause.code : '';
-  return `${cause.name}/${system}`;
+  return `${cause.name}/${systemCode(cause)}`;
 }
 
 /** A failure outside any collection: its code and problem, one notice until a collection completes. */

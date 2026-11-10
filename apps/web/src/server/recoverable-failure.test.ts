@@ -299,7 +299,7 @@ test('a failure neither sink took is unrecorded, not reported', () => {
   });
 });
 
-test('a failure only the log line took is unrecorded, so a caller retries the tracker', () => {
+test('a failure only the log line took is logged, not reported, so a caller can retry the tracker', () => {
   const lines: unknown[] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
@@ -316,8 +316,8 @@ test('a failure only the log line took is unrecorded, so a caller retries the tr
   });
   assert({
     given: 'a working log sink and a reporter that throws',
-    should: 'log the line and still answer unrecorded',
+    should: 'log the line and answer logged, never reported',
     actual: [failed(new Error('genuine'), 'tick'), lines.length],
-    expected: ['unrecorded', 1],
+    expected: ['logged', 1],
   });
 });

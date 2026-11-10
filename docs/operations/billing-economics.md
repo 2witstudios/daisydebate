@@ -181,8 +181,11 @@ a financial report or claims low-margin delivery:
   `feed_unreadable` with its own message, never as an invalid feed), and an untyped one
   takes its stage's (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and
   `report_invalid`, `INTERNAL` for `report_failed`, otherwise
-  `INFRASTRUCTURE`). The log line's `cause` names the fixed check that failed
-  (for example `Economics_feed_window_mismatch`). So `errorCode` stays meaningful, and it carries the caught error as its `cause`, so the real
+  `INFRASTRUCTURE`). The log line's `cause` names the check that failed by its
+  closed refusal word (ADR 0102; for example `economics-feed-window-mismatch`),
+  or the stage's own word (`economics-<stage>`) when the cause carries none.
+  The words are `BillingEconomicsRefusal` in `@daisy/protocol/billing-economics`;
+  messages stay free text that no behaviour reads. So `errorCode` stays meaningful, and it carries the caught error as its `cause`, so the real
   cause reaches the scrubbed tracker. A capacity refusal is first
   deferred by the shared bound (eight per stage) and only then reported, so it
   never counts as raised and never mutes a later genuine failure of that month.
@@ -198,15 +201,18 @@ raises each thing once per process:
   sends only the signals not yet raised.
 - **Failures.** A failure's identity is its stage and its error code, so a
   different kind of problem in the same stage is a new notice; a typed
-  error's fixed message, or an untyped error's class and system code (an errno
-  such as `ECONNREFUSED`, or a SQLSTATE), tells one problem from another, never
-  free text. Capacity
+  refusal's closed reason (with the system code of any untyped error it wraps,
+  so `EMFILE` and `EIO` differ), or an untyped error's class and system code (an
+  errno such as `ECONNREFUSED`, or a SQLSTATE), tells one problem from another,
+  never a message. Capacity
   backpressure is never a notice: every refusal goes to the shared failure
   sink, which absorbs eight per stage and reports the ninth, so starvation is
   reported even after another failure of that stage, and it never masks one. A failure is raised once until a report is saved again; after that
   the same failure is a regression and raises again. Only a failure the worker
   failure sink reported to the error tracker counts as raised (a log line alone
-  does not, so a tracker outage is retried on later ticks), so a deferred capacity refusal never mutes what follows.
+  does not, so a tracker outage is retried on later ticks; the exception is
+  `signal_failed`, where the tracker is what failed, so its log line settles
+  it), so a deferred capacity refusal never mutes what follows.
 - **Missing feed.** `billing.economics.feed_missing` is logged once a month,
   before any signal is raised, so a reporter that throws cannot keep it quiet;
   a line the log sink refused is tried again on the next tick, and a feed that

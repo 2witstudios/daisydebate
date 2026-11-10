@@ -44,14 +44,14 @@ export function recoverableFailure(input: {
   const report = (
     error: unknown,
     operation: string,
-  ): 'reported' | 'unrecorded' => {
+  ): 'reported' | 'logged' | 'unrecorded' => {
     const errorCode = isAppError(error) ? error.code : 'INTERNAL';
     let cause: string | undefined;
     // A cause reader that throws costs only the cause, never the log line.
     attempt(() => {
       cause = input.cause?.(error);
     });
-    attempt(() => {
+    const logged = attempt(() => {
       input.logger.log(
         input.event,
         { operation, errorCode, ...(cause ? { cause } : {}) },
@@ -65,20 +65,19 @@ export function recoverableFailure(input: {
         errorCode,
       }),
     );
-    // The log line is best effort; only the tracker taking it is a report a caller may settle on.
-    return captured ? 'reported' : 'unrecorded';
+    return captured ? 'reported' : logged ? 'logged' : 'unrecorded';
   };
   /**
    * Never throws, so no worker promise ever rejects because reporting its
    * failure failed (ISSUE-789). It answers what it did: `reported` (the
-   * reporter took it), `unrecorded` (the reporter threw, so the tracker does
-   * not hold it, whatever the log line did) or `deferred` (absorbed as capacity
-   * backpressure within the bound), so a caller never re-derives the rule.
+   * reporter took it), `logged` (only the log line did; the reporter threw),
+   * `unrecorded` (neither did) or `deferred` (absorbed as capacity backpressure
+   * within the bound), so a caller never re-derives the rule.
    */
   return (
     error: unknown,
     stage: string,
-  ): 'reported' | 'unrecorded' | 'deferred' => {
+  ): 'reported' | 'logged' | 'unrecorded' | 'deferred' => {
     const operation = `${input.operation}.${stage}`;
     let capacity = false;
     attempt(() => {
