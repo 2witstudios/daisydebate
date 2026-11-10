@@ -97,7 +97,10 @@ export function startBillingEconomics(input: {
     });
     if (submitted.kind === 'failed') {
       if (!isSignalFailureReported(raised, collection))
-        failed(submitted.cause, 'signal_failed');
+        failed(
+          createAppError('INFRASTRUCTURE', undefined, submitted.cause),
+          'signal_failed',
+        );
       raised = recordRaised(raised, collection, {
         owed: owed.slice(submitted.submitted),
         signalFailureReported: true,

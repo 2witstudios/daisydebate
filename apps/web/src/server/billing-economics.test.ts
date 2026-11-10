@@ -424,15 +424,15 @@ test('an outcome that returns after another is not raised again that month', asy
   try {
     const run = await runWorker({
       directory,
-      ticks: 3,
+      ticks: 4,
       between: async (n) => {
-        if (n === 1) await chmod(directory, 0o755);
-        if (n === 2) await chmod(directory, 0o700);
+        if (n === 1 || n === 3) await chmod(directory, 0o755);
+        if (n === 2 || n === 4) await chmod(directory, 0o700);
       },
     });
     assert({
       given:
-        'feed missing, then the sink unavailable, then feed missing again, then unavailable again',
+        'feed missing, sink unavailable, feed missing, sink unavailable, feed missing',
       should:
         'raise the completeness signals once and the sink failure once for the month',
       actual: run.captured.map((c) => c.route),
@@ -462,11 +462,24 @@ test('a reporter that keeps throwing is reported as signal_failed once, and retr
     assert({
       given: 'a reporter that throws on every signal capture over four ticks',
       should:
-        'log billing.economics.failed as signal_failed once, not every hour',
-      actual: run.logged.map((line) => [line.event, line.fields.operation]),
-      expected: [
-        ['billing.economics.failed', 'billing.economics.signal_failed'],
-      ],
+        'log billing.economics.failed as signal_failed once, not every hour, with a typed INFRASTRUCTURE capture carrying the cause',
+      actual: {
+        logged: run.logged.map((line) => [line.event, line.fields.operation]),
+        captured: run.captured
+          .filter((c) => c.route === 'billing.economics.signal_failed')
+          .map((c) => [
+            c.errorCode,
+            c.error instanceof Error &&
+              c.error.cause instanceof Error &&
+              c.error.cause.message,
+          ]),
+      },
+      expected: {
+        logged: [
+          ['billing.economics.failed', 'billing.economics.signal_failed'],
+        ],
+        captured: [['INFRASTRUCTURE', 'private adapter']],
+      },
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
