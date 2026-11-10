@@ -28,13 +28,13 @@ const FRAME_ARRIVAL_MS = 500;
 /** One batch interval on top of the frame-arrival allowance. */
 const SEAL_SETTLE_MS = FRAME_ARRIVAL_MS + CAPTURE_BATCH_INTERVAL_MS;
 
-/** Whether a seat is a bot's, whose transcript is authored, never captured (ADR 0122). */
 /** A track identity that is a bot's seat: its frames are never staged. */
 export const botIdentity = (state: CaptureState, identity: string) =>
   state.participants.some(
     (participant) =>
       participant.identity === identity && participant.kind === 'bot',
   );
+/** Whether a seat is a bot's, whose transcript is authored, never captured (ADR 0122). */
 export const botSeat = (state: CaptureState, roundParticipantId: string) =>
   state.participants.some(
     (participant) =>

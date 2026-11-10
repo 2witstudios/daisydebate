@@ -701,3 +701,30 @@ test('an exact retry of a reveal that landed writes nothing, even once its phras
     },
   );
 });
+
+test('a reveal that lands after its phrase played, just before the segment is due, is written', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, lines, fixture, target }) => {
+      const late = phrase(createId(), 400);
+      await operations.beginBotPhrase(claim.scope, claim.token, late, room);
+      // The segment is due in 300 ms; the phrase started 700 ms ago, so it
+      // ended 300 ms ago, inside its segment, before its reveal landed.
+      await fixture.sql`update round_segments set started_at=clock_timestamp()+interval '300 milliseconds'-(duration_ms::bigint+returned_ms)*interval '1 millisecond' where id=${target.segmentId}`;
+      const [{ now }] = await fixture.sql`select clock_timestamp() as now`;
+      const revealed = await operations.revealBotPhrase(
+        claim.scope,
+        claim.token,
+        late,
+        room,
+        new Date(new Date(now).getTime() - 700).toISOString(),
+      );
+      assert({
+        given:
+          'a 400 ms phrase whose audio started 700 ms ago, revealed 300 ms before its segment is due',
+        should: 'write its line, since it fit from its own audio start',
+        actual: { revealed, lines: (await lines()).length },
+        expected: { revealed: { revealed: true }, lines: 1 },
+      });
+    },
+  );
+});
