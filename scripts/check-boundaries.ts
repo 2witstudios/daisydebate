@@ -17,6 +17,7 @@ import {
   reservedWordIssue,
   deepImportIssue,
   documentManagerIssue,
+  stageSurfaceIssue,
   operatorApiIssue,
   runnerOnlyIssue,
   testSupportIssue,
@@ -141,6 +142,8 @@ for (const workspace of workspaces) {
       if (coupling) issues.push(`${relative(root, file)}: ${coupling}`);
       const manager = documentManagerIssue(specifier, relative(root, file));
       if (manager) issues.push(manager);
+      const stage = stageSurfaceIssue(specifier, relative(root, file));
+      if (stage) issues.push(stage);
       if (specifier.startsWith('.')) {
         const target = resolve(dirname(file), specifier);
         if (!target.startsWith(`${resolve(root, workspace.path)}/`))

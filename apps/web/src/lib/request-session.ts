@@ -63,8 +63,8 @@ export const requestReleaseEnabled = (
   accountId: string | null,
 ) => requestFlagReader()(key, accountId);
 /**
- * This request's session, resolved once: the root layout and the page it
- * wraps render in the same request, and React's per-request cache makes
+ * This request's session, resolved once: the layouts and the page they
+ * wrap render in the same request, and React's per-request cache makes
  * them share one durable session read.
  */
 const requestSession = cache(async () =>

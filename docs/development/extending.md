@@ -94,7 +94,10 @@ rules.
    orchestration) — never a global `lib/`.
 2. Create a route group `apps/web/src/app/(<vertical>)/` for pages and
    `src/app/api/<vertical>/` for handlers. Route groups isolate URL
-   structure without touching other verticals' paths.
+   structure without touching other verticals' paths. A group whose pages a
+   person uses renders `VisitorFeatures` (`app/visitor-features.tsx`) from
+   its layout; a page a recorder renders goes under `(stage)` and renders
+   none (ADR 0123).
 3. Shared app-router files (`src/app/layout.tsx`, `globals.css`) are
    coordination points: changing them belongs to a dedicated change that
    vertical PRs rebase onto, not to a vertical PR.

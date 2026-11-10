@@ -12,7 +12,7 @@ import type { Consent } from '../../features/analytics/consent';
 import type { Capture } from '../../features/analytics/viewer-analytics';
 import { watchConsent } from '../../features/analytics/consent-sync';
 
-/** Root lifecycle binding; never passes browser locations or participant content to capture. */
+/** Visitor-page lifecycle binding (ADR 0123); never passes browser locations or participant content to capture. */
 export function AnalyticsClient(
   props: Capture & { readonly consent: Consent },
 ) {
