@@ -1,3 +1,4 @@
+import { isCapacityRefusal } from '@daisy/db/capacity';
 import { createAppError } from '@daisy/errors';
 import type { App } from './app';
 import {
@@ -7,6 +8,7 @@ import {
 } from '../features/billing/economics-collector';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
+  failureNotice,
   isFailureRaised,
   nothingRaised,
   owedSignals,
@@ -14,6 +16,7 @@ import {
   recordFailure,
   recordFeedMissingLogged,
   recordSignals,
+  signalFailureNotice,
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
@@ -75,20 +78,50 @@ export function startBillingEconomics(input: {
     'Private billing economics remain incomplete',
   );
   let raised = nothingRaised;
+  /** Report a failure notice once until a report settles; only a failure the sink reported counts. */
+  const reportOnce = (
+    month: string,
+    notice: string,
+    error: unknown,
+    stage: string,
+  ) => {
+    if (isFailureRaised(raised, month, notice)) return;
+    if (failed(error, stage) === 'reported')
+      raised = recordFailure(raised, month, notice);
+  };
   const raise = (collection: EconomicsCollection) => {
     if (collection.kind === 'failed') {
-      if (isFailureRaised(raised, collection)) return;
-      // Only a failure the sink reported settles; deferred or unrecorded stays news.
-      const verdict = failed(
-        createAppError(
-          economicsFailureCode[collection.reason],
-          undefined,
-          collection.cause,
-        ),
+      const error = createAppError(
+        economicsFailureCode[collection.reason],
+        undefined,
+        collection.cause,
+      );
+      // Capacity backpressure is bounded by the shared sink itself and is never a notice,
+      // so it neither masks a later outage nor stops counting towards starvation.
+      if (isCapacityRefusal(collection.cause))
+        return void failed(error, collection.reason);
+      return reportOnce(
+        collection.month,
+        failureNotice(collection),
+        error,
         collection.reason,
       );
-      if (verdict === 'reported') raised = recordFailure(raised, collection);
-      return;
+    }
+    // Logged before any signal is raised, so a throwing reporter cannot keep the month quiet.
+    if (
+      collection.feed === 'missing' &&
+      !raisedIn(raised, collection.month).feedMissingLogged
+    ) {
+      raised = recordFeedMissingLogged(raised, collection);
+      try {
+        app.logger.log(
+          'billing.economics.feed_missing',
+          { operation: 'billing.economics.collect', cause: 'feed_missing' },
+          'Private billing economics feed is missing for the month; the report stays incomplete',
+        );
+      } catch {
+        /* A failing log sink never turns a saved report into a failure (ISSUE-789). */
+      }
     }
     const owed = owedSignals(raised, collection);
     const submitted = raiseEconomicsSignals(app.reporter, {
@@ -96,36 +129,18 @@ export function startBillingEconomics(input: {
       signals: owed,
     });
     if (submitted.kind === 'failed') {
-      const verdict = raisedIn(raised, collection.month).signalFailureReported
-        ? 'reported'
-        : failed(
-            createAppError('INFRASTRUCTURE', undefined, submitted.cause),
-            'signal_failed',
-          );
       raised = recordSignals(raised, collection, {
         taken: owed.slice(0, submitted.submitted),
         settled: false,
-        signalFailureReported: verdict === 'reported',
       });
-      return;
-    }
-    // Record before logging: a throwing logger must not make the next tick re-send these signals.
-    raised = recordSignals(raised, collection, {
-      taken: owed,
-      settled: true,
-      signalFailureReported: false,
-    });
-    if (collection.feed !== 'missing' || raised.feedMissingLogged) return;
-    raised = recordFeedMissingLogged(raised, collection);
-    try {
-      app.logger.log(
-        'billing.economics.feed_missing',
-        { operation: 'billing.economics.collect', cause: 'feed_missing' },
-        'Private billing economics feed is missing for the month; the report stays incomplete',
+      return reportOnce(
+        collection.month,
+        signalFailureNotice(collection.month),
+        createAppError('INFRASTRUCTURE', undefined, submitted.cause),
+        'signal_failed',
       );
-    } catch {
-      /* A failing log sink never turns a saved report into a failure (ISSUE-789). */
     }
+    raised = recordSignals(raised, collection, { taken: owed, settled: true });
   };
   return startSingleFlightWorker({
     timers: input.timers,

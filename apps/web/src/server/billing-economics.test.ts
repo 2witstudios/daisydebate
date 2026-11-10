@@ -5,6 +5,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { refuseCapacity } from '@daisy/db/testing';
+import { createAppError } from '@daisy/errors';
 import { createApp } from './app';
 import { createEventRecorder, silentLogger } from './test-loggers.test-support';
 import {
@@ -281,7 +282,7 @@ test('a reporter that throws is logged as signal_failed and retried next tick', 
     assert({
       given: 'a reporter whose first signal capture throws',
       should:
-        'log billing.economics.failed as signal_failed, then raise the signals and log feed_missing once on the next tick',
+        'log feed_missing once and signal_failed once, then raise the signals on the next tick',
       actual: {
         logged: run.logged.map((line) => [line.event, line.fields.operation]),
         incomplete: run.captured.filter(
@@ -290,8 +291,8 @@ test('a reporter that throws is logged as signal_failed and retried next tick', 
       },
       expected: {
         logged: [
-          ['billing.economics.failed', 'billing.economics.signal_failed'],
           ['billing.economics.feed_missing', 'billing.economics.collect'],
+          ['billing.economics.failed', 'billing.economics.signal_failed'],
         ],
         incomplete: 3,
       },
@@ -483,7 +484,7 @@ test('a reporter that keeps throwing is reported as signal_failed once, and retr
       given:
         'a reporter that throws on every signal capture over four collections',
       should:
-        'log billing.economics.failed as signal_failed once, not every hour, with a typed INFRASTRUCTURE capture carrying the cause',
+        'log feed_missing once and signal_failed once, not every hour, with a typed INFRASTRUCTURE capture carrying the cause',
       actual: {
         logged: run.logged.map((line) => [line.event, line.fields.operation]),
         captured: run.captured
@@ -497,6 +498,7 @@ test('a reporter that keeps throwing is reported as signal_failed once, and retr
       },
       expected: {
         logged: [
+          ['billing.economics.feed_missing', 'billing.economics.collect'],
           ['billing.economics.failed', 'billing.economics.signal_failed'],
         ],
         captured: [['INFRASTRUCTURE', 'private adapter']],
@@ -782,6 +784,32 @@ test('a throwing feed_missing log is never a collection failure', async () => {
         (c) => c.route === 'billing.economics.collect',
       ).length,
       expected: 0,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a capacity refusal never masks a later outage, nor stops counting once an outage was raised', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const outage = () =>
+    createAppError('INFRASTRUCTURE', 'Transaction backend unavailable');
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 10,
+      refuse: (read) => (read === 1 ? outage() : refuseCapacity()),
+    });
+    assert({
+      given:
+        'a typed INFRASTRUCTURE outage on the snapshot read, then ten capacity refusals (eleven collections)',
+      should:
+        'report the outage once and still escalate the starved stage at the shared bound',
+      actual: run.captured.map((c) => c.route),
+      expected: [
+        'billing.economics.snapshot_failed',
+        'billing.economics.snapshot_failed.capacity',
+      ],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });

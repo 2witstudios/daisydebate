@@ -8,9 +8,10 @@ type Collection<K extends EconomicsCollection['kind']> = Extract<
 >;
 
 /**
- * A failure's identity: its month, its stage and its error code, so a
- * different problem in the same stage (a capacity refusal, then a database
- * outage) is a new notice, while the same problem every hour is one.
+ * A failed collection's identity: its month, its stage and its error code, so
+ * a different kind of problem in the same stage is a new notice, while the
+ * same problem every hour is one. Capacity backpressure is never a notice; the
+ * shared failure sink bounds it.
  */
 export function failureNotice(collection: Collection<'failed'>): string {
   const code = isAppError(collection.cause)
@@ -19,13 +20,16 @@ export function failureNotice(collection: Collection<'failed'>): string {
   return `${collection.month}:${collection.reason}:${code}`;
 }
 
+/** A failure to submit a month's signals: one notice, however often the reporter throws. */
+export const signalFailureNotice = (month: string) => `${month}:signal_failed`;
+
 const signalKey = (signal: EconomicsSignal) => `${signal.name}/${signal.plan}`;
 
 /**
  * What this process has raised for the month it is collecting. Each signal is
- * raised once a month, whatever else changes in the report. A failure is
- * raised once until a report settles again, so a regression after recovery is
- * news. A new month starts empty.
+ * raised once a month, whatever else changes in the report. A failure notice
+ * is raised once until a report settles again, so a regression after recovery
+ * is news. A new month starts empty.
  */
 export type EconomicsRaised = {
   readonly month: string | null;
@@ -33,8 +37,6 @@ export type EconomicsRaised = {
   readonly failures: ReadonlySet<string>;
   /** Signals the reporter took this month. */
   readonly signals: ReadonlySet<string>;
-  /** Whether a failure to submit signals was reported since signals last went through. */
-  readonly signalFailureReported: boolean;
   /** Whether this month's missing feed was logged. */
   readonly feedMissingLogged: boolean;
 };
@@ -43,7 +45,6 @@ export const nothingRaised: EconomicsRaised = {
   month: null,
   failures: new Set(),
   signals: new Set(),
-  signalFailureReported: false,
   feedMissingLogged: false,
 };
 
@@ -54,22 +55,21 @@ export const raisedIn = (
 ): EconomicsRaised =>
   raised.month === month ? raised : { ...nothingRaised, month };
 
-/** Whether this failure was already reported since the month's last settled report. */
+/** Whether this failure notice was already reported since the month's last settled report. */
 export const isFailureRaised = (
   raised: EconomicsRaised,
-  collection: Collection<'failed'>,
-) => raisedIn(raised, collection.month).failures.has(failureNotice(collection));
+  month: string,
+  notice: string,
+) => raisedIn(raised, month).failures.has(notice);
 
-/** Record a reported failure. */
+/** Record a reported failure notice. */
 export function recordFailure(
   raised: EconomicsRaised,
-  collection: Collection<'failed'>,
+  month: string,
+  notice: string,
 ): EconomicsRaised {
-  const month = raisedIn(raised, collection.month);
-  return {
-    ...month,
-    failures: new Set([...month.failures, failureNotice(collection)]),
-  };
+  const record = raisedIn(raised, month);
+  return { ...record, failures: new Set([...record.failures, notice]) };
 }
 
 /** The report's signals this month has not yet raised. */
@@ -82,8 +82,9 @@ export const owedSignals = (
 };
 
 /**
- * Record the signals the reporter took for a report. A report whose signals
- * all went through settles, and settling re-arms the month's failures.
+ * Record the signals the reporter took for a report. A report whose owed
+ * signals all went through settles, and settling re-arms the month's failure
+ * notices, a failure to submit signals included.
  */
 export function recordSignals(
   raised: EconomicsRaised,
@@ -91,7 +92,6 @@ export function recordSignals(
   outcome: {
     readonly taken: readonly EconomicsSignal[];
     readonly settled: boolean;
-    readonly signalFailureReported: boolean;
   },
 ): EconomicsRaised {
   const month = raisedIn(raised, collection.month);
@@ -99,7 +99,6 @@ export function recordSignals(
     ...month,
     failures: outcome.settled ? new Set() : month.failures,
     signals: new Set([...month.signals, ...outcome.taken.map(signalKey)]),
-    signalFailureReported: outcome.signalFailureReported,
   };
 }
 

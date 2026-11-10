@@ -181,6 +181,7 @@ export type EconomicsCollectionFailure =
   | 'feed_unreadable'
   | 'feed_invalid'
   | 'report_invalid'
+  | 'report_failed'
   | 'save_failed';
 
 /** The error code each failure is reported under: bad data is VALIDATION, an unavailable resource INFRASTRUCTURE. */
@@ -193,6 +194,7 @@ export const economicsFailureCode: Readonly<
   feed_unreadable: 'INFRASTRUCTURE',
   feed_invalid: 'VALIDATION',
   report_invalid: 'VALIDATION',
+  report_failed: 'INTERNAL',
   save_failed: 'INFRASTRUCTURE',
 };
 
@@ -267,13 +269,15 @@ export function createBillingEconomicsCollector(input: {
             : 'feed_unreadable',
           feed.cause,
         );
-      const report = await stage(() =>
-        buildEconomicsReport(
-          dataset(window, snapshot.value, feed.value),
-          input.now(),
-        ),
+      const joined = await stage(() =>
+        dataset(window, snapshot.value, feed.value),
       );
-      if (!report.ok) return failed('feed_invalid', report.cause);
+      if (!joined.ok) return failed('feed_invalid', joined.cause);
+      // The builder returns invalid input as a value; a throw from it is a defect, not bad data.
+      const report = await stage(() =>
+        buildEconomicsReport(joined.value, input.now()),
+      );
+      if (!report.ok) return failed('report_failed', report.cause);
       // The joined feed and snapshot fail the report's own schema or coherence: nothing worth keeping.
       if (report.value.kind === 'invalid')
         return failed('report_invalid', report.value);

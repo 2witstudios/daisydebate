@@ -135,7 +135,7 @@ test('a missing feed is unknown and an unprivate or symlink feed cannot enter th
     await writeFile(target, '{}', { mode: 0o600 });
     await symlink(target, path);
     await expect(files.feed.read(window)).rejects.toThrow(
-      'Billing economics feed unavailable',
+      'Billing economics feed is not bounded and private',
     );
     assert({
       given: 'no private feed and then a symbolic-link substitution',

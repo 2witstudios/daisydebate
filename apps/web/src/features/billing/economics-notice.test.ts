@@ -9,6 +9,7 @@ import {
   recordFailure,
   recordFeedMissingLogged,
   recordSignals,
+  signalFailureNotice,
 } from './economics-notice';
 import { buildEconomicsReport } from './economics-report';
 import { dataset, now } from './economics.test-support';
@@ -47,7 +48,6 @@ const settle = (
   recordSignals(raised, report, {
     taken: owedSignals(raised, report),
     settled: true,
-    signalFailureReported: false,
   });
 const plans = (signals: readonly { readonly plan: string }[]) =>
   signals.map((s) => s.plan);
@@ -88,34 +88,46 @@ test('each signal is raised once a month, whatever else changes in the report', 
 
 test('a partly submitted report owes only the signals the reporter did not take', () => {
   const report = reported('2026-10', 'missing', ['free', 'beta', 'premium']);
-  const partial = recordSignals(nothingRaised, report, {
-    taken: report.signals.slice(0, 1),
-    settled: false,
-    signalFailureReported: true,
-  });
+  const notice = signalFailureNotice('2026-10');
+  const partial = recordFailure(
+    recordSignals(nothingRaised, report, {
+      taken: report.signals.slice(0, 1),
+      settled: false,
+    }),
+    '2026-10',
+    notice,
+  );
   assert({
-    given: 'a report whose first signal was taken before the reporter threw',
-    should: 'owe the other two and remember the failure was reported',
+    given:
+      'a report whose first signal was taken before the reporter threw, and the signal failure reported',
+    should:
+      'owe the other two, hold the signal failure, and release it once they go through',
     actual: [
       plans(owedSignals(partial, report)),
-      raisedIn(partial, '2026-10').signalFailureReported,
+      isFailureRaised(partial, '2026-10', notice),
+      isFailureRaised(settle(partial, report), '2026-10', notice),
     ],
-    expected: [['beta', 'premium'], true],
+    expected: [['beta', 'premium'], true, false],
   });
 });
 
 test('a failure stays raised until a report settles, then is news again', () => {
   const report = reported('2026-10', 'missing', ['premium']);
   const failure = failed('2026-10', 'save_failed');
-  const failedOnce = recordFailure(settle(nothingRaised, report), failure);
+  const notice = failureNotice(failure);
+  const failedOnce = recordFailure(
+    settle(nothingRaised, report),
+    '2026-10',
+    notice,
+  );
   const recovered = settle(failedOnce, report);
   assert({
     given:
       'a settled report, a reported failure, then the same report settling again',
     should: 'hold the failure while it persists and forget it after recovery',
     actual: [
-      isFailureRaised(failedOnce, failure),
-      isFailureRaised(recovered, failure),
+      isFailureRaised(failedOnce, '2026-10', notice),
+      isFailureRaised(recovered, '2026-10', notice),
     ],
     expected: [true, false],
   });
@@ -127,7 +139,8 @@ test('a new month starts afresh', () => {
   const raised = recordFeedMissingLogged(
     recordFailure(
       settle(nothingRaised, october),
-      failed('2026-10', 'save_failed'),
+      '2026-10',
+      failureNotice(failed('2026-10', 'save_failed')),
     ),
     october,
   );

@@ -51,11 +51,13 @@ saved report, the signals it implies and whether the feed was `supplied` or
 private, or its bounded retention sweep refused; the sweep runs on every
 collection, whether or not it reaches the save), `snapshot_failed` (the read
 threw), `snapshot_invalid` (schema, window or a future observation),
-`feed_unreadable` (the file could not be opened or is not a private regular
-file), `feed_invalid` (malformed or oversized contents, the JSON literal
-`null`, window, schema, or a floor other than the recorded policy),
+`feed_unreadable` (the file could not be opened), `feed_invalid` (the
+operator's file is wrong: not a private regular file, a symbolic link,
+malformed or oversized contents, the JSON literal `null`, window, schema, or a
+floor other than the recorded policy),
 `report_invalid` (the joined feed and snapshot fail the report's own schema or
-coherence, so nothing is saved) or `save_failed` (including the save's file
+coherence, so nothing is saved), `report_failed` (the report builder threw: a
+defect, reported as `INTERNAL`) or `save_failed` (including the save's file
 cap). A feed file whose body is `null` is invalid, never a missing feed. The
 collector never reports.
 `raiseEconomicsSignals` submits a saved report's fixed signals through the
@@ -169,8 +171,8 @@ a financial report or claims low-margin delivery:
 - **Failed** (a stage threw). The worker reports it exactly once through the
   worker failure sink: one `billing.economics.failed` line whose `operation` is
   `billing.economics.<reason>`, and one capture. The captured error is typed
-  (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and `report_invalid`, otherwise
-  `INFRASTRUCTURE`), so `errorCode`
+  (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and `report_invalid`,
+  `INTERNAL` for `report_failed`, otherwise `INFRASTRUCTURE`), so `errorCode`
   stays meaningful, and it carries the caught error as its `cause`, so the real
   cause reaches the scrubbed tracker. A capacity refusal is first
   deferred by the shared bound (eight per stage) and only then reported, so it
@@ -186,12 +188,20 @@ raises each thing once per process:
   else changes in the report: a feed arriving, or one plan's margin changing,
   sends only the signals not yet raised.
 - **Failures.** A failure's identity is its stage and its error code, so a
-  capacity refusal and a later database outage in the same stage are two
-  notices. A failure is raised once until a report settles again; after that
+  different kind of problem in the same stage is a new notice. Capacity
+  backpressure is never a notice: every refusal goes to the shared failure
+  sink, which absorbs eight per stage and reports the ninth, so starvation is
+  reported even after another failure of that stage, and it never masks one. A failure is raised once until a report settles again; after that
   the same failure is a regression and raises again. Only a failure the worker
   failure sink actually reported (its log line or capture succeeded) counts as
   raised, so a deferred capacity refusal never mutes what follows.
-- **Missing feed.** `billing.economics.feed_missing` is logged once a month.
+- **Missing feed.** `billing.economics.feed_missing` is logged once a month,
+  before any signal is raised, so a reporter that throws cannot keep it quiet.
+- **Signal failures.** A reporter that throws is one `signal_failed` notice
+  until a report's signals go through again.
+
+This record lives in each web process. Several web instances, or a restart,
+each raise a month once more; the staging app runs one machine.
 
 A new month starts afresh, and a restart may raise the current month once more.
 

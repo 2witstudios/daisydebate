@@ -87,12 +87,26 @@ async function readPrivateFeed(path: string) {
       error.code === 'ENOENT'
     )
       return null;
+    // A symbolic link in the feed's place is the operator's file being wrong, not the disk failing.
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ELOOP'
+    )
+      throw createAppError(
+        'VALIDATION',
+        'Billing economics feed is not bounded and private',
+      );
     throw new Error('Billing economics feed unavailable');
   }
   try {
     const stat = await file.stat();
     if (!stat.isFile() || (stat.mode & 0o077) !== 0)
-      throw new Error('Billing economics feed is not bounded and private');
+      throw createAppError(
+        'VALIDATION',
+        'Billing economics feed is not bounded and private',
+      );
     if (stat.size > maximumFeedBytes)
       throw createAppError(
         'VALIDATION',
