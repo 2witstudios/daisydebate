@@ -15,7 +15,8 @@ const retentionMs = 30 * 86400000;
 /**
  * The sink admits at most 1000 files, so a bounded sweep can visit every file
  * it creates. `protectFrom` is the month being collected: its feed and every
- * later month's (still to be collected) are never expired under it.
+ * later month's up to the current one (still to be collected) are never
+ * expired under it.
  */
 async function prunePrivateFiles(
   directory: string,
@@ -40,7 +41,13 @@ async function prunePrivateFiles(
     )
       continue;
     const feedMonth = /^feed-(\d{4}-\d{2})\.json$/.exec(entry.name)?.[1];
-    if (feedMonth !== undefined && feedMonth >= protectFrom) continue;
+    // Protected from the collected month through the current one; a misnamed future feed still expires.
+    if (
+      feedMonth !== undefined &&
+      feedMonth >= protectFrom &&
+      feedMonth <= now.slice(0, 7)
+    )
+      continue;
     const path = join(directory, entry.name),
       info = await lstat(path);
     if (info.isFile() && info.mtimeMs <= Date.parse(now) - retentionMs) {
@@ -149,7 +156,10 @@ export function createBillingEconomicsFiles(input: {
         readonly endsAt: string;
       }) {
         // The window decides what retention protects, so a malformed one never reaches the sweep.
-        if (!economicsInstant.safeParse(window.startsAt).success)
+        if (
+          !economicsInstant.safeParse(window.startsAt).success ||
+          !economicsInstant.safeParse(window.endsAt).success
+        )
           throw createAppError('INTERNAL', 'Billing economics window invalid');
         await privateDirectory(input.directory);
         await prunePrivateFiles(

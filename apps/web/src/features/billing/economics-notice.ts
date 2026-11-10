@@ -32,6 +32,10 @@ export function problemOf(cause: unknown): string {
   return `${cause.name}/${system}`;
 }
 
+/** A failure outside any collection: its code and problem, one notice until a collection completes. */
+export const collectFailureNotice = (error: unknown) =>
+  `collect:${isAppError(error) ? error.code : 'INTERNAL'}:${problemOf(error)}`;
+
 /** A failure to submit a month's signals: one notice, however often the reporter throws. */
 export const signalFailureNotice = (month: string) => `${month}:signal_failed`;
 

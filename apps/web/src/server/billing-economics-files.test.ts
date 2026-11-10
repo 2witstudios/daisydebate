@@ -540,3 +540,29 @@ test('opening the sink refuses a malformed window before retention runs', async 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a misnamed far-future feed is not protected forever', async () => {
+  const { utimes, readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const old = new Date('2026-08-01T00:00:00.000Z');
+    for (const name of ['feed-2099-01.json', 'feed-2026-11.json']) {
+      await writeFile(join(directory, name), '{}', { mode: 0o600 });
+      await utimes(join(directory, name), old, old);
+    }
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'o'.repeat(24),
+    });
+    await files.sink.open(window);
+    assert({
+      given: 'expired-age feeds for January 2099 and for the current month',
+      should: 'expire the far-future feed and keep the current month',
+      actual: (await readdir(directory)).sort(),
+      expected: ['feed-2026-11.json'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

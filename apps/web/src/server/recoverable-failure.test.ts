@@ -298,3 +298,26 @@ test('a failure neither sink took is unrecorded, not reported', () => {
     expected: 'unrecorded',
   });
 });
+
+test('a failure only the log line took is unrecorded, so a caller retries the tracker', () => {
+  const lines: unknown[] = [];
+  const failed = recoverableFailure({
+    isCapacity: () => false,
+    logger: { log: (...line) => void lines.push(line) },
+    reporter: {
+      capture: () => {
+        throw new Error('tracker down');
+      },
+    },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+    event: 'round.maintenance.failed',
+    operation: 'round.maintenance',
+    message: 'Competitive maintenance remains recoverable',
+  });
+  assert({
+    given: 'a working log sink and a reporter that throws',
+    should: 'log the line and still answer unrecorded',
+    actual: [failed(new Error('genuine'), 'tick'), lines.length],
+    expected: ['unrecorded', 1],
+  });
+});

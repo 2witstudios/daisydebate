@@ -12,7 +12,7 @@ import {
   failureNotice,
   isFailureRaised,
   nothingRaised,
-  problemOf,
+  collectFailureNotice,
   owedSignals,
   raisedIn,
   recordFailure,
@@ -49,6 +49,25 @@ export function composeBillingEconomics(
     save: (report) => files.save(report),
     now: () => app.clock.now(),
   });
+}
+
+/** A worker log line that never throws (ISSUE-789); it answers whether the line was written. */
+function logSafely(
+  app: App,
+  event: 'billing.economics.unprovisioned' | 'billing.economics.feed_missing',
+  message: string,
+  cause?: string,
+) {
+  try {
+    app.logger.log(
+      event,
+      { operation: 'billing.economics.collect', ...(cause ? { cause } : {}) },
+      message,
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -88,15 +107,11 @@ export function startBillingEconomics(input: {
   const { app } = input;
   const directory = app.config.BILLING_ECONOMICS_DIRECTORY;
   if (directory === undefined) {
-    try {
-      app.logger.log(
-        'billing.economics.unprovisioned',
-        { operation: 'billing.economics.collect' },
-        'Private billing economics sink is not provisioned; collection is not running',
-      );
-    } catch {
-      /* A failing log sink never aborts process startup (ISSUE-789). */
-    }
+    logSafely(
+      app,
+      'billing.economics.unprovisioned',
+      'Private billing economics sink is not provisioned; collection is not running',
+    );
     return { started: Promise.resolve(), stop: async () => undefined };
   }
   const collector = composeBillingEconomics(app, input.instanceId, directory);
@@ -151,17 +166,16 @@ export function startBillingEconomics(input: {
       collection.feed === 'missing' &&
       !raisedIn(raised, collection.month).feedMissingLogged
     ) {
-      try {
-        app.logger.log(
+      // Marked only once written, so a log sink that threw is retried next tick.
+      if (
+        logSafely(
+          app,
           'billing.economics.feed_missing',
-          { operation: 'billing.economics.collect', cause: 'feed_missing' },
           'Private billing economics feed is missing for the month; the report stays incomplete',
-        );
-        // Marked only once written, so a log sink that threw is retried next tick.
+          'feed_missing',
+        )
+      )
         raised = recordFeedMissingLogged(raised, collection.month, true);
-      } catch {
-        /* A failing log sink never turns a saved report into a failure (ISSUE-789). */
-      }
     }
     const owed = owedSignals(raised, collection);
     const submitted = raiseEconomicsSignals(app.reporter, {
@@ -192,7 +206,7 @@ export function startBillingEconomics(input: {
     // A failure outside any collection (an invalid clock, a defect) is reported once per
     // distinct problem until a collection completes again, never every hour.
     failed: (error) => {
-      const notice = `collect:${isAppError(error) ? error.code : 'INTERNAL'}:${problemOf(error)}`;
+      const notice = collectFailureNotice(error);
       if (collectFailure === notice) return;
       if (failed(error, 'collect') === 'reported') collectFailure = notice;
     },

@@ -51,7 +51,7 @@ export function recoverableFailure(input: {
     attempt(() => {
       cause = input.cause?.(error);
     });
-    const logged = attempt(() => {
+    attempt(() => {
       input.logger.log(
         input.event,
         { operation, errorCode, ...(cause ? { cause } : {}) },
@@ -65,14 +65,15 @@ export function recoverableFailure(input: {
         errorCode,
       }),
     );
-    return logged || captured ? 'reported' : 'unrecorded';
+    // The log line is best effort; only the tracker taking it is a report a caller may settle on.
+    return captured ? 'reported' : 'unrecorded';
   };
   /**
    * Never throws, so no worker promise ever rejects because reporting its
-   * failure failed (ISSUE-789). It answers what it did: `reported` (the log
-   * line or the reporter took it), `unrecorded` (both threw, so nothing
-   * holds it) or `deferred` (absorbed as capacity backpressure within the
-   * bound), so a caller never re-derives the rule.
+   * failure failed (ISSUE-789). It answers what it did: `reported` (the
+   * reporter took it), `unrecorded` (the reporter threw, so the tracker does
+   * not hold it, whatever the log line did) or `deferred` (absorbed as capacity
+   * backpressure within the bound), so a caller never re-derives the rule.
    */
   return (
     error: unknown,
