@@ -20,6 +20,8 @@ import {
 export const initSentry = (input: {
   readonly dsn: string | undefined;
   readonly environment: string | undefined;
+  /** The image's git commit (`sentryRelease`); absent, the SDK names none of its own. */
+  readonly release?: string | undefined;
   readonly trustedOrigin?: string | undefined;
   readonly drawTraceSample?: () => number;
   readonly transport?: NonNullable<
@@ -30,6 +32,7 @@ export const initSentry = (input: {
   Sentry.init({
     dsn: input.dsn,
     ...(input.environment ? { environment: input.environment } : {}),
+    ...(input.release ? { release: input.release } : {}),
     dataCollection: {
       userInfo: false,
       cookies: false,
