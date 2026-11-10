@@ -5,6 +5,7 @@ import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
   economicsInstant,
+  isEconomicsWindow,
   economicsPlans,
   type EconomicsInput,
   type EconomicsPlan,
@@ -294,10 +295,7 @@ export function createBillingEconomicsCollector(input: {
       // The window and clock are this collection's inputs: a malformed one is a caller defect,
       // refused once here before any I/O, whichever edge would otherwise meet it.
       const inputs = await stage(() => {
-        if (
-          !economicsInstant.safeParse(window.startsAt).success ||
-          !economicsInstant.safeParse(window.endsAt).success
-        )
+        if (!isEconomicsWindow(window))
           throw createRefusal(
             'INTERNAL',
             'economics-window-invalid',

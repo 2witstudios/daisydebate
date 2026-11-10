@@ -4,7 +4,10 @@ import { access, lstat, mkdir, open, opendir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { economicsInstant } from '../features/billing/economics-input';
+import {
+  economicsInstant,
+  isEconomicsWindow,
+} from '../features/billing/economics-input';
 import type { createBillingEconomicsCollector } from '../features/billing/economics-collector';
 
 type PrivateReport = Parameters<
@@ -72,7 +75,20 @@ async function privateDirectory(
   try {
     await mkdir(directory, { recursive: true, mode: 0o700 });
   } catch (error) {
-    // Most often a parent this process may not write (a root-owned volume root); the errno stays.
+    // The operator's setup refused it (a root-owned volume root, a file in the path, a read-only
+    // mount): a typed refusal keeping the errno. Any other errno is the disk's and stays untyped.
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : undefined;
+    if (
+      code !== 'EACCES' &&
+      code !== 'EPERM' &&
+      code !== 'ENOTDIR' &&
+      code !== 'EEXIST' &&
+      code !== 'EROFS'
+    )
+      throw error;
     throw createRefusal(
       'VALIDATION',
       'economics-sink-uncreatable',
@@ -201,10 +217,7 @@ function assertWindow(window: {
   readonly startsAt: string;
   readonly endsAt: string;
 }) {
-  if (
-    !economicsInstant.safeParse(window.startsAt).success ||
-    !economicsInstant.safeParse(window.endsAt).success
-  )
+  if (!isEconomicsWindow(window))
     throw createRefusal(
       'INTERNAL',
       'economics-window-invalid',
