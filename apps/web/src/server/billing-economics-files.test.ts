@@ -407,28 +407,21 @@ test('retention keeps the feed of a corrected window and of months not yet colle
 });
 
 test("a feed this process may not read is VALIDATION, the operator's file being wrong", async () => {
-  const { chmod, readFile: probe } = await import('node:fs/promises');
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
   try {
-    const path = join(directory, 'feed-2026-10.json');
-    await writeFile(path, '{}', { mode: 0o600 });
-    await chmod(path, 0o000);
-    // Root, or a process with CAP_DAC_OVERRIDE, still opens a mode-000 file, so the
-    // refusal cannot be produced there; the probe says so instead of guessing by uid.
-    const deniable = await probe(path).then(
-      () => false,
-      () => true,
-    );
-    if (!deniable) return;
+    // The open refusal is injected, so it holds on every runner, root included.
     const files = createBillingEconomicsFiles({
       directory,
       now: () => now,
       nextId: () => 'j'.repeat(24),
+      openFeed: async () => {
+        throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+      },
     });
     assert({
-      given: 'a feed file whose mode denies this process read access',
+      given: 'a feed file this process is refused permission to open',
       should:
-        'refuse it as VALIDATION (feed_invalid) with its own reason, not as a failing disk',
+        'refuse it as VALIDATION (feed_invalid) with its own reason, keeping the errno',
       actual: await files.feed.read(window).then(
         () => null,
         (error: unknown) =>
@@ -436,10 +429,11 @@ test("a feed this process may not read is VALIDATION, the operator's file being 
             ? [
                 (error as { code?: string }).code,
                 (error as { reason?: string }).reason,
+                (error.cause as { code?: string } | undefined)?.code,
               ]
             : null,
       ),
-      expected: ['VALIDATION', 'economics-feed-forbidden'],
+      expected: ['VALIDATION', 'economics-feed-forbidden', 'EACCES'],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -612,7 +606,7 @@ test('opening the sink refuses a malformed end instant before retention runs', a
   }
 });
 
-test('a sink directory this process cannot use is refused as not private', async () => {
+test('a sink directory this process cannot use is refused as unusable', async () => {
   const { chmod } = await import('node:fs/promises');
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
   try {

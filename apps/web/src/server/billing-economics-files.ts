@@ -118,10 +118,13 @@ async function readBoundedJson(file: FileHandle) {
     );
   return parsed;
 }
-async function readPrivateFeed(path: string) {
+/** How the feed file is opened; the process edge passes node's `open`. */
+type OpenFeed = (path: string, flags: number) => Promise<FileHandle>;
+
+async function readPrivateFeed(path: string, openFeed: OpenFeed) {
   let file;
   try {
-    file = await open(
+    file = await openFeed(
       path,
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
@@ -195,6 +198,8 @@ export function createBillingEconomicsFiles(input: {
   readonly directory: string;
   readonly nextId: () => string;
   readonly now: () => string;
+  /** The feed file opener; node's `open` unless a test must produce a specific refusal. */
+  readonly openFeed?: OpenFeed;
 }) {
   return {
     /**
@@ -237,6 +242,7 @@ export function createBillingEconomicsFiles(input: {
         }
         return readPrivateFeed(
           join(input.directory, `feed-${window.startsAt.slice(0, 7)}.json`),
+          input.openFeed ?? ((path, flags) => open(path, flags)),
         );
       },
     },
