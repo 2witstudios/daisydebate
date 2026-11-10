@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { economicsNotice } from './economics-notice';
+import { economicsNotice, isSettled, owedSignals } from './economics-notice';
 setupRitewayBun();
 
 const failed = (month: string, reason: 'feed_unreadable' | 'save_failed') => ({
@@ -63,5 +63,31 @@ test('a changed outcome or a new month is a new notice', () => {
       economicsNotice(failed('2026-10', 'feed_unreadable')) ===
       economicsNotice(failed('2026-10', 'save_failed')),
     expected: false,
+  });
+});
+
+test('what was raised decides what a notice still owes', () => {
+  const signals = reported('2026-10', 'missing', [
+    'free',
+    'beta',
+    'premium',
+  ]).signals;
+  const notice = economicsNotice(
+    reported('2026-10', 'missing', ['free', 'beta', 'premium']),
+  );
+  const partial = { notice, owed: signals.slice(1) };
+  assert({
+    given:
+      'nothing raised, a partly submitted notice, a settled notice, and another notice partly raised',
+    should:
+      'owe every signal, only the unsent ones, nothing, and every signal again',
+    actual: [
+      owedSignals(null, notice, signals).length,
+      owedSignals(partial, notice, signals),
+      isSettled({ notice, owed: [] }, notice),
+      isSettled(partial, notice),
+      owedSignals({ notice: 'other', owed: [] }, notice, signals).length,
+    ],
+    expected: [3, signals.slice(1), true, false, 3],
   });
 });

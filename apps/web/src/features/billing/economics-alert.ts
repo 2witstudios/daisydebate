@@ -26,7 +26,8 @@ export function economicsSignals(
 
 /**
  * Submit a saved report's signals, correlated only by its UTC month. A throwing
- * reporter is a failed submission with its cause, never suppressed; a void
+ * reporter is a failed submission with its cause and how many signals it took
+ * before throwing, so a retry sends only the rest; never suppressed. A void
  * reporter's return is not an operator receipt, so delivery stays unconfirmed.
  */
 export function raiseEconomicsSignals(
@@ -36,15 +37,18 @@ export function raiseEconomicsSignals(
     readonly signals: readonly EconomicsSignal[];
   },
 ) {
+  let submitted = 0;
   try {
-    for (const signal of input.signals)
+    for (const signal of input.signals) {
       reporter.capture(new Error(signal.name), {
         route: `billing.economics.${signal.plan}`,
         errorCode: signal.name,
         requestId: input.month,
       });
+      submitted++;
+    }
   } catch (cause) {
-    return { kind: 'failed', cause } as const;
+    return { kind: 'failed', cause, submitted } as const;
   }
   return { kind: 'submitted', alertDelivery: 'unconfirmed' } as const;
 }

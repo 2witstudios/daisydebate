@@ -107,7 +107,7 @@ test('a throwing reporter is a failed submission carrying its cause', () => {
     should:
       'return a failed submission with the caught error, never suppress it',
     actual: raised,
-    expected: { kind: 'failed', cause },
+    expected: { kind: 'failed', cause, submitted: 0 },
   });
 });
 

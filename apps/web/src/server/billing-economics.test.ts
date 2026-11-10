@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
+import { refuseCapacity } from '@daisy/db/testing';
 import { createApp } from './app';
 import { createEventRecorder, silentLogger } from './test-loggers.test-support';
 import {
@@ -63,6 +64,8 @@ async function runWorker(input: {
   readonly ticks: number;
   readonly capture?: (error: unknown, context: Captured) => void;
   readonly between?: (tick: number) => Promise<void>;
+  /** Replaces the snapshot read on the given read number (1-based). */
+  readonly refuse?: (read: number) => unknown;
 }) {
   const app = build(input.directory),
     reads: unknown[] = [],
@@ -76,7 +79,19 @@ async function runWorker(input: {
       logger,
       database: {
         ...app.database,
-        billingEconomics: snapshotStore(reads),
+        billingEconomics: (instanceId) => {
+          const store = snapshotStore(reads)(instanceId);
+          return {
+            read: async (period) => {
+              const refusal = input.refuse?.(reads.length + 1);
+              if (refusal !== undefined) {
+                reads.push({ instanceId, ...period });
+                throw refusal;
+              }
+              return store.read(period);
+            },
+          };
+        },
       },
       reporter: {
         capture: (error, context) => {
@@ -316,6 +331,66 @@ test('the composed private-file collector uses the recorded floor and cannot acc
     });
   } finally {
     await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a deferred capacity refusal never mutes a later genuine failure', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const genuine = new Error('Economics snapshot unavailable');
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 2,
+      refuse: (read) => (read === 1 ? refuseCapacity() : genuine),
+    });
+    assert({
+      given:
+        'a capacity refusal on the first snapshot read, then the same genuine failure on two ticks',
+      should:
+        'defer the refusal silently, then log and capture the genuine failure exactly once',
+      actual: {
+        logged: run.logged.map((line) => [line.event, line.fields.operation]),
+        captured: run.captured.map((c) => [c.route, c.error === genuine]),
+      },
+      expected: {
+        logged: [
+          ['billing.economics.failed', 'billing.economics.snapshot_failed'],
+        ],
+        captured: [['billing.economics.snapshot_failed', true]],
+      },
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a reporter that fails mid-batch retries only the signals it did not submit', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  let calls = 0;
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 2,
+      capture: () => {
+        if (++calls === 2) throw new Error('private adapter');
+      },
+    });
+    assert({
+      given:
+        'a reporter that throws on its second capture, while three completeness signals are owed',
+      should:
+        'capture each plan exactly once across the retry, never duplicating a submitted signal',
+      actual: run.captured
+        .filter((c) => c.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
+        .map((c) => c.route),
+      expected: [
+        'billing.economics.free',
+        'billing.economics.beta',
+        'billing.economics.premium',
+      ],
+    });
+  } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });

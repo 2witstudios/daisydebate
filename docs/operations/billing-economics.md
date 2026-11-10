@@ -158,8 +158,11 @@ a financial report or claims low-margin delivery:
 - **Failed** (a stage threw). The worker reports it exactly once through the
   worker failure sink: one `billing.economics.failed` line whose `operation` is
   `billing.economics.<reason>`, and one capture of the caught error itself, so
-  the real cause reaches the scrubbed tracker. A reporter that throws while
-  raising signals is `signal_failed` and is retried on the next tick.
+  the real cause reaches the scrubbed tracker. A capacity refusal is first
+  deferred by the shared bound (eight per stage) and only then reported, so it
+  never counts as raised and never mutes a later genuine failure of that month.
+  A reporter that throws while raising signals is `signal_failed`; the next tick
+  sends only the signals it had not taken, so no plan's signal is duplicated.
 
 Each hourly tick collects again, so late corrections land, but the worker raises
 a month's outcome once per process. A later tick with the same outcome (same

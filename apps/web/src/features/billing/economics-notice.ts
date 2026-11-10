@@ -1,3 +1,4 @@
+import type { EconomicsSignal } from './economics-alert';
 import type { EconomicsCollection } from './economics-collector';
 
 type Collection<K extends EconomicsCollection['kind']> = Extract<
@@ -21,3 +22,26 @@ export function economicsNotice(outcome: EconomicsOutcome): string {
   const signals = outcome.signals.map((s) => `${s.name}/${s.plan}`).join(',');
   return `${outcome.month}:reported:${outcome.feed}:${signals}`;
 }
+
+/**
+ * What this process has raised: the latest notice and the signals it still
+ * owes. A notice with nothing owed is settled, and the same notice again is
+ * raised no more.
+ */
+export type EconomicsRaised = {
+  readonly notice: string;
+  readonly owed: readonly EconomicsSignal[];
+} | null;
+
+/** The signals an outcome still owes, given what this process already raised. */
+export function owedSignals(
+  raised: EconomicsRaised,
+  notice: string,
+  signals: readonly EconomicsSignal[],
+): readonly EconomicsSignal[] {
+  return raised?.notice === notice ? raised.owed : signals;
+}
+
+/** Whether this notice is already settled: raised, with nothing still owed. */
+export const isSettled = (raised: EconomicsRaised, notice: string) =>
+  raised?.notice === notice && raised.owed.length === 0;
