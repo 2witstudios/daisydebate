@@ -1,6 +1,6 @@
 # 0124: Room invitations and notification email
 
-Status: accepted (point guard, 2026-11-10; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/wo00vsb8rvuper7tm86ly8ok)).
+Status: proposed (builder, 2026-11-10; awaiting point-guard confirmation; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/wo00vsb8rvuper7tm86ly8ok)).
 Builds on [ADR 0075](0075-beta-access-gate.md) (durable mail intents),
 [ADR 0103](0103-whos-online.md) (challenges and seat holds),
 [ADR 0070](0070-one-active-room-per-user.md) and DEC-331 (a seated human judge
