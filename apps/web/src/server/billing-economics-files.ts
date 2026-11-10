@@ -12,10 +12,10 @@ type PrivateReport = Parameters<
 >[0];
 const maximumFeedBytes = 1024 * 1024;
 const retentionMs = 30 * 86400000;
-/** The sink admits at most1000 files; a bounded sweep can therefore visit every file it creates. */
 /**
- * `protectFrom` is the month being collected: its feed and every later
- * month's (still to be collected) are never expired under it.
+ * The sink admits at most 1000 files, so a bounded sweep can visit every file
+ * it creates. `protectFrom` is the month being collected: its feed and every
+ * later month's (still to be collected) are never expired under it.
  */
 async function prunePrivateFiles(
   directory: string,
