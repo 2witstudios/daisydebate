@@ -638,3 +638,58 @@ test('a sink directory this process cannot use is refused as unusable', async ()
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a full sink is refused at open, before any database read', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    for (let n = 0; n < 1000; n++)
+      await writeFile(join(directory, `fill-${n}.txt`), '', { mode: 0o600 });
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'r'.repeat(24),
+    });
+    assert({
+      given: 'a sink holding 1000 retained entries',
+      should: 'refuse at open as economics-sink-full',
+      actual: await files.sink.open(window).then(
+        () => null,
+        (error: unknown) => (error as { reason?: string }).reason ?? null,
+      ),
+      expected: 'economics-sink-full',
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a sink that cannot be created is its own refusal, keeping the errno', async () => {
+  const parent = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  const files = createBillingEconomicsFiles({
+    directory: join(parent, 'sink'),
+    now: () => now,
+    nextId: () => 's'.repeat(24),
+  });
+  try {
+    // A file where the parent directory should be makes mkdir fail on any runner, root included.
+    await rm(parent, { recursive: true, force: true });
+    await writeFile(parent, '', { mode: 0o600 });
+    assert({
+      given: 'a sink path whose parent is a file, not a directory',
+      should: 'refuse as economics-sink-uncreatable with the errno as cause',
+      actual: await files.sink.open(window).then(
+        () => null,
+        (error: unknown) =>
+          error instanceof Error
+            ? [
+                (error as { reason?: string }).reason,
+                typeof (error.cause as { code?: string } | undefined)?.code,
+              ]
+            : null,
+      ),
+      expected: ['economics-sink-uncreatable', 'string'],
+    });
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+});

@@ -69,7 +69,17 @@ async function privateDirectory(
   directory: string,
   accessDirectory: AccessDirectory,
 ) {
-  await mkdir(directory, { recursive: true, mode: 0o700 });
+  try {
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+  } catch (error) {
+    // Most often a parent this process may not write (a root-owned volume root); the errno stays.
+    throw createRefusal(
+      'VALIDATION',
+      'economics-sink-uncreatable',
+      'Billing economics directory cannot be created by this process',
+      error,
+    );
+  }
   const info = await lstat(directory);
   // Private: no group/other bits.
   if (!info.isDirectory() || (info.mode & 0o077) !== 0)
@@ -228,11 +238,19 @@ export function createBillingEconomicsFiles(input: {
         // The window decides what retention protects, so a malformed one never reaches the sweep.
         assertWindow(window);
         await privateDirectory(input.directory, accessDirectory);
-        await prunePrivateFiles(
-          input.directory,
-          input.now(),
-          window.startsAt.slice(0, 7),
-        );
+        // A full sink is refused here, before any database read, as the same refusal save makes.
+        if (
+          (await prunePrivateFiles(
+            input.directory,
+            input.now(),
+            window.startsAt.slice(0, 7),
+          )) >= 1000
+        )
+          throw createRefusal(
+            'INFRASTRUCTURE',
+            'economics-sink-full',
+            'Billing economics directory capacity exceeded',
+          );
       },
     },
     feed: {

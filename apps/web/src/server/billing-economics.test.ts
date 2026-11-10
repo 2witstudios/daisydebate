@@ -537,14 +537,14 @@ test('a failure that returns after a recovery is raised again', async () => {
       given:
         'a sink that refuses the save, then saves, then refuses again for two ticks',
       should:
-        'raise save_failed, then the signals, then save_failed once more as a regression',
+        'raise the full sink, then the signals, then the full sink once more as a regression',
       actual: run.captured.map((c) => c.route),
       expected: [
-        'billing.economics.save_failed',
+        'billing.economics.sink_unavailable',
         'billing.economics.free',
         'billing.economics.beta',
         'billing.economics.premium',
-        'billing.economics.save_failed',
+        'billing.economics.sink_unavailable',
       ],
     });
   } finally {
@@ -594,14 +594,14 @@ test('in a month that starts healthy, every regression after a report is raised'
       given:
         'a report, a refused save, a report, then two refused saves (five collections)',
       should:
-        'raise the signals once and save_failed after each recovery, once per regression',
+        'raise the signals once and sink_unavailable after each recovery, once per regression',
       actual: run.captured.map((c) => c.route),
       expected: [
         'billing.economics.free',
         'billing.economics.beta',
         'billing.economics.premium',
-        'billing.economics.save_failed',
-        'billing.economics.save_failed',
+        'billing.economics.sink_unavailable',
+        'billing.economics.sink_unavailable',
       ],
     });
   } finally {

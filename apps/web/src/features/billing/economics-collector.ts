@@ -4,6 +4,7 @@ import { typedCodeOr } from './economics-cause';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
+  economicsInstant,
   economicsPlans,
   type EconomicsInput,
   type EconomicsPlan,
@@ -290,16 +291,28 @@ export function createBillingEconomicsCollector(input: {
           code: typedCodeOr(cause, economicsFailureCode[reason]),
           cause,
         }) as const;
+      // The window and clock are this collection's inputs: a malformed one is a caller defect,
+      // refused once here before any I/O, whichever edge would otherwise meet it.
+      const inputs = await stage(() => {
+        if (
+          !economicsInstant.safeParse(window.startsAt).success ||
+          !economicsInstant.safeParse(window.endsAt).success
+        )
+          throw createRefusal(
+            'INTERNAL',
+            'economics-window-invalid',
+            'Billing economics window invalid',
+          );
+        if (!economicsInstant.safeParse(input.now()).success)
+          throw createRefusal(
+            'INTERNAL',
+            'economics-clock-invalid',
+            'Billing economics clock invalid',
+          );
+      });
+      if (!inputs.ok) return failed('report_failed', inputs.cause);
       const sink = await stage(() => input.sink.open(window));
-      // An INTERNAL defect met while opening the sink (a malformed window, an invalid clock)
-      // is the caller's defect, never the volume's.
-      if (!sink.ok)
-        return failed(
-          typedCodeOr(sink.cause, 'INFRASTRUCTURE') === 'INTERNAL'
-            ? 'report_failed'
-            : 'sink_unavailable',
-          sink.cause,
-        );
+      if (!sink.ok) return failed('sink_unavailable', sink.cause);
       const read = await stage(() => input.store.read(window));
       if (!read.ok) return failed('snapshot_failed', read.cause);
       const snapshot = await stage(() => {

@@ -48,7 +48,8 @@ and saves the private report. It returns one typed collection: `reported` (the
 saved report, the signals it implies and whether the feed was `supplied` or
 `missing`) or `failed` with one closed reason and the error that stage caught:
 `sink_unavailable` (the private directory cannot be created, is not
-private, or this process may not read, write and enter it, or its bounded retention sweep refused; the sweep runs on every
+private, or this process may not read, write and enter it, or it is full at 1000
+retained files, refused before any database read, or its bounded retention sweep refused; the sweep runs on every
 collection, whether or not it reaches the save), `snapshot_failed` (the read
 threw), `snapshot_invalid` (schema,
 window, or an observation later than now, each with its own reason),
@@ -59,8 +60,9 @@ malformed or oversized contents, the JSON literal `null`, window, schema, or a
 floor other than the recorded policy),
 `report_invalid` (the joined feed and snapshot fail the report's own schema or
 coherence, so nothing is saved), `report_failed` (a defect, reported as `INTERNAL`:
-joining the feed and snapshot or building the report threw something other than
-a typed data refusal, or opening the sink met a malformed window or clock) or `save_failed` (including the save's file
+a malformed window or clock refused before any I/O, or joining the feed and
+snapshot or building the report threw something other than a typed data
+refusal) or `save_failed` (including the save's file
 cap). A feed file whose body is `null` is invalid, never a missing feed. The
 collector never reports.
 `raiseEconomicsSignals` submits a saved report's fixed signals through the
@@ -178,8 +180,10 @@ a financial report or claims low-margin delivery:
 - **Failed** (a stage threw). The worker reports it exactly once through the
   worker failure sink: one `billing.economics.failed` line whose `operation` is
   `billing.economics.<reason>`, and one capture. The captured error is typed:
-  a typed cause keeps its own code (every throw in the private file edge is
-  typed, so a non-private sink directory is `sink_unavailable`/`VALIDATION`;
+  a typed cause keeps its own code (every refusal the private file edge
+  decides is typed (a non-private, unusable or uncreatable sink directory is
+  `sink_unavailable`/`VALIDATION`), while a raw filesystem error it did not
+  decide (an `ENOSPC` while writing, say) stays untyped with its errno;
   the feed reader's own recheck, for direct callers, reports it as
   `feed_unreadable` with its own reason, never as an invalid feed), and an untyped one
   takes its stage's (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and

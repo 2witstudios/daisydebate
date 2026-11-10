@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError, createRefusal, isAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
   createBillingEconomicsCollector,
   economicsFailureCode,
@@ -404,9 +404,9 @@ test('a throw while building the report is report_failed, never blamed on the fe
     sink: { open: async () => undefined },
     store: { read: async () => snapshot() },
     feed: { read: async () => feed() },
-    // The snapshot check reads the clock first; the builder's read throws.
+    // The input check and the snapshot check read the clock first; the builder's read throws.
     now: () => {
-      if (++calls > 1) throw new Error('builder defect');
+      if (++calls > 2) throw new Error('builder defect');
       return now;
     },
     save: async () => undefined,
@@ -589,22 +589,36 @@ test('a snapshot observed in the future is named as such, not as a window mismat
   });
 });
 
-test("a defect met while opening the sink is report_failed, never the volume's fault", async () => {
+test('a malformed window is refused before any I/O, as report_failed', async () => {
+  const touched: string[] = [];
   const r = await createBillingEconomicsCollector({
     sink: {
       open: async () => {
-        throw createRefusal('INTERNAL', 'economics-window-invalid');
+        touched.push('sink');
       },
     },
-    store: { read: async () => snapshot() },
+    store: {
+      read: async () => {
+        touched.push('store');
+        return snapshot();
+      },
+    },
     feed: { read: async () => feed() },
     now: () => now,
     save: async () => undefined,
-  }).run(window);
+  }).run({ startsAt: 'not an instant', endsAt: 'neither' });
   assert({
-    given: 'a sink that refuses a malformed window as an INTERNAL defect',
-    should: 'fail as report_failed with code INTERNAL, not sink_unavailable',
-    actual: r.kind === 'failed' && [r.reason, r.code],
-    expected: ['report_failed', 'INTERNAL'],
+    given: 'a collection asked for a window that is not two instants',
+    should:
+      'fail as report_failed (INTERNAL) with its own reason, touching neither the sink nor the store',
+    actual: [
+      r.kind === 'failed' && [
+        r.reason,
+        r.code,
+        isAppError(r.cause) && r.cause.reason,
+      ],
+      touched,
+    ],
+    expected: [['report_failed', 'INTERNAL', 'economics-window-invalid'], []],
   });
 });
