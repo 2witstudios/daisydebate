@@ -1,7 +1,9 @@
 import { requireTestServices } from '@daisy/config';
 import {
+  activeRoomMembers,
   decideInvitationEnd,
   decideRoomInvitation,
+  releaseRestrictedMember,
 } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -13,11 +15,12 @@ import {
   settleRoomInvitationsAfter,
 } from '../src/room-invitations/store';
 import { roomFacts } from '../src/room-command-facts';
+import { releaseMemberFromRooms } from '../src/room-restriction-release';
 import { rooms } from '../src/schema/rooms';
 import { eq } from 'drizzle-orm';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture, type Fixture } from './constraint-helpers';
-import { validRules } from './round-fixtures';
+import { validConfig, validRules } from './round-fixtures';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -38,6 +41,11 @@ const withRoom = (
     const coach = await createAuthorizationSubject(f);
     await f.sql`update users set email=${`${coach.userId}@daisy.test`} where id=${coach.userId}`;
     const roomId = await f.room(host.actorId, await f.format(), {
+      config: validConfig,
+      execution_plan: {
+        preRoundPrep: { enabled: false },
+        resolutionDraw: { enabled: false },
+      },
       rules_snapshot: {
         ...validRules,
         seats: { ...validRules.seats, judge: 1 },
@@ -244,6 +252,52 @@ test('who cannot be invited changes nothing', async () => {
         'member-unavailable',
         0,
       ],
+    });
+  });
+});
+
+test('a restriction ends the invitations its member sent or received', async () => {
+  await withRoom(async (env) => {
+    const restrict = (actorId: string) =>
+      env.f.sql.begin((tx) =>
+        releaseMemberFromRooms(
+          drizzle({ client: tx }) as unknown as Parameters<
+            typeof releaseMemberFromRooms
+          >[0],
+          actorId,
+          {
+            now: new Date().toISOString(),
+            rules: {
+              releaseMember: releaseRestrictedMember,
+              activeRoomMembers,
+            },
+          },
+        ),
+      );
+    const state = async () => ({
+      invitations: (
+        await env.f
+          .sql`select state from room_invitations where room_id=${env.roomId} order by created_at`
+      ).map((row: { state: string }) => row.state),
+      holds: (
+        await env.f
+          .sql`select 1 from room_seat_holds where room_id=${env.roomId}`
+      ).length,
+    });
+    await invite(env, env.coach.userId);
+    await restrict(env.coach.actorId);
+    const afterInvitee = await state();
+    await invite(env, env.coach.userId);
+    await restrict(env.host.actorId);
+    const afterHost = await state();
+    assert({
+      given: 'an invited judge restricted, then the inviting host restricted',
+      should: 'end each pending invitation and free the seat it held',
+      actual: { afterInvitee, afterHost },
+      expected: {
+        afterInvitee: { invitations: ['expired'], holds: 0 },
+        afterHost: { invitations: ['expired', 'expired'], holds: 0 },
+      },
     });
   });
 });

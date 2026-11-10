@@ -285,3 +285,42 @@ export async function settleRoomInvitationsAfter(
     );
   }
 }
+
+/**
+ * A restricted member's pending invitations, sent or received, end as
+ * expired and free their holds (ADR 0124), under each Room's row lock taken
+ * in id order. Returns the open Rooms whose invitations changed, for the
+ * caller to ring; Rooms it already wrote are skipped from that list.
+ */
+export async function endMemberRoomInvitations(
+  tx: Tx,
+  actorId: string,
+  context: { readonly now: string; readonly written: ReadonlySet<string> },
+): Promise<readonly string[]> {
+  const involved = await rowsOf<{ room_id: string }>(
+    tx,
+    sql`select distinct room_id from room_invitations where state='pending'
+      and (invitee_actor_id=${actorId} or inviter_actor_id=${actorId}) order by room_id`,
+  );
+  if (involved.length === 0) return [];
+  const roomIds = involved.map((row) => row.room_id);
+  await tx.execute(
+    sql`select id from rooms where id in (${sql.join(
+      roomIds.map((id) => sql`${id}`),
+      sql`,`,
+    )}) order by id for update`,
+  );
+  const ended = await rowsOf<{ room_id: string; invitee_actor_id: string }>(
+    tx,
+    sql`update room_invitations set state='expired',ended_at=${context.now}::timestamptz
+      where state='pending' and (invitee_actor_id=${actorId} or inviter_actor_id=${actorId})
+      returning room_id,invitee_actor_id`,
+  );
+  for (const { room_id, invitee_actor_id } of ended)
+    await tx.execute(
+      sql`delete from room_seat_holds where room_id=${room_id} and actor_id=${invitee_actor_id}`,
+    );
+  return [...new Set(ended.map((row) => row.room_id))]
+    .filter((roomId) => !context.written.has(roomId))
+    .sort();
+}

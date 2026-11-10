@@ -371,8 +371,8 @@ test('a restriction leaves alone a Round whose debate is over, and a judge seat'
 test('a seat held for a restricted member stops holding', async () => {
   await withBans(async (f, ban) => {
     const room = (await f.create({}, f.host)).view;
-    await f.sql`insert into room_seat_holds(room_id,actor_id,until)
-      values(${room.id},${f.guest.actorId},clock_timestamp()+interval '10 minutes')`;
+    await f.sql`insert into room_seat_holds(room_id,actor_id,seat,until)
+      values(${room.id},${f.guest.actorId},'debater',clock_timestamp()+interval '10 minutes')`;
     const [before] =
       await f.sql`select version,change_version from rooms where id=${room.id}`;
     await ban(f.guest);

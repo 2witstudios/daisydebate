@@ -542,7 +542,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     // the acceptor hosts, public like every Room by default, holds none.
     const holdFor = async (roomId: string, until: string) => {
       await ctx.client.unsafe(
-        'insert into room_seat_holds (room_id, actor_id, until) values ($1, $2, $3)',
+        "insert into room_seat_holds (room_id, actor_id, seat, until) values ($1, $2, 'debater', $3)",
         [roomId, ctx.me.actorId, until],
       );
       return roomId;

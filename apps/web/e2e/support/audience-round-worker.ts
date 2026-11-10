@@ -100,7 +100,7 @@ try {
     user_id: account.id,
     kind: 'followed_debater_live',
     round_id: roundId,
-    debater_actor_id: account.actor,
+    actor_id: account.actor,
   })}`;
   await client`insert into watch_history ${client({
     user_id: account.id,
