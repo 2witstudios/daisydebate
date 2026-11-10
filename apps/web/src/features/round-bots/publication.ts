@@ -199,10 +199,7 @@ export function createBotPublisher(input: {
      * plays, so no phrase waits on its own start and none is heard unchecked.
      * Nothing is written for them until their audio starts (ADR 0122).
      */
-    const prepared = new Map<
-      string,
-      { readonly job: BotSpeechJob; readonly line: Promise<void> }
-    >();
+    const prepared = new Map<string, Promise<void>>();
     /** Lines this claim closed; a retry of any other line reuses its id. */
     const closed = new Set<string>();
     const ended = new AbortController();
@@ -338,8 +335,10 @@ export function createBotPublisher(input: {
     const settleLine = async (job: BotSpeechJob, fraction: number) => {
       try {
         await endLine(job, fraction);
-      } catch {
-        unfinished.push({ job, fraction });
+      } catch (error) {
+        // A refused end (the claim taken over, the line gone) never succeeds:
+        // the takeover or the freeze closes that line instead.
+        if (transient(error)) unfinished.push({ job, fraction });
       }
     };
     const retryUnfinished = async () => {
@@ -355,13 +354,13 @@ export function createBotPublisher(input: {
      */
     const discard = () => prepared.clear();
     /**
-     * Writes the next phrase's line while the current one plays, dated by
-     * when its audio will start, so it is written before any of its audio
-     * and the phrase never waits on it. Its publish uses this line.
+     * Authorizes the next phrase while the current one plays, counting from
+     * when its audio will start, so it is checked before any of its audio and
+     * the phrase never waits on it. Its publish uses this authorization.
      */
     const writeAhead = (job: BotSpeechJob) => {
       if (room === undefined || prepared.has(job.phraseId)) return;
-      // Dated by the phrase now starting: written once its schedule is known.
+      // Timed by the phrase now starting: asked once its schedule is known.
       if (starting) {
         waitingPrepare = job;
         return;
@@ -370,7 +369,7 @@ export function createBotPublisher(input: {
         0,
         Math.round(scheduledEndMs - input.monotonicNowMs()),
       );
-      prepared.set(job.phraseId, { job, line: begin(job, room, startsInMs) });
+      prepared.set(job.phraseId, begin(job, room, startsInMs));
     };
     /**
      * The monotonic instant the claim's segment is due, read once per speech
@@ -446,6 +445,10 @@ export function createBotPublisher(input: {
       }
       // A publisher is always opened first, so this only refuses a broken order.
       if (room === undefined) throw createAppError('CONFLICT');
+      // A stop or barge-in while it is being authorized silences the tail
+      // before it at once, not after the authorization's round trip.
+      const silenceOnStop = () => clearNow(true);
+      signal.addEventListener('abort', silenceOnStop, { once: true });
       const refused = new AbortController();
       let refusal: unknown;
       const refuse = (error: unknown) => {
@@ -459,13 +462,21 @@ export function createBotPublisher(input: {
       // phrase before played, so this does not wait.
       const ahead = prepared.get(job.phraseId);
       prepared.delete(job.phraseId);
-      const line =
-        ahead?.line ??
-        begin(job, room, Math.round(Math.max(0, native.queuedMs())));
+      const joined = room;
+      const fresh = () =>
+        begin(job, joined, Math.round(Math.max(0, native.queuedMs())));
+      // One asked ahead that failed for a passing reason, perhaps long ago, is
+      // asked again now rather than spending the phrase's attempt.
+      const line = ahead
+        ? ahead.catch((error: unknown) =>
+            transient(error) ? fresh() : Promise.reject(error),
+          )
+        : fresh();
       void retryUnfinished();
       try {
         await line;
       } catch (error) {
+        signal.removeEventListener('abort', silenceOnStop);
         // The next attempt joins the session's fresh room (ADR 0110).
         roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
         throw error;
@@ -485,7 +496,6 @@ export function createBotPublisher(input: {
       const played = new AbortController();
       /** The writer stopped and dropped its queue: audio not yet started never plays. */
       const silenced = new AbortController();
-      const joined = room;
       /**
        * Its reveal was sent: one whose answer was lost may still have written
        * the line, so it is closed too (closing a line never written is a no-op).
@@ -562,6 +572,8 @@ export function createBotPublisher(input: {
         waitUntilMs: input.waitUntilMs,
         leadMs: LEAD_MS,
       });
+      // The writer silences its own stop from here, counting what played.
+      signal.removeEventListener('abort', silenceOnStop);
       const result = await write(
         frames,
         AbortSignal.any([signal, refused.signal]),

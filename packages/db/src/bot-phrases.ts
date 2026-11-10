@@ -148,7 +148,7 @@ async function saidLine(
  * segment is due, counting the wait until its audio starts. It writes
  * nothing: a phrase is written only as it is said, by its reveal. A phrase
  * that would end past its segment is a final refusal: the speech stops at
- * its last whole phrase. `said` reports a phrase already written.
+ * its last whole phrase.
  */
 export async function authorizeLockedBotPhrase(
   tx: BoundedTransactionContext,
@@ -163,7 +163,8 @@ export async function authorizeLockedBotPhrase(
   requirePhrase(phrase);
   await requirePhraseAuthority(tx, scope, input.token, input.room);
   await requirePhraseFits(tx, scope, phrase, startOf(phrase), false);
-  return { said: (await saidLine(tx, scope, phrase)) !== undefined };
+  // A different body under a phrase id already said is refused before any audio.
+  await saidLine(tx, scope, phrase);
 }
 
 /**
@@ -195,10 +196,14 @@ export async function revealLockedBotPhrase(
   )
     throw createAppError('VALIDATION');
   await requirePhraseAuthority(tx, scope, input.token, input.room);
+  // Dated at its audio start as the worker read it: never later than now, and
+  // never earlier than its segment's start or than a whole phrase ago.
   const saidAt =
     input.startedAt === undefined
       ? sql`clock_timestamp()`
-      : sql`least(clock_timestamp(),${new Date(input.startedAt)}::timestamptz)`;
+      : sql`greatest(least(clock_timestamp(),${new Date(input.startedAt)}::timestamptz),
+          clock_timestamp()-${phrase.durationMs}*interval '1 millisecond',
+          (select s.started_at from round_segments s where s.id=${scope.segmentId} and s.round_id=${scope.roundId}))`;
   // The write is fenced like its authorization, counting from its audio start;
   // the lock orders sequence allocation against every other writer of this segment.
   await requirePhraseFits(tx, scope, phrase, saidAt, true);

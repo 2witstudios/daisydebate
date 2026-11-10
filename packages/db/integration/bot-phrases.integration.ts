@@ -411,12 +411,7 @@ test('a phrase start writes nothing; its reveal as the audio starts writes it an
       target,
     }) => {
       const spoken = phrase();
-      const first = await operations.beginBotPhrase(
-        claim.scope,
-        claim.token,
-        spoken,
-        room,
-      );
+      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
       const authorized = {
         lines: await lines(),
         revision: await revision(),
@@ -434,12 +429,7 @@ test('a phrase start writes nothing; its reveal as the audio starts writes it an
         spoken,
         room,
       );
-      const retry = await operations.beginBotPhrase(
-        claim.scope,
-        claim.token,
-        spoken,
-        room,
-      );
+      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
       const [row] =
         await fixture.sql`select extract(epoch from (clock_timestamp()-created_at))*1000 as ago from utterances where bot_phrase_id=${spoken.phraseId}`;
       const [stream] =
@@ -449,7 +439,6 @@ test('a phrase start writes nothing; its reveal as the audio starts writes it an
         should:
           'write nothing until its reveal, then one line with exactly its text, dated then, its stream complete, with one revision and doorbell',
         actual: {
-          said: [first.said, retry.said],
           authorized,
           reveals: [revealed.revealed, again.revealed],
           lines: await lines(),
@@ -459,7 +448,6 @@ test('a phrase start writes nothing; its reveal as the audio starts writes it an
           doorbells: await doorbells(),
         },
         expected: {
-          said: [false, true],
           authorized: { lines: [], revision: 0, doorbells: 0 },
           reveals: [true, false],
           lines: [{ text: TEXT, complete: false, interrupted: false }],
@@ -619,12 +607,13 @@ test('a bot caption is released only once its words have all played', async () =
   });
 });
 
-test('a reveal dates its line at the audio start it was given, never later than now', async () => {
+test('a reveal dates its line at the audio start it was given, never later than now nor a phrase ago', async () => {
   await withSpeakingBot(async ({ operations, claim, room, fixture }) => {
     const [{ now }] = await fixture.sql`select clock_timestamp() as now`;
     const earlier = phrase();
     const future = phrase();
-    for (const line of [earlier, future])
+    const stale = phrase();
+    for (const line of [earlier, future, stale])
       await operations.beginBotPhrase(claim.scope, claim.token, line, room);
     const startedAt = new Date(new Date(now).getTime() - 800).toISOString();
     await operations.revealBotPhrase(
@@ -641,20 +630,28 @@ test('a reveal dates its line at the audio start it was given, never later than 
       room,
       new Date(new Date(now).getTime() + 60_000).toISOString(),
     );
+    await operations.revealBotPhrase(
+      claim.scope,
+      claim.token,
+      stale,
+      room,
+      new Date(new Date(now).getTime() - 600_000).toISOString(),
+    );
     const rows =
-      await fixture.sql`select bot_phrase_id, created_at, created_at <= clock_timestamp() as said from utterances where bot_phrase_id in (${earlier.phraseId}, ${future.phraseId})`;
+      await fixture.sql`select bot_phrase_id, created_at, created_at <= clock_timestamp() as said, created_at >= clock_timestamp()-interval '2.5 seconds' as recent from utterances where bot_phrase_id in (${earlier.phraseId}, ${future.phraseId}, ${stale.phraseId})`;
     const of = (id: string) =>
       rows.find((row: { bot_phrase_id: string }) => row.bot_phrase_id === id);
     assert({
       given:
-        'a reveal that arrived 800 ms after its audio started, and one naming a start still to come',
+        'a reveal that arrived 800 ms after its audio started, one naming a start still to come, and one naming a start ten minutes ago',
       should:
-        'date the first at its audio start, and the second no later than now',
+        'date the first at its audio start, the second no later than now, and the third no earlier than its 2 s phrase ago',
       actual: [
         new Date(of(earlier.phraseId).created_at).toISOString(),
         of(future.phraseId).said,
+        of(stale.phraseId).recent,
       ],
-      expected: [startedAt, true],
+      expected: [startedAt, true, true],
     });
   });
 });

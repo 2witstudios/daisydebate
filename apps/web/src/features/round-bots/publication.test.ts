@@ -1034,3 +1034,86 @@ test('a short phrase whose reveal fails after its handoff is not reported said',
     });
   }
 });
+
+test('a stop while the next phrase is being authorized silences the tail before it at once', async () => {
+  let begins = 0;
+  const { claim, events } = harness({
+    begin: async () => {
+      // The second phrase's authorization is slow.
+      if (begins++ === 1) await Bun.sleep(300);
+    },
+  });
+  claim.start();
+  await Bun.sleep(10);
+  await claim.publish(job(600, 'a'.repeat(24)), signal(), far());
+  const stop = new AbortController();
+  const second = claim
+    .publish(job(400, 'b'.repeat(24)), stop.signal, far())
+    .catch(() => undefined);
+  await Bun.sleep(30);
+  stop.abort();
+  await Bun.sleep(20);
+  const clearedAtOnce = events.includes('clear');
+  await second;
+  assert({
+    given:
+      'a barge-in while the next phrase waits 300 ms on its authorization, the tail before it still queued',
+    should: 'silence the queued tail at once, not after the authorization',
+    actual: clearedAtOnce,
+    expected: true,
+  });
+});
+
+test('an authorization asked ahead that failed for a passing reason is asked again at play', async () => {
+  let begins = 0;
+  const { claim, reveals } = harness({
+    begin: async () => {
+      begins += 1;
+      // Every attempt made ahead fails: the database is briefly down.
+      if (begins >= 2 && begins <= 4) throw new Error('statement timeout');
+    },
+  });
+  claim.start();
+  await Bun.sleep(10);
+  const first = claim.publish(job(600, 'a'.repeat(24)), signal(), far());
+  claim.writeAhead(job(400, 'b'.repeat(24)));
+  await first;
+  const second = await claim
+    .publish(job(400, 'b'.repeat(24)), signal(), far())
+    .then(
+      (outcome) => outcome.complete,
+      () => 'rejected',
+    );
+  await tailPlays();
+  assert({
+    given:
+      'a next phrase whose authorization ahead failed three times, the database healthy again by its turn',
+    should: 'authorize it afresh and say it',
+    actual: { second, reveals: reveals.map((row) => row.phraseId[0]) },
+    expected: { second: true, reveals: ['a', 'b'] },
+  });
+});
+
+test('a line end refused for good is not asked again at every phrase', async () => {
+  const asked: string[] = [];
+  const { claim } = harness({
+    end: async (phraseId) => {
+      asked.push(phraseId[0]!);
+      if (phraseId[0] === 'a')
+        throw createAppError('CONFLICT', 'Bot publication claim changed');
+    },
+  });
+  claim.start();
+  await Bun.sleep(10);
+  await claim.publish(job(300, 'a'.repeat(24)), signal(), far());
+  await tailPlays();
+  await claim.publish(job(300, 'b'.repeat(24)), signal(), far());
+  await claim.publish(job(300, 'c'.repeat(24)), signal(), far());
+  await claim.close();
+  assert({
+    given: 'a line end refused because the claim was taken over',
+    should: 'ask it once, never again at the next phrases or the close',
+    actual: asked.filter((id) => id === 'a').length,
+    expected: 1,
+  });
+});
