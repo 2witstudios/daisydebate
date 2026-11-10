@@ -4,8 +4,9 @@ import { SERVICE_LEASE_WINDOW_MS } from '@daisy/db/service-lease-lapse';
 export const RENEW_INTERVAL_MS = 1000;
 /**
  * How long the lease may go unproven before the streak is told, once: past
- * the 3 s window and any one transaction's budget, so a lapse the next
- * renewal clears never reaches a person (DAISY-WEB-9).
+ * the 3 s window and any one transaction's budget, so a lapse a renewal
+ * clears within this bound never reaches a person (DAISY-WEB-9). A process
+ * frozen past it really went unproven that long, and is told once.
  */
 const PERSIST_MS = 10_000;
 

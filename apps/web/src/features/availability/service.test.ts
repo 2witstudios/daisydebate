@@ -454,3 +454,76 @@ test('a store that throws before returning a promise is still a failed renewal',
     },
   });
 });
+
+test('a streak id that cannot be minted never stops renewals, nor reuses another streak’s id', async () => {
+  const told: [string, string][] = [];
+  let calls = 0;
+  let renewals = 0;
+  let failing = true;
+  let nowMs = 0;
+  let tick = () => {};
+  const service = startAvailabilityService({
+    instanceId: 'a'.repeat(24),
+    store: {
+      reconcileRoundCheckInAttempts: async () => 0,
+      renewServiceInstance: async () => {
+        renewals += 1;
+        if (failing) throw new Error('renewal refused');
+      },
+      availabilitySampler: () => ({
+        elect: async () => false,
+        sample: async () => undefined,
+        close: async () => undefined,
+      }),
+    },
+    probe: async () => false,
+    nowMs: () => nowMs,
+    timers: {
+      setInterval: (callback) => {
+        tick = callback;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+    lapsing: {
+      log: (_lapse, streakId) => void told.push(['log', streakId]),
+      report: (_lapse, streakId) => void told.push(['report', streakId]),
+    },
+    failed: () => {},
+    nextId: () => {
+      calls += 1;
+      if (calls === 2) throw new Error('ids unavailable');
+      return `streak-${calls}`;
+    },
+  });
+  const advance = async (seconds: number) => {
+    for (let i = 0; i < seconds; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      nowMs += 1000;
+      tick();
+    }
+  };
+  await advance(12);
+  failing = false;
+  await advance(3);
+  failing = true;
+  const before = renewals;
+  await advance(15);
+  await service.stop();
+  assert({
+    given:
+      'a first streak told with streak-1, a proving renewal, then a second streak whose id cannot be minted',
+    should:
+      'keep renewing, and tell the second streak with no id rather than streak-1',
+    actual: { told, renewedAfter: renewals - before > 10 },
+    expected: {
+      told: [
+        ['log', 'streak-1'],
+        ['report', 'streak-1'],
+        ['log', ''],
+        ['report', ''],
+      ],
+      renewedAfter: true,
+    },
+  });
+});
