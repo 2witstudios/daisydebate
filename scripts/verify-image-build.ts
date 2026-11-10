@@ -1,4 +1,4 @@
-import { uncommented } from './deploy-config-text';
+import { dockerInstructions, uncommented } from './deploy-config-text';
 
 /**
  * ISSUE-527: the image's `next build` skips its own TypeScript pass, which
@@ -19,12 +19,12 @@ export function findImageTypecheckProblem(input: {
     ) && (config.match(/ignoreBuildErrors/g) ?? []).length === 1;
   const docker = uncommented(input.dockerfile);
   const settings = docker.match(/DAISY_IMAGE_BUILD=1/g) ?? [];
-  // One RUN instruction, read whole across its line continuations: the
-  // variable is set on the build command itself, wherever the RUN mounts
-  // its build secret (ADR 0037 source maps).
+  // The build RUN read whole across its continuations: only secret mounts
+  // and variable assignments may stand before the build command, so the
+  // variable is set on next build itself (ADR 0037 source maps).
   const inBuild =
-    /^RUN .*DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps\/web build/m.test(
-      docker.replace(/\\\n\s*/g, ' '),
+    /^RUN (?:--mount=\S+ +)*(?:[A-Z_]+=(?:"[^"]*"|\S+) +)*DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps\/web build\b/m.test(
+      dockerInstructions(input.dockerfile),
     );
   return scoped && inBuild && settings.length === 1
     ? null

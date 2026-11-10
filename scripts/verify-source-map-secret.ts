@@ -1,4 +1,4 @@
-import { uncommented } from './deploy-config-text';
+import { dockerInstructions, uncommented } from './deploy-config-text';
 import { deployCommandsIn } from './verify-image-build';
 
 export const SOURCE_MAP_SECRET_PROBLEM =
@@ -12,17 +12,14 @@ const WEB_CONFIGS: ReadonlySet<string> = new Set([
   'fly.migrate.toml',
 ]);
 
-/** The Dockerfile with comments dropped and each instruction on one line. */
-const instructions = (dockerfile: string) =>
-  uncommented(dockerfile).replace(/\\\n\s*/g, ' ');
-
 /** The `FROM deps AS build` stage, up to the next stage. */
 const buildStage = (docker: string) =>
   docker.match(/^FROM deps AS build\s*$([\s\S]*?)(?=^FROM )/m)?.[1] ?? '';
 
 const dockerfileHolds = (dockerfile: string) => {
-  const docker = instructions(dockerfile);
-  if (new RegExp(`^(?:ARG|ENV)\\s+${TOKEN}\\b`, 'm').test(docker)) return false;
+  const docker = dockerInstructions(dockerfile);
+  if (new RegExp(`^(?:ARG|ENV)\\b.*\\b${TOKEN}\\b`, 'm').test(docker))
+    return false;
   const stage = buildStage(docker);
   const run = stage
     .split('\n')
@@ -42,12 +39,28 @@ const configOf = (words: readonly string[]) => {
   return at === -1 ? 'fly.toml' : (words[at + 1] ?? '');
 };
 
-/** Whether a command passes the token's value after `flag`. */
-const passes = (words: readonly string[], flag: string) =>
-  words.some(
-    (word, at) =>
-      word === flag && (words[at + 1] ?? '').startsWith(`${TOKEN}=`),
+/**
+ * Whether a deploy command hands the token on exactly as a build secret: the
+ * only word naming it is `SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN`, right after
+ * `--build-secret`. Any other mention (a `--build-arg`, a runtime `--env`, a
+ * one-word `--flag=` form, a label) is a way for the token to leave the build.
+ */
+const passesOnlyAsBuildSecret = (words: readonly string[]) => {
+  const mentions = words.flatMap((word, at) =>
+    word.includes(TOKEN) ? [at] : [],
   );
+  const [at] = mentions;
+  return (
+    mentions.length === 1 &&
+    at !== undefined &&
+    words[at] === `${TOKEN}=$${TOKEN}` &&
+    words[at - 1] === '--build-secret'
+  );
+};
+
+/** Whether a deploy command names the token at all. */
+const mentionsToken = (words: readonly string[]) =>
+  words.some((word) => word.includes(TOKEN));
 
 type Env = Readonly<Record<string, unknown>> | undefined;
 type Step = { readonly run?: unknown; readonly env?: Env };
@@ -63,26 +76,13 @@ const stepVerdict = (step: Step) => {
   const deploys =
     typeof step.run === 'string' ? deployCommandsIn(step.run) : [];
   const web = deploys.filter((words) => WEB_CONFIGS.has(configOf(words)));
-  const built = web.map(configOf);
-  if (deploys.some((words) => passes(words, '--build-arg')))
-    return { holds: false, built };
-  if (web.length === 0)
-    return {
-      holds:
-        step.env?.[TOKEN] === undefined &&
-        !deploys.some((words) => passes(words, '--build-secret')),
-      built,
-    };
-  return {
-    holds:
-      step.env?.[TOKEN] === STEP_ENV &&
-      web.every(
-        (words) =>
-          words.includes(`${TOKEN}=$${TOKEN}`) &&
-          passes(words, '--build-secret'),
-      ),
-    built,
-  };
+  const others = deploys.filter((words) => !WEB_CONFIGS.has(configOf(words)));
+  const holds =
+    !others.some(mentionsToken) &&
+    (web.length === 0
+      ? step.env?.[TOKEN] === undefined
+      : step.env?.[TOKEN] === STEP_ENV && web.every(passesOnlyAsBuildSecret));
+  return { holds, built: web.map(configOf) };
 };
 
 const parse = (text: string): Workflow | null => {

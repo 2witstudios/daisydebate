@@ -140,4 +140,45 @@ describe('findSourceMapSecretProblem (ADR 0037 source maps)', () => {
       ],
     });
   });
+
+  test('a token leak written in a form the reader must still see (review of PR 710)', () => {
+    const migrate = '-c fly.migrate.toml --local-only --update-only';
+    assert({
+      given:
+        'the token as an ENV after another key, an ARG after another name, a one-word --build-arg=, a runtime --env, a -e, a one-word --build-secret=, and the real value on another flag beside a dummy secret',
+      should: 'report each',
+      actual: [
+        ...reported('dockerfile', [
+          [
+            'ARG GIT_COMMIT=unknown\nRUN',
+            'ENV NODE_ENV=production SENTRY_AUTH_TOKEN=x\nARG GIT_COMMIT=unknown\nRUN',
+          ],
+          [
+            'ARG GIT_COMMIT=unknown\nRUN',
+            'ARG FOO SENTRY_AUTH_TOKEN\nARG GIT_COMMIT=unknown\nRUN',
+          ],
+        ]),
+        ...reported('workflow', [
+          [
+            '--build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"',
+            '--build-arg=SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"',
+          ],
+          [migrate, `${migrate} --env SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"`],
+          [migrate, `${migrate} -e SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"`],
+          [
+            '--build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"',
+            '--build-secret=SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"',
+          ],
+          [
+            '--build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"',
+            '--build-secret SENTRY_AUTH_TOKEN=x --label SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"',
+          ],
+        ]),
+      ],
+      expected: Array.from({ length: 7 }, () => [
+        true,
+        SOURCE_MAP_SECRET_PROBLEM,
+      ]),
+    });
+  });
 });
