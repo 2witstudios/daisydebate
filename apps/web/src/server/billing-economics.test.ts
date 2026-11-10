@@ -870,7 +870,8 @@ test('a feed_missing line the log sink refused is written on a later tick', asyn
 });
 
 test('a failure outside any collection is reported once, not every hour', async () => {
-  const app = build(await mkdtemp(join(tmpdir(), 'billing-economics-worker-')));
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
   const { logged, logger } = createEventRecorder();
   let tick: (() => Promise<void>) | null = null;
   const service = startBillingEconomics({
@@ -904,5 +905,6 @@ test('a failure outside any collection is reported once, not every hour', async 
   } finally {
     await service.stop();
     await app.close();
+    await rm(directory, { recursive: true, force: true });
   }
 });
