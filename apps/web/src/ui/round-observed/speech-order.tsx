@@ -39,10 +39,12 @@ export function ObservedSpeechOrder({
             key={`${index}-${speech.key}`}
             aria-current={speech.state === 'now' ? 'step' : undefined}
             className={cn(
-              'flex items-center gap-3 rounded-sm px-3 py-2',
+              'flex items-center gap-3 rounded-sm border px-3 py-2',
+              speech.state === 'next'
+                ? 'border-border-strong'
+                : 'border-transparent',
               speech.state === 'now' && 'bg-accent text-accent-ink',
               speech.state === 'done' && 'text-ink-muted',
-              speech.state === 'next' && 'bg-surface-sunken',
             )}
           >
             <span
