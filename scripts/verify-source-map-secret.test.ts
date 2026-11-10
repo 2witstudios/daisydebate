@@ -181,4 +181,19 @@ describe('findSourceMapSecretProblem (ADR 0037 source maps)', () => {
       ]),
     });
   });
+
+  test('a second instruction that reads the secret into a layer', () => {
+    assert({
+      given:
+        'the committed Dockerfile with another RUN that mounts the secret and copies it into the image',
+      should: 'report it, since only the build RUN may see the token',
+      actual: reported('dockerfile', [
+        [
+          /$/,
+          '\nRUN --mount=type=secret,id=SENTRY_AUTH_TOKEN cp /run/secrets/SENTRY_AUTH_TOKEN /app/token\n',
+        ],
+      ]),
+      expected: [[true, SOURCE_MAP_SECRET_PROBLEM]],
+    });
+  });
 });

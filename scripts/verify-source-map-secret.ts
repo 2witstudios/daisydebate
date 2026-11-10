@@ -24,6 +24,10 @@ const dockerfileHolds = (dockerfile: string) => {
   const run = stage
     .split('\n')
     .find((line) => /^RUN .*bun run --cwd apps\/web build/.test(line));
+  // Only the build RUN may name the token: a second mount could copy it
+  // into a layer.
+  const naming = docker.split('\n').filter((line) => line.includes(TOKEN));
+  if (naming.length !== 1 || naming[0] !== run) return false;
   return (
     /^ARG GIT_COMMIT\b/m.test(stage) &&
     run !== undefined &&

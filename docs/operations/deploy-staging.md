@@ -771,8 +771,8 @@ Sentry source maps (ADR 0037) need one more repository secret, which only
 the owner creates: `SENTRY_AUTH_TOKEN`, a Sentry token for org `2witstudios`
 with the scopes `project:releases` and `org:read` and no others. Sentry's
 Organization Tokens carry a fixed `org:ci` scope and offer no scope picker,
-so create the token from an internal integration instead: Settings →
-Custom Integrations → Create New Integration → Internal Integration, named
+so create the token from an internal integration instead: Settings → Developer
+Settings → Custom Integrations → Create New Integration → Internal Integration, named
 for this deploy. Set Release to Admin (`project:releases`) and Organization to
 Read (`org:read`), leave every other permission at No Access, save, and
 create a token on it. Then:
