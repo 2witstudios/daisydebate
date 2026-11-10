@@ -59,6 +59,20 @@ export async function requireBotControlSegment(
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Worker segment changed');
 }
+/**
+ * The vendor room a bot's publisher joined is still its session's: a retired
+ * room hears nobody (ADR 0110). The one check every bot speech path shares.
+ */
+export async function requireBotRoom(
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  target: Pick<BotPublicationScope, 'roundId'>,
+  room: string,
+) {
+  const named = await tx.execute(
+    sql`select 1 from media_sessions where round_id=${target.roundId} and room_name=${room} limit 1`,
+  );
+  if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
+}
 /** The seat holds an open floor now, in its live segment, with no incident. */
 export async function requireBotSpeakingWindow(
   tx: BoundedTransactionContext,

@@ -80,12 +80,6 @@ export async function readTranscriptSnapshot(
         ({ fromOffsetMs, untilOffsetMs }) => ({ fromOffsetMs, untilOffsetMs }),
       ),
     })),
-    // Before the freeze, only lines said so far: a bot's next line, written
-    // ahead of its audio, is never shown before it is spoken (ADR 0122).
-    utterances: await readOrderedRoundUtterances(
-      tx,
-      roundId,
-      freeze ? 'frozen' : 'live',
-    ),
+    utterances: await readOrderedRoundUtterances(tx, roundId, 'all'),
   };
 }

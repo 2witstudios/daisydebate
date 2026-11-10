@@ -68,8 +68,7 @@ async function confirmedUntil(
           else u.created_at end)
         from utterances u
         join holders h using (segment_id, round_participant_id)
-        where u.round_id = ${roundId} and u.bot_phrase_id is not null
-          and u.created_at <= clock_timestamp())
+        where u.round_id = ${roundId} and u.bot_phrase_id is not null)
     ) as confirmed_until
   `)) as unknown as { confirmed_until: Date | string | null }[];
   const value = rows[0]?.confirmed_until ?? null;

@@ -159,11 +159,13 @@ export async function createAudioPublication(input: {
     /** Milliseconds handed over but not yet played out. */
     queuedMs: () => source.queuedDuration,
     /**
-     * Drops every queued frame now: a stop or barge-in is silent at once. A
-     * closed or failed publication has nothing left to play.
+     * Drops every queued frame now: a stop or barge-in is silent at once,
+     * even after a failed handoff left frames queued. A closed publication
+     * has nothing left to play.
      */
     clearQueue: () => {
-      if (closing || failed) return;
+      // Still cleared after a failed handoff: what was queued would play on.
+      if (closing) return;
       try {
         source.clearQueue();
       } catch {

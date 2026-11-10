@@ -192,11 +192,12 @@ export function createBotPublisher(input: {
     let dbOffsetMs: number | null = null;
     /** A phrase is between its publish and its first frame: its schedule is not known yet. */
     let starting = false;
-    /** A line asked to be written ahead while the schedule was not known yet. */
+    /** A phrase asked to be authorized ahead while the schedule was not known yet. */
     let waitingPrepare: BotSpeechJob | null = null;
     /**
-     * Lines written ahead of their audio, while the phrase before them plays,
-     * so no phrase waits on its own start and none is heard unwritten.
+     * Phrases authorized ahead of their audio, while the phrase before them
+     * plays, so no phrase waits on its own start and none is heard unchecked.
+     * Nothing is written for them until their audio starts (ADR 0122).
      */
     const prepared = new Map<
       string,
@@ -226,7 +227,7 @@ export function createBotPublisher(input: {
     /**
      * Asks again, backing off, while a call fails for a passing reason. A
      * start (`writes`) stops once the claim ended, so nothing new is written
-     * after it; an end or a withdrawal only closes or removes text, so it is
+     * after it; an end only closes or removes text, so it is
      * asked again whatever happens: left undone, it would be read as said.
      */
     const retryTransient = async (
@@ -261,6 +262,7 @@ export function createBotPublisher(input: {
           : ({
               kind: 'cut',
               spoken: spokenPrefix(job.text, playedFraction),
+              playedMs: Math.round(playedFraction * durationOf(job)),
             } as const);
       await retryTransient(
         () =>
@@ -277,9 +279,9 @@ export function createBotPublisher(input: {
     const durationOf = (job: BotSpeechJob) =>
       wholeFrames(job.pcm).length / (SAMPLE_RATE / 1000);
     /**
-     * Writes a phrase's line, dated `startsInMs` ahead. A start that failed
-     * for no reason a retry cannot clear is asked again under the same id,
-     * where an exact retry writes nothing twice.
+     * Authorizes a phrase, its audio starting `startsInMs` ahead; it writes
+     * nothing. A start that failed for a reason a retry can clear is asked
+     * again under the same id.
      */
     const begin = (job: BotSpeechJob, joined: string, startsInMs: number) => {
       // Dated on the database clock now, at the asking, so a start that
@@ -313,14 +315,14 @@ export function createBotPublisher(input: {
     /**
      * Silences whatever is still queued at once, recording the clear so the
      * phrase it cut closes at what played, and, unless only a tail is being
-     * silenced, withdraws every line written ahead.
+     * silenced, forgets every phrase authorized ahead.
      */
-    const clearNow = (withdraw: boolean) => {
+    const clearNow = (forgetAhead: boolean) => {
       if ((current?.queuedMs() ?? 0) > 0) {
         cleared();
         current?.clearQueue();
       }
-      if (withdraw) discard();
+      if (forgetAhead) discard();
     };
     /** Ends that kept failing: asked again at the next phrase and at the end. */
     let unfinished: {
@@ -342,23 +344,11 @@ export function createBotPublisher(input: {
         pending.map(({ job, fraction }) => settleLine(job, fraction)),
       );
     };
-    /** Withdrawals still being written: the claim's end waits for them. */
-    let withdrawing: Promise<unknown> = Promise.resolve();
-    /** Deletes lines written ahead whose audio will never play. */
-    const discard = () => {
-      for (const { job, line } of prepared.values()) {
-        // Closed now, so no retry reuses its id while the withdrawal lands.
-        closed.add(job.phraseId);
-        withdrawing = Promise.all([
-          withdrawing,
-          line.then(
-            () => settleLine(job, 0),
-            () => settleLine(job, 0),
-          ),
-        ]);
-      }
-      prepared.clear();
-    };
+    /**
+     * Forgets phrases authorized ahead whose audio will not play. Nothing was
+     * written for them: a line is written only as its phrase is said.
+     */
+    const discard = () => prepared.clear();
     /**
      * Writes the next phrase's line while the current one plays, dated by
      * when its audio will start, so it is written before any of its audio
@@ -417,8 +407,8 @@ export function createBotPublisher(input: {
       try {
         return await play(job, signal, stopAtMs);
       } catch (error) {
-        // Its own line was never written, or it stopped: nothing after it may
-        // be written ahead of it, so lines stay in the order they are said.
+        // Its own phrase was never authorized, or it stopped: nothing after it
+        // may be authorized ahead of it, so lines stay in the order they are said.
         waitingPrepare = null;
         discard();
         throw error;
@@ -441,7 +431,7 @@ export function createBotPublisher(input: {
         throw createAppError('CONFLICT');
       }
       // A whole phrase that cannot finish before the cutoff is never started,
-      // and a line written ahead for it, or any later one, is withdrawn.
+      // and a phrase authorized ahead after it is forgotten.
       if (
         input.monotonicNowMs() + Math.max(0, native.queuedMs()) + durationMs >
         stopAtMs
@@ -460,8 +450,8 @@ export function createBotPublisher(input: {
         roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
         refused.abort();
       };
-      // Its line is written before any of its audio: usually written ahead,
-      // while the phrase before played, so this does not wait.
+      // It is authorized before any of its audio: usually ahead, while the
+      // phrase before played, so this does not wait.
       const ahead = prepared.get(job.phraseId);
       prepared.delete(job.phraseId);
       const line =
@@ -473,15 +463,11 @@ export function createBotPublisher(input: {
       } catch (error) {
         // The next attempt joins the session's fresh room (ADR 0110).
         roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
-        // A start whose answer was lost may still have committed: withdraw it,
-        // so the phrase said again is a new line, never this one unsaid.
-        await settleLine(job, 0);
         throw error;
       }
       if (signal.aborted) {
         // Stopped before its audio: the tail before it is silenced too.
         clearNow(true);
-        await settleLine(job, 0);
         throw createAppError('CONFLICT');
       }
       scheduledEndMs =
@@ -492,7 +478,14 @@ export function createBotPublisher(input: {
       waitingPrepare = null;
       if (waiting) writeAhead(waiting);
       const played = new AbortController();
+      /** The writer stopped and dropped its queue: audio not yet started never plays. */
+      const silenced = new AbortController();
       const joined = room;
+      /**
+       * Its reveal was sent: one whose answer was lost may still have written
+       * the line, so it is closed too (closing a line never written is a no-op).
+       */
+      let asked = false;
       const audioStartsAtMs =
         input.monotonicNowMs() + Math.max(0, native.queuedMs());
       // Its reveal, beside the audio, as the audio starts: the claim, room and
@@ -501,7 +494,12 @@ export function createBotPublisher(input: {
       const revealing = (async () => {
         // Never tied to the writer's return: a phrase shorter than the lead is
         // handed over before its audio starts, and is still revealed then.
-        const stopped = AbortSignal.any([refused.signal, ended.signal, signal]);
+        const stopped = AbortSignal.any([
+          refused.signal,
+          ended.signal,
+          signal,
+          silenced.signal,
+        ]);
         await input.waitUntilMs(audioStartsAtMs, stopped);
         if (stopped.aborted) return;
         // Its audio start on the database clock, fixed now: a reveal that
@@ -510,19 +508,22 @@ export function createBotPublisher(input: {
           dbOffsetMs === null
             ? undefined
             : new Date(audioStartsAtMs + dbOffsetMs).toISOString();
+        asked = true;
         await retryTransient(
           () =>
             input.store.revealRoundBotPhrase(
               job.scope,
               job.token,
-              job.phraseId,
+              { phraseId: job.phraseId, text: job.text, durationMs },
               joined,
               startedAt,
             ),
           true,
         );
       })().catch((error: unknown) => {
-        if (!transient(error)) refuse(error);
+        // A phrase whose line cannot be written is not said: it stops, and
+        // the speech says it again once its line can be written.
+        refuse(error);
       });
       // The floor and room, re-read without a lock while the phrase plays: a
       // refusal stops the audio; a read failing for a passing reason is read
@@ -562,13 +563,18 @@ export function createBotPublisher(input: {
       const fractionOf = (samples: number) =>
         Math.min(1, samples / job.pcm.length);
       if (result.aborted) {
+        // Any stop, a failed handoff included, dropped the queue: a reveal not
+        // yet asked never writes a line for audio that will not play.
+        silenced.abort();
         cleared();
         scheduledEndMs = input.monotonicNowMs();
-        // The speech is stopping: close the line now, at what played, and
-        // withdraw any line written ahead for audio that will never play.
+        // The speech is stopping: phrases authorized ahead will not be said.
         discard();
+        // Its line, if one may have been written, closes at what played; a reveal still
+        // landing is waited for first, so it never writes a line after its end.
+        await revealing;
         // An end that fails is asked again later; it never hides why this stopped.
-        await settleLine(job, fractionOf(result.playedSamples));
+        if (asked) await settleLine(job, fractionOf(result.playedSamples));
         if (refusal !== undefined) throw refusal;
         if (result.failure !== undefined) throw result.failure;
         return { complete: false, segmentEnded: false };
@@ -579,6 +585,8 @@ export function createBotPublisher(input: {
       const playsUntilMs = handedAtMs + Math.max(0, native.queuedMs());
       closing = closing.then(async () => {
         await input.waitUntilMs(playsUntilMs, ended.signal);
+        await revealing;
+        if (!asked) return;
         // The first clear before its tail played out cut it there (AMEND-1).
         const cutAtMs =
           clears.find((at) => at > handedAtMs && at < playsUntilMs) ?? null;
@@ -599,7 +607,7 @@ export function createBotPublisher(input: {
       start: publication.start,
       deadline,
       writeAhead,
-      /** Withdraws every line written ahead: the speech will not say them. */
+      /** Forgets every phrase authorized ahead: the speech will not say them. */
       discard,
       publish,
       /** Whether this claim closed the line: a retry then needs a new one. */
@@ -617,7 +625,6 @@ export function createBotPublisher(input: {
           clearNow(true);
           ended.abort();
           await closing;
-          await withdrawing;
           await retryUnfinished();
           await publication.close();
         })()),

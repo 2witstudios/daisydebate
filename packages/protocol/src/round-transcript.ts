@@ -14,8 +14,11 @@ const utteranceFields = {
   roundParticipantId: idSchema,
   text: z.string(),
   complete: z.boolean(),
-  /** A bot line cut off mid-play: its text stops where playout did (ADR 0122). */
-  interrupted: z.boolean(),
+  /**
+   * A bot line cut off mid-play: its text stops where playout did (ADR 0122).
+   * A server built before it sends none: its lines were never cut.
+   */
+  interrupted: z.boolean().default(false),
 };
 export const roundUtteranceSchema = z.strictObject(utteranceFields);
 /** Raised only when an open tab could not render the new reply correctly. */
@@ -106,12 +109,6 @@ export const liveTranscriptReadSchema = z.looseObject({
       ),
     }),
   ),
-  // A server built before ADR 0122 sends no `interrupted`: its lines were never cut.
-  utterances: z.array(
-    z.looseObject({
-      ...utteranceFields,
-      interrupted: z.boolean().default(false),
-    }),
-  ),
+  utterances: z.array(z.looseObject(utteranceFields)),
 });
 export type LiveTranscriptRead = z.infer<typeof liveTranscriptReadSchema>;

@@ -37,18 +37,18 @@ its delivery instead of fitting it into the human capture pipeline.
    retry included. It checks that the phrase, whose length is known from its
    samples, ends on the database clock before the segment is due, counting
    from when its audio starts, fixed on the database clock when the worker
-   asks (`startsAt`). It writes the line, still arriving (`complete=false`)
-   and unread by anyone: for every phrase after the first, while the phrase
-   before it still plays, so no phrase waits on its own start. A refusal
-   therefore plays nothing. As the phrase's audio starts, its **reveal**,
-   beside the audio, checks the claim, room and floor again, dates the line
-   at its audio start (fixed on the database clock, never later than the
-   reveal) and rings the transcript doorbell: the line is read exactly from when
-   it is said, never before, and a refused reveal stops the audio at once.
-   Every live read leaves out unrevealed lines; the bot's own next prompt
-   reads a bot line only once it closed; spectators read only closed lines,
-   released once their words have all played. A line withdrawn before its
-   audio is never read. While a phrase plays, its floor and room are re-read
+   asks (`startsAt`). It writes nothing: for every phrase after the first it
+   runs while the phrase before it still plays, so no phrase waits on its
+   own start, and a refusal plays nothing. As the phrase's audio starts, its
+   **reveal**, beside the audio, checks the claim, room and floor again and
+   only then writes the line, still arriving (`complete=false`), dated at
+   its audio start (fixed on the database clock, never later than the
+   reveal), and rings the transcript doorbell. `utterances` therefore holds
+   only lines that were said: no reader filters unsaid ones, a line is read
+   exactly from when it is said, and a refused reveal writes nothing and
+   stops the audio at once. The bot's own next prompt reads a bot line only
+   once it closed; spectators read only closed lines, released once their
+   words have all played. While a phrase plays, its floor and room are re-read
    about every 250 ms without a lock, beside the audio, so a lost floor still
    silences the bot at once.
 3. **The segment cutoff stays authoritative.** A phrase that cannot finish
@@ -69,7 +69,7 @@ its delivery instead of fitting it into the human capture pipeline.
    and at the claim's end. A line its worker never closed (a lost worker) is
    closed at the seat's takeover, and at the freeze before it reads its
    streams, to the words that could have played by then, by its known length
-   and its segment's end; an unrevealed one said nothing and is withdrawn.
+   and its segment's end; one closed before any word could play is deleted.
 5. **Guaranteed delivery.** The bot still publishes into LiveKit, so people,
    recording and broadcast hear it with no new client path. The native
    source has a 500 ms queue; the writer hands 10 ms frames over 300 ms ahead
@@ -78,15 +78,16 @@ its delivery instead of fitting it into the human capture pipeline.
    once.
 6. **No gaps between sentences, and no voiced phrase without a line.**
    Nothing stands between one phrase's last frame and the next phrase's
-   first except that next phrase's own start, written a whole phrase
+   first except that next phrase's own authorization, asked a whole phrase
    earlier: line closes are never awaited, and a start slower than the phrase
    before it is the only wait. A start that fails for a reason a retry can
-   clear is asked again, up to three times, under the same line id, where an
-   exact retry writes nothing twice. A start refused, or still failing,
-   plays none of its phrase; the speech stays on that phrase, the last one
-   included, and says it under the same line id once its start is written. A
-   line written ahead whose phrase is then not said (a barge-in, a stop, the
-   segment's end) is withdrawn. The next two phrases are voiced alongside the
+   clear is asked again, up to three times, under the same line id. A start
+   refused, or still failing, plays none of its phrase; the speech stays on
+   that phrase, the last one included, and says it under the same line id
+   once it is authorized. A phrase authorized ahead whose audio then never
+   starts (a barge-in, a stop, the segment's end) wrote nothing, so nothing
+   is withdrawn. A reveal that fails stops the audio, and the phrase is said
+   again; an exact repeat of a reveal writes nothing twice. The next two phrases are voiced alongside the
    current one, since a long phrase can take longer to voice than a short
    one before it plays; each is bought and settled once and kept across
    retries, a voice-ahead refused a pool slot is asked again as soon as another voice
@@ -97,7 +98,7 @@ its delivery instead of fitting it into the human capture pipeline.
    a stop) voicing ahead is aborted. A retry keeps its line id until that line
    is closed; a phrase cut and closed is said again whole, as a new line.
 7. **Coverage.** A bot's stream is complete by construction once it authors
-   a line, and dropped again if its only line is withdrawn unsaid. A grant it did not use owes nothing (ISSUE-965, now read from
+   a line, and dropped again if its only line is cut before its first word. A grant it did not use owes nothing (ISSUE-965, now read from
    authored speech). Its scheduled turn with no authored line still freezes
    incomplete (`never-sealed`): a silent bot is a failure, not "nothing
    lost". Credited publication windows, their table and the bot branches of

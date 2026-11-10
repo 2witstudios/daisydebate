@@ -255,20 +255,20 @@ test("a bot silent during open questioning in another seat's speech owes nothing
   }, botControlOptions);
 });
 
-test('a bot whose only line in its turn was never said stays owed at the freeze (ADR 0122)', async () => {
+test('a bot whose only line in its turn played no word stays owed at the freeze (ADR 0122)', async () => {
   await withRoomRuntime(async (f) => {
     const played = await playedBotRound(f);
     await speakAllExcept(f, played, played.asking);
-    // The worker was lost after writing its turn's only line, before its audio.
+    // The worker was lost as its turn's only line was revealed, before a word played.
     await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete,bot_phrase_id,bot_duration_ms,created_at)
-      values(${createId()},${played.roundId},${played.asking},${played.bot.id},0,'Never said.',false,${createId()},2000,'infinity')`;
+      values(${createId()},${played.roundId},${played.asking},${played.bot.id},0,'Never said.',false,${createId()},2000,clock_timestamp())`;
     await f.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,chunk_count,sealed_chunk_count,sealed_at)
       values(${played.roundId},${played.asking},${played.bot.id},'complete',0,0,clock_timestamp())`;
     assert({
       given:
-        'a bot’s scheduled turn holding only a line written but never said, and its stream marked complete by that start',
+        'a bot’s scheduled turn holding only a line revealed as its worker was lost, no word of it played, its stream marked complete by that reveal',
       should:
-        'withdraw the line and its stream before deciding, so the freeze waits for the owed turn',
+        'close the line to nothing, dropping it and its stream before deciding, so the freeze waits for the owed turn',
       actual: (await freezeOf(f, played.roundId)).freeze,
       expected: 'pending',
     });

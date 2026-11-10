@@ -1,6 +1,6 @@
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
-import { createAppError, createRefusal } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBotGenerationOperations } from './bot-generation';
 export { isFinalBotSpeechRefusal } from './bot-generation-rules';
@@ -14,13 +14,14 @@ import { readDatabaseTime } from './database-clock';
 import {
   botSegmentDueAt,
   verifyLockedBotWorker,
+  requireBotRoom,
   requireBotSpeakingWindow,
   requireBotControlSegment,
   requireClaimScope,
   type BotPublicationScope,
 } from './bot-publication-context';
 import {
-  beginLockedBotPhrase,
+  authorizeLockedBotPhrase,
   closeAbandonedBotLines,
   revealLockedBotPhrase,
   endLockedBotPhrase,
@@ -182,18 +183,14 @@ export function createBotPublicationOperations(input: {
         const now = await readDatabaseTime(tx);
         if (claim.leaseExpiresAt.getTime() <= now.getTime())
           throw createAppError('CONFLICT', 'Publication lease expired');
-        const named = await tx.execute(
-          sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${room} limit 1`,
-        );
-        if (named.length !== 1)
-          throw createRefusal('CONFLICT', 'bot-room-changed');
+        await requireBotRoom(tx, scope, room);
         await requireBotSpeakingWindow(tx, scope);
       }),
-    /** Dates a written line as its audio starts, and rings the doorbell. */
+    /** Writes a phrase's line as its audio starts, and rings the doorbell. */
     revealBotPhrase: (
       scope: BotPublicationScope,
       token: string,
-      phraseId: string,
+      phrase: BotPhrase,
       room: string,
       startedAt?: string,
     ) =>
@@ -201,12 +198,13 @@ export function createBotPublicationOperations(input: {
         revealLockedBotPhrase(tx, {
           scope,
           token,
-          phraseId,
+          phrase,
           room,
+          nextId: input.nextId,
           ...(startedAt === undefined ? {} : { startedAt }),
         }),
       ),
-    /** Authors one phrase's utterance as it starts playing (ADR 0122). */
+    /** Authorizes a phrase before any of its audio plays (ADR 0122). */
     beginBotPhrase: (
       scope: BotPublicationScope,
       token: string,
@@ -214,13 +212,7 @@ export function createBotPublicationOperations(input: {
       room: string,
     ) =>
       input.run((tx) =>
-        beginLockedBotPhrase(tx, {
-          scope,
-          token,
-          phrase,
-          room,
-          nextId: input.nextId,
-        }),
+        authorizeLockedBotPhrase(tx, { scope, token, phrase, room }),
       ),
     /** Closes a started phrase: whole, or cut at what was heard. */
     endBotPhrase: (

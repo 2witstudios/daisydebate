@@ -47,6 +47,8 @@ function harness(
     readonly verify?: (call: number) => Promise<unknown>;
     readonly end?: (phraseId: string) => Promise<unknown>;
     readonly reveal?: (phraseId: string) => Promise<unknown>;
+    /** Fails the handoff of the n-th frame, counting from 0. */
+    readonly failHandoff?: (frame: number) => boolean;
   } = {},
 ) {
   const events: string[] = [];
@@ -78,10 +80,10 @@ function harness(
       revealRoundBotPhrase: async (
         _scope: unknown,
         _token: unknown,
-        phraseId: string,
+        phrase: { phraseId: string },
       ) => {
-        await options.reveal?.(phraseId);
-        reveals.push({ phraseId, at: performance.now() });
+        await options.reveal?.(phrase.phraseId);
+        reveals.push({ phraseId: phrase.phraseId, at: performance.now() });
         return { revealed: true };
       },
       beginRoundBotPhrase: async (
@@ -119,6 +121,8 @@ function harness(
         usable: () => !closed,
         sentSamples: () => handoffs.length * 240,
         capture10ms: async () => {
+          if (options.failHandoff?.(handoffs.length))
+            throw new Error('native source failed');
           const now = performance.now();
           handoffs.push(now);
           // Silence heard: the queue ran dry before this frame arrived.
@@ -256,10 +260,9 @@ test('a phrase start refused because the room changed plays nothing and rejoins'
   });
   assert({
     given: 'the refused phrase',
-    should:
-      'hand no frame over, and withdraw its start in case it committed unanswered',
+    should: 'hand no frame over and write no line',
     actual: { frames: handoffs.length, ends: ends.map((row) => row.end) },
-    expected: { frames: 0, ends: [{ kind: 'cut', spoken: '' }] },
+    expected: { frames: 0, ends: [] },
   });
   await claim.publish(job(20), signal(), far());
   assert({
@@ -440,7 +443,7 @@ test('a tail cleared after its phrase was handed over closes cut, not whole (AME
     given:
       'a ten-word one-second phrase handed over whole, then a barge-in about 250 ms before its tail played',
     should:
-      'close it cut to a strict word prefix, about three-quarters of it, never whole',
+      'close it cut to a strict word prefix, about three-quarters of it, never whole, and write nothing for b',
     actual: {
       kind: a?.kind,
       prefix: words.startsWith(a?.spoken ?? 'x'),
@@ -453,7 +456,8 @@ test('a tail cleared after its phrase was handed over closes cut, not whole (AME
       kind: 'cut',
       prefix: true,
       aboutThreeQuarters: true,
-      nextCut: 'cut',
+      // b was stopped before its audio started: it has no line at all.
+      nextCut: undefined,
     },
   });
 });
@@ -512,7 +516,7 @@ test('a refused phrase start plays none of its audio', async () => {
   });
 });
 
-test('a slow phrase start cannot gap one phrase from the next: its line is written ahead (ADR 0122)', async () => {
+test('a slow phrase start cannot gap one phrase from the next: it is authorized ahead (ADR 0122)', async () => {
   const { claim, silences, begins } = harness({
     begin: () => Bun.sleep(200),
   });
@@ -539,33 +543,34 @@ test('a slow phrase start cannot gap one phrase from the next: its line is writt
   });
 });
 
-test('a line written ahead whose phrase is never said is withdrawn', async () => {
-  const { claim, ends } = harness();
+test('a phrase authorized ahead but never said writes no line', async () => {
+  const { claim, ends, reveals } = harness();
+  claim.start();
+  await Bun.sleep(10);
   const controller = new AbortController();
   const playing = claim.publish(
     job(1000, 'a'.repeat(24)),
     controller.signal,
     far(),
   );
-  await Bun.sleep(100);
   claim.writeAhead(job(400, 'b'.repeat(24)));
-  await Bun.sleep(50);
+  await Bun.sleep(150);
   controller.abort();
   await playing;
   await Bun.sleep(50);
   assert({
-    given: 'a barge-in on a phrase while the next one’s line was written ahead',
-    should:
-      'close the line that played as cut, and withdraw the next one as unsaid',
+    given: 'a barge-in on a phrase while the next one was authorized ahead',
+    should: 'close the line that played as cut, and write nothing for the next',
     actual: {
-      b: ends.find((row) => row.phraseId[0] === 'b')?.end,
-      a: (ends.find((row) => row.phraseId[0] === 'a')?.end as { kind: string })
-        .kind,
+      reveals: reveals.map((row) => row.phraseId[0]),
+      ends: ends.map((row) => [
+        row.phraseId[0],
+        (row.end as { kind: string }).kind,
+      ]),
     },
-    expected: { b: { kind: 'cut', spoken: '' }, a: 'cut' },
+    expected: { reveals: ['a'], ends: [['a', 'cut']] },
   });
 });
-
 test('a line counts as closed from its first end attempt, even when that answer is lost (YmlA)', async () => {
   const { claim } = harness({
     end: async () => {
@@ -706,7 +711,7 @@ test('a floor read that fails for a passing reason does not cut the phrase', asy
   });
 });
 
-test('after a refused phrase start, nothing after it is written ahead of it', async () => {
+test('after a refused phrase start, nothing after it is authorized ahead of it', async () => {
   let refuseA = true;
   const { claim, begins } = harness({
     begin: async () => {
@@ -719,7 +724,7 @@ test('after a refused phrase start, nothing after it is written ahead of it', as
   });
   const a = job(200, 'a'.repeat(24));
   const b = job(200, 'b'.repeat(24));
-  // Joined ahead of speech, as the seat does: a line can be written ahead.
+  // Joined ahead of speech, as the seat does: a phrase can be authorized ahead.
   claim.start();
   await Bun.sleep(10);
   const first = claim.publish(a, signal(), far());
@@ -788,32 +793,7 @@ test('a phrase start backing off after a failure writes nothing once the claim e
   });
 });
 
-test('a withdrawal at the claim’s end that fails once is asked again, and the end waits for it', async () => {
-  let failedOnce = false;
-  const { claim, ends } = harness({
-    end: async (phraseId) => {
-      if (phraseId[0] === 'b' && !failedOnce) {
-        failedOnce = true;
-        throw new Error('statement timeout');
-      }
-    },
-  });
-  claim.start();
-  await Bun.sleep(10);
-  const first = claim.publish(job(400, 'a'.repeat(24)), signal(), far());
-  claim.writeAhead(job(400, 'b'.repeat(24)));
-  await first;
-  await claim.close();
-  assert({
-    given:
-      'a phrase playing with the next one’s line written ahead, the claim then ending, that withdrawal timing out once',
-    should: 'still withdraw the unsaid line before the end resolves',
-    actual: ends.find((row) => row.phraseId[0] === 'b')?.end,
-    expected: { kind: 'cut', spoken: '' },
-  });
-});
-
-test('once the speech’s deadline is read, a line written ahead is dated on the database clock', async () => {
+test('once the speech’s deadline is read, a phrase authorized ahead is timed on the database clock', async () => {
   const { claim, begins } = harness();
   claim.start();
   await Bun.sleep(10);
@@ -830,7 +810,8 @@ test('once the speech’s deadline is read, a line written ahead is dated on the
   // The stub's database clock reads 1_000_000 ms; the line starts ~400 ms on.
   const startsAt = Date.parse(ahead.phrase.startsAt ?? '');
   assert({
-    given: 'a line written ahead after the speech read its database deadline',
+    given:
+      'a phrase authorized ahead after the speech read its database deadline',
     should:
       'carry when its audio starts on the database clock, fixed at the asking',
     actual: startsAt >= 1_000_000 && startsAt < 1_002_000,
@@ -879,12 +860,17 @@ test('a reveal refused as the audio starts stops the phrase at once', async () =
   assert({
     given: 'the refused reveal',
     should:
-      'stop handing frames over within the lead, and withdraw the line, nothing of it said',
+      'stop handing frames over within the lead, and close any line its reveal may have written at what played, nothing, so the phrase is said again as a new line',
     actual: {
       stoppedEarly: handoffs.every((at) => at - started < 400),
       ends: ends.map((row) => row.end),
+      closed: claim.lineClosed(job(1000).phraseId),
     },
-    expected: { stoppedEarly: true, ends: [{ kind: 'cut', spoken: '' }] },
+    expected: {
+      stoppedEarly: true,
+      ends: [{ kind: 'cut', spoken: '', playedMs: 0 }],
+      closed: true,
+    },
   });
 });
 
@@ -933,5 +919,36 @@ test('a phrase shorter than the lead is revealed when its audio starts, not when
     should: 'reveal the short one 600 ms after the first, as its audio starts',
     actual: Math.abs(at('b') - at('a') - 600) < 40,
     expected: true,
+  });
+});
+
+test('a phrase whose handoff fails before its audio starts writes no line', async () => {
+  let failFrom = Infinity;
+  const { claim, reveals, ends } = harness({
+    failHandoff: (frame) => frame >= failFrom,
+  });
+  claim.start();
+  await Bun.sleep(10);
+  await claim.publish(job(600, 'a'.repeat(24)), signal(), far());
+  // a's 300 ms tail is still queued: b's first frame fails to hand over.
+  failFrom = 0;
+  const failed = await claim
+    .publish(job(400, 'b'.repeat(24)), signal(), far())
+    .then(
+      () => 'played',
+      () => 'failed',
+    );
+  await tailPlays();
+  assert({
+    given:
+      'a phrase whose first frame fails to hand over while the tail before it still plays',
+    should:
+      'stop it, its audio dropped before it started, and reveal and close no line for it',
+    actual: {
+      failed,
+      reveals: reveals.map((row) => row.phraseId[0]),
+      ends: ends.map((row) => row.phraseId[0]),
+    },
+    expected: { failed: 'failed', reveals: ['a'], ends: ['a'] },
   });
 });

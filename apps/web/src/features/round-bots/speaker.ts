@@ -108,9 +108,9 @@ export function createBotSpeaker(input: {
   readonly audible: () => boolean;
   /** Drops whatever is still queued, at once. */
   readonly silence: () => void;
-  /** Writes a phrase's line while the one before it plays (ADR 0122). */
+  /** Authorizes a phrase while the one before it plays (ADR 0122). */
   readonly writeAhead: (job: BotSpeechJob) => void;
-  /** Withdraws lines written ahead whose phrases will not be said. */
+  /** Forgets phrases authorized ahead that will not be said. */
   readonly discard: () => void;
   /** Plays one phrase and authors its line; never plays past `stopAtMs`. */
   readonly publish: (
@@ -199,10 +199,10 @@ export function createBotSpeaker(input: {
     upcoming.done.catch(() => undefined);
     return upcoming;
   };
-  /** Writes a voiced-ahead phrase's line while the phrase before it plays. */
+  /** Authorizes a voiced-ahead phrase while the phrase before it plays. */
   const prepareAhead = (upcoming: Upcoming) => {
     if (!playing || !upcoming.answer || !upcoming.settled) return;
-    // A line withdrawn or closed is never written again under its id.
+    // A line closed is never written again under its id.
     if (input.lineClosed(upcoming.lineId)) upcoming.lineId = input.nextId();
     input.writeAhead({ ...upcoming.answer.value, phraseId: upcoming.lineId });
   };
@@ -313,7 +313,7 @@ export function createBotSpeaker(input: {
   };
   /**
    * The speech is over, or this answer is: voicing ahead stops, nothing more
-   * is bought, and lines written ahead are withdrawn.
+   * is bought, and phrases authorized ahead are forgotten.
    */
   const dropAhead = () => {
     progress.voicing.abort();

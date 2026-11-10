@@ -29,8 +29,13 @@ const withSpeakingBot = (
     >;
     readonly revision: () => Promise<number>;
     readonly doorbells: () => Promise<number>;
-    /** What a live reader reads now: only lines said so far. */
+    /** What a live reader reads now. */
     readonly live: () => Promise<string[]>;
+    /** Says a phrase as the worker does: authorized, then written as it starts. */
+    readonly say: (
+      line: ReturnType<typeof phrase>,
+      as?: Awaited<ReturnType<typeof claimAtFloorStart>>['claim'],
+    ) => Promise<void>;
     readonly run: Harness['run'];
   }) => Promise<void>,
 ) =>
@@ -39,14 +44,14 @@ const withSpeakingBot = (
     await fixture.sql`insert into media_sessions(id,round_id,room_name) values(${createId()},${target.roundId},${room})`;
     const { claim } = await claimAtFloorStart({ operations, target, fixture });
     await work({
+      say: async (line, as = claim) => {
+        await operations.beginBotPhrase(as.scope, as.token, line, room);
+        await operations.revealBotPhrase(as.scope, as.token, line, room);
+      },
       live: () =>
         run(async (tx) =>
           (
-            await readOrderedRoundUtterances(
-              tx as never,
-              target.roundId,
-              'live',
-            )
+            await readOrderedRoundUtterances(tx as never, target.roundId, 'all')
           ).map((line) => line.text),
         ),
       run,
@@ -78,9 +83,9 @@ const phrase = (phraseId = createId(), durationMs = 2000, text = TEXT) => ({
 });
 
 test('a phrase played whole closes complete; the first end stands', async () => {
-  await withSpeakingBot(async ({ operations, claim, room, lines }) => {
+  await withSpeakingBot(async ({ say, operations, claim, lines }) => {
     const spoken = phrase();
-    await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+    await say(spoken);
     const ended = await operations.endBotPhrase(
       claim.scope,
       claim.token,
@@ -108,9 +113,9 @@ test('a phrase played whole closes complete; the first end stands', async () => 
 });
 
 test('a cut phrase keeps only the words that played, and can claim no other words', async () => {
-  await withSpeakingBot(async ({ operations, claim, room, lines }) => {
+  await withSpeakingBot(async ({ say, operations, claim, lines, fixture }) => {
     const invented = phrase();
-    await operations.beginBotPhrase(claim.scope, claim.token, invented, room);
+    await say(invented);
     await assertRejects({
       given: 'a cut that claims words the phrase never had',
       should: 'refuse it',
@@ -124,14 +129,21 @@ test('a cut phrase keeps only the words that played, and can claim no other word
     await operations.endBotPhrase(claim.scope, claim.token, invented.phraseId, {
       kind: 'cut',
       spoken: 'The affirmative has',
+      playedMs: 600,
     });
+    const [{ heard }] =
+      await fixture.sql`select bot_duration_ms as heard from utterances where bot_phrase_id=${invented.phraseId}`;
     assert({
-      given: 'a phrase barged in on after three words',
-      should: 'mark its line interrupted with those three words only',
-      actual: await lines(),
-      expected: [
-        { text: 'The affirmative has', complete: true, interrupted: true },
-      ],
+      given: 'a 2 s phrase barged in on after three words, 600 ms in',
+      should:
+        'mark its line interrupted with those three words only, its length what was heard, so its caption is released then',
+      actual: { lines: await lines(), heard },
+      expected: {
+        lines: [
+          { text: 'The affirmative has', complete: true, interrupted: true },
+        ],
+        heard: 600,
+      },
     });
   });
 });
@@ -202,9 +214,9 @@ test('a lost floor, a changed room or an incident starts nothing', async () => {
 
 test('an end authenticates its claim even after the lease lapsed, and refuses a stranger', async () => {
   await withSpeakingBot(
-    async ({ operations, claim, room, lines, fixture, target }) => {
+    async ({ say, operations, claim, lines, fixture, target }) => {
       const spoken = phrase();
-      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+      await say(spoken);
       await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp() where round_id=${target.roundId}`;
       await assertRejects({
         given: 'an end with a token that is not the claim’s',
@@ -237,13 +249,8 @@ test('an end authenticates its claim even after the lease lapsed, and refuses a 
 });
 
 test('a phrase that ends just before its segment is due is written', async () => {
-  await withSpeakingBot(async ({ operations, claim, room, lines }) => {
-    await operations.beginBotPhrase(
-      claim.scope,
-      claim.token,
-      phrase(createId(), 58_500),
-      room,
-    );
+  await withSpeakingBot(async ({ say, lines }) => {
+    await say(phrase(createId(), 58_500));
     assert({
       given: 'a 58.5 s phrase starting about 1 s into a 60 s segment',
       should: 'author its line',
@@ -255,9 +262,9 @@ test('a phrase that ends just before its segment is due is written', async () =>
 
 test('a frozen transcript takes no phrase start and no phrase end', async () => {
   await withSpeakingBot(
-    async ({ operations, claim, room, fixture, target, revision }) => {
+    async ({ say, operations, claim, room, fixture, target, revision }) => {
       const spoken = phrase();
-      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+      await say(spoken);
       await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${target.roundId},1,${await revision()},'complete')`;
       await assertRejects({
         given: 'a phrase start after the freeze, the floor still open',
@@ -281,9 +288,9 @@ test('a frozen transcript takes no phrase start and no phrase end', async () => 
 
 test('a phrase cut before its first word leaves no line', async () => {
   await withSpeakingBot(
-    async ({ operations, claim, room, lines, fixture, target }) => {
+    async ({ say, operations, claim, lines, fixture, target }) => {
       const spoken = phrase();
-      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+      await say(spoken);
       await operations.endBotPhrase(claim.scope, claim.token, spoken.phraseId, {
         kind: 'cut',
         spoken: '',
@@ -310,9 +317,9 @@ test('a phrase cut before its first word leaves no line', async () => {
 
 test('a line its worker never closed keeps only what could have played, at takeover and at the freeze', async () => {
   await withSpeakingBot(
-    async ({ operations, claim, room, lines, fixture, target, run }) => {
+    async ({ say, operations, lines, fixture, target, run }) => {
       const lost = phrase(createId(), 10_000);
-      await operations.beginBotPhrase(claim.scope, claim.token, lost, room);
+      await say(lost);
       // Started 4 s ago: four tenths of its nine words, three whole, could have played.
       await fixture.sql`update utterances set created_at=clock_timestamp()-interval '4 seconds' where bot_phrase_id=${lost.phraseId}`;
       // The worker is lost: its lease lapses and another takes the seat over.
@@ -320,7 +327,7 @@ test('a line its worker never closed keeps only what could have played, at takeo
       const next = await operations.claimWorker(target);
       const afterTakeover = await lines();
       const open = phrase(createId(), 2_000);
-      await operations.beginBotPhrase(next.scope, next.token, open, room);
+      await say(open, next);
       await fixture.sql`update utterances set created_at=clock_timestamp()-interval '5 seconds' where bot_phrase_id=${open.phraseId}`;
       await run((tx) => closeAbandonedBotLines(tx, target.roundId));
       assert({
@@ -345,9 +352,9 @@ test('a line its worker never closed keeps only what could have played, at takeo
 
 test('an exact retry of a phrase start is checked like the first: a closed floor refuses it', async () => {
   await withSpeakingBot(
-    async ({ operations, claim, room, fixture, target }) => {
+    async ({ say, operations, claim, room, fixture, target }) => {
       const spoken = phrase();
-      await operations.beginBotPhrase(claim.scope, claim.token, spoken, room);
+      await say(spoken);
       await fixture.sql`update round_speaking_intervals set ended_at=clock_timestamp(),ended_version=2 where round_id=${target.roundId}`;
       await assertRejects({
         given: 'the same phrase start retried after the floor closed',
@@ -360,40 +367,36 @@ test('an exact retry of a phrase start is checked like the first: a closed floor
   );
 });
 
-test('the freeze and the judge read only lines that started', async () => {
-  await withSpeakingBot(
-    async ({ operations, claim, room, run, target, lines }) => {
-      const said = phrase();
-      await operations.beginBotPhrase(claim.scope, claim.token, said, room);
-      await operations.endBotPhrase(claim.scope, claim.token, said.phraseId, {
-        kind: 'whole',
-      });
-      await operations.beginBotPhrase(
-        claim.scope,
-        claim.token,
-        { ...phrase(createId(), 2_000, 'Never reached.'), startsInMs: 30_000 },
-        room,
-      );
-      // As the freeze does before it reads its frontier.
-      await run((tx) => closeAbandonedBotLines(tx, target.roundId));
-      assert({
-        given: 'a said line and one written ahead whose audio never started',
-        should: 'leave only the said line for the freeze and its judge',
-        actual: (await lines()).map((line) => line.text),
-        expected: [TEXT],
-      });
-    },
-  );
+test('the freeze and the judge read only lines that were said', async () => {
+  await withSpeakingBot(async ({ say, operations, claim, room, lines }) => {
+    const said = phrase();
+    await say(said);
+    await operations.endBotPhrase(claim.scope, claim.token, said.phraseId, {
+      kind: 'whole',
+    });
+    await operations.beginBotPhrase(
+      claim.scope,
+      claim.token,
+      { ...phrase(createId(), 2_000, 'Never reached.'), startsInMs: 30_000 },
+      room,
+    );
+    assert({
+      given:
+        'a said line, and a phrase authorized ahead whose audio never started',
+      should: 'hold only the said line for the freeze and its judge',
+      actual: (await lines()).map((line) => line.text),
+      expected: [TEXT],
+    });
+  });
 });
 
-test('a phrase start writes its line unread; its reveal as the audio starts makes it read and rings, once (ADR 0122)', async () => {
+test('a phrase start writes nothing; its reveal as the audio starts writes it and rings, once (ADR 0122)', async () => {
   await withSpeakingBot(
     async ({
       operations,
       claim,
       room,
       lines,
-      live,
       revision,
       doorbells,
       fixture,
@@ -406,27 +409,27 @@ test('a phrase start writes its line unread; its reveal as the audio starts make
         spoken,
         room,
       );
-      const retry = await operations.beginBotPhrase(
-        claim.scope,
-        claim.token,
-        spoken,
-        room,
-      );
-      const written = {
-        live: await live(),
+      const authorized = {
+        lines: await lines(),
         revision: await revision(),
         doorbells: await doorbells(),
       };
       const revealed = await operations.revealBotPhrase(
         claim.scope,
         claim.token,
-        spoken.phraseId,
+        spoken,
         room,
       );
       const again = await operations.revealBotPhrase(
         claim.scope,
         claim.token,
-        spoken.phraseId,
+        spoken,
+        room,
+      );
+      const retry = await operations.beginBotPhrase(
+        claim.scope,
+        claim.token,
+        spoken,
         room,
       );
       const [row] =
@@ -434,26 +437,24 @@ test('a phrase start writes its line unread; its reveal as the audio starts make
       const [stream] =
         await fixture.sql`select state from transcript_segments where round_id=${target.roundId} and round_participant_id=${target.roundParticipantId}`;
       assert({
-        given: 'a phrase started, its start retried, then revealed twice',
+        given: 'a phrase authorized, revealed twice, then authorized again',
         should:
-          'write one line read by no one until its reveal, then read with exactly its text, dated then, its stream complete, with one revision and doorbell',
+          'write nothing until its reveal, then one line with exactly its text, dated then, its stream complete, with one revision and doorbell',
         actual: {
-          duplicates: [first.duplicate, retry.duplicate],
-          written,
+          said: [first.said, retry.said],
+          authorized,
           reveals: [revealed.revealed, again.revealed],
           lines: await lines(),
-          live: await live(),
           datedNow: Number(row!.ago) >= 0 && Number(row!.ago) < 5_000,
           stream: stream?.state,
           revision: await revision(),
           doorbells: await doorbells(),
         },
         expected: {
-          duplicates: [false, true],
-          written: { live: [], revision: 0, doorbells: 0 },
+          said: [false, true],
+          authorized: { lines: [], revision: 0, doorbells: 0 },
           reveals: [true, false],
           lines: [{ text: TEXT, complete: false, interrupted: false }],
-          live: [TEXT],
           datedNow: true,
           stream: 'complete',
           revision: 1,
@@ -464,7 +465,7 @@ test('a phrase start writes its line unread; its reveal as the audio starts make
         given: 'a retry under the same phrase id with other words',
         should: 'refuse the conflicting body',
         actual: () =>
-          operations.beginBotPhrase(
+          operations.revealBotPhrase(
             claim.scope,
             claim.token,
             { ...spoken, text: 'Other words.' },
@@ -476,7 +477,7 @@ test('a phrase start writes its line unread; its reveal as the audio starts make
   );
 });
 
-test('a line written ahead is read by no one until revealed, and one withdrawn is never read', async () => {
+test('a phrase authorized ahead is read by no one until said, and the bot’s history waits for it to close', async () => {
   await withSpeakingBot(
     async ({ operations, claim, room, live, run, target }) => {
       const spokenLines = () =>
@@ -490,8 +491,8 @@ test('a line written ahead is read by no one until revealed, and one withdrawn i
           ).map((line) => line.text),
         );
       const next = phrase(createId(), 2_000, 'The next sentence, said later.');
-      const withdrawn = phrase(createId(), 2_000, 'A sentence never said.');
-      for (const ahead of [next, withdrawn])
+      const never = phrase(createId(), 2_000, 'A sentence never said.');
+      for (const ahead of [next, never])
         await operations.beginBotPhrase(
           claim.scope,
           claim.token,
@@ -499,30 +500,16 @@ test('a line written ahead is read by no one until revealed, and one withdrawn i
           room,
         );
       const before = await live();
-      await operations.endBotPhrase(
-        claim.scope,
-        claim.token,
-        withdrawn.phraseId,
-        {
-          kind: 'cut',
-          spoken: '',
-        },
-      );
-      await operations.revealBotPhrase(
-        claim.scope,
-        claim.token,
-        next.phraseId,
-        room,
-      );
+      await operations.revealBotPhrase(claim.scope, claim.token, next, room);
       const whilePlaying = { live: await live(), spoken: await spokenLines() };
       await operations.endBotPhrase(claim.scope, claim.token, next.phraseId, {
         kind: 'whole',
       });
       assert({
         given:
-          'two lines written ahead, one withdrawn before its audio, the other revealed, played and closed',
+          'two phrases authorized ahead, one never said, the other revealed, played and closed',
         should:
-          'read neither before; once revealed, live readers read the said one while the bot’s own history waits for it to close; never the withdrawn one',
+          'read neither before; once said, live readers read it while the bot’s history waits for it to close; never the unsaid one',
         actual: {
           before,
           whilePlaying,
@@ -552,20 +539,15 @@ test('a phrase’s reveal is checked again as its audio starts: a lost floor ref
       await fixture.sql`update round_speaking_intervals set ended_at=clock_timestamp(),ended_version=2 where round_id=${target.roundId}`;
       await assertRejects({
         given:
-          'a line written ahead whose floor closed before its audio started',
+          'a phrase authorized ahead whose floor closed before its audio started',
         should: 'refuse its reveal, so its audio stops',
         actual: () =>
-          operations.revealBotPhrase(
-            claim.scope,
-            claim.token,
-            ahead.phraseId,
-            room,
-          ),
+          operations.revealBotPhrase(claim.scope, claim.token, ahead, room),
         code: 'CONFLICT',
       });
       assert({
         given: 'the refused reveal',
-        should: 'leave the line unread',
+        should: 'write no line',
         actual: await live(),
         expected: [],
       });
@@ -640,14 +622,14 @@ test('a reveal dates its line at the audio start it was given, never later than 
     await operations.revealBotPhrase(
       claim.scope,
       claim.token,
-      earlier.phraseId,
+      earlier,
       room,
       startedAt,
     );
     await operations.revealBotPhrase(
       claim.scope,
       claim.token,
-      future.phraseId,
+      future,
       room,
       new Date(new Date(now).getTime() + 60_000).toISOString(),
     );

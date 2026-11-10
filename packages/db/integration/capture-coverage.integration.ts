@@ -184,6 +184,19 @@ test('capture never writes, observes or seals a bot seat: its words are authored
           }),
         ),
       );
+      // Once the bot has spoken, its stream exists, sealed by its authored speech.
+      await fixture.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,chunk_count,sealed_chunk_count,sealed_at) values(${roundId},${stream.segmentId},${stream.roundParticipantId},'complete',0,0,clock_timestamp())`;
+      refusals.push(
+        await reason(() =>
+          store.appendCapturedTranscript({
+            ...clip,
+            startOffsetMs: 2000,
+            durationMs: 500,
+            before: at(1999),
+            after: at(2501),
+          }),
+        ),
+      );
       const [{ lines }] =
         await fixture.sql`select count(*)::int lines from utterances where round_id=${roundId}`;
       refusals.push(String(lines));
@@ -192,11 +205,18 @@ test('capture never writes, observes or seals a bot seat: its words are authored
     }
   });
   assert({
-    given: 'a bot seat speaking under a live capture lease',
+    given:
+      'a bot seat speaking under a live capture lease, before and after its authored speech made its stream',
     should:
       'refuse its captured clip, observation and seal as bot-authored, writing no line',
     actual: refusals,
-    expected: ['bot-authored', 'bot-authored', 'bot-authored', '0'],
+    expected: [
+      'bot-authored',
+      'bot-authored',
+      'bot-authored',
+      'bot-authored',
+      '0',
+    ],
   });
 });
 

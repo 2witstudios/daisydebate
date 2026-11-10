@@ -207,22 +207,23 @@ current one plays, so sentences follow each other with no gap even when a
 long phrase follows a short one; each is bought and settled once and kept
 across retries, so nothing is bought twice ([ADR 0122](../decisions/0122-authored-bot-speech.md)).
 
-Each phrase's authored utterance is written before any of its audio
-(`beginRoundBotPhrase`): for every phrase after the first, while the phrase
-before it still plays, dated by when its own audio will start, so no phrase
-waits on its start. One transaction checks the claim, its vendor room, the
-floor, the segment and the incident state, refuses a phrase that would end
-past its segment, and writes the line still arriving. A refusal plays
-nothing. The line is unread until its reveal (`revealRoundBotPhrase`) as its
-audio starts, beside the audio: the claim, room and floor are checked again,
-the line is dated then and the transcript doorbell rings; a refused reveal
-stops the audio. The floor and room are then re-read about every 250 ms
+Each phrase is authorized before any of its audio (`beginRoundBotPhrase`):
+for every phrase after the first, while the phrase before it still plays,
+counting from when its own audio will start, so no phrase waits on its
+start. One transaction checks the claim, its vendor room, the floor, the
+segment and the incident state and refuses a phrase that would end past its
+segment; it writes nothing. A refusal plays nothing. The phrase's authored
+utterance is written by its reveal (`revealRoundBotPhrase`) as its audio
+starts, beside the audio: the claim, room and floor are checked again, the
+line is written still arriving, dated at its audio start, and the
+transcript doorbell rings; a refused reveal writes nothing and stops the
+audio. So `utterances` holds only lines that were said. The floor and room are then re-read about every 250 ms
 without a lock (`watchRoundBotFloor`). The phrase then streams into a buffered native source in real time,
 and its line closes
 (`endRoundBotPhrase`) in order beside the next phrase's audio, once its
 queued tail has played: complete, or interrupted with only the whole words
-that played (samples sent less samples still queued). A line written ahead
-for a phrase not then said is withdrawn. The writer stops locally at the
+that played (samples sent less samples still queued). A phrase authorized
+ahead and not then said left nothing to withdraw. The writer stops locally at the
 segment's due time, so no audio plays past the cutoff; a phrase that cannot
 finish in time is never started, and the speech ends at its last whole
 phrase. A seat's takeover, and the freeze, close any line a lost worker left

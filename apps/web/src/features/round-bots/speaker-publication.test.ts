@@ -401,7 +401,7 @@ test('a short opening phrase waits for the second to be voiced, so the speech ne
   });
 });
 
-test('a line written ahead under an id already closed is written under a new one', async () => {
+test('a phrase authorized ahead under an id already closed is authorized under a new one', async () => {
   const closed = new Set<string>();
   let failed = false;
   let spokenTwo = 0;
@@ -410,8 +410,8 @@ test('a line written ahead under an id already closed is written under a new one
       answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] }),
     lineClosed: (id) => closed.has(id),
     publish: async (sent, signal) => {
-      // Two.'s line was written ahead as One. began; One.'s handoff then fails,
-      // and the publisher withdraws (closes) that ahead line.
+      // Two. was authorized ahead as One. began; One.'s handoff then fails,
+      // and its id is closed meanwhile.
       if (sent.text === 'One.' && !failed) {
         await Promise.resolve();
         failed = true;
@@ -431,15 +431,15 @@ test('a line written ahead under an id already closed is written under a new one
   const twos = run.prepared.filter((entry) => entry.startsWith('Two.:'));
   assert({
     given:
-      'a next phrase written ahead, withdrawn when the phrase before it failed, the speech then said again',
+      'a next phrase authorized ahead, its id closed when the phrase before it failed, the speech then said again',
     should:
-      'write it ahead again under a new id, never the withdrawn one, and speak it once',
+      'authorize it ahead again under a new id, never the closed one, and speak it once',
     actual: {
-      writtenAhead: twos.length,
+      authorizedAhead: twos.length,
       distinctIds: new Set(twos.map((entry) => entry.split(':')[1])).size,
       spokenTwo,
     },
-    expected: { writtenAhead: 2, distinctIds: 2, spokenTwo: 1 },
+    expected: { authorizedAhead: 2, distinctIds: 2, spokenTwo: 1 },
   });
 });
 

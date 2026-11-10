@@ -167,8 +167,9 @@ records the committed transcript frontier under the owning Round lock. Duplicate
 clips must not advance it. Every transcript writer, captured or authored, adopts the
 same bounded transaction, Round lock, freeze fence, per-segment sequence and
 revision doorbell. A bot's authored line (`bot_phrase_id`, its retry key) is
-written at phrase start inside the live claim, room, floor and segment, and
-only if it ends before the segment is due; it closes `complete`, or
+authorized before its audio, inside the live claim, room, floor and
+segment and only if it ends before the segment is due, then written as its
+audio starts, after the same checks again; it closes `complete`, or
 `interrupted` with only a whole-word prefix of its text (ADR 0122). These schema tables alone do not prove a working capture producer.
 
 | Table                   | Columns                                                            | Category         | Purpose                                                      |

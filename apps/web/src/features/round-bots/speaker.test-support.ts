@@ -43,7 +43,7 @@ export function harness(
   } = {},
 ) {
   const log: string[] = [];
-  /** Lines written ahead, as `text:lineId`, in order. */
+  /** Phrases authorized ahead, as `text:lineId`, in order. */
   const prepared: string[] = [];
   const failures: unknown[] = [];
   let ids = 0;

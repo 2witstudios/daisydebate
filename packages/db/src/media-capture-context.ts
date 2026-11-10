@@ -190,6 +190,27 @@ export async function lockCaptureLease(tx: CaptureTx, input: CaptureIdentity) {
     throw createAppError('CONFLICT', 'Capture worker lease is stale');
   return lease;
 }
+/** A bot seat is never captured: its words are authored (ADR 0122). */
+async function refuseBotSeat(
+  tx: CaptureTx,
+  input: Pick<
+    CaptureIdentity & CaptureStream,
+    'roundId' | 'roundParticipantId'
+  >,
+) {
+  const [seat] = await tx
+    .select({ kind: actors.kind })
+    .from(roundParticipants)
+    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
+    .where(
+      and(
+        eq(roundParticipants.id, input.roundParticipantId),
+        eq(roundParticipants.roundId, input.roundId),
+      ),
+    );
+  if (seat?.kind === 'bot')
+    throw createRefusal('CONFLICT', 'bot-authored', 'A bot is never captured');
+}
 async function lockCaptureStream(
   tx: CaptureTx,
   input: CaptureIdentity & CaptureStream,
@@ -206,19 +227,6 @@ async function lockCaptureStream(
     )
     .for('update');
   if (!segment) throw createAppError('NOT_FOUND');
-  // A bot's transcript is authored from its own text, never captured (ADR 0122).
-  const [seat] = await tx
-    .select({ kind: actors.kind })
-    .from(roundParticipants)
-    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
-    .where(
-      and(
-        eq(roundParticipants.id, input.roundParticipantId),
-        eq(roundParticipants.roundId, input.roundId),
-      ),
-    );
-  if (seat?.kind === 'bot')
-    throw createRefusal('CONFLICT', 'bot-authored', 'A bot is never captured');
   const created = await tx
     .insert(transcriptSegments)
     .values({
@@ -240,6 +248,11 @@ async function lockCaptureStream(
     .for('update');
   if (!stream || stream.roundId !== input.roundId)
     throw createAppError('CONFLICT');
+  // A bot's transcript is authored from its own text, never captured (ADR 0122).
+  // An open stream that already existed was checked when capture made it: a
+  // bot's stream is only ever made by its authored speech, already sealed.
+  if (created.length > 0 || stream.state !== 'open')
+    await refuseBotSeat(tx, input);
   return { segment, stream, created: created.length > 0 };
 }
 export async function captureWriteContext(
