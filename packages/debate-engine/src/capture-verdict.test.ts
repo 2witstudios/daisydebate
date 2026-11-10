@@ -190,62 +190,6 @@ test('a capture restart after speech ended inside the close zone keeps the windo
   });
 });
 
-// Credited windows as a bot publishes them: short unions with gaps, ending at the cutoff 60000.
-const windows = [
-  range(5000, 5100),
-  range(30000, 30100),
-  range(59500, 59600),
-  range(59888, 60000),
-];
-const bot: CoverageEdges = {
-  openMs: 1000,
-  closeMs: 1000,
-  terminalCloseMs: 1000,
-};
-
-test('a bot’s last credited window seals complete whichever side of the final frame it starts (ISSUE-806)', () => {
-  assert({
-    given:
-      'contiguous capture from the first window whose final frame lands inside the last window, then before it, near the cutoff',
-    should:
-      'seal complete both ways: what follows the final frame within the terminal zone is the relay lag, not missing speech',
-    actual: [
-      complete(windows, [range(4900, 59950)], bot),
-      complete(windows, [range(4900, 59853)], bot),
-    ],
-    expected: [true, true],
-  });
-});
-
-test('more capture near the cutoff never flips a bot’s complete stream to partial (ISSUE-807)', () => {
-  assert({
-    given:
-      'capture that reaches the terminal zone, the same plus a short fragment after it, and the same plus a frame straddling the cutoff',
-    should: 'seal complete every time',
-    actual: [
-      complete(windows, [range(4900, 59100)], bot),
-      complete(windows, [range(4900, 59100), range(59700, 59750)], bot),
-      complete(windows, [range(4900, 59100), range(59950, 60400)], bot),
-    ],
-    expected: [true, true, true],
-  });
-});
-
-test('the terminal zone never forgives speech that was not captured (ISSUE-806, ISSUE-807)', () => {
-  assert({
-    given:
-      'capture that stopped before the terminal zone, a gap in capture mid-speech, a final window whose every frame precedes it, and capture in the zone that carries no credited speech',
-    should: 'still seal partial',
-    actual: [
-      complete(windows, [range(4900, 58000)], bot),
-      complete(windows, [range(4900, 20000), range(31000, 59950)], bot),
-      complete([range(6000, 7000)], [range(5000, 6000)], bot),
-      complete(windows, [range(4900, 58000), range(59650, 59700)], bot),
-    ],
-    expected: [false, false, false, false],
-  });
-});
-
 test('a human grant whose microphone dies in its last second still seals partial (ISSUE-806)', () => {
   // A human's grants carry no terminal zone.
   const human = (observed: readonly CaptureInterval[]) =>
@@ -259,59 +203,6 @@ test('a human grant whose microphone dies in its last second still seals partial
     should: 'seal the dead final grant partial, and the captured one complete',
     actual: [human([range(0, 59100)]), human([range(0, 59950)])],
     expected: [false, true],
-  });
-});
-
-/** Deterministic xorshift32: reproducible cases, no ambient randomness. */
-const generator = (seed: number) => {
-  let state = seed;
-  return (below: number) => {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    return (state >>> 0) % below;
-  };
-};
-const arbitraryRanges = (next: (below: number) => number, count: number) =>
-  Array.from({ length: count }, () => {
-    const start = next(12_000);
-    return range(start, start + 1 + next(4_000));
-  });
-
-test('captured evidence added in a bot’s terminal zone never flips complete to partial (ISSUE-807)', () => {
-  const next = generator(0x5eed807);
-  const flips: string[] = [];
-  for (let i = 0; i < 4_000; i++) {
-    const authority = arbitraryRanges(next, 1 + next(4));
-    const observed = arbitraryRanges(next, next(5));
-    // A bot's tolerances as coverageAuthority sets them: one relay latency.
-    const relayMs = 1 + next(2_000);
-    const tolerance = {
-      openMs: relayMs,
-      closeMs: relayMs,
-      terminalCloseMs: relayMs,
-    };
-    const close = Math.max(...authority.map((w) => w.end!));
-    // Inside the terminal zone, and past every open zone: evidence that
-    // cannot move where speech began.
-    const from = Math.max(
-      close - tolerance.terminalCloseMs,
-      Math.max(...authority.map((w) => w.start)) + tolerance.openMs,
-    );
-    const start = from + next(Math.max(1, close - from + 500));
-    const extra = range(start, start + 1 + next(2_000));
-    if (
-      complete(authority, observed, tolerance) &&
-      !complete(authority, [...observed, extra], tolerance)
-    )
-      flips.push(JSON.stringify({ authority, observed, extra, tolerance }));
-  }
-  assert({
-    given:
-      '4,000 seeded bot windows, evidence and tolerances, each with one extra observation inside the terminal zone',
-    should: 'never seal partial where less evidence sealed complete',
-    actual: flips.slice(0, 3),
-    expected: [],
   });
 });
 
@@ -343,56 +234,6 @@ test('gaps are the required speech with no capture, by the coverage edges', () =
       [{ start: 0, end: 1000 }],
       [],
       [],
-    ],
-  });
-});
-
-test('a bot’s credited windows a stall apart are one window for coverage (DEC-294)', () => {
-  const relayMs = 500;
-  const authority = (windows: readonly { start: number; end: number }[]) =>
-    createCaptureRule({ joinMs: 1000, relayMs }).coverage('bot', [], windows)
-      .authority;
-  assert({
-    given: 'two windows 115 ms apart, out of order',
-    should: 'merge them into one',
-    actual: authority([
-      { start: 2115, end: 3000 },
-      { start: 1000, end: 2000 },
-    ]),
-    expected: [{ start: 1000, end: 3000 }],
-  });
-  assert({
-    given: 'two windows exactly the relay latency apart',
-    should: 'keep them apart: a real hole stays',
-    actual: authority([
-      { start: 1000, end: 2000 },
-      { start: 2500, end: 3000 },
-    ]),
-    expected: [
-      { start: 1000, end: 2000 },
-      { start: 2500, end: 3000 },
-    ],
-  });
-  assert({
-    given: 'no windows: a dead bot',
-    should: 'stay empty',
-    actual: authority([]),
-    expected: [],
-  });
-  assert({
-    given: 'a human’s grants a stall apart',
-    should: 'stay as they are: DEC-294 covers bots only',
-    actual: createCaptureRule({ joinMs: 1000, relayMs }).coverage(
-      'human',
-      [
-        { start: 1000, end: 2000 },
-        { start: 2115, end: 3000 },
-      ],
-      [],
-    ).authority,
-    expected: [
-      { start: 1000, end: 2000 },
-      { start: 2115, end: 3000 },
     ],
   });
 });

@@ -9,33 +9,33 @@ const otherTurn = { side: 'affirmative', slot: 0 };
 test('whether a bot owes a stream for a grant (ISSUE-965)', () => {
   const cases = [
     [
-      'another seat’s turn, nothing published',
-      { seat, turn: otherTurn, hasCreditedWindow: false },
+      'another seat’s turn, nothing authored',
+      { seat, turn: otherTurn, hasAuthoredSpeech: false },
       true,
     ],
     [
       'another slot on its side',
-      { seat, turn: { side: 'negative', slot: 1 }, hasCreditedWindow: false },
+      { seat, turn: { side: 'negative', slot: 1 }, hasAuthoredSpeech: false },
       true,
     ],
     [
       'its own scheduled turn',
-      { seat, turn: theirTurn, hasCreditedWindow: false },
+      { seat, turn: theirTurn, hasAuthoredSpeech: false },
       false,
     ],
     [
-      'another seat’s turn with a credited window',
-      { seat, turn: otherTurn, hasCreditedWindow: true },
+      'another seat’s turn with authored speech',
+      { seat, turn: otherTurn, hasAuthoredSpeech: true },
       false,
     ],
     [
       'a segment the rules cannot name',
-      { seat, turn: undefined, hasCreditedWindow: false },
+      { seat, turn: undefined, hasAuthoredSpeech: false },
       false,
     ],
     [
       'a rule naming neither side nor slot',
-      { seat, turn: {}, hasCreditedWindow: false },
+      { seat, turn: {}, hasAuthoredSpeech: false },
       false,
     ],
     [
@@ -43,7 +43,7 @@ test('whether a bot owes a stream for a grant (ISSUE-965)', () => {
       {
         seat: { ...seat, kind: 'human' },
         turn: otherTurn,
-        hasCreditedWindow: false,
+        hasAuthoredSpeech: false,
       },
       false,
     ],

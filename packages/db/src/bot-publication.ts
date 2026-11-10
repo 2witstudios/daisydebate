@@ -1,10 +1,10 @@
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
-import { createAppError, createRefusal } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBotGenerationOperations } from './bot-generation';
 export { isFinalBotSpeechRefusal } from './bot-generation-rules';
-import { agentLeaseDigest } from './round-agent-lease';
+import { agentLeaseDigest, requireAgentLeaseToken } from './round-agent-lease';
 import {
   endLockedRoundAgentRun,
   lockRoundAgentContext,
@@ -14,12 +14,20 @@ import { readDatabaseTime } from './database-clock';
 import {
   botSegmentDueAt,
   verifyLockedBotWorker,
+  requireBotRoom,
   requireBotSpeakingWindow,
-  creditBotPublicationWindow,
   requireBotControlSegment,
+  requireClaimScope,
   type BotPublicationScope,
-  type PublicationWindow,
 } from './bot-publication-context';
+import {
+  authorizeLockedBotPhrase,
+  closeAbandonedBotLines,
+  revealLockedBotPhrase,
+  endLockedBotPhrase,
+  type BotPhrase,
+  type BotPhraseEnd,
+} from './bot-phrases';
 import { agentRuns } from './schema/agent-runs';
 import { scanBotWorkers } from './bot-worker-discovery';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -29,10 +37,8 @@ import {
   publicationClaim,
   requirePublishingSeat,
 } from './bot-publication-rules';
-export type {
-  BotPublicationScope,
-  PublicationWindow,
-} from './bot-publication-context';
+export type { BotPublicationScope } from './bot-publication-context';
+export type { BotPhrase, BotPhraseEnd } from './bot-phrases';
 type Target = Pick<
   BotPublicationScope,
   'roundId' | 'roundParticipantId' | 'segmentId'
@@ -100,6 +106,13 @@ export function createBotPublicationOperations(input: {
           now,
           leaseMs: input.leaseMs,
         });
+        // A takeover first closes what the lost worker left open.
+        if (current)
+          await closeAbandonedBotLines(
+            tx,
+            target.roundId,
+            target.roundParticipantId,
+          );
         if (current)
           await endLockedRoundAgentRun(
             tx,
@@ -143,27 +156,77 @@ export function createBotPublicationOperations(input: {
             .map((row) => row.id),
         };
       }),
-    verifyBotPublication: (
+    /** The claim's live floor now, and when its segment is due. */
+    verifyBotPublication: (scope: BotPublicationScope, token: string) =>
+      input.run(async (tx) => {
+        // Read before any lock, so a worker's clock offset never counts a
+        // lock wait, and its local stop is never early by one.
+        const now = await readDatabaseTime(tx);
+        await verifyLockedBotWorker(tx, scope, token);
+        await requireBotSpeakingWindow(tx, scope);
+        return {
+          segmentDueAt: await botSegmentDueAt(tx, scope),
+          /** The database clock at the start of this read, for a worker's clock offset. */
+          now: now.toISOString(),
+        };
+      }),
+    /**
+     * The floor while a phrase plays, read without taking a lock: the claim,
+     * its token and lease, its vendor room, and an open floor in the live
+     * segment with no incident. Cheap enough to read four times a second.
+     */
+    watchBotFloor: (scope: BotPublicationScope, token: string, room: string) =>
+      input.run(async (tx) => {
+        const [claim] = await tx
+          .select()
+          .from(roundBotPublications)
+          .where(claimWhere(scope));
+        requireClaimScope(claim, scope);
+        requireAgentLeaseToken(token, claim.leaseTokenDigest);
+        const now = await readDatabaseTime(tx);
+        if (claim.leaseExpiresAt.getTime() <= now.getTime())
+          throw createAppError('CONFLICT', 'Publication lease expired');
+        await requireBotRoom(tx, scope, room);
+        await requireBotSpeakingWindow(tx, scope);
+      }),
+    /** Writes a phrase's line as its audio starts, and rings the doorbell. */
+    revealBotPhrase: (
       scope: BotPublicationScope,
       token: string,
-      window?: PublicationWindow,
-      /** The vendor room this publisher joined; a retired one hears nobody (ADR 0110). */
-      room?: string,
+      phrase: BotPhrase,
+      room: string,
+      startedAt?: string,
     ) =>
-      input.run(async (tx) => {
-        await verifyLockedBotWorker(tx, scope, token);
-        if (room !== undefined) {
-          const named = await tx.execute(
-            sql`select 1 from media_sessions where round_id=${scope.roundId} and room_name=${room} limit 1`,
-          );
-          if (named.length !== 1)
-            throw createRefusal('CONFLICT', 'bot-room-changed');
-        }
-        await requireBotSpeakingWindow(tx, scope, window);
-        if (window)
-          await creditBotPublicationWindow(tx, scope, window, input.nextId);
-        return { segmentDueAt: await botSegmentDueAt(tx, scope) };
-      }),
+      input.run((tx) =>
+        revealLockedBotPhrase(tx, {
+          scope,
+          token,
+          phrase,
+          room,
+          nextId: input.nextId,
+          ...(startedAt === undefined ? {} : { startedAt }),
+        }),
+      ),
+    /** Authorizes a phrase before any of its audio plays (ADR 0122). */
+    beginBotPhrase: (
+      scope: BotPublicationScope,
+      token: string,
+      phrase: BotPhrase,
+      room: string,
+    ) =>
+      input.run((tx) =>
+        authorizeLockedBotPhrase(tx, { scope, token, phrase, room }),
+      ),
+    /** Closes a started phrase: whole, or cut at what was heard. */
+    endBotPhrase: (
+      scope: BotPublicationScope,
+      token: string,
+      phraseId: string,
+      end: BotPhraseEnd,
+    ) =>
+      input.run((tx) =>
+        endLockedBotPhrase(tx, { scope, token, phraseId, end }),
+      ),
     verifyBotWorker: (scope: BotPublicationScope, token: string) =>
       input.run(async (tx) => {
         await verifyLockedBotWorker(tx, scope, token);

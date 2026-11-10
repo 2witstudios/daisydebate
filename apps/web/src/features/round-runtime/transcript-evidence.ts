@@ -17,9 +17,9 @@ type Round = {
   }[];
 };
 /**
- * A Round's frozen transcript as neutral prompt evidence. Only actual
- * immutable captured evidence is mapped; no actor identity/kind or generated
- * phrase enters. AI judging and round analysis both read it; it belongs to
+ * A Round's frozen transcript as neutral prompt evidence: captured lines
+ * and a bot's authored lines alike, exactly as frozen (ADR 0122); no actor
+ * identity or kind enters. AI judging and round analysis both read it; it belongs to
  * neither.
  */
 export function transcriptEvidenceInput(input: {
@@ -73,6 +73,7 @@ export function transcriptEvidenceInput(input: {
       sequence: line.sequence,
       text: line.text,
       complete: line.complete,
+      interrupted: line.interrupted,
     })),
   };
 }

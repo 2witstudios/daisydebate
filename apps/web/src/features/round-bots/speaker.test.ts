@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import { harness } from './speaker.test-support';
+import { refuseFinalSpeech } from '@daisy/db/testing';
+import { answered, harness, job } from './speaker.test-support';
 setupRitewayBun();
 test('a speech claim delivers its generated phrases once without overlapping turns', async () => {
   const { speaker, log, release, settle } = harness('speech');
@@ -9,9 +10,9 @@ test('a speech claim delivers its generated phrases once without overlapping tur
   await settle();
   assert({
     given: 'an actual speech claim woken twice while publishing',
-    should: 'run one turn and keep the phrase in memory for publication',
+    should: 'run one turn, voicing the next phrase while the first one plays',
     actual: [...log],
-    expected: ['generate', 'tts:One.', 'publish:One.'],
+    expected: ['generate', 'deadline', 'tts:One.', 'tts:Two.', 'publish:One.'],
   });
   await release();
   await release();
@@ -23,9 +24,10 @@ test('a speech claim delivers its generated phrases once without overlapping tur
     actual: log,
     expected: [
       'generate',
+      'deadline',
       'tts:One.',
-      'publish:One.',
       'tts:Two.',
+      'publish:One.',
       'publish:Two.',
     ],
   });
@@ -103,7 +105,7 @@ test('cross-examination answers each peer turn once and cancels the active phras
     given: 'a cross-examination claim',
     should: 'open the exchange once and report playback',
     actual: [log.length, speaker.playing()],
-    expected: [3, true],
+    expected: [5, true],
   });
   speaker.peer('barge-in');
   await settle();
@@ -111,9 +113,10 @@ test('cross-examination answers each peer turn once and cancels the active phras
   await settle();
   assert({
     given: 'a peer barge-in during playback',
-    should: 'cancel the active phrase and wait for the peer turn to end',
+    should:
+      'cancel the active phrase, whose writer clears its own queue, and wait for the peer turn to end',
     actual: [speaker.playing(), log.length],
-    expected: [false, 3],
+    expected: [false, 5],
   });
   speaker.peer('end-of-turn');
   speaker.peer('end-of-turn');
@@ -138,3 +141,105 @@ test('cross-examination answers each peer turn once and cancels the active phras
     expected: false,
   });
 });
+
+test('a peer speaking over a cross-examination tail still queued silences it at once', async () => {
+  let queued = true;
+  const { speaker, log, settle } = harness('cross_ex', {
+    audible: () => queued,
+    publish: async () => ({
+      complete: true,
+      segmentEnded: false,
+    }),
+  });
+  speaker.wake();
+  await settle();
+  const playingTail = speaker.playing();
+  speaker.peer('speech-start');
+  queued = false;
+  assert({
+    given:
+      'an answer whose last phrase returned with its tail still queued, then the peer starts speaking',
+    should: 'still read as playing, and drop the queued tail at once',
+    actual: [playingTail, log.at(-1), speaker.playing()],
+    expected: [true, 'silence', false],
+  });
+  await speaker.stop();
+});
+
+test('the speech ending stops voicing ahead: nothing more is bought', async () => {
+  const aborted: string[] = [];
+  const { speaker, settle } = harness('speech', {
+    generate: async () =>
+      answered({
+        text: 'One. Two. Three.',
+        phrases: ['One.', 'Two.', 'Three.'],
+      }),
+    synthesize: async (phraseId, text, signal) => {
+      // A 5 s first phrase: long enough to play without waiting for the next.
+      if (text === 'One.') return answered(job(phraseId, text, 24000 * 5));
+      // Held until aborted: the speech ends before these are needed.
+      return new Promise((_, reject) =>
+        signal.addEventListener('abort', () => {
+          aborted.push(text);
+          reject(signal.reason);
+        }),
+      );
+    },
+    publish: async () => ({
+      complete: false,
+      segmentEnded: true,
+    }),
+  });
+  speaker.wake();
+  await settle();
+  assert({
+    given:
+      'a first phrase that ends the segment while two more are being voiced',
+    should:
+      'abort both voicings, so neither is bought, and leave nothing playing',
+    actual: { aborted, playing: speaker.playing() },
+    expected: { aborted: ['Two.', 'Three.'], playing: false },
+  });
+  await speaker.stop();
+});
+
+for (const ending of ['a final refusal', 'a stop'] as const)
+  test(`${ending} stops voicing ahead: nothing more is bought (delta minor 2)`, async () => {
+    const aborted: string[] = [];
+    const gate = Promise.withResolvers<void>();
+    const { speaker, settle } = harness('speech', {
+      generate: async () =>
+        answered({
+          text: 'One. Two. Three.',
+          phrases: ['One.', 'Two.', 'Three.'],
+        }),
+      synthesize: async (phraseId, text, signal) => {
+        // A 5 s first phrase: long enough to play without waiting for the next.
+        if (text === 'One.') return answered(job(phraseId, text, 24000 * 5));
+        return new Promise((_, reject) =>
+          signal.addEventListener('abort', () => {
+            aborted.push(text);
+            reject(signal.reason);
+          }),
+        );
+      },
+      publish: async (_job, signal) => {
+        if (ending === 'a final refusal')
+          throw refuseFinalSpeech('Bot phrase would end past its segment');
+        signal.addEventListener('abort', () => gate.resolve());
+        await gate.promise;
+        return { complete: false, segmentEnded: false };
+      },
+    });
+    speaker.wake();
+    await settle();
+    if (ending === 'a stop') await speaker.stop();
+    assert({
+      given: `a speech ended by ${ending} while two phrases are voicing ahead`,
+      should: 'abort both voicings',
+      actual: aborted.sort(),
+      expected: ['Three.', 'Two.'],
+    });
+    gate.resolve();
+    await speaker.stop();
+  });

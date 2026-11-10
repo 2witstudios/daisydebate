@@ -1,15 +1,11 @@
-import { and, eq, ne, sql, type SQL } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockRoundAgentContext } from './round-agent-runs';
 import { readDatabaseTime } from './database-clock';
 import { requireAgentLeaseToken } from './round-agent-lease';
 import { agentRuns } from './schema/agent-runs';
-import { transcriptSegments } from './schema/transcript-segments';
-import {
-  roundBotPublicationWindows,
-  roundBotPublications,
-} from './schema/round-bot-publications';
+import { roundBotPublications } from './schema/round-bot-publications';
 
 export type BotPublicationScope = {
   readonly roundId: string;
@@ -18,10 +14,6 @@ export type BotPublicationScope = {
   readonly agentRunId: string;
   readonly serviceId: string;
   readonly publicationEpoch: number;
-};
-export type PublicationWindow = {
-  readonly beforeMs: number;
-  readonly afterMs: number;
 };
 /** Speaking interval `i` is open over [`before`, `after`]. */
 const intervalOpen = (before: SQL, after: SQL) =>
@@ -67,34 +59,35 @@ export async function requireBotControlSegment(
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Worker segment changed');
 }
+/**
+ * The vendor room a bot's publisher joined is still its session's: a retired
+ * room hears nobody (ADR 0110). The one check every bot speech path shares.
+ */
+export async function requireBotRoom(
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  target: Pick<BotPublicationScope, 'roundId'>,
+  room: string,
+) {
+  const named = await tx.execute(
+    sql`select 1 from media_sessions where round_id=${target.roundId} and room_name=${room} limit 1`,
+  );
+  if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
+}
+/** The seat holds an open floor now, in its live segment, with no incident. */
 export async function requireBotSpeakingWindow(
   tx: BoundedTransactionContext,
   target: Pick<
     BotPublicationScope,
     'roundId' | 'roundParticipantId' | 'segmentId'
   >,
-  window?: PublicationWindow,
 ) {
   await refuseDuringIncident(tx, target.roundId);
-  if (
-    window &&
-    (!Number.isFinite(window.beforeMs) ||
-      !Number.isFinite(window.afterMs) ||
-      window.afterMs < window.beforeMs)
-  )
-    throw createAppError('VALIDATION');
-  const before = window
-    ? sql`${new Date(Math.floor(window.beforeMs))}::timestamptz`
-    : sql`clock_timestamp()`;
-  const after = window
-    ? sql`${new Date(Math.ceil(window.afterMs))}::timestamptz`
-    : sql`clock_timestamp()`;
+  const now = sql`clock_timestamp()`;
   const rows = await tx.execute(sql`select 1 from round_speaking_intervals i
     join round_segments s on s.id=i.segment_id and s.round_id=i.round_id
     where i.round_id=${target.roundId} and i.segment_id=${target.segmentId} and i.round_participant_id=${target.roundParticipantId}
-      and ${intervalOpen(before, after)}
-      and ${segmentInProgress(before, after)}
-      and ${after}<=clock_timestamp() limit 1`);
+      and ${intervalOpen(now, now)}
+      and ${segmentInProgress(now, now)} limit 1`);
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Bot speaking authority changed');
 }
@@ -150,64 +143,6 @@ export async function verifyBotMediaPrincipal(
   if (!principal.hearing) return requireBotSpeakingWindow(tx, principal.scope);
   if (!(await readBotSegmentFloor(tx, principal.scope)))
     throw createAppError('CONFLICT', 'Bot segment is not live');
-}
-/**
- * Records an authorized window as server credit (DEC-212, DEC-218), extending
- * the seat's run it touches, so a phrase is one row however many windows
- * authorized it. Call only after requireBotSpeakingWindow accepted it. A
- * sealed stream never required a later window, so its credit is refused
- * (ISSUE-488-r1); the Round lock the caller holds orders it against the seal.
- */
-export async function creditBotPublicationWindow(
-  tx: BoundedTransactionContext,
-  target: Pick<
-    BotPublicationScope,
-    'roundId' | 'roundParticipantId' | 'segmentId'
-  >,
-  window: PublicationWindow,
-  nextId: () => string,
-) {
-  const from = new Date(Math.floor(window.beforeMs)),
-    until = new Date(Math.ceil(window.afterMs));
-  if (until <= from) return;
-  const [sealed] = await tx
-    .select({ state: transcriptSegments.state })
-    .from(transcriptSegments)
-    .where(
-      and(
-        eq(transcriptSegments.segmentId, target.segmentId),
-        eq(transcriptSegments.roundParticipantId, target.roundParticipantId),
-        ne(transcriptSegments.state, 'open'),
-      ),
-    );
-  if (sealed)
-    throw createAppError('CONFLICT', 'Bot publication stream is sealed');
-  const extended = await tx
-    .update(roundBotPublicationWindows)
-    .set({
-      creditedFrom: sql`least(${roundBotPublicationWindows.creditedFrom},${from})`,
-      creditedUntil: sql`greatest(${roundBotPublicationWindows.creditedUntil},${until})`,
-    })
-    .where(
-      and(
-        eq(roundBotPublicationWindows.segmentId, target.segmentId),
-        eq(roundBotPublicationWindows.roundId, target.roundId),
-        eq(
-          roundBotPublicationWindows.roundParticipantId,
-          target.roundParticipantId,
-        ),
-        sql`${roundBotPublicationWindows.creditedUntil}>=${from}`,
-        sql`${roundBotPublicationWindows.creditedFrom}<=${until}`,
-      ),
-    )
-    .returning({ id: roundBotPublicationWindows.id });
-  if (extended.length > 0) return;
-  await tx.insert(roundBotPublicationWindows).values({
-    id: nextId(),
-    ...target,
-    creditedFrom: from,
-    creditedUntil: until,
-  });
 }
 export function requireClaimScope(
   claim: typeof roundBotPublications.$inferSelect | undefined,

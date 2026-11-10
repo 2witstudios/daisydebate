@@ -6,7 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./audio": "./src/audio-publication.ts",
-    "./publication": "./src/paced-publication.ts",
+    "./publication": "./src/audio-stream.ts",
     "./internal": "./src/worker-auth.ts",
     "./subscription": "./src/audio-subscription.ts",
     "./worker": "./src/worker-client.ts",

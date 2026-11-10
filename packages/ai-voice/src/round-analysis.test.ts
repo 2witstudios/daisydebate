@@ -20,6 +20,7 @@ const evidence = {
       slot: 0,
       text: 'Access improves.',
       complete: true,
+      interrupted: false,
     },
   ],
 };

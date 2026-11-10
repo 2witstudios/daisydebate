@@ -36,6 +36,7 @@ export const frozen = {
       roundParticipantId: 'seat',
       text: 'Access improves.',
       complete: false,
+      interrupted: false,
     },
   ],
 };

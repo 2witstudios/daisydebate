@@ -25,16 +25,13 @@ test('the provider proof refuses another deployment before opening a database', 
       requireStagingTranscriptTarget({ ...target, ...changed }),
     ).toThrow('Staging transcript proof target mismatch');
 });
-test('COMPLETE alone cannot pass a proof with an unpublished seat or fake provider', () => {
+test('COMPLETE alone cannot pass a proof with a silent seat or fake provider', () => {
   const stream = {
     role: 'affirmative',
     state: 'complete',
-    chunks: 3,
-    observedMs: 1000,
-    publishedMs: 1000,
+    authoredLines: 3,
     realSpeech: true,
     realTts: true,
-    realStt: true,
   };
   const proof = {
     completeness: 'complete',
@@ -44,7 +41,7 @@ test('COMPLETE alone cannot pass a proof with an unpublished seat or fake provid
   };
   assert({
     given:
-      'both actual debater publications, observed audio, real speech/TTS/STT and a COMPLETE freeze',
+      'both bots authoring lines they played whole, real speech and TTS, and a COMPLETE freeze',
     should: 'pass',
     actual: transcriptProofProblems(proof),
     expected: [],
@@ -53,8 +50,8 @@ test('COMPLETE alone cannot pass a proof with an unpublished seat or fake provid
     { streams: [stream] },
     { completeness: 'incomplete' },
     { aiBallot: false },
-    { streams: [stream, { ...stream, role: 'negative', realStt: false }] },
-    { streams: [stream, { ...stream, role: 'negative', chunks: 0 }] },
+    { streams: [stream, { ...stream, role: 'negative', realTts: false }] },
+    { streams: [stream, { ...stream, role: 'negative', authoredLines: 0 }] },
     { streams: [stream, { ...stream, role: 'negative', state: 'partial' }] },
   ])
     assert({

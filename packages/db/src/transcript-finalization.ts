@@ -1,3 +1,4 @@
+import { closeAbandonedBotLines } from './bot-phrases';
 import { pending as transcriptionRecoveryPending } from './transcription-recovery/pending';
 import { readCaptureShortfall } from './capture-shortfall';
 import {
@@ -122,6 +123,9 @@ export async function finalizeLockedRoundTranscript(
     clock.transcriptAdmissionCutoff === null
   )
     return { status: 'pending' as const, reason: 'final-segment' as const };
+  // A bot line its worker never closed keeps only what could have played
+  // (ADR 0122), and is closed before the streams it decides are read.
+  await closeAbandonedBotLines(tx, request.roundId);
   const facts = await lockFinalizationStreams(
     tx,
     request.roundId,

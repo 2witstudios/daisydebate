@@ -45,7 +45,10 @@ test('a refused settlement retried records the received usage once', async () =>
     },
     verifyRoundBotPublication: async () => {
       if (++verifications === 1) throw refuseCapacity();
-      return { segmentDueAt: '2026-10-23T10:01:00.000Z' };
+      return {
+        segmentDueAt: '2026-10-23T10:01:00.000Z',
+        now: new Date(0).toISOString(),
+      };
     },
   });
   const first = await answer.settle().then(

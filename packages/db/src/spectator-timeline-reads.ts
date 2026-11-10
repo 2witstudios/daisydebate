@@ -1,4 +1,7 @@
-import { captionKnownPublicSql } from './spectator-release-sql';
+import {
+  captionHeardAtSql,
+  captionKnownPublicSql,
+} from './spectator-release-sql';
 import {
   recordingHiddenByModeration,
   SPECTATOR_MARGIN_MS,
@@ -224,6 +227,10 @@ export const spectatorTimelineReads = ({
                   )
                   .orderBy(asc(roundParticipants.role))
               : [];
+          const captionHeard = captionHeardAtSql({
+            createdAt: utterances.createdAt,
+            botDurationMs: utterances.botDurationMs,
+          });
           const captionRows =
             ranked && !hiddenByModeration
               ? await tx
@@ -242,10 +249,10 @@ export const spectatorTimelineReads = ({
                       eq(utterances.roundId, input.roundId),
                       eq(utterances.complete, true),
                       inArray(roundParticipants.role, [...debateRoles]),
-                      released(utterances.createdAt),
+                      released(captionHeard),
                       captionKnownPublicSql({
                         segmentId: utterances.segmentId,
-                        createdAt: utterances.createdAt,
+                        createdAt: captionHeard,
                       }),
                     ),
                   )

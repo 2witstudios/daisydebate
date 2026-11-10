@@ -33,12 +33,12 @@ test('idle bot control records actual opponent-speech attendance despite refused
     });
     assert({
       given: 'a publisher naming a vendor room its session has left',
-      should: 'refuse it before any window is credited (ADR 0110)',
+      should: 'refuse its phrase before any line is authored (ADR 0110)',
       actual: await f.store
-        .verifyRoundBotPublication(
+        .beginRoundBotPhrase(
           claim.scope,
           claim.token,
-          undefined,
+          { phraseId: createId(), text: 'Never said.', durationMs: 100 },
           'retiredroom0000000000000',
         )
         .catch((error: { reason?: string }) => error.reason),

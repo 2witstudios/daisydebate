@@ -10,7 +10,6 @@ import { createRoundMediaOperations } from '../src/features/round-media/operatio
 import { withRoomRuntime } from './round-runtime.test-support';
 import { ownSpeech, botControlOptions } from './bot-control.test-support';
 import {
-  hearRoundTracks,
   mediaDependencies,
   waitForMediaFact,
 } from './round-media.test-support';
@@ -64,12 +63,6 @@ for (const mode of ['valid', 'provider-error'] as const)
       const deps = mediaDependencies(f);
       const media = createRoundMediaOperations(deps);
       const provider = loopbackProvider(mode);
-      const capture = hearRoundTracks(
-        f,
-        deps,
-        roundId,
-        claim.scope.roundParticipantId,
-      );
       let failures = 0;
       const timers = new Set<unknown>();
       const speaking = createSpeakingBotControl({
@@ -79,7 +72,6 @@ for (const mode of ['valid', 'provider-error'] as const)
         botToken: media.botToken,
         listenToken: media.botListenToken,
         readPeers: media.botPeers,
-        readHeard: capture.heard,
         timers: {
           setInterval: (task, ms) => {
             const handle = setInterval(() => void task(), ms);
@@ -120,20 +112,21 @@ for (const mode of ['valid', 'provider-error'] as const)
         if (mode === 'valid')
           await waitForMediaFact(
             async () =>
-              (await runs()).filter(
-                (row) => row.kind === 'tts' && row.outcome === 'received',
+              (
+                await f.sql`select 1 from utterances where round_id=${roundId} and complete`
               ).length === 2,
           );
         else await waitForMediaFact(async () => failures > 0);
         await seat.stop();
         const rows = (await runs()).map((row) => ({ ...row }));
-        const [{ lines }] =
-          await f.sql`select count(*)::int lines from utterances where round_id=${roundId}`;
+        const lines = (
+          await f.sql`select text,complete,interrupted from utterances where round_id=${roundId} order by sequence`
+        ).map((row: Record<string, unknown>) => ({ ...row }));
         assert({
           given: `a real owned speech claim with a controlled loopback ${mode} vendor (not provider acceptance)`,
           should:
             mode === 'valid'
-              ? 'settle one language and two TTS dispatches, publish the first phrase before voicing the second, and credit no transcript'
+              ? 'settle one language and two TTS dispatches, and author each phrase as one complete line with exactly its text (ADR 0122)'
               : 'record the uncertain 503 dispatch at zero known usage, report one failure and keep the control receipt (ISSUE-458-r1)',
           actual: {
             receiptsArray: Array.isArray(pulsed),
@@ -169,7 +162,14 @@ for (const mode of ['valid', 'provider-error'] as const)
                       outcome: 'received',
                     })),
                   ],
-                  lines: 0,
+                  lines: [
+                    'My first point stands.',
+                    'My second point follows it.',
+                  ].map((text) => ({
+                    text,
+                    complete: true,
+                    interrupted: false,
+                  })),
                   failures: 0,
                   speechTimer: 0,
                 }
@@ -186,7 +186,7 @@ for (const mode of ['valid', 'provider-error'] as const)
                       outcome: 'unknown',
                     },
                   ],
-                  lines: 0,
+                  lines: [],
                   failures: 1,
                   speechTimer: 0,
                 },
@@ -194,7 +194,6 @@ for (const mode of ['valid', 'provider-error'] as const)
       } finally {
         await seat.stop();
         await provider.stop();
-        await capture.close();
       }
     }, speakingOptions);
   });

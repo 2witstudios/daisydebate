@@ -68,6 +68,18 @@ export const outcomeReleasedSql = (
   sql`(${round.status}<>'completed' or ${factReleasedSql(round.completedAt, round, clock)})`;
 
 /**
+ * When a caption's words have all been heard: a captured line is written
+ * after its speech, but a bot's line is dated at its audio's start (ADR 0122),
+ * so it is released only once its known length has played out, never ahead
+ * of the broadcast audio.
+ */
+export const captionHeardAtSql = (utterance: {
+  readonly createdAt: SQL | unknown;
+  readonly botDurationMs: SQL | unknown;
+}) =>
+  sql`(${utterance.createdAt}+coalesce(${utterance.botDurationMs},0)*interval '1 millisecond')`;
+
+/**
  * A caption is known public: its segment has closed, or the control plane has been
  * heard from since it was said. It belongs to a committed segment by its foreign key,
  * so this is the one case left: a line on a segment still open past the last

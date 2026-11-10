@@ -75,25 +75,14 @@ test('concurrent bot claims preserve one active run and epochs through takeover'
     });
   });
 });
-test('full historical windows are required and closed current authority cannot dispatch', async () => {
+test('a closed floor or an ended run refuses publication authority', async () => {
   await withBotPublication(async ({ operations, target, fixture }) => {
-    const { claim, start } = await claimAtFloorStart({
+    const { claim } = await claimAtFloorStart({
       operations,
       target,
       fixture,
     });
-    const window = { beforeMs: start + 1, afterMs: start + 11 };
-    await operations.verifyBotPublication(claim.scope, claim.token, window);
-    await assertRejects({
-      given: 'a bracket crossing opening',
-      should: 'refuse uncertain credit',
-      actual: () =>
-        operations.verifyBotPublication(claim.scope, claim.token, {
-          beforeMs: start - 1,
-          afterMs: start + 9,
-        }),
-      code: 'CONFLICT',
-    });
+    await operations.verifyBotPublication(claim.scope, claim.token);
     await fixture.sql`update round_speaking_intervals set ended_at=clock_timestamp(),ended_version=2 where round_id=${target.roundId}`;
     await assertRejects({
       given: 'closed speaking floor with live lease',
@@ -104,9 +93,8 @@ test('full historical windows are required and closed current authority cannot d
     await fixture.sql`update agent_runs set ended_at=clock_timestamp() where id=${claim.scope.agentRunId}`;
     await assertRejects({
       given: 'ended actual AgentRun',
-      should: 'refuse even historically eligible prefix',
-      actual: () =>
-        operations.verifyBotPublication(claim.scope, claim.token, window),
+      should: 'refuse authority',
+      actual: () => operations.verifyBotPublication(claim.scope, claim.token),
       code: 'AUTHORIZATION',
     });
   });

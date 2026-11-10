@@ -38,12 +38,10 @@ export function stagingTranscriptConfiguration(
 export type TranscriptProofStream = {
   readonly role: string;
   readonly state: string;
-  readonly chunks: number;
-  readonly observedMs: number;
-  readonly publishedMs: number;
+  /** Lines the bot authored and played whole (ADR 0122). */
+  readonly authoredLines: number;
   readonly realSpeech: boolean;
   readonly realTts: boolean;
-  readonly realStt: boolean;
 };
 export function transcriptProofProblems(input: {
   readonly completeness: string | null;
@@ -57,15 +55,9 @@ export function transcriptProofProblems(input: {
   const roles = input.streams.map((stream) => stream.role).sort();
   if (roles.join(',') !== 'affirmative,negative') problems.push('seats');
   for (const stream of input.streams) {
-    if (
-      stream.state !== 'complete' ||
-      stream.chunks < 1 ||
-      stream.observedMs <= 0 ||
-      stream.publishedMs <= 0
-    )
-      problems.push('capture');
-    if (!stream.realSpeech || !stream.realTts || !stream.realStt)
-      problems.push('provider');
+    if (stream.state !== 'complete' || stream.authoredLines < 1)
+      problems.push('speech');
+    if (!stream.realSpeech || !stream.realTts) problems.push('provider');
   }
   return problems;
 }

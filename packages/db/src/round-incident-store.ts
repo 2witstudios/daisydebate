@@ -43,10 +43,10 @@ export type IncidentOutcome = {
 };
 
 /**
- * The end of the current speakers' last confirmed audio. Only capture confirms audio, for
- * a bot seat too: a bot's credit says a publish was authorized, not that anyone heard it.
- * Never before the open speaking interval, whose close this becomes. Null when nobody
- * holds an interval.
+ * The end of the current speakers' last confirmed audio: what capture heard of a person,
+ * and a bot's authored lines (ADR 0122): the end of a phrase it played whole, or the
+ * start of one cut short, which it says again whole on resume. Never before the open
+ * speaking interval, whose close this becomes. Null when nobody holds an interval.
  */
 async function confirmedUntil(
   tx: Pick<BoundedTransactionContext, 'execute'>,
@@ -62,7 +62,13 @@ async function confirmedUntil(
       (select max(started_at) from holders),
       (select max(o.observed_until) from transcript_observations o
         join holders h using (segment_id, round_participant_id)
-        where o.round_id = ${roundId})
+        where o.round_id = ${roundId}),
+      (select max(case when u.complete and not u.interrupted
+          then u.created_at + u.bot_duration_ms * interval '1 millisecond'
+          else u.created_at end)
+        from utterances u
+        join holders h using (segment_id, round_participant_id)
+        where u.round_id = ${roundId} and u.bot_phrase_id is not null)
     ) as confirmed_until
   `)) as unknown as { confirmed_until: Date | string | null }[];
   const value = rows[0]?.confirmed_until ?? null;

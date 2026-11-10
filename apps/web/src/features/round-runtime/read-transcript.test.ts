@@ -155,3 +155,36 @@ test('a transcript read says whether asking again can help', async () => {
     ],
   });
 });
+
+test('a line from a server that predates cut lines reads as not cut (ADR 0122)', async () => {
+  const line = {
+    id: 'l'.repeat(24),
+    segmentId: round.segments[0]?.id ?? 's'.repeat(24),
+    segmentSequence: 0,
+    sequence: 0,
+    startOffsetMs: null,
+    roundParticipantId: 'p'.repeat(24),
+    text: 'Access improves.',
+    complete: true,
+  };
+  const read = await readTranscript(
+    async () =>
+      Response.json({
+        contractVersion: 1,
+        round,
+        revision: 1,
+        freeze: null,
+        streams: [],
+        utterances: [line],
+      }),
+    round.id,
+  );
+  assert({
+    given:
+      'a live read whose lines carry no `interrupted`, as an older server sends',
+    should: 'read it, each line not cut',
+    actual:
+      read.kind === 'found' ? read.value.utterances[0]?.interrupted : read,
+    expected: false,
+  });
+});

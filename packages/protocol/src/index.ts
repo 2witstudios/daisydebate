@@ -18,6 +18,7 @@ export {
  * `includeEntryExports` fails an export nobody imports).
  */
 export { segmentDueAtMs, speakingEndMs } from './segment-end';
+export { isSpokenPrefix, spokenPrefix } from './authored-speech';
 export { dueAfterStops, runningMs } from './clock-stops';
 export type { ClockStop } from './clock-stops';
 export {
