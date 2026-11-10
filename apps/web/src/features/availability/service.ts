@@ -20,12 +20,6 @@ type Sampler = {
 const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
 /** How soon a failed check tries again. */
 const PROBE_RESOURCE_RETRY_MS = 60_000;
-/** A renewal that wrote no row: the lease belongs to another role. */
-const notRenewed = createAppError(
-  'CONFLICT',
-  'Service lease belongs to another role',
-);
-
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
@@ -99,8 +93,8 @@ export function startAvailabilityService(deps: {
     });
   };
   let lease = startingLease(nowMs());
-  const settled = (renewal: LeaseRenewal) => {
-    lease = afterRenewal(lease, renewal, nowMs());
+  const observe = (renewal: LeaseRenewal) => {
+    lease = afterRenewal(lease, renewal);
   };
   /** Checked on every tick, so a renewal that hangs still counts as unproven. */
   const checkHealth = () => {
@@ -114,16 +108,23 @@ export function startAvailabilityService(deps: {
     }
   };
   const renew = () => {
+    if (renewing) return renewing;
     const startedMs = nowMs();
-    renewing ??= deps.store
+    observe({ kind: 'started' });
+    renewing = deps.store
       .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
       .then((wrote) => {
-        if (!wrote) throw notRenewed;
-        settled({ kind: 'renewed', tookMs: nowMs() - startedMs });
+        // A lease another role holds was not renewed: never pretend it was.
+        if (!wrote)
+          throw createAppError(
+            'CONFLICT',
+            'Service lease belongs to another role',
+          );
+        observe({ kind: 'renewed', startedMs });
         return true;
       })
       .catch((error: unknown) => {
-        settled({ kind: 'failed', error });
+        observe({ kind: 'failed', error });
         deps.failed();
         return false;
       })

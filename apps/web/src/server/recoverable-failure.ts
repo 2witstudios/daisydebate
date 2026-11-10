@@ -27,6 +27,8 @@ export function recoverableFailure(input: {
   readonly reporter: ErrorReporter;
   readonly nextId: () => string;
   readonly isCapacity: (error: unknown) => boolean;
+  /** An expected lapse of the instance's own lease: logged, never reported here. */
+  readonly isLeaseLapse: (error: unknown) => boolean;
   readonly event: EventName;
   readonly operation: string;
   readonly message: string;
@@ -78,9 +80,12 @@ export function recoverableFailure(input: {
    */
   return (error: unknown, stage: string) => {
     const operation = `${input.operation}.${stage}`;
-    if (isServiceLeaseLapse(error)) {
+    let lapse = false;
+    attempt(() => {
+      lapse = input.isLeaseLapse(error);
+    });
+    if (lapse)
       return log(`${operation}.lease`, codeOf(error), 'service-lease-lapsed');
-    }
     let capacity = false;
     attempt(() => {
       capacity = input.isCapacity(error);
@@ -108,6 +113,7 @@ export const workerFailures =
       reporter,
       nextId: () => app.ids.next(),
       isCapacity: isCapacityRefusal,
+      isLeaseLapse: isServiceLeaseLapse,
       event,
       operation,
       message,

@@ -55,20 +55,15 @@ test('a lapse caused by a failing renewal is logged with its length and linked t
   });
 });
 
-test('a lapse from slow or hung renewals names that, with no stale failure', () => {
+test('a lapse from a hung renewal, or a failure that is no Error, links no cause', () => {
   const { lines, captured, report } = recorded();
-  report({
-    lapsedMs: 12_000,
-    unproven: { kind: 'renewal_slow', tookMs: 2500 },
-  });
   report({ lapsedMs: 15_000, unproven: { kind: 'renewal_pending' } });
   report({
     lapsedMs: 20_000,
     unproven: { kind: 'renewal_failed', error: 'not an error' },
   });
   assert({
-    given:
-      'a slow-renewal lapse, a hung-renewal lapse, and a failure that is not an Error',
+    given: 'a hung-renewal lapse, and a failure that is not an Error',
     should: 'log each reason and link no cause',
     actual: {
       causes: lines.map(([, fields]) => (fields as { cause: string }).cause),
@@ -77,8 +72,8 @@ test('a lapse from slow or hung renewals names that, with no stale failure', () 
       ),
     },
     expected: {
-      causes: ['renewal_slow', 'renewal_pending', 'renewal_failed'],
-      linked: [undefined, undefined, undefined],
+      causes: ['renewal_pending', 'renewal_failed'],
+      linked: [undefined, undefined],
     },
   });
 });

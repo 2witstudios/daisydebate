@@ -1,14 +1,19 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { publicationStopError, publicationStopOf } from '@daisy/media/audio';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { recoverableFailure } from './recoverable-failure';
 setupRitewayBun();
 
-const record = (isCapacity: (error: unknown) => boolean = () => false) => {
+const record = (
+  isCapacity: (error: unknown) => boolean = () => false,
+  isLeaseLapse: (error: unknown) => boolean = isServiceLeaseLapse,
+) => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity,
+    isLeaseLapse,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -130,6 +135,7 @@ test('a bot publish failure names its stop, and nothing else of the error', () =
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => undefined },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -173,6 +179,7 @@ test('a sink that throws never fails its caller, and its other steps still run (
   const captured: unknown[] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: {
       log: () => {
         throw new Error('log transport down');
@@ -198,6 +205,9 @@ test('a sink that throws never fails its caller, and its other steps still run (
     isCapacity: () => {
       throw new Error('capacity check broke');
     },
+    isLeaseLapse: () => {
+      throw new Error('lapse check broke');
+    },
     logger: { log: () => {} },
     reporter: {
       capture: () => {
@@ -215,7 +225,8 @@ test('a sink that throws never fails its caller, and its other steps still run (
     thrown = error;
   }
   assert({
-    given: 'a log, cause reader, capacity check or reporter that throws',
+    given:
+      'a log, cause reader, capacity check, lapse check or reporter that throws',
     should:
       'never throw to the worker, and still hand the error to the reporter',
     actual: { thrown, captured },
@@ -227,6 +238,7 @@ test('a cause reader that throws costs only the cause, never the log line (ISSUE
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => {} },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',

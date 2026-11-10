@@ -1,4 +1,5 @@
 import type { OutboxPosition } from '@daisy/db/outbox';
+import { createAppError } from '@daisy/errors';
 
 /** Cursor is sampled from the actual synchronous outbox-delivery boundary each renewal. */
 export function startRealtimeServiceLease(input: {
@@ -7,7 +8,7 @@ export function startRealtimeServiceLease(input: {
     readonly instanceId: string;
     readonly role: 'realtime';
     readonly deliveredThrough: OutboxPosition;
-  }) => Promise<unknown>;
+  }) => Promise<boolean>;
   readonly deliveredThrough: () => OutboxPosition;
   /** The renewal's own failure; the log keeps the code, never the content. */
   readonly failed: (error: unknown) => void;
@@ -26,10 +27,15 @@ export function startRealtimeServiceLease(input: {
         role: 'realtime',
         deliveredThrough: input.deliveredThrough(),
       })
-      .then(
-        () => undefined,
-        (error: unknown) => input.failed(error),
-      )
+      .then((wrote) => {
+        // A lease another role holds was not renewed: never pretend it was.
+        if (!wrote)
+          throw createAppError(
+            'CONFLICT',
+            'Service lease belongs to another role',
+          );
+      })
+      .catch((error: unknown) => input.failed(error))
       .finally(() => {
         work = null;
       });
