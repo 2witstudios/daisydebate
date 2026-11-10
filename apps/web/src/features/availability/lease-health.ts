@@ -26,11 +26,11 @@ export type Unproven =
   /** A renewal has been in flight for the whole window. */
   | { readonly kind: 'renewal_pending' }
   /** The latest renewal wrote the row only after its window had passed. */
-  | { readonly kind: 'renewal_late'; readonly tookMs: number }
+  | { readonly kind: 'renewal_late' }
   | { readonly kind: 'renewal_failed'; readonly error: unknown }
   /**
-   * The process did not run its checks and renewals in time (a stalled
-   * timer or event loop), whatever renewal it has started since.
+   * The process did not run its renewals in time (a stalled timer or event
+   * loop): the lease lapsed with no renewal hung and none failing.
    */
   | { readonly kind: 'process_stalled' };
 
@@ -62,6 +62,8 @@ export type LeaseHealth = {
   readonly inFlightSinceMs: number | null;
   /** Monotonic ms of the previous check, to tell a stalled process. */
   readonly checkedMs: number;
+  /** Whether the process stalled since the lease was last proven. */
+  readonly stalled: boolean;
   readonly delivered: Delivered;
   /** Monotonic ms since which every check has found the lease proven. */
   readonly provenSinceMs: number | null;
@@ -98,6 +100,7 @@ export const startingLease = (nowMs: number): LeaseHealth => ({
   settled: null,
   inFlightSinceMs: null,
   checkedMs: nowMs,
+  stalled: false,
   delivered: nothingDelivered,
   provenSinceMs: null,
 });
@@ -117,13 +120,7 @@ export function afterRenewal(
     };
   const provenUntilMs = renewal.startedMs + SERVICE_LEASE_WINDOW_MS;
   if (renewal.settledMs >= provenUntilMs)
-    return {
-      ...done,
-      settled: {
-        kind: 'renewal_late',
-        tookMs: renewal.settledMs - renewal.startedMs,
-      },
-    };
+    return { ...done, settled: { kind: 'renewal_late' } };
   return {
     ...done,
     currentUntilMs: Math.max(health.currentUntilMs, provenUntilMs),
@@ -131,17 +128,16 @@ export function afterRenewal(
   };
 }
 
-/** Why the lease is unproven at `nowMs`. A stall outranks a hung renewal. */
+/** Why the lease is unproven at `nowMs`, on a check that follows another. */
 const unprovenAt = (health: LeaseHealth, nowMs: number): Unproven => {
-  if (nowMs - health.checkedMs >= SERVICE_LEASE_WINDOW_MS)
-    return { kind: 'process_stalled' };
+  if (health.stalled) return { kind: 'process_stalled' };
   if (
     health.inFlightSinceMs !== null &&
     nowMs - health.inFlightSinceMs >= SERVICE_LEASE_WINDOW_MS
   )
     return { kind: 'renewal_pending' };
-  // No stall seen now, no hung renewal and no settled failure: for most of
-  // a lapse this long, no renewal ran at all.
+  // No hung renewal and no settled failure: for most of a lapse this long,
+  // no renewal ran at all, so the process itself stalled.
   return health.settled ?? { kind: 'process_stalled' };
 };
 
@@ -164,6 +160,7 @@ export function checkLease(
     return {
       health: {
         ...checked,
+        stalled: false,
         provenSinceMs,
         delivered:
           nowMs - provenSinceMs >= RECOVERED_MS
@@ -174,6 +171,11 @@ export function checkLease(
     };
   }
   const unrecovered = { ...checked, provenSinceMs: null };
+  // Just resumed from a stall: this tick's renewal has not even started, so
+  // give it the chance to prove the lease before anyone is told, and name
+  // the stall if it cannot.
+  if (nowMs - health.checkedMs >= SERVICE_LEASE_WINDOW_MS)
+    return { health: { ...unrecovered, stalled: true }, due: null };
   const log = isDue(health.delivered.logMs, nowMs);
   const report = isDue(health.delivered.reportMs, nowMs);
   return lapsedMs >= PERSIST_MS && (log || report)

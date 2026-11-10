@@ -168,7 +168,7 @@ test('renewals that each commit 4 s after their call prove nothing, and report a
     actual: lapsesOver(20, () => ({ kind: 'renewed', tookMs: 4000 })).map(
       ({ atMs, unproven }) => [atMs, unproven],
     ),
-    expected: [[10_000, { kind: 'renewal_late', tookMs: 4000 }]],
+    expected: [[10_000, { kind: 'renewal_late' }]],
   });
 });
 
@@ -190,23 +190,35 @@ const provenAtStart = () =>
     { kind: 'renewed', startedMs: 0, settledMs: 50 },
   );
 
-test('a stalled process is named as such, whatever renewal it has started since', () => {
-  const stalled = provenAtStart();
-  const resumed = afterRenewal(provenAtStart(), {
-    kind: 'started',
-    startedMs: 12_900,
-  });
-  const hangingThroughStall = afterRenewal(provenAtStart(), {
-    kind: 'started',
-    startedMs: 500,
-  });
+test('the check right after a stall tells no one, so a renewal that then proves the lease is never a page', () => {
+  const resumed = checkLease(provenAtStart(), 10_500);
+  const renewed = afterRenewal(
+    afterRenewal(resumed.health, { kind: 'started', startedMs: 10_500 }),
+    { kind: 'renewed', startedMs: 10_500, settledMs: 10_550 },
+  );
   assert({
     given:
-      'a timely renewal at start, then no check for thirteen seconds: with nothing in flight, with a renewal started just before the check, and with one in flight through the stall',
+      'a timely renewal at start, a 10.5 s stall, then a renewal that settles 50 ms after the tick resumes',
+    should: 'report nothing, on the resumed check or the next',
+    actual: [resumed.due, checkLease(renewed, 11_500).due],
+    expected: [null, null],
+  });
+});
+
+test('a stalled process is named as such, whatever renewal it has started since', () => {
+  const nextTick = (startedMs: number | null) => {
+    const resumed = checkLease(provenAtStart(), 13_000).health;
+    const health =
+      startedMs === null
+        ? resumed
+        : afterRenewal(resumed, { kind: 'started', startedMs });
+    return checkLease(health, 14_000).due?.lapse.unproven.kind;
+  };
+  assert({
+    given:
+      'a timely renewal at start, a thirteen-second stall, and the tick after it: with nothing in flight, a renewal started on resuming, and one in flight through the stall',
     should: 'report each lapse as a stalled process, not a hung renewal',
-    actual: [stalled, resumed, hangingThroughStall].map(
-      (health) => checkLease(health, 13_000).due?.lapse.unproven.kind,
-    ),
+    actual: [nextTick(null), nextTick(13_000), nextTick(500)],
     expected: ['process_stalled', 'process_stalled', 'process_stalled'],
   });
 });
@@ -227,8 +239,10 @@ test('a renewal hung while the process keeps checking is named a pending renewal
 });
 
 test('a lapse is due on a channel only until that channel delivers', () => {
-  const lapsed = checkLease(provenAtStart(), 13_000);
-  const logged = delivered(lapsed.health, 'log', 13_000);
+  let health = provenAtStart();
+  for (let ms = 1000; ms <= 13_000; ms += 1000)
+    health = checkLease(health, ms).health;
+  const logged = delivered(health, 'log', 13_000);
   const next = checkLease(logged, 14_000).due;
   assert({
     given: 'a due lapse whose log went out at 13 s but whose report did not',
