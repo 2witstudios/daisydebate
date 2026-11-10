@@ -40,10 +40,9 @@ ALTER TABLE "notification_preferences" DROP CONSTRAINT "notification_preferences
 ALTER TABLE "notifications" DROP CONSTRAINT "notifications_debater_check";--> statement-breakpoint
 ALTER INDEX "notifications_debater_idx" RENAME TO "notifications_actor_idx";--> statement-breakpoint
 DROP INDEX "notifications_once_unique";--> statement-breakpoint
-ALTER TABLE "notification_preferences" ADD COLUMN "channel" text;--> statement-breakpoint
 --> Every stored choice so far was an in-app one.
-UPDATE "notification_preferences" SET "channel" = 'in_app';--> statement-breakpoint
-ALTER TABLE "notification_preferences" ALTER COLUMN "channel" SET NOT NULL;--> statement-breakpoint
+ALTER TABLE "notification_preferences" ADD COLUMN "channel" text DEFAULT 'in_app' NOT NULL;--> statement-breakpoint
+ALTER TABLE "notification_preferences" ALTER COLUMN "channel" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "notifications" ADD COLUMN "room_invitation_id" text;--> statement-breakpoint
 ALTER TABLE "notifications" ADD COLUMN "challenge_id" text;--> statement-breakpoint
 --> Every hold so far was a challenge's debater hold.
