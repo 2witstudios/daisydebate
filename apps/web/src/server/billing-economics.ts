@@ -224,7 +224,12 @@ export function startBillingEconomics(input: {
     // A failure outside any collection (an invalid clock, a defect) is raised once per month and
     // reason until a collection completes.
     failed: (error) => {
-      const key = `${collecting ?? 'unknown'}:${innermostReason(error) ?? reasonWord.collect}`;
+      // Never throws (ISSUE-789): a cause chain that cannot be read keys as the stage's own word.
+      let reason: string | undefined;
+      guarded(() => {
+        reason = innermostReason(error);
+      });
+      const key = `${collecting ?? 'unknown'}:${reason ?? reasonWord.collect}`;
       if (collectRaised.has(key)) return;
       failed(
         isAppError(error) ? error : reasonError('collect', error),

@@ -453,3 +453,22 @@ test("a feed the files edge refuses for its contents is feed_invalid, the operat
     expected: ['feed_invalid', 'feed_unreadable'],
   });
 });
+
+test('a monthly run never treats its own month as a correction, whatever the clock says', async () => {
+  const saved: unknown[] = [];
+  const r = await createBillingEconomicsCollector({
+    store: { read: async () => snapshot() },
+    feed: { read: async () => null },
+    now: () => '2026-12-01T00:00:00.500Z',
+    save: async (value) => {
+      saved.push(value);
+    },
+  }).run(window);
+  assert({
+    given:
+      'a monthly run of October whose clock has crossed into December, with no feed',
+    should: 'save an incomplete report, never fail as feed_missing',
+    actual: [r.kind, r.kind === 'reported' && r.feed, saved.length],
+    expected: ['reported', 'missing', 1],
+  });
+});

@@ -799,3 +799,56 @@ test('a saved correction raises its signals, as the worker does', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a failure outside any collection whose cause chain cannot be read never rejects the worker', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
+  const captured: string[] = [];
+  const unreadable = new Error('clock defect');
+  Object.defineProperty(unreadable, 'cause', {
+    get: () => {
+      throw new Error('unreadable cause');
+    },
+  });
+  let tick: (() => Promise<void>) | null = null;
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger: silentLogger,
+      clock: {
+        now: () => {
+          throw unreadable;
+        },
+      },
+      database: { ...app.database, billingEconomics: snapshotStore() },
+      reporter: {
+        capture: (_error, context) => {
+          captured.push(context.route);
+        },
+      },
+    },
+    instanceId: 'service-fixture',
+    timers: {
+      setInterval: (run) => {
+        tick = run;
+        return 1;
+      },
+      clearInterval: () => undefined,
+    },
+  });
+  try {
+    await service.started;
+    await (tick as (() => Promise<void>) | null)?.();
+    assert({
+      given:
+        'a clock that throws an error whose cause getter throws, on two ticks',
+      should: 'report it once as collect, never rejecting the worker',
+      actual: captured,
+      expected: ['billing.economics.collect'],
+    });
+  } finally {
+    await service.stop();
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
