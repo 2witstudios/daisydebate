@@ -203,11 +203,13 @@ raises each thing once per process:
   else changes in the report: a feed arriving, or one plan's margin changing,
   sends only the signals not yet raised.
 - **Failures.** A failure's identity is its stage and its error code, so a
-  different kind of problem in the same stage is a new notice; a typed
-  refusal's closed reason (with the system code of any untyped error it wraps,
-  so `EMFILE` and `EIO` differ), or an untyped error's class and system code (an
-  errno such as `ECONNREFUSED`, or a SQLSTATE), tells one problem from another,
-  never a message. Capacity
+  different kind of problem in the same stage is a new notice; the
+  innermost closed refusal reason in the cause chain (the fault the log line
+  names), plus the class and system code of the innermost untyped error (an
+  errno such as `EMFILE` or `ECONNREFUSED`, or a SQLSTATE such as `55P03`, which
+  Bun SQL carries in `errno`), tells one problem from another, never a message.
+  The chain is read so it cannot throw: own data properties only, a cycle guard
+  and a bound. Capacity
   backpressure is never a notice: every refusal goes to the shared failure
   sink, which absorbs eight per stage and reports the ninth, so starvation is
   reported even after another failure of that stage, and it never masks one. A failure is raised once until a report is saved again; after that

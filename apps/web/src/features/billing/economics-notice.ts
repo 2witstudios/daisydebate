@@ -1,5 +1,11 @@
 import { isAppError } from '@daisy/errors';
 import type { EconomicsSignal } from './economics-alert';
+import {
+  causeChain,
+  classNameOf,
+  innermostReason,
+  systemCodeOf,
+} from './economics-cause';
 import { typedCodeOr, type EconomicsCollection } from './economics-collector';
 
 type Collection<K extends EconomicsCollection['kind']> = Extract<
@@ -18,25 +24,22 @@ export function failureNotice(collection: Collection<'failed'>): string {
   return `${collection.month}:${collection.reason}:${code}:${problemOf(cause)}`;
 }
 
-/** A system error's own closed code: an errno such as ECONNREFUSED, or a SQLSTATE. */
-const systemCode = (error: Error) =>
-  'code' in error && typeof error.code === 'string' ? error.code : '';
-
 /**
  * What distinguishes one problem from another without reading free text (ADR
- * 0102): a typed refusal's closed reason, plus the system code of an untyped
- * error it wraps (so EMFILE and EIO differ), or an untyped error's class and
- * system code. A typed error with no reason is one problem per code.
+ * 0102), read through a chain that cannot throw: the innermost closed refusal
+ * reason (the actual fault, the same one the log line names), plus the class
+ * and system code (errno, or SQLSTATE) of the innermost untyped error. So
+ * EMFILE and EIO differ, a lock timeout and a statement timeout differ, and a
+ * typed error with no reason is one problem per code.
  */
 export function problemOf(cause: unknown): string {
-  if (isAppError(cause)) {
-    const inner = cause.cause;
-    const system =
-      inner instanceof Error && !isAppError(inner) ? systemCode(inner) : '';
-    return `${cause.reason ?? ''}/${system}`;
-  }
-  if (!(cause instanceof Error)) return '';
-  return `${cause.name}/${systemCode(cause)}`;
+  const untyped = causeChain(cause)
+    .filter((link) => !isAppError(link))
+    .at(-1);
+  const system = untyped
+    ? `${classNameOf(untyped)}/${systemCodeOf(untyped)}`
+    : '';
+  return `${innermostReason(cause) ?? ''}/${system}`;
 }
 
 /** A failure outside any collection: its code and problem, one notice until a collection completes. */
@@ -48,15 +51,9 @@ export const signalFailureNotice = (month: string) => `${month}:signal_failed`;
 
 const signalKey = (signal: EconomicsSignal) => `${signal.name}/${signal.plan}`;
 
-/**
- * What this process has raised for the month it is collecting. Each signal is
- * raised once a month, whatever else changes in the report. A failure notice
- * is raised once until a report settles again, so a regression after recovery
- * is news. A new month starts empty, except failures outside any collection,
- * which are not month-bound and clear when a collection completes.
- */
-export type EconomicsRaised = {
-  readonly month: string | null;
+/** What this process has raised for the month it is collecting. */
+type MonthRaised = {
+  readonly month: string;
   /** Failure notices reported since the month's last settled report. */
   readonly failures: ReadonlySet<string>;
   /** Signals the reporter took this month. */
@@ -67,11 +64,19 @@ export type EconomicsRaised = {
   readonly collect: ReadonlySet<string>;
 };
 
+/**
+ * What this process has raised: nothing for any month yet (only failures
+ * outside a collection can exist then), or one month's record. Each signal is
+ * raised once a month, whatever else changes in the report. A failure notice is
+ * raised once until a report settles again, so a regression after recovery is
+ * news. A new month starts empty, except failures outside any collection,
+ * which are not month-bound and clear when a collection completes.
+ */
+export type EconomicsRaised =
+  { readonly month: null; readonly collect: ReadonlySet<string> } | MonthRaised;
+
 export const nothingRaised: EconomicsRaised = {
   month: null,
-  failures: new Set(),
-  signals: new Set(),
-  feedMissingLogged: false,
   collect: new Set(),
 };
 
@@ -79,10 +84,16 @@ export const nothingRaised: EconomicsRaised = {
 export const raisedIn = (
   raised: EconomicsRaised,
   month: string,
-): EconomicsRaised =>
-  raised.month === month
+): MonthRaised =>
+  raised.month !== null && raised.month === month
     ? raised
-    : { ...nothingRaised, month, collect: raised.collect };
+    : {
+        month,
+        failures: new Set(),
+        signals: new Set(),
+        feedMissingLogged: false,
+        collect: raised.collect,
+      };
 
 /** Whether this failure notice was already reported since the month's last settled report. */
 export const isFailureRaised = (

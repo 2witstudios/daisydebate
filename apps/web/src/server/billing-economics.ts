@@ -1,6 +1,5 @@
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
-import type { RefusalReason } from '@daisy/protocol';
 import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
 import type { App } from './app';
 import {
@@ -11,6 +10,7 @@ import {
 } from '../features/billing/economics-collector';
 
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
+import { innermostReason } from '../features/billing/economics-cause';
 import {
   failureNotice,
   isFailureRaised,
@@ -28,14 +28,17 @@ import {
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
-import { workerFailures } from './recoverable-failure';
+import { workerFailures, type FailureVerdict } from './recoverable-failure';
 import {
   startSingleFlightWorker,
   type WorkerTimers,
 } from '../lib/worker-timers';
 
-const reportedOnly: ReadonlySet<string> = new Set(['reported']);
-const reportedOrLogged: ReadonlySet<string> = new Set(['reported', 'logged']);
+const reportedOnly: ReadonlySet<FailureVerdict> = new Set(['reported']);
+const reportedOrLogged: ReadonlySet<FailureVerdict> = new Set([
+  'reported',
+  'logged',
+]);
 
 /** Every operation this worker reports under: a collection stage, or its own two. */
 type EconomicsStage = EconomicsCollectionFailure | 'signal_failed' | 'collect';
@@ -105,16 +108,7 @@ const stageError = (stage: EconomicsStage, code: ErrorCode, cause: unknown) =>
  * otherwise the stage the reported error names. Only an error with no reason
  * anywhere names nothing.
  */
-export const economicsFailureCheck = (error: unknown) => {
-  // The innermost reason names the actual fault; outer ones say where it was met.
-  let named: RefusalReason | undefined;
-  let current: unknown = error;
-  for (let depth = 0; depth < 8 && current instanceof Error; depth++) {
-    if (isAppError(current) && current.reason) named = current.reason;
-    current = current.cause;
-  }
-  return named;
-};
+export const economicsFailureCheck = (error: unknown) => innermostReason(error);
 
 /**
  * One bounded monthly collection per hourly tick, raising each signal once a
@@ -156,26 +150,18 @@ export function startBillingEconomics(input: {
     notice: string,
     error: unknown,
     stage: EconomicsStage,
-    settles: ReadonlySet<string> = reportedOnly,
+    settles: ReadonlySet<FailureVerdict> = reportedOnly,
   ) => {
     if (isFailureRaised(raised, month, notice)) return;
     if (settles.has(failed(error, stage)))
       raised = recordFailure(raised, month, notice);
   };
-  const raise = (collection: EconomicsCollection) => {
-    if (collection.kind !== 'failed') return raiseReport(collection);
-    try {
-      raiseFailure(collection);
-    } catch {
-      // A hostile cause (a throwing getter) still reports its stage, never as `collect`, once.
-      reportOnce(
-        collection.month,
-        `${collection.month}:${collection.reason}:unreadable`,
-        stageError(collection.reason, collection.code, undefined),
-        collection.reason,
-      );
-    }
-  };
+  // Every reader of a cause goes through the safe chain (economics-cause), so a hostile error
+  // cannot make raising throw; no unreadable fallback is needed.
+  const raise = (collection: EconomicsCollection) =>
+    collection.kind === 'failed'
+      ? raiseFailure(collection)
+      : raiseReport(collection);
   const raiseFailure = (
     collection: Extract<EconomicsCollection, { readonly kind: 'failed' }>,
   ) => {
@@ -200,28 +186,22 @@ export function startBillingEconomics(input: {
   const raiseReport = (
     collection: Extract<EconomicsCollection, { readonly kind: 'reported' }>,
   ) => {
-    // A supplied feed re-arms the missing-feed line, so a feed that later disappears is logged.
-    if (
-      collection.feed === 'supplied' &&
-      raisedIn(raised, collection.month).feedMissingLogged
-    )
-      raised = recordFeedMissingLogged(raised, collection.month, false);
-    // Logged before any signal is raised, so a throwing reporter cannot keep the month quiet.
-    if (
-      collection.feed === 'missing' &&
-      !raisedIn(raised, collection.month).feedMissingLogged
-    ) {
-      // Marked only once written, so a log sink that threw is retried next tick.
-      if (
-        logSafely(
-          app,
-          'billing.economics.feed_missing',
-          'Private billing economics feed is missing for the month; the report stays incomplete',
-          'economics-feed-missing',
-        )
-      )
-        raised = recordFeedMissingLogged(raised, collection.month, true);
-    }
+    // The missing-feed line: logged once per absence, before any signal is raised, so a throwing
+    // reporter cannot keep the month quiet. A supplied feed re-arms it; a line the log sink refused
+    // is retried next tick.
+    const logged = raisedIn(raised, collection.month).feedMissingLogged;
+    const nowLogged =
+      collection.feed === 'supplied'
+        ? false
+        : logged ||
+          logSafely(
+            app,
+            'billing.economics.feed_missing',
+            'Private billing economics feed is missing for the month; the report stays incomplete',
+            'economics-feed-missing',
+          );
+    if (nowLogged !== logged)
+      raised = recordFeedMissingLogged(raised, collection.month, nowLogged);
     const owed = owedSignals(raised, collection);
     const submitted = raiseEconomicsSignals(app.reporter, {
       month: collection.month,
@@ -252,26 +232,16 @@ export function startBillingEconomics(input: {
     // A failure outside any collection (an invalid clock, a defect) is reported once per
     // distinct problem until a collection completes again, never every hour.
     failed: (error) => {
-      // Never throws (ISSUE-789): reading a hostile error falls back to the stage's own error.
-      try {
-        const notice = collectFailureNotice(error);
-        if (isCollectRaised(raised, notice)) return;
-        // An error that names no check is wrapped, so the line names its stage.
-        const named =
-          isAppError(error) && error.reason
-            ? error
-            : stageError('collect', typedCodeOr(error, 'INTERNAL'), error);
-        if (failed(named, 'collect') === 'reported')
-          raised = recordCollect(raised, notice);
-      } catch {
-        // Unreadable, but still once until a collection completes.
-        if (isCollectRaised(raised, 'collect:unreadable')) return;
-        if (
-          failed(stageError('collect', 'INTERNAL', undefined), 'collect') ===
-          'reported'
-        )
-          raised = recordCollect(raised, 'collect:unreadable');
-      }
+      // Never throws (ISSUE-789): the notice is read through the safe chain.
+      const notice = collectFailureNotice(error);
+      if (isCollectRaised(raised, notice)) return;
+      // An error that names no check of its own is wrapped, so the line names its stage.
+      const named =
+        innermostReason(error) !== undefined
+          ? error
+          : stageError('collect', typedCodeOr(error, 'INTERNAL'), error);
+      if (failed(named, 'collect') === 'reported')
+        raised = recordCollect(raised, notice);
     },
     run: async () => {
       const window = previousEconomicsMonth(app.clock.now());

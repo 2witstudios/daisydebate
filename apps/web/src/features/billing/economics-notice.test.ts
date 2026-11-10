@@ -73,7 +73,7 @@ test('the same failure every hour is one notice; a different code in the stage i
       failureNotice(capacity),
     ],
     expected: [
-      '2026-10:save_failed:INTERNAL:Error/',
+      '2026-10:save_failed:INTERNAL:/Error/',
       '2026-10:save_failed:INFRASTRUCTURE:/',
     ],
   });
@@ -306,5 +306,48 @@ test('collect notices survive a month change and clear when a collection complet
       nextMonth.signals.size,
     ],
     expected: [true, false, 0],
+  });
+});
+
+test('a lock timeout and a statement timeout are different database problems', () => {
+  const sqlstate = (errno: string) => ({
+    ...failed('2026-10', 'save_failed'),
+    reason: 'snapshot_failed' as const,
+    code: 'INFRASTRUCTURE' as const,
+    cause: Object.assign(new Error('server error'), {
+      name: 'PostgresError',
+      code: 'ERR_POSTGRES_SERVER_ERROR',
+      errno,
+    }),
+  });
+  assert({
+    given: 'two Bun SQL server errors with SQLSTATE 55P03 and 57014 in errno',
+    should: 'be two notices',
+    actual:
+      failureNotice(sqlstate('55P03')) === failureNotice(sqlstate('57014')),
+    expected: false,
+  });
+});
+
+test('a nested refusal is keyed by its innermost reason, as the log names it', () => {
+  const reader = (inner: BillingEconomicsRefusal) => ({
+    ...failed('2026-10', 'save_failed'),
+    reason: 'feed_unreadable' as const,
+    code: 'INFRASTRUCTURE' as const,
+    cause: createRefusal(
+      'INFRASTRUCTURE',
+      'economics-sink-unreadable',
+      undefined,
+      createRefusal('VALIDATION', inner),
+    ),
+  });
+  assert({
+    given:
+      'the feed reader refusal wrapping first a privacy fault, then an ownership fault',
+    should: 'be two notices',
+    actual:
+      failureNotice(reader('economics-sink-not-private')) ===
+      failureNotice(reader('economics-sink-unusable')),
+    expected: false,
   });
 });

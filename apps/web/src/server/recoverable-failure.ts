@@ -12,6 +12,9 @@ import type { App } from './app';
  */
 const CAPACITY_DEFERRAL_LIMIT = 8;
 
+/** What the failure sink did with a failure, so a caller never re-derives its rule. */
+export type FailureVerdict = 'reported' | 'logged' | 'unrecorded' | 'deferred';
+
 /**
  * A background worker's recoverable failure: the log line names the stage
  * and the error's own code; only the scrubbed reporter sees the raw error
@@ -44,7 +47,7 @@ export function recoverableFailure(input: {
   const report = (
     error: unknown,
     operation: string,
-  ): 'reported' | 'logged' | 'unrecorded' => {
+  ): Exclude<FailureVerdict, 'deferred'> => {
     const errorCode = isAppError(error) ? error.code : 'INTERNAL';
     let cause: string | undefined;
     // A cause reader that throws costs only the cause, never the log line.
@@ -75,10 +78,7 @@ export function recoverableFailure(input: {
    * (neither) or `deferred` (absorbed as capacity backpressure within the
    * bound), so a caller never re-derives the rule.
    */
-  return (
-    error: unknown,
-    stage: string,
-  ): 'reported' | 'logged' | 'unrecorded' | 'deferred' => {
+  return (error: unknown, stage: string): FailureVerdict => {
     const operation = `${input.operation}.${stage}`;
     let capacity = false;
     attempt(() => {
