@@ -25,14 +25,16 @@ import {
 import type { ShellRatings } from '../../ui/layout/app-shell/account';
 import { requestActiveRoom } from './active-room';
 import { toggleRail } from './rail-actions';
+import { VisitorFeatures } from '../visitor-features';
 
 /**
  * The signed-in product shell: renders AppShell's landmarks once (header,
  * nav, topic banner, content column, presence dock) and resolves the account once per
  * request, so every route in this group inherits the chrome instead of each
- * page composing it for itself. The root layout above keeps only <html>,
- * theme and fonts. The sample-action banner sits above every page: a control
- * with no backend answers with it on the same page. A member's active
+ * page composing it for itself, and renders the visitor features (ADR 0123).
+ * The root layout above keeps only <html>, theme and fonts. The
+ * sample-action banner sits above every page: a control with no backend
+ * answers with it on the same page. A member's active
  * Room (ADR 0070) shows its way back on every page but its own. The rail
  * width is a cookie read per request (validated: it is untrusted), so the
  * served HTML already carries the viewer's rail (ADR 0091), and the toggle's
@@ -68,37 +70,40 @@ export default async function ShellLayout({
         )
       : null;
   return (
-    <UiStoreProvider>
-      {/* An unread identity says nothing about who this is: a refusal is no sign-out. */}
-      {identity.state === 'unavailable' ? null : (
-        <MediaAccount
-          actorId={
-            identity.state === 'member' ? identity.principal.actorId : null
+    <>
+      <UiStoreProvider>
+        {/* An unread identity says nothing about who this is: a refusal is no sign-out. */}
+        {identity.state === 'unavailable' ? null : (
+          <MediaAccount
+            actorId={
+              identity.state === 'member' ? identity.principal.actorId : null
+            }
+          />
+        )}
+        <AppShell
+          account={shellAccount(identity)}
+          activeRoom={activeRoom}
+          rail={rail}
+          ratings={ratings}
+          toggleRail={toggleRail}
+          people={people}
+          statusControl={
+            chosen ? (
+              <StatusForm action={setStatusAction} chosen={chosen} />
+            ) : undefined
           }
-        />
-      )}
-      <AppShell
-        account={shellAccount(identity)}
-        activeRoom={activeRoom}
-        rail={rail}
-        ratings={ratings}
-        toggleRail={toggleRail}
-        people={people}
-        statusControl={
-          chosen ? (
-            <StatusForm action={setStatusAction} chosen={chosen} />
-          ) : undefined
-        }
-      >
-        <ModerationNotices
-          notices={notices}
-          acknowledge={acknowledgeNoticeAction}
-        />
-        <Suspense fallback={null}>
-          <SampleActionNotice />
-        </Suspense>
-        {children}
-      </AppShell>
-    </UiStoreProvider>
+        >
+          <ModerationNotices
+            notices={notices}
+            acknowledge={acknowledgeNoticeAction}
+          />
+          <Suspense fallback={null}>
+            <SampleActionNotice />
+          </Suspense>
+          {children}
+        </AppShell>
+      </UiStoreProvider>
+      <VisitorFeatures />
+    </>
   );
 }

@@ -97,7 +97,7 @@ export function hasPrincipalDrafts(
   }
 }
 
-/** What the root does on a server-rendered mount. Only proof of a change purges. */
+/** What draft privacy does on a server-rendered mount of a visitor layout (ADR 0123). Only proof of a change purges. */
 export const rootMountAction = (
   principalId: string | null,
   signOutIntent: boolean,
