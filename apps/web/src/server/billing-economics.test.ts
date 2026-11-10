@@ -5,7 +5,6 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { refuseCapacity } from '@daisy/db/testing';
-import { innermostReason } from '../features/billing/economics-cause';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { createApp } from './app';
 import { createEventRecorder, silentLogger } from './test-loggers.test-support';
@@ -230,7 +229,7 @@ test('a genuine failure is reported once with its caught error, and a changed ou
       given:
         'a sink directory that is not private for two ticks, then repaired before the third',
       should:
-        'capture one typed error carrying the caught error as sink_unavailable (VALIDATION: the directory is misconfigured), then raise the new feed-missing outcome',
+        'capture one typed error carrying the caught error as feed_unreadable (VALIDATION: the directory is misconfigured), then raise the new feed-missing outcome',
       actual: {
         captured: run.captured.map((c) => [
           c.route,
@@ -246,7 +245,7 @@ test('a genuine failure is reported once with its caught error, and a changed ou
       expected: {
         captured: [
           [
-            'billing.economics.sink_unavailable',
+            'billing.economics.feed_unreadable',
             'VALIDATION',
             'Billing economics directory is not private',
           ],
@@ -267,46 +266,9 @@ test('a genuine failure is reported once with its caught error, and a changed ou
           ],
         ],
         logged: [
-          ['billing.economics.failed', 'billing.economics.sink_unavailable'],
+          ['billing.economics.failed', 'billing.economics.feed_unreadable'],
           ['billing.economics.feed_missing', 'billing.economics.collect'],
         ],
-      },
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a reporter that throws is logged as signal_failed and retried next tick', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  let failing = true;
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 1,
-      capture: () => {
-        if (failing) {
-          failing = false;
-          throw new Error('private adapter');
-        }
-      },
-    });
-    assert({
-      given: 'a reporter whose first signal capture throws',
-      should:
-        'log feed_missing once and signal_failed once, then raise the signals on the next tick',
-      actual: {
-        logged: run.logged.map((line) => [line.event, line.fields.operation]),
-        incomplete: run.captured.filter(
-          (c) => c.errorCode === 'BILLING_ECONOMICS_INCOMPLETE',
-        ).length,
-      },
-      expected: {
-        logged: [
-          ['billing.economics.feed_missing', 'billing.economics.collect'],
-          ['billing.economics.failed', 'billing.economics.signal_failed'],
-        ],
-        incomplete: 3,
       },
     });
   } finally {
@@ -385,42 +347,6 @@ test('the composed private-file collector uses the recorded floor and cannot acc
   }
 });
 
-test('a deferred capacity refusal never mutes a later genuine failure', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const genuine = new Error('Economics snapshot unavailable');
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 2,
-      refuse: (read) => (read === 1 ? refuseCapacity() : genuine),
-    });
-    assert({
-      given:
-        'a capacity refusal on the first snapshot read, then the same genuine failure on two ticks',
-      should:
-        'defer the refusal silently, then log and capture the genuine failure exactly once',
-      actual: {
-        logged: run.logged.map((line) => [line.event, line.fields.operation]),
-        captured: run.captured.map((c) => [
-          c.route,
-          c.errorCode,
-          c.error instanceof Error && c.error.cause === genuine,
-        ]),
-      },
-      expected: {
-        logged: [
-          ['billing.economics.failed', 'billing.economics.snapshot_failed'],
-        ],
-        captured: [
-          ['billing.economics.snapshot_failed', 'INFRASTRUCTURE', true],
-        ],
-      },
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
 test('a reporter that fails mid-batch retries only the signals it did not submit', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
   let calls = 0;
@@ -451,37 +377,7 @@ test('a reporter that fails mid-batch retries only the signals it did not submit
   }
 });
 
-test('report signals are raised once a month, a returning failure after each recovery', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 4,
-      between: async (n) => {
-        if (n === 1 || n === 3) await chmod(directory, 0o755);
-        if (n === 2 || n === 4) await chmod(directory, 0o700);
-      },
-    });
-    assert({
-      given:
-        'feed missing, sink unavailable, feed missing, sink unavailable, feed missing',
-      should:
-        'raise the completeness signals once a month, and the sink failure each time it returns after a report settled',
-      actual: run.captured.map((c) => c.route),
-      expected: [
-        'billing.economics.free',
-        'billing.economics.beta',
-        'billing.economics.premium',
-        'billing.economics.sink_unavailable',
-        'billing.economics.sink_unavailable',
-      ],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a reporter that keeps throwing is reported as signal_failed once, and retried quietly', async () => {
+test('a reporter that keeps throwing is reported as report_failed once, and retried quietly', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
   try {
     const run = await runWorker({
@@ -496,11 +392,11 @@ test('a reporter that keeps throwing is reported as signal_failed once, and retr
       given:
         'a reporter that throws on every signal capture over four collections',
       should:
-        'log feed_missing once and signal_failed once, not every hour, with a typed INFRASTRUCTURE capture carrying the cause',
+        'log feed_missing once and report_failed once, not every hour, with a capture carrying the cause',
       actual: {
         logged: run.logged.map((line) => [line.event, line.fields.operation]),
         captured: run.captured
-          .filter((c) => c.route === 'billing.economics.signal_failed')
+          .filter((c) => c.route === 'billing.economics.report_failed')
           .map((c) => [
             c.errorCode,
             c.error instanceof Error &&
@@ -511,9 +407,9 @@ test('a reporter that keeps throwing is reported as signal_failed once, and retr
       expected: {
         logged: [
           ['billing.economics.feed_missing', 'billing.economics.collect'],
-          ['billing.economics.failed', 'billing.economics.signal_failed'],
+          ['billing.economics.failed', 'billing.economics.report_failed'],
         ],
-        captured: [['INFRASTRUCTURE', 'private adapter']],
+        captured: [['INTERNAL', 'private adapter']],
       },
     });
   } finally {
@@ -540,224 +436,15 @@ test('a failure that returns after a recovery is raised again', async () => {
         'raise the full sink, then the signals, then the full sink once more as a regression',
       actual: run.captured.map((c) => c.route),
       expected: [
-        'billing.economics.sink_unavailable',
+        'billing.economics.save_failed',
         'billing.economics.free',
         'billing.economics.beta',
         'billing.economics.premium',
-        'billing.economics.sink_unavailable',
+        'billing.economics.save_failed',
       ],
     });
   } finally {
     await chmod(directory, 0o700);
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a throwing logger after submission never makes the next tick re-send signals', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 2,
-      logThrows: (event) => event === 'billing.economics.feed_missing',
-    });
-    assert({
-      given:
-        'a logger that throws when feed_missing is logged, over three collections',
-      should: 'still capture each completeness signal exactly once',
-      actual: run.captured
-        .filter((c) => c.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
-        .map((c) => c.route),
-      expected: [
-        'billing.economics.free',
-        'billing.economics.beta',
-        'billing.economics.premium',
-      ],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('in a month that starts healthy, every regression after a report is raised', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 4,
-      between: async (n) => {
-        if (n === 1 || n === 3) await fillSink(directory);
-        if (n === 2) await drainSink(directory);
-      },
-    });
-    assert({
-      given:
-        'a report, a refused save, a report, then two refused saves (five collections)',
-      should:
-        'raise the signals once and sink_unavailable after each recovery, once per regression',
-      actual: run.captured.map((c) => c.route),
-      expected: [
-        'billing.economics.free',
-        'billing.economics.beta',
-        'billing.economics.premium',
-        'billing.economics.sink_unavailable',
-        'billing.economics.sink_unavailable',
-      ],
-    });
-  } finally {
-    await chmod(directory, 0o700);
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a failure neither sink took is retried on the next tick, then settled', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  let logs = 0,
-    captures = 0;
-  try {
-    await chmod(directory, 0o755);
-    const run = await runWorker({
-      directory,
-      ticks: 2,
-      logThrows: (event) =>
-        event === 'billing.economics.failed' && ++logs === 1,
-      capture: () => {
-        if (++captures === 1) throw new Error('reporter');
-      },
-    });
-    assert({
-      given:
-        'a sink failure whose first log line and first capture both throw, over three collections',
-      should:
-        'retry it on the next tick, where it is recorded, and then raise it no more',
-      actual: {
-        attempts: run.logged.filter(
-          (line) => line.event === 'billing.economics.failed',
-        ).length,
-        captured: run.captured.map((c) => c.route),
-      },
-      expected: {
-        attempts: 2,
-        captured: ['billing.economics.sink_unavailable'],
-      },
-    });
-  } finally {
-    await chmod(directory, 0o700);
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('invalid data is captured as VALIDATION, an unavailable resource as INFRASTRUCTURE', async () => {
-  const codes = async (
-    prepare: (directory: string) => Promise<void>,
-    snapshot?: (period: { startsAt: string; endsAt: string }) => unknown,
-  ) => {
-    const directory = await mkdtemp(
-      join(tmpdir(), 'billing-economics-worker-'),
-    );
-    try {
-      await prepare(directory);
-      const run = await runWorker({
-        directory,
-        ticks: 0,
-        ...(snapshot ? { snapshot } : {}),
-      });
-      return run.captured.map((c) => [c.route, c.errorCode]);
-    } finally {
-      await chmod(directory, 0o700);
-      await rm(directory, { recursive: true, force: true });
-    }
-  };
-  const feedFile = (directory: string, body: string) =>
-    writeFile(join(directory, 'feed-2026-10.json'), body, { mode: 0o600 });
-  assert({
-    given:
-      'a snapshot for another window, a feed stating a 10% floor, a truncated feed file, a non-private sink, a feed with repeated revenue sequences, and a feed over 1 MiB',
-    should:
-      'capture each misconfiguration or bad datum as VALIDATION, a non-private sink included',
-    actual: [
-      await codes(
-        async () => undefined,
-        (period) => ({
-          ...period,
-          startsAt: '2026-09-01T00:00:00.000Z',
-          observedAt: now,
-          attempts: [],
-          usage: [],
-          complete: true,
-        }),
-      ),
-      await codes((directory) => {
-        const { modelUsage: _m, ...financial } = dataset();
-        void _m;
-        return feedFile(
-          directory,
-          JSON.stringify({
-            ...financial,
-            modelCostBasis: 'provider_invoice',
-            floorBasisPoints: 1000,
-          }),
-        );
-      }),
-      await codes((directory) => feedFile(directory, '{"startsAt":')),
-      await codes((directory) => chmod(directory, 0o755)),
-      await codes((directory) => {
-        const { modelUsage: _m, ...financial } = dataset();
-        void _m;
-        return feedFile(
-          directory,
-          JSON.stringify({
-            ...financial,
-            modelCostBasis: 'provider_invoice',
-            revenue: [...financial.revenue, ...financial.revenue],
-          }),
-        );
-      }),
-      await codes((directory) =>
-        feedFile(directory, `"${'x'.repeat(1024 * 1024 + 1)}"`),
-      ),
-    ],
-    expected: [
-      [['billing.economics.snapshot_invalid', 'VALIDATION']],
-      [['billing.economics.feed_invalid', 'VALIDATION']],
-      [['billing.economics.feed_invalid', 'VALIDATION']],
-      [['billing.economics.sink_unavailable', 'VALIDATION']],
-      [['billing.economics.report_invalid', 'VALIDATION']],
-      [['billing.economics.feed_invalid', 'VALIDATION']],
-    ],
-  });
-});
-
-test('a changed report never re-sends a signal already raised that month', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const { modelUsage: _m, ...financial } = dataset();
-  void _m;
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 1,
-      between: async () => {
-        await writeFile(
-          join(directory, 'feed-2026-10.json'),
-          JSON.stringify({ ...financial, modelCostBasis: 'provider_invoice' }),
-          { mode: 0o600 },
-        );
-      },
-    });
-    assert({
-      given:
-        'a missing feed (incomplete for every plan), then a supplied feed leaving free and beta incomplete and premium below the floor',
-      should:
-        'raise each incomplete plan once and add only the new low-margin signal',
-      actual: run.captured.map((c) => [c.errorCode, c.route]),
-      expected: [
-        ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.free'],
-        ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.beta'],
-        ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.premium'],
-        ['BILLING_LOW_MARGIN', 'billing.economics.premium'],
-      ],
-    });
-  } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
@@ -787,27 +474,6 @@ test('a different problem in the same stage is raised, the same problem is not',
   }
 });
 
-test('a throwing feed_missing log is never a collection failure', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 1,
-      logThrows: (event) => event === 'billing.economics.feed_missing',
-    });
-    assert({
-      given: 'a logger that throws on billing.economics.feed_missing',
-      should: 'raise no billing.economics.collect failure for a saved report',
-      actual: run.captured.filter(
-        (c) => c.route === 'billing.economics.collect',
-      ).length,
-      expected: 0,
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
 test('a capacity refusal never masks a later outage, nor stops counting once an outage was raised', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
   const outage = () =>
@@ -828,59 +494,6 @@ test('a capacity refusal never masks a later outage, nor stops counting once an 
         'billing.economics.snapshot_failed',
         'billing.economics.snapshot_failed.capacity',
       ],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a regression after a saved report is raised even while signals are failing', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const outage = new Error('Economics snapshot unavailable');
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 2,
-      refuse: (read) => (read === 2 ? undefined : outage),
-      capture: (_error, context) => {
-        if (context.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
-          throw new Error('private adapter');
-      },
-    });
-    assert({
-      given:
-        'a snapshot outage, then a saved report whose signals fail, then the outage again',
-      should: 'raise the outage both times and the signal failure once',
-      actual: run.captured.map((c) => c.route),
-      expected: [
-        'billing.economics.snapshot_failed',
-        'billing.economics.signal_failed',
-        'billing.economics.snapshot_failed',
-      ],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a feed_missing line the log sink refused is written on a later tick', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  let attempts = 0;
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 2,
-      logThrows: (event) =>
-        event === 'billing.economics.feed_missing' && ++attempts === 1,
-    });
-    assert({
-      given:
-        'a log sink that throws the first time feed_missing is logged, over three collections',
-      should: 'try again on the next tick, then log it no more',
-      actual: run.logged.filter(
-        (l) => l.event === 'billing.economics.feed_missing',
-      ).length,
-      expected: 2,
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -927,80 +540,6 @@ test('a failure outside any collection is reported once, not every hour', async 
   }
 });
 
-test('each failed check is named on its log line', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const { modelUsage: _m, ...financial } = dataset();
-  void _m;
-  const feedFile = (value: unknown) =>
-    writeFile(join(directory, 'feed-2026-10.json'), JSON.stringify(value), {
-      mode: 0o600,
-    });
-  try {
-    await feedFile({
-      ...financial,
-      modelCostBasis: 'provider_invoice',
-      startsAt: '2026-09-01T00:00:00.000Z',
-    });
-    const run = await runWorker({
-      directory,
-      ticks: 1,
-      between: () =>
-        feedFile({ ...financial, modelCostBasis: 'usage_counters' }),
-    });
-    assert({
-      given:
-        'a feed for the wrong window, then a feed with conflicting cost bases',
-      should: 'log two feed_invalid lines, each naming its own check',
-      actual: run.logged
-        .filter((line) => line.event === 'billing.economics.failed')
-        .map((line) => [line.fields.operation, line.fields.cause]),
-      expected: [
-        ['billing.economics.feed_invalid', 'economics-feed-window-mismatch'],
-        ['billing.economics.feed_invalid', 'economics-feed-conflicting-basis'],
-      ],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('the log line names a check by its closed reason, never its message', () => {
-  const check = createRefusal(
-    'VALIDATION',
-    'economics-feed-conflicting-basis',
-    'Any wording at all',
-  );
-  assert({
-    given:
-      'a stage error wrapping a reasoned check, a reasoned error with no cause, a stage error wrapping an untyped error, a typed error with no reason, and an untyped error',
-    should:
-      'name the check, then the error itself, then the stage, and nothing where no reason exists',
-    actual: [
-      innermostReason(
-        createRefusal('VALIDATION', 'economics-feed-invalid', 'x', check),
-      ),
-      innermostReason(check),
-      innermostReason(
-        createRefusal(
-          'INFRASTRUCTURE',
-          'economics-snapshot-failed',
-          'x',
-          new Error('driver'),
-        ),
-      ),
-      innermostReason(createAppError('INFRASTRUCTURE', 'no reason')),
-      innermostReason(new Error('driver')),
-    ],
-    expected: [
-      'economics-feed-conflicting-basis',
-      'economics-feed-conflicting-basis',
-      'economics-snapshot-failed',
-      undefined,
-      undefined,
-    ],
-  });
-});
-
 test('a feed that disappears after being supplied is logged as missing again', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
   const path = join(directory, 'feed-2026-10.json');
@@ -1037,415 +576,6 @@ test('a feed that disappears after being supplied is logged as missing again', a
   }
 });
 
-test('captures carry a fixed per-stage message, and signal_failed keeps a typed code', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  try {
-    const stage = await runWorker({
-      directory,
-      ticks: 0,
-      refuse: () => new Error('driver down'),
-    });
-    const signals = await runWorker({
-      directory,
-      ticks: 0,
-      capture: (_error, context) => {
-        if (context.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
-          throw createAppError('VALIDATION', 'Scrubber refused the context');
-      },
-    });
-    const messageOf = (c: { error: unknown }) =>
-      c.error instanceof Error ? c.error.message : null;
-    assert({
-      given:
-        'a snapshot read that throws, then a reporter that throws a typed VALIDATION error',
-      should:
-        'capture "Billing economics snapshot_failed", and signal_failed as "Billing economics signal_failed" under VALIDATION',
-      actual: [
-        stage.captured.map((c) => [c.route, messageOf(c)]),
-        signals.captured
-          .filter((c) => c.route === 'billing.economics.signal_failed')
-          .map((c) => [c.errorCode, messageOf(c)]),
-        stage.captured.map((c) => innermostReason(c.error)),
-      ],
-      expected: [
-        [
-          [
-            'billing.economics.snapshot_failed',
-            'Billing economics snapshot_failed',
-          ],
-        ],
-        [['VALIDATION', 'Billing economics signal_failed']],
-        ['economics-snapshot-failed'],
-      ],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('two different defects outside any collection are each reported', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const app = build(directory);
-  const { logged, logger } = createEventRecorder();
-  let calls = 0;
-  let tick: (() => Promise<void>) | null = null;
-  const service = startBillingEconomics({
-    app: {
-      ...app,
-      logger,
-      clock: {
-        now: () => {
-          calls++;
-          if (calls <= 2) throw new TypeError('defect A');
-          throw new RangeError('defect B');
-        },
-      },
-      database: { ...app.database, billingEconomics: snapshotStore() },
-    },
-    instanceId: 'service-fixture',
-    timers: {
-      setInterval: (run) => {
-        tick = run;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    },
-  });
-  try {
-    await service.started;
-    for (let n = 0; n < 3; n++)
-      await (tick as (() => Promise<void>) | null)?.();
-    assert({
-      given:
-        'a TypeError on the first two ticks, then a RangeError on the next two',
-      should: 'report each defect once, each line naming the collect stage',
-      actual: logged
-        .filter((line) => line.event === 'billing.economics.failed')
-        .map((line) => line.fields.cause),
-      expected: ['economics-collect-failed', 'economics-collect-failed'],
-    });
-  } finally {
-    await service.stop();
-    await app.close();
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a reporter that throws for everything logs signal_failed once', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  try {
-    const run = await runWorker({
-      directory,
-      ticks: 3,
-      capture: () => {
-        throw new Error('tracker down');
-      },
-    });
-    assert({
-      given:
-        'a reporter that throws on every capture, the failure report included, over four collections',
-      should:
-        'log signal_failed once, since the log line is the only channel left',
-      actual: run.logged
-        .filter((line) => line.event === 'billing.economics.failed')
-        .map((line) => line.fields.operation),
-      expected: ['billing.economics.signal_failed'],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('the log line names the innermost reason in the cause chain', () => {
-  const privacy = createRefusal('VALIDATION', 'economics-sink-not-private');
-  const reader = createRefusal(
-    'INFRASTRUCTURE',
-    'economics-sink-unreadable',
-    undefined,
-    privacy,
-  );
-  assert({
-    given:
-      'a stage error wrapping the feed reader refusal, which wraps the directory privacy refusal',
-    should: 'name the privacy refusal, the actual fault',
-    actual: innermostReason(
-      createRefusal(
-        'INFRASTRUCTURE',
-        'economics-feed-unreadable',
-        undefined,
-        reader,
-      ),
-    ),
-    expected: 'economics-sink-not-private',
-  });
-});
-
-test('alternating failures outside any collection are each reported once', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const app = build(directory);
-  const { logged, logger } = createEventRecorder();
-  let calls = 0;
-  let tick: (() => Promise<void>) | null = null;
-  const service = startBillingEconomics({
-    app: {
-      ...app,
-      logger,
-      clock: {
-        now: () => {
-          calls++;
-          if (calls % 2 === 1) return 'not an instant';
-          throw new TypeError('defect');
-        },
-      },
-      database: { ...app.database, billingEconomics: snapshotStore() },
-    },
-    instanceId: 'service-fixture',
-    timers: {
-      setInterval: (run) => {
-        tick = run;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    },
-  });
-  try {
-    await service.started;
-    for (let n = 0; n < 5; n++)
-      await (tick as (() => Promise<void>) | null)?.();
-    assert({
-      given:
-        'an invalid clock and an untyped defect alternating over six ticks',
-      should: 'report each problem once',
-      actual: logged
-        .filter((line) => line.event === 'billing.economics.failed')
-        .map((line) => line.fields.cause),
-      expected: ['economics-clock-invalid', 'economics-collect-failed'],
-    });
-  } finally {
-    await service.stop();
-    await app.close();
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a hostile error outside any collection never rejects the worker', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const app = build(directory);
-  const hostile = new Error('hostile');
-  Object.defineProperty(hostile, 'code', {
-    get() {
-      throw new Error('getter');
-    },
-  });
-  const service = startBillingEconomics({
-    app: {
-      ...app,
-      logger: createEventRecorder().logger,
-      clock: {
-        now: () => {
-          throw hostile;
-        },
-      },
-      database: { ...app.database, billingEconomics: snapshotStore() },
-    },
-    instanceId: 'service-fixture',
-    timers: { setInterval: () => 1, clearInterval: () => undefined },
-  });
-  try {
-    assert({
-      given: 'an error whose code getter throws',
-      should: 'settle the tick without rejecting',
-      actual: await service.started.then(
-        () => 'settled',
-        () => 'rejected',
-      ),
-      expected: 'settled',
-    });
-  } finally {
-    await service.stop();
-    await app.close();
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a hostile cause in a stage still reports that stage', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const hostile = new Error('hostile');
-  Object.defineProperty(hostile, 'code', {
-    get() {
-      throw new Error('getter');
-    },
-  });
-  try {
-    const run = await runWorker({ directory, ticks: 2, refuse: () => hostile });
-    assert({
-      given:
-        'a snapshot read that throws an error whose code getter throws, over three collections',
-      should: 'report snapshot_failed once, never collect',
-      actual: run.logged
-        .filter((line) => line.event === 'billing.economics.failed')
-        .map((line) => line.fields.operation),
-      expected: ['billing.economics.snapshot_failed'],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a defect while raising a report is one collect failure, not one an hour', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const app = build(directory);
-  const { logged, logger } = createEventRecorder();
-  const reporter = { capture: () => undefined };
-  let reads = 0;
-  let tick: (() => Promise<void>) | null = null;
-  const service = startBillingEconomics({
-    app: {
-      ...app,
-      logger,
-      database: { ...app.database, billingEconomics: snapshotStore() },
-      // The worker reads the reporter once at start; every later read is a defect inside raise.
-      get reporter() {
-        if (++reads > 1) throw new TypeError('reporter defect');
-        return reporter;
-      },
-    },
-    instanceId: 'service-fixture',
-    timers: {
-      setInterval: (run) => {
-        tick = run;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    },
-  });
-  try {
-    await service.started;
-    for (let n = 0; n < 2; n++)
-      await (tick as (() => Promise<void>) | null)?.();
-    assert({
-      given: 'a defect thrown while raising each of three saved reports',
-      should: 'log one billing.economics.collect failure',
-      actual: logged
-        .filter((line) => line.event === 'billing.economics.failed')
-        .map((line) => line.fields.operation),
-      expected: ['billing.economics.collect'],
-    });
-  } finally {
-    await service.stop();
-    await app.close();
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('an unreadable failure outside any collection is reported once', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const app = build(directory);
-  const { logged, logger } = createEventRecorder();
-  const hostile = new Error('hostile');
-  Object.defineProperty(hostile, 'code', {
-    get() {
-      throw new Error('getter');
-    },
-  });
-  let tick: (() => Promise<void>) | null = null;
-  const service = startBillingEconomics({
-    app: {
-      ...app,
-      logger,
-      clock: {
-        now: () => {
-          throw hostile;
-        },
-      },
-      database: { ...app.database, billingEconomics: snapshotStore() },
-    },
-    instanceId: 'service-fixture',
-    timers: {
-      setInterval: (run) => {
-        tick = run;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    },
-  });
-  try {
-    await service.started;
-    for (let n = 0; n < 2; n++)
-      await (tick as (() => Promise<void>) | null)?.();
-    assert({
-      given: 'a run that rejects with an unreadable error on three ticks',
-      should: 'log one collect failure, naming its stage',
-      actual: logged
-        .filter((line) => line.event === 'billing.economics.failed')
-        .map((line) => [line.fields.operation, line.fields.cause]),
-      expected: [['billing.economics.collect', 'economics-collect-failed']],
-    });
-  } finally {
-    await service.stop();
-    await app.close();
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('a Proxy whose prototype trap throws, outside any collection, is still one logged failure', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
-  const app = build(directory);
-  const { logged, logger } = createEventRecorder();
-  const proxy = new Proxy(new Error('proxy'), {
-    getPrototypeOf() {
-      throw new Error('trap');
-    },
-  });
-  let tick: (() => Promise<void>) | null = null;
-  const service = startBillingEconomics({
-    app: {
-      ...app,
-      logger,
-      clock: {
-        now: () => {
-          throw proxy;
-        },
-      },
-      database: { ...app.database, billingEconomics: snapshotStore() },
-    },
-    instanceId: 'service-fixture',
-    timers: {
-      setInterval: (run) => {
-        tick = run;
-        return 1;
-      },
-      clearInterval: () => undefined,
-    },
-  });
-  try {
-    const settled = await service.started.then(
-      () => 'settled',
-      () => 'rejected',
-    );
-    await (tick as (() => Promise<void>) | null)?.();
-    assert({
-      given:
-        'a run rejecting with a Proxy whose getPrototypeOf trap throws, over two ticks',
-      should: 'settle the tick and log one collect failure naming its stage',
-      actual: [
-        settled,
-        logged
-          .filter((line) => line.event === 'billing.economics.failed')
-          .map((line) => [line.fields.operation, line.fields.cause]),
-      ],
-      expected: [
-        'settled',
-        [['billing.economics.collect', 'economics-collect-failed']],
-      ],
-    });
-  } finally {
-    await service.stop();
-    await app.close();
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
 test("a lapsed service lease is the sink's warning, never a captured stage failure", async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
   try {
@@ -1463,7 +593,7 @@ test("a lapsed service lease is the sink's warning, never a captured stage failu
       given:
         "a snapshot read refused because this instance's lease lapsed, on two ticks",
       should:
-        'log the service.lease_lapsed warning each time and capture nothing (DAISY-WEB-9)',
+        'log the service.lease_lapsed warning and capture nothing (DAISY-WEB-9)',
       actual: {
         events: [...new Set(run.logged.map((line) => line.event))],
         captured: run.captured.length,

@@ -17,9 +17,6 @@ import type { App } from './app';
  */
 const CAPACITY_DEFERRAL_LIMIT = 8;
 
-/** What the failure sink did with a failure, so a caller never re-derives its rule. */
-export type FailureVerdict = 'reported' | 'logged' | 'unrecorded' | 'deferred';
-
 /**
  * A background worker's recoverable failure: the log line names the stage
  * and the error's own code; only the scrubbed reporter sees the raw error
@@ -44,43 +41,34 @@ export function recoverableFailure(input: {
 }) {
   const deferrals = new Map<string, number>();
   /** One sink step; a step that throws never stops the next or its caller. */
-  const attempt = (step: () => void): boolean => guarded(step);
-  const report = (
-    error: unknown,
-    operation: string,
-  ): Exclude<FailureVerdict, 'deferred'> => {
+  const attempt = (step: () => void) => void guarded(step);
+  const report = (error: unknown, operation: string) => {
     const errorCode = errorCodeOf(error, 'INTERNAL');
     let cause: string | undefined;
     // A cause reader that throws costs only the cause, never the log line.
     attempt(() => {
       cause = input.cause?.(error);
     });
-    const logged = attempt(() => {
+    attempt(() => {
       input.logger.log(
         input.event,
         { operation, errorCode, ...(cause ? { cause } : {}) },
         input.message,
       );
     });
-    const captured = attempt(() =>
+    attempt(() =>
       input.reporter.capture(error, {
         requestId: input.nextId(),
         route: operation,
         errorCode,
       }),
     );
-    // Reported means the tracker took it: settling then never re-sends one failure every tick.
-    return captured ? 'reported' : logged ? 'logged' : 'unrecorded';
   };
   /**
    * Never throws, so no worker promise ever rejects because reporting its
-   * failure failed (ISSUE-789). It answers what it did: `reported` (the
-   * reporter took it), `logged` (only the log line did, or a lease lapse was
-   * logged as the warning it is), `unrecorded` (neither) or `deferred`
-   * (absorbed as capacity backpressure within the bound), so a caller never
-   * re-derives the rule.
+   * failure failed (ISSUE-789).
    */
-  return (error: unknown, stage: string): FailureVerdict => {
+  return (error: unknown, stage: string) => {
     const operation = `${input.operation}.${stage}`;
     let lapse = false;
     attempt(() => {
@@ -98,21 +86,17 @@ export function recoverableFailure(input: {
           },
           'Service lease not current; the next renewal restores it',
         );
-      })
-        ? 'logged'
-        : 'unrecorded';
+      });
     let capacity = false;
     attempt(() => {
       capacity = input.isCapacity(error);
     });
     if (!capacity) return report(error, operation);
     const deferred = (deferrals.get(stage) ?? 0) + 1;
-    if (deferred <= CAPACITY_DEFERRAL_LIMIT) {
-      deferrals.set(stage, deferred);
-      return 'deferred';
-    }
+    if (deferred <= CAPACITY_DEFERRAL_LIMIT)
+      return void deferrals.set(stage, deferred);
     deferrals.set(stage, 0);
-    return report(error, `${operation}.capacity`);
+    report(error, `${operation}.capacity`);
   };
 }
 

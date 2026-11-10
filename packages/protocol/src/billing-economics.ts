@@ -75,24 +75,17 @@ export const billingEconomicsReadSchema = billingEconomicsSnapshotSchema.extend(
 
 /**
  * The private billing economics worker's refusal words (ADR 0102): which fixed
- * check or stage failed. Code dedups failures and names them on the log line
- * by these words, never by a message. Internal; never sent to a client.
+ * check or reason failed. The log line names a failure by these words, never
+ * by a message. Internal; never sent to a client.
  */
 export type BillingEconomicsRefusal =
-  // The private file edge.
+  // The private file edge: what the operations doc names.
   | 'economics-clock-invalid'
   | 'economics-window-invalid'
   | 'economics-sink-not-private'
-  | 'economics-sink-unusable'
-  | 'economics-sink-uncreatable'
   | 'economics-sink-full'
-  | 'economics-sink-unreadable'
-  | 'economics-feed-unavailable'
   | 'economics-feed-not-private'
-  | 'economics-feed-forbidden'
   | 'economics-feed-too-large'
-  | 'economics-feed-unparseable'
-  | 'economics-feed-null'
   | 'economics-report-identity-invalid'
   // The collector's data checks.
   | 'economics-feed-schema-invalid'
@@ -103,16 +96,11 @@ export type BillingEconomicsRefusal =
   | 'economics-snapshot-window-mismatch'
   | 'economics-snapshot-from-future'
   | 'economics-report-input-invalid'
+  // The worker's reasons, carried by the error it reports.
   | 'economics-feed-missing'
-  // The worker's stages, carried by the error it reports.
-  | 'economics-sink-unavailable'
-  | 'economics-snapshot-failed'
-  | 'economics-snapshot-invalid'
   | 'economics-feed-unreadable'
   | 'economics-feed-invalid'
-  | 'economics-report-invalid'
-  | 'economics-report-failed'
-  | 'economics-inputs-invalid'
+  | 'economics-snapshot-failed'
   | 'economics-save-failed'
-  | 'economics-signal-failed'
+  | 'economics-report-failed'
   | 'economics-collect-failed';

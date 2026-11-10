@@ -1,52 +1,29 @@
 import { isCapacityRefusal } from '@daisy/db/capacity';
-import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
-import { createRefusal, type ErrorCode } from '@daisy/errors';
+import { createRefusal, errorCodeOf, isAppError } from '@daisy/errors';
+import { guarded } from '@daisy/observability';
 import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
 import type { App } from './app';
 import {
   createBillingEconomicsCollector,
+  economicsFailureCode,
   type EconomicsCollection,
-  type EconomicsCollectionFailure,
 } from '../features/billing/economics-collector';
-
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
-  innermostReason,
-  typedCodeOr,
-} from '../features/billing/economics-cause';
-import {
-  failureNotice,
-  isFailureRaised,
+  isRaised,
   nothingRaised,
-  collectCompleted,
-  collectFailureNotice,
-  isCollectRaised,
-  recordCollect,
   owedSignals,
-  raisedIn,
-  recordFailure,
-  recordFeedMissingLogged,
-  recordSignals,
-  signalFailureNotice,
+  recordRaised,
+  recordReport,
+  type EconomicsReason,
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
-import { guarded } from '@daisy/observability';
-import { workerFailures, type FailureVerdict } from './recoverable-failure';
-import { clockInvalid } from '../features/billing/economics-refusals';
+import { workerFailures } from './recoverable-failure';
 import {
   startSingleFlightWorker,
   type WorkerTimers,
 } from '../lib/worker-timers';
-
-const reportedOnly: ReadonlySet<FailureVerdict> = new Set(['reported']);
-const reportedOrLogged: ReadonlySet<FailureVerdict> = new Set([
-  'reported',
-  'logged',
-]);
-
-/** Every operation this worker reports under: a collection stage, or its own two. */
-type EconomicsStage = EconomicsCollectionFailure | 'signal_failed' | 'collect';
 
 /** The current-service source and a provisioned private sink; absent inputs never become measured zero. */
 export function composeBillingEconomics(
@@ -60,7 +37,6 @@ export function composeBillingEconomics(
     now: () => app.clock.now(),
   });
   return createBillingEconomicsCollector({
-    sink: files.sink,
     store: app.database.billingEconomics(instanceId),
     feed: files.feed,
     save: (report) => files.save(report),
@@ -68,47 +44,36 @@ export function composeBillingEconomics(
   });
 }
 
-/** A worker log line that never throws (ISSUE-789); it answers whether the line was written. */
-function logSafely(
-  app: App,
-  event: 'billing.economics.unprovisioned' | 'billing.economics.feed_missing',
-  message: string,
-  cause?: string,
-) {
-  return guarded(() =>
-    app.logger.log(
-      event,
-      { operation: 'billing.economics.collect', ...(cause ? { cause } : {}) },
-      message,
-    ),
-  );
+/** The closed word each reason's reported error carries (ADR 0102). */
+const reasonWord: Readonly<
+  Record<EconomicsReason | 'collect', BillingEconomicsRefusal>
+> = {
+  snapshot_failed: 'economics-snapshot-failed',
+  feed_unreadable: 'economics-feed-unreadable',
+  feed_invalid: 'economics-feed-invalid',
+  report_failed: 'economics-report-failed',
+  save_failed: 'economics-save-failed',
+  feed_missing: 'economics-feed-missing',
+  collect: 'economics-collect-failed',
+};
+
+/** The innermost closed refusal reason of a cause chain, the actual fault, for the log line's `cause`. */
+function innermostReason(error: unknown) {
+  let reason: string | undefined;
+  for (
+    let link = error, depth = 0;
+    link instanceof Error && depth < 16;
+    link = link.cause, depth++
+  )
+    if (isAppError(link) && link.reason !== undefined) reason = link.reason;
+  return reason;
 }
 
-/** The closed word each stage's reported error carries (ADR 0102). */
-const stageRefusal: Readonly<Record<EconomicsStage, BillingEconomicsRefusal>> =
-  {
-    sink_unavailable: 'economics-sink-unavailable',
-    snapshot_failed: 'economics-snapshot-failed',
-    snapshot_invalid: 'economics-snapshot-invalid',
-    feed_unreadable: 'economics-feed-unreadable',
-    feed_invalid: 'economics-feed-invalid',
-    report_invalid: 'economics-report-invalid',
-    report_failed: 'economics-report-failed',
-    inputs_invalid: 'economics-inputs-invalid',
-    save_failed: 'economics-save-failed',
-    signal_failed: 'economics-signal-failed',
-    collect: 'economics-collect-failed',
-  };
-
-/** The error a stage reports: its own closed word, the code, and the caught error as cause. */
-const stageError = (stage: EconomicsStage, code: ErrorCode, cause: unknown) =>
-  createRefusal(code, stageRefusal[stage], `Billing economics ${stage}`, cause);
-
 /**
- * One bounded monthly collection per hourly tick, raising each signal once a
- * month and each failure once per regression, per process. Without a provisioned sink there is
- * nowhere to keep a report, so the worker does not run and raises nothing
- * (ADR 0101); the process logs that once.
+ * One bounded monthly collection per hourly tick (ADR 0101). Without a
+ * provisioned sink there is nowhere to keep a report, so the worker does not
+ * start and the process logs that once. With one, each failure is raised once
+ * per month and reason, and again only after a report settles.
  */
 export function startBillingEconomics(input: {
   readonly app: App;
@@ -116,10 +81,21 @@ export function startBillingEconomics(input: {
   readonly timers: WorkerTimers;
 }) {
   const { app } = input;
+  const log = (
+    event: 'billing.economics.unprovisioned' | 'billing.economics.feed_missing',
+    message: string,
+    cause?: BillingEconomicsRefusal,
+  ) =>
+    guarded(() =>
+      app.logger.log(
+        event,
+        { operation: 'billing.economics.collect', ...(cause ? { cause } : {}) },
+        message,
+      ),
+    );
   const directory = app.config.BILLING_ECONOMICS_DIRECTORY;
   if (directory === undefined) {
-    logSafely(
-      app,
+    log(
       'billing.economics.unprovisioned',
       'Private billing economics sink is not provisioned; collection is not running',
     );
@@ -130,124 +106,89 @@ export function startBillingEconomics(input: {
     'billing.economics.failed',
     'billing.economics',
     'Private billing economics remain incomplete',
-    // The log line's closed `cause` (ADR 0102): the innermost refusal reason, the actual fault.
     innermostReason,
   );
+  /** The reported error: the reason's closed word and code, keeping the caught error as cause. */
+  const reasonError = (
+    reason: Exclude<EconomicsReason, 'feed_missing'> | 'collect',
+    cause: unknown,
+  ) =>
+    createRefusal(
+      errorCodeOf(
+        cause,
+        reason === 'collect' ? 'INTERNAL' : economicsFailureCode[reason],
+      ),
+      reasonWord[reason],
+      `Billing economics ${reason}`,
+      cause,
+    );
   let raised = nothingRaised;
-  /**
-   * Report a failure notice once until a report settles. It counts as raised
-   * once the sink answers one of `settles`: normally only `reported`; where the
-   * tracker is itself what failed (signal_failed), its log line is the only
-   * channel left, so `logged` settles it too.
-   */
-  const reportOnce = (
+  let collectRaised = false;
+  const raiseOnce = (
     month: string,
-    notice: string,
-    error: unknown,
-    stage: EconomicsStage,
-    settles: ReadonlySet<FailureVerdict> = reportedOnly,
+    reason: Exclude<EconomicsReason, 'feed_missing'>,
+    cause: unknown,
   ) => {
-    if (isFailureRaised(raised, month, notice)) return;
-    if (settles.has(failed(error, stage)))
-      raised = recordFailure(raised, month, notice);
+    if (isRaised(raised, month, reason)) return;
+    failed(reasonError(reason, cause), reason);
+    raised = recordRaised(raised, month, reason);
   };
-  // Every reader of a cause goes through the safe chain (economics-cause), so a hostile error
-  // cannot make raising throw; no unreadable fallback is needed.
-  const raise = (collection: EconomicsCollection) =>
-    collection.kind === 'failed'
-      ? raiseFailure(collection)
-      : raiseReport(collection);
-  const raiseFailure = (
-    collection: Extract<EconomicsCollection, { readonly kind: 'failed' }>,
-  ) => {
-    // The tracker's scrubber replaces exception text, so stages are told apart there by route;
-    // the stage's closed word names it on the log line when the cause carries none.
-    const error = stageError(
-      collection.reason,
-      collection.code,
-      collection.cause,
-    );
-    // Capacity backpressure is bounded by the shared sink itself and is never a notice,
-    // so it neither masks a later outage nor stops counting towards starvation.
-    if (isCapacityRefusal(collection.cause))
-      return void failed(error, collection.reason);
-    // A lapsed service lease is the instance's own condition (DAISY-WEB-9): the sink logs it as a
-    // warning, which it can only recognise on the raw refusal, never wrapped as a stage failure.
-    if (isServiceLeaseLapse(collection.cause))
-      return void failed(collection.cause, collection.reason);
-    return reportOnce(
-      collection.month,
-      failureNotice(collection),
-      error,
-      collection.reason,
-    );
-  };
-  const raiseReport = (
-    collection: Extract<EconomicsCollection, { readonly kind: 'reported' }>,
-  ) => {
-    // The missing-feed line: logged once per absence, before any signal is raised, so a throwing
-    // reporter cannot keep the month quiet. A supplied feed re-arms it; a line the log sink refused
-    // is retried next tick.
-    const logged = raisedIn(raised, collection.month).feedMissingLogged;
-    const nowLogged =
-      collection.feed === 'supplied'
-        ? false
-        : logged ||
-          logSafely(
-            app,
-            'billing.economics.feed_missing',
-            'Private billing economics feed is missing for the month; the report stays incomplete',
-            'economics-feed-missing',
-          );
-    if (nowLogged !== logged)
-      raised = recordFeedMissingLogged(raised, collection.month, nowLogged);
+  const raise = (collection: EconomicsCollection) => {
+    const { month } = collection;
+    if (collection.kind === 'failed') {
+      // Capacity backpressure is bounded by the shared sink itself, so it never starts a streak.
+      if (isCapacityRefusal(collection.cause))
+        return failed(
+          reasonError(collection.reason, collection.cause),
+          collection.reason,
+        );
+      return raiseOnce(month, collection.reason, collection.cause);
+    }
+    if (
+      collection.feed === 'missing' &&
+      !isRaised(raised, month, 'feed_missing')
+    ) {
+      log(
+        'billing.economics.feed_missing',
+        'Private billing economics feed is missing for the month; the report stays incomplete',
+        reasonWord.feed_missing,
+      );
+      raised = recordRaised(raised, month, 'feed_missing');
+    }
     const owed = owedSignals(raised, collection);
     const submitted = raiseEconomicsSignals(app.reporter, {
-      month: collection.month,
+      month,
       signals: owed,
     });
-    if (submitted.kind === 'failed') {
-      raised = recordSignals(raised, collection, {
-        taken: owed.slice(0, submitted.submitted),
-        settled: false,
-      });
-      return reportOnce(
-        collection.month,
-        signalFailureNotice(collection.month),
-        stageError(
-          'signal_failed',
-          typedCodeOr(submitted.cause, 'INFRASTRUCTURE'),
-          submitted.cause,
-        ),
-        'signal_failed',
-        reportedOrLogged,
-      );
-    }
-    raised = recordSignals(raised, collection, { taken: owed, settled: true });
+    const settled = submitted.kind === 'submitted';
+    raised = recordReport(raised, collection, {
+      taken: settled ? owed : owed.slice(0, submitted.submitted),
+      settled,
+    });
+    if (!settled) raiseOnce(month, 'report_failed', submitted.cause);
   };
   return startSingleFlightWorker({
     timers: input.timers,
     everyMs: 3_600_000,
-    // A failure outside any collection (an invalid clock, a defect) is reported once per
-    // distinct problem until a collection completes again, never every hour.
+    // A failure outside any collection (an invalid clock, a defect) is raised once until a run completes.
     failed: (error) => {
-      // Never throws (ISSUE-789): the notice is read through the safe chain.
-      const notice = collectFailureNotice(error);
-      if (isCollectRaised(raised, notice)) return;
-      // An error that names no check of its own is wrapped, so the line names its stage.
-      const named =
-        innermostReason(error) !== undefined
-          ? error
-          : stageError('collect', typedCodeOr(error, 'INTERNAL'), error);
-      if (failed(named, 'collect') === 'reported')
-        raised = recordCollect(raised, notice);
+      if (collectRaised) return;
+      failed(
+        isAppError(error) ? error : reasonError('collect', error),
+        'collect',
+      );
+      collectRaised = true;
     },
     run: async () => {
       const window = previousEconomicsMonth(app.clock.now());
-      if (!window) throw clockInvalid();
+      if (!window)
+        throw createRefusal(
+          'INTERNAL',
+          'economics-clock-invalid',
+          'Billing economics clock invalid',
+        );
       raise(await collector.run(window));
-      // Only once raising returned: a defect while raising is still a collect failure, once.
-      raised = collectCompleted(raised);
+      collectRaised = false;
     },
   });
 }

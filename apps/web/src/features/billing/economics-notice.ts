@@ -1,183 +1,88 @@
-import { isAppError } from '@daisy/errors';
 import type { EconomicsSignal } from './economics-alert';
-import {
-  causeChain,
-  classNameOf,
-  innermostReason,
-  systemCodeOf,
-  typedCodeOr,
-} from './economics-cause';
-import type { EconomicsCollection } from './economics-collector';
-
-type Collection<K extends EconomicsCollection['kind']> = Extract<
+import type {
   EconomicsCollection,
-  { readonly kind: K }
->;
+  EconomicsCollectionFailure,
+} from './economics-collector';
+
+/** Every reason a month is raised under: a failed stage, or a missing feed. */
+export type EconomicsReason = EconomicsCollectionFailure | 'feed_missing';
 
 /**
- * A failed collection's identity: its month, its stage and its error code, so
- * a different kind of problem in the same stage is a new notice, while the
- * same problem every hour is one. Capacity backpressure is never a notice; the
- * shared failure sink bounds it.
+ * What this process raised for the month it collects. A reason is raised once
+ * per streak: it stays raised until a report settles (is saved and its signals
+ * submitted), so a regression after recovery is raised again. `feed_missing`
+ * ends only when a feed is supplied. Each signal is raised once a month. A new
+ * month starts empty.
  */
-export function failureNotice(collection: Collection<'failed'>): string {
-  const { cause, code } = collection;
-  return `${collection.month}:${collection.reason}:${code}:${problemOf(cause)}`;
-}
-
-/**
- * What distinguishes one problem from another without reading free text (ADR
- * 0102), read through a chain that cannot throw: the innermost closed refusal
- * reason (the actual fault, the same one the log line names), plus the class
- * and system code (errno, or SQLSTATE) of the innermost untyped error. So
- * EMFILE and EIO differ, a lock timeout and a statement timeout differ, and a
- * typed error with no reason is one problem per code.
- */
-export function problemOf(cause: unknown): string {
-  const untyped = causeChain(cause)
-    .filter((link) => !isAppError(link))
-    .at(-1);
-  const system = untyped
-    ? `${classNameOf(untyped)}/${systemCodeOf(untyped)}`
-    : '';
-  return `${innermostReason(cause) ?? ''}/${system}`;
-}
-
-/** A failure outside any collection: its code and problem, one notice until a collection completes. */
-export const collectFailureNotice = (error: unknown) =>
-  `collect:${typedCodeOr(error, 'INTERNAL')}:${problemOf(error)}`;
-
-/** A failure to submit a month's signals: one notice, however often the reporter throws. */
-export const signalFailureNotice = (month: string) => `${month}:signal_failed`;
-
-const signalKey = (signal: EconomicsSignal) => `${signal.name}/${signal.plan}`;
-
-/** What this process has raised for the month it is collecting. */
-type MonthRaised = {
-  readonly month: string;
-  /** Failure notices reported since the month's last settled report. */
-  readonly failures: ReadonlySet<string>;
-  /** Signals the reporter took this month. */
+export type EconomicsRaised = {
+  readonly month: string | null;
+  readonly reasons: ReadonlySet<EconomicsReason>;
   readonly signals: ReadonlySet<string>;
-  /** Whether this month's missing feed was logged. */
-  readonly feedMissingLogged: boolean;
-  /** Failures outside any collection reported since a collection last completed; not month-bound. */
-  readonly collect: ReadonlySet<string>;
 };
-
-/**
- * What this process has raised: nothing for any month yet (only failures
- * outside a collection can exist then), or one month's record. Each signal is
- * raised once a month, whatever else changes in the report. A failure notice is
- * raised once until a report settles again, so a regression after recovery is
- * news. A new month starts empty, except failures outside any collection,
- * which are not month-bound and clear when a collection completes.
- */
-export type EconomicsRaised =
-  { readonly month: null; readonly collect: ReadonlySet<string> } | MonthRaised;
 
 export const nothingRaised: EconomicsRaised = {
   month: null,
-  collect: new Set(),
+  reasons: new Set(),
+  signals: new Set(),
 };
 
-/** The record for a month: what was raised if it is the same month, otherwise a fresh month that keeps only the collect notices. */
-export const raisedIn = (
-  raised: EconomicsRaised,
-  month: string,
-): MonthRaised =>
+const raisedIn = (raised: EconomicsRaised, month: string): EconomicsRaised =>
   raised.month === month
     ? raised
-    : {
-        month,
-        failures: new Set(),
-        signals: new Set(),
-        feedMissingLogged: false,
-        collect: raised.collect,
-      };
+    : { month, reasons: new Set(), signals: new Set() };
 
-/** Whether this failure notice was already reported since the month's last settled report. */
-export const isFailureRaised = (
+const signalKey = (signal: EconomicsSignal) => `${signal.name}/${signal.plan}`;
+
+/** Whether this reason was already raised in the month's current streak. */
+export const isRaised = (
   raised: EconomicsRaised,
   month: string,
-  notice: string,
-) => raisedIn(raised, month).failures.has(notice);
+  reason: EconomicsReason,
+) => raisedIn(raised, month).reasons.has(reason);
 
-/** Record a reported failure notice. */
-export function recordFailure(
+/** Record a raised reason. */
+export function recordRaised(
   raised: EconomicsRaised,
   month: string,
-  notice: string,
+  reason: EconomicsReason,
 ): EconomicsRaised {
   const record = raisedIn(raised, month);
-  return { ...record, failures: new Set([...record.failures, notice]) };
+  return { ...record, reasons: new Set([...record.reasons, reason]) };
 }
 
 /** The report's signals this month has not yet raised. */
-export const owedSignals = (
+export function owedSignals(
   raised: EconomicsRaised,
-  collection: Collection<'reported'>,
-): readonly EconomicsSignal[] => {
+  collection: Extract<EconomicsCollection, { readonly kind: 'reported' }>,
+): readonly EconomicsSignal[] {
   const { signals } = raisedIn(raised, collection.month);
   return collection.signals.filter((s) => !signals.has(signalKey(s)));
-};
+}
 
 /**
- * Record the signals the reporter took for a report. A report whose owed
- * signals all went through settles, and settling re-arms the month's failure
- * notices, a failure to submit signals included.
+ * Record a saved report: the signals the reporter took, and whether they all
+ * went through. A settled report ends every streak but a still-missing feed's;
+ * a supplied feed ends that one.
  */
-export function recordSignals(
+export function recordReport(
   raised: EconomicsRaised,
-  collection: Collection<'reported'>,
+  collection: Extract<EconomicsCollection, { readonly kind: 'reported' }>,
   outcome: {
     readonly taken: readonly EconomicsSignal[];
     readonly settled: boolean;
   },
 ): EconomicsRaised {
-  const month = raisedIn(raised, collection.month);
+  const record = raisedIn(raised, collection.month);
+  const reasons = new Set(
+    [...record.reasons].filter((reason) =>
+      reason === 'feed_missing'
+        ? collection.feed === 'missing'
+        : !outcome.settled,
+    ),
+  );
   return {
-    ...month,
-    // A saved report is a recovered collection: its stage failures re-arm. Only a failure to
-    // submit the signals stays raised until they go through.
-    failures: outcome.settled
-      ? new Set()
-      : new Set(
-          [...month.failures].filter(
-            (notice) => notice === signalFailureNotice(collection.month),
-          ),
-        ),
-    signals: new Set([...month.signals, ...outcome.taken.map(signalKey)]),
+    ...record,
+    reasons,
+    signals: new Set([...record.signals, ...outcome.taken.map(signalKey)]),
   };
 }
-
-/**
- * Note whether this month's missing feed is logged: set once the line is
- * written, cleared when a feed is supplied, so a feed that later disappears is
- * logged again.
- */
-export const recordFeedMissingLogged = (
-  raised: EconomicsRaised,
-  month: string,
-  logged: boolean,
-): EconomicsRaised => ({
-  ...raisedIn(raised, month),
-  feedMissingLogged: logged,
-});
-
-/** Whether this failure outside any collection was already reported since one completed. */
-export const isCollectRaised = (raised: EconomicsRaised, notice: string) =>
-  raised.collect.has(notice);
-
-/** Record a reported failure outside any collection. */
-export const recordCollect = (
-  raised: EconomicsRaised,
-  notice: string,
-): EconomicsRaised => ({
-  ...raised,
-  collect: new Set([...raised.collect, notice]),
-});
-
-/** A collection completed, so failures outside one are news again. */
-export const collectCompleted = (raised: EconomicsRaised): EconomicsRaised =>
-  raised.collect.size === 0 ? raised : { ...raised, collect: new Set() };

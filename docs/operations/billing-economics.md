@@ -47,25 +47,14 @@ separate observable facts. No rates or invoices are seeded as production truth.
 and saves the private report. It returns one typed collection: `reported` (the
 saved report, the signals it implies and whether the feed was `supplied` or
 `missing`) or `failed` with one closed reason and the error that stage caught:
-`sink_unavailable` (the private directory cannot be created, is not
-private, or this process may not read, write and enter it, or it is full at 1000
-retained files, refused before any database read, or its bounded retention sweep refused; the sweep runs on every
-collection, whether or not it reaches the save), `snapshot_failed` (the read
-threw), `snapshot_invalid` (schema,
-window, or an observation later than now, each with its own reason),
-`feed_unreadable` (the file could not be opened), `feed_invalid` (the
-operator's file is wrong: not a private regular file, a symbolic link, a file
-this process may not read,
-malformed or oversized contents, the JSON literal `null`, window, schema, or a
-floor other than the recorded policy),
-`report_invalid` (the joined feed and snapshot fail the report's own schema or
-coherence, so nothing is saved), `inputs_invalid` (a malformed window or clock, refused before any I/O,
-`INTERNAL`), `report_failed` (a defect, reported as `INTERNAL`:
-joining the feed and
-snapshot or building the report threw something other than a typed data
-refusal) or `save_failed` (including the save's file
-cap). A feed file whose body is `null` is invalid, never a missing feed. The
-collector never reports.
+`snapshot_failed` (the read threw, or the snapshot fails its schema, its window
+or is observed later than now), `feed_unreadable` (the feed could not be read:
+the sink directory is not private, the file is a symbolic link, not a private
+regular file, or over 1 MiB), `feed_invalid` (the feed's schema, window, floor,
+capacity rows or cost basis is wrong), `report_failed` (the joined input fails
+the report's own checks, or the reporter threw while raising its signals) or
+`save_failed` (including the sink's 1000-file cap). Each data check refuses with
+its own closed reason (ADR 0102). The collector never reports.
 `raiseEconomicsSignals` submits a saved report's fixed signals through the
 existing ErrorReporter: `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`;
 routes identify only free/beta/premium and the correlation value is always the
@@ -97,15 +86,14 @@ criterion complete or supersede BILL-H.
 
 The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
-at most1000 directory entries and removes only expired regular files in its own
-closed feed/report filename namespace. Each collection's sweeps (opening and save)
-keep a feed until its collection window has passed: the month this run
-collects, the month the hourly worker collects (the previous month) and the
-current month (collected next) are protected, and a feed for any earlier month is
-removed whatever its age. Reports keep the 30-day rule. So a feed lives at most
-until the end of the month after its own (about 62 days); compliance.md records
-that bound (DEC-372). A late correction of an older month runs against a feed
-the worker would remove, so place it immediately before the correction run.
+at most1000 directory entries and removes only regular files in its own closed
+feed/report filename namespace. A feed is kept while its collection window is
+open: the month this run collects, the month the hourly worker collects (the
+previous month) and the current month (collected next). A feed for an earlier
+month is removed; reports keep the 30-day rule. So a feed lives at most until the
+end of the month after its own (about 62 days); compliance.md records that bound
+(DEC-372). A late correction of an older month protects that month's feed during
+its own run, so place the feed immediately before the correction run.
 At1000 retained files a new save refuses;
 more than1000 entries also refuses, rather than claiming a drained sweep. This
 bounds this sink's generated files and cleanup work. Provision the directory only
@@ -180,59 +168,31 @@ a financial report or claims low-margin delivery:
   for each plan and logs `billing.economics.feed_missing`. This is the
   completeness guarantee: a provisioned environment never goes quiet about a
   month it cannot measure.
-- **Failed** (a stage threw). The worker reports it exactly once through the
-  worker failure sink: one `billing.economics.failed` line whose `operation` is
-  `billing.economics.<reason>`, and one capture. The captured error is typed:
-  a typed cause keeps its own code (every refusal the private file edge
-  decides is typed (a non-private, unusable or uncreatable sink directory is
-  `sink_unavailable`/`VALIDATION`), while a raw filesystem error it did not
-  decide (an `ENOSPC` while writing, say) stays untyped with its errno;
-  the feed reader's own recheck, for direct callers, reports it as
-  `feed_unreadable` with its own reason, never as an invalid feed), and an untyped one
-  takes its stage's (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and
-  `report_invalid`, `INTERNAL` for `report_failed`, otherwise
-  `INFRASTRUCTURE`). The log line's `cause` names the check that failed by its
-  closed refusal word (ADR 0102; for example `economics-feed-window-mismatch`),
-  or the stage's own word (`economics-<stage>`) when the cause carries none.
-  The words are `BillingEconomicsRefusal` in `@daisy/protocol/billing-economics`;
-  messages stay free text that no behaviour reads. So `errorCode` stays meaningful, and it carries the caught error as its `cause`, so the real
-  cause reaches the scrubbed tracker. A capacity refusal is first
-  deferred by the shared bound (eight per stage) and only then reported, so it
-  never counts as raised and never mutes a later genuine failure of that month.
-  A reporter that throws while raising signals is `signal_failed`, reported once
-  until signals go through again; later ticks retry quietly and send only the
-  signals not yet taken, so no plan's signal is duplicated.
+- **Failed** (a stage threw). The worker reports it through the worker
+  failure sink: one `billing.economics.failed` line whose `operation` is
+  `billing.economics.<reason>`, and one capture. The captured error carries the
+  reason's closed word (`economics-<reason>`), keeps the caught error as its
+  `cause`, and keeps a typed cause's own code; an untyped one takes its reason's
+  (`VALIDATION` for `feed_invalid`, `INTERNAL` for `report_failed`, otherwise
+  `INFRASTRUCTURE`). The log line's `cause` names the innermost closed refusal
+  reason in the chain, the check that failed (for example
+  `economics-feed-window-mismatch`). A capacity refusal goes straight to the
+  shared bound (eight deferrals per stage, then a report) and never starts a
+  streak. A lapsed service lease is only the sink's warning (DAISY-WEB-9).
 
 Each hourly tick collects again, so late corrections land, but the worker
 raises each thing once per process:
 
+- **Failures.** Sentry gets one report per month and reason for as long as the
+  failure lasts. A report that settles (saved, its signals submitted) ends every
+  streak, so the same reason failing again after it is raised again.
+- **Missing feed.** `billing.economics.feed_missing` is logged once per month
+  and absence; a feed that is supplied and later disappears is logged again.
 - **Signals.** Each signal (code and plan) is raised once a month, whatever
-  else changes in the report: a feed arriving, or one plan's margin changing,
-  sends only the signals not yet raised.
-- **Failures.** A failure's identity is its stage and its error code, so a
-  different kind of problem in the same stage is a new notice; the
-  innermost closed refusal reason in the cause chain (the fault the log line
-  names), plus the class and system code of the innermost untyped error (an
-  errno such as `EMFILE` or `ECONNREFUSED`, or a SQLSTATE such as `55P03`, which
-  Bun SQL carries in `errno`), tells one problem from another, never a message.
-  The chain is read so it cannot throw: own data properties only, a cycle guard
-  and a bound. Capacity
-  backpressure is never a notice: every refusal goes to the shared failure
-  sink, which absorbs eight per stage and reports the ninth, so starvation is
-  reported even after another failure of that stage, and it never masks one. A failure is raised once until a report is saved again; after that
-  the same failure is a regression and raises again. Only a failure the worker
-  failure sink reported (the error tracker took it) counts as
-  raised (a log line alone does not, so a tracker outage is retried on later
-  ticks; the exception is
-  `signal_failed`, where the tracker is what failed, so its log line settles
-  it), so a deferred capacity refusal never mutes what follows.
-- **Missing feed.** `billing.economics.feed_missing` is logged once a month,
-  before any signal is raised, so a reporter that throws cannot keep it quiet;
-  a line the log sink refused is tried again on the next tick, and a feed that
-  disappears after being supplied is logged again.
-- **Signal failures.** A reporter that throws is one `signal_failed` notice
-  until a report's signals go through again. A saved report still re-arms the
-  stage failures, so a regression after it is raised even while signals fail.
+  else changes in the report. A reporter that throws part-way is
+  `report_failed`, once; later ticks send only the signals it did not take.
+- **Outside a collection.** A failure outside any collection (an invalid clock,
+  a defect) is raised once until a collection completes.
 
 This record lives in each web process. Several web instances, or a restart,
 each raise a month once more; the staging app runs one machine.
@@ -280,7 +240,7 @@ sign-off; no agent performs it. The exact step:
      "install -d -o daisy -g daisy -m 0700 /data/billing-economics/sink"
    ```
 
-   Until this runs, ticks fail once as `sink_unavailable`. After it, the next
+   Until this runs, ticks fail once as `feed_unreadable`. After it, the next
    tick logs `billing.economics.feed_missing` and raises
    `BILLING_ECONOMICS_INCOMPLETE` once for the previous month.
 
@@ -288,7 +248,7 @@ sign-off; no agent performs it. The exact step:
    [minimal private input](#minimal-private-input) or a reconciled feed) owned
    by `daisy` with mode 0600. `fly ssh console` runs as root, so write it with
    `install` rather than a plain copy; a root-owned feed is unreadable to the
-   process and fails as `feed_invalid`:
+   process and fails as `feed_unreadable`:
 
    ```sh
    fly ssh console -a daisy-debate-staging -C \

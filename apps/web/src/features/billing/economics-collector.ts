@@ -1,12 +1,8 @@
 import { z } from 'zod';
 import { createRefusal, type ErrorCode } from '@daisy/errors';
-import { typedCodeOr } from './economics-cause';
-import { clockInvalid, windowInvalid } from './economics-refusals';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
-  economicsInstant,
-  isEconomicsWindow,
   economicsPlans,
   type EconomicsInput,
   type EconomicsPlan,
@@ -208,31 +204,21 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
 }
 /** Why a month's collection did not save a report; each reason is one stage. */
 export type EconomicsCollectionFailure =
-  | 'sink_unavailable'
   | 'snapshot_failed'
-  | 'snapshot_invalid'
   | 'feed_unreadable'
   | 'feed_invalid'
-  | 'report_invalid'
   | 'report_failed'
-  | 'inputs_invalid'
   | 'save_failed';
-
-/** The error code each failure is reported under: bad data is VALIDATION, an unavailable resource INFRASTRUCTURE. */
+/** The error code each failure is reported under when its cause carries none of its own. */
 export const economicsFailureCode: Readonly<
   Record<EconomicsCollectionFailure, ErrorCode>
 > = {
-  sink_unavailable: 'INFRASTRUCTURE',
   snapshot_failed: 'INFRASTRUCTURE',
-  snapshot_invalid: 'VALIDATION',
   feed_unreadable: 'INFRASTRUCTURE',
   feed_invalid: 'VALIDATION',
-  report_invalid: 'VALIDATION',
   report_failed: 'INTERNAL',
-  inputs_invalid: 'INTERNAL',
   save_failed: 'INFRASTRUCTURE',
 };
-
 /**
  * One collection of a month: a saved report with the signals it implies and
  * whether the private feed was supplied, or the one stage that failed with the
@@ -250,18 +236,8 @@ export type EconomicsCollection =
       readonly kind: 'failed';
       readonly month: string;
       readonly reason: EconomicsCollectionFailure;
-      /** The code it is reported and remembered under: a typed cause's own, else its stage's. */
-      readonly code: ErrorCode;
       readonly cause: unknown;
     };
-
-/** A typed VALIDATION refusal is the operator's feed being wrong; anything else is the given stage's. */
-const feedFault = (
-  cause: unknown,
-  otherwise: EconomicsCollectionFailure,
-): EconomicsCollectionFailure =>
-  typedCodeOr(cause, 'INTERNAL') === 'VALIDATION' ? 'feed_invalid' : otherwise;
-
 type Stage<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly cause: unknown };
@@ -272,10 +248,8 @@ async function stage<T>(run: () => Promise<T> | T): Promise<Stage<T>> {
     return { ok: false, cause };
   }
 }
-
 /** Actual private source composition; neither an empty DB nor a missing supplier feed proves complete economics. The private report is saved before any signal can be raised from it. */
 export function createBillingEconomicsCollector(input: {
-  readonly sink: { readonly open: (window: Window) => Promise<void> };
   readonly store: { readonly read: (window: Window) => Promise<unknown> };
   readonly feed: { readonly read: (window: Window) => Promise<unknown> };
   readonly save: (value: {
@@ -288,27 +262,12 @@ export function createBillingEconomicsCollector(input: {
     async run(window: Window): Promise<EconomicsCollection> {
       const month = window.startsAt.slice(0, 7);
       const failed = (reason: EconomicsCollectionFailure, cause: unknown) =>
-        ({
-          kind: 'failed',
-          month,
-          reason,
-          code: typedCodeOr(cause, economicsFailureCode[reason]),
-          cause,
-        }) as const;
-      // The window and clock are this collection's inputs: a malformed one is a caller defect,
-      // refused once here before any I/O, whichever edge would otherwise meet it.
-      const inputs = await stage(() => {
-        if (!isEconomicsWindow(window)) throw windowInvalid();
-        if (!economicsInstant.safeParse(input.now()).success)
-          throw clockInvalid();
-      });
-      if (!inputs.ok) return failed('inputs_invalid', inputs.cause);
-      const sink = await stage(() => input.sink.open(window));
-      if (!sink.ok) return failed('sink_unavailable', sink.cause);
-      const read = await stage(() => input.store.read(window));
-      if (!read.ok) return failed('snapshot_failed', read.cause);
-      const snapshot = await stage(() => {
-        const parsed = billingEconomicsReadSchema.parse(read.value);
+        ({ kind: 'failed', month, reason, cause }) as const;
+      const snapshot = await stage(async () => {
+        const parsed = billingEconomicsReadSchema.parse(
+          await input.store.read(window),
+        );
+        // Read after the snapshot, so the snapshot's own observation is never later than now.
         if (
           parsed.startsAt !== window.startsAt ||
           parsed.endsAt !== window.endsAt
@@ -326,43 +285,34 @@ export function createBillingEconomicsCollector(input: {
           );
         return parsed;
       });
-      if (!snapshot.ok) return failed('snapshot_invalid', snapshot.cause);
+      if (!snapshot.ok) return failed('snapshot_failed', snapshot.cause);
       const feed = await stage(() => input.feed.read(window));
-      // The files edge marks a malformed feed's contents VALIDATION; anything else is the read failing.
-      if (!feed.ok)
-        return failed(feedFault(feed.cause, 'feed_unreadable'), feed.cause);
+      if (!feed.ok) return failed('feed_unreadable', feed.cause);
       const joined = await stage(() =>
         dataset(window, snapshot.value, feed.value),
       );
-      // Only the join's own typed refusals are the feed's fault; anything else it throws is a defect.
-      if (!joined.ok)
-        return failed(feedFault(joined.cause, 'report_failed'), joined.cause);
-      // The builder returns invalid input as a value; a throw from it is a defect, not bad data.
-      const report = await stage(() =>
-        buildEconomicsReport(joined.value, input.now()),
-      );
-      if (!report.ok) return failed('report_failed', report.cause);
-      // The joined feed and snapshot fail the report's own schema or coherence: nothing worth keeping.
-      if (report.value.kind === 'invalid')
+      if (!joined.ok) return failed('feed_invalid', joined.cause);
+      const report = buildEconomicsReport(joined.value, input.now());
+      // The joined feed and snapshot fail the report's own schema, clock or coherence: nothing worth keeping.
+      if (report.kind === 'invalid')
         return failed(
-          'report_invalid',
+          'report_failed',
           createRefusal(
             'VALIDATION',
             'economics-report-input-invalid',
             'Economics report input invalid',
           ),
         );
-      const accepted = report.value;
       const saved = await stage(() =>
-        input.save({ report: accepted, snapshot: snapshot.value }),
+        input.save({ report, snapshot: snapshot.value }),
       );
       if (!saved.ok) return failed('save_failed', saved.cause);
       return {
         kind: 'reported',
         month,
         feed: feed.value === null ? 'missing' : 'supplied',
-        report: accepted,
-        signals: economicsSignals(accepted),
+        report,
+        signals: economicsSignals(report),
       };
     },
   };
