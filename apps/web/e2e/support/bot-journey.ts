@@ -130,9 +130,10 @@ export async function proveHumanBotJourney(browser: Browser) {
       true,
     );
     // Every voiced phrase that played became one whole authored line, character
-    // for character; at most the one phrase voiced ahead was never started
-    // because it would not fit before the segment end (ADR 0122). Phrases are
-    // voiced ahead concurrently, so the runs are matched as a set, not in order.
+    // for character. The speech ends at its last whole phrase that fits before
+    // the segment end, so at most the phrases voiced ahead of it (two, the
+    // speaker's VOICED_AHEAD) were never said (ADR 0122). Phrases are voiced
+    // ahead concurrently, so the runs are matched as a set, not in order.
     const voiced = received('negative', 'tts').map((run) => run.characters);
     const spoken = lines
       .filter((line) => line.role === 'negative')
@@ -149,7 +150,12 @@ export async function proveHumanBotJourney(browser: Browser) {
       );
       unmatched.splice(at, 1);
     }
-    expect(unmatched.length).toBeLessThanOrEqual(1);
+    expect(unmatched.length).toBeLessThanOrEqual(2);
+    // Those unsaid are the last voiced: no phrase in the middle was dropped.
+    const byLength = (a: number, b: number) => a - b;
+    expect(
+      voiced.slice(voiced.length - unmatched.length).sort(byLength),
+    ).toEqual([...unmatched].sort(byLength));
     expect(received('judge', 'judging')).toHaveLength(1);
     expect(runs.filter((run) => run.role === 'affirmative')).toEqual([]);
     const receipt = await openPage(host.context, 'human/bot receipt');
