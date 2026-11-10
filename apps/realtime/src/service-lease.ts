@@ -1,4 +1,5 @@
 import type { OutboxPosition } from '@daisy/db/outbox';
+import { guarded } from '@daisy/observability';
 
 /** Cursor is sampled from the actual synchronous outbox-delivery boundary each renewal. */
 export function startRealtimeServiceLease(input: {
@@ -20,13 +21,16 @@ export function startRealtimeServiceLease(input: {
   let work: Promise<void> | null = null;
   const tick = () => {
     if (stopped || work) return work;
-    work = input
-      .renew({
+    // A cursor read or renewal that throws synchronously is a failed renewal too.
+    work = Promise.try(() =>
+      input.renew({
         instanceId: input.instanceId,
         role: 'realtime',
         deliveredThrough: input.deliveredThrough(),
-      })
-      .catch((error: unknown) => input.failed(error))
+      }),
+    )
+      // A failure sink that throws never rejects the renewal (ISSUE-789).
+      .catch((error: unknown) => void guarded(() => input.failed(error)))
       .finally(() => {
         work = null;
       });

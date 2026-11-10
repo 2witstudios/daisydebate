@@ -138,6 +138,8 @@ export function maintenanceAvailability(input: {
     probe: async () => false,
     timers: maintenanceTestTimers,
     failed: input.failed,
+    lapsing: { log: () => {}, report: () => {} },
+    nextId: () => input.instanceId,
   });
   return { service, firstSample };
 }

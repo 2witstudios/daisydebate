@@ -38,13 +38,44 @@ describe('browser capture configuration (ISSUE-1008)', () => {
         sentryDsn: DSN,
         sentryEnvironment: 'staging',
       }),
-      expected: { dsn: DSN, environment: 'staging' },
+      expected: { dsn: DSN, environment: 'staging', release: undefined },
     });
     assert({
       given: 'the html dataset of an unconfigured page',
       should: 'give the client no DSN',
       actual: browserCaptureConfig({}),
-      expected: { dsn: undefined, environment: undefined },
+      expected: { dsn: undefined, environment: undefined, release: undefined },
+    });
+  });
+
+  test('carries the release the server reports', () => {
+    const commit = '36ada6ce3182617cca5b785a3cfbf8fd640d64d2';
+    assert({
+      given: 'a DSN and the image commit',
+      should: 'write the commit as the release',
+      actual: browserCaptureAttributes({
+        NEXT_PUBLIC_SENTRY_DSN: DSN,
+        GIT_COMMIT: commit,
+      }),
+      expected: { 'data-sentry-dsn': DSN, 'data-sentry-release': commit },
+    });
+    assert({
+      given: 'the unknown commit default, or a commit with no DSN',
+      should: 'write no release',
+      actual: [
+        browserCaptureAttributes({
+          NEXT_PUBLIC_SENTRY_DSN: DSN,
+          GIT_COMMIT: 'unknown',
+        }),
+        browserCaptureAttributes({ GIT_COMMIT: commit }),
+      ],
+      expected: [{ 'data-sentry-dsn': DSN }, {}],
+    });
+    assert({
+      given: 'the html dataset of a page with a release',
+      should: 'give the client that release',
+      actual: browserCaptureConfig({ sentryDsn: DSN, sentryRelease: commit }),
+      expected: { dsn: DSN, environment: undefined, release: commit },
     });
   });
 });

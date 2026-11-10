@@ -1,4 +1,14 @@
+import { guarded } from '@daisy/observability';
 import type { WorkerTimers } from '../../lib/worker-timers';
+import {
+  afterRenewal,
+  checkLease,
+  delivered,
+  RENEW_INTERVAL_MS,
+  startingLease,
+  type LeaseLapse,
+  type LeaseRenewal,
+} from './lease-health';
 
 type Sampler = {
   readonly elect: () => Promise<boolean>;
@@ -32,7 +42,20 @@ export function startAvailabilityService(deps: {
   /** Monotonic milliseconds. */
   readonly nowMs: () => number;
   readonly timers: WorkerTimers;
-  readonly failed: () => void;
+  /** A renewal or availability cycle failed, with its own error. */
+  readonly failed: (error: unknown) => void;
+  /**
+   * This instance's lease has gone unproven by a timely renewal for 10 s
+   * (DAISY-WEB-9): each channel is told once per streak, and the streak
+   * re-arms only when a renewal proves the lease again. Never on a stop. A
+   * channel that throws was not delivered, and is tried again next tick.
+   */
+  readonly lapsing: {
+    readonly log: (lapse: LeaseLapse, streakId: string) => void;
+    readonly report: (lapse: LeaseLapse, streakId: string) => void;
+  };
+  /** Mints the one id a streak's log line and report share, to join them. */
+  readonly nextId: () => string;
 }) {
   const { nowMs } = deps;
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
@@ -77,16 +100,51 @@ export function startAvailabilityService(deps: {
         probe.value,
     });
   };
+  /** A failure sink that throws never rejects the renewal or the cycle. */
+  const failedSafely = (error: unknown) =>
+    void guarded(() => deps.failed(error));
+  let lease = startingLease(nowMs());
+  const observe = (renewal: LeaseRenewal) => {
+    lease = afterRenewal(lease, renewal);
+  };
+  /** Checked on every tick, so a renewal that hangs still counts as unproven. */
+  let streakId = '';
+  const checkHealth = () => {
+    const due = checkLease(lease, nowMs());
+    if (!due) return;
+    // A streak not yet told on either channel is new: give it its one id.
+    if (due.log && due.report) {
+      // Never another streak's id: an id that cannot be minted stays empty.
+      streakId = '';
+      guarded(() => {
+        streakId = deps.nextId();
+      });
+    }
+    // A channel counts only once it went out; reporting never stops renewals.
+    if (due.log && guarded(() => deps.lapsing.log(due.lapse, streakId)))
+      lease = delivered(lease, 'log');
+    if (due.report && guarded(() => deps.lapsing.report(due.lapse, streakId)))
+      lease = delivered(lease, 'report');
+  };
   const renew = () => {
-    renewing ??= deps.store
-      .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
-      .then(
-        () => true,
-        () => {
-          deps.failed();
-          return false;
-        },
-      )
+    if (renewing) return renewing;
+    const startedMs = nowMs();
+    // A store that throws synchronously still settles as a failed renewal.
+    renewing = Promise.try(() =>
+      deps.store.renewServiceInstance({
+        instanceId: deps.instanceId,
+        role: 'web',
+      }),
+    )
+      .then(() => {
+        observe({ kind: 'renewed', startedMs, settledMs: nowMs() });
+        return true;
+      })
+      .catch((error: unknown) => {
+        observe({ kind: 'failed', error });
+        failedSafely(error);
+        return false;
+      })
       .finally(() => {
         renewing = null;
       });
@@ -94,18 +152,19 @@ export function startAvailabilityService(deps: {
   };
   const tick = () => {
     if (stopped) return;
-    const lease = renew();
+    checkHealth();
+    const renewal = renew();
     if (running) return;
-    running = lease
+    running = renewal
       .then((renewed) => (renewed ? cycle() : undefined))
-      .catch(() => {
-        deps.failed();
+      .catch((error: unknown) => {
+        failedSafely(error);
       })
       .finally(() => {
         running = null;
       });
   };
-  const timer = deps.timers.setInterval(async () => tick(), 1000);
+  const timer = deps.timers.setInterval(async () => tick(), RENEW_INTERVAL_MS);
   tick();
   return {
     /** Settles once this process has checked the probe's resources at start. */

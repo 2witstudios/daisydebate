@@ -90,3 +90,77 @@ test('a failed renewal surfaces its error to the failed sink and the lease keeps
     expected: ['1', '2'],
   });
 });
+
+test('a failure sink that throws never rejects the renewal', async () => {
+  let tick: () => unknown = () => {};
+  const lease = startRealtimeServiceLease({
+    instanceId: 'c'.repeat(24),
+    deliveredThrough: () => ({ txid: '1', seq: 1n }),
+    renew: async () => {
+      throw new Error('renewal outage');
+    },
+    failed: () => {
+      throw new Error('reporter misconfigured');
+    },
+    timers: {
+      setInterval: (callback) => {
+        tick = callback;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+  });
+  let rejected: unknown = null;
+  try {
+    await tick();
+    await tick();
+    await lease.stop();
+  } catch (error) {
+    rejected = error;
+  }
+  assert({
+    given: 'failing renewals whose failure sink throws',
+    should: 'never reject a renewal or the stop',
+    actual: rejected,
+    expected: null,
+  });
+});
+
+test('a cursor read that throws synchronously is a failed renewal, not an escaped throw', async () => {
+  let tick: () => unknown = () => {};
+  const failures: unknown[] = [];
+  const broken = new Error('cursor unavailable');
+  let escaped: unknown = null;
+  try {
+    const lease = startRealtimeServiceLease({
+      instanceId: 'd'.repeat(24),
+      deliveredThrough: () => {
+        throw broken;
+      },
+      renew: async () => {},
+      failed: (error) => void failures.push(error),
+      timers: {
+        setInterval: (callback) => {
+          tick = callback;
+          return 1;
+        },
+        clearInterval: () => {},
+      },
+    });
+    await tick();
+    await lease.stop();
+  } catch (error) {
+    escaped = error;
+  }
+  assert({
+    given: 'a delivery cursor read that throws on every renewal',
+    should:
+      'hand each failure to the failed sink and never throw from the tick',
+    actual: {
+      escaped,
+      handed:
+        failures.length > 0 && failures.every((error) => error === broken),
+    },
+    expected: { escaped: null, handed: true },
+  });
+});

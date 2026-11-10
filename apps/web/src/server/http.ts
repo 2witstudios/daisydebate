@@ -20,6 +20,7 @@ import type { RefusalReason } from '@daisy/protocol';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
+import { isReportedFailure } from './request-failure';
 
 /** Plain data on an outage minted from an identity a refusal made unavailable. */
 const TEMPORARY_OUTAGE = { temporary: true } as const;
@@ -157,7 +158,7 @@ export async function handleOperation(
         // ADR 0037: the raw error goes to the scrubbed reporter only, and
         // only when someone must look: a 5xx or an invariant violation. A
         // failing reporter never fails the response (the ISSUE-789 rule).
-        if (mapped.status >= 500 || mapped.body.error.invariantId !== undefined)
+        if (isReportedFailure(mapped))
           try {
             reporter.capture(error, {
               requestId: id,

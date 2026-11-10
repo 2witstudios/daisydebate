@@ -1,14 +1,19 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { publicationStopError, publicationStopOf } from '@daisy/media/audio';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { recoverableFailure } from './recoverable-failure';
 setupRitewayBun();
 
-const record = (isCapacity: (error: unknown) => boolean = () => false) => {
+const record = (
+  isCapacity: (error: unknown) => boolean = () => false,
+  isLeaseLapse: (error: unknown) => boolean = isServiceLeaseLapse,
+) => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity,
+    isLeaseLapse,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -130,6 +135,7 @@ test('a bot publish failure names its stop, and nothing else of the error', () =
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => undefined },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -173,6 +179,7 @@ test('a sink that throws never fails its caller, and its other steps still run (
   const captured: unknown[] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: {
       log: () => {
         throw new Error('log transport down');
@@ -198,6 +205,9 @@ test('a sink that throws never fails its caller, and its other steps still run (
     isCapacity: () => {
       throw new Error('capacity check broke');
     },
+    isLeaseLapse: () => {
+      throw new Error('lapse check broke');
+    },
     logger: { log: () => {} },
     reporter: {
       capture: () => {
@@ -215,7 +225,8 @@ test('a sink that throws never fails its caller, and its other steps still run (
     thrown = error;
   }
   assert({
-    given: 'a log, cause reader, capacity check or reporter that throws',
+    given:
+      'a log, cause reader, capacity check, lapse check or reporter that throws',
     should:
       'never throw to the worker, and still hand the error to the reporter',
     actual: { thrown, captured },
@@ -227,6 +238,7 @@ test('a cause reader that throws costs only the cause, never the log line (ISSUE
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => {} },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -276,6 +288,7 @@ test('the failure sink says whether it reported or deferred a failure', () => {
 test('a failure neither sink took is unrecorded, not reported', () => {
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: {
       log: () => {
         throw new Error('log sink');
@@ -303,6 +316,7 @@ test('a failure only the log line took is logged, not reported, so a caller can 
   const lines: unknown[] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: { log: (...line) => void lines.push(line) },
     reporter: {
       capture: () => {
@@ -325,6 +339,7 @@ test('a failure only the log line took is logged, not reported, so a caller can 
 test('a failure the reporter took is reported even when its log line threw', () => {
   const failed = recoverableFailure({
     isCapacity: () => false,
+    isLeaseLapse: () => false,
     logger: {
       log: () => {
         throw new Error('log sink');
@@ -342,5 +357,42 @@ test('a failure the reporter took is reported even when its log line threw', () 
       'answer reported, so a caller settles rather than re-sending it every tick',
     actual: failed(new Error('genuine'), 'tick'),
     expected: 'reported',
+  });
+});
+
+const lapse = createRefusal(
+  'AUTHORIZATION',
+  'service-lease-lapsed',
+  'Maintenance service is not current',
+);
+
+test('a lapsed service lease is a warning, never a stage failure or a report (DAISY-WEB-9)', () => {
+  const { lines, captured, failed } = record();
+  for (let i = 0; i < 20; i++) failed(lapse, i % 2 ? 'tick' : 'finalize');
+  const denied = createAppError('AUTHORIZATION', 'Permission denied');
+  failed(denied, 'tick');
+  assert({
+    given:
+      'twenty lapse refusals across two stages, then a real authorization failure',
+    should:
+      'log each lapse under the warning event with its cause, and report only the real failure',
+    actual: {
+      first: lines[0],
+      events: [...new Set(lines.map(([event]) => event))],
+      captured: captured.map(([error]) => error),
+    },
+    expected: {
+      first: [
+        'service.lease_lapsed',
+        {
+          operation: 'round.maintenance.finalize.lease',
+          errorCode: 'AUTHORIZATION',
+          cause: 'service-lease-lapsed',
+        },
+        'Service lease not current; the next renewal restores it',
+      ],
+      events: ['service.lease_lapsed', 'round.maintenance.failed'],
+      captured: [denied],
+    },
   });
 });

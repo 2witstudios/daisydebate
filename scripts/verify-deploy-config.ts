@@ -17,6 +17,7 @@ import {
   findImageTypecheckProblem,
   findRunnerBuildProblem,
 } from './verify-image-build';
+import { findSourceMapSecretProblem } from './verify-source-map-secret';
 
 /** Pure check: does the Dockerfile's base image pin exactly `.bun-version`? */
 export function findDockerfileBunVersionProblem(input: {
@@ -330,6 +331,7 @@ export function verifyDeployConfig(input: {
     findImageTypecheckProblem(input),
     findDefaultStageProblem(input.dockerfile),
     findRunnerBuildProblem(input.workflow),
+    findSourceMapSecretProblem(input),
     findFlyReleaseCommandProblem(input.migratorToml),
     findWebReleaseCommandProblem(input.flyToml),
     findMigratorAppProblem(input.migratorToml),
@@ -377,7 +379,7 @@ if (import.meta.main) {
     process.exitCode = 1;
   } else {
     process.stdout.write(
-      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split, keeps staging always on, outlasts the shutdown drain, deploys every service app with its own token and runs the alert probe with nothing installed.\n',
+      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split, keeps staging always on, outlasts the shutdown drain, deploys every service app with its own token, hands the Sentry source-map token only to the web image build as a BuildKit secret and runs the alert probe with nothing installed.\n',
     );
   }
 }

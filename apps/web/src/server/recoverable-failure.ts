@@ -1,7 +1,12 @@
+import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { isCapacityRefusal } from '@daisy/db/capacity';
-import { isAppError } from '@daisy/errors';
+import { errorCodeOf } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
-import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
+import {
+  guarded,
+  noopErrorReporter,
+  type ErrorReporter,
+} from '@daisy/observability';
 import type { App } from './app';
 
 /**
@@ -20,13 +25,17 @@ export type FailureVerdict = 'reported' | 'logged' | 'unrecorded' | 'deferred';
  * and the error's own code; only the scrubbed reporter sees the raw error
  * (ADR 0037). An untyped error carries no trustworthy code, so it is INTERNAL.
  * Capacity refusals are deferrals: each refusal past the bound is reported,
- * and the count for that stage starts again.
+ * and the count for that stage starts again. A lapsed web service lease is
+ * only logged: it is the instance's condition, and the instance's renewal
+ * loop alone reports one that persists (DAISY-WEB-9).
  */
 export function recoverableFailure(input: {
   readonly logger: Pick<Logger, 'log'>;
   readonly reporter: ErrorReporter;
   readonly nextId: () => string;
   readonly isCapacity: (error: unknown) => boolean;
+  /** An expected lapse of the instance's own lease: logged, never reported here. */
+  readonly isLeaseLapse: (error: unknown) => boolean;
   readonly event: EventName;
   readonly operation: string;
   readonly message: string;
@@ -35,20 +44,12 @@ export function recoverableFailure(input: {
 }) {
   const deferrals = new Map<string, number>();
   /** One sink step; a step that throws never stops the next or its caller. */
-  const attempt = (step: () => void): boolean => {
-    try {
-      step();
-      return true;
-    } catch {
-      /* A failing sink is never its caller's fault (ISSUE-789). */
-      return false;
-    }
-  };
+  const attempt = (step: () => void): boolean => guarded(step);
   const report = (
     error: unknown,
     operation: string,
   ): Exclude<FailureVerdict, 'deferred'> => {
-    const errorCode = isAppError(error) ? error.code : 'INTERNAL';
+    const errorCode = errorCodeOf(error, 'INTERNAL');
     let cause: string | undefined;
     // A cause reader that throws costs only the cause, never the log line.
     attempt(() => {
@@ -74,12 +75,32 @@ export function recoverableFailure(input: {
   /**
    * Never throws, so no worker promise ever rejects because reporting its
    * failure failed (ISSUE-789). It answers what it did: `reported` (the
-   * reporter took it), `logged` (only the log line did), `unrecorded`
-   * (neither) or `deferred` (absorbed as capacity backpressure within the
-   * bound), so a caller never re-derives the rule.
+   * reporter took it), `logged` (only the log line did, or a lease lapse was
+   * logged as the warning it is), `unrecorded` (neither) or `deferred`
+   * (absorbed as capacity backpressure within the bound), so a caller never
+   * re-derives the rule.
    */
   return (error: unknown, stage: string): FailureVerdict => {
     const operation = `${input.operation}.${stage}`;
+    let lapse = false;
+    attempt(() => {
+      lapse = input.isLeaseLapse(error);
+    });
+    // A lapse is expected and clears on renewal: a warning, never a failure.
+    if (lapse)
+      return attempt(() => {
+        input.logger.log(
+          'service.lease_lapsed',
+          {
+            operation: `${operation}.lease`,
+            errorCode: errorCodeOf(error, 'AUTHORIZATION'),
+            cause: 'service-lease-lapsed',
+          },
+          'Service lease not current; the next renewal restores it',
+        );
+      })
+        ? 'logged'
+        : 'unrecorded';
     let capacity = false;
     attempt(() => {
       capacity = input.isCapacity(error);
@@ -109,6 +130,7 @@ export const workerFailures =
       reporter,
       nextId: () => app.ids.next(),
       isCapacity: isCapacityRefusal,
+      isLeaseLapse: isServiceLeaseLapse,
       event,
       operation,
       message,

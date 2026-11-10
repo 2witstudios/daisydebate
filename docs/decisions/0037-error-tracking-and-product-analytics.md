@@ -115,6 +115,22 @@ switch, matching `@sentry/nextjs`'s own per-runtime config convention
   without server) is legal but not a configuration this epic expects to
   use. Full inertness — no Sentry call from any runtime — requires both
   variables unset.
+- `SENTRY_AUTH_TOKEN`: build-time only, never a runtime variable. It is a
+  BuildKit secret mounted on the image's one `next build` step, never an
+  `ARG` or `ENV`, so it never reaches a layer, the image history or its
+  config. With it set, the build uploads the server, SSR and browser source
+  maps, then deletes the browser maps from `.next/static`, so none is ever
+  served. With it unset, the build stays green, generates no browser maps
+  and uploads nothing (`scripts/verify-source-map-secret.ts` guards the
+  wiring). The token belongs to an internal integration in org
+  `2witstudios` with the scopes `project:releases` and `org:read` alone (an
+  Organization Token's fixed `org:ci` scope cannot be narrowed), and only the
+  owner creates it.
+- The release is the image's full git commit (`GIT_COMMIT`, `sentryRelease`),
+  never a variable of its own. The upload names it at build time; the server
+  and edge runtimes read it from the process, and the browser reads it from
+  `<html data-sentry-release>`, written per request beside the DSN. Every
+  event and its uploaded maps therefore name the same release.
 - `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` (region)
 - `POSTHOG_API_KEY` (server-side events and person deletion)
 

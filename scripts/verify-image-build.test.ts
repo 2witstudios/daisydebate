@@ -54,6 +54,26 @@ describe('findImageTypecheckProblem (ISSUE-527)', () => {
   });
 });
 
+describe('findImageTypecheckProblem reads the build RUN itself', () => {
+  const nextConfig = readFileSync('apps/web/next.config.ts', 'utf8');
+  test('the variable only as text before the real build command', () => {
+    assert({
+      given:
+        'a build RUN that echoes the assignment and then runs next build without it',
+      should: 'report the problem, since next build would typecheck again',
+      actual: findImageTypecheckProblem({
+        dockerfile: realDockerfile.replace(
+          /\n {2}DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps\/web build/,
+          '\n  echo DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps/web build && bun run --cwd apps/web build',
+        ),
+        nextConfig,
+      }),
+      expected:
+        "next.config.ts must skip type errors only for the image build (ignoreBuildErrors: process.env.DAISY_IMAGE_BUILD === '1'), and only the Dockerfile build stage may set DAISY_IMAGE_BUILD=1; CI typechecks every deployed commit",
+    });
+  });
+});
+
 describe('findDefaultStageProblem (ISSUE-528)', () => {
   test('the web image stays the default target', () => {
     assert({
