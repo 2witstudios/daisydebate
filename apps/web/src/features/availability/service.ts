@@ -13,7 +13,11 @@ const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
 const PROBE_RESOURCE_RETRY_MS = 60_000;
 /** How one lease renewal ended: the instance's own truth about its lease. */
 export type LeaseRenewal =
-  | { readonly kind: 'renewed' }
+  | {
+      readonly kind: 'renewed';
+      /** Monotonic ms from the call to its settling. */
+      readonly tookMs: number;
+    }
   | { readonly kind: 'failed'; readonly error: unknown };
 
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
@@ -93,11 +97,12 @@ export function startAvailabilityService(deps: {
     }
   };
   const renew = () => {
+    const startedMs = nowMs();
     renewing ??= deps.store
       .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
       .then(
         () => {
-          observe({ kind: 'renewed' });
+          observe({ kind: 'renewed', tookMs: nowMs() - startedMs });
           return true;
         },
         (error: unknown) => {

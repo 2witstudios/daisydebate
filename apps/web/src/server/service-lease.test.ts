@@ -1,8 +1,9 @@
-import { createRefusal } from '@daisy/errors';
+import { createRefusal, isAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   currentLease,
   nextServiceLease,
+  renewalSignal,
   serviceLease,
   type ServiceLeaseSignal,
   type ServiceLeaseState,
@@ -72,7 +73,7 @@ test('a renewal ends the lapse, so a later one reports afresh', () => {
   });
 });
 
-test('the instance reports a lasting lapse once, under one route', () => {
+test('the instance reports a lasting lapse once, as one error under one route', () => {
   let nowMs = 0;
   const captured: unknown[][] = [];
   const lease = serviceLease({
@@ -82,19 +83,60 @@ test('the instance reports a lasting lapse once, under one route', () => {
   });
   const lapse = createRefusal('AUTHORIZATION', 'service-lease-lapsed');
   for (; nowMs <= 12_000; nowMs += 500) lease.lapseRefused(lapse);
+  const [error, context] = captured[0] ?? [];
   assert({
     given: 'worker lapse refusals every 500 ms for twelve seconds',
-    should: 'capture the refusal once under the instance lease route',
-    actual: captured,
-    expected: [
-      [
-        lapse,
-        {
-          requestId: 'r4n6p8r2t4v6x8z1k3b5c7d9',
-          route: 'web.service-lease.lapsed',
-          errorCode: 'AUTHORIZATION',
-        },
-      ],
-    ],
+    should:
+      'capture once: one infrastructure error caused by the refusal, under the instance lease route',
+    actual: {
+      reports: captured.length,
+      code: isAppError(error) ? error.code : null,
+      cause: error instanceof Error ? error.cause : null,
+      context,
+    },
+    expected: {
+      reports: 1,
+      code: 'INFRASTRUCTURE',
+      cause: lapse,
+      context: {
+        requestId: 'r4n6p8r2t4v6x8z1k3b5c7d9',
+        route: 'web.service-lease.lapsed',
+        errorCode: 'INFRASTRUCTURE',
+      },
+    },
+  });
+});
+
+test('renewals that each take 4 s while workers refuse still report after 10 s', () => {
+  let nowMs = 0;
+  const captured: unknown[] = [];
+  const lease = serviceLease({
+    now: () => nowMs,
+    reporter: { capture: (error) => captured.push(error) },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+  });
+  const lapse = createRefusal('AUTHORIZATION', 'service-lease-lapsed');
+  const reportedAt: number[] = [];
+  for (; nowMs <= 20_000; nowMs += 500) {
+    lease.lapseRefused(lapse);
+    if (nowMs % 4000 === 0 && nowMs > 0) lease.renewed(4000);
+    if (captured.length > reportedAt.length) reportedAt.push(nowMs);
+  }
+  assert({
+    given:
+      'a renewal settling every 4 s, each 4 s after it was called, and worker refusals every 500 ms',
+    should:
+      'treat each late renewal as no proof of a current lease and report at 10 s',
+    actual: reportedAt,
+    expected: [10_000],
+  });
+});
+
+test('a renewal counts as current only if it settled inside the lease window', () => {
+  assert({
+    given: 'renewals that settled after 0 ms, 2999 ms and 3000 ms',
+    should: 'count the first two as renewed and the last as late',
+    actual: [0, 2999, 3000].map(renewalSignal),
+    expected: ['renewed', 'renewed', 'renewal-late'],
   });
 });

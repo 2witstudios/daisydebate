@@ -1,4 +1,5 @@
-import { isAppError } from '@daisy/errors';
+import { SERVICE_LEASE_WINDOW_MS } from '@daisy/db/service-lease';
+import { createAppError } from '@daisy/errors';
 import type { ErrorReporter } from '@daisy/observability';
 
 /**
@@ -14,8 +15,9 @@ const ROUTE = 'web.service-lease.lapsed';
 
 /**
  * Whether this web instance's own service lease is current. Its renewals
- * are the truth: a renewal that succeeds makes it current again; a failed
- * renewal or a worker refused for a lapsed lease means it is lapsing.
+ * are the truth: a renewal that settles inside the lease window makes it
+ * current again; a failed or late renewal, or a worker refused for a lapsed
+ * lease, means it is lapsing.
  */
 export type ServiceLeaseState =
   | { readonly kind: 'current' }
@@ -27,7 +29,8 @@ export type ServiceLeaseState =
       readonly reportedAtMs: number | null;
     };
 
-export type ServiceLeaseSignal = 'renewed' | 'renewal-failed' | 'lapse-refused';
+export type ServiceLeaseSignal =
+  'renewed' | 'renewal-late' | 'renewal-failed' | 'lapse-refused';
 
 export const currentLease: ServiceLeaseState = { kind: 'current' };
 
@@ -52,17 +55,25 @@ export function nextServiceLease(
   };
 }
 
+/**
+ * A renewal that took the whole lease window to settle stamped a lease that
+ * had lapsed by the time it committed, so it proves nothing current.
+ */
+export const renewalSignal = (tookMs: number): ServiceLeaseSignal =>
+  tookMs < SERVICE_LEASE_WINDOW_MS ? 'renewed' : 'renewal-late';
+
 /** This instance's lease health, fed by its renewals and its workers. */
 export type ServiceLease = {
-  readonly renewed: () => void;
+  /** A renewal settled `tookMs` after it was called. */
+  readonly renewed: (tookMs: number) => void;
   readonly renewalFailed: (error: unknown) => void;
   readonly lapseRefused: (error: unknown) => void;
 };
 
 /**
  * The one lease state of a process, timed by an injected monotonic clock.
- * A report goes to the scrubbed reporter under one fixed route, whichever
- * renewal or worker stage observed it.
+ * A report is one fixed error under one fixed route, whichever renewal or
+ * worker stage observed it, with the latest observed failure as its cause.
  */
 export function serviceLease(deps: {
   readonly now: () => number;
@@ -70,18 +81,17 @@ export function serviceLease(deps: {
   readonly nextId: () => string;
 }): ServiceLease {
   let state = currentLease;
-  const observe = (signal: ServiceLeaseSignal, error?: unknown) => {
+  const observe = (signal: ServiceLeaseSignal, cause?: unknown) => {
     const next = nextServiceLease(state, signal, deps.now());
     state = next.state;
     if (next.report)
-      deps.reporter.capture(error, {
-        requestId: deps.nextId(),
-        route: ROUTE,
-        errorCode: isAppError(error) ? error.code : 'INTERNAL',
-      });
+      deps.reporter.capture(
+        createAppError('INFRASTRUCTURE', 'Web service lease lapsing', cause),
+        { requestId: deps.nextId(), route: ROUTE, errorCode: 'INFRASTRUCTURE' },
+      );
   };
   return {
-    renewed: () => observe('renewed'),
+    renewed: (tookMs) => observe(renewalSignal(tookMs)),
     renewalFailed: (error) => observe('renewal-failed', error),
     lapseRefused: (error) => observe('lapse-refused', error),
   };

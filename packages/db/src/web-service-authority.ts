@@ -3,6 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
+import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
 
 /**
  * Refuses unless this web instance's own lease is current. With `lock`, the
@@ -17,7 +18,7 @@ export async function requireCurrentWeb(
 ) {
   const rows =
     await tx.execute(sql`select instance_id from service_instances where instance_id=${instanceId} and role='web'
-    and renewed_at>clock_timestamp()-interval '3 seconds' ${lock ? sql`for key share` : sql``}`);
+    and renewed_at>clock_timestamp()-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond' ${lock ? sql`for key share` : sql``}`);
   if (rows.length !== 1)
     throw createRefusal(
       'AUTHORIZATION',

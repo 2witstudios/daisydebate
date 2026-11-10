@@ -307,10 +307,12 @@ reported. A lapsed web service lease (`AUTHORIZATION` with reason
 instance's: every worker on the shared failure sink logs each lapse as
 `<operation>.lease` with that `cause` and hands it to the instance's one lease
 state (`server/service-lease.ts`). That state's truth is the instance's own
-renewals: a successful renewal makes the lease current, and a failed renewal or
-a lapse refusal makes it lapsing. The state reports to the error tracker under
-the one route `web.service-lease.lapsed` once the lease has been lapsing for
-10 s, then every 5 minutes while it stays lapsing. A lapse the next renewal
+renewals: a renewal that settles inside the 3 s lease window
+(`SERVICE_LEASE_WINDOW_MS`) makes the lease current, while a failed or late
+renewal, or a lapse refusal, makes it lapsing. The state reports one
+`INFRASTRUCTURE` error, caused by the latest failure it saw, under the one route
+`web.service-lease.lapsed` once the lease has been lapsing for 10 s, then every
+5 minutes while it stays lapsing. A lapse the next renewal
 clears stays in the logs however many Rounds failed during it. A plain
 `AUTHORIZATION` failure is reported at once. A bot speech refused admission
 keeps its delivery attempts and resumes at the refused step: the provider

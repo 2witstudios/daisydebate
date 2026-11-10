@@ -296,9 +296,9 @@ test('every renewal outcome reaches the instance, and an observer that throws ch
     actual: { outcomes, events },
     expected: {
       outcomes: [
-        { kind: 'renewed' },
+        { kind: 'renewed', tookMs: 0 },
         { kind: 'failed', error: refused },
-        { kind: 'renewed' },
+        { kind: 'renewed', tookMs: 0 },
       ],
       events: ['failed'],
     },

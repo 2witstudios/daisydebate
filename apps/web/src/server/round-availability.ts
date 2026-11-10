@@ -38,7 +38,7 @@ export function startRoundAvailability(input: {
       ),
     renewal: (outcome) =>
       outcome.kind === 'renewed'
-        ? app.serviceLease.renewed()
+        ? app.serviceLease.renewed(outcome.tookMs)
         : app.serviceLease.renewalFailed(outcome.error),
     failed: () =>
       app.logger.log(
