@@ -1144,3 +1144,27 @@ test('a reporter that throws for everything logs signal_failed once', async () =
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('the log line names the innermost reason in the cause chain', () => {
+  const privacy = createRefusal('VALIDATION', 'economics-sink-not-private');
+  const reader = createRefusal(
+    'INFRASTRUCTURE',
+    'economics-sink-unreadable',
+    undefined,
+    privacy,
+  );
+  assert({
+    given:
+      'a stage error wrapping the feed reader refusal, which wraps the directory privacy refusal',
+    should: 'name the privacy refusal, the actual fault',
+    actual: economicsFailureCheck(
+      createRefusal(
+        'INFRASTRUCTURE',
+        'economics-feed-unreadable',
+        undefined,
+        reader,
+      ),
+    ),
+    expected: 'economics-sink-not-private',
+  });
+});

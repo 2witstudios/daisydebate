@@ -51,7 +51,7 @@ saved report, the signals it implies and whether the feed was `supplied` or
 private, or its bounded retention sweep refused; the sweep runs on every
 collection, whether or not it reaches the save), `snapshot_failed` (the read
 threw), `snapshot_invalid` (schema,
-window, or an observation later than now, each with its own message),
+window, or an observation later than now, each with its own reason),
 `feed_unreadable` (the file could not be opened), `feed_invalid` (the
 operator's file is wrong: not a private regular file, a symbolic link, a file
 this process may not read,
@@ -178,7 +178,7 @@ a financial report or claims low-margin delivery:
   a typed cause keeps its own code (every throw in the private file edge is
   typed, so a non-private sink directory is `sink_unavailable`/`VALIDATION`;
   the feed reader's own recheck, for direct callers, reports it as
-  `feed_unreadable` with its own message, never as an invalid feed), and an untyped one
+  `feed_unreadable` with its own reason, never as an invalid feed), and an untyped one
   takes its stage's (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and
   `report_invalid`, `INTERNAL` for `report_failed`, otherwise
   `INFRASTRUCTURE`). The log line's `cause` names the check that failed by its

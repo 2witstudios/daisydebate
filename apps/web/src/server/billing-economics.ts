@@ -1,5 +1,6 @@
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
+import type { RefusalReason } from '@daisy/protocol';
 import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
 import type { App } from './app';
 import {
@@ -93,13 +94,20 @@ const stageError = (stage: EconomicsStage, code: ErrorCode, cause: unknown) =>
 
 /**
  * The log line's closed `cause` (ADR 0102: a reason, never a message): the
- * typed cause's own check when it names one, otherwise the stage the reported
- * error names. Only an error with no reason anywhere names nothing.
+ * innermost reason in the cause chain, so the actual fault is named (a
+ * non-private directory met by the feed reader logs economics-sink-not-private),
+ * otherwise the stage the reported error names. Only an error with no reason
+ * anywhere names nothing.
  */
 export const economicsFailureCheck = (error: unknown) => {
-  const cause = error instanceof Error ? error.cause : undefined;
-  if (isAppError(cause) && cause.reason) return cause.reason;
-  return isAppError(error) ? error.reason : undefined;
+  // The innermost reason names the actual fault; outer ones say where it was met.
+  let named: RefusalReason | undefined;
+  let current: unknown = error;
+  for (let depth = 0; depth < 8 && current instanceof Error; depth++) {
+    if (isAppError(current) && current.reason) named = current.reason;
+    current = current.cause;
+  }
+  return named;
 };
 
 /**
