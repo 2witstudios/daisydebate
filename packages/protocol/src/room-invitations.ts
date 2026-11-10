@@ -51,14 +51,18 @@ export const roomInvitationRefusals = [
 ] as const;
 export type RoomInvitationRefusal = (typeof roomInvitationRefusals)[number];
 
-/** One pending invitation as its Room's host and its invitee read it. */
-export type RoomInvitationView = {
-  readonly id: string;
-  readonly seat: RoomSeatKind;
-  readonly invitee: string;
-  readonly inviter: string;
-  readonly expiresAt: string;
-};
+/**
+ * One pending invitation as its Room's host and its invitee read it: the
+ * host sees every one, an invitee only their own (ADR 0124).
+ */
+export const roomInvitationViewSchema = z.strictObject({
+  id: idSchema,
+  seat: z.enum(roomSeatKinds),
+  invitee: z.string(),
+  inviter: z.string(),
+  expiresAt: z.iso.datetime(),
+});
+export type RoomInvitationView = z.infer<typeof roomInvitationViewSchema>;
 
 /** A pending invitation as the Room holds it. */
 export type PendingRoomInvitation = {

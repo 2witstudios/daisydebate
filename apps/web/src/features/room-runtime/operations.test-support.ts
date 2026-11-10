@@ -81,6 +81,7 @@ export function makeOperations(
   const base = {
     databaseNow: async () => now,
     readRoundBotAdmissionStatus: async () => null,
+    readRoomInvitations: async () => [],
     readOwnEntitlementGrants: async () => [],
     readOwnCasualJudgeAllowance: async () => ({
       kind: 'refuse',

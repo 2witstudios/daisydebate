@@ -129,6 +129,7 @@ export const assemblySnapshot = {
   executionPlan: freezeRoomExecutionPlan(compiled.roomPlan),
   authoredDrawSource: null,
   seatsHeldFromViewer: { debater: 0, judge: 0 },
+  invitations: [],
   rules: compiled.rules,
   participants: [],
   readiness: { available: true, version: 3, readyActorIds: [] },

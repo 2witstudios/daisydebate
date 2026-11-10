@@ -34,6 +34,7 @@ const render = (
         settingsAction: async () => ({ values: {} }),
         read: async () => ({ kind: 'unavailable' }) as const,
         send: async () => ({ kind: 'unavailable' }) as const,
+        invitationAction: async () => ({}),
       }),
     ),
   );

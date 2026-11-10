@@ -43,6 +43,7 @@ import type {
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
   Database,
+  | 'readRoomInvitations'
   | 'readRoundBotAdmissionStatus'
   | 'readOwnEntitlementGrants'
   | 'readOwnCasualJudgeAllowance'
@@ -184,6 +185,13 @@ export function createRoomRuntimeOperations({
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),
+      invitations: [
+        ...(await store.readRoomInvitations({
+          roomId: state.id,
+          viewerActorId: caller.actorId,
+          now,
+        })),
+      ],
       watchRoundId: startHiddenFrom(state, caller.actorId)
         ? await store.readWatchableRoundOfRoom(state.id, spectatorClockAt(now))
         : null,

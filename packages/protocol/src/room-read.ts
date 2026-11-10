@@ -8,6 +8,7 @@ import { roomCaptureSchema } from './room-capture';
 import { competitionTypes, roundStatusSchema } from './round';
 import { formatStandingSchema } from './format-standing';
 import { roomStatuses } from './room-contract';
+import { roomInvitationViewSchema } from './room-invitations';
 const version = z.int().positive();
 const visibility = z.enum(['public', 'unlisted', 'private']);
 const participant = z.strictObject({
@@ -118,6 +119,8 @@ export const roomViewSchema = z.strictObject({
    * spectator timeline has released its start. Null for everyone else.
    */
   watchRoundId: idSchema.nullable(),
+  /** Pending invitations this viewer may see (ADR 0124). */
+  invitations: z.array(roomInvitationViewSchema).max(16),
   /** Host-only display metadata; admission is rechecked atomically at freeze. */
   botAdmission: z
     .union([

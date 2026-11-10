@@ -122,6 +122,8 @@ export function projectRoom(
     captureNotice: null,
     botAdmission: null,
     watchRoundId: null,
+    // The Room read fills these in for its viewer (ADR 0124).
+    invitations: [],
     status: room.status,
     formatId: room.formatId,
     formatVersion: room.formatVersion,

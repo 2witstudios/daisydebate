@@ -14,6 +14,10 @@ import {
 } from '../../../../features/rooms/command-answer';
 import { processRoute } from '../../../../server/process-app';
 import {
+  submitInvitationForm,
+  type InvitationFormState,
+} from '../../../../features/room-invitations/submit';
+import {
   contentWaiverAnswer,
   submitContentWaiver,
 } from '../../../../features/agreements/submit-content-waiver';
@@ -35,6 +39,54 @@ const commands = processRoute(
       new URL(request.url).pathname.split('/')[3] ?? '',
     ),
 );
+
+const invitations = {
+  invite: processRoute(
+    (routes) => (request) =>
+      routes.roomInvitations.invite(
+        request,
+        new URL(request.url).pathname.split('/')[3] ?? '',
+      ),
+  ),
+  withdraw: processRoute(
+    (routes) => (request) => routes.roomInvitations.end(request, 'withdraw'),
+  ),
+  decline: processRoute(
+    (routes) => (request) => routes.roomInvitations.end(request, 'decline'),
+  ),
+};
+
+/**
+ * Invites a member, or withdraws or declines an invitation (ADR 0124). A
+ * native post comes back to the Room; a hydrated page keeps the answer and
+ * its room sync picks up the change from the Room's doorbell.
+ */
+export async function roomInvitationAction(
+  id: string,
+  _state: InvitationFormState,
+  form: FormData,
+): Promise<InvitationFormState> {
+  const incoming = new Headers(await headers());
+  const intent = form.get('intent');
+  const route =
+    intent === 'withdraw'
+      ? invitations.withdraw
+      : intent === 'decline'
+        ? invitations.decline
+        : invitations.invite;
+  const answer = await submitInvitationForm(
+    (path, body) =>
+      inProcessFetch(route, incoming)(path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    id,
+    form,
+  );
+  if (!hydratedPost(incoming)) moveOn(incoming, `/rooms/${id}`);
+  return answer;
+}
 
 export async function roomAssembly(id: string) {
   return readAssembly(inProcessFetch(read, new Headers(await headers())), id);

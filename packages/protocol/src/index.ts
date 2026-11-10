@@ -444,6 +444,7 @@ export {
   roomInvitationCommandSchemas,
   roomInvitationRefusals,
   roomInvitationStates,
+  roomInvitationViewSchema,
   settledRoomInvitations,
   type RoomInvitationRefusal,
   type RoomInvitationState,
