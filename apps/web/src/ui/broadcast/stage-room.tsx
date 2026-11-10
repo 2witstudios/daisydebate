@@ -7,6 +7,9 @@ import {
   subscribesTo,
   type StageParticipant,
 } from './stage-subscriptions';
+import type { StageRoomHandle } from './stage-connection';
+import { createStageConnection } from './stage-connector';
+import { startStagePoll } from './stage-poll';
 import { stageWatchStart, watchedStage } from './stage-watch';
 import { StageView, type StageLink, type StageSnapshot } from './stage-view';
 
@@ -20,6 +23,9 @@ type StageAnswer = StageSnapshot & {
   readonly debaterIdentities: readonly string[];
   readonly room: { readonly url: string; readonly token: string } | null;
 };
+
+/** The LiveKit room the stage joins, under the observer token and without retries of its own. */
+type StageMediaRoom = StageRoomHandle & { readonly room: Room };
 
 /** Fills its seat, so the 540p top layer reaches the frame close to one to one. */
 function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
@@ -41,7 +47,10 @@ function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
   );
 }
 
-/** Connects under the observer token and rejoins when the Round's room rotates. */
+/**
+ * Connects under the observer token and rejoins when the Round's room rotates or the
+ * media server cannot be reached: the link shows reconnecting until a room is joined.
+ */
 export function StageRoom(props: {
   readonly captureId: string;
   readonly credential: string;
@@ -54,12 +63,50 @@ export function StageRoom(props: {
   const [participants, setParticipants] = useState<readonly StageParticipant[]>(
     [],
   );
-  const roomRef = useRef<Room | null>(null);
   const started = useRef(false);
   const ended = useRef(false);
   const watch = useRef(stageWatchStart);
   const identities = useRef<readonly string[]>([]);
   useEffect(() => {
+    const connection = createStageConnection<StageMediaRoom>({
+      createRoom: () => {
+        const room = new Room({ adaptiveStream: false, dynacast: false });
+        const media: StageMediaRoom = {
+          room,
+          // One attempt per read: the poll is the retry, so attempts never stack.
+          connect: (url, token) =>
+            room.connect(url, token, { autoSubscribe: false, maxRetries: 0 }),
+          disconnect: () => room.disconnect(),
+        };
+        room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
+          if (!subscribesTo(identities.current, participant.identity)) return;
+          if (track.kind === Track.Kind.Video)
+            setCameras((all) => new Map(all).set(participant.identity, track));
+          else document.body.appendChild(track.attach());
+        });
+        room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
+          if (track.kind === Track.Kind.Video)
+            setCameras((all) => {
+              const rest = new Map(all);
+              rest.delete(participant.identity);
+              return rest;
+            });
+          else track.detach().forEach((element) => element.remove());
+        });
+        room.on(RoomEvent.Reconnecting, () =>
+          connection.on({ type: 'resuming', room: media }),
+        );
+        room.on(RoomEvent.Reconnected, () =>
+          connection.on({ type: 'resumed', room: media }),
+        );
+        room.on(RoomEvent.Disconnected, () => {
+          connection.on({ type: 'dropped', room: media });
+          setCameras(new Map());
+        });
+        return media;
+      },
+      onLink: setLink,
+    });
     const read = async () => {
       if (ended.current) return;
       // A web tier that is gone may never answer, so a read cannot wait for it.
@@ -78,14 +125,20 @@ export function StageRoom(props: {
         // Egress stops on exactly this line. Nothing else can stop it with the web gone.
         // eslint-disable-next-line no-console
         console.log('END_RECORDING');
-        void roomRef.current?.disconnect();
+        connection.close();
         return;
       }
       if (!answer?.ok) return;
-      const next = (await answer.json()) as StageAnswer;
+      // A body cut off mid-read is no new answer; the next read tries again.
+      const next = (await answer
+        .json()
+        .catch(() => null)) as StageAnswer | null;
+      if (next) show(next);
+    };
+    const show = (next: StageAnswer) => {
       setStage(next);
       identities.current = next.debaterIdentities;
-      const present = roomRef.current;
+      const present = connection.joinedRoom()?.room;
       setParticipants([...(present?.remoteParticipants.values() ?? [])]);
       if (present)
         applyStageSubscriptions(
@@ -99,42 +152,19 @@ export function StageRoom(props: {
         // eslint-disable-next-line no-console
         console.log('START_RECORDING');
       }
-      if (next.room && !present) {
-        const room = new Room({ adaptiveStream: false, dynacast: false });
-        roomRef.current = room;
-        room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
-          if (!subscribesTo(identities.current, participant.identity)) return;
-          if (track.kind === Track.Kind.Video)
-            setCameras((all) => new Map(all).set(participant.identity, track));
-          else document.body.appendChild(track.attach());
-        });
-        room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
-          if (track.kind === Track.Kind.Video)
-            setCameras((all) => {
-              const rest = new Map(all);
-              rest.delete(participant.identity);
-              return rest;
-            });
-          else track.detach().forEach((element) => element.remove());
-        });
-        room.on(RoomEvent.Reconnecting, () => setLink('reconnecting'));
-        room.on(RoomEvent.Reconnected, () => setLink('connected'));
-        room.on(RoomEvent.Connected, () => setLink('connected'));
-        room.on(RoomEvent.Disconnected, () => {
-          roomRef.current = null;
-          setLink('reconnecting');
-          setCameras(new Map());
-        });
-        await room.connect(next.room.url, next.room.token, {
-          autoSubscribe: false,
-        });
-      }
+      // Not awaited: a connect may take seconds, and the watch must keep reading.
+      if (next.room) void connection.offer(next.room);
     };
-    void read();
-    const handle = setInterval(() => void read(), POLL_MS);
+    const stop = startStagePoll({
+      read,
+      every: (tick) => {
+        const handle = setInterval(tick, POLL_MS);
+        return () => clearInterval(handle);
+      },
+    });
     return () => {
-      clearInterval(handle);
-      void roomRef.current?.disconnect();
+      stop();
+      connection.close();
     };
   }, [props.captureId, props.credential]);
   if (!stage) return null;
