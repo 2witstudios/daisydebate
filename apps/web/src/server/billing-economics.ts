@@ -88,7 +88,14 @@ export function startBillingEconomics(input: {
         });
       return;
     }
-    if (prior?.owed.length === 0) return;
+    if (prior?.owed.length === 0) {
+      // Already raised this month; settling again still re-arms the month's failures.
+      raised = recordRaised(raised, collection, {
+        owed: [],
+        failureReported: false,
+      });
+      return;
+    }
     const owed = prior?.owed ?? collection.signals;
     const submitted = raiseEconomicsSignals(app.reporter, {
       month: collection.month,

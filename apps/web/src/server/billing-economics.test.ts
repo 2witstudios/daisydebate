@@ -429,7 +429,7 @@ test('a reporter that fails mid-batch retries only the signals it did not submit
   }
 });
 
-test('an outcome that returns after another is not raised again that month', async () => {
+test('report signals are raised once a month, a returning failure after each recovery', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
   try {
     const run = await runWorker({
@@ -444,12 +444,13 @@ test('an outcome that returns after another is not raised again that month', asy
       given:
         'feed missing, sink unavailable, feed missing, sink unavailable, feed missing',
       should:
-        'raise the completeness signals once and the sink failure once for the month',
+        'raise the completeness signals once a month, and the sink failure each time it returns after a report settled',
       actual: run.captured.map((c) => c.route),
       expected: [
         'billing.economics.free',
         'billing.economics.beta',
         'billing.economics.premium',
+        'billing.economics.sink_unavailable',
         'billing.economics.sink_unavailable',
       ],
     });
@@ -470,7 +471,8 @@ test('a reporter that keeps throwing is reported as signal_failed once, and retr
       },
     });
     assert({
-      given: 'a reporter that throws on every signal capture over four ticks',
+      given:
+        'a reporter that throws on every signal capture over four collections',
       should:
         'log billing.economics.failed as signal_failed once, not every hour, with a typed INFRASTRUCTURE capture carrying the cause',
       actual: {
@@ -538,7 +540,7 @@ test('a throwing logger after submission never makes the next tick re-send signa
     });
     assert({
       given:
-        'a logger that throws when feed_missing is logged, over three ticks',
+        'a logger that throws when feed_missing is logged, over three collections',
       should: 'still capture each completeness signal exactly once',
       actual: run.captured
         .filter((c) => c.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
@@ -550,6 +552,37 @@ test('a throwing logger after submission never makes the next tick re-send signa
       ],
     });
   } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('in a month that starts healthy, every regression after a report is raised', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 4,
+      between: async (n) => {
+        if (n === 1 || n === 3) await chmod(directory, 0o500);
+        if (n === 2) await chmod(directory, 0o700);
+      },
+    });
+    assert({
+      given:
+        'a report, a refused save, a report, then two refused saves (five collections)',
+      should:
+        'raise the signals once and save_failed after each recovery, once per regression',
+      actual: run.captured.map((c) => c.route),
+      expected: [
+        'billing.economics.free',
+        'billing.economics.beta',
+        'billing.economics.premium',
+        'billing.economics.save_failed',
+        'billing.economics.save_failed',
+      ],
+    });
+  } finally {
+    await chmod(directory, 0o700);
     await rm(directory, { recursive: true, force: true });
   }
 });
