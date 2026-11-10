@@ -113,6 +113,8 @@ export async function correctBillingEconomics(
     directory,
   ).run(window, 'correction');
   if (collection.kind === 'failed') {
+    // A capacity refusal is returned to the caller: a one-off has no later tick to bound it.
+    if (isCapacityRefusal(collection.cause)) return collection;
     economicsFailures(app)(
       reasonError(collection.reason, collection.cause),
       collection.reason,
