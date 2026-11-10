@@ -206,7 +206,7 @@ export function OpeningStrike({
       ? 'Your strike'
       : `${nameOf(view, draw.turn.side)} is striking`;
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-reading flex-col gap-4 p-4">
+    <div className="mx-auto flex min-h-dvh w-full max-w-reading flex-col gap-4 p-4">
       <section
         aria-labelledby="opening-strike-title"
         className="flex flex-col gap-4 rounded-xl border border-border bg-surface-raised p-6"
@@ -246,7 +246,7 @@ export function OpeningStrike({
           Refresh
         </a>
       </section>
-    </main>
+    </div>
   );
 }
 

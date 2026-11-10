@@ -3,22 +3,11 @@
 import { startSpeechLabel } from '../../features/debate-room/vocabulary';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import type { ReactNode } from 'react';
-import {
-  clockMilestone,
-  clockUrgency,
-  type ClockUrgency,
-} from '../../features/debate-room/clock';
 import { formatCountdown } from '../../lib/clock-display';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import type { RoundSnapshot } from './round';
-
-const urgencyInk: Readonly<Record<ClockUrgency, string>> = {
-  normal: 'text-ink',
-  low: 'text-gold',
-  critical: 'text-live',
-  over: 'text-live',
-};
+import { RoundClock } from './round-clock';
 
 const button =
   'inline-flex h-room-target shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm border px-4 text-sm font-strong whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60';
@@ -117,29 +106,14 @@ function MainClock({ round }: { readonly round: RoundSnapshot }) {
     );
   return (
     <>
-      <div
-        role="timer"
-        aria-label={`${clock.label} ${formatCountdown(clock.remainingMs)}`}
+      <RoundClock
+        label={clock.label}
+        remainingMs={clock.remainingMs}
         className={center}
-      >
-        <span className="text-xs font-strong tracking-wider text-ink-muted uppercase">
-          {clock.label}
-        </span>
-        <span
-          className={cn(
-            'font-display text-3xl tabular-nums',
-            urgencyInk[clockUrgency(clock.remainingMs)],
-          )}
-        >
-          {formatCountdown(clock.remainingMs)}
-        </span>
-      </div>
+      />
       {clock.note ? (
         <p className="text-xs text-ink-muted">{clock.note}</p>
       ) : null}
-      <p aria-live="polite" className="sr-only">
-        {clockMilestone(clock.remainingMs)}
-      </p>
     </>
   );
 }

@@ -16,7 +16,7 @@ import {
 } from '../../../../../ui/round-result/live-transcript';
 import { TranscriptSeedRecovery } from '../../../../../ui/round-result/transcript-seed-recovery';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[roundId]/actions';
-import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
+import { LiveJudgeRoom } from '../../../../../ui/judging-room/live-judge-room';
 import {
   leaveRoundAction,
   roundCommandAction,
