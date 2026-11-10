@@ -65,9 +65,14 @@ its delivery instead of fitting it into the human capture pipeline.
    once its queued tail has played out. One cut short by a barge-in, a
    refusal, a stop or a failed handoff, including one whose tail is cleared
    after its last frame was handed over, closes `interrupted`. Its text keeps
-   only the whole words fully played: samples sent less samples still
-   queued, never the samples merely sent. A line cut before its first word is
-   deleted. The database accepts only a whole-word prefix of the authored
+   the share of its whole words matching the share of its audio that played
+   (samples sent less samples still queued, never the samples merely sent),
+   rounded down and assuming uniform word timing, since the voice gives no
+   word alignment: a long word late in the played share may be kept though
+   not finished. A line cut before its first word is deleted. Such a phrase,
+   when it is the one being played, is said again whole; so is one whose
+   queued tail the next phrase's stop, refusal or failure cut, the turn
+   stepping back to it. The database accepts only a whole-word prefix of the authored
    text. The close authenticates the claim's own token even after its lease
    lapsed, and an end that keeps failing is asked again at the next phrase
    and at the claim's end. A line its worker never closed (a lost worker) is

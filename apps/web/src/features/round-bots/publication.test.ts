@@ -1184,3 +1184,29 @@ test('the claim’s end waits for a line end retry still in flight, and asks it 
     expected: true,
   });
 });
+
+test('a phrase reported played whole knows when the next phrase’s stop cut its tail', async () => {
+  const { claim } = harness();
+  claim.start();
+  await Bun.sleep(10);
+  const a = 'a'.repeat(24);
+  const b = 'b'.repeat(24);
+  await claim.publish(job(600, a), signal(), far());
+  const playedOut = claim.tailCut(a);
+  // a's 300 ms tail is still queued when b is stopped before its audio.
+  const stop = new AbortController();
+  stop.abort();
+  await claim.publish(job(400, b), stop.signal, far()).catch(() => undefined);
+  const cut = claim.tailCut(a);
+  await tailPlays();
+  const c = 'c'.repeat(24);
+  await claim.publish(job(300, c), signal(), far());
+  await tailPlays();
+  assert({
+    given:
+      'a phrase whose tail is cut by the next phrase’s stop, and a later one whose tail played out',
+    should: 'report the first cut and the second not',
+    actual: { playedOut, cut, later: claim.tailCut(c) },
+    expected: { playedOut: false, cut: true, later: false },
+  });
+});

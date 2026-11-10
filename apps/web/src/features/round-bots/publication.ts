@@ -185,6 +185,12 @@ export function createBotPublisher(input: {
     const cleared = () => {
       clears = [...clears.slice(-31), input.monotonicNowMs()];
     };
+    /** The last phrase reported played whole, and when its queued tail plays out. */
+    let lastHanded: {
+      readonly phraseId: string;
+      readonly handedAtMs: number;
+      readonly playsUntilMs: number;
+    } | null = null;
     /** Each played phrase's line closes here, in order, beside the next one's audio. */
     let closing: Promise<void> = Promise.resolve();
     /**
@@ -631,6 +637,7 @@ export function createBotPublisher(input: {
         if (asked) await settleLine(job, playedUntil(cutAtMs));
         throw refusal ?? createAppError('CONFLICT');
       }
+      lastHanded = { phraseId: job.phraseId, handedAtMs, playsUntilMs };
       closing = closing.then(async () => {
         await input.waitUntilMs(playsUntilMs, ended.signal);
         await revealing;
@@ -651,6 +658,12 @@ export function createBotPublisher(input: {
       publish,
       /** Whether this claim closed the line: a retry then needs a new one. */
       lineClosed: (phraseId: string) => closed.has(phraseId),
+      /** Whether a phrase reported played whole had its queued tail cut since. */
+      tailCut: (phraseId: string) =>
+        lastHanded?.phraseId === phraseId &&
+        clears.some(
+          (at) => at > lastHanded!.handedAtMs && at < lastHanded!.playsUntilMs,
+        ),
       /** Whether audio handed over is still playing out of the queue. */
       audible: () => (current?.queuedMs() ?? 0) > 0,
       /** Drops whatever is still queued: a barge-in on a tail is silent at once. */

@@ -39,6 +39,7 @@ export function harness(
     readonly publish?: SpeakerInput['publish'];
     readonly deadline?: SpeakerInput['deadline'];
     readonly lineClosed?: SpeakerInput['lineClosed'];
+    readonly tailCut?: SpeakerInput['tailCut'];
     readonly audible?: SpeakerInput['audible'];
   } = {},
 ) {
@@ -68,6 +69,7 @@ export function harness(
         : answered(job(phraseId, text));
     },
     lineClosed: options.lineClosed ?? (() => false),
+    tailCut: options.tailCut ?? (() => false),
     writeAhead: (job) => {
       prepared.push(`${job.text}:${job.phraseId}`);
     },

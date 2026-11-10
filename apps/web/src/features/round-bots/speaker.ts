@@ -51,6 +51,11 @@ type Progress = {
    * only once the line was closed, so a cut phrase said again is a new line.
    */
   lineId: string | null;
+  /** The last phrase reported played whole, under its line id. */
+  said: {
+    readonly answer: Answer<BotSpeechJob>;
+    readonly lineId: string;
+  } | null;
 };
 const freshProgress = (): Progress => ({
   generated: null,
@@ -61,6 +66,7 @@ const freshProgress = (): Progress => ({
   ahead: [],
   voicing: new AbortController(),
   lineId: null,
+  said: null,
 });
 const STOPPED = 'Bot publication stopped before the phrase was sent';
 const isPlatformIncidentRefusal = (error: unknown) =>
@@ -104,6 +110,11 @@ export function createBotSpeaker(input: {
   readonly deadline: () => Promise<number>;
   /** Whether the publisher closed this line, so a retry needs a new one. */
   readonly lineClosed: (phraseId: string) => boolean;
+  /**
+   * Whether this line, reported played whole, had its queued tail cut since by
+   * a later clear (the next phrase's stop, refusal or failure).
+   */
+  readonly tailCut: (phraseId: string) => boolean;
   /** Whether audio already handed over is still playing out of the queue. */
   readonly audible: () => boolean;
   /** Drops whatever is still queued, at once. */
@@ -311,17 +322,49 @@ export function createBotSpeaker(input: {
         (held) => held.index === progress.spoken + 1,
       );
       if (next) prepareAhead(next);
-      const outcome = await speaking;
+      const outcome = await speaking.catch((error: unknown) => {
+        stepBackIfTailCut();
+        throw error;
+      });
       // The segment is over: the speech ends at its last whole phrase, once
       // what it did play (cut at the hard stop) has its line.
       if (outcome.segmentEnded) return dropAhead();
       if (!outcome.complete) throw createAppError('CONFLICT', STOPPED);
       progress.spoken += 1;
+      progress.said = {
+        answer: progress.synthesized,
+        lineId: progress.lineId ?? '',
+      };
       progress.synthesized = null;
       progress.ready = false;
       progress.lineId = null;
     }
     dropAhead();
+  };
+  /**
+   * A phrase that failed may have cut the queued tail of the one before it,
+   * reported played whole: that one closed cut, so the turn steps back to it
+   * and says it again whole, as a new line (ADR 0122 §6), keeping the failed
+   * phrase's voice for after it. A held Round's resume point counts a cut line
+   * only to its start, on exactly this premise.
+   */
+  const stepBackIfTailCut = () => {
+    const before = progress.said;
+    const failed = progress.synthesized;
+    if (!before || !failed || !input.tailCut(before.lineId)) return;
+    progress.ahead.unshift({
+      index: progress.spoken,
+      answer: failed,
+      settled: progress.ready,
+      failed: false,
+      lineId: progress.lineId ?? input.nextId(),
+      done: Promise.resolve(),
+    });
+    progress.spoken -= 1;
+    progress.synthesized = before.answer;
+    progress.ready = true;
+    progress.lineId = null;
+    progress.said = null;
   };
   /**
    * The speech is over, or this answer is: voicing ahead stops, nothing more

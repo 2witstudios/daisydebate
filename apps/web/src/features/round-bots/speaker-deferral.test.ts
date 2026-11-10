@@ -71,6 +71,7 @@ test('a deferred turn resumes at its refused step without buying or speaking any
     },
     deadline: async () => 1e12,
     lineClosed: () => false,
+    tailCut: () => false,
     writeAhead: () => undefined,
     discard: () => undefined,
     audible: () => false,
@@ -113,6 +114,7 @@ async function offeredAfterOneRefusal(closedAfterRefusal: boolean) {
   const { speaker, settle } = harness('speech', {
     synthesize: async (phraseId, text) => answered(job(phraseId, text, 960)),
     lineClosed: (id) => closed.has(id),
+    tailCut: () => false,
     publish: async (sent) => {
       offered.push(`${sent.text}:${sent.phraseId}`);
       if (!refused) {
