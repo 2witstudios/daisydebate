@@ -315,18 +315,17 @@ e was stamped between the two and is visible from e, so it proves the lease
 current from e until c plus the 3 s `SERVICE_LEASE_WINDOW_MS` (only a provable
 lower bound counts); a late, failed or no-row renewal proves nothing. Once the
 lease has gone unproven for 10 s, checked on every 1 s tick so a hung renewal
-counts (a renewal still in flight after 6 s is abandoned as failed and a new one
-started), the loop logs `availability.lease_lapsing` (`cause` is
-`renewal_failed`, `renewal_late` or `renewal_pending`; `durationMs` is how long
-the lease has been unproven) and reports one error under the route
-`web.service-lease.lapsed`, linked to the renewal failure when there was one and
-carrying its own `errorCode` (`INFRASTRUCTURE` when there is none); both carry
-the streak's one id as `requestId`, so the event joins to the line's measured
-duration. Each of the two is told once per streak, and one that fails to send is
-tried again on the next tick. A stop ends the ticks, so a drain never reports. A
-plain `AUTHORIZATION` failure is reported at once. A bot speech refused
-admission keeps its delivery attempts and resumes at the refused step: the
-provider answer and the phrases already spoken are never bought or spoken again.
+counts, the loop logs `availability.lease_lapsing` (`cause` is `renewal_failed`,
+`renewal_late` or `renewal_pending`; `durationMs` is how long the lease has been
+unproven) and reports one error under the route `web.service-lease.lapsed`,
+linked to the renewal failure when there was one and carrying its own
+`errorCode` (`INFRASTRUCTURE` when there is none); both carry the streak's one
+id as `requestId`, so the event joins to the line's measured duration. Each of
+the two is told once per streak, and one that fails to send is tried again on
+the next tick. A stop ends the ticks, so a drain never reports. A plain
+`AUTHORIZATION` failure is reported at once. A bot speech refused admission
+keeps its delivery attempts and resumes at the refused step: the provider answer
+and the phrases already spoken are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;

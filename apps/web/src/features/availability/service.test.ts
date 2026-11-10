@@ -1,4 +1,3 @@
-import { isAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
 setupRitewayBun();
@@ -376,40 +375,16 @@ function ticked(
 
 const hung = () => new Promise<void>(() => {});
 
-test('a renewal that never settles is abandoned at its deadline, and the lapse reports', async () => {
-  let calls = 0;
-  const { logs, reports, advance } = ticked(() => {
-    calls += 1;
-    return new Promise(() => {});
-  });
-  await advance(13);
-  const [report] = reports as {
-    lapsedMs: number;
-    unproven: { kind: string; error: unknown };
-  }[];
+test('a renewal that never settles is still checked on every tick, and reports once', async () => {
+  const { logs, reports, advance } = ticked(hung);
+  await advance(30);
+  const lapse = { lapsedMs: 10_000, unproven: { kind: 'renewal_pending' } };
   assert({
     given:
-      'renewals that never settle, with the ticks running for thirteen seconds',
-    should:
-      'start a new renewal each time one passes its 6 s deadline, and log and report the lapse once at 10 s as a failed, hung renewal',
-    actual: {
-      calls,
-      logs: logs.length,
-      reports: reports.length,
-      lapsedMs: report?.lapsedMs,
-      kind: report?.unproven.kind,
-      code: isAppError(report?.unproven.error)
-        ? report.unproven.error.code
-        : null,
-    },
-    expected: {
-      calls: 3,
-      logs: 1,
-      reports: 1,
-      lapsedMs: 10_000,
-      kind: 'renewal_failed',
-      code: 'INFRASTRUCTURE',
-    },
+      'a renewal that hangs from start, with the ticks running for thirty seconds',
+    should: 'log and report the streak once, as a pending renewal',
+    actual: { logs, reports },
+    expected: { logs: [lapse], reports: [lapse] },
   });
 });
 

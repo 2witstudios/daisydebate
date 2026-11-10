@@ -1,5 +1,3 @@
-import { SERVICE_LEASE_WINDOW_MS } from '@daisy/db/service-lease-lapse';
-import { createAppError } from '@daisy/errors';
 import { guarded } from '@daisy/observability';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import {
@@ -23,12 +21,6 @@ type Sampler = {
 const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
 /** How soon a failed check tries again. */
 const PROBE_RESOURCE_RETRY_MS = 60_000;
-/**
- * How long a renewal may stay in flight before the loop abandons it and
- * starts another: twice the lease window, past any bounded statement.
- */
-const RENEWAL_DEADLINE_MS = 2 * SERVICE_LEASE_WINDOW_MS;
-
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
@@ -128,21 +120,9 @@ export function startAvailabilityService(deps: {
     if (due.report && guarded(() => deps.lapsing.report(due.lapse, streakId)))
       lease = delivered(lease, 'report');
   };
-  /** The renewal in flight: which attempt it is, and when it started. */
-  let attempt = { id: 0, startedMs: 0 };
   const renew = () => {
-    if (renewing && nowMs() - attempt.startedMs < RENEWAL_DEADLINE_MS)
-      return renewing;
-    if (renewing) {
-      // Hung past its deadline: count it failed and start afresh, so one
-      // renewal that never settles cannot stop all later ones.
-      const hung = createAppError('INFRASTRUCTURE', 'Lease renewal hung');
-      observe({ kind: 'failed', error: hung });
-      failedSafely(hung);
-    }
-    const mine = { id: attempt.id + 1, startedMs: nowMs() };
-    attempt = mine;
-    const current = () => attempt.id === mine.id;
+    if (renewing) return renewing;
+    const startedMs = nowMs();
     // A store that throws synchronously still settles as a failed renewal.
     renewing = Promise.try(() =>
       deps.store.renewServiceInstance({
@@ -151,23 +131,16 @@ export function startAvailabilityService(deps: {
       }),
     )
       .then(() => {
-        // An abandoned renewal that settles late proves nothing now.
-        if (!current()) return false;
-        observe({
-          kind: 'renewed',
-          startedMs: mine.startedMs,
-          settledMs: nowMs(),
-        });
+        observe({ kind: 'renewed', startedMs, settledMs: nowMs() });
         return true;
       })
       .catch((error: unknown) => {
-        if (!current()) return false;
         observe({ kind: 'failed', error });
         failedSafely(error);
         return false;
       })
       .finally(() => {
-        if (current()) renewing = null;
+        renewing = null;
       });
     return renewing;
   };
