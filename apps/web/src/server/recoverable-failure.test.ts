@@ -1,18 +1,21 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { publicationStopError, publicationStopOf } from '@daisy/media/audio';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { leaseLapses, type LeaseLapses } from './lease-lapse';
 import { recoverableFailure } from './recoverable-failure';
 setupRitewayBun();
 
+const transientLapses: LeaseLapses = { observe: () => 'transient' };
+
 const record = (
   isCapacity: (error: unknown) => boolean = () => false,
-  now: () => number = () => 0,
+  lapses: LeaseLapses = transientLapses,
 ) => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity,
-    now,
+    leaseLapses: lapses,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -134,7 +137,7 @@ test('a bot publish failure names its stop, and nothing else of the error', () =
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
-    now: () => 0,
+    leaseLapses: transientLapses,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => undefined },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -178,7 +181,7 @@ test('a sink that throws never fails its caller, and its other steps still run (
   const captured: unknown[] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
-    now: () => 0,
+    leaseLapses: transientLapses,
     logger: {
       log: () => {
         throw new Error('log transport down');
@@ -204,7 +207,7 @@ test('a sink that throws never fails its caller, and its other steps still run (
     isCapacity: () => {
       throw new Error('capacity check broke');
     },
-    now: () => 0,
+    leaseLapses: transientLapses,
     logger: { log: () => {} },
     reporter: {
       capture: () => {
@@ -234,7 +237,7 @@ test('a cause reader that throws costs only the cause, never the log line (ISSUE
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
-    now: () => 0,
+    leaseLapses: transientLapses,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => {} },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -260,44 +263,45 @@ test('a cause reader that throws costs only the cause, never the log line (ISSUE
   });
 });
 
-test('a lapsed service lease is logged each time and reported only once it persists (DAISY-WEB-9)', () => {
-  const lapse = createRefusal(
-    'AUTHORIZATION',
-    'service-lease-lapsed',
-    'Maintenance service is not current',
-  );
-  const denied = createAppError('AUTHORIZATION', 'Permission denied');
-  const { lines, captured, failed } = record();
-  for (let i = 0; i < 3; i++) {
-    failed(lapse, 'tick');
-    failed(lapse, 'discover');
-  }
-  const transient = { lines: lines.length, captured: captured.length };
-  for (let i = 0; i < 6; i++) failed(lapse, 'tick');
-  failed(denied, 'tick');
-  const lapsed = {
-    operation: 'round.maintenance.tick.lease',
-    errorCode: 'AUTHORIZATION',
-    cause: 'service-lease-lapsed',
-  };
+const lapse = createRefusal(
+  'AUTHORIZATION',
+  'service-lease-lapsed',
+  'Maintenance service is not current',
+);
+
+test('a lapsed service lease is logged every time and reported only when the instance says it persisted (DAISY-WEB-9)', () => {
+  const verdicts = [
+    'transient',
+    'transient',
+    'persisted',
+    'transient',
+  ] as const;
+  let observed = 0;
+  const { lines, captured, failed } = record(() => false, {
+    observe: () => verdicts[observed++]!,
+  });
+  for (const stage of ['tick', 'evaluate', 'tick', 'discover'])
+    failed(lapse, stage);
+  failed(createAppError('AUTHORIZATION', 'Permission denied'), 'tick');
   assert({
     given:
-      'a one-second lapse failing two stages three times, then six more lapses of one stage and a real authorization failure',
+      'four lapses whose instance state persists on the third, then a real authorization failure',
     should:
-      'log every lapse, report none while transient, report the stage once past the bound, and report the real failure at once',
+      'log each lapse with its cause, report only the persisted one, and report the real failure at once',
     actual: {
-      transient,
-      last: lines.slice(-3).map(([, fields]) => fields),
+      lines: lines.map(([, fields]) => fields),
       captured: captured.map(([error, context]) => [
         error === lapse ? 'lapse' : 'denied',
         (context as { route: string }).route,
       ]),
     },
     expected: {
-      transient: { lines: 6, captured: 0 },
-      last: [
-        lapsed,
-        lapsed,
+      lines: [
+        ...['tick', 'evaluate', 'tick', 'discover'].map((stage) => ({
+          operation: `round.maintenance.${stage}.lease`,
+          errorCode: 'AUTHORIZATION',
+          cause: 'service-lease-lapsed',
+        })),
         { operation: 'round.maintenance.tick', errorCode: 'AUTHORIZATION' },
       ],
       captured: [
@@ -308,50 +312,44 @@ test('a lapsed service lease is logged each time and reported only once it persi
   });
 });
 
-test('isolated lease lapses apart by more than the quiet gap never add up to a report', () => {
-  const lapse = createRefusal('AUTHORIZATION', 'service-lease-lapsed');
+test('one burst of lapses across many Rounds and sinks never reports (DAISY-WEB-9)', () => {
   let nowMs = 0;
-  const { lines, captured, failed } = record(
-    () => false,
-    () => nowMs,
-  );
-  for (let i = 0; i < 20; i++) {
-    failed(lapse, 'tick');
-    nowMs += 30_001;
+  const shared = leaseLapses(() => nowMs);
+  const maintenance = record(() => false, shared);
+  const billing = record(() => false, shared);
+  for (let i = 0; i < 300; i++) {
+    maintenance.failed(lapse, i % 2 ? 'tick' : 'finalize');
+    nowMs += 3;
   }
-  const isolated = { lines: lines.length, captured: captured.length };
-  for (let i = 0; i < 9; i++) {
-    failed(lapse, 'tick');
-    nowMs += 500;
-  }
+  billing.failed(lapse, 'sync');
   assert({
     given:
-      'twenty one-off lapses of a stage each more than 30 s apart, then nine lapses 500 ms apart',
-    should:
-      'log all of them, report none of the isolated ones, and report the run that persists once',
-    actual: { isolated, captured: captured.length },
-    expected: { isolated: { lines: 20, captured: 0 }, captured: 1 },
+      'three hundred Round failures in one second of lapse and a billing lapse, on one shared instance state',
+    should: 'log each and report none',
+    actual: [
+      maintenance.lines.length + billing.lines.length,
+      maintenance.captured.length + billing.captured.length,
+    ],
+    expected: [301, 0],
   });
 });
 
-test('a clock that throws costs only the lapse report, never its log line', () => {
-  const lapse = createRefusal('AUTHORIZATION', 'service-lease-lapsed');
-  const { lines, captured, failed } = record(
-    () => false,
-    () => {
+test('a lapse state that throws costs only the report, never the log line', () => {
+  const { lines, captured, failed } = record(() => false, {
+    observe: () => {
       throw new Error('clock broke');
     },
-  );
+  });
   let thrown: unknown = null;
   try {
-    for (let i = 0; i < 9; i++) failed(lapse, 'tick');
+    failed(lapse, 'tick');
   } catch (error) {
     thrown = error;
   }
   assert({
-    given: 'nine lease lapses with a clock that throws',
-    should: 'log each lapse, report none, and never throw to the worker',
+    given: 'a lease lapse whose instance state throws',
+    should: 'log the lapse, report nothing, and never throw to the worker',
     actual: { thrown, lines: lines.length, captured: captured.length },
-    expected: { thrown: null, lines: 9, captured: 0 },
+    expected: { thrown: null, lines: 1, captured: 0 },
   });
 });
