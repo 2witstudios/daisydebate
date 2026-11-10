@@ -113,11 +113,11 @@ fence (accounts, then the pair, then a channel).
    challenged), written in the same contact-fenced transaction that
    confirms the pair is an accepted friendship and that the challenger hosts
    the room while it assembles. The friend's `/friends` lists it with Join
-   (the room) and Decline (which deletes it); it shows only while the room assembles or is
-   ready, only from an accepted, unblocked friend, and it goes with its
-   room. A Challenge that cannot be delivered still opens the room, whose
-   invite link reaches the friend. _Amended 2026-10-27 (#479, S2–S4, S7):_
-   a challenge is authorized by its own `social.challenge.send` (current
+   (the room) and Decline (which deletes it); it shows only while the room
+   assembles or is ready, only from an accepted, unblocked friend, and it
+   goes with its room. A Challenge that cannot be delivered still opens the
+   room, whose invite link reaches the friend. _Amended 2026-10-27 (#479,
+   S2–S4, S7):_ a challenge is authorized by its own `social.challenge.send` (current
    members, no block) and `social.challenge.decline` (a safety exit, open
    across a block). It spends its own `friend-challenges:<actor>` budget
    (30 a minute), never the friend-change one. It answers its own
