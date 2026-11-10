@@ -214,7 +214,8 @@ A month that cannot be measured therefore reaches the error tracker either as
 `BILLING_ECONOMICS_INCOMPLETE` (a saved, incomplete report) or as one
 `billing.economics.<reason>` failure, never both for one failure. An operator
 alert for an unmeasured month should match the route prefix
-`billing.economics.`, not the completeness code alone.
+`billing.economics.` excluding `errorCode` `BILLING_LOW_MARGIN` (a measured
+month's signal), not the completeness code alone.
 The reporter `raiseEconomicsSignals` submits through remains a void port: runtime registration and unit
 transport capture do not confirm an operator/Sentry notification. Actual approved
 measurement-feed and private-destination delivery receipts remain required
