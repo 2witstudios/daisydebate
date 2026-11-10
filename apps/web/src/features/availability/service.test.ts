@@ -39,6 +39,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
         events.push('clear');
       },
     },
+    renewal: () => {},
     failed: () => {
       events.push('failed');
     },
@@ -126,6 +127,7 @@ test('missing probe resources are named at start and hourly, and never decide he
       clearInterval: () => {},
     },
     failed: () => {},
+    renewal: () => {},
   });
   const settle = async () => {
     for (let n = 0; n < 12; n++) await Promise.resolve();
@@ -179,6 +181,7 @@ test('every process checks the probe resources at start, elected or not', async 
     nowMs: () => 0,
     timers: { setInterval: () => 1, clearInterval: () => {} },
     failed: () => {},
+    renewal: () => {},
   });
   await service.probeChecked;
   assert({
@@ -221,6 +224,7 @@ test('a failing probe check waits a minute, not a second', async () => {
       clearInterval: () => {},
     },
     failed: () => {},
+    renewal: () => {},
   });
   await service.probeChecked;
   const pass = async () => {
@@ -239,4 +243,64 @@ test('a failing probe check waits a minute, not a second', async () => {
     expected: { afterASecond: 1, afterAMinute: 2, reported: 2 },
   });
   await service.stop();
+});
+
+test('every renewal outcome reaches the instance, and an observer that throws changes nothing', async () => {
+  const refused = new Error('renewal refused');
+  const outcomes: unknown[] = [];
+  const events: string[] = [];
+  let tick = () => {};
+  let renewals = 0;
+  const service = startAvailabilityService({
+    instanceId: 'a'.repeat(24),
+    store: {
+      reconcileRoundCheckInAttempts: async () => 0,
+      renewServiceInstance: async () => {
+        renewals += 1;
+        if (renewals === 2) throw refused;
+      },
+      availabilitySampler: () => ({
+        elect: async () => false,
+        sample: async () => undefined,
+        close: async () => undefined,
+      }),
+    },
+    probe: async () => false,
+    nowMs: () => 0,
+    timers: {
+      setInterval: (callback) => {
+        tick = callback;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+    renewal: (outcome) => {
+      outcomes.push(outcome);
+      throw new Error('observer broke');
+    },
+    failed: () => {
+      events.push('failed');
+    },
+  });
+  await Promise.resolve();
+  for (let i = 0; i < 2; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    tick();
+  }
+  await service.stop();
+  assert({
+    given:
+      'a renewal that succeeds, one that fails and one that succeeds, observed by a throwing observer',
+    should:
+      'report each outcome in order and count only the failed renewal as a failure',
+    actual: { outcomes, events },
+    expected: {
+      outcomes: [
+        { kind: 'renewed' },
+        { kind: 'failed', error: refused },
+        { kind: 'renewed' },
+      ],
+      events: ['failed'],
+    },
+  });
 });

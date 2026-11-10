@@ -11,6 +11,11 @@ type Sampler = {
 const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
 /** How soon a failed check tries again. */
 const PROBE_RESOURCE_RETRY_MS = 60_000;
+/** How one lease renewal ended: the instance's own truth about its lease. */
+export type LeaseRenewal =
+  | { readonly kind: 'renewed' }
+  | { readonly kind: 'failed'; readonly error: unknown };
+
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
@@ -33,6 +38,8 @@ export function startAvailabilityService(deps: {
   readonly nowMs: () => number;
   readonly timers: WorkerTimers;
   readonly failed: () => void;
+  /** Every renewal's outcome, so the instance knows whether its lease is current. */
+  readonly renewal: (outcome: LeaseRenewal) => void;
 }) {
   const { nowMs } = deps;
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
@@ -77,12 +84,24 @@ export function startAvailabilityService(deps: {
         probe.value,
     });
   };
+  /** A renewal observer that throws never changes the renewal's outcome. */
+  const observe = (outcome: LeaseRenewal) => {
+    try {
+      deps.renewal(outcome);
+    } catch {
+      /* Lease health is a report, never the lease itself. */
+    }
+  };
   const renew = () => {
     renewing ??= deps.store
       .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
       .then(
-        () => true,
         () => {
+          observe({ kind: 'renewed' });
+          return true;
+        },
+        (error: unknown) => {
+          observe({ kind: 'failed', error });
           deps.failed();
           return false;
         },

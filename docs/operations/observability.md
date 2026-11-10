@@ -303,17 +303,18 @@ rotates) releases silently. Shared-pool admission backpressure (ISSUE-431) is a
 deferral that the next pass retries: a stage logs `<operation>.capacity` on
 every ninth refusal, whatever its cadence, so a starved slow stage is still
 reported. A lapsed web service lease (`AUTHORIZATION` with reason
-`service-lease-lapsed`, DAISY-WEB-9) is a deferral too: every worker on the
-shared failure sink logs each lapse as `<operation>.lease` with that `cause`. A
-lapse belongs to the whole instance, so all of a process's sinks feed one lapse
-state (`server/lease-lapse.ts`), which reports to the error tracker once per
-streak, when lapses have kept arriving for 10 s. A lapse more than 30 s after
-the last one starts a new streak. A one-second blip therefore stays in the logs
-however many Rounds fail during it, and a lease that stays lapsed is reported
-once, not on every pass. A plain `AUTHORIZATION` failure is reported at once. A
-bot speech refused admission keeps its delivery attempts and resumes at the
-refused step: the provider answer and the phrases already spoken are never
-bought or spoken again.
+`service-lease-lapsed`, DAISY-WEB-9) is not a stage's failure but the
+instance's: every worker on the shared failure sink logs each lapse as
+`<operation>.lease` with that `cause` and hands it to the instance's one lease
+state (`server/service-lease.ts`). That state's truth is the instance's own
+renewals: a successful renewal makes the lease current, and a failed renewal or
+a lapse refusal makes it lapsing. The state reports to the error tracker under
+the one route `web.service-lease.lapsed` once the lease has been lapsing for
+10 s, then every 5 minutes while it stays lapsing. A lapse the next renewal
+clears stays in the logs however many Rounds failed during it. A plain
+`AUTHORIZATION` failure is reported at once. A bot speech refused admission
+keeps its delivery attempts and resumes at the refused step: the provider
+answer and the phrases already spoken are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;

@@ -43,8 +43,14 @@ lock fences the row's deletion by the retention purge but not the instance's
 own renewal, a non-key `UPDATE`, so slow maintenance never lapses the lease it
 runs under (DAISY-WEB-9; `FOR SHARE` did, and every concurrent stage refused
 for a second). A lease that does lapse refuses with `AUTHORIZATION` and reason
-`service-lease-lapsed`, which workers treat as a deferral. The 3 s staleness
-window is also web liveness in availability evidence and stays fixed.
+`service-lease-lapsed` (`isServiceLeaseLapse` in `@daisy/db/service-lease`), which workers
+log and hand to the instance's lease state rather than report
+([observability](../operations/observability.md)). Renewing a row that
+maintenance holds `FOR KEY SHARE` mints a MultiXact for the new tuple version,
+at most one per second per web instance, which autovacuum freezes as usual; the
+retention purge only deletes leases a day stale, so the lock is defence in
+depth for the delete fence. The 3 s staleness window is also web liveness in
+availability evidence and stays fixed.
 
 Before public probing, the sampler checks lock ownership on that same reserved
 PostgreSQL session; only the elected producer performs the synthetic route
