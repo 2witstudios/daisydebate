@@ -372,7 +372,7 @@ test("a symlinked, group-readable or non-regular feed is VALIDATION, the operato
   }
 });
 
-test('retention keeps only the feed of the window being collected', async () => {
+test('retention keeps the feeds of the collected and the current month', async () => {
   const { utimes, readdir } = await import('node:fs/promises');
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
   try {
@@ -398,9 +398,9 @@ test('retention keeps only the feed of the window being collected', async () => 
       given:
         'expired-age feeds for June, July (a late correction being collected) and November (not yet collected)',
       should:
-        'keep July and expire June and November, so no feed outlives the bound compliance.md records',
+        'keep July (being collected) and November (the current month), and expire June',
       actual: (await readdir(directory)).sort(),
-      expected: ['feed-2026-07.json'],
+      expected: ['feed-2026-07.json', 'feed-2026-11.json'],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -553,7 +553,7 @@ test('opening the sink refuses a malformed window before retention runs', async 
   }
 });
 
-test('a feed for any month other than the collected one expires by age', async () => {
+test('a misnamed far-future feed is not protected forever', async () => {
   const { utimes, readdir } = await import('node:fs/promises');
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
   try {
@@ -570,10 +570,9 @@ test('a feed for any month other than the collected one expires by age', async (
     await files.sink.open(window);
     assert({
       given: 'expired-age feeds for January 2099 and for the current month',
-      should:
-        'expire both, since only the collected month (October) is protected',
+      should: 'expire the far-future feed and keep the current month',
       actual: (await readdir(directory)).sort(),
-      expected: [],
+      expected: ['feed-2026-11.json'],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -693,5 +692,87 @@ test('a sink that cannot be created is its own refusal, keeping the errno', asyn
     });
   } finally {
     await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test('a feed placed on the first of its month survives until it is collected', async () => {
+  const { utimes, readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const october = join(directory, 'feed-2026-10.json');
+    await writeFile(october, '{}', { mode: 0o600 });
+    const placed = new Date('2026-10-01T00:30:00.000Z');
+    await utimes(october, placed, placed);
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => '2026-10-31T01:00:00.000Z',
+      nextId: () => 't'.repeat(24),
+    });
+    // On Oct 31 the worker still collects September.
+    await files.sink.open({
+      startsAt: '2026-09-01T00:00:00.000Z',
+      endsAt: '2026-10-01T00:00:00.000Z',
+    });
+    assert({
+      given:
+        'an October feed placed on Oct 1, swept on Oct 31 while September is collected',
+      should: "keep it for October's collection in November",
+      actual: await readdir(directory),
+      expected: ['feed-2026-10.json'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a disk fault while checking or creating the sink stays untyped, keeping its errno', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  const eio = () => Object.assign(new Error('i/o error'), { code: 'EIO' });
+  const opened = (seams: {
+    readonly accessDirectory?: () => Promise<void>;
+    readonly makeDirectory?: () => Promise<unknown>;
+  }) =>
+    createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'u'.repeat(24),
+      ...seams,
+    })
+      .sink.open(window)
+      .then(
+        () => null,
+        (error: unknown) =>
+          error instanceof Error
+            ? [
+                (error as { code?: string }).code,
+                (error as { reason?: string }).reason ?? null,
+              ]
+            : null,
+      );
+  try {
+    assert({
+      given:
+        'an EIO from the usability check, then an EIO from creating the sink',
+      should:
+        'rethrow each original untyped error, never a typed setup refusal',
+      actual: [
+        await opened({
+          accessDirectory: async () => {
+            throw eio();
+          },
+        }),
+        await opened({
+          makeDirectory: async () => {
+            throw eio();
+          },
+        }),
+      ],
+      expected: [
+        ['EIO', null],
+        ['EIO', null],
+      ],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 });

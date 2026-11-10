@@ -98,11 +98,12 @@ The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
 at most1000 directory entries and removes only expired regular files in its own
 closed feed/report filename namespace. Each collection's sweeps (opening and save)
-never expire the feed of the month it collects, so a measured month cannot turn
-into a missing feed under its own collection. Every other feed and report keeps
+never expire the feed of the month it collects, nor the current month's
+(collected next), so a measured month cannot turn into a missing feed under its
+own collection. Every other feed and report keeps
 the 30-day rule. The hourly worker collects the previous month, so a feed is
 retained at most until the end of the month after its own (about 62 days, for a
-feed placed on the first day of its month); compliance.md records that bound. A
+feed placed on the first day of its month); compliance.md records that bound (DEC-372). A
 late correction of an older month protects that month only during its own run,
 so place an older feed with a fresh modification time (not `cp -p` or `rsync
 -a`) if the worker may sweep in between. At1000 retained files a new save refuses;

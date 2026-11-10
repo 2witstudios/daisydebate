@@ -22,8 +22,8 @@ const maximumFeedBytes = 1024 * 1024;
 const retentionMs = 30 * 86400000;
 /**
  * The sink admits at most 1000 files, so a bounded sweep can visit every file
- * it creates. `protectFrom` is the month being collected: its feed is never
- * expired under it.
+ * it creates. `protectFrom` is the month being collected: its feed, and the
+ * current month's (collected next), are never expired under it.
  */
 async function prunePrivateFiles(
   directory: string,
@@ -43,9 +43,9 @@ async function prunePrivateFiles(
     )
       continue;
     const feedMonth = /^feed-(\d{4}-\d{2})\.json$/.exec(entry.name)?.[1];
-    // Only the feed of the month being collected is protected, so no feed outlives the end of the
-    // month after its own (compliance.md records that bound).
-    if (feedMonth === protectFrom) continue;
+    // The feed of the month being collected, and of the current month (collected next), is
+    // protected; no feed outlives the end of the month after its own (compliance.md's bound).
+    if (feedMonth === protectFrom || feedMonth === now.slice(0, 7)) continue;
     const path = join(directory, entry.name),
       info = await lstat(path);
     if (info.isFile() && info.mtimeMs <= Date.parse(now) - retentionMs) {
@@ -58,12 +58,16 @@ async function prunePrivateFiles(
 /** Whether this process may read, write and enter the directory; the process edge passes node's `access`. */
 type AccessDirectory = (path: string) => Promise<void>;
 
+/** How the sink directory is created; the process edge passes node's `mkdir`. */
+type MakeDirectory = (path: string) => Promise<unknown>;
+
 async function privateDirectory(
   directory: string,
   accessDirectory: AccessDirectory,
+  makeDirectory: MakeDirectory,
 ) {
   try {
-    await mkdir(directory, { recursive: true, mode: 0o700 });
+    await makeDirectory(directory);
   } catch (error) {
     // The operator's setup refused it (a root-owned volume root, a file in the path, a read-only
     // mount): a typed refusal keeping the errno. Any other errno is the disk's and stays untyped.
@@ -224,7 +228,12 @@ export function createBillingEconomicsFiles(input: {
   readonly openFeed?: OpenFeed;
   /** The directory usability check; node's `access` unless a test must produce a refusal. */
   readonly accessDirectory?: AccessDirectory;
+  /** The directory creator; node's `mkdir` unless a test must produce a refusal. */
+  readonly makeDirectory?: MakeDirectory;
 }) {
+  const makeDirectory: MakeDirectory =
+    input.makeDirectory ??
+    ((path) => mkdir(path, { recursive: true, mode: 0o700 }));
   const accessDirectory: AccessDirectory =
     input.accessDirectory ??
     ((path) => access(path, constants.R_OK | constants.W_OK | constants.X_OK));
@@ -241,7 +250,7 @@ export function createBillingEconomicsFiles(input: {
       }) {
         // The window decides what retention protects, so a malformed one never reaches the sweep.
         assertWindow(window);
-        await privateDirectory(input.directory, accessDirectory);
+        await privateDirectory(input.directory, accessDirectory, makeDirectory);
         // A full sink is refused here, before any database read, as the same refusal save makes.
         if (
           (await prunePrivateFiles(
@@ -262,7 +271,11 @@ export function createBillingEconomicsFiles(input: {
         // The reader keeps its own privacy check, so a caller need not open the sink first. A
         // directory fault here is the sink's, never the feed file's, so it reads as unavailable.
         try {
-          await privateDirectory(input.directory, accessDirectory);
+          await privateDirectory(
+            input.directory,
+            accessDirectory,
+            makeDirectory,
+          );
         } catch (error) {
           throw createRefusal(
             'INFRASTRUCTURE',
@@ -278,7 +291,7 @@ export function createBillingEconomicsFiles(input: {
       },
     },
     async save(report: PrivateReport) {
-      await privateDirectory(input.directory, accessDirectory);
+      await privateDirectory(input.directory, accessDirectory, makeDirectory);
       const protectFrom = report.report.startsAt.slice(0, 7);
       if (
         (await prunePrivateFiles(input.directory, input.now(), protectFrom)) >=
