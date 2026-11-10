@@ -83,10 +83,11 @@ The default, the ordered choices and their words have one home,
 visibility nobody chose, such as the create editor, a practice Room or a casual
 challenge, reads `defaultRoomVisibility` and never spells out a value of its
 own. The ranked lock is the one exception: code that makes a ranked Room
-public writes `'public'` because it enforces the lock, not a default. The create contract keeps `visibility` required, so the wire
-always carries an explicit value. Tests pin the default, the order, the create
-editor, the details form, the practice Room and the challenge room, so a
-regression fails CI.
+public writes `'public'` because it enforces the lock, not a default. The
+create contract keeps `visibility` required, so the wire always carries an
+explicit value. Tests pin the default, the order, the create editor, the
+details form, the practice Room and the challenge room, so a regression fails
+CI.
 
 ## Assembly and Launch
 

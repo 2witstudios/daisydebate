@@ -57,8 +57,8 @@ be able to see who is online."
    ([rooms](../domains/rooms.md#visibility)), so the seat hold names the room
    instead. A debater seat stays held for each of the two for two minutes
    (`room_seat_holds`): the Room's own fact, so a listed room's seats are
-   theirs while they arrive, and it never seats anyone or touches the judge seat. The
-   challenger is sent there for those two minutes, once. The inbox
+   theirs while they arrive, and it never seats anyone or touches the judge
+   seat. The challenger is sent there for those two minutes, once. The inbox
    doorbell `challenge.changed` reaches both members on any page, and the
    challenger follows to the room. No such member, a block, no lease, Busy,
    appearing offline or the other member being placed are one answer, so a status code never
