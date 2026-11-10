@@ -1,19 +1,14 @@
-import type { EconomicsSignal } from './economics-alert';
-import type { EconomicsCollectionFailure } from './economics-collector';
+import type { EconomicsCollection } from './economics-collector';
+
+type Collection<K extends EconomicsCollection['kind']> = Extract<
+  EconomicsCollection,
+  { readonly kind: K }
+>;
 
 /** The parts of a collection that decide what an operator is told about its month. */
 export type EconomicsOutcome =
-  | {
-      readonly kind: 'reported';
-      readonly month: string;
-      readonly feed: 'supplied' | 'missing';
-      readonly signals: readonly EconomicsSignal[];
-    }
-  | {
-      readonly kind: 'failed';
-      readonly month: string;
-      readonly reason: EconomicsCollectionFailure;
-    };
+  | Pick<Collection<'reported'>, 'kind' | 'month' | 'feed' | 'signals'>
+  | Pick<Collection<'failed'>, 'kind' | 'month' | 'reason'>;
 
 /**
  * The identity of what a collection tells an operator about its month. Equal

@@ -69,15 +69,15 @@ export function startBillingEconomics(input: {
       raised = notice;
       return;
     }
+    const submitted = raiseEconomicsSignals(app.reporter, collection);
+    if (submitted.kind === 'failed')
+      return failed(submitted.cause, 'signal_failed');
     if (collection.feed === 'missing')
       app.logger.log(
         'billing.economics.feed_missing',
         { operation: 'billing.economics.collect', cause: 'feed_missing' },
         'Private billing economics feed is missing for the month; the report stays incomplete',
       );
-    const submitted = raiseEconomicsSignals(app.reporter, collection);
-    if (submitted.kind === 'failed')
-      return failed(submitted.cause, 'signal_failed');
     raised = notice;
   };
   return startSingleFlightWorker({

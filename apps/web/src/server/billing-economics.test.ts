@@ -229,17 +229,18 @@ test('a reporter that throws is logged as signal_failed and retried next tick', 
     assert({
       given: 'a reporter whose first signal capture throws',
       should:
-        'log billing.economics.failed as signal_failed and raise the signals again on the next tick',
+        'log billing.economics.failed as signal_failed, then raise the signals and log feed_missing once on the next tick',
       actual: {
-        logged: run.logged
-          .filter((line) => line.event === 'billing.economics.failed')
-          .map((line) => line.fields.operation),
+        logged: run.logged.map((line) => [line.event, line.fields.operation]),
         incomplete: run.captured.filter(
           (c) => c.errorCode === 'BILLING_ECONOMICS_INCOMPLETE',
         ).length,
       },
       expected: {
-        logged: ['billing.economics.signal_failed'],
+        logged: [
+          ['billing.economics.failed', 'billing.economics.signal_failed'],
+          ['billing.economics.feed_missing', 'billing.economics.collect'],
+        ],
         incomplete: 3,
       },
     });
