@@ -852,3 +852,47 @@ test('a failure outside any collection whose cause chain cannot be read never re
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a correction returns a capacity refusal without reporting or logging it', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-runtime-'));
+  const app = build(directory);
+  const captured: string[] = [];
+  const { logged, logger } = createEventRecorder();
+  try {
+    const result = await correctBillingEconomics(
+      {
+        ...app,
+        logger,
+        database: {
+          ...app.database,
+          billingEconomics: () => ({
+            read: async () => {
+              throw refuseCapacity();
+            },
+          }),
+        },
+        reporter: {
+          capture: (_error, context) => captured.push(context.route),
+        },
+      },
+      'service-fixture',
+      directory,
+      window,
+    );
+    assert({
+      given: 'a correction whose snapshot read is refused for capacity',
+      should:
+        'return snapshot_failed to the caller, with no capture and no failure line',
+      actual: {
+        reason: result.kind === 'failed' && result.reason,
+        captured,
+        failed: logged.filter((l) => l.event === 'billing.economics.failed')
+          .length,
+      },
+      expected: { reason: 'snapshot_failed', captured: [], failed: 0 },
+    });
+  } finally {
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
