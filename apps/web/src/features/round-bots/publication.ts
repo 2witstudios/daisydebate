@@ -312,6 +312,13 @@ export function createBotPublisher(input: {
       line.catch(() => undefined);
       return line;
     };
+    /** Aborted at each clear: a reveal still waiting for its audio never runs. */
+    let queueDropped = new AbortController();
+    /**
+     * The last phrase's reveal: each waits for the one before, so lines are
+     * written, and numbered, in the order they are said.
+     */
+    let revealOrder: Promise<void> = Promise.resolve();
     /**
      * Silences whatever is still queued at once, recording the clear so the
      * phrase it cut closes at what played, and, unless only a tail is being
@@ -321,6 +328,9 @@ export function createBotPublisher(input: {
       if ((current?.queuedMs() ?? 0) > 0) {
         cleared();
         current?.clearQueue();
+        // Audio still queued will not play: no reveal waiting for it writes a line.
+        queueDropped.abort();
+        queueDropped = new AbortController();
       }
       if (forgetAhead) discard();
     };
@@ -491,6 +501,8 @@ export function createBotPublisher(input: {
       // Its reveal, beside the audio, as the audio starts: the claim, room and
       // floor are checked again then, the line is dated then and its doorbell
       // rings, so it is read exactly from when it is said. A refusal stops it.
+      const before = revealOrder;
+      const dropped = queueDropped.signal;
       const revealing = (async () => {
         // Never tied to the writer's return: a phrase shorter than the lead is
         // handed over before its audio starts, and is still revealed then.
@@ -499,9 +511,15 @@ export function createBotPublisher(input: {
           ended.signal,
           signal,
           silenced.signal,
+          dropped,
         ]);
         await input.waitUntilMs(audioStartsAtMs, stopped);
         if (stopped.aborted) return;
+        // A reveal before it still retrying lands first; this one is still
+        // dated by its own audio start. Its audio has started: only a lost
+        // claim skips it now, and a stop since then cuts its line instead.
+        await before;
+        if (refused.signal.aborted || ended.signal.aborted) return;
         // Its audio start on the database clock, fixed now: a reveal that
         // waits on a lock still dates the line by its audio.
         const startedAt =
@@ -525,6 +543,7 @@ export function createBotPublisher(input: {
         // the speech says it again once its line can be written.
         refuse(error);
       });
+      revealOrder = revealing;
       // The floor and room, re-read without a lock while the phrase plays: a
       // refusal stops the audio; a read failing for a passing reason is read
       // again next time.
@@ -557,6 +576,8 @@ export function createBotPublisher(input: {
       );
       // Never awaited: a read still in flight must not delay the next phrase.
       played.abort();
+      // Cut before its first frame: none of it will play.
+      if (result.sentSamples === 0) silenced.abort();
       void watching;
       void revealing;
       // The padded tail is silence: count only the phrase's own samples.

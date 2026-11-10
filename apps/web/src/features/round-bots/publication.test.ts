@@ -952,3 +952,51 @@ test('a phrase whose handoff fails before its audio starts writes no line', asyn
     expected: { failed: 'failed', reveals: ['a'], ends: ['a'] },
   });
 });
+
+test('a reveal retrying lands before the next phrase’s: lines are written in the order said', async () => {
+  let failedOnce = false;
+  const { claim, reveals } = harness({
+    reveal: async (phraseId) => {
+      if (phraseId[0] === 'a' && !failedOnce) {
+        failedOnce = true;
+        throw new Error('statement timeout');
+      }
+    },
+  });
+  claim.start();
+  await Bun.sleep(10);
+  // a is short: b's audio starts while a's reveal still backs off.
+  const first = claim.publish(job(100, 'a'.repeat(24)), signal(), far());
+  claim.writeAhead(job(400, 'b'.repeat(24)));
+  await first;
+  await claim.publish(job(400, 'b'.repeat(24)), signal(), far());
+  await tailPlays();
+  assert({
+    given:
+      'a 100 ms phrase whose reveal fails once and backs off past the next phrase’s audio start',
+    should: 'write its line first, then the next one',
+    actual: reveals.map((row) => row.phraseId[0]),
+    expected: ['a', 'b'],
+  });
+});
+
+test('a short phrase silenced before its audio starts writes no line', async () => {
+  const { claim, reveals, ends } = harness();
+  claim.start();
+  await Bun.sleep(10);
+  await claim.publish(job(400, 'a'.repeat(24)), signal(), far());
+  // b is handed over whole behind a's queued tail, then a barge-in silences both.
+  await claim.publish(job(150, 'b'.repeat(24)), signal(), far());
+  claim.silence();
+  await tailPlays();
+  assert({
+    given:
+      'a 150 ms phrase handed over whole behind a queued tail, then silenced before its audio started',
+    should: 'reveal and close no line for it',
+    actual: {
+      reveals: reveals.map((row) => row.phraseId[0]),
+      ends: ends.map((row) => row.phraseId[0]),
+    },
+    expected: { reveals: ['a'], ends: ['a'] },
+  });
+});
