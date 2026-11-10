@@ -62,6 +62,12 @@ export function isAppError(error: unknown): error is AppError {
   return error instanceof Error && knownErrors.has(error);
 }
 /**
+ * The code an error carries, read only from a factory-minted error; any
+ * other error has no trustworthy code and takes the caller's `fallback`.
+ */
+export const errorCodeOf = (error: unknown, fallback: ErrorCode): ErrorCode =>
+  isAppError(error) ? error.code : fallback;
+/**
  * A refusal of the operation as asked (`CONFLICT` or `AUTHORIZATION`): the
  * state did not admit it now, which is expected and often clears, never a
  * fault in the system.
@@ -80,7 +86,7 @@ export function toPublicError(
   readonly status: number;
   readonly body: { readonly error: ProtocolError };
 } {
-  const code = isAppError(error) ? error.code : 'INTERNAL';
+  const code = errorCodeOf(error, 'INTERNAL');
   const invariantId =
     code === 'INVARIANT' && isAppError(error) ? error.invariantId : undefined;
   return {

@@ -1,7 +1,12 @@
+import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { isCapacityRefusal } from '@daisy/db/capacity';
-import { isAppError } from '@daisy/errors';
+import { errorCodeOf } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
-import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
+import {
+  guarded,
+  noopErrorReporter,
+  type ErrorReporter,
+} from '@daisy/observability';
 import type { App } from './app';
 
 /**
@@ -17,13 +22,17 @@ const CAPACITY_DEFERRAL_LIMIT = 8;
  * and the error's own code; only the scrubbed reporter sees the raw error
  * (ADR 0037). An untyped error carries no trustworthy code, so it is INTERNAL.
  * Capacity refusals are deferrals: each refusal past the bound is reported,
- * and the count for that stage starts again.
+ * and the count for that stage starts again. A lapsed web service lease is
+ * only logged: it is the instance's condition, and the instance's renewal
+ * loop alone reports one that persists (DAISY-WEB-9).
  */
 export function recoverableFailure(input: {
   readonly logger: Pick<Logger, 'log'>;
   readonly reporter: ErrorReporter;
   readonly nextId: () => string;
   readonly isCapacity: (error: unknown) => boolean;
+  /** An expected lapse of the instance's own lease: logged, never reported here. */
+  readonly isLeaseLapse: (error: unknown) => boolean;
   readonly event: EventName;
   readonly operation: string;
   readonly message: string;
@@ -32,15 +41,9 @@ export function recoverableFailure(input: {
 }) {
   const deferrals = new Map<string, number>();
   /** One sink step; a step that throws never stops the next or its caller. */
-  const attempt = (step: () => void) => {
-    try {
-      step();
-    } catch {
-      /* A failing sink is never its caller's fault (ISSUE-789). */
-    }
-  };
+  const attempt = (step: () => void) => void guarded(step);
   const report = (error: unknown, operation: string) => {
-    const errorCode = isAppError(error) ? error.code : 'INTERNAL';
+    const errorCode = errorCodeOf(error, 'INTERNAL');
     let cause: string | undefined;
     // A cause reader that throws costs only the cause, never the log line.
     attempt(() => {
@@ -67,6 +70,23 @@ export function recoverableFailure(input: {
    */
   return (error: unknown, stage: string) => {
     const operation = `${input.operation}.${stage}`;
+    let lapse = false;
+    attempt(() => {
+      lapse = input.isLeaseLapse(error);
+    });
+    // A lapse is expected and clears on renewal: a warning, never a failure.
+    if (lapse)
+      return attempt(() => {
+        input.logger.log(
+          'service.lease_lapsed',
+          {
+            operation: `${operation}.lease`,
+            errorCode: errorCodeOf(error, 'AUTHORIZATION'),
+            cause: 'service-lease-lapsed',
+          },
+          'Service lease not current; the next renewal restores it',
+        );
+      });
     let capacity = false;
     attempt(() => {
       capacity = input.isCapacity(error);
@@ -94,6 +114,7 @@ export const workerFailures =
       reporter,
       nextId: () => app.ids.next(),
       isCapacity: isCapacityRefusal,
+      isLeaseLapse: isServiceLeaseLapse,
       event,
       operation,
       message,

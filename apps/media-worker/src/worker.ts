@@ -2,7 +2,7 @@ import { readCaptureSummary } from './capture-summary';
 import { systemId } from '@daisy/clock';
 import { readMediaWorkerConfig, type MediaWorkerConfig } from '@daisy/config';
 import { createMediaWorkerDatabase } from '@daisy/db/media-worker';
-import { isAppError } from '@daisy/errors';
+import { errorCodeOf } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createCaptureSupervisor } from './supervisor';
 import { describeCaptureExit } from './capture-exit';
@@ -113,7 +113,7 @@ export async function startMediaWorker(input: {
       .catch((error: unknown) =>
         logger.log(
           'media.discovery.failed',
-          { errorCode: isAppError(error) ? error.code : 'INFRASTRUCTURE' },
+          { errorCode: errorCodeOf(error, 'INFRASTRUCTURE') },
           'Capture session discovery failed',
         ),
       )

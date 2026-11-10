@@ -10,7 +10,7 @@ import { createSubscriptionRegistry } from './registry';
 import type { SocketPrincipal } from './registry';
 import { createAdmission } from './admission';
 import { reportCapacityHolders } from '@daisy/db/capacity';
-import { isAppError } from '@daisy/errors';
+import { errorCodeOf } from '@daisy/errors';
 import { liveParticipantSession } from './participant-session';
 import {
   authorityFailureFields,
@@ -66,7 +66,7 @@ export function createRealtimeDelivery({
       'realtime.subscription.unavailable',
       {
         operation,
-        errorCode: isAppError(error) ? error.code : 'INTERNAL',
+        errorCode: errorCodeOf(error, 'INTERNAL'),
         ...authorityFailureFields(error),
       },
       'Realtime authority unavailable',

@@ -11,6 +11,13 @@ type RoundCompletionRefusal = 'panel-ineligible';
 /** Expected media backpressure: a retryable 503 that needs no one to look. */
 type RoundMediaRefusal = 'media-deferred' | 'bot-room-changed';
 
+/**
+ * A web instance's maintenance authority lapsed: its own service lease is not
+ * current. Internal to workers, never sent to a client; it usually clears on
+ * the next renewal (DAISY-WEB-9).
+ */
+type ServiceAuthorityRefusal = 'service-lease-lapsed';
+
 /** A report its reporter may not make (WATCH-7). */
 type ReportRefusal = 'report-not-eligible';
 /** Audience interaction an account may not make right now (SPECT-1.4). */
@@ -40,4 +47,5 @@ export type RefusalReason =
   | RoomRefusal
   | RoundCompletionRefusal
   | RoundMediaRefusal
-  | RoundRefusal;
+  | RoundRefusal
+  | ServiceAuthorityRefusal;

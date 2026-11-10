@@ -4,6 +4,7 @@ import {
   createAppError,
   createInvariantError,
   createRefusal,
+  errorCodeOf,
   isAppError,
   isRefusal,
   toPublicError,
@@ -216,5 +217,19 @@ describe('createRefusal', () => {
       actual: [status, body.error.message],
       expected: [409, 'Resource conflict'],
     });
+  });
+});
+
+test('errorCodeOf reads only a minted code and otherwise takes the fallback', () => {
+  const minted = createAppError('CONFLICT', 'lease held by another role');
+  const lookalike = Object.assign(new Error('forged'), { code: 'CONFLICT' });
+  assert({
+    given:
+      'a minted CONFLICT, a lookalike carrying code CONFLICT, and a string',
+    should: 'read CONFLICT from the minted error only',
+    actual: [minted, lookalike, 'oops'].map((error) =>
+      errorCodeOf(error, 'INFRASTRUCTURE'),
+    ),
+    expected: ['CONFLICT', 'INFRASTRUCTURE', 'INFRASTRUCTURE'],
   });
 });

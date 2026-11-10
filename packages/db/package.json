@@ -15,6 +15,7 @@
     "./audience-publisher": "./src/audience-publisher-store.ts",
     "./audience-state-key": "./src/audience-state-key.ts",
     "./capacity": "./src/capacity.ts",
+    "./service-lease-lapse": "./src/service-lease-lapse.ts",
     "./database-failure": "./src/database-failure.ts",
     "./authorization-account": "./src/authorization-account.ts",
     "./messaging-social": "./src/messaging/social.ts",

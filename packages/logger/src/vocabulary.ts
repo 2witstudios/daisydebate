@@ -139,6 +139,8 @@ export const eventRegistry = {
   'server.start': 'info',
   'availability.sample_failed': 'error',
   'availability.probe_invalid': 'error',
+  'availability.lease_lapsing': 'error',
+  'service.lease_lapsed': 'warn',
   'service.lease_failed': 'error',
   'server.ready': 'info',
   'server.shutdown': 'info',

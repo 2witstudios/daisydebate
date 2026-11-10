@@ -1,3 +1,4 @@
+import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
 import type { SQL, ReservedSQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { availabilityRecoveryPolicy, idSchema } from '@daisy/protocol';
@@ -74,12 +75,13 @@ export function createAvailabilitySampler(client: SQL) {
       try {
         if (!(await electSession()) || !session) return null;
         const [row] = await session`
-          with instant as (select statement_timestamp() as at),
+          with instant as (select statement_timestamp() as at,
+            statement_timestamp()-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond' as live_after),
           facts as (
             select at,
-              exists(select 1 from service_instances where role='web' and renewed_at > at-interval '3 seconds') as web,
-              exists(select 1 from service_instances where role='realtime' and renewed_at > at-interval '3 seconds') as realtime,
-              exists(select 1 from service_instances s where role='realtime' and renewed_at > at-interval '3 seconds'
+              exists(select 1 from service_instances where role='web' and renewed_at > live_after) as web,
+              exists(select 1 from service_instances where role='realtime' and renewed_at > live_after) as realtime,
+              exists(select 1 from service_instances s where role='realtime' and renewed_at > live_after
                 and not exists(select 1 from outbox o where o.created_at < at-interval '2 seconds'
                   and (o.txid,o.seq) > (s.delivered_through_txid,s.delivered_through))) as delivered
             from instant
@@ -183,18 +185,25 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
             readonly deliveredThrough: OutboxPosition;
           }
       ),
-    ) {
+    ): Promise<void> {
       if (!idSchema.safeParse(input.instanceId).success)
         throw createAppError('VALIDATION');
       const cursor =
         input.role === 'realtime'
           ? decodeOutboxCursor(encodeOutboxCursor(input.deliveredThrough))
           : null;
-      await client`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
+      const renewed =
+        await client`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
         values(${input.instanceId},${input.role},statement_timestamp(),${cursor?.seq.toString() ?? null}::bigint,${cursor?.txid ?? null}::xid8)
         on conflict(instance_id) do update set renewed_at=excluded.renewed_at,
           delivered_through=excluded.delivered_through,delivered_through_txid=excluded.delivered_through_txid
-        where service_instances.role=excluded.role`;
+        where service_instances.role=excluded.role returning instance_id`;
+      // A lease another role holds was not renewed: never let it pass as renewed.
+      if (renewed.length !== 1)
+        throw createAppError(
+          'CONFLICT',
+          'Service lease belongs to another role',
+        );
     },
     availabilitySampler: () => createAvailabilitySampler(dedicated),
     /**

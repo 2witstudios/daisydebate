@@ -1,4 +1,4 @@
-import { isAppError, type ErrorCode } from '@daisy/errors';
+import { type ErrorCode, errorCodeOf } from '@daisy/errors';
 import { isCaptureClosedRefusal } from '@daisy/media/worker';
 import { CAPTURE_FINISHED_EXIT } from './supervisor';
 
@@ -78,7 +78,7 @@ export function captureFailureExit(
   const tagged = taggedFailure(error);
   const stage = tagged ? stages.get(tagged)! : otherwise;
   const source = tagged ?? error;
-  const code = isAppError(source) ? source.code : 'INTERNAL';
+  const code = errorCodeOf(source, 'INTERNAL');
   return (
     STAGED_EXIT_BASE +
     CAPTURE_FAILURE_STAGES.indexOf(stage) * codes.length +
