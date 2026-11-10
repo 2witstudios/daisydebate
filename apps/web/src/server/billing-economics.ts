@@ -208,7 +208,11 @@ export function startBillingEconomics(input: {
     failed: (error) => {
       const notice = collectFailureNotice(error);
       if (collectFailure === notice) return;
-      if (failed(error, 'collect') === 'reported') collectFailure = notice;
+      // An untyped defect is wrapped so the line names its stage; a typed error names itself.
+      const named = isAppError(error)
+        ? error
+        : createAppError('INTERNAL', 'Billing economics collect', error);
+      if (failed(named, 'collect') === 'reported') collectFailure = notice;
     },
     run: async () => {
       const window = previousEconomicsMonth(app.clock.now());

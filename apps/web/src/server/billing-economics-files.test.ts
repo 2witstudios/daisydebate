@@ -566,3 +566,31 @@ test('a misnamed far-future feed is not protected forever', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('opening the sink refuses a malformed end instant before retention runs', async () => {
+  const { utimes, readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const expired = join(directory, `report-${'p'.repeat(24)}.json`);
+    await writeFile(expired, '{}', { mode: 0o600 });
+    const old = new Date('2026-08-01T00:00:00.000Z');
+    await utimes(expired, old, old);
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'p'.repeat(24),
+    });
+    const refused = await codeOf(
+      files.sink.open({ startsAt: month, endsAt: 'bogus' }),
+    );
+    assert({
+      given:
+        'a valid start instant, a malformed end instant, and an expired report',
+      should: 'refuse as INTERNAL before any sweep, leaving the report',
+      actual: [refused, (await readdir(directory)).length],
+      expected: ['INTERNAL', 1],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

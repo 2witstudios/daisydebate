@@ -1114,10 +1114,11 @@ test('two different defects outside any collection are each reported', async () 
     assert({
       given:
         'a TypeError on the first two ticks, then a RangeError on the next two',
-      should: 'report each defect once',
-      actual: logged.filter((line) => line.event === 'billing.economics.failed')
-        .length,
-      expected: 2,
+      should: 'report each defect once, each line naming the collect stage',
+      actual: logged
+        .filter((line) => line.event === 'billing.economics.failed')
+        .map((line) => line.fields.cause),
+      expected: ['Billing_economics_collect', 'Billing_economics_collect'],
     });
   } finally {
     await service.stop();
