@@ -36,10 +36,7 @@ export function startRoundAvailability(input: {
         { operation: 'availability.probe', cause: problem },
         'Public check-in probe cannot prove health',
       ),
-    renewal: (outcome) =>
-      outcome.kind === 'renewed'
-        ? app.serviceLease.renewed(outcome.tookMs)
-        : app.serviceLease.renewalFailed(outcome.error),
+    lease: app.serviceLease,
     failed: () =>
       app.logger.log(
         'availability.sample_failed',

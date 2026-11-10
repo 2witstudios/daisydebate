@@ -11,15 +11,6 @@ type Sampler = {
 const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
 /** How soon a failed check tries again. */
 const PROBE_RESOURCE_RETRY_MS = 60_000;
-/** How one lease renewal ended: the instance's own truth about its lease. */
-export type LeaseRenewal =
-  | {
-      readonly kind: 'renewed';
-      /** Monotonic ms from the call to its settling. */
-      readonly tookMs: number;
-    }
-  | { readonly kind: 'failed'; readonly error: unknown };
-
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
@@ -42,8 +33,12 @@ export function startAvailabilityService(deps: {
   readonly nowMs: () => number;
   readonly timers: WorkerTimers;
   readonly failed: () => void;
-  /** Every renewal's outcome, so the instance knows whether its lease is current. */
-  readonly renewal: (outcome: LeaseRenewal) => void;
+  /** Every renewal's outcome, the instance's own truth about its lease. */
+  readonly lease: {
+    /** A renewal succeeded `tookMs` after it was called. */
+    readonly renewed: (tookMs: number) => void;
+    readonly renewalFailed: (error: unknown) => void;
+  };
 }) {
   const { nowMs } = deps;
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
@@ -88,10 +83,10 @@ export function startAvailabilityService(deps: {
         probe.value,
     });
   };
-  /** A renewal observer that throws never changes the renewal's outcome. */
-  const observe = (outcome: LeaseRenewal) => {
+  /** A lease observer that throws never changes the renewal's outcome. */
+  const observe = (report: () => void) => {
     try {
-      deps.renewal(outcome);
+      report();
     } catch {
       /* Lease health is a report, never the lease itself. */
     }
@@ -102,11 +97,11 @@ export function startAvailabilityService(deps: {
       .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
       .then(
         () => {
-          observe({ kind: 'renewed', tookMs: nowMs() - startedMs });
+          observe(() => deps.lease.renewed(nowMs() - startedMs));
           return true;
         },
         (error: unknown) => {
-          observe({ kind: 'failed', error });
+          observe(() => deps.lease.renewalFailed(error));
           deps.failed();
           return false;
         },

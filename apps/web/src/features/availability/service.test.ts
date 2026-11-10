@@ -39,7 +39,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
         events.push('clear');
       },
     },
-    renewal: () => {},
+    lease: { renewed: () => {}, renewalFailed: () => {} },
     failed: () => {
       events.push('failed');
     },
@@ -127,7 +127,7 @@ test('missing probe resources are named at start and hourly, and never decide he
       clearInterval: () => {},
     },
     failed: () => {},
-    renewal: () => {},
+    lease: { renewed: () => {}, renewalFailed: () => {} },
   });
   const settle = async () => {
     for (let n = 0; n < 12; n++) await Promise.resolve();
@@ -181,7 +181,7 @@ test('every process checks the probe resources at start, elected or not', async 
     nowMs: () => 0,
     timers: { setInterval: () => 1, clearInterval: () => {} },
     failed: () => {},
-    renewal: () => {},
+    lease: { renewed: () => {}, renewalFailed: () => {} },
   });
   await service.probeChecked;
   assert({
@@ -224,7 +224,7 @@ test('a failing probe check waits a minute, not a second', async () => {
       clearInterval: () => {},
     },
     failed: () => {},
-    renewal: () => {},
+    lease: { renewed: () => {}, renewalFailed: () => {} },
   });
   await service.probeChecked;
   const pass = async () => {
@@ -274,9 +274,15 @@ test('every renewal outcome reaches the instance, and an observer that throws ch
       },
       clearInterval: () => {},
     },
-    renewal: (outcome) => {
-      outcomes.push(outcome);
-      throw new Error('observer broke');
+    lease: {
+      renewed: (tookMs) => {
+        outcomes.push({ kind: 'renewed', tookMs });
+        throw new Error('observer broke');
+      },
+      renewalFailed: (error) => {
+        outcomes.push({ kind: 'failed', error });
+        throw new Error('observer broke');
+      },
     },
     failed: () => {
       events.push('failed');

@@ -190,11 +190,18 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
         input.role === 'realtime'
           ? decodeOutboxCursor(encodeOutboxCursor(input.deliveredThrough))
           : null;
-      await client`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
+      const renewed =
+        await client`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
         values(${input.instanceId},${input.role},statement_timestamp(),${cursor?.seq.toString() ?? null}::bigint,${cursor?.txid ?? null}::xid8)
         on conflict(instance_id) do update set renewed_at=excluded.renewed_at,
           delivered_through=excluded.delivered_through,delivered_through_txid=excluded.delivered_through_txid
-        where service_instances.role=excluded.role`;
+        where service_instances.role=excluded.role returning instance_id`;
+      // A lease held by another role is not renewed: never report that it was.
+      if (renewed.length !== 1)
+        throw createAppError(
+          'CONFLICT',
+          'Service lease belongs to another role',
+        );
     },
     availabilitySampler: () => createAvailabilitySampler(dedicated),
     /**

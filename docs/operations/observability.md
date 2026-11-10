@@ -295,28 +295,30 @@ diverge:
 
 The six round worker failure events (`round.maintenance.failed`,
 `round.judging.failed`, `round.analysis.failed`, `round.control.failed`,
-`round.speaking.failed`, `round.hearing.failed`) carry
-the worker stage in `operation` and the error's own code (`INTERNAL` when
-untyped). The raw error goes only to the scrubbed `ErrorReporter`. Three outcomes
-are not failures. A lost lease (`CONFLICT` once the Round completes or the claim
-rotates) releases silently. Shared-pool admission backpressure (ISSUE-431) is a
-deferral that the next pass retries: a stage logs `<operation>.capacity` on
-every ninth refusal, whatever its cadence, so a starved slow stage is still
-reported. A lapsed web service lease (`AUTHORIZATION` with reason
-`service-lease-lapsed`, DAISY-WEB-9) is not a stage's failure but the
-instance's: every worker on the shared failure sink logs each lapse as
-`<operation>.lease` with that `cause` and hands it to the instance's one lease
-state (`server/service-lease.ts`). That state's truth is the instance's own
-renewals: a renewal that settles inside the 3 s lease window
-(`SERVICE_LEASE_WINDOW_MS`) makes the lease current, while a failed or late
-renewal, or a lapse refusal, makes it lapsing. The state reports one
-`INFRASTRUCTURE` error, caused by the latest failure it saw, under the one route
-`web.service-lease.lapsed` once the lease has been lapsing for 10 s, then every
-5 minutes while it stays lapsing. A lapse the next renewal
-clears stays in the logs however many Rounds failed during it. A plain
-`AUTHORIZATION` failure is reported at once. A bot speech refused admission
-keeps its delivery attempts and resumes at the refused step: the provider
-answer and the phrases already spoken are never bought or spoken again.
+`round.speaking.failed`, `round.hearing.failed`) carry the worker stage in
+`operation` and the error's own code (`INTERNAL` when untyped). The raw error
+goes only to the scrubbed `ErrorReporter`. Three outcomes are not failures. A
+lost lease (`CONFLICT` once the Round completes or the claim rotates) releases
+silently. Shared-pool admission backpressure (ISSUE-431) is a deferral that the
+next pass retries: a stage logs `<operation>.capacity` on every ninth refusal,
+whatever its cadence, so a starved slow stage is still reported. A lapsed web
+service lease (`AUTHORIZATION` with reason `service-lease-lapsed`, DAISY-WEB-9)
+is not a stage's failure but the instance's: every worker on the shared failure
+sink logs each lapse as `<operation>.lease` with that `cause` and hands it to
+the instance's one lease state (`server/service-lease.ts`, `app.serviceLease`).
+That state's truth is the instance's own renewals: one that succeeds was stamped
+no earlier than its call, so the lease is known current until that call plus the
+3 s window (`SERVICE_LEASE_WINDOW_MS`). Past that, or whenever a worker is
+refused for a lapsed lease, it is lapsed, and a lapse ends after 6 s without
+one, so a lease that flaps between slow renewals is one lapse. The state reports
+one `INFRASTRUCTURE` error, caused by the failure that triggered it, under the
+one route `web.service-lease.lapsed` to the app's reporter once a lapse has
+lasted 10 s, then every 5 minutes while it lasts; a report that fails to send is
+retried on the next lapse. A lapse the next renewal clears stays in the logs
+however many Rounds failed during it. A plain `AUTHORIZATION` failure is
+reported at once. A bot speech refused admission keeps its delivery attempts and
+resumes at the refused step: the provider answer and the phrases already spoken
+are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;

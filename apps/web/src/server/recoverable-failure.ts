@@ -1,4 +1,4 @@
-import { isServiceLeaseLapse } from '@daisy/db/service-lease';
+import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { isAppError } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
@@ -20,7 +20,8 @@ const CAPACITY_DEFERRAL_LIMIT = 8;
  * Capacity refusals are deferrals: each refusal past the bound is reported,
  * and the count for that stage starts again. A lapsed web service lease is
  * only logged here: it is the instance's condition, so `leaseLapsed` hands it
- * to the instance's one lease state, which reports it once it persists.
+ * to the instance's one lease state, which reports it once it persists to
+ * the app's own reporter, never this sink's `reporter`.
  */
 export function recoverableFailure(input: {
   readonly logger: Pick<Logger, 'log'>;
@@ -44,8 +45,13 @@ export function recoverableFailure(input: {
       /* A failing sink is never its caller's fault (ISSUE-789). */
     }
   };
-  const log = (error: unknown, operation: string, cause?: string) => {
-    const errorCode = isAppError(error) ? error.code : 'INTERNAL';
+  const codeOf = (error: unknown) =>
+    isAppError(error) ? error.code : 'INTERNAL';
+  const log = (
+    operation: string,
+    errorCode: ReturnType<typeof codeOf>,
+    cause?: string,
+  ) =>
     attempt(() => {
       input.logger.log(
         input.event,
@@ -53,15 +59,14 @@ export function recoverableFailure(input: {
         input.message,
       );
     });
-  };
   const report = (error: unknown, operation: string) => {
-    const errorCode = isAppError(error) ? error.code : 'INTERNAL';
+    const errorCode = codeOf(error);
     let cause: string | undefined;
     // A cause reader that throws costs only the cause, never the log line.
     attempt(() => {
       cause = input.cause?.(error);
     });
-    log(error, operation, cause);
+    log(operation, errorCode, cause);
     attempt(() =>
       input.reporter.capture(error, {
         requestId: input.nextId(),
@@ -77,7 +82,7 @@ export function recoverableFailure(input: {
   return (error: unknown, stage: string) => {
     const operation = `${input.operation}.${stage}`;
     if (isServiceLeaseLapse(error)) {
-      log(error, `${operation}.lease`, 'service-lease-lapsed');
+      log(`${operation}.lease`, codeOf(error), 'service-lease-lapsed');
       return attempt(() => input.leaseLapsed(error));
     }
     let capacity = false;
