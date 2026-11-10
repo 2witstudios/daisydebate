@@ -197,10 +197,12 @@ test('actual composed AI workers observe increasing beta workload separately fro
           }),
           { mode: 0o600 },
         );
-        const collected = await composeBillingEconomics(app, instanceId).run(
-          window,
-        );
-        if (collected.kind !== 'reported' || collected.report.kind !== 'report')
+        const collected = await composeBillingEconomics(
+          app,
+          instanceId,
+          directory,
+        ).run(window);
+        if (collected.kind !== 'reported')
           throw Error('Actual private collector did not report');
         const report = collected.report;
         const files = (await readdir(directory)).filter((name) =>

@@ -12,6 +12,14 @@ export const economicsCategories = [
   'freeTierSubsidy',
 ] as const;
 export const economicsInstant = z.iso.datetime({ precision: 3 });
+
+/** A collected window: two economics instants. The one predicate every guard of a window uses. */
+export const isEconomicsWindow = (window: {
+  readonly startsAt: string;
+  readonly endsAt: string;
+}) =>
+  economicsInstant.safeParse(window.startsAt).success &&
+  economicsInstant.safeParse(window.endsAt).success;
 const integer = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const economicsMoney = z.discriminatedUnion('kind', [
   z.strictObject({

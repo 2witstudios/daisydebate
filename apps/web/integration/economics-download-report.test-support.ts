@@ -51,10 +51,12 @@ export async function collectDownloadObservation(input: {
   const instanceId = createId();
   await f.store.renewServiceInstance({ instanceId, role: 'web' });
   try {
-    const collected = await composeBillingEconomics(app, instanceId).run(
-      window,
-    );
-    if (collected.kind !== 'reported' || collected.report.kind !== 'report')
+    const collected = await composeBillingEconomics(
+      app,
+      instanceId,
+      directory,
+    ).run(window);
+    if (collected.kind !== 'reported')
       throw Error('Actual private download collector did not report');
     const files = (await readdir(directory)).filter((name) =>
       name.startsWith('report-'),

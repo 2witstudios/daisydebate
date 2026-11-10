@@ -43,13 +43,27 @@ usage-counter/rate pricing. The latter refuses direct model-cost lines to preven
 double counting. Invoice accounting and unresolved provider outcomes remain
 separate observable facts. No rates or invoices are seeded as production truth.
 
-`createBillingEconomicsCollector` joins that feed to the actual bounded snapshot,
-saves the private report, then uses the existing ErrorReporter. The fixed codes
-are `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`; routes identify only
-free/beta/premium and the correlation value is a UTC month. No financial amounts,
-model usage or personal dimensions enter the alert. Delivery failure returns a
-failure and attempts the fixed completeness signal; there is no console fallback.
-The existing Sentry adapter and scrubber own transport. Production alert-rule,
+`createBillingEconomicsCollector` joins that feed to the actual bounded snapshot
+and saves the private report. It returns one typed collection: `reported` (the
+saved report, the signals it implies and whether the feed was `supplied` or
+`missing`) or `failed` with one closed reason and the error that stage caught:
+`snapshot_failed` (the read threw, or the snapshot fails its schema, its window
+or is observed later than now), `feed_unreadable` (the feed could not be read:
+the sink directory is not private, or the file is a symbolic link or not a
+private regular file), `feed_invalid` (the operator's data is wrong: the file is
+not JSON or is over 1 MiB, or its schema, window, floor, capacity rows or cost
+basis is wrong), `feed_missing` (a correction of an earlier month found no feed,
+so nothing is saved), `report_failed` (the joined input fails
+the report's own checks, or the reporter threw while raising its signals) or
+`save_failed` (including the sink's 1000-file cap; a directory holding more than
+1000 entries already refuses the read, as `feed_unreadable`). Each data check refuses with
+its own closed reason (ADR 0102). The collector never reports.
+`raiseEconomicsSignals` submits a saved report's fixed signals through the
+existing ErrorReporter: `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`;
+routes identify only free/beta/premium and the correlation value is always the
+UTC month. No financial amounts, model usage or personal dimensions enter the
+alert. A throwing reporter is a failed submission carrying its cause; there is
+no console fallback. The existing Sentry adapter and scrubber own transport. Production alert-rule,
 credentials and destination provisioning remain human-controlled. Local injected
 transport tests are not evidence that a production alert reached an operator.
 
@@ -66,7 +80,8 @@ is concurrency authority only and never a monthly cost ceiling; absent capacity
 measurements are unknown rather than inferred from configuration.
 
 Current limitation: no actual measured infrastructure invoice/rate feed has been
-established for this assignment. Its absence must emit completeness and cannot
+established for this assignment. In a provisioned sink its absence must emit
+completeness and cannot
 establish a real measured-margin acceptance result. Integration adoption, actual
 source/role PostgreSQL proof and controlled threshold transport receipts must be
 recorded separately in the existing Billing plan. This document does not mark any
@@ -74,8 +89,18 @@ criterion complete or supersede BILL-H.
 
 The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
-at most1000 directory entries and removes only expired regular files in its own
-closed feed/report filename namespace. At1000 retained files a new save refuses;
+at most1000 directory entries and removes only regular files in its own closed
+feed/report filename namespace. A feed is kept only while its collection window is
+open: the month this run collects, the month the hourly worker collects (the
+previous month) and the current month (collected next). Any other feed, for an
+earlier month or one that has not started, is removed by the next sweep; reports
+keep the 30-day rule. So a feed lives at most until the end of the month after
+its own, and at most about 62 days from placement; compliance.md records that
+bound (DEC-372). A late correction of an older month protects that month's feed
+during its own run, so place the feed immediately before the correction run. If
+an hourly sweep removed it first, the correction fails as a reported
+`feed_missing` and saves nothing.
+At1000 retained files a new save refuses;
 more than1000 entries also refuses, rather than claiming a drained sweep. This
 bounds this sink's generated files and cleanup work. Provision the directory only
 for this sink. Source financial systems retain their own classified records; the
@@ -92,8 +117,9 @@ period is separate. A credited allowance with a delivered provider outcome still
 counts as delivered volume. No current configured concurrency value is accepted
 as an observed high-water measurement.
 
-A `reported` collector result means the report was saved and signals submitted to
-the existing reporter port. `alertDelivery` remains explicitly `unconfirmed`:
+A `reported` collection means the report was saved; a `submitted` signal result
+means its signals reached the existing reporter port. `alertDelivery` remains
+explicitly `unconfirmed`:
 the void ErrorReporter cannot acknowledge operator delivery and may be inert
 without keys. Only a separately retained approved private transport/destination
 receipt can establish that an operator received the named alert.
@@ -133,14 +159,115 @@ operation.
 
 `BILLING_ECONOMICS_DIRECTORY` is an optional absolute server-only path to the
 sink's dedicated private directory. It is excluded from browser configuration.
-Without this path or a valid private feed, the scheduler submits completeness
-through the scrubbed reporter and records `billing.economics.failed`; it does not
-invent measured costs, publish a financial report or claim low-margin delivery.
-The collector's reporter remains a void port: runtime registration and unit
+Collection is in one of three states, and none invents measured costs, publishes
+a financial report or claims low-margin delivery:
+
+- **Unprovisioned** (no path). There is nowhere to keep a report, so the worker
+  does not start. The process logs `billing.economics.unprovisioned` once at
+  startup and sends nothing to the error reporter: a worker this process does
+  not run raises nothing ([ADR 0101](../decisions/0101-operational-signals-report-what-happened.md)).
+  Such a deployment has no margin monitoring. Production activation (BILL-H)
+  must provision the sink.
+- **Feed missing** (provisioned path, no `feed-YYYY-MM.json` for the month). This
+  is a known incomplete input, not a failure. The collector saves a report
+  whose economics are unknown, and the worker raises `BILLING_ECONOMICS_INCOMPLETE`
+  for each plan and logs `billing.economics.feed_missing`. This is the
+  completeness guarantee: a provisioned environment never goes quiet about a
+  month it cannot measure.
+- **Failed** (a stage threw). The worker reports it through the worker
+  failure sink: one `billing.economics.failed` line whose `operation` is
+  `billing.economics.<reason>`, and one capture. The captured error carries the
+  reason's closed word (`economics-<reason>`), keeps the caught error as its
+  `cause`, and keeps a typed cause's own code; an untyped one takes its reason's
+  (`VALIDATION` for `feed_invalid` and `feed_missing`, `INTERNAL` for `report_failed` and `collect`, otherwise
+  `INFRASTRUCTURE`). The log line's `cause` names the innermost closed refusal
+  reason in the chain, the check that failed (for example
+  `economics-feed-window-mismatch`). A capacity refusal goes straight to the
+  shared bound (eight deferrals per stage, then a report) and never starts a
+  streak. A lapsed service lease is only the sink's warning (DAISY-WEB-9) and
+  never starts a streak either.
+
+Each hourly tick collects again, so late corrections land, but the worker
+raises each thing once per process:
+
+- **Failures.** Sentry gets one report per month and reason for as long as the
+  failure lasts. A report that settles (saved, its signals submitted) ends every
+  streak, so the same reason failing again after it is raised again.
+- **Missing feed.** `billing.economics.feed_missing` is logged once per month
+  and absence. The absence ends when a report is saved from a supplied feed, so a
+  feed that is then removed is logged again; an invalid feed saves no report and
+  does not end it.
+- **Signals.** Each signal (code and plan) is raised once a month, whatever
+  else changes in the report. A reporter that throws part-way is
+  `report_failed`, once; later ticks send only the signals it did not take.
+- **Outside a collection.** A failure outside any collection (an invalid clock,
+  a defect) is raised once per month and reason, and again only after a
+  collection completes (a report settles), not after a run whose collection
+  failed.
+
+This record lives in each web process. Several web instances, or a restart,
+each raise a month once more; the staging app runs one machine.
+
+A new month starts afresh, and a restart may raise the current month once more.
+
+A month that cannot be measured therefore reaches the error tracker either as
+`BILLING_ECONOMICS_INCOMPLETE` (a saved, incomplete report) or as one
+`billing.economics.<reason>` failure, never both for one failure. An operator
+alert for an unmeasured month should match the route prefix
+`billing.economics.` excluding `errorCode` `BILLING_LOW_MARGIN` (a measured
+month's signal), not the completeness code alone.
+The reporter `raiseEconomicsSignals` submits through remains a void port: runtime registration and unit
 transport capture do not confirm an operator/Sentry notification. Actual approved
 measurement-feed and private-destination delivery receipts remain required
 acceptance evidence, distinct from controlled threshold tests. This registration
 adds no admin billing view, PostHog funnel or production activation.
+
+### Provisioning the sink on staging (owner step)
+
+Staging (`daisy-debate-staging`) has no web volume and no path, so it runs
+unprovisioned. Provisioning it is an infrastructure change that needs owner
+sign-off; no agent performs it. The exact step:
+
+1. `fly volumes create billing_economics --size 1 -a daisy-debate-staging -r ord`
+   (one volume per web machine; the app runs one).
+2. In `fly.toml`, add the mount and add the path to the existing `[env]` table:
+
+   ```toml
+   [[mounts]]
+     source = "billing_economics"
+     destination = "/data/billing-economics"
+
+   # inside the existing [env] table
+   BILLING_ECONOMICS_DIRECTORY = "/data/billing-economics/sink"
+   ```
+
+   The path is a subdirectory, because a Fly volume's root is owned by root:
+   the web process runs as `daisy` (uid 1001) and cannot create it there.
+
+3. Deploy through the normal staging pipeline, then create the sink directory
+   once, owned by the runtime user and private:
+
+   ```sh
+   fly ssh console -a daisy-debate-staging -C \
+     "install -d -o daisy -g daisy -m 0700 /data/billing-economics/sink"
+   ```
+
+   Until this runs, ticks fail once as `feed_unreadable`. After it, the next
+   tick logs `billing.economics.feed_missing` and raises
+   `BILLING_ECONOMICS_INCOMPLETE` once for the previous month.
+
+4. To measure a month, place `feed-YYYY-MM.json` (the
+   [minimal private input](#minimal-private-input) or a reconciled feed) owned
+   by `daisy` with mode 0600. `fly ssh console` runs as root, so write it with
+   `install` rather than a plain copy; a root-owned feed is unreadable to the
+   process and fails as `feed_unreadable`:
+
+   ```sh
+   fly ssh console -a daisy-debate-staging -C \
+     "install -o daisy -g daisy -m 0600 /tmp/feed-2026-10.json /data/billing-economics/sink/feed-2026-10.json"
+   ```
+
+   (Upload the file to `/tmp` first with `fly sftp shell`.)
 
 ## Source availability and operator handoff
 
@@ -232,16 +359,20 @@ it also starts the other registered workers. Review that process's existing loca
 TEST-mode worker configuration before invocation. Do not launch a second process
 against an active instance or use this example to activate production. The current
 assignment has not executed that full process command. For a one-off/late-month
-correction the existing `composeBillingEconomics(app, instanceId).run(window)`
-seam is available to the integrating process owner, retaining the same bounded
+correction `correctBillingEconomics(app, instanceId, directory, window)` is
+available to the integrating process owner. It saves nothing without its feed,
+raises a saved report's signals as the worker does, and reports a failure (a
+missing feed included) through the same worker failure sink; a capacity refusal
+is returned to the caller rather than reported, since a one-off has no later
+tick for the shared bound. It retains the same bounded
 current-service reader and private sink; there is no participant/admin endpoint.
 
 Record the exact candidate/source hashes, month, feed hash, report hash and private
-file mode, plus the actual current-service query receipt. Missing feed must submit
-`BILLING_ECONOMICS_INCOMPLETE`; a separately labelled controlled threshold crossing
+file mode, plus the actual current-service query receipt. In a provisioned sink a
+missing feed must submit `BILLING_ECONOMICS_INCOMPLETE` once for the month; a separately labelled controlled threshold crossing
 can qualify signal plumbing but cannot establish a real measured margin. Existing
 `reporterFrom` maps only fixed signal/errorCode, plan route and UTC month to Sentry.
-The collector's `alertDelivery` remains `unconfirmed` even when capture returns.
+The `alertDelivery` of `raiseEconomicsSignals`'s submission remains `unconfirmed` even when capture returns.
 
 No approved local external operator destination/DSN was supplied. No outbound
 operator message has been sent. The remaining minimal human-controlled delivery

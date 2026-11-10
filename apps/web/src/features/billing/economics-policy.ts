@@ -1,7 +1,7 @@
-import { economicsInstant } from './economics-input';
+import { economicsInstant, isEconomicsWindow } from './economics-input';
 
 /** DEC366's recorded provisional default; changing it requires the owning policy record. */
-const recordedMarginFloorBasisPoints = 3000;
+export const recordedMarginFloorBasisPoints = 3000;
 
 /** A supplier measurement cannot lower the policy floor; explicit unknown remains unknown. */
 export function hasRecordedEconomicsFloor(value: unknown) {
@@ -24,8 +24,5 @@ export function previousEconomicsMonth(now: string) {
   start.setUTCMonth(start.getUTCMonth() - 1);
   const startsAt = start.toISOString(),
     endsAt = end.toISOString();
-  return economicsInstant.safeParse(startsAt).success &&
-    economicsInstant.safeParse(endsAt).success
-    ? { startsAt, endsAt }
-    : null;
+  return isEconomicsWindow({ startsAt, endsAt }) ? { startsAt, endsAt } : null;
 }

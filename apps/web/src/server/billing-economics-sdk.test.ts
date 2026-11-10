@@ -21,7 +21,8 @@ type Receipt = {
   directoryMode: number;
   privateTelemetryLeaked: boolean;
   serialized: string[];
-  result: { kind: string; report: Report; alertDelivery: string };
+  result: { kind: string; report: Report };
+  raised: { kind: string; alertDelivery?: string };
   saved: { report: Report };
 };
 type Event = {
@@ -106,7 +107,7 @@ function assertSdkReceipt(receipt: Receipt, margin: string, low: boolean) {
       receipt.directoryMode,
       receipt.reportMode,
       receipt.result.kind,
-      receipt.result.alertDelivery,
+      receipt.raised.alertDelivery,
       receipt.result.report.plans.premium.margin.kind,
       receipt.captureAfterSave.length > 0 &&
         receipt.captureAfterSave.every(Boolean),

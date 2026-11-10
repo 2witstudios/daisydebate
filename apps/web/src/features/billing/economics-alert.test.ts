@@ -1,72 +1,47 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { runEconomicsReport } from './economics-alert';
+import { economicsSignals, raiseEconomicsSignals } from './economics-alert';
+import { buildEconomicsReport } from './economics-report';
+import { dataset, now } from './economics.test-support';
 setupRitewayBun();
-test('failed private input delivery remains a failure without emitting the raw error', async () => {
-  const events: unknown[] = [];
-  const r = await runEconomicsReport({
-    read: async () => {
-      throw new Error('private payment detail');
-    },
-    save: async () => undefined,
-    now: () => '2026-11-06T00:00:00.000Z',
-    reporter: {
-      capture: (error, context) => {
-        events.push({
-          message: error instanceof Error ? error.message : 'invalid',
-          context,
-        });
-      },
-    },
-  });
-  assert({
-    given: 'an unavailable private measurement source',
-    should:
-      'return a fixed delivery failure without raw financial context or a healthy verdict',
-    actual: [r, events],
-    expected: [
-      { kind: 'failed', reason: 'economics_delivery_failed' },
-      [
-        {
-          message: 'BILLING_ECONOMICS_INCOMPLETE',
-          context: {
-            route: 'billing.economics.premium',
-            errorCode: 'BILLING_ECONOMICS_INCOMPLETE',
-            requestId: 'delivery-failed',
-          },
-        },
-      ],
-    ],
-  });
-});
 
-test('a known crossing produces the named private alert only after report persistence', async () => {
-  const { dataset, now } = await import('./economics.test-support');
+const validReport = () => {
+  const report = buildEconomicsReport(dataset(), now);
+  if (report.kind !== 'report') throw Error('Expected a valid report');
+  return report;
+};
+
+const captured = () => {
   const events: unknown[] = [];
-  const result = await runEconomicsReport({
-    read: async () => dataset(),
-    now: () => now,
-    save: async () => {
-      events.push('saved');
-    },
+  return {
+    events,
     reporter: {
-      capture: (error, context) => {
+      capture: (error: unknown, context: unknown) => {
         events.push({
           message: error instanceof Error ? error.message : 'invalid',
           context,
         });
       },
     },
+  };
+};
+
+test('a known crossing raises only fixed private low-margin and completeness signals', () => {
+  const report = buildEconomicsReport(dataset(), now);
+  if (report.kind !== 'report') throw Error('Expected a valid report');
+  const { events, reporter } = captured();
+  const raised = raiseEconomicsSignals(reporter, {
+    month: '2026-10',
+    signals: economicsSignals(report),
   });
   assert({
     given:
       'a completed measured Premium month below the thirty-percent floor and missing free/beta measurements',
     should:
-      'persist the actual report and produce only fixed private low-margin/completeness signals without financial or personal dimensions',
-    actual: [result.kind, events],
+      'raise only fixed private low-margin/completeness signals correlated by month, without financial or personal dimensions',
+    actual: [raised, events],
     expected: [
-      'reported',
+      { kind: 'submitted', alertDelivery: 'unconfirmed' },
       [
-        'saved',
         {
           message: 'BILLING_ECONOMICS_INCOMPLETE',
           context: {
@@ -95,52 +70,43 @@ test('a known crossing produces the named private alert only after report persis
     ],
   });
 });
-test('private persistence and alert delivery failures remain visible to the caller', async () => {
-  const { dataset, now } = await import('./economics.test-support');
-  const input = {
-    read: async () => dataset(),
-    now: () => now,
-    save: async () => undefined,
-    reporter: { capture: () => undefined },
-  };
-  const results = await Promise.all([
-    runEconomicsReport({
-      ...input,
-      save: async () => {
-        throw new Error('private sink');
+
+test('a throwing reporter is a failed submission carrying its cause', () => {
+  const cause = new Error('private adapter');
+  const raised = raiseEconomicsSignals(
+    {
+      capture: () => {
+        throw cause;
       },
-    }),
-    runEconomicsReport({
-      ...input,
-      reporter: {
-        capture: () => {
-          throw new Error('private adapter');
-        },
-      },
-    }),
-  ]);
+    },
+    {
+      month: '2026-10',
+      signals: economicsSignals(validReport()),
+    },
+  );
   assert({
-    given: 'a failed private report sink or failed alert delivery',
-    should: 'return failure instead of suppressing the missing report or alert',
-    actual: results.map((r) => r.kind),
-    expected: ['failed', 'failed'],
+    given: 'a reporter adapter that throws',
+    should:
+      'return a failed submission with the caught error, never suppress it',
+    actual: raised,
+    expected: { kind: 'failed', cause, submitted: 0 },
   });
 });
 
-test('a void reporter submission is not a delivery receipt', async () => {
-  const { dataset, now } = await import('./economics.test-support');
-  const r = await runEconomicsReport({
-    read: async () => dataset(),
-    now: () => now,
-    save: async () => undefined,
-    reporter: { capture: () => undefined },
-  });
+test('a void reporter submission is not a delivery receipt', () => {
+  const raised = raiseEconomicsSignals(
+    { capture: () => undefined },
+    {
+      month: '2026-10',
+      signals: economicsSignals(validReport()),
+    },
+  );
   assert({
     given:
       'an existing void reporter port that may be inert without deployment keys',
     should:
-      'keep operator delivery explicitly unconfirmed even after a report and signal submission',
-    actual: r.kind === 'reported' && r.alertDelivery,
-    expected: 'unconfirmed',
+      'keep operator delivery explicitly unconfirmed even after signal submission',
+    actual: raised,
+    expected: { kind: 'submitted', alertDelivery: 'unconfirmed' },
   });
 });

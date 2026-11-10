@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createRefusal, isAppError } from '@daisy/errors';
 import { createBillingEconomicsCollector } from './economics-collector';
 import { dataset, month, now } from './economics.test-support';
 setupRitewayBun();
@@ -16,37 +17,119 @@ const feed = () => {
   void _v;
   return { ...data, modelCostBasis: 'provider_invoice' };
 };
-test('missing private invoices and rates stay incomplete even with an empty current database', async () => {
-  const signals: string[] = [];
+test('a missing private feed is reported incomplete, never measured zero', async () => {
+  const saved: unknown[] = [];
   const collector = createBillingEconomicsCollector({
     store: { read: async () => snapshot() },
     feed: { read: async () => null },
     now: () => now,
-    save: async () => undefined,
-    reporter: {
-      capture: (_e, c) => {
-        signals.push(c.errorCode);
-      },
+    save: async (r) => {
+      saved.push(r);
     },
   });
   const result = await collector.run(window);
   assert({
     given: 'an empty real-source projection and no private measurement feed',
     should:
-      'report unknown economics and send completeness signals, never measured zero or threshold success',
+      'save an unknown-economics report recorded as feed_missing with completeness signals for every plan, never measured zero or threshold success',
     actual: result.kind === 'reported' && [
+      result.month,
+      result.feed,
       result.report.kind === 'report' &&
         result.report.plans.premium.margin.kind,
-      signals,
+      result.signals,
+      saved.length,
     ],
     expected: [
+      '2026-10',
+      'missing',
       'unknown',
       [
-        'BILLING_ECONOMICS_INCOMPLETE',
-        'BILLING_ECONOMICS_INCOMPLETE',
-        'BILLING_ECONOMICS_INCOMPLETE',
+        { name: 'BILLING_ECONOMICS_INCOMPLETE', plan: 'free' },
+        { name: 'BILLING_ECONOMICS_INCOMPLETE', plan: 'beta' },
+        { name: 'BILLING_ECONOMICS_INCOMPLETE', plan: 'premium' },
       ],
+      1,
     ],
+  });
+});
+test('each failing stage is one typed failure carrying the caught error', async () => {
+  const cause = new Error('private detail');
+  const run = (
+    overrides: Partial<Parameters<typeof createBillingEconomicsCollector>[0]>,
+  ) =>
+    createBillingEconomicsCollector({
+      store: { read: async () => snapshot() },
+      feed: { read: async () => feed() },
+      now: () => now,
+      save: async () => undefined,
+      ...overrides,
+    }).run(window);
+  const results = await Promise.all([
+    run({
+      store: {
+        read: async () => {
+          throw cause;
+        },
+      },
+    }),
+    run({
+      feed: {
+        read: async () => {
+          throw cause;
+        },
+      },
+    }),
+    run({
+      save: async () => {
+        throw cause;
+      },
+    }),
+  ]);
+  assert({
+    given: 'an unreadable snapshot, an unreadable feed, and a failing save',
+    should:
+      'return snapshot_failed, feed_unreadable and save_failed for the month, each keeping the caught error',
+    actual: results,
+    expected: [
+      {
+        kind: 'failed',
+        month: '2026-10',
+        reason: 'snapshot_failed',
+        cause,
+      },
+      {
+        kind: 'failed',
+        month: '2026-10',
+        reason: 'feed_unreadable',
+        cause,
+      },
+      {
+        kind: 'failed',
+        month: '2026-10',
+        reason: 'save_failed',
+        cause,
+      },
+    ],
+  });
+});
+test('a feed stating another floor is refused as invalid by the collector itself', async () => {
+  const saved: unknown[] = [];
+  const r = await createBillingEconomicsCollector({
+    store: { read: async () => snapshot() },
+    feed: { read: async () => ({ ...feed(), floorBasisPoints: 1000 }) },
+    now: () => now,
+    save: async (value) => {
+      saved.push(value);
+    },
+  }).run(window);
+  assert({
+    given:
+      'a private feed attempting a 10% floor against the recorded 30% policy',
+    should:
+      'fail as feed_invalid without saving a report, whatever the composition',
+    actual: [r.kind === 'failed' && r.reason, saved],
+    expected: ['feed_invalid', []],
   });
 });
 test('bounded projection overflow defeats apparently complete external invoices', async () => {
@@ -55,7 +138,6 @@ test('bounded projection overflow defeats apparently complete external invoices'
     feed: { read: async () => feed() },
     now: () => now,
     save: async () => undefined,
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   assert({
@@ -84,14 +166,17 @@ test('a snapshot for a different window cannot silently price this month', async
     save: async (r) => {
       saved.push(r);
     },
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   assert({
     given: 'a mismatched durable snapshot',
-    should: 'fail without saving a misleading report',
-    actual: [r.kind, saved],
-    expected: ['failed', []],
+    should:
+      'fail as snapshot_failed with a typed window refusal, without saving a misleading report',
+    actual: [
+      r.kind === 'failed' && [r.reason, isAppError(r.cause) && r.cause.reason],
+      saved,
+    ],
+    expected: [['snapshot_failed', 'economics-snapshot-window-mismatch'], []],
   });
 });
 
@@ -120,7 +205,6 @@ test('unlimited feature measurements remain separate from a completed-month marg
     feed: { read: async () => input },
     now: () => now,
     save: async () => undefined,
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   const report =
@@ -176,14 +260,13 @@ test('a private feed for another month fails instead of declaring complete curre
     },
     now: () => now,
     save: async () => undefined,
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   assert({
     given: 'a private completeness receipt bound to another month',
-    should: 'fail the exact reporting window',
-    actual: r.kind,
-    expected: 'failed',
+    should: 'fail the exact reporting window as feed_invalid',
+    actual: r.kind === 'failed' && r.reason,
+    expected: 'feed_invalid',
   });
 });
 test('possible unknown calls cannot be priced as measured zero even when a billed token rate exists', async () => {
@@ -227,7 +310,6 @@ test('possible unknown calls cannot be priced as measured zero even when a bille
     feed: { read: async () => input },
     now: () => now,
     save: async () => undefined,
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   assert({
@@ -240,5 +322,153 @@ test('possible unknown calls cannot be priced as measured zero even when a bille
       r.report.kind === 'report' &&
       r.report.plans.premium.margin.kind,
     expected: 'unknown',
+  });
+});
+
+test('an unreadable feed, a malformed feed and an incoherent report are each their own reason', async () => {
+  const saved: unknown[] = [];
+  const run = (read: () => Promise<unknown>) =>
+    createBillingEconomicsCollector({
+      store: { read: async () => snapshot() },
+      feed: { read },
+      now: () => now,
+      save: async (value) => {
+        saved.push(value);
+      },
+    }).run(window);
+  const malformed = await run(async () => []);
+  const unreadable = await run(async () => {
+    throw new Error('Billing economics feed unavailable');
+  });
+  const incoherent = await run(async () => {
+    const supplied = feed();
+    return { ...supplied, revenue: [...supplied.revenue, ...supplied.revenue] };
+  });
+  assert({
+    given:
+      'a feed that is not the feed schema, a read that throws, and a feed whose revenue sequences repeat',
+    should:
+      'fail as feed_invalid, feed_unreadable and report_failed, and save nothing',
+    actual: [
+      malformed.kind === 'failed' && malformed.reason,
+      unreadable.kind === 'failed' && unreadable.reason,
+      incoherent.kind === 'failed' && incoherent.reason,
+      saved,
+    ],
+    expected: ['feed_invalid', 'feed_unreadable', 'report_failed', []],
+  });
+});
+
+test('each feed data check refuses with its own closed reason', async () => {
+  const causeOf = async (value: unknown) => {
+    const r = await createBillingEconomicsCollector({
+      store: { read: async () => snapshot() },
+      feed: { read: async () => value },
+      now: () => now,
+      save: async () => undefined,
+    }).run(window);
+    return r.kind === 'failed' && isAppError(r.cause)
+      ? [r.reason, r.cause.code, r.cause.reason]
+      : null;
+  };
+  const volume = {
+    plan: 'premium',
+    feature: 'casual_capture',
+    completed: 1,
+    possibleCalls: 1,
+    capacity: { kind: 'unknown' },
+  };
+  assert({
+    given:
+      'feeds failing the schema, the floor, the window, unique capacity, and the single model cost basis',
+    should: 'refuse each as feed_invalid with VALIDATION and a distinct reason',
+    actual: [
+      await causeOf([]),
+      await causeOf({ ...feed(), floorBasisPoints: 1000 }),
+      await causeOf({ ...feed(), startsAt: '2026-09-01T00:00:00.000Z' }),
+      await causeOf({ ...feed(), volume: [volume, volume] }),
+      await causeOf({ ...feed(), modelCostBasis: 'usage_counters' }),
+    ],
+    expected: [
+      ['feed_invalid', 'VALIDATION', 'economics-feed-schema-invalid'],
+      ['feed_invalid', 'VALIDATION', 'economics-feed-floor-changed'],
+      ['feed_invalid', 'VALIDATION', 'economics-feed-window-mismatch'],
+      ['feed_invalid', 'VALIDATION', 'economics-feed-duplicate-capacity'],
+      ['feed_invalid', 'VALIDATION', 'economics-feed-conflicting-basis'],
+    ],
+  });
+});
+
+test('a correction of an earlier month never saves an incomplete report', async () => {
+  const saved: unknown[] = [];
+  const september = {
+    startsAt: '2026-09-01T00:00:00.000Z',
+    endsAt: '2026-10-01T00:00:00.000Z',
+  };
+  const r = await createBillingEconomicsCollector({
+    store: { read: async () => ({ ...snapshot(), ...september }) },
+    feed: { read: async () => null },
+    now: () => now,
+    save: async (value) => {
+      saved.push(value);
+    },
+  }).run(september, 'correction');
+  assert({
+    given: 'a correction of September whose feed was pruned or never placed',
+    should: 'fail as feed_missing with its closed reason and save nothing',
+    actual: [
+      r.kind === 'failed' && [r.reason, isAppError(r.cause) && r.cause.reason],
+      saved,
+    ],
+    expected: [['feed_missing', 'economics-feed-missing'], []],
+  });
+});
+
+test("a feed the files edge refuses for its contents is feed_invalid, the operator's data", async () => {
+  const refused = (
+    reason: 'economics-feed-unparseable' | 'economics-feed-not-private',
+  ) =>
+    createBillingEconomicsCollector({
+      store: { read: async () => snapshot() },
+      feed: {
+        read: async () => {
+          throw createRefusal('VALIDATION', reason);
+        },
+      },
+      now: () => now,
+      save: async () => undefined,
+    }).run(window);
+  const [unparseable, notPrivate] = await Promise.all([
+    refused('economics-feed-unparseable'),
+    refused('economics-feed-not-private'),
+  ]);
+  assert({
+    given:
+      'a read refused because the feed is not JSON, and one refused because the feed is not private',
+    should: 'fail the first as feed_invalid and the second as feed_unreadable',
+    actual: [
+      unparseable.kind === 'failed' && unparseable.reason,
+      notPrivate.kind === 'failed' && notPrivate.reason,
+    ],
+    expected: ['feed_invalid', 'feed_unreadable'],
+  });
+});
+
+test('a monthly run never treats its own month as a correction, whatever the clock says', async () => {
+  const saved: unknown[] = [];
+  const r = await createBillingEconomicsCollector({
+    store: { read: async () => snapshot() },
+    feed: { read: async () => null },
+    now: () => '2026-12-01T00:00:00.500Z',
+    save: async (value) => {
+      saved.push(value);
+    },
+  }).run(window);
+  assert({
+    given:
+      'a monthly run of October whose clock has crossed into December, with no feed',
+    should: 'save an incomplete report, never fail as feed_missing',
+    actual: [r.kind, r.kind === 'reported' && r.feed, saved.length],
+    expected: ['reported', 'missing', 1],
   });
 });

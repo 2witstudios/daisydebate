@@ -157,3 +157,9 @@ export function buildEconomicsReport(value: unknown, now: string) {
     plansReported: economicsPlans,
   } as const;
 }
+
+/** A report the builder accepted: measured, estimated or unknown per plan, never invalid input. */
+export type EconomicsReport = Extract<
+  ReturnType<typeof buildEconomicsReport>,
+  { readonly kind: 'report' }
+>;

@@ -72,3 +72,36 @@ export const billingEconomicsSnapshotSchema = z.strictObject({
 export const billingEconomicsReadSchema = billingEconomicsSnapshotSchema.extend(
   { complete: z.boolean() },
 );
+
+/**
+ * The private billing economics worker's refusal words (ADR 0102): which fixed
+ * check or reason failed. The log line names a failure by these words, never
+ * by a message. Internal; never sent to a client.
+ */
+export type BillingEconomicsRefusal =
+  // The private file edge: what the operations doc names.
+  | 'economics-clock-invalid'
+  | 'economics-window-invalid'
+  | 'economics-sink-not-private'
+  | 'economics-sink-full'
+  | 'economics-feed-not-private'
+  | 'economics-feed-too-large'
+  | 'economics-feed-unparseable'
+  | 'economics-report-identity-invalid'
+  // The collector's data checks.
+  | 'economics-feed-schema-invalid'
+  | 'economics-feed-floor-changed'
+  | 'economics-feed-window-mismatch'
+  | 'economics-feed-duplicate-capacity'
+  | 'economics-feed-conflicting-basis'
+  | 'economics-snapshot-window-mismatch'
+  | 'economics-snapshot-from-future'
+  | 'economics-report-input-invalid'
+  // The worker's reasons, carried by the error it reports.
+  | 'economics-feed-missing'
+  | 'economics-feed-unreadable'
+  | 'economics-feed-invalid'
+  | 'economics-snapshot-failed'
+  | 'economics-save-failed'
+  | 'economics-report-failed'
+  | 'economics-collect-failed';

@@ -1,4 +1,5 @@
 import type { AttendanceRefusal } from './attendance';
+import type { BillingEconomicsRefusal } from './billing-economics';
 import type { CaptureRefusal } from './capture-refusal';
 import type { RoomRefusal } from './room-contract';
 import type { RoundRefusal } from './round-command';
@@ -43,6 +44,7 @@ type AudienceRefusal =
  */
 export type RefusalReason =
   | AttendanceRefusal
+  | BillingEconomicsRefusal
   | TranscriptRefusal
   | CaptureRefusal
   | ReportRefusal
