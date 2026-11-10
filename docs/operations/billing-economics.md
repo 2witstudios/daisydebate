@@ -205,8 +205,8 @@ raises each thing once per process:
   sink, which absorbs eight per stage and reports the ninth, so starvation is
   reported even after another failure of that stage, and it never masks one. A failure is raised once until a report is saved again; after that
   the same failure is a regression and raises again. Only a failure the worker
-  failure sink actually reported (its log line or capture succeeded) counts as
-  raised, so a deferred capacity refusal never mutes what follows.
+  failure sink reported to the error tracker counts as raised (a log line alone
+  does not, so a tracker outage is retried on later ticks), so a deferred capacity refusal never mutes what follows.
 - **Missing feed.** `billing.economics.feed_missing` is logged once a month,
   before any signal is raised, so a reporter that throws cannot keep it quiet;
   a line the log sink refused is tried again on the next tick, and a feed that
