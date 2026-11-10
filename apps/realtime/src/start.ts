@@ -1,3 +1,4 @@
+import { isAppError } from '@daisy/errors';
 import { systemClock, systemId } from '@daisy/clock';
 import {
   drainWithDeadline,
@@ -71,16 +72,18 @@ const lease = startRealtimeServiceLease({
   renew: resources.database.renewServiceInstance,
   deliveredThrough: drain.cursor,
   failed: (error) => {
+    // A typed refusal keeps its own code (a lease another role holds is CONFLICT).
+    const errorCode = isAppError(error) ? error.code : 'INFRASTRUCTURE';
     resources.logger.log(
       'service.lease_failed',
-      { operation: 'realtime.lease', errorCode: 'INFRASTRUCTURE' },
+      { operation: 'realtime.lease', errorCode },
       'Realtime lease renewal unavailable',
     );
     // ADR 0037: the raw renewal failure reaches only the scrubbed reporter.
     reporter.capture(error, {
       requestId: instanceId,
       route: 'realtime.lease',
-      errorCode: 'INFRASTRUCTURE',
+      errorCode,
     });
   },
   timers: {

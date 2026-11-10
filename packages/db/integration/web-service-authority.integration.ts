@@ -99,33 +99,35 @@ test('a lapsed web lease refuses with its typed reason, not its message (ISSUE-1
     }),
   ));
 
-test('a renewal of a lease another role holds writes nothing and says so', async () =>
+test('a renewal of a lease another role holds writes nothing and is refused', async () =>
   withFixture(url, async (fixture) => {
     const instanceId = createId();
     const leases = availabilityOperations(fixture.sql, fixture.sql);
     try {
       await fixture.sql`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
         values(${instanceId},'realtime',clock_timestamp()-interval '1 hour',0,'0'::xid8)`;
-      const web = await leases.renewServiceInstance({
-        instanceId,
-        role: 'web',
+      await assertRejects({
+        given: 'a realtime lease row renewed as web',
+        should: 'refuse the renewal as a conflict',
+        actual: () => leases.renewServiceInstance({ instanceId, role: 'web' }),
+        code: 'CONFLICT',
       });
-      const [row] =
+      const [untouched] =
         await fixture.sql`select role,renewed_at<clock_timestamp()-interval '59 minutes' as stale from service_instances where instance_id=${instanceId}`;
-      const realtime = await leases.renewServiceInstance({
+      await leases.renewServiceInstance({
         instanceId,
         role: 'realtime',
         deliveredThrough: { txid: '0', seq: 0n },
       });
+      const [renewed] =
+        await fixture.sql`select renewed_at>clock_timestamp()-interval '1 minute' as fresh from service_instances where instance_id=${instanceId}`;
       assert({
-        given: 'a realtime lease row, renewed once as web and once as realtime',
-        should:
-          'leave the row untouched and answer false for web, then renew it and answer true for its own role',
-        actual: { web, row, realtime },
+        given: 'the refused web renewal, then a renewal by its own role',
+        should: 'leave the row untouched, then renew it',
+        actual: { untouched, renewed },
         expected: {
-          web: false,
-          row: { role: 'realtime', stale: true },
-          realtime: true,
+          untouched: { role: 'realtime', stale: true },
+          renewed: { fresh: true },
         },
       });
     } finally {

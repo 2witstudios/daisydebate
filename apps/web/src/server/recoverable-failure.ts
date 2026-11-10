@@ -58,6 +58,19 @@ export function recoverableFailure(input: {
         input.message,
       );
     });
+  /** A lapse is expected and clears on renewal: a warning, never a failure. */
+  const lapsed = (operation: string) =>
+    attempt(() => {
+      input.logger.log(
+        'service.lease_lapsed',
+        {
+          operation,
+          errorCode: 'AUTHORIZATION',
+          cause: 'service-lease-lapsed',
+        },
+        'Service lease not current; the next renewal restores it',
+      );
+    });
   const report = (error: unknown, operation: string) => {
     const errorCode = codeOf(error);
     let cause: string | undefined;
@@ -84,8 +97,7 @@ export function recoverableFailure(input: {
     attempt(() => {
       lapse = input.isLeaseLapse(error);
     });
-    if (lapse)
-      return log(`${operation}.lease`, codeOf(error), 'service-lease-lapsed');
+    if (lapse) return lapsed(`${operation}.lease`);
     let capacity = false;
     attempt(() => {
       capacity = input.isCapacity(error);

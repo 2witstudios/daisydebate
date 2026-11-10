@@ -1,4 +1,3 @@
-import { isAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startRealtimeServiceLease } from './service-lease';
 setupRitewayBun();
@@ -17,7 +16,6 @@ test('realtime lease samples actual delivery cursor and shutdown waits for its o
     renew: async (input) => {
       calls.push(input);
       await inFlight;
-      return true;
     },
     failed: () => {
       throw new Error('Successful fixture renewal must not report failure');
@@ -71,7 +69,6 @@ test('a failed renewal surfaces its error to the failed sink and the lease keeps
     deliveredThrough: () => ({ txid: '1', seq: 1n }),
     renew: async () => {
       attempt += 1;
-      if (attempt === 3) return false;
       throw new Error(`renewal outage ${attempt}`);
     },
     failed: (error) => void failures.push(error),
@@ -85,18 +82,11 @@ test('a failed renewal surfaces its error to the failed sink and the lease keeps
   });
   await tick();
   await tick();
-  await tick();
   await lease.stop();
   assert({
-    given:
-      'two renewals that reject, then one that wrote no row (a lease another role holds)',
-    should:
-      'report each renewal’s own error, and the no-row renewal as a conflict, to the failed sink',
-    actual: failures.map((error) =>
-      isAppError(error)
-        ? error.code
-        : (error as Error).message.split(' ').at(-1),
-    ),
-    expected: ['1', '2', 'CONFLICT'],
+    given: 'two renewals that both reject',
+    should: 'report each renewal’s own error to the failed sink',
+    actual: failures.map((error) => (error as Error).message.split(' ').at(-1)),
+    expected: ['1', '2'],
   });
 });

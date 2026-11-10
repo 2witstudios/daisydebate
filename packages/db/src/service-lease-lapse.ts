@@ -1,9 +1,11 @@
 import { isAppError } from '@daisy/errors';
 
 /**
- * How long a web service lease stays current after its renewal is stamped
- * (ADR 0033 §7). `requireCurrentWeb` refuses past it; a renewal that took
- * longer than this to settle committed a lease that had already lapsed.
+ * How long any service lease, web or realtime, stays current after its
+ * renewal is stamped (ADR 0033 §7). `requireCurrentWeb` refuses a web
+ * instance past it, and the availability sampler counts a peer of either
+ * role live only within it. A renewal that took longer than this to settle
+ * committed a lease that had already lapsed.
  */
 export const SERVICE_LEASE_WINDOW_MS = 3000;
 

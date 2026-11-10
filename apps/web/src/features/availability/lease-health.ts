@@ -8,32 +8,48 @@ export const RENEW_INTERVAL_MS = 1000;
  * renewal clears never reaches the error tracker (DAISY-WEB-9).
  */
 const PERSIST_MS = 10_000;
-/** How often a lapse that lasts is reported again. */
+/**
+ * The fewest ms between two reports from one instance, across recoveries,
+ * so a lease that flaps cannot flood the tracker.
+ */
 const REPEAT_MS = 5 * 60_000;
 
-/** Why the lease is not proven: what the latest renewal since then is doing. */
+/** Why the lease is not proven. */
 export type Unproven =
+  /** A renewal has been in flight for the whole window, or none has settled. */
   | { readonly kind: 'renewal_pending' }
+  /** The latest renewal wrote the row only after its window had passed. */
+  | { readonly kind: 'renewal_late'; readonly tookMs: number }
   | { readonly kind: 'renewal_failed'; readonly error: unknown };
+
+/** How the latest settled renewal failed to prove the lease, if it did. */
+type Settled = Exclude<Unproven, { readonly kind: 'renewal_pending' }> | null;
 
 /**
  * What this web instance can prove about its own service lease, from its
- * renewals alone. A renewal that succeeds was stamped no earlier than its
- * call, so it proves the lease current until that call plus the window,
- * however long it took to settle.
+ * renewals alone. A renewal called at `startedMs` and settled at `settledMs`
+ * was stamped between the two and visible from the settle, so it proves the
+ * lease current from its settle until its call plus the window. One that
+ * settled after that proves nothing: it committed a lease already stale.
  */
 export type LeaseHealth = {
   /** Monotonic ms until which the lease is proven current. */
   readonly currentUntilMs: number;
-  readonly unproven: Unproven;
-  /** Monotonic ms of the latest report of the current lapse, if any. */
+  readonly settled: Settled;
+  /** Monotonic ms the renewal now in flight started, if one is. */
+  readonly inFlightSinceMs: number | null;
+  /** Monotonic ms of this instance's latest report, if any. */
   readonly reportedAtMs: number | null;
 };
 
 export type LeaseRenewal =
-  | { readonly kind: 'started' }
-  /** A renewal called at `startedMs` wrote this instance's lease row. */
-  | { readonly kind: 'renewed'; readonly startedMs: number }
+  | { readonly kind: 'started'; readonly startedMs: number }
+  /** A renewal called at `startedMs` wrote the lease row by `settledMs`. */
+  | {
+      readonly kind: 'renewed';
+      readonly startedMs: number;
+      readonly settledMs: number;
+    }
   | { readonly kind: 'failed'; readonly error: unknown };
 
 /** A lapse that persisted: how long the lease has been unproven, and why. */
@@ -42,12 +58,11 @@ export type LeaseLapse = {
   readonly unproven: Unproven;
 };
 
-const pending: Unproven = { kind: 'renewal_pending' };
-
 /** A process starts with its lease to prove, from the moment it starts. */
 export const startingLease = (nowMs: number): LeaseHealth => ({
   currentUntilMs: nowMs,
-  unproven: pending,
+  settled: null,
+  inFlightSinceMs: null,
   reportedAtMs: null,
 });
 
@@ -56,20 +71,37 @@ export function afterRenewal(
   health: LeaseHealth,
   renewal: LeaseRenewal,
 ): LeaseHealth {
-  if (renewal.kind === 'started') return { ...health, unproven: pending };
+  if (renewal.kind === 'started')
+    return { ...health, inFlightSinceMs: renewal.startedMs };
+  const done = { ...health, inFlightSinceMs: null };
   if (renewal.kind === 'failed')
     return {
-      ...health,
-      unproven: { kind: 'renewal_failed', error: renewal.error },
+      ...done,
+      settled: { kind: 'renewal_failed', error: renewal.error },
+    };
+  const provenUntilMs = renewal.startedMs + SERVICE_LEASE_WINDOW_MS;
+  if (renewal.settledMs >= provenUntilMs)
+    return {
+      ...done,
+      settled: {
+        kind: 'renewal_late',
+        tookMs: renewal.settledMs - renewal.startedMs,
+      },
     };
   return {
-    ...health,
-    currentUntilMs: Math.max(
-      health.currentUntilMs,
-      renewal.startedMs + SERVICE_LEASE_WINDOW_MS,
-    ),
+    ...done,
+    currentUntilMs: Math.max(health.currentUntilMs, provenUntilMs),
+    settled: null,
   };
 }
+
+/** Why the lease is unproven at `nowMs`: a hung renewal outranks the past. */
+const unprovenAt = (health: LeaseHealth, nowMs: number): Unproven =>
+  (health.inFlightSinceMs !== null &&
+    nowMs - health.inFlightSinceMs >= SERVICE_LEASE_WINDOW_MS) ||
+  health.settled === null
+    ? { kind: 'renewal_pending' }
+    : health.settled;
 
 /** The tick's check at `nowMs`: the health, and a lapse to report, if due. */
 export function checkLease(
@@ -77,16 +109,13 @@ export function checkLease(
   nowMs: number,
 ): { readonly health: LeaseHealth; readonly lapse: LeaseLapse | null } {
   const lapsedMs = nowMs - health.currentUntilMs;
-  // Proven current now: any lapse is over, so the next one reports afresh.
-  if (lapsedMs < 0)
-    return { health: { ...health, reportedAtMs: null }, lapse: null };
   const due =
     lapsedMs >= PERSIST_MS &&
     (health.reportedAtMs === null || nowMs - health.reportedAtMs >= REPEAT_MS);
   return due
     ? {
         health: { ...health, reportedAtMs: nowMs },
-        lapse: { lapsedMs, unproven: health.unproven },
+        lapse: { lapsedMs, unproven: unprovenAt(health, nowMs) },
       }
     : { health, lapse: null };
 }

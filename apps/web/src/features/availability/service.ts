@@ -1,4 +1,3 @@
-import { createAppError } from '@daisy/errors';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import {
   afterRenewal,
@@ -24,11 +23,10 @@ const PROBE_RESOURCE_RETRY_MS = 60_000;
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
   readonly store: {
-    /** Whether the renewal wrote this instance's lease row. */
     readonly renewServiceInstance: (input: {
       readonly instanceId: string;
       readonly role: 'web';
-    }) => Promise<boolean>;
+    }) => Promise<void>;
     readonly reconcileRoundCheckInAttempts: (limit: number) => Promise<number>;
     readonly availabilitySampler: () => Sampler;
   };
@@ -110,17 +108,11 @@ export function startAvailabilityService(deps: {
   const renew = () => {
     if (renewing) return renewing;
     const startedMs = nowMs();
-    observe({ kind: 'started' });
+    observe({ kind: 'started', startedMs });
     renewing = deps.store
       .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
-      .then((wrote) => {
-        // A lease another role holds was not renewed: never pretend it was.
-        if (!wrote)
-          throw createAppError(
-            'CONFLICT',
-            'Service lease belongs to another role',
-          );
-        observe({ kind: 'renewed', startedMs });
+      .then(() => {
+        observe({ kind: 'renewed', startedMs, settledMs: nowMs() });
         return true;
       })
       .catch((error: unknown) => {

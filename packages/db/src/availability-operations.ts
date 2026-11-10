@@ -184,7 +184,7 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
             readonly deliveredThrough: OutboxPosition;
           }
       ),
-    ): Promise<boolean> {
+    ): Promise<void> {
       if (!idSchema.safeParse(input.instanceId).success)
         throw createAppError('VALIDATION');
       const cursor =
@@ -197,8 +197,12 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
         on conflict(instance_id) do update set renewed_at=excluded.renewed_at,
           delivered_through=excluded.delivered_through,delivered_through_txid=excluded.delivered_through_txid
         where service_instances.role=excluded.role returning instance_id`;
-      // A lease held by another role is not renewed: say so, never pretend.
-      return renewed.length === 1;
+      // A lease another role holds was not renewed: never let it pass as renewed.
+      if (renewed.length !== 1)
+        throw createAppError(
+          'CONFLICT',
+          'Service lease belongs to another role',
+        );
     },
     availabilitySampler: () => createAvailabilitySampler(dedicated),
     /**

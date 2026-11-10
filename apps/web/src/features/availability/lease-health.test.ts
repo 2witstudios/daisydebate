@@ -36,7 +36,7 @@ const lapsesOver = (seconds: number, at: (second: number) => Second) => {
       health = afterRenewal(
         health,
         inFlight.second.kind === 'renewed'
-          ? { kind: 'renewed', startedMs: inFlight.startedMs }
+          ? { kind: 'renewed', startedMs: inFlight.startedMs, settledMs: ms }
           : { kind: 'failed', error: refused },
       );
       inFlight = null;
@@ -47,7 +47,7 @@ const lapsesOver = (seconds: number, at: (second: number) => Second) => {
     if (checked.lapse) lapses.push({ ...checked.lapse, atMs: ms });
     if (inFlight) continue;
     const second = at(ms / 1000);
-    health = afterRenewal(health, { kind: 'started' });
+    health = afterRenewal(health, { kind: 'started', startedMs: ms });
     inFlight = {
       startedMs: ms,
       second,
@@ -131,14 +131,40 @@ test('a renewal that settles after a long hang does not report the same lapse tw
   });
 });
 
-test('a timely renewal ends the lapse, so a later one reports afresh', () => {
+test('a timely renewal ends the lapse, and a later one reports once five minutes have passed', () => {
   assert({
     given:
-      'fifteen seconds of failures from start, a minute of timely renewals, then fifteen more seconds of failures',
-    should: 'report each lapse once',
-    actual: lapsesOver(90, (second) =>
-      second < 15 || second >= 75 ? failing : timely,
+      'fifteen seconds of failures from start, timely renewals, then failures again at 75 s and at 400 s',
+    should:
+      'report the first lapse, hold the second inside five minutes of it, and report the third',
+    actual: lapsesOver(420, (second) =>
+      second < 15 || (second >= 75 && second < 90) || second >= 400
+        ? failing
+        : timely,
     ).map(({ atMs }) => atMs),
-    expected: [10_000, 87_000],
+    expected: [10_000, 412_000],
+  });
+});
+
+test('renewals that each commit 4 s after their call prove nothing, and report as late', () => {
+  assert({
+    given: 'every renewal settling 4 s after its call, past the 3 s window',
+    should: 'report at 10 s that the renewals are late',
+    actual: lapsesOver(20, () => ({ kind: 'renewed', tookMs: 4000 })).map(
+      ({ atMs, unproven }) => [atMs, unproven],
+    ),
+    expected: [[10_000, { kind: 'renewal_late', tookMs: 4000 }]],
+  });
+});
+
+test('a lease that flaps between short recoveries reports at most once in five minutes', () => {
+  assert({
+    given:
+      'renewals that fail except one timely one every twelve seconds, for ten minutes',
+    should: 'report no more often than every five minutes',
+    actual: lapsesOver(600, (second) => (second % 12 === 0 ? timely : failing))
+      .map(({ atMs }, i, all) => (i === 0 ? 0 : atMs - all[i - 1]!.atMs))
+      .every((gap) => gap === 0 || gap >= 300_000),
+    expected: true,
   });
 });

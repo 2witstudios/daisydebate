@@ -270,7 +270,7 @@ const lapse = createRefusal(
   'Maintenance service is not current',
 );
 
-test('a lapsed service lease is logged, never reported by the stage (DAISY-WEB-9)', () => {
+test('a lapsed service lease is a warning, never a stage failure or a report (DAISY-WEB-9)', () => {
   const { lines, captured, failed } = record();
   for (let i = 0; i < 20; i++) failed(lapse, i % 2 ? 'tick' : 'finalize');
   const denied = createAppError('AUTHORIZATION', 'Permission denied');
@@ -278,19 +278,24 @@ test('a lapsed service lease is logged, never reported by the stage (DAISY-WEB-9
   assert({
     given:
       'twenty lapse refusals across two stages, then a real authorization failure',
-    should: 'log each lapse with its cause and report only the real failure',
+    should:
+      'log each lapse under the warning event with its cause, and report only the real failure',
     actual: {
-      first: lines[0]?.[1],
-      lines: lines.length,
+      first: lines[0],
+      events: [...new Set(lines.map(([event]) => event))],
       captured: captured.map(([error]) => error),
     },
     expected: {
-      first: {
-        operation: 'round.maintenance.finalize.lease',
-        errorCode: 'AUTHORIZATION',
-        cause: 'service-lease-lapsed',
-      },
-      lines: 21,
+      first: [
+        'service.lease_lapsed',
+        {
+          operation: 'round.maintenance.finalize.lease',
+          errorCode: 'AUTHORIZATION',
+          cause: 'service-lease-lapsed',
+        },
+        'Service lease not current; the next renewal restores it',
+      ],
+      events: ['service.lease_lapsed', 'round.maintenance.failed'],
       captured: [denied],
     },
   });
