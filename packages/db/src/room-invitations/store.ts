@@ -187,10 +187,18 @@ export const roomInvitationOperations = ({
           values(${room.id},${decision.inviteeActorId},${decision.seat},${decision.expiresAt}::timestamptz)
           on conflict (room_id,actor_id) do update set seat=excluded.seat,until=excluded.until`);
         await touchRoom(tx, room);
+        // One email an hour per host and member, however often the host
+        // withdraws and invites again; the inbox row is always written.
+        const [recent] = await rowsOf(
+          tx,
+          sql`select 1 from room_invitations where inviter_actor_id=${input.caller.actorId}
+            and invitee_actor_id=${found.actor_id} and id<>${input.ids.invitation}
+            and created_at > ${now}::timestamptz - interval '1 hour' limit 1`,
+        );
         await oweNotification(tx, {
           kind: 'room_invitation',
           id: input.ids.notification,
-          emailJobId: input.ids.emailJob,
+          emailJobId: recent ? null : input.ids.emailJob,
           recipient: { userId: found.user_id, actorId: found.actor_id },
           actorId: input.caller.actorId,
           roomInvitationId: input.ids.invitation,
@@ -200,10 +208,17 @@ export const roomInvitationOperations = ({
       }),
     );
   },
-  /** Retention: an ended invitation goes 30 days after it ended (ADR 0124). */
+  /**
+   * Retention: an ended invitation goes 30 days after it ended (ADR 0124).
+   * One whose time ran out in a Room nothing touched since ends first, as
+   * expired at its own expiry, so it is purged on the same clock.
+   */
   purgeEndedRoomInvitations(batch: RetentionBatch) {
-    return instrumented(eventSink, 'purgeEndedRoomInvitations', () =>
-      deleteExpiredBatch(
+    return instrumented(eventSink, 'purgeEndedRoomInvitations', async () => {
+      await database.execute(sql`update room_invitations set state='expired',ended_at=expires_at
+        where id in (select id from room_invitations where state='pending'
+          and expires_at <= clock_timestamp() order by id limit ${batch.limit})`);
+      return deleteExpiredBatch(
         database,
         {
           table: roomInvitations,
@@ -211,8 +226,8 @@ export const roomInvitationOperations = ({
           at: roomInvitations.endedAt,
         },
         batch,
-      ),
-    );
+      );
+    });
   },
   /** The invitee declines, or the host withdraws; the seat it held is free again. */
   endRoomInvitation(input: {
@@ -273,6 +288,8 @@ export async function settleRoomInvitationsAfter(
   room: RoomAssemblyState,
   now: string,
 ) {
+  // An invitation whose time ran out ends now, whatever else changed.
+  await lapse(tx, room.id, now);
   const ended = settledRoomInvitations(
     room,
     await pendingRows(tx, room.id, now),

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { idSchema } from './primitives';
 import {
   roomSeatKinds,
+  seatKindOf,
   type RoomAssemblyState,
   type RoomSeatKind,
 } from './room-contract';
@@ -27,7 +28,6 @@ export const roomInvitationCommandSchemas = {
   /** The host invites one member by username. */
   invite: z.strictObject({
     version: z.literal(1),
-    commandId: idSchema,
     username,
     seat: z.enum(roomSeatKinds),
   }),
@@ -109,8 +109,10 @@ const openStatuses: readonly string[] = ['assembling', 'ready'];
 /**
  * What a Room change does to its pending invitations (ADR 0124): a Room no
  * longer open expires them all; otherwise one whose invitee now sits in a
- * seat of its kind is accepted. The rest stay pending. Pure, so the durable
- * adapter applies it under the Room lock of the change it follows.
+ * seat is settled, accepted when the seat is of its kind and expired when
+ * they chose another, so its hold never outlives their arrival. The rest
+ * stay pending. Pure, so the durable adapter applies it under the Room lock
+ * of the change it follows.
  */
 export function settledRoomInvitations(
   room: Pick<RoomAssemblyState, 'status' | 'participants'>,
@@ -126,19 +128,18 @@ export function settledRoomInvitations(
       inviteeActorId,
       state: 'expired' as const,
     }));
-  const kindOf = (role: string): RoomSeatKind =>
-    role === 'judge' ? 'judge' : 'debater';
-  return pending
-    .filter((invitation) =>
-      room.participants.some(
-        (p) =>
-          p.actorId === invitation.inviteeActorId &&
-          kindOf(p.role) === invitation.seat,
-      ),
-    )
-    .map(({ id, inviteeActorId }) => ({
-      id,
-      inviteeActorId,
-      state: 'accepted' as const,
-    }));
+  return pending.flatMap(({ id, inviteeActorId, seat }) => {
+    const taken = room.participants.find((p) => p.actorId === inviteeActorId);
+    if (!taken) return [];
+    return [
+      {
+        id,
+        inviteeActorId,
+        state:
+          seatKindOf(taken.role) === seat
+            ? ('accepted' as const)
+            : ('expired' as const),
+      },
+    ];
+  });
 }

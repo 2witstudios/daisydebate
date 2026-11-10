@@ -7,6 +7,7 @@ import type {
   RoomRefusal,
   RoomSeatKind,
 } from '@daisy/protocol';
+import { seatKindOf } from '@daisy/protocol';
 
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
@@ -197,8 +198,6 @@ const wrongSeatForAi = (
   target.kind === 'bot' &&
   target.seatRole !== (role === 'judge' ? 'judge' : 'debater');
 /** The kind of seat a role is: either debating side, or the judge. */
-export const seatKindOf = (role: RoomParticipant['role']): RoomSeatKind =>
-  role === 'judge' ? 'judge' : 'debater';
 /**
  * How many free seats of `seat` kind `actorId` may not take at `now`: one for
  * each live hold of that kind for a named member who has not yet taken a seat

@@ -104,15 +104,26 @@ test('a repeat and a full seat', () => {
     seatHolds: [{ actorId: 'ann', seat: 'judge' as const, until: later }],
   };
   assert({
-    given: 'the same invitation again, then a judge seat another invite holds',
-    should: 'answer the repeat unchanged and refuse the second judge',
+    given:
+      'the same invitation again, a judge seat another invite holds, then a member a challenge holds a seat for',
+    should:
+      'answer the repeat unchanged, refuse the second judge, and not invite over the challenge hold',
     actual: [
       decide({ pending: [pendingFor('jo', 'judge')] }),
       decide({ room: judgeHeld }),
+      decide({
+        room: {
+          ...room,
+          seatHolds: [
+            { actorId: 'jo', seat: 'debater' as const, until: later },
+          ],
+        },
+      }),
     ],
     expected: [
       { ok: true, kind: 'repeat', invitationId: 'inv-jo' },
       { ok: false, refusal: 'no-free-seat' },
+      { ok: false, refusal: 'already-invited' },
     ],
   });
 });

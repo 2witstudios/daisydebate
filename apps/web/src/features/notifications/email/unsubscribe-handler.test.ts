@@ -88,7 +88,7 @@ describe('POST /api/notifications/unsubscribe (ADR 0124)', () => {
       },
       expected: {
         status: 303,
-        location: `${APP}/unsubscribe?done=challenge_received`,
+        location: '/unsubscribe?done=challenge_received',
         turnedOff: [member],
       },
     });
@@ -127,13 +127,13 @@ describe('POST /api/notifications/unsubscribe (ADR 0124)', () => {
       expected: [
         {
           status: 303,
-          location: `${APP}/unsubscribe?invalid=1`,
+          location: '/unsubscribe?invalid=1',
           turnedOff: 0,
           events: ['notifications.unsubscribe_refused'],
         },
         {
           status: 303,
-          location: `${APP}/unsubscribe?invalid=1`,
+          location: '/unsubscribe?invalid=1',
           turnedOff: 0,
           events: ['notifications.unsubscribe_refused'],
         },
@@ -148,19 +148,36 @@ describe('POST /api/notifications/unsubscribe (ADR 0124)', () => {
   });
 
   test('an oversized body', async () => {
-    const { handle, turnedOff } = route();
-    const response = await handle(
-      new Request(`${APP}/api/notifications/unsubscribe`, {
-        method: 'POST',
-        headers: { 'content-length': '4096' },
-        body: 'x'.repeat(4096),
-      }),
-    );
+    const chunked = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < 8; i += 1)
+          controller.enqueue(new TextEncoder().encode('x'.repeat(512)));
+        controller.close();
+      },
+    });
+    const results = [];
+    for (const init of [
+      { headers: { 'content-length': '4096' }, body: 'x'.repeat(4096) },
+      { body: chunked, duplex: 'half' },
+    ] as RequestInit[]) {
+      const { handle, turnedOff } = route();
+      const response = await handle(
+        new Request(`${APP}/api/notifications/unsubscribe`, {
+          method: 'POST',
+          ...init,
+        }),
+      );
+      results.push({ status: response.status, turnedOff: turnedOff.length });
+    }
     assert({
-      given: 'a body larger than any unsubscribe form',
-      should: 'refuse it unread',
-      actual: { status: response.status, turnedOff: turnedOff.length },
-      expected: { status: 413, turnedOff: 0 },
+      given:
+        'a body larger than any unsubscribe form, declared or streamed without a length',
+      should: 'stop reading at the bound and refuse it',
+      actual: results,
+      expected: [
+        { status: 413, turnedOff: 0 },
+        { status: 413, turnedOff: 0 },
+      ],
     });
   });
 });

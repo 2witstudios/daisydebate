@@ -243,6 +243,9 @@ export const ROOM_SEAT_HOLD_MS = 120_000;
 export const roomSeatKinds = ['debater', 'judge'] as const;
 export type RoomSeatKind = (typeof roomSeatKinds)[number];
 export const roomSeatKindSchema = z.enum(roomSeatKinds);
+/** The kind of seat a role is: the judge's, or a debater's on either side. */
+export const seatKindOf = (role: RoomParticipant['role']): RoomSeatKind =>
+  role === 'judge' ? 'judge' : 'debater';
 
 /**
  * A seat of one kind kept for a named member until `until`: a challenge's

@@ -301,3 +301,93 @@ test('a restriction ends the invitations its member sent or received', async () 
     });
   });
 });
+
+test('an invitation whose time ran out ends, and its retention clock runs', async () => {
+  await withRoom(async (env) => {
+    const lapseNow = (id: string) =>
+      env.f
+        .sql`update room_invitations set expires_at=clock_timestamp() - interval '1 minute',
+        created_at=clock_timestamp() - interval '25 hours' where id=${id}`;
+    const stateOf = async (id: string) =>
+      (
+        (await env.f
+          .sql`select state from room_invitations where id=${id}`) as {
+          state: string;
+        }[]
+      )[0]?.state ?? 'purged';
+    const judge = await invite(env, env.coach.userId);
+    await lapseNow(judge.invitationId);
+    const [row] = await env.database
+      .select()
+      .from(rooms)
+      .where(eq(rooms.id, env.roomId));
+    const { state } = await roomFacts(env.database as never, row!);
+    await settleRoomInvitationsAfter(
+      env.database as never,
+      { ...state, status: 'closed' },
+      new Date().toISOString(),
+    );
+    const afterClose = await stateOf(judge.invitationId);
+    const debater = await createAuthorizationSubject(env.f);
+    const untouched = await invite(env, debater.userId, 'debater');
+    await lapseNow(untouched.invitationId);
+    const day = 24 * 60 * 60 * 1000;
+    await env.invitations.purgeEndedRoomInvitations({
+      before: new Date(Date.now() - day).toISOString(),
+      limit: 500,
+    });
+    const swept = await stateOf(untouched.invitationId);
+    await env.invitations.purgeEndedRoomInvitations({
+      before: new Date(Date.now() + 31 * day).toISOString(),
+      limit: 500,
+    });
+    assert({
+      given:
+        'a lapsed invitation in a Room that then closed, and one in a Room nothing touched',
+      should:
+        'expire the first on close, and the retention sweep expire the second and later purge both',
+      actual: {
+        afterClose,
+        swept,
+        purged: [
+          await stateOf(judge.invitationId),
+          await stateOf(untouched.invitationId),
+        ],
+      },
+      expected: {
+        afterClose: 'expired',
+        swept: 'expired',
+        purged: ['purged', 'purged'],
+      },
+    });
+  });
+});
+
+test('a host who withdraws and invites again sends one email an hour', async () => {
+  await withRoom(async (env) => {
+    for (let round = 0; round < 3; round += 1) {
+      const { invitationId } = await invite(env, env.coach.userId);
+      if (round < 2)
+        await env.invitations.endRoomInvitation({
+          caller: env.host,
+          invitationId,
+          end: 'withdraw',
+          decide: (facts) =>
+            decideInvitationEnd({
+              ...facts,
+              callerActorId: env.host.actorId,
+              end: 'withdraw',
+            }),
+        });
+    }
+    const [counts] = await env.f.sql`select
+      (select count(*)::int from notifications where user_id=${env.coach.userId}) as notifications,
+      (select count(*)::int from notification_emails where user_id=${env.coach.userId}) as emails`;
+    assert({
+      given: 'an invitation withdrawn and sent again twice within the hour',
+      should: 'tell the member in the inbox each time but email them once',
+      actual: counts,
+      expected: { notifications: 3, emails: 1 },
+    });
+  });
+});

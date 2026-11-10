@@ -1,8 +1,24 @@
 import type { Database } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
+import { readBytes } from '../../../server/http';
 import { verifyUnsubscribe } from './unsubscribe-token';
 
 const MAX_BODY_BYTES = 1024;
+
+/** A relative 303: the request's own origin is not trusted behind the proxy. */
+const seeOther = (location: string) =>
+  new Response(null, { status: 303, headers: { location } });
+
+/** The posted form, read through a bounded stream; null when it is too large. */
+const boundedForm = async (request: Request) => {
+  if (!request.body) return new URLSearchParams();
+  try {
+    const bytes = await readBytes(request, MAX_BODY_BYTES);
+    return new URLSearchParams(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+};
 
 /**
  * POST /api/notifications/unsubscribe (ADR 0124): turns off one kind's email
@@ -18,10 +34,8 @@ export function createUnsubscribeRoute(deps: {
 }) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
-    const length = Number(request.headers.get('content-length') ?? '0');
-    if (!Number.isFinite(length) || length > MAX_BODY_BYTES)
-      return new Response('Too large', { status: 413 });
-    const form = await request.formData().catch(() => new FormData());
+    const form = await boundedForm(request);
+    if (!form) return new Response('Too large', { status: 413 });
     const field = (name: string) =>
       form.get(name) ?? url.searchParams.get(name);
     const fromPage = form.get('from') === 'page';
@@ -37,7 +51,7 @@ export function createUnsubscribeRoute(deps: {
         'Unsubscribe link not valid',
       );
       return fromPage
-        ? Response.redirect(new URL('/unsubscribe?invalid=1', url), 303)
+        ? seeOther('/unsubscribe?invalid=1')
         : new Response('This link is not valid.', { status: 400 });
     }
     await deps.store.unsubscribeNotificationEmail(unsubscribe);
@@ -47,10 +61,7 @@ export function createUnsubscribeRoute(deps: {
       'Notification email turned off',
     );
     return fromPage
-      ? Response.redirect(
-          new URL(`/unsubscribe?done=${unsubscribe.kind}`, url),
-          303,
-        )
+      ? seeOther(`/unsubscribe?done=${unsubscribe.kind}`)
       : new Response('Unsubscribed.', { status: 200 });
   };
 }

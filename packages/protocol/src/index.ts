@@ -224,6 +224,7 @@ export {
   ROOM_SEAT_HOLD_MS,
   roomSeatKinds,
   roomSeatKindSchema,
+  seatKindOf,
   roomCreateSchema,
   roomCommandSchema,
   roomStatuses,

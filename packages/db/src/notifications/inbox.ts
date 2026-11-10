@@ -16,9 +16,9 @@ import { wants } from './preferences';
 
 /** What a producer owes one member, in its own transaction (ADR 0124). */
 export type OwedNotification = {
-  /** The notification's id; also its email job's id when one is owed. */
   readonly id: string;
-  readonly emailJobId: string;
+  /** The email job's id, or null when the producer owes no email for it. */
+  readonly emailJobId: string | null;
   readonly recipient: { readonly userId: string; readonly actorId: string };
   /** Who it is about: the inviting host or the challenger. */
   readonly actorId: string;
@@ -67,6 +67,7 @@ export async function oweNotification(
       occurredAt: owed.at,
     },
   });
+  if (owed.emailJobId === null) return;
   await tx.execute(sql`insert into notification_emails(id,notification_id,user_id,kind,state,attempts,next_attempt_at,created_at)
     select ${owed.emailJobId},${owed.id},u.id,${owed.kind},'queued',0,${owed.at}::timestamptz,${owed.at}::timestamptz
     from users u where u.id=${owed.recipient.userId} and u.deleted_at is null

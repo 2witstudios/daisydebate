@@ -34,7 +34,7 @@ test('settledRoomInvitations', () => {
     given:
       'the invited judge seated, the invited debater in the judge seat, then the Room started',
     should:
-      'accept only the seat of the invited kind, then expire every pending one',
+      'accept the seat of the invited kind, end one whose invitee chose another, then expire every pending one',
     actual: [
       settledRoomInvitations(
         { status: 'assembling', participants: [seat('jo', 'judge')] },
@@ -51,7 +51,7 @@ test('settledRoomInvitations', () => {
     ],
     expected: [
       [{ id: 'inv-jo', inviteeActorId: 'jo', state: 'accepted' }],
-      [],
+      [{ id: 'inv-bea', inviteeActorId: 'bea', state: 'expired' }],
       ['expired', 'expired'],
     ],
   });

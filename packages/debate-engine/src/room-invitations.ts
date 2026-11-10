@@ -8,7 +8,8 @@ import {
   type RoomInvitationRefusal,
   type RoomSeatKind,
 } from '@daisy/protocol';
-import { seatKindOf, seatsHeldFrom } from './room-edit-transitions';
+import { seatKindOf } from '@daisy/protocol';
+import { seatsHeldFrom } from './room-edit-transitions';
 
 const open = (room: Pick<RoomAssemblyState, 'status'>) =>
   room.status === 'assembling' || room.status === 'ready';
@@ -20,7 +21,9 @@ const live = (invitation: PendingRoomInvitation, now: string) =>
  * Whether the host may invite this member to this seat kind now (ADR 0124).
  * Only the host of an open Room invites; the member must exist, be eligible,
  * not be blocked either way, not be the host, and not already sit in the
- * Room. One pending invitation per member: the same one again is a repeat.
+ * Room. One pending invitation per member: the same one again is a repeat,
+ * and a member a challenge already holds a seat for here is not invited
+ * over it (one hold per member per Room).
  * There must be a free seat of the kind that no other hold already keeps.
  */
 export function decideRoomInvitation(input: {
@@ -58,6 +61,14 @@ export function decideRoomInvitation(input: {
     return existing.seat === seat
       ? { ok: true, kind: 'repeat', invitationId: existing.id }
       : refuse('already-invited');
+  if (
+    room.seatHolds.some(
+      (hold) =>
+        hold.actorId === invitee.actorId &&
+        Date.parse(hold.until) > Date.parse(now),
+    )
+  )
+    return refuse('already-invited');
   const seats =
     seat === 'judge'
       ? room.rules.seats.judge
