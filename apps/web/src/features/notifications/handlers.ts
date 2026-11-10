@@ -49,17 +49,14 @@ export const createNotificationPreferencesRoute = (
     {
       operation: 'notifications.preferences',
       limit: WRITE_LIMIT,
-      maxBodyBytes: 256,
+      maxBodyBytes: 1024,
       refusals: [],
     },
     async ({ identity, body }) => {
       const choice = parseValidated(notificationPreferencesSchema, body);
       await deps.store.writeNotificationPreferences({
         userId: identity.principal.userId,
-        preferences: {
-          followed_debater_live: choice.followed_debater_live,
-          recording_ready: choice.recording_ready,
-        },
+        choices: choice.choices,
       });
       return Response.json({ received: true });
     },

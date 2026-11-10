@@ -1,5 +1,15 @@
 'use client';
-import type { NotificationPreferences } from '@daisy/protocol';
+import {
+  notificationChannelsOf,
+  notificationKinds,
+  type NotificationChannel,
+  type NotificationChoices,
+  type NotificationKind,
+} from '@daisy/protocol';
+import {
+  choiceField,
+  chosen,
+} from '../../features/notifications/preference-form';
 import { Button } from '../components/button/button';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 
@@ -9,13 +19,28 @@ const unavailable = (): NotificationPreferencesState => ({
   notice: 'Could not save. Try again.',
 });
 
-/** Which notifications are stored for you; it shows what was saved (ISSUE-1045). */
+const kindLabel: Record<NotificationKind, string> = {
+  followed_debater_live: 'A debater I follow is on air',
+  recording_ready: 'A recording is ready to watch',
+  room_invitation: 'A host invites me to a room',
+  challenge_received: 'Someone challenges me',
+};
+const channelLabel: Record<NotificationChannel, string> = {
+  in_app: 'In Daisy',
+  email: 'Email',
+};
+
+/**
+ * Which notifications reach you, and how: each kind's in-app and email
+ * channel (ADR 0124). It shows what was saved (ISSUE-1045), and a kind only
+ * offers the channels it is really sent on.
+ */
 export function NotificationPreferencesForm({
   action,
-  preferences,
+  choices,
 }: {
   readonly action: FormAction<NotificationPreferencesState>;
-  readonly preferences: Omit<NotificationPreferences, 'version'>;
+  readonly choices: NotificationChoices;
 }) {
   const [answer, post, pending] = useFormAction(action, {}, unavailable);
   return (
@@ -24,22 +49,26 @@ export function NotificationPreferencesForm({
       aria-label="Notification preferences"
       className="flex flex-col gap-3"
     >
-      <label className="flex items-center gap-2 text-base text-ink">
-        <input
-          type="checkbox"
-          name="followed_debater_live"
-          defaultChecked={preferences.followed_debater_live}
-        />{' '}
-        A debater I follow is on air
-      </label>
-      <label className="flex items-center gap-2 text-base text-ink">
-        <input
-          type="checkbox"
-          name="recording_ready"
-          defaultChecked={preferences.recording_ready}
-        />{' '}
-        A recording is ready to watch
-      </label>
+      {notificationKinds.map((kind) => (
+        <fieldset key={kind} className="flex flex-col gap-1">
+          <legend className="text-base text-ink">{kindLabel[kind]}</legend>
+          <div className="flex flex-wrap gap-4">
+            {notificationChannelsOf[kind].map((channel) => (
+              <label
+                key={channel}
+                className="flex items-center gap-2 text-sm text-ink-muted"
+              >
+                <input
+                  type="checkbox"
+                  name={choiceField(kind, channel)}
+                  defaultChecked={chosen(choices, kind, channel)}
+                />{' '}
+                {channelLabel[channel]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ))}
       <div className="flex items-center gap-3">
         <Button type="submit" variant="secondary" disabled={pending}>
           Save

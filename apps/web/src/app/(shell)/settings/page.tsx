@@ -34,7 +34,7 @@ async function audienceSections(userId: string) {
     notifications: (
       <NotificationPreferencesForm
         action={saveNotificationPreferencesAction}
-        preferences={preferences}
+        choices={preferences}
       />
     ),
     watchHistory: (

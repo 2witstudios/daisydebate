@@ -12,6 +12,7 @@ import {
   spectatorChatOperations,
   type SpectatorPostPlanner,
 } from '../src/messaging/spectator-chat';
+import { defaultNotificationChoices } from '@daisy/protocol';
 import { notificationOperations } from '../src/notifications';
 import { watchHistoryOperations } from '../src/watch-history';
 import { openDm } from './messaging-retained-dm.test-support';
@@ -1016,6 +1017,7 @@ const rowsFor = async (env: Env, userId: string) =>
       userId,
       unreadOnly: false,
       limit: 10,
+      now: new Date().toISOString(),
     })
   ).rows.map((row) => row.kind);
 
@@ -1034,7 +1036,10 @@ test('a follower hears nothing before release, once after it, and only of a publ
     await follow(offFan.userId);
     await env.notifications.writeNotificationPreferences({
       userId: offFan.userId,
-      preferences: { followed_debater_live: false, recording_ready: true },
+      choices: {
+        ...defaultNotificationChoices,
+        followed_debater_live: { in_app: false },
+      },
     });
     const roundId = await env.audienceRound();
     await env.f.participant(roundId, 'affirmative', 0, debater.actorId);
@@ -1054,6 +1059,7 @@ test('a follower hears nothing before release, once after it, and only of a publ
         userId: fan.userId,
         unreadOnly: false,
         limit: 10,
+        now: new Date().toISOString(),
       })
     ).rows;
     const columns =
@@ -1067,7 +1073,11 @@ test('a follower hears nothing before release, once after it, and only of a publ
         'write nothing before the first release, one row after it, none for the other two; and no column can hold an outcome',
       actual: {
         early,
-        fan: row.map((item) => [item.kind, item.roundId, item.debater]),
+        fan: row.map((item) =>
+          item.kind === 'followed_debater_live'
+            ? [item.kind, item.roundId, item.debater]
+            : [item.kind],
+        ),
         off: await rowsFor(env, offFan.userId),
         columns: columns.map((column) => column.column_name),
       },
@@ -1076,11 +1086,13 @@ test('a follower hears nothing before release, once after it, and only of a publ
         fan: [['followed_debater_live', roundId, `u-${debater.userId}`]],
         off: [],
         columns: [
+          'actor_id',
+          'challenge_id',
           'created_at',
-          'debater_actor_id',
           'id',
           'kind',
           'read_at',
+          'room_invitation_id',
           'round_id',
           'user_id',
         ],
@@ -1151,6 +1163,7 @@ test('reading is per account, and a read notification leaves 90 days later', asy
         userId: fan.userId,
         unreadOnly: true,
         limit: 10,
+        now: new Date().toISOString(),
       });
     const unread = await read();
     await env.notifications.markNotificationsRead({
@@ -1206,7 +1219,10 @@ test('stored preferences read back as saved', async () => {
     });
     await env.notifications.writeNotificationPreferences({
       userId: account.userId,
-      preferences: { followed_debater_live: false, recording_ready: true },
+      choices: {
+        ...defaultNotificationChoices,
+        followed_debater_live: { in_app: false },
+      },
     });
     assert({
       given: 'no stored choice, then a saved one (ISSUE-1045)',
@@ -1218,8 +1234,11 @@ test('stored preferences read back as saved', async () => {
         }),
       },
       expected: {
-        first: { followed_debater_live: true, recording_ready: true },
-        stored: { followed_debater_live: false, recording_ready: true },
+        first: defaultNotificationChoices,
+        stored: {
+          ...defaultNotificationChoices,
+          followed_debater_live: { in_app: false },
+        },
       },
     });
   });
