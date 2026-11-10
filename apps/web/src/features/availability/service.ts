@@ -113,10 +113,13 @@ export function startAvailabilityService(deps: {
     const due = checkLease(lease, nowMs());
     if (!due) return;
     // A streak not yet told on either channel is new: give it its one id.
-    if (due.log && due.report)
+    if (due.log && due.report) {
+      // Never another streak's id: an id that cannot be minted stays empty.
+      streakId = '';
       guarded(() => {
         streakId = deps.nextId();
       });
+    }
     // A channel counts only once it went out; reporting never stops renewals.
     if (due.log && guarded(() => deps.lapsing.log(due.lapse, streakId)))
       lease = delivered(lease, 'log');
