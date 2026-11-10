@@ -1,5 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { economicsNotice, isSettled, owedSignals } from './economics-notice';
+import {
+  economicsNotice,
+  isSettled,
+  isSignalFailureReported,
+  nothingRaised,
+  owedSignals,
+  recordRaised,
+} from './economics-notice';
 setupRitewayBun();
 
 const failed = (month: string, reason: 'feed_unreadable' | 'save_failed') => ({
@@ -66,28 +73,42 @@ test('a changed outcome or a new month is a new notice', () => {
   });
 });
 
-test('what was raised decides what a notice still owes', () => {
-  const signals = reported('2026-10', 'missing', [
-    'free',
-    'beta',
-    'premium',
-  ]).signals;
-  const notice = economicsNotice(
-    reported('2026-10', 'missing', ['free', 'beta', 'premium']),
-  );
-  const partial = { notice, owed: signals.slice(1) };
+test('what this month raised decides what an outcome still owes', () => {
+  const outcome = reported('2026-10', 'missing', ['free', 'beta', 'premium']);
+  const partial = recordRaised(nothingRaised, outcome, {
+    owed: outcome.signals.slice(1),
+    signalFailureReported: true,
+  });
+  const settled = recordRaised(partial, outcome, {
+    owed: [],
+    signalFailureReported: false,
+  });
+  const failure = failed('2026-10', 'feed_unreadable');
+  const flapped = recordRaised(settled, failure, {
+    owed: [],
+    signalFailureReported: false,
+  });
+  const nextMonth = reported('2026-11', 'missing', ['premium']);
   assert({
     given:
-      'nothing raised, a partly submitted notice, a settled notice, and another notice partly raised',
+      'nothing raised, a partly submitted outcome, the same outcome settled, a failure in between, and a new month',
     should:
-      'owe every signal, only the unsent ones, nothing, and every signal again',
+      'owe every signal, only the unsent ones, nothing even after another outcome, and start a new month afresh',
     actual: [
-      owedSignals(null, notice, signals).length,
-      owedSignals(partial, notice, signals),
-      isSettled({ notice, owed: [] }, notice),
-      isSettled(partial, notice),
-      owedSignals({ notice: 'other', owed: [] }, notice, signals).length,
+      owedSignals(nothingRaised, outcome).length,
+      owedSignals(partial, outcome),
+      isSignalFailureReported(partial, outcome),
+      isSettled(partial, outcome),
+      isSettled(flapped, outcome),
+      isSettled(flapped, failure),
+      isSettled(
+        recordRaised(flapped, nextMonth, {
+          owed: [],
+          signalFailureReported: false,
+        }),
+        outcome,
+      ),
     ],
-    expected: [3, signals.slice(1), true, false, 3],
+    expected: [3, outcome.signals.slice(1), true, false, true, true, false],
   });
 });

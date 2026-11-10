@@ -77,6 +77,7 @@ test('private file measurements cross the real report sink and scrubbed reporter
           complete: true,
         }),
       },
+      sink: files.sink,
       feed: files.feed,
       save: files.save,
       now: () => now,

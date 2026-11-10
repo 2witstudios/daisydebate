@@ -47,8 +47,9 @@ separate observable facts. No rates or invoices are seeded as production truth.
 and saves the private report. It returns one typed collection: `reported` (the
 saved report, the signals it implies and whether the feed was `supplied` or
 `missing`) or `failed` with one closed reason and the error that stage caught:
-`snapshot_failed`, `feed_unreadable`, `feed_invalid` (window, schema or a floor
-other than the recorded policy) or `save_failed`. The collector never reports.
+`sink_unavailable` (the private directory is not private or its bounded
+retention sweep refused), `snapshot_failed`, `feed_unreadable`, `feed_invalid`
+(window, schema or a floor other than the recorded policy) or `save_failed`. The collector never reports.
 `raiseEconomicsSignals` submits a saved report's fixed signals through the
 existing ErrorReporter: `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`;
 routes identify only free/beta/premium and the correlation value is always the
@@ -157,18 +158,22 @@ a financial report or claims low-margin delivery:
   month it cannot measure.
 - **Failed** (a stage threw). The worker reports it exactly once through the
   worker failure sink: one `billing.economics.failed` line whose `operation` is
-  `billing.economics.<reason>`, and one capture of the caught error itself, so
-  the real cause reaches the scrubbed tracker. A capacity refusal is first
+  `billing.economics.<reason>`, and one capture. The captured error is typed
+  (`VALIDATION` for `feed_invalid`, otherwise `INFRASTRUCTURE`), so `errorCode`
+  stays meaningful, and it carries the caught error as its `cause`, so the real
+  cause reaches the scrubbed tracker. A capacity refusal is first
   deferred by the shared bound (eight per stage) and only then reported, so it
   never counts as raised and never mutes a later genuine failure of that month.
-  A reporter that throws while raising signals is `signal_failed`; the next tick
-  sends only the signals it had not taken, so no plan's signal is duplicated.
+  A reporter that throws while raising signals is `signal_failed`, reported once
+  for that outcome; later ticks retry quietly and send only the signals not yet
+  taken, so no plan's signal is duplicated.
 
 Each hourly tick collects again, so late corrections land, but the worker raises
-a month's outcome once per process. A later tick with the same outcome (same
-month, same reason, or the same feed state and signals) raises nothing. A new
-month or a changed outcome raises again. A restart may raise the current month
-once more.
+each outcome of a month once per process. It remembers every outcome raised for
+the month, so a tick with an outcome already raised (same reason, or the same
+feed state and signals) raises nothing, even after a different outcome came in
+between. An outcome new to the month raises, and a new month starts afresh. A
+restart may raise the current month once more.
 The collector's reporter remains a void port: runtime registration and unit
 transport capture do not confirm an operator/Sentry notification. Actual approved
 measurement-feed and private-destination delivery receipts remain required

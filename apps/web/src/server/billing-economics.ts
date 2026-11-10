@@ -7,10 +7,11 @@ import {
 } from '../features/billing/economics-collector';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
-  economicsNotice,
   isSettled,
+  isSignalFailureReported,
+  nothingRaised,
   owedSignals,
-  type EconomicsRaised,
+  recordRaised,
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
@@ -32,6 +33,7 @@ export function composeBillingEconomics(
     now: () => app.clock.now(),
   });
   return createBillingEconomicsCollector({
+    sink: files.sink,
     store: app.database.billingEconomics(instanceId),
     feed: files.feed,
     save: (report) => files.save(report),
@@ -66,24 +68,41 @@ export function startBillingEconomics(input: {
     'billing.economics',
     'Private billing economics remain incomplete',
   );
-  let raised: EconomicsRaised = null;
+  let raised = nothingRaised;
   const raise = (collection: EconomicsCollection) => {
-    const notice = economicsNotice(collection);
-    if (isSettled(raised, notice)) return;
+    if (isSettled(raised, collection)) return;
     if (collection.kind === 'failed') {
-      failed(collection.cause, collection.reason);
+      failed(
+        createAppError(
+          collection.reason === 'feed_invalid'
+            ? 'VALIDATION'
+            : 'INFRASTRUCTURE',
+          undefined,
+          collection.cause,
+        ),
+        collection.reason,
+      );
       // The failure sink defers a capacity refusal unreported, so it settles nothing.
-      if (!isCapacityRefusal(collection.cause)) raised = { notice, owed: [] };
+      if (!isCapacityRefusal(collection.cause))
+        raised = recordRaised(raised, collection, {
+          owed: [],
+          signalFailureReported: false,
+        });
       return;
     }
-    const owed = owedSignals(raised, notice, collection.signals);
+    const owed = owedSignals(raised, collection);
     const submitted = raiseEconomicsSignals(app.reporter, {
       month: collection.month,
       signals: owed,
     });
     if (submitted.kind === 'failed') {
-      raised = { notice, owed: owed.slice(submitted.submitted) };
-      return failed(submitted.cause, 'signal_failed');
+      if (!isSignalFailureReported(raised, collection))
+        failed(submitted.cause, 'signal_failed');
+      raised = recordRaised(raised, collection, {
+        owed: owed.slice(submitted.submitted),
+        signalFailureReported: true,
+      });
+      return;
     }
     if (collection.feed === 'missing')
       app.logger.log(
@@ -91,7 +110,10 @@ export function startBillingEconomics(input: {
         { operation: 'billing.economics.collect', cause: 'feed_missing' },
         'Private billing economics feed is missing for the month; the report stays incomplete',
       );
-    raised = { notice, owed: [] };
+    raised = recordRaised(raised, collection, {
+      owed: [],
+      signalFailureReported: false,
+    });
   };
   return startSingleFlightWorker({
     timers: input.timers,

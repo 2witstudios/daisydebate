@@ -128,6 +128,7 @@ try {
   const reporter = createSentryErrorReporter();
   const result = await createBillingEconomicsCollector({
     store: { read: async () => snapshot },
+    sink: files.sink,
     feed: files.feed,
     save: files.save,
     now: () => now,

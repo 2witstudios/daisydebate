@@ -198,26 +198,44 @@ test('a genuine failure is reported once with its caught error, and a changed ou
       given:
         'a sink directory that is not private for two ticks, then repaired before the third',
       should:
-        'capture the caught error exactly once as feed_unreadable, then raise the new feed-missing outcome',
+        'capture one typed INFRASTRUCTURE error carrying the caught error as sink_unavailable, then raise the new feed-missing outcome',
       actual: {
         captured: run.captured.map((c) => [
           c.route,
-          c.error instanceof Error ? c.error.message : null,
+          c.errorCode,
+          c.error instanceof Error && c.error.cause instanceof Error
+            ? c.error.cause.message
+            : c.error instanceof Error
+              ? c.error.message
+              : null,
         ]),
         logged: run.logged.map((line) => [line.event, line.fields.operation]),
       },
       expected: {
         captured: [
           [
-            'billing.economics.feed_unreadable',
+            'billing.economics.sink_unavailable',
+            'INFRASTRUCTURE',
             'Billing economics directory is not private',
           ],
-          ['billing.economics.free', 'BILLING_ECONOMICS_INCOMPLETE'],
-          ['billing.economics.beta', 'BILLING_ECONOMICS_INCOMPLETE'],
-          ['billing.economics.premium', 'BILLING_ECONOMICS_INCOMPLETE'],
+          [
+            'billing.economics.free',
+            'BILLING_ECONOMICS_INCOMPLETE',
+            'BILLING_ECONOMICS_INCOMPLETE',
+          ],
+          [
+            'billing.economics.beta',
+            'BILLING_ECONOMICS_INCOMPLETE',
+            'BILLING_ECONOMICS_INCOMPLETE',
+          ],
+          [
+            'billing.economics.premium',
+            'BILLING_ECONOMICS_INCOMPLETE',
+            'BILLING_ECONOMICS_INCOMPLETE',
+          ],
         ],
         logged: [
-          ['billing.economics.failed', 'billing.economics.feed_unreadable'],
+          ['billing.economics.failed', 'billing.economics.sink_unavailable'],
           ['billing.economics.feed_missing', 'billing.economics.collect'],
         ],
       },
@@ -351,13 +369,19 @@ test('a deferred capacity refusal never mutes a later genuine failure', async ()
         'defer the refusal silently, then log and capture the genuine failure exactly once',
       actual: {
         logged: run.logged.map((line) => [line.event, line.fields.operation]),
-        captured: run.captured.map((c) => [c.route, c.error === genuine]),
+        captured: run.captured.map((c) => [
+          c.route,
+          c.errorCode,
+          c.error instanceof Error && c.error.cause === genuine,
+        ]),
       },
       expected: {
         logged: [
           ['billing.economics.failed', 'billing.economics.snapshot_failed'],
         ],
-        captured: [['billing.economics.snapshot_failed', true]],
+        captured: [
+          ['billing.economics.snapshot_failed', 'INFRASTRUCTURE', true],
+        ],
       },
     });
   } finally {
@@ -388,6 +412,60 @@ test('a reporter that fails mid-batch retries only the signals it did not submit
         'billing.economics.free',
         'billing.economics.beta',
         'billing.economics.premium',
+      ],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('an outcome that returns after another is not raised again that month', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 3,
+      between: async (n) => {
+        if (n === 1) await chmod(directory, 0o755);
+        if (n === 2) await chmod(directory, 0o700);
+      },
+    });
+    assert({
+      given:
+        'feed missing, then the sink unavailable, then feed missing again, then unavailable again',
+      should:
+        'raise the completeness signals once and the sink failure once for the month',
+      actual: run.captured.map((c) => c.route),
+      expected: [
+        'billing.economics.free',
+        'billing.economics.beta',
+        'billing.economics.premium',
+        'billing.economics.sink_unavailable',
+      ],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a reporter that keeps throwing is reported as signal_failed once, and retried quietly', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 3,
+      capture: (_error, context) => {
+        if (context.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
+          throw new Error('private adapter');
+      },
+    });
+    assert({
+      given: 'a reporter that throws on every signal capture over four ticks',
+      should:
+        'log billing.economics.failed as signal_failed once, not every hour',
+      actual: run.logged.map((line) => [line.event, line.fields.operation]),
+      expected: [
+        ['billing.economics.failed', 'billing.economics.signal_failed'],
       ],
     });
   } finally {

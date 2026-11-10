@@ -171,7 +171,11 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
 }
 /** Why a month's collection did not save a report; each reason is one stage. */
 export type EconomicsCollectionFailure =
-  'snapshot_failed' | 'feed_unreadable' | 'feed_invalid' | 'save_failed';
+  | 'sink_unavailable'
+  | 'snapshot_failed'
+  | 'feed_unreadable'
+  | 'feed_invalid'
+  | 'save_failed';
 
 /**
  * One collection of a month: a saved report with the signals it implies and
@@ -206,6 +210,7 @@ async function stage<T>(run: () => Promise<T> | T): Promise<Stage<T>> {
 
 /** Actual private source composition; neither an empty DB nor a missing supplier feed proves complete economics. The private report is saved before any signal can be raised from it. */
 export function createBillingEconomicsCollector(input: {
+  readonly sink: { readonly open: () => Promise<void> };
   readonly store: { readonly read: (window: Window) => Promise<unknown> };
   readonly feed: { readonly read: (window: Window) => Promise<unknown> };
   readonly save: (value: {
@@ -219,6 +224,8 @@ export function createBillingEconomicsCollector(input: {
       const month = window.startsAt.slice(0, 7);
       const failed = (reason: EconomicsCollectionFailure, cause: unknown) =>
         ({ kind: 'failed', month, reason, cause }) as const;
+      const sink = await stage(() => input.sink.open());
+      if (!sink.ok) return failed('sink_unavailable', sink.cause);
       const snapshot = await stage(async () => {
         const read = billingEconomicsReadSchema.parse(
           await input.store.read(window),

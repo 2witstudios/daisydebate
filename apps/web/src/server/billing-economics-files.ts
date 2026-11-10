@@ -95,6 +95,13 @@ export function createBillingEconomicsFiles(input: {
   readonly now: () => string;
 }) {
   return {
+    /** The sink itself: a private directory whose bounded retention sweep completes. */
+    sink: {
+      async open() {
+        await privateDirectory(input.directory);
+        await prunePrivateFiles(input.directory, input.now());
+      },
+    },
     feed: {
       async read(window: {
         readonly startsAt: string;
@@ -105,8 +112,6 @@ export function createBillingEconomicsFiles(input: {
           !economicsInstant.safeParse(window.endsAt).success
         )
           throw new Error('Billing economics window invalid');
-        await privateDirectory(input.directory);
-        await prunePrivateFiles(input.directory, input.now());
         return readPrivateFeed(
           join(input.directory, `feed-${window.startsAt.slice(0, 7)}.json`),
         );

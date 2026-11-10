@@ -63,6 +63,7 @@ async function collect(
 ) {
   const stored: unknown[] = [];
   const result = await createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
     store: { read: async () => snapshot(row) },
     feed: { read: async () => feed(basis) },
     now: () => now,

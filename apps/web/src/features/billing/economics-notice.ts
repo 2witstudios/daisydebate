@@ -23,25 +23,59 @@ export function economicsNotice(outcome: EconomicsOutcome): string {
   return `${outcome.month}:reported:${outcome.feed}:${signals}`;
 }
 
+/** One notice raised this month: the signals it still owes, and whether a failure to submit them was reported. */
+type RaisedNotice = {
+  readonly owed: readonly EconomicsSignal[];
+  readonly signalFailureReported: boolean;
+};
+
 /**
- * What this process has raised: the latest notice and the signals it still
- * owes. A notice with nothing owed is settled, and the same notice again is
- * raised no more.
+ * What this process has raised for the month it is collecting: every notice
+ * seen, so an outcome that returns after another is not news again. A new month
+ * starts empty.
  */
 export type EconomicsRaised = {
-  readonly notice: string;
-  readonly owed: readonly EconomicsSignal[];
-} | null;
+  readonly month: string | null;
+  readonly notices: ReadonlyMap<string, RaisedNotice>;
+};
 
-/** The signals an outcome still owes, given what this process already raised. */
+export const nothingRaised: EconomicsRaised = {
+  month: null,
+  notices: new Map(),
+};
+
+const raisedNotice = (raised: EconomicsRaised, outcome: EconomicsOutcome) =>
+  raised.month === outcome.month
+    ? raised.notices.get(economicsNotice(outcome))
+    : undefined;
+
+/** Whether this outcome is already settled this month: raised, with nothing still owed. */
+export const isSettled = (raised: EconomicsRaised, outcome: EconomicsOutcome) =>
+  raisedNotice(raised, outcome)?.owed.length === 0;
+
+/** The signals a reported outcome still owes, given what this month already raised. */
 export function owedSignals(
   raised: EconomicsRaised,
-  notice: string,
-  signals: readonly EconomicsSignal[],
+  outcome: Extract<EconomicsOutcome, { readonly kind: 'reported' }>,
 ): readonly EconomicsSignal[] {
-  return raised?.notice === notice ? raised.owed : signals;
+  return raisedNotice(raised, outcome)?.owed ?? outcome.signals;
 }
 
-/** Whether this notice is already settled: raised, with nothing still owed. */
-export const isSettled = (raised: EconomicsRaised, notice: string) =>
-  raised?.notice === notice && raised.owed.length === 0;
+/** Whether a failure to submit this outcome's signals was already reported this month. */
+export const isSignalFailureReported = (
+  raised: EconomicsRaised,
+  outcome: EconomicsOutcome,
+) => raisedNotice(raised, outcome)?.signalFailureReported === true;
+
+/** Record what was raised for an outcome; a new month forgets the previous one. */
+export function recordRaised(
+  raised: EconomicsRaised,
+  outcome: EconomicsOutcome,
+  notice: RaisedNotice,
+): EconomicsRaised {
+  const notices = new Map(
+    raised.month === outcome.month ? raised.notices : undefined,
+  );
+  notices.set(economicsNotice(outcome), notice);
+  return { month: outcome.month, notices };
+}

@@ -19,6 +19,7 @@ const feed = () => {
 test('a missing private feed is reported incomplete, never measured zero', async () => {
   const saved: unknown[] = [];
   const collector = createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
     store: { read: async () => snapshot() },
     feed: { read: async () => null },
     now: () => now,
@@ -58,6 +59,7 @@ test('each failing stage is one typed failure carrying the caught error', async 
     overrides: Partial<Parameters<typeof createBillingEconomicsCollector>[0]>,
   ) =>
     createBillingEconomicsCollector({
+      sink: { open: async () => undefined },
       store: { read: async () => snapshot() },
       feed: { read: async () => feed() },
       now: () => now,
@@ -65,6 +67,13 @@ test('each failing stage is one typed failure carrying the caught error', async 
       ...overrides,
     }).run(window);
   const results = await Promise.all([
+    run({
+      sink: {
+        open: async () => {
+          throw cause;
+        },
+      },
+    }),
     run({
       store: {
         read: async () => {
@@ -87,11 +96,12 @@ test('each failing stage is one typed failure carrying the caught error', async 
   ]);
   assert({
     given:
-      'an unreadable snapshot, an unreadable feed, and a failing private sink',
+      'an unavailable sink, an unreadable snapshot, an unreadable feed, and a failing save',
     should:
-      'return snapshot_failed, feed_unreadable and save_failed for the month, each keeping the caught error',
+      'return sink_unavailable, snapshot_failed, feed_unreadable and save_failed for the month, each keeping the caught error',
     actual: results,
     expected: [
+      { kind: 'failed', month: '2026-10', reason: 'sink_unavailable', cause },
       { kind: 'failed', month: '2026-10', reason: 'snapshot_failed', cause },
       { kind: 'failed', month: '2026-10', reason: 'feed_unreadable', cause },
       { kind: 'failed', month: '2026-10', reason: 'save_failed', cause },
@@ -101,6 +111,7 @@ test('each failing stage is one typed failure carrying the caught error', async 
 test('a feed stating another floor is refused as invalid by the collector itself', async () => {
   const saved: unknown[] = [];
   const r = await createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
     store: { read: async () => snapshot() },
     feed: { read: async () => ({ ...feed(), floorBasisPoints: 1000 }) },
     now: () => now,
@@ -119,6 +130,7 @@ test('a feed stating another floor is refused as invalid by the collector itself
 });
 test('bounded projection overflow defeats apparently complete external invoices', async () => {
   const collector = createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
     store: { read: async () => ({ ...snapshot(), complete: false }) },
     feed: { read: async () => feed() },
     now: () => now,
@@ -140,6 +152,7 @@ test('bounded projection overflow defeats apparently complete external invoices'
 test('a snapshot for a different window cannot silently price this month', async () => {
   const saved: unknown[] = [];
   const collector = createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
     store: {
       read: async () => ({
         ...snapshot(),
@@ -182,6 +195,7 @@ test('unlimited feature measurements remain separate from a completed-month marg
     ],
   };
   const collector = createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
     store: { read: async () => snapshot() },
     feed: { read: async () => input },
     now: () => now,
@@ -235,6 +249,7 @@ test('unlimited feature measurements remain separate from a completed-month marg
 });
 test('a private feed for another month fails instead of declaring complete current cost', async () => {
   const collector = createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
     store: { read: async () => snapshot() },
     feed: {
       read: async () => ({ ...feed(), startsAt: '2026-09-01T00:00:00.000Z' }),
@@ -287,6 +302,7 @@ test('possible unknown calls cannot be priced as measured zero even when a bille
     ],
   };
   const collector = createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
     store: { read: async () => ({ ...snapshot(), attempts: [attempt] }) },
     feed: { read: async () => input },
     now: () => now,
