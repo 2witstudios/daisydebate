@@ -23,8 +23,9 @@ const maximumFeedBytes = 1024 * 1024;
 const retentionMs = 30 * 86400000;
 /**
  * The sink admits at most 1000 files, so a bounded sweep can visit every file
- * it creates. `protectFrom` is the month being collected: its feed, and the
- * current month's (collected next), are never expired under it.
+ * it creates. `protectFrom` is the month this run collects; with the worker's
+ * month and the current month it is the collection window whose feeds are kept,
+ * and a feed for any earlier month is removed whatever its age.
  */
 async function prunePrivateFiles(
   directory: string,
