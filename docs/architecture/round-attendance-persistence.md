@@ -39,30 +39,32 @@ peer health and gate the owning Round evaluator conservatively.
 Every web peer renews its own lease each second. Competitive maintenance acts
 only while its own web lease is current (`requireCurrentWeb`): it checks at
 entry and exit, and holds the lease row to commit with `FOR KEY SHARE`. That
-lock fences the row's deletion by the retention purge but not the instance's
-own renewal, a non-key `UPDATE`, so slow maintenance never lapses the lease it
-runs under (DAISY-WEB-9; `FOR SHARE` did, and every concurrent stage refused
-for a second). A lease that does lapse refuses with `AUTHORIZATION` and reason
-`service-lease-lapsed` (`isServiceLeaseLapse` in `@daisy/db/service-lease`), which workers
-log and hand to the instance's lease state rather than report
-([observability](../operations/observability.md)). Renewing a row that
-maintenance holds `FOR KEY SHARE` mints a MultiXact for the new tuple version,
-at most one per second per web instance, which autovacuum freezes as usual; the
-retention purge only deletes leases a day stale, so the lock is defence in
-depth for the delete fence. The 3 s staleness window is also web liveness in
-availability evidence and stays fixed.
+lock fences the row's deletion by the retention purge but not the instance's own
+renewal, a non-key `UPDATE`, so slow maintenance never lapses the lease it runs
+under (DAISY-WEB-9; `FOR SHARE` did, and every concurrent stage refused for a
+second). A lease that does lapse refuses with `AUTHORIZATION` and reason
+`service-lease-lapsed` (`isServiceLeaseLapse` in `@daisy/db/service-lease`),
+which workers log and hand to the instance's lease state rather than report
+([observability](../operations/observability.md)). Concurrent lockers of the row
+already shared it through MultiXacts under `FOR SHARE`; what `FOR KEY SHARE`
+adds is that a renewal carries the live lockers onto its new tuple version, one
+more MultiXact per renewal, at most one per second per web instance, which
+autovacuum freezes as usual. The retention purge only deletes leases a day
+stale, so the lock is defence in depth for the delete fence. The 3 s staleness
+window is also web liveness in availability evidence and stays fixed.
 
 Before public probing, the sampler checks lock ownership on that same reserved
-PostgreSQL session; only the elected producer performs the synthetic route
-check and inserts a sample. The insert independently rechecks election. This
-prevents rolling web peers from multiplying requests against the probe member's
-ordinary shared rate limit. No probe bypasses session, origin, seat or receipt authorization. Each
-probe uses a new global command alias while preserving the operation's first
-receipt stamp. Missing configuration or unsuccessful probing remains unhealthy.
-The fixture secret holds only resource IDs and its cookie. Public destination
-and Origin are both derived from the trusted `PUBLIC_APP_URL`; fixture data
-cannot select a different origin. Telemetry suppresses these routine requests
-without changing their cadence, authority or receipt validation.
+PostgreSQL session; only the elected producer performs the synthetic route check
+and inserts a sample. The insert independently rechecks election. This prevents
+rolling web peers from multiplying requests against the probe member's ordinary
+shared rate limit. No probe bypasses session, origin, seat or receipt
+authorization. Each probe uses a new global command alias while preserving the
+operation's first receipt stamp. Missing configuration or unsuccessful probing
+remains unhealthy. The fixture secret holds only resource IDs and its cookie.
+Public destination and Origin are both derived from the trusted
+`PUBLIC_APP_URL`; fixture data cannot select a different origin. Telemetry
+suppresses these routine requests without changing their cadence, authority or
+receipt validation.
 
 The probe resource (`ATTENDANCE_PUBLIC_PROBE`) is a synthetic Round whose
 two speeches ended with on-time receipts, awaiting its judge. Its receipt
