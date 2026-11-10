@@ -101,7 +101,10 @@ told first, the other side can hear it, and the Broadcast stage does not subscri
 ## Billing records (BILL-2, BILL-15-r1)
 
 Private Billing economics feeds and reports are operational aggregate projections
-under DEC-42's maximum 30-day operational retention. They contain model/source
+under DEC-42's maximum 30-day operational retention, with one bounded
+exception: the feed of the month being collected is kept while it is collected,
+so a feed lives at most until the end of the month after its own (about 62
+days). Reports keep the 30-day bound. They contain model/source
 period counts and financial aggregates, with no account, actor, Round or vendor
 customer identifiers; this is data minimization, not an anonymity guarantee.
 The dedicated local directory is private mode0700 and regular files are mode0600;

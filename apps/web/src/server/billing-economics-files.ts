@@ -3,6 +3,11 @@ import { constants } from 'node:fs';
 import { access, lstat, mkdir, open, opendir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createRefusal } from '@daisy/errors';
+import {
+  clockInvalid,
+  sinkFull,
+  windowInvalid,
+} from '../features/billing/economics-refusals';
 import { idSchema } from '@daisy/protocol';
 import {
   economicsInstant,
@@ -17,8 +22,7 @@ const maximumFeedBytes = 1024 * 1024;
 const retentionMs = 30 * 86400000;
 /**
  * The sink admits at most 1000 files, so a bounded sweep can visit every file
- * it creates. `protectFrom` is the month being collected: its feed and every
- * later month's up to the current one (still to be collected) are never
+ * it creates. `protectFrom` is the month being collected: its feed is never
  * expired under it.
  */
 async function prunePrivateFiles(
@@ -26,22 +30,12 @@ async function prunePrivateFiles(
   now: string,
   protectFrom: string,
 ) {
-  if (!economicsInstant.safeParse(now).success)
-    throw createRefusal(
-      'INTERNAL',
-      'economics-clock-invalid',
-      'Billing economics clock invalid',
-    );
+  if (!economicsInstant.safeParse(now).success) throw clockInvalid();
   const stream = await opendir(directory);
   let count = 0,
     visited = 0;
   for await (const entry of stream) {
-    if (++visited > 1000)
-      throw createRefusal(
-        'INFRASTRUCTURE',
-        'economics-sink-full',
-        'Billing economics directory capacity exceeded',
-      );
+    if (++visited > 1000) throw sinkFull();
     count++;
     if (
       !/^(report-[a-z][a-z0-9]{23}|feed-\d{4}-\d{2})\.json$/.test(entry.name) ||
@@ -49,13 +43,9 @@ async function prunePrivateFiles(
     )
       continue;
     const feedMonth = /^feed-(\d{4}-\d{2})\.json$/.exec(entry.name)?.[1];
-    // Protected from the collected month through the current one; a misnamed future feed still expires.
-    if (
-      feedMonth !== undefined &&
-      feedMonth >= protectFrom &&
-      feedMonth <= now.slice(0, 7)
-    )
-      continue;
+    // Only the feed of the month being collected is protected, so no feed outlives the end of the
+    // month after its own (compliance.md records that bound).
+    if (feedMonth === protectFrom) continue;
     const path = join(directory, entry.name),
       info = await lstat(path);
     if (info.isFile() && info.mtimeMs <= Date.parse(now) - retentionMs) {
@@ -110,6 +100,12 @@ async function privateDirectory(
   try {
     await accessDirectory(directory);
   } catch (error) {
+    // Only a permission refusal is the setup's; any other errno (EIO, a stale mount) is the disk's.
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : undefined;
+    if (code !== 'EACCES' && code !== 'EPERM' && code !== 'EROFS') throw error;
     throw createRefusal(
       'VALIDATION',
       'economics-sink-unusable',
@@ -217,12 +213,7 @@ function assertWindow(window: {
   readonly startsAt: string;
   readonly endsAt: string;
 }) {
-  if (!isEconomicsWindow(window))
-    throw createRefusal(
-      'INTERNAL',
-      'economics-window-invalid',
-      'Billing economics window invalid',
-    );
+  if (!isEconomicsWindow(window)) throw windowInvalid();
 }
 /** Local service/operator-owned files only; no HTTP surface, credentials or production configuration are introduced. */
 export function createBillingEconomicsFiles(input: {
@@ -259,11 +250,7 @@ export function createBillingEconomicsFiles(input: {
             window.startsAt.slice(0, 7),
           )) >= 1000
         )
-          throw createRefusal(
-            'INFRASTRUCTURE',
-            'economics-sink-full',
-            'Billing economics directory capacity exceeded',
-          );
+          throw sinkFull();
       },
     },
     feed: {
@@ -297,11 +284,7 @@ export function createBillingEconomicsFiles(input: {
         (await prunePrivateFiles(input.directory, input.now(), protectFrom)) >=
         1000
       )
-        throw createRefusal(
-          'INFRASTRUCTURE',
-          'economics-sink-full',
-          'Billing economics directory capacity exceeded',
-        );
+        throw sinkFull();
       const id = input.nextId();
       if (!idSchema.safeParse(id).success)
         throw createRefusal(

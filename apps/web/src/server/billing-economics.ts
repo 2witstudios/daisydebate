@@ -30,7 +30,9 @@ import {
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
+import { guarded } from '@daisy/observability';
 import { workerFailures, type FailureVerdict } from './recoverable-failure';
+import { clockInvalid } from '../features/billing/economics-refusals';
 import {
   startSingleFlightWorker,
   type WorkerTimers,
@@ -72,16 +74,13 @@ function logSafely(
   message: string,
   cause?: string,
 ) {
-  try {
+  return guarded(() =>
     app.logger.log(
       event,
       { operation: 'billing.economics.collect', ...(cause ? { cause } : {}) },
       message,
-    );
-    return true;
-  } catch {
-    return false;
-  }
+    ),
+  );
 }
 
 /** The closed word each stage's reported error carries (ADR 0102). */
@@ -239,12 +238,7 @@ export function startBillingEconomics(input: {
     },
     run: async () => {
       const window = previousEconomicsMonth(app.clock.now());
-      if (!window)
-        throw createRefusal(
-          'INTERNAL',
-          'economics-clock-invalid',
-          'Billing economics clock invalid',
-        );
+      if (!window) throw clockInvalid();
       raise(await collector.run(window));
       // Only once raising returned: a defect while raising is still a collect failure, once.
       raised = collectCompleted(raised);

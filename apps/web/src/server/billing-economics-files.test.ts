@@ -372,7 +372,7 @@ test("a symlinked, group-readable or non-regular feed is VALIDATION, the operato
   }
 });
 
-test('retention keeps the feed of a corrected window and of months not yet collected', async () => {
+test('retention keeps only the feed of the window being collected', async () => {
   const { utimes, readdir } = await import('node:fs/promises');
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
   try {
@@ -397,9 +397,10 @@ test('retention keeps the feed of a corrected window and of months not yet colle
     assert({
       given:
         'expired-age feeds for June, July (a late correction being collected) and November (not yet collected)',
-      should: 'expire only June',
+      should:
+        'keep July and expire June and November, so no feed outlives the bound compliance.md records',
       actual: (await readdir(directory)).sort(),
-      expected: ['feed-2026-07.json', 'feed-2026-11.json'],
+      expected: ['feed-2026-07.json'],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -552,7 +553,7 @@ test('opening the sink refuses a malformed window before retention runs', async 
   }
 });
 
-test('a misnamed far-future feed is not protected forever', async () => {
+test('a feed for any month other than the collected one expires by age', async () => {
   const { utimes, readdir } = await import('node:fs/promises');
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
   try {
@@ -569,9 +570,10 @@ test('a misnamed far-future feed is not protected forever', async () => {
     await files.sink.open(window);
     assert({
       given: 'expired-age feeds for January 2099 and for the current month',
-      should: 'expire the far-future feed and keep the current month',
+      should:
+        'expire both, since only the collected month (October) is protected',
       actual: (await readdir(directory)).sort(),
-      expected: ['feed-2026-11.json'],
+      expected: [],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });

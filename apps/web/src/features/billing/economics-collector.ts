@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createRefusal, type ErrorCode } from '@daisy/errors';
 import { typedCodeOr } from './economics-cause';
+import { clockInvalid, windowInvalid } from './economics-refusals';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
@@ -295,18 +296,9 @@ export function createBillingEconomicsCollector(input: {
       // The window and clock are this collection's inputs: a malformed one is a caller defect,
       // refused once here before any I/O, whichever edge would otherwise meet it.
       const inputs = await stage(() => {
-        if (!isEconomicsWindow(window))
-          throw createRefusal(
-            'INTERNAL',
-            'economics-window-invalid',
-            'Billing economics window invalid',
-          );
+        if (!isEconomicsWindow(window)) throw windowInvalid();
         if (!economicsInstant.safeParse(input.now()).success)
-          throw createRefusal(
-            'INTERNAL',
-            'economics-clock-invalid',
-            'Billing economics clock invalid',
-          );
+          throw clockInvalid();
       });
       if (!inputs.ok) return failed('report_failed', inputs.cause);
       const sink = await stage(() => input.sink.open(window));

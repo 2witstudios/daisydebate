@@ -86,7 +86,7 @@ export const raisedIn = (
   raised: EconomicsRaised,
   month: string,
 ): MonthRaised =>
-  raised.month !== null && raised.month === month
+  raised.month === month
     ? raised
     : {
         month,
