@@ -1018,3 +1018,51 @@ test('a feed that disappears after being supplied is logged as missing again', a
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('captures carry a fixed per-stage message, and signal_failed keeps a typed code', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const stage = await runWorker({
+      directory,
+      ticks: 0,
+      refuse: () => new Error('driver down'),
+    });
+    const signals = await runWorker({
+      directory,
+      ticks: 0,
+      capture: (_error, context) => {
+        if (context.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
+          throw createAppError('VALIDATION', 'Scrubber refused the context');
+      },
+    });
+    const messageOf = (c: { error: unknown }) =>
+      c.error instanceof Error ? c.error.message : null;
+    assert({
+      given:
+        'a snapshot read that throws, then a reporter that throws a typed VALIDATION error',
+      should:
+        'capture "Billing economics snapshot_failed", and signal_failed as "Billing economics signal_failed" under VALIDATION',
+      actual: [
+        stage.captured.map((c) => [c.route, messageOf(c)]),
+        signals.captured
+          .filter((c) => c.route === 'billing.economics.signal_failed')
+          .map((c) => [c.errorCode, messageOf(c)]),
+        economicsFailureCheck(
+          createAppError('INFRASTRUCTURE', 'Billing economics snapshot_failed'),
+        ),
+      ],
+      expected: [
+        [
+          [
+            'billing.economics.snapshot_failed',
+            'Billing economics snapshot_failed',
+          ],
+        ],
+        [['VALIDATION', 'Billing economics signal_failed']],
+        'Billing_economics_snapshot_failed',
+      ],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
