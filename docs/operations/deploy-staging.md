@@ -765,7 +765,30 @@ fly tokens create deploy -a daisy-debate-staging-migrate --name github-actions-s
 ```
 
 Each token can deploy only its own app; rotate one by re-running its
-command. Production is never deployed by this workflow (AUTH-7.2/7.3 are
+command.
+
+Sentry source maps (ADR 0037) need one more repository secret, which only
+the owner creates: `SENTRY_AUTH_TOKEN`, a Sentry organization auth token for
+org `2witstudios` with the scopes `project:releases` and `org:read` and no
+others. Create it in Sentry under Settings → Developer Settings →
+Organization Tokens (or as an internal integration with exactly those
+scopes), then:
+
+```
+gh secret set SENTRY_AUTH_TOKEN   # paste the token at the prompt; never echo it
+```
+
+Only the `migrate` and `deploy` steps hold it, and they pass it to the image
+build as a BuildKit secret (`--build-secret`). It never becomes a build arg,
+an image layer or a Fly secret. Until it exists, both steps pass an empty
+secret and the build uploads nothing. To verify after setting it, re-run
+Deploy staging. Its log shows `Successfully uploaded source maps to Sentry`,
+and the release named by the full deployed commit lists its artifact bundles
+in Sentry. The next daisy-web event shows source file and line. To rotate,
+create a new token, re-run `gh secret set`, and revoke the old token in
+Sentry.
+
+Production is never deployed by this workflow (AUTH-7.2/7.3 are
 human-gated). Verify: the "Deploy staging" run is green after a main merge
 and `/api/health/ready` answers at the staging hostname.
 

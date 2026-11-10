@@ -53,7 +53,17 @@ COPY . .
 # DAISY_IMAGE_BUILD=1 skips next build's own TypeScript pass (ISSUE-527):
 # it stalled Fly's remote builder for 25+ minutes, and CI's typecheck already
 # gates every commit deploy-staging ships. Nothing else sets it.
-RUN DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps/web build \
+# ADR 0037 source maps: GIT_COMMIT names the Sentry release the maps upload
+# under, the same value every runtime reports. The upload token is a BuildKit
+# secret (`fly deploy --build-secret SENTRY_AUTH_TOKEN=...`), mounted for this
+# one RUN only: never an ARG or ENV, so it never reaches a layer, the image
+# history or its config. Absent, the file is absent, the variable is empty
+# and next.config.ts disables the upload (a keyless build stays green).
+ARG GIT_COMMIT=unknown
+RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN,required=false \
+  SENTRY_AUTH_TOKEN="$(cat /run/secrets/SENTRY_AUTH_TOKEN 2>/dev/null || true)" \
+  GIT_COMMIT="$GIT_COMMIT" \
+  DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps/web build \
   && rm -rf apps/web/.next/cache
 
 # ---- prod-deps: a second, production-only install for the runtime image.
