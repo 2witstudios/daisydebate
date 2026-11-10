@@ -110,9 +110,9 @@ fence (accounts, then the pair, then a channel).
    default, and ADR 0103 §4 supersedes this point), named for the two
    members, delivers the challenge to the friend, and takes the challenger
    to the room. Delivery is a `friend_challenges` row (room, challenger,
-   challenged), written in the same contact-fenced transaction that confirms the pair is an
-   accepted friendship and that the challenger hosts the room while it
-   assembles. The friend's `/friends` lists it with Join (the room) and
+   challenged), written in the same contact-fenced transaction that
+   confirms the pair is an accepted friendship and that the challenger hosts
+   the room while it assembles. The friend's `/friends` lists it with Join (the room) and
    Decline (which deletes it); it shows only while the room assembles or is
    ready, only from an accepted, unblocked friend, and it goes with its
    room. A Challenge that cannot be delivered still opens the room, whose
