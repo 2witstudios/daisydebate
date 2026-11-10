@@ -173,7 +173,7 @@ a financial report or claims low-margin delivery:
   `billing.economics.<reason>`, and one capture. The captured error carries the
   reason's closed word (`economics-<reason>`), keeps the caught error as its
   `cause`, and keeps a typed cause's own code; an untyped one takes its reason's
-  (`VALIDATION` for `feed_invalid`, `INTERNAL` for `report_failed`, otherwise
+  (`VALIDATION` for `feed_invalid`, `INTERNAL` for `report_failed` and `collect`, otherwise
   `INFRASTRUCTURE`). The log line's `cause` names the innermost closed refusal
   reason in the chain, the check that failed (for example
   `economics-feed-window-mismatch`). A capacity refusal goes straight to the
