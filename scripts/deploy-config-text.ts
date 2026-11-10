@@ -6,6 +6,10 @@ export const uncommented = (text: string) =>
     .filter((line) => !/^\s*(#|\/\/)/.test(line))
     .join('\n');
 
+/** A Dockerfile's instructions, comments dropped and each continued line joined into one. */
+export const dockerInstructions = (dockerfile: string) =>
+  uncommented(dockerfile).replace(/\\\n\s*/g, ' ');
+
 /** Seconds Fly must wait past the drain deadline before it SIGKILLs. */
 /** The body of `[table]`, up to the next table header. */
 export const tableBody = (toml: string, table: string): string[] | null => {

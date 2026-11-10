@@ -3,6 +3,7 @@ import type { NextConfig } from 'next';
 // stays on the root entry, where the adapters import it).
 import { withSentryConfig } from '@sentry/nextjs/config';
 import { roundMediaPages } from './src/features/round-media/browser-policy';
+import { sentryRelease } from './src/features/telemetry/sentry-release';
 const config: NextConfig = {
   poweredByHeader: false,
   typescript: {
@@ -87,15 +88,24 @@ const config: NextConfig = {
   },
 };
 // ADR 0037: build-time behavior is source-map upload only. It happens when,
-// and only when, a deploy-time `SENTRY_AUTH_TOKEN` exists (the plugin reads
-// it from the environment itself); a keyless build stays green and uploads
-// nothing. The slugs name the projects inside the token's org.
+// and only when, the image build mounts a deploy-time `SENTRY_AUTH_TOKEN`
+// BuildKit secret (apps/web/Dockerfile; the plugin reads the token from the
+// environment itself); a keyless build stays green, generates no browser
+// maps and uploads nothing. The slugs name the projects inside the token's
+// org. The release is the image's git commit, the same value every runtime
+// reports (`sentryRelease`), so the uploaded maps and the events line up.
+const release = sentryRelease(process.env.GIT_COMMIT);
 export default withSentryConfig(config, {
   org: '2witstudios',
   project: 'daisy-web',
+  // The build plugin's own usage telemetry to Sentry stays off: the only
+  // thing a build sends Sentry is this release and its maps (ADR 0036).
+  telemetry: false,
+  ...(release ? { release: { name: release } } : {}),
   sourcemaps: {
-    // Upload only when a deploy-time token exists; a keyless build stays
-    // green and uploads nothing.
     disable: !process.env.SENTRY_AUTH_TOKEN,
+    // Browser maps are uploaded, then deleted from .next/static (and their
+    // sourceMappingURL comments stripped), so no map is ever served.
+    deleteSourcemapsAfterUpload: true,
   },
 });

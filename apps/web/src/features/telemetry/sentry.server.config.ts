@@ -1,4 +1,5 @@
 import { initSentry } from './sentry-init';
+import { sentryRelease } from './sentry-release';
 
 /**
  * ADR 0037 § Configuration: `SENTRY_DSN` gates every server-side capture
@@ -10,5 +11,6 @@ import { initSentry } from './sentry-init';
 initSentry({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.SENTRY_ENVIRONMENT,
+  release: sentryRelease(process.env.GIT_COMMIT),
   trustedOrigin: process.env.PUBLIC_APP_URL,
 });

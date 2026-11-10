@@ -31,25 +31,19 @@ export const onRequestError: Instrumentation.onRequestError = async (
   context,
 ) => {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-  const { processApp } = await import('./server/process-app');
+  const [{ processApp }, { reportRequestError }] = await Promise.all([
+    import('./server/process-app'),
+    import('./server/request-failure'),
+  ]);
   const id = request.headers['x-request-id'];
-  const requestId = typeof id === 'string' ? id : 'unknown';
   const app = processApp();
-  app.logger.log(
-    'request.unhandled',
-    {
-      operation: 'request.unhandled',
-      requestId: typeof id === 'string' ? id : undefined,
-      route: context.routePath,
-      errorCode: 'INTERNAL',
-    },
-    'Unhandled request failure',
-  );
-  // ADR 0037: the raw exception reaches only the scrubbed reporter, never
-  // the log line above.
-  app.reporter.capture(error, {
-    requestId,
+  // ADR 0037: the log line carries the error's own code; the raw exception
+  // reaches only the scrubbed reporter, and only for a 5xx or an invariant.
+  reportRequestError({
+    error,
+    requestId: typeof id === 'string' ? id : undefined,
     route: context.routePath,
-    errorCode: 'INTERNAL',
+    logger: app.logger,
+    reporter: app.reporter,
   });
 };

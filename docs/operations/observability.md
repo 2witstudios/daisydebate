@@ -28,8 +28,31 @@ the safe diagnostic channel — and collects nothing at the SDK level
 bodies, user info, database payloads or stack-frame variables). An
 unconfigured deployment's CSP names no vendor host, and the only
 `@sentry/*` imports lint allows are inside those adapters plus
-`apps/web/next.config.ts`, whose source-map upload runs only when a
-deploy-time `SENTRY_AUTH_TOKEN` exists.
+`apps/web/next.config.ts`, whose source-map upload runs only when the
+image build mounts the deploy-time `SENTRY_AUTH_TOKEN` BuildKit secret.
+
+### Source maps and release
+
+Every daisy-web event names its release, the image's full git commit
+(`GIT_COMMIT`): the server and edge runtimes read it from the process, and the
+browser reads it from `<html data-sentry-release>`. Stacks resolve to source
+because the image's `next build` uploads its server, SSR and browser maps
+under that release, with debug IDs injected into every chunk. The upload runs
+only when deploy-staging's `migrate` and `deploy` steps pass the
+`SENTRY_AUTH_TOKEN` repository secret as a BuildKit secret (`--build-secret`).
+BuildKit secrets never key the layer cache, so whichever step builds first
+uploads, and the other reuses that build. The browser maps are deleted after
+upload and their `sourceMappingURL` comments stripped, so `/_next/static`
+serves none. The server maps stay in `.next/server`, which is never routed.
+A failed upload is logged and never fails the deploy: its only cost is an
+unresolved stack. Without the secret, nothing is uploaded and nothing breaks.
+`scripts/verify-source-map-secret.ts` fails if the token ever becomes an
+`ARG`, `ENV` or `--build-arg`, or if a web-building step drops it.
+
+A page-render failure (`instrumentation.ts` `onRequestError`) is logged with
+the error's own public code, and only a 5xx or an invariant violation is
+reported. This is the rule `handleOperation` applies, from one home
+(`apps/web/src/server/request-failure.ts`).
 
 ## Trace volume and privacy
 

@@ -127,10 +127,17 @@ jobs:
         # owner credential. --update-only creates no machines, so only the
         # release command's temporary machine ever holds that credential; a
         # failed migration fails this step and the web deploy never runs.
+        # It builds the web image's default target first, so its build runs
+        # next build and uploads the Sentry source maps (ADR 0037): BuildKit
+        # secrets never key the layer cache, so the web deploy below reuses
+        # this build, and both steps carry the same build secret. An unset
+        # SENTRY_AUTH_TOKEN passes an empty secret and the upload is off.
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_MIGRATE_API_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: >-
           flyctl deploy -c fly.migrate.toml --local-only --update-only
+          --build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: livekit
@@ -185,11 +192,14 @@ jobs:
       - id: deploy
         name: Deploy
         # The deploy token is scoped to this one step, not the job, so the
-        # checkout and setup actions never see it.
+        # checkout and setup actions never see it. The Sentry upload token is
+        # a build secret, as in the migrate step above.
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: >-
           flyctl deploy -a daisy-debate-staging --local-only --ha=false
+          --build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: media-worker
