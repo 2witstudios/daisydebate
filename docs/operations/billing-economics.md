@@ -90,7 +90,9 @@ criterion complete or supersede BILL-H.
 The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
 at most1000 directory entries and removes only expired regular files in its own
-closed feed/report filename namespace. At1000 retained files a new save refuses;
+closed feed/report filename namespace. It never expires the feed of the month
+still being collected (the previous calendar month), so a measured month cannot
+turn into a missing feed under its own collection. At1000 retained files a new save refuses;
 more than1000 entries also refuses, rather than claiming a drained sweep. This
 bounds this sink's generated files and cleanup work. Provision the directory only
 for this sink. Source financial systems retain their own classified records; the
@@ -174,23 +176,34 @@ a financial report or claims low-margin delivery:
   deferred by the shared bound (eight per stage) and only then reported, so it
   never counts as raised and never mutes a later genuine failure of that month.
   A reporter that throws while raising signals is `signal_failed`, reported once
-  for that outcome; later ticks retry quietly and send only the signals not yet
-  taken, so no plan's signal is duplicated.
+  until signals go through again; later ticks retry quietly and send only the
+  signals not yet taken, so no plan's signal is duplicated.
 
-Each hourly tick collects again, so late corrections land, but the worker raises
-each outcome of a month once per process. A report's signals (the same feed
-state and signals) are raised once a month, even after a failure came in
-between. A failure reason is raised once until a report settles again; after
-that the same failure is a regression and raises again. Only a failure the worker failure sink actually reported (its log line or capture
-succeeded) counts as raised, so a deferred capacity
-refusal never mutes what follows. A new month starts afresh, and a restart may
-raise the current month once more.
+Each hourly tick collects again, so late corrections land, but the worker
+raises each thing once per process:
+
+- **Signals.** Each signal (code and plan) is raised once a month, whatever
+  else changes in the report: a feed arriving, or one plan's margin changing,
+  sends only the signals not yet raised.
+- **Failures.** A failure's identity is its stage and its error code, so a
+  capacity refusal and a later database outage in the same stage are two
+  notices. A failure is raised once until a report settles again; after that
+  the same failure is a regression and raises again. Only a failure the worker
+  failure sink actually reported (its log line or capture succeeded) counts as
+  raised, so a deferred capacity refusal never mutes what follows.
+- **Missing feed.** `billing.economics.feed_missing` is logged once a month.
+
+A new month starts afresh, and a restart may raise the current month once more.
 
 A month that cannot be measured therefore reaches the error tracker either as
 `BILLING_ECONOMICS_INCOMPLETE` (a saved, incomplete report) or as one
 `billing.economics.<reason>` failure, never both for one failure. An operator
 alert for an unmeasured month should match the route prefix
-`billing.economics.`, not the completeness code alone.
+`billing.economics.`, not the completeness code alone. Before this change a
+failed collection also captured `BILLING_ECONOMICS_INCOMPLETE` (with a
+`delivery-failed` correlation value). If a Sentry alert rule keyed on that code
+exists, the owner moves it to the route prefix; no such rule is provisioned by
+this repository.
 The reporter `raiseEconomicsSignals` submits through remains a void port: runtime registration and unit
 transport capture do not confirm an operator/Sentry notification. Actual approved
 measurement-feed and private-destination delivery receipts remain required

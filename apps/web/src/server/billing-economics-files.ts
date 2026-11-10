@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { economicsInstant } from '../features/billing/economics-input';
+import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import type { createBillingEconomicsCollector } from '../features/billing/economics-collector';
 
 type PrivateReport = Parameters<
@@ -16,6 +17,7 @@ const retentionMs = 30 * 86400000;
 async function prunePrivateFiles(directory: string, now: string) {
   if (!economicsInstant.safeParse(now).success)
     throw new Error('Billing economics clock invalid');
+  const collecting = previousEconomicsMonth(now)?.startsAt.slice(0, 7) ?? null;
   const stream = await opendir(directory);
   let count = 0,
     visited = 0;
@@ -27,6 +29,9 @@ async function prunePrivateFiles(directory: string, now: string) {
       !/^(report-[a-z][a-z0-9]{23}|feed-\d{4}-\d{2})\.json$/.test(entry.name) ||
       !entry.isFile()
     )
+      continue;
+    // The feed of a month still being collected (the previous month) is never expired under it.
+    if (collecting !== null && entry.name === `feed-${collecting}.json`)
       continue;
     const path = join(directory, entry.name),
       info = await lstat(path);
@@ -86,12 +91,13 @@ async function readPrivateFeed(path: string) {
   }
   try {
     const stat = await file.stat();
-    if (
-      !stat.isFile() ||
-      (stat.mode & 0o077) !== 0 ||
-      stat.size > maximumFeedBytes
-    )
+    if (!stat.isFile() || (stat.mode & 0o077) !== 0)
       throw new Error('Billing economics feed is not bounded and private');
+    if (stat.size > maximumFeedBytes)
+      throw createAppError(
+        'VALIDATION',
+        'Billing economics feed exceeds size limit',
+      );
     return await readBoundedJson(file);
   } finally {
     await file.close();

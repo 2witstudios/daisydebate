@@ -1,94 +1,113 @@
+import { isAppError } from '@daisy/errors';
 import type { EconomicsSignal } from './economics-alert';
 import type { EconomicsCollection } from './economics-collector';
-
-/**
- * The identity of what a collection tells an operator about its month. Equal
- * notices are the same news, so a process raises each one once rather than on
- * every hourly tick; a new month or a changed outcome is a new notice.
- */
-export function economicsNotice(collection: EconomicsCollection): string {
-  if (collection.kind === 'failed')
-    return `${collection.month}:failed:${collection.reason}`;
-  const signals = collection.signals
-    .map((s) => `${s.name}/${s.plan}`)
-    .join(',');
-  return `${collection.month}:reported:${collection.feed}:${signals}`;
-}
 
 type Collection<K extends EconomicsCollection['kind']> = Extract<
   EconomicsCollection,
   { readonly kind: K }
 >;
 
-/** A report raised this month: the signals it still owes, and whether failing to submit them was reported. */
-export type ReportProgress = {
-  readonly owed: readonly EconomicsSignal[];
-  readonly signalFailureReported: boolean;
-};
+/**
+ * A failure's identity: its month, its stage and its error code, so a
+ * different problem in the same stage (a capacity refusal, then a database
+ * outage) is a new notice, while the same problem every hour is one.
+ */
+export function failureNotice(collection: Collection<'failed'>): string {
+  const code = isAppError(collection.cause)
+    ? collection.cause.code
+    : 'INTERNAL';
+  return `${collection.month}:${collection.reason}:${code}`;
+}
+
+const signalKey = (signal: EconomicsSignal) => `${signal.name}/${signal.plan}`;
 
 /**
- * What this process has raised for the month it is collecting. A report's
- * signals are raised once per month, even after another outcome came between.
- * A failure is raised once until a report settles again, so a regression after
- * recovery is news. A new month starts empty.
+ * What this process has raised for the month it is collecting. Each signal is
+ * raised once a month, whatever else changes in the report. A failure is
+ * raised once until a report settles again, so a regression after recovery is
+ * news. A new month starts empty.
  */
 export type EconomicsRaised = {
   readonly month: string | null;
   /** Failure notices reported since the month's last settled report. */
   readonly failures: ReadonlySet<string>;
-  /** Report notices raised this month. */
-  readonly reports: ReadonlyMap<string, ReportProgress>;
+  /** Signals the reporter took this month. */
+  readonly signals: ReadonlySet<string>;
+  /** Whether a failure to submit signals was reported since signals last went through. */
+  readonly signalFailureReported: boolean;
+  /** Whether this month's missing feed was logged. */
+  readonly feedMissingLogged: boolean;
 };
 
 export const nothingRaised: EconomicsRaised = {
   month: null,
   failures: new Set(),
-  reports: new Map(),
+  signals: new Set(),
+  signalFailureReported: false,
+  feedMissingLogged: false,
 };
 
-const inMonth = (raised: EconomicsRaised, month: string) =>
-  raised.month === month ? raised : nothingRaised;
+/** The record for a month: what was raised if it is the same month, otherwise nothing. */
+export const raisedIn = (
+  raised: EconomicsRaised,
+  month: string,
+): EconomicsRaised =>
+  raised.month === month ? raised : { ...nothingRaised, month };
 
 /** Whether this failure was already reported since the month's last settled report. */
 export const isFailureRaised = (
   raised: EconomicsRaised,
   collection: Collection<'failed'>,
-) =>
-  inMonth(raised, collection.month).failures.has(economicsNotice(collection));
-
-/** How far this month already raised this report, if at all. */
-export const reportProgress = (
-  raised: EconomicsRaised,
-  collection: Collection<'reported'>,
-): ReportProgress | undefined =>
-  inMonth(raised, collection.month).reports.get(economicsNotice(collection));
+) => raisedIn(raised, collection.month).failures.has(failureNotice(collection));
 
 /** Record a reported failure. */
 export function recordFailure(
   raised: EconomicsRaised,
   collection: Collection<'failed'>,
 ): EconomicsRaised {
-  const month = inMonth(raised, collection.month);
+  const month = raisedIn(raised, collection.month);
   return {
-    month: collection.month,
-    failures: new Set([...month.failures, economicsNotice(collection)]),
-    reports: month.reports,
+    ...month,
+    failures: new Set([...month.failures, failureNotice(collection)]),
   };
 }
 
-/** Record a report's progress; a settled report re-arms the month's failures. */
-export function recordReport(
+/** The report's signals this month has not yet raised. */
+export const owedSignals = (
   raised: EconomicsRaised,
   collection: Collection<'reported'>,
-  progress: ReportProgress,
+): readonly EconomicsSignal[] => {
+  const { signals } = raisedIn(raised, collection.month);
+  return collection.signals.filter((s) => !signals.has(signalKey(s)));
+};
+
+/**
+ * Record the signals the reporter took for a report. A report whose signals
+ * all went through settles, and settling re-arms the month's failures.
+ */
+export function recordSignals(
+  raised: EconomicsRaised,
+  collection: Collection<'reported'>,
+  outcome: {
+    readonly taken: readonly EconomicsSignal[];
+    readonly settled: boolean;
+    readonly signalFailureReported: boolean;
+  },
 ): EconomicsRaised {
-  const month = inMonth(raised, collection.month);
+  const month = raisedIn(raised, collection.month);
   return {
-    month: collection.month,
-    failures: progress.owed.length === 0 ? new Set() : month.failures,
-    reports: new Map([
-      ...month.reports,
-      [economicsNotice(collection), progress],
-    ]),
+    ...month,
+    failures: outcome.settled ? new Set() : month.failures,
+    signals: new Set([...month.signals, ...outcome.taken.map(signalKey)]),
+    signalFailureReported: outcome.signalFailureReported,
   };
 }
+
+/** Note that this month's missing feed was logged. */
+export const recordFeedMissingLogged = (
+  raised: EconomicsRaised,
+  collection: Collection<'reported'>,
+): EconomicsRaised => ({
+  ...raisedIn(raised, collection.month),
+  feedMissingLogged: true,
+});

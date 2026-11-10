@@ -283,3 +283,30 @@ test('opening the sink runs retention even when the collection never reaches sav
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('retention never expires the feed of the month still being collected', async () => {
+  const { utimes, readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const old = new Date('2026-09-01T00:00:00.000Z');
+    for (const name of ['feed-2026-10.json', 'feed-2026-08.json']) {
+      await writeFile(join(directory, name), '{}', { mode: 0o600 });
+      await utimes(join(directory, name), old, old);
+    }
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'g'.repeat(24),
+    });
+    await files.sink.open();
+    assert({
+      given:
+        'two feeds past the thirty-day retention: October (still being collected) and August',
+      should: 'keep October and expire August',
+      actual: (await readdir(directory)).sort(),
+      expected: ['feed-2026-10.json'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

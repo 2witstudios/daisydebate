@@ -2,15 +2,18 @@ import { createAppError } from '@daisy/errors';
 import type { App } from './app';
 import {
   createBillingEconomicsCollector,
+  economicsFailureCode,
   type EconomicsCollection,
 } from '../features/billing/economics-collector';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
   isFailureRaised,
   nothingRaised,
+  owedSignals,
+  raisedIn,
   recordFailure,
-  recordReport,
-  reportProgress,
+  recordFeedMissingLogged,
+  recordSignals,
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
@@ -41,8 +44,8 @@ export function composeBillingEconomics(
 }
 
 /**
- * One bounded monthly collection per hourly tick, raising each distinct
- * outcome for a month once per process. Without a provisioned sink there is
+ * One bounded monthly collection per hourly tick, raising each signal once a
+ * month and each failure once per regression, per process. Without a provisioned sink there is
  * nowhere to keep a report, so the worker does not run and raises nothing
  * (ADR 0101); the process logs that once.
  */
@@ -78,11 +81,7 @@ export function startBillingEconomics(input: {
       // Only a failure the sink reported settles; deferred or unrecorded stays news.
       const verdict = failed(
         createAppError(
-          collection.reason === 'feed_invalid' ||
-            collection.reason === 'snapshot_invalid' ||
-            collection.reason === 'report_invalid'
-            ? 'VALIDATION'
-            : 'INFRASTRUCTURE',
+          economicsFailureCode[collection.reason],
           undefined,
           collection.cause,
         ),
@@ -91,41 +90,42 @@ export function startBillingEconomics(input: {
       if (verdict === 'reported') raised = recordFailure(raised, collection);
       return;
     }
-    const prior = reportProgress(raised, collection);
-    if (prior?.owed.length === 0) {
-      // Already raised this month; settling again still re-arms the month's failures.
-      raised = recordReport(raised, collection, prior);
-      return;
-    }
-    const owed = prior?.owed ?? collection.signals;
+    const owed = owedSignals(raised, collection);
     const submitted = raiseEconomicsSignals(app.reporter, {
       month: collection.month,
       signals: owed,
     });
     if (submitted.kind === 'failed') {
-      const verdict = prior?.signalFailureReported
+      const verdict = raisedIn(raised, collection.month).signalFailureReported
         ? 'reported'
         : failed(
             createAppError('INFRASTRUCTURE', undefined, submitted.cause),
             'signal_failed',
           );
-      raised = recordReport(raised, collection, {
-        owed: owed.slice(submitted.submitted),
+      raised = recordSignals(raised, collection, {
+        taken: owed.slice(0, submitted.submitted),
+        settled: false,
         signalFailureReported: verdict === 'reported',
       });
       return;
     }
     // Record before logging: a throwing logger must not make the next tick re-send these signals.
-    raised = recordReport(raised, collection, {
-      owed: [],
+    raised = recordSignals(raised, collection, {
+      taken: owed,
+      settled: true,
       signalFailureReported: false,
     });
-    if (collection.feed === 'missing')
+    if (collection.feed !== 'missing' || raised.feedMissingLogged) return;
+    raised = recordFeedMissingLogged(raised, collection);
+    try {
       app.logger.log(
         'billing.economics.feed_missing',
         { operation: 'billing.economics.collect', cause: 'feed_missing' },
         'Private billing economics feed is missing for the month; the report stays incomplete',
       );
+    } catch {
+      /* A failing log sink never turns a saved report into a failure (ISSUE-789). */
+    }
   };
   return startSingleFlightWorker({
     timers: input.timers,

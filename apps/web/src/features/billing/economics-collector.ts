@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isAppError } from '@daisy/errors';
+import { isAppError, type ErrorCode } from '@daisy/errors';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
@@ -182,6 +182,19 @@ export type EconomicsCollectionFailure =
   | 'feed_invalid'
   | 'report_invalid'
   | 'save_failed';
+
+/** The error code each failure is reported under: bad data is VALIDATION, an unavailable resource INFRASTRUCTURE. */
+export const economicsFailureCode: Readonly<
+  Record<EconomicsCollectionFailure, ErrorCode>
+> = {
+  sink_unavailable: 'INFRASTRUCTURE',
+  snapshot_failed: 'INFRASTRUCTURE',
+  snapshot_invalid: 'VALIDATION',
+  feed_unreadable: 'INFRASTRUCTURE',
+  feed_invalid: 'VALIDATION',
+  report_invalid: 'VALIDATION',
+  save_failed: 'INFRASTRUCTURE',
+};
 
 /**
  * One collection of a month: a saved report with the signals it implies and

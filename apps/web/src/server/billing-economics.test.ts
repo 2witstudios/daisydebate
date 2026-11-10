@@ -658,9 +658,9 @@ test('invalid data is captured as VALIDATION, an unavailable resource as INFRAST
     writeFile(join(directory, 'feed-2026-10.json'), body, { mode: 0o600 });
   assert({
     given:
-      'a snapshot for another window, a feed stating a 10% floor, a truncated feed file, and a non-private sink',
+      'a snapshot for another window, a feed stating a 10% floor, a truncated feed file, a non-private sink, a feed with repeated revenue sequences, and a feed over 1 MiB',
     should:
-      'capture snapshot_invalid, feed_invalid and feed_invalid as VALIDATION, and sink_unavailable as INFRASTRUCTURE',
+      'capture snapshot_invalid, feed_invalid, report_invalid and an oversized feed as VALIDATION, and sink_unavailable as INFRASTRUCTURE',
     actual: [
       await codes(
         async () => undefined,
@@ -681,12 +681,109 @@ test('invalid data is captured as VALIDATION, an unavailable resource as INFRAST
       ),
       await codes((directory) => feedFile(directory, '{"startsAt":')),
       await codes((directory) => chmod(directory, 0o755)),
+      await codes((directory) => {
+        const { modelUsage: _m, ...financial } = dataset();
+        void _m;
+        return feedFile(
+          directory,
+          JSON.stringify({
+            ...financial,
+            modelCostBasis: 'provider_invoice',
+            revenue: [...financial.revenue, ...financial.revenue],
+          }),
+        );
+      }),
+      await codes((directory) =>
+        feedFile(directory, `"${'x'.repeat(1024 * 1024 + 1)}"`),
+      ),
     ],
     expected: [
       [['billing.economics.snapshot_invalid', 'VALIDATION']],
       [['billing.economics.feed_invalid', 'VALIDATION']],
       [['billing.economics.feed_invalid', 'VALIDATION']],
       [['billing.economics.sink_unavailable', 'INFRASTRUCTURE']],
+      [['billing.economics.report_invalid', 'VALIDATION']],
+      [['billing.economics.feed_invalid', 'VALIDATION']],
     ],
   });
+});
+
+test('a changed report never re-sends a signal already raised that month', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const { modelUsage: _m, ...financial } = dataset();
+  void _m;
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 1,
+      between: async () => {
+        await writeFile(
+          join(directory, 'feed-2026-10.json'),
+          JSON.stringify({ ...financial, modelCostBasis: 'provider_invoice' }),
+          { mode: 0o600 },
+        );
+      },
+    });
+    assert({
+      given:
+        'a missing feed (incomplete for every plan), then a supplied feed leaving free and beta incomplete and premium below the floor',
+      should:
+        'raise each incomplete plan once and add only the new low-margin signal',
+      actual: run.captured.map((c) => [c.errorCode, c.route]),
+      expected: [
+        ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.free'],
+        ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.beta'],
+        ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.premium'],
+        ['BILLING_LOW_MARGIN', 'billing.economics.premium'],
+      ],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a different problem in the same stage is raised, the same problem is not', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 10,
+      refuse: (read) =>
+        read <= 9 ? refuseCapacity() : new Error('Economics database down'),
+    });
+    assert({
+      given:
+        'nine capacity refusals on the snapshot read (escalated at the bound), then a database outage, over eleven collections',
+      should:
+        'report the starved stage once and the outage once, as distinct notices',
+      actual: run.captured.map((c) => [c.route, c.errorCode]),
+      expected: [
+        ['billing.economics.snapshot_failed.capacity', 'INFRASTRUCTURE'],
+        ['billing.economics.snapshot_failed', 'INFRASTRUCTURE'],
+      ],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a throwing feed_missing log is never a collection failure', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 1,
+      logThrows: (event) => event === 'billing.economics.feed_missing',
+    });
+    assert({
+      given: 'a logger that throws on billing.economics.feed_missing',
+      should: 'raise no billing.economics.collect failure for a saved report',
+      actual: run.captured.filter(
+        (c) => c.route === 'billing.economics.collect',
+      ).length,
+      expected: 0,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
