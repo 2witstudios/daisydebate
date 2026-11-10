@@ -434,6 +434,7 @@ test('each failure reason is reported under its fixed error code', () => {
       feed_invalid: 'VALIDATION',
       report_invalid: 'VALIDATION',
       report_failed: 'INTERNAL',
+      inputs_invalid: 'INTERNAL',
       save_failed: 'INFRASTRUCTURE',
     },
   });
@@ -589,7 +590,7 @@ test('a snapshot observed in the future is named as such, not as a window mismat
   });
 });
 
-test('a malformed window is refused before any I/O, as report_failed', async () => {
+test('a malformed window is refused before any I/O, as inputs_invalid', async () => {
   const touched: string[] = [];
   const r = await createBillingEconomicsCollector({
     sink: {
@@ -610,7 +611,7 @@ test('a malformed window is refused before any I/O, as report_failed', async () 
   assert({
     given: 'a collection asked for a window that is not two instants',
     should:
-      'fail as report_failed (INTERNAL) with its own reason, touching neither the sink nor the store',
+      'fail as inputs_invalid (INTERNAL) with its own reason, touching neither the sink nor the store',
     actual: [
       r.kind === 'failed' && [
         r.reason,
@@ -619,6 +620,6 @@ test('a malformed window is refused before any I/O, as report_failed', async () 
       ],
       touched,
     ],
-    expected: [['report_failed', 'INTERNAL', 'economics-window-invalid'], []],
+    expected: [['inputs_invalid', 'INTERNAL', 'economics-window-invalid'], []],
   });
 });

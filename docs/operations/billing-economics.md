@@ -59,8 +59,9 @@ this process may not read,
 malformed or oversized contents, the JSON literal `null`, window, schema, or a
 floor other than the recorded policy),
 `report_invalid` (the joined feed and snapshot fail the report's own schema or
-coherence, so nothing is saved), `report_failed` (a defect, reported as `INTERNAL`:
-a malformed window or clock refused before any I/O, or joining the feed and
+coherence, so nothing is saved), `inputs_invalid` (a malformed window or clock, refused before any I/O,
+`INTERNAL`), `report_failed` (a defect, reported as `INTERNAL`:
+joining the feed and
 snapshot or building the report threw something other than a typed data
 refusal) or `save_failed` (including the save's file
 cap). A feed file whose body is `null` is invalid, never a missing feed. The
@@ -98,15 +99,14 @@ The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
 at most1000 directory entries and removes only expired regular files in its own
 closed feed/report filename namespace. Each collection's sweeps (opening and save)
-never expire the feed of the month it collects, nor the current month's
-(collected next), so a measured month cannot turn into a missing feed under its
-own collection. Every other feed and report keeps
-the 30-day rule. The hourly worker collects the previous month, so a feed is
-retained at most until the end of the month after its own (about 62 days, for a
-feed placed on the first day of its month); compliance.md records that bound (DEC-372). A
-late correction of an older month protects that month only during its own run,
-so place an older feed with a fresh modification time (not `cp -p` or `rsync
--a`) if the worker may sweep in between. At1000 retained files a new save refuses;
+keep a feed until its collection window has passed: the month this run
+collects, the month the hourly worker collects (the previous month) and the
+current month (collected next) are protected, and a feed for any earlier month is
+removed whatever its age. Reports keep the 30-day rule. So a feed lives at most
+until the end of the month after its own (about 62 days); compliance.md records
+that bound (DEC-372). A late correction of an older month runs against a feed
+the worker would remove, so place it immediately before the correction run.
+At1000 retained files a new save refuses;
 more than1000 entries also refuses, rather than claiming a drained sweep. This
 bounds this sink's generated files and cleanup work. Provision the directory only
 for this sink. Source financial systems retain their own classified records; the

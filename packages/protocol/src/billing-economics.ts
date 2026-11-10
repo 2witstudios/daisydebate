@@ -112,6 +112,7 @@ export type BillingEconomicsRefusal =
   | 'economics-feed-invalid'
   | 'economics-report-invalid'
   | 'economics-report-failed'
+  | 'economics-inputs-invalid'
   | 'economics-save-failed'
   | 'economics-signal-failed'
   | 'economics-collect-failed';

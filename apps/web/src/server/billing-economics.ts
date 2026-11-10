@@ -1,4 +1,5 @@
 import { isCapacityRefusal } from '@daisy/db/capacity';
+import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { createRefusal, type ErrorCode } from '@daisy/errors';
 import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
 import type { App } from './app';
@@ -93,6 +94,7 @@ const stageRefusal: Readonly<Record<EconomicsStage, BillingEconomicsRefusal>> =
     feed_invalid: 'economics-feed-invalid',
     report_invalid: 'economics-report-invalid',
     report_failed: 'economics-report-failed',
+    inputs_invalid: 'economics-inputs-invalid',
     save_failed: 'economics-save-failed',
     signal_failed: 'economics-signal-failed',
     collect: 'economics-collect-failed',
@@ -169,6 +171,10 @@ export function startBillingEconomics(input: {
     // so it neither masks a later outage nor stops counting towards starvation.
     if (isCapacityRefusal(collection.cause))
       return void failed(error, collection.reason);
+    // A lapsed service lease is the instance's own condition (DAISY-WEB-9): the sink logs it as a
+    // warning, which it can only recognise on the raw refusal, never wrapped as a stage failure.
+    if (isServiceLeaseLapse(collection.cause))
+      return void failed(collection.cause, collection.reason);
     return reportOnce(
       collection.month,
       failureNotice(collection),

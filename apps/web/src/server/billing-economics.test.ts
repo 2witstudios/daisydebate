@@ -1445,3 +1445,32 @@ test('a Proxy whose prototype trap throws, outside any collection, is still one 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("a lapsed service lease is the sink's warning, never a captured stage failure", async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 1,
+      refuse: () =>
+        createRefusal(
+          'AUTHORIZATION',
+          'service-lease-lapsed',
+          'Web service is not current',
+        ),
+    });
+    assert({
+      given:
+        "a snapshot read refused because this instance's lease lapsed, on two ticks",
+      should:
+        'log the service.lease_lapsed warning each time and capture nothing (DAISY-WEB-9)',
+      actual: {
+        events: [...new Set(run.logged.map((line) => line.event))],
+        captured: run.captured.length,
+      },
+      expected: { events: ['service.lease_lapsed'], captured: 0 },
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

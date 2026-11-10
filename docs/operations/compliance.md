@@ -102,9 +102,9 @@ told first, the other side can hear it, and the Broadcast stage does not subscri
 
 Private Billing economics feeds and reports are operational aggregate projections
 under DEC-42's maximum 30-day operational retention, with one bounded
-exception: the feed of the month being collected is kept while it is collected,
-so a feed lives at most until the end of the month after its own (about 62
-days). Reports keep the 30-day bound. The point guard approved this bounded
+exception: a feed is kept until its collection window has passed and then
+removed whatever its age, so it lives at most until the end of the month after
+its own (about 62 days). Reports keep the 30-day bound. The point guard approved this bounded
 exception, recorded as DEC-372 (an open owner decision). They contain model/source
 period counts and financial aggregates, with no account, actor, Round or vendor
 customer identifiers; this is data minimization, not an anonymity guarantee.

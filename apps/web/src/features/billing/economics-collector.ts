@@ -215,6 +215,7 @@ export type EconomicsCollectionFailure =
   | 'feed_invalid'
   | 'report_invalid'
   | 'report_failed'
+  | 'inputs_invalid'
   | 'save_failed';
 
 /** The error code each failure is reported under: bad data is VALIDATION, an unavailable resource INFRASTRUCTURE. */
@@ -228,6 +229,7 @@ export const economicsFailureCode: Readonly<
   feed_invalid: 'VALIDATION',
   report_invalid: 'VALIDATION',
   report_failed: 'INTERNAL',
+  inputs_invalid: 'INTERNAL',
   save_failed: 'INFRASTRUCTURE',
 };
 
@@ -300,7 +302,7 @@ export function createBillingEconomicsCollector(input: {
         if (!economicsInstant.safeParse(input.now()).success)
           throw clockInvalid();
       });
-      if (!inputs.ok) return failed('report_failed', inputs.cause);
+      if (!inputs.ok) return failed('inputs_invalid', inputs.cause);
       const sink = await stage(() => input.sink.open(window));
       if (!sink.ok) return failed('sink_unavailable', sink.cause);
       const read = await stage(() => input.store.read(window));

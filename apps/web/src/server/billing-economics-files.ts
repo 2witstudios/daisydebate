@@ -13,6 +13,7 @@ import {
   economicsInstant,
   isEconomicsWindow,
 } from '../features/billing/economics-input';
+import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import type { createBillingEconomicsCollector } from '../features/billing/economics-collector';
 
 type PrivateReport = Parameters<
@@ -31,6 +32,7 @@ async function prunePrivateFiles(
   protectFrom: string,
 ) {
   if (!economicsInstant.safeParse(now).success) throw clockInvalid();
+  const workerMonth = previousEconomicsMonth(now)?.startsAt.slice(0, 7);
   const stream = await opendir(directory);
   let count = 0,
     visited = 0;
@@ -43,9 +45,23 @@ async function prunePrivateFiles(
     )
       continue;
     const feedMonth = /^feed-(\d{4}-\d{2})\.json$/.exec(entry.name)?.[1];
-    // The feed of the month being collected, and of the current month (collected next), is
-    // protected; no feed outlives the end of the month after its own (compliance.md's bound).
-    if (feedMonth === protectFrom || feedMonth === now.slice(0, 7)) continue;
+    // A feed lives until its collection window has passed: the month this run collects, the month
+    // the worker collects and the current month (collected next) are protected, and a feed for any
+    // earlier month is removed whatever its age, so no feed outlives the end of the month after
+    // its own (compliance.md's bound, DEC-42 exception DEC-372).
+    if (feedMonth !== undefined) {
+      if (
+        feedMonth === protectFrom ||
+        feedMonth === workerMonth ||
+        feedMonth === now.slice(0, 7)
+      )
+        continue;
+      if (workerMonth !== undefined && feedMonth < workerMonth) {
+        await unlink(join(directory, entry.name));
+        count--;
+        continue;
+      }
+    }
     const path = join(directory, entry.name),
       info = await lstat(path);
     if (info.isFile() && info.mtimeMs <= Date.parse(now) - retentionMs) {
@@ -71,10 +87,7 @@ async function privateDirectory(
   } catch (error) {
     // The operator's setup refused it (a root-owned volume root, a file in the path, a read-only
     // mount): a typed refusal keeping the errno. Any other errno is the disk's and stays untyped.
-    const code =
-      typeof error === 'object' && error !== null && 'code' in error
-        ? error.code
-        : undefined;
+    const code = errnoOf(error);
     if (
       code !== 'EACCES' &&
       code !== 'EPERM' &&
@@ -105,10 +118,7 @@ async function privateDirectory(
     await accessDirectory(directory);
   } catch (error) {
     // Only a permission refusal is the setup's; any other errno (EIO, a stale mount) is the disk's.
-    const code =
-      typeof error === 'object' && error !== null && 'code' in error
-        ? error.code
-        : undefined;
+    const code = errnoOf(error);
     if (code !== 'EACCES' && code !== 'EPERM' && code !== 'EROFS') throw error;
     throw createRefusal(
       'VALIDATION',
@@ -163,10 +173,7 @@ async function readPrivateFeed(path: string, openFeed: OpenFeed) {
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
   } catch (error) {
-    const code =
-      typeof error === 'object' && error !== null && 'code' in error
-        ? error.code
-        : undefined;
+    const code = errnoOf(error);
     if (code === 'ENOENT') return null;
     // A symbolic link, or a socket or device that cannot be opened, in the feed's place is the
     // operator's file being wrong.
@@ -209,9 +216,16 @@ async function readPrivateFeed(path: string, openFeed: OpenFeed) {
       );
     return await readBoundedJson(file);
   } finally {
-    await file.close();
+    await closeQuietly(file);
   }
 }
+/** A filesystem error's errno, read without trusting its shape. */
+const errnoOf = (error: unknown): unknown =>
+  typeof error === 'object' && error !== null && 'code' in error
+    ? error.code
+    : undefined;
+/** Closing never masks what the read or write itself threw. */
+const closeQuietly = (file: FileHandle) => file.close().catch(() => undefined);
 /** A collected window must be two instants; anything else is a caller defect. */
 function assertWindow(window: {
   readonly startsAt: string;
@@ -314,7 +328,7 @@ export function createBillingEconomicsFiles(input: {
         await file.writeFile(JSON.stringify(report));
         await file.sync();
       } finally {
-        await file.close();
+        await closeQuietly(file);
       }
     },
   };

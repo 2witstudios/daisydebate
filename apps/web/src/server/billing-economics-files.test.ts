@@ -776,3 +776,28 @@ test('a disk fault while checking or creating the sink stays untyped, keeping it
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a feed whose collection window has passed is removed whatever its age', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    for (const name of ['feed-2026-09.json', 'feed-2026-10.json'])
+      await writeFile(join(directory, name), '{}', { mode: 0o600 });
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'v'.repeat(24),
+    });
+    await files.sink.open(window);
+    assert({
+      given:
+        'freshly written September and October feeds, swept in November while October is collected',
+      should:
+        'remove September, whose collection window has passed, and keep October',
+      actual: (await readdir(directory)).sort(),
+      expected: ['feed-2026-10.json'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
