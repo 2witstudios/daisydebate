@@ -676,12 +676,18 @@ test('invalid data is captured as VALIDATION, an unavailable resource as INFRAST
           complete: true,
         }),
       ),
-      await codes((directory) =>
-        feedFile(
+      await codes((directory) => {
+        const { modelUsage: _m, ...financial } = dataset();
+        void _m;
+        return feedFile(
           directory,
-          JSON.stringify({ ...dataset(), floorBasisPoints: 1000 }),
-        ),
-      ),
+          JSON.stringify({
+            ...financial,
+            modelCostBasis: 'provider_invoice',
+            floorBasisPoints: 1000,
+          }),
+        );
+      }),
       await codes((directory) => feedFile(directory, '{"startsAt":')),
       await codes((directory) => chmod(directory, 0o755)),
       await codes((directory) => {

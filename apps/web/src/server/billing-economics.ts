@@ -7,8 +7,6 @@ import {
   type EconomicsCollectionFailure,
 } from '../features/billing/economics-collector';
 
-/** Every operation this worker reports under: a collection stage, or its own two. */
-type EconomicsStage = EconomicsCollectionFailure | 'signal_failed' | 'collect';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
   failureNotice,
@@ -29,6 +27,9 @@ import {
   startSingleFlightWorker,
   type WorkerTimers,
 } from '../lib/worker-timers';
+
+/** Every operation this worker reports under: a collection stage, or its own two. */
+type EconomicsStage = EconomicsCollectionFailure | 'signal_failed' | 'collect';
 
 /** The current-service source and a provisioned private sink; absent inputs never become measured zero. */
 export function composeBillingEconomics(
@@ -51,8 +52,9 @@ export function composeBillingEconomics(
 }
 
 /**
- * The log line's closed `cause`: which fixed check failed, read from the typed
- * error. An untyped cause names nothing, so it adds nothing.
+ * The log line's closed `cause`: which fixed check failed when the cause is
+ * typed, otherwise the stage the worker's wrapper names
+ * (`Billing_economics_<reason>`). Only a bare untyped error names nothing.
  */
 export const economicsFailureCheck = (error: unknown) => {
   // The worker's wrapper carries the typed cause; otherwise a typed error names itself
