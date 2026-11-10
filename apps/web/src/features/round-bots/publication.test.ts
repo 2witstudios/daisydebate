@@ -1210,3 +1210,26 @@ test('a phrase reported played whole knows when the next phrase’s stop cut its
     expected: { playedOut: false, cut: true, later: false },
   });
 });
+
+test('a stop during the next phrase’s first frames cuts the tail of the phrase before', async () => {
+  const { claim } = harness();
+  claim.start();
+  await Bun.sleep(10);
+  const a = 'a'.repeat(24);
+  await claim.publish(job(600, a), signal(), far());
+  // b's writer hands its first frames behind a's 300 ms tail; a stop lands then.
+  const stop = new AbortController();
+  const second = claim
+    .publish(job(800, 'b'.repeat(24)), stop.signal, far())
+    .catch(() => undefined);
+  await Bun.sleep(60);
+  stop.abort();
+  await second;
+  assert({
+    given:
+      'a stop 60 ms into the next phrase, while the tail before it still plays',
+    should: 'report the phrase before as cut, so the turn says it again',
+    actual: claim.tailCut(a),
+    expected: true,
+  });
+});

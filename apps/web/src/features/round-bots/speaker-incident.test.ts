@@ -61,7 +61,8 @@ test('an incident that cuts the tail of the phrase before resumes at that phrase
         channels: 1,
       });
     },
-    // Two. is held by an incident while One.'s tail still plays: One. is cut.
+    // Two. is stopped by an incident (its floor watch) during its first frames,
+    // while One.'s queued tail still plays: the clear cuts One.
     publish: async (job) => {
       if (job.text === 'Two.' && !refusedTwo) {
         refusedTwo = true;
