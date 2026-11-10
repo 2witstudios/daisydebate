@@ -1,6 +1,6 @@
 import type { ErrorReporter } from '@daisy/observability';
 import { createMailIntentDelivery } from '../features/beta-access/mail-delivery';
-import { startMailIntentService } from '../features/beta-access/mail-service';
+import { startMailQueueWorker } from '../features/mail/queue-worker';
 import type { WorkerTimers } from '../lib/worker-timers';
 import type { App } from './app';
 import { workerFailures } from './recoverable-failure';
@@ -21,7 +21,7 @@ export function startBetaMail(input: {
     'beta.mail',
     'Beta mail stays queued',
   );
-  return startMailIntentService({
+  return startMailQueueWorker({
     run: (limit) =>
       createMailIntentDelivery({
         store: app.database,

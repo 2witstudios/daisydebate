@@ -98,6 +98,11 @@ import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { agreementSignatureOperations } from './agreement-signatures';
 export type { ContentWaiverStanding } from './agreement-signatures';
+export type {
+  InboxRow,
+  NotificationEmailDelivery,
+  NotificationEmailOutcome,
+} from './notifications';
 export type { SpectatorTimelineRead } from './spectator-timeline-reads';
 export type { LiveBroadcastPage } from './live-broadcast-reads';
 import { roomCommandOperations } from './room-command-operations';

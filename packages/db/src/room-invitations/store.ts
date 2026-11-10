@@ -24,6 +24,8 @@ import {
   type Tx,
 } from '../room-command-facts';
 import type { roomCommandTransaction } from '../room-command-transaction';
+import { deleteExpiredBatch, type RetentionBatch } from '../retention';
+import { roomInvitations } from '../schema/room-invitations';
 import { rooms } from '../schema/rooms';
 
 type Account = ReturnType<typeof authorizationAccountFact>;
@@ -196,6 +198,20 @@ export const roomInvitationOperations = ({
         });
         return { invitationId: input.ids.invitation };
       }),
+    );
+  },
+  /** Retention: an ended invitation goes 30 days after it ended (ADR 0124). */
+  purgeEndedRoomInvitations(batch: RetentionBatch) {
+    return instrumented(eventSink, 'purgeEndedRoomInvitations', () =>
+      deleteExpiredBatch(
+        database,
+        {
+          table: roomInvitations,
+          key: roomInvitations.id,
+          at: roomInvitations.endedAt,
+        },
+        batch,
+      ),
     );
   },
   /** The invitee declines, or the host withdraws; the seat it held is free again. */

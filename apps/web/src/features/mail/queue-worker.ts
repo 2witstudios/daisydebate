@@ -4,11 +4,12 @@ import {
 } from '../../lib/worker-timers';
 
 /**
- * The mail intent worker's loop (ADR 0075): one batch per tick, never two at
- * once in this process. Several web instances may run it together; the
- * store's leases keep them off each other's intents.
+ * A durable mail queue's loop (beta mail intents, ADR 0075; notification
+ * emails, ADR 0124): one batch per tick, never two at once in this process.
+ * Several web instances may run it together; the store's leases keep them
+ * off each other's mail.
  */
-export function startMailIntentService(input: {
+export function startMailQueueWorker(input: {
   readonly run: (limit: number) => Promise<number>;
   readonly batch: number;
   readonly everyMs: number;

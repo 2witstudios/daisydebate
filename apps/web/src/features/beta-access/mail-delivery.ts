@@ -3,7 +3,7 @@ import { operatorConsoleOrigin } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import type { EmailMessage } from '../mail/types';
 import { renderBetaEmail } from './templates';
-import { MAIL_INTENT_MAX_ATTEMPTS, mailRetryDelayMs } from './retry-policy';
+import { MAIL_MAX_ATTEMPTS, mailRetryDelayMs } from '../mail/retry-policy';
 
 type Store = Pick<
   Database,
@@ -99,7 +99,7 @@ export function createMailIntentDelivery(input: {
     claim: Claim,
     errorCode: 'delivery' | 'delivery-unknown' = 'delivery',
   ): Outcome =>
-    claim.attempts >= MAIL_INTENT_MAX_ATTEMPTS
+    claim.attempts >= MAIL_MAX_ATTEMPTS
       ? { kind: 'failed', errorCode }
       : {
           kind: 'retry',

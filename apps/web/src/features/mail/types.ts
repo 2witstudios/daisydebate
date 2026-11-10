@@ -1,6 +1,6 @@
 /**
  * The mail transport's contract: one message shape, sender and delivery
- * ledger for every product email, whatever its purpose (auth, beta access).
+ * ledger for every product email, whatever its purpose (auth, beta access, notifications).
  */
 export type EmailMessage = {
   readonly to: string;
@@ -13,6 +13,11 @@ export type EmailMessage = {
    * Absent, each send gets a fresh key.
    */
   readonly idempotencyKey?: string;
+  /**
+   * Extra message headers: a notification's one-click unsubscribe
+   * (`List-Unsubscribe`, `List-Unsubscribe-Post`, RFC 8058; ADR 0124).
+   */
+  readonly headers?: Readonly<Record<string, string>>;
   /** Internal UTC send deadline; never included in the provider payload or link. */
   readonly sendBefore?: string;
 };
@@ -32,7 +37,7 @@ export type DeliveryLedger = {
 };
 
 /** Why a mail is sent; every transport event carries it. */
-export type MailPurpose = 'auth' | 'beta-access';
+export type MailPurpose = 'auth' | 'beta-access' | 'notification';
 
 /**
  * The one suppression-honouring path (`send-mail.ts`): `suppressed` when the

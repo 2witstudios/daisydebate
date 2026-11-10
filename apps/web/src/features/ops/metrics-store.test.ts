@@ -70,7 +70,11 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         rateLimitDeniedTotal: 2,
         rateLimitUnavailableTotal: 1,
         // An unknown purpose is not a label either.
-        mailDeliveryFailuresByPurpose: { auth: 1, 'beta-access': 1 },
+        mailDeliveryFailuresByPurpose: {
+          auth: 1,
+          'beta-access': 1,
+          notification: 0,
+        },
         authMailShedTotal: 2,
         // An unknown scope is not a label: cardinality stays bounded.
         networkDeniedByScope: { ipv6_56: 0, ipv6_48: 2, ipv4_24: 1 },
@@ -146,7 +150,11 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         httpRequestsByStatusClass: { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 },
         rateLimitDeniedTotal: 0,
         rateLimitUnavailableTotal: 0,
-        mailDeliveryFailuresByPurpose: { auth: 0, 'beta-access': 0 },
+        mailDeliveryFailuresByPurpose: {
+          auth: 0,
+          'beta-access': 0,
+          notification: 0,
+        },
         authMailShedTotal: 0,
         networkDeniedByScope: { ipv6_56: 0, ipv6_48: 0, ipv4_24: 0 },
         workerRunFailuresByWorker: {

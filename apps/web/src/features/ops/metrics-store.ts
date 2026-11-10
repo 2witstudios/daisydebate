@@ -59,6 +59,7 @@ export type MetricsSnapshot = {
 const MAIL_PURPOSES = [
   'auth',
   'beta-access',
+  'notification',
 ] as const satisfies readonly MailPurpose[];
 type MailPurposeLabel = (typeof MAIL_PURPOSES)[number];
 const isMailPurpose = (value: unknown): value is MailPurposeLabel =>
@@ -91,6 +92,7 @@ export function createMetricsStore() {
   const mailDeliveryFailuresByPurpose: Record<MailPurposeLabel, number> = {
     auth: 0,
     'beta-access': 0,
+    notification: 0,
   };
   let authMailShedTotal = 0;
   const networkDeniedByScope: Record<NetworkScopeLabel, number> = {

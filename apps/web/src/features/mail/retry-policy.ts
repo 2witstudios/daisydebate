@@ -1,5 +1,5 @@
-/** A mail intent fails for good after this many delivery attempts (ADR 0075). */
-export const MAIL_INTENT_MAX_ATTEMPTS = 8;
+/** Queued mail fails for good after this many delivery attempts (ADR 0075, ADR 0124). */
+export const MAIL_MAX_ATTEMPTS = 8;
 
 /**
  * When a failed delivery tries again: 30 seconds doubled per attempt, capped

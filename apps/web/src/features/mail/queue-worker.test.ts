@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { startMailIntentService } from './mail-service';
+import { startMailQueueWorker } from './queue-worker';
 
 setupRitewayBun();
 
@@ -25,7 +25,7 @@ test('runs a batch at start and per tick, never two at once, and stops cleanly',
   const { ticks, timers, cleared } = manualTimers();
   const limits: number[] = [];
   let release = () => {};
-  const service = startMailIntentService({
+  const service = startMailQueueWorker({
     run: (limit) => {
       limits.push(limit);
       return new Promise<number>((resolve) => {
@@ -56,7 +56,7 @@ test('runs a batch at start and per tick, never two at once, and stops cleanly',
 test('a failed batch is reported and the loop carries on', async () => {
   const { ticks, timers } = manualTimers();
   const failures: unknown[] = [];
-  const service = startMailIntentService({
+  const service = startMailQueueWorker({
     run: async () => {
       throw new Error('database down');
     },

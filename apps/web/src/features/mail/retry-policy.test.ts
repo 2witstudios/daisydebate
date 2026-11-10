@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { MAIL_INTENT_MAX_ATTEMPTS, mailRetryDelayMs } from './retry-policy';
+import { MAIL_MAX_ATTEMPTS, mailRetryDelayMs } from './retry-policy';
 
 setupRitewayBun();
 
@@ -7,7 +7,7 @@ test('mail retries back off from 30 seconds to an hour', () => {
   assert({
     given: 'each attempt up to the last',
     should: 'double the wait from 30 seconds and cap it at one hour',
-    actual: Array.from({ length: MAIL_INTENT_MAX_ATTEMPTS }, (_, index) =>
+    actual: Array.from({ length: MAIL_MAX_ATTEMPTS }, (_, index) =>
       mailRetryDelayMs(index + 1),
     ),
     expected: [
