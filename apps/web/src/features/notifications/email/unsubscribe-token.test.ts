@@ -29,9 +29,20 @@ test('verifyUnsubscribe', () => {
         token,
       }),
       verifyUnsubscribe(subkey, { userId, kind: 'recording_ready', token }),
-      verifyUnsubscribe(subkey, { userId, kind: 'room_invitation', token: null }),
+      verifyUnsubscribe(subkey, {
+        userId,
+        kind: 'room_invitation',
+        token: null,
+      }),
     ],
-    expected: [{ userId, kind: 'room_invitation' }, null, null, null, null, null],
+    expected: [
+      { userId, kind: 'room_invitation' },
+      null,
+      null,
+      null,
+      null,
+      null,
+    ],
   });
 });
 
@@ -53,9 +64,6 @@ test('unsubscribeUrl', () => {
         token: url.searchParams.get('t'),
       }),
     ],
-    expected: [
-      '/unsubscribe',
-      { userId, kind: 'challenge_received' },
-    ],
+    expected: ['/unsubscribe', { userId, kind: 'challenge_received' }],
   });
 });

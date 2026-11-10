@@ -116,7 +116,12 @@ const inboxRow = (row: FlatRow): InboxRow => {
   const base = { id: row.id, readAt: row.readAt, createdAt: row.createdAt };
   switch (row.kind) {
     case 'followed_debater_live':
-      return { ...base, kind: row.kind, roundId: row.roundId!, debater: row.about };
+      return {
+        ...base,
+        kind: row.kind,
+        roundId: row.roundId!,
+        debater: row.about,
+      };
     case 'recording_ready':
       return { ...base, kind: row.kind, roundId: row.roundId! };
     case 'room_invitation':

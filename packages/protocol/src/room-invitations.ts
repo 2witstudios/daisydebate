@@ -7,7 +7,6 @@ import {
 } from './room-contract';
 import { usernameSchema as username } from './username';
 
-
 /**
  * A debater invitation is for either side, as a challenge's hold is; the
  * host still arranges sides. A judge invitation holds a judge seat.
@@ -86,7 +85,11 @@ export type InviteeFacts = {
 export type InvitationDecision =
   | { readonly ok: false; readonly refusal: RoomInvitationRefusal }
   /** A repeat of the same pending invitation: answer it, change nothing. */
-  | { readonly ok: true; readonly kind: 'repeat'; readonly invitationId: string }
+  | {
+      readonly ok: true;
+      readonly kind: 'repeat';
+      readonly invitationId: string;
+    }
   | {
       readonly ok: true;
       readonly kind: 'invite';

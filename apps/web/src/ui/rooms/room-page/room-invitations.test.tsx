@@ -24,7 +24,10 @@ const guest: RoomView = {
 };
 
 test('RoomInvitations', () => {
-  const host = render({ ...assemblySnapshot, invitations: [invitation] }, 'host');
+  const host = render(
+    { ...assemblySnapshot, invitations: [invitation] },
+    'host',
+  );
   const invited = render({ ...guest, invitations: [invitation] }, 'coach');
   assert({
     given: 'the host with one pending judge invitation',
@@ -38,7 +41,8 @@ test('RoomInvitations', () => {
   });
   assert({
     given: 'the invited member',
-    should: 'say who invited them, that the judge seat is theirs, and offer Decline',
+    should:
+      'say who invited them, that the judge seat is theirs, and offer Decline',
     actual: [
       invited.includes('@host invited you to judge.'),
       invited.includes('The judge seat below is held for you.'),

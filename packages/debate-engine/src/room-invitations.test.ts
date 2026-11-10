@@ -1,10 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { state } from './room-assembly.test-support';
 import type { PendingRoomInvitation } from '@daisy/protocol';
-import {
-  decideInvitationEnd,
-  decideRoomInvitation,
-} from './room-invitations';
+import { decideInvitationEnd, decideRoomInvitation } from './room-invitations';
 
 setupRitewayBun();
 
@@ -30,7 +27,9 @@ const pendingFor = (
   seat,
   expiresAt: later,
 });
-const decide = (overrides: Partial<Parameters<typeof decideRoomInvitation>[0]>) =>
+const decide = (
+  overrides: Partial<Parameters<typeof decideRoomInvitation>[0]>,
+) =>
   decideRoomInvitation({
     room,
     callerActorId: host,

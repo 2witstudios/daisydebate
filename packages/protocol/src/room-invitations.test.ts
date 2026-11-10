@@ -31,8 +31,10 @@ const seat = (actorId: string, role: 'judge' | 'negative') => ({
 test('settledRoomInvitations', () => {
   const invitations = [pending('jo', 'judge'), pending('bea', 'debater')];
   assert({
-    given: 'the invited judge seated, the invited debater in the judge seat, then the Room started',
-    should: 'accept only the seat of the invited kind, then expire every pending one',
+    given:
+      'the invited judge seated, the invited debater in the judge seat, then the Room started',
+    should:
+      'accept only the seat of the invited kind, then expire every pending one',
     actual: [
       settledRoomInvitations(
         { status: 'assembling', participants: [seat('jo', 'judge')] },

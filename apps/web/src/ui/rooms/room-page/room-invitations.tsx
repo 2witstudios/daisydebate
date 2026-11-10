@@ -156,7 +156,10 @@ export function RoomInvitations({
           </p>
           <InviteForm action={action} />
           {view.invitations.length > 0 ? (
-            <ul className="flex flex-col gap-2" aria-label="Pending invitations">
+            <ul
+              className="flex flex-col gap-2"
+              aria-label="Pending invitations"
+            >
               {view.invitations.map((invitation) => (
                 <li
                   key={invitation.id}

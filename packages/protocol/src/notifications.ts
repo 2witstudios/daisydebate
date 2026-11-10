@@ -27,10 +27,7 @@ export const notificationChannelsOf = {
   recording_ready: ['in_app'],
   room_invitation: ['in_app', 'email'],
   challenge_received: ['in_app', 'email'],
-} as const satisfies Record<
-  NotificationKind,
-  readonly NotificationChannel[]
->;
+} as const satisfies Record<NotificationKind, readonly NotificationChannel[]>;
 
 /** Kinds sent by email, each with its own unsubscribe. */
 export const emailedNotificationKinds = [

@@ -140,7 +140,15 @@ export function challengeFrame(
   };
   return {
     otherActorId: other,
-    async send({ id, notificationId, emailJobId, mode, format, now, expiresAt }) {
+    async send({
+      id,
+      notificationId,
+      emailJobId,
+      mode,
+      format,
+      now,
+      expiresAt,
+    }) {
       await authorize();
       requireId(id);
       const [mine, theirs] = await Promise.all([

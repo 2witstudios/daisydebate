@@ -9,7 +9,11 @@ export type UnsubscribeView =
   | {
       readonly kind: 'confirm';
       readonly subject: EmailedNotificationKind;
-      readonly fields: { readonly u: string; readonly k: string; readonly t: string };
+      readonly fields: {
+        readonly u: string;
+        readonly k: string;
+        readonly t: string;
+      };
     }
   | { readonly kind: 'done'; readonly subject: EmailedNotificationKind }
   | { readonly kind: 'invalid' };

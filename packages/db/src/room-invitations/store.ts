@@ -75,10 +75,7 @@ const lockRoom = async (tx: Tx, roomId: string) => {
 };
 const touchRoom = async (tx: Tx, room: RoomAssemblyState) => {
   const changeVersion = room.changeVersion + 1;
-  await tx
-    .update(rooms)
-    .set({ changeVersion })
-    .where(eq(rooms.id, room.id));
+  await tx.update(rooms).set({ changeVersion }).where(eq(rooms.id, room.id));
   await appendRoomChanged(tx, room.id, changeVersion);
 };
 
@@ -148,7 +145,10 @@ export const roomInvitationOperations = ({
             where lower(u.username)=lower(${input.username}) and u.deleted_at is null`,
         );
         const actorIds = [
-          ...new Set([input.caller.actorId, ...(found ? [found.actor_id] : [])]),
+          ...new Set([
+            input.caller.actorId,
+            ...(found ? [found.actor_id] : []),
+          ]),
         ].sort();
         const accounts = await lockAuthorizationActors(tx, actorIds, {
           maxActors: 2,

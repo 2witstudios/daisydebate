@@ -14,7 +14,7 @@ const kindWords: Record<EmailedNotificationKind, string> = {
  */
 export function UnsubscribePage({ view }: { readonly view: UnsubscribeView }) {
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-4 px-4 py-10">
+    <main className="mx-auto flex max-w-reading flex-col gap-4 px-4 py-10">
       <h1 className="font-display text-2xl text-ink">Email preferences</h1>
       {view.kind === 'confirm' ? (
         <form
@@ -38,8 +38,8 @@ export function UnsubscribePage({ view }: { readonly view: UnsubscribeView }) {
         </form>
       ) : view.kind === 'done' ? (
         <p role="status" className="text-base text-ink">
-          Done. You will not get emails about {kindWords[view.subject]}. You
-          can turn them back on in <Link href="/settings">Settings</Link>.
+          Done. You will not get emails about {kindWords[view.subject]}. You can
+          turn them back on in <Link href="/settings">Settings</Link>.
         </p>
       ) : (
         <p role="status" className="text-base text-ink">

@@ -83,6 +83,15 @@ to empty is the separate remove command. Changing settings or seats clears
 every Ready consent, so nobody plays under rules they did not see. Consent
 lives in expiring Redis behind a durable revision fence.
 
+A host can also **invite** a member by username, as a debater (either side) or
+as the judge (ADR 0124). The invitation holds a seat of that kind for them, so
+in a listed Room nobody else can take the judge seat first; it ends when they
+take a seat of that kind (accepted), decline, the host withdraws it, 24 hours
+pass, or the Room starts or closes. The invitee is told in the app and, unless
+they turned it off, by email. Holds are per seat kind: a challenge's arrival
+hold is a debater hold (ADR 0103). Only existing members can be invited; an
+address with no account is preapproved by the owner first.
+
 Start round is one atomic operation. When every required seat is filled and
 every human is Ready, the host's click freezes the seats and rules into one
 Round, in its **opening** when it has a strike or prep to run, otherwise

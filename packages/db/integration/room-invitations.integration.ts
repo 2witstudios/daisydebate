@@ -46,16 +46,16 @@ const withRoom = (
     const database = drizzle({ client: f.sql });
     try {
       await body({
-      f,
-      host,
-      coach,
-      roomId,
-      database,
-      invitations: roomInvitationOperations({
+        f,
+        host,
+        coach,
+        roomId,
         database,
-        transaction: roomCommandTransaction(f.sql, 2),
-      }),
-      notifications: notificationOperations({ database }),
+        invitations: roomInvitationOperations({
+          database,
+          transaction: roomCommandTransaction(f.sql, 2),
+        }),
+        notifications: notificationOperations({ database }),
       });
     } finally {
       // Every signal this suite rang: the Room's doorbell and its invitees' bells.
@@ -76,7 +76,11 @@ const invite = (
     roomId: env.roomId,
     username,
     seat,
-    ids: { invitation: createId(), notification: createId(), emailJob: createId() },
+    ids: {
+      invitation: createId(),
+      notification: createId(),
+      emailJob: createId(),
+    },
     admitted: (account) => account?.beta?.state === 'approved',
     decide: (facts) =>
       decideRoomInvitation({ ...facts, callerActorId: env.host.actorId, seat }),
@@ -86,7 +90,8 @@ test('an invitation holds the judge seat and tells the invitee in the same trans
   await withRoom(async (env) => {
     const { invitationId } = await invite(env, env.coach.userId);
     const again = await invite(env, env.coach.userId);
-    const holds = await env.f.sql`select actor_id,seat from room_seat_holds where room_id=${env.roomId}`;
+    const holds = await env.f
+      .sql`select actor_id,seat from room_seat_holds where room_id=${env.roomId}`;
     const inbox = await env.notifications.readNotifications({
       userId: env.coach.userId,
       unreadOnly: false,
@@ -149,8 +154,10 @@ test('an invitation ends: declined, then accepted by taking the seat, then expir
           end: 'decline',
         }),
     });
-    const afterDecline = await env.f.sql`select state from room_invitations where id=${first.invitationId}`;
-    const holdsAfterDecline = await env.f.sql`select 1 from room_seat_holds where room_id=${env.roomId}`;
+    const afterDecline = await env.f
+      .sql`select state from room_invitations where id=${first.invitationId}`;
+    const holdsAfterDecline = await env.f
+      .sql`select 1 from room_seat_holds where room_id=${env.roomId}`;
     const second = await invite(env, env.coach.userId);
     const now = new Date().toISOString();
     const [row] = await env.database
@@ -178,7 +185,8 @@ test('an invitation ends: declined, then accepted by taking the seat, then expir
       },
       now,
     );
-    const accepted = await env.f.sql`select state from room_invitations where id=${second.invitationId}`;
+    const accepted = await env.f
+      .sql`select state from room_invitations where id=${second.invitationId}`;
     const debater = await createAuthorizationSubject(env.f);
     const third = await invite(env, debater.userId, 'debater');
     await settleRoomInvitationsAfter(
@@ -186,10 +194,13 @@ test('an invitation ends: declined, then accepted by taking the seat, then expir
       { ...state, status: 'closed' },
       now,
     );
-    const expired = await env.f.sql`select state from room_invitations where id=${third.invitationId}`;
-    const holds = await env.f.sql`select 1 from room_seat_holds where room_id=${env.roomId}`;
+    const expired = await env.f
+      .sql`select state from room_invitations where id=${third.invitationId}`;
+    const holds = await env.f
+      .sql`select 1 from room_seat_holds where room_id=${env.roomId}`;
     assert({
-      given: 'a decline, a seat taken by the invited judge, and a Room that closed',
+      given:
+        'a decline, a seat taken by the invited judge, and a Room that closed',
       should: 'end each as declined, accepted and expired, freeing every hold',
       actual: {
         states: [afterDecline, accepted, expired].map(
@@ -223,7 +234,8 @@ test('who cannot be invited changes nothing', async () => {
         await refusal(() => invite(env, pending.userId)),
         await refusal(() => invite(env, env.host.userId)),
         (
-          await env.f.sql`select 1 from room_invitations where room_id=${env.roomId}`
+          await env.f
+            .sql`select 1 from room_invitations where room_id=${env.roomId}`
         ).length,
       ],
       expected: [

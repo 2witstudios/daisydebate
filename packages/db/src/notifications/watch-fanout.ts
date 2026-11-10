@@ -17,7 +17,6 @@ const spectatorMargin = sql.raw(
   `interval '${SPECTATOR_MARGIN_MS} milliseconds'`,
 );
 
-
 const seatedDebaters = (roundId: string) =>
   sql`select p.actor_id from round_participants p
     where p.round_id=${roundId} and p.role in ('affirmative','negative')`;
