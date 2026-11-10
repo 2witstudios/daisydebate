@@ -123,3 +123,35 @@ test('recording is a visible casual choice and automatically on for Ranked', () 
     expected: [true, true, true, false, false, true, true, true],
   });
 });
+
+test('a casual Room is public unless its host chooses otherwise', () => {
+  const render = (values: Readonly<Record<string, string>>) =>
+    renderToString(
+      h(CreateRoomEditor, {
+        choices: [unequalTemplate],
+        resolutions: [],
+        initialChoice: unequalTemplate,
+        values,
+        commandId: 'n'.repeat(24),
+        initialRanked: false,
+        pending: false,
+      }),
+    );
+  const options = (html: string) =>
+    [
+      ...(
+        html.match(/<select[^>]*name="visibility"[^>]*>.*?<\/select>/)?.[0] ??
+        ''
+      ).matchAll(/<option value="(\w+)"( selected="")?/g),
+    ].map(([, value, selected]) => `${value}${selected ? '*' : ''}`);
+  assert({
+    given: 'a fresh casual create form, then one the host set to unlisted',
+    should:
+      'list public first and select it by default, and keep the host’s explicit unlisted choice',
+    actual: [options(render({})), options(render({ visibility: 'unlisted' }))],
+    expected: [
+      ['public*', 'unlisted'],
+      ['public', 'unlisted*'],
+    ],
+  });
+});

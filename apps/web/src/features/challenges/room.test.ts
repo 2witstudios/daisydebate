@@ -35,11 +35,12 @@ describe('challengeRoomForm', () => {
       expected: ['h'.repeat(24), 'a'.repeat(24)],
     });
   });
-  test('an unlisted room on the agreed format, named for both', () => {
+  test('a public room on the agreed format, named for both', () => {
     const made = form('casual');
     assert({
       given: 'a casual challenge',
-      should: 'keep the room unlisted and casual, naming the challenger first',
+      should:
+        'open the room public (the Room default) and casual, naming the challenger first',
       actual: [
         made.get('title'),
         made.get('visibility'),
@@ -48,7 +49,7 @@ describe('challengeRoomForm', () => {
       ],
       expected: [
         '@ada vs @bea',
-        'unlisted',
+        'public',
         'strike',
         {
           kind: 'catalog',

@@ -10,11 +10,7 @@ import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { AssemblyEditForm, AssemblyEditFeedback } from './assembly-edit-form';
 import { AssemblyCommandFields } from './assembly-command-fields';
-
-const visibilityChoices = [
-  ['unlisted', 'Anyone with the link', 'only people you share the link with'],
-  ['public', 'Listed in the lobby', 'anyone can find and join it'],
-] as const;
+import { roomVisibilityChoices } from '../../../features/rooms/room-visibility';
 
 /** Who can join, as words; private rooms return with an invite path (ISSUE-443). */
 function VisibilityField({
@@ -27,7 +23,7 @@ function VisibilityField({
   return (
     <fieldset className="flex flex-col gap-2 border-0 p-0">
       <legend className="mb-1 text-sm font-strong">Who can join</legend>
-      {visibilityChoices.map(([value, label, detail]) => (
+      {roomVisibilityChoices.map(({ value, label, detail }) => (
         <label
           key={value}
           className="flex min-h-room-target items-start gap-3 text-sm"

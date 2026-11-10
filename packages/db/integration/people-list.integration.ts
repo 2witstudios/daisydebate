@@ -534,12 +534,10 @@ test('accepting names only a room made for the offer, and only for a free challe
     const terms = (
       await listChallenges(ctx.database, ctx.them, ctx.now, unfenced)
     ).map((row) => row.mode);
-    const publicRoom = await room({});
-    const wrongFormat = await fixture.room(ctx.them.actorId, 'freestyle', {
-      visibility: 'unlisted',
-    });
+    const unlistedRoom = await room({ visibility: 'unlisted' });
+    const wrongFormat = await fixture.room(ctx.them.actorId, 'freestyle', {});
     const refused = [
-      await accept(challengeId, publicRoom),
+      await accept(challengeId, unlistedRoom),
       await accept(challengeId, wrongFormat),
     ];
     const mine = await fixture.room(ctx.me.actorId, 'policy', {});
@@ -547,7 +545,7 @@ test('accepting names only a room made for the offer, and only for a free challe
       'insert into room_active_memberships (actor_id, room_id) values ($1, $2)',
       [ctx.me.actorId, mine],
     );
-    const right = await room({ visibility: 'unlisted' });
+    const right = await room({});
     const whilePlaced = await accept(challengeId, right);
     await ctx.client.unsafe(
       'delete from room_active_memberships where actor_id = $1',
@@ -571,7 +569,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     ]);
     assert({
       given:
-        'an offer resent as casual, a public room, another format, a placed challenger, then the right room',
+        'an offer resent as casual, an unlisted room, another format, a placed challenger, then the right (public) room',
       should:
         'take the new terms, refuse the wrong rooms and the placed challenger, accept the right room, then stop sending the challenger there',
       actual: [

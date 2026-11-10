@@ -46,11 +46,14 @@ be able to see who is online."
    `db/challenges`, `features/challenges`, routes under `/api/challenges`.
    Anyone can challenge any available member, ranked or casual, in Freestyle,
    Policy or Value. An offer stands two minutes and creates nothing. Accepting
-   opens a room through the one room-create route as the acceptor, unlisted when
-   casual and public when ranked, so a human judge can find it and the result
-   counts on both records, then names it on the offer, which accepts
-   only a room matching its format and mode, and only while the challenger is
-   unplaced. A debater seat stays held for each of the two for two minutes
+   opens a room through the one room-create route as the acceptor, public in
+   both modes: casual by the Room default, and ranked because a human judge has
+   to find it and the result counts on both records. It then names the room on
+   the offer, which accepts only a public room matching its format and mode,
+   and only while the challenger is unplaced. _Amended 2026-11-10 (owner):_ a
+   casual challenge room was unlisted until then. Rooms are public by default,
+   and unlisted is only ever a host's explicit choice
+   ([rooms](../domains/rooms.md#visibility)). A debater seat stays held for each of the two for two minutes
    (`room_seat_holds`): the Room's own fact, so a listed room's seats are theirs
    while they arrive, and it never seats anyone or touches the judge seat. The
    challenger is sent there for those two minutes, once. The inbox

@@ -192,9 +192,9 @@ export function challengeFrame(
       await authorize();
       requireId(roomId);
       requireId(challengeId);
-      // Only a room made for this offer: its format and mode, and public when
-      // ranked so a judge can find it, so no other room the acceptor hosts can
-      // receive the challenger.
+      // Only a room made for this offer: its format and mode, and public as
+      // every challenge room is (ranked always, casual by the Room default),
+      // so no other room the acceptor hosts can receive the challenger.
       const [offer] = await tx
         .select({
           id: challenges.id,
@@ -205,7 +205,7 @@ export function challengeFrame(
           and(
             eq(rooms.formatId, challenges.formatId),
             eq(rooms.competitionType, challenges.mode),
-            sql`${rooms.visibility} = case when ${challenges.mode} = 'ranked' then 'public' else 'unlisted' end`,
+            eq(rooms.visibility, 'public'),
             openRoomHostedBy(roomId, input.actorId),
           ),
         )

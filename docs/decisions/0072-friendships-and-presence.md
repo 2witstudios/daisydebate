@@ -105,8 +105,9 @@ fence (accounts, then the pair, then a channel).
    (only idle ones) or `offline`. Presence
    never grants a relationship, channel, room or attendance fact, and an
    expired lease changes no relationship.
-8. **Challenge** creates an unlisted casual room on the catalog's default
-   template, named for the two members, delivers the challenge to the
+8. **Challenge** creates a casual room on the catalog's default
+   template (it was unlisted until 2026-11-10; it is public now, the Room
+   default, and ADR 0103 §4 supersedes this point), named for the two members, delivers the challenge to the
    friend, and takes the challenger to the room. Delivery is a
    `friend_challenges` row (room, challenger, challenged), written
    in the same contact-fenced transaction that confirms the pair is an
