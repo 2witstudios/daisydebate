@@ -47,8 +47,8 @@ separate observable facts. No rates or invoices are seeded as production truth.
 and saves the private report. It returns one typed collection: `reported` (the
 saved report, the signals it implies and whether the feed was `supplied` or
 `missing`) or `failed` with one closed reason and the error that stage caught:
-`sink_unavailable` (the private directory cannot be created or is not
-private, or its bounded retention sweep refused; the sweep runs on every
+`sink_unavailable` (the private directory cannot be created, is not
+private, or this process may not read, write and enter it, or its bounded retention sweep refused; the sweep runs on every
 collection, whether or not it reaches the save), `snapshot_failed` (the read
 threw), `snapshot_invalid` (schema,
 window, or an observation later than now, each with its own reason),
@@ -58,9 +58,9 @@ this process may not read,
 malformed or oversized contents, the JSON literal `null`, window, schema, or a
 floor other than the recorded policy),
 `report_invalid` (the joined feed and snapshot fail the report's own schema or
-coherence, so nothing is saved), `report_failed` (joining the feed and snapshot or
-building the report threw something other than a typed data refusal: a
-defect, reported as `INTERNAL`) or `save_failed` (including the save's file
+coherence, so nothing is saved), `report_failed` (a defect, reported as `INTERNAL`:
+joining the feed and snapshot or building the report threw something other than
+a typed data refusal, or opening the sink met a malformed window or clock) or `save_failed` (including the save's file
 cap). A feed file whose body is `null` is invalid, never a missing feed. The
 collector never reports.
 `raiseEconomicsSignals` submits a saved report's fixed signals through the

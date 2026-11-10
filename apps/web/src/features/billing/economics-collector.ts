@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
+import { createRefusal, type ErrorCode } from '@daisy/errors';
 import { typedCodeOr } from './economics-cause';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
@@ -255,7 +255,7 @@ const feedFault = (
   cause: unknown,
   otherwise: EconomicsCollectionFailure,
 ): EconomicsCollectionFailure =>
-  isAppError(cause) && cause.code === 'VALIDATION' ? 'feed_invalid' : otherwise;
+  typedCodeOr(cause, 'INTERNAL') === 'VALIDATION' ? 'feed_invalid' : otherwise;
 
 type Stage<T> =
   | { readonly ok: true; readonly value: T }
@@ -291,7 +291,15 @@ export function createBillingEconomicsCollector(input: {
           cause,
         }) as const;
       const sink = await stage(() => input.sink.open(window));
-      if (!sink.ok) return failed('sink_unavailable', sink.cause);
+      // An INTERNAL defect met while opening the sink (a malformed window, an invalid clock)
+      // is the caller's defect, never the volume's.
+      if (!sink.ok)
+        return failed(
+          typedCodeOr(sink.cause, 'INFRASTRUCTURE') === 'INTERNAL'
+            ? 'report_failed'
+            : 'sink_unavailable',
+          sink.cause,
+        );
       const read = await stage(() => input.store.read(window));
       if (!read.ok) return failed('snapshot_failed', read.cause);
       const snapshot = await stage(() => {

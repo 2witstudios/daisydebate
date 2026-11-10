@@ -231,7 +231,7 @@ test('a feed file whose body is null is invalid, never a missing feed', async ()
       should:
         'refuse it as invalid rather than report the month as feed-missing',
       actual: await refusalOf(files.feed.read(window)),
-      expected: 'Billing economics feed is invalid',
+      expected: 'Billing economics feed body is null',
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -607,27 +607,34 @@ test('opening the sink refuses a malformed end instant before retention runs', a
 });
 
 test('a sink directory this process cannot use is refused as unusable', async () => {
-  const { chmod } = await import('node:fs/promises');
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
   try {
-    await chmod(directory, 0o600);
+    // The usability refusal is injected, so it holds on every runner, root included.
     const files = createBillingEconomicsFiles({
       directory,
       now: () => now,
       nextId: () => 'q'.repeat(24),
+      accessDirectory: async () => {
+        throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+      },
     });
     assert({
-      given: 'a sink directory with no owner execute bit (mode 0600)',
+      given: 'a private sink directory this process is refused access to',
       should:
-        'refuse at open as economics-sink-unusable, before any file inside',
+        'refuse at open as economics-sink-unusable, before any file inside, keeping the errno',
       actual: await files.sink.open(window).then(
         () => null,
-        (error: unknown) => (error as { reason?: string }).reason ?? null,
+        (error: unknown) =>
+          error instanceof Error
+            ? [
+                (error as { reason?: string }).reason,
+                (error.cause as { code?: string } | undefined)?.code,
+              ]
+            : null,
       ),
-      expected: 'economics-sink-unusable',
+      expected: ['economics-sink-unusable', 'EACCES'],
     });
   } finally {
-    await chmod(directory, 0o700);
     await rm(directory, { recursive: true, force: true });
   }
 });

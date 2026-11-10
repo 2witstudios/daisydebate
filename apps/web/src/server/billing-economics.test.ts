@@ -5,12 +5,12 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { refuseCapacity } from '@daisy/db/testing';
+import { innermostReason } from '../features/billing/economics-cause';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { createApp } from './app';
 import { createEventRecorder, silentLogger } from './test-loggers.test-support';
 import {
   composeBillingEconomics,
-  economicsFailureCheck,
   startBillingEconomics,
 } from './billing-economics';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
@@ -976,11 +976,11 @@ test('the log line names a check by its closed reason, never its message', () =>
     should:
       'name the check, then the error itself, then the stage, and nothing where no reason exists',
     actual: [
-      economicsFailureCheck(
+      innermostReason(
         createRefusal('VALIDATION', 'economics-feed-invalid', 'x', check),
       ),
-      economicsFailureCheck(check),
-      economicsFailureCheck(
+      innermostReason(check),
+      innermostReason(
         createRefusal(
           'INFRASTRUCTURE',
           'economics-snapshot-failed',
@@ -988,8 +988,8 @@ test('the log line names a check by its closed reason, never its message', () =>
           new Error('driver'),
         ),
       ),
-      economicsFailureCheck(createAppError('INFRASTRUCTURE', 'no reason')),
-      economicsFailureCheck(new Error('driver')),
+      innermostReason(createAppError('INFRASTRUCTURE', 'no reason')),
+      innermostReason(new Error('driver')),
     ],
     expected: [
       'economics-feed-conflicting-basis',
@@ -1065,7 +1065,7 @@ test('captures carry a fixed per-stage message, and signal_failed keeps a typed 
         signals.captured
           .filter((c) => c.route === 'billing.economics.signal_failed')
           .map((c) => [c.errorCode, messageOf(c)]),
-        stage.captured.map((c) => economicsFailureCheck(c.error)),
+        stage.captured.map((c) => innermostReason(c.error)),
       ],
       expected: [
         [
@@ -1168,7 +1168,7 @@ test('the log line names the innermost reason in the cause chain', () => {
     given:
       'a stage error wrapping the feed reader refusal, which wraps the directory privacy refusal',
     should: 'name the privacy refusal, the actual fault',
-    actual: economicsFailureCheck(
+    actual: innermostReason(
       createRefusal(
         'INFRASTRUCTURE',
         'economics-feed-unreadable',

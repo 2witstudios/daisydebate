@@ -1,6 +1,6 @@
 import type { FileHandle } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, opendir, unlink } from 'node:fs/promises';
+import { access, lstat, mkdir, open, opendir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -62,7 +62,13 @@ async function prunePrivateFiles(
   }
   return count;
 }
-async function privateDirectory(directory: string) {
+/** Whether this process may read, write and enter the directory; the process edge passes node's `access`. */
+type AccessDirectory = (path: string) => Promise<void>;
+
+async function privateDirectory(
+  directory: string,
+  accessDirectory: AccessDirectory,
+) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const info = await lstat(directory);
   // Private: no group/other bits.
@@ -72,17 +78,19 @@ async function privateDirectory(directory: string) {
       'economics-sink-not-private',
       'Billing economics directory is not private',
     );
-  // Usable by this process: owned by this uid and rwx for its owner, so a later refusal
-  // on a file inside is the file's, never the directory's.
-  if (
-    (info.mode & 0o700) !== 0o700 ||
-    (process.getuid !== undefined && info.uid !== process.getuid())
-  )
+  // Usable by this process (read, write, enter), asked of the kernel rather than inferred from
+  // mode and uid, so root on a foreign-owned volume is not refused; a later refusal on a
+  // file inside is then the file's, never the directory's.
+  try {
+    await accessDirectory(directory);
+  } catch (error) {
     throw createRefusal(
       'VALIDATION',
       'economics-sink-unusable',
-      'Billing economics directory is not owned by and usable to this process',
+      'Billing economics directory is not usable by this process',
+      error,
     );
+  }
 }
 async function readBoundedJson(file: FileHandle) {
   const bytes = Buffer.alloc(maximumFeedBytes + 1);
@@ -113,8 +121,8 @@ async function readBoundedJson(file: FileHandle) {
   if (parsed === null)
     throw createRefusal(
       'VALIDATION',
-      'economics-feed-unparseable',
-      'Billing economics feed is invalid',
+      'economics-feed-null',
+      'Billing economics feed body is null',
     );
   return parsed;
 }
@@ -200,7 +208,12 @@ export function createBillingEconomicsFiles(input: {
   readonly now: () => string;
   /** The feed file opener; node's `open` unless a test must produce a specific refusal. */
   readonly openFeed?: OpenFeed;
+  /** The directory usability check; node's `access` unless a test must produce a refusal. */
+  readonly accessDirectory?: AccessDirectory;
 }) {
+  const accessDirectory: AccessDirectory =
+    input.accessDirectory ??
+    ((path) => access(path, constants.R_OK | constants.W_OK | constants.X_OK));
   return {
     /**
      * The sink itself: its directory exists and is private, and its bounded
@@ -214,7 +227,7 @@ export function createBillingEconomicsFiles(input: {
       }) {
         // The window decides what retention protects, so a malformed one never reaches the sweep.
         assertWindow(window);
-        await privateDirectory(input.directory);
+        await privateDirectory(input.directory, accessDirectory);
         await prunePrivateFiles(
           input.directory,
           input.now(),
@@ -231,7 +244,7 @@ export function createBillingEconomicsFiles(input: {
         // The reader keeps its own privacy check, so a caller need not open the sink first. A
         // directory fault here is the sink's, never the feed file's, so it reads as unavailable.
         try {
-          await privateDirectory(input.directory);
+          await privateDirectory(input.directory, accessDirectory);
         } catch (error) {
           throw createRefusal(
             'INFRASTRUCTURE',
@@ -247,7 +260,7 @@ export function createBillingEconomicsFiles(input: {
       },
     },
     async save(report: PrivateReport) {
-      await privateDirectory(input.directory);
+      await privateDirectory(input.directory, accessDirectory);
       const protectFrom = report.report.startsAt.slice(0, 7);
       if (
         (await prunePrivateFiles(input.directory, input.now(), protectFrom)) >=

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, createRefusal, isAppError } from '@daisy/errors';
 import {
   createBillingEconomicsCollector,
   economicsFailureCode,
@@ -586,5 +586,25 @@ test('a snapshot observed in the future is named as such, not as a window mismat
     should: 'fail as snapshot_invalid with its own fixed message',
     actual: r.kind === 'failed' && isAppError(r.cause) && r.cause.message,
     expected: 'Economics snapshot observed in the future',
+  });
+});
+
+test("a defect met while opening the sink is report_failed, never the volume's fault", async () => {
+  const r = await createBillingEconomicsCollector({
+    sink: {
+      open: async () => {
+        throw createRefusal('INTERNAL', 'economics-window-invalid');
+      },
+    },
+    store: { read: async () => snapshot() },
+    feed: { read: async () => feed() },
+    now: () => now,
+    save: async () => undefined,
+  }).run(window);
+  assert({
+    given: 'a sink that refuses a malformed window as an INTERNAL defect',
+    should: 'fail as report_failed with code INTERNAL, not sink_unavailable',
+    actual: r.kind === 'failed' && [r.reason, r.code],
+    expected: ['report_failed', 'INTERNAL'],
   });
 });

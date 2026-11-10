@@ -1,8 +1,8 @@
 import { isAppError, type ErrorCode } from '@daisy/errors';
 import type { RefusalReason } from '@daisy/protocol';
 
-/** At most this many links of a cause chain are read; a longer or cyclic chain is cut there. */
-const chainBound = 8;
+/** At most this many links of a cause chain are read (the bound isCapacityRefusal uses); longer or cyclic chains are cut there. */
+const chainBound = 16;
 
 /** An own data property, never a getter, and never a throw (a Proxy trap included). */
 function ownValue(object: object, key: string): unknown {

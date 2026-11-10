@@ -104,15 +104,6 @@ const stageError = (stage: EconomicsStage, code: ErrorCode, cause: unknown) =>
   createRefusal(code, stageRefusal[stage], `Billing economics ${stage}`, cause);
 
 /**
- * The log line's closed `cause` (ADR 0102: a reason, never a message): the
- * innermost reason in the cause chain, so the actual fault is named (a
- * non-private directory met by the feed reader logs economics-sink-not-private),
- * otherwise the stage the reported error names. Only an error with no reason
- * anywhere names nothing.
- */
-export const economicsFailureCheck = (error: unknown) => innermostReason(error);
-
-/**
  * One bounded monthly collection per hourly tick, raising each signal once a
  * month and each failure once per regression, per process. Without a provisioned sink there is
  * nowhere to keep a report, so the worker does not run and raises nothing
@@ -138,7 +129,8 @@ export function startBillingEconomics(input: {
     'billing.economics.failed',
     'billing.economics',
     'Private billing economics remain incomplete',
-    economicsFailureCheck,
+    // The log line's closed `cause` (ADR 0102): the innermost refusal reason, the actual fault.
+    innermostReason,
   );
   let raised = nothingRaised;
   /**
