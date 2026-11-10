@@ -235,6 +235,13 @@ export type EconomicsCollection =
       readonly cause: unknown;
     };
 
+/** A typed VALIDATION refusal is the operator's feed being wrong; anything else is the given stage's. */
+const feedFault = (
+  cause: unknown,
+  otherwise: EconomicsCollectionFailure,
+): EconomicsCollectionFailure =>
+  isAppError(cause) && cause.code === 'VALIDATION' ? 'feed_invalid' : otherwise;
+
 type Stage<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly cause: unknown };
@@ -276,12 +283,16 @@ export function createBillingEconomicsCollector(input: {
         const parsed = billingEconomicsReadSchema.parse(read.value);
         if (
           parsed.startsAt !== window.startsAt ||
-          parsed.endsAt !== window.endsAt ||
-          parsed.observedAt > input.now()
+          parsed.endsAt !== window.endsAt
         )
           throw createAppError(
             'VALIDATION',
             'Economics snapshot window mismatch',
+          );
+        if (parsed.observedAt > input.now())
+          throw createAppError(
+            'VALIDATION',
+            'Economics snapshot observed in the future',
           );
         return parsed;
       });
@@ -289,23 +300,13 @@ export function createBillingEconomicsCollector(input: {
       const feed = await stage(() => input.feed.read(window));
       // The files edge marks a malformed feed's contents VALIDATION; anything else is the read failing.
       if (!feed.ok)
-        return failed(
-          isAppError(feed.cause) && feed.cause.code === 'VALIDATION'
-            ? 'feed_invalid'
-            : 'feed_unreadable',
-          feed.cause,
-        );
+        return failed(feedFault(feed.cause, 'feed_unreadable'), feed.cause);
       const joined = await stage(() =>
         dataset(window, snapshot.value, feed.value),
       );
       // Only the join's own typed refusals are the feed's fault; anything else it throws is a defect.
       if (!joined.ok)
-        return failed(
-          isAppError(joined.cause) && joined.cause.code === 'VALIDATION'
-            ? 'feed_invalid'
-            : 'report_failed',
-          joined.cause,
-        );
+        return failed(feedFault(joined.cause, 'report_failed'), joined.cause);
       // The builder returns invalid input as a value; a throw from it is a defect, not bad data.
       const report = await stage(() =>
         buildEconomicsReport(joined.value, input.now()),

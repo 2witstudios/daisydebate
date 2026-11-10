@@ -15,10 +15,21 @@ type Collection<K extends EconomicsCollection['kind']> = Extract<
  */
 export function failureNotice(collection: Collection<'failed'>): string {
   const { cause, code } = collection;
-  // A typed error carries a fixed, code-authored message, so each distinct typed problem is its own
-  // notice; an untyped error's text is not trusted to be fixed, so all of a stage's are one.
-  const check = isAppError(cause) ? cause.message : '';
-  return `${collection.month}:${collection.reason}:${code}:${check}`;
+  return `${collection.month}:${collection.reason}:${code}:${problemOf(cause)}`;
+}
+
+/**
+ * What distinguishes one problem from another without trusting free text: a
+ * typed error's fixed, code-authored message, or an untyped error's class and
+ * its system code (an errno such as ECONNREFUSED, or a SQLSTATE), both closed
+ * vocabularies. An untyped error with neither is one problem per stage.
+ */
+function problemOf(cause: unknown): string {
+  if (isAppError(cause)) return cause.message;
+  if (!(cause instanceof Error)) return '';
+  const system =
+    'code' in cause && typeof cause.code === 'string' ? cause.code : '';
+  return `${cause.name}/${system}`;
 }
 
 /** A failure to submit a month's signals: one notice, however often the reporter throws. */
@@ -110,6 +121,15 @@ export function recordSignals(
     signals: new Set([...month.signals, ...outcome.taken.map(signalKey)]),
   };
 }
+
+/** Note that a feed was supplied, so the month's next missing feed is logged again. */
+export const recordFeedSupplied = (
+  raised: EconomicsRaised,
+  collection: Collection<'reported'>,
+): EconomicsRaised => ({
+  ...raisedIn(raised, collection.month),
+  feedMissingLogged: false,
+});
 
 /** Note that this month's missing feed was logged. */
 export const recordFeedMissingLogged = (

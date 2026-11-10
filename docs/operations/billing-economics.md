@@ -50,7 +50,8 @@ saved report, the signals it implies and whether the feed was `supplied` or
 `sink_unavailable` (the private directory cannot be created or is not
 private, or its bounded retention sweep refused; the sweep runs on every
 collection, whether or not it reaches the save), `snapshot_failed` (the read
-threw), `snapshot_invalid` (schema, window or a future observation),
+threw), `snapshot_invalid` (schema,
+window, or an observation later than now, each with its own message),
 `feed_unreadable` (the file could not be opened), `feed_invalid` (the
 operator's file is wrong: not a private regular file, a symbolic link, a file
 this process may not read,
@@ -196,9 +197,10 @@ raises each thing once per process:
   else changes in the report: a feed arriving, or one plan's margin changing,
   sends only the signals not yet raised.
 - **Failures.** A failure's identity is its stage and its error code, so a
-  different kind of problem in the same stage is a new notice; for this
-  collector's own data checks (each a fixed VALIDATION message) every distinct
-  check is its own notice. Capacity
+  different kind of problem in the same stage is a new notice; a typed
+  error's fixed message, or an untyped error's class and system code (an errno
+  such as `ECONNREFUSED`, or a SQLSTATE), tells one problem from another, never
+  free text. Capacity
   backpressure is never a notice: every refusal goes to the shared failure
   sink, which absorbs eight per stage and reports the ninth, so starvation is
   reported even after another failure of that stage, and it never masks one. A failure is raised once until a report is saved again; after that
@@ -207,7 +209,8 @@ raises each thing once per process:
   raised, so a deferred capacity refusal never mutes what follows.
 - **Missing feed.** `billing.economics.feed_missing` is logged once a month,
   before any signal is raised, so a reporter that throws cannot keep it quiet;
-  a line the log sink refused is tried again on the next tick.
+  a line the log sink refused is tried again on the next tick, and a feed that
+  disappears after being supplied is logged again.
 - **Signal failures.** A reporter that throws is one `signal_failed` notice
   until a report's signals go through again. A saved report still re-arms the
   stage failures, so a regression after it is raised even while signals fail.

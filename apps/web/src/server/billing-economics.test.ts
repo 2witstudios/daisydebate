@@ -982,3 +982,39 @@ test('the log line names a typed check as a closed code', () => {
     ],
   });
 });
+
+test('a feed that disappears after being supplied is logged as missing again', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const path = join(directory, 'feed-2026-10.json');
+  const { modelUsage: _m, ...financial } = dataset();
+  void _m;
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 2,
+      between: async (n) => {
+        if (n === 1)
+          await writeFile(
+            path,
+            JSON.stringify({
+              ...financial,
+              modelCostBasis: 'provider_invoice',
+            }),
+            { mode: 0o600 },
+          );
+        if (n === 2) await rm(path);
+      },
+    });
+    assert({
+      given: 'a missing feed, then a supplied feed, then the feed removed',
+      should:
+        'log feed_missing for the first absence and again after the removal',
+      actual: run.logged.filter(
+        (l) => l.event === 'billing.economics.feed_missing',
+      ).length,
+      expected: 2,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

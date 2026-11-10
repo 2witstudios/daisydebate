@@ -566,3 +566,25 @@ test('an incoherent report names its check', async () => {
     ],
   });
 });
+
+test('a snapshot observed in the future is named as such, not as a window mismatch', async () => {
+  const r = await createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
+    store: {
+      read: async () => ({
+        ...snapshot(),
+        observedAt: '2026-12-01T00:00:00.000Z',
+      }),
+    },
+    feed: { read: async () => feed() },
+    now: () => now,
+    save: async () => undefined,
+  }).run(window);
+  assert({
+    given:
+      'a snapshot whose window matches but whose observation is later than now',
+    should: 'fail as snapshot_invalid with its own fixed message',
+    actual: r.kind === 'failed' && isAppError(r.cause) && r.cause.message,
+    expected: 'Economics snapshot observed in the future',
+  });
+});

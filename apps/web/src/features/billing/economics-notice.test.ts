@@ -69,7 +69,7 @@ test('the same failure every hour is one notice; a different code in the stage i
       failureNotice(capacity),
     ],
     expected: [
-      '2026-10:save_failed:INTERNAL:',
+      '2026-10:save_failed:INTERNAL:Error/',
       '2026-10:save_failed:INFRASTRUCTURE:capacity',
     ],
   });
@@ -215,5 +215,30 @@ test('two typed problems in one stage are two notices', () => {
       failureNotice(sink('Billing economics directory is not private')) !==
       failureNotice(sink('Billing economics directory capacity exceeded')),
     expected: true,
+  });
+});
+
+test('untyped failures differ by their class and system code, never their text', () => {
+  const untyped = (message: string, code?: string) => ({
+    ...failed('2026-10', 'save_failed'),
+    reason: 'snapshot_failed' as const,
+    code: 'INFRASTRUCTURE' as const,
+    cause: Object.assign(new Error(message), code ? { code } : {}),
+  });
+  assert({
+    given:
+      'a refused connection, a missing relation, and the refused connection again with other text',
+    should:
+      'make the two system codes distinct notices and the repeat the same notice',
+    actual: [
+      failureNotice(
+        untyped('connect ECONNREFUSED 10.0.0.1', 'ECONNREFUSED'),
+      ) === failureNotice(untyped('relation does not exist', '42P01')),
+      failureNotice(
+        untyped('connect ECONNREFUSED 10.0.0.1', 'ECONNREFUSED'),
+      ) ===
+        failureNotice(untyped('connect ECONNREFUSED 10.0.0.2', 'ECONNREFUSED')),
+    ],
+    expected: [false, true],
   });
 });

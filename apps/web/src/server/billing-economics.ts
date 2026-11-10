@@ -14,6 +14,7 @@ import {
   raisedIn,
   recordFailure,
   recordFeedMissingLogged,
+  recordFeedSupplied,
   recordSignals,
   signalFailureNotice,
 } from '../features/billing/economics-notice';
@@ -115,9 +116,10 @@ export function startBillingEconomics(input: {
   };
   const raise = (collection: EconomicsCollection) => {
     if (collection.kind === 'failed') {
+      // A fixed per-stage message, so the tracker can tell the stages apart.
       const error = createAppError(
         collection.code,
-        undefined,
+        `Billing economics ${collection.reason}`,
         collection.cause,
       );
       // Capacity backpressure is bounded by the shared sink itself and is never a notice,
@@ -131,6 +133,12 @@ export function startBillingEconomics(input: {
         collection.reason,
       );
     }
+    // A supplied feed re-arms the missing-feed line, so a feed that later disappears is logged.
+    if (
+      collection.feed === 'supplied' &&
+      raisedIn(raised, collection.month).feedMissingLogged
+    )
+      raised = recordFeedSupplied(raised, collection);
     // Logged before any signal is raised, so a throwing reporter cannot keep the month quiet.
     if (
       collection.feed === 'missing' &&
@@ -161,7 +169,11 @@ export function startBillingEconomics(input: {
       return reportOnce(
         collection.month,
         signalFailureNotice(collection.month),
-        createAppError('INFRASTRUCTURE', undefined, submitted.cause),
+        createAppError(
+          isAppError(submitted.cause) ? submitted.cause.code : 'INFRASTRUCTURE',
+          'Billing economics signal_failed',
+          submitted.cause,
+        ),
         'signal_failed',
       );
     }
