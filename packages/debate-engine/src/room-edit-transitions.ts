@@ -197,7 +197,6 @@ const wrongSeatForAi = (
 ) =>
   target.kind === 'bot' &&
   target.seatRole !== (role === 'judge' ? 'judge' : 'debater');
-/** The kind of seat a role is: either debating side, or the judge. */
 /**
  * How many free seats of `seat` kind `actorId` may not take at `now`: one for
  * each live hold of that kind for a named member who has not yet taken a seat

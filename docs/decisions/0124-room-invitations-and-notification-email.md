@@ -59,8 +59,10 @@ LOCKED`, SHA3 lease digest), re-reads at send time and sends through the one
    `preference-off`, `not-owed` (the subject ended), `suppressed` or
    `rate-limited` (20 sent per member per hour; a soft cap read without a
    lock, so instances sending at once may pass it by a batch). A host who
-   withdraws and invites the same member again within the hour writes a new
-   inbox row but owes no second email. Terminal jobs are kept 30 days. It is not a beta mail intent: that queue is beta access's. The queue
+   withdraws and invites the same member to the same Room again within the
+   hour writes a new inbox row but owes no second email while the first is
+   queued or sent. Terminal jobs are kept 30 days. It is not a beta mail
+   intent: that queue is beta access's. The queue
    runner and retry policy live in `features/mail/` for both.
 6. **Unsubscribe.** Every notification email links to `/unsubscribe` for its
    kind and carries `List-Unsubscribe` and `List-Unsubscribe-Post` (RFC 8058)

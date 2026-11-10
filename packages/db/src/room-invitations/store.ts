@@ -187,13 +187,18 @@ export const roomInvitationOperations = ({
           values(${room.id},${decision.inviteeActorId},${decision.seat},${decision.expiresAt}::timestamptz)
           on conflict (room_id,actor_id) do update set seat=excluded.seat,until=excluded.until`);
         await touchRoom(tx, room);
-        // One email an hour per host and member, however often the host
-        // withdraws and invites again; the inbox row is always written.
+        // One email an hour per host, member and Room, however often the
+        // host withdraws and invites again: only an email this Room's earlier
+        // invitation queued or sent counts. The inbox row is always written.
         const [recent] = await rowsOf(
           tx,
-          sql`select 1 from room_invitations where inviter_actor_id=${input.caller.actorId}
-            and invitee_actor_id=${found.actor_id} and id<>${input.ids.invitation}
-            and created_at > ${now}::timestamptz - interval '1 hour' limit 1`,
+          sql`select 1 from room_invitations i
+            join notifications n on n.room_invitation_id=i.id
+            join notification_emails j on j.notification_id=n.id
+            where i.room_id=${room.id} and i.inviter_actor_id=${input.caller.actorId}
+              and i.invitee_actor_id=${found.actor_id} and i.id<>${input.ids.invitation}
+              and j.state in ('queued','leased','sent')
+              and j.created_at > ${now}::timestamptz - interval '1 hour' limit 1`,
         );
         await oweNotification(tx, {
           kind: 'room_invitation',
