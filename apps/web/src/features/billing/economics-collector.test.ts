@@ -202,7 +202,7 @@ test('a snapshot for a different window cannot silently price this month', async
       r.kind === 'failed' && [
         r.reason,
         r.code,
-        r.cause instanceof Error && r.cause.message,
+        isAppError(r.cause) && r.cause.message,
       ],
       saved,
     ],
