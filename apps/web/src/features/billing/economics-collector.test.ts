@@ -1,6 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import { createBillingEconomicsCollector } from './economics-collector';
+import {
+  createBillingEconomicsCollector,
+  economicsFailureCode,
+} from './economics-collector';
 import { dataset, month, now } from './economics.test-support';
 setupRitewayBun();
 const window = { startsAt: month, endsAt: '2026-11-01T00:00:00.000Z' };
@@ -357,5 +360,46 @@ test('a malformed feed body is invalid, and an incoherent report is report_inval
       saved,
     ],
     expected: ['feed_invalid', 'feed_unreadable', 'report_invalid', []],
+  });
+});
+
+test('a throw while building the report is report_failed, never blamed on the feed', async () => {
+  let calls = 0;
+  const r = await createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
+    store: { read: async () => snapshot() },
+    feed: { read: async () => feed() },
+    // The snapshot check reads the clock first; the builder's read throws.
+    now: () => {
+      if (++calls > 1) throw new Error('builder defect');
+      return now;
+    },
+    save: async () => undefined,
+  }).run(window);
+  assert({
+    given:
+      'a valid snapshot and feed, and a throw inside the report build stage',
+    should: 'fail as report_failed, not feed_invalid',
+    actual: r.kind === 'failed' && r.reason,
+    expected: 'report_failed',
+  });
+});
+
+test('each failure reason is reported under its fixed error code', () => {
+  assert({
+    given: 'the closed set of collection failure reasons',
+    should:
+      'map bad data to VALIDATION, a defect to INTERNAL, and an unavailable resource to INFRASTRUCTURE',
+    actual: economicsFailureCode,
+    expected: {
+      sink_unavailable: 'INFRASTRUCTURE',
+      snapshot_failed: 'INFRASTRUCTURE',
+      snapshot_invalid: 'VALIDATION',
+      feed_unreadable: 'INFRASTRUCTURE',
+      feed_invalid: 'VALIDATION',
+      report_invalid: 'VALIDATION',
+      report_failed: 'INTERNAL',
+      save_failed: 'INFRASTRUCTURE',
+    },
   });
 });

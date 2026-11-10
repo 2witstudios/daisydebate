@@ -310,3 +310,45 @@ test('retention never expires the feed of the month still being collected', asyn
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+const codeOf = (read: Promise<unknown>) =>
+  read.then(
+    () => null,
+    (error: unknown) =>
+      typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : 'untyped',
+  );
+
+test("a symlinked, group-readable or non-regular feed is VALIDATION, the operator's file being wrong", async () => {
+  const { mkdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'h'.repeat(24),
+    });
+    const path = join(directory, 'feed-2026-10.json');
+    const target = join(directory, 'target.json');
+    await writeFile(target, '{}', { mode: 0o600 });
+    await symlink(target, path);
+    const linked = await codeOf(files.feed.read(window));
+    await rm(path);
+    await writeFile(path, '{}', { mode: 0o644 });
+    const readable = await codeOf(files.feed.read(window));
+    await rm(path);
+    await mkdir(path, { mode: 0o700 });
+    const notFile = await codeOf(files.feed.read(window));
+    assert({
+      given:
+        "a symlink in the feed's place, a mode-0644 feed, and a directory named as the feed",
+      should:
+        'refuse each as a VALIDATION error, so the collector says feed_invalid',
+      actual: [linked, readable, notFile],
+      expected: ['VALIDATION', 'VALIDATION', 'VALIDATION'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
