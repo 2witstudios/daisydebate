@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
   createBillingEconomicsCollector,
   economicsFailureCode,
@@ -430,6 +430,52 @@ test('a malformed feed is named as malformed, never as a floor change', async ()
       'Economics feed schema invalid',
       'Economics feed schema invalid',
       'Economics feed schema invalid',
+    ],
+  });
+});
+
+test('each feed data check refuses with its own fixed VALIDATION message', async () => {
+  const causeOf = async (value: unknown) => {
+    const r = await createBillingEconomicsCollector({
+      sink: { open: async () => undefined },
+      store: { read: async () => snapshot() },
+      feed: { read: async () => value },
+      now: () => now,
+      save: async () => undefined,
+    }).run(window);
+    return r.kind === 'failed' && isAppError(r.cause)
+      ? [r.reason, r.cause.code, r.cause.message]
+      : null;
+  };
+  const volume = {
+    plan: 'premium',
+    feature: 'casual_capture',
+    completed: 1,
+    possibleCalls: 1,
+    capacity: { kind: 'unknown' },
+  };
+  assert({
+    given:
+      'feeds failing the schema, the floor, the window, unique capacity, and the single model cost basis',
+    should:
+      'refuse each as feed_invalid with VALIDATION and a distinct fixed message',
+    actual: [
+      await causeOf([]),
+      await causeOf({ ...feed(), floorBasisPoints: 1000 }),
+      await causeOf({ ...feed(), startsAt: '2026-09-01T00:00:00.000Z' }),
+      await causeOf({ ...feed(), volume: [volume, volume] }),
+      await causeOf({ ...feed(), modelCostBasis: 'usage_counters' }),
+    ],
+    expected: [
+      ['feed_invalid', 'VALIDATION', 'Economics feed schema invalid'],
+      [
+        'feed_invalid',
+        'VALIDATION',
+        'Economics feed floor is not the recorded policy',
+      ],
+      ['feed_invalid', 'VALIDATION', 'Economics feed window mismatch'],
+      ['feed_invalid', 'VALIDATION', 'Duplicate capacity measurements'],
+      ['feed_invalid', 'VALIDATION', 'Conflicting model cost bases'],
     ],
   });
 });
