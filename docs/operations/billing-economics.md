@@ -360,8 +360,11 @@ TEST-mode worker configuration before invocation. Do not launch a second process
 against an active instance or use this example to activate production. The current
 assignment has not executed that full process command. For a one-off/late-month
 correction `correctBillingEconomics(app, instanceId, directory, window)` is
-available to the integrating process owner; it reports a failure (a missing
-feed included) through the same worker failure sink, retaining the same bounded
+available to the integrating process owner. It saves nothing without its feed,
+raises a saved report's signals as the worker does, and reports a failure (a
+missing feed included) through the same worker failure sink; a capacity refusal
+is returned to the caller rather than reported, since a one-off has no later
+tick for the shared bound. It retains the same bounded
 current-service reader and private sink; there is no participant/admin endpoint.
 
 Record the exact candidate/source hashes, month, feed hash, report hash and private

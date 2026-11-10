@@ -11,7 +11,6 @@ import {
 import { economicsSignals, type EconomicsSignal } from './economics-alert';
 import {
   hasRecordedEconomicsFloor,
-  previousEconomicsMonth,
   recordedMarginFloorBasisPoints,
 } from './economics-policy';
 import { buildEconomicsReport, type EconomicsReport } from './economics-report';
@@ -268,7 +267,14 @@ export function createBillingEconomicsCollector(input: {
   readonly now: () => string;
 }) {
   return {
-    async run(window: Window): Promise<EconomicsCollection> {
+    /**
+     * Collect one month. The hourly worker's month records a missing feed as
+     * an incomplete report; a `correction` never saves one without its feed.
+     */
+    async run(
+      window: Window,
+      purpose: 'monthly' | 'correction' = 'monthly',
+    ): Promise<EconomicsCollection> {
       const month = window.startsAt.slice(0, 7);
       const failed = (reason: EconomicsCollectionFailure, cause: unknown) =>
         ({ kind: 'failed', month, reason, cause }) as const;
@@ -306,13 +312,8 @@ export function createBillingEconomicsCollector(input: {
             : 'feed_unreadable',
           feed.cause,
         );
-      // A correction of an earlier month never saves an incomplete report: its feed was removed
-      // or never placed. Only the worker's own month records a missing feed as incomplete.
-      if (
-        feed.value === null &&
-        month <
-          (previousEconomicsMonth(input.now())?.startsAt.slice(0, 7) ?? '')
-      )
+      // A correction never saves an incomplete report: its feed was removed or never placed.
+      if (feed.value === null && purpose === 'correction')
         return failed(
           'feed_missing',
           createRefusal(

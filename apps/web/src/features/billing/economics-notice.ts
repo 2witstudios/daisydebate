@@ -4,9 +4,6 @@ import type {
   EconomicsCollectionFailure,
 } from './economics-collector';
 
-/** Every reason a month is raised under: a failed stage, or a missing feed. */
-export type EconomicsReason = EconomicsCollectionFailure | 'feed_missing';
-
 /**
  * What this process raised for the month it collects. A reason is raised once
  * per streak: it stays raised until a report settles (is saved and its signals
@@ -16,7 +13,7 @@ export type EconomicsReason = EconomicsCollectionFailure | 'feed_missing';
  */
 export type EconomicsRaised = {
   readonly month: string | null;
-  readonly reasons: ReadonlySet<EconomicsReason>;
+  readonly reasons: ReadonlySet<EconomicsCollectionFailure>;
   readonly signals: ReadonlySet<string>;
 };
 
@@ -37,14 +34,14 @@ const signalKey = (signal: EconomicsSignal) => `${signal.name}/${signal.plan}`;
 export const isRaised = (
   raised: EconomicsRaised,
   month: string,
-  reason: EconomicsReason,
+  reason: EconomicsCollectionFailure,
 ) => raisedIn(raised, month).reasons.has(reason);
 
 /** Record a raised reason. */
 export function recordRaised(
   raised: EconomicsRaised,
   month: string,
-  reason: EconomicsReason,
+  reason: EconomicsCollectionFailure,
 ): EconomicsRaised {
   const record = raisedIn(raised, month);
   return { ...record, reasons: new Set([...record.reasons, reason]) };

@@ -763,3 +763,39 @@ test('a correction whose feed is gone reports feed_missing and saves nothing', a
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a saved correction raises its signals, as the worker does', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-runtime-'));
+  const app = build(directory);
+  const captured: string[] = [];
+  const { modelUsage: _m, ...financial } = dataset();
+  void _m;
+  try {
+    await writeFile(
+      join(directory, 'feed-2026-10.json'),
+      JSON.stringify({ ...financial, modelCostBasis: 'provider_invoice' }),
+      { mode: 0o600 },
+    );
+    const result = await correctBillingEconomics(
+      {
+        ...app,
+        database: { ...app.database, billingEconomics: snapshotStore() },
+        reporter: {
+          capture: (_error, context) => captured.push(context.errorCode),
+        },
+      },
+      'service-fixture',
+      directory,
+      window,
+    );
+    assert({
+      given: 'a correction of October with a feed just below the 30% floor',
+      should: 'save the report and raise BILLING_LOW_MARGIN',
+      actual: [result.kind, captured.includes('BILLING_LOW_MARGIN')],
+      expected: ['reported', true],
+    });
+  } finally {
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

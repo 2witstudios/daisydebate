@@ -412,10 +412,9 @@ test('a correction of an earlier month never saves an incomplete report', async 
     save: async (value) => {
       saved.push(value);
     },
-  }).run(september);
+  }).run(september, 'correction');
   assert({
-    given:
-      'a November correction of September whose feed was pruned or never placed',
+    given: 'a correction of September whose feed was pruned or never placed',
     should: 'fail as feed_missing with its closed reason and save nothing',
     actual: [
       r.kind === 'failed' && [r.reason, isAppError(r.cause) && r.cause.reason],

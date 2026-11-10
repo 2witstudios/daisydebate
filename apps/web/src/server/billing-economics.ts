@@ -17,7 +17,6 @@ import {
   owedSignals,
   recordRaised,
   recordReport,
-  type EconomicsReason,
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
@@ -48,7 +47,7 @@ export function composeBillingEconomics(
 
 /** The closed word each reason's reported error carries (ADR 0102). */
 const reasonWord: Readonly<
-  Record<EconomicsReason | 'collect', BillingEconomicsRefusal>
+  Record<EconomicsCollectionFailure | 'collect', BillingEconomicsRefusal>
 > = {
   snapshot_failed: 'economics-snapshot-failed',
   feed_unreadable: 'economics-feed-unreadable',
@@ -96,9 +95,11 @@ const economicsFailures = (app: App) =>
   );
 
 /**
- * A one-off late correction of an earlier month (the operator's seam). It
- * saves nothing without its feed: a pruned or absent feed is a reported
- * `feed_missing`, like any other failure of the run.
+ * A one-off late correction of a month (the operator's seam). It saves
+ * nothing without its feed: a pruned or absent feed is a reported
+ * `feed_missing`, like any other failure of the run. A saved correction raises
+ * its signals, as the worker does. A capacity refusal is returned, not
+ * reported: a one-off has no later tick for the shared bound to count.
  */
 export async function correctBillingEconomics(
   app: App,
@@ -110,11 +111,22 @@ export async function correctBillingEconomics(
     app,
     instanceId,
     directory,
-  ).run(window);
-  if (collection.kind === 'failed')
+  ).run(window, 'correction');
+  if (collection.kind === 'failed') {
     economicsFailures(app)(
       reasonError(collection.reason, collection.cause),
       collection.reason,
+    );
+    return collection;
+  }
+  const submitted = raiseEconomicsSignals(app.reporter, {
+    month: collection.month,
+    signals: collection.signals,
+  });
+  if (submitted.kind === 'failed')
+    economicsFailures(app)(
+      reasonError('report_failed', submitted.cause),
+      'report_failed',
     );
   return collection;
 }
