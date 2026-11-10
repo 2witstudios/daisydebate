@@ -321,3 +321,25 @@ test('a failure only the log line took is logged, not reported, so a caller can 
     expected: ['logged', 1],
   });
 });
+
+test('a failure whose log line threw is not reported, even if the reporter took it', () => {
+  const failed = recoverableFailure({
+    isCapacity: () => false,
+    logger: {
+      log: () => {
+        throw new Error('log sink');
+      },
+    },
+    reporter: { capture: () => undefined },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+    event: 'round.maintenance.failed',
+    operation: 'round.maintenance',
+    message: 'Competitive maintenance remains recoverable',
+  });
+  assert({
+    given: 'an inert reporter that never throws and a log sink that throws',
+    should: 'answer unrecorded, since nothing durable holds the failure',
+    actual: failed(new Error('genuine'), 'tick'),
+    expected: 'unrecorded',
+  });
+});

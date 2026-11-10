@@ -34,6 +34,9 @@ import {
   type WorkerTimers,
 } from '../lib/worker-timers';
 
+const reportedOnly: ReadonlySet<string> = new Set(['reported']);
+const reportedOrLogged: ReadonlySet<string> = new Set(['reported', 'logged']);
+
 /** Every operation this worker reports under: a collection stage, or its own two. */
 type EconomicsStage = EconomicsCollectionFailure | 'signal_failed' | 'collect';
 
@@ -143,22 +146,20 @@ export function startBillingEconomics(input: {
   );
   let raised = nothingRaised;
   /**
-   * Report a failure notice once until a report settles. A failure counts as
-   * raised once the tracker took it; when the tracker is itself what failed
-   * (signal_failed), its log line is the only channel left, so that settles it.
+   * Report a failure notice once until a report settles. It counts as raised
+   * once the sink answers one of `settles`: normally only `reported`; where the
+   * tracker is itself what failed (signal_failed), its log line is the only
+   * channel left, so `logged` settles it too.
    */
   const reportOnce = (
     month: string,
     notice: string,
     error: unknown,
     stage: EconomicsStage,
+    settles: ReadonlySet<string> = reportedOnly,
   ) => {
     if (isFailureRaised(raised, month, notice)) return;
-    const verdict = failed(error, stage);
-    if (
-      verdict === 'reported' ||
-      (stage === 'signal_failed' && verdict === 'logged')
-    )
+    if (settles.has(failed(error, stage)))
       raised = recordFailure(raised, month, notice);
   };
   const raise = (collection: EconomicsCollection) => {
@@ -240,6 +241,7 @@ export function startBillingEconomics(input: {
           submitted.cause,
         ),
         'signal_failed',
+        reportedOrLogged,
       );
     }
     raised = recordSignals(raised, collection, { taken: owed, settled: true });
@@ -262,7 +264,13 @@ export function startBillingEconomics(input: {
         if (failed(named, 'collect') === 'reported')
           raised = recordCollect(raised, notice);
       } catch {
-        failed(stageError('collect', 'INTERNAL', undefined), 'collect');
+        // Unreadable, but still once until a collection completes.
+        if (isCollectRaised(raised, 'collect:unreadable')) return;
+        if (
+          failed(stageError('collect', 'INTERNAL', undefined), 'collect') ===
+          'reported'
+        )
+          raised = recordCollect(raised, 'collect:unreadable');
       }
     },
     run: async () => {
@@ -273,9 +281,9 @@ export function startBillingEconomics(input: {
           'economics-clock-invalid',
           'Billing economics clock invalid',
         );
-      const collection = await collector.run(window);
+      raise(await collector.run(window));
+      // Only once raising returned: a defect while raising is still a collect failure, once.
       raised = collectCompleted(raised);
-      raise(collection);
     },
   });
 }

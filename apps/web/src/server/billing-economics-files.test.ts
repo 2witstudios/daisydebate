@@ -406,38 +406,42 @@ test('retention keeps the feed of a corrected window and of months not yet colle
   }
 });
 
-test("a feed this process may not read is VALIDATION, the operator's file being wrong", async () => {
-  const { chmod } = await import('node:fs/promises');
-  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
-  try {
-    const path = join(directory, 'feed-2026-10.json');
-    await writeFile(path, '{}', { mode: 0o600 });
-    await chmod(path, 0o000);
-    const files = createBillingEconomicsFiles({
-      directory,
-      now: () => now,
-      nextId: () => 'j'.repeat(24),
-    });
-    assert({
-      given: 'a feed file whose mode denies this process read access',
-      should:
-        'refuse it as VALIDATION (feed_invalid) with its own reason, not as a failing disk',
-      actual: await files.feed.read(window).then(
-        () => null,
-        (error: unknown) =>
-          error instanceof Error
-            ? [
-                (error as { code?: string }).code,
-                (error as { reason?: string }).reason,
-              ]
-            : null,
-      ),
-      expected: ['VALIDATION', 'economics-feed-forbidden'],
-    });
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
+test.skipIf(process.getuid?.() === 0)(
+  "a feed this process may not read is VALIDATION, the operator's file being wrong",
+  async () => {
+    // Root opens a mode-000 file, so the refusal cannot be produced as root.
+    const { chmod } = await import('node:fs/promises');
+    const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+    try {
+      const path = join(directory, 'feed-2026-10.json');
+      await writeFile(path, '{}', { mode: 0o600 });
+      await chmod(path, 0o000);
+      const files = createBillingEconomicsFiles({
+        directory,
+        now: () => now,
+        nextId: () => 'j'.repeat(24),
+      });
+      assert({
+        given: 'a feed file whose mode denies this process read access',
+        should:
+          'refuse it as VALIDATION (feed_invalid) with its own reason, not as a failing disk',
+        actual: await files.feed.read(window).then(
+          () => null,
+          (error: unknown) =>
+            error instanceof Error
+              ? [
+                  (error as { code?: string }).code,
+                  (error as { reason?: string }).reason,
+                ]
+              : null,
+        ),
+        expected: ['VALIDATION', 'economics-feed-forbidden'],
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
 
 test('a save during a late correction never expires the feed it is correcting', async () => {
   const { utimes, readdir } = await import('node:fs/promises');

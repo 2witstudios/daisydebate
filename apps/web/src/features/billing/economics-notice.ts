@@ -1,6 +1,6 @@
 import { isAppError } from '@daisy/errors';
 import type { EconomicsSignal } from './economics-alert';
-import type { EconomicsCollection } from './economics-collector';
+import { typedCodeOr, type EconomicsCollection } from './economics-collector';
 
 type Collection<K extends EconomicsCollection['kind']> = Extract<
   EconomicsCollection,
@@ -41,7 +41,7 @@ export function problemOf(cause: unknown): string {
 
 /** A failure outside any collection: its code and problem, one notice until a collection completes. */
 export const collectFailureNotice = (error: unknown) =>
-  `collect:${isAppError(error) ? error.code : 'INTERNAL'}:${problemOf(error)}`;
+  `collect:${typedCodeOr(error, 'INTERNAL')}:${problemOf(error)}`;
 
 /** A failure to submit a month's signals: one notice, however often the reporter throws. */
 export const signalFailureNotice = (month: string) => `${month}:signal_failed`;
