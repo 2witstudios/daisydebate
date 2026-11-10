@@ -222,6 +222,8 @@ export type { PresenceActivity } from './realtime';
 
 export {
   ROOM_SEAT_HOLD_MS,
+  roomSeatKinds,
+  roomSeatKindSchema,
   roomCreateSchema,
   roomCommandSchema,
   roomStatuses,
@@ -266,6 +268,7 @@ export type {
 export type {
   RoomAssemblyState,
   RoomSeatHold,
+  RoomSeatKind,
   RoomConsent,
   RoomMutationOutcome,
   RoomCastChoice,
@@ -437,6 +440,15 @@ export {
 } from './challenges';
 export type { ChallengeList, ChallengeResult } from './challenges';
 export {
+  ROOM_INVITATION_TTL_MS,
+  roomInvitationCommandSchemas,
+  roomInvitationRefusals,
+  roomInvitationStates,
+  type RoomInvitationRefusal,
+  type RoomInvitationState,
+  type RoomInvitationView,
+} from './room-invitations';
+export {
   moderationAcknowledgeSchema,
   moderationKinds,
   moderationNoticesSchema,
@@ -541,9 +553,6 @@ export {
   audienceReactionPostSchema,
   audienceSnapshotSchema,
   debaterFollowUpdateSchema,
-  notificationKinds,
-  notificationPreferencesSchema,
-  notificationsReadSchema,
   SPECTATOR_CHAT_UNITS,
   SPECTATOR_CHAT_WINDOW,
   spectatorChatPostSchema,
@@ -551,10 +560,25 @@ export {
   watchHistoryUpdateSchema,
   type AudienceReactionKind,
   type AudienceSnapshot,
-  type NotificationKind,
-  type NotificationPreferences,
   type SpectatorChatMessage,
 } from './audience';
+export {
+  defaultNotificationChoices,
+  emailedNotificationKinds,
+  isEmailedNotificationKind,
+  notificationChannels,
+  notificationChannelsOf,
+  notificationChoicePairs,
+  notificationChoicesSchema,
+  notificationKinds,
+  notificationPreferencesSchema,
+  notificationsReadSchema,
+  type EmailedNotificationKind,
+  type NotificationChannel,
+  type NotificationChoices,
+  type NotificationKind,
+  type NotificationPreferences,
+} from './notifications';
 export {
   RECORDING_EVIDENCE_HOLD_MS,
   recordingClasses,

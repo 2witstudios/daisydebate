@@ -3,6 +3,7 @@ import {
   debateRoles,
   roomCaptureSchema,
   roomConfigSchema,
+  roomSeatKinds,
   roomStatuses,
   type RoomView,
   roomExecutionPlanSchema,
@@ -231,10 +232,10 @@ export const roomParticipants = pgTable(
 );
 
 /**
- * A debater seat kept for a named member until `until` (ADR 0103): both
- * sides of a challenge, while the room is public and either may be on the way.
- * It reserves, never seats: the member still takes the seat themselves, and an
- * old row holds nothing.
+ * A seat of one kind kept for a named member until `until`: both debaters of
+ * a challenge while either may be on the way (ADR 0103), or the seat a
+ * pending Room invitation offers (ADR 0124). It reserves, never seats: the
+ * member still takes the seat themselves, and an old row holds nothing.
  */
 export const roomSeatHolds = pgTable(
   'room_seat_holds',
@@ -245,11 +246,13 @@ export const roomSeatHolds = pgTable(
     actorId: text('actor_id')
       .notNull()
       .references(() => actors.id, { onDelete: 'cascade' }),
+    seat: text('seat').notNull(),
     until: timestampColumn('until').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.roomId, table.actorId] }),
     index('room_seat_holds_actor_idx').on(table.actorId),
+    check('room_seat_holds_seat_check', oneOf(table.seat, roomSeatKinds)),
   ],
 );
 

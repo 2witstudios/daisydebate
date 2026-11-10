@@ -200,7 +200,13 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
   });
   const held = {
     ...room,
-    seatHolds: [{ actorId: 'alice', until: '2026-10-09T00:10:00.000Z' }],
+    seatHolds: [
+      {
+        actorId: 'alice',
+        seat: 'debater' as const,
+        until: '2026-10-09T00:10:00.000Z',
+      },
+    ],
   };
   const replacedPastHold = executeRoomCommand(
     held,

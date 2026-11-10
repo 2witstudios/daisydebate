@@ -236,9 +236,21 @@ export type RoomCommandResponse = {
 /** How long a seat stays held for a named member who has not arrived (ADR 0103). */
 export const ROOM_SEAT_HOLD_MS = 120_000;
 
-/** A debater seat kept for a named member until `until` (ADR 0103). */
+/**
+ * The two kinds of seat a hold or an invitation names: a debater seat on
+ * either side, or a judge seat (ADR 0124).
+ */
+export const roomSeatKinds = ['debater', 'judge'] as const;
+export type RoomSeatKind = (typeof roomSeatKinds)[number];
+export const roomSeatKindSchema = z.enum(roomSeatKinds);
+
+/**
+ * A seat of one kind kept for a named member until `until`: a challenge's
+ * arrival (ADR 0103) or a pending invitation (ADR 0124).
+ */
 export type RoomSeatHold = {
   readonly actorId: string;
+  readonly seat: RoomSeatKind;
   readonly until: string;
 };
 

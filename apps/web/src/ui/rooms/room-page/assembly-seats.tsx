@@ -48,13 +48,18 @@ function SeatCommand({
   );
 }
 
-/** Whether every free debater seat is held for someone other than this viewer. */
+/** Whether every free seat of this kind is held for someone other than this viewer. */
 const heldFromViewer = (view: Props['view'], role: Seat['role']) => {
-  if (role === 'judge' || view.debaterSeatsHeldFromViewer === 0) return false;
-  const debaters = view.participants.filter((p) => p.role !== 'judge').length;
-  const free =
-    view.rules.seats.affirmative + view.rules.seats.negative - debaters;
-  return free <= view.debaterSeatsHeldFromViewer;
+  const judge = role === 'judge';
+  const held = view.seatsHeldFromViewer[judge ? 'judge' : 'debater'];
+  if (held === 0) return false;
+  const taken = view.participants.filter(
+    (p) => (p.role === 'judge') === judge,
+  ).length;
+  const seats = judge
+    ? view.rules.seats.judge
+    : view.rules.seats.affirmative + view.rules.seats.negative;
+  return seats - taken <= held;
 };
 
 /** An open seat: take it, invite someone, or (judge, host) seat an AI judge. */

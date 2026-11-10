@@ -1,4 +1,4 @@
-import { debaterSeatsHeldFrom } from './room-edit-transitions';
+import { seatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
 import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
@@ -186,10 +186,13 @@ export function projectRoom(
       version: room.version,
       readyActorIds: consent.readyActorIds.filter((id) => !hidden.has(id)),
     },
-    debaterSeatsHeldFromViewer:
+    seatsHeldFromViewer:
       room.status === 'assembling' || room.status === 'ready'
-        ? debaterSeatsHeldFrom(room, actorId, now)
-        : 0,
+        ? {
+            debater: seatsHeldFrom(room, actorId, 'debater', now),
+            judge: seatsHeldFrom(room, actorId, 'judge', now),
+          }
+        : { debater: 0, judge: 0 },
     capabilities: roomCapabilities(room, actorId, blocker),
     startRefusal: blocker,
     // A non-participant learns of a live Round only from the spectator timeline.

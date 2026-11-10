@@ -5,6 +5,7 @@ import type {
   RoomMutationOutcome,
   RoomParticipant,
   RoomRefusal,
+  RoomSeatKind,
 } from '@daisy/protocol';
 
 import { resolveRoomConfiguration } from './resolve-room-configuration';
@@ -195,37 +196,58 @@ const wrongSeatForAi = (
 ) =>
   target.kind === 'bot' &&
   target.seatRole !== (role === 'judge' ? 'judge' : 'debater');
+/** The kind of seat a role is: either debating side, or the judge. */
+export const seatKindOf = (role: RoomParticipant['role']): RoomSeatKind =>
+  role === 'judge' ? 'judge' : 'debater';
 /**
- * How many free debater seats `actorId` may not take at `now`: one for each
- * named member who has neither arrived in a debater seat nor run out of time
- * (ADR 0103). A judge seat is never held.
+ * How many free seats of `seat` kind `actorId` may not take at `now`: one for
+ * each live hold of that kind for a named member who has not yet taken a seat
+ * of that kind (ADR 0103, ADR 0124).
  */
-export const debaterSeatsHeldFrom = (
+export const seatsHeldFrom = (
   room: Pick<RoomAssemblyState, 'seatHolds' | 'participants'>,
   actorId: string,
+  seat: RoomSeatKind,
   now: string,
 ): number => {
-  const seated = (id: string) =>
-    room.participants.some((p) => p.actorId === id && p.role !== 'judge');
+  const arrived = (id: string) =>
+    room.participants.some(
+      (p) => p.actorId === id && seatKindOf(p.role) === seat,
+    );
   return room.seatHolds.filter(
     (hold) =>
+      hold.seat === seat &&
       hold.actorId !== actorId &&
       Date.parse(hold.until) > Date.parse(now) &&
-      !seated(hold.actorId),
+      !arrived(hold.actorId),
   ).length;
 };
-/** Whether `targetId` taking a free debater seat would use one held for another. */
+/** Free seats of a kind, not counting one `targetId` already sits in. */
+const freeSeats = (
+  room: RoomAssemblyState,
+  seat: RoomSeatKind,
+  targetId: string,
+): number => {
+  const taken = room.participants.filter(
+    (p) => seatKindOf(p.role) === seat && p.actorId !== targetId,
+  ).length;
+  const seats =
+    seat === 'judge'
+      ? room.rules.seats.judge
+      : room.rules.seats.affirmative + room.rules.seats.negative;
+  return seats - taken;
+};
+/** Whether `targetId` taking a free seat of this role would use one held for another. */
 const takesHeldSeat = (
   room: RoomAssemblyState,
   targetId: string,
+  role: RoomParticipant['role'],
   now: string,
 ): boolean => {
-  const debaters = room.participants.filter(
-    (p) => p.role !== 'judge' && p.actorId !== targetId,
-  ).length;
-  const free =
-    room.rules.seats.affirmative + room.rules.seats.negative - debaters;
-  return free <= debaterSeatsHeldFrom(room, targetId, now);
+  const seat = seatKindOf(role);
+  return (
+    freeSeats(room, seat, targetId) <= seatsHeldFrom(room, targetId, seat, now)
+  );
 };
 const seatAdmission = (
   room: RoomAssemblyState,
@@ -279,9 +301,7 @@ export const claimSeat = (
   // an AI judge is public, so any host may swap one.
   if (
     command.slot >= room.rules.seats[command.role] ||
-    (command.role !== 'judge' &&
-      !other &&
-      takesHeldSeat(room, targetId, edges.now)) ||
+    (!other && takesHeldSeat(room, targetId, command.role, edges.now)) ||
     (other &&
       (command.type === 'claim-seat' ||
         (other.role === 'judge' &&
