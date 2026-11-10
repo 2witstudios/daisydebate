@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   audienceSnapshotSchema,
-  notificationKinds,
   SPECTATOR_CHAT_UNITS,
   spectatorChatPostSchema,
   viewerPulseSchema,
@@ -64,17 +63,6 @@ describe('audience snapshot', () => {
         winner: 'affirmative',
       }).success,
       expected: false,
-    });
-  });
-});
-
-describe('notification kinds', () => {
-  test('are the two accepted kinds', () => {
-    assert({
-      given: 'the accepted WATCH-12 design',
-      should: 'name a followed debater going live and a Recording being ready',
-      actual: notificationKinds,
-      expected: ['followed_debater_live', 'recording_ready'],
     });
   });
 });

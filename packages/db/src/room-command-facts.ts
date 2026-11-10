@@ -8,7 +8,7 @@ import type {
 } from '@daisy/protocol';
 import { buildRoomTopic } from '@daisy/protocol';
 import { botDifficulties } from '@daisy/protocol';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, roomSeatKindSchema } from '@daisy/protocol';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { authorizationAccountFact } from './authorization-account';
 import {
@@ -206,7 +206,11 @@ const hydrateRoom = async (
     .from(rounds)
     .where(eq(rounds.roomId, row.id));
   const seatHolds = await tx
-    .select({ actorId: roomSeatHolds.actorId, until: roomSeatHolds.until })
+    .select({
+      actorId: roomSeatHolds.actorId,
+      seat: roomSeatHolds.seat,
+      until: roomSeatHolds.until,
+    })
     .from(roomSeatHolds)
     .where(eq(roomSeatHolds.roomId, row.id));
   return {
@@ -215,6 +219,7 @@ const hydrateRoom = async (
     changeVersion: row.changeVersion,
     seatHolds: seatHolds.map((hold) => ({
       actorId: hold.actorId,
+      seat: roomSeatKindSchema.parse(hold.seat),
       until: new Date(hold.until).toISOString(),
     })),
     title: row.title,

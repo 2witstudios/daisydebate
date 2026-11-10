@@ -35,6 +35,8 @@ type Capability =
 
 export type ChallengeDependencies = {
   readonly clock: Clock;
+  /** Ids for the challenged member's notification and its email job (ADR 0124). */
+  readonly nextId: () => string;
   readonly limit: (actorId: string) => Promise<void>;
   readonly limitSend: (actorId: string) => Promise<void>;
   /** Whether a season is active, which a ranked room needs. */
@@ -101,6 +103,8 @@ export async function sendChallenge(
         (frame) =>
           frame.send({
             id: input.commandId,
+            notificationId: dependencies.nextId(),
+            emailJobId: dependencies.nextId(),
             mode: input.mode,
             format: input.format,
             now,

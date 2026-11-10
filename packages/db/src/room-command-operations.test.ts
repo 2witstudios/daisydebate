@@ -215,6 +215,8 @@ const startRows = (changeVersion = 1) => [
   [], // the caller's entitlement grants, read under the account fence
   [],
   [], // a started Room's friend challenges are deleted (ISSUE-699)
+  [], // no invitation has lapsed (ADR 0124)
+  [], // no invitation is pending to settle (ADR 0124)
   [],
   [],
   [],

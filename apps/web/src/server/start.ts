@@ -30,6 +30,7 @@ import {
 import { startBillingCleanup } from './billing-cleanup';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
+import { startNotificationMail } from './notification-mail';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 import { startOperatorApi } from './operator-api';
 import { readFileSync } from 'node:fs';
@@ -239,6 +240,11 @@ const betaMail = startBetaMail({
   timers: workerTimers,
   reporter: app.reporter,
 });
+const notificationMail = startNotificationMail({
+  app,
+  timers: workerTimers,
+  reporter: app.reporter,
+});
 const fileRuntime = app.messagingFiles;
 const fileMaintenance = fileRuntime?.maintenance
   ? startMessagingFileMaintenance({
@@ -303,6 +309,7 @@ async function shutdown() {
   const billingPurchasesStopped = billingPurchases?.stop();
   const billingCleanupStopped = billingCleanup.stop();
   const betaMailStopped = betaMail.stop();
+  const notificationMailStopped = notificationMail.stop();
   const operatorApiStopped = operatorApi?.stop();
   const filesStopped = fileMaintenance?.stop();
   const observationPurgesStopped = observationPurges.stop();
@@ -347,6 +354,7 @@ async function shutdown() {
         billingPurchasesStopped,
         billingCleanupStopped,
         betaMailStopped,
+        notificationMailStopped,
         operatorApiStopped,
         filesStopped,
         broadcastSweepStopped,

@@ -206,6 +206,7 @@ export const roomCreateOperations = ({
             heldActors.map((actorId) => ({
               roomId: input.room.id,
               actorId,
+              seat: 'debater' as const,
               until,
             })),
           );

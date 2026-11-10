@@ -90,27 +90,3 @@ export const watchHistoryUpdateSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({ version: z.literal(1), kind: z.literal('clear') }),
 ]);
-
-export const notificationKinds = [
-  'followed_debater_live',
-  'recording_ready',
-] as const;
-export type NotificationKind = (typeof notificationKinds)[number];
-
-export const notificationsReadSchema = z.discriminatedUnion('kind', [
-  z.strictObject({
-    version: z.literal(1),
-    kind: z.literal('one'),
-    notificationId: idSchema,
-  }),
-  z.strictObject({ version: z.literal(1), kind: z.literal('all') }),
-]);
-
-export const notificationPreferencesSchema = z.strictObject({
-  version: z.literal(1),
-  followed_debater_live: z.boolean(),
-  recording_ready: z.boolean(),
-});
-export type NotificationPreferences = z.infer<
-  typeof notificationPreferencesSchema
->;

@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createResendSender } from '../mail/resend-sender';
 import type { EmailMessage } from '../mail/types';
 import { createMailIntentDelivery } from './mail-delivery';
-import { MAIL_INTENT_MAX_ATTEMPTS } from './retry-policy';
+import { MAIL_MAX_ATTEMPTS } from '../mail/retry-policy';
 
 setupRitewayBun();
 
@@ -189,7 +189,7 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
         {
           id: 'unreadable',
           purpose: 'beta-approved',
-          attempts: MAIL_INTENT_MAX_ATTEMPTS,
+          attempts: MAIL_MAX_ATTEMPTS,
           token: 't3',
         },
       ],
@@ -262,7 +262,7 @@ test('invitation exhaustion distinguishes definitive rejection from uncertain pr
         to: 'invitee@example.test',
         sendBefore: '2099-01-01T00:00:00.000Z',
       },
-      attempts: MAIL_INTENT_MAX_ATTEMPTS,
+      attempts: MAIL_MAX_ATTEMPTS,
       deliver: async (message) => {
         await sender.send(message);
         return 'sent';

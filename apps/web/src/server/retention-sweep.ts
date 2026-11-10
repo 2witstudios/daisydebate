@@ -86,6 +86,8 @@ export function retentionTargets({
     readonly purgeExpiredSocialDeclines: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
     readonly purgeReadNotifications: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredNotificationEmails: (batch: Batch) => Promise<number>;
+    readonly purgeEndedRoomInvitations: (batch: Batch) => Promise<number>;
     readonly purgeExpiredWatchHistory: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSpectatorChat: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundFloorReceipts: (batch: Batch) => Promise<number>;
@@ -274,6 +276,28 @@ export function retentionTargets({
       purge: ({ now, limit }) =>
         database.purgeReadNotifications({
           before: cutoff(now, 90 * DAY_MS),
+          limit,
+        }),
+    },
+    /** ADR 0124: sent, failed and cancelled notification emails are kept 30 days. */
+    {
+      name: 'retention.notification_emails',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredNotificationEmails({
+          before: cutoff(now, 30 * DAY_MS),
+          limit,
+        }),
+    },
+    /** ADR 0124: an ended Room invitation is kept 30 days. */
+    {
+      name: 'retention.room_invitations',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeEndedRoomInvitations({
+          before: cutoff(now, 30 * DAY_MS),
           limit,
         }),
     },

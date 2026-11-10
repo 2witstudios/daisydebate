@@ -3,6 +3,7 @@ import type { RoomAssemblyState } from '@daisy/protocol';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
 import { appendRoomChanged, roomFacts, type Tx } from './room-command-facts';
 import { persistRoomOutsideCommands } from './room-mutation-persistence';
+import { endMemberRoomInvitations } from './room-invitations/store';
 import { roomIsOpen } from './room-open';
 
 /** The engine's pure Room rules a restriction applies, injected by the caller. */
@@ -58,7 +59,11 @@ export async function releaseMemberFromRooms(
   // Those Rooms' seats did not change, so nobody is asked to ready again; a
   // member on the page only needs to read that the seat is free.
   const written = new Set(held.map((row) => row.id));
-  const heldOnly = [...new Set(released.map((hold) => hold.roomId))]
+  // Their invitations, sent or received, end with them (ADR 0124).
+  const invited = await endMemberRoomInvitations(tx, actorId, context.now);
+  const heldOnly = [
+    ...new Set([...released.map((hold) => hold.roomId), ...invited]),
+  ]
     .filter((roomId) => !written.has(roomId))
     .sort();
   for (const roomId of heldOnly) {

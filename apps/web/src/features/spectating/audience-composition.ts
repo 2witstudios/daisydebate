@@ -12,6 +12,8 @@ import {
   createNotificationPreferencesRoute,
   createNotificationsReadRoute,
 } from '../notifications/handlers';
+import { createUnsubscribeRoute } from '../notifications/email/unsubscribe-handler';
+import { deriveUnsubscribeSubkey } from '../notifications/email/unsubscribe-token';
 import { createNotificationSweep } from '../notifications/sweep';
 import { createViewerPulseRoute } from '../viewer-counts/handler';
 import { createWatchHistoryRoute } from '../watch-history/handler';
@@ -58,6 +60,12 @@ export function composeAudienceRoutes(app: App) {
     notificationPreferences: createNotificationPreferencesRoute({
       ...account,
       store,
+    }),
+    notificationUnsubscribe: createUnsubscribeRoute({
+      store,
+      subkey: () =>
+        deriveUnsubscribeSubkey(app.mailConfig().RECIPIENT_HASH_SECRET),
+      logger: app.logger,
     }),
   };
 }

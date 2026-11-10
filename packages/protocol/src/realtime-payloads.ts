@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { notificationKinds } from './notifications';
 import { idSchema } from './primitives';
 import { parseTopic, type TopicFamily } from './topics';
 
@@ -47,14 +48,14 @@ const doorbellPayloadSchema = z.strictObject({
 
 /**
  * Only the owner-only `user:inbox` family may carry a small delta beyond
- * the doorbell fields (ADR 0032 §6). Notification content itself is
- * NOTIF-1's later epic; this is the envelope shape it will fill in.
+ * the doorbell fields (ADR 0032 §6): one stored notification's id and kind,
+ * never its words (ADR 0124). The member re-reads the inbox over HTTP.
  */
 const inboxDeltaPayloadSchema = z.strictObject({
   entityVersion: entityVersionSchema,
   kind: z.literal('user.notification-delivered'),
   ids: z.array(idSchema).min(1).max(1),
-  notificationType: z.string().trim().min(1).max(64),
+  notificationType: z.enum(notificationKinds),
   occurredAt: z.iso.datetime(),
 });
 

@@ -436,6 +436,8 @@ test('a challenge is offered, listed both ways, repeated once, and goes on decli
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
         id,
+        notificationId: createId(),
+        emailJobId: createId(),
         mode: 'ranked',
         format: 'policy',
         now: ctx.now,
@@ -506,6 +508,8 @@ test('accepting names only a room made for the offer, and only for a free challe
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
         id: createId(),
+        notificationId: createId(),
+        emailJobId: createId(),
         mode,
         format: 'policy',
         now: ctx.now,
@@ -538,7 +542,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     // the acceptor hosts, public like every Room by default, holds none.
     const holdFor = async (roomId: string, until: string) => {
       await ctx.client.unsafe(
-        'insert into room_seat_holds (room_id, actor_id, until) values ($1, $2, $3)',
+        "insert into room_seat_holds (room_id, actor_id, seat, until) values ($1, $2, 'debater', $3)",
         [roomId, ctx.me.actorId, until],
       );
       return roomId;
@@ -619,6 +623,8 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
         id: createId(),
+        notificationId: createId(),
+        emailJobId: createId(),
         mode: 'casual',
         format: 'freestyle',
         now,
@@ -808,6 +814,8 @@ test('a suspension ends the member’s offers, and closing an account keeps the 
       (frame) =>
         frame.send({
           id: createId(),
+          notificationId: createId(),
+          emailJobId: createId(),
           mode: 'casual',
           format: 'value',
           now: live,

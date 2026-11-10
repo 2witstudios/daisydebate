@@ -32,6 +32,8 @@ import { FreshnessNotice } from '../../resource-sync/freshness-notice';
 import { useResourceSync } from '../../resource-sync/use-resource-sync';
 import { AssemblyHeader, RoomResolution } from './assembly-header';
 import { RoomSetup } from './room-setup';
+import { RoomInvitations } from './room-invitations';
+import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
 import { RoomSettings } from './room-settings';
@@ -56,6 +58,7 @@ type Props = {
   readonly settingsAction: FormAction<RoomFormState>;
   readonly read: () => Promise<RoomRead>;
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
+  readonly invitationAction: FormAction<InvitationFormState>;
 };
 
 /**
@@ -109,6 +112,11 @@ export function RoomLive(props: Props) {
         actorId={props.actorId}
         commandIds={ids.header}
         commandAction={props.commandAction}
+      />
+      <RoomInvitations
+        view={view}
+        viewerLabel={props.viewerLabel}
+        action={props.invitationAction}
       />
       {view.capabilities.canEdit ? (
         <RoomSetup

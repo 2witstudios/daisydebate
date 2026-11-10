@@ -19,6 +19,7 @@ import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import { audienceRefusalText } from '../../../ui/audience/audience-copy';
 import type { NotificationPreferencesState } from '../../../ui/notifications/notification-preferences-form';
+import { choicesFromForm } from '../../../features/notifications/preference-form';
 import { post } from '../form-post';
 
 const routes = {
@@ -197,11 +198,7 @@ export async function saveNotificationPreferencesAction(
     const response = await post(
       routes.preferences,
       '/api/notifications/preferences',
-      {
-        version: 1,
-        followed_debater_live: form.get('followed_debater_live') === 'on',
-        recording_ready: form.get('recording_ready') === 'on',
-      },
+      { version: 2, choices: choicesFromForm(form) },
     );
     if (!response.ok) return { notice: 'Could not save. Try again.' };
   } catch {

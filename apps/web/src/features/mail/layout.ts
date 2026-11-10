@@ -18,6 +18,11 @@ export type EmailContent = {
   readonly linkLabel: string;
   readonly url: string;
   readonly footerNote: string;
+  /**
+   * A notification's own opt-out (ADR 0124): a second, small footer link
+   * that turns off only this kind of email. Absent for auth and beta mail.
+   */
+  readonly unsubscribe?: { readonly label: string; readonly url: string };
 };
 
 const FONT_DISPLAY = "Georgia, 'Iowan Old Style', 'Palatino Linotype', serif";
@@ -152,7 +157,12 @@ ${htmlParagraphs(content.paragraphs)}
 <p style="margin:0 0 32px;font-family:${FONT_BODY};font-size:13px;line-height:1.6;color:${LIGHT.inkMuted};word-break:break-all;" class="auth-mail-muted">${safeUrl}</p>
 </td></tr>
 <tr><td style="padding:20px 40px 32px;border-top:1px solid ${LIGHT.border};" class="auth-mail-surface">
-<p style="margin:0;font-family:${FONT_BODY};font-size:13px;line-height:1.6;color:${LIGHT.inkMuted};" class="auth-mail-muted">${escapeHtml(content.footerNote)}</p>
+<p style="margin:0;font-family:${FONT_BODY};font-size:13px;line-height:1.6;color:${LIGHT.inkMuted};" class="auth-mail-muted">${escapeHtml(content.footerNote)}</p>${
+    content.unsubscribe
+      ? `
+<p style="margin:12px 0 0;font-family:${FONT_BODY};font-size:13px;line-height:1.6;color:${LIGHT.inkMuted};" class="auth-mail-muted"><a href="${escapeHtml(content.unsubscribe.url)}" style="color:${LIGHT.inkMuted};text-decoration:underline;" class="auth-mail-muted">${escapeHtml(content.unsubscribe.label)}</a></p>`
+      : ''
+  }
 </td></tr>
 </table>
 </td></tr>
@@ -168,6 +178,9 @@ ${htmlParagraphs(content.paragraphs)}
     `${content.linkLabel}: ${content.url}`,
     '',
     content.footerNote,
+    ...(content.unsubscribe
+      ? ['', `${content.unsubscribe.label}: ${content.unsubscribe.url}`]
+      : []),
   ].join('\n');
 
   return { subject: content.subject, text, html };

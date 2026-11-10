@@ -153,6 +153,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
       },
       readRoomAssembly: async () => state,
       readRoomAssemblyFacts: async () => ({ state, drawSeed: null }),
+      readRoomInvitations: async () => [],
       databaseNow: async () => now,
       readOwnEntitlementGrants: async () => [],
       readOwnCasualJudgeAllowance: async () => ({

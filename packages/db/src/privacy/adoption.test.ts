@@ -113,6 +113,7 @@ test('the subject-rights composition runs every feature step exactly once', asyn
       'after-close:audience-reactions',
       'after-close:debater-follows',
       'after-close:watch-history',
+      'after-close:room-invitations',
       'after-close:notifications',
       'after-close:necessary-evidence',
       'after-close:round-transcript',

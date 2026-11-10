@@ -44,7 +44,7 @@ describe('storage family rule (plan revision 4.11, RT-2.1c AC3)', () => {
         entityVersion: 1,
         kind: 'user.notification-delivered',
         ids: [id],
-        notificationType: 'debate.forfeit',
+        notificationType: 'room_invitation',
         occurredAt: '2026-01-01T00:00:00.000Z',
       }),
       expected: true,

@@ -17,7 +17,8 @@ import {
   type Tx,
   publishDefinition,
 } from './room-command-facts';
-import { isOpenRoomStatus } from './room-open';
+import { isOpenRoomStatus } from '@daisy/protocol';
+import { settleRoomInvitationsAfter } from './room-invitations/store';
 
 /** The room row a mutation writes; the idle anchor moves only on an accepted command. */
 const roomRow = (
@@ -71,6 +72,9 @@ export const persistRoomMutation = async (
   // so it goes the moment the room is no longer open (Rooms' own vocabulary).
   if (!isOpenRoomStatus(next.status))
     await tx.delete(challenges).where(eq(challenges.roomId, next.id));
+  // ADR 0124: an invitee who took their seat accepted; a Room no longer open
+  // ends every invitation still waiting, and frees what it held.
+  await settleRoomInvitationsAfter(tx, next, now);
   await tx.delete(roomParticipants).where(eq(roomParticipants.roomId, next.id));
   if (next.participants.length)
     await tx.insert(roomParticipants).values(

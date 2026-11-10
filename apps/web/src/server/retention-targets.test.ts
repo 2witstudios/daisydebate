@@ -56,6 +56,8 @@ describe('retention targets', () => {
         purgeExpiredSocialDeclines: record('social_declines'),
         purgeExpiredSocialRequests: record('social_requests'),
         purgeReadNotifications: record('notifications'),
+        purgeExpiredNotificationEmails: record('notification_emails'),
+        purgeEndedRoomInvitations: record('room_invitations'),
         purgeExpiredWatchHistory: record('watch_history'),
         purgeExpiredSpectatorChat: record('spectator_chat'),
         purgeExpiredRoundFloorReceipts: record('round_floor_receipts'),
@@ -171,6 +173,16 @@ describe('retention targets', () => {
           { name: 'retention.social_declines', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_requests', batchSize: 500, maxBatches: 20 },
           { name: 'retention.notifications', batchSize: 1000, maxBatches: 20 },
+          {
+            name: 'retention.notification_emails',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
+            name: 'retention.room_invitations',
+            batchSize: 500,
+            maxBatches: 20,
+          },
           { name: 'retention.watch_history', batchSize: 1000, maxBatches: 20 },
           { name: 'retention.spectator_chat', batchSize: 1000, maxBatches: 20 },
           {
@@ -234,6 +246,12 @@ describe('retention targets', () => {
           social_declines: [{ before: now, limit: 500 }],
           social_requests: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           notifications: [{ before: '2026-06-22T12:00:00.000Z', limit: 1000 }],
+          notification_emails: [
+            { before: '2026-08-21T12:00:00.000Z', limit: 500 },
+          ],
+          room_invitations: [
+            { before: '2026-08-21T12:00:00.000Z', limit: 500 },
+          ],
           watch_history: [{ before: '2025-09-20T12:00:00.000Z', limit: 1000 }],
           spectator_chat: [{ before: '2026-03-24T12:00:00.000Z', limit: 1000 }],
           audience_reactions: [
@@ -299,6 +317,8 @@ describe('retention targets', () => {
           ['retention.social_declines', false],
           ['retention.social_requests', false],
           ['retention.notifications', false],
+          ['retention.notification_emails', false],
+          ['retention.room_invitations', false],
           ['retention.watch_history', false],
           ['retention.spectator_chat', false],
           ['retention.audience_reactions', false],
@@ -312,7 +332,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 29,
+        failed: 31,
       },
     });
   });

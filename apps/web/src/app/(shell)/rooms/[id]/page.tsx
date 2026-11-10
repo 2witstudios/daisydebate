@@ -20,6 +20,7 @@ import {
   roomCommandAction,
   submitRoomFormAction,
   saveRoomSettingsAction,
+  roomInvitationAction,
 } from './actions';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 
@@ -78,6 +79,7 @@ export default async function RoomRoute({
         settingsAction={saveRoomSettingsAction.bind(null, id)}
         read={roomAssembly.bind(null, id)}
         send={roomConsentIntent.bind(null, id)}
+        invitationAction={roomInvitationAction.bind(null, id)}
       />
     </div>
   );

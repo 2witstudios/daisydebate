@@ -1,22 +1,8 @@
 import type { Database } from '@daisy/db';
-import type { NotificationKind } from '@daisy/protocol';
 import type { NotificationItem } from './notifications';
+import { notificationWords } from './notification-words';
 
 const PAGE = 50;
-
-/**
- * The words come from the kind and the names read now, so a row can carry no
- * outcome: there is nowhere in it for one, and nowhere here to add one.
- */
-const textOf = (kind: NotificationKind, debater: string | null) =>
-  kind === 'followed_debater_live'
-    ? `@${debater ?? 'A debater you follow'} is on air.`
-    : 'A recording is ready to watch.';
-
-const hrefOf = (kind: NotificationKind, roundId: string) =>
-  kind === 'followed_debater_live'
-    ? `/watch/${roundId}`
-    : `/recordings/${roundId}`;
 
 /** An account's stored notifications as its list reads them. */
 export const readNotificationItems = async (
@@ -34,19 +20,19 @@ export const readNotificationItems = async (
     userId: input.userId,
     unreadOnly: input.unreadOnly,
     limit: PAGE,
+    now: input.now,
   });
   const nowMs = Date.parse(input.now);
   return {
     unread,
-    items: rows.map((row) => ({
-      id: row.id,
-      text: textOf(row.kind, row.debater),
-      href: hrefOf(row.kind, row.roundId),
+    items: rows.map(({ id, readAt, createdAt, ...subject }) => ({
+      id,
+      ...notificationWords(subject),
       minutesAgo: Math.max(
         0,
-        Math.floor((nowMs - Date.parse(row.createdAt)) / 60_000),
+        Math.floor((nowMs - Date.parse(createdAt)) / 60_000),
       ),
-      unread: row.readAt === null,
+      unread: readAt === null,
     })),
   };
 };

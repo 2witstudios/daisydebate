@@ -10,7 +10,9 @@ import {
 import type { AuthorizationTransaction } from '../authorization';
 import type { ContactPairKey } from '../contacts/reactions';
 import type { ContactInput } from '../contacts/fence';
+import { oweNotification } from '../notifications/inbox';
 import { appendOutboxEvent } from '../outbox';
+import { rowsOf } from '../raw-rows';
 import { readAvailability } from '../presence/availability';
 import { openRoomHostedBy } from '../room-open';
 import { challenges } from '../schema/challenges';
@@ -27,6 +29,9 @@ export type ChallengeFrame = {
   /** Records a new offer; a repeat of the open one answers it unchanged. */
   readonly send: (input: {
     readonly id: string;
+    /** The challenged member's notification, and its email job (ADR 0124). */
+    readonly notificationId: string;
+    readonly emailJobId: string;
     readonly mode: CompetitionType;
     readonly format: RatingLadder;
     readonly now: string;
@@ -135,7 +140,15 @@ export function challengeFrame(
   };
   return {
     otherActorId: other,
-    async send({ id, mode, format, now, expiresAt }) {
+    async send({
+      id,
+      notificationId,
+      emailJobId,
+      mode,
+      format,
+      now,
+      expiresAt,
+    }) {
       await authorize();
       requireId(id);
       const [mine, theirs] = await Promise.all([
@@ -166,6 +179,20 @@ export function challengeFrame(
         .returning({ id: challenges.id });
       if (inserted[0]) {
         await ring(owner, [input.actorId, other]);
+        const [recipient] = await rowsOf<{ user_id: string }>(
+          tx,
+          sql`select user_id from actors where id=${other} and user_id is not null`,
+        );
+        if (recipient)
+          await oweNotification(owner, {
+            kind: 'challenge_received',
+            id: notificationId,
+            emailJobId,
+            recipient: { userId: recipient.user_id, actorId: other },
+            actorId: input.actorId,
+            challengeId: inserted[0].id,
+            at: now,
+          });
         return { challengeId: inserted[0].id };
       }
       // A second offer while one stands replaces its terms, so "sent" is true.

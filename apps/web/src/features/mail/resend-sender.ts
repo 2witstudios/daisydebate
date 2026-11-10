@@ -105,6 +105,7 @@ export function createResendSender({
           subject: message.subject,
           text: message.text,
           html: message.html,
+          ...(message.headers ? { headers: message.headers } : {}),
         }),
         signal: AbortSignal.timeout(budgetMs),
       });
