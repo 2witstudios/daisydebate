@@ -49,13 +49,15 @@ be able to see who is online."
    opens a room through the one room-create route as the acceptor, public in
    both modes: casual by the Room default, and ranked because a human judge has
    to find it and the result counts on both records. It then names the room on
-   the offer, which accepts only a public room matching its format and mode,
-   and only while the challenger is unplaced. _Amended 2026-11-10 (owner):_ a
-   casual challenge room was unlisted until then. Rooms are public by default,
-   and unlisted is only ever a host's explicit choice
-   ([rooms](../domains/rooms.md#visibility)). A debater seat stays held for
-   each of the two for two minutes (`room_seat_holds`): the Room's own fact, so a listed room's seats are theirs
-   while they arrive, and it never seats anyone or touches the judge seat. The
+   the offer, which accepts only a room matching its format and mode that
+   holds the challenger's seat, and only while the challenger is unplaced.
+   _Amended 2026-11-10 (owner):_ a casual challenge room was unlisted until
+   then, and acceptance told the challenge's room apart by that. Rooms are
+   public by default, and unlisted is only ever a host's explicit choice
+   ([rooms](../domains/rooms.md#visibility)), so the seat hold names the room
+   instead. A debater seat stays held for each of the two for two minutes
+   (`room_seat_holds`): the Room's own fact, so a listed room's seats are
+   theirs while they arrive, and it never seats anyone or touches the judge seat. The
    challenger is sent there for those two minutes, once. The inbox
    doorbell `challenge.changed` reaches both members on any page, and the
    challenger follows to the room. No such member, a block, no lease, Busy,

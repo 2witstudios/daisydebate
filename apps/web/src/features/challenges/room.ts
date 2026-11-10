@@ -43,7 +43,8 @@ export function challengeRoomForm(input: {
     'visibility',
     input.mode === 'ranked' ? 'public' : defaultRoomVisibility,
   );
-  // A public room is listed at once: nobody else may take their seats.
+  // A public room is listed at once: the hold keeps both debater seats theirs
+  // while they arrive (ADR 0103 §4); the judge seat stays open to anyone.
   form.append('holdSeatFor', input.hostActorId);
   form.append('holdSeatFor', input.opponentActorId);
   const casual = casualSelection(input.template);

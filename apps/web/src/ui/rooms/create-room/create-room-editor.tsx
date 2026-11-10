@@ -367,7 +367,7 @@ export function CreateRoomEditor({
               <p>
                 Listed in the lobby. Ranked Rounds are always public, and are
                 broadcast with a delay and recorded when capture has capacity.
-                Play casual to keep a Round out of public view.
+                Play casual to choose who can join.
               </p>
               <p>{rankedNotice.text}</p>
             </div>

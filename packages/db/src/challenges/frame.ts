@@ -14,7 +14,7 @@ import { appendOutboxEvent } from '../outbox';
 import { readAvailability } from '../presence/availability';
 import { openRoomHostedBy } from '../room-open';
 import { challenges } from '../schema/challenges';
-import { rooms } from '../schema/rooms';
+import { rooms, roomSeatHolds } from '../schema/rooms';
 
 type Tx = Pick<
   BunSQLDatabase,
@@ -192,9 +192,10 @@ export function challengeFrame(
       await authorize();
       requireId(roomId);
       requireId(challengeId);
-      // Only a room made for this offer: its format and mode, and public as
-      // every challenge room is (ranked always, casual by the Room default),
-      // so no other room the acceptor hosts can receive the challenger.
+      // Only a room made for this offer: its format and mode, holding a seat
+      // for the challenger, so no other room the acceptor hosts can receive
+      // them. Visibility is the room's own fact (public by default, and always
+      // when ranked); the hold, not visibility, names the challenge's room.
       const [offer] = await tx
         .select({
           id: challenges.id,
@@ -205,8 +206,15 @@ export function challengeFrame(
           and(
             eq(rooms.formatId, challenges.formatId),
             eq(rooms.competitionType, challenges.mode),
-            eq(rooms.visibility, 'public'),
             openRoomHostedBy(roomId, input.actorId),
+          ),
+        )
+        .innerJoin(
+          roomSeatHolds,
+          and(
+            eq(roomSeatHolds.roomId, rooms.id),
+            eq(roomSeatHolds.actorId, other),
+            sql`${roomSeatHolds.until} > ${new Date(now)}`,
           ),
         )
         .where(
