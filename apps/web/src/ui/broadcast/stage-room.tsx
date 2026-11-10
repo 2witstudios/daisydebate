@@ -100,8 +100,10 @@ export function StageRoom(props: {
           connection.on({ type: 'resumed', room: media }),
         );
         room.on(RoomEvent.Disconnected, () => {
+          // A room the stage already let go may report late; only the held one owns the tiles.
+          const held = connection.joinedRoom() === media;
           connection.on({ type: 'dropped', room: media });
-          setCameras(new Map());
+          if (held) setCameras(new Map());
         });
         return media;
       },

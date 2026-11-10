@@ -43,9 +43,10 @@ const release = <R>(state: StageConnection<R>, room: R): Step<R> => ({
   state,
   effects: [{ type: 'disconnect', room }],
 });
+
 type RoomEvent<R> = Exclude<StageConnectionEvent<R>, { type: 'close' }>;
 
-/** How a room the stage holds moves it, per event; `held` is the room in `state`. */
+/** How an event from the room the stage holds moves it. */
 const heldRoomMoves: {
   readonly [K in RoomEvent<unknown>['type']]: <R>(
     state: Exclude<StageConnection<R>, { kind: 'idle' | 'closed' }>,
