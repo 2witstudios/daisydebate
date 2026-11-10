@@ -85,13 +85,15 @@ export function StageRoom(props: {
           else document.body.appendChild(track.attach());
         });
         room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
-          if (track.kind === Track.Kind.Video)
+          // A room the stage let go may still unsubscribe; the tiles belong to the held one.
+          if (track.kind !== Track.Kind.Video)
+            track.detach().forEach((element) => element.remove());
+          else if (connection.joinedRoom() === media)
             setCameras((all) => {
               const rest = new Map(all);
               rest.delete(participant.identity);
               return rest;
             });
-          else track.detach().forEach((element) => element.remove());
         });
         room.on(RoomEvent.Reconnecting, () =>
           connection.on({ type: 'resuming', room: media }),
@@ -106,7 +108,7 @@ export function StageRoom(props: {
       },
       onLink: setLink,
     });
-    const read = async () => {
+    const read = async (isFresh: () => boolean) => {
       if (ended.current) return;
       // A web tier that is gone may never answer, so a read cannot wait for it.
       const answer = await fetch(`/api/stage/${props.captureId}`, {
@@ -114,6 +116,8 @@ export function StageRoom(props: {
         cache: 'no-store',
         signal: AbortSignal.timeout(READ_TIMEOUT_MS),
       }).catch(() => null);
+      // A later read already answered: this one is older news, for the watch too.
+      if (!isFresh()) return;
       watch.current = watchedStage(
         watch.current,
         answer?.status ?? null,
@@ -124,6 +128,7 @@ export function StageRoom(props: {
         // Egress stops on exactly this line. Nothing else can stop it with the web gone.
         // eslint-disable-next-line no-console
         console.log('END_RECORDING');
+        stop();
         connection.close();
         return;
       }
@@ -154,6 +159,7 @@ export function StageRoom(props: {
       // Not awaited: a connect may take seconds, and the watch must keep reading.
       if (next.room) void connection.offer(next.room);
     };
+    // A read reaches stop() only after its fetch, so the poll has returned by then.
     const stop = startStagePoll({
       read,
       every: (tick) => {

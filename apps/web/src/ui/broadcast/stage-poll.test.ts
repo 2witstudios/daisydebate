@@ -23,30 +23,55 @@ const handTimer = () => {
   };
 };
 
+/** Reads that settle when the test says, each reporting whether its answer was fresh. */
+const heldReads = () => {
+  const settle: (() => void)[] = [];
+  const fresh: boolean[] = [];
+  return {
+    read: (isFresh: () => boolean) =>
+      new Promise<void>((done) => {
+        settle.push(() => {
+          fresh.push(isFresh());
+          done();
+        });
+      }),
+    settle: (index: number) => settle[index]?.(),
+    fresh,
+    started: () => settle.length,
+  };
+};
+
 describe('startStagePoll', () => {
-  test('a tick while a read is in flight is skipped', async () => {
+  test('every tick reads, so the watch samples once a second', () => {
     const timer = handTimer();
-    const pending: (() => void)[] = [];
-    let reads = 0;
-    const stop = startStagePoll({
-      read: () => {
-        reads += 1;
-        return new Promise<void>((done) => pending.push(done));
-      },
-      every: timer.every,
-    });
+    const reads = heldReads();
+    const stop = startStagePoll({ read: reads.read, every: timer.every });
     timer.fire();
-    timer.fire();
-    const whileReading = reads;
-    pending.shift()?.();
-    await flush();
     timer.fire();
     stop();
     assert({
-      given: 'the first read still in flight across two ticks, then settled',
-      should: 'read once until it settles, then read on the next tick',
-      actual: { whileReading, reads },
-      expected: { whileReading: 1, reads: 2 },
+      given: 'a first read still in flight across two ticks',
+      should: 'start a read on each tick as well',
+      actual: reads.started(),
+      expected: 3,
+    });
+  });
+  test('an answer older than one already applied is stale', async () => {
+    const timer = handTimer();
+    const reads = heldReads();
+    const stop = startStagePoll({ read: reads.read, every: timer.every });
+    timer.fire();
+    timer.fire();
+    reads.settle(1);
+    reads.settle(0);
+    reads.settle(2);
+    await flush();
+    stop();
+    assert({
+      given: 'three reads answering second, first, third',
+      should: 'apply the second and the third, and drop the late first',
+      actual: reads.fresh,
+      expected: [true, false, true],
     });
   });
   test('a read that rejects never escapes, and the next tick reads', async () => {
