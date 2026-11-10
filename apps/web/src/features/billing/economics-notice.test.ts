@@ -24,6 +24,7 @@ const failed = (month: string, reason: 'feed_unreadable' | 'save_failed') =>
     kind: 'failed',
     month,
     reason,
+    code: 'INTERNAL',
     cause: new Error(`private ${reason}`),
   }) as const;
 const reported = (
@@ -55,6 +56,7 @@ const plans = (signals: readonly { readonly plan: string }[]) =>
 test('the same failure every hour is one notice; a different code in the stage is another', () => {
   const capacity = {
     ...failed('2026-10', 'save_failed'),
+    code: 'INFRASTRUCTURE' as const,
     cause: createAppError('INFRASTRUCTURE', 'capacity'),
   };
   assert({
@@ -160,6 +162,7 @@ test('each distinct data defect in a stage is its own notice', () => {
   const defect = (message: string) => ({
     ...failed('2026-10', 'save_failed'),
     reason: 'feed_invalid' as const,
+    code: 'VALIDATION' as const,
     cause: createAppError('VALIDATION', message),
   });
   assert({
@@ -201,6 +204,7 @@ test('two typed problems in one stage are two notices', () => {
   const sink = (message: string) => ({
     ...failed('2026-10', 'save_failed'),
     reason: 'sink_unavailable' as const,
+    code: 'INFRASTRUCTURE' as const,
     cause: createAppError('INFRASTRUCTURE', message),
   });
   assert({

@@ -230,6 +230,8 @@ export type EconomicsCollection =
       readonly kind: 'failed';
       readonly month: string;
       readonly reason: EconomicsCollectionFailure;
+      /** The code it is reported and remembered under: a typed cause's own, else its stage's. */
+      readonly code: ErrorCode;
       readonly cause: unknown;
     };
 
@@ -259,7 +261,13 @@ export function createBillingEconomicsCollector(input: {
     async run(window: Window): Promise<EconomicsCollection> {
       const month = window.startsAt.slice(0, 7);
       const failed = (reason: EconomicsCollectionFailure, cause: unknown) =>
-        ({ kind: 'failed', month, reason, cause }) as const;
+        ({
+          kind: 'failed',
+          month,
+          reason,
+          code: isAppError(cause) ? cause.code : economicsFailureCode[reason],
+          cause,
+        }) as const;
       const sink = await stage(() => input.sink.open(window));
       if (!sink.ok) return failed('sink_unavailable', sink.cause);
       const read = await stage(() => input.store.read(window));
@@ -271,7 +279,10 @@ export function createBillingEconomicsCollector(input: {
           parsed.endsAt !== window.endsAt ||
           parsed.observedAt > input.now()
         )
-          throw new Error('Economics snapshot window mismatch');
+          throw createAppError(
+            'VALIDATION',
+            'Economics snapshot window mismatch',
+          );
         return parsed;
       });
       if (!snapshot.ok) return failed('snapshot_invalid', snapshot.cause);

@@ -177,7 +177,8 @@ a financial report or claims low-margin delivery:
   typed, so a non-private sink directory is `VALIDATION`), and an untyped one
   takes its stage's (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and
   `report_invalid`, `INTERNAL` for `report_failed`, otherwise
-  `INFRASTRUCTURE`). So `errorCode` stays meaningful, and it carries the caught error as its `cause`, so the real
+  `INFRASTRUCTURE`). The log line's `cause` names the fixed check that failed
+  (for example `Economics_feed_window_mismatch`). So `errorCode` stays meaningful, and it carries the caught error as its `cause`, so the real
   cause reaches the scrubbed tracker. A capacity refusal is first
   deferred by the shared bound (eight per stage) and only then reported, so it
   never counts as raised and never mutes a later genuine failure of that month.

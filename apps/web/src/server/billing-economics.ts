@@ -3,7 +3,6 @@ import { createAppError, isAppError } from '@daisy/errors';
 import type { App } from './app';
 import {
   createBillingEconomicsCollector,
-  economicsFailureCode,
   type EconomicsCollection,
 } from '../features/billing/economics-collector';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
@@ -47,6 +46,17 @@ export function composeBillingEconomics(
 }
 
 /**
+ * The log line's closed `cause`: which fixed check failed, read from the typed
+ * error the worker wrapped. An untyped cause names nothing, so it adds nothing.
+ */
+const economicsFailureCheck = (error: unknown) => {
+  const cause = error instanceof Error ? error.cause : undefined;
+  return isAppError(cause)
+    ? cause.message.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 80)
+    : undefined;
+};
+
+/**
  * One bounded monthly collection per hourly tick, raising each signal once a
  * month and each failure once per regression, per process. Without a provisioned sink there is
  * nowhere to keep a report, so the worker does not run and raises nothing
@@ -76,6 +86,7 @@ export function startBillingEconomics(input: {
     'billing.economics.failed',
     'billing.economics',
     'Private billing economics remain incomplete',
+    economicsFailureCheck,
   );
   let raised = nothingRaised;
   /** The last failure outside any collection that was reported, until one completes. */
@@ -93,11 +104,8 @@ export function startBillingEconomics(input: {
   };
   const raise = (collection: EconomicsCollection) => {
     if (collection.kind === 'failed') {
-      // A typed cause names its own problem; an untyped one takes its stage's code.
       const error = createAppError(
-        isAppError(collection.cause)
-          ? collection.cause.code
-          : economicsFailureCode[collection.reason],
+        collection.code,
         undefined,
         collection.cause,
       );

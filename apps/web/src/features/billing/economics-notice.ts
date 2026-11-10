@@ -14,8 +14,7 @@ type Collection<K extends EconomicsCollection['kind']> = Extract<
  * shared failure sink bounds it.
  */
 export function failureNotice(collection: Collection<'failed'>): string {
-  const { cause } = collection;
-  const code = isAppError(cause) ? cause.code : 'INTERNAL';
+  const { cause, code } = collection;
   // A typed error carries a fixed, code-authored message, so each distinct typed problem is its own
   // notice; an untyped error's text is not trusted to be fixed, so all of a stage's are one.
   const check = isAppError(cause) ? cause.message : '';

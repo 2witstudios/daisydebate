@@ -105,10 +105,34 @@ test('each failing stage is one typed failure carrying the caught error', async 
       'return sink_unavailable, snapshot_failed, feed_unreadable and save_failed for the month, each keeping the caught error',
     actual: results,
     expected: [
-      { kind: 'failed', month: '2026-10', reason: 'sink_unavailable', cause },
-      { kind: 'failed', month: '2026-10', reason: 'snapshot_failed', cause },
-      { kind: 'failed', month: '2026-10', reason: 'feed_unreadable', cause },
-      { kind: 'failed', month: '2026-10', reason: 'save_failed', cause },
+      {
+        kind: 'failed',
+        month: '2026-10',
+        reason: 'sink_unavailable',
+        code: 'INFRASTRUCTURE',
+        cause,
+      },
+      {
+        kind: 'failed',
+        month: '2026-10',
+        reason: 'snapshot_failed',
+        code: 'INFRASTRUCTURE',
+        cause,
+      },
+      {
+        kind: 'failed',
+        month: '2026-10',
+        reason: 'feed_unreadable',
+        code: 'INFRASTRUCTURE',
+        cause,
+      },
+      {
+        kind: 'failed',
+        month: '2026-10',
+        reason: 'save_failed',
+        code: 'INFRASTRUCTURE',
+        cause,
+      },
     ],
   });
 });

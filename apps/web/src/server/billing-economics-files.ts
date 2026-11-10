@@ -75,8 +75,12 @@ async function readBoundedJson(file: FileHandle) {
   let parsed: unknown;
   try {
     parsed = JSON.parse(bytes.subarray(0, length).toString('utf8'));
-  } catch {
-    throw createAppError('VALIDATION', 'Billing economics feed is invalid');
+  } catch (error) {
+    throw createAppError(
+      'VALIDATION',
+      'Billing economics feed is invalid',
+      error,
+    );
   }
   // `null` means an absent file to every caller, so a file whose body is null is invalid, never missing.
   if (parsed === null)
@@ -102,10 +106,12 @@ async function readPrivateFeed(path: string) {
       throw createAppError(
         'VALIDATION',
         'Billing economics feed is not bounded and private',
+        error,
       );
     throw createAppError(
       'INFRASTRUCTURE',
       'Billing economics feed unavailable',
+      error,
     );
   }
   try {
@@ -160,8 +166,17 @@ export function createBillingEconomicsFiles(input: {
           !economicsInstant.safeParse(window.endsAt).success
         )
           throw createAppError('INTERNAL', 'Billing economics window invalid');
-        // The reader keeps its own privacy check: a caller need not open the sink first.
-        await privateDirectory(input.directory);
+        // The reader keeps its own privacy check, so a caller need not open the sink first. A
+        // directory fault here is the sink's, never the feed file's, so it reads as unavailable.
+        try {
+          await privateDirectory(input.directory);
+        } catch (error) {
+          throw createAppError(
+            'INFRASTRUCTURE',
+            'Billing economics feed unavailable',
+            error,
+          );
+        }
         return readPrivateFeed(
           join(input.directory, `feed-${window.startsAt.slice(0, 7)}.json`),
         );

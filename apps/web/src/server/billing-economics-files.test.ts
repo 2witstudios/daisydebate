@@ -250,9 +250,24 @@ test('the feed reader keeps its own privacy check without the sink being opened'
     });
     assert({
       given: 'a group-readable directory read directly through feed.read',
-      should: 'refuse it, as the sink would',
-      actual: await refusalOf(files.feed.read(window)),
-      expected: 'Billing economics directory is not private',
+      should:
+        'refuse it as the sink being unavailable, keeping the privacy refusal as its cause',
+      actual: await files.feed.read(window).then(
+        () => null,
+        (error: unknown) =>
+          error instanceof Error && error.cause instanceof Error
+            ? [
+                (error as { code?: string }).code,
+                error.message,
+                error.cause.message,
+              ]
+            : null,
+      ),
+      expected: [
+        'INFRASTRUCTURE',
+        'Billing economics feed unavailable',
+        'Billing economics directory is not private',
+      ],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -440,6 +455,32 @@ test('a save during a late correction never expires the feed it is correcting', 
         'an August feed past the thirty-day retention, and a saved August report',
       should: 'keep the August feed for the next correction run',
       actual: (await readdir(directory)).includes('feed-2026-08.json'),
+      expected: true,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a malformed feed keeps the parser error as its cause', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    await writeFile(join(directory, 'feed-2026-10.json'), '{"startsAt":', {
+      mode: 0o600,
+    });
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'l'.repeat(24),
+    });
+    assert({
+      given: 'a truncated JSON feed',
+      should: 'refuse it as VALIDATION with the SyntaxError as its cause',
+      actual: await files.feed.read(window).then(
+        () => null,
+        (error: unknown) =>
+          error instanceof Error && error.cause instanceof SyntaxError,
+      ),
       expected: true,
     });
   } finally {

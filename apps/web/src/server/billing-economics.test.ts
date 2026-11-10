@@ -908,3 +908,40 @@ test('a failure outside any collection is reported once, not every hour', async 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('each failed check is named on its log line', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const { modelUsage: _m, ...financial } = dataset();
+  void _m;
+  const feedFile = (value: unknown) =>
+    writeFile(join(directory, 'feed-2026-10.json'), JSON.stringify(value), {
+      mode: 0o600,
+    });
+  try {
+    await feedFile({
+      ...financial,
+      modelCostBasis: 'provider_invoice',
+      startsAt: '2026-09-01T00:00:00.000Z',
+    });
+    const run = await runWorker({
+      directory,
+      ticks: 1,
+      between: () =>
+        feedFile({ ...financial, modelCostBasis: 'usage_counters' }),
+    });
+    assert({
+      given:
+        'a feed for the wrong window, then a feed with conflicting cost bases',
+      should: 'log two feed_invalid lines, each naming its own check',
+      actual: run.logged
+        .filter((line) => line.event === 'billing.economics.failed')
+        .map((line) => [line.fields.operation, line.fields.cause]),
+      expected: [
+        ['billing.economics.feed_invalid', 'Economics_feed_window_mismatch'],
+        ['billing.economics.feed_invalid', 'Conflicting_model_cost_bases'],
+      ],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
