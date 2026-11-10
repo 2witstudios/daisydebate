@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
+import { typedCodeOr } from './economics-cause';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
@@ -248,10 +249,6 @@ export type EconomicsCollection =
       readonly code: ErrorCode;
       readonly cause: unknown;
     };
-
-/** The code a failure is reported under: a typed cause keeps its own, an untyped one takes the fallback. */
-export const typedCodeOr = (cause: unknown, fallback: ErrorCode): ErrorCode =>
-  isAppError(cause) ? cause.code : fallback;
 
 /** A typed VALIDATION refusal is the operator's feed being wrong; anything else is the given stage's. */
 const feedFault = (

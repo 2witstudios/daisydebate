@@ -1387,3 +1387,61 @@ test('an unreadable failure outside any collection is reported once', async () =
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a Proxy whose prototype trap throws, outside any collection, is still one logged failure', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
+  const { logged, logger } = createEventRecorder();
+  const proxy = new Proxy(new Error('proxy'), {
+    getPrototypeOf() {
+      throw new Error('trap');
+    },
+  });
+  let tick: (() => Promise<void>) | null = null;
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger,
+      clock: {
+        now: () => {
+          throw proxy;
+        },
+      },
+      database: { ...app.database, billingEconomics: snapshotStore() },
+    },
+    instanceId: 'service-fixture',
+    timers: {
+      setInterval: (run) => {
+        tick = run;
+        return 1;
+      },
+      clearInterval: () => undefined,
+    },
+  });
+  try {
+    const settled = await service.started.then(
+      () => 'settled',
+      () => 'rejected',
+    );
+    await (tick as (() => Promise<void>) | null)?.();
+    assert({
+      given:
+        'a run rejecting with a Proxy whose getPrototypeOf trap throws, over two ticks',
+      should: 'settle the tick and log one collect failure naming its stage',
+      actual: [
+        settled,
+        logged
+          .filter((line) => line.event === 'billing.economics.failed')
+          .map((line) => [line.fields.operation, line.fields.cause]),
+      ],
+      expected: [
+        'settled',
+        [['billing.economics.collect', 'economics-collect-failed']],
+      ],
+    });
+  } finally {
+    await service.stop();
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

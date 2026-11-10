@@ -1,4 +1,4 @@
-import { isAppError } from '@daisy/errors';
+import { isAppError, type ErrorCode } from '@daisy/errors';
 import type { RefusalReason } from '@daisy/protocol';
 
 /** At most this many links of a cause chain are read; a longer or cyclic chain is cut there. */
@@ -72,5 +72,20 @@ export function classNameOf(error: Error): string {
     return typeof error.name === 'string' ? error.name : '';
   } catch {
     return '';
+  }
+}
+
+/**
+ * The code a failure is reported under: a typed error keeps its own, anything
+ * else takes the fallback. Read so it cannot throw: a Proxy whose prototype
+ * trap throws, or a hostile `code`, takes the fallback.
+ */
+export function typedCodeOr(error: unknown, fallback: ErrorCode): ErrorCode {
+  try {
+    if (!isAppError(error)) return fallback;
+    const code = ownValue(error, 'code');
+    return typeof code === 'string' ? (code as ErrorCode) : fallback;
+  } catch {
+    return fallback;
   }
 }

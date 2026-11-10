@@ -6,11 +6,13 @@ import {
   createBillingEconomicsCollector,
   type EconomicsCollection,
   type EconomicsCollectionFailure,
-  typedCodeOr,
 } from '../features/billing/economics-collector';
 
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
-import { innermostReason } from '../features/billing/economics-cause';
+import {
+  innermostReason,
+  typedCodeOr,
+} from '../features/billing/economics-cause';
 import {
   failureNotice,
   isFailureRaised,

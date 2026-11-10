@@ -5,8 +5,9 @@ import {
   classNameOf,
   innermostReason,
   systemCodeOf,
+  typedCodeOr,
 } from './economics-cause';
-import { typedCodeOr, type EconomicsCollection } from './economics-collector';
+import type { EconomicsCollection } from './economics-collector';
 
 type Collection<K extends EconomicsCollection['kind']> = Extract<
   EconomicsCollection,
