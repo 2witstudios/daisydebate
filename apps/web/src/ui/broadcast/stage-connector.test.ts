@@ -97,6 +97,35 @@ describe('createStageConnection', () => {
       },
     });
   });
+  test('LiveKit reporting a disconnect before the connect rejects', async () => {
+    const { stage, rooms, links } = connection();
+    const first = stage.offer(offer);
+    // livekit-client 2.22.0 emits Disconnected from a failed connect, then rejects.
+    const lost = stage.dropped(rooms[0]!);
+    rooms[0]!.reject(unreachable);
+    await first;
+    const afterFailure = { links: [...links], joined: stage.joinedRoom() };
+    const second = stage.offer(offer);
+    rooms[1]!.resolve();
+    await second;
+    assert({
+      given: 'a joining room that reports Disconnected and then rejects',
+      should:
+        'clear no tiles, disconnect it once, stay reconnecting, and join a new room on the next offer',
+      actual: {
+        lost,
+        afterFailure,
+        disconnects: rooms.map((room) => room.disconnects),
+        joined: stage.joinedRoom() === rooms[1],
+      },
+      expected: {
+        lost: false,
+        afterFailure: { links: [], joined: null },
+        disconnects: [1, 0],
+        joined: true,
+      },
+    });
+  });
   test('an offer while a connect is in flight starts no second connect', async () => {
     const { stage, rooms } = connection();
     const first = stage.offer(offer);
@@ -138,17 +167,28 @@ describe('createStageConnection', () => {
     const first = stage.offer(offer);
     rooms[0]!.resolve();
     await first;
-    stage.on({ type: 'dropped', room: rooms[0]! });
+    const lost = stage.dropped(rooms[0]!);
     const second = stage.offer(offer);
     rooms[1]!.resolve();
     await second;
     assert({
-      given: 'a joined room that drops, then an offer',
-      should: 'show reconnecting and join a second room',
-      actual: { links, joined: stage.joinedRoom() === rooms[1] },
+      given:
+        'a joined room that drops, then an offer, then the first room reporting again',
+      should:
+        'say the first drop lost the held room, join a second room, and let the late report own nothing',
+      actual: {
+        lost,
+        links,
+        joined: stage.joinedRoom() === rooms[1],
+        staleLost: stage.dropped(rooms[0]!),
+        stillJoined: stage.joinedRoom() === rooms[1],
+      },
       expected: {
+        lost: true,
         links: ['connected', 'reconnecting', 'connected'],
         joined: true,
+        staleLost: false,
+        stillJoined: true,
       },
     });
   });

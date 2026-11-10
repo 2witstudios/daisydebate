@@ -44,6 +44,15 @@ export function createStageConnection<R extends StageRoomHandle>(resources: {
       }
       on({ type: 'joined', room: joining });
     },
+    /**
+     * The room reports it disconnected; true when it was the joined room, whose tiles
+     * then go. A room already let go may report late and owns nothing on the stage.
+     */
+    dropped: (room: R): boolean => {
+      const held = state.kind === 'joined' && state.room === room;
+      on({ type: 'dropped', room });
+      return held;
+    },
     joinedRoom: (): R | null => (state.kind === 'joined' ? state.room : null),
     close: () => on({ type: 'close' }),
   };

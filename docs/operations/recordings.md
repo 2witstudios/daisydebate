@@ -24,10 +24,11 @@ same observer revocation and the same microphone hold. `RECORDING_CAPTURE=on` tu
 the capture sweep; unset, no Recording is requested and no Egress starts for one.
 
 The stage page keeps recording when it cannot reach the media server. Its connection
-(`ui/broadcast/stage-connection.ts`, run by `stage-connector.ts`) makes one connect attempt at a time, and a failed
-attempt lets its room go so the next read (one a second, one at a time) tries again.
-Until a room is joined, a speech shows "Reconnecting to the debate" with its tiles
-hidden. Only the stage watch ends the recording, never a media failure.
+(`ui/broadcast/stage-connection.ts`, run by `stage-connector.ts`) makes one connect
+attempt at a time, and a failed attempt lets its room go so the next read (one a
+second, one at a time) tries again. Until a room is joined, a speech shows
+"Reconnecting to the debate" with its tiles hidden. Only the stage watch ends the
+recording, never a media failure.
 
 Every Egress attempt writes under its own number in the private hold bucket:
 `hold/<broadcastId>/<attempt>/`, or `recording-hold/<recordingId>/<attempt>/` for an own
