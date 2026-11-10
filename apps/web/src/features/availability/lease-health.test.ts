@@ -206,19 +206,25 @@ test('the check right after a stall tells no one, so a renewal that then proves 
 });
 
 test('a stalled process is named as such, whatever renewal it has started since', () => {
-  const nextTick = (startedMs: number | null) => {
-    const resumed = checkLease(provenAtStart(), 13_000).health;
-    const health =
+  const nextTick = (startedMs: number | null, beforeStall: boolean) => {
+    const start = (health: ReturnType<typeof provenAtStart>) =>
       startedMs === null
-        ? resumed
-        : afterRenewal(resumed, { kind: 'started', startedMs });
-    return checkLease(health, 14_000).due?.lapse.unproven.kind;
+        ? health
+        : afterRenewal(health, { kind: 'started', startedMs });
+    const resumed = beforeStall
+      ? checkLease(start(provenAtStart()), 13_000).health
+      : start(checkLease(provenAtStart(), 13_000).health);
+    return checkLease(resumed, 14_000).due?.lapse.unproven.kind;
   };
   assert({
     given:
       'a timely renewal at start, a thirteen-second stall, and the tick after it: with nothing in flight, a renewal started on resuming, and one in flight through the stall',
     should: 'report each lapse as a stalled process, not a hung renewal',
-    actual: [nextTick(null), nextTick(13_000), nextTick(500)],
+    actual: [
+      nextTick(null, false),
+      nextTick(13_000, false),
+      nextTick(500, true),
+    ],
     expected: ['process_stalled', 'process_stalled', 'process_stalled'],
   });
 });
@@ -287,5 +293,34 @@ test('a process that keeps stalling still reports', () => {
     should: 'report the lapse once, not skip every check as just resumed',
     actual: dues.length,
     expected: 1,
+  });
+});
+
+test('a renewal hung before a brief stall is still a pending renewal once the process runs again', () => {
+  let health = afterRenewal(provenAtStart(), {
+    kind: 'started',
+    startedMs: 1000,
+  });
+  for (let ms = 1000; ms <= 20_000; ms += 1000)
+    health = checkLease(health, ms).health;
+  health = checkLease(health, 23_500).health;
+  const causes: (string | undefined)[] = [];
+  for (let ms = 24_500; ms <= 27_500; ms += 1000) {
+    const checked = checkLease(health, ms);
+    causes.push(checked.due?.lapse.unproven.kind);
+    health = checked.health;
+  }
+  assert({
+    given:
+      'a renewal hung from 1 s, a 3.5 s pause at 20 s, and the renewal still in flight afterwards',
+    should:
+      'name the stall only until the renewal has been in flight a full window of running time, then a pending renewal',
+    actual: causes,
+    expected: [
+      'process_stalled',
+      'process_stalled',
+      'renewal_pending',
+      'renewal_pending',
+    ],
   });
 });

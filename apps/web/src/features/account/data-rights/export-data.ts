@@ -1,5 +1,5 @@
 import type { Identity } from '@daisy/auth';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, isAppError, errorCodeOf } from '@daisy/errors';
 import type { PrivacyExport, PrivacySubject } from '@daisy/db/privacy';
 import type { Logger } from '@daisy/logger';
 import { requireSignedIn, requireSameOrigin } from '../../../server/http';
@@ -77,7 +77,7 @@ export function createExportDataHandler({
       if (isAppError(error) && error.code === 'AUTHENTICATION')
         // No live session: the sign-in page is where this account is.
         return seeOther('/sign-in');
-      const code = isAppError(error) ? error.code : 'INTERNAL';
+      const code = errorCodeOf(error, 'INTERNAL');
       logger.log(
         'privacy.export.failed',
         { operation: 'privacy.export', errorCode: code },

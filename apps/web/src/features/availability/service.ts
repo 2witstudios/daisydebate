@@ -1,4 +1,4 @@
-import { guarded } from '../../lib/sink-guard';
+import { guarded } from '@daisy/observability';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import {
   afterRenewal,
@@ -123,13 +123,11 @@ export function startAvailabilityService(deps: {
     const startedMs = nowMs();
     observe({ kind: 'started', startedMs });
     // A store that throws synchronously still settles as a failed renewal.
-    renewing = new Promise<void>((resolve) =>
-      resolve(
-        deps.store.renewServiceInstance({
-          instanceId: deps.instanceId,
-          role: 'web',
-        }),
-      ),
+    renewing = Promise.try(() =>
+      deps.store.renewServiceInstance({
+        instanceId: deps.instanceId,
+        role: 'web',
+      }),
     )
       .then(() => {
         observe({ kind: 'renewed', startedMs, settledMs: nowMs() });

@@ -2,8 +2,11 @@ import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { errorCodeOf } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
-import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
-import { guarded } from '../lib/sink-guard';
+import {
+  guarded,
+  noopErrorReporter,
+  type ErrorReporter,
+} from '@daisy/observability';
 import type { App } from './app';
 
 /**
@@ -78,7 +81,7 @@ export function recoverableFailure(input: {
           'service.lease_lapsed',
           {
             operation: `${operation}.lease`,
-            errorCode: 'AUTHORIZATION',
+            errorCode: errorCodeOf(error, 'AUTHORIZATION'),
             cause: 'service-lease-lapsed',
           },
           'Service lease not current; the next renewal restores it',

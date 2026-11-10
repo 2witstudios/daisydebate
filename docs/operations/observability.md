@@ -318,12 +318,13 @@ including one refused because another role holds the row, proves nothing either.
 On every tick the loop checks how long the lease has gone unproven, so a renewal
 that hangs is still checked. At 10 s it logs `availability.lease_lapsing`
 (`cause` is `renewal_failed`, `renewal_late`, or `renewal_pending` when a
-renewal has been in flight for the whole window, or `process_stalled` when the
-process itself stalled (a timer or event loop that did not run) and no renewal
-has settled since; the one check right after a stall tells no one, so the
-renewal that tick starts can prove the lease first, and a renewal that settles
-after the stall names the lapse from then on; `durationMs` is how long the lease
-has been unproven) and reports one error to the app's reporter under the route
+renewal has been in flight for the whole window while the process ran, or
+`process_stalled` when the lease lapsed with no renewal hung and none failing,
+so the process itself stalled (a timer or event loop that did not run); the one
+check right after a stall tells no one, so the renewal that tick starts can
+prove the lease first, and a renewal in flight through the stall gets a fresh
+window of running time; `durationMs` is how long the lease has been unproven)
+and reports one error to the app's reporter under the route
 `web.service-lease.lapsed`, linked to the renewal failure when there was one;
 the line and the report carry that failure's own `errorCode` (`CONFLICT` when
 another role holds the row), `INFRASTRUCTURE` when there is none. One instance

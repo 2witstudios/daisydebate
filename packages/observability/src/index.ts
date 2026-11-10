@@ -16,6 +16,7 @@ export {
   type LivenessStdin,
   type SignalTarget,
 } from './process-lifecycle';
+export { guarded } from './sink-guard';
 
 const traceparentPattern =
   /^(?!ff-)([\da-f]{2})-([\da-f]{32})-([\da-f]{16})-([\da-f]{2})$/;

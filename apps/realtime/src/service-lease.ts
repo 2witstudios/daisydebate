@@ -1,4 +1,5 @@
 import type { OutboxPosition } from '@daisy/db/outbox';
+import { guarded } from '@daisy/observability';
 
 /** Cursor is sampled from the actual synchronous outbox-delivery boundary each renewal. */
 export function startRealtimeServiceLease(input: {
@@ -26,13 +27,8 @@ export function startRealtimeServiceLease(input: {
         role: 'realtime',
         deliveredThrough: input.deliveredThrough(),
       })
-      .catch((error: unknown) => {
-        try {
-          input.failed(error);
-        } catch {
-          // A failure sink that throws never rejects the renewal (ISSUE-789).
-        }
-      })
+      // A failure sink that throws never rejects the renewal (ISSUE-789).
+      .catch((error: unknown) => void guarded(() => input.failed(error)))
       .finally(() => {
         work = null;
       });

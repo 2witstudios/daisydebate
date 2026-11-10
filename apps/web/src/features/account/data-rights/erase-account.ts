@@ -1,6 +1,6 @@
 import type { Clock } from '@daisy/clock';
 import type { Identity } from '@daisy/auth';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, errorCodeOf } from '@daisy/errors';
 import type { PrivacySubject } from '@daisy/db/privacy';
 import type { Logger } from '@daisy/logger';
 import { readBoundedBody } from '../../../server/bounded-body';
@@ -115,7 +115,7 @@ export function createEraseAccountHandler({
       );
       return erasingDraftCopies(seeOther(`/sign-in?${ACCOUNT_CLOSED_QUERY}=1`));
     } catch (error) {
-      const code = isAppError(error) ? error.code : 'INTERNAL';
+      const code = errorCodeOf(error, 'INTERNAL');
       logger.log(
         'privacy.erase.failed',
         { operation: 'privacy.erase', errorCode: code },

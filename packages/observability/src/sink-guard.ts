@@ -1,6 +1,6 @@
 /**
- * Runs one step of a failure or report sink. A sink that throws is never its
- * caller's fault (ISSUE-789): the step's failure is swallowed, and the
+ * Runs one step of a failure or report sink, in any app. A sink that throws
+ * is never its caller's fault (ISSUE-789): the step's failure is swallowed, and the
  * answer says whether the step completed, so a caller can count only what
  * was actually delivered.
  */

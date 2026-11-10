@@ -3,7 +3,7 @@ import {
   dialObservationSubscriber,
   type SubscriberTransport,
 } from '@daisy/redis';
-import { isAppError } from '@daisy/errors';
+import { errorCodeOf } from '@daisy/errors';
 import type { RealtimeApp } from '../app';
 import type { RealtimeReadingPolicy } from '../authorization';
 import type { IntervalTimers } from '../outbox-drain';
@@ -48,7 +48,7 @@ export function startObservationRuntime({
       'realtime.observation.unavailable',
       {
         operation,
-        errorCode: isAppError(error) ? error.code : 'INFRASTRUCTURE',
+        errorCode: errorCodeOf(error, 'INFRASTRUCTURE'),
       },
       'Observation work unavailable',
     );
