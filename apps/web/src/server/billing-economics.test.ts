@@ -1,11 +1,11 @@
-import { mkdtemp, writeFile, readdir, stat, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, writeFile, readdir, stat, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { createApp } from './app';
-import { silentLogger } from './test-loggers.test-support';
+import { createEventRecorder, silentLogger } from './test-loggers.test-support';
 import {
   composeBillingEconomics,
   startBillingEconomics,
@@ -42,34 +42,46 @@ const build = (directory?: string) => ({
   logger: silentLogger,
 });
 
-test('the actual scheduler reads its current-service monthly port and refuses missing measurements', async () => {
-  const app = build(),
+type Captured = { error: unknown; route: string; errorCode: string };
+const snapshotStore =
+  (reads: unknown[] = []) =>
+  (instanceId: string) => ({
+    read: async (period: { startsAt: string; endsAt: string }) => {
+      reads.push({ instanceId, ...period });
+      return {
+        ...period,
+        observedAt: now,
+        attempts: [],
+        usage: [],
+        complete: true,
+      };
+    },
+  });
+/** Run the worker with controlled ports; `ticks` later hourly ticks follow the immediate one. */
+async function runWorker(input: {
+  readonly directory?: string;
+  readonly ticks: number;
+  readonly capture?: (error: unknown, context: Captured) => void;
+  readonly between?: (tick: number) => Promise<void>;
+}) {
+  const app = build(input.directory),
     reads: unknown[] = [],
-    signals: string[] = [];
-  let tick: () => Promise<void> = async () => undefined;
-  let cadence = 0,
-    cleared = false;
+    captured: Captured[] = [];
+  const { logged, logger } = createEventRecorder();
+  let tick: (() => Promise<void>) | null = null;
+  let cadence = 0;
   const service = startBillingEconomics({
     app: {
       ...app,
+      logger,
       database: {
         ...app.database,
-        billingEconomics: (instanceId) => ({
-          read: async (period) => {
-            reads.push({ instanceId, ...period });
-            return {
-              ...period,
-              observedAt: now,
-              attempts: [],
-              usage: [],
-              complete: true,
-            };
-          },
-        }),
+        billingEconomics: snapshotStore(reads),
       },
       reporter: {
-        capture: (_error, context) => {
-          signals.push(context.errorCode);
+        capture: (error, context) => {
+          input.capture?.(error, { error, ...context });
+          captured.push({ error, ...context });
         },
       },
     },
@@ -80,45 +92,165 @@ test('the actual scheduler reads its current-service monthly port and refuses mi
         cadence = ms;
         return 1;
       },
-      clearInterval: () => {
-        cleared = true;
-      },
+      clearInterval: () => undefined,
     },
   });
   try {
     await service.started;
-    await service.stop();
-    await tick();
-    assert({
-      given:
-        'a beta process without Stripe or a private financial feed, using controlled source/reporter ports',
-      should:
-        'read the selected original calendar window, signal incompleteness and stop scheduling without claiming measured cost',
-      actual: {
-        reads,
-        cadence,
-        cleared,
-        incomplete: signals.includes('BILLING_ECONOMICS_INCOMPLETE'),
-        low: signals.includes('BILLING_LOW_MARGIN'),
-      },
-      expected: {
-        reads: [{ instanceId: 'service-fixture', ...window }],
-        cadence: 3_600_000,
-        cleared: true,
-        incomplete: true,
-        low: false,
-      },
-    });
+    for (let n = 1; n <= input.ticks; n++) {
+      await input.between?.(n);
+      await (tick as (() => Promise<void>) | null)?.();
+    }
   } finally {
     await service.stop();
     await app.close();
+  }
+  return { reads, captured, logged, cadence, scheduled: tick !== null };
+}
+
+test('an unprovisioned sink does not start the worker and raises nothing', async () => {
+  const run = await runWorker({ ticks: 2 });
+  assert({
+    given: 'a process without BILLING_ECONOMICS_DIRECTORY',
+    should:
+      'schedule nothing, read nothing, capture nothing and log billing.economics.unprovisioned once',
+    actual: {
+      scheduled: run.scheduled,
+      reads: run.reads.length,
+      captured: run.captured.length,
+      logged: run.logged.map((line) => line.event),
+    },
+    expected: {
+      scheduled: false,
+      reads: 0,
+      captured: 0,
+      logged: ['billing.economics.unprovisioned'],
+    },
+  });
+});
+
+test('a provisioned sink without a feed raises completeness once per month, not every tick', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({ directory, ticks: 2 });
+    const reports = (await readdir(directory)).filter((name) =>
+      name.startsWith('report-'),
+    );
+    assert({
+      given:
+        'a provisioned private sink with no feed for the previous month, over three hourly ticks',
+      should:
+        'read the original calendar window each tick, save incomplete reports, and raise one completeness signal per plan once, logged as feed_missing',
+      actual: {
+        cadence: run.cadence,
+        reads: run.reads,
+        reports: reports.length,
+        captured: run.captured.map((c) => [c.errorCode, c.route]),
+        logged: run.logged.map((line) => [line.event, line.fields.cause]),
+      },
+      expected: {
+        cadence: 3_600_000,
+        reads: [1, 2, 3].map(() => ({
+          instanceId: 'service-fixture',
+          ...window,
+        })),
+        reports: 3,
+        captured: [
+          ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.free'],
+          ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.beta'],
+          ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.premium'],
+        ],
+        logged: [['billing.economics.feed_missing', 'feed_missing']],
+      },
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a genuine failure is reported once with its caught error, and a changed outcome is raised', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    await chmod(directory, 0o755);
+    const run = await runWorker({
+      directory,
+      ticks: 2,
+      between: async (n) => {
+        if (n === 2) await chmod(directory, 0o700);
+      },
+    });
+    assert({
+      given:
+        'a sink directory that is not private for two ticks, then repaired before the third',
+      should:
+        'capture the caught error exactly once as feed_unreadable, then raise the new feed-missing outcome',
+      actual: {
+        captured: run.captured.map((c) => [
+          c.route,
+          c.error instanceof Error ? c.error.message : null,
+        ]),
+        logged: run.logged.map((line) => [line.event, line.fields.operation]),
+      },
+      expected: {
+        captured: [
+          [
+            'billing.economics.feed_unreadable',
+            'Billing economics directory is not private',
+          ],
+          ['billing.economics.free', 'BILLING_ECONOMICS_INCOMPLETE'],
+          ['billing.economics.beta', 'BILLING_ECONOMICS_INCOMPLETE'],
+          ['billing.economics.premium', 'BILLING_ECONOMICS_INCOMPLETE'],
+        ],
+        logged: [
+          ['billing.economics.failed', 'billing.economics.feed_unreadable'],
+          ['billing.economics.feed_missing', 'billing.economics.collect'],
+        ],
+      },
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a reporter that throws is logged as signal_failed and retried next tick', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  let failing = true;
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 1,
+      capture: () => {
+        if (failing) {
+          failing = false;
+          throw new Error('private adapter');
+        }
+      },
+    });
+    assert({
+      given: 'a reporter whose first signal capture throws',
+      should:
+        'log billing.economics.failed as signal_failed and raise the signals again on the next tick',
+      actual: {
+        logged: run.logged
+          .filter((line) => line.event === 'billing.economics.failed')
+          .map((line) => line.fields.operation),
+        incomplete: run.captured.filter(
+          (c) => c.errorCode === 'BILLING_ECONOMICS_INCOMPLETE',
+        ).length,
+      },
+      expected: {
+        logged: ['billing.economics.signal_failed'],
+        incomplete: 3,
+      },
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 });
 
 test('the composed private-file collector uses the recorded floor and cannot accept a supplier override', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-runtime-'));
-  const app = build(directory),
-    signals: string[] = [];
+  const app = build(directory);
   const source = dataset();
   const { modelUsage: _modelUsage, ...financial } = source;
   void _modelUsage;
@@ -141,13 +273,9 @@ test('the composed private-file collector uses the recorded floor and cannot acc
             }),
           }),
         },
-        reporter: {
-          capture: (_error, context) => {
-            signals.push(context.errorCode);
-          },
-        },
       },
       'service-fixture',
+      directory,
     );
     const crossing = await collector.run(window);
     await writeFile(
@@ -162,13 +290,15 @@ test('the composed private-file collector uses the recorded floor and cannot acc
       given:
         'controlled measured input just below30%, then the same private feed attempting a10% floor',
       should:
-        'save one private report and submit the named low-margin signal while refusing the override as incomplete',
+        'save one private report deriving the named low-margin signal while refusing the override as feed_invalid',
       actual: {
         crossing: crossing.kind,
-        delivery: crossing.kind === 'reported' && crossing.alertDelivery,
-        override: override.kind,
-        low: signals.filter((code) => code === 'BILLING_LOW_MARGIN').length,
-        incomplete: signals.includes('BILLING_ECONOMICS_INCOMPLETE'),
+        feed: crossing.kind === 'reported' && crossing.feed,
+        override: override.kind === 'failed' && override.reason,
+        low:
+          crossing.kind === 'reported' &&
+          crossing.signals.filter((s) => s.name === 'BILLING_LOW_MARGIN')
+            .length,
         reports: reports.length,
         mode: reports[0]
           ? (await stat(join(directory, reports[0]))).mode & 0o777
@@ -176,10 +306,9 @@ test('the composed private-file collector uses the recorded floor and cannot acc
       },
       expected: {
         crossing: 'reported',
-        delivery: 'unconfirmed',
-        override: 'failed',
+        feed: 'supplied',
+        override: 'feed_invalid',
         low: 1,
-        incomplete: true,
         reports: 1,
         mode: 0o600,
       },

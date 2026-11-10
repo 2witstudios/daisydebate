@@ -60,6 +60,8 @@ export const eventRegistry = {
   'billing.usage_recovery.failed': 'error',
   'billing.webhook.failed': 'error',
   'billing.economics.failed': 'error',
+  'billing.economics.unprovisioned': 'warn',
+  'billing.economics.feed_missing': 'warn',
   'billing.subscription.failed': 'error',
   'billing.subscription.staleness': 'info',
   'billing.refund.failed': 'error',

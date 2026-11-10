@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBillingEconomicsFiles } from './billing-economics-files';
 import { createBillingEconomicsCollector } from '../features/billing/economics-collector';
+import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
   dataset,
   month,
@@ -20,6 +21,14 @@ import {
 import { reporterFrom } from '../features/telemetry/sentry-reporter';
 import { scrubEvent } from '@daisy/observability';
 setupRitewayBun();
+const emptySnapshot = {
+  startsAt: month,
+  endsAt: '2026-11-01T00:00:00.000Z',
+  observedAt: now,
+  attempts: [],
+  usage: [],
+  complete: true,
+};
 test('private file measurements cross the real report sink and scrubbed reporter mapping without personal telemetry', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-proof-'));
   try {
@@ -70,10 +79,10 @@ test('private file measurements cross the real report sink and scrubbed reporter
       },
       feed: files.feed,
       save: files.save,
-      reporter,
       now: () => now,
     });
     const r = await collector.run({ startsAt, endsAt });
+    if (r.kind === 'reported') raiseEconomicsSignals(reporter, r);
     const output = join(directory, `report-${'a'.repeat(24)}.json`);
     const saved = JSON.parse(await readFile(output, 'utf8')) as {
       report: { plans: { premium: { margin: { kind: string } } } };
@@ -159,13 +168,13 @@ test('the private sink removes expired operational reports and refuses to overwr
     });
     await files.save({
       report: { kind: 'invalid', reason: 'invalid_input' },
-      snapshot: null,
+      snapshot: emptySnapshot,
     });
     let refused = false;
     try {
       await files.save({
         report: { kind: 'invalid', reason: 'invalid_input' },
-        snapshot: null,
+        snapshot: emptySnapshot,
       });
     } catch (error) {
       refused =
@@ -184,7 +193,7 @@ test('the private sink removes expired operational reports and refuses to overwr
       expected: [
         {
           report: { kind: 'invalid', reason: 'invalid_input' },
-          snapshot: null,
+          snapshot: emptySnapshot,
         },
         true,
       ],

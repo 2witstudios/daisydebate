@@ -16,37 +16,105 @@ const feed = () => {
   void _v;
   return { ...data, modelCostBasis: 'provider_invoice' };
 };
-test('missing private invoices and rates stay incomplete even with an empty current database', async () => {
-  const signals: string[] = [];
+test('a missing private feed is reported incomplete, never measured zero', async () => {
+  const saved: unknown[] = [];
   const collector = createBillingEconomicsCollector({
     store: { read: async () => snapshot() },
     feed: { read: async () => null },
     now: () => now,
-    save: async () => undefined,
-    reporter: {
-      capture: (_e, c) => {
-        signals.push(c.errorCode);
-      },
+    save: async (r) => {
+      saved.push(r);
     },
   });
   const result = await collector.run(window);
   assert({
     given: 'an empty real-source projection and no private measurement feed',
     should:
-      'report unknown economics and send completeness signals, never measured zero or threshold success',
+      'save an unknown-economics report recorded as feed_missing with completeness signals for every plan, never measured zero or threshold success',
     actual: result.kind === 'reported' && [
+      result.month,
+      result.feed,
       result.report.kind === 'report' &&
         result.report.plans.premium.margin.kind,
-      signals,
+      result.signals,
+      saved.length,
     ],
     expected: [
+      '2026-10',
+      'missing',
       'unknown',
       [
-        'BILLING_ECONOMICS_INCOMPLETE',
-        'BILLING_ECONOMICS_INCOMPLETE',
-        'BILLING_ECONOMICS_INCOMPLETE',
+        { name: 'BILLING_ECONOMICS_INCOMPLETE', plan: 'free' },
+        { name: 'BILLING_ECONOMICS_INCOMPLETE', plan: 'beta' },
+        { name: 'BILLING_ECONOMICS_INCOMPLETE', plan: 'premium' },
       ],
+      1,
     ],
+  });
+});
+test('each failing stage is one typed failure carrying the caught error', async () => {
+  const cause = new Error('private detail');
+  const run = (
+    overrides: Partial<Parameters<typeof createBillingEconomicsCollector>[0]>,
+  ) =>
+    createBillingEconomicsCollector({
+      store: { read: async () => snapshot() },
+      feed: { read: async () => feed() },
+      now: () => now,
+      save: async () => undefined,
+      ...overrides,
+    }).run(window);
+  const results = await Promise.all([
+    run({
+      store: {
+        read: async () => {
+          throw cause;
+        },
+      },
+    }),
+    run({
+      feed: {
+        read: async () => {
+          throw cause;
+        },
+      },
+    }),
+    run({
+      save: async () => {
+        throw cause;
+      },
+    }),
+  ]);
+  assert({
+    given:
+      'an unreadable snapshot, an unreadable feed, and a failing private sink',
+    should:
+      'return snapshot_failed, feed_unreadable and save_failed for the month, each keeping the caught error',
+    actual: results,
+    expected: [
+      { kind: 'failed', month: '2026-10', reason: 'snapshot_failed', cause },
+      { kind: 'failed', month: '2026-10', reason: 'feed_unreadable', cause },
+      { kind: 'failed', month: '2026-10', reason: 'save_failed', cause },
+    ],
+  });
+});
+test('a feed stating another floor is refused as invalid by the collector itself', async () => {
+  const saved: unknown[] = [];
+  const r = await createBillingEconomicsCollector({
+    store: { read: async () => snapshot() },
+    feed: { read: async () => ({ ...feed(), floorBasisPoints: 1000 }) },
+    now: () => now,
+    save: async (value) => {
+      saved.push(value);
+    },
+  }).run(window);
+  assert({
+    given:
+      'a private feed attempting a 10% floor against the recorded 30% policy',
+    should:
+      'fail as feed_invalid without saving a report, whatever the composition',
+    actual: [r.kind === 'failed' && r.reason, saved],
+    expected: ['feed_invalid', []],
   });
 });
 test('bounded projection overflow defeats apparently complete external invoices', async () => {
@@ -55,7 +123,6 @@ test('bounded projection overflow defeats apparently complete external invoices'
     feed: { read: async () => feed() },
     now: () => now,
     save: async () => undefined,
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   assert({
@@ -84,14 +151,13 @@ test('a snapshot for a different window cannot silently price this month', async
     save: async (r) => {
       saved.push(r);
     },
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   assert({
     given: 'a mismatched durable snapshot',
-    should: 'fail without saving a misleading report',
-    actual: [r.kind, saved],
-    expected: ['failed', []],
+    should: 'fail as snapshot_failed without saving a misleading report',
+    actual: [r.kind === 'failed' && r.reason, saved],
+    expected: ['snapshot_failed', []],
   });
 });
 
@@ -120,7 +186,6 @@ test('unlimited feature measurements remain separate from a completed-month marg
     feed: { read: async () => input },
     now: () => now,
     save: async () => undefined,
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   const report =
@@ -176,14 +241,13 @@ test('a private feed for another month fails instead of declaring complete curre
     },
     now: () => now,
     save: async () => undefined,
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   assert({
     given: 'a private completeness receipt bound to another month',
-    should: 'fail the exact reporting window',
-    actual: r.kind,
-    expected: 'failed',
+    should: 'fail the exact reporting window as feed_invalid',
+    actual: r.kind === 'failed' && r.reason,
+    expected: 'feed_invalid',
   });
 });
 test('possible unknown calls cannot be priced as measured zero even when a billed token rate exists', async () => {
@@ -227,7 +291,6 @@ test('possible unknown calls cannot be priced as measured zero even when a bille
     feed: { read: async () => input },
     now: () => now,
     save: async () => undefined,
-    reporter: { capture: () => undefined },
   });
   const r = await collector.run(window);
   assert({

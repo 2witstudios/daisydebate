@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
-import type { ErrorReporter } from '@daisy/observability';
 import {
   economicsInput,
   economicsPlans,
   type EconomicsInput,
   type EconomicsPlan,
 } from './economics-input';
-import { runEconomicsReport } from './economics-alert';
-import type { buildEconomicsReport } from './economics-report';
+import { economicsSignals, type EconomicsSignal } from './economics-alert';
+import { hasRecordedEconomicsFloor } from './economics-policy';
+import { buildEconomicsReport } from './economics-report';
 
 const privateFeed = economicsInput
   .omit({ modelUsage: true, volume: true })
@@ -110,6 +110,8 @@ function usageRows(
     });
 }
 function dataset(window: Window, snapshot: Snapshot, value: unknown) {
+  if (value !== null && !hasRecordedEconomicsFloor(value))
+    throw new Error('Economics feed floor is not the recorded policy');
   const feed =
     value === null
       ? {
@@ -167,38 +169,89 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
     volume,
   };
 }
-/** Actual private source composition; neither an empty DB nor a missing supplier feed proves complete economics. */
+/** Why a month's collection did not save a report; each reason is one stage. */
+export type EconomicsCollectionFailure =
+  'snapshot_failed' | 'feed_unreadable' | 'feed_invalid' | 'save_failed';
+
+/**
+ * One collection of a month: a saved report with the signals it implies and
+ * whether the private feed was supplied, or the one stage that failed with the
+ * error it caught. A missing feed is a known incomplete input, not a failure.
+ */
+export type EconomicsCollection =
+  | {
+      readonly kind: 'reported';
+      readonly month: string;
+      readonly feed: 'supplied' | 'missing';
+      readonly report: ReturnType<typeof buildEconomicsReport>;
+      readonly signals: readonly EconomicsSignal[];
+    }
+  | {
+      readonly kind: 'failed';
+      readonly month: string;
+      readonly reason: EconomicsCollectionFailure;
+      readonly cause: unknown;
+    };
+
+type Stage<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly cause: unknown };
+async function stage<T>(run: () => Promise<T> | T): Promise<Stage<T>> {
+  try {
+    return { ok: true, value: await run() };
+  } catch (cause) {
+    return { ok: false, cause };
+  }
+}
+
+/** Actual private source composition; neither an empty DB nor a missing supplier feed proves complete economics. The private report is saved before any signal can be raised from it. */
 export function createBillingEconomicsCollector(input: {
   readonly store: { readonly read: (window: Window) => Promise<unknown> };
   readonly feed: { readonly read: (window: Window) => Promise<unknown> };
   readonly save: (value: {
     readonly report: ReturnType<typeof buildEconomicsReport>;
-    readonly snapshot: Snapshot | null;
+    readonly snapshot: Snapshot;
   }) => Promise<void>;
-  readonly reporter: ErrorReporter;
   readonly now: () => string;
 }) {
   return {
-    async run(window: Window) {
-      let snapshot: Snapshot | null = null;
-      return runEconomicsReport({
-        reporter: input.reporter,
-        now: input.now,
-        read: async () => {
-          snapshot = billingEconomicsReadSchema.parse(
-            await input.store.read(window),
-          );
-          if (
-            snapshot.startsAt !== window.startsAt ||
-            snapshot.endsAt !== window.endsAt ||
-            snapshot.observedAt > input.now()
-          )
-            throw new Error('Economics snapshot window mismatch');
-          const value = await input.feed.read(window);
-          return dataset(window, snapshot, value);
-        },
-        save: (report) => input.save({ report, snapshot }),
+    async run(window: Window): Promise<EconomicsCollection> {
+      const month = window.startsAt.slice(0, 7);
+      const failed = (reason: EconomicsCollectionFailure, cause: unknown) =>
+        ({ kind: 'failed', month, reason, cause }) as const;
+      const snapshot = await stage(async () => {
+        const read = billingEconomicsReadSchema.parse(
+          await input.store.read(window),
+        );
+        if (
+          read.startsAt !== window.startsAt ||
+          read.endsAt !== window.endsAt ||
+          read.observedAt > input.now()
+        )
+          throw new Error('Economics snapshot window mismatch');
+        return read;
       });
+      if (!snapshot.ok) return failed('snapshot_failed', snapshot.cause);
+      const feed = await stage(() => input.feed.read(window));
+      if (!feed.ok) return failed('feed_unreadable', feed.cause);
+      const report = await stage(() =>
+        buildEconomicsReport(
+          dataset(window, snapshot.value, feed.value),
+          input.now(),
+        ),
+      );
+      if (!report.ok) return failed('feed_invalid', report.cause);
+      const saved = await stage(() =>
+        input.save({ report: report.value, snapshot: snapshot.value }),
+      );
+      if (!saved.ok) return failed('save_failed', saved.cause);
+      return {
+        kind: 'reported',
+        month,
+        feed: feed.value === null ? 'missing' : 'supplied',
+        report: report.value,
+        signals: economicsSignals(report.value),
+      };
     },
   };
 }

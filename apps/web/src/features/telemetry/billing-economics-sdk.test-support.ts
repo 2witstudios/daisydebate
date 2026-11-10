@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { initSentry } from './sentry-init';
 import { createSentryErrorReporter } from './sentry-reporter';
 import { createBillingEconomicsCollector } from '../billing/economics-collector';
+import { raiseEconomicsSignals } from '../billing/economics-alert';
 import { dataset, now, month } from '../billing/economics.test-support';
 import {
   estimateQualification,
@@ -130,13 +131,17 @@ try {
     feed: files.feed,
     save: files.save,
     now: () => now,
-    reporter: {
+  }).run(window);
+  if (result.kind !== 'reported') throw Error('Qualification did not report');
+  const raised = raiseEconomicsSignals(
+    {
       capture: (error, context) => {
         captureAfterSave.push(existsSync(reportPath));
         reporter.capture(error, context);
       },
     },
-  }).run(window);
+    result,
+  );
   const flushed = await Sentry.flush(1000);
   await Sentry.close(1000);
   const saved: unknown = JSON.parse(await readFile(reportPath, 'utf8'));
@@ -152,6 +157,7 @@ try {
     reportMode: (await stat(reportPath)).mode & 0o777,
     directoryMode: (await stat(directory)).mode & 0o777,
     result,
+    raised,
     saved,
     serialized,
     privateTelemetryLeaked: serialized.some((wire) =>

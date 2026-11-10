@@ -69,7 +69,6 @@ async function collect(
     save: async (value) => {
       stored.push(value);
     },
-    reporter: { capture: () => undefined },
   }).run(window);
   return {
     kind: result.kind,

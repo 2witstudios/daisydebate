@@ -43,13 +43,18 @@ usage-counter/rate pricing. The latter refuses direct model-cost lines to preven
 double counting. Invoice accounting and unresolved provider outcomes remain
 separate observable facts. No rates or invoices are seeded as production truth.
 
-`createBillingEconomicsCollector` joins that feed to the actual bounded snapshot,
-saves the private report, then uses the existing ErrorReporter. The fixed codes
-are `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`; routes identify only
-free/beta/premium and the correlation value is a UTC month. No financial amounts,
-model usage or personal dimensions enter the alert. Delivery failure returns a
-failure and attempts the fixed completeness signal; there is no console fallback.
-The existing Sentry adapter and scrubber own transport. Production alert-rule,
+`createBillingEconomicsCollector` joins that feed to the actual bounded snapshot
+and saves the private report. It returns one typed collection: `reported` (the
+saved report, the signals it implies and whether the feed was `supplied` or
+`missing`) or `failed` with one closed reason and the error that stage caught:
+`snapshot_failed`, `feed_unreadable`, `feed_invalid` (window, schema or a floor
+other than the recorded policy) or `save_failed`. The collector never reports.
+`raiseEconomicsSignals` submits a saved report's fixed signals through the
+existing ErrorReporter: `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`;
+routes identify only free/beta/premium and the correlation value is always the
+UTC month. No financial amounts, model usage or personal dimensions enter the
+alert. A throwing reporter is a failed submission carrying its cause; there is
+no console fallback. The existing Sentry adapter and scrubber own transport. Production alert-rule,
 credentials and destination provisioning remain human-controlled. Local injected
 transport tests are not evidence that a production alert reached an operator.
 
@@ -66,7 +71,8 @@ is concurrency authority only and never a monthly cost ceiling; absent capacity
 measurements are unknown rather than inferred from configuration.
 
 Current limitation: no actual measured infrastructure invoice/rate feed has been
-established for this assignment. Its absence must emit completeness and cannot
+established for this assignment. In a provisioned sink its absence must emit
+completeness and cannot
 establish a real measured-margin acceptance result. Integration adoption, actual
 source/role PostgreSQL proof and controlled threshold transport receipts must be
 recorded separately in the existing Billing plan. This document does not mark any
@@ -92,8 +98,9 @@ period is separate. A credited allowance with a delivered provider outcome still
 counts as delivered volume. No current configured concurrency value is accepted
 as an observed high-water measurement.
 
-A `reported` collector result means the report was saved and signals submitted to
-the existing reporter port. `alertDelivery` remains explicitly `unconfirmed`:
+A `reported` collection means the report was saved; a `submitted` signal result
+means its signals reached the existing reporter port. `alertDelivery` remains
+explicitly `unconfirmed`:
 the void ErrorReporter cannot acknowledge operator delivery and may be inert
 without keys. Only a separately retained approved private transport/destination
 receipt can establish that an operator received the named alert.
@@ -133,14 +140,67 @@ operation.
 
 `BILLING_ECONOMICS_DIRECTORY` is an optional absolute server-only path to the
 sink's dedicated private directory. It is excluded from browser configuration.
-Without this path or a valid private feed, the scheduler submits completeness
-through the scrubbed reporter and records `billing.economics.failed`; it does not
-invent measured costs, publish a financial report or claim low-margin delivery.
+Collection is in one of three states, and none invents measured costs, publishes
+a financial report or claims low-margin delivery:
+
+- **Unprovisioned** (no path). There is nowhere to keep a report, so the worker
+  does not start. The process logs `billing.economics.unprovisioned` once at
+  startup and sends nothing to the error reporter: a worker this process does
+  not run raises nothing ([ADR 0101](../decisions/0101-operational-signals-report-what-happened.md)).
+  Such a deployment has no margin monitoring. Production activation (BILL-H)
+  must provision the sink.
+- **Feed missing** (provisioned path, no `feed-YYYY-MM.json` for the month). This
+  is a known incomplete input, not a failure. The collector saves a report
+  whose economics are unknown, and the worker raises `BILLING_ECONOMICS_INCOMPLETE`
+  for each plan and logs `billing.economics.feed_missing`. This is the
+  completeness guarantee: a provisioned environment never goes quiet about a
+  month it cannot measure.
+- **Failed** (a stage threw). The worker reports it exactly once through the
+  worker failure sink: one `billing.economics.failed` line whose `operation` is
+  `billing.economics.<reason>`, and one capture of the caught error itself, so
+  the real cause reaches the scrubbed tracker. A reporter that throws while
+  raising signals is `signal_failed` and is retried on the next tick.
+
+Each hourly tick collects again, so late corrections land, but the worker raises
+a month's outcome once per process. A later tick with the same outcome (same
+month, same reason, or the same feed state and signals) raises nothing. A new
+month or a changed outcome raises again. A restart may raise the current month
+once more.
 The collector's reporter remains a void port: runtime registration and unit
 transport capture do not confirm an operator/Sentry notification. Actual approved
 measurement-feed and private-destination delivery receipts remain required
 acceptance evidence, distinct from controlled threshold tests. This registration
 adds no admin billing view, PostHog funnel or production activation.
+
+### Provisioning the sink on staging (owner step)
+
+Staging (`daisy-debate-staging`) has no web volume and no path, so it runs
+unprovisioned. Provisioning it is an infrastructure change that needs owner
+sign-off; no agent performs it. The exact step:
+
+1. `fly volumes create billing_economics --size 1 -a daisy-debate-staging -r ord`
+   (one volume per web machine; the app runs one).
+2. In `fly.toml`, add the mount and add the path to the existing `[env]` table:
+
+   ```toml
+   [[mounts]]
+     source = "billing_economics"
+     destination = "/data/billing-economics"
+
+   # inside the existing [env] table
+   BILLING_ECONOMICS_DIRECTORY = "/data/billing-economics/sink"
+   ```
+
+   The path is a subdirectory, so the sink creates it as mode 0700, owned by
+   the runtime user (`daisy`, uid 1001), instead of inheriting the volume root's
+   owner and mode.
+
+3. Deploy through the normal staging pipeline. The next tick logs
+   `billing.economics.feed_missing` and raises `BILLING_ECONOMICS_INCOMPLETE`
+   once for the previous month.
+4. To measure a month, place `feed-YYYY-MM.json` (mode 0600, the
+   [minimal private input](#minimal-private-input) or a reconciled feed) in
+   that directory with `fly ssh console -a daisy-debate-staging`.
 
 ## Source availability and operator handoff
 
@@ -237,8 +297,8 @@ seam is available to the integrating process owner, retaining the same bounded
 current-service reader and private sink; there is no participant/admin endpoint.
 
 Record the exact candidate/source hashes, month, feed hash, report hash and private
-file mode, plus the actual current-service query receipt. Missing feed must submit
-`BILLING_ECONOMICS_INCOMPLETE`; a separately labelled controlled threshold crossing
+file mode, plus the actual current-service query receipt. In a provisioned sink a
+missing feed must submit `BILLING_ECONOMICS_INCOMPLETE` once for the month; a separately labelled controlled threshold crossing
 can qualify signal plumbing but cannot establish a real measured margin. Existing
 `reporterFrom` maps only fixed signal/errorCode, plan route and UTC month to Sentry.
 The collector's `alertDelivery` remains `unconfirmed` even when capture returns.

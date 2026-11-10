@@ -1,10 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import type { App } from './app';
-import { createBillingEconomicsCollector } from '../features/billing/economics-collector';
 import {
-  hasRecordedEconomicsFloor,
-  previousEconomicsMonth,
-} from '../features/billing/economics-policy';
+  createBillingEconomicsCollector,
+  type EconomicsCollection,
+} from '../features/billing/economics-collector';
+import { raiseEconomicsSignals } from '../features/billing/economics-alert';
+import { economicsNotice } from '../features/billing/economics-notice';
+import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
 import { workerFailures } from './recoverable-failure';
 import {
@@ -12,50 +14,72 @@ import {
   type WorkerTimers,
 } from '../lib/worker-timers';
 
-/** Current-service source and private filesystem remain explicit; absent inputs never become measured zero. */
-export function composeBillingEconomics(app: App, instanceId: string) {
-  const directory = app.config.BILLING_ECONOMICS_DIRECTORY;
-  const files =
-    directory === undefined
-      ? null
-      : createBillingEconomicsFiles({
-          directory,
-          nextId: () => app.ids.next(),
-          now: () => app.clock.now(),
-        });
+/** The current-service source and a provisioned private sink; absent inputs never become measured zero. */
+export function composeBillingEconomics(
+  app: App,
+  instanceId: string,
+  directory: string,
+) {
+  const files = createBillingEconomicsFiles({
+    directory,
+    nextId: () => app.ids.next(),
+    now: () => app.clock.now(),
+  });
   return createBillingEconomicsCollector({
     store: app.database.billingEconomics(instanceId),
-    feed: {
-      read: async (window) => {
-        const value = files ? await files.feed.read(window) : null;
-        if (!hasRecordedEconomicsFloor(value))
-          throw createAppError('VALIDATION');
-        return value;
-      },
-    },
-    save: files
-      ? (report) => files.save(report)
-      : async () => {
-          throw createAppError('INFRASTRUCTURE');
-        },
-    reporter: app.reporter,
+    feed: files.feed,
+    save: (report) => files.save(report),
     now: () => app.clock.now(),
   });
 }
 
-/** One bounded monthly read per tick; late original-month correction can use the same explicit collector. */
+/**
+ * One bounded monthly collection per hourly tick, raising each distinct
+ * outcome for a month once per process. Without a provisioned sink there is
+ * nowhere to keep a report, so the worker does not run and raises nothing
+ * (ADR 0101); the process logs that once.
+ */
 export function startBillingEconomics(input: {
   readonly app: App;
   readonly instanceId: string;
   readonly timers: WorkerTimers;
 }) {
   const { app } = input;
-  const collector = composeBillingEconomics(app, input.instanceId);
+  const directory = app.config.BILLING_ECONOMICS_DIRECTORY;
+  if (directory === undefined) {
+    app.logger.log(
+      'billing.economics.unprovisioned',
+      { operation: 'billing.economics.collect' },
+      'Private billing economics sink is not provisioned; collection is not running',
+    );
+    return { started: Promise.resolve(), stop: async () => undefined };
+  }
+  const collector = composeBillingEconomics(app, input.instanceId, directory);
   const failed = workerFailures(app, app.reporter)(
     'billing.economics.failed',
     'billing.economics',
     'Private billing economics remain incomplete',
   );
+  let raised: string | null = null;
+  const raise = (collection: EconomicsCollection) => {
+    const notice = economicsNotice(collection);
+    if (notice === raised) return;
+    if (collection.kind === 'failed') {
+      failed(collection.cause, collection.reason);
+      raised = notice;
+      return;
+    }
+    if (collection.feed === 'missing')
+      app.logger.log(
+        'billing.economics.feed_missing',
+        { operation: 'billing.economics.collect', cause: 'feed_missing' },
+        'Private billing economics feed is missing for the month; the report stays incomplete',
+      );
+    const submitted = raiseEconomicsSignals(app.reporter, collection);
+    if (submitted.kind === 'failed')
+      return failed(submitted.cause, 'signal_failed');
+    raised = notice;
+  };
   return startSingleFlightWorker({
     timers: input.timers,
     everyMs: 3_600_000,
@@ -63,9 +87,7 @@ export function startBillingEconomics(input: {
     run: async () => {
       const window = previousEconomicsMonth(app.clock.now());
       if (!window) throw createAppError('VALIDATION');
-      const result = await collector.run(window);
-      if (result.kind === 'failed')
-        failed(createAppError('INFRASTRUCTURE'), 'collect');
+      raise(await collector.run(window));
     },
   });
 }
