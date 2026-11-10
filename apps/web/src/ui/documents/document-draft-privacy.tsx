@@ -69,7 +69,9 @@ const markSignOutIntent = (event: Event) => {
 };
 
 /**
- * Root lifetime: private recovery outlives rooms and an expired session, but
+ * Visitor-layout lifetime (ADR 0123): it remounts when a person moves between
+ * the `(shell)` and `(bare)` groups and re-reads its principal on each mount;
+ * private recovery outlives rooms and an expired session, but
  * never an explicit sign-out, a closed account or a different account. An
  * anonymous page is not proof of sign-out, so it keeps the copies, hidden, for
  * the same person.
