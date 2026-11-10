@@ -1,6 +1,7 @@
 'use client';
 
 import type { RoomView } from '@daisy/protocol';
+import { invitedTo } from '../../../features/notifications/notification-words';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import { buttonClass } from '../../components/button/button-class';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
@@ -8,9 +9,6 @@ import { useFormAction, type FormAction } from '../../form-action/form-action';
 const unavailable = (): InvitationFormState => ({
   notice: 'That did not work. Try again.',
 });
-
-const seatWords = (seat: 'debater' | 'judge') =>
-  seat === 'judge' ? 'to judge' : 'to debate';
 
 function EndForm({
   action,
@@ -135,7 +133,7 @@ export function RoomInvitations({
           className="flex flex-wrap items-center justify-between gap-3"
         >
           <p className="text-base text-ink">
-            @{invitation.inviter} invited you {seatWords(invitation.seat)}.{' '}
+            @{invitation.inviter} invited you {invitedTo(invitation.seat)}.{' '}
             {invitation.seat === 'judge'
               ? 'The judge seat below is held for you.'
               : 'A debater seat below is held for you.'}
@@ -166,7 +164,7 @@ export function RoomInvitations({
                   className="flex flex-wrap items-center justify-between gap-3"
                 >
                   <span className="text-base text-ink">
-                    @{invitation.invitee} · invited {seatWords(invitation.seat)}
+                    @{invitation.invitee} · invited {invitedTo(invitation.seat)}
                   </span>
                   <EndForm
                     action={action}

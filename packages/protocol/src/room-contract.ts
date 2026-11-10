@@ -243,9 +243,47 @@ export const ROOM_SEAT_HOLD_MS = 120_000;
 export const roomSeatKinds = ['debater', 'judge'] as const;
 export type RoomSeatKind = (typeof roomSeatKinds)[number];
 export const roomSeatKindSchema = z.enum(roomSeatKinds);
+/**
+ * A Room still gathering its players (ADR 0070): the only Rooms a challenge
+ * or an invitation may point at.
+ */
+export const openRoomStatuses = ['assembling', 'ready'] as const;
+/** Whether a Room in `status` is still open. */
+export const isOpenRoomStatus = (status: string): boolean =>
+  (openRoomStatuses as readonly string[]).includes(status);
 /** The kind of seat a role is: the judge's, or a debater's on either side. */
 export const seatKindOf = (role: RoomParticipant['role']): RoomSeatKind =>
   role === 'judge' ? 'judge' : 'debater';
+/**
+ * How many seats of a kind are free: the judge seats, or both sides' debater
+ * seats, less those taken (other than `exceptActorId`'s own). The engine and
+ * the Room page count the same way (ADR 0124).
+ */
+export const freeSeatsOf = (
+  room: {
+    readonly rules: {
+      readonly seats: {
+        readonly affirmative: number;
+        readonly negative: number;
+        readonly judge: number;
+      };
+    };
+    readonly participants: readonly {
+      readonly role: RoomParticipant['role'];
+      readonly actorId?: string;
+    }[];
+  },
+  seat: RoomSeatKind,
+  exceptActorId?: string,
+): number =>
+  (seat === 'judge'
+    ? room.rules.seats.judge
+    : room.rules.seats.affirmative + room.rules.seats.negative) -
+  room.participants.filter(
+    (p) =>
+      seatKindOf(p.role) === seat &&
+      (exceptActorId === undefined || p.actorId !== exceptActorId),
+  ).length;
 
 /**
  * A seat of one kind kept for a named member until `until`: a challenge's

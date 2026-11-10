@@ -7,7 +7,7 @@ import type {
   RoomRefusal,
   RoomSeatKind,
 } from '@daisy/protocol';
-import { seatKindOf } from '@daisy/protocol';
+import { freeSeatsOf, seatKindOf } from '@daisy/protocol';
 
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
@@ -225,16 +225,7 @@ const freeSeats = (
   room: RoomAssemblyState,
   seat: RoomSeatKind,
   targetId: string,
-): number => {
-  const taken = room.participants.filter(
-    (p) => seatKindOf(p.role) === seat && p.actorId !== targetId,
-  ).length;
-  const seats =
-    seat === 'judge'
-      ? room.rules.seats.judge
-      : room.rules.seats.affirmative + room.rules.seats.negative;
-  return seats - taken;
-};
+): number => freeSeatsOf(room, seat, targetId);
 /** Whether `targetId` taking a free seat of this role would use one held for another. */
 const takesHeldSeat = (
   room: RoomAssemblyState,

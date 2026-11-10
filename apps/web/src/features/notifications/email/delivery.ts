@@ -1,6 +1,10 @@
 import type { Database } from '@daisy/db';
 import { knownDeliveryRejection } from '../../mail/resend-sender';
-import { MAIL_MAX_ATTEMPTS, mailRetryDelayMs } from '../../mail/retry-policy';
+import {
+  MAIL_LEASE_MS,
+  MAIL_QUEUE_BATCH,
+  retryOrFail as backOff,
+} from '../../mail/retry-policy';
 import type { EmailMessage } from '../../mail/types';
 import { renderNotificationEmail } from './templates';
 import { oneClickUnsubscribeUrl, unsubscribeUrl } from './unsubscribe-token';
@@ -13,9 +17,6 @@ type Store = Pick<
 >;
 type Claim = Awaited<ReturnType<Store['claimNotificationEmails']>>[number];
 type Outcome = Parameters<Store['settleNotificationEmail']>[0]['outcome'];
-
-/** A lease covers one provider call with its single retry (10 s budget) and the reads around it. */
-const LEASE_MS = 60_000;
 
 /**
  * Sends the notification emails that are due (ADR 0124). Each claim reads
@@ -40,16 +41,7 @@ export function createNotificationEmailDelivery(input: {
   const retryOrFail = (
     claim: Claim,
     errorCode: 'delivery' | 'delivery-unknown' = 'delivery',
-  ): Outcome =>
-    claim.attempts >= MAIL_MAX_ATTEMPTS
-      ? { kind: 'failed', errorCode }
-      : {
-          kind: 'retry',
-          errorCode,
-          nextAttemptAt: new Date(
-            Date.parse(input.now()) + mailRetryDelayMs(claim.attempts),
-          ).toISOString(),
-        };
+  ): Outcome => backOff(claim.attempts, input.now(), errorCode);
   const decide = async (claim: Claim): Promise<Outcome> => {
     const delivery = await input.store.readNotificationEmailDelivery(claim.id);
     if (delivery.kind === 'cancel')
@@ -90,8 +82,8 @@ export function createNotificationEmailDelivery(input: {
     /** Sends up to `limit` due jobs one after another; resolves to how many it settled. */
     async run(limit: number): Promise<number> {
       const claims = await input.store.claimNotificationEmails({
-        limit,
-        leaseMs: LEASE_MS,
+        limit: Math.min(limit, MAIL_QUEUE_BATCH),
+        leaseMs: MAIL_LEASE_MS,
         nextToken: input.nextToken,
       });
       let settled = 0;

@@ -198,7 +198,7 @@ export async function saveNotificationPreferencesAction(
     const response = await post(
       routes.preferences,
       '/api/notifications/preferences',
-      { version: 1, choices: choicesFromForm(form) },
+      { version: 2, choices: choicesFromForm(form) },
     );
     if (!response.ok) return { notice: 'Could not save. Try again.' };
   } catch {

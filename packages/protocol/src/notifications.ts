@@ -65,8 +65,9 @@ export const notificationChoicesSchema = z.strictObject({
 });
 export type NotificationChoices = z.infer<typeof notificationChoicesSchema>;
 
+/** Version 2: per kind and channel (ADR 0124); version 1 was one in-app switch per kind. */
 export const notificationPreferencesSchema = z.strictObject({
-  version: z.literal(1),
+  version: z.literal(2),
   choices: notificationChoicesSchema,
 });
 export type NotificationPreferences = z.infer<

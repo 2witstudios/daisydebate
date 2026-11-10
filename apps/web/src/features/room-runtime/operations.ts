@@ -39,6 +39,7 @@ import type {
   RoomCreate,
   PublishedResolution,
 } from '@daisy/protocol';
+import { isOpenRoomStatus } from '@daisy/protocol';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
@@ -185,13 +186,16 @@ export function createRoomRuntimeOperations({
       botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
         store.readRoundBotAdmissionStatus(actorId),
       ),
-      invitations: [
-        ...(await store.readRoomInvitations({
-          roomId: state.id,
-          viewerActorId: caller.actorId,
-          now,
-        })),
-      ],
+      // Only an open Room has invitations to show.
+      invitations: isOpenRoomStatus(state.status)
+        ? [
+            ...(await store.readRoomInvitations({
+              roomId: state.id,
+              viewerActorId: caller.actorId,
+              now,
+            })),
+          ]
+        : [],
       watchRoundId: startHiddenFrom(state, caller.actorId)
         ? await store.readWatchableRoundOfRoom(state.id, spectatorClockAt(now))
         : null,

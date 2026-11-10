@@ -8,11 +8,8 @@ import {
   type RoomInvitationRefusal,
   type RoomSeatKind,
 } from '@daisy/protocol';
-import { seatKindOf } from '@daisy/protocol';
+import { freeSeatsOf, isOpenRoomStatus } from '@daisy/protocol';
 import { seatsHeldFrom } from './room-edit-transitions';
-
-const open = (room: Pick<RoomAssemblyState, 'status'>) =>
-  room.status === 'assembling' || room.status === 'ready';
 
 const live = (invitation: PendingRoomInvitation, now: string) =>
   Date.parse(invitation.expiresAt) > Date.parse(now);
@@ -43,7 +40,7 @@ export function decideRoomInvitation(input: {
     refusal,
   });
   if (input.callerActorId !== room.hostActorId) return refuse('not-host');
-  if (!open(room)) return refuse('room-not-assembling');
+  if (!isOpenRoomStatus(room.status)) return refuse('room-not-assembling');
   if (!invitee) return refuse('member-unknown');
   if (
     !invitee.eligible ||
@@ -69,14 +66,9 @@ export function decideRoomInvitation(input: {
     )
   )
     return refuse('already-invited');
-  const seats =
-    seat === 'judge'
-      ? room.rules.seats.judge
-      : room.rules.seats.affirmative + room.rules.seats.negative;
-  const taken = room.participants.filter(
-    (p) => seatKindOf(p.role) === seat,
-  ).length;
-  if (seats - taken <= seatsHeldFrom(room, invitee.actorId, seat, now))
+  if (
+    freeSeatsOf(room, seat) <= seatsHeldFrom(room, invitee.actorId, seat, now)
+  )
     return refuse('no-free-seat');
   return {
     ok: true,

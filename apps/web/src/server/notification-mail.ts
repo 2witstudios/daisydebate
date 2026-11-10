@@ -1,5 +1,6 @@
 import type { ErrorReporter } from '@daisy/observability';
 import { startMailQueueWorker } from '../features/mail/queue-worker';
+import { MAIL_QUEUE_BATCH } from '../features/mail/retry-policy';
 import { createNotificationEmailDelivery } from '../features/notifications/email/delivery';
 import { deriveUnsubscribeSubkey } from '../features/notifications/email/unsubscribe-token';
 import type { WorkerTimers } from '../lib/worker-timers';
@@ -35,7 +36,7 @@ export function startNotificationMail(input: {
         now: () => app.clock.now(),
         failed: (error) => failed(error, 'decide'),
       }).run(limit),
-    batch: 10,
+    batch: MAIL_QUEUE_BATCH,
     everyMs: 5_000,
     timers: input.timers,
     failed: (error) => failed(error, 'send'),

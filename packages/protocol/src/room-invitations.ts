@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { idSchema } from './primitives';
 import {
   roomSeatKinds,
+  isOpenRoomStatus,
   seatKindOf,
   type RoomAssemblyState,
   type RoomSeatKind,
@@ -104,8 +105,6 @@ export type InvitationEndDecision =
   | { readonly ok: true; readonly state: 'declined' | 'withdrawn' }
   | { readonly ok: false; readonly refusal: RoomInvitationRefusal };
 
-const openStatuses: readonly string[] = ['assembling', 'ready'];
-
 /**
  * What a Room change does to its pending invitations (ADR 0124): a Room no
  * longer open expires them all; otherwise one whose invitee now sits in a
@@ -122,7 +121,7 @@ export function settledRoomInvitations(
   readonly inviteeActorId: string;
   readonly state: 'accepted' | 'expired';
 }[] {
-  if (!openStatuses.includes(room.status))
+  if (!isOpenRoomStatus(room.status))
     return pending.map(({ id, inviteeActorId }) => ({
       id,
       inviteeActorId,

@@ -46,16 +46,26 @@ test('preferences schema', () => {
     given: 'every choice',
     should: 'parse',
     actual: notificationPreferencesSchema.safeParse({
-      version: 1,
+      version: 2,
       choices: defaultNotificationChoices,
     }).success,
     expected: true,
   });
   assert({
+    given: 'a version 1 body, one in-app switch per kind',
+    should: 'refuse it: version 2 changed the shape',
+    actual: notificationPreferencesSchema.safeParse({
+      version: 1,
+      followed_debater_live: true,
+      recording_ready: true,
+    }).success,
+    expected: false,
+  });
+  assert({
     given: 'an email switch for a kind never emailed',
     should: 'refuse it',
     actual: notificationPreferencesSchema.safeParse({
-      version: 1,
+      version: 2,
       choices: {
         ...defaultNotificationChoices,
         recording_ready: { in_app: true, email: false },

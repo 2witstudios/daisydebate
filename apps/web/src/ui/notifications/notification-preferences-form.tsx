@@ -61,6 +61,7 @@ export function NotificationPreferencesForm({
                 <input
                   type="checkbox"
                   name={choiceField(kind, channel)}
+                  aria-label={`${kindLabel[kind]}: ${channelLabel[channel]}`}
                   defaultChecked={chosen(choices, kind, channel)}
                 />{' '}
                 {channelLabel[channel]}
