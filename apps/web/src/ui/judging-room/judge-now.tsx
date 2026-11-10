@@ -22,6 +22,7 @@ const sideInk = {
 } as const;
 
 export const judgeNowHeadingId = 'judge-now';
+const judgeNowDetailId = 'judge-now-detail';
 
 /**
  * Whether a stage change should take focus: only when nothing on the page
@@ -31,25 +32,29 @@ export const focusIsFree = (active: Element | null, body: Element | null) =>
   active === null || active === body;
 
 /**
- * The stage the judge did not trigger moves the reading point to its heading
- * when focus is free; the first render never moves it.
+ * A stage the judge did not trigger: focus moves to its heading when focus is
+ * free, and the heading (with its detail) is read; otherwise the stage is
+ * announced politely, once. The first render does neither.
  */
-function useStageFocus(key: string) {
+function useStageNotice(key: string, announcement: string) {
   const heading = useRef<HTMLHeadingElement>(null);
+  const region = useRef<HTMLParagraphElement>(null);
   const shown = useRef(key);
   useEffect(() => {
     if (shown.current === key) return;
     shown.current = key;
-    if (focusIsFree(document.activeElement, document.body))
+    if (focusIsFree(document.activeElement, document.body)) {
+      if (region.current) region.current.textContent = '';
       heading.current?.focus();
-  }, [key]);
-  return heading;
+    } else if (region.current) region.current.textContent = announcement;
+  }, [key, announcement]);
+  return { heading, region };
 }
 
 /**
  * Where the Round is now, for its judge: the stage by name, its clock, who
  * has the floor, each side's prep left, and what comes next. Each new stage
- * is announced once, politely.
+ * takes focus when it is free, and is otherwise announced once, politely.
  */
 export function JudgeNow({
   observed,
@@ -61,7 +66,10 @@ export function JudgeNow({
   /** The step the judge takes at this stage, if any. */
   readonly action?: ReactNode;
 }) {
-  const heading = useStageFocus(stage.key);
+  const announcement = `Now: ${stage.heading}${
+    observed.clock ? `, ${formatCountdown(observed.clock.remainingMs)}` : ''
+  }. ${stage.detail}`;
+  const { heading, region } = useStageNotice(stage.key, announcement);
   return (
     <section
       aria-labelledby={judgeNowHeadingId}
@@ -76,11 +84,14 @@ export function JudgeNow({
             id={judgeNowHeadingId}
             ref={heading}
             tabIndex={-1}
+            aria-describedby={judgeNowDetailId}
             className="font-display text-2xl font-semibold wrap-anywhere"
           >
             {stage.heading}
           </h2>
-          <p className="text-base">{stage.detail}</p>
+          <p id={judgeNowDetailId} className="text-base">
+            {stage.detail}
+          </p>
         </div>
         {observed.clock ? (
           <RoundClock
@@ -90,9 +101,12 @@ export function JudgeNow({
           />
         ) : null}
       </div>
-      <p aria-live="polite" className="sr-only">
-        {`Now: ${stage.heading}`}
-      </p>
+      <p
+        ref={region}
+        id="judge-now-notice"
+        aria-live="polite"
+        className="sr-only"
+      />
       {observed.seats.length > 0 ? (
         <ul aria-label="Debaters" className="grid grid-cols-2 gap-3 text-sm">
           {observed.seats.map((seat) => (

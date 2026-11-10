@@ -3,7 +3,7 @@ import {
   type RoundPosition,
 } from '@daisy/debate-engine/position';
 import type { DebateSide, RoundView } from '@daisy/protocol';
-import { judgingClockOf } from '../debate-room/judging';
+import { judgingClockOf } from './judging-window';
 import { floorSideOf, isSeat, judgeKindOf, sideName } from './round-reading';
 
 /** What one side is doing at one instant, as anyone watching can see it. */

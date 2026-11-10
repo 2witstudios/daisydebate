@@ -16,27 +16,23 @@ const deviceInstant = () => ({
 });
 
 /**
- * How long until the open ballot can be submitted, counted down once a
- * second from the server's render instant by the time elapsed on this
- * device (countdownNowMs), so a device clock that is off never holds
- * Submit back; it stops at zero. Null when there is nothing to wait for or
- * no ballot is open. A new render instant restarts the count from it.
+ * The present, counted once a second from the server's render instant by the
+ * time elapsed on this device (countdownNowMs, which survives a device that
+ * sleeps), so a device clock that is off never moves a deadline. It ticks
+ * only while `running`; a new render instant restarts the count from it.
  */
-export function useBallotOpensIn(
-  round: Pick<RoundView, 'rules' | 'segments'>,
+export function useServerAnchoredNow(
   renderedAtMs: number,
-  open: boolean,
-): number | null {
+  running: boolean,
+): number {
   const [elapsed, setElapsed] = useState({
     base: renderedAtMs,
     nowMs: renderedAtMs,
   });
   const now = elapsed.base === renderedAtMs ? elapsed.nowMs : renderedAtMs;
-  const opensInMs = open ? ballotOpensInMs(round, now) : null;
-  const waiting = opensInMs !== null;
   const mount = useRef<ReturnType<typeof countdownMount> | null>(null);
   useEffect(() => {
-    if (!waiting) return;
+    if (!running) return;
     mount.current = countdownMount(mount.current, renderedAtMs, deviceInstant);
     const { mounted } = mount.current;
     const tick = window.setInterval(
@@ -52,8 +48,23 @@ export function useBallotOpensIn(
       1000,
     );
     return () => window.clearInterval(tick);
-  }, [waiting, renderedAtMs]);
-  return opensInMs;
+  }, [running, renderedAtMs]);
+  return now;
+}
+
+/**
+ * How long until the open ballot can be submitted, on the server-anchored
+ * count; it stops at zero. Null when there is nothing to wait for or no
+ * ballot is open.
+ */
+export function useBallotOpensIn(
+  round: Pick<RoundView, 'rules' | 'segments'>,
+  renderedAtMs: number,
+  open: boolean,
+): number | null {
+  const waiting = open && ballotOpensInMs(round, renderedAtMs) !== null;
+  const now = useServerAnchoredNow(renderedAtMs, waiting);
+  return open ? ballotOpensInMs(round, now) : null;
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { CompetitionType } from '@daisy/protocol';
 import type { ChatMessage } from '../../features/debate-room/chat';
 import type { SpeechSlot } from '../../features/debate-room/speeches';
-import { judgingClockOf } from '../../features/debate-room/judging';
+import { judgingClockOf } from '../../features/round-runtime/judging-window';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { Debater, RoundSnapshot } from '../debate-room/round';
 
