@@ -23,14 +23,22 @@ const RECOVERED_MS = 30_000;
 
 /** Why the lease is not proven. */
 export type Unproven =
-  /** A renewal has been in flight for the whole window, or none has settled. */
+  /** A renewal has been in flight for the whole window. */
   | { readonly kind: 'renewal_pending' }
+  /**
+   * No renewal is in flight and the last one proved the lease: the process
+   * did not start one in time (a stalled timer or event loop).
+   */
+  | { readonly kind: 'renewal_not_started' }
   /** The latest renewal wrote the row only after its window had passed. */
   | { readonly kind: 'renewal_late'; readonly tookMs: number }
   | { readonly kind: 'renewal_failed'; readonly error: unknown };
 
 /** How the latest settled renewal failed to prove the lease, if it did. */
-type Settled = Exclude<Unproven, { readonly kind: 'renewal_pending' }> | null;
+type Settled = Extract<
+  Unproven,
+  { readonly kind: 'renewal_late' | 'renewal_failed' }
+> | null;
 
 /**
  * What this web instance can prove about its own service lease, from its
@@ -106,12 +114,17 @@ export function afterRenewal(
 }
 
 /** Why the lease is unproven at `nowMs`: a hung renewal outranks the past. */
-const unprovenAt = (health: LeaseHealth, nowMs: number): Unproven =>
-  (health.inFlightSinceMs !== null &&
-    nowMs - health.inFlightSinceMs >= SERVICE_LEASE_WINDOW_MS) ||
-  health.settled === null
-    ? { kind: 'renewal_pending' }
-    : health.settled;
+const unprovenAt = (health: LeaseHealth, nowMs: number): Unproven => {
+  if (
+    health.inFlightSinceMs !== null &&
+    nowMs - health.inFlightSinceMs >= SERVICE_LEASE_WINDOW_MS
+  )
+    return { kind: 'renewal_pending' };
+  if (health.settled !== null) return health.settled;
+  return health.inFlightSinceMs === null
+    ? { kind: 'renewal_not_started' }
+    : { kind: 'renewal_pending' };
+};
 
 /** The tick's check at `nowMs`: the health, and a lapse to report, if due. */
 export function checkLease(

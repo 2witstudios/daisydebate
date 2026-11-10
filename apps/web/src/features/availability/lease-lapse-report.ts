@@ -18,7 +18,9 @@ export const leaseLapseReport =
     readonly reporter: ErrorReporter;
     readonly nextId: () => string;
   }) =>
-  (lapse: LeaseLapse): void => {
+  /** Whether the report reached anyone: its log line, the tracker, or both. */
+  (lapse: LeaseLapse): boolean => {
+    let logged = false;
     try {
       deps.logger.log(
         'availability.lease_lapsing',
@@ -29,6 +31,7 @@ export const leaseLapseReport =
         },
         'Web service lease unproven',
       );
+      logged = true;
     } catch {
       /* A log that fails never costs the report. */
     }
@@ -37,12 +40,18 @@ export const leaseLapseReport =
       lapse.unproven.error instanceof Error
         ? lapse.unproven.error
         : undefined;
-    deps.reporter.capture(
-      createAppError('INFRASTRUCTURE', 'Web service lease lapsing', failure),
-      {
-        requestId: deps.nextId(),
-        route: ROUTE,
-        errorCode: 'INFRASTRUCTURE',
-      },
-    );
+    try {
+      deps.reporter.capture(
+        createAppError('INFRASTRUCTURE', 'Web service lease lapsing', failure),
+        {
+          requestId: deps.nextId(),
+          route: ROUTE,
+          errorCode: 'INFRASTRUCTURE',
+        },
+      );
+      return true;
+    } catch {
+      // Logged is reached: retrying would repeat the log line every tick.
+      return logged;
+    }
   };

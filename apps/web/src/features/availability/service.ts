@@ -43,10 +43,12 @@ export function startAvailabilityService(deps: {
   /** A renewal or availability cycle failed, with its own error. */
   readonly failed: (error: unknown) => void;
   /**
-   * This instance's lease has gone unproven by a timely renewal for 10 s,
-   * then every 5 minutes while it stays so (DAISY-WEB-9). Never on a stop.
+   * This instance's lease has gone unproven by a timely renewal for 10 s:
+   * then at most once every 5 minutes, unless the lease has stayed proven
+   * for 30 s (DAISY-WEB-9). Never on a stop. Answers whether the report
+   * reached anyone; one that reached no one is retried on the next tick.
    */
-  readonly lapsing: (lapse: LeaseLapse) => void;
+  readonly lapsing: (lapse: LeaseLapse) => boolean;
 }) {
   const { nowMs } = deps;
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
@@ -91,6 +93,14 @@ export function startAvailabilityService(deps: {
         probe.value,
     });
   };
+  /** A failure sink that throws never rejects the renewal or the cycle. */
+  const failedSafely = (error: unknown) => {
+    try {
+      deps.failed(error);
+    } catch {
+      /* The renewal's outcome is already recorded in the lease health. */
+    }
+  };
   let lease = startingLease(nowMs());
   const observe = (renewal: LeaseRenewal) => {
     lease = afterRenewal(lease, renewal);
@@ -101,13 +111,14 @@ export function startAvailabilityService(deps: {
     const checked = checkLease(lease, nowMs());
     lease = checked.health;
     if (!checked.lapse) return;
+    let reached = false;
     try {
-      deps.lapsing(checked.lapse);
+      reached = deps.lapsing(checked.lapse);
     } catch {
-      // Unsent, so not counted: the next tick tries again. Reporting a lapse
-      // never stops the renewals that end it.
-      lease = { ...lease, reportedAtMs };
+      /* Reporting a lapse never stops the renewals that end it. */
     }
+    // A report that reached no one is not counted: the next tick retries it.
+    if (!reached) lease = { ...lease, reportedAtMs };
   };
   const renew = () => {
     if (renewing) return renewing;
@@ -121,7 +132,7 @@ export function startAvailabilityService(deps: {
       })
       .catch((error: unknown) => {
         observe({ kind: 'failed', error });
-        deps.failed(error);
+        failedSafely(error);
         return false;
       })
       .finally(() => {
@@ -137,7 +148,7 @@ export function startAvailabilityService(deps: {
     running = renewal
       .then((renewed) => (renewed ? cycle() : undefined))
       .catch((error: unknown) => {
-        deps.failed(error);
+        failedSafely(error);
       })
       .finally(() => {
         running = null;

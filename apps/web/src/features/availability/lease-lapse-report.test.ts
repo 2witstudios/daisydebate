@@ -78,22 +78,30 @@ test('a lapse from a hung renewal, or a failure that is no Error, links no cause
   });
 });
 
-test('a log that throws never costs the report', () => {
-  const captured: unknown[] = [];
-  const report = leaseLapseReport({
-    logger: {
-      log: () => {
-        throw new Error('log transport down');
-      },
-    },
-    reporter: { capture: (error) => captured.push(error) },
-    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
-  });
-  report({ lapsedMs: 10_000, unproven: { kind: 'renewal_pending' } });
+test('a report reached someone if either its log line or its capture went out', () => {
+  const lapse = {
+    lapsedMs: 10_000,
+    unproven: { kind: 'renewal_pending' },
+  } as const;
+  const failing = () => {
+    throw new Error('down');
+  };
+  const reached = (log: boolean, capture: boolean) =>
+    leaseLapseReport({
+      logger: { log: log ? () => {} : failing },
+      reporter: { capture: capture ? () => {} : failing },
+      nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+    })(lapse);
   assert({
-    given: 'a lapse whose log line throws',
-    should: 'still report it',
-    actual: captured.length,
-    expected: 1,
+    given:
+      'every combination of a working or throwing log and reporter (log, capture)',
+    should: 'answer false only when both failed, and never throw',
+    actual: [
+      reached(true, true),
+      reached(true, false),
+      reached(false, true),
+      reached(false, false),
+    ],
+    expected: [true, true, true, false],
   });
 });

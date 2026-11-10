@@ -86,7 +86,7 @@ export function toPublicError(
   readonly status: number;
   readonly body: { readonly error: ProtocolError };
 } {
-  const code = isAppError(error) ? error.code : 'INTERNAL';
+  const code = errorCodeOf(error, 'INTERNAL');
   const invariantId =
     code === 'INVARIANT' && isAppError(error) ? error.invariantId : undefined;
   return {

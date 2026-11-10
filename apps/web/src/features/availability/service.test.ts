@@ -39,7 +39,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
         events.push('clear');
       },
     },
-    lapsing: () => {},
+    lapsing: () => true,
     failed: () => {
       events.push('failed');
     },
@@ -127,7 +127,7 @@ test('missing probe resources are named at start and hourly, and never decide he
       clearInterval: () => {},
     },
     failed: () => {},
-    lapsing: () => {},
+    lapsing: () => true,
   });
   const settle = async () => {
     for (let n = 0; n < 12; n++) await Promise.resolve();
@@ -181,7 +181,7 @@ test('every process checks the probe resources at start, elected or not', async 
     nowMs: () => 0,
     timers: { setInterval: () => 1, clearInterval: () => {} },
     failed: () => {},
-    lapsing: () => {},
+    lapsing: () => true,
   });
   await service.probeChecked;
   assert({
@@ -224,7 +224,7 @@ test('a failing probe check waits a minute, not a second', async () => {
       clearInterval: () => {},
     },
     failed: () => {},
-    lapsing: () => {},
+    lapsing: () => true,
   });
   await service.probeChecked;
   const pass = async () => {
@@ -276,6 +276,7 @@ test('a lease left unproven for ten seconds reports once, and a stop never does'
     lapsing: (lapse) => {
       lapses.push(lapse);
       if (lapses.length === 1) throw new Error('reporter broke');
+      return true;
     },
     failed: () => {},
   });
@@ -313,7 +314,7 @@ test('a lease left unproven for ten seconds reports once, and a stop never does'
 });
 
 /** A service whose every renewal behaves as `renew` says, ticked by hand. */
-function ticked(renew: () => Promise<void>) {
+function ticked(renew: () => Promise<void>, reached = true) {
   const lapses: unknown[] = [];
   const state = { nowMs: 0, tick: () => {} };
   const service = startAvailabilityService({
@@ -338,8 +339,11 @@ function ticked(renew: () => Promise<void>) {
     },
     lapsing: (lapse) => {
       lapses.push(lapse);
+      return reached;
     },
-    failed: () => {},
+    failed: () => {
+      throw new Error('failure sink broke');
+    },
   });
   const advance = async (seconds: number) => {
     for (let i = 0; i < seconds; i++) {
@@ -360,5 +364,40 @@ test('a renewal that never settles is still checked on every tick, and reports',
     should: 'report one lapse of ten seconds with the renewal still pending',
     actual: lapses,
     expected: [{ lapsedMs: 10_000, unproven: { kind: 'renewal_pending' } }],
+  });
+});
+
+test('a report that reached no one is retried every tick, one that was logged is not', async () => {
+  const unreached = ticked(() => new Promise(() => {}), false);
+  await unreached.advance(15);
+  const logged = ticked(() => new Promise(() => {}));
+  await logged.advance(60);
+  assert({
+    given:
+      'a hung renewal reported through a sink that reached no one for five ticks, and one that was logged, over a minute',
+    should:
+      'retry the unreached report on each tick, and count the logged one once',
+    actual: [unreached.lapses.length, logged.lapses.length],
+    expected: [6, 1],
+  });
+});
+
+test('a failure sink that throws never rejects the renewal', async () => {
+  const refused = new Error('renewal refused');
+  const { advance, service } = ticked(async () => {
+    throw refused;
+  });
+  let rejected: unknown = null;
+  try {
+    await advance(3);
+    await service.stop();
+  } catch (error) {
+    rejected = error;
+  }
+  assert({
+    given: 'failing renewals whose failure sink throws',
+    should: 'keep renewing and stop cleanly',
+    actual: rejected,
+    expected: null,
   });
 });

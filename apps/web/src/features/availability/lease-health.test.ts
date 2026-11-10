@@ -179,3 +179,17 @@ test('a lease that flaps between short recoveries reports at most once in five m
     expected: true,
   });
 });
+
+test('a stalled process that started no renewal is named as such, not a hung renewal', () => {
+  const proven = afterRenewal(
+    afterRenewal(startingLease(0), { kind: 'started', startedMs: 0 }),
+    { kind: 'renewed', startedMs: 0, settledMs: 50 },
+  );
+  assert({
+    given:
+      'a timely renewal at start, then no tick for thirteen seconds (a stalled timer)',
+    should: 'report the lapse as no renewal started',
+    actual: checkLease(proven, 13_000).lapse,
+    expected: { lapsedMs: 10_000, unproven: { kind: 'renewal_not_started' } },
+  });
+});
