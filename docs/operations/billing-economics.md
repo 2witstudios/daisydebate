@@ -57,7 +57,8 @@ this process may not read,
 malformed or oversized contents, the JSON literal `null`, window, schema, or a
 floor other than the recorded policy),
 `report_invalid` (the joined feed and snapshot fail the report's own schema or
-coherence, so nothing is saved), `report_failed` (the report builder threw: a
+coherence, so nothing is saved), `report_failed` (joining the feed and snapshot or
+building the report threw something other than a typed data refusal: a
 defect, reported as `INTERNAL`) or `save_failed` (including the save's file
 cap). A feed file whose body is `null` is invalid, never a missing feed. The
 collector never reports.
@@ -174,7 +175,9 @@ a financial report or claims low-margin delivery:
   worker failure sink: one `billing.economics.failed` line whose `operation` is
   `billing.economics.<reason>`, and one capture. The captured error is typed:
   a typed cause keeps its own code (every throw in the private file edge is
-  typed, so a non-private sink directory is `VALIDATION`), and an untyped one
+  typed, so a non-private sink directory is `sink_unavailable`/`VALIDATION`;
+  the feed reader's own recheck reports it as the sink being unavailable, never
+  as an invalid feed), and an untyped one
   takes its stage's (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and
   `report_invalid`, `INTERNAL` for `report_failed`, otherwise
   `INFRASTRUCTURE`). The log line's `cause` names the fixed check that failed

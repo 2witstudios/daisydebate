@@ -10,6 +10,7 @@ import { createApp } from './app';
 import { createEventRecorder, silentLogger } from './test-loggers.test-support';
 import {
   composeBillingEconomics,
+  economicsFailureCheck,
   startBillingEconomics,
 } from './billing-economics';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
@@ -944,4 +945,40 @@ test('each failed check is named on its log line', async () => {
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('the log line names a typed check as a closed code', () => {
+  const typed = (message: string) => createAppError('VALIDATION', message);
+  assert({
+    given:
+      'a wrapper with a typed cause, a typed error with no cause, a message starting with a digit, and an untyped cause',
+    should:
+      'name the typed check, start with a letter, and name nothing for an untyped cause',
+    actual: [
+      economicsFailureCheck(
+        createAppError(
+          'VALIDATION',
+          undefined,
+          typed('Conflicting model cost bases'),
+        ),
+      ),
+      economicsFailureCheck(typed('Billing economics clock invalid')),
+      economicsFailureCheck(
+        createAppError(
+          'INFRASTRUCTURE',
+          undefined,
+          typed('1000 files reached'),
+        ),
+      ),
+      economicsFailureCheck(
+        createAppError('INFRASTRUCTURE', undefined, new Error('driver')),
+      ),
+    ],
+    expected: [
+      'Conflicting_model_cost_bases',
+      'Billing_economics_clock_invalid',
+      'files_reached',
+      undefined,
+    ],
+  });
 });

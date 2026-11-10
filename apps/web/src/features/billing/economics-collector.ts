@@ -298,7 +298,14 @@ export function createBillingEconomicsCollector(input: {
       const joined = await stage(() =>
         dataset(window, snapshot.value, feed.value),
       );
-      if (!joined.ok) return failed('feed_invalid', joined.cause);
+      // Only the join's own typed refusals are the feed's fault; anything else it throws is a defect.
+      if (!joined.ok)
+        return failed(
+          isAppError(joined.cause) && joined.cause.code === 'VALIDATION'
+            ? 'feed_invalid'
+            : 'report_failed',
+          joined.cause,
+        );
       // The builder returns invalid input as a value; a throw from it is a defect, not bad data.
       const report = await stage(() =>
         buildEconomicsReport(joined.value, input.now()),
@@ -306,7 +313,10 @@ export function createBillingEconomicsCollector(input: {
       if (!report.ok) return failed('report_failed', report.cause);
       // The joined feed and snapshot fail the report's own schema or coherence: nothing worth keeping.
       if (report.value.kind === 'invalid')
-        return failed('report_invalid', report.value);
+        return failed(
+          'report_invalid',
+          createAppError('VALIDATION', 'Economics report input invalid'),
+        );
       const accepted = report.value;
       const saved = await stage(() =>
         input.save({ report: accepted, snapshot: snapshot.value }),

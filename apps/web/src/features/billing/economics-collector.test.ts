@@ -514,3 +514,55 @@ test('each feed data check refuses with its own fixed VALIDATION message', async
     ],
   });
 });
+
+test("a defect in the join is report_failed, never the feed's fault", async () => {
+  const r = await createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
+    store: { read: async () => snapshot() },
+    feed: {
+      read: async () => ({
+        get startsAt(): string {
+          throw new TypeError('join defect');
+        },
+      }),
+    },
+    now: () => now,
+    save: async () => undefined,
+  }).run(window);
+  assert({
+    given: 'a join that throws an untyped TypeError',
+    should: 'fail as report_failed (INTERNAL), not feed_invalid',
+    actual: r.kind === 'failed' && [r.reason, r.code],
+    expected: ['report_failed', 'INTERNAL'],
+  });
+});
+
+test('an incoherent report names its check', async () => {
+  const supplied = feed();
+  const r = await createBillingEconomicsCollector({
+    sink: { open: async () => undefined },
+    store: { read: async () => snapshot() },
+    feed: {
+      read: async () => ({
+        ...supplied,
+        revenue: [...supplied.revenue, ...supplied.revenue],
+      }),
+    },
+    now: () => now,
+    save: async () => undefined,
+  }).run(window);
+  assert({
+    given: 'a feed whose revenue sequences repeat',
+    should: 'fail as report_invalid with a typed VALIDATION cause',
+    actual: r.kind === 'failed' && [
+      r.reason,
+      r.code,
+      r.cause instanceof Error && r.cause.message,
+    ],
+    expected: [
+      'report_invalid',
+      'VALIDATION',
+      'Economics report input invalid',
+    ],
+  });
+});

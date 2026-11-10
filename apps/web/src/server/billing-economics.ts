@@ -47,13 +47,24 @@ export function composeBillingEconomics(
 
 /**
  * The log line's closed `cause`: which fixed check failed, read from the typed
- * error the worker wrapped. An untyped cause names nothing, so it adds nothing.
+ * error. An untyped cause names nothing, so it adds nothing.
  */
-const economicsFailureCheck = (error: unknown) => {
+export const economicsFailureCheck = (error: unknown) => {
+  // The worker's wrapper carries the typed cause; a typed error thrown outside any
+  // collection (the collect path) carries no cause and names itself.
   const cause = error instanceof Error ? error.cause : undefined;
-  return isAppError(cause)
-    ? cause.message.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 80)
-    : undefined;
+  const typed = isAppError(cause)
+    ? cause
+    : isAppError(error) && cause === undefined
+      ? error
+      : undefined;
+  if (!typed) return undefined;
+  // The logger's code kind starts with a letter and holds at most 80 characters.
+  const check = typed.message
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .replace(/^[^A-Za-z]+/, '')
+    .slice(0, 80);
+  return check === '' ? undefined : check;
 };
 
 /**
