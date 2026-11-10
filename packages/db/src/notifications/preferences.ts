@@ -1,5 +1,6 @@
 import {
   defaultNotificationChoices,
+  type EmailedNotificationKind,
   notificationChoicePairs,
   type NotificationChannel,
   type NotificationChoices,
@@ -71,7 +72,7 @@ export const notificationPreferenceOperations = ({
    */
   unsubscribeNotificationEmail(input: {
     readonly userId: string;
-    readonly kind: NotificationKind;
+    readonly kind: EmailedNotificationKind;
   }) {
     return instrumented(eventSink, 'unsubscribeNotificationEmail', async () => {
       await database.execute(sql`insert into notification_preferences(user_id,kind,channel,enabled)

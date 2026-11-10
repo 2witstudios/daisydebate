@@ -54,7 +54,7 @@ test('unsubscribeUrl', () => {
       }),
     ],
     expected: [
-      '/notifications/unsubscribe',
+      '/unsubscribe',
       { userId, kind: 'challenge_received' },
     ],
   });

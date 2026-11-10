@@ -98,6 +98,8 @@ export const eventRegistry = {
   'broadcast.reconcile_failed': 'error',
   'spectator.fact_log_failed': 'error',
   'notifications.sweep_failed': 'error',
+  'notifications.unsubscribed': 'info',
+  'notifications.unsubscribe_refused': 'warn',
   'broadcast.egress.start_failed': 'error',
   'broadcast.egress.stop_failed': 'error',
   'broadcast.egress.stopped_unconfirmed': 'error',

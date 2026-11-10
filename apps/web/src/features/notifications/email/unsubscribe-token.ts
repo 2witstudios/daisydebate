@@ -56,15 +56,32 @@ export const verifyUnsubscribe = (
     : null;
 };
 
-/** The unsubscribe page's address for one member and kind. */
-export const unsubscribeUrl = (
-  appUrl: string,
+const withToken = (
+  url: URL,
   subkey: string,
   { userId, kind }: Unsubscribe,
 ): string => {
-  const url = new URL('/notifications/unsubscribe', appUrl);
   url.searchParams.set('u', userId);
   url.searchParams.set('k', kind);
   url.searchParams.set('t', unsubscribeToken(subkey, userId, kind));
   return url.toString();
 };
+
+/** The public unsubscribe page an email links to, for one member and kind. */
+export const unsubscribeUrl = (
+  appUrl: string,
+  subkey: string,
+  unsubscribe: Unsubscribe,
+): string => withToken(new URL('/unsubscribe', appUrl), subkey, unsubscribe);
+
+/** The one-click endpoint a `List-Unsubscribe` header names (RFC 8058). */
+export const oneClickUnsubscribeUrl = (
+  appUrl: string,
+  subkey: string,
+  unsubscribe: Unsubscribe,
+): string =>
+  withToken(
+    new URL('/api/notifications/unsubscribe', appUrl),
+    subkey,
+    unsubscribe,
+  );

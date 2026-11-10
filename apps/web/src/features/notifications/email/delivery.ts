@@ -3,7 +3,7 @@ import { knownDeliveryRejection } from '../../mail/resend-sender';
 import { MAIL_MAX_ATTEMPTS, mailRetryDelayMs } from '../../mail/retry-policy';
 import type { EmailMessage } from '../../mail/types';
 import { renderNotificationEmail } from './templates';
-import { unsubscribeUrl } from './unsubscribe-token';
+import { oneClickUnsubscribeUrl, unsubscribeUrl } from './unsubscribe-token';
 
 type Store = Pick<
   Database,
@@ -54,10 +54,13 @@ export function createNotificationEmailDelivery(input: {
     const delivery = await input.store.readNotificationEmailDelivery(claim.id);
     if (delivery.kind === 'cancel')
       return { kind: 'cancelled', errorCode: delivery.errorCode };
-    const link = unsubscribeUrl(input.appUrl, input.unsubscribeSubkey, {
-      userId: delivery.userId,
-      kind: delivery.kind,
-    });
+    const optOut = { userId: delivery.userId, kind: delivery.kind };
+    const link = unsubscribeUrl(input.appUrl, input.unsubscribeSubkey, optOut);
+    const oneClick = oneClickUnsubscribeUrl(
+      input.appUrl,
+      input.unsubscribeSubkey,
+      optOut,
+    );
     const rendered = renderNotificationEmail({
       delivery,
       appUrl: input.appUrl,
@@ -69,7 +72,7 @@ export function createNotificationEmailDelivery(input: {
         to: delivery.to,
         idempotencyKey: claim.id,
         headers: {
-          'List-Unsubscribe': `<${link}>`,
+          'List-Unsubscribe': `<${oneClick}>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       });
