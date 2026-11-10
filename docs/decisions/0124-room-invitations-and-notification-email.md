@@ -1,6 +1,6 @@
 # 0124: Room invitations and notification email
 
-Status: proposed (builder, 2026-11-10; awaiting point-guard confirmation; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/wo00vsb8rvuper7tm86ly8ok)).
+Status: accepted (point guard, 2026-11-10; [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/wo00vsb8rvuper7tm86ly8ok)).
 Builds on [ADR 0075](0075-beta-access-gate.md) (durable mail intents),
 [ADR 0103](0103-whos-online.md) (challenges and seat holds),
 [ADR 0070](0070-one-active-room-per-user.md) and DEC-331 (a seated human judge
@@ -22,7 +22,8 @@ only Watch's Round events, and email carried only sign-in and beta mail.
    (either side) or `judge`, to one member, named by username
    (`room_invitations`). It is `pending` until it is `accepted` (the invitee
    takes a seat of that kind), `declined` (invitee), `withdrawn` (host) or
-   `expired` (24 hours, Start round, or close). One pending invitation per member
+   `expired` (24 hours, Start round, close, or a restriction of the host or
+   the invitee). One pending invitation per member
    per Room. Only the host of an open Room invites; the invitee must be an
    admitted participant (ADR 0075), unblocked either way, not the host and not
    already seated. A repeat of the same invitation answers it unchanged.
