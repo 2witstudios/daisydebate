@@ -48,8 +48,10 @@ const harness = (overrides: Partial<ChallengeDependencies> = {}) => {
       return work(frame);
     },
   };
+  let ids = 0;
   const dependencies: ChallengeDependencies = {
     clock: fixedClock(now),
+    nextId: () => `id${String(++ids).padStart(22, '0')}`,
     limit: async () => {},
     limitSend: async () => {},
     rankedOpen: async () => true,
@@ -79,7 +81,8 @@ describe('sendChallenge', () => {
     const answer = await sendChallenge(member, offer, dependencies);
     assert({
       given: 'a ranked Policy challenge to a member who is online',
-      should: 'fence the pair and record the offer, expiring in two minutes',
+      should:
+        'fence the pair and record the offer, expiring in two minutes, with ids for its notification and email',
       actual: { answer, calls },
       expected: {
         answer: { challengeId: id, state: 'sent' },
@@ -90,6 +93,8 @@ describe('sendChallenge', () => {
             'send',
             {
               id,
+              notificationId: 'id0000000000000000000001',
+              emailJobId: 'id0000000000000000000002',
               mode: 'ranked',
               format: 'policy',
               now,

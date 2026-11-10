@@ -10,6 +10,7 @@ import { roomWriteOperations } from './room-write-operations';
 import { roomLifecycleOperations } from './room-lifecycle-operations';
 import { resolutionBankOperations } from './resolution-bank-operations';
 import type { roomCommandTransaction } from './room-command-transaction';
+import { roomInvitationOperations } from './room-invitations/store';
 /** One canonical durable Room command/projection adapter. */
 export const roomCommandOperations = (input: {
   readonly database: BunSQLDatabase;
@@ -28,6 +29,11 @@ export const roomCommandOperations = (input: {
     transaction: input.commandTransaction,
     eventSink: input.eventSink,
     judgeAdmission: input.judgeAdmission,
+  }),
+  ...roomInvitationOperations({
+    database: input.database,
+    transaction: input.commandTransaction,
+    eventSink: input.eventSink,
   }),
   ...roomWriteOperations({
     botAdmission: input.botAdmission,

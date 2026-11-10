@@ -35,6 +35,7 @@ const ports = (
   principal: AuthorizationPrincipal,
 ): ChallengeDependencies => ({
   clock: app.clock,
+  nextId: () => app.ids.next(),
   limit: (actorId) =>
     consumeOrThrow(
       app.limiter,

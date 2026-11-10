@@ -444,8 +444,13 @@ export {
   roomInvitationCommandSchemas,
   roomInvitationRefusals,
   roomInvitationStates,
+  settledRoomInvitations,
   type RoomInvitationRefusal,
   type RoomInvitationState,
+  type InvitationDecision,
+  type InvitationEndDecision,
+  type InviteeFacts,
+  type PendingRoomInvitation,
   type RoomInvitationView,
 } from './room-invitations';
 export {
