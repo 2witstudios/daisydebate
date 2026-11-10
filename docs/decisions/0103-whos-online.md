@@ -53,8 +53,8 @@ be able to see who is online."
    and only while the challenger is unplaced. _Amended 2026-11-10 (owner):_ a
    casual challenge room was unlisted until then. Rooms are public by default,
    and unlisted is only ever a host's explicit choice
-   ([rooms](../domains/rooms.md#visibility)). A debater seat stays held for each of the two for two minutes
-   (`room_seat_holds`): the Room's own fact, so a listed room's seats are theirs
+   ([rooms](../domains/rooms.md#visibility)). A debater seat stays held for
+   each of the two for two minutes (`room_seat_holds`): the Room's own fact, so a listed room's seats are theirs
    while they arrive, and it never seats anyone or touches the judge seat. The
    challenger is sent there for those two minutes, once. The inbox
    doorbell `challenge.changed` reaches both members on any page, and the

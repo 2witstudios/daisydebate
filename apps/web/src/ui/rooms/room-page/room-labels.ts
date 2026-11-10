@@ -7,6 +7,7 @@ import {
   shapeLabel,
 } from '../../../features/debate-room/vocabulary';
 import { roomStatusLabels } from '../../../features/rooms/status-labels';
+import { roomVisibilityLabels } from '../../../features/rooms/room-visibility';
 import { declaredSeats, seatLabel } from './assembly-controls';
 
 type Role = RoomView['participants'][number]['role'];
@@ -57,11 +58,6 @@ export function roomStatus(
   return `${status} · ${view.participants.length} of ${seats} seats filled`;
 }
 
-const visibilityLabels = {
-  public: 'Listed in the lobby',
-  unlisted: 'Anyone with the link',
-  private: 'Invite only',
-} as const;
 const competitionLabels = {
   ranked: 'Ranked · counts toward ratings',
   casual: 'Casual · ratings don’t change',
@@ -73,7 +69,7 @@ export function roomMeta(
 ): readonly string[] {
   return [
     ...(view.hostLabel === null ? [] : [`Hosted by ${view.hostLabel}`]),
-    visibilityLabels[view.visibility],
+    roomVisibilityLabels[view.visibility],
     competitionLabels[view.competitionType],
   ];
 }
