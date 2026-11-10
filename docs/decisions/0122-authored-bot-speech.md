@@ -96,8 +96,9 @@ its delivery instead of fitting it into the human capture pipeline.
    one before it plays; each is bought and settled once and kept across
    retries, a voice-ahead refused a pool slot is asked again as soon as another voice
    is bought, a
-   first phrase shorter than 4 s waits for the second to be voiced so the
-   speech never stalls after its opening words,
+   speech whose opening phrases play for under 4 s waits for the phrases
+   voiced ahead of them (up to two) so it never stalls after its opening
+   words,
    and once the speech is over (its end, a final refusal, its last attempt or
    a stop) voicing ahead is aborted. A retry keeps its line id until that line
    is closed; a phrase cut and closed is said again whole, as a new line.

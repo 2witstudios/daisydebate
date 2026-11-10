@@ -16,9 +16,9 @@ type Answer<T> = {
  */
 const VOICED_AHEAD = 2;
 /**
- * A first phrase shorter than this waits for the second to be voiced before
- * it plays: voicing a long phrase can outlast a short one, and a speech that
- * stalls after its first words sounds broken. A late start does not.
+ * An opening shorter than this waits for the phrases after it to be voiced
+ * before it plays: voicing a long phrase can outlast short ones, and a speech
+ * that stalls after its first words sounds broken. A late start does not.
  */
 const SHORT_OPENING_MS = 4000;
 /** A later phrase, voiced while the current one plays (ADR 0122). */
@@ -206,22 +206,34 @@ export function createBotSpeaker(input: {
     if (input.lineClosed(upcoming.lineId)) upcoming.lineId = input.nextId();
     input.writeAhead({ ...upcoming.answer.value, phraseId: upcoming.lineId });
   };
-  /** Waits, for a short opening phrase, until the second phrase is voiced. */
+  /**
+   * Waits, for a short opening, until the phrases voiced so far would play for
+   * SHORT_OPENING_MS, or every phrase voiced ahead is in: two short opening
+   * phrases must not stall on a long third.
+   */
   const holdShortOpening = async (signal: AbortSignal) => {
     const job = progress.synthesized?.value;
-    const second = progress.ahead.find((held) => held.index === 1);
-    if (
-      !job ||
-      !second ||
-      (job.pcm.length / job.sampleRate) * 1000 >= SHORT_OPENING_MS
-    )
-      return;
-    if (signal.aborted) return;
+    if (!job) return;
+    const lengthOf = (voiced: BotSpeechJob) =>
+      (voiced.pcm.length / voiced.sampleRate) * 1000;
+    let heldMs = lengthOf(job);
     const stopped = Promise.withResolvers<void>();
     const stop = () => stopped.resolve();
     signal.addEventListener('abort', stop, { once: true });
     try {
-      await Promise.race([second.done.catch(() => undefined), stopped.promise]);
+      for (
+        let index = 1;
+        heldMs < SHORT_OPENING_MS && index <= VOICED_AHEAD;
+        index += 1
+      ) {
+        const next = progress.ahead.find((held) => held.index === index);
+        if (!next || signal.aborted) return;
+        await Promise.race([next.done.catch(() => undefined), stopped.promise]);
+        // A voice refused or failed ends the hold: the speech goes on.
+        const voiced = next.answer?.value;
+        if (signal.aborted || !voiced) return;
+        heldMs += lengthOf(voiced);
+      }
     } finally {
       signal.removeEventListener('abort', stop);
     }
