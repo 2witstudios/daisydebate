@@ -125,3 +125,42 @@ test('a failure sink that throws never rejects the renewal', async () => {
     expected: null,
   });
 });
+
+test('a cursor read that throws synchronously is a failed renewal, not an escaped throw', async () => {
+  let tick: () => unknown = () => {};
+  const failures: unknown[] = [];
+  const broken = new Error('cursor unavailable');
+  let escaped: unknown = null;
+  try {
+    const lease = startRealtimeServiceLease({
+      instanceId: 'd'.repeat(24),
+      deliveredThrough: () => {
+        throw broken;
+      },
+      renew: async () => {},
+      failed: (error) => void failures.push(error),
+      timers: {
+        setInterval: (callback) => {
+          tick = callback;
+          return 1;
+        },
+        clearInterval: () => {},
+      },
+    });
+    await tick();
+    await lease.stop();
+  } catch (error) {
+    escaped = error;
+  }
+  assert({
+    given: 'a delivery cursor read that throws on every renewal',
+    should:
+      'hand each failure to the failed sink and never throw from the tick',
+    actual: {
+      escaped,
+      handed:
+        failures.length > 0 && failures.every((error) => error === broken),
+    },
+    expected: { escaped: null, handed: true },
+  });
+});
