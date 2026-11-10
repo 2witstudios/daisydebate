@@ -11,6 +11,7 @@ import {
   readRoomCreateAnswer,
   type RoomCreateRefusal,
 } from '../rooms/room-create-response';
+import { defaultRoomVisibility } from '../rooms/room-visibility';
 import { opponents, practiceJudge } from './bots';
 
 /** What the practice form needs from the one catalog read. */
@@ -85,7 +86,7 @@ export function preparePractice(
       commandId,
       title: `Practice vs ${bot.label}`,
       resolution,
-      visibility: 'public',
+      visibility: defaultRoomVisibility,
       selection: casualSelection(format),
       cast: [
         { actorId: bot.actorId, role: 'negative', slot: 0 },

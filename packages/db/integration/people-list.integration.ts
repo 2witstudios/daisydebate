@@ -534,12 +534,24 @@ test('accepting names only a room made for the offer, and only for a free challe
     const terms = (
       await listChallenges(ctx.database, ctx.them, ctx.now, unfenced)
     ).map((row) => row.mode);
-    const publicRoom = await room({});
-    const wrongFormat = await fixture.room(ctx.them.actorId, 'freestyle', {
-      visibility: 'unlisted',
-    });
+    // A challenge's room holds the challenger's seat; any other open room
+    // the acceptor hosts, public like every Room by default, holds none.
+    const holdFor = async (roomId: string, until: string) => {
+      await ctx.client.unsafe(
+        'insert into room_seat_holds (room_id, actor_id, until) values ($1, $2, $3)',
+        [roomId, ctx.me.actorId, until],
+      );
+      return roomId;
+    };
+    const unheld = await room({});
+    const lapsed = await holdFor(await room({}), ctx.now);
+    const wrongFormat = await holdFor(
+      await fixture.room(ctx.them.actorId, 'freestyle', {}),
+      expiresAt,
+    );
     const refused = [
-      await accept(challengeId, publicRoom),
+      await accept(challengeId, unheld),
+      await accept(challengeId, lapsed),
       await accept(challengeId, wrongFormat),
     ];
     const mine = await fixture.room(ctx.me.actorId, 'policy', {});
@@ -547,7 +559,7 @@ test('accepting names only a room made for the offer, and only for a free challe
       'insert into room_active_memberships (actor_id, room_id) values ($1, $2)',
       [ctx.me.actorId, mine],
     );
-    const right = await room({ visibility: 'unlisted' });
+    const right = await holdFor(await room({}), expiresAt);
     const whilePlaced = await accept(challengeId, right);
     await ctx.client.unsafe(
       'delete from room_active_memberships where actor_id = $1',
@@ -571,7 +583,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     ]);
     assert({
       given:
-        'an offer resent as casual, a public room, another format, a placed challenger, then the right room',
+        'an offer resent as casual, a public room with no hold for the challenger, one whose hold lapsed, another format, a placed challenger, then the right room',
       should:
         'take the new terms, refuse the wrong rooms and the placed challenger, accept the right room, then stop sending the challenger there',
       actual: [
@@ -584,7 +596,7 @@ test('accepting names only a room made for the offer, and only for a free challe
       ],
       expected: [
         ['casual'],
-        ['NOT_FOUND', 'NOT_FOUND'],
+        ['NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND'],
         'NOT_FOUND',
         'accepted',
         [right],

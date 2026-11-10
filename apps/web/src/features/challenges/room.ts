@@ -5,13 +5,15 @@ import type {
 } from '@daisy/protocol';
 import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
+import { defaultRoomVisibility } from '../rooms/room-visibility';
 
 /**
  * The room an accepted challenge opens (ADR 0103), through the one room-create
- * form on the format they agreed. Casual is unlisted, so only the two of them
- * reach it. Ranked takes the ranked selection and is public: a human judge has
- * to be able to find it, a public result counts on both records, and the two
- * debater seats stay held for the two of them while they arrive.
+ * form on the format they agreed. Both modes are public, the Room default:
+ * casual like any Room nobody chose otherwise for, and ranked because it is
+ * always public, so a human judge can find it and a public result counts on
+ * both records. The two debater seats stay held for the two of them while
+ * they arrive.
  */
 export function challengeRoomForm(input: {
   readonly host: string;
@@ -36,8 +38,13 @@ export function challengeRoomForm(input: {
     (resolution) => resolution.kind === method,
   );
   if (publication) form.set(`${publication.kind}ResolutionId`, publication.id);
-  form.set('visibility', input.mode === 'ranked' ? 'public' : 'unlisted');
-  // A public room is listed at once: nobody else may take their seats.
+  // Ranked is always public; casual takes the Room default, also public.
+  form.set(
+    'visibility',
+    input.mode === 'ranked' ? 'public' : defaultRoomVisibility,
+  );
+  // A public room is listed at once: the hold keeps both debater seats theirs
+  // while they arrive (ADR 0103 §4); the judge seat stays open to anyone.
   form.append('holdSeatFor', input.hostActorId);
   form.append('holdSeatFor', input.opponentActorId);
   const casual = casualSelection(input.template);

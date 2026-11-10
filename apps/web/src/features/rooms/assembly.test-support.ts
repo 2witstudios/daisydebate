@@ -92,7 +92,7 @@ export const assemblySnapshot = {
   changeVersion: 3,
   title: 'Persisted room',
   topic: 'Persisted debate topic',
-  visibility: 'unlisted',
+  visibility: 'public',
   hostActorId: 'o'.repeat(24),
   hostLabel: 'Host member',
   aiJudgeSeating: null,
