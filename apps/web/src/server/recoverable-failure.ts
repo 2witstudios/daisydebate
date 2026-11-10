@@ -5,19 +5,44 @@ import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
 import type { App } from './app';
 
 /**
- * Admission backpressure a worker stage absorbs silently before it counts as
- * starvation: the shared pool admits few writers, so a burst of background
- * work is refused and retried on a later tick (ISSUE-431). Counting refusals
+ * The deferrals of one kind a worker stage absorbs before they count as
+ * persistent: the shared pool admits few writers, so a burst of background
+ * work is refused and retried on a later tick (ISSUE-431). Counting deferrals
  * rather than a time window reports a starved stage at any cadence.
  */
-const CAPACITY_DEFERRAL_LIMIT = 8;
+const DEFERRAL_LIMIT = 8;
+
+/**
+ * A recoverable failure expected to clear by itself. `capacity`: the pool
+ * refused admission. `service-lease-lapsed`: this instance's own web lease
+ * was not current for a moment, so its maintenance authority refused
+ * (DAISY-WEB-9); the next renewal restores it.
+ */
+type Deferral = 'capacity' | 'service-lease-lapsed';
+
+const deferralOf = (
+  error: unknown,
+  isCapacity: (error: unknown) => boolean,
+): Deferral | undefined => {
+  if (isAppError(error) && error.reason === 'service-lease-lapsed')
+    return 'service-lease-lapsed';
+  return isCapacity(error) ? 'capacity' : undefined;
+};
+
+/** The operation suffix a deferral's log line and report carry. */
+const deferralRoute: Readonly<Record<Deferral, string>> = {
+  capacity: 'capacity',
+  'service-lease-lapsed': 'lease',
+};
 
 /**
  * A background worker's recoverable failure: the log line names the stage
  * and the error's own code; only the scrubbed reporter sees the raw error
  * (ADR 0037). An untyped error carries no trustworthy code, so it is INTERNAL.
- * Capacity refusals are deferrals: each refusal past the bound is reported,
- * and the count for that stage starts again.
+ * A deferral counts per kind and stage, and each one past the bound is
+ * reported, after which that count starts again. Capacity refusals are
+ * silent within the bound; a lease lapse logs every occurrence and is
+ * reported only once lapses persist.
  */
 export function recoverableFailure(input: {
   readonly logger: Pick<Logger, 'log'>;
@@ -30,7 +55,7 @@ export function recoverableFailure(input: {
   /** A fixed code naming why the work failed, read from a typed error. */
   readonly cause?: (error: unknown) => string | undefined;
 }) {
-  const deferrals = new Map<string, number>();
+  const deferrals = new Map<`${Deferral}:${string}`, number>();
   /** One sink step; a step that throws never stops the next or its caller. */
   const attempt = (step: () => void) => {
     try {
@@ -39,27 +64,37 @@ export function recoverableFailure(input: {
       /* A failing sink is never its caller's fault (ISSUE-789). */
     }
   };
-  const report = (error: unknown, operation: string) => {
-    const errorCode = isAppError(error) ? error.code : 'INTERNAL';
-    let cause: string | undefined;
+  const codeOf = (error: unknown) =>
+    isAppError(error) ? error.code : 'INTERNAL';
+  const log = (error: unknown, operation: string, fixed?: string) => {
+    let cause = fixed;
     // A cause reader that throws costs only the cause, never the log line.
-    attempt(() => {
-      cause = input.cause?.(error);
-    });
+    if (cause === undefined)
+      attempt(() => {
+        cause = input.cause?.(error);
+      });
     attempt(() => {
       input.logger.log(
         input.event,
-        { operation, errorCode, ...(cause ? { cause } : {}) },
+        { operation, errorCode: codeOf(error), ...(cause ? { cause } : {}) },
         input.message,
       );
     });
+  };
+  const capture = (error: unknown, operation: string) =>
     attempt(() =>
       input.reporter.capture(error, {
         requestId: input.nextId(),
         route: operation,
-        errorCode,
+        errorCode: codeOf(error),
       }),
     );
+  /** Whether this deferral is past its bound, which starts the count again. */
+  const persisted = (kind: Deferral, stage: string) => {
+    const key = `${kind}:${stage}` as const;
+    const count = (deferrals.get(key) ?? 0) + 1;
+    deferrals.set(key, count > DEFERRAL_LIMIT ? 0 : count);
+    return count > DEFERRAL_LIMIT;
   };
   /**
    * Never throws, so no worker promise ever rejects because reporting its
@@ -67,16 +102,19 @@ export function recoverableFailure(input: {
    */
   return (error: unknown, stage: string) => {
     const operation = `${input.operation}.${stage}`;
-    let capacity = false;
+    let kind: Deferral | undefined;
     attempt(() => {
-      capacity = input.isCapacity(error);
+      kind = deferralOf(error, input.isCapacity);
     });
-    if (!capacity) return report(error, operation);
-    const deferred = (deferrals.get(stage) ?? 0) + 1;
-    if (deferred <= CAPACITY_DEFERRAL_LIMIT)
-      return void deferrals.set(stage, deferred);
-    deferrals.set(stage, 0);
-    report(error, `${operation}.capacity`);
+    if (kind === undefined) {
+      log(error, operation);
+      return capture(error, operation);
+    }
+    const route = `${operation}.${deferralRoute[kind]}`;
+    const report = persisted(kind, stage);
+    if (kind === 'service-lease-lapsed') log(error, route, kind);
+    else if (report) log(error, route);
+    if (report) capture(error, route);
   };
 }
 

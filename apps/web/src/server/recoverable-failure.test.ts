@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createRefusal } from '@daisy/errors';
 import { publicationStopError, publicationStopOf } from '@daisy/media/audio';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { recoverableFailure } from './recoverable-failure';
@@ -249,5 +249,53 @@ test('a cause reader that throws costs only the cause, never the log line (ISSUE
         'Bot speech stays uncredited',
       ],
     ],
+  });
+});
+
+test('a lapsed service lease is logged each time and reported only once it persists (DAISY-WEB-9)', () => {
+  const lapse = createRefusal(
+    'AUTHORIZATION',
+    'service-lease-lapsed',
+    'Maintenance service is not current',
+  );
+  const denied = createAppError('AUTHORIZATION', 'Permission denied');
+  const { lines, captured, failed } = record();
+  for (let i = 0; i < 3; i++) {
+    failed(lapse, 'tick');
+    failed(lapse, 'discover');
+  }
+  const transient = { lines: lines.length, captured: captured.length };
+  for (let i = 0; i < 6; i++) failed(lapse, 'tick');
+  failed(denied, 'tick');
+  const lapsed = {
+    operation: 'round.maintenance.tick.lease',
+    errorCode: 'AUTHORIZATION',
+    cause: 'service-lease-lapsed',
+  };
+  assert({
+    given:
+      'a one-second lapse failing two stages three times, then six more lapses of one stage and a real authorization failure',
+    should:
+      'log every lapse, report none while transient, report the stage once past the bound, and report the real failure at once',
+    actual: {
+      transient,
+      last: lines.slice(-3).map(([, fields]) => fields),
+      captured: captured.map(([error, context]) => [
+        error === lapse ? 'lapse' : 'denied',
+        (context as { route: string }).route,
+      ]),
+    },
+    expected: {
+      transient: { lines: 6, captured: 0 },
+      last: [
+        lapsed,
+        lapsed,
+        { operation: 'round.maintenance.tick', errorCode: 'AUTHORIZATION' },
+      ],
+      captured: [
+        ['lapse', 'round.maintenance.tick.lease'],
+        ['denied', 'round.maintenance.tick'],
+      ],
+    },
   });
 });

@@ -302,8 +302,13 @@ are not failures: a lost lease (`CONFLICT` once the Round completes or the claim
 rotates) releases silently, and shared-pool admission backpressure (ISSUE-431)
 is a deferral that the next pass retries. A stage logs `<operation>.capacity`
 on every ninth refusal, whatever its cadence, so a starved slow stage is still
-reported. A bot speech refused admission keeps its delivery attempts and
-resumes at the refused step: the provider answer and the phrases already spoken
+reported. A lapsed web service lease (`AUTHORIZATION` with reason
+`service-lease-lapsed`, DAISY-WEB-9) is a deferral too: every worker on the
+shared failure sink logs each lapse as `<operation>.lease` with that `cause`,
+and reports it to the error tracker only on every ninth lapse of a stage, so a
+one-second blip is visible in logs while a lease that stays lapsed is still
+reported. A plain `AUTHORIZATION` failure is reported at once. A bot speech
+refused admission keeps its delivery attempts and resumes at the refused step: the provider answer and the phrases already spoken
 are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events

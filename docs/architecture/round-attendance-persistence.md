@@ -36,7 +36,17 @@ which at one sample a second outgrew the check-in and evaluation transaction
 budgets on staging. Pending check-ins override current
 peer health and gate the owning Round evaluator conservatively.
 
-Every web peer renews its own lease each second. Before public probing, the
+Every web peer renews its own lease each second. Competitive maintenance acts
+only while its own web lease is current (`requireCurrentWeb`): it checks at
+entry and exit, and holds the lease row to commit with `FOR KEY SHARE`. That
+lock fences the row's deletion by the retention purge but not the instance's
+own renewal, a non-key `UPDATE`, so slow maintenance never lapses the lease it
+runs under (DAISY-WEB-9; `FOR SHARE` did, and every concurrent stage refused
+for a second). A lease that does lapse refuses with `AUTHORIZATION` and reason
+`service-lease-lapsed`, which workers treat as a deferral. The 3 s staleness
+window is also web liveness in availability evidence and stays fixed.
+
+Before public probing, the
 sampler checks lock ownership on that same reserved PostgreSQL session; only
 the elected producer performs the synthetic route check and inserts a sample.
 The insert independently rechecks election. This prevents rolling web peers

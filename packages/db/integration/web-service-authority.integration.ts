@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { availabilityOperations } from '../src/availability-operations';
@@ -65,6 +66,34 @@ test('held web authority lets its own lease renew and still fences the lease row
       } finally {
         release.resolve();
         await Promise.allSettled([holder]);
+        await fixture.sql`delete from service_instances where instance_id=${instanceId}`;
+      }
+    }),
+  ));
+
+test('a lapsed web lease refuses with its typed reason, not its message (ISSUE-1010)', async () =>
+  withFixture(url, async (fixture) =>
+    withPool(async (client) => {
+      const instanceId = createId();
+      const run = createBoundedTransaction({
+        lane: testLane(client, 4),
+        now: performance.now,
+      });
+      await availabilityOperations(
+        fixture.sql,
+        fixture.sql,
+      ).renewServiceInstance({ instanceId, role: 'web' });
+      try {
+        await fixture.sql`update service_instances set renewed_at=clock_timestamp()-interval '4 seconds' where instance_id=${instanceId}`;
+        for (const lock of [false, true])
+          await assertRejects({
+            given: `a web lease last renewed 4 s ago (lock: ${lock})`,
+            should: 'refuse its authority as a lease lapse',
+            actual: () => run((tx) => requireCurrentWeb(tx, instanceId, lock)),
+            code: 'AUTHORIZATION',
+            reason: 'service-lease-lapsed',
+          });
+      } finally {
         await fixture.sql`delete from service_instances where instance_id=${instanceId}`;
       }
     }),
