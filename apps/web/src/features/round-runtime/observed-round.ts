@@ -210,7 +210,9 @@ export function observedRoundOf(view: RoundView, nowMs: number): ObservedRound {
       opening ? { now: null, next: 0, done: 0 } : speechMarks(view, position),
     ),
     prepMs:
-      budget && view.status === 'active'
+      budget &&
+      view.status === 'active' &&
+      position?.stage !== 'awaiting_ballot'
         ? { affirmative: budget.affirmative, negative: budget.negative }
         : null,
     judge: judgeKindOf(view),

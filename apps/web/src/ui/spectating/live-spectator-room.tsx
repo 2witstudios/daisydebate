@@ -16,6 +16,10 @@ import {
 } from '../../features/round-runtime/observed-round';
 import { RoundClock } from '../debate-room/round-clock';
 import { ObservedSpeechOrder } from '../round-observed/speech-order';
+import {
+  observedActivityLabel,
+  observedSideInk,
+} from '../round-observed/observed-labels';
 import { RoundEndedNotice } from '../debate-room/round-ended';
 import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
@@ -34,20 +38,7 @@ const spectatorKindRoster: Readonly<Record<SpectatorKind, string>> = {
   'undelayed-observer': 'host, watching',
 };
 
-const activityLabel: Readonly<Record<ObservedActivity, string>> = {
-  speaking: 'Speaking',
-  listening: 'Listening',
-  asking: 'Asking',
-  answering: 'Answering',
-  preparing: 'Preparing',
-  waiting: 'Waiting',
-};
-
 const sideLabel = { affirmative: 'Affirmative', negative: 'Negative' } as const;
-const sideText = {
-  affirmative: 'text-hue-sky',
-  negative: 'text-hue-clay',
-} as const;
 
 const eyebrowClass = 'text-xs font-bold tracking-wide text-ink-muted uppercase';
 const cardClass = 'rounded-xl border border-border bg-surface-raised';
@@ -71,7 +62,7 @@ function SeatTile({ seat }: { readonly seat: ObservedSeat }) {
             : 'text-stage-ink-muted'
         }`}
       >
-        {activityLabel[seat.activity]}
+        {observedActivityLabel[seat.activity]}
       </span>
       <span
         aria-hidden="true"
@@ -180,7 +171,9 @@ export function LiveSpectatorRoom(props: {
           {view.topic ?? drawnTopicLabel}
         </p>
       </section>
-      <OpeningStatus view={view} nowMs={now} />
+      {watched.stage === 'strike' ? (
+        <OpeningStatus view={view} nowMs={now} />
+      ) : null}
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <RoundTimeNotice roundTime={roundTime} />
       <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
@@ -211,7 +204,7 @@ export function LiveSpectatorRoom(props: {
           {watched.seats.map((seat) => (
             <li key={seat.side}>
               <span className="font-strong">{seat.label}</span>{' '}
-              <span className={sideText[seat.side]}>
+              <span className={observedSideInk[seat.side]}>
                 · {sideLabel[seat.side]}
               </span>
             </li>

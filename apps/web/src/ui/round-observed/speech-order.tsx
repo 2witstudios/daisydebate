@@ -4,6 +4,7 @@ import type {
 } from '../../features/round-runtime/observed-round';
 import { formatCountdown } from '../../lib/clock-display';
 import { cn } from '../cn';
+import { observedSideInk } from './observed-labels';
 
 const stateLabel: Readonly<Record<ObservedSpeechState, string | null>> = {
   done: 'Done',
@@ -11,11 +12,6 @@ const stateLabel: Readonly<Record<ObservedSpeechState, string | null>> = {
   next: 'Next',
   upcoming: null,
 };
-
-const sideInk = {
-  affirmative: 'text-hue-sky',
-  negative: 'text-hue-clay',
-} as const;
 
 /**
  * Every speech and cross-examination in order, by code and full name, with
@@ -51,7 +47,7 @@ export function ObservedSpeechOrder({
               className={cn(
                 'w-12 shrink-0 font-bold',
                 speech.state === 'upcoming' || speech.state === 'next'
-                  ? sideInk[speech.side]
+                  ? observedSideInk[speech.side]
                   : undefined,
               )}
             >

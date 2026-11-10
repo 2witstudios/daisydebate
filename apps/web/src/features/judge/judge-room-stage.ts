@@ -47,17 +47,28 @@ const sideDoing = (
 ): DebateSide | null =>
   observed.seats.find((seat) => seat.activity === activity)?.side ?? null;
 
-const ballotOpen = 'Your ballot is open.';
-
-/** Where the ballot stands once the speeches end; any state not listed reads as open. */
-const ballotDetail: Partial<Record<RoundWaitingOn['state'], string>> = {
+/** Where the ballot stands once the speeches end, for every state the server reports. */
+const ballotDetail: Readonly<Record<RoundWaitingOn['state'], string>> = {
   closing_transcript:
     'Your ballot opens in a moment, once the transcript is saved.',
   awaiting_attendance:
     'Fill in your ballot now. Submitting opens once attendance for the last speeches is confirmed.',
   human_window:
-    'Your ballot is open. Submit it before the judging window closes.',
+    'Ballots are open until the judging window closes. Submit yours if you have not yet.',
+  held_by_writer: 'The result is being settled.',
+  settling: 'The result is being settled.',
+  ai_processing: 'The result is being settled.',
+  ai_failed: 'The result is being settled.',
+  ai_recovering: 'The result is being settled.',
+  ai_blocked: 'The result is being settled.',
 };
+
+/** Whether the judge may still have a ballot to fill in: before the result settles. */
+export const judgeBallotDue = (state: RoundWaitingOn['state'] | null) =>
+  state === null ||
+  state === 'closing_transcript' ||
+  state === 'awaiting_attendance' ||
+  state === 'human_window';
 
 type StageFacts = {
   /** How many resolutions were drawn for the strike; null when unknown. */
@@ -100,11 +111,15 @@ const stages: Readonly<
     heading: 'The round is about to start',
     detail: `${firstSpeech(observed)} starts on its own.`,
   }),
-  countdown: (observed) => ({
-    key: 'countdown',
-    heading: 'Starting',
-    detail: `${firstSpeech(observed)} starts when the countdown ends.`,
-  }),
+  countdown: (observed) => {
+    const next = indexOf(observed, 'next');
+    const speech = observed.speeches[next];
+    return {
+      key: `countdown-${next}`,
+      heading: next <= 0 ? 'Starting' : 'Between speeches',
+      detail: `${speech ? speechName(speech) : firstSpeech(observed)} starts when the countdown ends.`,
+    };
+  },
   speech: (observed) => {
     const speech = nowSpeech(observed);
     const side = sideDoing(observed, 'speaking') ?? speech?.side ?? null;
@@ -140,9 +155,12 @@ const stages: Readonly<
         : 'Waiting on the round.',
   }),
   judging: (_, { waitingOn }) => ({
-    key: 'judging',
+    key: `judging-${waitingOn ?? 'speeches-ended'}`,
     heading: 'The speeches are over',
-    detail: (waitingOn && ballotDetail[waitingOn]) ?? ballotOpen,
+    detail:
+      waitingOn === null
+        ? 'Your ballot opens once the transcript is saved.'
+        : ballotDetail[waitingOn],
   }),
 };
 

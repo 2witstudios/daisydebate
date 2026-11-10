@@ -6,20 +6,10 @@ import { sideName } from '../../features/round-runtime/round-reading';
 import { formatCountdown } from '../../lib/clock-display';
 import { RoundClock } from '../debate-room/round-clock';
 import { cn } from '../cn';
-
-const activityLabel = {
-  speaking: 'Speaking',
-  listening: 'Listening',
-  asking: 'Asking',
-  answering: 'Answering',
-  preparing: 'Preparing',
-  waiting: 'Waiting',
-} as const;
-
-const sideInk = {
-  affirmative: 'text-hue-sky',
-  negative: 'text-hue-clay',
-} as const;
+import {
+  observedActivityLabel,
+  observedSideInk,
+} from '../round-observed/observed-labels';
 
 export const judgeNowHeadingId = 'judge-now';
 const judgeNowDetailId = 'judge-now-detail';
@@ -45,7 +35,8 @@ function useStageNotice(key: string, announcement: string) {
     shown.current = key;
     if (focusIsFree(document.activeElement, document.body)) {
       if (region.current) region.current.textContent = '';
-      heading.current?.focus();
+      // The judge may be reading further down: the reading point moves, the page does not.
+      heading.current?.focus({ preventScroll: true });
     } else if (region.current) region.current.textContent = announcement;
   }, [key, announcement]);
   return { heading, region };
@@ -122,9 +113,11 @@ export function JudgeNow({
                 {seat.label}
                 {seat.bot ? ' · Bot' : ''}
               </span>
-              <span className={sideInk[seat.side]}>{sideName[seat.side]}</span>
+              <span className={observedSideInk[seat.side]}>
+                {sideName[seat.side]}
+              </span>
               <span className="text-ink-muted">
-                {activityLabel[seat.activity]}
+                {observedActivityLabel[seat.activity]}
                 {observed.prepMs
                   ? ` · ${formatCountdown(observed.prepMs[seat.side])} prep left`
                   : ''}

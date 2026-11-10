@@ -19,17 +19,19 @@ const deviceInstant = () => ({
  * The present, counted once a second from the server's render instant by the
  * time elapsed on this device (countdownNowMs, which survives a device that
  * sleeps), so a device clock that is off never moves a deadline. It ticks
- * only while `running`; a new render instant restarts the count from it.
+ * only while `runsAt` holds for the present it has reached, so it stops by
+ * itself once the count is done; a new render instant restarts it.
  */
 export function useServerAnchoredNow(
   renderedAtMs: number,
-  running: boolean,
+  runsAt: (nowMs: number) => boolean,
 ): number {
   const [elapsed, setElapsed] = useState({
     base: renderedAtMs,
     nowMs: renderedAtMs,
   });
   const now = elapsed.base === renderedAtMs ? elapsed.nowMs : renderedAtMs;
+  const running = runsAt(now);
   const mount = useRef<ReturnType<typeof countdownMount> | null>(null);
   useEffect(() => {
     if (!running) return;
@@ -62,8 +64,10 @@ export function useBallotOpensIn(
   renderedAtMs: number,
   open: boolean,
 ): number | null {
-  const waiting = open && ballotOpensInMs(round, renderedAtMs) !== null;
-  const now = useServerAnchoredNow(renderedAtMs, waiting);
+  const now = useServerAnchoredNow(
+    renderedAtMs,
+    (nowMs) => open && ballotOpensInMs(round, nowMs) !== null,
+  );
   return open ? ballotOpensInMs(round, now) : null;
 }
 

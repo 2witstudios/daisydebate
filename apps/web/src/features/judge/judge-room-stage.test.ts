@@ -10,7 +10,7 @@ import {
 } from '../../ui/debate-room/live-round.test-support';
 import { formatCountdown } from '../../lib/clock-display';
 import { observedRoundOf } from '../round-runtime/observed-round';
-import { judgeRoomStageOf } from './judge-room-stage';
+import { judgeBallotDue, judgeRoomStageOf } from './judge-room-stage';
 
 setupRitewayBun();
 
@@ -101,8 +101,58 @@ describe('judgeRoomStageOf', () => {
       expected: [
         'Your ballot opens in a moment, once the transcript is saved.',
         'Fill in your ballot now. Submitting opens once attendance for the last speeches is confirmed.',
-        'Your ballot is open. Submit it before the judging window closes.',
+        'Ballots are open until the judging window closes. Submit yours if you have not yet.',
       ],
+    });
+  });
+});
+
+describe('judgeRoomStageOf, between and after', () => {
+  test('a countdown before a later speech names that speech', () => {
+    const first = stageAt(ran(0), origin + 1_000);
+    const between = stageAt(ran(1, true), origin + startOf(1) + 500);
+    assert({
+      given: 'the countdown before the first speech, then the one after it',
+      should:
+        'say Starting first, then name the speech coming up, each its own stage',
+      actual: [
+        [first.heading, first.detail],
+        [between.heading, between.detail],
+        first.key === between.key,
+      ],
+      expected: [
+        ['Starting', `${name(0)} starts when the countdown ends.`],
+        ['Between speeches', `${name(1)} starts when the countdown ends.`],
+        false,
+      ],
+    });
+  });
+
+  test('each judging state is its own stage, and the ballot is due only before the result settles', () => {
+    const closed = ran(rules.length, true);
+    const nowMs = origin + startOf(rules.length) + 1_000;
+    const keyOf = (waitingOn: Parameters<typeof judgeBallotDue>[0]) =>
+      stageAt(closed, nowMs, { drawSize: 5, waitingOn }).key;
+    assert({
+      given:
+        'the transcript closing, the window open, then the result settling',
+      should:
+        'change the key each time so the judge is told, and keep the ballot first only while it may be due',
+      actual: [
+        new Set([
+          keyOf('closing_transcript'),
+          keyOf('human_window'),
+          keyOf('settling'),
+        ]).size,
+        stageAt(closed, nowMs, { drawSize: 5, waitingOn: 'settling' }).detail,
+        [
+          judgeBallotDue(null),
+          judgeBallotDue('human_window'),
+          judgeBallotDue('settling'),
+          judgeBallotDue('ai_processing'),
+        ],
+      ],
+      expected: [3, 'The result is being settled.', [true, true, false, false]],
     });
   });
 });

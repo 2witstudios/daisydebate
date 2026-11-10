@@ -243,11 +243,13 @@ describe('observedRoundOf, the opening and the judging window', () => {
     );
     assert({
       given: 'the speeches over and a human judge’s window open a minute',
-      should: 'count the window down to its persisted deadline',
-      actual: [watched.stage, watched.clock],
+      should:
+        'count the window down to its persisted deadline, with no prep left to show',
+      actual: [watched.stage, watched.clock, watched.prepMs],
       expected: [
         'judging',
         { label: 'Judging window', remainingMs: 29 * 60_000 },
+        null,
       ],
     });
   });

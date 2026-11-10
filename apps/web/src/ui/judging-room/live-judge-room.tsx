@@ -6,7 +6,10 @@ import type { RoundView } from '@daisy/protocol';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { observedRoundOf } from '../../features/round-runtime/observed-round';
-import { judgeRoomStageOf } from '../../features/judge/judge-room-stage';
+import {
+  judgeBallotDue,
+  judgeRoomStageOf,
+} from '../../features/judge/judge-room-stage';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import {
   clearAccountResumeRecords,
@@ -98,6 +101,7 @@ export function LiveJudgeRoom({
   });
   const ballotHref = `/judge/ballot/${view.id}`;
   const judging = observed.stage === 'judging';
+  const ballotFirst = judging && judgeBallotDue(view.waitingOn?.state ?? null);
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-dash-column flex-col gap-4 p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -134,7 +138,7 @@ export function LiveJudgeRoom({
         observed={observed}
         stage={stage}
         action={
-          judging ? (
+          ballotFirst ? (
             <Link
               href={ballotHref}
               prefetch={false}
@@ -163,13 +167,13 @@ export function LiveJudgeRoom({
       </section>
       {transcript}
       <nav aria-label="Ballot and result" className="flex flex-wrap gap-4">
-        {judging ? null : (
+        {ballotFirst ? null : (
           <Link
             href={ballotHref}
             prefetch={false}
             className="inline-flex min-h-room-target items-center font-strong"
           >
-            Preview your ballot
+            {judging ? 'Your ballot' : 'Preview your ballot'}
           </Link>
         )}
         <MediaPageLink

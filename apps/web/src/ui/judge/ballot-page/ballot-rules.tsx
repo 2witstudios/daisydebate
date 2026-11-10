@@ -32,8 +32,10 @@ export function BallotRules({
   readonly waitingOn: RoundWaitingOn | null;
   readonly renderedAtMs: number;
 }) {
-  const running = waitingOn?.state === 'human_window';
-  const nowMs = useServerAnchoredNow(renderedAtMs, running);
+  const nowMs = useServerAnchoredNow(
+    renderedAtMs,
+    (at) => (judgingClockOf(waitingOn, at)?.remainingMs ?? 0) > 0,
+  );
   const clock = judgingClockOf(waitingOn, nowMs);
   return (
     <section aria-labelledby="ballot-rules" className={ballotSectionClass}>
@@ -66,7 +68,7 @@ export function BallotRules({
           {`Feedback is optional, and each debater reads only their own (up to ${ballotLimits.feedback} characters).`}
         </li>
         <li>
-          {`You have ${windowMinutes} minutes from the end of the speeches to submit. Once submitted, a ballot can’t be changed.`}
+          {`You have ${windowMinutes} minutes from when your ballot opens to submit. Once submitted, a ballot can’t be changed.`}
         </li>
       </ul>
     </section>

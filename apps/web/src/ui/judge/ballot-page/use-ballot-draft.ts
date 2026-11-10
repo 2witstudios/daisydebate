@@ -1,6 +1,12 @@
 'use client';
 import type { RoundBallotRead } from '@daisy/protocol';
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from 'react';
 import {
   ballotDraftKey,
   clearBallotDraft,
@@ -25,6 +31,7 @@ const tabStorage = (): Storage | null => {
  */
 const firstRead = new Map<string, string | null>();
 const noSubscription = () => () => {};
+const saveIntervalMs = 400;
 const draftAtMount = (key: string): string | null => {
   if (!firstRead.has(key)) {
     const storage = tabStorage();
@@ -57,21 +64,50 @@ export function useBallotDraft(
     () => null,
   );
   const draft = useMemo(() => parseBallotDraft(raw), [raw]);
+  // Edits are written at most once per interval, and at once when the page
+  // hides or the ballot leaves, so typing never serializes on every key.
+  const pending = useRef<HTMLFormElement | null>(null);
+  const timer = useRef<number | null>(null);
+  const cancel = useCallback(() => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+    pending.current = null;
+  }, []);
+  const flush = useCallback(() => {
+    const form = pending.current;
+    cancel();
+    const storage = tabStorage();
+    if (form && key && storage)
+      writeBallotDraft(storage, key, formValues(new FormData(form)));
+  }, [key, cancel]);
+  const save = useCallback(
+    (form: HTMLFormElement) => {
+      pending.current = form;
+      timer.current ??= window.setTimeout(flush, saveIntervalMs);
+    },
+    [flush],
+  );
+  useEffect(() => {
+    const hidden = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', hidden);
+      flush();
+    };
+  }, [flush]);
   useEffect(() => {
     const storage = tabStorage();
     if (!key) return;
-    if (storage && (display === 'recorded' || display === 'decided'))
+    if (storage && (display === 'recorded' || display === 'decided')) {
+      cancel();
       clearBallotDraft(storage, key);
+    }
     return () => void firstRead.delete(key);
-  }, [key, display]);
-  const save = useCallback(
-    (form: HTMLFormElement) => {
-      const storage = tabStorage();
-      if (key && storage)
-        writeBallotDraft(storage, key, formValues(new FormData(form)));
-    },
-    [key],
-  );
+  }, [key, display, cancel]);
   const restored = Object.keys(posted).length === 0 && draft !== null;
   return { values: restored ? draft : posted, restored, save };
 }

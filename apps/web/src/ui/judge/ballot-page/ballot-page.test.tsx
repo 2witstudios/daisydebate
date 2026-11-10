@@ -229,7 +229,7 @@ describe('BallotPage, how the ballot works', () => {
         html.includes('There are no draws.'),
         html.includes('up to 600 characters'),
         html.includes('up to 280 characters'),
-        html.includes('30 minutes from the end of the speeches'),
+        html.includes('30 minutes from when your ballot opens'),
         html.includes('aria-label="Time left to submit 29:00"'),
         html.includes('What a 1, 3 and 5 look like'),
         waiting.includes('How this ballot works'),
