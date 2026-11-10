@@ -56,12 +56,12 @@ test('a lease left unproven reports after ten seconds, then every five minutes',
     should:
       'report when the lease is ten seconds past its window, then 5 and 10 minutes later, with the latest failure',
     actual: lapsesOver(661, (second) => (second === 1 ? timely : failed)).map(
-      ({ atMs, lapsedMs, lastFailure }) => [atMs, lapsedMs, lastFailure],
+      ({ atMs, lapsedMs, unproven }) => [atMs, lapsedMs, unproven],
     ),
     expected: [
-      [14_000, 10_050, refused],
-      [314_000, 310_050, refused],
-      [614_000, 610_050, refused],
+      [14_000, 10_050, { kind: 'renewal_failed', error: refused }],
+      [314_000, 310_050, { kind: 'renewal_failed', error: refused }],
+      [614_000, 610_050, { kind: 'renewal_failed', error: refused }],
     ],
   });
 });
@@ -72,9 +72,9 @@ test('a renewal that hangs is a lapse, checked by the tick alone', () => {
     should:
       'report at the first tick ten seconds past the window, with no failure',
     actual: lapsesOver(20, (second) => (second === 1 ? timely : null)).map(
-      ({ atMs, lastFailure }) => [atMs, lastFailure],
+      ({ atMs, unproven }) => [atMs, unproven],
     ),
-    expected: [[14_000, undefined]],
+    expected: [[14_000, { kind: 'renewal_pending' }]],
   });
 });
 
@@ -98,5 +98,17 @@ test('a timely renewal ends the lapse, so a later one reports afresh', () => {
       second <= 15 || second > 75 ? failed : timely,
     ).map(({ atMs }) => atMs),
     expected: [10_000, 88_000],
+  });
+});
+
+test('a slow renewal after a failure reports the slowness, not the stale failure', () => {
+  assert({
+    given:
+      'one failed renewal at 1 s, then every renewal succeeding after 2.5 s',
+    should: 'report the lapse as slow renewals',
+    actual: lapsesOver(12, (second) =>
+      second === 1 ? failed : { kind: 'renewed', tookMs: 2500 },
+    ).map(({ unproven }) => unproven),
+    expected: [{ kind: 'renewal_slow', tookMs: 2500 }],
   });
 });

@@ -7,7 +7,7 @@ export function startRealtimeServiceLease(input: {
     readonly instanceId: string;
     readonly role: 'realtime';
     readonly deliveredThrough: OutboxPosition;
-  }) => Promise<void>;
+  }) => Promise<unknown>;
   readonly deliveredThrough: () => OutboxPosition;
   /** The renewal's own failure; the log keeps the code, never the content. */
   readonly failed: (error: unknown) => void;
@@ -26,7 +26,10 @@ export function startRealtimeServiceLease(input: {
         role: 'realtime',
         deliveredThrough: input.deliveredThrough(),
       })
-      .catch((error: unknown) => input.failed(error))
+      .then(
+        () => undefined,
+        (error: unknown) => input.failed(error),
+      )
       .finally(() => {
         work = null;
       });

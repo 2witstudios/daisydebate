@@ -39,8 +39,9 @@ export async function verifyAvailabilityLeaseCadence(input: {
       database: {
         ...app.database,
         renewServiceInstance: async (lease) => {
-          await app.database.renewServiceInstance(lease);
+          const wrote = await app.database.renewServiceInstance(lease);
           if (++renewals === 2) renewed.resolve();
+          return wrote;
         },
         reconcileRoundCheckInAttempts: async (limit: number) => {
           const actual =

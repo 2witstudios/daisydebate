@@ -1,3 +1,4 @@
+import { isAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
 setupRitewayBun();
@@ -13,6 +14,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
       reconcileRoundCheckInAttempts: reconcile ?? (async () => 0),
       renewServiceInstance: async () => {
         events.push('renew');
+        return true;
       },
       availabilitySampler: () => ({
         elect: async () => elected,
@@ -103,7 +105,7 @@ test('missing probe resources are named at start and hourly, and never decide he
     instanceId: 'a'.repeat(24),
     store: {
       reconcileRoundCheckInAttempts: async () => 0,
-      renewServiceInstance: async () => {},
+      renewServiceInstance: async () => true,
       availabilitySampler: () => ({
         elect: async () => true,
         sample: async (input) => {
@@ -168,7 +170,7 @@ test('every process checks the probe resources at start, elected or not', async 
     instanceId: 'a'.repeat(24),
     store: {
       reconcileRoundCheckInAttempts: async () => 0,
-      renewServiceInstance: async () => {},
+      renewServiceInstance: async () => true,
       availabilitySampler: () => ({
         elect: async () => false,
         sample: async () => {},
@@ -202,7 +204,7 @@ test('a failing probe check waits a minute, not a second', async () => {
     instanceId: 'a'.repeat(24),
     store: {
       reconcileRoundCheckInAttempts: async () => 0,
-      renewServiceInstance: async () => {},
+      renewServiceInstance: async () => true,
       availabilitySampler: () => ({
         elect: async () => true,
         sample: async () => {},
@@ -257,6 +259,7 @@ test('a lease left unproven for ten seconds reports once, and a stop never does'
       reconcileRoundCheckInAttempts: async () => 0,
       renewServiceInstance: async () => {
         if (failing) throw refused;
+        return true;
       },
       availabilitySampler: () => ({
         elect: async () => false,
@@ -299,6 +302,83 @@ test('a lease left unproven for ten seconds reports once, and a stop never does'
     should:
       'report one lapse of ten seconds caused by the renewal failure, survive a throwing reporter, and stay silent after the stop',
     actual: lapses,
-    expected: [{ lapsedMs: 10_000, lastFailure: refused }],
+    expected: [
+      {
+        lapsedMs: 10_000,
+        unproven: { kind: 'renewal_failed', error: refused },
+      },
+    ],
+  });
+});
+
+/** A service whose every renewal behaves as `renew` says, ticked by hand. */
+function ticked(renew: () => Promise<boolean>) {
+  const lapses: unknown[] = [];
+  const state = { nowMs: 0, tick: () => {} };
+  const service = startAvailabilityService({
+    instanceId: 'a'.repeat(24),
+    store: {
+      reconcileRoundCheckInAttempts: async () => 0,
+      renewServiceInstance: renew,
+      availabilitySampler: () => ({
+        elect: async () => false,
+        sample: async () => undefined,
+        close: async () => undefined,
+      }),
+    },
+    probe: async () => false,
+    nowMs: () => state.nowMs,
+    timers: {
+      setInterval: (callback) => {
+        state.tick = callback;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+    lapsing: (lapse) => {
+      lapses.push(lapse);
+    },
+    failed: () => {},
+  });
+  const advance = async (seconds: number) => {
+    for (let i = 0; i < seconds; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      state.nowMs += 1000;
+      state.tick();
+    }
+  };
+  return { lapses, advance, service };
+}
+
+test('a renewal that never settles is still checked on every tick, and reports', async () => {
+  const { lapses, advance } = ticked(() => new Promise(() => {}));
+  await advance(12);
+  assert({
+    given:
+      'a renewal that hangs from start, with the ticks running for twelve seconds',
+    should: 'report one lapse of ten seconds with the renewal still pending',
+    actual: lapses,
+    expected: [{ lapsedMs: 10_000, unproven: { kind: 'renewal_pending' } }],
+  });
+});
+
+test('a renewal that wrote no row is a failed renewal, never proof of the lease', async () => {
+  const { lapses, advance, service } = ticked(async () => false);
+  await advance(12);
+  await service.stop();
+  const [lapse] = lapses as {
+    unproven: { kind: string; error: unknown };
+  }[];
+  assert({
+    given: 'every renewal resolving without writing this instance’s row',
+    should: 'report the lapse as a failed renewal refused for another role',
+    actual: {
+      lapses: lapses.length,
+      kind: lapse?.unproven.kind,
+      code: isAppError(lapse?.unproven.error)
+        ? lapse.unproven.error.code
+        : null,
+    },
+    expected: { lapses: 1, kind: 'renewal_failed', code: 'CONFLICT' },
   });
 });

@@ -52,7 +52,9 @@ adds is that a renewal carries the live lockers onto its new tuple version, one
 more MultiXact per renewal, at most one per second per web instance, which
 autovacuum freezes as usual. The retention purge only deletes leases a day
 stale, so the lock is defence in depth for the delete fence. The 3 s staleness
-window is also web liveness in availability evidence and stays fixed.
+window (`SERVICE_LEASE_WINDOW_MS`, which the availability sampler and
+`requireCurrentWeb` both read) is also web liveness in availability evidence and
+stays fixed.
 
 Before public probing, the sampler checks lock ownership on that same reserved
 PostgreSQL session; only the elected producer performs the synthetic route check

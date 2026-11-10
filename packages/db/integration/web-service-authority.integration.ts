@@ -98,3 +98,37 @@ test('a lapsed web lease refuses with its typed reason, not its message (ISSUE-1
       }
     }),
   ));
+
+test('a renewal of a lease another role holds writes nothing and says so', async () =>
+  withFixture(url, async (fixture) => {
+    const instanceId = createId();
+    const leases = availabilityOperations(fixture.sql, fixture.sql);
+    try {
+      await fixture.sql`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
+        values(${instanceId},'realtime',clock_timestamp()-interval '1 hour',0,'0'::xid8)`;
+      const web = await leases.renewServiceInstance({
+        instanceId,
+        role: 'web',
+      });
+      const [row] =
+        await fixture.sql`select role,renewed_at<clock_timestamp()-interval '59 minutes' as stale from service_instances where instance_id=${instanceId}`;
+      const realtime = await leases.renewServiceInstance({
+        instanceId,
+        role: 'realtime',
+        deliveredThrough: { txid: '0', seq: 0n },
+      });
+      assert({
+        given: 'a realtime lease row, renewed once as web and once as realtime',
+        should:
+          'leave the row untouched and answer false for web, then renew it and answer true for its own role',
+        actual: { web, row, realtime },
+        expected: {
+          web: false,
+          row: { role: 'realtime', stale: true },
+          realtime: true,
+        },
+      });
+    } finally {
+      await fixture.sql`delete from service_instances where instance_id=${instanceId}`;
+    }
+  }));

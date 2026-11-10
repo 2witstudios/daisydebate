@@ -1,7 +1,7 @@
-import { createAppError } from '@daisy/errors';
 import type { App } from './app';
 import { readPublicCheckInProbe } from '../features/availability/configuration';
 import { createPublicCheckInProbe } from '../features/availability/public-probe';
+import { leaseLapseReport } from '../features/availability/lease-lapse-report';
 import { startAvailabilityService } from '../features/availability/service';
 
 /** Start only after public ingress is accepting requests; stop before closing its owned pool. */
@@ -37,15 +37,11 @@ export function startRoundAvailability(input: {
         { operation: 'availability.probe', cause: problem },
         'Public check-in probe cannot prove health',
       ),
-    lapsing: (lapse) =>
-      app.reporter.capture(
-        createAppError('INFRASTRUCTURE', 'Web service lease lapsing', lapse),
-        {
-          requestId: app.ids.next(),
-          route: 'web.service-lease.lapsed',
-          errorCode: 'INFRASTRUCTURE',
-        },
-      ),
+    lapsing: leaseLapseReport({
+      logger: app.logger,
+      reporter: app.reporter,
+      nextId: () => app.ids.next(),
+    }),
     failed: () =>
       app.logger.log(
         'availability.sample_failed',

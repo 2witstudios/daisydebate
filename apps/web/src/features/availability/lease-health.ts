@@ -25,11 +25,17 @@ const REPEAT_MS = 5 * 60_000;
 export type LeaseHealth = {
   /** Monotonic ms until which the lease is proven current. */
   readonly currentUntilMs: number;
-  /** The latest renewal failure since the lease was last proven, if any. */
-  readonly lastFailure: unknown;
+  /** What the latest renewal since then did, if one settled. */
+  readonly unproven: Unproven;
   /** Monotonic ms of the latest report of the current lapse, if any. */
   readonly reportedAtMs: number | null;
 };
+
+/** Why the lease is not proven: the latest renewal since it last was. */
+export type Unproven =
+  | { readonly kind: 'renewal_pending' }
+  | { readonly kind: 'renewal_slow'; readonly tookMs: number }
+  | { readonly kind: 'renewal_failed'; readonly error: unknown };
 
 export type LeaseRenewal =
   /** A renewal succeeded `tookMs` after it was called. */
@@ -39,13 +45,15 @@ export type LeaseRenewal =
 /** A lapse that persisted: how long the lease has been unproven, and why. */
 export type LeaseLapse = {
   readonly lapsedMs: number;
-  readonly lastFailure: unknown;
+  readonly unproven: Unproven;
 };
+
+const pending: Unproven = { kind: 'renewal_pending' };
 
 /** A process starts with its lease to prove, from the moment it starts. */
 export const startingLease = (nowMs: number): LeaseHealth => ({
   currentUntilMs: nowMs,
-  lastFailure: undefined,
+  unproven: pending,
   reportedAtMs: null,
 });
 
@@ -56,13 +64,21 @@ export function afterRenewal(
   nowMs: number,
 ): LeaseHealth {
   if (renewal.kind === 'failed')
-    return { ...health, lastFailure: renewal.error };
-  if (renewal.tookMs >= TIMELY_RENEWAL_MS) return health;
+    return {
+      ...health,
+      unproven: { kind: 'renewal_failed', error: renewal.error },
+    };
+  if (renewal.tookMs >= TIMELY_RENEWAL_MS)
+    return {
+      ...health,
+      unproven: { kind: 'renewal_slow', tookMs: renewal.tookMs },
+    };
   const currentUntilMs = Math.max(
     health.currentUntilMs,
     nowMs - renewal.tookMs + SERVICE_LEASE_WINDOW_MS,
   );
-  return { currentUntilMs, lastFailure: undefined, reportedAtMs: null };
+  // The next renewal starts fresh: until it settles, it is pending.
+  return { currentUntilMs, unproven: pending, reportedAtMs: null };
 }
 
 /** The tick's check at `nowMs`: the health, and a lapse to report, if due. */
@@ -77,7 +93,7 @@ export function checkLease(
   return due
     ? {
         health: { ...health, reportedAtMs: nowMs },
-        lapse: { lapsedMs, lastFailure: health.lastFailure },
+        lapse: { lapsedMs, unproven: health.unproven },
       }
     : { health, lapse: null };
 }

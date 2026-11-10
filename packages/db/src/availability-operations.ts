@@ -1,3 +1,4 @@
+import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
 import type { SQL, ReservedSQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { availabilityRecoveryPolicy, idSchema } from '@daisy/protocol';
@@ -77,9 +78,9 @@ export function createAvailabilitySampler(client: SQL) {
           with instant as (select statement_timestamp() as at),
           facts as (
             select at,
-              exists(select 1 from service_instances where role='web' and renewed_at > at-interval '3 seconds') as web,
-              exists(select 1 from service_instances where role='realtime' and renewed_at > at-interval '3 seconds') as realtime,
-              exists(select 1 from service_instances s where role='realtime' and renewed_at > at-interval '3 seconds'
+              exists(select 1 from service_instances where role='web' and renewed_at > at-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond') as web,
+              exists(select 1 from service_instances where role='realtime' and renewed_at > at-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond') as realtime,
+              exists(select 1 from service_instances s where role='realtime' and renewed_at > at-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond'
                 and not exists(select 1 from outbox o where o.created_at < at-interval '2 seconds'
                   and (o.txid,o.seq) > (s.delivered_through_txid,s.delivered_through))) as delivered
             from instant
@@ -183,7 +184,7 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
             readonly deliveredThrough: OutboxPosition;
           }
       ),
-    ) {
+    ): Promise<boolean> {
       if (!idSchema.safeParse(input.instanceId).success)
         throw createAppError('VALIDATION');
       const cursor =
@@ -196,12 +197,8 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
         on conflict(instance_id) do update set renewed_at=excluded.renewed_at,
           delivered_through=excluded.delivered_through,delivered_through_txid=excluded.delivered_through_txid
         where service_instances.role=excluded.role returning instance_id`;
-      // A lease held by another role is not renewed: never report that it was.
-      if (renewed.length !== 1)
-        throw createAppError(
-          'CONFLICT',
-          'Service lease belongs to another role',
-        );
+      // A lease held by another role is not renewed: say so, never pretend.
+      return renewed.length === 1;
     },
     availabilitySampler: () => createAvailabilitySampler(dedicated),
     /**

@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import {
   afterRenewal,
@@ -19,14 +20,21 @@ type Sampler = {
 const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
 /** How soon a failed check tries again. */
 const PROBE_RESOURCE_RETRY_MS = 60_000;
+/** A renewal that wrote no row: the lease belongs to another role. */
+const notRenewed = createAppError(
+  'CONFLICT',
+  'Service lease belongs to another role',
+);
+
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
   readonly store: {
+    /** Whether the renewal wrote this instance's lease row. */
     readonly renewServiceInstance: (input: {
       readonly instanceId: string;
       readonly role: 'web';
-    }) => Promise<void>;
+    }) => Promise<boolean>;
     readonly reconcileRoundCheckInAttempts: (limit: number) => Promise<number>;
     readonly availabilitySampler: () => Sampler;
   };
@@ -109,17 +117,16 @@ export function startAvailabilityService(deps: {
     const startedMs = nowMs();
     renewing ??= deps.store
       .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
-      .then(
-        () => {
-          settled({ kind: 'renewed', tookMs: nowMs() - startedMs });
-          return true;
-        },
-        (error: unknown) => {
-          settled({ kind: 'failed', error });
-          deps.failed();
-          return false;
-        },
-      )
+      .then((wrote) => {
+        if (!wrote) throw notRenewed;
+        settled({ kind: 'renewed', tookMs: nowMs() - startedMs });
+        return true;
+      })
+      .catch((error: unknown) => {
+        settled({ kind: 'failed', error });
+        deps.failed();
+        return false;
+      })
       .finally(() => {
         renewing = null;
       });
