@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { createRefusal, type ErrorCode } from '@daisy/errors';
+import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
+import type { RefusalReason } from '@daisy/protocol';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
@@ -10,6 +11,7 @@ import {
 import { economicsSignals, type EconomicsSignal } from './economics-alert';
 import {
   hasRecordedEconomicsFloor,
+  previousEconomicsMonth,
   recordedMarginFloorBasisPoints,
 } from './economics-policy';
 import { buildEconomicsReport, type EconomicsReport } from './economics-report';
@@ -202,8 +204,14 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
     volume,
   };
 }
+/** The files edge's refusals of a feed's contents, rather than of reading it. */
+const feedContentRefusals: ReadonlySet<RefusalReason> = new Set([
+  'economics-feed-unparseable',
+  'economics-feed-too-large',
+]);
 /** Why a month's collection did not save a report; each reason is one stage. */
 export type EconomicsCollectionFailure =
+  | 'feed_missing'
   | 'snapshot_failed'
   | 'feed_unreadable'
   | 'feed_invalid'
@@ -213,6 +221,7 @@ export type EconomicsCollectionFailure =
 export const economicsFailureCode: Readonly<
   Record<EconomicsCollectionFailure, ErrorCode>
 > = {
+  feed_missing: 'VALIDATION',
   snapshot_failed: 'INFRASTRUCTURE',
   feed_unreadable: 'INFRASTRUCTURE',
   feed_invalid: 'VALIDATION',
@@ -287,7 +296,31 @@ export function createBillingEconomicsCollector(input: {
       });
       if (!snapshot.ok) return failed('snapshot_failed', snapshot.cause);
       const feed = await stage(() => input.feed.read(window));
-      if (!feed.ok) return failed('feed_unreadable', feed.cause);
+      // The feed's own contents (unparseable or oversized) are the operator's data being wrong.
+      if (!feed.ok)
+        return failed(
+          isAppError(feed.cause) &&
+            feed.cause.reason !== undefined &&
+            feedContentRefusals.has(feed.cause.reason)
+            ? 'feed_invalid'
+            : 'feed_unreadable',
+          feed.cause,
+        );
+      // A correction of an earlier month never saves an incomplete report: its feed was removed
+      // or never placed. Only the worker's own month records a missing feed as incomplete.
+      if (
+        feed.value === null &&
+        month <
+          (previousEconomicsMonth(input.now())?.startsAt.slice(0, 7) ?? '')
+      )
+        return failed(
+          'feed_missing',
+          createRefusal(
+            'VALIDATION',
+            'economics-feed-missing',
+            'Economics feed is missing for a corrected month',
+          ),
+        );
       const joined = await stage(() =>
         dataset(window, snapshot.value, feed.value),
       );

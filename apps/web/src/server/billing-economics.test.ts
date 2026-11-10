@@ -10,6 +10,7 @@ import { createApp } from './app';
 import { createEventRecorder, silentLogger } from './test-loggers.test-support';
 import {
   composeBillingEconomics,
+  correctBillingEconomics,
   startBillingEconomics,
 } from './billing-economics';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
@@ -628,6 +629,137 @@ test('a lapsed lease never mutes a genuine failure of the same stage that follow
       expected: ['billing.economics.snapshot_failed'],
     });
   } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+/** Run the worker over a scripted clock: each tick reads the next mode. */
+async function runScripted(
+  modes: readonly ('invalid' | 'throws' | 'failing' | 'healthy')[],
+) {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
+  const captured: string[] = [];
+  let mode = modes[0];
+  let tick: (() => Promise<void>) | null = null;
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger: silentLogger,
+      clock: {
+        now: () => {
+          if (mode === 'throws') throw new Error('clock defect');
+          return mode === 'invalid' ? 'not an instant' : now;
+        },
+      },
+      database: {
+        ...app.database,
+        billingEconomics: () => ({
+          read: async (period) => {
+            if (mode === 'failing')
+              throw createAppError('INFRASTRUCTURE', 'Economics database down');
+            return {
+              ...period,
+              observedAt: now,
+              attempts: [],
+              usage: [],
+              complete: true,
+            };
+          },
+        }),
+      },
+      reporter: {
+        capture: (_error, context) => {
+          captured.push(context.route);
+        },
+      },
+    },
+    instanceId: 'service-fixture',
+    timers: {
+      setInterval: (run) => {
+        tick = run;
+        return 1;
+      },
+      clearInterval: () => undefined,
+    },
+  });
+  try {
+    await service.started;
+    for (const next of modes.slice(1)) {
+      mode = next;
+      await (tick as (() => Promise<void>) | null)?.();
+    }
+  } finally {
+    await service.stop();
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+  return captured.filter((route) => route === 'billing.economics.collect');
+}
+
+test('a different failure outside any collection is raised; the same one is not', async () => {
+  assert({
+    given:
+      'an invalid clock on two ticks, then a clock that throws on two more',
+    should: 'raise each reason once: two collect captures',
+    actual: (await runScripted(['invalid', 'invalid', 'throws', 'throws']))
+      .length,
+    expected: 2,
+  });
+});
+
+test('a failure outside any collection re-arms only after a collection completes', async () => {
+  assert({
+    given:
+      'an invalid clock, a run whose collection failed, the invalid clock again, a completed collection, then the invalid clock once more',
+    should:
+      'stay quiet after the failed collection and raise again only after the completed one',
+    actual: (
+      await runScripted(['invalid', 'failing', 'invalid', 'healthy', 'invalid'])
+    ).length,
+    expected: 2,
+  });
+});
+
+test('a correction whose feed is gone reports feed_missing and saves nothing', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-runtime-'));
+  const app = build(directory);
+  const captured: string[] = [];
+  try {
+    const result = await correctBillingEconomics(
+      {
+        ...app,
+        database: { ...app.database, billingEconomics: snapshotStore() },
+        reporter: {
+          capture: (_error, context) => captured.push(context.route),
+        },
+      },
+      'service-fixture',
+      directory,
+      {
+        startsAt: '2026-09-01T00:00:00.000Z',
+        endsAt: '2026-10-01T00:00:00.000Z',
+      },
+    );
+    assert({
+      given:
+        'a November correction of September with no September feed in the sink',
+      should: 'return feed_missing, capture it once, and save no report',
+      actual: {
+        reason: result.kind === 'failed' && result.reason,
+        captured,
+        reports: (await readdir(directory)).filter((n) =>
+          n.startsWith('report-'),
+        ),
+      },
+      expected: {
+        reason: 'feed_missing',
+        captured: ['billing.economics.feed_missing'],
+        reports: [],
+      },
+    });
+  } finally {
+    await app.close();
     await rm(directory, { recursive: true, force: true });
   }
 });

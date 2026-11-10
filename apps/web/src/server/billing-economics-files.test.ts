@@ -314,3 +314,59 @@ test('a feed whose collection window has passed is removed whatever its age', as
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a feed that is not JSON is refused as unparseable, keeping the parser error', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    await writeFile(join(directory, 'feed-2026-10.json'), '{"startsAt": ,}', {
+      mode: 0o600,
+    });
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'p'.repeat(24),
+    });
+    const caught = await files.feed.read(window).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    assert({
+      given: 'a feed with a stray comma',
+      should:
+        'refuse it as VALIDATION economics-feed-unparseable with the SyntaxError as cause',
+      actual: isAppError(caught) && [
+        caught.code,
+        caught.reason,
+        caught.cause instanceof SyntaxError,
+      ],
+      expected: ['VALIDATION', 'economics-feed-unparseable', true],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a feed for a month that has not started is never retained', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    for (const name of ['feed-2026-11.json', 'feed-2026-12.json'])
+      await writeFile(join(directory, name), '{}', { mode: 0o600 });
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'q'.repeat(24),
+    });
+    await files.feed.read(window);
+    assert({
+      given:
+        'in November, a feed for November and one placed early for December',
+      should:
+        'keep November, whose window is open, and remove December, so no feed outlives the month after its own (DEC-372)',
+      actual: (await readdir(directory)).sort(),
+      expected: ['feed-2026-11.json'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

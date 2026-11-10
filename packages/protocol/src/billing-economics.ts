@@ -86,6 +86,7 @@ export type BillingEconomicsRefusal =
   | 'economics-sink-full'
   | 'economics-feed-not-private'
   | 'economics-feed-too-large'
+  | 'economics-feed-unparseable'
   | 'economics-report-identity-invalid'
   // The collector's data checks.
   | 'economics-feed-schema-invalid'

@@ -8,6 +8,7 @@ import {
   createBillingEconomicsCollector,
   economicsFailureCode,
   type EconomicsCollection,
+  type EconomicsCollectionFailure,
 } from '../features/billing/economics-collector';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
@@ -70,6 +71,54 @@ function innermostReason(error: unknown) {
   return reason;
 }
 
+/** The reported error: the reason's closed word and code, keeping the caught error as cause. */
+const reasonError = (
+  reason: EconomicsCollectionFailure | 'collect',
+  cause: unknown,
+) =>
+  createRefusal(
+    errorCodeOf(
+      cause,
+      reason === 'collect' ? 'INTERNAL' : economicsFailureCode[reason],
+    ),
+    reasonWord[reason],
+    `Billing economics ${reason}`,
+    cause,
+  );
+
+/** The shared worker failure sink, naming the innermost closed reason on its log line. */
+const economicsFailures = (app: App) =>
+  workerFailures(app, app.reporter)(
+    'billing.economics.failed',
+    'billing.economics',
+    'Private billing economics remain incomplete',
+    innermostReason,
+  );
+
+/**
+ * A one-off late correction of an earlier month (the operator's seam). It
+ * saves nothing without its feed: a pruned or absent feed is a reported
+ * `feed_missing`, like any other failure of the run.
+ */
+export async function correctBillingEconomics(
+  app: App,
+  instanceId: string,
+  directory: string,
+  window: { readonly startsAt: string; readonly endsAt: string },
+) {
+  const collection = await composeBillingEconomics(
+    app,
+    instanceId,
+    directory,
+  ).run(window);
+  if (collection.kind === 'failed')
+    economicsFailures(app)(
+      reasonError(collection.reason, collection.cause),
+      collection.reason,
+    );
+  return collection;
+}
+
 /**
  * One bounded monthly collection per hourly tick (ADR 0101). Without a
  * provisioned sink there is nowhere to keep a report, so the worker does not
@@ -103,31 +152,14 @@ export function startBillingEconomics(input: {
     return { started: Promise.resolve(), stop: async () => undefined };
   }
   const collector = composeBillingEconomics(app, input.instanceId, directory);
-  const failed = workerFailures(app, app.reporter)(
-    'billing.economics.failed',
-    'billing.economics',
-    'Private billing economics remain incomplete',
-    innermostReason,
-  );
-  /** The reported error: the reason's closed word and code, keeping the caught error as cause. */
-  const reasonError = (
-    reason: Exclude<EconomicsReason, 'feed_missing'> | 'collect',
-    cause: unknown,
-  ) =>
-    createRefusal(
-      errorCodeOf(
-        cause,
-        reason === 'collect' ? 'INTERNAL' : economicsFailureCode[reason],
-      ),
-      reasonWord[reason],
-      `Billing economics ${reason}`,
-      cause,
-    );
+  const failed = economicsFailures(app);
   let raised = nothingRaised;
-  let collectRaised = false;
+  /** Failures outside any collection raised since a collection last completed, by month and reason. */
+  let collectRaised: ReadonlySet<string> = new Set();
+  let collecting: string | null = null;
   const raiseOnce = (
     month: string,
-    reason: Exclude<EconomicsReason, 'feed_missing'>,
+    reason: EconomicsCollectionFailure,
     cause: unknown,
   ) => {
     if (isRaised(raised, month, reason)) return;
@@ -170,21 +202,26 @@ export function startBillingEconomics(input: {
       taken: settled ? owed : owed.slice(0, submitted.submitted),
       settled,
     });
+    // A completed collection: failures outside one are news again.
+    if (settled) collectRaised = new Set();
     if (!settled) raiseOnce(month, 'report_failed', submitted.cause);
   };
   return startSingleFlightWorker({
     timers: input.timers,
     everyMs: 3_600_000,
-    // A failure outside any collection (an invalid clock, a defect) is raised once until a run completes.
+    // A failure outside any collection (an invalid clock, a defect) is raised once per month and
+    // reason until a collection completes.
     failed: (error) => {
-      if (collectRaised) return;
+      const key = `${collecting ?? 'unknown'}:${innermostReason(error) ?? reasonWord.collect}`;
+      if (collectRaised.has(key)) return;
       failed(
         isAppError(error) ? error : reasonError('collect', error),
         'collect',
       );
-      collectRaised = true;
+      collectRaised = new Set([...collectRaised, key]);
     },
     run: async () => {
+      collecting = null;
       const window = previousEconomicsMonth(app.clock.now());
       if (!window)
         throw createRefusal(
@@ -192,8 +229,8 @@ export function startBillingEconomics(input: {
           'economics-clock-invalid',
           'Billing economics clock invalid',
         );
+      collecting = window.startsAt.slice(0, 7);
       raise(await collector.run(window));
-      collectRaised = false;
     },
   });
 }

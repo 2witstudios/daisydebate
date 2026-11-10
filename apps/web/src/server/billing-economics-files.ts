@@ -37,9 +37,11 @@ const tooLarge = () =>
   );
 /**
  * The sink admits at most 1000 files, so a bounded sweep can visit every file
- * it creates. A feed is kept while its collection window is open (DEC-372): the
- * month this run collects, the month the worker collects and the current
- * month; an earlier month's feed is removed. Any other file goes after 30 days.
+ * it creates. A feed is kept only while its collection window is open
+ * (DEC-372): the month this run collects, the month the worker collects and
+ * the current month. Any other feed, earlier or not yet started, is removed, so
+ * a feed lives at most until the end of the month after its own. Reports go
+ * after 30 days.
  */
 async function prunePrivateFiles(
   directory: string,
@@ -71,8 +73,7 @@ async function prunePrivateFiles(
       info = await lstat(path);
     if (
       info.isFile() &&
-      ((feedMonth !== undefined && feedMonth < workerMonth) ||
-        info.mtimeMs <= Date.parse(now) - retentionMs)
+      (feedMonth !== undefined || info.mtimeMs <= Date.parse(now) - retentionMs)
     ) {
       await unlink(path);
       count--;
@@ -99,7 +100,16 @@ async function readBoundedJson(file: FileHandle) {
     length += read.bytesRead;
   }
   if (length > maximumFeedBytes) throw tooLarge();
-  return JSON.parse(bytes.subarray(0, length).toString('utf8')) as unknown;
+  try {
+    return JSON.parse(bytes.subarray(0, length).toString('utf8')) as unknown;
+  } catch (error) {
+    throw createRefusal(
+      'VALIDATION',
+      'economics-feed-unparseable',
+      'Billing economics feed is not JSON',
+      error,
+    );
+  }
 }
 async function readPrivateFeed(path: string) {
   let file;

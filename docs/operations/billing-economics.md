@@ -49,9 +49,11 @@ saved report, the signals it implies and whether the feed was `supplied` or
 `missing`) or `failed` with one closed reason and the error that stage caught:
 `snapshot_failed` (the read threw, or the snapshot fails its schema, its window
 or is observed later than now), `feed_unreadable` (the feed could not be read:
-the sink directory is not private, the file is a symbolic link, not a private
-regular file, or over 1 MiB), `feed_invalid` (the feed's schema, window, floor,
-capacity rows or cost basis is wrong), `report_failed` (the joined input fails
+the sink directory is not private, or the file is a symbolic link or not a
+private regular file), `feed_invalid` (the operator's data is wrong: the file is
+not JSON or is over 1 MiB, or its schema, window, floor, capacity rows or cost
+basis is wrong), `feed_missing` (a correction of an earlier month found no feed,
+so nothing is saved), `report_failed` (the joined input fails
 the report's own checks, or the reporter threw while raising its signals) or
 `save_failed` (including the sink's 1000-file cap; a directory holding more than
 1000 entries already refuses the read, as `feed_unreadable`). Each data check refuses with
@@ -88,13 +90,16 @@ criterion complete or supersede BILL-H.
 The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
 at most1000 directory entries and removes only regular files in its own closed
-feed/report filename namespace. A feed is kept while its collection window is
+feed/report filename namespace. A feed is kept only while its collection window is
 open: the month this run collects, the month the hourly worker collects (the
-previous month) and the current month (collected next). A feed for an earlier
-month is removed; reports keep the 30-day rule. So a feed lives at most until the
-end of the month after its own (about 62 days); compliance.md records that bound
-(DEC-372). A late correction of an older month protects that month's feed during
-its own run, so place the feed immediately before the correction run.
+previous month) and the current month (collected next). Any other feed, for an
+earlier month or one that has not started, is removed by the next sweep; reports
+keep the 30-day rule. So a feed lives at most until the end of the month after
+its own, and at most about 62 days from placement; compliance.md records that
+bound (DEC-372). A late correction of an older month protects that month's feed
+during its own run, so place the feed immediately before the correction run. If
+an hourly sweep removed it first, the correction fails as a reported
+`feed_missing` and saves nothing.
 At1000 retained files a new save refuses;
 more than1000 entries also refuses, rather than claiming a drained sweep. This
 bounds this sink's generated files and cleanup work. Provision the directory only
@@ -174,7 +179,7 @@ a financial report or claims low-margin delivery:
   `billing.economics.<reason>`, and one capture. The captured error carries the
   reason's closed word (`economics-<reason>`), keeps the caught error as its
   `cause`, and keeps a typed cause's own code; an untyped one takes its reason's
-  (`VALIDATION` for `feed_invalid`, `INTERNAL` for `report_failed` and `collect`, otherwise
+  (`VALIDATION` for `feed_invalid` and `feed_missing`, `INTERNAL` for `report_failed` and `collect`, otherwise
   `INFRASTRUCTURE`). The log line's `cause` names the innermost closed refusal
   reason in the chain, the check that failed (for example
   `economics-feed-window-mismatch`). A capacity refusal goes straight to the
@@ -196,7 +201,9 @@ raises each thing once per process:
   else changes in the report. A reporter that throws part-way is
   `report_failed`, once; later ticks send only the signals it did not take.
 - **Outside a collection.** A failure outside any collection (an invalid clock,
-  a defect) is raised once until a collection completes.
+  a defect) is raised once per month and reason, and again only after a
+  collection completes (a report settles), not after a run whose collection
+  failed.
 
 This record lives in each web process. Several web instances, or a restart,
 each raise a month once more; the staging app runs one machine.
@@ -351,8 +358,9 @@ it also starts the other registered workers. Review that process's existing loca
 TEST-mode worker configuration before invocation. Do not launch a second process
 against an active instance or use this example to activate production. The current
 assignment has not executed that full process command. For a one-off/late-month
-correction the existing `composeBillingEconomics(app, instanceId, directory).run(window)`
-seam is available to the integrating process owner, retaining the same bounded
+correction `correctBillingEconomics(app, instanceId, directory, window)` is
+available to the integrating process owner; it reports a failure (a missing
+feed included) through the same worker failure sink, retaining the same bounded
 current-service reader and private sink; there is no participant/admin endpoint.
 
 Record the exact candidate/source hashes, month, feed hash, report hash and private

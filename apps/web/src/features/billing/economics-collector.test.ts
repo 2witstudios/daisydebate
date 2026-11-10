@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { isAppError } from '@daisy/errors';
+import { createRefusal, isAppError } from '@daisy/errors';
 import { createBillingEconomicsCollector } from './economics-collector';
 import { dataset, month, now } from './economics.test-support';
 setupRitewayBun();
@@ -396,5 +396,61 @@ test('each feed data check refuses with its own closed reason', async () => {
       ['feed_invalid', 'VALIDATION', 'economics-feed-duplicate-capacity'],
       ['feed_invalid', 'VALIDATION', 'economics-feed-conflicting-basis'],
     ],
+  });
+});
+
+test('a correction of an earlier month never saves an incomplete report', async () => {
+  const saved: unknown[] = [];
+  const september = {
+    startsAt: '2026-09-01T00:00:00.000Z',
+    endsAt: '2026-10-01T00:00:00.000Z',
+  };
+  const r = await createBillingEconomicsCollector({
+    store: { read: async () => ({ ...snapshot(), ...september }) },
+    feed: { read: async () => null },
+    now: () => now,
+    save: async (value) => {
+      saved.push(value);
+    },
+  }).run(september);
+  assert({
+    given:
+      'a November correction of September whose feed was pruned or never placed',
+    should: 'fail as feed_missing with its closed reason and save nothing',
+    actual: [
+      r.kind === 'failed' && [r.reason, isAppError(r.cause) && r.cause.reason],
+      saved,
+    ],
+    expected: [['feed_missing', 'economics-feed-missing'], []],
+  });
+});
+
+test("a feed the files edge refuses for its contents is feed_invalid, the operator's data", async () => {
+  const refused = (
+    reason: 'economics-feed-unparseable' | 'economics-feed-not-private',
+  ) =>
+    createBillingEconomicsCollector({
+      store: { read: async () => snapshot() },
+      feed: {
+        read: async () => {
+          throw createRefusal('VALIDATION', reason);
+        },
+      },
+      now: () => now,
+      save: async () => undefined,
+    }).run(window);
+  const [unparseable, notPrivate] = await Promise.all([
+    refused('economics-feed-unparseable'),
+    refused('economics-feed-not-private'),
+  ]);
+  assert({
+    given:
+      'a read refused because the feed is not JSON, and one refused because the feed is not private',
+    should: 'fail the first as feed_invalid and the second as feed_unreadable',
+    actual: [
+      unparseable.kind === 'failed' && unparseable.reason,
+      notPrivate.kind === 'failed' && notPrivate.reason,
+    ],
+    expected: ['feed_invalid', 'feed_unreadable'],
   });
 });
