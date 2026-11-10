@@ -4,15 +4,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { recoverableFailure } from './recoverable-failure';
 setupRitewayBun();
 
-const record = (
-  isCapacity: (error: unknown) => boolean = () => false,
-  leaseLapsed: (error: unknown) => void = () => {},
-) => {
+const record = (isCapacity: (error: unknown) => boolean = () => false) => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity,
-    leaseLapsed,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -134,7 +130,6 @@ test('a bot publish failure names its stop, and nothing else of the error', () =
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
-    leaseLapsed: () => {},
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => undefined },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -178,7 +173,6 @@ test('a sink that throws never fails its caller, and its other steps still run (
   const captured: unknown[] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
-    leaseLapsed: () => {},
     logger: {
       log: () => {
         throw new Error('log transport down');
@@ -204,7 +198,6 @@ test('a sink that throws never fails its caller, and its other steps still run (
     isCapacity: () => {
       throw new Error('capacity check broke');
     },
-    leaseLapsed: () => {},
     logger: { log: () => {} },
     reporter: {
       capture: () => {
@@ -234,7 +227,6 @@ test('a cause reader that throws costs only the cause, never the log line (ISSUE
   const lines: unknown[][] = [];
   const failed = recoverableFailure({
     isCapacity: () => false,
-    leaseLapsed: () => {},
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: () => {} },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -266,24 +258,18 @@ const lapse = createRefusal(
   'Maintenance service is not current',
 );
 
-test('a lapsed service lease is logged and handed to the instance, never reported by the stage (DAISY-WEB-9)', () => {
-  const handed: unknown[] = [];
-  const { lines, captured, failed } = record(
-    () => false,
-    (error) => handed.push(error),
-  );
+test('a lapsed service lease is logged, never reported by the stage (DAISY-WEB-9)', () => {
+  const { lines, captured, failed } = record();
   for (let i = 0; i < 20; i++) failed(lapse, i % 2 ? 'tick' : 'finalize');
   const denied = createAppError('AUTHORIZATION', 'Permission denied');
   failed(denied, 'tick');
   assert({
     given:
       'twenty lapse refusals across two stages, then a real authorization failure',
-    should:
-      'log each lapse with its cause, hand each to the instance, and report only the real failure',
+    should: 'log each lapse with its cause and report only the real failure',
     actual: {
       first: lines[0]?.[1],
       lines: lines.length,
-      handed: handed.length,
       captured: captured.map(([error]) => error),
     },
     expected: {
@@ -293,29 +279,7 @@ test('a lapsed service lease is logged and handed to the instance, never reporte
         cause: 'service-lease-lapsed',
       },
       lines: 21,
-      handed: 20,
       captured: [denied],
     },
-  });
-});
-
-test('an instance lease state that throws never fails the worker or its log line', () => {
-  const { lines, failed } = record(
-    () => false,
-    () => {
-      throw new Error('lease state broke');
-    },
-  );
-  let thrown: unknown = null;
-  try {
-    failed(lapse, 'tick');
-  } catch (error) {
-    thrown = error;
-  }
-  assert({
-    given: 'a lease lapse whose instance state throws',
-    should: 'still log the lapse and never throw to the worker',
-    actual: { thrown, lines: lines.length },
-    expected: { thrown: null, lines: 1 },
   });
 });

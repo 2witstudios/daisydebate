@@ -304,21 +304,20 @@ next pass retries: a stage logs `<operation>.capacity` on every ninth refusal,
 whatever its cadence, so a starved slow stage is still reported. A lapsed web
 service lease (`AUTHORIZATION` with reason `service-lease-lapsed`, DAISY-WEB-9)
 is not a stage's failure but the instance's: every worker on the shared failure
-sink logs each lapse as `<operation>.lease` with that `cause` and hands it to
-the instance's one lease state (`server/service-lease.ts`, `app.serviceLease`).
-That state's truth is the instance's own renewals: one that succeeds was stamped
-no earlier than its call, so the lease is known current until that call plus the
-3 s window (`SERVICE_LEASE_WINDOW_MS`). Past that, or whenever a worker is
-refused for a lapsed lease, it is lapsed, and a lapse ends after 6 s without
-one, so a lease that flaps between slow renewals is one lapse. The state reports
-one `INFRASTRUCTURE` error, caused by the failure that triggered it, under the
-one route `web.service-lease.lapsed` to the app's reporter once a lapse has
-lasted 10 s, then every 5 minutes while it lasts; a report that fails to send is
-retried on the next lapse. A lapse the next renewal clears stays in the logs
-however many Rounds failed during it. A plain `AUTHORIZATION` failure is
-reported at once. A bot speech refused admission keeps its delivery attempts and
-resumes at the refused step: the provider answer and the phrases already spoken
-are never bought or spoken again.
+sink only logs it, as `<operation>.lease` with that `cause`. The instance's
+renewal loop alone reports a lapse, from its own renewals
+(`features/availability/lease-health.ts`). A renewal that settles in under 2 s
+(the 3 s `SERVICE_LEASE_WINDOW_MS` less the 1 s renewal tick) was stamped no
+earlier than its call, so it proves the lease current until that call plus the
+window; a slower or failed one proves nothing. On every tick the loop checks how
+long the lease has gone unproven and, at 10 s and then every 5 minutes while it
+lasts, reports one `INFRASTRUCTURE` error to the app's reporter under the route
+`web.service-lease.lapsed`, carrying the lapse's length and the latest renewal
+failure. A blip the next renewal clears never reports, however many Rounds
+failed during it, and a stop ends the ticks, so a drain never reports. A plain
+`AUTHORIZATION` failure is reported at once. A bot speech refused admission
+keeps its delivery attempts and resumes at the refused step: the provider answer
+and the phrases already spoken are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;

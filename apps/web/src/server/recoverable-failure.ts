@@ -19,17 +19,14 @@ const CAPACITY_DEFERRAL_LIMIT = 8;
  * (ADR 0037). An untyped error carries no trustworthy code, so it is INTERNAL.
  * Capacity refusals are deferrals: each refusal past the bound is reported,
  * and the count for that stage starts again. A lapsed web service lease is
- * only logged here: it is the instance's condition, so `leaseLapsed` hands it
- * to the instance's one lease state, which reports it once it persists to
- * the app's own reporter, never this sink's `reporter`.
+ * only logged: it is the instance's condition, and the instance's renewal
+ * loop alone reports one that persists (DAISY-WEB-9).
  */
 export function recoverableFailure(input: {
   readonly logger: Pick<Logger, 'log'>;
   readonly reporter: ErrorReporter;
   readonly nextId: () => string;
   readonly isCapacity: (error: unknown) => boolean;
-  /** Hands a lease lapse to the instance's lease state (DAISY-WEB-9). */
-  readonly leaseLapsed: (error: unknown) => void;
   readonly event: EventName;
   readonly operation: string;
   readonly message: string;
@@ -82,8 +79,7 @@ export function recoverableFailure(input: {
   return (error: unknown, stage: string) => {
     const operation = `${input.operation}.${stage}`;
     if (isServiceLeaseLapse(error)) {
-      log(`${operation}.lease`, codeOf(error), 'service-lease-lapsed');
-      return attempt(() => input.leaseLapsed(error));
+      return log(`${operation}.lease`, codeOf(error), 'service-lease-lapsed');
     }
     let capacity = false;
     attempt(() => {
@@ -112,7 +108,6 @@ export const workerFailures =
       reporter,
       nextId: () => app.ids.next(),
       isCapacity: isCapacityRefusal,
-      leaseLapsed: app.serviceLease.lapseRefused,
       event,
       operation,
       message,

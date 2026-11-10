@@ -39,7 +39,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
         events.push('clear');
       },
     },
-    lease: { renewed: () => {}, renewalFailed: () => {} },
+    lapsing: () => {},
     failed: () => {
       events.push('failed');
     },
@@ -127,7 +127,7 @@ test('missing probe resources are named at start and hourly, and never decide he
       clearInterval: () => {},
     },
     failed: () => {},
-    lease: { renewed: () => {}, renewalFailed: () => {} },
+    lapsing: () => {},
   });
   const settle = async () => {
     for (let n = 0; n < 12; n++) await Promise.resolve();
@@ -181,7 +181,7 @@ test('every process checks the probe resources at start, elected or not', async 
     nowMs: () => 0,
     timers: { setInterval: () => 1, clearInterval: () => {} },
     failed: () => {},
-    lease: { renewed: () => {}, renewalFailed: () => {} },
+    lapsing: () => {},
   });
   await service.probeChecked;
   assert({
@@ -224,7 +224,7 @@ test('a failing probe check waits a minute, not a second', async () => {
       clearInterval: () => {},
     },
     failed: () => {},
-    lease: { renewed: () => {}, renewalFailed: () => {} },
+    lapsing: () => {},
   });
   await service.probeChecked;
   const pass = async () => {
@@ -245,19 +245,18 @@ test('a failing probe check waits a minute, not a second', async () => {
   await service.stop();
 });
 
-test('every renewal outcome reaches the instance, and an observer that throws changes nothing', async () => {
+test('a lease left unproven for ten seconds reports once, and a stop never does', async () => {
   const refused = new Error('renewal refused');
-  const outcomes: unknown[] = [];
-  const events: string[] = [];
+  const lapses: unknown[] = [];
   let tick = () => {};
-  let renewals = 0;
+  let nowMs = 0;
+  let failing = true;
   const service = startAvailabilityService({
     instanceId: 'a'.repeat(24),
     store: {
       reconcileRoundCheckInAttempts: async () => 0,
       renewServiceInstance: async () => {
-        renewals += 1;
-        if (renewals === 2) throw refused;
+        if (failing) throw refused;
       },
       availabilitySampler: () => ({
         elect: async () => false,
@@ -266,7 +265,7 @@ test('every renewal outcome reaches the instance, and an observer that throws ch
       }),
     },
     probe: async () => false,
-    nowMs: () => 0,
+    nowMs: () => nowMs,
     timers: {
       setInterval: (callback) => {
         tick = callback;
@@ -274,39 +273,32 @@ test('every renewal outcome reaches the instance, and an observer that throws ch
       },
       clearInterval: () => {},
     },
-    lease: {
-      renewed: (tookMs) => {
-        outcomes.push({ kind: 'renewed', tookMs });
-        throw new Error('observer broke');
-      },
-      renewalFailed: (error) => {
-        outcomes.push({ kind: 'failed', error });
-        throw new Error('observer broke');
-      },
+    lapsing: (lapse) => {
+      lapses.push(lapse);
+      throw new Error('reporter broke');
     },
-    failed: () => {
-      events.push('failed');
-    },
+    failed: () => {},
   });
-  await Promise.resolve();
-  for (let i = 0; i < 2; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+  for (let i = 0; i < 12; i++) {
+    await settle();
+    nowMs += 1000;
     tick();
   }
+  failing = false;
+  await settle();
+  nowMs += 1000;
+  tick();
+  await settle();
   await service.stop();
+  nowMs += 60_000;
+  tick();
   assert({
     given:
-      'a renewal that succeeds, one that fails and one that succeeds, observed by a throwing observer',
+      'renewals failing for twelve one-second ticks from start, a timely renewal, then a stop a minute later',
     should:
-      'report each outcome in order and count only the failed renewal as a failure',
-    actual: { outcomes, events },
-    expected: {
-      outcomes: [
-        { kind: 'renewed', tookMs: 0 },
-        { kind: 'failed', error: refused },
-        { kind: 'renewed', tookMs: 0 },
-      ],
-      events: ['failed'],
-    },
+      'report one lapse of ten seconds caused by the renewal failure, survive a throwing reporter, and stay silent after the stop',
+    actual: lapses,
+    expected: [{ lapsedMs: 10_000, lastFailure: refused }],
   });
 });

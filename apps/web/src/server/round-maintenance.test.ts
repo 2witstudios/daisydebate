@@ -14,7 +14,6 @@ async function maintained(probe: string | undefined) {
         PUBLIC_APP_URL: 'https://daisy.test',
       },
       ids: { next: () => id('g') },
-      serviceLease: { lapseRefused: () => {} },
       logger: { log: () => {} },
       database: {
         readRoundMaintenanceCandidates: async () => ({
@@ -68,7 +67,6 @@ async function reportedBy(database: Record<string, unknown>) {
     app: {
       config: {},
       ids: { next: () => id('g') },
-      serviceLease: { lapseRefused: () => {} },
       logger: { log: (entry: unknown) => logged.push(entry) },
       database: {
         readRoundMaintenanceCandidates: async () => ({

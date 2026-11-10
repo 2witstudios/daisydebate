@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import type { App } from './app';
 import { readPublicCheckInProbe } from '../features/availability/configuration';
 import { createPublicCheckInProbe } from '../features/availability/public-probe';
@@ -36,7 +37,15 @@ export function startRoundAvailability(input: {
         { operation: 'availability.probe', cause: problem },
         'Public check-in probe cannot prove health',
       ),
-    lease: app.serviceLease,
+    lapsing: (lapse) =>
+      app.reporter.capture(
+        createAppError('INFRASTRUCTURE', 'Web service lease lapsing', lapse),
+        {
+          requestId: app.ids.next(),
+          route: 'web.service-lease.lapsed',
+          errorCode: 'INFRASTRUCTURE',
+        },
+      ),
     failed: () =>
       app.logger.log(
         'availability.sample_failed',

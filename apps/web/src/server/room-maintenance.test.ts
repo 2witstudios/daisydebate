@@ -24,7 +24,6 @@ test('the process starts Room maintenance with the Room policy and reports each 
     roomPolicy: { idleTimeoutMs: 600_000 },
     logger: { log: (...line: unknown[]) => lines.push(line) },
     ids: { next: () => 'r4n6p8r2t4v6x8z1k3b5c7d9' },
-    serviceLease: { lapseRefused: () => {} },
   } as unknown as App;
   const worker = startRoomLifecycleMaintenance({ app, timers });
   await worker.started;

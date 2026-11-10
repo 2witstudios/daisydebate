@@ -1,4 +1,12 @@
 import type { WorkerTimers } from '../../lib/worker-timers';
+import {
+  afterRenewal,
+  checkLease,
+  RENEW_INTERVAL_MS,
+  startingLease,
+  type LeaseLapse,
+  type LeaseRenewal,
+} from './lease-health';
 
 type Sampler = {
   readonly elect: () => Promise<boolean>;
@@ -33,12 +41,11 @@ export function startAvailabilityService(deps: {
   readonly nowMs: () => number;
   readonly timers: WorkerTimers;
   readonly failed: () => void;
-  /** Every renewal's outcome, the instance's own truth about its lease. */
-  readonly lease: {
-    /** A renewal succeeded `tookMs` after it was called. */
-    readonly renewed: (tookMs: number) => void;
-    readonly renewalFailed: (error: unknown) => void;
-  };
+  /**
+   * This instance's lease has gone unproven by a timely renewal for 10 s,
+   * then every 5 minutes while it stays so (DAISY-WEB-9). Never on a stop.
+   */
+  readonly lapsing: (lapse: LeaseLapse) => void;
 }) {
   const { nowMs } = deps;
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
@@ -83,12 +90,19 @@ export function startAvailabilityService(deps: {
         probe.value,
     });
   };
-  /** A lease observer that throws never changes the renewal's outcome. */
-  const observe = (report: () => void) => {
+  let lease = startingLease(nowMs());
+  const settled = (renewal: LeaseRenewal) => {
+    lease = afterRenewal(lease, renewal, nowMs());
+  };
+  /** Checked on every tick, so a renewal that hangs still counts as unproven. */
+  const checkHealth = () => {
+    const checked = checkLease(lease, nowMs());
+    lease = checked.health;
+    if (!checked.lapse) return;
     try {
-      report();
+      deps.lapsing(checked.lapse);
     } catch {
-      /* Lease health is a report, never the lease itself. */
+      /* Reporting a lapse never stops the renewals that end it. */
     }
   };
   const renew = () => {
@@ -97,11 +111,11 @@ export function startAvailabilityService(deps: {
       .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
       .then(
         () => {
-          observe(() => deps.lease.renewed(nowMs() - startedMs));
+          settled({ kind: 'renewed', tookMs: nowMs() - startedMs });
           return true;
         },
         (error: unknown) => {
-          observe(() => deps.lease.renewalFailed(error));
+          settled({ kind: 'failed', error });
           deps.failed();
           return false;
         },
@@ -113,9 +127,10 @@ export function startAvailabilityService(deps: {
   };
   const tick = () => {
     if (stopped) return;
-    const lease = renew();
+    checkHealth();
+    const renewal = renew();
     if (running) return;
-    running = lease
+    running = renewal
       .then((renewed) => (renewed ? cycle() : undefined))
       .catch(() => {
         deps.failed();
@@ -124,7 +139,7 @@ export function startAvailabilityService(deps: {
         running = null;
       });
   };
-  const timer = deps.timers.setInterval(async () => tick(), 1000);
+  const timer = deps.timers.setInterval(async () => tick(), RENEW_INTERVAL_MS);
   tick();
   return {
     /** Settles once this process has checked the probe's resources at start. */

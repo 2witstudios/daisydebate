@@ -30,7 +30,6 @@ import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createSentryErrorReporter } from '../features/telemetry/sentry-reporter';
-import { serviceLease } from './service-lease';
 import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/mail/resend-sender';
 import { createRateLimiter } from './rate-limit';
@@ -230,7 +229,6 @@ export function createApp({
   );
   const drainState = createDrainState([database, redis]);
   let startupChecked = true;
-  const reporter = createSentryErrorReporter();
   return {
     billingNative(): NativeBillingRuntime | null {
       return billingNative?.() ?? null;
@@ -261,17 +259,7 @@ export function createApp({
      * runtime config initializes the SDK with its DSN; every consumer
      * receives it as an argument, never through a locator.
      */
-    reporter,
-    /**
-     * This web instance's one service lease state (DAISY-WEB-9): its
-     * renewals and every worker failure sink feed it, and it alone reports
-     * a lease that stays lapsed.
-     */
-    serviceLease: serviceLease({
-      now: () => performance.now(),
-      reporter,
-      nextId: () => ids.next(),
-    }),
+    reporter: createSentryErrorReporter(),
     database,
     /** What Watch pages render from: one read per Round per second, whoever asks. */
     watchRounds: createWatchRoundSnapshots({

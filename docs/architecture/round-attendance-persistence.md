@@ -43,8 +43,9 @@ lock fences the row's deletion by the retention purge but not the instance's own
 renewal, a non-key `UPDATE`, so slow maintenance never lapses the lease it runs
 under (DAISY-WEB-9; `FOR SHARE` did, and every concurrent stage refused for a
 second). A lease that does lapse refuses with `AUTHORIZATION` and reason
-`service-lease-lapsed` (`isServiceLeaseLapse` in `@daisy/db/service-lease-lapse`),
-which workers log and hand to the instance's lease state rather than report
+`service-lease-lapsed` (`isServiceLeaseLapse` in
+`@daisy/db/service-lease-lapse`), which workers only log; the instance's renewal
+loop reports a lapse that persists
 ([observability](../operations/observability.md)). Concurrent lockers of the row
 already shared it through MultiXacts under `FOR SHARE`; what `FOR KEY SHARE`
 adds is that a renewal carries the live lockers onto its new tuple version, one
