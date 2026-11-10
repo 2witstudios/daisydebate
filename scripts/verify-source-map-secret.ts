@@ -107,18 +107,38 @@ const workflowHolds = (text: string) => {
 };
 
 /**
+ * next.config.ts uploads only with the token, deletes the browser maps after
+ * upload, keeps the plugin's own telemetry off and names the release from the
+ * image's GIT_COMMIT.
+ */
+const nextConfigHolds = (nextConfig: string) => {
+  const config = uncommented(nextConfig);
+  return [
+    /disable:\s*!process\.env\.SENTRY_AUTH_TOKEN\b/,
+    /deleteSourcemapsAfterUpload:\s*true\b/,
+    /telemetry:\s*false\b/,
+    /sentryRelease\(process\.env\.GIT_COMMIT\)/,
+  ].every((rule) => rule.test(config));
+};
+
+/**
  * ADR 0037 source maps (ADR 0019 secret ownership): the upload token is a
  * deploy-time secret that only the web image's `next build` may read. A
  * BuildKit secret mount never reaches a layer, the image history or its
  * config, unlike an ARG or ENV. Both deploy steps that build the web image
  * pass it, because BuildKit secrets never key the layer cache and the
  * migrator's build is the one the web deploy reuses. No other step holds it.
+ * The build config uploads only with it and never leaves a browser map to
+ * serve.
  */
 export function findSourceMapSecretProblem(input: {
   readonly dockerfile: string;
   readonly workflow: string;
+  readonly nextConfig: string;
 }): string | null {
-  return dockerfileHolds(input.dockerfile) && workflowHolds(input.workflow)
+  return dockerfileHolds(input.dockerfile) &&
+    workflowHolds(input.workflow) &&
+    nextConfigHolds(input.nextConfig)
     ? null
     : SOURCE_MAP_SECRET_PROBLEM;
 }

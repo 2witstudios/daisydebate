@@ -9,31 +9,28 @@ setupRitewayBun();
 
 const dockerfile = readFileSync('apps/web/Dockerfile', 'utf8');
 const workflow = readFileSync('.github/workflows/deploy-staging.yml', 'utf8');
+const nextConfig = readFileSync('apps/web/next.config.ts', 'utf8');
 
 /** Each change applied to one committed file: did it apply, and what is reported. */
 const reported = (
-  file: 'dockerfile' | 'workflow',
+  file: 'dockerfile' | 'workflow' | 'nextConfig',
   changes: readonly (readonly [string | RegExp, string])[],
 ) =>
   changes.map(([from, to]) => {
-    const original = file === 'dockerfile' ? dockerfile : workflow;
-    const changed = original.replace(from, to);
+    const files = { dockerfile, workflow, nextConfig };
+    const changed = files[file].replace(from, to);
     return [
-      changed !== original,
-      findSourceMapSecretProblem(
-        file === 'dockerfile'
-          ? { dockerfile: changed, workflow }
-          : { dockerfile, workflow: changed },
-      ),
+      changed !== files[file],
+      findSourceMapSecretProblem({ ...files, [file]: changed }),
     ];
   });
 
 describe('findSourceMapSecretProblem (ADR 0037 source maps)', () => {
   test('the committed image build and deploy wiring', () => {
     assert({
-      given: 'the committed Dockerfile and deploy-staging.yml',
+      given: 'the committed Dockerfile, deploy-staging.yml and next.config.ts',
       should: 'report no problem',
-      actual: findSourceMapSecretProblem({ dockerfile, workflow }),
+      actual: findSourceMapSecretProblem({ dockerfile, workflow, nextConfig }),
       expected: null,
     });
   });
@@ -113,6 +110,29 @@ describe('findSourceMapSecretProblem (ADR 0037 source maps)', () => {
       ]),
       expected: [
         [true, SOURCE_MAP_SECRET_PROBLEM],
+        [true, SOURCE_MAP_SECRET_PROBLEM],
+        [true, SOURCE_MAP_SECRET_PROBLEM],
+        [true, SOURCE_MAP_SECRET_PROBLEM],
+        [true, SOURCE_MAP_SECRET_PROBLEM],
+      ],
+    });
+  });
+
+  test('a build config that uploads without a token, serves its maps, phones home or names another release', () => {
+    assert({
+      given:
+        'next.config.ts with the upload always on, browser maps kept, plugin telemetry on, and the release from somewhere other than GIT_COMMIT',
+      should: 'report each',
+      actual: reported('nextConfig', [
+        ['disable: !process.env.SENTRY_AUTH_TOKEN', 'disable: false'],
+        [
+          'deleteSourcemapsAfterUpload: true',
+          'deleteSourcemapsAfterUpload: false',
+        ],
+        ['telemetry: false', 'telemetry: true'],
+        ['sentryRelease(process.env.GIT_COMMIT)', "sentryRelease('local')"],
+      ]),
+      expected: [
         [true, SOURCE_MAP_SECRET_PROBLEM],
         [true, SOURCE_MAP_SECRET_PROBLEM],
         [true, SOURCE_MAP_SECRET_PROBLEM],
