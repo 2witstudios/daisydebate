@@ -52,7 +52,8 @@ private, or its bounded retention sweep refused; the sweep runs on every
 collection, whether or not it reaches the save), `snapshot_failed` (the read
 threw), `snapshot_invalid` (schema, window or a future observation),
 `feed_unreadable` (the file could not be opened), `feed_invalid` (the
-operator's file is wrong: not a private regular file, a symbolic link,
+operator's file is wrong: not a private regular file, a symbolic link, a file
+this process may not read,
 malformed or oversized contents, the JSON literal `null`, window, schema, or a
 floor other than the recorded policy),
 `report_invalid` (the joined feed and snapshot fail the report's own schema or
@@ -92,9 +93,10 @@ criterion complete or supersede BILL-H.
 The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
 at most1000 directory entries and removes only expired regular files in its own
-closed feed/report filename namespace. It never expires the feed of the month
-still being collected (the previous calendar month), so a measured month cannot
-turn into a missing feed under its own collection. At1000 retained files a new save refuses;
+closed feed/report filename namespace. It never expires a feed for a month not
+yet past collection (the previous calendar month or later) or for the window
+being collected now (a late correction), so a measured month cannot turn into a
+missing feed under its own collection. At1000 retained files a new save refuses;
 more than1000 entries also refuses, rather than claiming a drained sweep. This
 bounds this sink's generated files and cleanup work. Provision the directory only
 for this sink. Source financial systems retain their own classified records; the
@@ -188,17 +190,21 @@ raises each thing once per process:
   else changes in the report: a feed arriving, or one plan's margin changing,
   sends only the signals not yet raised.
 - **Failures.** A failure's identity is its stage and its error code, so a
-  different kind of problem in the same stage is a new notice. Capacity
+  different kind of problem in the same stage is a new notice; for this
+  collector's own data checks (each a fixed VALIDATION message) every distinct
+  check is its own notice. Capacity
   backpressure is never a notice: every refusal goes to the shared failure
   sink, which absorbs eight per stage and reports the ninth, so starvation is
-  reported even after another failure of that stage, and it never masks one. A failure is raised once until a report settles again; after that
+  reported even after another failure of that stage, and it never masks one. A failure is raised once until a report is saved again; after that
   the same failure is a regression and raises again. Only a failure the worker
   failure sink actually reported (its log line or capture succeeded) counts as
   raised, so a deferred capacity refusal never mutes what follows.
 - **Missing feed.** `billing.economics.feed_missing` is logged once a month,
-  before any signal is raised, so a reporter that throws cannot keep it quiet.
+  before any signal is raised, so a reporter that throws cannot keep it quiet;
+  a line the log sink refused is tried again on the next tick.
 - **Signal failures.** A reporter that throws is one `signal_failed` notice
-  until a report's signals go through again.
+  until a report's signals go through again. A saved report still re-arms the
+  stage failures, so a regression after it is raised even while signals fail.
 
 This record lives in each web process. Several web instances, or a restart,
 each raise a month once more; the staging app runs one machine.

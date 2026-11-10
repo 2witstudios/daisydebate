@@ -67,8 +67,8 @@ test('the same failure every hour is one notice; a different code in the stage i
       failureNotice(capacity),
     ],
     expected: [
-      '2026-10:save_failed:INTERNAL',
-      '2026-10:save_failed:INFRASTRUCTURE',
+      '2026-10:save_failed:INTERNAL:',
+      '2026-10:save_failed:INFRASTRUCTURE:',
     ],
   });
 });
@@ -153,5 +153,46 @@ test('a new month starts afresh', () => {
       raisedIn(raised, '2026-11').failures.size,
     ],
     expected: [['premium'], false, 0],
+  });
+});
+
+test('each distinct data defect in a stage is its own notice', () => {
+  const defect = (message: string) => ({
+    ...failed('2026-10', 'save_failed'),
+    reason: 'feed_invalid' as const,
+    cause: createAppError('VALIDATION', message),
+  });
+  assert({
+    given: 'two VALIDATION refusals of the feed with different fixed checks',
+    should: 'be distinct notices, so fixing one and breaking another is news',
+    actual:
+      failureNotice(defect('Economics feed window mismatch')) !==
+      failureNotice(defect('Duplicate capacity measurements')),
+    expected: true,
+  });
+});
+
+test('a saved report re-arms stage failures even when its signals did not go through', () => {
+  const report = reported('2026-10', 'missing', ['premium']);
+  const stage = failureNotice(failed('2026-10', 'save_failed'));
+  const signal = signalFailureNotice('2026-10');
+  const raised = recordSignals(
+    recordFailure(
+      recordFailure(nothingRaised, '2026-10', stage),
+      '2026-10',
+      signal,
+    ),
+    report,
+    { taken: [], settled: false },
+  );
+  assert({
+    given:
+      'a raised stage failure and a raised signal failure, then a saved report whose signals failed',
+    should: 'forget the stage failure and keep the signal failure',
+    actual: [
+      isFailureRaised(raised, '2026-10', stage),
+      isFailureRaised(raised, '2026-10', signal),
+    ],
+    expected: [false, true],
   });
 });

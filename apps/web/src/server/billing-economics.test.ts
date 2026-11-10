@@ -815,3 +815,56 @@ test('a capacity refusal never masks a later outage, nor stops counting once an 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a regression after a saved report is raised even while signals are failing', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const outage = new Error('Economics snapshot unavailable');
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 2,
+      refuse: (read) => (read === 2 ? undefined : outage),
+      capture: (_error, context) => {
+        if (context.errorCode === 'BILLING_ECONOMICS_INCOMPLETE')
+          throw new Error('private adapter');
+      },
+    });
+    assert({
+      given:
+        'a snapshot outage, then a saved report whose signals fail, then the outage again',
+      should: 'raise the outage both times and the signal failure once',
+      actual: run.captured.map((c) => c.route),
+      expected: [
+        'billing.economics.snapshot_failed',
+        'billing.economics.signal_failed',
+        'billing.economics.snapshot_failed',
+      ],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a feed_missing line the log sink refused is written on a later tick', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  let attempts = 0;
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 2,
+      logThrows: (event) =>
+        event === 'billing.economics.feed_missing' && ++attempts === 1,
+    });
+    assert({
+      given:
+        'a log sink that throws the first time feed_missing is logged, over three collections',
+      should: 'try again on the next tick, then log it no more',
+      actual: run.logged.filter(
+        (l) => l.event === 'billing.economics.feed_missing',
+      ).length,
+      expected: 2,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

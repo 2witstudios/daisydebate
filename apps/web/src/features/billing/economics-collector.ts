@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isAppError, type ErrorCode } from '@daisy/errors';
+import { createAppError, isAppError, type ErrorCode } from '@daisy/errors';
 import { billingEconomicsReadSchema } from '@daisy/protocol/billing-economics';
 import {
   economicsInput,
@@ -113,9 +113,23 @@ function usageRows(
       ];
     });
 }
+/** The strict feed schema; a refusal is the operator's data, never echoed into the message. */
+function parseFeed(value: unknown) {
+  const parsed = privateFeed.safeParse(value);
+  if (!parsed.success)
+    throw createAppError(
+      'VALIDATION',
+      'Economics feed schema invalid',
+      parsed.error,
+    );
+  return parsed.data;
+}
 function dataset(window: Window, snapshot: Snapshot, value: unknown) {
   if (value !== null && !hasRecordedEconomicsFloor(value))
-    throw new Error('Economics feed floor is not the recorded policy');
+    throw createAppError(
+      'VALIDATION',
+      'Economics feed floor is not the recorded policy',
+    );
   const feed =
     value === null
       ? {
@@ -129,19 +143,19 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
           modelCostBasis: 'usage_counters' as const,
           volume: [],
         }
-      : privateFeed.parse(value);
+      : parseFeed(value);
   if (feed.startsAt !== window.startsAt || feed.endsAt !== window.endsAt)
-    throw new Error('Economics feed window mismatch');
+    throw createAppError('VALIDATION', 'Economics feed window mismatch');
   if (
     new Set(feed.volume.map((v) => `${v.plan}:${v.feature}`)).size !==
     feed.volume.length
   )
-    throw new Error('Duplicate capacity measurements');
+    throw createAppError('VALIDATION', 'Duplicate capacity measurements');
   if (
     feed.modelCostBasis === 'usage_counters' &&
     feed.costs.some((c) => c.category === 'models')
   )
-    throw new Error('Conflicting model cost bases');
+    throw createAppError('VALIDATION', 'Conflicting model cost bases');
   const unassigned = snapshot.attempts.some(
     (a) => planFor(a.sourceKind) === null,
   );
@@ -231,11 +245,11 @@ async function stage<T>(run: () => Promise<T> | T): Promise<Stage<T>> {
 
 /** Actual private source composition; neither an empty DB nor a missing supplier feed proves complete economics. The private report is saved before any signal can be raised from it. */
 export function createBillingEconomicsCollector(input: {
-  readonly sink: { readonly open: () => Promise<void> };
+  readonly sink: { readonly open: (window: Window) => Promise<void> };
   readonly store: { readonly read: (window: Window) => Promise<unknown> };
   readonly feed: { readonly read: (window: Window) => Promise<unknown> };
   readonly save: (value: {
-    readonly report: ReturnType<typeof buildEconomicsReport>;
+    readonly report: EconomicsReport;
     readonly snapshot: Snapshot;
   }) => Promise<void>;
   readonly now: () => string;
@@ -245,7 +259,7 @@ export function createBillingEconomicsCollector(input: {
       const month = window.startsAt.slice(0, 7);
       const failed = (reason: EconomicsCollectionFailure, cause: unknown) =>
         ({ kind: 'failed', month, reason, cause }) as const;
-      const sink = await stage(() => input.sink.open());
+      const sink = await stage(() => input.sink.open(window));
       if (!sink.ok) return failed('sink_unavailable', sink.cause);
       const read = await stage(() => input.store.read(window));
       if (!read.ok) return failed('snapshot_failed', read.cause);
@@ -281,16 +295,17 @@ export function createBillingEconomicsCollector(input: {
       // The joined feed and snapshot fail the report's own schema or coherence: nothing worth keeping.
       if (report.value.kind === 'invalid')
         return failed('report_invalid', report.value);
+      const accepted = report.value;
       const saved = await stage(() =>
-        input.save({ report: report.value, snapshot: snapshot.value }),
+        input.save({ report: accepted, snapshot: snapshot.value }),
       );
       if (!saved.ok) return failed('save_failed', saved.cause);
       return {
         kind: 'reported',
         month,
         feed: feed.value === null ? 'missing' : 'supplied',
-        report: report.value,
-        signals: economicsSignals(report.value),
+        report: accepted,
+        signals: economicsSignals(accepted),
       };
     },
   };

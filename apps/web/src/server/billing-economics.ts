@@ -112,13 +112,14 @@ export function startBillingEconomics(input: {
       collection.feed === 'missing' &&
       !raisedIn(raised, collection.month).feedMissingLogged
     ) {
-      raised = recordFeedMissingLogged(raised, collection);
       try {
         app.logger.log(
           'billing.economics.feed_missing',
           { operation: 'billing.economics.collect', cause: 'feed_missing' },
           'Private billing economics feed is missing for the month; the report stays incomplete',
         );
+        // Marked only once written, so a log sink that threw is retried next tick.
+        raised = recordFeedMissingLogged(raised, collection);
       } catch {
         /* A failing log sink never turns a saved report into a failure (ISSUE-789). */
       }

@@ -14,10 +14,11 @@ type Collection<K extends EconomicsCollection['kind']> = Extract<
  * shared failure sink bounds it.
  */
 export function failureNotice(collection: Collection<'failed'>): string {
-  const code = isAppError(collection.cause)
-    ? collection.cause.code
-    : 'INTERNAL';
-  return `${collection.month}:${collection.reason}:${code}`;
+  const { cause } = collection;
+  const code = isAppError(cause) ? cause.code : 'INTERNAL';
+  // Our own VALIDATION refusals carry fixed messages, so each distinct data defect is its own notice.
+  const check = isAppError(cause) && code === 'VALIDATION' ? cause.message : '';
+  return `${collection.month}:${collection.reason}:${code}:${check}`;
 }
 
 /** A failure to submit a month's signals: one notice, however often the reporter throws. */
@@ -97,7 +98,15 @@ export function recordSignals(
   const month = raisedIn(raised, collection.month);
   return {
     ...month,
-    failures: outcome.settled ? new Set() : month.failures,
+    // A saved report is a recovered collection: its stage failures re-arm. Only a failure to
+    // submit the signals stays raised until they go through.
+    failures: outcome.settled
+      ? new Set()
+      : new Set(
+          [...month.failures].filter(
+            (notice) => notice === signalFailureNotice(collection.month),
+          ),
+        ),
     signals: new Set([...month.signals, ...outcome.taken.map(signalKey)]),
   };
 }

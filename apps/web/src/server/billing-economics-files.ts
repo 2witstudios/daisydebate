@@ -14,7 +14,11 @@ type PrivateReport = Parameters<
 const maximumFeedBytes = 1024 * 1024;
 const retentionMs = 30 * 86400000;
 /** The sink admits at most1000 files; a bounded sweep can therefore visit every file it creates. */
-async function prunePrivateFiles(directory: string, now: string) {
+async function prunePrivateFiles(
+  directory: string,
+  now: string,
+  keep?: string,
+) {
   if (!economicsInstant.safeParse(now).success)
     throw new Error('Billing economics clock invalid');
   const collecting = previousEconomicsMonth(now)?.startsAt.slice(0, 7) ?? null;
@@ -30,8 +34,13 @@ async function prunePrivateFiles(directory: string, now: string) {
       !entry.isFile()
     )
       continue;
-    // The feed of a month still being collected (the previous month) is never expired under it.
-    if (collecting !== null && entry.name === `feed-${collecting}.json`)
+    // A feed for a month still to be collected (the previous month or later), or for the
+    // window being collected now (a late correction), is never expired under it.
+    const feedMonth = /^feed-(\d{4}-\d{2})\.json$/.exec(entry.name)?.[1];
+    if (
+      feedMonth !== undefined &&
+      ((collecting !== null && feedMonth >= collecting) || feedMonth === keep)
+    )
       continue;
     const path = join(directory, entry.name),
       info = await lstat(path);
@@ -80,20 +89,14 @@ async function readPrivateFeed(path: string) {
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
   } catch (error) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === 'ENOENT'
-    )
-      return null;
-    // A symbolic link in the feed's place is the operator's file being wrong, not the disk failing.
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === 'ELOOP'
-    )
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? error.code
+        : undefined;
+    if (code === 'ENOENT') return null;
+    // A symbolic link in the feed's place, or a file this process may not read, is the
+    // operator's file being wrong, not the disk failing.
+    if (code === 'ELOOP' || code === 'EACCES' || code === 'EPERM')
       throw createAppError(
         'VALIDATION',
         'Billing economics feed is not bounded and private',
@@ -130,9 +133,16 @@ export function createBillingEconomicsFiles(input: {
      * `save` (which sweeps again as the capacity authority).
      */
     sink: {
-      async open() {
+      async open(window: {
+        readonly startsAt: string;
+        readonly endsAt: string;
+      }) {
         await privateDirectory(input.directory);
-        await prunePrivateFiles(input.directory, input.now());
+        await prunePrivateFiles(
+          input.directory,
+          input.now(),
+          window.startsAt.slice(0, 7),
+        );
       },
     },
     feed: {

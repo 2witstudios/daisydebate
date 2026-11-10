@@ -19,8 +19,12 @@ import {
   now,
 } from '../features/billing/economics.test-support';
 import { reporterFrom } from '../features/telemetry/sentry-reporter';
+import { buildEconomicsReport } from '../features/billing/economics-report';
 import { scrubEvent } from '@daisy/observability';
 setupRitewayBun();
+const built = buildEconomicsReport(dataset(), now);
+if (built.kind !== 'report') throw Error('Expected a valid report');
+const savedReport = built;
 const emptySnapshot = {
   startsAt: month,
   endsAt: '2026-11-01T00:00:00.000Z',
@@ -168,13 +172,13 @@ test('the private sink removes expired operational reports and refuses to overwr
       nextId: () => 'c'.repeat(24),
     });
     await files.save({
-      report: { kind: 'invalid', reason: 'invalid_input' },
+      report: savedReport,
       snapshot: emptySnapshot,
     });
     let refused = false;
     try {
       await files.save({
-        report: { kind: 'invalid', reason: 'invalid_input' },
+        report: savedReport,
         snapshot: emptySnapshot,
       });
     } catch (error) {
@@ -193,7 +197,7 @@ test('the private sink removes expired operational reports and refuses to overwr
       actual: [stored, refused],
       expected: [
         {
-          report: { kind: 'invalid', reason: 'invalid_input' },
+          report: savedReport,
           snapshot: emptySnapshot,
         },
         true,
@@ -271,7 +275,7 @@ test('opening the sink runs retention even when the collection never reaches sav
       now: () => now,
       nextId: () => 'f'.repeat(24),
     });
-    await files.sink.open();
+    await files.sink.open(window);
     assert({
       given:
         'a report older than the thirty-day retention and a sink opened without a save',
@@ -298,7 +302,7 @@ test('retention never expires the feed of the month still being collected', asyn
       now: () => now,
       nextId: () => 'g'.repeat(24),
     });
-    await files.sink.open();
+    await files.sink.open(window);
     assert({
       given:
         'two feeds past the thirty-day retention: October (still being collected) and August',
@@ -347,6 +351,63 @@ test("a symlinked, group-readable or non-regular feed is VALIDATION, the operato
         'refuse each as a VALIDATION error, so the collector says feed_invalid',
       actual: [linked, readable, notFile],
       expected: ['VALIDATION', 'VALIDATION', 'VALIDATION'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('retention keeps the feed of a corrected window and of months not yet collected', async () => {
+  const { utimes, readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const old = new Date('2026-08-01T00:00:00.000Z');
+    for (const name of [
+      'feed-2026-06.json',
+      'feed-2026-07.json',
+      'feed-2026-11.json',
+    ]) {
+      await writeFile(join(directory, name), '{}', { mode: 0o600 });
+      await utimes(join(directory, name), old, old);
+    }
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'i'.repeat(24),
+    });
+    await files.sink.open({
+      startsAt: '2026-07-01T00:00:00.000Z',
+      endsAt: '2026-08-01T00:00:00.000Z',
+    });
+    assert({
+      given:
+        'expired-age feeds for June, July (a late correction being collected) and November (not yet collected)',
+      should: 'expire only June',
+      actual: (await readdir(directory)).sort(),
+      expected: ['feed-2026-07.json', 'feed-2026-11.json'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a feed this process may not read is VALIDATION, the operator's file being wrong", async () => {
+  const { chmod } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const path = join(directory, 'feed-2026-10.json');
+    await writeFile(path, '{}', { mode: 0o600 });
+    await chmod(path, 0o000);
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'j'.repeat(24),
+    });
+    assert({
+      given: 'a feed file whose mode denies this process read access',
+      should: 'refuse it as VALIDATION (feed_invalid), not as a failing disk',
+      actual: await codeOf(files.feed.read(window)),
+      expected: 'VALIDATION',
     });
   } finally {
     await rm(directory, { recursive: true, force: true });
