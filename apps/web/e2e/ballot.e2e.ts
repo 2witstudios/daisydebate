@@ -303,7 +303,18 @@ test('actual assigned Round waits for its frozen input and query strings cannot 
         type: 'navigate',
         url: new URL(`/rounds/${round.id}/room`, judgePage.url()).href,
       });
+    // The judge follows the Round from their seat: where it is now, the
+    // speech order, one main landmark, and nothing axe calls serious.
+    await expect(judgePage.locator('#judge-now')).toBeVisible();
+    await expect(
+      judgePage.getByRole('list', { name: 'Speech order' }),
+    ).toBeVisible();
+    await expect(judgePage.getByRole('main')).toHaveCount(1);
+    await assertNoSeriousFindings(judgePage);
     await judgePage.goto(`/judge/ballot/${round.id}?state=submitted`);
+    await expect(
+      judgePage.getByRole('heading', { name: 'How this ballot works' }),
+    ).toBeVisible();
     await expect(
       judgePage.getByText(
         'Your ballot opens when the recorded transcript is frozen.',

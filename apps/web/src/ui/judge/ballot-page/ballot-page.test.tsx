@@ -141,7 +141,9 @@ describe('persisted BallotPage', () => {
         'show stored vote without a second form or fabricated final outcome',
       actual: [
         html.includes('Ballot submitted'),
-        html.includes('Other votes or attendance settlement are still pending'),
+        html.includes(
+          'once any other ballots and attendance for the last speeches settle',
+        ),
         html.includes('<form'),
         html.includes('Your recorded ballot'),
         html.includes('Round outcome:'),
@@ -192,6 +194,48 @@ describe('a ballot opened before attendance settles', () => {
       should: 'show no waiting notice',
       actual: at(settles + 1_000).includes('Submitting opens'),
       expected: false,
+    });
+  });
+});
+
+describe('BallotPage, how the ballot works', () => {
+  test('said up front, with the window’s time left', () => {
+    const html = renderToString(
+      h(BallotPage, {
+        view: {
+          ...input,
+          round: {
+            ...input.round,
+            waitingOn: {
+              state: 'human_window',
+              deadlineAt: new Date(30 * 60_000).toISOString(),
+            },
+          },
+        },
+        commandId: 'c'.repeat(24),
+        action: async () => ({ values: {} }),
+        renderedAtMs: 60_000,
+      }),
+    );
+    const waiting = render('waiting');
+    const submitted = render('submitted');
+    assert({
+      given:
+        'an open ballot a minute into its window, a waiting one and a submitted one',
+      should:
+        'state the rules and the time left before the form, while waiting too, and not once submitted',
+      actual: [
+        html.indexOf('How this ballot works') < html.indexOf('<form'),
+        html.includes('There are no draws.'),
+        html.includes('up to 600 characters'),
+        html.includes('up to 280 characters'),
+        html.includes('30 minutes from the end of the speeches'),
+        html.includes('aria-label="Time left to submit 29:00"'),
+        html.includes('What a 1, 3 and 5 look like'),
+        waiting.includes('How this ballot works'),
+        submitted.includes('How this ballot works'),
+      ],
+      expected: [true, true, true, true, true, true, true, true, false],
     });
   });
 });

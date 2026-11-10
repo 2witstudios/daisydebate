@@ -14,7 +14,10 @@ import { judgeRoomStageOf } from './judge-room-stage';
 
 setupRitewayBun();
 
-const facts = { drawSize: 5, waitingOn: null } as const;
+const facts: Parameters<typeof judgeRoomStageOf>[1] = {
+  drawSize: 5,
+  waitingOn: null,
+};
 const stageAt = (round: RoundView, nowMs: number, given = facts) =>
   judgeRoomStageOf(observedRoundOf(round, nowMs), given);
 const name = (index: number) => `${rules[index]!.key} · ${rules[index]!.label}`;
