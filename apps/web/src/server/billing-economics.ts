@@ -1,5 +1,5 @@
 import { isCapacityRefusal } from '@daisy/db/capacity';
-import { createRefusal, isAppError, type ErrorCode } from '@daisy/errors';
+import { createRefusal, type ErrorCode } from '@daisy/errors';
 import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
 import type { App } from './app';
 import {
