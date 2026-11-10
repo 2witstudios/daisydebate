@@ -17,11 +17,14 @@ export function RoundEndedNotice({
   roundId,
   actorId = null,
   roomId,
+  detail,
 }: {
   readonly roundId: string;
   /** An actor only arrives with its own Room surface; a viewer cleans nothing. */
   readonly actorId?: string | null;
   readonly roomId?: string;
+  /** What this viewer should know about the result, beside the ending itself. */
+  readonly detail?: string | undefined;
 }) {
   /**
    * This is the surface the terminal view reaches, so the media session's
@@ -33,11 +36,12 @@ export function RoundEndedNotice({
     else clearMutePreference(actorId, roundId);
   }, [actorId, roundId, roomId]);
   return (
-    <main className="mx-auto flex w-full max-w-dash-column flex-col gap-3 p-6">
+    <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 p-6">
       <p role="status" className="text-lg font-strong text-ink">
         This round is over.
       </p>
+      {detail ? <p>{detail}</p> : null}
       <MediaPageLink href={`/rounds/${roundId}`}>See the result</MediaPageLink>
-    </main>
+    </div>
   );
 }

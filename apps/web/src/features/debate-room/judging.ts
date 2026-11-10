@@ -90,18 +90,3 @@ export function ballotLines(
     },
   ];
 }
-
-/**
- * The main clock while the ballots are written: only a human judge's window,
- * counted to the deadline the server persisted. An AI judge has no such window.
- */
-export function judgingClockOf(
-  status: RoundWaitingOn | null,
-  nowMs: number,
-): { readonly label: string; readonly remainingMs: number } | null {
-  if (status?.state !== 'human_window') return null;
-  return {
-    label: 'Judging window',
-    remainingMs: Math.max(0, Date.parse(status.deadlineAt) - nowMs),
-  };
-}

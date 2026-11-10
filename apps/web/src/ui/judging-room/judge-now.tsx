@@ -1,0 +1,132 @@
+'use client';
+import { useEffect, useRef, type ReactNode } from 'react';
+import type { JudgeRoomStage } from '../../features/judge/judge-room-stage';
+import type { ObservedRound } from '../../features/round-runtime/observed-round';
+import { sideName } from '../../features/round-runtime/round-reading';
+import { formatCountdown } from '../../lib/clock-display';
+import { RoundClock } from '../debate-room/round-clock';
+import { cn } from '../cn';
+import {
+  observedActivityLabel,
+  observedSideInk,
+} from '../round-observed/observed-labels';
+
+export const judgeNowHeadingId = 'judge-now';
+const judgeNowDetailId = 'judge-now-detail';
+
+/**
+ * Whether a stage change should take focus: only when nothing on the page
+ * holds it, so a judge reading or typing elsewhere is never moved.
+ */
+export const focusIsFree = (active: Element | null, body: Element | null) =>
+  active === null || active === body;
+
+/**
+ * A stage the judge did not trigger: focus moves to its heading when focus is
+ * free, and the heading (with its detail) is read; otherwise the stage is
+ * announced politely, once. The first render does neither.
+ */
+function useStageNotice(key: string, announcement: string) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  const region = useRef<HTMLParagraphElement>(null);
+  const shown = useRef(key);
+  useEffect(() => {
+    if (shown.current === key) return;
+    shown.current = key;
+    if (focusIsFree(document.activeElement, document.body)) {
+      if (region.current) region.current.textContent = '';
+      // The judge may be reading further down: the reading point moves, the page does not.
+      heading.current?.focus({ preventScroll: true });
+    } else if (region.current) region.current.textContent = announcement;
+  }, [key, announcement]);
+  return { heading, region };
+}
+
+/**
+ * Where the Round is now, for its judge: the stage by name, its clock, who
+ * has the floor, each side's prep left, and what comes next. Each new stage
+ * takes focus when it is free, and is otherwise announced once, politely.
+ */
+export function JudgeNow({
+  observed,
+  stage,
+  action,
+}: {
+  readonly observed: ObservedRound;
+  readonly stage: JudgeRoomStage;
+  /** The step the judge takes at this stage, if any. */
+  readonly action?: ReactNode;
+}) {
+  const announcement = `Now: ${stage.heading}${
+    observed.clock ? `, ${formatCountdown(observed.clock.remainingMs)}` : ''
+  }. ${stage.detail}`;
+  const { heading, region } = useStageNotice(stage.key, announcement);
+  return (
+    <section
+      aria-labelledby={judgeNowHeadingId}
+      className="flex flex-col gap-4 rounded-xl border border-border bg-surface-raised p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">
+            Now
+          </p>
+          <h2
+            id={judgeNowHeadingId}
+            ref={heading}
+            tabIndex={-1}
+            aria-describedby={judgeNowDetailId}
+            className="font-display text-2xl font-semibold wrap-anywhere"
+          >
+            {stage.heading}
+          </h2>
+          <p id={judgeNowDetailId} className="text-base">
+            {stage.detail}
+          </p>
+        </div>
+        {observed.clock ? (
+          <RoundClock
+            label={observed.clock.label}
+            remainingMs={observed.clock.remainingMs}
+            className="flex flex-col items-end leading-tight"
+          />
+        ) : null}
+      </div>
+      <p
+        ref={region}
+        id="judge-now-notice"
+        aria-live="polite"
+        className="sr-only"
+      />
+      {observed.seats.length > 0 ? (
+        <ul aria-label="Debaters" className="grid grid-cols-2 gap-3 text-sm">
+          {observed.seats.map((seat) => (
+            <li
+              key={seat.side}
+              className={cn(
+                'flex flex-col rounded-lg bg-surface px-3 py-2',
+                (seat.activity === 'speaking' || seat.activity === 'asking') &&
+                  'outline-2 outline-accent',
+              )}
+            >
+              <span className="font-strong wrap-anywhere">
+                {seat.label}
+                {seat.bot ? ' · Bot' : ''}
+              </span>
+              <span className={observedSideInk[seat.side]}>
+                {sideName[seat.side]}
+              </span>
+              <span className="text-ink-muted">
+                {observedActivityLabel[seat.activity]}
+                {observed.prepMs
+                  ? ` · ${formatCountdown(observed.prepMs[seat.side])} prep left`
+                  : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {action}
+    </section>
+  );
+}

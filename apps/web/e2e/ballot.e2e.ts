@@ -264,6 +264,35 @@ test.describe('actual frozen human ballots', () => {
     ).toBeVisible();
     await assertNoSeriousFindings(page);
   });
+  test('once the speeches end the judge room offers the ballot and passes axe', async ({
+    page,
+  }) => {
+    // Round 4 is frozen and never judged by any other test here.
+    const roundId = fixtures.rounds[4]!.id;
+    await page.goto(`/rounds/${roundId}/room`);
+    await expect(
+      page.getByRole('heading', { name: 'The speeches are over' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Open your ballot' }),
+    ).toBeVisible();
+    await expect(page.getByRole('main')).toHaveCount(1);
+    await assertNoSeriousFindings(page);
+  });
+  test('a reload keeps what the judge entered in this tab', async ({
+    page,
+  }) => {
+    await page.goto(`/judge/ballot/${fixtures.rounds[4]!.id}`);
+    await effectsRan(page);
+    await pick(page, negativeName);
+    await page.getByLabel('Reason for decision').fill('Kept through a reload.');
+    await page.reload();
+    await effectsRan(page);
+    await expect(page.getByLabel('Reason for decision')).toHaveValue(
+      'Kept through a reload.',
+    );
+    await expect(radio(page, negativeName)).toBeChecked();
+  });
   test('a committed lost acknowledgement keeps the exact ballot reachable after a fresh terminal read', async ({
     page,
   }) => {
@@ -303,7 +332,18 @@ test('actual assigned Round waits for its frozen input and query strings cannot 
         type: 'navigate',
         url: new URL(`/rounds/${round.id}/room`, judgePage.url()).href,
       });
+    // The judge follows the Round from their seat: where it is now, the
+    // speech order, one main landmark, and nothing axe calls serious.
+    await expect(judgePage.locator('#judge-now')).toBeVisible();
+    await expect(
+      judgePage.getByRole('list', { name: 'Speech order' }),
+    ).toBeVisible();
+    await expect(judgePage.getByRole('main')).toHaveCount(1);
+    await assertNoSeriousFindings(judgePage);
     await judgePage.goto(`/judge/ballot/${round.id}?state=submitted`);
+    await expect(
+      judgePage.getByRole('heading', { name: 'How this ballot works' }),
+    ).toBeVisible();
     await expect(
       judgePage.getByText(
         'Your ballot opens when the recorded transcript is frozen.',

@@ -285,6 +285,32 @@ ballot completes the round (DEC-80), so round sync hands the
 debaters to the receipt at `/rounds/[id]`, which shows the result and keeps
 a human judge's seat unnamed.
 
+## Judge's room
+
+An assigned human judge's live round (`/rounds/[id]/room`, `ui/judging-room`)
+follows every step as well as the debaters do, from the same position reader:
+`observedRoundOf` (`features/round-runtime/observed-round.ts`) is the Round as
+anyone without a debater's seat sees it, and the spectator view reads it too.
+A Now panel names the stage (the strike, the prep before the round, each
+speech and cross-examination by code and full name, in-round prep, the end of
+the speeches), runs its clock with the same `RoundClock` every seat uses, says
+who has the floor and what comes next, and shows each side's prep left. Steps
+that run on their own say so, because the judge has no control that starts
+them. The speech order lists every speech with its length and Done, Now or
+Next. Each new stage is announced once, politely, and takes focus to the Now
+heading only when nothing else holds focus. Once the speeches end, the
+judging window counts down to the persisted deadline and Open your ballot is
+the primary action. The room renders no `main` of its own: the bare layout
+owns the landmark.
+
+The ballot page says how the ballot works before the form (one winner and no
+draws, 1 to 5 in every category, a low-point win confirmed, a reason both
+debaters read, private feedback, the limits and the 30-minute window with its
+time left). Each rubric category has a visible disclosure of what a 1, 3 and
+5 look like. What the judge has entered is kept in this tab's sessionStorage
+until the ballot is recorded, so a reload never loses it; a refusal's posted
+values win over it.
+
 ## Document manager
 
 One manager opens at `/prep` and inside a Round (ADR 0111, ADR 0113): `ui/documents`
