@@ -297,18 +297,19 @@ The six round worker failure events (`round.maintenance.failed`,
 `round.judging.failed`, `round.analysis.failed`, `round.control.failed`,
 `round.speaking.failed`, `round.hearing.failed`) carry
 the worker stage in `operation` and the error's own code (`INTERNAL` when
-untyped). The raw error goes only to the scrubbed `ErrorReporter`. Two outcomes
-are not failures: a lost lease (`CONFLICT` once the Round completes or the claim
-rotates) releases silently, and shared-pool admission backpressure (ISSUE-431)
-is a deferral that the next pass retries. A stage logs `<operation>.capacity`
-on every ninth refusal, whatever its cadence, so a starved slow stage is still
+untyped). The raw error goes only to the scrubbed `ErrorReporter`. Three outcomes
+are not failures. A lost lease (`CONFLICT` once the Round completes or the claim
+rotates) releases silently. Shared-pool admission backpressure (ISSUE-431) is a
+deferral that the next pass retries: a stage logs `<operation>.capacity` on
+every ninth refusal, whatever its cadence, so a starved slow stage is still
 reported. A lapsed web service lease (`AUTHORIZATION` with reason
 `service-lease-lapsed`, DAISY-WEB-9) is a deferral too: every worker on the
 shared failure sink logs each lapse as `<operation>.lease` with that `cause`,
 and reports it to the error tracker only on every ninth lapse of a stage, so a
 one-second blip is visible in logs while a lease that stays lapsed is still
 reported. A plain `AUTHORIZATION` failure is reported at once. A bot speech
-refused admission keeps its delivery attempts and resumes at the refused step: the provider answer and the phrases already spoken
+refused admission keeps its delivery attempts and resumes at the refused step:
+the provider answer and the phrases already spoken
 are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events
