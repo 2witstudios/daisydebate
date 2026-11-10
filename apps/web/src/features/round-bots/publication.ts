@@ -171,6 +171,10 @@ export function createBotPublisher(input: {
   }) => {
     let room: string | undefined;
     let roomLeft = false;
+    /** A refusal for a retired room: the next attempt joins the session's fresh room (ADR 0110). */
+    const noteRoom = (error: unknown) => {
+      roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
+    };
     /** The native track in use, so a close can silence it at once. */
     let current: Publication | null = null;
     /**
@@ -412,7 +416,6 @@ export function createBotPublisher(input: {
       } catch (error) {
         // Its own phrase was never authorized, or it stopped: nothing after it
         // may be authorized ahead of it, so lines stay in the order they are said.
-        waitingPrepare = null;
         discard();
         throw error;
       } finally {
@@ -453,8 +456,7 @@ export function createBotPublisher(input: {
       const refuse = (error: unknown) => {
         if (refused.signal.aborted) return;
         refusal = error;
-        // The next attempt joins the session's fresh room (ADR 0110).
-        roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
+        noteRoom(error);
         refused.abort();
       };
       // It is authorized before any of its audio: usually ahead, while the
@@ -476,8 +478,7 @@ export function createBotPublisher(input: {
         await line;
       } catch (error) {
         signal.removeEventListener('abort', silenceOnStop);
-        // The next attempt joins the session's fresh room (ADR 0110).
-        roomLeft = isAppError(error) && error.reason === 'bot-room-changed';
+        noteRoom(error);
         throw error;
       }
       if (signal.aborted) {
@@ -542,7 +543,8 @@ export function createBotPublisher(input: {
       // The floor and room, re-read without a lock while the phrase plays: a
       // refusal stops the audio; a read failing for a passing reason is read
       // again next time.
-      const watching = (async () => {
+      // Never awaited: a read still in flight must not delay the next phrase.
+      void (async () => {
         while (!played.signal.aborted && !refused.signal.aborted) {
           await input.waitUntilMs(
             input.monotonicNowMs() + FLOOR_WATCH_MS,
@@ -571,12 +573,9 @@ export function createBotPublisher(input: {
         AbortSignal.any([signal, refused.signal]),
         stopAtMs,
       );
-      // Never awaited: a read still in flight must not delay the next phrase.
       played.abort();
       // Cut before its first frame: none of it will play.
       if (result.sentSamples === 0) silenced.abort();
-      void watching;
-      void revealing;
       // The padded tail is silence: count only the phrase's own samples.
       const fractionOf = (samples: number) =>
         Math.min(1, samples / job.pcm.length);
@@ -601,6 +600,16 @@ export function createBotPublisher(input: {
       // played, beside the next phrase's audio, never in front of it.
       const handedAtMs = input.monotonicNowMs();
       const playsUntilMs = handedAtMs + Math.max(0, native.queuedMs());
+      /** The first clear before its tail played out cut it there (AMEND-1). */
+      const firstClear = () =>
+        clears.find((at) => at > handedAtMs && at < playsUntilMs) ?? null;
+      const playedUntil = (cutAtMs: number | null) =>
+        playedFraction({
+          sentSamples: result.sentSamples,
+          phraseSamples: job.pcm.length,
+          playsUntilMs,
+          cutAtMs,
+        });
       // A phrase is said only once its line is written: a short one handed over
       // before its audio starts waits here for its reveal. This costs nothing
       // for a longer one, revealed long before its last frame. It also means
@@ -616,37 +625,18 @@ export function createBotPublisher(input: {
         // what played (the first clear after its handoff), and the speech says
         // the phrase again or stops.
         const cutAtMs =
-          clears.find((at) => at > handedAtMs && at < playsUntilMs) ??
-          Math.min(input.monotonicNowMs(), playsUntilMs);
+          firstClear() ?? Math.min(input.monotonicNowMs(), playsUntilMs);
         clearNow(true);
         scheduledEndMs = input.monotonicNowMs();
-        if (asked)
-          await settleLine(
-            job,
-            playedFraction({
-              sentSamples: result.sentSamples,
-              phraseSamples: job.pcm.length,
-              playsUntilMs,
-              cutAtMs,
-            }),
-          );
+        if (asked) await settleLine(job, playedUntil(cutAtMs));
         throw refusal ?? createAppError('CONFLICT');
       }
       closing = closing.then(async () => {
         await input.waitUntilMs(playsUntilMs, ended.signal);
         await revealing;
         if (!asked) return;
-        // The first clear before its tail played out cut it there (AMEND-1).
-        const cutAtMs =
-          clears.find((at) => at > handedAtMs && at < playsUntilMs) ?? null;
-        const fraction = playedFraction({
-          sentSamples: result.sentSamples,
-          phraseSamples: job.pcm.length,
-          playsUntilMs,
-          cutAtMs,
-        });
         // An end that keeps failing is asked again later, never left undone.
-        await settleLine(job, fraction);
+        await settleLine(job, playedUntil(firstClear()));
       });
       if (result.cut) discard();
       return { complete: !result.cut, segmentEnded: result.cut };

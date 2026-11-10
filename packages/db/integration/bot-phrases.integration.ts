@@ -728,3 +728,28 @@ test('a reveal that lands after its phrase played, just before the segment is du
     },
   );
 });
+
+test('a worker’s clock read is taken before any lock, so a lock wait never skews its offset', async () => {
+  await withSpeakingBot(async ({ operations, claim, fixture, target }) => {
+    const held = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const holder = fixture.sql.begin(async (tx: typeof fixture.sql) => {
+      await tx`select 1 from rounds where id=${target.roundId} for update`;
+      held.resolve();
+      await release.promise;
+    });
+    await held.promise;
+    const asked = Date.now();
+    const reading = operations.verifyBotPublication(claim.scope, claim.token);
+    await Bun.sleep(600);
+    release.resolve();
+    await holder;
+    const { now } = await reading;
+    assert({
+      given: 'a read that waits 600 ms on the Round lock',
+      should: 'report the database clock from before the wait',
+      actual: Date.parse(now) - asked < 300,
+      expected: true,
+    });
+  });
+});

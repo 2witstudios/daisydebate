@@ -159,12 +159,15 @@ export function createBotPublicationOperations(input: {
     /** The claim's live floor now, and when its segment is due. */
     verifyBotPublication: (scope: BotPublicationScope, token: string) =>
       input.run(async (tx) => {
+        // Read before any lock, so a worker's clock offset never counts a
+        // lock wait, and its local stop is never early by one.
+        const now = await readDatabaseTime(tx);
         await verifyLockedBotWorker(tx, scope, token);
         await requireBotSpeakingWindow(tx, scope);
         return {
           segmentDueAt: await botSegmentDueAt(tx, scope),
-          /** The database clock as read here, for a worker's clock offset. */
-          now: (await readDatabaseTime(tx)).toISOString(),
+          /** The database clock at the start of this read, for a worker's clock offset. */
+          now: now.toISOString(),
         };
       }),
     /**
