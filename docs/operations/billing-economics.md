@@ -53,7 +53,8 @@ the sink directory is not private, the file is a symbolic link, not a private
 regular file, or over 1 MiB), `feed_invalid` (the feed's schema, window, floor,
 capacity rows or cost basis is wrong), `report_failed` (the joined input fails
 the report's own checks, or the reporter threw while raising its signals) or
-`save_failed` (including the sink's 1000-file cap). Each data check refuses with
+`save_failed` (including the sink's 1000-file cap; a directory holding more than
+1000 entries already refuses the read, as `feed_unreadable`). Each data check refuses with
 its own closed reason (ADR 0102). The collector never reports.
 `raiseEconomicsSignals` submits a saved report's fixed signals through the
 existing ErrorReporter: `BILLING_LOW_MARGIN` and `BILLING_ECONOMICS_INCOMPLETE`;
@@ -188,7 +189,9 @@ raises each thing once per process:
   failure lasts. A report that settles (saved, its signals submitted) ends every
   streak, so the same reason failing again after it is raised again.
 - **Missing feed.** `billing.economics.feed_missing` is logged once per month
-  and absence; a feed that is supplied and later disappears is logged again.
+  and absence. The absence ends when a report is saved from a supplied feed, so a
+  feed that is then removed is logged again; an invalid feed saves no report and
+  does not end it.
 - **Signals.** Each signal (code and plan) is raised once a month, whatever
   else changes in the report. A reporter that throws part-way is
   `report_failed`, once; later ticks send only the signals it did not take.
