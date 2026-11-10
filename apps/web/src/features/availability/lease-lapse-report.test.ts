@@ -58,11 +58,11 @@ test('a lapse caused by a failing renewal is logged with its length and reported
   });
 });
 
-test('a lapse from a hung renewal, a stall or a failure that is no Error links no cause', () => {
+test('a lapse from a hung or late renewal, or a failure that is no Error, links no cause', () => {
   const { lines, captured, channels } = recorded();
   for (const lapse of [
     { lapsedMs: 15_000, unproven: { kind: 'renewal_pending' } },
-    { lapsedMs: 16_000, unproven: { kind: 'process_stalled' } },
+    { lapsedMs: 16_000, unproven: { kind: 'renewal_late' } },
     {
       lapsedMs: 20_000,
       unproven: { kind: 'renewal_failed', error: 'not an error' },
@@ -73,7 +73,7 @@ test('a lapse from a hung renewal, a stall or a failure that is no Error links n
   }
   assert({
     given:
-      'a hung-renewal lapse, a stalled-process lapse, and a failure that is not an Error',
+      'a hung-renewal lapse, a late-renewal lapse, and a failure that is not an Error',
     should: 'log each reason and link no cause',
     actual: {
       causes: lines.map(([, fields]) => (fields as { cause: string }).cause),
@@ -82,7 +82,7 @@ test('a lapse from a hung renewal, a stall or a failure that is no Error links n
       ),
     },
     expected: {
-      causes: ['renewal_pending', 'process_stalled', 'renewal_failed'],
+      causes: ['renewal_pending', 'renewal_late', 'renewal_failed'],
       linked: [undefined, undefined, undefined],
     },
   });

@@ -288,7 +288,7 @@ diverge:
 | `redis.command.failed`                   | error    | A Redis command failed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `availability.sample_failed`             | error    | A web availability sample could not be recorded; that window has no availability evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `availability.probe_invalid`             | error    | The attendance probe's resources are missing or could not be read (`cause`); availability cannot prove health until a human repairs it, and on-time speakers are still credited                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `availability.lease_lapsing`             | error    | This web instance's own service lease has gone unproven by a timely renewal for 10 s, then at most once every 5 minutes per instance unless the lease has recovered for 30 s (`cause`: `renewal_failed`, `renewal_late`, `renewal_pending` or `process_stalled`; `durationMs`); one report goes to the error tracker under `web.service-lease.lapsed`, with the renewal failure's own `errorCode` (`INFRASTRUCTURE` when there is none) (DAISY-WEB-9)                                                                                                                                                                                                                                                   |
+| `availability.lease_lapsing`             | error    | This web instance's own service lease has gone unproven by a timely renewal for 10 s, once per lapse streak, re-armed when a renewal proves the lease again (`cause`: `renewal_failed`, `renewal_late` or `renewal_pending`; `durationMs`); one report goes to the error tracker under `web.service-lease.lapsed`, with the renewal failure's own `errorCode` (`INFRASTRUCTURE` when there is none) (DAISY-WEB-9)                                                                                                                                                                                                                                                                                       |
 | `service.lease_lapsed`                   | warn     | A worker stage was refused because this web instance's own service lease was not current (`operation` is the stage plus `.lease`; `cause` is `service-lease-lapsed`); expected and cleared by the next renewal, so never reported                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `service.lease_failed`                   | error    | A realtime service lease renewal failed (`errorCode` is the failure's own code: `CONFLICT` when another role holds the row); the interval retries on its next tick                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `logship.started`                        | info     | The log shipper subscribed to the org log stream (ADR 0084)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -305,39 +305,27 @@ silently. Shared-pool admission backpressure (ISSUE-431) is a deferral that the
 next pass retries: a stage logs `<operation>.capacity` on every ninth refusal,
 whatever its cadence, so a starved slow stage is still reported. A lapsed web
 service lease (`AUTHORIZATION` with reason `service-lease-lapsed`, DAISY-WEB-9)
-is not a failure: every worker on the shared failure sink logs it as the warning
-`service.lease_lapsed` (`operation` is the stage plus `.lease`) and never
-reports it. The instance's renewal loop alone reports a lapse, from its own
-renewals (`features/availability/lease-health.ts`). A renewal called at c and
-settled at e was stamped between the two and is visible from e, so it proves the
-lease current from e until c plus the 3 s `SERVICE_LEASE_WINDOW_MS`; one that
-settles after that proves nothing (only a provable lower bound counts: a renewal
-delayed before its statement may in fact have stamped a fresh lease, but the
-instance cannot tell, so sustained 3 s renewals report), and a failed one,
-including one refused because another role holds the row, proves nothing either.
-On every tick the loop checks how long the lease has gone unproven, so a renewal
-that hangs is still checked. At 10 s it logs `availability.lease_lapsing`
-(`cause` is `renewal_failed`, `renewal_late`, or `renewal_pending` when a
-renewal has been in flight for the whole window while the process ran, or
-`process_stalled` when the lease lapsed with no renewal hung and none failing,
-so the process itself stalled (a timer or event loop that did not run); the one
-check right after a stall tells no one, so the renewal that tick starts can
-prove the lease first, and a renewal in flight through the stall gets a fresh
-window of running time; `durationMs` is how long the lease has been unproven)
-and reports one error to the app's reporter under the route
-`web.service-lease.lapsed`, linked to the renewal failure when there was one;
-the line and the report carry that failure's own `errorCode` (`CONFLICT` when
-another role holds the row), `INFRASTRUCTURE` when there is none. One instance
-reports at most once every 5 minutes unless its lease has stayed proven for 30 s
-in between, so a flapping lease cannot flood the tracker, while a separate
-outage after a real recovery still reports. The log line and the tracker report
-are delivered and counted apart: a channel that fails is retried alone on the
-next tick, so a failing tracker never repeats the log line, and a delivered one
-is not retried. A blip the next renewal clears never reports, however many
-Rounds failed during it, and a stop ends the ticks, so a drain never reports. A
-plain `AUTHORIZATION` failure is reported at once. A bot speech refused
-admission keeps its delivery attempts and resumes at the refused step: the
-provider answer and the phrases already spoken are never bought or spoken again.
+follows three rules. Every refusal is logged with its typed reason: workers log
+it as the warning `service.lease_lapsed` and never report it. The error tracker
+gets one report per lapse streak, once the streak persists past the bound. The
+streak re-arms only after a renewal proves the lease current again. The
+instance's renewal loop judges the streak from its own renewals
+(`features/availability/lease-health.ts`): a renewal called at c and settled at
+e was stamped between the two and is visible from e, so it proves the lease
+current from e until c plus the 3 s `SERVICE_LEASE_WINDOW_MS` (only a provable
+lower bound counts); a late, failed or no-row renewal proves nothing. Once the
+lease has gone unproven for 10 s, checked on every 1 s tick so a hung renewal
+counts, the loop logs `availability.lease_lapsing` (`cause` is `renewal_failed`,
+`renewal_late` or `renewal_pending`; `durationMs` is how long the lease has been
+unproven) and reports one error under the route `web.service-lease.lapsed`,
+linked to the renewal failure when there was one and carrying its own
+`errorCode` (`INFRASTRUCTURE` when there is none); the report fires at the
+bound, so its duration is the bound, and the log line carries the measured one.
+Each of the two is told once per streak, and one that fails to send is tried
+again on the next tick. A stop ends the ticks, so a drain never reports. A plain
+`AUTHORIZATION` failure is reported at once. A bot speech refused admission
+keeps its delivery attempts and resumes at the refused step: the provider answer
+and the phrases already spoken are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;

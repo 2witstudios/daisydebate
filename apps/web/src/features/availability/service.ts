@@ -46,8 +46,8 @@ export function startAvailabilityService(deps: {
   readonly failed: (error: unknown) => void;
   /**
    * This instance's lease has gone unproven by a timely renewal for 10 s
-   * (DAISY-WEB-9): each channel is told at most once every 5 minutes,
-   * unless the lease has stayed proven for 30 s, and never on a stop. A
+   * (DAISY-WEB-9): each channel is told once per streak, and the streak
+   * re-arms only when a renewal proves the lease again. Never on a stop. A
    * channel that throws was not delivered, and is tried again next tick.
    */
   readonly lapsing: {
@@ -107,21 +107,17 @@ export function startAvailabilityService(deps: {
   };
   /** Checked on every tick, so a renewal that hangs still counts as unproven. */
   const checkHealth = () => {
-    const checkedMs = nowMs();
-    const checked = checkLease(lease, checkedMs);
-    lease = checked.health;
-    const { due } = checked;
+    const due = checkLease(lease, nowMs());
     if (!due) return;
     // A channel counts only once it went out; reporting never stops renewals.
     if (due.log && guarded(() => deps.lapsing.log(due.lapse)))
-      lease = delivered(lease, 'log', checkedMs);
+      lease = delivered(lease, 'log');
     if (due.report && guarded(() => deps.lapsing.report(due.lapse)))
-      lease = delivered(lease, 'report', checkedMs);
+      lease = delivered(lease, 'report');
   };
   const renew = () => {
     if (renewing) return renewing;
     const startedMs = nowMs();
-    observe({ kind: 'started', startedMs });
     // A store that throws synchronously still settles as a failed renewal.
     renewing = Promise.try(() =>
       deps.store.renewServiceInstance({
