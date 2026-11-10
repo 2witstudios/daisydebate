@@ -680,3 +680,24 @@ test('a reveal is fenced like its authorization: a phrase that would now end pas
     },
   );
 });
+
+test('an exact retry of a reveal that landed writes nothing, even once its phrase would no longer fit', async () => {
+  await withSpeakingBot(
+    async ({ say, operations, claim, room, lines, fixture, target }) => {
+      const spoken = phrase(createId(), 2_000);
+      await say(spoken);
+      // Its answer was lost; by the retry the segment is due in 1 s.
+      await fixture.sql`update round_segments set started_at=clock_timestamp()+interval '1 second'-(duration_ms::bigint+returned_ms)*interval '1 millisecond' where id=${target.segmentId}`;
+      const retry = await operations
+        .revealBotPhrase(claim.scope, claim.token, spoken, room)
+        .catch((error: unknown) => error);
+      assert({
+        given:
+          'a reveal that landed, retried once its 2 s phrase would end past the segment',
+        should: 'report it already written, and leave the one line as it was',
+        actual: { retry, lines: (await lines()).length },
+        expected: { retry: { revealed: false }, lines: 1 },
+      });
+    },
+  );
+});

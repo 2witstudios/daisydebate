@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createStreamTracker } from './capture-streams';
+import { botIdentity, createStreamTracker } from './capture-streams';
 import type { CaptureState } from './capture-history';
 setupRitewayBun();
 
@@ -213,5 +213,15 @@ test('a segment the history has moved past counts as ended when first seen super
     should: 'treat it as ended then, and due once the settle window passes',
     actual: [open, due(tracker, '2026-10-22T12:00:31.000Z')],
     expected: [[], ['seg1/speaker']],
+  });
+});
+
+test('a bot seat’s track identity is known, so its frames are never staged (ADR 0122)', () => {
+  const current = state([], ['bot-seat']);
+  assert({
+    given: 'a Round with a bot seat',
+    should: 'name the bot’s track identity a bot’s, and no other',
+    actual: [botIdentity(current, 'bot-seat'), botIdentity(current, 'human')],
+    expected: [true, false],
   });
 });

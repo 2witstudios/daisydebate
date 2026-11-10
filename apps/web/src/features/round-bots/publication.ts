@@ -310,11 +310,6 @@ export function createBotPublisher(input: {
       return line;
     };
     /**
-     * The last phrase's reveal: each waits for the one before, so lines are
-     * written, and numbered, in the order they are said.
-     */
-    let revealOrder: Promise<void> = Promise.resolve();
-    /**
      * Silences whatever is still queued at once, recording the clear so the
      * phrase it cut closes at what played, and, unless only a tail is being
      * silenced, forgets every phrase authorized ahead.
@@ -341,12 +336,16 @@ export function createBotPublisher(input: {
         if (transient(error)) unfinished.push({ job, fraction });
       }
     };
-    const retryUnfinished = async () => {
+    /** The retry in flight: the claim's end waits for it before its own. */
+    let retrying: Promise<unknown> = Promise.resolve();
+    const retryUnfinished = () => {
       const pending = unfinished;
       unfinished = [];
-      await Promise.all(
-        pending.map(({ job, fraction }) => settleLine(job, fraction)),
-      );
+      retrying = Promise.all([
+        retrying,
+        ...pending.map(({ job, fraction }) => settleLine(job, fraction)),
+      ]);
+      return retrying;
     };
     /**
      * Forgets phrases authorized ahead whose audio will not play. Nothing was
@@ -506,7 +505,6 @@ export function createBotPublisher(input: {
       // Its reveal, beside the audio, as the audio starts: the claim, room and
       // floor are checked again then, the line is dated then and its doorbell
       // rings, so it is read exactly from when it is said. A refusal stops it.
-      const before = revealOrder;
       const revealing = (async () => {
         // Never tied to the writer's return: a phrase shorter than the lead is
         // handed over before its audio starts, and is still revealed then.
@@ -518,11 +516,6 @@ export function createBotPublisher(input: {
         ]);
         await input.waitUntilMs(audioStartsAtMs, stopped);
         if (stopped.aborted) return;
-        // A reveal before it still retrying lands first; this one is still
-        // dated by its own audio start. Its audio has started: only a lost
-        // claim skips it now, and a stop since then cuts its line instead.
-        await before;
-        if (refused.signal.aborted || ended.signal.aborted) return;
         // Its audio start on the database clock, fixed now: a reveal that
         // waits on a lock still dates the line by its audio.
         const startedAt =
@@ -546,7 +539,6 @@ export function createBotPublisher(input: {
         // the speech says it again once its line can be written.
         refuse(error);
       });
-      revealOrder = revealing;
       // The floor and room, re-read without a lock while the phrase plays: a
       // refusal stops the audio; a read failing for a passing reason is read
       // again next time.
@@ -611,15 +603,23 @@ export function createBotPublisher(input: {
       const playsUntilMs = handedAtMs + Math.max(0, native.queuedMs());
       // A phrase is said only once its line is written: a short one handed over
       // before its audio starts waits here for its reveal. This costs nothing
-      // for a longer one, revealed long before its last frame.
+      // for a longer one, revealed long before its last frame. It also means
+      // reveals land, and lines are numbered, in the order phrases are said.
+      // A stop while it waits silences what is queued at once, as before its
+      // writer started.
+      signal.addEventListener('abort', silenceOnStop, { once: true });
       await revealing;
-      if (refusal !== undefined) {
-        // Its line could not be written: what is still queued is silenced, any
-        // line its reveal may have written closes at what played, and the
-        // speech says the phrase again.
-        const cutAtMs = input.monotonicNowMs();
+      signal.removeEventListener('abort', silenceOnStop);
+      if (refusal !== undefined || signal.aborted) {
+        // Its line could not be written, or it was stopped: what is still
+        // queued is silenced, any line its reveal may have written closes at
+        // what played (the first clear after its handoff), and the speech says
+        // the phrase again or stops.
+        const cutAtMs =
+          clears.find((at) => at > handedAtMs && at < playsUntilMs) ??
+          Math.min(input.monotonicNowMs(), playsUntilMs);
         clearNow(true);
-        scheduledEndMs = cutAtMs;
+        scheduledEndMs = input.monotonicNowMs();
         if (asked)
           await settleLine(
             job,
@@ -627,10 +627,10 @@ export function createBotPublisher(input: {
               sentSamples: result.sentSamples,
               phraseSamples: job.pcm.length,
               playsUntilMs,
-              cutAtMs: Math.min(cutAtMs, playsUntilMs),
+              cutAtMs,
             }),
           );
-        throw refusal;
+        throw refusal ?? createAppError('CONFLICT');
       }
       closing = closing.then(async () => {
         await input.waitUntilMs(playsUntilMs, ended.signal);
@@ -674,6 +674,9 @@ export function createBotPublisher(input: {
           clearNow(true);
           ended.abort();
           await closing;
+          // A retry started at a phrase lands first; one that failed again is
+          // then asked once more here.
+          await retrying;
           await retryUnfinished();
           await publication.close();
         })()),

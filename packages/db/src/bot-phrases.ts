@@ -102,7 +102,8 @@ async function requirePhraseAuthority(
 /**
  * The phrase, its audio starting at `start`, ends before its segment is due
  * and starts within a phrase and its queue ahead. A phrase past its segment is
- * a final refusal: the speech stops at its last whole phrase.
+ * a final refusal: the speech stops at its last whole phrase. Returns the
+ * start it checked, read once.
  */
 async function requirePhraseFits(
   tx: BoundedTransactionContext,
@@ -113,6 +114,7 @@ async function requirePhraseFits(
 ) {
   const query = tx
     .select({
+      start: sql<Date | string>`${start}`,
       fits: sql<boolean>`${start}+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
       ahead: sql<boolean>`${start}<=clock_timestamp()+${MAX_PHRASE_MS + MAX_AHEAD_SLACK_MS}*interval '1 millisecond'`,
     })
@@ -128,6 +130,7 @@ async function requirePhraseFits(
   if (!fit.ahead) throw createAppError('VALIDATION');
   if (!fit.fits)
     throw refuseFinalSpeech('Bot phrase would end past its segment');
+  return new Date(fit.start);
 }
 /** An existing line for the phrase id: the same phrase, or a conflicting retry. */
 async function saidLine(
@@ -196,18 +199,20 @@ export async function revealLockedBotPhrase(
   )
     throw createAppError('VALIDATION');
   await requirePhraseAuthority(tx, scope, input.token, input.room);
-  // Dated at its audio start as the worker read it: never later than now, and
-  // never earlier than its segment's start or than a whole phrase ago.
-  const saidAt =
+  // An exact retry of a reveal that landed writes nothing, however late.
+  if (await saidLine(tx, scope, phrase)) return { revealed: false };
+  // Fenced like its authorization, from its audio start as the worker read it
+  // (never later than now, nor before its segment started); the lock orders
+  // sequence allocation against every other writer of this segment.
+  const audioStart = await requirePhraseFits(
+    tx,
+    scope,
+    phrase,
     input.startedAt === undefined
       ? sql`clock_timestamp()`
-      : sql`greatest(least(clock_timestamp(),${new Date(input.startedAt)}::timestamptz),
-          clock_timestamp()-${phrase.durationMs}*interval '1 millisecond',
-          (select s.started_at from round_segments s where s.id=${scope.segmentId} and s.round_id=${scope.roundId}))`;
-  // The write is fenced like its authorization, counting from its audio start;
-  // the lock orders sequence allocation against every other writer of this segment.
-  await requirePhraseFits(tx, scope, phrase, saidAt, true);
-  if (await saidLine(tx, scope, phrase)) return { revealed: false };
+      : sql`greatest(least(clock_timestamp(),${new Date(input.startedAt)}::timestamptz),${roundSegments.startedAt})`,
+    true,
+  );
   const id = input.nextId();
   if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
   await tx.insert(utterances).values({
@@ -220,7 +225,8 @@ export async function revealLockedBotPhrase(
     complete: false,
     botPhraseId: phrase.phraseId,
     botDurationMs: phrase.durationMs,
-    createdAt: saidAt,
+    // Dated at its audio start, but never more than a whole phrase ago.
+    createdAt: sql`greatest(${audioStart}::timestamptz,clock_timestamp()-${phrase.durationMs}*interval '1 millisecond')`,
   });
   // The bot's stream is complete by construction once it has spoken.
   await tx

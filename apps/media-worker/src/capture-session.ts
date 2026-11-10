@@ -13,7 +13,7 @@ import {
 import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
 import type { CutClip } from './capture-clips';
 import { createHeardReporter, reportHeardTracks } from './capture-heard';
-import { botSeat, createStreamTracker } from './capture-streams';
+import { botIdentity, botSeat, createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';
 import { captureSessionClosed, createSessionOutcome } from './capture-outcome';
 import { sealCaptureStreams } from './capture-seal';
@@ -134,8 +134,7 @@ async function captureSession(
     nowMs: input.nowMs,
   });
   const enqueue = (clip: CutClip) => {
-    // A bot's words are authored from its own text (ADR 0122): its frames are
-    // still recorded, but never transcribed, so its clips stop here.
+    // A clip staged before its seat was known to be a bot's stops here too.
     if (botSeat(current.state, clip.roundParticipantId)) return;
     if (clip.kind === 'silent') stats.silentClips++;
     else stats.audibleClips++;
@@ -160,6 +159,10 @@ async function captureSession(
       nowMs: input.nowMs,
       onFrame: (raw) => {
         if (signal.aborted) return;
+        // A bot's words are authored from its own text (ADR 0122): its track
+        // stays subscribed, so it is reported heard, but its frames are never
+        // staged, cut or encoded. The Room's recording still carries them.
+        if (botIdentity(current.state, raw.identity)) return;
         staging.observe(raw);
       },
       onTrackStarted: heard.started,

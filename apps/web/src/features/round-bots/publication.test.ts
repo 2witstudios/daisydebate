@@ -1117,3 +1117,70 @@ test('a line end refused for good is not asked again at every phrase', async () 
     expected: 1,
   });
 });
+
+test('a stop while a short phrase waits on a slow reveal silences at once and is not reported said', async () => {
+  const { claim, events, ends } = harness({
+    reveal: async () => {
+      await Bun.sleep(400);
+    },
+  });
+  claim.start();
+  await Bun.sleep(10);
+  const stop = new AbortController();
+  const outcome = claim
+    .publish(job(200, 'a'.repeat(24)), stop.signal, far())
+    .then(
+      (result) => result,
+      () => 'rejected',
+    );
+  await Bun.sleep(60);
+  stop.abort();
+  await Bun.sleep(20);
+  const clearedAtOnce = events.includes('clear');
+  const result = await outcome;
+  await Bun.sleep(50);
+  assert({
+    given:
+      'a 200 ms phrase handed over whole, its reveal taking 400 ms, stopped 60 ms in',
+    should:
+      'silence its queue at once, reject its publish, and close its line cut, never whole',
+    actual: {
+      clearedAtOnce,
+      result,
+      ends: ends.map((row) => (row.end as { kind: string }).kind),
+    },
+    expected: { clearedAtOnce: true, result: 'rejected', ends: ['cut'] },
+  });
+});
+
+test('the claim’s end waits for a line end retry still in flight, and asks it again', async () => {
+  let attempts = 0;
+  const { claim, ends } = harness({
+    end: async (phraseId) => {
+      if (phraseId[0] !== 'a') return;
+      attempts += 1;
+      // Its first end fails throughout; the retry at the next phrase is slow
+      // and fails again; the claim's end then lands it.
+      if (attempts <= 3) throw new Error('statement timeout');
+      if (attempts <= 6) {
+        if (attempts === 4) await Bun.sleep(300);
+        throw new Error('statement timeout');
+      }
+    },
+  });
+  claim.start();
+  await Bun.sleep(10);
+  await claim.publish(job(300, 'a'.repeat(24)), signal(), far());
+  // a's tail plays, then its end fails three times (100 + 200 ms backoff).
+  await tailPlays();
+  await Bun.sleep(400);
+  await claim.publish(job(300, 'b'.repeat(24)), signal(), far());
+  await claim.close();
+  assert({
+    given:
+      'a line end that kept failing, retried at the next phrase slowly and failing again as the claim ends',
+    should: 'wait for that retry, then ask once more, so the line is closed',
+    actual: ends.some((row) => row.phraseId[0] === 'a'),
+    expected: true,
+  });
+});
