@@ -768,11 +768,14 @@ Each token can deploy only its own app; rotate one by re-running its
 command.
 
 Sentry source maps (ADR 0037) need one more repository secret, which only
-the owner creates: `SENTRY_AUTH_TOKEN`, a Sentry organization auth token for
-org `2witstudios` with the scopes `project:releases` and `org:read` and no
-others. Create it in Sentry under Settings → Developer Settings →
-Organization Tokens (or as an internal integration with exactly those
-scopes), then:
+the owner creates: `SENTRY_AUTH_TOKEN`, a Sentry token for org `2witstudios`
+with the scopes `project:releases` and `org:read` and no others. Sentry's
+Organization Tokens carry a fixed `org:ci` scope and offer no scope picker,
+so create the token from an internal integration instead: Settings →
+Custom Integrations → Create New Integration → Internal Integration, named
+for this deploy. Set Release to Admin (`project:releases`) and Organization to
+Read (`org:read`), leave every other permission at No Access, save, and
+create a token on it. Then:
 
 ```
 gh secret set SENTRY_AUTH_TOKEN   # paste the token at the prompt; never echo it
