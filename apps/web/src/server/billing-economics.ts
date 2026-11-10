@@ -139,8 +139,8 @@ export function startBillingEconomics(input: {
     economicsFailureCheck,
   );
   let raised = nothingRaised;
-  /** The last failure outside any collection that was reported, until one completes. */
-  let collectFailure: string | null = null;
+  /** Failures outside any collection already reported, until a collection completes. */
+  const collectFailures = new Set<string>();
   /**
    * Report a failure notice once until a report settles. A failure counts as
    * raised once the tracker took it; when the tracker is itself what failed
@@ -231,25 +231,31 @@ export function startBillingEconomics(input: {
     // A failure outside any collection (an invalid clock, a defect) is reported once per
     // distinct problem until a collection completes again, never every hour.
     failed: (error) => {
-      const notice = collectFailureNotice(error);
-      if (collectFailure === notice) return;
-      // An error that names no check is wrapped, so the line names its stage.
-      const named =
-        isAppError(error) && error.reason
-          ? error
-          : stageError('collect', typedCodeOr(error, 'INTERNAL'), error);
-      if (failed(named, 'collect') === 'reported') collectFailure = notice;
+      // Never throws (ISSUE-789): reading a hostile error falls back to the plain sink.
+      try {
+        const notice = collectFailureNotice(error);
+        if (collectFailures.has(notice)) return;
+        // An error that names no check is wrapped, so the line names its stage.
+        const named =
+          isAppError(error) && error.reason
+            ? error
+            : stageError('collect', typedCodeOr(error, 'INTERNAL'), error);
+        if (failed(named, 'collect') === 'reported')
+          collectFailures.add(notice);
+      } catch {
+        failed(error, 'collect');
+      }
     },
     run: async () => {
       const window = previousEconomicsMonth(app.clock.now());
       if (!window)
         throw createRefusal(
-          'VALIDATION',
+          'INTERNAL',
           'economics-clock-invalid',
           'Billing economics clock invalid',
         );
       raise(await collector.run(window));
-      collectFailure = null;
+      collectFailures.clear();
     },
   });
 }

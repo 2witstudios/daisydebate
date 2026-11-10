@@ -87,6 +87,7 @@ export type BillingEconomicsRefusal =
   | 'economics-sink-unreadable'
   | 'economics-feed-unavailable'
   | 'economics-feed-not-private'
+  | 'economics-feed-forbidden'
   | 'economics-feed-too-large'
   | 'economics-feed-unparseable'
   | 'economics-report-identity-invalid'

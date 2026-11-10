@@ -420,9 +420,19 @@ test("a feed this process may not read is VALIDATION, the operator's file being 
     });
     assert({
       given: 'a feed file whose mode denies this process read access',
-      should: 'refuse it as VALIDATION (feed_invalid), not as a failing disk',
-      actual: await codeOf(files.feed.read(window)),
-      expected: 'VALIDATION',
+      should:
+        'refuse it as VALIDATION (feed_invalid) with its own reason, not as a failing disk',
+      actual: await files.feed.read(window).then(
+        () => null,
+        (error: unknown) =>
+          error instanceof Error
+            ? [
+                (error as { code?: string }).code,
+                (error as { reason?: string }).reason,
+              ]
+            : null,
+      ),
+      expected: ['VALIDATION', 'economics-feed-forbidden'],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });

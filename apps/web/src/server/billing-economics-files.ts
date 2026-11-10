@@ -119,13 +119,21 @@ async function readPrivateFeed(path: string) {
         ? error.code
         : undefined;
     if (code === 'ENOENT') return null;
-    // A symbolic link in the feed's place, or a file this process may not read, is the
-    // operator's file being wrong, not the disk failing.
-    if (code === 'ELOOP' || code === 'EACCES' || code === 'EPERM')
+    // A symbolic link in the feed's place is the operator's file being wrong.
+    if (code === 'ELOOP')
       throw createRefusal(
         'VALIDATION',
         'economics-feed-not-private',
         'Billing economics feed is not bounded and private',
+        error,
+      );
+    // Permission refused: most often a feed placed as another user, but a mount or policy can
+    // refuse too, so it has its own word and the errno stays its cause.
+    if (code === 'EACCES' || code === 'EPERM')
+      throw createRefusal(
+        'VALIDATION',
+        'economics-feed-forbidden',
+        'Billing economics feed is not readable by this process',
         error,
       );
     throw createRefusal(
@@ -154,6 +162,21 @@ async function readPrivateFeed(path: string) {
     await file.close();
   }
 }
+/** A collected window must be two instants; anything else is a caller defect. */
+function assertWindow(window: {
+  readonly startsAt: string;
+  readonly endsAt: string;
+}) {
+  if (
+    !economicsInstant.safeParse(window.startsAt).success ||
+    !economicsInstant.safeParse(window.endsAt).success
+  )
+    throw createRefusal(
+      'INTERNAL',
+      'economics-window-invalid',
+      'Billing economics window invalid',
+    );
+}
 /** Local service/operator-owned files only; no HTTP surface, credentials or production configuration are introduced. */
 export function createBillingEconomicsFiles(input: {
   readonly directory: string;
@@ -172,15 +195,7 @@ export function createBillingEconomicsFiles(input: {
         readonly endsAt: string;
       }) {
         // The window decides what retention protects, so a malformed one never reaches the sweep.
-        if (
-          !economicsInstant.safeParse(window.startsAt).success ||
-          !economicsInstant.safeParse(window.endsAt).success
-        )
-          throw createRefusal(
-            'INTERNAL',
-            'economics-window-invalid',
-            'Billing economics window invalid',
-          );
+        assertWindow(window);
         await privateDirectory(input.directory);
         await prunePrivateFiles(
           input.directory,
@@ -194,15 +209,7 @@ export function createBillingEconomicsFiles(input: {
         readonly startsAt: string;
         readonly endsAt: string;
       }) {
-        if (
-          !economicsInstant.safeParse(window.startsAt).success ||
-          !economicsInstant.safeParse(window.endsAt).success
-        )
-          throw createRefusal(
-            'INTERNAL',
-            'economics-window-invalid',
-            'Billing economics window invalid',
-          );
+        assertWindow(window);
         // The reader keeps its own privacy check, so a caller need not open the sink first. A
         // directory fault here is the sink's, never the feed file's, so it reads as unavailable.
         try {

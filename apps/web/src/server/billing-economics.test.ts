@@ -1168,3 +1168,91 @@ test('the log line names the innermost reason in the cause chain', () => {
     expected: 'economics-sink-not-private',
   });
 });
+
+test('alternating failures outside any collection are each reported once', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
+  const { logged, logger } = createEventRecorder();
+  let calls = 0;
+  let tick: (() => Promise<void>) | null = null;
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger,
+      clock: {
+        now: () => {
+          calls++;
+          if (calls % 2 === 1) return 'not an instant';
+          throw new TypeError('defect');
+        },
+      },
+      database: { ...app.database, billingEconomics: snapshotStore() },
+    },
+    instanceId: 'service-fixture',
+    timers: {
+      setInterval: (run) => {
+        tick = run;
+        return 1;
+      },
+      clearInterval: () => undefined,
+    },
+  });
+  try {
+    await service.started;
+    for (let n = 0; n < 5; n++)
+      await (tick as (() => Promise<void>) | null)?.();
+    assert({
+      given:
+        'an invalid clock and an untyped defect alternating over six ticks',
+      should: 'report each problem once',
+      actual: logged
+        .filter((line) => line.event === 'billing.economics.failed')
+        .map((line) => line.fields.cause),
+      expected: ['economics-clock-invalid', 'economics-collect-failed'],
+    });
+  } finally {
+    await service.stop();
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a hostile error outside any collection never rejects the worker', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
+  const hostile = new Error('hostile');
+  Object.defineProperty(hostile, 'code', {
+    get() {
+      throw new Error('getter');
+    },
+  });
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger: createEventRecorder().logger,
+      clock: {
+        now: () => {
+          throw hostile;
+        },
+      },
+      database: { ...app.database, billingEconomics: snapshotStore() },
+    },
+    instanceId: 'service-fixture',
+    timers: { setInterval: () => 1, clearInterval: () => undefined },
+  });
+  try {
+    assert({
+      given: 'an error whose code getter throws',
+      should: 'settle the tick without rejecting',
+      actual: await service.started.then(
+        () => 'settled',
+        () => 'rejected',
+      ),
+      expected: 'settled',
+    });
+  } finally {
+    await service.stop();
+    await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
