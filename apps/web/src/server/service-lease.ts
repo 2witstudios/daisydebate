@@ -1,6 +1,5 @@
 import { isAppError } from '@daisy/errors';
 import type { ErrorReporter } from '@daisy/observability';
-import type { App } from './app';
 
 /**
  * How long this instance's lease must stay lapsing before it is reported:
@@ -86,19 +85,4 @@ export function serviceLease(deps: {
     renewalFailed: (error) => observe('renewal-failed', error),
     lapseRefused: (error) => observe('lapse-refused', error),
   };
-}
-
-const leases = new WeakMap<App, ServiceLease>();
-
-/** The process app's one lease state, shared by its renewal loop and every worker sink. */
-export function serviceLeaseOf(app: App): ServiceLease {
-  const known = leases.get(app);
-  if (known) return known;
-  const created = serviceLease({
-    now: () => performance.now(),
-    reporter: app.reporter,
-    nextId: () => app.ids.next(),
-  });
-  leases.set(app, created);
-  return created;
 }

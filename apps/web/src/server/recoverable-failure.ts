@@ -4,7 +4,6 @@ import { isAppError } from '@daisy/errors';
 import type { EventName, Logger } from '@daisy/logger';
 import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
 import type { App } from './app';
-import { serviceLeaseOf } from './service-lease';
 
 /**
  * Admission backpressure a worker stage absorbs silently before it counts as
@@ -108,7 +107,7 @@ export const workerFailures =
       reporter,
       nextId: () => app.ids.next(),
       isCapacity: isCapacityRefusal,
-      leaseLapsed: serviceLeaseOf(app).lapseRefused,
+      leaseLapsed: app.serviceLease.lapseRefused,
       event,
       operation,
       message,

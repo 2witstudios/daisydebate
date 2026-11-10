@@ -2,7 +2,6 @@ import type { App } from './app';
 import { readPublicCheckInProbe } from '../features/availability/configuration';
 import { createPublicCheckInProbe } from '../features/availability/public-probe';
 import { startAvailabilityService } from '../features/availability/service';
-import { serviceLeaseOf } from './service-lease';
 
 /** Start only after public ingress is accepting requests; stop before closing its owned pool. */
 export function startRoundAvailability(input: {
@@ -37,11 +36,10 @@ export function startRoundAvailability(input: {
         { operation: 'availability.probe', cause: problem },
         'Public check-in probe cannot prove health',
       ),
-    renewal: (outcome) => {
-      const lease = serviceLeaseOf(app);
-      if (outcome.kind === 'renewed') lease.renewed();
-      else lease.renewalFailed(outcome.error);
-    },
+    renewal: (outcome) =>
+      outcome.kind === 'renewed'
+        ? app.serviceLease.renewed()
+        : app.serviceLease.renewalFailed(outcome.error),
     failed: () =>
       app.logger.log(
         'availability.sample_failed',
