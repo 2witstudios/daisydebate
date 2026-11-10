@@ -44,14 +44,10 @@ export function ballotDraftOf(
   );
 }
 
-/** The stored draft, or null when there is none or it is not one. */
-export function readBallotDraft(
-  storage: BallotDraftStorage,
-  key: string,
-): BallotDraft | null {
+/** A stored draft's text read back, or null when it is not a draft. */
+export function parseBallotDraft(raw: string | null): BallotDraft | null {
+  if (raw === null) return null;
   try {
-    const raw = storage.getItem(key);
-    if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
       return null;
@@ -62,6 +58,18 @@ export function readBallotDraft(
     );
     const draft = ballotDraftOf(values);
     return Object.keys(draft).length > 0 ? draft : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The stored draft's text, or null when there is none or storage refuses. */
+export function storedBallotDraft(
+  storage: BallotDraftStorage,
+  key: string,
+): string | null {
+  try {
+    return storage.getItem(key);
   } catch {
     return null;
   }

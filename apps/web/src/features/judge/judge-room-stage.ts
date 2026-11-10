@@ -59,85 +59,99 @@ const ballotDetail: Partial<Record<RoundWaitingOn['state'], string>> = {
     'Your ballot is open. Submit it before the judging window closes.',
 };
 
+type StageFacts = {
+  /** How many resolutions were drawn for the strike; null when unknown. */
+  readonly drawSize: number | null;
+  /** What the server says the Round waits on once the speeches end. */
+  readonly waitingOn: RoundWaitingOn['state'] | null;
+};
+
+const indexOf = (observed: ObservedRound, state: 'now' | 'next') =>
+  observed.speeches.findIndex((speech) => speech.state === state);
+
+const nowSpeech = (observed: ObservedRound) =>
+  observed.speeches[indexOf(observed, 'now')];
+
+/** Leads a sentence with who does it, when that is known. */
+const lead = (
+  observed: ObservedRound,
+  side: DebateSide | null,
+  says: (name: string) => string,
+) => (side ? says(seatName(observed.seats, side)) : '');
+
+const stages: Readonly<
+  Record<
+    ObservedRound['stage'],
+    (observed: ObservedRound, facts: StageFacts) => JudgeRoomStage
+  >
+> = {
+  strike: (_, { drawSize }) => ({
+    key: 'strike',
+    heading: 'The debaters are choosing the resolution',
+    detail: `They take turns striking ${drawSize === null ? 'the drawn resolutions' : `${drawSize} drawn resolutions`} until one is left. You see the resolution once it is chosen.`,
+  }),
+  'opening-prep': (observed) => ({
+    key: 'opening-prep',
+    heading: 'Prep before the round',
+    detail: `Both debaters are preparing. ${firstSpeech(observed)} starts on its own when prep ends.`,
+  }),
+  starting: (observed) => ({
+    key: 'starting',
+    heading: 'The round is about to start',
+    detail: `${firstSpeech(observed)} starts on its own.`,
+  }),
+  countdown: (observed) => ({
+    key: 'countdown',
+    heading: 'Starting',
+    detail: `${firstSpeech(observed)} starts when the countdown ends.`,
+  }),
+  speech: (observed) => {
+    const speech = nowSpeech(observed);
+    const side = sideDoing(observed, 'speaking') ?? speech?.side ?? null;
+    return {
+      key: `speech-${indexOf(observed, 'now')}`,
+      heading: speech ? speechName(speech) : 'Speech',
+      detail: `${lead(observed, side, (name) => `${name} is speaking. `)}${nextOf(observed)}`,
+    };
+  },
+  'cross-ex': (observed) => {
+    const speech = nowSpeech(observed);
+    const asks = sideDoing(observed, 'asking');
+    return {
+      key: `cross-ex-${indexOf(observed, 'now')}`,
+      heading: speech ? speechName(speech) : 'Cross-examination',
+      detail: `${lead(observed, asks, (name) => `${name} asks; ${seatName(observed.seats, other(asks ?? 'affirmative'))} answers. `)}${nextOf(observed)}`,
+    };
+  },
+  prep: (observed) => {
+    const side = sideDoing(observed, 'preparing');
+    return {
+      key: `prep-${indexOf(observed, 'next')}-${side ?? ''}`,
+      heading: side ? `${sideName[side]} prep` : 'Prep',
+      detail: `${lead(observed, side, (name) => `${name} is using prep time. `)}${nextOf(observed)}`,
+    };
+  },
+  between: (observed) => ({
+    key: `between-${indexOf(observed, 'next')}`,
+    heading: 'Between speeches',
+    detail:
+      indexOf(observed, 'next') >= 0
+        ? nextOf(observed)
+        : 'Waiting on the round.',
+  }),
+  judging: (_, { waitingOn }) => ({
+    key: 'judging',
+    heading: 'The speeches are over',
+    detail: (waitingOn && ballotDetail[waitingOn]) ?? ballotOpen,
+  }),
+};
+
 /**
  * The judge's reading of the stage: a heading naming where the Round is and
  * one sentence on who has the floor and what comes next. Steps that run on
  * their own say so, because a judge has no control that starts them.
  */
-export function judgeRoomStageOf(
+export const judgeRoomStageOf = (
   observed: ObservedRound,
-  facts: {
-    /** How many resolutions were drawn for the strike; null when unknown. */
-    readonly drawSize: number | null;
-    /** What the server says the Round waits on once the speeches end. */
-    readonly waitingOn: RoundWaitingOn['state'] | null;
-  },
-): JudgeRoomStage {
-  const { drawSize } = facts;
-  const now = observed.speeches.findIndex((speech) => speech.state === 'now');
-  const speech = observed.speeches[now];
-  switch (observed.stage) {
-    case 'strike':
-      return {
-        key: 'strike',
-        heading: 'The debaters are choosing the resolution',
-        detail: `They take turns striking ${drawSize === null ? 'the drawn resolutions' : `${drawSize} drawn resolutions`} until one is left. You see the resolution once it is chosen.`,
-      };
-    case 'opening-prep':
-      return {
-        key: 'opening-prep',
-        heading: 'Prep before the round',
-        detail: `Both debaters are preparing. ${firstSpeech(observed)} starts on its own when prep ends.`,
-      };
-    case 'starting':
-      return {
-        key: 'starting',
-        heading: 'The round is about to start',
-        detail: `${firstSpeech(observed)} starts on its own.`,
-      };
-    case 'countdown':
-      return {
-        key: 'countdown',
-        heading: 'Starting',
-        detail: `${firstSpeech(observed)} starts when the countdown ends.`,
-      };
-    case 'speech': {
-      const side = sideDoing(observed, 'speaking') ?? speech?.side ?? null;
-      return {
-        key: `speech-${now}`,
-        heading: speech ? speechName(speech) : 'Speech',
-        detail: `${side ? `${seatName(observed.seats, side)} is speaking. ` : ''}${nextOf(observed)}`,
-      };
-    }
-    case 'cross-ex': {
-      const asks = sideDoing(observed, 'asking');
-      return {
-        key: `cross-ex-${now}`,
-        heading: speech ? speechName(speech) : 'Cross-examination',
-        detail: `${asks ? `${seatName(observed.seats, asks)} asks; ${seatName(observed.seats, other(asks))} answers. ` : ''}${nextOf(observed)}`,
-      };
-    }
-    case 'prep': {
-      const side = sideDoing(observed, 'preparing');
-      return {
-        key: `prep-${observed.speeches.findIndex((s) => s.state === 'next')}-${side ?? ''}`,
-        heading: side ? `${sideName[side]} prep` : 'Prep',
-        detail: `${side ? `${seatName(observed.seats, side)} is using prep time. ` : ''}${nextOf(observed)}`,
-      };
-    }
-    case 'between':
-      return {
-        key: `between-${observed.speeches.findIndex((s) => s.state === 'next')}`,
-        heading: 'Between speeches',
-        detail: observed.speeches.some((s) => s.state === 'next')
-          ? nextOf(observed)
-          : 'Waiting on the round.',
-      };
-    case 'judging':
-      return {
-        key: 'judging',
-        heading: 'The speeches are over',
-        detail: ballotDetail[facts.waitingOn ?? 'settling'] ?? ballotOpen,
-      };
-  }
-}
+  facts: StageFacts,
+): JudgeRoomStage => stages[observed.stage](observed, facts);

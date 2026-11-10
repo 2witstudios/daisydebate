@@ -1,12 +1,12 @@
 'use client';
 import type { RoundBallotRead } from '@daisy/protocol';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   ballotDraftKey,
   clearBallotDraft,
-  readBallotDraft,
+  parseBallotDraft,
+  storedBallotDraft,
   writeBallotDraft,
-  type BallotDraft,
 } from '../../../features/judge/ballot-draft';
 import { formValues } from '../../../features/forms/form-state';
 import type { BallotDisplay } from '../../../features/round-ballots/presentation';
@@ -20,9 +20,24 @@ const tabStorage = (): Storage | null => {
 };
 
 /**
- * The open ballot's draft in this tab: restored once after the page mounts
- * when no refused answer is shown, kept on every edit, and removed once the
- * ballot is recorded or no longer due. A refusal's posted values always win.
+ * The draft as this page first found it, read once per mount: later edits
+ * write the storage but never replace the fields the judge is typing in.
+ */
+const firstRead = new Map<string, string | null>();
+const noSubscription = () => () => {};
+const draftAtMount = (key: string): string | null => {
+  if (!firstRead.has(key)) {
+    const storage = tabStorage();
+    firstRead.set(key, storage ? storedBallotDraft(storage, key) : null);
+  }
+  return firstRead.get(key) ?? null;
+};
+
+/**
+ * The open ballot's draft in this tab: restored once after the page
+ * hydrates when no refused answer is shown, kept on every edit, and removed
+ * once the ballot is recorded or no longer due. A refusal's posted values
+ * always win.
  */
 export function useBallotDraft(
   view: RoundBallotRead,
@@ -36,19 +51,19 @@ export function useBallotDraft(
   const key = view.own
     ? ballotDraftKey(view.round.id, view.own.participantId)
     : null;
-  const [draft, setDraft] = useState<BallotDraft | null>(null);
-  const answered = Object.keys(posted).length > 0;
+  const raw = useSyncExternalStore(
+    noSubscription,
+    () => (key && display === 'open' ? draftAtMount(key) : null),
+    () => null,
+  );
+  const draft = useMemo(() => parseBallotDraft(raw), [raw]);
   useEffect(() => {
     const storage = tabStorage();
-    if (!key || !storage) return;
-    if (display === 'recorded' || display === 'decided') {
+    if (!key) return;
+    if (storage && (display === 'recorded' || display === 'decided'))
       clearBallotDraft(storage, key);
-      return;
-    }
-    if (display !== 'open' || answered) return;
-    const kept = readBallotDraft(storage, key);
-    if (kept) setDraft(kept);
-  }, [key, display, answered]);
+    return () => void firstRead.delete(key);
+  }, [key, display]);
   const save = useCallback(
     (form: HTMLFormElement) => {
       const storage = tabStorage();
@@ -57,6 +72,6 @@ export function useBallotDraft(
     },
     [key],
   );
-  const restored = !answered && draft !== null;
+  const restored = Object.keys(posted).length === 0 && draft !== null;
   return { values: restored ? draft : posted, restored, save };
 }

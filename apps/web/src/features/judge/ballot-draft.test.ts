@@ -3,7 +3,8 @@ import {
   ballotDraftKey,
   ballotDraftOf,
   clearBallotDraft,
-  readBallotDraft,
+  parseBallotDraft,
+  storedBallotDraft,
   writeBallotDraft,
   type BallotDraftStorage,
 } from './ballot-draft';
@@ -33,6 +34,8 @@ const refusing: BallotDraftStorage = {
   },
 };
 const key = ballotDraftKey('round-1', 'seat-1');
+const readBallotDraft = (storage: BallotDraftStorage, at: string) =>
+  parseBallotDraft(storedBallotDraft(storage, at));
 
 describe('ballot draft', () => {
   test('a round trip keeps only the ballot’s own fields', () => {
