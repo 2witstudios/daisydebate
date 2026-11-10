@@ -52,11 +52,11 @@ test('export carries the subject’s audience activity, and erasure removes ever
       // Someone else was told the subject was on air.
       const told = createId();
       await client.unsafe(
-        `insert into notifications (id,user_id,kind,round_id,debater_actor_id) values ($1,$2,'followed_debater_live',$3,$4)`,
+        `insert into notifications (id,user_id,kind,round_id,actor_id) values ($1,$2,'followed_debater_live',$3,$4)`,
         [told, otherUser, roundId, actorId],
       );
       await client.unsafe(
-        `insert into notification_preferences (user_id,kind,enabled) values ($1,'recording_ready',false)`,
+        `insert into notification_preferences (user_id,kind,channel,enabled) values ($1,'recording_ready','in_app',false)`,
         [userId],
       );
       const exported = await exportThenErase(database, { userId, actorId }, [

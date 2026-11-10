@@ -157,6 +157,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
     [],
     [],
     [], // its friend challenges are deleted (ISSUE-699)
+    [], // no invitation is pending to expire (ADR 0124)
     [],
     [],
     [],
