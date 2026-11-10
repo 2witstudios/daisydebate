@@ -11,7 +11,7 @@ export const RENEW_INTERVAL_MS = 1000;
 const PERSIST_MS = 10_000;
 
 /** Why the lease is not proven. */
-export type Unproven =
+type Unproven =
   /** No renewal has settled since the lease was last proven. */
   | { readonly kind: 'renewal_pending' }
   /** The latest renewal wrote the row only after its window had passed. */
