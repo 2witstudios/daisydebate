@@ -196,9 +196,20 @@ test('a snapshot for a different window cannot silently price this month', async
   const r = await collector.run(window);
   assert({
     given: 'a mismatched durable snapshot',
-    should: 'fail as snapshot_invalid without saving a misleading report',
-    actual: [r.kind === 'failed' && r.reason, saved],
-    expected: ['snapshot_invalid', []],
+    should:
+      'fail as snapshot_invalid, a typed VALIDATION window refusal, without saving a misleading report',
+    actual: [
+      r.kind === 'failed' && [
+        r.reason,
+        r.code,
+        r.cause instanceof Error && r.cause.message,
+      ],
+      saved,
+    ],
+    expected: [
+      ['snapshot_invalid', 'VALIDATION', 'Economics snapshot window mismatch'],
+      [],
+    ],
   });
 });
 

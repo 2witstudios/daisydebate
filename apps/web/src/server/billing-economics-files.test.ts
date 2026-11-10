@@ -487,3 +487,29 @@ test('a malformed feed keeps the parser error as its cause', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a refused feed open keeps its errno as the cause', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const target = join(directory, 'target.json');
+    await writeFile(target, '{}', { mode: 0o600 });
+    await symlink(target, join(directory, 'feed-2026-10.json'));
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'm'.repeat(24),
+    });
+    assert({
+      given: "a symlink in the feed's place, refused by O_NOFOLLOW",
+      should: 'refuse it as VALIDATION whose cause keeps the ELOOP errno',
+      actual: await codeOf(
+        files.feed.read(window).catch((error: unknown) => {
+          throw error instanceof Error ? error.cause : error;
+        }),
+      ),
+      expected: 'ELOOP',
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
