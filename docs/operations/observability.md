@@ -319,24 +319,24 @@ On every tick the loop checks how long the lease has gone unproven, so a renewal
 that hangs is still checked. At 10 s it logs `availability.lease_lapsing`
 (`cause` is `renewal_failed`, `renewal_late`, or `renewal_pending` when a
 renewal has been in flight for the whole window, or `process_stalled` when the
-process itself stalled (a timer or event loop that did not run), whatever
-renewal it has started since; the check right after a stall tells no one, so the
-renewal that tick starts can prove the lease first; `durationMs` is how long the
-lease has been unproven) and reports one error to the app's reporter under the
-route `web.service-lease.lapsed`, linked to the renewal failure when there was
-one; the line and the report carry that failure's own `errorCode` (`CONFLICT`
-when another role holds the row), `INFRASTRUCTURE` when there is none. One
-instance reports at most once every 5 minutes unless its lease has stayed proven
-for 30 s in between, so a flapping lease cannot flood the tracker, while a
-separate outage after a real recovery still reports. The log line and the
-tracker report are delivered and counted apart: a channel that fails is retried
-alone on the next tick, so a failing tracker never repeats the log line, and a
-delivered one is not retried. A blip the next renewal clears never reports,
-however many Rounds failed during it, and a stop ends the ticks, so a drain
-never reports. A plain `AUTHORIZATION` failure is reported at once. A bot speech
-refused admission keeps its delivery attempts and resumes at the refused step:
-the provider answer and the phrases already spoken are never bought or spoken
-again.
+process itself stalled (a timer or event loop that did not run) and no renewal
+has settled since; the one check right after a stall tells no one, so the
+renewal that tick starts can prove the lease first, and a renewal that settles
+after the stall names the lapse from then on; `durationMs` is how long the lease
+has been unproven) and reports one error to the app's reporter under the route
+`web.service-lease.lapsed`, linked to the renewal failure when there was one;
+the line and the report carry that failure's own `errorCode` (`CONFLICT` when
+another role holds the row), `INFRASTRUCTURE` when there is none. One instance
+reports at most once every 5 minutes unless its lease has stayed proven for 30 s
+in between, so a flapping lease cannot flood the tracker, while a separate
+outage after a real recovery still reports. The log line and the tracker report
+are delivered and counted apart: a channel that fails is retried alone on the
+next tick, so a failing tracker never repeats the log line, and a delivered one
+is not retried. A blip the next renewal clears never reports, however many
+Rounds failed during it, and a stop ends the ticks, so a drain never reports. A
+plain `AUTHORIZATION` failure is reported at once. A bot speech refused
+admission keeps its delivery attempts and resumes at the refused step: the
+provider answer and the phrases already spoken are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;

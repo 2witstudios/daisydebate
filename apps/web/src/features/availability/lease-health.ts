@@ -62,8 +62,10 @@ export type LeaseHealth = {
   readonly inFlightSinceMs: number | null;
   /** Monotonic ms of the previous check, to tell a stalled process. */
   readonly checkedMs: number;
-  /** Whether the process stalled since the lease was last proven. */
+  /** Whether the process stalled since the latest renewal settled. */
   readonly stalled: boolean;
+  /** Whether the previous check was the one just after a stall, and told no one. */
+  readonly resumed: boolean;
   readonly delivered: Delivered;
   /** Monotonic ms since which every check has found the lease proven. */
   readonly provenSinceMs: number | null;
@@ -101,6 +103,7 @@ export const startingLease = (nowMs: number): LeaseHealth => ({
   inFlightSinceMs: null,
   checkedMs: nowMs,
   stalled: false,
+  resumed: false,
   delivered: nothingDelivered,
   provenSinceMs: null,
 });
@@ -112,7 +115,8 @@ export function afterRenewal(
 ): LeaseHealth {
   if (renewal.kind === 'started')
     return { ...health, inFlightSinceMs: renewal.startedMs };
-  const done = { ...health, inFlightSinceMs: null };
+  // A renewal that settles after a stall names the lapse from now on.
+  const done = { ...health, inFlightSinceMs: null, stalled: false };
   if (renewal.kind === 'failed')
     return {
       ...done,
@@ -153,7 +157,7 @@ export function checkLease(
   health: LeaseHealth,
   nowMs: number,
 ): { readonly health: LeaseHealth; readonly due: LeaseLapseDue | null } {
-  const checked = { ...health, checkedMs: nowMs };
+  const checked = { ...health, checkedMs: nowMs, resumed: false };
   const lapsedMs = nowMs - health.currentUntilMs;
   if (lapsedMs < 0) {
     const provenSinceMs = health.provenSinceMs ?? nowMs;
@@ -172,10 +176,14 @@ export function checkLease(
   }
   const unrecovered = { ...checked, provenSinceMs: null };
   // Just resumed from a stall: this tick's renewal has not even started, so
-  // give it the chance to prove the lease before anyone is told, and name
-  // the stall if it cannot.
-  if (nowMs - health.checkedMs >= SERVICE_LEASE_WINDOW_MS)
-    return { health: { ...unrecovered, stalled: true }, due: null };
+  // give it one chance to prove the lease before anyone is told, and name
+  // the stall if it cannot. Only one check in a row is skipped, so a
+  // process that keeps stalling still reports.
+  if (nowMs - health.checkedMs >= SERVICE_LEASE_WINDOW_MS && !health.resumed)
+    return {
+      health: { ...unrecovered, stalled: true, resumed: true },
+      due: null,
+    };
   const log = isDue(health.delivered.logMs, nowMs);
   const report = isDue(health.delivered.reportMs, nowMs);
   return lapsedMs >= PERSIST_MS && (log || report)

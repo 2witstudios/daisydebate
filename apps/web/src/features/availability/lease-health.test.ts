@@ -251,3 +251,41 @@ test('a lapse is due on a channel only until that channel delivers', () => {
     expected: { log: false, report: true },
   });
 });
+
+test('a renewal failing after a stall names the failure, not the stall', () => {
+  let health = startingLease(0);
+  const why = { kind: 'renewal_failed', error: refused } as const;
+  for (let ms = 1000; ms <= 20_000; ms += 1000) {
+    health = checkLease(health, ms).health;
+    health = afterRenewal(health, { kind: 'failed', error: refused });
+  }
+  health = checkLease(health, 23_500).health;
+  health = afterRenewal(health, { kind: 'failed', error: refused });
+  assert({
+    given:
+      'renewals failing from start, one 3.5 s stall at 20 s, then a renewal that fails again',
+    should: 'report the lapse as the renewal failure',
+    actual: checkLease(health, 24_500).due?.lapse.unproven,
+    expected: why,
+  });
+});
+
+test('a process that keeps stalling still reports', () => {
+  let health = startingLease(0);
+  const dues: number[] = [];
+  for (let ms = 3200; ms <= 60_000; ms += 3200) {
+    const checked = checkLease(health, ms);
+    health = checked.health;
+    if (checked.due) {
+      dues.push(ms);
+      health = delivered(delivered(health, 'log', ms), 'report', ms);
+    }
+    health = afterRenewal(health, { kind: 'failed', error: refused });
+  }
+  assert({
+    given: 'a loop starved to one tick every 3.2 s, with every renewal failing',
+    should: 'report the lapse once, not skip every check as just resumed',
+    actual: dues.length,
+    expected: 1,
+  });
+});
