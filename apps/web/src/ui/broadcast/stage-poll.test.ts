@@ -23,21 +23,13 @@ const handTimer = () => {
   };
 };
 
-/** Reads that settle when the test says, each reporting whether its answer was fresh. */
+/** Reads that answer when the test says, so the test chooses the order they finish in. */
 const heldReads = () => {
-  const settle: (() => void)[] = [];
-  const fresh: boolean[] = [];
+  const answer: ((value: number) => void)[] = [];
   return {
-    read: (isFresh: () => boolean) =>
-      new Promise<void>((done) => {
-        settle.push(() => {
-          fresh.push(isFresh());
-          done();
-        });
-      }),
-    settle: (index: number) => settle[index]?.(),
-    fresh,
-    started: () => settle.length,
+    read: () => new Promise<number>((done) => answer.push(done)),
+    answer: (index: number) => answer[index]?.(index),
+    started: () => answer.length,
   };
 };
 
@@ -45,7 +37,11 @@ describe('startStagePoll', () => {
   test('every tick reads, so the watch samples once a second', () => {
     const timer = handTimer();
     const reads = heldReads();
-    const stop = startStagePoll({ read: reads.read, every: timer.every });
+    const stop = startStagePoll({
+      read: reads.read,
+      apply: () => undefined,
+      every: timer.every,
+    });
     timer.fire();
     timer.fire();
     stop();
@@ -56,22 +52,29 @@ describe('startStagePoll', () => {
       expected: 3,
     });
   });
-  test('an answer older than one already applied is stale', async () => {
+  test('a whole answer older than one already applied is never applied', async () => {
     const timer = handTimer();
     const reads = heldReads();
-    const stop = startStagePoll({ read: reads.read, every: timer.every });
+    const applied: number[] = [];
+    const stop = startStagePoll({
+      read: reads.read,
+      apply: (answer) => applied.push(answer),
+      every: timer.every,
+    });
     timer.fire();
     timer.fire();
-    reads.settle(1);
-    reads.settle(0);
-    reads.settle(2);
+    reads.answer(1);
+    await flush();
+    reads.answer(0);
+    await flush();
+    reads.answer(2);
     await flush();
     stop();
     assert({
-      given: 'three reads answering second, first, third',
+      given: 'three reads whose whole answers settle second, first, third',
       should: 'apply the second and the third, and drop the late first',
-      actual: reads.fresh,
-      expected: [true, false, true],
+      actual: applied,
+      expected: [1, 2],
     });
   });
   test('a read that rejects never escapes, and the next tick reads', async () => {
@@ -80,12 +83,14 @@ describe('startStagePoll', () => {
     const record = (reason: unknown) => rejections.push(reason);
     process.on('unhandledRejection', record);
     let reads = 0;
+    const applied: unknown[] = [];
     try {
       const stop = startStagePoll({
         read: () => {
           reads += 1;
           return Promise.reject(new Error('body was cut off'));
         },
+        apply: (answer) => applied.push(answer),
         every: timer.every,
       });
       await flush();
@@ -97,28 +102,28 @@ describe('startStagePoll', () => {
     }
     assert({
       given: 'reads that reject',
-      should: 'keep reading and raise no unhandled rejection',
-      actual: { reads, rejections },
-      expected: { reads: 2, rejections: [] },
+      should: 'keep reading, apply nothing and raise no unhandled rejection',
+      actual: { reads, applied, rejections },
+      expected: { reads: 2, applied: [], rejections: [] },
     });
   });
-  test('the first read starts at once and stopping clears the timer', () => {
+  test('an answer that settles after the stop is not applied', async () => {
     const timer = handTimer();
-    let reads = 0;
+    const reads = heldReads();
+    const applied: number[] = [];
     const stop = startStagePoll({
-      read: () => {
-        reads += 1;
-        return Promise.resolve();
-      },
+      read: reads.read,
+      apply: (answer) => applied.push(answer),
       every: timer.every,
     });
-    const atStart = reads;
     stop();
+    reads.answer(0);
+    await flush();
     assert({
-      given: 'a poll started then stopped',
-      should: 'have read once and cleared its timer',
-      actual: { atStart, cleared: timer.cleared },
-      expected: { atStart: 1, cleared: true },
+      given: 'a read in flight when the poll stops',
+      should: 'clear the timer and apply nothing',
+      actual: { applied, cleared: timer.cleared },
+      expected: { applied: [], cleared: true },
     });
   });
 });

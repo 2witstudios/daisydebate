@@ -27,6 +27,12 @@ type StageAnswer = StageSnapshot & {
 /** The LiveKit room the stage joins, under the observer token and without retries of its own. */
 type StageMediaRoom = StageRoomHandle & { readonly room: Room };
 
+/** One read of the stage: its HTTP status (null for no answer) and its snapshot, if readable. */
+type StageRead = {
+  readonly status: number | null;
+  readonly next: StageAnswer | null;
+};
+
 /** Fills its seat, so the 540p top layer reaches the frame close to one to one. */
 function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -64,7 +70,6 @@ export function StageRoom(props: {
     [],
   );
   const started = useRef(false);
-  const ended = useRef(false);
   const watch = useRef(stageWatchStart);
   const identities = useRef<readonly string[]>([]);
   useEffect(() => {
@@ -108,23 +113,23 @@ export function StageRoom(props: {
       },
       onLink: setLink,
     });
-    const read = async (isFresh: () => boolean) => {
-      if (ended.current) return;
+    /** One whole answer, body included, so the poll can order it; never rejects. */
+    const read = async (): Promise<StageRead> => {
       // A web tier that is gone may never answer, so a read cannot wait for it.
       const answer = await fetch(`/api/stage/${props.captureId}`, {
         headers: { 'x-stage-credential': props.credential },
         cache: 'no-store',
         signal: AbortSignal.timeout(READ_TIMEOUT_MS),
       }).catch(() => null);
-      // A later read already answered: this one is older news, for the watch too.
-      if (!isFresh()) return;
-      watch.current = watchedStage(
-        watch.current,
-        answer?.status ?? null,
-        performance.now(),
-      );
+      // A body cut off mid-read is no new answer; the next read tries again.
+      const next = answer?.ok
+        ? ((await answer.json().catch(() => null)) as StageAnswer | null)
+        : null;
+      return { status: answer?.status ?? null, next };
+    };
+    const apply = ({ status, next }: StageRead) => {
+      watch.current = watchedStage(watch.current, status, performance.now());
       if (watch.current.ended) {
-        ended.current = true;
         // Egress stops on exactly this line. Nothing else can stop it with the web gone.
         // eslint-disable-next-line no-console
         console.log('END_RECORDING');
@@ -132,11 +137,6 @@ export function StageRoom(props: {
         connection.close();
         return;
       }
-      if (!answer?.ok) return;
-      // A body cut off mid-read is no new answer; the next read tries again.
-      const next = (await answer
-        .json()
-        .catch(() => null)) as StageAnswer | null;
       if (next) show(next);
     };
     const show = (next: StageAnswer) => {
@@ -159,9 +159,10 @@ export function StageRoom(props: {
       // Not awaited: a connect may take seconds, and the watch must keep reading.
       if (next.room) void connection.offer(next.room);
     };
-    // A read reaches stop() only after its fetch, so the poll has returned by then.
+    // apply() runs only after a read settles, so the poll has returned by then.
     const stop = startStagePoll({
       read,
+      apply,
       every: (tick) => {
         const handle = setInterval(tick, POLL_MS);
         return () => clearInterval(handle);
