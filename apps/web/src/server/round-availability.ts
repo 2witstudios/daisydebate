@@ -38,11 +38,8 @@ export function startRoundAvailability(input: {
         { operation: 'availability.probe', cause: problem },
         'Public check-in probe cannot prove health',
       ),
-    lapsing: leaseLapseReport({
-      logger: app.logger,
-      reporter: app.reporter,
-      nextId: () => app.ids.next(),
-    }),
+    lapsing: leaseLapseReport({ logger: app.logger, reporter: app.reporter }),
+    nextId: () => app.ids.next(),
     failed: (error) =>
       app.logger.log(
         'availability.sample_failed',

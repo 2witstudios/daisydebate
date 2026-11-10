@@ -1,3 +1,5 @@
+import { SERVICE_LEASE_WINDOW_MS } from '@daisy/db/service-lease-lapse';
+import { createAppError } from '@daisy/errors';
 import { guarded } from '@daisy/observability';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import {
@@ -21,6 +23,12 @@ type Sampler = {
 const PROBE_RESOURCE_CHECK_MS = 60 * 60_000;
 /** How soon a failed check tries again. */
 const PROBE_RESOURCE_RETRY_MS = 60_000;
+/**
+ * How long a renewal may stay in flight before the loop abandons it and
+ * starts another: twice the lease window, past any bounded statement.
+ */
+const RENEWAL_DEADLINE_MS = 2 * SERVICE_LEASE_WINDOW_MS;
+
 /** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
@@ -51,9 +59,11 @@ export function startAvailabilityService(deps: {
    * channel that throws was not delivered, and is tried again next tick.
    */
   readonly lapsing: {
-    readonly log: (lapse: LeaseLapse) => void;
-    readonly report: (lapse: LeaseLapse) => void;
+    readonly log: (lapse: LeaseLapse, streakId: string) => void;
+    readonly report: (lapse: LeaseLapse, streakId: string) => void;
   };
+  /** Mints the one id a streak's log line and report share, to join them. */
+  readonly nextId: () => string;
 }) {
   const { nowMs } = deps;
   let resourcesCheckedAt = Number.NEGATIVE_INFINITY;
@@ -106,18 +116,33 @@ export function startAvailabilityService(deps: {
     lease = afterRenewal(lease, renewal);
   };
   /** Checked on every tick, so a renewal that hangs still counts as unproven. */
+  let streakId = '';
   const checkHealth = () => {
     const due = checkLease(lease, nowMs());
     if (!due) return;
+    // A streak not yet told on either channel is new: give it its one id.
+    if (due.log && due.report) streakId = deps.nextId();
     // A channel counts only once it went out; reporting never stops renewals.
-    if (due.log && guarded(() => deps.lapsing.log(due.lapse)))
+    if (due.log && guarded(() => deps.lapsing.log(due.lapse, streakId)))
       lease = delivered(lease, 'log');
-    if (due.report && guarded(() => deps.lapsing.report(due.lapse)))
+    if (due.report && guarded(() => deps.lapsing.report(due.lapse, streakId)))
       lease = delivered(lease, 'report');
   };
+  /** The renewal in flight: which attempt it is, and when it started. */
+  let attempt = { id: 0, startedMs: 0 };
   const renew = () => {
-    if (renewing) return renewing;
-    const startedMs = nowMs();
+    if (renewing && nowMs() - attempt.startedMs < RENEWAL_DEADLINE_MS)
+      return renewing;
+    if (renewing) {
+      // Hung past its deadline: count it failed and start afresh, so one
+      // renewal that never settles cannot stop all later ones.
+      const hung = createAppError('INFRASTRUCTURE', 'Lease renewal hung');
+      observe({ kind: 'failed', error: hung });
+      failedSafely(hung);
+    }
+    const mine = { id: attempt.id + 1, startedMs: nowMs() };
+    attempt = mine;
+    const current = () => attempt.id === mine.id;
     // A store that throws synchronously still settles as a failed renewal.
     renewing = Promise.try(() =>
       deps.store.renewServiceInstance({
@@ -126,16 +151,23 @@ export function startAvailabilityService(deps: {
       }),
     )
       .then(() => {
-        observe({ kind: 'renewed', startedMs, settledMs: nowMs() });
+        // An abandoned renewal that settles late proves nothing now.
+        if (!current()) return false;
+        observe({
+          kind: 'renewed',
+          startedMs: mine.startedMs,
+          settledMs: nowMs(),
+        });
         return true;
       })
       .catch((error: unknown) => {
+        if (!current()) return false;
         observe({ kind: 'failed', error });
         failedSafely(error);
         return false;
       })
       .finally(() => {
-        renewing = null;
+        if (current()) renewing = null;
       });
     return renewing;
   };

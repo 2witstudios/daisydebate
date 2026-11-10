@@ -19,31 +19,33 @@ const failureOf = (lapse: LeaseLapse) =>
  * lease is unproven and for how long; the error tracker gets one error under
  * one route, linked to the renewal failure when there was one, since the
  * reporter port carries no other fields (ADR 0037). Both carry the failure's
- * own code, `INFRASTRUCTURE` when there is none. Each throws when it could not
- * deliver, so the loop tries that channel again.
+ * own code, `INFRASTRUCTURE` when there is none, and the streak's one id as
+ * `requestId`, so the event joins to the line's measured duration. Each throws
+ * when it could not deliver, so the loop tries that channel again.
  */
 export const leaseLapseReport = (deps: {
   readonly logger: Pick<Logger, 'log'>;
   readonly reporter: ErrorReporter;
-  readonly nextId: () => string;
 }) => ({
-  log: (lapse: LeaseLapse): void =>
+  log: (lapse: LeaseLapse, streakId: string): void =>
     deps.logger.log(
       'availability.lease_lapsing',
       {
         operation: 'availability.lease',
+        // The report's requestId: joins the measured duration to the event.
+        requestId: streakId,
         errorCode: errorCodeOf(failureOf(lapse), 'INFRASTRUCTURE'),
         cause: lapse.unproven.kind,
         durationMs: Math.max(0, Math.round(lapse.lapsedMs)),
       },
       'Web service lease unproven',
     ),
-  report: (lapse: LeaseLapse): void => {
+  report: (lapse: LeaseLapse, streakId: string): void => {
     const failure = failureOf(lapse);
     const errorCode = errorCodeOf(failure, 'INFRASTRUCTURE');
     deps.reporter.capture(
       createAppError(errorCode, 'Web service lease lapsing', failure),
-      { requestId: deps.nextId(), route: ROUTE, errorCode },
+      { requestId: streakId, route: ROUTE, errorCode },
     );
   },
 });

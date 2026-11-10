@@ -3,13 +3,14 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { leaseLapseReport } from './lease-lapse-report';
 setupRitewayBun();
 
+const streak = 'r4n6p8r2t4v6x8z1k3b5c7d9';
+
 const recorded = () => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
   const channels = leaseLapseReport({
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
-    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
   });
   return { lines, captured, channels };
 };
@@ -21,8 +22,8 @@ test('a lapse caused by a failing renewal is logged with its length and reported
     lapsedMs: 10_000.4,
     unproven: { kind: 'renewal_failed', error: refused },
   } as const;
-  channels.log(lapse);
-  channels.report(lapse);
+  channels.log(lapse, streak);
+  channels.report(lapse, streak);
   const [error, context] = captured[0] ?? [];
   assert({
     given: 'a lapse of ten seconds whose latest renewal failed',
@@ -40,6 +41,7 @@ test('a lapse caused by a failing renewal is logged with its length and reported
           'availability.lease_lapsing',
           {
             operation: 'availability.lease',
+            requestId: streak,
             errorCode: 'INFRASTRUCTURE',
             cause: 'renewal_failed',
             durationMs: 10_000,
@@ -68,8 +70,8 @@ test('a lapse from a hung or late renewal, or a failure that is no Error, links 
       unproven: { kind: 'renewal_failed', error: 'not an error' },
     },
   ] as const) {
-    channels.log(lapse);
-    channels.report(lapse);
+    channels.log(lapse, streak);
+    channels.report(lapse, streak);
   }
   assert({
     given:
@@ -98,8 +100,8 @@ test('a lapse caused by a typed refusal keeps the refusal’s own code', () => {
     lapsedMs: 10_000,
     unproven: { kind: 'renewal_failed', error: conflict },
   } as const;
-  channels.log(lapse);
-  channels.report(lapse);
+  channels.log(lapse, streak);
+  channels.report(lapse, streak);
   const [error, context] = captured[0] ?? [];
   assert({
     given:
@@ -127,7 +129,6 @@ test('a channel that cannot deliver throws, so the loop tries it again', () => {
   const channels = leaseLapseReport({
     logger: { log: failing },
     reporter: { capture: failing },
-    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
   });
   const lapse = {
     lapsedMs: 10_000,
@@ -145,8 +146,8 @@ test('a channel that cannot deliver throws, so the loop tries it again', () => {
     given: 'a log and a tracker that both throw',
     should: 'throw from each channel',
     actual: [
-      threw(() => channels.log(lapse)),
-      threw(() => channels.report(lapse)),
+      threw(() => channels.log(lapse, streak)),
+      threw(() => channels.report(lapse, streak)),
     ],
     expected: [true, true],
   });

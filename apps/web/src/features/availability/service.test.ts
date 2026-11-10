@@ -1,3 +1,4 @@
+import { isAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
 setupRitewayBun();
@@ -40,6 +41,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
       },
     },
     lapsing: { log: () => {}, report: () => {} },
+    nextId: () => 's'.repeat(24),
     failed: () => {
       events.push('failed');
     },
@@ -128,6 +130,7 @@ test('missing probe resources are named at start and hourly, and never decide he
     },
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
+    nextId: () => 's'.repeat(24),
   });
   const settle = async () => {
     for (let n = 0; n < 12; n++) await Promise.resolve();
@@ -182,6 +185,7 @@ test('every process checks the probe resources at start, elected or not', async 
     timers: { setInterval: () => 1, clearInterval: () => {} },
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
+    nextId: () => 's'.repeat(24),
   });
   await service.probeChecked;
   assert({
@@ -225,6 +229,7 @@ test('a failing probe check waits a minute, not a second', async () => {
     },
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
+    nextId: () => 's'.repeat(24),
   });
   await service.probeChecked;
   const pass = async () => {
@@ -282,6 +287,7 @@ test('a lease left unproven for ten seconds is told once per channel, and a stop
       },
     },
     failed: () => {},
+    nextId: () => 's'.repeat(24),
   });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
   for (let i = 0; i < 12; i++) {
@@ -356,6 +362,7 @@ function ticked(
     failed: () => {
       throw new Error('failure sink broke');
     },
+    nextId: () => 's'.repeat(24),
   });
   const advance = async (seconds: number) => {
     for (let i = 0; i < seconds; i++) {
@@ -369,16 +376,40 @@ function ticked(
 
 const hung = () => new Promise<void>(() => {});
 
-test('a renewal that never settles is still checked on every tick, and reports', async () => {
-  const { logs, reports, advance } = ticked(hung);
-  await advance(12);
-  const lapse = { lapsedMs: 10_000, unproven: { kind: 'renewal_pending' } };
+test('a renewal that never settles is abandoned at its deadline, and the lapse reports', async () => {
+  let calls = 0;
+  const { logs, reports, advance } = ticked(() => {
+    calls += 1;
+    return new Promise(() => {});
+  });
+  await advance(13);
+  const [report] = reports as {
+    lapsedMs: number;
+    unproven: { kind: string; error: unknown };
+  }[];
   assert({
     given:
-      'a renewal that hangs from start, with the ticks running for twelve seconds',
-    should: 'log and report one lapse of ten seconds with the renewal pending',
-    actual: { logs, reports },
-    expected: { logs: [lapse], reports: [lapse] },
+      'renewals that never settle, with the ticks running for thirteen seconds',
+    should:
+      'start a new renewal each time one passes its 6 s deadline, and log and report the lapse once at 10 s as a failed, hung renewal',
+    actual: {
+      calls,
+      logs: logs.length,
+      reports: reports.length,
+      lapsedMs: report?.lapsedMs,
+      kind: report?.unproven.kind,
+      code: isAppError(report?.unproven.error)
+        ? report.unproven.error.code
+        : null,
+    },
+    expected: {
+      calls: 3,
+      logs: 1,
+      reports: 1,
+      lapsedMs: 10_000,
+      kind: 'renewal_failed',
+      code: 'INFRASTRUCTURE',
+    },
   });
 });
 

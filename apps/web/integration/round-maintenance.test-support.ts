@@ -139,6 +139,7 @@ export function maintenanceAvailability(input: {
     timers: maintenanceTestTimers,
     failed: input.failed,
     lapsing: { log: () => {}, report: () => {} },
+    nextId: () => input.instanceId,
   });
   return { service, firstSample };
 }
