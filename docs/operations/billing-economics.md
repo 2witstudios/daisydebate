@@ -212,9 +212,9 @@ raises each thing once per process:
   sink, which absorbs eight per stage and reports the ninth, so starvation is
   reported even after another failure of that stage, and it never masks one. A failure is raised once until a report is saved again; after that
   the same failure is a regression and raises again. Only a failure the worker
-  failure sink reported (its log line written and the error tracker took it) counts as
-  raised (a log line alone does not, so a tracker outage is retried on later ticks,
-  and an inert tracker alone is no record either; the exception is
+  failure sink reported (the error tracker took it) counts as
+  raised (a log line alone does not, so a tracker outage is retried on later
+  ticks; the exception is
   `signal_failed`, where the tracker is what failed, so its log line settles
   it), so a deferred capacity refusal never mutes what follows.
 - **Missing feed.** `billing.economics.feed_missing` is logged once a month,
@@ -387,7 +387,7 @@ file mode, plus the actual current-service query receipt. In a provisioned sink 
 missing feed must submit `BILLING_ECONOMICS_INCOMPLETE` once for the month; a separately labelled controlled threshold crossing
 can qualify signal plumbing but cannot establish a real measured margin. Existing
 `reporterFrom` maps only fixed signal/errorCode, plan route and UTC month to Sentry.
-The collector's `alertDelivery` remains `unconfirmed` even when capture returns.
+The `alertDelivery` of `raiseEconomicsSignals`'s submission remains `unconfirmed` even when capture returns.
 
 No approved local external operator destination/DSN was supplied. No outbound
 operator message has been sent. The remaining minimal human-controlled delivery

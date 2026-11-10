@@ -65,15 +65,15 @@ export function recoverableFailure(input: {
         errorCode,
       }),
     );
-    // Reported means both sinks hold it: an inert reporter that cannot throw is no record alone.
-    return captured && logged ? 'reported' : logged ? 'logged' : 'unrecorded';
+    // Reported means the tracker took it: settling then never re-sends one failure every tick.
+    return captured ? 'reported' : logged ? 'logged' : 'unrecorded';
   };
   /**
    * Never throws, so no worker promise ever rejects because reporting its
-   * failure failed (ISSUE-789). It answers what it did: `reported` (the log
-   * line and the reporter both took it), `logged` (only the log line did),
-   * `unrecorded` (the log line did not) or `deferred` (absorbed as capacity
-   * backpressure within the bound), so a caller never re-derives the rule.
+   * failure failed (ISSUE-789). It answers what it did: `reported` (the
+   * reporter took it), `logged` (only the log line did), `unrecorded`
+   * (neither) or `deferred` (absorbed as capacity backpressure within the
+   * bound), so a caller never re-derives the rule.
    */
   return (
     error: unknown,

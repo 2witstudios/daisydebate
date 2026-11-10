@@ -83,6 +83,7 @@ export type BillingEconomicsRefusal =
   | 'economics-clock-invalid'
   | 'economics-window-invalid'
   | 'economics-sink-not-private'
+  | 'economics-sink-unusable'
   | 'economics-sink-full'
   | 'economics-sink-unreadable'
   | 'economics-feed-unavailable'
@@ -100,6 +101,7 @@ export type BillingEconomicsRefusal =
   | 'economics-snapshot-window-mismatch'
   | 'economics-snapshot-from-future'
   | 'economics-report-input-invalid'
+  | 'economics-feed-missing'
   // The worker's stages, carried by the error it reports.
   | 'economics-sink-unavailable'
   | 'economics-snapshot-failed'

@@ -207,7 +207,7 @@ test('a provisioned sink without a feed raises completeness once per month, not 
           ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.beta'],
           ['BILLING_ECONOMICS_INCOMPLETE', 'billing.economics.premium'],
         ],
-        logged: [['billing.economics.feed_missing', 'feed_missing']],
+        logged: [['billing.economics.feed_missing', 'economics-feed-missing']],
       },
     });
   } finally {

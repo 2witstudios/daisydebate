@@ -65,18 +65,23 @@ async function prunePrivateFiles(
 async function privateDirectory(directory: string) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const info = await lstat(directory);
-  // Private to this process: no group/other bits, owned by this uid, and usable by it (rwx),
-  // so a later refusal on a file inside is the file's, never the directory's.
+  // Private: no group/other bits.
+  if (!info.isDirectory() || (info.mode & 0o077) !== 0)
+    throw createRefusal(
+      'VALIDATION',
+      'economics-sink-not-private',
+      'Billing economics directory is not private',
+    );
+  // Usable by this process: owned by this uid and rwx for its owner, so a later refusal
+  // on a file inside is the file's, never the directory's.
   if (
-    !info.isDirectory() ||
-    (info.mode & 0o077) !== 0 ||
     (info.mode & 0o700) !== 0o700 ||
     (process.getuid !== undefined && info.uid !== process.getuid())
   )
     throw createRefusal(
       'VALIDATION',
-      'economics-sink-not-private',
-      'Billing economics directory is not private',
+      'economics-sink-unusable',
+      'Billing economics directory is not owned by and usable to this process',
     );
 }
 async function readBoundedJson(file: FileHandle) {
@@ -126,8 +131,9 @@ async function readPrivateFeed(path: string) {
         ? error.code
         : undefined;
     if (code === 'ENOENT') return null;
-    // A symbolic link in the feed's place is the operator's file being wrong.
-    if (code === 'ELOOP')
+    // A symbolic link, or a socket or device that cannot be opened, in the feed's place is the
+    // operator's file being wrong.
+    if (code === 'ELOOP' || code === 'ENXIO')
       throw createRefusal(
         'VALIDATION',
         'economics-feed-not-private',

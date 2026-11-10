@@ -625,12 +625,12 @@ test('a sink directory this process cannot use is refused as not private', async
     assert({
       given: 'a sink directory with no owner execute bit (mode 0600)',
       should:
-        'refuse at open as economics-sink-not-private, before any file inside',
+        'refuse at open as economics-sink-unusable, before any file inside',
       actual: await files.sink.open(window).then(
         () => null,
         (error: unknown) => (error as { reason?: string }).reason ?? null,
       ),
-      expected: 'economics-sink-not-private',
+      expected: 'economics-sink-unusable',
     });
   } finally {
     await chmod(directory, 0o700);

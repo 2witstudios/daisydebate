@@ -217,7 +217,7 @@ export function startBillingEconomics(input: {
           app,
           'billing.economics.feed_missing',
           'Private billing economics feed is missing for the month; the report stays incomplete',
-          'feed_missing',
+          'economics-feed-missing',
         )
       )
         raised = recordFeedMissingLogged(raised, collection.month, true);
