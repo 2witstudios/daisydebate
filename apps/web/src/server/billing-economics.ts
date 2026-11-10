@@ -15,7 +15,10 @@ import {
   failureNotice,
   isFailureRaised,
   nothingRaised,
+  collectCompleted,
   collectFailureNotice,
+  isCollectRaised,
+  recordCollect,
   owedSignals,
   raisedIn,
   recordFailure,
@@ -139,8 +142,6 @@ export function startBillingEconomics(input: {
     economicsFailureCheck,
   );
   let raised = nothingRaised;
-  /** Failures outside any collection already reported, until a collection completes. */
-  const collectFailures = new Set<string>();
   /**
    * Report a failure notice once until a report settles. A failure counts as
    * raised once the tracker took it; when the tracker is itself what failed
@@ -161,25 +162,41 @@ export function startBillingEconomics(input: {
       raised = recordFailure(raised, month, notice);
   };
   const raise = (collection: EconomicsCollection) => {
-    if (collection.kind === 'failed') {
-      // The tracker's scrubber replaces exception text, so stages are told apart there by route;
-      // the stage's closed word names it on the log line when the cause carries none.
-      const error = stageError(
-        collection.reason,
-        collection.code,
-        collection.cause,
-      );
-      // Capacity backpressure is bounded by the shared sink itself and is never a notice,
-      // so it neither masks a later outage nor stops counting towards starvation.
-      if (isCapacityRefusal(collection.cause))
-        return void failed(error, collection.reason);
-      return reportOnce(
-        collection.month,
-        failureNotice(collection),
-        error,
+    if (collection.kind !== 'failed') return raiseReport(collection);
+    try {
+      raiseFailure(collection);
+    } catch {
+      // A hostile cause (a throwing getter) still reports its stage, never as `collect`.
+      failed(
+        stageError(collection.reason, collection.code, undefined),
         collection.reason,
       );
     }
+  };
+  const raiseFailure = (
+    collection: Extract<EconomicsCollection, { readonly kind: 'failed' }>,
+  ) => {
+    // The tracker's scrubber replaces exception text, so stages are told apart there by route;
+    // the stage's closed word names it on the log line when the cause carries none.
+    const error = stageError(
+      collection.reason,
+      collection.code,
+      collection.cause,
+    );
+    // Capacity backpressure is bounded by the shared sink itself and is never a notice,
+    // so it neither masks a later outage nor stops counting towards starvation.
+    if (isCapacityRefusal(collection.cause))
+      return void failed(error, collection.reason);
+    return reportOnce(
+      collection.month,
+      failureNotice(collection),
+      error,
+      collection.reason,
+    );
+  };
+  const raiseReport = (
+    collection: Extract<EconomicsCollection, { readonly kind: 'reported' }>,
+  ) => {
     // A supplied feed re-arms the missing-feed line, so a feed that later disappears is logged.
     if (
       collection.feed === 'supplied' &&
@@ -231,19 +248,19 @@ export function startBillingEconomics(input: {
     // A failure outside any collection (an invalid clock, a defect) is reported once per
     // distinct problem until a collection completes again, never every hour.
     failed: (error) => {
-      // Never throws (ISSUE-789): reading a hostile error falls back to the plain sink.
+      // Never throws (ISSUE-789): reading a hostile error falls back to the stage's own error.
       try {
         const notice = collectFailureNotice(error);
-        if (collectFailures.has(notice)) return;
+        if (isCollectRaised(raised, notice)) return;
         // An error that names no check is wrapped, so the line names its stage.
         const named =
           isAppError(error) && error.reason
             ? error
             : stageError('collect', typedCodeOr(error, 'INTERNAL'), error);
         if (failed(named, 'collect') === 'reported')
-          collectFailures.add(notice);
+          raised = recordCollect(raised, notice);
       } catch {
-        failed(error, 'collect');
+        failed(stageError('collect', 'INTERNAL', undefined), 'collect');
       }
     },
     run: async () => {
@@ -254,8 +271,9 @@ export function startBillingEconomics(input: {
           'economics-clock-invalid',
           'Billing economics clock invalid',
         );
-      raise(await collector.run(window));
-      collectFailures.clear();
+      const collection = await collector.run(window);
+      raised = collectCompleted(raised);
+      raise(collection);
     },
   });
 }

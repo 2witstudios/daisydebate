@@ -62,6 +62,8 @@ export type EconomicsRaised = {
   readonly signals: ReadonlySet<string>;
   /** Whether this month's missing feed was logged. */
   readonly feedMissingLogged: boolean;
+  /** Failures outside any collection reported since a collection last completed; not month-bound. */
+  readonly collect: ReadonlySet<string>;
 };
 
 export const nothingRaised: EconomicsRaised = {
@@ -69,6 +71,7 @@ export const nothingRaised: EconomicsRaised = {
   failures: new Set(),
   signals: new Set(),
   feedMissingLogged: false,
+  collect: new Set(),
 };
 
 /** The record for a month: what was raised if it is the same month, otherwise nothing. */
@@ -76,7 +79,9 @@ export const raisedIn = (
   raised: EconomicsRaised,
   month: string,
 ): EconomicsRaised =>
-  raised.month === month ? raised : { ...nothingRaised, month };
+  raised.month === month
+    ? raised
+    : { ...nothingRaised, month, collect: raised.collect };
 
 /** Whether this failure notice was already reported since the month's last settled report. */
 export const isFailureRaised = (
@@ -146,3 +151,20 @@ export const recordFeedMissingLogged = (
   ...raisedIn(raised, month),
   feedMissingLogged: logged,
 });
+
+/** Whether this failure outside any collection was already reported since one completed. */
+export const isCollectRaised = (raised: EconomicsRaised, notice: string) =>
+  raised.collect.has(notice);
+
+/** Record a reported failure outside any collection. */
+export const recordCollect = (
+  raised: EconomicsRaised,
+  notice: string,
+): EconomicsRaised => ({
+  ...raised,
+  collect: new Set([...raised.collect, notice]),
+});
+
+/** A collection completed, so failures outside one are news again. */
+export const collectCompleted = (raised: EconomicsRaised): EconomicsRaised =>
+  raised.collect.size === 0 ? raised : { ...raised, collect: new Set() };

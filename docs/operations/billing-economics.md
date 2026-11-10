@@ -95,10 +95,13 @@ criterion complete or supersede BILL-H.
 The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
 at most1000 directory entries and removes only expired regular files in its own
-closed feed/report filename namespace. It never expires the feed of the window being
-collected (the previous calendar month, or an older month during a late
-correction) or of any later month, in the opening sweep or the save's, so a measured month cannot turn into a
-missing feed under its own collection. At1000 retained files a new save refuses;
+closed feed/report filename namespace. Each collection's sweeps (opening and save)
+never expire a feed from the month it collects through the current month, so a
+measured month cannot turn into a missing feed under its own collection. The
+hourly worker collects the previous month; a late correction of an older month
+protects that month only during its own run, so place an older feed with a
+fresh modification time (not `cp -p` or `rsync -a`) if the worker may sweep in
+between. A feed named for a future month is not protected. At1000 retained files a new save refuses;
 more than1000 entries also refuses, rather than claiming a drained sweep. This
 bounds this sink's generated files and cleanup work. Provision the directory only
 for this sink. Source financial systems retain their own classified records; the
@@ -230,11 +233,7 @@ A month that cannot be measured therefore reaches the error tracker either as
 `BILLING_ECONOMICS_INCOMPLETE` (a saved, incomplete report) or as one
 `billing.economics.<reason>` failure, never both for one failure. An operator
 alert for an unmeasured month should match the route prefix
-`billing.economics.`, not the completeness code alone. Before this change a
-failed collection also captured `BILLING_ECONOMICS_INCOMPLETE` (with a
-`delivery-failed` correlation value). If a Sentry alert rule keyed on that code
-exists, the owner moves it to the route prefix; no such rule is provisioned by
-this repository.
+`billing.economics.`, not the completeness code alone.
 The reporter `raiseEconomicsSignals` submits through remains a void port: runtime registration and unit
 transport capture do not confirm an operator/Sentry notification. Actual approved
 measurement-feed and private-destination delivery receipts remain required

@@ -144,6 +144,17 @@ async function runWorker(input: {
   return { reads, captured, logged, cadence, scheduled: tick !== null };
 }
 
+/** Fill the sink to exactly its 1000-entry cap, so the sweep passes and the save refuses; drain undoes it. */
+const fillSink = async (directory: string) => {
+  const present = (await readdir(directory)).length;
+  for (let n = 0; n < 1000 - present; n++)
+    await writeFile(join(directory, `fill-${n}.txt`), '', { mode: 0o600 });
+};
+const drainSink = async (directory: string) => {
+  for (const name of await readdir(directory))
+    if (name.startsWith('fill-')) await rm(join(directory, name));
+};
+
 test('an unprovisioned sink does not start the worker and raises nothing', async () => {
   const run = await runWorker({ ticks: 2 });
   assert({
@@ -513,13 +524,13 @@ test('a reporter that keeps throwing is reported as signal_failed once, and retr
 test('a failure that returns after a recovery is raised again', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
   try {
-    await chmod(directory, 0o500);
+    await fillSink(directory);
     const run = await runWorker({
       directory,
       ticks: 3,
       between: async (n) => {
-        if (n === 1) await chmod(directory, 0o700);
-        if (n === 2) await chmod(directory, 0o500);
+        if (n === 1) await drainSink(directory);
+        if (n === 2) await fillSink(directory);
       },
     });
     assert({
@@ -575,8 +586,8 @@ test('in a month that starts healthy, every regression after a report is raised'
       directory,
       ticks: 4,
       between: async (n) => {
-        if (n === 1 || n === 3) await chmod(directory, 0o500);
-        if (n === 2) await chmod(directory, 0o700);
+        if (n === 1 || n === 3) await fillSink(directory);
+        if (n === 2) await drainSink(directory);
       },
     });
     assert({
@@ -1253,6 +1264,29 @@ test('a hostile error outside any collection never rejects the worker', async ()
   } finally {
     await service.stop();
     await app.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a hostile cause in a stage still reports that stage', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const hostile = new Error('hostile');
+  Object.defineProperty(hostile, 'code', {
+    get() {
+      throw new Error('getter');
+    },
+  });
+  try {
+    const run = await runWorker({ directory, ticks: 0, refuse: () => hostile });
+    assert({
+      given: 'a snapshot read that throws an error whose code getter throws',
+      should: 'report snapshot_failed, never collect',
+      actual: run.logged
+        .filter((line) => line.event === 'billing.economics.failed')
+        .map((line) => line.fields.operation),
+      expected: ['billing.economics.snapshot_failed'],
+    });
+  } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });

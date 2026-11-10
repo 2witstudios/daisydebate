@@ -604,3 +604,29 @@ test('opening the sink refuses a malformed end instant before retention runs', a
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a sink directory this process cannot use is refused as not private', async () => {
+  const { chmod } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    await chmod(directory, 0o600);
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'q'.repeat(24),
+    });
+    assert({
+      given: 'a sink directory with no owner execute bit (mode 0600)',
+      should:
+        'refuse at open as economics-sink-not-private, before any file inside',
+      actual: await files.sink.open(window).then(
+        () => null,
+        (error: unknown) => (error as { reason?: string }).reason ?? null,
+      ),
+      expected: 'economics-sink-not-private',
+    });
+  } finally {
+    await chmod(directory, 0o700);
+    await rm(directory, { recursive: true, force: true });
+  }
+});

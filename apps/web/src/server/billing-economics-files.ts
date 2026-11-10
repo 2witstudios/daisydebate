@@ -65,7 +65,14 @@ async function prunePrivateFiles(
 async function privateDirectory(directory: string) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const info = await lstat(directory);
-  if (!info.isDirectory() || (info.mode & 0o077) !== 0)
+  // Private to this process: no group/other bits, owned by this uid, and usable by it (rwx),
+  // so a later refusal on a file inside is the file's, never the directory's.
+  if (
+    !info.isDirectory() ||
+    (info.mode & 0o077) !== 0 ||
+    (info.mode & 0o700) !== 0o700 ||
+    (process.getuid !== undefined && info.uid !== process.getuid())
+  )
     throw createRefusal(
       'VALIDATION',
       'economics-sink-not-private',
