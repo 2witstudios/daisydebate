@@ -951,9 +951,9 @@ test('the log line names a typed check as a closed code', () => {
   const typed = (message: string) => createAppError('VALIDATION', message);
   assert({
     given:
-      'a wrapper with a typed cause, a typed error with no cause, a message starting with a digit, and an untyped cause',
+      'a wrapper with a typed cause, a typed error with no cause, a digit-first message, a stage wrapper with an untyped cause, and an untyped error',
     should:
-      'name the typed check, start with a letter, and name nothing for an untyped cause',
+      'name the typed check (or the stage), start with a letter, and name nothing for an untyped error',
     actual: [
       economicsFailureCheck(
         createAppError(
@@ -971,13 +971,19 @@ test('the log line names a typed check as a closed code', () => {
         ),
       ),
       economicsFailureCheck(
-        createAppError('INFRASTRUCTURE', undefined, new Error('driver')),
+        createAppError(
+          'INFRASTRUCTURE',
+          'Billing economics snapshot_failed',
+          new Error('driver'),
+        ),
       ),
+      economicsFailureCheck(new Error('driver')),
     ],
     expected: [
       'Conflicting_model_cost_bases',
       'Billing_economics_clock_invalid',
       'files_reached',
+      'Billing_economics_snapshot_failed',
       undefined,
     ],
   });
@@ -1063,6 +1069,53 @@ test('captures carry a fixed per-stage message, and signal_failed keeps a typed 
       ],
     });
   } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('two different defects outside any collection are each reported', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  const app = build(directory);
+  const { logged, logger } = createEventRecorder();
+  let calls = 0;
+  let tick: (() => Promise<void>) | null = null;
+  const service = startBillingEconomics({
+    app: {
+      ...app,
+      logger,
+      clock: {
+        now: () => {
+          calls++;
+          if (calls <= 2) throw new TypeError('defect A');
+          throw new RangeError('defect B');
+        },
+      },
+      database: { ...app.database, billingEconomics: snapshotStore() },
+    },
+    instanceId: 'service-fixture',
+    timers: {
+      setInterval: (run) => {
+        tick = run;
+        return 1;
+      },
+      clearInterval: () => undefined,
+    },
+  });
+  try {
+    await service.started;
+    for (let n = 0; n < 3; n++)
+      await (tick as (() => Promise<void>) | null)?.();
+    assert({
+      given:
+        'a TypeError on the first two ticks, then a RangeError on the next two',
+      should: 'report each defect once',
+      actual: logged.filter((line) => line.event === 'billing.economics.failed')
+        .length,
+      expected: 2,
+    });
+  } finally {
+    await service.stop();
+    await app.close();
     await rm(directory, { recursive: true, force: true });
   }
 });

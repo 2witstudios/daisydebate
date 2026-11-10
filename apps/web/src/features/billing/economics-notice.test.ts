@@ -144,7 +144,8 @@ test('a new month starts afresh', () => {
       '2026-10',
       failureNotice(failed('2026-10', 'save_failed')),
     ),
-    october,
+    '2026-10',
+    true,
   );
   assert({
     given: 'October settled, a failure and its feed logged as missing',

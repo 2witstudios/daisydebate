@@ -265,7 +265,7 @@ test('the feed reader keeps its own privacy check without the sink being opened'
       ),
       expected: [
         'INFRASTRUCTURE',
-        'Billing economics feed unavailable',
+        'Billing economics sink unavailable to the feed reader',
         'Billing economics directory is not private',
       ],
     });
@@ -508,6 +508,33 @@ test('a refused feed open keeps its errno as the cause', async () => {
         }),
       ),
       expected: 'ELOOP',
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('opening the sink refuses a malformed window before retention runs', async () => {
+  const { utimes, readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const feedPath = join(directory, 'feed-2026-10.json');
+    await writeFile(feedPath, '{}', { mode: 0o600 });
+    const old = new Date('2026-08-01T00:00:00.000Z');
+    await utimes(feedPath, old, old);
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'n'.repeat(24),
+    });
+    const refused = await codeOf(
+      files.sink.open({ startsAt: 'x2026-10', endsAt: 'x2026-11' }),
+    );
+    assert({
+      given: 'a malformed window and an expired-age feed',
+      should: 'refuse as INTERNAL and leave the feed in place',
+      actual: [refused, await readdir(directory)],
+      expected: ['INTERNAL', ['feed-2026-10.json']],
     });
   } finally {
     await rm(directory, { recursive: true, force: true });

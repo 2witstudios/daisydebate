@@ -24,7 +24,7 @@ export function failureNotice(collection: Collection<'failed'>): string {
  * its system code (an errno such as ECONNREFUSED, or a SQLSTATE), both closed
  * vocabularies. An untyped error with neither is one problem per stage.
  */
-function problemOf(cause: unknown): string {
+export function problemOf(cause: unknown): string {
   if (isAppError(cause)) return cause.message;
   if (!(cause instanceof Error)) return '';
   const system =
@@ -122,20 +122,16 @@ export function recordSignals(
   };
 }
 
-/** Note that a feed was supplied, so the month's next missing feed is logged again. */
-export const recordFeedSupplied = (
-  raised: EconomicsRaised,
-  collection: Collection<'reported'>,
-): EconomicsRaised => ({
-  ...raisedIn(raised, collection.month),
-  feedMissingLogged: false,
-});
-
-/** Note that this month's missing feed was logged. */
+/**
+ * Note whether this month's missing feed is logged: set once the line is
+ * written, cleared when a feed is supplied, so a feed that later disappears is
+ * logged again.
+ */
 export const recordFeedMissingLogged = (
   raised: EconomicsRaised,
-  collection: Collection<'reported'>,
+  month: string,
+  logged: boolean,
 ): EconomicsRaised => ({
-  ...raisedIn(raised, collection.month),
-  feedMissingLogged: true,
+  ...raisedIn(raised, month),
+  feedMissingLogged: logged,
 });

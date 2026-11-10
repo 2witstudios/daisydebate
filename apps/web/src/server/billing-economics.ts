@@ -4,17 +4,21 @@ import type { App } from './app';
 import {
   createBillingEconomicsCollector,
   type EconomicsCollection,
+  type EconomicsCollectionFailure,
 } from '../features/billing/economics-collector';
+
+/** Every operation this worker reports under: a collection stage, or its own two. */
+type EconomicsStage = EconomicsCollectionFailure | 'signal_failed' | 'collect';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
   failureNotice,
   isFailureRaised,
   nothingRaised,
+  problemOf,
   owedSignals,
   raisedIn,
   recordFailure,
   recordFeedMissingLogged,
-  recordFeedSupplied,
   recordSignals,
   signalFailureNotice,
 } from '../features/billing/economics-notice';
@@ -51,12 +55,12 @@ export function composeBillingEconomics(
  * error. An untyped cause names nothing, so it adds nothing.
  */
 export const economicsFailureCheck = (error: unknown) => {
-  // The worker's wrapper carries the typed cause; a typed error thrown outside any
-  // collection (the collect path) carries no cause and names itself.
+  // The worker's wrapper carries the typed cause; otherwise a typed error names itself
+  // (the collect path, or a wrapper whose cause is untyped names its stage).
   const cause = error instanceof Error ? error.cause : undefined;
   const typed = isAppError(cause)
     ? cause
-    : isAppError(error) && cause === undefined
+    : isAppError(error)
       ? error
       : undefined;
   if (!typed) return undefined;
@@ -108,7 +112,7 @@ export function startBillingEconomics(input: {
     month: string,
     notice: string,
     error: unknown,
-    stage: string,
+    stage: EconomicsStage,
   ) => {
     if (isFailureRaised(raised, month, notice)) return;
     if (failed(error, stage) === 'reported')
@@ -116,7 +120,8 @@ export function startBillingEconomics(input: {
   };
   const raise = (collection: EconomicsCollection) => {
     if (collection.kind === 'failed') {
-      // A fixed per-stage message, so the tracker can tell the stages apart.
+      // A fixed per-stage message. The tracker's scrubber replaces exception text, so stages are told
+      // apart there by the route; the message names the stage on the log line when the cause is untyped.
       const error = createAppError(
         collection.code,
         `Billing economics ${collection.reason}`,
@@ -138,7 +143,7 @@ export function startBillingEconomics(input: {
       collection.feed === 'supplied' &&
       raisedIn(raised, collection.month).feedMissingLogged
     )
-      raised = recordFeedSupplied(raised, collection);
+      raised = recordFeedMissingLogged(raised, collection.month, false);
     // Logged before any signal is raised, so a throwing reporter cannot keep the month quiet.
     if (
       collection.feed === 'missing' &&
@@ -151,7 +156,7 @@ export function startBillingEconomics(input: {
           'Private billing economics feed is missing for the month; the report stays incomplete',
         );
         // Marked only once written, so a log sink that threw is retried next tick.
-        raised = recordFeedMissingLogged(raised, collection);
+        raised = recordFeedMissingLogged(raised, collection.month, true);
       } catch {
         /* A failing log sink never turns a saved report into a failure (ISSUE-789). */
       }
@@ -185,7 +190,7 @@ export function startBillingEconomics(input: {
     // A failure outside any collection (an invalid clock, a defect) is reported once per
     // distinct problem until a collection completes again, never every hour.
     failed: (error) => {
-      const notice = `collect:${isAppError(error) ? `${error.code}:${error.message}` : 'INTERNAL'}`;
+      const notice = `collect:${isAppError(error) ? error.code : 'INTERNAL'}:${problemOf(error)}`;
       if (collectFailure === notice) return;
       if (failed(error, 'collect') === 'reported') collectFailure = notice;
     },

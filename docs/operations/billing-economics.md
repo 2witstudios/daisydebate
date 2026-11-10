@@ -177,8 +177,8 @@ a financial report or claims low-margin delivery:
   `billing.economics.<reason>`, and one capture. The captured error is typed:
   a typed cause keeps its own code (every throw in the private file edge is
   typed, so a non-private sink directory is `sink_unavailable`/`VALIDATION`;
-  the feed reader's own recheck reports it as the sink being unavailable, never
-  as an invalid feed), and an untyped one
+  the feed reader's own recheck, for direct callers, reports it as
+  `feed_unreadable` with its own message, never as an invalid feed), and an untyped one
   takes its stage's (`VALIDATION` for `feed_invalid`, `snapshot_invalid` and
   `report_invalid`, `INTERNAL` for `report_failed`, otherwise
   `INFRASTRUCTURE`). The log line's `cause` names the fixed check that failed

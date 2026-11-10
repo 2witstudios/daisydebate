@@ -148,6 +148,9 @@ export function createBillingEconomicsFiles(input: {
         readonly startsAt: string;
         readonly endsAt: string;
       }) {
+        // The window decides what retention protects, so a malformed one never reaches the sweep.
+        if (!economicsInstant.safeParse(window.startsAt).success)
+          throw createAppError('INTERNAL', 'Billing economics window invalid');
         await privateDirectory(input.directory);
         await prunePrivateFiles(
           input.directory,
@@ -173,7 +176,7 @@ export function createBillingEconomicsFiles(input: {
         } catch (error) {
           throw createAppError(
             'INFRASTRUCTURE',
-            'Billing economics feed unavailable',
+            'Billing economics sink unavailable to the feed reader',
             error,
           );
         }
