@@ -586,3 +586,40 @@ test('in a month that starts healthy, every regression after a report is raised'
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a failure neither sink took is retried on the next tick, then settled', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  let logs = 0,
+    captures = 0;
+  try {
+    await chmod(directory, 0o755);
+    const run = await runWorker({
+      directory,
+      ticks: 2,
+      logThrows: (event) =>
+        event === 'billing.economics.failed' && ++logs === 1,
+      capture: () => {
+        if (++captures === 1) throw new Error('reporter');
+      },
+    });
+    assert({
+      given:
+        'a sink failure whose first log line and first capture both throw, over three collections',
+      should:
+        'retry it on the next tick, where it is recorded, and then raise it no more',
+      actual: {
+        attempts: run.logged.filter(
+          (line) => line.event === 'billing.economics.failed',
+        ).length,
+        captured: run.captured.map((c) => c.route),
+      },
+      expected: {
+        attempts: 2,
+        captured: ['billing.economics.sink_unavailable'],
+      },
+    });
+  } finally {
+    await chmod(directory, 0o700);
+    await rm(directory, { recursive: true, force: true });
+  }
+});

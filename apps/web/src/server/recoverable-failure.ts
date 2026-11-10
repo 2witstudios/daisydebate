@@ -32,43 +32,52 @@ export function recoverableFailure(input: {
 }) {
   const deferrals = new Map<string, number>();
   /** One sink step; a step that throws never stops the next or its caller. */
-  const attempt = (step: () => void) => {
+  const attempt = (step: () => void): boolean => {
     try {
       step();
+      return true;
     } catch {
       /* A failing sink is never its caller's fault (ISSUE-789). */
+      return false;
     }
   };
-  const report = (error: unknown, operation: string): 'reported' => {
+  const report = (
+    error: unknown,
+    operation: string,
+  ): 'reported' | 'unrecorded' => {
     const errorCode = isAppError(error) ? error.code : 'INTERNAL';
     let cause: string | undefined;
     // A cause reader that throws costs only the cause, never the log line.
     attempt(() => {
       cause = input.cause?.(error);
     });
-    attempt(() => {
+    const logged = attempt(() => {
       input.logger.log(
         input.event,
         { operation, errorCode, ...(cause ? { cause } : {}) },
         input.message,
       );
     });
-    attempt(() =>
+    const captured = attempt(() =>
       input.reporter.capture(error, {
         requestId: input.nextId(),
         route: operation,
         errorCode,
       }),
     );
-    return 'reported';
+    return logged || captured ? 'reported' : 'unrecorded';
   };
   /**
    * Never throws, so no worker promise ever rejects because reporting its
-   * failure failed (ISSUE-789). It answers what it did: `reported` (logged
-   * and handed to the reporter) or `deferred` (absorbed as capacity
-   * backpressure within the bound), so a caller never re-derives the rule.
+   * failure failed (ISSUE-789). It answers what it did: `reported` (the log
+   * line or the reporter took it), `unrecorded` (both threw, so nothing
+   * holds it) or `deferred` (absorbed as capacity backpressure within the
+   * bound), so a caller never re-derives the rule.
    */
-  return (error: unknown, stage: string): 'reported' | 'deferred' => {
+  return (
+    error: unknown,
+    stage: string,
+  ): 'reported' | 'unrecorded' | 'deferred' => {
     const operation = `${input.operation}.${stage}`;
     let capacity = false;
     attempt(() => {

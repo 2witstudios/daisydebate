@@ -15,15 +15,15 @@ export function economicsNotice(collection: EconomicsCollection): string {
   return `${collection.month}:reported:${collection.feed}:${signals}`;
 }
 
-/**
- * One notice raised this month: the signals a report still owes, and whether
- * its failure (a failed collection, or a failure to submit the signals) was
- * reported.
- */
-export type RaisedNotice = {
-  readonly kind: EconomicsCollection['kind'];
+type Collection<K extends EconomicsCollection['kind']> = Extract<
+  EconomicsCollection,
+  { readonly kind: K }
+>;
+
+/** A report raised this month: the signals it still owes, and whether failing to submit them was reported. */
+export type ReportProgress = {
   readonly owed: readonly EconomicsSignal[];
-  readonly failureReported: boolean;
+  readonly signalFailureReported: boolean;
 };
 
 /**
@@ -34,38 +34,61 @@ export type RaisedNotice = {
  */
 export type EconomicsRaised = {
   readonly month: string | null;
-  readonly notices: ReadonlyMap<string, RaisedNotice>;
+  /** Failure notices reported since the month's last settled report. */
+  readonly failures: ReadonlySet<string>;
+  /** Report notices raised this month. */
+  readonly reports: ReadonlyMap<string, ReportProgress>;
 };
 
 export const nothingRaised: EconomicsRaised = {
   month: null,
-  notices: new Map(),
+  failures: new Set(),
+  reports: new Map(),
 };
 
-/** What this month already raised for this collection's outcome, if anything. */
-export const raisedFor = (
-  raised: EconomicsRaised,
-  collection: EconomicsCollection,
-): RaisedNotice | undefined =>
-  raised.month === collection.month
-    ? raised.notices.get(economicsNotice(collection))
-    : undefined;
+const inMonth = (raised: EconomicsRaised, month: string) =>
+  raised.month === month ? raised : nothingRaised;
 
-/** Record what was raised for a collection; a settled report re-arms the month's failures. */
-export function recordRaised(
+/** Whether this failure was already reported since the month's last settled report. */
+export const isFailureRaised = (
   raised: EconomicsRaised,
-  collection: EconomicsCollection,
-  progress: Omit<RaisedNotice, 'kind'>,
+  collection: Collection<'failed'>,
+) =>
+  inMonth(raised, collection.month).failures.has(economicsNotice(collection));
+
+/** How far this month already raised this report, if at all. */
+export const reportProgress = (
+  raised: EconomicsRaised,
+  collection: Collection<'reported'>,
+): ReportProgress | undefined =>
+  inMonth(raised, collection.month).reports.get(economicsNotice(collection));
+
+/** Record a reported failure. */
+export function recordFailure(
+  raised: EconomicsRaised,
+  collection: Collection<'failed'>,
 ): EconomicsRaised {
-  const settledReport =
-    collection.kind === 'reported' && progress.owed.length === 0;
-  const kept = [
-    ...(raised.month === collection.month ? raised.notices : []),
-  ].filter(([, notice]) => !(settledReport && notice.kind === 'failed'));
-  const notices = new Map(kept);
-  notices.set(economicsNotice(collection), {
-    kind: collection.kind,
-    ...progress,
-  });
-  return { month: collection.month, notices };
+  const month = inMonth(raised, collection.month);
+  return {
+    month: collection.month,
+    failures: new Set([...month.failures, economicsNotice(collection)]),
+    reports: month.reports,
+  };
+}
+
+/** Record a report's progress; a settled report re-arms the month's failures. */
+export function recordReport(
+  raised: EconomicsRaised,
+  collection: Collection<'reported'>,
+  progress: ReportProgress,
+): EconomicsRaised {
+  const month = inMonth(raised, collection.month);
+  return {
+    month: collection.month,
+    failures: progress.owed.length === 0 ? new Set() : month.failures,
+    reports: new Map([
+      ...month.reports,
+      [economicsNotice(collection), progress],
+    ]),
+  };
 }

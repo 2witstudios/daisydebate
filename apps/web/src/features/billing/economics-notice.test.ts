@@ -1,22 +1,21 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { EconomicsCollection } from './economics-collector';
 import {
   economicsNotice,
+  isFailureRaised,
   nothingRaised,
-  raisedFor,
-  recordRaised,
+  recordFailure,
+  recordReport,
+  reportProgress,
 } from './economics-notice';
 setupRitewayBun();
 
-const failed = (
-  month: string,
-  reason: 'feed_unreadable' | 'save_failed',
-): EconomicsCollection => ({
-  kind: 'failed',
-  month,
-  reason,
-  cause: new Error(`private ${reason}`),
-});
+const failed = (month: string, reason: 'feed_unreadable' | 'save_failed') =>
+  ({
+    kind: 'failed',
+    month,
+    reason,
+    cause: new Error(`private ${reason}`),
+  }) as const;
 const reported = (
   month: string,
   feed: 'supplied' | 'missing',
@@ -32,26 +31,25 @@ const reported = (
       plan,
     })),
   }) as const;
-const settled = { owed: [], failureReported: false };
-const reportedFailure = { owed: [], failureReported: true };
+const settled = { owed: [], signalFailureReported: false };
 
 test('the same outcome for the same month is one notice', () => {
   assert({
     given:
       'two failures of one month for one reason, with distinct caught errors',
     should: 'share one notice, so the worker raises it once',
-    actual:
-      economicsNotice(failed('2026-10', 'save_failed')) ===
-      economicsNotice(failed('2026-10', 'save_failed')),
-    expected: true,
+    actual: economicsNotice(failed('2026-10', 'save_failed')),
+    expected: economicsNotice(failed('2026-10', 'save_failed')),
   });
   assert({
     given: 'two reports of one month with the same feed state and signals',
     should: 'share one notice',
-    actual:
-      economicsNotice(reported('2026-10', 'missing', ['free', 'premium'])) ===
-      economicsNotice(reported('2026-10', 'missing', ['free', 'premium'])),
-    expected: true,
+    actual: economicsNotice(
+      reported('2026-10', 'missing', ['free', 'premium']),
+    ),
+    expected: economicsNotice(
+      reported('2026-10', 'missing', ['free', 'premium']),
+    ),
   });
 });
 
@@ -74,71 +72,77 @@ test('a changed outcome or a new month is a new notice', () => {
 test('a report is raised once a month, even after a failure in between', () => {
   const report = reported('2026-10', 'missing', ['free', 'beta', 'premium']);
   const failure = failed('2026-10', 'feed_unreadable');
-  const raised = recordRaised(
-    recordRaised(nothingRaised, report, settled),
+  const raised = recordFailure(
+    recordReport(nothingRaised, report, settled),
     failure,
-    reportedFailure,
   );
   assert({
     given: 'a settled report, then a reported failure in the same month',
-    should: 'keep the report settled and the failure reported',
+    should: 'keep the report settled and the failure raised',
     actual: [
-      raisedFor(raised, report)?.owed,
-      raisedFor(raised, failure)?.failureReported,
+      reportProgress(raised, report)?.owed,
+      isFailureRaised(raised, failure),
     ],
     expected: [[], true],
   });
 });
 
-test('a failure is news again once a report settles after it', () => {
+test("every settled report re-arms the month's failures", () => {
   const report = reported('2026-10', 'missing', ['premium']);
   const failure = failed('2026-10', 'save_failed');
-  const recovered = recordRaised(
-    recordRaised(nothingRaised, failure, reportedFailure),
+  const once = recordReport(
+    recordFailure(nothingRaised, failure),
     report,
     settled,
   );
+  const again = recordReport(recordFailure(once, failure), report, settled);
   assert({
-    given: 'a reported failure, then a report that settles',
-    should: 'forget the failure, so a regression after recovery is raised',
-    actual: raisedFor(recovered, failure),
-    expected: undefined,
+    given:
+      'a failure then a settling report, and the same failure then the same report again',
+    should: 'forget the failure both times, so each regression is raised',
+    actual: [isFailureRaised(once, failure), isFailureRaised(again, failure)],
+    expected: [false, false],
   });
 });
 
 test('a partly submitted report still owes its unsent signals', () => {
   const report = reported('2026-10', 'missing', ['free', 'beta', 'premium']);
   const failure = failed('2026-10', 'feed_unreadable');
-  const partial = recordRaised(
-    recordRaised(nothingRaised, failure, reportedFailure),
-    report,
-    { owed: report.signals.slice(1), failureReported: true },
-  );
+  const partial = recordReport(recordFailure(nothingRaised, failure), report, {
+    owed: report.signals.slice(1),
+    signalFailureReported: true,
+  });
   assert({
     given:
       'a report whose first signal was submitted before the reporter threw',
     should:
       'owe the other two and keep the earlier failure, since nothing settled',
     actual: [
-      raisedFor(partial, report)?.owed.map((s) => s.plan),
-      raisedFor(partial, failure)?.failureReported,
+      reportProgress(partial, report)?.owed.map((s) => s.plan),
+      reportProgress(partial, report)?.signalFailureReported,
+      isFailureRaised(partial, failure),
     ],
-    expected: [['beta', 'premium'], true],
+    expected: [['beta', 'premium'], true, true],
   });
 });
 
 test('a new month starts afresh', () => {
   const october = reported('2026-10', 'missing', ['premium']);
+  const failure = failed('2026-10', 'save_failed');
   const november = reported('2026-11', 'missing', ['premium']);
-  const raised = recordRaised(
-    recordRaised(nothingRaised, october, settled),
+  const raised = recordReport(
+    recordFailure(recordReport(nothingRaised, october, settled), failure),
     november,
-    settled,
+    { owed: november.signals, signalFailureReported: true },
   );
   assert({
-    given: 'October settled, then November recorded',
+    given: 'October settled with a failure, then November partly raised',
     should: 'remember only November',
-    actual: [raisedFor(raised, october), raised.notices.size],
-    expected: [undefined, 1],
+    actual: [
+      reportProgress(raised, october),
+      isFailureRaised(raised, failure),
+      raised.reports.size,
+    ],
+    expected: [undefined, false, 1],
   });
 });

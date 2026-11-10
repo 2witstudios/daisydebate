@@ -272,3 +272,29 @@ test('the failure sink says whether it reported or deferred a failure', () => {
     ],
   });
 });
+
+test('a failure neither sink took is unrecorded, not reported', () => {
+  const failed = recoverableFailure({
+    isCapacity: () => false,
+    logger: {
+      log: () => {
+        throw new Error('log sink');
+      },
+    },
+    reporter: {
+      capture: () => {
+        throw new Error('reporter');
+      },
+    },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+    event: 'round.maintenance.failed',
+    operation: 'round.maintenance',
+    message: 'Competitive maintenance remains recoverable',
+  });
+  assert({
+    given: 'a failure when both the logger and the reporter throw',
+    should: 'answer unrecorded, so a caller retries rather than settling it',
+    actual: failed(new Error('genuine'), 'tick'),
+    expected: 'unrecorded',
+  });
+});

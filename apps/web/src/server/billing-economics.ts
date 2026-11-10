@@ -6,9 +6,11 @@ import {
 } from '../features/billing/economics-collector';
 import { raiseEconomicsSignals } from '../features/billing/economics-alert';
 import {
+  isFailureRaised,
   nothingRaised,
-  raisedFor,
-  recordRaised,
+  recordFailure,
+  recordReport,
+  reportProgress,
 } from '../features/billing/economics-notice';
 import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import { createBillingEconomicsFiles } from './billing-economics-files';
@@ -52,11 +54,15 @@ export function startBillingEconomics(input: {
   const { app } = input;
   const directory = app.config.BILLING_ECONOMICS_DIRECTORY;
   if (directory === undefined) {
-    app.logger.log(
-      'billing.economics.unprovisioned',
-      { operation: 'billing.economics.collect' },
-      'Private billing economics sink is not provisioned; collection is not running',
-    );
+    try {
+      app.logger.log(
+        'billing.economics.unprovisioned',
+        { operation: 'billing.economics.collect' },
+        'Private billing economics sink is not provisioned; collection is not running',
+      );
+    } catch {
+      /* A failing log sink never aborts process startup (ISSUE-789). */
+    }
     return { started: Promise.resolve(), stop: async () => undefined };
   }
   const collector = composeBillingEconomics(app, input.instanceId, directory);
@@ -67,13 +73,13 @@ export function startBillingEconomics(input: {
   );
   let raised = nothingRaised;
   const raise = (collection: EconomicsCollection) => {
-    const prior = raisedFor(raised, collection);
     if (collection.kind === 'failed') {
-      if (prior?.failureReported) return;
-      // Only a failure the sink reported settles; a deferred capacity refusal stays news.
+      if (isFailureRaised(raised, collection)) return;
+      // Only a failure the sink reported settles; deferred or unrecorded stays news.
       const verdict = failed(
         createAppError(
-          collection.reason === 'feed_invalid'
+          collection.reason === 'feed_invalid' ||
+            collection.reason === 'snapshot_invalid'
             ? 'VALIDATION'
             : 'INFRASTRUCTURE',
           undefined,
@@ -81,19 +87,13 @@ export function startBillingEconomics(input: {
         ),
         collection.reason,
       );
-      if (verdict === 'reported')
-        raised = recordRaised(raised, collection, {
-          owed: [],
-          failureReported: true,
-        });
+      if (verdict === 'reported') raised = recordFailure(raised, collection);
       return;
     }
+    const prior = reportProgress(raised, collection);
     if (prior?.owed.length === 0) {
       // Already raised this month; settling again still re-arms the month's failures.
-      raised = recordRaised(raised, collection, {
-        owed: [],
-        failureReported: false,
-      });
+      raised = recordReport(raised, collection, prior);
       return;
     }
     const owed = prior?.owed ?? collection.signals;
@@ -102,22 +102,22 @@ export function startBillingEconomics(input: {
       signals: owed,
     });
     if (submitted.kind === 'failed') {
-      const verdict = prior?.failureReported
+      const verdict = prior?.signalFailureReported
         ? 'reported'
         : failed(
             createAppError('INFRASTRUCTURE', undefined, submitted.cause),
             'signal_failed',
           );
-      raised = recordRaised(raised, collection, {
+      raised = recordReport(raised, collection, {
         owed: owed.slice(submitted.submitted),
-        failureReported: verdict === 'reported',
+        signalFailureReported: verdict === 'reported',
       });
       return;
     }
     // Record before logging: a throwing logger must not make the next tick re-send these signals.
-    raised = recordRaised(raised, collection, {
+    raised = recordReport(raised, collection, {
       owed: [],
-      failureReported: false,
+      signalFailureReported: false,
     });
     if (collection.feed === 'missing')
       app.logger.log(

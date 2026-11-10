@@ -1,7 +1,7 @@
 import { economicsInstant } from './economics-input';
 
 /** DEC366's recorded provisional default; changing it requires the owning policy record. */
-const recordedMarginFloorBasisPoints = 3000;
+export const recordedMarginFloorBasisPoints = 3000;
 
 /** A supplier measurement cannot lower the policy floor; explicit unknown remains unknown. */
 export function hasRecordedEconomicsFloor(value: unknown) {

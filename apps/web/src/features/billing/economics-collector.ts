@@ -7,7 +7,10 @@ import {
   type EconomicsPlan,
 } from './economics-input';
 import { economicsSignals, type EconomicsSignal } from './economics-alert';
-import { hasRecordedEconomicsFloor } from './economics-policy';
+import {
+  hasRecordedEconomicsFloor,
+  recordedMarginFloorBasisPoints,
+} from './economics-policy';
 import { buildEconomicsReport } from './economics-report';
 
 const privateFeed = economicsInput
@@ -116,7 +119,7 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
     value === null
       ? {
           ...window,
-          floorBasisPoints: 3000,
+          floorBasisPoints: recordedMarginFloorBasisPoints,
           revenue: [],
           costs: [],
           rates: [],
@@ -173,6 +176,7 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
 export type EconomicsCollectionFailure =
   | 'sink_unavailable'
   | 'snapshot_failed'
+  | 'snapshot_invalid'
   | 'feed_unreadable'
   | 'feed_invalid'
   | 'save_failed';
@@ -226,19 +230,19 @@ export function createBillingEconomicsCollector(input: {
         ({ kind: 'failed', month, reason, cause }) as const;
       const sink = await stage(() => input.sink.open());
       if (!sink.ok) return failed('sink_unavailable', sink.cause);
-      const snapshot = await stage(async () => {
-        const read = billingEconomicsReadSchema.parse(
-          await input.store.read(window),
-        );
+      const read = await stage(() => input.store.read(window));
+      if (!read.ok) return failed('snapshot_failed', read.cause);
+      const snapshot = await stage(() => {
+        const parsed = billingEconomicsReadSchema.parse(read.value);
         if (
-          read.startsAt !== window.startsAt ||
-          read.endsAt !== window.endsAt ||
-          read.observedAt > input.now()
+          parsed.startsAt !== window.startsAt ||
+          parsed.endsAt !== window.endsAt ||
+          parsed.observedAt > input.now()
         )
           throw new Error('Economics snapshot window mismatch');
-        return read;
+        return parsed;
       });
-      if (!snapshot.ok) return failed('snapshot_failed', snapshot.cause);
+      if (!snapshot.ok) return failed('snapshot_invalid', snapshot.cause);
       const feed = await stage(() => input.feed.read(window));
       if (!feed.ok) return failed('feed_unreadable', feed.cause);
       const report = await stage(() =>
