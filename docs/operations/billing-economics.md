@@ -178,7 +178,8 @@ a financial report or claims low-margin delivery:
   reason in the chain, the check that failed (for example
   `economics-feed-window-mismatch`). A capacity refusal goes straight to the
   shared bound (eight deferrals per stage, then a report) and never starts a
-  streak. A lapsed service lease is only the sink's warning (DAISY-WEB-9).
+  streak. A lapsed service lease is only the sink's warning (DAISY-WEB-9) and
+  never starts a streak either.
 
 Each hourly tick collects again, so late corrections land, but the worker
 raises each thing once per process:

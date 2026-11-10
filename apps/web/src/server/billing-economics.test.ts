@@ -604,3 +604,30 @@ test("a lapsed service lease is the sink's warning, never a captured stage failu
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a lapsed lease never mutes a genuine failure of the same stage that follows it', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-worker-'));
+  try {
+    const run = await runWorker({
+      directory,
+      ticks: 1,
+      refuse: (read) =>
+        read === 1
+          ? createRefusal(
+              'AUTHORIZATION',
+              'service-lease-lapsed',
+              'Web service is not current',
+            )
+          : createAppError('INFRASTRUCTURE', 'Economics database down'),
+    });
+    assert({
+      given:
+        "a snapshot read refused because this instance's lease lapsed, then a database outage on the next tick",
+      should: 'capture the outage once as snapshot_failed',
+      actual: run.captured.map((c) => c.route),
+      expected: ['billing.economics.snapshot_failed'],
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

@@ -1,4 +1,5 @@
 import { isCapacityRefusal } from '@daisy/db/capacity';
+import { isServiceLeaseLapse } from '@daisy/db/service-lease-lapse';
 import { createRefusal, errorCodeOf, isAppError } from '@daisy/errors';
 import { guarded } from '@daisy/observability';
 import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
@@ -136,8 +137,12 @@ export function startBillingEconomics(input: {
   const raise = (collection: EconomicsCollection) => {
     const { month } = collection;
     if (collection.kind === 'failed') {
-      // Capacity backpressure is bounded by the shared sink itself, so it never starts a streak.
-      if (isCapacityRefusal(collection.cause))
+      // Capacity backpressure is bounded by the shared sink, and a lapsed lease is only its warning
+      // (DAISY-WEB-9): neither is a reported failure, so neither starts a streak.
+      if (
+        isCapacityRefusal(collection.cause) ||
+        isServiceLeaseLapse(collection.cause)
+      )
         return failed(
           reasonError(collection.reason, collection.cause),
           collection.reason,
