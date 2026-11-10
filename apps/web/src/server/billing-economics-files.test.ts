@@ -413,3 +413,36 @@ test("a feed this process may not read is VALIDATION, the operator's file being 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('a save during a late correction never expires the feed it is correcting', async () => {
+  const { utimes, readdir } = await import('node:fs/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'billing-economics-files-'));
+  try {
+    const august = join(directory, 'feed-2026-08.json');
+    await writeFile(august, '{}', { mode: 0o600 });
+    const old = new Date('2026-09-01T00:00:00.000Z');
+    await utimes(august, old, old);
+    const files = createBillingEconomicsFiles({
+      directory,
+      now: () => now,
+      nextId: () => 'k'.repeat(24),
+    });
+    await files.save({
+      report: {
+        ...savedReport,
+        startsAt: '2026-08-01T00:00:00.000Z',
+        endsAt: '2026-09-01T00:00:00.000Z',
+      },
+      snapshot: emptySnapshot,
+    });
+    assert({
+      given:
+        'an August feed past the thirty-day retention, and a saved August report',
+      should: 'keep the August feed for the next correction run',
+      actual: (await readdir(directory)).includes('feed-2026-08.json'),
+      expected: true,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

@@ -403,3 +403,33 @@ test('each failure reason is reported under its fixed error code', () => {
     },
   });
 });
+
+test('a malformed feed is named as malformed, never as a floor change', async () => {
+  const run = (value: unknown) =>
+    createBillingEconomicsCollector({
+      sink: { open: async () => undefined },
+      store: { read: async () => snapshot() },
+      feed: { read: async () => value },
+      now: () => now,
+      save: async () => undefined,
+    }).run(window);
+  const messageOf = (r: Awaited<ReturnType<typeof run>>) =>
+    r.kind === 'failed' && r.cause instanceof Error ? r.cause.message : null;
+  const { floorBasisPoints: _f, ...withoutFloor } = feed();
+  void _f;
+  assert({
+    given:
+      'a feed that is an array, a number, and an object missing only the floor',
+    should: 'refuse each as a schema defect',
+    actual: [
+      messageOf(await run([])),
+      messageOf(await run(42)),
+      messageOf(await run(withoutFloor)),
+    ],
+    expected: [
+      'Economics feed schema invalid',
+      'Economics feed schema invalid',
+      'Economics feed schema invalid',
+    ],
+  });
+});

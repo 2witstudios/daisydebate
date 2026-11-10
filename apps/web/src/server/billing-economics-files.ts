@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { economicsInstant } from '../features/billing/economics-input';
-import { previousEconomicsMonth } from '../features/billing/economics-policy';
 import type { createBillingEconomicsCollector } from '../features/billing/economics-collector';
 
 type PrivateReport = Parameters<
@@ -14,14 +13,17 @@ type PrivateReport = Parameters<
 const maximumFeedBytes = 1024 * 1024;
 const retentionMs = 30 * 86400000;
 /** The sink admits at most1000 files; a bounded sweep can therefore visit every file it creates. */
+/**
+ * `protectFrom` is the month being collected: its feed and every later
+ * month's (still to be collected) are never expired under it.
+ */
 async function prunePrivateFiles(
   directory: string,
   now: string,
-  keep?: string,
+  protectFrom: string,
 ) {
   if (!economicsInstant.safeParse(now).success)
     throw new Error('Billing economics clock invalid');
-  const collecting = previousEconomicsMonth(now)?.startsAt.slice(0, 7) ?? null;
   const stream = await opendir(directory);
   let count = 0,
     visited = 0;
@@ -34,14 +36,8 @@ async function prunePrivateFiles(
       !entry.isFile()
     )
       continue;
-    // A feed for a month still to be collected (the previous month or later), or for the
-    // window being collected now (a late correction), is never expired under it.
     const feedMonth = /^feed-(\d{4}-\d{2})\.json$/.exec(entry.name)?.[1];
-    if (
-      feedMonth !== undefined &&
-      ((collecting !== null && feedMonth >= collecting) || feedMonth === keep)
-    )
-      continue;
+    if (feedMonth !== undefined && feedMonth >= protectFrom) continue;
     const path = join(directory, entry.name),
       info = await lstat(path);
     if (info.isFile() && info.mtimeMs <= Date.parse(now) - retentionMs) {
@@ -164,7 +160,11 @@ export function createBillingEconomicsFiles(input: {
     },
     async save(report: PrivateReport) {
       await privateDirectory(input.directory);
-      if ((await prunePrivateFiles(input.directory, input.now())) >= 1000)
+      const protectFrom = report.report.startsAt.slice(0, 7);
+      if (
+        (await prunePrivateFiles(input.directory, input.now(), protectFrom)) >=
+        1000
+      )
         throw new Error('Billing economics directory capacity exceeded');
       const id = input.nextId();
       if (!idSchema.safeParse(id).success)

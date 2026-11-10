@@ -93,9 +93,9 @@ criterion complete or supersede BILL-H.
 The concrete file edge uses the existing operational-data maximum30-day period
 (DEC-42), not a new financial-record retention policy. On each read/save it visits
 at most1000 directory entries and removes only expired regular files in its own
-closed feed/report filename namespace. It never expires a feed for a month not
-yet past collection (the previous calendar month or later) or for the window
-being collected now (a late correction), so a measured month cannot turn into a
+closed feed/report filename namespace. It never expires the feed of the window being
+collected (the previous calendar month, or an older month during a late
+correction) or of any later month, in the opening sweep or the save's, so a measured month cannot turn into a
 missing feed under its own collection. At1000 retained files a new save refuses;
 more than1000 entries also refuses, rather than claiming a drained sweep. This
 bounds this sink's generated files and cleanup work. Provision the directory only

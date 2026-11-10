@@ -125,11 +125,6 @@ function parseFeed(value: unknown) {
   return parsed.data;
 }
 function dataset(window: Window, snapshot: Snapshot, value: unknown) {
-  if (value !== null && !hasRecordedEconomicsFloor(value))
-    throw createAppError(
-      'VALIDATION',
-      'Economics feed floor is not the recorded policy',
-    );
   const feed =
     value === null
       ? {
@@ -144,6 +139,12 @@ function dataset(window: Window, snapshot: Snapshot, value: unknown) {
           volume: [],
         }
       : parseFeed(value);
+  // Checked after the schema, so a malformed feed is named as malformed, not as a floor change.
+  if (!hasRecordedEconomicsFloor(feed))
+    throw createAppError(
+      'VALIDATION',
+      'Economics feed floor is not the recorded policy',
+    );
   if (feed.startsAt !== window.startsAt || feed.endsAt !== window.endsAt)
     throw createAppError('VALIDATION', 'Economics feed window mismatch');
   if (
