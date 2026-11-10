@@ -312,8 +312,6 @@ export function createBotPublisher(input: {
       line.catch(() => undefined);
       return line;
     };
-    /** Aborted at each clear: a reveal still waiting for its audio never runs. */
-    let queueDropped = new AbortController();
     /**
      * The last phrase's reveal: each waits for the one before, so lines are
      * written, and numbered, in the order they are said.
@@ -328,9 +326,6 @@ export function createBotPublisher(input: {
       if ((current?.queuedMs() ?? 0) > 0) {
         cleared();
         current?.clearQueue();
-        // Audio still queued will not play: no reveal waiting for it writes a line.
-        queueDropped.abort();
-        queueDropped = new AbortController();
       }
       if (forgetAhead) discard();
     };
@@ -502,7 +497,6 @@ export function createBotPublisher(input: {
       // floor are checked again then, the line is dated then and its doorbell
       // rings, so it is read exactly from when it is said. A refusal stops it.
       const before = revealOrder;
-      const dropped = queueDropped.signal;
       const revealing = (async () => {
         // Never tied to the writer's return: a phrase shorter than the lead is
         // handed over before its audio starts, and is still revealed then.
@@ -511,7 +505,6 @@ export function createBotPublisher(input: {
           ended.signal,
           signal,
           silenced.signal,
-          dropped,
         ]);
         await input.waitUntilMs(audioStartsAtMs, stopped);
         if (stopped.aborted) return;
@@ -604,6 +597,29 @@ export function createBotPublisher(input: {
       // played, beside the next phrase's audio, never in front of it.
       const handedAtMs = input.monotonicNowMs();
       const playsUntilMs = handedAtMs + Math.max(0, native.queuedMs());
+      // A phrase is said only once its line is written: a short one handed over
+      // before its audio starts waits here for its reveal. This costs nothing
+      // for a longer one, revealed long before its last frame.
+      await revealing;
+      if (refusal !== undefined) {
+        // Its line could not be written: what is still queued is silenced, any
+        // line its reveal may have written closes at what played, and the
+        // speech says the phrase again.
+        const cutAtMs = input.monotonicNowMs();
+        clearNow(true);
+        scheduledEndMs = cutAtMs;
+        if (asked)
+          await settleLine(
+            job,
+            playedFraction({
+              sentSamples: result.sentSamples,
+              phraseSamples: job.pcm.length,
+              playsUntilMs,
+              cutAtMs: Math.min(cutAtMs, playsUntilMs),
+            }),
+          );
+        throw refusal;
+      }
       closing = closing.then(async () => {
         await input.waitUntilMs(playsUntilMs, ended.signal);
         await revealing;

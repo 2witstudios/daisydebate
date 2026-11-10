@@ -40,13 +40,17 @@ its delivery instead of fitting it into the human capture pipeline.
    asks (`startsAt`). It writes nothing: for every phrase after the first it
    runs while the phrase before it still plays, so no phrase waits on its
    own start, and a refusal plays nothing. As the phrase's audio starts, its
-   **reveal**, beside the audio, checks the claim, room and floor again and
-   only then writes the line, still arriving (`complete=false`), dated at
+   **reveal**, beside the audio, checks the claim, room and floor again, and
+   that the phrase still ends before its segment is due counting from its
+   audio start, and only then writes the line, still arriving (`complete=false`), dated at
    its audio start (fixed on the database clock, never later than the
    reveal), and rings the transcript doorbell. `utterances` therefore holds
    only lines that were said: no reader filters unsaid ones, a line is read
    exactly from when it is said, and a refused reveal writes nothing and
-   stops the audio at once. The bot's own next prompt reads a bot line only
+   stops the audio at once. Reveals land in the order phrases are said, and a
+   phrase counts as said only once its reveal has landed: one handed over
+   whole before its audio starts waits for it, and a failed one is said
+   again. The bot's own next prompt reads a bot line only
    once it closed; spectators read only closed lines, released once their
    words have all played. While a phrase plays, its floor and room are re-read
    about every 250 ms without a lock, beside the audio, so a lost floor still

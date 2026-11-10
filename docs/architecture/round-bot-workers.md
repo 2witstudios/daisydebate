@@ -214,10 +214,11 @@ start. One transaction checks the claim, its vendor room, the floor, the
 segment and the incident state and refuses a phrase that would end past its
 segment; it writes nothing. A refusal plays nothing. The phrase's authored
 utterance is written by its reveal (`revealRoundBotPhrase`) as its audio
-starts, beside the audio: the claim, room and floor are checked again, the
-line is written still arriving, dated at its audio start, and the
+starts, beside the audio: the claim, room, floor and segment fit are checked
+again, the line is written still arriving, dated at its audio start, and the
 transcript doorbell rings; a refused reveal writes nothing and stops the
-audio. So `utterances` holds only lines that were said. The floor and room are then re-read about every 250 ms
+audio. A phrase counts as said only once its reveal landed, and reveals land
+in the order said. So `utterances` holds only lines that were said. The floor and room are then re-read about every 250 ms
 without a lock (`watchRoundBotFloor`). The phrase then streams into a buffered native source in real time,
 and its line closes
 (`endRoundBotPhrase`) in order beside the next phrase's audio, once its

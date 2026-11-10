@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema, isSpokenPrefix, spokenPrefix } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -99,6 +99,36 @@ async function requirePhraseAuthority(
   await requireBotSpeakingWindow(tx, scope);
   await requireTranscriptUnfrozen(tx, scope.roundId);
 }
+/**
+ * The phrase, its audio starting at `start`, ends before its segment is due
+ * and starts within a phrase and its queue ahead. A phrase past its segment is
+ * a final refusal: the speech stops at its last whole phrase.
+ */
+async function requirePhraseFits(
+  tx: BoundedTransactionContext,
+  scope: BotPublicationScope,
+  phrase: BotPhrase,
+  start: SQL,
+  lock: boolean,
+) {
+  const query = tx
+    .select({
+      fits: sql<boolean>`${start}+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(${roundSegments.endedAt},'infinity'::timestamptz),${roundSegments.dueAt})`,
+      ahead: sql<boolean>`${start}<=clock_timestamp()+${MAX_PHRASE_MS + MAX_AHEAD_SLACK_MS}*interval '1 millisecond'`,
+    })
+    .from(roundSegments)
+    .where(
+      and(
+        eq(roundSegments.id, scope.segmentId),
+        eq(roundSegments.roundId, scope.roundId),
+      ),
+    );
+  const [fit] = lock ? await query.for('update') : await query;
+  if (!fit) throw createAppError('CONFLICT');
+  if (!fit.ahead) throw createAppError('VALIDATION');
+  if (!fit.fits)
+    throw refuseFinalSpeech('Bot phrase would end past its segment');
+}
 /** An existing line for the phrase id: the same phrase, or a conflicting retry. */
 async function saidLine(
   tx: BoundedTransactionContext,
@@ -132,27 +162,18 @@ export async function authorizeLockedBotPhrase(
   const { scope, phrase } = input;
   requirePhrase(phrase);
   await requirePhraseAuthority(tx, scope, input.token, input.room);
-  const [fits] = (await tx.execute(sql`select
-      ${startOf(phrase)}+${phrase.durationMs}*interval '1 millisecond'<=least(coalesce(s.ended_at,'infinity'::timestamptz),s.due_at) as fits,
-      ${startOf(phrase)}<=clock_timestamp()+${MAX_PHRASE_MS + MAX_AHEAD_SLACK_MS}*interval '1 millisecond' as ahead
-    from round_segments s where s.id=${scope.segmentId} and s.round_id=${scope.roundId}`)) as unknown as {
-    fits: boolean;
-    ahead: boolean;
-  }[];
-  if (!fits) throw createAppError('CONFLICT');
-  if (!fits.ahead) throw createAppError('VALIDATION');
-  if (!fits.fits)
-    throw refuseFinalSpeech('Bot phrase would end past its segment');
+  await requirePhraseFits(tx, scope, phrase, startOf(phrase), false);
   return { said: (await saidLine(tx, scope, phrase)) !== undefined };
 }
 
 /**
  * Writes a phrase's line as its audio starts (ADR 0122): one transaction,
  * beside the audio, that checks the claim, its room and the floor again at the
- * moment the phrase is heard, writes the line still arriving, dated at its
- * audio start (never later than now), with its stream and the transcript
- * doorbell. Only said lines are ever written, so every reader reads only
- * said lines. A refusal stops the audio. An exact retry writes nothing twice.
+ * moment the phrase is heard, and that it ends before its segment is due,
+ * counting from its audio start. It writes the line still arriving, dated at
+ * that start (never later than now), with its stream and the transcript
+ * doorbell. Only said lines are ever written, so every reader reads only said
+ * lines. A refusal stops the audio. An exact retry writes nothing twice.
  */
 export async function revealLockedBotPhrase(
   tx: BoundedTransactionContext,
@@ -174,18 +195,14 @@ export async function revealLockedBotPhrase(
   )
     throw createAppError('VALIDATION');
   await requirePhraseAuthority(tx, scope, input.token, input.room);
+  const saidAt =
+    input.startedAt === undefined
+      ? sql`clock_timestamp()`
+      : sql`least(clock_timestamp(),${new Date(input.startedAt)}::timestamptz)`;
+  // The write is fenced like its authorization, counting from its audio start;
+  // the lock orders sequence allocation against every other writer of this segment.
+  await requirePhraseFits(tx, scope, phrase, saidAt, true);
   if (await saidLine(tx, scope, phrase)) return { revealed: false };
-  // Orders sequence allocation against every other writer of this segment.
-  await tx
-    .select({ id: roundSegments.id })
-    .from(roundSegments)
-    .where(
-      and(
-        eq(roundSegments.id, scope.segmentId),
-        eq(roundSegments.roundId, scope.roundId),
-      ),
-    )
-    .for('update');
   const id = input.nextId();
   if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
   await tx.insert(utterances).values({
@@ -198,10 +215,7 @@ export async function revealLockedBotPhrase(
     complete: false,
     botPhraseId: phrase.phraseId,
     botDurationMs: phrase.durationMs,
-    createdAt:
-      input.startedAt === undefined
-        ? sql`clock_timestamp()`
-        : sql`least(clock_timestamp(),${new Date(input.startedAt)}::timestamptz)`,
+    createdAt: saidAt,
   });
   // The bot's stream is complete by construction once it has spoken.
   await tx
@@ -334,7 +348,7 @@ export async function closeAbandonedBotLines(
       extract(epoch from (least(clock_timestamp(),
         u.created_at+u.bot_duration_ms*interval '1 millisecond',
         coalesce(s.ended_at,'infinity'::timestamptz), s.due_at)-u.created_at))*1000
-        / u.bot_duration_ms as fraction
+        / u.bot_duration_ms as fraction, u.bot_duration_ms as "durationMs"
     from utterances u join round_segments s on s.id=u.segment_id and s.round_id=u.round_id
     where u.round_id=${roundId} and u.bot_phrase_id is not null and not u.complete
       ${roundParticipantId === undefined ? sql`` : sql`and u.round_participant_id=${roundParticipantId}`}
@@ -342,6 +356,7 @@ export async function closeAbandonedBotLines(
       id: string;
       text: string;
       fraction: number | string;
+      durationMs: number;
       roundId: string;
       segmentId: string;
       roundParticipantId: string;
@@ -353,6 +368,8 @@ export async function closeAbandonedBotLines(
       row,
       spokenPrefix(row.text, fraction),
       !(fraction >= 1),
+      // A cut line's length is what could have played.
+      fraction * Number(row.durationMs),
     );
   }
   if (rows.length) await signalChange(tx, roundId);

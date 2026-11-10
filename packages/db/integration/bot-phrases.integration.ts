@@ -326,6 +326,8 @@ test('a line its worker never closed keeps only what could have played, at takeo
       await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${target.roundId}`;
       const next = await operations.claimWorker(target);
       const afterTakeover = await lines();
+      const [{ heard }] =
+        await fixture.sql`select bot_duration_ms as heard from utterances where bot_phrase_id=${lost.phraseId}`;
       const open = phrase(createId(), 2_000);
       await say(open, next);
       await fixture.sql`update utterances set created_at=clock_timestamp()-interval '5 seconds' where bot_phrase_id=${open.phraseId}`;
@@ -335,11 +337,17 @@ test('a line its worker never closed keeps only what could have played, at takeo
           'a nine-word phrase left open 4 s into its 10 s, then a 2 s phrase left open long after it ended',
         should:
           'cut the first to its first three words at takeover, and close the second whole at the freeze',
-        actual: { afterTakeover, final: await lines() },
+        actual: {
+          afterTakeover,
+          heardAboutFourSeconds:
+            Number(heard) >= 3_900 && Number(heard) < 5_000,
+          final: await lines(),
+        },
         expected: {
           afterTakeover: [
             { text: 'The affirmative has', complete: true, interrupted: true },
           ],
+          heardAboutFourSeconds: true,
           final: [
             { text: 'The affirmative has', complete: true, interrupted: true },
             { text: TEXT, complete: true, interrupted: false },
@@ -649,4 +657,29 @@ test('a reveal dates its line at the audio start it was given, never later than 
       expected: [startedAt, true],
     });
   });
+});
+
+test('a reveal is fenced like its authorization: a phrase that would now end past its segment writes nothing', async () => {
+  await withSpeakingBot(
+    async ({ operations, claim, room, lines, fixture, target }) => {
+      const late = phrase(createId(), 2_000);
+      await operations.beginBotPhrase(claim.scope, claim.token, late, room);
+      // Its audio started later than authorized: the segment is now due in 1 s.
+      await fixture.sql`update round_segments set started_at=clock_timestamp()+interval '1 second'-(duration_ms::bigint+returned_ms)*interval '1 millisecond' where id=${target.segmentId}`;
+      const refusal = await operations
+        .revealBotPhrase(claim.scope, claim.token, late, room)
+        .catch((error: unknown) => error);
+      assert({
+        given:
+          'a 2 s phrase authorized in time whose audio starts 1 s before its segment is due',
+        should:
+          'refuse its reveal for good, so the speech stops, and write no line',
+        actual: {
+          final: isFinalBotSpeechRefusal(refusal),
+          lines: await lines(),
+        },
+        expected: { final: true, lines: [] },
+      });
+    },
+  );
 });

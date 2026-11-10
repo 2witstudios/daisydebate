@@ -980,18 +980,23 @@ test('a reveal retrying lands before the next phrase’s: lines are written in t
   });
 });
 
-test('a short phrase silenced before its audio starts writes no line', async () => {
+test('a short phrase barged in on before its audio starts writes no line', async () => {
   const { claim, reveals, ends } = harness();
   claim.start();
   await Bun.sleep(10);
   await claim.publish(job(400, 'a'.repeat(24)), signal(), far());
-  // b is handed over whole behind a's queued tail, then a barge-in silences both.
-  await claim.publish(job(150, 'b'.repeat(24)), signal(), far());
-  claim.silence();
+  // b is handed over whole behind a's queued tail, then a barge-in stops it.
+  const bargeIn = new AbortController();
+  const second = claim
+    .publish(job(150, 'b'.repeat(24)), bargeIn.signal, far())
+    .catch(() => undefined);
+  await Bun.sleep(30);
+  bargeIn.abort();
+  await second;
   await tailPlays();
   assert({
     given:
-      'a 150 ms phrase handed over whole behind a queued tail, then silenced before its audio started',
+      'a 150 ms phrase handed over whole behind a queued tail, then barged in on before its audio started',
     should: 'reveal and close no line for it',
     actual: {
       reveals: reveals.map((row) => row.phraseId[0]),
@@ -999,4 +1004,33 @@ test('a short phrase silenced before its audio starts writes no line', async () 
     },
     expected: { reveals: ['a'], ends: ['a'] },
   });
+});
+
+test('a short phrase whose reveal fails after its handoff is not reported said', async () => {
+  for (const failure of [
+    new Error('statement timeout'),
+    createAppError('CONFLICT', 'Bot speaking authority changed'),
+  ]) {
+    const { claim, reveals } = harness({
+      reveal: async (phraseId) => {
+        if (phraseId[0] === 'a') throw failure;
+      },
+    });
+    claim.start();
+    await Bun.sleep(10);
+    const first = await claim
+      .publish(job(200, 'a'.repeat(24)), signal(), far())
+      .then(
+        (outcome) => outcome,
+        () => 'rejected',
+      );
+    await claim.close();
+    assert({
+      given: `a 200 ms phrase, handed over whole before its audio starts, whose reveal fails (${failure.message})`,
+      should:
+        'reject its publish, so the speech says it again, and write no line for it',
+      actual: { first, reveals: reveals.map((row) => row.phraseId[0]) },
+      expected: { first: 'rejected', reveals: [] },
+    });
+  }
 });
