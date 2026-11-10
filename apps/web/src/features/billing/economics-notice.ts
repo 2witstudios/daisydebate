@@ -52,7 +52,8 @@ const signalKey = (signal: EconomicsSignal) => `${signal.name}/${signal.plan}`;
  * What this process has raised for the month it is collecting. Each signal is
  * raised once a month, whatever else changes in the report. A failure notice
  * is raised once until a report settles again, so a regression after recovery
- * is news. A new month starts empty.
+ * is news. A new month starts empty, except failures outside any collection,
+ * which are not month-bound and clear when a collection completes.
  */
 export type EconomicsRaised = {
   readonly month: string | null;
@@ -74,7 +75,7 @@ export const nothingRaised: EconomicsRaised = {
   collect: new Set(),
 };
 
-/** The record for a month: what was raised if it is the same month, otherwise nothing. */
+/** The record for a month: what was raised if it is the same month, otherwise a fresh month that keeps only the collect notices. */
 export const raisedIn = (
   raised: EconomicsRaised,
   month: string,

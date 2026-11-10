@@ -2,6 +2,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BillingEconomicsRefusal } from '@daisy/protocol/billing-economics';
 import {
+  collectCompleted,
+  isCollectRaised,
+  recordCollect,
   failureNotice,
   isFailureRaised,
   nothingRaised,
@@ -284,5 +287,24 @@ test('a typed refusal wrapping different system errors gives different notices',
     should: 'be two notices, keyed on the wrapped errno',
     actual: failureNotice(open('EMFILE')) === failureNotice(open('EIO')),
     expected: false,
+  });
+});
+
+test('collect notices survive a month change and clear when a collection completes', () => {
+  const october = reported('2026-10', 'missing', ['premium']);
+  const notice = 'collect:INTERNAL:economics-clock-invalid/';
+  const failedOutside = recordCollect(settle(nothingRaised, october), notice);
+  const nextMonth = raisedIn(failedOutside, '2026-11');
+  assert({
+    given:
+      'a collect failure raised in October, then the record read for November',
+    should:
+      'keep the collect notice across the month change, then clear it on completion',
+    actual: [
+      isCollectRaised(nextMonth, notice),
+      isCollectRaised(collectCompleted(nextMonth), notice),
+      nextMonth.signals.size,
+    ],
+    expected: [true, false, 0],
   });
 });

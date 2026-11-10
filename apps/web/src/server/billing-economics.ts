@@ -166,8 +166,10 @@ export function startBillingEconomics(input: {
     try {
       raiseFailure(collection);
     } catch {
-      // A hostile cause (a throwing getter) still reports its stage, never as `collect`.
-      failed(
+      // A hostile cause (a throwing getter) still reports its stage, never as `collect`, once.
+      reportOnce(
+        collection.month,
+        `${collection.month}:${collection.reason}:unreadable`,
         stageError(collection.reason, collection.code, undefined),
         collection.reason,
       );

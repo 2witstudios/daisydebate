@@ -1277,10 +1277,11 @@ test('a hostile cause in a stage still reports that stage', async () => {
     },
   });
   try {
-    const run = await runWorker({ directory, ticks: 0, refuse: () => hostile });
+    const run = await runWorker({ directory, ticks: 2, refuse: () => hostile });
     assert({
-      given: 'a snapshot read that throws an error whose code getter throws',
-      should: 'report snapshot_failed, never collect',
+      given:
+        'a snapshot read that throws an error whose code getter throws, over three collections',
+      should: 'report snapshot_failed once, never collect',
       actual: run.logged
         .filter((line) => line.event === 'billing.economics.failed')
         .map((line) => line.fields.operation),
