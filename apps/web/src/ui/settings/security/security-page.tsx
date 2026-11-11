@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { authClient } from '../../../lib/auth-client';
 import {
   createPasskeyEnrollment,
-  enrollmentNotices,
   enrollSafely,
 } from '../../auth/onboarding/passkey-enrollment';
 import {
@@ -19,6 +17,11 @@ import { Notice } from '../../auth/notice/notice';
 import { PasskeyRowView } from './passkey-row';
 import { SessionRowView } from './session-row';
 import { EmailChangeForm, type EmailChangeAction } from './email-change-form';
+import {
+  signOutNoticeOf,
+  type SecurityList,
+  type SecurityLists,
+} from './security-overview-model';
 import { useSecurityOverview } from './use-security-overview';
 
 const supportsPasskeys = () =>
@@ -32,6 +35,70 @@ const enrollment = createPasskeyEnrollment({
 
 const loadOverview = () => loadSecurityOverview(authClient);
 const revokeOthers = () => revokeOtherSessions(authClient);
+const enrol = () => enrollSafely(enrollment);
+
+type Row = { readonly id: string };
+
+/** Why a list has no rows to show, when its read said so. */
+function UnreadNotice({
+  id,
+  list,
+}: {
+  readonly id: string;
+  readonly list: SecurityList<Row> | undefined;
+}) {
+  return list?.kind === 'unavailable' ? (
+    <Notice id={id} tone="error" title={list.notice} />
+  ) : null;
+}
+
+function PasskeyList({
+  lists,
+  onRenamed,
+  onRemoved,
+}: {
+  readonly lists: SecurityLists;
+  readonly onRenamed: (id: string, name: string) => void;
+  readonly onRemoved: (id: string) => void;
+}) {
+  if (lists.kind === 'loading') return <p role="status">Loading passkeys…</p>;
+  if (lists.passkeys.kind === 'unavailable')
+    return <UnreadNotice id="passkeys-load-notice" list={lists.passkeys} />;
+  return (
+    <ul>
+      {lists.passkeys.rows.map((passkey) => (
+        <PasskeyRowView
+          key={passkey.id}
+          passkey={passkey}
+          onRenamed={onRenamed}
+          onRemoved={onRemoved}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function SessionList({
+  lists,
+  onRevoked,
+}: {
+  readonly lists: SecurityLists;
+  readonly onRevoked: (id: string) => void;
+}) {
+  if (lists.kind === 'loading') return <p role="status">Loading sessions…</p>;
+  if (lists.sessions.kind === 'unavailable') return null;
+  return (
+    <ul>
+      {lists.sessions.rows.map((session) => (
+        <SessionRowView
+          key={session.id}
+          session={session}
+          onRevoked={onRevoked}
+        />
+      ))}
+    </ul>
+  );
+}
 
 /**
  * Passkeys, sessions and recovery email in one place (AUTH-5.3, 5.5, 5.6).
@@ -47,96 +114,51 @@ export function SecurityPage({
   /** Back from a sign-out that did not happen. */
   readonly signOutFailed?: boolean;
 }) {
-  const overview = useSecurityOverview({
+  const { overview, ...screen } = useSecurityOverview({
     load: loadOverview,
     revokeOthers,
+    enrol,
     signOutNotice: signOutFailed ? SIGN_OUT_FAILED_NOTICE : undefined,
   });
-  const { passkeys, sessions, passkeysNotice, sessionsNotice } = overview;
-  const [enrolling, setEnrolling] = useState(false);
-  const [enrollNotice, setEnrollNotice] = useState<string | undefined>();
+  const { lists, enrolment } = overview;
+  const signOutNotice = signOutNoticeOf(overview);
+  const enrolling = enrolment.kind === 'waiting';
+  const signingOutOthers = overview.signOut.kind === 'asking';
 
   return (
     <>
       <section aria-labelledby="passkeys-heading">
         <h2 id="passkeys-heading">Passkeys</h2>
-        {passkeysNotice ? (
-          <Notice
-            id="passkeys-load-notice"
-            tone="error"
-            title={passkeysNotice}
-          />
-        ) : null}
-        <ul>
-          {passkeys.map((passkey) => (
-            <PasskeyRowView
-              key={passkey.id}
-              passkey={passkey}
-              onRenamed={overview.renamePasskey}
-              onRemoved={overview.removePasskey}
-            />
-          ))}
-        </ul>
-        <Button
-          disabled={enrolling}
-          onClick={() => {
-            setEnrolling(true);
-            setEnrollNotice(undefined);
-            void enrollSafely(enrollment).then((outcome) => {
-              setEnrolling(false);
-              if (outcome.kind === 'saved') overview.reload();
-              else
-                setEnrollNotice(
-                  outcome.kind === 'unavailable'
-                    ? 'Saving a passkey is not available on this device.'
-                    : outcome.kind === 'cancelled'
-                      ? 'Nothing was saved.'
-                      : outcome.kind === 'stale-session'
-                        ? enrollmentNotices['stale-session']
-                        : 'We could not save a passkey. Please try again.',
-                );
-            });
-          }}
-        >
+        <PasskeyList
+          lists={lists}
+          onRenamed={screen.renamePasskey}
+          onRemoved={screen.removePasskey}
+        />
+        <Button disabled={enrolling} onClick={screen.addPasskey}>
           {enrolling ? 'Waiting for your device…' : 'Add a passkey'}
         </Button>
-        {enrollNotice ? (
-          <Notice id="enroll-notice" tone="error" title={enrollNotice} />
+        {enrolment.kind === 'failed' ? (
+          <Notice id="enroll-notice" tone="error" title={enrolment.notice} />
         ) : null}
       </section>
 
       <section aria-labelledby="sessions-heading">
         <h2 id="sessions-heading">Sessions</h2>
-        {sessionsNotice ? (
-          <Notice
-            id="sessions-load-notice"
-            tone="error"
-            title={sessionsNotice}
-          />
-        ) : null}
-        {overview.signOutNotice ? (
-          <Notice
-            id="sign-out-notice"
-            tone="error"
-            title={overview.signOutNotice}
-          />
-        ) : null}
-        <ul>
-          {sessions.map((session) => (
-            <SessionRowView
-              key={session.id}
-              session={session}
-              onRevoked={overview.removeSession}
-            />
-          ))}
-        </ul>
+        <UnreadNotice
+          id="sessions-load-notice"
+          list={lists.kind === 'read' ? lists.sessions : undefined}
+        />
+        {signOutNotice === null ? null : (
+          <Notice id="sign-out-notice" tone="error" title={signOutNotice} />
+        )}
+        <SessionList lists={lists} onRevoked={screen.removeSession} />
         <div className="flex flex-wrap gap-3">
           <Button
             variant="secondary"
-            disabled={overview.signingOutOthers}
-            onClick={overview.signOutOthers}
+            disabled={signingOutOthers}
+            onClick={screen.signOutOthers}
           >
-            {overview.signingOutOthers
+            {signingOutOthers
               ? 'Signing out…'
               : 'Sign out of all other sessions'}
           </Button>
