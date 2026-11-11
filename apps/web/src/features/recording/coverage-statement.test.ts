@@ -359,7 +359,9 @@ describe('explainGaps', () => {
   });
 
   test('the opening covers the real stamp lag at any capture age', () => {
-    const probeSlackMs = 300;
+    // Past a fixed 2.5 s opening by more than the 1 s sliver at 3 hours, so only an
+    // opening derived from the real lag covers it.
+    const probeSlackMs = 1150;
     for (const [age, nextStartMs] of [
       ['80 minutes', 80 * 60_000],
       ['3 hours', 180 * 60_000],

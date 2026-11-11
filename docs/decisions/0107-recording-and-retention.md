@@ -83,15 +83,16 @@ is explained against the same record (`explainGaps`): a stretch inside a prep or
 private phase is `private_phase`, and a turnover is `between_speeches`, the counterpart of
 the stage's `between`. A turnover runs from a closed segment's end into the next segment by
 the start-edge stamp lag of ADR 0099 at that age, plus 1.2 s of slack, which is 2.5 s for a
-young capture. Only a window a committed segment closes explains anything, so a gap after an
-open segment, after the last one or in a prep no segment follows stays `not_public`. Only
-what the record does not explain stays `not_public`. The history
-page states a ready Recording's stored gaps the same way when it is watched, so a Recording
-built before this explanation reads as one built today, with no stored data changed. Only a
-restart, a rotation and an unexplained `not_public` stretch are debate lost. Debate before
-the first frame or after the last has no place in video time, so `media.unrecorded` states
-it apart: a late start, an early end, or a stopped Broadcast. The worker reads none of this:
-its login reaches its job table and nothing else. None of it changes what is published.
+young capture. A window reaches into a speech's opening only for a gap that comes from the
+slate before it, so a gap that opens inside a speech is lost however early it is. Only a
+window a committed segment closes explains anything: a gap after an open segment, after the
+last one or in a prep no segment follows stays `not_public`. The history page states a
+ready Recording's stored gaps the same way when it is watched, so a Recording built before
+this explanation reads as one built today, with no stored data changed. Only a restart, a
+rotation and an unexplained `not_public` stretch are debate lost. Debate before the first
+frame or after the last has no place in video time, so `media.unrecorded` states it apart:
+a late start, an early end, or a stopped Broadcast. The worker reads none of this: its
+login reaches its job table and nothing else. None of it changes what is published.
 
 **Preparation says how far it really is.** A running build writes its figures on its own
 job row, in each step's units: attempts read, milliseconds encoded as ffmpeg counts them,
