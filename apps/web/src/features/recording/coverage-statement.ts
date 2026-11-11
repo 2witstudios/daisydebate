@@ -111,8 +111,10 @@ const slateWindows = (facts: RoundCoverageFacts, capturedFromMs: number) => {
 
 /**
  * The windows as one gap may use them, in video time. A window runs on through the
- * next speech's opening only for a gap that reaches it from before that speech: a
- * gap that opens inside a speech touches no slate, and is lost however early it is.
+ * next speech's opening only for a gap that reaches it from before that speech, to
+ * within clock disagreement: speeches can run back to back, and a probed piece ends
+ * a few milliseconds off. A gap that opens later inside a speech touches no slate,
+ * and is lost however early it is.
  */
 const windowsFor = (
   gap: Span,
@@ -124,7 +126,9 @@ const windowsFor = (
     return {
       startMs: window.startMs - capturedFromMs,
       endMs:
-        gap.startMs < nextStartMs ? window.endMs - capturedFromMs : nextStartMs,
+        gap.startMs < nextStartMs + SHORTEST_STATED_MS
+          ? window.endMs - capturedFromMs
+          : nextStartMs,
     };
   });
 

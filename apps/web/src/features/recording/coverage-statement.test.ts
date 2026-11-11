@@ -258,6 +258,28 @@ describe('explainGaps', () => {
     });
   });
 
+  test('speeches back to back still have their opening', () => {
+    assert({
+      given:
+        'the next speech starting as the last ends, and a gap from 30 ms after',
+      should: 'state the opening as between speeches (Watch check on staging)',
+      actual: explainGaps(
+        [notPublic(20_030, 21_306)],
+        {
+          ...none,
+          segments: [
+            { startedAtMs: real(0), endedAtMs: real(20_000) },
+            { startedAtMs: real(20_000), endedAtMs: real(50_000) },
+          ],
+        },
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 20_030, endMs: 21_306, reason: 'between_speeches' },
+      ],
+    });
+  });
+
   test('a gap opening inside a speech is lost, however early', () => {
     assert({
       given:
