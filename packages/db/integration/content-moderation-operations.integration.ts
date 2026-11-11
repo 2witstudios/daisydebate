@@ -483,7 +483,7 @@ test('an operator or legal removal ends the feed, and only an operator stop with
       feedKey: createId(),
       releasePolicy: { kind: 'delay', seconds: 60 },
     });
-    await client`update broadcasts set completed_at=now() where id=${second}`;
+    await client`update broadcasts set stream_ended_at=now(), completed_at=now() where id=${second}`;
     const removed = createId();
     await store.requestRecording({
       id: removed,
@@ -542,7 +542,7 @@ test('a takedown just after a Broadcast completed withdraws its feed now, not af
       eligibility: { kind: 'ranked' },
     });
     const now = new Date();
-    await client`update broadcasts set completed_at=${now.toISOString()}::timestamptz,
+    await client`update broadcasts set stream_ended_at=${now.toISOString()}::timestamptz, completed_at=${now.toISOString()}::timestamptz,
         final_media_end_at=${now.toISOString()}::timestamptz where id=${broadcast.id}`;
     const claim = () =>
       database.transaction((tx) =>
