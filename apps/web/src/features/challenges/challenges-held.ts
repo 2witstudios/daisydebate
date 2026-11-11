@@ -34,6 +34,34 @@ export const holdChallenges = (list: ChallengeList): ChallengesHeld => ({
   sent: list.outgoing.map((offer) => ({ standing: 'waiting', offer })),
 });
 
+/** An offer carries only plain fields, so two are the same when every field is. */
+const sameFields = (held: object, read: object): boolean => {
+  const fields = Object.entries(held);
+  const others: Readonly<Record<string, unknown>> = { ...read };
+  return (
+    fields.length === Object.keys(read).length &&
+    fields.every(([name, value]) => others[name] === value)
+  );
+};
+
+/** `held` itself when `read` says the same, so a list read again unchanged keeps its identity. */
+const keptUnlessChanged = <T, Rows extends readonly T[]>(
+  held: Rows,
+  read: Rows,
+  same: (held: T, read: T) => boolean,
+): Rows =>
+  held.length === read.length &&
+  held.every((row, index) => same(row, read[index]!))
+    ? held
+    : read;
+
+const sameSent = (held: SentOffer, read: SentOffer) =>
+  held.standing === read.standing && sameFields(held.offer, read.offer);
+
+/**
+ * What the tab holds once `list` is read. Every read parses a new list, so
+ * one that says nothing new answers `state` itself: nobody is told of it.
+ */
 const listed = (state: ChallengesHeld, list: ChallengeList): ChallengesHeld => {
   const held = new Map(state.sent.map((sent) => [sent.offer.id, sent]));
   const standing = new Set(list.outgoing.map((offer) => offer.id));
@@ -43,20 +71,29 @@ const listed = (state: ChallengesHeld, list: ChallengeList): ChallengesHeld => {
       !standing.has(offer.id) &&
       (was === 'ended' || (was === 'waiting' && !accepted.has(offer.id))),
   );
-  return {
-    incoming: list.incoming,
-    accepted: list.accepted,
-    sent: [
-      ...list.outgoing.map((offer): SentOffer => ({
-        standing:
-          held.get(offer.id)?.standing === 'cancelling'
-            ? 'cancelling'
-            : 'waiting',
-        offer,
-      })),
-      ...gone.map(({ offer }): SentOffer => ({ standing: 'ended', offer })),
-    ],
+  const next: ChallengesHeld = {
+    incoming: keptUnlessChanged(state.incoming, list.incoming, sameFields),
+    accepted: keptUnlessChanged(state.accepted, list.accepted, sameFields),
+    sent: keptUnlessChanged(
+      state.sent,
+      [
+        ...list.outgoing.map((offer): SentOffer => ({
+          standing:
+            held.get(offer.id)?.standing === 'cancelling'
+              ? 'cancelling'
+              : 'waiting',
+          offer,
+        })),
+        ...gone.map(({ offer }): SentOffer => ({ standing: 'ended', offer })),
+      ],
+      sameSent,
+    ),
   };
+  return next.incoming === state.incoming &&
+    next.accepted === state.accepted &&
+    next.sent === state.sent
+    ? state
+    : next;
 };
 
 /** Moves the one offer with this id out of `from`, or changes nothing. */

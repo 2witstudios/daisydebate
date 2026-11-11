@@ -67,8 +67,9 @@ export const askLatest = (state: FloorState, floor: OpenFloor): FloorStep => {
   };
 };
 
+/** A hidden floor asks nothing under its withdrawn access: being shown again asks. */
 export const refresh = (state: FloorState): FloorStep =>
-  state.standing.kind === 'ready'
+  state.standing.kind === 'ready' && !state.standing.hidden
     ? askLatest(state, state.standing)
     : rejected(state);
 
@@ -142,6 +143,17 @@ export const latestRead = (state: FloorState, event: Event<'latest-read'>) => {
 const answered = (thread: FloorThread, request: number): FloorThread =>
   thread.paging === request ? { ...thread, paging: null } : thread;
 
+/** Every read answers the floor's whole author list, so only authors not yet known are added. */
+const withUnknown = (
+  known: FloorThread['authors'],
+  read: FloorThread['authors'],
+): FloorThread['authors'] => [
+  ...known,
+  ...read.filter(
+    (author) => !known.some((other) => other.actorId === author.actorId),
+  ),
+];
+
 export const olderRead = (state: FloorState, event: Event<'older-read'>) => {
   const floor = awaiting(state, event.request, 'older');
   const { page } = event;
@@ -160,7 +172,7 @@ export const olderRead = (state: FloorState, event: Event<'older-read'>) => {
     reads: applied(floor.reads, 'older', event.request),
     thread: {
       ...thread,
-      authors: [...thread.authors, ...page.authors],
+      authors: withUnknown(thread.authors, page.authors),
       older: {
         changeVersion,
         messages: mergeFloorMessages(

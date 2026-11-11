@@ -2,6 +2,7 @@ import { FormData as BrowserFormData } from 'happy-dom';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
+import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import type * as Client from './assembly-command-form.test-support';
 import { RetryRoomCommand } from './retry-room-command';
@@ -127,6 +128,59 @@ test('a room command form whose answer was lost offers only the retry, then the 
           signals: ['signal', 'signal'],
         },
       },
+    });
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('Ready, then Not ready, each hand keyboard focus back to the controls', async () => {
+  const { act, createElement, root, container, browser, CommandFormHarness } =
+    await mountBrowserClient<typeof Client>(
+      Bun.resolveSync('./assembly-command-form.test-support', import.meta.dir),
+      {
+        URL,
+        URLSearchParams,
+        FormData: BrowserFormData,
+        performance,
+        process: { env: { NODE_ENV: 'test' } },
+      },
+    );
+  const action = createLocalCommandAction(
+    {
+      readSnapshot: () => ({ devicesPassed: true, pending: false }),
+      ready: async () => {},
+      unready: async () => {},
+    },
+    async (state) => state,
+  );
+  const sync = { accepted: () => {}, signal: () => {} };
+  /** The one form instance the Ready control keeps across its toggle. */
+  const show = (type: 'ready' | 'unready') =>
+    act(async () =>
+      root.render(
+        createElement(CommandFormHarness, { action, sync, fields: { type } }),
+      ),
+    );
+  /** Posts from the button, then leaves focus where a disabled control drops it. */
+  const press = async () => {
+    await act(async () => container.querySelector('button')!.click());
+    const focused = browser.document.activeElement === fieldset();
+    (browser.document.activeElement as { blur?: () => void } | null)?.blur?.();
+    return focused;
+  };
+  const fieldset = () => container.querySelector('fieldset');
+  try {
+    await show('ready');
+    const afterReady = await press();
+    await show('unready');
+    const afterUnready = await press();
+    assert({
+      given:
+        'a keyboard user who presses Ready and then Not ready, both answered in the browser',
+      should: 'return focus to the form’s controls after each answer',
+      actual: [afterReady, afterUnready],
+      expected: [true, true],
     });
   } finally {
     await act(async () => root.unmount());

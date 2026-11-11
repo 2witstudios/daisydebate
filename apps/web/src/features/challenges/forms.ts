@@ -20,7 +20,7 @@ export type ChallengeFormState = Idle | Refused | ChallengeSent | Done | Moved;
 
 export const initialChallengeForm: ChallengeFormState = idle();
 export const challengeSent: ChallengeSent = { kind: 'sent' };
-export const challengeEnded: Done = done;
+export const challengeEnded: Done = done();
 export const challengeRefused = (error: string): Refused =>
   refusedWith({}, error);
 

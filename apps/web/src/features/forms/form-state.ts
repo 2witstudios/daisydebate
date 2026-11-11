@@ -17,7 +17,9 @@
  *   `accepted` with its view). It reuses a shared `kind` only with the shared
  *   shape.
  * - Producers build answers with the constructors here and in the form's
- *   own module, never with object literals. `moveOn` already answers
+ *   own module, never with object literals. An action that runs in the
+ *   browser answers a new object every time, never a shared one: a reader
+ *   knows a new answer by its identity (`useFocusAfterAnswer`). `moveOn` already answers
  *   `moved`; `stayOn` answers it or null.
  * - Readers switch on `kind` exhaustively (a `switch` with no default, or
  *   `unreachable` in it), so a new variant fails to compile until every
@@ -65,7 +67,8 @@ export const refusedWith = <V extends FormValues>(
   values: V,
   error: string,
 ): Refused & { readonly values: V } => ({ kind: 'refused', values, error });
-export const done: Done = { kind: 'done' };
+/** A new object each time: a form tells a new answer from the last by identity. */
+export const done = (): Done => ({ kind: 'done' });
 export const moved = (next: string): Moved => ({ kind: 'moved', next });
 export const unacknowledged = (form: FormData): Unacknowledged => ({
   kind: 'unacknowledged',

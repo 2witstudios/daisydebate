@@ -29,7 +29,7 @@ export async function saveRatingVisibilityAction(
         showValue: form.get('showValue') === 'on',
       }),
     });
-    return response.ok ? done : saveRefused(form);
+    return response.ok ? done() : saveRefused(form);
   } catch {
     return saveRefused(form);
   }

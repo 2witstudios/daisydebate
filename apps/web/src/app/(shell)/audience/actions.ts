@@ -78,7 +78,7 @@ export async function postSpectatorChatAction(
   }
   const to = backTo(target.returnTo);
   revalidatePath(to);
-  return stayOn(incoming, to) ?? done;
+  return stayOn(incoming, to) ?? done();
 }
 
 const FAILED = 'That did not go through. Try again.';
@@ -102,7 +102,7 @@ const mutate = async (
     return refused(form, FAILED);
   }
   revalidatePath(to);
-  return stayOn(incoming, to) ?? done;
+  return stayOn(incoming, to) ?? done();
 };
 
 /** Sends one reaction; the pressed button names which. */
@@ -209,7 +209,7 @@ export async function saveNotificationPreferencesAction(
     return saveRefused(form);
   }
   revalidatePath('/settings');
-  return done;
+  return done();
 }
 
 /** Files what the page's form names through /api/content-reports, then comes back. */

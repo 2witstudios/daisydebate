@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { submitFloorChange } from './change-form';
+import { floorFormUnavailable } from './form';
 import { floorIdle, floorUnacknowledged } from './form-state';
 setupRitewayBun();
 const scope = { roundId: 'r'.repeat(24), channelId: 'c'.repeat(24) };
@@ -227,5 +228,41 @@ test('a floor change answers exactly one kind', async () => {
       ),
       { kind: 'sent', messageId, requestId: 'n'.repeat(24) },
     ],
+  });
+});
+test('a multi-line edit the browser left unacknowledged can be retried', async () => {
+  const edit = (text: string) => {
+    const posted = form();
+    posted.set('kind', 'edit');
+    posted.set('text', text);
+    return posted;
+  };
+  let calls = 0;
+  // The browser keeps the textarea's own line breaks; the posted form carries CRLF.
+  const retry = await submitFloorChange(
+    async () => {
+      calls++;
+      return Response.json({
+        id: messageId,
+        channelId: scope.channelId,
+        authorActorId: 'a'.repeat(24),
+        sequence: 1,
+        changeVersion: 2,
+        text: 'one\ntwo',
+        createdAt: '2026-11-07T00:00:00.000Z',
+        editedAt: '2026-11-07T00:01:00.000Z',
+      });
+    },
+    scope,
+    floorFormUnavailable(edit('one\ntwo')),
+    edit('one\r\ntwo'),
+    () => 'n'.repeat(24),
+  );
+  assert({
+    given:
+      'a two-line edit whose call failed in the browser, posted again unchanged',
+    should: 'send the retry and settle on the server’s answer',
+    actual: [calls, retry.kind],
+    expected: [1, 'changed'],
   });
 });

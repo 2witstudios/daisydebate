@@ -29,8 +29,8 @@ const violations = (
   const shown = challengeListOf(state);
   if (
     JSON.stringify(shown.outgoing) !== JSON.stringify(list.outgoing) ||
-    shown.incoming !== list.incoming ||
-    shown.accepted !== list.accepted
+    JSON.stringify(shown.incoming) !== JSON.stringify(list.incoming) ||
+    JSON.stringify(shown.accepted) !== JSON.stringify(list.accepted)
   )
     bad.push('the list shown is not the list read');
   const standing = new Set(list.outgoing.map((row) => row.id));
@@ -162,5 +162,62 @@ test('seeded random walks keep every invariant and never invent a notice', () =>
     should: 'break no invariant at any step',
     actual: problems,
     expected: [],
+  });
+});
+
+test('a read that brings the list already held changes nothing', () => {
+  const lists: readonly (readonly [string, () => ChallengeList])[] = [
+    ['nothing', () => listOf()],
+    ['an offer waiting', () => listOf([offer('a')], ['c'], ['i'])],
+  ];
+  assert({
+    given:
+      'each list read again as an equal copy, held as read, with an offer being cancelled, and with an ended offer still unnoticed',
+    should: 'answer the very state it was given',
+    actual: lists.map(([name, list]) => {
+      const read = holdChallenges(list());
+      const cancelling = challengesHeld(read, {
+        type: 'cancelling',
+        id: offerId('a'),
+      });
+      const ended = challengesHeld(holdChallenges(listOf([offer('e')])), {
+        type: 'listed',
+        list: list(),
+      });
+      return [
+        name,
+        [read, cancelling, ended].map(
+          (state) =>
+            challengesHeld(state, { type: 'listed', list: list() }) === state,
+        ),
+      ];
+    }),
+    expected: [
+      ['nothing', [true, true, true]],
+      ['an offer waiting', [true, true, true]],
+    ],
+  });
+});
+
+test('a read that differs in one field of one offer is adopted', () => {
+  const held = holdChallenges(listOf([offer('a')], ['c'], ['i']));
+  const renamed = listOf([offer('a', 'noor')], ['c'], ['i']);
+  const later = listOf([offer('a')], ['c'], ['i']);
+  const moved = {
+    ...later,
+    accepted: later.accepted.map((row) => ({ ...row, roomId: offerId('s') })),
+  };
+  assert({
+    given:
+      'a held list read again with a sent offer renamed, and with an accepted offer in another room',
+    should: 'hold what was read',
+    actual: [renamed, moved].map((list) => {
+      const next = challengesHeld(held, { type: 'listed', list });
+      return [next !== held, challengeListOf(next)];
+    }),
+    expected: [
+      [true, renamed],
+      [true, moved],
+    ],
   });
 });

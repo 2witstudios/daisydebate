@@ -15,7 +15,7 @@ test('a settings save answers exactly one of nothing yet, a refusal, or saved', 
   const answers: readonly SaveFormState[] = [
     initialSaveForm,
     saveRefused(form),
-    done,
+    done(),
   ];
   assert({
     given: 'each answer a save-in-place form can hold',

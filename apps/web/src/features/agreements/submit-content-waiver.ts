@@ -80,7 +80,7 @@ export function contentWaiverAnswer(
     return edge.move(`/rooms/${roomId}${noticeQuery(result)}#`);
   switch (result) {
     case 'signed':
-      return edge.view ? roomAccepted(edge.view) : done;
+      return edge.view ? roomAccepted(edge.view) : done();
     case 'refused':
       return refused(
         form,

@@ -187,12 +187,9 @@ export function createConnectionStore(
     }, delayMs);
   }
 
-  function handleOpen(myGeneration: number, ticket: string | null) {
-    if (myGeneration !== generation) return;
-    if (ticket !== null) sendHello(myGeneration, ticket);
-  }
-  function sendHello(myGeneration: number, ticket: string) {
-    if (myGeneration !== generation || !socket) return;
+  /** Sends hello; true when that began the handshake, which the caller announces. */
+  function sendHello(myGeneration: number, ticket: string): boolean {
+    if (myGeneration !== generation || !socket) return false;
     socket.send(
       JSON.stringify({
         v: ENVELOPE_VERSION,
@@ -202,7 +199,7 @@ export function createConnectionStore(
       }),
     );
     diagnostics.emit(myGeneration, 'hello-sent');
-    if (advance({ type: 'hello-sent' })) notify();
+    return advance({ type: 'hello-sent' });
   }
   function handleMessage(myGeneration: number, raw: unknown) {
     if (myGeneration !== generation) return;
@@ -271,11 +268,15 @@ export function createConnectionStore(
     };
     const tryHello = () => {
       if (!opened || ticket === null) return;
+      let handshaking = false;
       try {
-        handleOpen(myGeneration, ticket);
+        handshaking = sendHello(myGeneration, ticket);
       } catch (error) {
         fail('hello-failed', error);
       }
+      // Outside the try: a subscriber that throws on the notice has not failed
+      // the hello, and closing the healthy socket for it would loop reconnects.
+      if (handshaking) notify();
     };
     newSocket.addEventListener('open', () => {
       if (myGeneration !== generation) return;
@@ -295,9 +296,9 @@ export function createConnectionStore(
         if (myGeneration !== generation) return;
         ticket = value;
         diagnostics.emit(myGeneration, 'ticket-resolved');
-        tryHello();
       })
-      .catch((error: unknown) => fail('ticket-failed', error));
+      // Beside the hello, not before it: a subscriber's failure there is not a failed ticket.
+      .then(tryHello, (error: unknown) => fail('ticket-failed', error));
   }
 
   function end(how: 'left' | 'disposed') {

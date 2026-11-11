@@ -95,3 +95,28 @@ for (const scenario of scenarios) {
     });
   });
 }
+
+test('each local Ready and Not ready answers anew', async () => {
+  const action = createLocalCommandAction(
+    {
+      readSnapshot: () => ({ devicesPassed: true, pending: false }),
+      ready: async () => {},
+      unready: async () => {},
+    },
+    async () => moved('/rooms/current'),
+  );
+  const post = (type: string) => {
+    const form = new FormData();
+    form.set('type', type);
+    return action(idle(), form);
+  };
+  const ready = await post('ready');
+  const unready = await post('unready');
+  assert({
+    given: 'Ready, then Not ready, both answered in the browser',
+    should:
+      'answer done each time with an object of its own, so the form can tell a new answer from the last',
+    actual: [ready, unready, ready === unready],
+    expected: [{ kind: 'done' }, { kind: 'done' }, false],
+  });
+});

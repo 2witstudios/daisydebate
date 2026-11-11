@@ -54,7 +54,6 @@ export const TRANSITIONS: Readonly<
   },
   'ready, no page, hidden': {
     'enter-requested': LEAVE_TO_ENTER,
-    'refresh-requested': 'ready, first page on its way, hidden | read-latest',
     'floor-shown': 'ready, first page on its way | read-latest',
     'expiry-reached': 'ready, no page, hidden, expired',
   },
@@ -68,7 +67,6 @@ export const TRANSITIONS: Readonly<
   },
   'ready, hidden': {
     'enter-requested': LEAVE_TO_ENTER,
-    'refresh-requested': 'ready, hidden | read-latest',
     'floor-shown': 'ready | read-latest',
     'expiry-reached': 'ready, hidden, expired',
   },

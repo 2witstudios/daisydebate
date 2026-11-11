@@ -200,16 +200,17 @@ test('hiding the floor drops older pages and every read on its way', () => {
     floor.send({ type: 'read-marked', request: mark, sequence: 9 }),
     floor.send({ type: 'floor-hidden' }),
   ];
+  floor.send({ type: 'floor-shown' });
   floor.send({
     type: 'latest-read',
-    request: refresh(floor),
+    request: floor.requestOf('read-latest'),
     page: pageRead({ metadata: { readOnly: true } }),
   });
   assert({
     given:
       'a floor hidden with older pages shown and a refresh, an older page and a read marker on their way',
     should:
-      'keep the latest page, drop the older ones, change nothing for those answers, and apply a read asked afterwards',
+      'keep the latest page, drop the older ones, change nothing for those answers, and apply the read asked once it is shown again',
     actual: {
       thread: (hidden.standing as OpenFloor).thread,
       marking: (hidden.standing as OpenFloor).marking,
@@ -613,6 +614,63 @@ test('a floor that was never hidden is not shown again', () => {
     should: 'change nothing and ask nothing',
     actual: step.state === state && step.effects.length === 0,
     expected: true,
+  });
+});
+
+test('a hidden floor reads nothing until it is shown again', () => {
+  for (const [given, firstPage] of [
+    ['a floor hidden with its thread shown', 'read'],
+    ['a floor hidden before its first page', 'on its way'],
+  ] as const) {
+    const floor = floorDriver();
+    if (firstPage === 'read') floor.read();
+    else floor.open();
+    floor.send({ type: 'floor-hidden' });
+    const hidden = floor.state();
+    const before = floor.requestOf('read-latest');
+    const refused = floor.send({ type: 'refresh-requested' });
+    const shown = floor.send({ type: 'floor-shown' });
+    assert({
+      given: `${given}, asked to refresh and then shown`,
+      should:
+        'ask nothing under the withdrawn access, and ask for the latest page exactly once when shown',
+      actual: {
+        refused: refused.state === hidden && refused.effects.length === 0,
+        asked: shown.effects,
+        awaited: openFloor(floor).reads,
+      },
+      expected: {
+        refused: true,
+        asked: [{ type: 'read-latest', request: before + 1, channelId }],
+        awaited: { latest: [before + 1], older: [] },
+      },
+    });
+  }
+});
+
+test('an older page adds only the authors the thread does not know', () => {
+  const floor = floorDriver();
+  floor.read(pageRead({ authors: [author('a'), author('b')] }));
+  floor.send({
+    type: 'older-read',
+    request: older(floor),
+    page: pageRead({
+      messages: [message(4)],
+      before: 4,
+      authors: [{ ...author('b'), label: 'Renamed' }, author('c')],
+    }),
+  });
+  floor.send({
+    type: 'older-read',
+    request: older(floor, 4),
+    page: pageRead({ messages: [message(3)], authors: [author('c')] }),
+  });
+  assert({
+    given:
+      'two older pages, each answering authors the thread holds, one new, and not one the thread knows',
+    should: 'hold each author once, losing none it already knew',
+    actual: openFloor(floor).thread?.authors,
+    expected: [author('a'), author('b'), author('c')],
   });
 });
 

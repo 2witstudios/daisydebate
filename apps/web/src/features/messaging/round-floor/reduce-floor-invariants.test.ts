@@ -41,6 +41,8 @@ const violations = (state: FloorState): readonly string[] => {
       (thread !== null && (thread.older !== null || thread.paging !== null)))
   )
     bad.push('a hidden floor marks messages read or holds older pages');
+  if (hidden && reads.latest.length > 0)
+    bad.push('a hidden floor waits for a page read under withdrawn access');
   if (!thread && reads.latest.length === 0 && !hidden && notice === null)
     bad.push('no page is held, none is on its way, and nothing says why');
   if (thread && thread.history.channelId !== standing.metadata.channelId)

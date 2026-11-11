@@ -105,3 +105,29 @@ test('only a well-formed unacknowledged answer holds a command back', () => {
     expected: [edit, null, null, null, null, null, null, null],
   });
 });
+
+test('a command is the same however its line breaks were carried', () => {
+  const typed = { ...edit, text: 'one\ntwo\nthree' };
+  const posted = new FormData();
+  for (const [name, value] of Object.entries(edit)) posted.set(name, value);
+  posted.set('text', 'one\r\ntwo\rthree');
+  const kept = unacknowledgedFloorCommand(
+    floorUnacknowledged(
+      { ...edit, text: 'one\r\ntwo\r\nthree' },
+      'Not confirmed.',
+    ),
+  );
+  assert({
+    given:
+      'a multi-line command as the browser held it, as a form posted it, and as an earlier answer kept it',
+    should:
+      'read each with the same line breaks, and still tell other text apart',
+    actual: [
+      floorCommand(posted),
+      kept,
+      sameFloorCommand(typed, floorCommand(posted)),
+      sameFloorCommand(typed, { ...typed, text: 'one two three' }),
+    ],
+    expected: [typed, typed, true, false],
+  });
+});

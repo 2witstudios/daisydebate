@@ -3,8 +3,9 @@ import { systemClock } from '@daisy/clock';
 import type { RoundBallotRead } from '@daisy/protocol';
 import { useEffect, useRef } from 'react';
 import {
-  ballotRefreshInMs,
+  ballotRefresh,
   ballotWaitSince,
+  type BallotRefresh,
   type BallotWait,
 } from '../../../features/round-ballots/ballot-refresh';
 import { countdownNowMs } from '../../../features/round-ballots/settling';
@@ -20,19 +21,21 @@ export type RefreshEdges = {
 };
 
 /**
- * Refreshes each time the delay `nextInMs` names has passed, and asks again
- * after every one: a deadline passes and a wait grows longer with no new
- * props. It stops by itself the first time there is no next refresh. A hidden
- * page is not refreshed at all; shown again, it refreshes at once, since what
- * it shows may be long out of date. Returns how to stop it early.
+ * Follows what `next` names at each present. `in`: refreshes when that delay
+ * has passed and asks again, since a deadline passes and a wait grows longer
+ * with no new props. `once`: refreshes now and schedules nothing, so the
+ * render that refresh brings decides afresh and a deadline the server never
+ * moves past is not asked about in a loop. `none`: stops. A hidden page holds
+ * no timer and refreshes nothing; shown again it asks `next` at once, since
+ * what it shows may be long out of date. Returns how to stop it early.
  */
 export function refreshOnSchedule({
-  nextInMs,
+  next,
   nowMs,
   refresh,
   edges,
 }: {
-  readonly nextInMs: (nowMs: number) => number | null;
+  readonly next: (nowMs: number) => BallotRefresh;
   readonly nowMs: () => number;
   readonly refresh: () => void;
   readonly edges: RefreshEdges;
@@ -42,25 +45,28 @@ export function refreshOnSchedule({
     if (timer !== null) edges.clearTimeout(timer);
     timer = null;
   };
-  const arm = () => {
-    disarm();
-    const inMs = edges.visible() ? nextInMs(nowMs()) : null;
-    if (inMs === null) return;
+  const arm = (inMs: number) => {
     timer = edges.setTimeout(() => {
       timer = null;
       refreshIfDue();
     }, inMs);
   };
   const refreshIfDue = () => {
-    if (nextInMs(nowMs()) === null) return;
+    disarm();
+    const due = next(nowMs());
+    if (due.kind === 'none') return;
     refresh();
-    arm();
+    if (due.kind === 'in') arm(due.ms);
   };
   const unsubscribe = edges.onVisibilityChange(() => {
     if (edges.visible()) refreshIfDue();
     else disarm();
   });
-  arm();
+  if (edges.visible()) {
+    const first = next(nowMs());
+    if (first.kind === 'once') refresh();
+    if (first.kind === 'in') arm(first.ms);
+  }
   return () => {
     disarm();
     unsubscribe();
@@ -86,7 +92,9 @@ const browserEdges: RefreshEdges = {
  * Keeps the judge's page current without a manual refresh, on the present
  * counted from the server's render instant (countdownNowMs). Every refresh
  * brings a new render instant and a new view, which decide afresh; only how
- * long the Round has waited on the same thing is carried across them.
+ * long the Round has waited on the same thing is carried across them. The
+ * render instant is also how a passed deadline is asked about once: the
+ * refresh it earns is rendered after it.
  */
 export function useBallotRefresh(
   view: RoundBallotRead,
@@ -104,9 +112,10 @@ export function useBallotRefresh(
       renderedAtMs,
     ));
     return refreshOnSchedule({
-      nextInMs: (nowMs) =>
-        ballotRefreshInMs({ round: { status, waitingOn } }, held, {
+      next: (nowMs) =>
+        ballotRefresh({ round: { status, waitingOn } }, held, {
           nowMs,
+          renderedAtMs,
           waitingSinceMs: sinceMs,
         }),
       nowMs: () =>

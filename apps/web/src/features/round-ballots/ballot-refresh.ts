@@ -43,16 +43,45 @@ export const ballotWaitSince = (
     : { state, sinceMs: renderedAtMs };
 };
 
-/** The present on the server-anchored count, and when the page first saw this wait. */
+/**
+ * What the ballot page does next about the Round it shows: refresh `in` so
+ * many milliseconds and ask again, refresh `once` now and schedule nothing,
+ * or `none`.
+ */
+export type BallotRefresh =
+  | { readonly kind: 'in'; readonly ms: number }
+  | { readonly kind: 'once' }
+  | { readonly kind: 'none' };
+
+const refreshIn = (ms: number): BallotRefresh => ({ kind: 'in', ms });
+const refreshOnce: BallotRefresh = { kind: 'once' };
+const noRefresh: BallotRefresh = { kind: 'none' };
+
+/**
+ * The present and the server's render of what the page shows, both on the
+ * server-anchored count, and when the page first saw this wait.
+ */
 type RefreshInstant = {
   readonly nowMs: number;
+  readonly renderedAtMs: number;
   readonly waitingSinceMs: number;
 };
 
-const untilDeadline = (deadlineAt: string, nowMs: number) =>
-  nowMs < Date.parse(deadlineAt) + ballotRefreshGraceMs
-    ? ballotRefreshEveryMs
-    : null;
+/**
+ * Steadily until the deadline is behind the present by the grace. From then
+ * on what the page shows decides: rendered before that instant, no read has
+ * followed the deadline (a hidden tab, a sleeping laptop, a late timer), so
+ * one is owed; rendered after it, the server has already answered past the
+ * deadline with the same wait, and asking again would only loop.
+ */
+const untilDeadline = (
+  deadlineAt: string,
+  { nowMs, renderedAtMs }: RefreshInstant,
+): BallotRefresh => {
+  const overAtMs = Date.parse(deadlineAt) + ballotRefreshGraceMs;
+  if (nowMs < overAtMs) return refreshIn(ballotRefreshEveryMs);
+  return renderedAtMs < overAtMs ? refreshOnce : noRefresh;
+};
 
 const backingOff = (waitedMs: number) =>
   Math.min(
@@ -60,35 +89,36 @@ const backingOff = (waitedMs: number) =>
     Math.max(ballotRefreshEveryMs, Math.floor(waitedMs / waitShareAsked)),
   );
 
-/** How soon a Round is asked about again, by what it waits on. */
+/** When a Round is asked about again, by what it waits on. */
 const whileWaitingOn = (
   waitingOn: RoundWaitingOn,
-  { nowMs, waitingSinceMs }: RefreshInstant,
-): number | null => {
+  at: RefreshInstant,
+): BallotRefresh => {
   switch (waitingOn.state) {
     case 'human_window':
     case 'ai_processing':
     case 'awaiting_attendance':
-      return untilDeadline(waitingOn.deadlineAt, nowMs);
+      return untilDeadline(waitingOn.deadlineAt, at);
     case 'closing_transcript':
     case 'held_by_writer':
     case 'ai_recovering':
     case 'ai_failed':
     case 'settling':
-      return backingOff(nowMs - waitingSinceMs);
+      return refreshIn(backingOff(at.nowMs - at.waitingSinceMs));
     case 'ai_blocked':
-      return null;
+      return noRefresh;
   }
 };
 
 /**
- * How long until the ballot page next refreshes the Round, on the
- * server-anchored count; null when it does not. Only an active Round is
- * refreshed, and what it waits on decides how:
+ * When the ballot page next refreshes the Round, on the server-anchored
+ * count. Only an active Round is refreshed, and what it waits on decides how:
  *
  * - speeches still running (no wait named): steadily, the Round's own clock
  *   ends them;
- * - a persisted deadline: steadily until the deadline is behind it by the grace;
+ * - a persisted deadline: steadily until the deadline is behind it by the
+ *   grace, then once more if the page was rendered before that, so a deadline
+ *   that passed unobserved is always followed by a read;
  * - a wait the server ends by itself but dates nowhere: ever more slowly the
  *   longer the page has seen it, up to the ceiling, so a stuck Round costs a
  *   request a minute rather than one every interval;
@@ -97,12 +127,14 @@ const whileWaitingOn = (
  * A ballot being posted, or one left unacknowledged, holds the page (`held`):
  * a refresh would race the answer or lose the original retry.
  */
-export function ballotRefreshInMs(
+export function ballotRefresh(
   view: RefreshedBallot,
   held: boolean,
   at: RefreshInstant,
-): number | null {
-  if (view.round.status !== 'active' || held) return null;
+): BallotRefresh {
+  if (view.round.status !== 'active' || held) return noRefresh;
   const waitingOn = view.round.waitingOn;
-  return waitingOn ? whileWaitingOn(waitingOn, at) : ballotRefreshEveryMs;
+  return waitingOn
+    ? whileWaitingOn(waitingOn, at)
+    : refreshIn(ballotRefreshEveryMs);
 }

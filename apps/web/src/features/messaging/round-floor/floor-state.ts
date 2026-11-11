@@ -46,8 +46,9 @@ export type OpenFloor = {
     readonly sequence: number;
   } | null;
   /**
-   * The live channel says this reader may not see the floor. Nothing is marked
-   * read or paged meanwhile, and being shown again asks for the latest page.
+   * The live channel says this reader may not see the floor. Nothing is read,
+   * marked read or paged meanwhile, and being shown again asks for the latest
+   * page.
    */
   readonly hidden: boolean;
   readonly reads: OutstandingReads;

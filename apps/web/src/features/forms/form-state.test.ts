@@ -56,7 +56,7 @@ describe('an answer is one kind', () => {
   > = {
     idle: idle({ name: 'seed' }),
     refused: refused(posted({ name: 'x' }), 'Too short.'),
-    done,
+    done: done(),
     moved: moved('/lobby'),
     unacknowledged: unacknowledged(posted({ name: 'x' })),
   };

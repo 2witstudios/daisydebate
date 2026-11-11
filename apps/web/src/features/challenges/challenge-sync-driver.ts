@@ -102,24 +102,45 @@ export function createChallengeSyncDriver({
       offersOpen(state.value) ? state.readAt + OFFER_WATCH_MS : null,
   });
   let listedFrom = seed;
-  let snapshot = seedChallengeSync(seed, scheduler.now());
+  let held = holdChallenges(seed);
+  let source = sync.readSnapshot();
+  let snapshot: ResourceSync<ChallengesHeld> = { ...source, value: held };
+  /** Current whenever read, and one object until something in it changes. */
+  const readSnapshot = () => {
+    const state = sync.readSnapshot();
+    if (state !== source || held !== snapshot.value) {
+      source = state;
+      snapshot = { ...state, value: held };
+    }
+    return snapshot;
+  };
   const listeners = new Set<() => void>();
-  const hold = (value: ChallengesHeld) => {
-    snapshot = { ...sync.readSnapshot(), value };
+  const tell = () => {
     for (const listener of listeners) listener();
   };
   const apply = (event: ChallengesEvent) => {
-    const next = challengesHeld(snapshot.value, event);
-    if (next !== snapshot.value) hold(next);
+    const next = challengesHeld(held, event);
+    if (next === held) return;
+    held = next;
+    tell();
   };
+  let freshness = source.freshness;
+  // A read moves the sync through due, reading and found; listeners render
+  // what is held and whether it is current, so only a change in those is
+  // told. Telling every step re-rendered every reader three times per read.
   sync.subscribe(() => {
-    const list = sync.readSnapshot().value;
-    if (list === listedFrom) return hold(snapshot.value);
-    listedFrom = list;
-    hold(challengesHeld(snapshot.value, { type: 'listed', list }));
+    const state = sync.readSnapshot();
+    const before = held;
+    if (state.value !== listedFrom) {
+      listedFrom = state.value;
+      held = challengesHeld(held, { type: 'listed', list: state.value });
+    }
+    const told = freshness;
+    freshness = state.freshness;
+    if (held !== before || freshness !== told) tell();
   });
   return {
-    readSnapshot: () => snapshot,
+    readSnapshot,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => {

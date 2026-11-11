@@ -247,6 +247,60 @@ describe('challenge sync driver', () => {
     });
   });
 
+  test('a read that changes nothing a reader uses tells no listener', async () => {
+    const tab = harness(listOf([offer('a')], [], ['i']));
+    let heard = 0;
+    tab.driver.subscribe(() => {
+      heard += 1;
+    });
+    const held = tab.driver.readSnapshot().value;
+    tab.advance(OFFER_WATCH_MS);
+    await tab.found(listOf([offer('a')], [], ['i']));
+    const same = [heard, tab.driver.readSnapshot().value === held];
+    tab.advance(OFFER_WATCH_MS);
+    await tab.found(listOf([offer('a'), offer('b')], [], ['i']));
+    const changed = heard;
+    tab.advance(OFFER_WATCH_MS);
+    tab.answer({ kind: 'unavailable' });
+    await tab.flush();
+    assert({
+      given:
+        'an open offer watched through a read of the identical list, a read with one more offer, then a refused read',
+      should:
+        'tell listeners nothing and keep what is held for the first, and tell them once each for the new list and for going stale',
+      actual: {
+        same,
+        changed,
+        stale: [heard, tab.driver.readSnapshot().freshness],
+        reads: tab.reads(),
+      },
+      expected: {
+        same: [0, true],
+        changed: 1,
+        stale: [2, 'stale'],
+        reads: 3,
+      },
+    });
+    tab.driver.dispose();
+  });
+
+  test('the snapshot is one object until something in it changes', async () => {
+    const tab = harness(listOf([offer('a')]));
+    const seeded = tab.driver.readSnapshot();
+    const again = tab.driver.readSnapshot();
+    tab.driver.refresh();
+    const reading = tab.driver.readSnapshot();
+    assert({
+      given: 'a snapshot read twice at rest, then with a read in flight',
+      should:
+        'hand back the same object at rest, and a current one that says a read is in flight',
+      actual: [seeded === again, seeded.reading, reading.reading],
+      expected: [true, false, true],
+    });
+    await tab.found(listOf([offer('a')]));
+    tab.driver.dispose();
+  });
+
   test('without realtime or a member no socket is opened', () => {
     const tab = harness(listOf([offer('a')]), { realtime: false });
     tab.advance(OFFER_WATCH_MS);

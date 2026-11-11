@@ -79,12 +79,16 @@ const unacknowledgedShape = z.object({
   values: z.record(z.string(), z.unknown()),
 });
 
-/** The named text fields `read` yields, which is all a floor command is made of. */
+/**
+ * The named text fields `read` yields, which is all a floor command is made of.
+ * A posted form carries a textarea's line breaks as CRLF where the browser
+ * holds them as LF, so each is read with LF: the same command either way.
+ */
 function commandOf(read: (name: string) => unknown): FormValues {
   const values: Record<string, string> = {};
   for (const name of commandFields) {
     const value = read(name);
-    if (typeof value === 'string') values[name] = value;
+    if (typeof value === 'string') values[name] = value.replace(/\r\n?/g, '\n');
   }
   return values;
 }

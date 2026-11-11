@@ -26,7 +26,7 @@ export function createLocalCommandAction(
       return refused(form, 'Check your current devices before Ready.');
     if (type === 'ready' || type === 'unready') {
       await (type === 'ready' ? consent.ready() : consent.unready());
-      return done;
+      return done();
     }
     if (type === 'start-round' && (local.pending || !local.devicesPassed))
       return refused(form, 'Confirm your current readiness before Launch.');
