@@ -52,14 +52,19 @@ export const hostIdentityHidden = (
   viewerActorId: string,
 ) => room.hostIsHumanJudge && room.hostActorId !== viewerActorId;
 
+/** Whether the Room is this viewer's own: they host it or hold a seat in it. */
+const ownRoom = (
+  room: Pick<RoomAssemblyState, 'hostActorId' | 'participants'>,
+  actorId: string,
+): boolean =>
+  room.hostActorId === actorId ||
+  room.participants.some((p) => p.actorId === actorId);
+
 /** Whether this viewer is outside a Room that has started, and so reads it closed. */
 export const startHiddenFrom = (
   room: Pick<RoomAssemblyState, 'status' | 'hostActorId' | 'participants'>,
   actorId: string,
-): boolean =>
-  room.status === 'started' &&
-  room.hostActorId !== actorId &&
-  !room.participants.some((p) => p.actorId === actorId);
+): boolean => room.status === 'started' && !ownRoom(room, actorId);
 
 /**
  * A started Room as someone outside it may know it: closed, as an expired or
@@ -83,27 +88,26 @@ const roomKnownTo = (
       };
 
 /**
- * The status and Round one viewer reads, as the one state the contract holds.
- * Only the host and the seated learn the Round here: anyone else learns of a
- * live Round from the spectator timeline alone.
+ * The status and Round one viewer reads of the Room as they may know it
+ * (`roomKnownTo`), as the one state the contract holds. A Room still started
+ * there is the viewer's own. Only its own people learn a closed Room's Round:
+ * anyone else learns of a Round from the spectator timeline alone.
  */
 const roundLinkFor = (
-  room: RoomAssemblyState,
+  known: RoomAssemblyState,
   actorId: string,
 ): RoomRoundLink => {
-  const own =
-    room.hostActorId === actorId ||
-    room.participants.some((p) => p.actorId === actorId);
-  switch (room.status) {
+  switch (known.status) {
     case 'assembling':
     case 'ready':
-      return { status: room.status, roundRef: null };
+      return { status: known.status, roundRef: null };
     case 'started':
-      return own
-        ? { status: room.status, roundRef: room.roundRef }
-        : { status: 'closed', roundRef: null };
+      return { status: known.status, roundRef: known.roundRef };
     case 'closed':
-      return { status: room.status, roundRef: own ? room.roundRef : null };
+      return {
+        status: known.status,
+        roundRef: ownRoom(known, actorId) ? known.roundRef : null,
+      };
   }
 };
 

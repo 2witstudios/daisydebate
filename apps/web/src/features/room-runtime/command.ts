@@ -108,7 +108,7 @@ export function roomCommandOperation({
             {
               now: preparedAt,
               participantId: ids.next(),
-              roundId,
+              roundId: null,
               formatId: ids.next(),
               // Ready seats nobody; only seating and Launch read this.
               hostMaySeatCasualAiJudge: false,
@@ -159,7 +159,7 @@ export function roomCommandOperation({
             {
               now,
               participantId: ids.next(),
-              roundId,
+              roundId: command.type === 'start-round' ? roundId : null,
               formatId: ids.next(),
               hostMaySeatCasualAiJudge:
                 state.hostActorId === caller.actorId && maySeatCasualAiJudge,

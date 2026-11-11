@@ -11,13 +11,13 @@ import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
 import {
-  isRoundLifecycle,
   roomListQuerySchema,
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
 import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
+import { roundLifecycleOfRow, segmentRows } from './round-hydration';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
@@ -40,7 +40,6 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
-import { segmentRows } from './round-hydration';
 import { recordedPanelRuling } from './round-panel-decisions';
 import { roundCommands } from './schema/round-commands';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
@@ -94,18 +93,7 @@ export async function launchedRoundRows(
       };
     }),
   );
-  const lifecycle = {
-    status: row.status,
-    startedAt: row.startedAt?.toISOString() ?? null,
-    completedAt: row.completedAt?.toISOString() ?? null,
-    outcome: row.outcome,
-  };
-  // `rounds_lifecycle_check` holds this for every stored row.
-  if (!isRoundLifecycle(lifecycle))
-    throw createAppError(
-      'INVARIANT',
-      'Round lifecycle is not one its status holds',
-    );
+  const lifecycle = roundLifecycleOfRow(row);
   const round: LaunchedRound = {
     ...lifecycle,
     id: row.id,

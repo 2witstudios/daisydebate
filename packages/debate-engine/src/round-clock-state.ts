@@ -181,6 +181,28 @@ const assertSegmentRules = (row: ClockSegment, rules: RoundRules): void => {
     );
 };
 
+/**
+ * The stored checkpoint, parsed. The contract keeps the prep lead apart from
+ * prep; a checkpoint holding both is the same corruption it always was here,
+ * under the same registered invariant, not a bare parse error.
+ */
+const heldCheckpoint = (stored: unknown): RuntimeCheckpoint => {
+  const parsed = runtimeCheckpointSchema.safeParse(
+    stored ?? emptyRuntimeCheckpoint,
+  );
+  if (parsed.success) return parsed.data;
+  if (
+    parsed.error.issues.some(
+      (issue) => issue.code === 'custom' && issue.path[0] === 'prep_ended_at',
+    )
+  )
+    throw createInvariantError(
+      debateInvariantIds.liveOpenSegmentCount,
+      'The lead after prep is neither prep nor a live segment',
+    );
+  throw parsed.error;
+};
+
 export const normalizeRoundClock = (input: {
   readonly round: RoundLifecycleColumns;
   readonly segments: readonly HydratedSegment[];
@@ -224,9 +246,7 @@ export const normalizeRoundClock = (input: {
         'An open segment row is followed by another row',
       );
   });
-  const checkpoint = runtimeCheckpointSchema.parse(
-    input.checkpoint ?? emptyRuntimeCheckpoint,
-  );
+  const checkpoint = heldCheckpoint(input.checkpoint);
   if (
     checkpoint.active_prep !== null &&
     rows.some((row) => row.endedAtMs === null)
@@ -235,7 +255,7 @@ export const normalizeRoundClock = (input: {
       debateInvariantIds.liveOpenSegmentCount,
       'Prep cannot coexist with a live segment',
     );
-  // The checkpoint contract already keeps the lead apart from prep itself.
+  // `heldCheckpoint` has already kept the lead apart from prep itself.
   if (
     checkpoint.prep_ended_at !== null &&
     rows.some((row) => row.endedAtMs === null)

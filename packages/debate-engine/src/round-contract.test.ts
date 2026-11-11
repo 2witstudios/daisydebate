@@ -9,6 +9,7 @@ import {
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundRuntime } from './round-runtime-api';
 import { createRoundRuntime } from './round-runtime';
+import { normalizeRoundClock } from './round-clock-state';
 import {
   emptyCheckpoint,
   hydratedRound,
@@ -232,4 +233,24 @@ test('a stored stage the clock does not derive is corruption', async () => {
       code: 'INVARIANT',
       invariantId: 'round.stage.matches-clock',
     });
+});
+
+test('a checkpoint in prep and in the lead after it keeps its invariant', async () => {
+  await assertRejects({
+    given: 'an active Round whose stored checkpoint holds both',
+    should: 'refuse it as the registered corruption, not a bare parse error',
+    actual: async () =>
+      normalizeRoundClock({
+        round: lifecycleIn('active'),
+        rules,
+        segments: [],
+        checkpoint: {
+          ...emptyCheckpoint,
+          active_prep: { side: 'affirmative', started_at: roundAt(0) },
+          prep_ended_at: roundAt(1_000),
+        },
+      }),
+    code: 'INVARIANT',
+    invariantId: 'round.live.open-segment-count',
+  });
 });

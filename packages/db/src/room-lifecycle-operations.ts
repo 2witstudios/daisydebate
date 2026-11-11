@@ -16,7 +16,7 @@ import {
   type Caller,
   appendRoomChanged,
   requireAccount,
-  roomFacts,
+  roomFactsForWrite,
   transactionNow,
 } from './room-command-facts';
 import { roomIsOpen } from './room-open';
@@ -100,7 +100,7 @@ export const roomLifecycleOperations = ({
           .for('update', { skipLocked: true });
         if (!row) return false;
         const now = await transactionNow(tx);
-        const { state } = await roomFacts(tx, row);
+        const { state } = await roomFactsForWrite(tx, row);
         const outcome = input.maintain(state, {
           lastCommandAt: row.lastCommandAt.toISOString(),
           now,

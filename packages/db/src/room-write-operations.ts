@@ -50,6 +50,7 @@ import {
   type Actor,
   actorFact,
   roomFacts,
+  roomFactsForWrite,
   lockCommand,
   replayReceipt,
   acceptCommand,
@@ -173,7 +174,7 @@ async function executeOnce(
     .where(eq(rooms.id, input.roomId))
     .for('update');
   if (!row) throw createAppError('NOT_FOUND');
-  const { state } = await roomFacts(tx, row);
+  const { state } = await roomFactsForWrite(tx, row);
   if (!input.authorizeRead(state, account)) throw createAppError('NOT_FOUND');
   if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
     throw new RoomMoved('Cast changed while acquiring authority');

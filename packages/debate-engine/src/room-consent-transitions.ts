@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { captureUnadmitted } from './room-capture';
 import { castHoldsUnadmittedAiJudge } from './ai-judge-seating';
 import { castSeatsBotDebater } from './ai-round-cast';
@@ -83,6 +84,8 @@ export const startRound = (
   if (room.executionPlan.resolutionDraw.enabled && !draw)
     return refuse('draw-unavailable');
   // A started Room names its Round from the transition that starts it.
+  if (edges.roundId === null)
+    throw createAppError('INVARIANT', 'A Start round carries its Round id');
   const next: RoomAssemblyState = {
     ...room,
     status: 'started',
