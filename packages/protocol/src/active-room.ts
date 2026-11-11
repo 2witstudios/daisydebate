@@ -7,7 +7,6 @@ import type { RoomRoundLink } from './room-contract';
  * to launch, or launched and its Round not yet over.
  */
 const activeRoomPhases = ['assembling', 'ready', 'live'] as const;
-export type ActiveRoomPhase = (typeof activeRoomPhases)[number];
 
 /** The page that holds a member: the Room while it assembles, then its Round's room. */
 export const activeRoomHref = (

@@ -42,7 +42,9 @@ describe('round sync driver', () => {
         ids: [round.id],
       },
     });
-    edges.answer({ kind: 'found', round: at(
+    edges.answer({
+      kind: 'found',
+      round: at(
         3,
         {},
         inLifecycle(round, {
@@ -51,7 +53,8 @@ describe('round sync driver', () => {
           completedAt: '2026-10-12T18:30:00.000Z',
           outcome: null,
         }),
-      ) });
+      ),
+    });
     await edges.flush();
     edges.emit({
       v: ENVELOPE_VERSION,

@@ -25,11 +25,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
     should:
       'forfeit while the Round is live, then leave freed: the debate is over and nothing is forfeited (ISSUE-590)',
     actual: [
-      leaveIntent(
-        view,
-        aff.actorId,
-        Date.parse(at(0)),
-      ),
+      leaveIntent(view, aff.actorId, Date.parse(at(0))),
       leaveIntent(speaking, aff.actorId, Date.parse(at(startOf(0) + 1000))),
       leaveIntent(
         ran(rules.length, true),
@@ -37,11 +33,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
         Date.parse(at(startOf(rules.length) + 1000)),
       ),
     ],
-    expected: [
-      forfeit(view),
-      forfeit(speaking),
-      { kind: 'freed' },
-    ],
+    expected: [forfeit(view), forfeit(speaking), { kind: 'freed' }],
   });
   assert({
     given: 'the judge and a viewer with no seat in a speaking Round',

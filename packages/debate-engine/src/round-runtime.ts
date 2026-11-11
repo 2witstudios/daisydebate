@@ -76,6 +76,21 @@ const queues = (): Queues => ({
  * that disagrees with `rules`: a segment row whose key or duration does not
  * match the rules it claims to execute is corruption, not position.
  */
+/** The clock a Round's rows hydrate to. The stored stage is its projection; one that disagrees is corruption. */
+const hydratedClock = (
+  input: Parameters<typeof normalizeRoundClock>[0] & {
+    readonly round: Pick<HydratedRound, 'currentStage'>;
+  },
+) => {
+  const clock = normalizeRoundClock(input);
+  if (input.round.currentStage !== stageOf(clock, input.rules.segments.length))
+    throw createInvariantError(
+      debateInvariantIds.stageMatchesClock,
+      'The stored stage is not the one the Round clock derives',
+    );
+  return clock;
+};
+
 export function createRoundRuntime(input: {
   readonly round: HydratedRound;
   readonly rules: RoundRules;
@@ -87,14 +102,7 @@ export function createRoundRuntime(input: {
 }): RoundRuntime {
   const rules = input.rules;
   assertAttendanceRules(rules);
-  const hydrated = normalizeRoundClock(input);
-  // The stored stage is a projection of the clock; one that disagrees is corruption.
-  if (input.round.currentStage !== stageOf(hydrated, rules.segments.length))
-    throw createInvariantError(
-      debateInvariantIds.stageMatchesClock,
-      'The stored stage is not the one the Round clock derives',
-    );
-  let store: RoundStore = createRoundStore(hydrated);
+  let store: RoundStore = createRoundStore(hydratedClock(input));
   const segmentIds = new Map(
     input.segments.map((row) => [row.sequence, row.id]),
   );

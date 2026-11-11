@@ -2,12 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { executeRoomCommand } from './room-assembly';
-import {
-  consent,
-  edges,
-  started,
-  state,
-} from './room-assembly.test-support';
+import { consent, edges, started, state } from './room-assembly.test-support';
 import { oneOnOneSettings } from './runtime.test-support';
 import type { FormatSelectionFacts } from './format-selection';
 import { drawRoom, drawSettings } from './round-opening.test-support';

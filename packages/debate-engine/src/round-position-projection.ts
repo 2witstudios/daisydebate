@@ -16,8 +16,6 @@ import type {
 import { advanceRoundClock } from './round-clock';
 import {
   debateHasEnded,
-  lifecycleOver,
-  startedAtOf,
   type ClockState,
   type ClockSegment as StoreRow,
   type Lifecycle,

@@ -121,11 +121,22 @@ const instantOf = (iso: string): number => {
   return ms;
 };
 
+/** The one rule lives beside the status vocabulary; a parsed view or a row is held to it here. */
+const heldLifecycle = (round: RoundLifecycleColumns): RoundLifecycle => {
+  if (!isRoundLifecycle(round))
+    throw createInvariantError(
+      debateInvariantIds.lifecycleMatchesStatus,
+      roundLifecycleFault(round) ?? 'Round lifecycle',
+    );
+  return round;
+};
+
 /**
  * The stored lifecycle to the engine's, instants as milliseconds. The contract
- * already holds which instants each status has; only their reading can fail.
+ * holds which instants each status has; only their reading can fail after it.
  */
-const lifecycleOf = (round: RoundLifecycle): Lifecycle => {
+const lifecycleOf = (columns: RoundLifecycleColumns): Lifecycle => {
+  const round = heldLifecycle(columns);
   switch (round.status) {
     case 'opening':
       return { status: round.status };
@@ -176,12 +187,6 @@ export const normalizeRoundClock = (input: {
   readonly checkpoint: unknown;
   readonly rules: RoundRules;
 }): ClockState => {
-  // The one rule lives beside the status vocabulary; a parsed view or a row is held to it here.
-  if (!isRoundLifecycle(input.round))
-    throw createInvariantError(
-      debateInvariantIds.lifecycleMatchesStatus,
-      roundLifecycleFault(input.round) ?? 'Round lifecycle',
-    );
   const lifecycle = lifecycleOf(input.round);
   const rows = input.segments
     .map((segment) => ({

@@ -8,11 +8,7 @@ import type {
 } from '@daisy/protocol';
 import { buildRoomTopic } from '@daisy/protocol';
 import { botDifficulties } from '@daisy/protocol';
-import {
-  idSchema,
-  roomRoundLinkOf,
-  roomSeatKindSchema,
-} from '@daisy/protocol';
+import { idSchema, roomRoundLinkOf, roomSeatKindSchema } from '@daisy/protocol';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { authorizationAccountFact } from './authorization-account';
 import {

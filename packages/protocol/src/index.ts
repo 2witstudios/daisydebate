@@ -120,7 +120,6 @@ export {
 export {
   isRoundEndState,
   isRoundLifecycle,
-  roundEndStateFault,
   roundLifecycleFault,
 } from './round-lifecycle';
 export type {
@@ -329,7 +328,6 @@ export {
   activeRoomReadSchema,
   type ActiveRoom,
   type ActiveRoomFacts,
-  type ActiveRoomPhase,
 } from './active-room';
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';

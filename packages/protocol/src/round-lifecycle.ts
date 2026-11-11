@@ -47,7 +47,7 @@ export type RoundLifecycleColumns = EndStateColumns & {
 };
 
 /** What is wrong with a Round's ending columns for its status, or null. */
-export const roundEndStateFault = (round: EndStateColumns): string | null => {
+const roundEndStateFault = (round: EndStateColumns): string | null => {
   switch (round.status) {
     case 'opening':
     case 'active':
@@ -86,8 +86,9 @@ const startFault = (round: RoundLifecycleColumns): string | null => {
 };
 
 /** What is wrong with a Round's lifecycle columns for its status, or null. */
-export const roundLifecycleFault = (round: RoundLifecycleColumns): string | null =>
-  startFault(round) ?? roundEndStateFault(round);
+export const roundLifecycleFault = (
+  round: RoundLifecycleColumns,
+): string | null => startFault(round) ?? roundEndStateFault(round);
 
 /** Whether a row's ending columns are one its status can hold. */
 export const isRoundEndState = <T extends EndStateColumns>(

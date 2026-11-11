@@ -6,12 +6,7 @@ import {
   releaseRestrictedMember,
 } from './room-assembly';
 import type { RoomAssemblyState } from '@daisy/protocol';
-import {
-  consent,
-  edges,
-  started,
-  state,
-} from './room-assembly.test-support';
+import { consent, edges, started, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 

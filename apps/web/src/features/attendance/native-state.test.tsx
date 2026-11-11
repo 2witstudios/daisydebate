@@ -70,11 +70,7 @@ test('a Round that is not active offers no attendance at all', () => {
     given: 'an opening Round, whose attendance read refuses',
     should: 'render no attendance text, form or refresh',
     actual: renderToStaticMarkup(
-      <RoundNativeAttendance
-        view={round}
-        read={null}
-        retrySeconds={3}
-      />,
+      <RoundNativeAttendance view={round} read={null} retrySeconds={3} />,
     ),
     expected: '',
   });
