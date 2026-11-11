@@ -100,4 +100,14 @@ test('Leave in the opening follows the engine’s forfeit rule', () => {
     ),
     expected: ['forfeit', 'held'],
   });
+  assert({
+    given: 'an opening Round whose checkpoint this view could not read',
+    should: 'hold them, as an active Round does: nothing can be offered',
+    actual: leaveIntent(
+      { ...opening, checkpoint: null },
+      aff.actorId,
+      Date.parse(at(0)),
+    ).kind,
+    expected: 'held',
+  });
 });

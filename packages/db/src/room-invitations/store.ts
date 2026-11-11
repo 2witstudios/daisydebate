@@ -26,6 +26,7 @@ import {
 import type { roomCommandTransaction } from '../room-command-transaction';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import { roomInvitations } from '../schema/room-invitations';
+import { invitationOpen, invitationPending } from './open';
 import { rooms } from '../schema/rooms';
 
 type Account = ReturnType<typeof authorizationAccountFact>;
@@ -35,7 +36,7 @@ const pendingRows = (tx: Tx, roomId: string, now: string) =>
     tx,
     sql`select id,invitee_actor_id as "inviteeActorId",inviter_actor_id as "inviterActorId",seat,
         to_char(expires_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt"
-      from room_invitations where room_id=${roomId} and state='pending' and expires_at>${now}::timestamptz
+      from room_invitations i where i.room_id=${roomId} and ${invitationPending(sql`${now}::timestamptz`, sql`i`)}
       order by created_at,id`,
   );
 
@@ -111,7 +112,8 @@ export const roomInvitationOperations = ({
           from room_invitations i join rooms r on r.id=i.room_id
           join actors ia on ia.id=i.invitee_actor_id left join users iu on iu.id=ia.user_id
           join actors ha on ha.id=i.inviter_actor_id left join users hu on hu.id=ha.user_id
-          where i.room_id=${input.roomId} and i.state='pending' and i.expires_at>${input.now}::timestamptz
+          where i.room_id=${input.roomId}
+            and ${invitationOpen(sql`${input.now}::timestamptz`, { invitation: sql`i`, room: sql`r` })}
             and (r.host_actor_id=${input.viewerActorId} or i.invitee_actor_id=${input.viewerActorId})
           order by i.created_at,i.id`,
       ),

@@ -4,8 +4,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
 
+/** The fence's body from its parameter list on, however it was created. */
 const declaration =
-  /CREATE FUNCTION public\.daisy_authorization_accounts_v2\([\s\S]*?\$authorization_accounts\$;/;
+  /CREATE (?:OR REPLACE )?FUNCTION public\.daisy_authorization_accounts_v\d+(\([\s\S]*?\$authorization_accounts\$;)/i;
+const bodyOf = (sql: string) => declaration.exec(sql)?.[1];
 const migrations = join(import.meta.dir, '../migrations');
 
 test('the account fence source is the function the migrations install', () => {
@@ -18,18 +20,19 @@ test('the account fence source is the function the migrations install', () => {
         return '';
       }
     })
-    .flatMap((sql) => declaration.exec(sql)?.[0] ?? [])
+    .flatMap((sql) => bodyOf(sql) ?? [])
     .at(-1);
+  const source = bodyOf(
+    readFileSync(
+      join(import.meta.dir, 'authorization-account-fence.sql'),
+      'utf8',
+    ),
+  );
   assert({
     given: 'the canonical account fence and the newest migration creating it',
     should:
       'be the same function, so the restriction rule is the one SQL function',
-    actual: declaration.exec(
-      readFileSync(
-        join(import.meta.dir, 'authorization-account-fence.sql'),
-        'utf8',
-      ),
-    )?.[0],
-    expected: installed,
+    actual: [typeof installed, source === installed],
+    expected: ['string', true],
   });
 });

@@ -2,6 +2,7 @@ import { registerProcessEdgeTests } from './eslint.config-process.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   repositoryEslint,
+  typedRepositoryEslint,
   table,
   web,
   serverBindCases,
@@ -373,7 +374,7 @@ describe('a switch over a union names every member', () => {
   const filePath = 'packages/protocol/src/assert-never.ts';
   const rule = '@typescript-eslint/switch-exhaustiveness-check';
   const problems = async (cases: string) => {
-    const [result] = await repositoryEslint().lintText(
+    const [result] = await typedRepositoryEslint().lintText(
       `type Status = 'opening' | 'active' | 'completed';
        export const label = (status: Status): string => {
          switch (status) { ${cases} }

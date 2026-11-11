@@ -1,4 +1,5 @@
 import {
+  assertNever,
   recordingBuildSteps,
   type RecordingBuildProgress,
   type RecordingPreparation,
@@ -34,6 +35,8 @@ const preparationCopy = (preparation: RecordingPreparation | null): string => {
     case 'waiting':
     case undefined:
       return 'Waiting for its turn to be prepared.';
+    default:
+      return assertNever(preparation);
   }
 };
 
