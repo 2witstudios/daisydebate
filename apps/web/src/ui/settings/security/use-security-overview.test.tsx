@@ -126,7 +126,11 @@ test('signing out of all other sessions is asked once while it is in flight', as
     await page.act(() =>
       page.reads[0]!.resolve(overview([], ['here', 'there'])),
     );
-    await page.act(() => page.held().signOutOthers());
+    // Twice in one turn, before React has rendered the first press.
+    await page.act(() => {
+      page.held().signOutOthers();
+      page.held().signOutOthers();
+    });
     const busy = page.held().signingOutOthers;
     await page.act(() => page.held().signOutOthers());
     const asked = page.signOuts.length;

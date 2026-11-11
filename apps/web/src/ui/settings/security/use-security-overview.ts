@@ -47,6 +47,7 @@ export function useSecurityOverview({
   >();
   const [signOutNotice, setSignOutNotice] = useState(initialSignOutNotice);
   const [signingOutOthers, setSigningOutOthers] = useState(false);
+  const signingOut = useRef(false);
   const [reloadToken, setReloadToken] = useState(0);
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
   const reading = useRef(false);
@@ -102,13 +103,18 @@ export function useSecurityOverview({
       changedHere();
     },
     signOutOthers: () => {
-      if (signingOutOthers) return;
+      // Claimed before React renders, so two presses in one turn ask once.
+      if (signingOut.current) return;
+      signingOut.current = true;
       setSigningOutOthers(true);
-      void revokeOthers().then((outcome) => {
-        setSigningOutOthers(false);
-        setSignOutNotice(noticeOf(outcome));
-        if (outcome.kind === 'ok') reload();
-      });
+      void revokeOthers()
+        .catch((): SecurityOutcome => ({ kind: 'unavailable' }))
+        .then((outcome) => {
+          signingOut.current = false;
+          setSigningOutOthers(false);
+          setSignOutNotice(noticeOf(outcome));
+          if (outcome.kind === 'ok') reload();
+        });
     },
   };
 }

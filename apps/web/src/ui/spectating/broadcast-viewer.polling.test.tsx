@@ -169,13 +169,21 @@ test('an address that comes back is read again without a new link', async () => 
     await viewer.poll();
     // The refresh answers with the same link: the page must keep looking.
     await viewer.show(first);
+    await viewer.poll();
+    const whileGone = viewer.refreshes();
     viewer.answers.set(first, () => Response.json(published(2)));
     await viewer.poll();
     assert({
-      given: 'an address gone for one read, on a link the server still names',
-      should: 'keep reading it, having asked the server once',
-      actual: { refreshed: viewer.refreshes(), reads: viewer.reads.length },
-      expected: { refreshed: 1, reads: 3 },
+      given:
+        'an address gone for two reads on a link the server still names, then back',
+      should:
+        'keep reading it, ask the server again at the second missing read, and not once it is back',
+      actual: {
+        whileGone,
+        refreshed: viewer.refreshes(),
+        reads: viewer.reads.length,
+      },
+      expected: { whileGone: 2, refreshed: 2, reads: 4 },
     });
   } finally {
     await viewer.client.act(async () => viewer.client.root.unmount());

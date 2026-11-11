@@ -6,6 +6,8 @@ export type PublishedReads = {
   readonly state: AudienceState | null;
   readonly movedAtMs: number;
   readonly gone: boolean;
+  /** Reads in a row that found the address gone; zero unless `gone`. */
+  readonly missing: number;
 };
 
 /** One poll's answer: a state, nothing at that address, or no answer at all. */
@@ -18,6 +20,7 @@ export const firstPublishedReads = (nowMs: number): PublishedReads => ({
   state: null,
   movedAtMs: nowMs,
   gone: false,
+  missing: 0,
 });
 
 /**
@@ -31,12 +34,14 @@ export const nextPublishedReads = (
   nowMs: number,
 ): PublishedReads => {
   if (read.kind === 'missing')
-    return reads.state === null ? reads : { ...reads, gone: true };
+    return reads.state === null
+      ? reads
+      : { ...reads, gone: true, missing: reads.missing + 1 };
   if (
     read.kind === 'state' &&
     read.state.publishedAtMs > (reads.state?.publishedAtMs ?? -1)
   )
-    return { state: read.state, movedAtMs: nowMs, gone: false };
+    return { state: read.state, movedAtMs: nowMs, gone: false, missing: 0 };
   return reads;
 };
 
@@ -50,3 +55,13 @@ export const paceOfPublishedRead = (
   reads: PublishedReads,
   answer: PollAnswer,
 ): PollAnswer => (reads.gone ? { kind: 'failed' } : answer);
+
+/**
+ * How many times the page should have asked the server while this address has
+ * been gone: at the first missing read, then each time the run of them doubles.
+ * The server may name the same address again, and replace the link only later,
+ * so one ask is not enough; doubling keeps a crowd left on a withdrawn address
+ * from reaching web more than a few times each (DEC-350). Zero unless gone.
+ */
+export const serverAsksOf = (reads: PublishedReads): number =>
+  reads.gone ? Math.floor(Math.log2(reads.missing)) + 1 : 0;

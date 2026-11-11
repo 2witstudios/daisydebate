@@ -9,6 +9,7 @@ import {
   firstPublishedReads,
   nextPublishedReads,
   paceOfPublishedRead,
+  serverAsksOf,
 } from './published-state-model';
 
 setupRitewayBun();
@@ -106,6 +107,44 @@ test('a tab slows down while its address is gone, and recovers with it', () => {
       before: answered,
       whileGone: [4000, 8000, 16000, POLL_MAX_MS, POLL_MAX_MS, POLL_MAX_MS],
       after: POLL_MS,
+    },
+  });
+});
+
+test('the server is asked again, ever less often, while an address stays gone', () => {
+  const read = nextPublishedReads(
+    first,
+    { kind: 'state', state: stateAt(5) },
+    10,
+  );
+  const asks: number[] = [];
+  let reads = read;
+  for (let miss = 0; miss < 9; miss += 1) {
+    reads = nextPublishedReads(reads, { kind: 'missing' }, 20 + miss);
+    asks.push(serverAsksOf(reads));
+  }
+  const back = nextPublishedReads(
+    reads,
+    { kind: 'state', state: stateAt(6) },
+    99,
+  );
+  const again = nextPublishedReads(back, { kind: 'missing' }, 100);
+  assert({
+    given:
+      'nine missing reads in a row after a state, the state returning, then missing once more',
+    should:
+      'ask at the first, second, fourth and eighth, stop asking once it is back, and start over when it goes again',
+    actual: {
+      before: serverAsksOf(read),
+      asks,
+      back: serverAsksOf(back),
+      again: serverAsksOf(again),
+    },
+    expected: {
+      before: 0,
+      asks: [1, 2, 2, 3, 3, 3, 3, 4, 4],
+      back: 0,
+      again: 1,
     },
   });
 });

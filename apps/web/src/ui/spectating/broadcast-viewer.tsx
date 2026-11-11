@@ -184,7 +184,7 @@ export function BroadcastViewer({
   // What was read belongs to its address, so a refresh that names a replaced
   // link reads the new one, and the player and the audience beside it stay.
   const published = usePublishedState(stateUrl, !settledNow);
-  const { gone } = published;
+  const { gone, serverAsks } = published;
   const timeline = gone
     ? initial
     : timelineAsOf(
@@ -202,9 +202,11 @@ export function BroadcastViewer({
   const switchToRecording =
     screen.kind === 'ended' && screen.recording === 'ready';
   // Withdrawn, or a replaced link: the server says what this reader may still see.
+  // It is asked again, ever less often, while the address stays gone, since it can
+  // name the same address now and a replaced link later.
   useEffect(() => {
-    if (gone) router.refresh();
-  }, [gone, router]);
+    if (serverAsks > 0) router.refresh();
+  }, [serverAsks, router]);
   useEffect(() => {
     if (switchToRecording) router.replace(replayHref(roundId));
   }, [switchToRecording, router, roundId]);

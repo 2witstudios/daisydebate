@@ -8,6 +8,7 @@ import {
   firstPublishedReads,
   nextPublishedReads,
   paceOfPublishedRead,
+  serverAsksOf,
   type PublishedRead,
 } from './published-state-model';
 
@@ -19,12 +20,14 @@ type Held = {
   readonly state: AudienceState | null;
   readonly sinceMovedMs: number;
   readonly gone: boolean;
+  readonly serverAsks: number;
 };
 
 /**
  * Polls a Round's published state from the public bucket. No cookie goes with it. Every
  * attempt, answered or not, updates how long the object has stood still, measured here
- * on the tab's own clock. `gone` asks the page to read the server again. What was read
+ * on the tab's own clock. `gone` asks the page to read the server again, and `serverAsks`
+ * counts how often it should have by now. What was read
  * belongs to its address: a replaced link starts from nothing. While an address is gone
  * the reads go on, so one that comes back is seen, but slow down as misses do.
  */
@@ -42,6 +45,7 @@ export function usePublishedState(url: string | null, polling: boolean) {
         url,
         state: reads.state,
         gone: reads.gone,
+        serverAsks: serverAsksOf(reads),
         sinceMovedMs: now - reads.movedAtMs,
       });
     };
@@ -74,8 +78,13 @@ export function usePublishedState(url: string | null, polling: boolean) {
     };
   }, [url, polling]);
   return held !== null && held.url === url
-    ? { state: held.state, sinceMovedMs: held.sinceMovedMs, gone: held.gone }
-    : { state: null, sinceMovedMs: 0, gone: false };
+    ? {
+        state: held.state,
+        sinceMovedMs: held.sinceMovedMs,
+        gone: held.gone,
+        serverAsks: held.serverAsks,
+      }
+    : { state: null, sinceMovedMs: 0, gone: false, serverAsks: 0 };
 }
 
 /** The published state for what sits beside the player; null with none. */
