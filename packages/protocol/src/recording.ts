@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { broadcastHoldPrefix } from './broadcast-hold';
+import { everyMemberOf } from './every-member';
 import { idSchema } from './primitives';
 
 /**
@@ -13,7 +14,8 @@ import { idSchema } from './primitives';
 export const recordingClasses = ['ranked', 'casual'] as const;
 export type RecordingClass = (typeof recordingClasses)[number];
 
-export const recordingStatuses = [
+/** Every lifecycle status, as the stored column's vocabulary: tied to the lifecycle both ways. */
+export const recordingStatuses = everyMemberOf<RecordingLifecycle['status']>()([
   'requested',
   'capturing',
   'processing',
@@ -22,7 +24,7 @@ export const recordingStatuses = [
   'taken_down',
   'removing',
   'removed',
-] as const;
+]);
 export type RecordingStatus = (typeof recordingStatuses)[number];
 
 /** Why capture was allowed, recorded when it was requested. */

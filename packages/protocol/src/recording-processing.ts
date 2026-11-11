@@ -1,3 +1,4 @@
+import { everyMemberOf } from './every-member';
 import { publicIntervalsSchema } from './public-interval';
 import { z } from 'zod';
 import {
@@ -115,7 +116,10 @@ export const recordingJobStateSchema = z.discriminatedUnion('status', [
 ]);
 export type RecordingJobState = z.infer<typeof recordingJobStateSchema>;
 
-export const recordingJobStatuses = [
+/** Every job status, as the stored column's vocabulary: tied to the job state both ways. */
+export const recordingJobStatuses = everyMemberOf<
+  RecordingJobState['status']
+>()([
   'waiting',
   'queued',
   'built',
@@ -124,7 +128,7 @@ export const recordingJobStatuses = [
   'stripping',
   'stripped',
   'settled',
-] as const satisfies readonly RecordingJobState['status'][];
+]);
 
 /** What a viewer of an unfinished Recording is told is happening now. */
 export const recordingPreparationSchema = z.discriminatedUnion('stage', [

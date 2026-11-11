@@ -3,9 +3,15 @@
 Current authority: [ADR 0058](0058-one-round-model.md) replaces the historical
 Debate/Turn representation below. [ADR 0067](0067-playable-round-policy-and-acceptance.md)
 supersedes section 4's same-Room reopening: a started Room retains its unique
-Round; another match uses a newly created Room and fresh readiness. Read each
-section through its amendments and through "What shipped" at the end; the
-historical text is preserved as written.
+Round; another match uses a newly created Room and fresh readiness. Two names
+in the historical text are no longer the code's. The Room's stored lifecycle is
+`assembling`, `ready`, `started`, `closed` (`roomStatuses` in
+`@daisy/protocol`), where section 2 says `open`, `started`, `closed`; a started
+Room always names its one Round. The engine has no `waiting` phase, which
+section 3 names: Start round creates the Round `opening`, or `active` when no
+draw or pre-round prep runs first ([ADR 0104](0104-round-owns-its-opening.md)).
+Read each section through its amendments and through "What shipped" at the end;
+the historical text is preserved as written.
 
 Status: accepted (DEC-217, 2026-10-23, ROOM-6.3), together with the five dated
 amendments below, as the record of what shipped. Extends [ADR 0029](0029-competitive-schema-foundation.md)

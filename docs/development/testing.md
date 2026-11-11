@@ -415,9 +415,10 @@ CSP or browser behavior; those still need the real browser journeys below.
   from props to a class string in `<name>-class.ts`; test them with RITEway
   by asserting the literal classes for every variant. Do not assert on
   stylesheet text.
-- Store-driven components read the module-level store: call
-  `setUiState({ ...createInitialState(), … })` at the start of each test so
-  no test depends on another's state.
+- Store-driven components read the store of the `UiStoreProvider` above
+  them. Render them with `renderInStore` (`ui/test-support/render-in-store.ts`),
+  or under a provider given `initialState`: each render gets its own store,
+  so no test depends on another's state.
 - `next/link`, `next/image`, and `usePathname` render under plain
   `react-dom/server` (`usePathname` returns `null`).
 - **The `.render.tsx` split.** When a component needs client hooks or the
