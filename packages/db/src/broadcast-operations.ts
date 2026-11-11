@@ -1,5 +1,8 @@
-import { runningRoundStatuses } from '@daisy/protocol';
-import type { BroadcastReleasePolicy } from '@daisy/protocol';
+import {
+  runningRoundStatuses,
+  type BroadcastFeedEndReason,
+  type BroadcastReleasePolicy,
+} from '@daisy/protocol';
 import {
   and,
   asc,
@@ -371,6 +374,18 @@ export const recordEgressStarted = async (
   return true;
 };
 
+/** An open Broadcast whose observer is, as far as its record says, subscribed. */
+const observerSubscribed = (id: string) =>
+  and(
+    eq(broadcasts.id, id),
+    isNull(broadcasts.completedAt),
+    isNull(broadcasts.observerRevokedAt),
+  );
+
+/**
+ * The observer's revocation landed. The first one stands: a repeat, or a pass
+ * that decided before a restore, moves neither the instant nor the failures.
+ */
 export const recordObserverRevoked = (
   tx: Tx,
   input: { readonly id: string; readonly now: Date },
@@ -378,19 +393,27 @@ export const recordObserverRevoked = (
   tx
     .update(broadcasts)
     .set({ observerRevokedAt: input.now, revocationFailures: 0 })
-    .where(eq(broadcasts.id, input.id));
+    .where(observerSubscribed(input.id));
 
+/** A revocation failed while the observer was still subscribed: only then does it count. */
 export const recordRevocationFailed = (tx: Tx, id: string) =>
   tx
     .update(broadcasts)
     .set({ revocationFailures: sql`${broadcasts.revocationFailures} + 1` })
-    .where(eq(broadcasts.id, id));
+    .where(observerSubscribed(id));
 
+/** A revoked observer is subscribed again, or left with its Egress. */
 export const recordObserverRestored = (tx: Tx, id: string) =>
   tx
     .update(broadcasts)
     .set({ observerRevokedAt: null, revocationFailures: 0 })
-    .where(eq(broadcasts.id, id));
+    .where(
+      and(
+        eq(broadcasts.id, id),
+        isNull(broadcasts.completedAt),
+        isNotNull(broadcasts.observerRevokedAt),
+      ),
+    );
 
 /** The first recorded end stands, so a repeated stop cannot move completion. */
 export const recordFinalMediaEnd = (
@@ -404,6 +427,7 @@ export const recordFinalMediaEnd = (
       and(eq(broadcasts.id, input.id), isNull(broadcasts.finalMediaEndAt)),
     );
 
+/** Its stream has ended for the audience, or it was stopped: nothing else completes. */
 export const completeBroadcast = (
   tx: Tx,
   input: { readonly id: string; readonly at: Date },
@@ -411,7 +435,16 @@ export const completeBroadcast = (
   tx
     .update(broadcasts)
     .set({ completedAt: input.at, leaseOwner: null, leaseUntil: null })
-    .where(and(eq(broadcasts.id, input.id), isNull(broadcasts.completedAt)));
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        isNull(broadcasts.completedAt),
+        or(
+          isNotNull(broadcasts.streamEndedAt),
+          isNotNull(broadcasts.stoppedAt),
+        ),
+      ),
+    );
 
 /** Every public object is gone; a finished Broadcast is not claimed again. */
 export const recordFeedWithdrawn = (
@@ -666,7 +699,7 @@ export const endBroadcastFeed = async (
   tx: Pick<Tx, 'execute'>,
   input: {
     readonly id: string;
-    readonly reason: string;
+    readonly reason: BroadcastFeedEndReason;
     readonly now: Date;
   },
 ): Promise<'applied' | 'unchanged' | null> => {
@@ -696,7 +729,7 @@ export const endRoundFeed = async (
   tx: Pick<Tx, 'execute'>,
   input: {
     readonly roundId: string;
-    readonly reason: string;
+    readonly reason: BroadcastFeedEndReason;
     readonly now: Date;
   },
 ): Promise<void> => {
@@ -719,7 +752,7 @@ export const stopBroadcast = async (
   tx: Tx,
   input: {
     readonly id: string;
-    readonly reason: string;
+    readonly reason: BroadcastFeedEndReason;
     readonly now: Date;
   },
 ): Promise<'applied' | 'unchanged' | null> => {

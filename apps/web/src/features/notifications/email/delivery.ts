@@ -2,6 +2,7 @@ import type { Database } from '@daisy/db';
 import { knownDeliveryRejection } from '../../mail/resend-sender';
 import {
   MAIL_LEASE_MS,
+  MAIL_MAX_ATTEMPTS,
   MAIL_QUEUE_BATCH,
   retryOrFail as backOff,
 } from '../../mail/retry-policy';
@@ -84,6 +85,7 @@ export function createNotificationEmailDelivery(input: {
       const claims = await input.store.claimNotificationEmails({
         limit: Math.min(limit, MAIL_QUEUE_BATCH),
         leaseMs: MAIL_LEASE_MS,
+        maxAttempts: MAIL_MAX_ATTEMPTS,
         nextToken: input.nextToken,
       });
       let settled = 0;

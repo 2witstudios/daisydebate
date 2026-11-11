@@ -113,8 +113,8 @@ test('a non-ranked Round has no captions (DEC-301)', async () => {
 test('a line on a segment still open past the last heartbeat waits, like its media', async () => {
   await withLiveRound('ranked', async (read, { client, roundId }) => {
     const id = createId();
-    await client`insert into broadcasts (id,round_id,feed_key,release_policy,egress_id,control_heartbeat_at)
-      values (${id},${roundId},${createId()},jsonb_build_object('kind','delay','seconds',60),'EG',${new Date(spoken.getTime() - 1000)})`;
+    await client`insert into broadcasts (id,round_id,feed_key,release_policy,egress_id,egress_started_at,control_heartbeat_at)
+      values (${id},${roundId},${createId()},jsonb_build_object('kind','delay','seconds',60),'EG',${new Date(spoken.getTime() - 1000)},${new Date(spoken.getTime() - 1000)})`;
     const unheard = captions(await read(margin(spoken)));
     await client`update broadcasts set control_heartbeat_at=${spoken} where id=${id}`;
     const heard = captions(await read(margin(spoken)));
@@ -136,10 +136,11 @@ test('a legal removal takes the captions too', async () => {
   await withLiveRound('ranked', async (read, { client, roundId }) => {
     const id = createId();
     const at = spoken.toISOString();
-    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle,deletion_due_at)
       values (${id},${roundId},'ranked','removing',
         jsonb_build_object('kind','ranked'),
-        ${JSON.stringify({ status: 'removing', cause: 'legal_removal', requestedAt: at })}::text::jsonb)`;
+        ${JSON.stringify({ status: 'removing', cause: 'legal_removal', requestedAt: at })}::text::jsonb,
+        ${at}::timestamptz)`;
     const hidden = captions(await read(margin(spoken)));
     await client`delete from recordings where id=${id}`;
     assert({

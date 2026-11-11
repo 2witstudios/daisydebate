@@ -99,6 +99,9 @@ decides the mail is owed, and it never stores an address or body.
     so the email is not doubled.
   - A failure retries after 30 s, doubling up to an hour, and fails for good
     after 8 attempts.
+  - The cap also holds at the claim: an intent already claimed 8 times ends
+    failed there, so a worker that keeps dying after its claim cannot keep it
+    in the queue.
 - **Cancellations.**
   - An erased recipient is cancelled as `recipient-gone`.
   - An approval that was revoked before sending is cancelled as `not-owed`.
@@ -269,9 +272,11 @@ plus tags and dots preserved) can be entered before an account exists. Only a
 verified matching account, pending and age 16+, without erasure or moderation
 restrictions, consumes it once. Username enrollment and the required age step
 both attempt the claim. Adding a grant also approves an eligible existing
-waiting account immediately. Claims write access, its revision, beta
-entitlements and the access event atomically; they never send an approval
-email. Age, Terms and onboarding remain required. Revoked access is never
+waiting account immediately. A claim is the same transition an operator's
+approval is (`decideBetaAccessChange` in `@daisy/protocol`) and goes through the
+same writer (`writeBetaAccessChange`): access, its revision, beta entitlements
+and the access event are written atomically, from the state and revision the
+claim was decided on. A claim never sends an approval email. Age, Terms and onboarding remain required. Revoked access is never
 automatically restored. Removing a claimed grant leaves account access alone.
 
 Invite by email saves the grant and owes one `beta-invitation` mail intent;

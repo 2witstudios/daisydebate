@@ -201,7 +201,8 @@ Each of those removals, and a legal removal, also ends the feed of the
 Round's open Broadcast in its own transaction, and asks a just-completed Broadcast's feed to go
 at once. `stop_reason` says which: `recording_removed`, `recording_legally_removed`,
 `recording_removed_by_participant` or `recording_removed_by_erasure`. None withholds the video,
-and the Round itself carries on.
+and the Round itself carries on. Those four and an operator's four stop reasons are the whole
+vocabulary (`broadcastFeedEndReasons` in `@daisy/protocol`); the database refuses any other.
 
 ## When deletion is stuck
 

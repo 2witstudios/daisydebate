@@ -246,7 +246,7 @@ test('a Broadcast with a crash becomes one Recording spanning both attempts', as
       });
       const [job] =
         await f.sql`select status from recording_processing_jobs where recording_id=${record?.id ?? ''}`;
-      await f.sql`update broadcasts set completed_at=${iso(h.now())}::timestamptz where id=${broadcastId}`;
+      await f.sql`update broadcasts set stream_ended_at=${iso(h.now())}::timestamptz, completed_at=${iso(h.now())}::timestamptz where id=${broadcastId}`;
       await h.sweep();
       const [after] =
         await f.sql`select status from recording_processing_jobs where recording_id=${record?.id ?? ''}`;

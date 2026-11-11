@@ -5,6 +5,7 @@ import type { EmailMessage } from '../mail/types';
 import { renderBetaEmail } from './templates';
 import {
   MAIL_LEASE_MS,
+  MAIL_MAX_ATTEMPTS,
   MAIL_QUEUE_BATCH,
   retryOrFail as backOff,
 } from '../mail/retry-policy';
@@ -106,6 +107,7 @@ export function createMailIntentDelivery(input: {
       const claims = await input.store.claimMailIntents({
         limit: Math.min(limit, MAIL_QUEUE_BATCH),
         leaseMs: MAIL_LEASE_MS,
+        maxAttempts: MAIL_MAX_ATTEMPTS,
         nextToken: input.nextToken,
       });
       let settled = 0;

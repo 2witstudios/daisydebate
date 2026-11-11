@@ -9,6 +9,7 @@ import type {
 import {
   contentModerationCommandResultSchema,
   contentReportSchema,
+  type broadcastStopReasons,
   type recordingLegalRemovalReasons,
   type recordingTakedownReasons,
   type ContentModerationAction,
@@ -18,7 +19,10 @@ import {
   operatorCommandReceiptSchema,
   operatorLimits,
 } from '@daisy/protocol/operator';
-import type { ContentReportCreate } from '@daisy/protocol';
+import type {
+  BroadcastFeedEndReason,
+  ContentReportCreate,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
@@ -125,7 +129,7 @@ export type ContentModerationChange =
   | {
       readonly action: 'broadcast.stop';
       readonly broadcastId: string;
-      readonly reason: string;
+      readonly reason: (typeof broadcastStopReasons)[number];
     }
   | {
       readonly action: 'broadcast.chat_slow_mode.update';
@@ -255,7 +259,7 @@ const endingFeed = async (
   tx: Tx,
   input: {
     readonly recordingId: string;
-    readonly reason: string;
+    readonly reason: BroadcastFeedEndReason;
     readonly now: Date;
     readonly ports: Ports;
   },

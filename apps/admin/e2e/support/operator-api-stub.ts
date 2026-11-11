@@ -4,7 +4,7 @@ import {
   type PreapprovalResult,
   type invitationStates,
 } from '@daisy/protocol/beta-preapproval';
-import { decideBetaAccessChange } from '@daisy/auth';
+import { decideBetaAccessChange } from '@daisy/protocol';
 import {
   verifyOperatorRequest,
   type OperatorCrypto,

@@ -124,12 +124,12 @@ const advance = async (sql: SQL, input: Advance) => {
       await sql`update broadcasts set released_through_at=now()-interval '10 minutes' where round_id=${roundId}`;
       return;
     case 'stop':
-      await sql`update broadcasts set stopped_at=now(),stop_reason='moderation',media_withheld=true where round_id=${roundId}`;
+      await sql`update broadcasts set stopped_at=now(),stop_reason='policy_violation',media_withheld=true where round_id=${roundId}`;
       return;
     case 'end':
       await sql`update rounds set status='completed',current_stage=null,outcome='affirmative',completed_at=now()-interval '3 minutes' where id=${roundId}`;
       await sql`update round_segments set ended_at=coalesce(ended_at,now()-interval '3 minutes') where round_id=${roundId}`;
-      await sql`update broadcasts set final_media_end_at=now()-interval '3 minutes',released_through_at=now()-interval '1 minute',completed_at=now() where round_id=${roundId}`;
+      await sql`update broadcasts set final_media_end_at=now()-interval '3 minutes',released_through_at=now()-interval '1 minute',stream_ended_at=now(),completed_at=now() where round_id=${roundId}`;
       await sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
         select ${createId()},${roundId},competition_type,
           case competition_type when 'ranked' then ${{ kind: 'ranked' }}::jsonb else jsonb_build_object('kind','host_opt_in','hostActorId',created_by_actor_id) end,

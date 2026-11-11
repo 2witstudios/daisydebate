@@ -33,10 +33,10 @@ type BroadcastState = {
 const openBroadcast = async (roundId: string, state: BroadcastState) => {
   await withSql(
     (sql) => sql`insert into broadcasts
-      (id, round_id, feed_key, release_policy, released_through_at, completed_at, stopped_at, stop_reason)
+      (id, round_id, feed_key, release_policy, released_through_at, stream_ended_at, completed_at, stopped_at, stop_reason)
       values (${createId()}, ${roundId}, ${createId()}, ${state.policy ?? standard},
-        ${state.releasedThrough ?? null}, ${state.completed ?? null},
-        ${state.stopped ?? null}, ${state.stopped ? 'test' : null})`,
+        ${state.releasedThrough ?? null}, ${state.completed ?? null}, ${state.completed ?? null},
+        ${state.stopped ?? null}, ${state.stopped ? 'technical' : null})`,
   );
 };
 const dropBroadcasts = (ids: readonly string[]) =>

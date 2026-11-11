@@ -4,13 +4,18 @@ import {
   boolean,
   check,
   index,
-  integer,
   pgTable,
   primaryKey,
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAtColumn, oneOf, timestampColumn } from './columns';
+import {
+  createdAtColumn,
+  mailJobChecks,
+  mailJobColumns,
+  oneOf,
+  timestampColumn,
+} from './columns';
 import { actors } from './actors';
 import { challenges } from './challenges';
 import { roomInvitations } from './room-invitations';
@@ -131,13 +136,6 @@ export const notificationFanouts = pgTable(
   ],
 );
 
-export const notificationEmailStates = [
-  'queued',
-  'leased',
-  'sent',
-  'failed',
-  'cancelled',
-] as const;
 export const notificationEmailErrorCodes = [
   'delivery',
   'delivery-unknown',
@@ -169,14 +167,7 @@ export const notificationEmails = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull(),
-    state: text('state').notNull(),
-    attempts: integer('attempts').notNull(),
-    leaseTokenDigest: text('lease_token_digest'),
-    leaseExpiresAt: timestampColumn('lease_expires_at'),
-    nextAttemptAt: timestampColumn('next_attempt_at').notNull(),
-    lastErrorCode: text('last_error_code'),
-    createdAt: createdAtColumn(),
-    completedAt: timestampColumn('completed_at'),
+    ...mailJobColumns(),
   },
   (table) => [
     index('notification_emails_due_idx').on(table.state, table.nextAttemptAt),
@@ -186,22 +177,6 @@ export const notificationEmails = pgTable(
       'notification_emails_kind_check',
       sql`${table.kind} in ('room_invitation', 'challenge_received')`,
     ),
-    check(
-      'notification_emails_state_check',
-      oneOf(table.state, notificationEmailStates),
-    ),
-    check('notification_emails_attempts_check', sql`${table.attempts} >= 0`),
-    check(
-      'notification_emails_lease_check',
-      sql`(${table.state} = 'leased') = (${table.leaseTokenDigest} is not null and ${table.leaseExpiresAt} is not null) and (${table.leaseTokenDigest} is null or ${table.leaseTokenDigest} ~ '^[0-9a-f]{64}$')`,
-    ),
-    check(
-      'notification_emails_completed_check',
-      sql`(${table.state} in ('sent', 'failed', 'cancelled')) = (${table.completedAt} is not null)`,
-    ),
-    check(
-      'notification_emails_error_check',
-      sql`${table.lastErrorCode} is null or ${oneOf(table.lastErrorCode, notificationEmailErrorCodes)}`,
-    ),
+    ...mailJobChecks('notification_emails', table, notificationEmailErrorCodes),
   ],
 );

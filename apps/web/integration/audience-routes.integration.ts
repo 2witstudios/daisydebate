@@ -285,7 +285,7 @@ test('slow mode, a ban and the end of the Broadcast each refuse a post, with sta
         }),
       );
       await f.sql`delete from audience_bans where user_id=${poster.userId}`;
-      await f.sql`update broadcasts set stopped_at=${now},stop_reason='test' where round_id=${roundId}`;
+      await f.sql`update broadcasts set stopped_at=${now},stop_reason='technical' where round_id=${roundId}`;
       now = secondsAfter(93);
       const stopped = await route.chat(postTo(chatPath, chatBody('Stopped')));
       assert({
