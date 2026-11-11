@@ -3,6 +3,8 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { recordingOperations } from '../src/recording-operations';
 import { rejectedBy, withFixture } from './constraint-helpers';
 import {
   ddlTimeoutMs,
@@ -94,6 +96,27 @@ test(
               f.sql`update broadcasts set stream_ended_at = ${at}::timestamptz where id = ${broadcastId}`,
           ),
         ];
+        // The sweep's own writer must still take the stored removal: a NOT
+        // VALID CHECK applies to its lease write as to any other.
+        const claimed = await recordingOperations({
+          database: drizzle({ client: f.sql }),
+        }).claimRecordingDeletions({
+          owner: 'w',
+          now: at,
+          leaseUntil: '2026-11-02T00:01:00.000Z',
+          limit: 100,
+        });
+        const [repaired] =
+          await f.sql`select deletion_due_at is not null as due from recordings where id = ${recordingId}`;
+        assert({
+          given: 'the deletion sweep claiming over that stored removal',
+          should: 'lease it and give it the due time it lacked',
+          actual: [
+            claimed.map((claim) => claim.record.id).includes(recordingId),
+            repaired?.due,
+          ],
+          expected: [true, true],
+        });
         assert({
           given:
             'a completed Broadcast with no stream end, a suspension ending before its start and a removal with nothing due, stored before the migration',
