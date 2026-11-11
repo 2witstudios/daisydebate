@@ -26,6 +26,7 @@ import { MediaPageLink } from '../../round-media/media-page-link';
 import { BallotOpensNotice, useBallotOpensIn } from './ballot-opens';
 import { BallotRules } from './ballot-rules';
 import { useBallotDraft } from './use-ballot-draft';
+import { useBallotRefresh } from './use-ballot-refresh';
 /** Mounted above every canonical state, so an unknown acknowledgement always keeps its original retry. */
 export function BallotPage({
   view,
@@ -55,12 +56,12 @@ export function BallotPage({
   useEffect(() => {
     if (answer.receipt) router.refresh();
   }, [answer.receipt, router]);
-  useEffect(() => {
-    if (view.round.status !== 'active' || view.freeze || answer.unacknowledged)
-      return;
-    const timer = window.setInterval(() => router.refresh(), 5000);
-    return () => window.clearInterval(timer);
-  }, [view.round.status, view.freeze, answer.unacknowledged, router]);
+  useBallotRefresh(
+    view,
+    pending || answer.unacknowledged === true,
+    renderedAtMs,
+    router,
+  );
   const debaters = ballotDebaters(view);
   const display = ballotDisplay(view, answer);
   const draft = useBallotDraft(view, display, answer.values);
