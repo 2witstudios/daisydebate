@@ -113,8 +113,8 @@ test('a non-ranked Round has no captions (DEC-301)', async () => {
 test('a line on a segment still open past the last heartbeat waits, like its media', async () => {
   await withLiveRound('ranked', async (read, { client, roundId }) => {
     const id = createId();
-    await client`insert into broadcasts (id,round_id,feed_key,release_policy,egress_id,control_heartbeat_at)
-      values (${id},${roundId},${createId()},jsonb_build_object('kind','delay','seconds',60),'EG',${new Date(spoken.getTime() - 1000)})`;
+    await client`insert into broadcasts (id,round_id,feed_key,release_policy,egress_id,egress_started_at,control_heartbeat_at)
+      values (${id},${roundId},${createId()},jsonb_build_object('kind','delay','seconds',60),'EG',${new Date(spoken.getTime() - 1000)},${new Date(spoken.getTime() - 1000)})`;
     const unheard = captions(await read(margin(spoken)));
     await client`update broadcasts set control_heartbeat_at=${spoken} where id=${id}`;
     const heard = captions(await read(margin(spoken)));
