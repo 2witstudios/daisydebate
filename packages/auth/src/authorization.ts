@@ -1,4 +1,3 @@
-import { assertNever } from '@daisy/protocol';
 export { subscriptionAccess, subscriptionGrants } from './subscription-policy';
 export { canManageBilling, canPurchasePremium } from './billing-policy';
 export { admitAllowance, canUseAiAllowance } from './allowance';
@@ -285,9 +284,8 @@ function resolveMemberResource(
     case 'round':
     case 'room':
     case 'channel':
-      return resource;
     default:
-      return assertNever(resource);
+      return resource;
   }
 }
 function memberDecision(

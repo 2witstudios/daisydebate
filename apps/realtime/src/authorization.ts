@@ -13,7 +13,7 @@ import { liveParticipantSession } from './participant-session';
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSession } from '@daisy/db/authorization';
-import { assertNever, parseTopic } from '@daisy/protocol';
+import { parseTopic } from '@daisy/protocol';
 import type { Clock } from '@daisy/clock';
 import type { RealtimeAuthorityReads } from '@daisy/db';
 import type { SocketPrincipal } from './registry';
@@ -131,10 +131,10 @@ export function createRealtimeAuthorization({
           base,
           bound,
         );
+      // Anything this does not authorize is refused, a family it cannot name included.
       case 'round:presence':
-        return null;
       default:
-        return assertNever(parsed);
+        return null;
     }
   }
   async function authorizeAudience(
