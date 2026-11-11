@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../lib/testing/mock-router';
-import { judge, view } from './live-round.test-support';
+import { asCompleted, judge, view } from './live-round.test-support';
 
 setupRitewayBun();
 await mockNextRouter();
@@ -9,8 +9,7 @@ const { LiveJudgeRoom } = await import('../judging-room/live-judge-room');
 
 test('a live room whose Round completed points to its result', () => {
   const ended = {
-    ...view,
-    status: 'completed' as const,
+    ...asCompleted(view),
     participants: [
       ...view.participants.filter((seat) => seat.role !== 'judge'),
       judge,

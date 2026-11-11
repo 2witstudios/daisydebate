@@ -1,11 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { view as round } from '../../ui/debate-room/live-round.test-support';
+import {
+  asActive,
+  view as round,
+} from '../../ui/debate-room/live-round.test-support';
 import { RoundNativeAttendance } from './native-state';
 
 setupRitewayBun();
 
-const view = { ...round, status: 'active' as const };
+const view = asActive(round);
 
 const segmentId = 's4n6p8r2t4v6x8z1k3b5c7d9';
 const state = {
@@ -68,7 +71,7 @@ test('a Round that is not active offers no attendance at all', () => {
     should: 'render no attendance text, form or refresh',
     actual: renderToStaticMarkup(
       <RoundNativeAttendance
-        view={{ ...view, status: 'opening' }}
+        view={round}
         read={null}
         retrySeconds={3}
       />,

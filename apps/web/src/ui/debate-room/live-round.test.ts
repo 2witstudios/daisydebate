@@ -13,6 +13,8 @@ import {
   startOf,
   unjudgedClosed,
   view,
+  asAbandoned,
+  asCompleted,
 } from './live-round.test-support';
 
 setupRitewayBun();
@@ -26,8 +28,8 @@ describe('isLiveDebater', () => {
         isLiveDebater(view, aff.actorId),
         isLiveDebater(view, judge.actorId),
         isLiveDebater(view, 'x'.repeat(24)),
-        isLiveDebater({ ...view, status: 'completed' }, aff.actorId),
-        isLiveDebater({ ...view, status: 'abandoned' }, aff.actorId),
+        isLiveDebater(asCompleted(view), aff.actorId),
+        isLiveDebater(asAbandoned(view), aff.actorId),
       ],
       expected: [true, false, false, false, false],
     });
@@ -158,13 +160,9 @@ describe('liveRoundOf during the round', () => {
       actorId: 'q4n6p8r2t4v6x8z1k3b5c7d9',
       slot: 1,
     };
-    const seated = (
-      closed: number,
-      over: Partial<RoundView> = {},
-    ): RoundView => ({
+    const seated = (closed: number): RoundView => ({
       ...ran(closed, true),
       participants: [{ ...aff, label: 'Sam Reyes' }, human, partner],
-      ...over,
     });
     const notes = (round: RoundView, sequence: number) =>
       [aff, human, partner].map(
@@ -294,8 +292,6 @@ describe('liveRoundOf during the round', () => {
     const room = liveRoundOf(
       {
         ...view,
-        status: 'opening',
-        startedAt: null,
         segments: [],
         opening: {
           step: {

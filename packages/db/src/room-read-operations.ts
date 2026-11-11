@@ -11,6 +11,7 @@ import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
 import {
+  isRoundLifecycle,
   roomListQuerySchema,
   type RoomListQuery,
   type RoomListPage,
@@ -93,11 +94,23 @@ export async function launchedRoundRows(
       };
     }),
   );
+  const lifecycle = {
+    status: row.status,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    outcome: row.outcome,
+  };
+  // `rounds_lifecycle_check` holds this for every stored row.
+  if (!isRoundLifecycle(lifecycle))
+    throw createAppError(
+      'INVARIANT',
+      'Round lifecycle is not one its status holds',
+    );
   const round: LaunchedRound = {
+    ...lifecycle,
     id: row.id,
     roomId: row.roomId,
     version: row.version,
-    status: row.status,
     competitionType: row.competitionType,
     ladderId: row.ladderId,
     topic: row.resolution,
@@ -107,21 +120,22 @@ export async function launchedRoundRows(
     config: row.roomConfigSnapshot,
     rules: row.rulesSnapshot,
     participants,
-    startedAt: row.startedAt?.toISOString() ?? null,
-    completedAt: row.completedAt?.toISOString() ?? null,
-    outcome: row.outcome,
     platformEnding: row.platformEnding,
-    panelRuling: recordedPanelRuling(
-      await tx
-        .select()
-        .from(roundCommands)
-        .where(
-          and(
-            eq(roundCommands.roundId, roundId),
-            eq(roundCommands.type, 'complete'),
+    // A ruling belongs to a panel completion: a Round that is not completed carries none.
+    panelRuling:
+      lifecycle.status !== 'completed'
+        ? null
+        : recordedPanelRuling(
+            await tx
+              .select()
+              .from(roundCommands)
+              .where(
+                and(
+                  eq(roundCommands.roundId, roundId),
+                  eq(roundCommands.type, 'complete'),
+                ),
+              ),
           ),
-        ),
-    ),
     transcriptCompleteness:
       (
         await tx

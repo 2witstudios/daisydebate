@@ -20,6 +20,7 @@ import {
   runtimeCheckpointSchema,
 } from './round';
 import { panelRulingSchema } from './round-panel-completion';
+import { isRoundLifecycle, type RoundLifecycle } from './round-lifecycle';
 
 const instant = z.iso.datetime({ offset: true });
 
@@ -99,7 +100,7 @@ const roundOpeningViewSchema = z.strictObject({
  * carries the host's actor, and a human judge's identity only for that
  * judge or the host.
  */
-export const roundViewSchema = z.strictObject({
+const roundViewFields = z.strictObject({
   id: idSchema,
   roomId: idSchema,
   version: z.int().positive(),
@@ -154,12 +155,63 @@ export const roundViewSchema = z.strictObject({
     )
     .readonly(),
 });
+
+type RoundRecordFields = Omit<z.infer<typeof roundViewFields>, 'waitingOn'>;
+
+/**
+ * A Round's lifecycle columns agree with its status: the pairings the engine's
+ * lifecycle and `rounds_lifecycle_check` already hold, so a client never reads
+ * a Round that is two things at once. The parsed type is narrowed to match.
+ */
+const lifecycleAgrees = {
+  message: 'Round lifecycle is not one its status holds',
+  path: ['status'],
+};
+
+/** What else a Round's record may not say for its status (`rounds_platform_ending_check`). */
+const roundRecordFault = (round: RoundRecordFields): string | null => {
+  if (round.opening !== null && round.status !== 'opening')
+    return 'Only a Round in its opening carries one';
+  if (round.panelRuling !== null && round.status !== 'completed')
+    return 'Only a completed Round carries a panel ruling';
+  if (round.platformEnding === 'recovery_bound' && round.status !== 'abandoned')
+    return 'The recovery bound ends a Round abandoned';
+  if (
+    round.platformEnding === 'capture_shortfall' &&
+    (round.status !== 'completed' || round.outcome !== null)
+  )
+    return 'A capture shortfall completes a Round with no outcome';
+  return null;
+};
+
+const refuseFault =
+  <T>(faultOf: (value: T) => string | null) =>
+  (value: T, context: z.RefinementCtx) => {
+    const fault = faultOf(value);
+    if (fault !== null)
+      context.addIssue({ code: 'custom', message: fault, path: ['status'] });
+  };
+
+export const roundViewSchema = roundViewFields
+  .refine(isRoundLifecycle, lifecycleAgrees)
+  .superRefine(
+    refuseFault(
+      (round) =>
+        roundRecordFault(round) ??
+        (round.waitingOn !== null && round.status !== 'active'
+          ? 'Only an active Round is waiting on anything'
+          : null),
+    ),
+  );
 export type RoundView = z.infer<typeof roundViewSchema>;
 /**
  * A Round as a transcript read carries it: the record, with no claim
  * about what a played Round is waiting on. Only the Round read decides that.
  */
-export const roundRecordSchema = roundViewSchema.omit({ waitingOn: true });
+export const roundRecordSchema = roundViewFields
+  .omit({ waitingOn: true })
+  .refine(isRoundLifecycle, lifecycleAgrees)
+  .superRefine(refuseFault(roundRecordFault));
 export type RoundRecord = z.infer<typeof roundRecordSchema>;
 export type RoundSeat = z.infer<typeof seatSchema>;
 
@@ -168,14 +220,19 @@ export type RoundSeat = z.infer<typeof seatSchema>;
  * and the host's actor. Authorization reads it; it never leaves the server.
  */
 export type LaunchedRound = Omit<
-  RoundView,
-  'participants' | 'viewerIsHost' | 'opening' | 'waitingOn'
-> & {
-  readonly hostActorId: string | null;
-  /** The host took over from a restricted one, and names no human judge (DEC-331). */
-  readonly hostInherited: boolean;
-  readonly participants: readonly RoundSeat[];
-};
+  z.infer<typeof roundViewFields>,
+  | 'participants'
+  | 'viewerIsHost'
+  | 'opening'
+  | 'waitingOn'
+  | keyof RoundLifecycle
+> &
+  RoundLifecycle & {
+    readonly hostActorId: string | null;
+    /** The host took over from a restricted one, and names no human judge (DEC-331). */
+    readonly hostInherited: boolean;
+    readonly participants: readonly RoundSeat[];
+  };
 
 /** A seat that names its occupant; an anonymous judge seat does not. */
 export const isNamedSeat = <T extends object>(

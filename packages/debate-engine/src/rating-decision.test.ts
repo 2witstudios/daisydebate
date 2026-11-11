@@ -83,7 +83,6 @@ describe('ratingEligibility', () => {
         ...completed,
         status: 'abandoned',
         outcome: null,
-        completedAt: null,
       }),
       expected: { kind: 'unrated', reason: 'abandoned' },
     });
@@ -205,7 +204,12 @@ describe('ratingAwaited', () => {
         unjudged: ratingAwaited({ ...completed, ending: 'unjudged' }),
         noResult: ratingAwaited({ ...completed, outcome: null }),
         rated: ratingAwaited({ ...completed, alreadyRated: true }),
-        active: ratingAwaited({ ...completed, status: 'active' }),
+        active: ratingAwaited({
+          ...completed,
+          status: 'active',
+          outcome: null,
+          completedAt: null,
+        }),
       },
       expected: {
         rateable: true,

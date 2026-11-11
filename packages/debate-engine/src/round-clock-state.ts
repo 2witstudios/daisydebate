@@ -1,14 +1,16 @@
 import { createInvariantError } from '@daisy/errors';
 import {
   emptyRuntimeCheckpoint,
+  isRoundLifecycle,
   isRoundOver,
+  roundLifecycleFault,
   runtimeCheckpointSchema,
-  type HydratedRound,
   type HydratedSegment,
   type OverRoundStatus,
   type RoundOutcome,
+  type RoundLifecycle,
+  type RoundLifecycleColumns,
   type RoundRules,
-  type RoundStatus,
   type RuntimeCheckpoint,
   type SegmentType,
 } from '@daisy/protocol';
@@ -109,50 +111,43 @@ export const countdownAnchor = (state: ClockState): number => {
     );
   return anchor;
 };
-const instant = (iso: string | null): number | null =>
-  iso === null ? null : Date.parse(iso);
-
-const invalidLifecycle = (status: RoundStatus): never => {
-  throw createInvariantError(
-    debateInvariantIds.lifecycleMatchesStatus,
-    status === 'active'
-      ? 'An active round requires a start instant'
-      : `A ${status} round's durable lifecycle is not one its status can hold`,
-  );
+const instantOf = (iso: string): number => {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms))
+    throw createInvariantError(
+      debateInvariantIds.lifecycleMatchesStatus,
+      'A round lifecycle instant is not a time',
+    );
+  return ms;
 };
 
-const known = (ms: number | null): ms is number =>
-  ms !== null && Number.isFinite(ms);
-
-/** Durable columns to the one lifecycle they mean; any other combination is corruption. */
-const lifecycleOf = (
-  round: Pick<
-    HydratedRound,
-    'status' | 'startedAt' | 'completedAt' | 'outcome'
-  >,
-): Lifecycle => {
-  const { status, outcome } = round;
-  const startedAtMs = instant(round.startedAt);
-  const completedAtMs = instant(round.completedAt);
-  switch (status) {
+/**
+ * The stored lifecycle to the engine's, instants as milliseconds. The contract
+ * already holds which instants each status has; only their reading can fail.
+ */
+const lifecycleOf = (round: RoundLifecycle): Lifecycle => {
+  switch (round.status) {
     case 'opening':
-      return startedAtMs === null && completedAtMs === null && outcome === null
-        ? { status }
-        : invalidLifecycle(status);
+      return { status: round.status };
     case 'active':
-      return known(startedAtMs) && completedAtMs === null && outcome === null
-        ? { status, startedAtMs }
-        : invalidLifecycle(status);
+      return {
+        status: round.status,
+        startedAtMs: instantOf(round.startedAt),
+      };
     case 'completed':
-      return known(startedAtMs) && known(completedAtMs)
-        ? { status, startedAtMs, completedAtMs, outcome }
-        : invalidLifecycle(status);
+      return {
+        status: round.status,
+        startedAtMs: instantOf(round.startedAt),
+        completedAtMs: instantOf(round.completedAt),
+        outcome: round.outcome,
+      };
     case 'abandoned':
-      return (startedAtMs === null || known(startedAtMs)) &&
-        known(completedAtMs) &&
-        outcome === null
-        ? { status, startedAtMs, completedAtMs }
-        : invalidLifecycle(status);
+      return {
+        status: round.status,
+        startedAtMs:
+          round.startedAt === null ? null : instantOf(round.startedAt),
+        completedAtMs: instantOf(round.completedAt),
+      };
   }
 };
 
@@ -176,14 +171,17 @@ const assertSegmentRules = (row: ClockSegment, rules: RoundRules): void => {
 };
 
 export const normalizeRoundClock = (input: {
-  readonly round: Pick<
-    HydratedRound,
-    'status' | 'startedAt' | 'completedAt' | 'outcome'
-  >;
+  readonly round: RoundLifecycleColumns;
   readonly segments: readonly HydratedSegment[];
   readonly checkpoint: unknown;
   readonly rules: RoundRules;
 }): ClockState => {
+  // The one rule lives beside the status vocabulary; a parsed view or a row is held to it here.
+  if (!isRoundLifecycle(input.round))
+    throw createInvariantError(
+      debateInvariantIds.lifecycleMatchesStatus,
+      roundLifecycleFault(input.round) ?? 'Round lifecycle',
+    );
   const lifecycle = lifecycleOf(input.round);
   const rows = input.segments
     .map((segment) => ({
@@ -232,14 +230,14 @@ export const normalizeRoundClock = (input: {
       debateInvariantIds.liveOpenSegmentCount,
       'Prep cannot coexist with a live segment',
     );
+  // The checkpoint contract already keeps the lead apart from prep itself.
   if (
     checkpoint.prep_ended_at !== null &&
-    (checkpoint.active_prep !== null ||
-      rows.some((row) => row.endedAtMs === null))
+    rows.some((row) => row.endedAtMs === null)
   )
     throw createInvariantError(
       debateInvariantIds.liveOpenSegmentCount,
-      'The lead after prep is neither prep nor a live segment',
+      'The lead after prep is not a live segment',
     );
   if (
     checkpoint.incident.phase !== 'none' &&

@@ -5,7 +5,7 @@ import {
   type RoundView,
 } from '@daisy/protocol';
 import { driverEdges } from '../resource-sync/driver.test-support';
-import { round } from './round.test-support';
+import { inLifecycle, round } from './round.test-support';
 import type { RoundRead } from './read-round';
 import {
   createRoundSyncDriver,
@@ -15,11 +15,11 @@ import {
 
 setupRitewayBun();
 
-const at = (version: number, patch: Partial<RoundView> = {}): RoundView => ({
-  ...round,
-  version,
-  ...patch,
-});
+const at = (
+  version: number,
+  patch: Partial<Pick<RoundView, 'opening'>> = {},
+  from: RoundView = round,
+): RoundView => ({ ...from, version, ...patch });
 
 describe('round sync driver', () => {
   test('the round doorbell reads the round and adopts the newer revision', async () => {
@@ -42,7 +42,16 @@ describe('round sync driver', () => {
         ids: [round.id],
       },
     });
-    edges.answer({ kind: 'found', round: at(3, { status: 'completed' }) });
+    edges.answer({ kind: 'found', round: at(
+        3,
+        {},
+        inLifecycle(round, {
+          status: 'completed',
+          startedAt: '2026-10-12T18:00:00.000Z',
+          completedAt: '2026-10-12T18:30:00.000Z',
+          outcome: null,
+        }),
+      ) });
     await edges.flush();
     edges.emit({
       v: ENVELOPE_VERSION,

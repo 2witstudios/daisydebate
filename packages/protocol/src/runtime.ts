@@ -1,11 +1,11 @@
 import type { ResolutionDrawState } from './resolution-draw';
 import type { DebateRole, DebateSide, RoundOutcome } from './primitives';
+import type { RoundLifecycle } from './round-lifecycle';
 import type { SegmentType } from './format';
 import type {
   PlatformIncidentCause,
   RoundIncident,
   RoundStage,
-  RoundStatus,
   RuntimeCheckpoint,
 } from './round';
 
@@ -16,14 +16,10 @@ import type {
  * storage stay in their owning packages.
  */
 
-/** The hydrated round row the runtime starts from. */
-export type HydratedRound = {
+/** The hydrated round row the runtime starts from: one lifecycle, never a mix of two. */
+export type HydratedRound = RoundLifecycle & {
   readonly id: string;
-  readonly status: RoundStatus;
   readonly currentStage: RoundStage | null;
-  readonly startedAt: string | null;
-  readonly completedAt: string | null;
-  readonly outcome: RoundOutcome | null;
 };
 
 /** One `round_segments` row, hydrated. */
@@ -145,14 +141,12 @@ export type RoundProjection = {
   /** The opening ended here: the Round's start, never the processing time. */
   readonly opensAt?: string;
   /** Null when no round-row column changed. */
-  readonly round: {
-    readonly status: RoundStatus;
-    readonly currentStage: RoundStage | null;
-    readonly startedAt: string | null;
-    readonly completedAt: string | null;
-    readonly outcome: RoundOutcome | null;
-    readonly checkpoint: RuntimeCheckpoint;
-  } | null;
+  readonly round:
+    | (RoundLifecycle & {
+        readonly currentStage: RoundStage | null;
+        readonly checkpoint: RuntimeCheckpoint;
+      })
+    | null;
   readonly segmentInserts: readonly SegmentInsert[];
   readonly segmentCloses: readonly SegmentClose[];
   readonly segmentReturns?: readonly SegmentReturn[];
@@ -161,12 +155,8 @@ export type RoundProjection = {
 };
 
 /** The derived position at one instant: what UI and orchestration read. */
-export type RoundPosition = {
-  readonly status: RoundStatus;
+export type RoundPosition = RoundLifecycle & {
   readonly stage: RoundStage | null;
-  readonly startedAt: string | null;
-  readonly completedAt: string | null;
-  readonly outcome: RoundOutcome | null;
   readonly openSegment: {
     readonly key: string;
     readonly label: string;

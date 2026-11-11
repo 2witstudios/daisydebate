@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { RoundView } from '@daisy/protocol';
 import { mockNextRouter } from '../../lib/testing/mock-router';
 import { view, judge } from '../debate-room/live-round.test-support';
 setupRitewayBun();
@@ -67,14 +68,14 @@ const { ran, rules, origin, startOf } =
   await import('../debate-room/live-round.test-support');
 const { focusIsFree } = await import('./judge-now');
 
-const judged = (round: typeof view) => ({
+const judged = <V extends RoundView>(round: V) => ({
   ...round,
   participants: [
     ...round.participants.filter((seat) => seat.role !== 'judge'),
     judge,
   ],
 });
-const render = (round: typeof view, renderedAtMs: number) =>
+const render = (round: RoundView, renderedAtMs: number) =>
   renderToStaticMarkup(
     <LiveJudgeRoom
       renderedAtMs={renderedAtMs}

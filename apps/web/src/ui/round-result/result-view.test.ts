@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { speechName } from '../../features/debate-room/vocabulary';
 import { seatLabel } from '../rooms/room-page/assembly-controls';
+import { asActive } from '../debate-room/live-round.test-support';
 import { completed, speeches } from './result.test-support';
 import { resultBallots, transcriptSections } from './result-view';
 
@@ -40,7 +41,7 @@ describe('resultBallots()', () => {
       should: 'release no ballots',
       actual: resultBallots({
         ...completed,
-        round: { ...completed.round, status: 'active' },
+        round: asActive(completed.round),
       }),
       expected: [],
     });

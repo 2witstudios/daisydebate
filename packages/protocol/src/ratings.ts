@@ -1,4 +1,5 @@
-import type { CompetitionType, RoundStatus } from './round';
+import type { CompetitionType } from './round';
+import type { RoundEndState } from './round-lifecycle';
 import type { AttendanceLedgerFacts } from './attendance';
 import type { DebateRole, RatingLadder, RoundOutcome } from './primitives';
 
@@ -22,14 +23,11 @@ export type RatingState = {
  */
 export type RecordedEnding = 'unrecorded' | 'forfeit' | 'unjudged' | 'judged';
 
-/** What eligibility is decided from, as the adapter loads it. */
-export type RatingEligibilityFacts = {
+/** What eligibility is decided from, as the adapter loads it: the Round's ending and what surrounds it. */
+export type RatingEligibilityFacts = RoundEndState & {
   readonly competitionType: CompetitionType;
   /** The round's stored ladder, derived by CHECK; null when unrated. */
   readonly ladderId: RatingLadder | null;
-  readonly status: RoundStatus;
-  readonly outcome: RoundOutcome | null;
-  readonly completedAt: string | null;
   /** Whether the ledger already holds a change for this round. */
   readonly alreadyRated: boolean;
   readonly ending: RecordedEnding;

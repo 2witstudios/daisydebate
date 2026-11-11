@@ -3,7 +3,7 @@ import type { RoundCommandEnvelope } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { AppError } from '@daisy/errors';
 import { caller, now } from '../room-runtime/operations.test-support';
-import { launched } from './round.test-support';
+import { inLifecycle, launched } from './round.test-support';
 import { lockedRound as context, seat } from './locked-round.test-support';
 import { createRoundRuntimeOperations } from './operations';
 
@@ -96,9 +96,12 @@ test('a seated forfeit in the opening stands as a result, under a digest of the 
   const opening = {
     ...context,
     round: {
-      ...context.round,
-      status: 'opening' as const,
-      startedAt: null,
+      ...inLifecycle(context.round, {
+        status: 'opening',
+        startedAt: null,
+        completedAt: null,
+        outcome: null,
+      }),
       opening: {
         state: { startedAt: now, draw: null, prepMs: 60_000, stops: [] },
         seed: null,

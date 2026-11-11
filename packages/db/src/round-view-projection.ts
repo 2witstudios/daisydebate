@@ -1,7 +1,7 @@
 import {
   runtimeCheckpointSchema,
   type LaunchedRound,
-  type RoundView,
+  type RoundRecord,
   type RuntimeCheckpoint,
 } from '@daisy/protocol';
 
@@ -48,7 +48,7 @@ const auditFor = (
 export function roundViewFor(
   round: LaunchedRound,
   viewerActorId: string | null,
-): Omit<RoundView, 'waitingOn'> {
+): RoundRecord {
   const { hostActorId, hostInherited, ...view } = round;
   const viewerIsHost = viewerActorId !== null && viewerActorId === hostActorId;
   const seated = round.participants.some(

@@ -1,6 +1,11 @@
 import { oneOnOneRankedSettings } from '@daisy/db/reference-formats';
 import { emptyRuntimeCheckpoint, freezeRoomConfig } from '@daisy/protocol';
-import type { LaunchedRound, RoundView } from '@daisy/protocol';
+import type {
+  LaunchedRound,
+  RoundLifecycle,
+  RoundLifecycleColumns,
+  RoundView,
+} from '@daisy/protocol';
 import { caller, state } from '../room-runtime/operations.test-support';
 
 /** The stored Round its host reads; `round` is what a viewer receives. */
@@ -38,7 +43,12 @@ export const launched: LaunchedRound = {
   segments: [],
 };
 /** The host's own reading of the launched Round. */
-export const round: RoundView = (({
+/** A Round view still in its opening: nothing has started. */
+export type OpeningRoundView = Extract<
+  RoundView,
+  { readonly status: 'opening' }
+>;
+export const round: OpeningRoundView = (({
   hostActorId,
   hostInherited,
   ...viewed
@@ -47,3 +57,12 @@ export const round: RoundView = (({
   void hostInherited;
   return { ...viewed, opening: null, waitingOn: null, viewerIsHost: true };
 })(launched);
+
+/** A Round at another point in its life: its lifecycle columns replaced as one. */
+export const inLifecycle = <
+  V extends RoundLifecycleColumns,
+  L extends RoundLifecycle,
+>(
+  round: V,
+  lifecycle: L,
+): Omit<V, keyof RoundLifecycle> & L => ({ ...round, ...lifecycle });

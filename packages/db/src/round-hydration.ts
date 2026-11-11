@@ -1,9 +1,9 @@
-import { type RoundStatus } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import { isRoundLifecycle, type RoundLifecycle } from '@daisy/protocol';
 import { loadRoundOpening, type StoredOpening } from './round-opening-read';
 import type {
   CompetitionType,
   DebateRole,
-  RoundOutcome,
   RoundRules,
   RoundStage,
   RuntimeCheckpoint,
@@ -19,7 +19,7 @@ import { rounds } from './schema/rounds';
  * A round hydrated for the runtime (ADR 0058 §4): the durable rows plus the
  * frozen rules and the checkpoint, everything `createRoundRuntime` needs.
  */
-export type RoundHydration = {
+export type RoundHydration = RoundLifecycle & {
   readonly id: string;
   readonly competitionType: CompetitionType;
   readonly formatId: string;
@@ -28,13 +28,9 @@ export type RoundHydration = {
   readonly resolution: string | null;
   /** The opening and its secret seed, only while the Round is in it. */
   readonly opening: StoredOpening | null;
-  readonly status: RoundStatus;
   readonly currentStage: RoundStage | null;
   /** When the Round was launched (its row's creation), on the database clock. */
   readonly launchedAt: string;
-  readonly startedAt: string | null;
-  readonly completedAt: string | null;
-  readonly outcome: RoundOutcome | null;
   readonly rules: RoundRules;
   readonly checkpoint: RuntimeCheckpoint;
   readonly version: number;
@@ -106,19 +102,28 @@ export async function hydrateRoundRows(
     .where(eq(roundParticipants.roundId, id))
     .orderBy(asc(roundParticipants.role), asc(roundParticipants.slot));
   const segments = await segmentRows(tx, id);
+  const lifecycle = {
+    status: row.status,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    outcome: row.outcome,
+  };
+  // `rounds_lifecycle_check` holds this for every stored row.
+  if (!isRoundLifecycle(lifecycle))
+    throw createAppError(
+      'INVARIANT',
+      'Round lifecycle is not one its status holds',
+    );
   return {
+    ...lifecycle,
     opening: await loadRoundOpening(tx, row),
     id: row.id,
     competitionType: row.competitionType,
     formatId: row.formatId,
     formatVersion: row.formatVersion,
     resolution: row.resolution,
-    status: row.status,
     currentStage: row.currentStage,
     launchedAt: row.createdAt.toISOString(),
-    startedAt: row.startedAt?.toISOString() ?? null,
-    completedAt: row.completedAt?.toISOString() ?? null,
-    outcome: row.outcome,
     rules: row.rulesSnapshot as RoundHydration['rules'],
     checkpoint: row.runtimeState as RoundHydration['checkpoint'],
     version: row.version,

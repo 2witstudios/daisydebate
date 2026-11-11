@@ -37,7 +37,7 @@ import {
   type CommandContext,
 } from './round-commands';
 import {
-  lifecycleStampsOf,
+  lifecycleColumnsOf,
   positionAtState,
   stageOf,
 } from './round-position-projection';
@@ -277,9 +277,8 @@ export function createRoundRuntime(input: {
   const roundBlockOf = (on: RoundStore): RoundProjection['round'] => {
     const lifecycle = on.lifecycle();
     return {
-      status: lifecycle.status,
+      ...lifecycleColumnsOf(lifecycle),
       currentStage: stageOf(capture(on), rules.segments.length),
-      ...lifecycleStampsOf(lifecycle),
       checkpoint: on.checkpoint(),
     };
   };

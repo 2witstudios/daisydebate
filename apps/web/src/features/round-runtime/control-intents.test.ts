@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { RoundView } from '@daisy/protocol';
 import { roundControlIntents } from './control-intents';
 import {
   view,
@@ -146,7 +147,7 @@ test('control labels name speeches and prep in words, never by code', () => {
 
 test('controls act only once the persisted Round reaches the phase the clock shows (ISSUE-838)', () => {
   const opened = Date.parse(at(startOf(0) + 100));
-  const enabled = (round: typeof view) =>
+  const enabled = (round: RoundView) =>
     roundControlIntents(round, aff.actorId, opened)
       .filter((c) => c.enabled)
       .map((c) => c.type);

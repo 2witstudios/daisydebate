@@ -117,6 +117,17 @@ export {
   platformIncidentCauses,
   roundPlatformEndings,
 } from './round';
+export {
+  isRoundEndState,
+  isRoundLifecycle,
+  roundEndStateFault,
+  roundLifecycleFault,
+} from './round-lifecycle';
+export type {
+  RoundEndState,
+  RoundLifecycle,
+  RoundLifecycleColumns,
+} from './round-lifecycle';
 export type {
   CompetitionType,
   RoundStatus,
