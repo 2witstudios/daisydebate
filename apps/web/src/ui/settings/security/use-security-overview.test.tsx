@@ -102,6 +102,22 @@ test('a read begun before a removal here never brings the removed row back', asy
   }
 });
 
+test('a removal with nothing being read changes the list and reads nothing', async () => {
+  const page = await mount();
+  try {
+    await page.act(() => page.reads[0]!.resolve(overview(['one', 'two'], [])));
+    await page.act(() => page.held().removePasskey('one'));
+    assert({
+      given: 'a passkey removed here after the lists were read',
+      should: 'drop the row and start no further read',
+      actual: { shown: page.shown().passkeys, reads: page.reads.length },
+      expected: { shown: ['two'], reads: 1 },
+    });
+  } finally {
+    await page.unmount();
+  }
+});
+
 test('signing out of all other sessions is asked once while it is in flight', async () => {
   const page = await mount();
   try {

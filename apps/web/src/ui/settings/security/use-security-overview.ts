@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   loadSecurityOverview,
   PasskeyRow,
@@ -17,8 +17,8 @@ const noticeOf = (outcome: SecurityOutcome): string | undefined =>
 /**
  * The account's passkeys and sessions as the security screen holds them: read
  * from the server, then changed here as each row's own action lands. A read
- * begun before a change here is stale, so the change discards it and reads
- * again; it can never put a removed row back.
+ * still in flight when a change lands here began before it and is stale, so the
+ * change discards it and reads again; it can never put a removed row back.
  */
 export function useSecurityOverview({
   load,
@@ -38,12 +38,19 @@ export function useSecurityOverview({
   const [signingOutOthers, setSigningOutOthers] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
+  const reading = useRef(false);
+  /** A row changed here: whatever is being read no longer says what is so. */
+  const changedHere = () => {
+    if (reading.current) reload();
+  };
 
   useEffect(() => {
     let cancelled = false;
+    reading.current = true;
     void (async () => {
       const overview = await load();
       if (cancelled) return;
+      reading.current = false;
       setPasskeys(overview.passkeys);
       setSessions(overview.sessions);
       setPasskeysNotice(noticeOf(overview.passkeysOutcome));
@@ -65,15 +72,15 @@ export function useSecurityOverview({
       setPasskeys((rows) =>
         rows.map((row) => (row.id === id ? { ...row, name } : row)),
       );
-      reload();
+      changedHere();
     },
     removePasskey: (id: string) => {
       setPasskeys((rows) => rows.filter((row) => row.id !== id));
-      reload();
+      changedHere();
     },
     removeSession: (id: string) => {
       setSessions((rows) => rows.filter((row) => row.id !== id));
-      reload();
+      changedHere();
     },
     signOutOthers: () => {
       if (signingOutOthers) return;
