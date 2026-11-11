@@ -155,41 +155,34 @@ const playerNotices = {
   interrupted: 'The broadcast is interrupted. It resumes here by itself.',
 } as const;
 
-type ViewerProps = {
+/**
+ * The public Round page after its first render: the publisher's published state, read
+ * from the public bucket every couple of seconds the way the player reads segments,
+ * so no viewer's read reaches web (DEC-350). No socket and no account. A failed read
+ * keeps the last released facts. With nothing published the page does not poll, and
+ * says how to look again.
+ */
+export function BroadcastViewer({
+  initial,
+  stateUrl,
+  refreshHref,
+  children,
+}: {
   readonly initial: SpectatorTimeline;
   /** Where the published state is read; null with no Broadcast. */
   readonly stateUrl: string | null;
   readonly refreshHref: string;
   /** The audience beside the video: chat, reactions and the count. */
   readonly children?: React.ReactNode;
-};
-
-/**
- * The public Round page after its first render: the publisher's published state, read
- * from the public bucket every couple of seconds the way the player reads segments,
- * so no viewer's read reaches web (DEC-350). No socket and no account. A failed read
- * keeps the last released facts. With nothing published the page does not poll, and
- * says how to look again. What was read belongs to one address: a refresh that names
- * a replaced link starts a new reader on it.
- */
-export function BroadcastViewer(props: ViewerProps) {
-  return <AddressViewer key={props.stateUrl ?? ''} {...props} />;
-}
-
-/** The viewer of one published address, for as long as the page names it. */
-function AddressViewer({
-  initial,
-  stateUrl,
-  refreshHref,
-  children,
-}: ViewerProps) {
+}) {
   const router = useRouter();
   const [stream, setStream] = useState<BroadcastStream | null>(null);
   const [finished, setFinished] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [settledNow, setSettledNow] = useState(viewerSettled(initial));
-  // Reading goes on while the address is gone, so one that returns is seen.
+  // What was read belongs to its address, so a refresh that names a replaced
+  // link reads the new one, and the player and the audience beside it stay.
   const published = usePublishedState(stateUrl, !settledNow);
   const { gone } = published;
   const timeline = gone

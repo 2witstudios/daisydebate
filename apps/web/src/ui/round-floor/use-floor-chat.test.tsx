@@ -178,3 +178,23 @@ test('an older page never says what the floor is now', async () => {
     await floor.unmount();
   }
 });
+
+test('a read is applied when it answers, though a later one is already on its way', async () => {
+  const floor = await mount();
+  try {
+    await floor.act(() => floor.held().refresh());
+    const first = floor.reads.at(-1)!;
+    // Traffic keeps asking: the next read starts before the first answers.
+    await floor.act(() => floor.held().refresh());
+    await floor.act(() => first.resolve(page(true, 1)));
+    assert({
+      given:
+        'a read answering while a later read of the same kind is in flight',
+      should: 'apply it, so steady traffic cannot leave every answer dropped',
+      actual: floor.shown().readOnly,
+      expected: true,
+    });
+  } finally {
+    await floor.unmount();
+  }
+});

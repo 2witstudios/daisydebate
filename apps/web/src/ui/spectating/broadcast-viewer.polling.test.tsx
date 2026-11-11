@@ -100,11 +100,11 @@ const mount = async () => {
         client.createElement(
           client.AppRouterContext,
           { value: router },
-          client.createElement(client.BroadcastViewer, {
-            initial: timeline,
-            stateUrl,
-            refreshHref: '/watch/r',
-          }),
+          client.createElement(
+            client.BroadcastViewer,
+            { initial: timeline, stateUrl, refreshHref: '/watch/r' },
+            client.createElement('input', { id: 'beside' }),
+          ),
         ),
       ),
     );
@@ -123,6 +123,8 @@ const mount = async () => {
     show,
     poll,
     refreshes: () => refreshes,
+    /** What sits beside the player, as the audience chat does. */
+    beside: () => client.container.querySelector('#beside'),
   };
 };
 
@@ -136,15 +138,21 @@ test('a replaced link starts the page reading again', async () => {
     viewer.answers.set(first, () => new Response(null, { status: 404 }));
     await viewer.poll();
     const refreshed = viewer.refreshes();
+    const beside = viewer.beside();
     // The server's fresh render names the replacement link.
     await viewer.show(second);
     await viewer.poll();
     assert({
       given:
         'a published state read, its address then gone, and a refresh that brings a new link',
-      should: 'ask the server once, then read the new address',
-      actual: { refreshed, reads: viewer.reads },
-      expected: { refreshed: 1, reads: [first, first, second] },
+      should:
+        'ask the server once, then read the new address, keeping what sits beside the player',
+      actual: {
+        refreshed,
+        reads: viewer.reads,
+        kept: beside !== null && viewer.beside() === beside,
+      },
+      expected: { refreshed: 1, reads: [first, first, second], kept: true },
     });
   } finally {
     await viewer.client.act(async () => viewer.client.root.unmount());

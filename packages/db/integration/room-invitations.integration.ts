@@ -305,10 +305,15 @@ test('a restriction ends the invitations its member sent or received', async () 
 
 test('an invitation whose time ran out ends, and its retention clock runs', async () => {
   await withRoom(async (env) => {
-    const lapseNow = (id: string) =>
-      env.f
+    // The hold an invitation writes runs out with it.
+    const lapseNow = async (id: string) => {
+      await env.f
         .sql`update room_invitations set expires_at=clock_timestamp() - interval '1 minute',
         created_at=clock_timestamp() - interval '25 hours' where id=${id}`;
+      await env.f.sql`update room_seat_holds h set until=i.expires_at
+        from room_invitations i where i.id=${id} and h.room_id=i.room_id
+          and h.actor_id=i.invitee_actor_id`;
+    };
     const stateOf = async (id: string) =>
       (
         (await env.f

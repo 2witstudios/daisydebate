@@ -14,6 +14,7 @@ import type { DocumentsApi } from './document-sync';
 import { RETRYING_NOTICE, refusedNotice } from './save-notice';
 import {
   initialSavePage,
+  reduceOwnedSave,
   reduceSave,
   documentSaving,
   saveStatusOf,
@@ -113,7 +114,7 @@ describe('reduceSave', () => {
   });
 
   test('a draft on offer keeps the room unsaved until it is gone', () => {
-    const offer: SaveEvent = { type: 'recovered', documentIds: ['a'] };
+    const offer: SaveEvent = { type: 'recovered', draftOnOffer: true };
     const offered = after(offer);
     assert({
       given:
@@ -126,7 +127,7 @@ describe('reduceSave', () => {
         after(offer, { type: 'edit', ...b }, { type: 'saved', ...b }),
         after(offer, { type: 'conflict', unstored: false, ...b }).notice ===
           offered.notice,
-        after(offer, { type: 'recovered', documentIds: [] }),
+        after(offer, { type: 'recovered', draftOnOffer: false }),
       ],
       expected: [
         'unsaved',
@@ -136,6 +137,28 @@ describe('reduceSave', () => {
         saved,
       ],
     });
+  });
+});
+
+test('a new owner\u2019s page starts from nothing', () => {
+  const first = reduceOwnedSave(
+    { owner: 'one', page: initialSavePage },
+    { owner: 'one', event: { type: 'refused', status: 401, ...a } },
+  );
+  const second = reduceOwnedSave(first, {
+    owner: 'two',
+    event: { type: 'edit', ...b },
+  });
+  assert({
+    given:
+      'a refused save left by one owner, then the first event of the owner who replaced them',
+    should: 'say only what the new owner\u2019s documents say',
+    actual: [
+      saveStatusOf(first.page).save,
+      second.owner,
+      saveStatusOf(second.page),
+    ],
+    expected: ['unsaved', 'two', { save: 'saving', notice: null }],
   });
 });
 

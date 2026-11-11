@@ -46,13 +46,13 @@ type DocumentSave =
   | { readonly save: 'unsaved'; readonly warning: SaveWarning };
 
 /**
- * Every open document's save, each on its own, and the documents with a
- * recovered draft on offer. A document absent from `documents` is saved. The
- * room's one status is derived from this, never stored beside it.
+ * Every open document's save, each on its own, and whether a recovered draft
+ * is on offer. A document absent from `documents` is saved. The room's one
+ * status is derived from this, never stored beside it.
  */
 export type SavePage = {
   readonly documents: ReadonlyMap<string, DocumentSave>;
-  readonly offered: readonly string[];
+  readonly draftOnOffer: boolean;
 };
 
 export type SaveEvent =
@@ -70,10 +70,13 @@ export type SaveEvent =
       readonly documentId: string;
       readonly status: number;
     }
-  /** The documents that now have a recovered draft on offer; none clears it. */
-  | { readonly type: 'recovered'; readonly documentIds: readonly string[] };
+  /** The owner's offers changed: whether any recovered draft is now on offer. */
+  | { readonly type: 'recovered'; readonly draftOnOffer: boolean };
 
-export const initialSavePage: SavePage = { documents: new Map(), offered: [] };
+export const initialSavePage: SavePage = {
+  documents: new Map(),
+  draftOnOffer: false,
+};
 
 /** One browser page's shared keepalive body budget across every owner. */
 const browserKeepaliveBudget = createKeepaliveBudget();
@@ -155,7 +158,9 @@ const carried = (warning: SaveWarning | null): CarriedWarning | null =>
 /** One saving event's effect on the document it names, and on no other. */
 export function reduceSave(page: SavePage, event: SaveEvent): SavePage {
   if (event.type === 'recovered')
-    return { ...page, offered: event.documentIds };
+    return page.draftOnOffer === event.draftOnOffer
+      ? page
+      : { ...page, draftOnOffer: event.draftOnOffer };
   const documents = new Map(page.documents);
   const unsaved = (warning: SaveWarning): SavePage => ({
     ...page,
@@ -196,7 +201,7 @@ export function saveStatusOf(page: SavePage): SaveStatus {
   const [worst] = open
     .flatMap((document) => (document.warning ? [document.warning] : []))
     .sort((one, two) => severityOf(two) - severityOf(one));
-  const offered = page.offered.length > 0;
+  const offered = page.draftOnOffer;
   const idle: SaveState = offered ? 'unsaved' : 'saved';
   return {
     save: open.some((document) => document.save === 'unsaved')
@@ -225,11 +230,8 @@ export const savingReports = (
     report({ type: 'retrying', documentId }),
   onSaveRefused: (documentId: string, status: number) =>
     report({ type: 'refused', documentId, status }),
-  onRecoveryChanged: (offers: readonly { readonly documentId: string }[]) =>
-    report({
-      type: 'recovered',
-      documentIds: [...new Set(offers.map((offer) => offer.documentId))],
-    }),
+  onRecoveryChanged: (offers: readonly unknown[]) =>
+    report({ type: 'recovered', draftOnOffer: offers.length > 0 }),
   onDraftStorageFailed: (documentId: string) =>
     report({ type: 'unsaved', documentId }),
   onSaved: (documentId: string) => report({ type: 'saved', documentId }),
@@ -258,6 +260,25 @@ export function documentSaving(
   return stored;
 }
 
+/** One owner's page of saves: a new owner starts from nothing saved or owed. */
+type OwnedSaves = { readonly owner: string; readonly page: SavePage };
+
+/**
+ * A saving event under the owner whose sync reported it. The page describes
+ * one owner's documents, so another owner's event starts a fresh page rather
+ * than adding to what the earlier owner left.
+ */
+export const reduceOwnedSave = (
+  held: OwnedSaves,
+  reported: { readonly owner: string; readonly event: SaveEvent },
+): OwnedSaves => ({
+  owner: reported.owner,
+  page: reduceSave(
+    held.owner === reported.owner ? held.page : initialSavePage,
+    reported.event,
+  ),
+});
+
 /** A member's documents, wherever the manager opens. */
 export function useDocumentSaving(
   principalId: string,
@@ -265,14 +286,22 @@ export function useDocumentSaving(
 ): SaveStatus & {
   readonly sync: DocumentSync;
 } {
-  const [page, dispatch] = useReducer(reduceSave, initialSavePage);
+  const [held, dispatch] = useReducer(reduceOwnedSave, {
+    owner: principalId,
+    page: initialSavePage,
+  });
+  // Until its first event, a new owner has nothing saved or owed.
+  const page = held.owner === principalId ? held.page : initialSavePage;
+  const owner = useRef(principalId);
   const sync = useMemo(
     () =>
       documentSaving(
         principalId,
         createDocumentsApi(),
         (event) => {
-          dispatch(event);
+          // A superseded owner's late answers say nothing about this page.
+          if (owner.current === principalId)
+            dispatch({ owner: principalId, event });
           if (event.type === 'refused' && event.status === 401)
             window.dispatchEvent(new Event(DRAFTS_IDENTITY_CHECK_EVENT));
         },
@@ -298,6 +327,7 @@ export function useDocumentSaving(
   useEffect(() => {
     const token = { sync, principalId };
     lifetime.current = token;
+    owner.current = principalId;
     const changed = (event: Event) => {
       if ((event as CustomEvent<unknown>).detail !== principalId)
         sync.dispose({ purge: true });

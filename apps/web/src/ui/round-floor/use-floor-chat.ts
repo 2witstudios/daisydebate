@@ -72,8 +72,9 @@ export function useFloorChat({
   );
   const hidden = live.status === 'hidden' || state.kind !== 'ready';
   const generation = useRef(0);
-  /** The newest read of each kind; an answer to an earlier one is stale. */
-  const newest = useRef({ latest: 0, older: 0 });
+  /** Each kind's reads, numbered as asked, and the newest one that was applied. */
+  const asked = useRef({ latest: 0, older: 0 });
+  const applied = useRef({ latest: 0, older: 0 });
   const busy = useRef(false);
   const base = idSchema.safeParse(props.roundId).success
     ? `/api/rounds/${props.roundId}/floor`
@@ -83,10 +84,16 @@ export function useFloorChat({
       if (!base || !idSchema.safeParse(id).success) return;
       const revision = generation.current;
       const kind = cursor === undefined ? 'latest' : 'older';
-      const request = (newest.current[kind] += 1);
-      // Hiding the floor, or a later read of the same kind, supersedes this one.
-      const current = () =>
-        generation.current === revision && newest.current[kind] === request;
+      const request = (asked.current[kind] += 1);
+      // An answer counts while the floor is still shown and no later read of its
+      // kind has been applied. A read still in flight does not supersede it, so
+      // steady traffic never leaves every answer dropped.
+      const current = () => {
+        if (generation.current !== revision) return false;
+        if (request < applied.current[kind]) return false;
+        applied.current[kind] = request;
+        return true;
+      };
       if (kind === 'older') setPaging(true);
       try {
         const response = await fetch(
@@ -146,7 +153,7 @@ export function useFloorChat({
         if (current()) setNotice('Messages could not be loaded. Try again.');
       } finally {
         // Only the older page that set it clears it: another read is not its answer.
-        if (kind === 'older' && newest.current.older === request)
+        if (kind === 'older' && asked.current.older === request)
           setPaging(false);
       }
     },
