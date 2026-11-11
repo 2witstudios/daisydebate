@@ -7,9 +7,7 @@ import { StreamVideo } from '../../spectating/stream-video';
 import {
   clockTime,
   gapCopy,
-  lostGaps,
   privateCopy,
-  privateGaps,
   RECORDING_SPEEDS,
   unrecordedCopy,
 } from './recording-player-copy';
@@ -30,8 +28,7 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
   };
   if (failed)
     return <StateCard icon="alert" title="This video could not be played" />;
-  const lost = lostGaps(media.gaps);
-  const kept = privateGaps(media.gaps);
+  const { lost, keptPrivate: kept } = media;
   return (
     <div className="flex flex-col gap-3">
       <StreamVideo

@@ -89,10 +89,9 @@ about 3.5 s) only for a gap that runs on into the slate, since public media stop
 speech's end. Only the window that starts as a speech ends reaches back into it, so a gap
 that stays inside a speech is lost however near its edge it is. Only a window a committed
 segment closes explains anything: a gap after an open segment, after the last one or in a
-prep no segment follows stays `not_public`. The history page states a
-ready Recording's stored gaps the same way when it is watched, so a Recording built before
-this explanation reads as one built today, with no stored data changed. Only a restart, a
-rotation and an unexplained `not_public` stretch are debate lost. Debate before the first
+prep no segment follows stays `not_public`. The verified media stores the statement, and
+the history page shows it as stored. Only a restart, a rotation and an unexplained
+`not_public` stretch are debate lost. Debate before the first
 frame or after the last has no place in video time, so `media.unrecorded` states it apart:
 a late start, an early end, or a stopped Broadcast. The worker reads none of this: its
 login reaches its job table and nothing else. None of it changes what is published.

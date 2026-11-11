@@ -147,11 +147,11 @@ before that speech. It also reaches 2.5 s back into the speech it follows, for a
 runs on into the slate (with the 1 s sliver rule, up to about 3.5 s). A gap that stays inside a speech is listed as lost.
 
 The worker marks a jump between public pieces `capture_restart` when one public interval
-spans it, since only a restart explains that, and `not_public` otherwise. The capture port,
-and the history page for a Recording already stored, split each `not_public` gap against
-the Round's segments and prep (`explainGaps` in `coverage-statement.ts`). A Recording
-built before that split shows correctly without a rebuild or a data change. A `not_public` gap on the list is a
-real question: it is a stretch inside a speech that history does not prove public.
+spans it, since only a restart explains that, and `not_public` otherwise. When media is
+verified, the capture port splits each `not_public` gap against the Round's segments and
+prep (`explainGaps` in `coverage-statement.ts`) and stores the result, which the player
+shows as stored. A `not_public` gap on the list is a real question: it is a stretch inside a
+speech that history does not prove public.
 
 ## Takedown
 

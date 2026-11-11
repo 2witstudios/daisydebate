@@ -7,7 +7,11 @@ import {
 import type { RecordingMedia } from '@daisy/protocol';
 import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';
-import { explainGaps, type RoundCoverageFacts } from './coverage-statement';
+import {
+  coverageParts,
+  type LostGap,
+  type PrivateGap,
+} from './coverage-statement';
 import {
   mayDownload,
   mayRequestRemoval,
@@ -71,8 +75,6 @@ export type HistoryInputs = {
   readonly findRecordingByRound: (
     roundId: string,
   ) => Promise<RecordingRecord | null>;
-  /** What a watchable video's gaps are stated against. */
-  readonly readCoverageFacts: (roundId: string) => Promise<RoundCoverageFacts>;
 };
 
 type TranscriptPanel = {
@@ -105,8 +107,10 @@ export type RecordingMediaPanel =
       /** An authorized read, never a bucket URL. */
       readonly playlistHref: string;
       readonly durationMs: number;
-      /** What the video does not hold, stated rather than hidden. */
-      readonly gaps: readonly RecordingMedia['gaps'][number][];
+      /** Debate the video does not hold, stated rather than hidden. */
+      readonly lost: readonly LostGap[];
+      /** Stretches withheld by design, such as prep. */
+      readonly keptPrivate: readonly PrivateGap[];
       /** Debate the video never reached, before its start or after its end. */
       readonly unrecorded: NonNullable<RecordingMedia['unrecorded']>;
       readonly speeches: readonly {
@@ -222,7 +226,6 @@ const mediaPanel = (
   mayWatch: boolean,
   job: RecordingJobState | null,
   nowMs: number,
-  facts: RoundCoverageFacts | null,
 ): RecordingMediaPanel => {
   if (record?.lifecycle.status !== 'ready') {
     const state = recordingMediaState(record?.lifecycle.status ?? null);
@@ -246,11 +249,7 @@ const mediaPanel = (
     state: 'watch',
     playlistHref: `/api/recordings/${record.id}/playback/${media.playlistKey.slice(media.playlistKey.lastIndexOf('/') + 1)}`,
     durationMs: media.durationMs,
-    // Stated again against the Round, so a Recording stored before a turnover or a
-    // prep was explained reads as one stated today.
-    gaps: facts
-      ? explainGaps(media.gaps, facts, Date.parse(media.capturedFrom))
-      : media.gaps,
+    ...coverageParts(media.gaps),
     unrecorded: media.unrecorded ?? [],
     speeches: media.speeches.map((speech) => ({
       speaker: speaker(speech.roundParticipantId),
@@ -377,12 +376,6 @@ export const openRecordingHistory = async (
         ? await inputs.readJobState(record.id)
         : null,
       inputs.nowMs(),
-      // Only a not_public gap can be explained, so a video with none reads nothing.
-      record?.lifecycle.status === 'ready' &&
-        permissions.media &&
-        record.lifecycle.media.gaps.some((gap) => gap.reason === 'not_public')
-        ? await inputs.readCoverageFacts(round.id)
-        : null,
     ),
     reportTarget: reportTargetOf(record, round.id),
     transcript: transcript && transcriptPanel(round, transcript, input.q),

@@ -1,7 +1,11 @@
-import { startEdgeLagMs, type RecordingMedia } from '@daisy/protocol';
+import {
+  startEdgeLagMs,
+  type CoverageGap,
+  type RecordingMedia,
+} from '@daisy/protocol';
 import { outsideGaps } from './speech-timeline';
 
-type Gap = RecordingMedia['gaps'][number];
+type Gap = CoverageGap;
 type Unrecorded = NonNullable<RecordingMedia['unrecorded']>[number];
 
 /** The Round's own record, read as a named input, of what happened when. */
@@ -169,8 +173,7 @@ const windowsFor = (
  * debate lost. What history does not explain stays `not_public`, and a sliver of
  * it under a second beside an explained stretch is clock disagreement, told with
  * that stretch. Every other reason stands. Touching stretches of one reason are
- * told once. Pure, total and stable: its own answer comes back unchanged, so it
- * can state a Recording stored before it as well as a new one.
+ * told once. Pure, total and stable: its own answer comes back unchanged.
  */
 export const explainGaps = (
   gaps: readonly Gap[],
@@ -304,3 +307,41 @@ export const coverageStatement = ({
     ],
   };
 };
+
+/**
+ * What each reason means to a viewer, sorted once, so a new reason cannot compile
+ * until it is placed: debate lost, kept private by design, or the slate between
+ * speeches, which holds no debate.
+ */
+const GAP_KIND = {
+  capture_restart: 'lost',
+  room_rotation: 'lost',
+  not_public: 'lost',
+  private_phase: 'private',
+  between_speeches: 'slate',
+} as const satisfies Record<Gap['reason'], 'lost' | 'private' | 'slate'>;
+
+type ReasonOf<K> = {
+  [R in keyof typeof GAP_KIND]: (typeof GAP_KIND)[R] extends K ? R : never;
+}[keyof typeof GAP_KIND];
+
+/** Debate that happened and is not in the video. */
+export type LostGap = Gap & { readonly reason: ReasonOf<'lost'> };
+/** A stretch withheld by design. */
+export type PrivateGap = Gap & { readonly reason: ReasonOf<'private'> };
+
+/**
+ * A video's gaps as a viewer is told them: what was lost, and what was kept private.
+ * The slate between speeches is neither, so it is not told.
+ */
+export const coverageParts = (
+  gaps: readonly Gap[],
+): {
+  readonly lost: readonly LostGap[];
+  readonly keptPrivate: readonly PrivateGap[];
+} => ({
+  lost: gaps.filter((gap): gap is LostGap => GAP_KIND[gap.reason] === 'lost'),
+  keptPrivate: gaps.filter(
+    (gap): gap is PrivateGap => GAP_KIND[gap.reason] === 'private',
+  ),
+});

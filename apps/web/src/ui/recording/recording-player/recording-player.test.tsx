@@ -1,14 +1,11 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { CoverageGap } from '@daisy/protocol';
+import { coverageParts } from '../../../features/recording/coverage-statement';
 import type { RecordingMediaPanel } from '../../../features/recording/history';
 import { RecordingPlayer } from './recording-player';
-import {
-  clockTime,
-  gapCopy,
-  lostGaps,
-  privateGaps,
-} from './recording-player-copy';
+import { clockTime, gapCopy } from './recording-player-copy';
 
 setupRitewayBun();
 
@@ -16,25 +13,21 @@ const media: Extract<RecordingMediaPanel, { state: 'watch' }> = {
   state: 'watch',
   playlistHref: '/api/recordings/rec/playback/master.m3u8',
   durationMs: 600_000,
-  gaps: [],
+  lost: [],
+  keptPrivate: [],
   unrecorded: [],
   speeches: [],
 };
-const everyReason = (
-  [
-    'capture_restart',
-    'private_phase',
-    'between_speeches',
-    'room_rotation',
-    'not_public',
-  ] as const
-).map((reason, index) => ({
-  startMs: index * 1000,
-  endMs: index * 1000 + 500,
-  reason,
-}));
-const render = (over: Partial<typeof media> = {}) =>
-  renderToString(h(RecordingPlayer, { media: { ...media, ...over } }));
+/** The panel as the feature builds it from a video's stored gaps. */
+const render = ({
+  gaps = [],
+  ...over
+}: Partial<typeof media> & { gaps?: readonly CoverageGap[] } = {}) =>
+  renderToString(
+    h(RecordingPlayer, {
+      media: { ...media, ...coverageParts(gaps), ...over },
+    }),
+  );
 
 describe('RecordingPlayer', () => {
   test('is the one player, labelled, with native controls and a speed choice', () => {
@@ -188,18 +181,6 @@ describe('copy', () => {
       should: 'say it in words',
       actual: gapCopy({ startMs: 0, endMs: 1000, reason: 'capture_restart' }),
       expected: '0:00 to 0:01: recording stopped and restarted',
-    });
-    assert({
-      given: 'every reason',
-      should: 'sort each as lost, private or a slate between speeches',
-      actual: [
-        lostGaps(everyReason).map((gap) => gap.reason),
-        privateGaps(everyReason).map((gap) => gap.reason),
-      ],
-      expected: [
-        ['capture_restart', 'room_rotation', 'not_public'],
-        ['private_phase'],
-      ],
     });
   });
 });

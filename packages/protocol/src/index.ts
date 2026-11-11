@@ -603,6 +603,7 @@ export {
   recordingRemovalCauses,
   recordingSourceSchema,
   recordingStatuses,
+  type CoverageGap,
   type RecordingClass,
   type RecordingEligibility,
   type RecordingLifecycle,

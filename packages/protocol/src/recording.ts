@@ -60,6 +60,7 @@ const coverageGapSchema = z.strictObject({
     'not_public',
   ]),
 });
+export type CoverageGap = z.infer<typeof coverageGapSchema>;
 
 /**
  * Debate the video never reached, so no offset can name it: before its first frame

@@ -1,6 +1,7 @@
 import { startEdgeLagMs } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  coverageParts,
   coverageStatement,
   explainGaps,
   ROOM_ROTATION_DROPOUT_MS,
@@ -565,6 +566,37 @@ describe('coverageStatement with worker turnovers', () => {
         { restartGaps: [notPublic(19_300, 26_000)], durationMs: 50_000 },
       ).gaps,
       expected: [{ startMs: 19_300, endMs: 30_000, reason: 'private_phase' }],
+    });
+  });
+});
+
+describe('coverageParts', () => {
+  test('tells a viewer what was lost and what was kept private, never the slate', () => {
+    const every = (
+      [
+        'capture_restart',
+        'private_phase',
+        'between_speeches',
+        'room_rotation',
+        'not_public',
+      ] as const
+    ).map((reason, index) => ({
+      startMs: index * 1000,
+      endMs: index * 1000 + 500,
+      reason,
+    }));
+    const { lost, keptPrivate } = coverageParts(every);
+    assert({
+      given: 'every reason',
+      should: 'sort each as lost or private, and leave the slate out',
+      actual: [
+        lost.map((gap) => gap.reason),
+        keptPrivate.map((gap) => gap.reason),
+      ],
+      expected: [
+        ['capture_restart', 'room_rotation', 'not_public'],
+        ['private_phase'],
+      ],
     });
   });
 });
