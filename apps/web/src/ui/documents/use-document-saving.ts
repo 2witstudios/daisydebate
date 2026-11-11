@@ -28,17 +28,52 @@ export type SaveStatus = {
   readonly notice: string | null;
 };
 
-export type SaveEvent =
-  | { readonly type: 'edit' }
-  | { readonly type: 'saved' }
-  | { readonly type: 'conflict'; readonly unstored: boolean }
-  | { readonly type: 'gone' }
-  | { readonly type: 'retrying' }
-  | { readonly type: 'refused'; readonly status: number }
-  | { readonly type: 'unsaved' }
-  | { readonly type: 'recovered' };
+/** What stands against one document's save. */
+type SaveWarning =
+  | { readonly kind: 'retrying' }
+  /** The draft could not be kept on this device. */
+  | { readonly kind: 'storage' }
+  | { readonly kind: 'refused'; readonly status: number }
+  | { readonly kind: 'conflict'; readonly unstored: boolean }
+  | { readonly kind: 'gone' };
 
-export const initialSaveStatus: SaveStatus = { save: 'saved', notice: null };
+/** A conflict or a deletion sends nothing, so neither is ever "saving". */
+type CarriedWarning = Exclude<SaveWarning, { kind: 'conflict' | 'gone' }>;
+
+/** One document that is not simply saved. */
+type DocumentSave =
+  | { readonly save: 'saving'; readonly warning: CarriedWarning | null }
+  | { readonly save: 'unsaved'; readonly warning: SaveWarning };
+
+/**
+ * Every open document's save, each on its own, and the documents with a
+ * recovered draft on offer. A document absent from `documents` is saved. The
+ * room's one status is derived from this, never stored beside it.
+ */
+export type SavePage = {
+  readonly documents: ReadonlyMap<string, DocumentSave>;
+  readonly offered: readonly string[];
+};
+
+export type SaveEvent =
+  | {
+      readonly type: 'edit' | 'saved' | 'gone' | 'retrying' | 'unsaved';
+      readonly documentId: string;
+    }
+  | {
+      readonly type: 'conflict';
+      readonly documentId: string;
+      readonly unstored: boolean;
+    }
+  | {
+      readonly type: 'refused';
+      readonly documentId: string;
+      readonly status: number;
+    }
+  /** The documents that now have a recovered draft on offer; none clears it. */
+  | { readonly type: 'recovered'; readonly documentIds: readonly string[] };
+
+export const initialSavePage: SavePage = { documents: new Map(), offered: [] };
 
 /** One browser page's shared keepalive body budget across every owner. */
 const browserKeepaliveBudget = createKeepaliveBudget();
@@ -75,38 +110,130 @@ const CONFLICT_UNSTORED_NOTICE =
 const CONFLICT_NOTICE =
   'A newer save of this document arrived. Reload before editing it again.';
 
-/** One saving event's effect on the room's save status. */
-export function reduceSave(status: SaveStatus, event: SaveEvent): SaveStatus {
-  switch (event.type) {
-    case 'recovered':
-      return {
-        save: 'unsaved',
-        notice:
-          'An unsaved draft is available. Restore, copy or discard it below.',
-      };
-    case 'edit':
-      return { ...status, save: 'saving' };
-    case 'saved':
-      return initialSaveStatus;
+const RECOVERED_NOTICE =
+  'An unsaved draft is available. Restore, copy or discard it below.';
+
+const STORAGE_NOTICE =
+  'Storage is unavailable for recovery. Keep this page open until your edits save online.';
+
+const noticeOf = (warning: SaveWarning): string => {
+  switch (warning.kind) {
     case 'conflict':
-      return {
-        save: 'unsaved',
-        notice: event.unstored ? CONFLICT_UNSTORED_NOTICE : CONFLICT_NOTICE,
-      };
+      return warning.unstored ? CONFLICT_UNSTORED_NOTICE : CONFLICT_NOTICE;
     case 'gone':
-      return { save: 'unsaved', notice: GONE_NOTICE };
-    case 'retrying':
-      return { save: 'unsaved', notice: RETRYING_NOTICE };
+      return GONE_NOTICE;
     case 'refused':
-      return { save: 'unsaved', notice: refusedNotice(event.status) };
-    case 'unsaved':
+      return refusedNotice(warning.status);
+    case 'storage':
+      return STORAGE_NOTICE;
+    case 'retrying':
+      return RETRYING_NOTICE;
+  }
+};
+
+/** Which warning the room shows first: text a reload would lose outranks the rest. */
+const severityOf = (warning: SaveWarning): number => {
+  switch (warning.kind) {
+    case 'conflict':
+      return warning.unstored ? 6 : 4;
+    case 'gone':
+      return 5;
+    case 'refused':
+      return 3;
+    case 'storage':
+      return 2;
+    case 'retrying':
+      return 1;
+  }
+};
+
+const carried = (warning: SaveWarning | null): CarriedWarning | null =>
+  warning === null || warning.kind === 'conflict' || warning.kind === 'gone'
+    ? null
+    : warning;
+
+/** One saving event's effect on the document it names, and on no other. */
+export function reduceSave(page: SavePage, event: SaveEvent): SavePage {
+  if (event.type === 'recovered')
+    return { ...page, offered: event.documentIds };
+  const documents = new Map(page.documents);
+  const unsaved = (warning: SaveWarning): SavePage => ({
+    ...page,
+    documents: documents.set(event.documentId, { save: 'unsaved', warning }),
+  });
+  switch (event.type) {
+    case 'saved':
+      documents.delete(event.documentId);
+      return { ...page, documents };
+    case 'edit':
       return {
-        save: 'unsaved',
-        notice:
-          'Storage is unavailable for recovery. Keep this page open until your edits save online.',
+        ...page,
+        documents: documents.set(event.documentId, {
+          save: 'saving',
+          warning: carried(documents.get(event.documentId)?.warning ?? null),
+        }),
       };
+    case 'conflict':
+      return unsaved({ kind: 'conflict', unstored: event.unstored });
+    case 'gone':
+      return unsaved({ kind: 'gone' });
+    case 'retrying':
+      return unsaved({ kind: 'retrying' });
+    case 'refused':
+      return unsaved({ kind: 'refused', status: event.status });
+    case 'unsaved':
+      return unsaved({ kind: 'storage' });
   }
 }
+
+/**
+ * The room's one status: not saved while any document is not, and the most
+ * serious notice among them, so one document's save never hides another's
+ * warning. A draft on offer keeps the room unsaved once nothing else does.
+ */
+export function saveStatusOf(page: SavePage): SaveStatus {
+  const open = [...page.documents.values()];
+  const [worst] = open
+    .flatMap((document) => (document.warning ? [document.warning] : []))
+    .sort((one, two) => severityOf(two) - severityOf(one));
+  const offered = page.offered.length > 0;
+  const idle: SaveState = offered ? 'unsaved' : 'saved';
+  return {
+    save: open.some((document) => document.save === 'unsaved')
+      ? 'unsaved'
+      : open.length > 0
+        ? 'saving'
+        : idle,
+    notice: worst ? noticeOf(worst) : offered ? RECOVERED_NOTICE : null,
+  };
+}
+
+/** A document sync's callbacks as saving events, each naming its document. */
+export const savingReports = (
+  report: (event: SaveEvent) => void,
+  holdsUnstored: (documentId: string) => boolean,
+) => ({
+  onChanged: (documentId: string) => report({ type: 'edit', documentId }),
+  onConflict: (documentId: string) =>
+    report({
+      type: 'conflict',
+      documentId,
+      unstored: holdsUnstored(documentId),
+    }),
+  onGone: (documentId: string) => report({ type: 'gone', documentId }),
+  onSaveFailed: (documentId: string) =>
+    report({ type: 'retrying', documentId }),
+  onSaveRefused: (documentId: string, status: number) =>
+    report({ type: 'refused', documentId, status }),
+  onRecoveryChanged: (offers: readonly { readonly documentId: string }[]) =>
+    report({
+      type: 'recovered',
+      documentIds: [...new Set(offers.map((offer) => offer.documentId))],
+    }),
+  onDraftStorageFailed: (documentId: string) =>
+    report({ type: 'unsaved', documentId }),
+  onSaved: (documentId: string) => report({ type: 'saved', documentId }),
+});
 
 /** The member's document sync, reporting every saving event it sees. */
 export function documentSaving(
@@ -115,24 +242,18 @@ export function documentSaving(
   report: (event: SaveEvent) => void,
   resources: DocumentSyncResources,
 ): DocumentSync {
+  const reports = savingReports(report, (id) => stored.holdsUnstored(id));
   const stored = createDocumentSync({
     principalId,
     api,
     ...resources,
-    onChanged: () => report({ type: 'edit' }),
-    onConflict: (id) =>
-      report({ type: 'conflict', unstored: stored.holdsUnstored(id) }),
-    onGone: () => report({ type: 'gone' }),
-    onSaveFailed: () => report({ type: 'retrying' }),
-    onSaveRefused: (_id, status) => {
+    ...reports,
+    onSaveRefused: (id, status) => {
       // An expired session stops and hides the drafts but keeps their copies for
       // the same person. A 403 is not about identity, so nothing is withdrawn.
       if (status === 401) stored.fence();
-      report({ type: 'refused', status });
+      reports.onSaveRefused(id, status);
     },
-    onRecoveryChanged: () => report({ type: 'recovered' }),
-    onDraftStorageFailed: () => report({ type: 'unsaved' }),
-    onSaved: () => report({ type: 'saved' }),
   });
   return stored;
 }
@@ -144,7 +265,7 @@ export function useDocumentSaving(
 ): SaveStatus & {
   readonly sync: DocumentSync;
 } {
-  const [status, dispatch] = useReducer(reduceSave, initialSaveStatus);
+  const [page, dispatch] = useReducer(reduceSave, initialSavePage);
   const sync = useMemo(
     () =>
       documentSaving(
@@ -196,5 +317,5 @@ export function useDocumentSaving(
       });
     };
   }, [sync, principalId]);
-  return { sync, ...status };
+  return { sync, ...saveStatusOf(page) };
 }

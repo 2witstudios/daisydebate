@@ -27,9 +27,9 @@ import {
   attemptFailed,
   closed,
   conflictOutcome,
+  documentStanding,
   edited,
   holdsUnstoredText,
-  idleSignal,
   initialSaving,
   isNoEdit,
   nextExpiry,
@@ -220,20 +220,19 @@ export function createDocumentSync({
     }));
     return result.stored;
   };
-  const idle = (id: string) => {
-    const signal = idleSignal(state);
-    if (signal.kind === 'conflict') onConflict(signal.id);
-    else if (signal.kind === 'recovery') onRecoveryChanged(state.offers);
-    else if (signal.kind === 'saved') onSaved(id);
+  /** Each document answers for itself: another one's hold never hides its save. */
+  const settle = (id: string) => {
+    const standing = documentStanding(doc(id));
+    if (standing === 'conflict') onConflict(id);
+    else if (standing === 'stored') onSaved(id);
   };
 
   const publish = () => {
     const next = offersOf(state.documents);
     if (!sameOffers(state.offers, next)) {
-      const emptied = state.offers.length > 0 && next.length === 0;
       state = { ...state, offers: next };
       for (const listener of listeners) listener();
-      if (next.length > 0 || emptied) idle('');
+      onRecoveryChanged(next);
     }
     timers.clear(expiryHandle);
     const expiry = nextExpiry(state.documents);
@@ -284,7 +283,7 @@ export function createDocumentSync({
     if (result.draft.record !== previous.record)
       write(id, previous, result.draft.record, wallClock());
     publish();
-    idle(id);
+    settle(id);
   };
   const notify = () => {
     for (const listener of listeners) listener();
@@ -489,7 +488,7 @@ export function createDocumentSync({
     }
     state = { ...state, documents };
     publish();
-    idle(ids[ids.length - 1]!);
+    for (const id of new Set(ids)) settle(id);
   };
   return {
     load: async () => {
@@ -584,7 +583,7 @@ export function createDocumentSync({
       );
       publish();
       notify();
-      idle(id);
+      settle(id);
       return { ...created, html: kept?.html ?? created.html };
     },
     forget: (id) => forgetDocuments([id]),
@@ -669,7 +668,7 @@ export function createDocumentSync({
         )
       )
         return false;
-      idle(id);
+      settle(id);
       return true;
     },
     flush: () => flush(false),

@@ -13,36 +13,127 @@ import type { DocumentsApi } from './document-sync';
 
 import { RETRYING_NOTICE, refusedNotice } from './save-notice';
 import {
-  initialSaveStatus,
+  initialSavePage,
   reduceSave,
   documentSaving,
+  saveStatusOf,
   type SaveEvent,
 } from './use-document-saving';
 
 setupRitewayBun();
 
+const saved = { save: 'saved', notice: null } as const;
+const after = (...events: SaveEvent[]) =>
+  saveStatusOf(events.reduce(reduceSave, initialSavePage));
+const a = { documentId: 'a' } as const;
+const b = { documentId: 'b' } as const;
+
 describe('reduceSave', () => {
   test('the save state and notice', () => {
-    const after = (...events: SaveEvent[]) =>
-      events.reduce(reduceSave, initialSaveStatus);
     assert({
       given:
         'an edit, a failed save that retries, a refusal, a conflict, and a save after a retry',
       should:
         'show Saving, then Not saved with the matching notice, and Saved with no notice once stored',
       actual: [
-        after({ type: 'edit' }),
-        after({ type: 'edit' }, { type: 'retrying' }),
-        after({ type: 'refused', status: 413 }),
-        after({ type: 'conflict', unstored: false }).save,
-        after({ type: 'retrying' }, { type: 'saved' }),
+        after({ type: 'edit', ...a }),
+        after({ type: 'edit', ...a }, { type: 'retrying', ...a }),
+        after({ type: 'refused', status: 413, ...a }),
+        after({ type: 'conflict', unstored: false, ...a }).save,
+        after({ type: 'retrying', ...a }, { type: 'saved', ...a }),
       ],
       expected: [
         { save: 'saving', notice: null },
         { save: 'unsaved', notice: RETRYING_NOTICE },
         { save: 'unsaved', notice: refusedNotice(413) },
         'unsaved',
-        initialSaveStatus,
+        saved,
+      ],
+    });
+  });
+
+  test('one document\u2019s save never hides another\u2019s warning', () => {
+    const warnings: SaveEvent[] = [
+      { type: 'gone', ...a },
+      { type: 'conflict', unstored: true, ...a },
+      { type: 'conflict', unstored: false, ...a },
+      { type: 'refused', status: 403, ...a },
+      { type: 'retrying', ...a },
+      { type: 'unsaved', ...a },
+    ];
+    for (const warning of warnings) {
+      const alone = after(warning);
+      assert({
+        given: `a ${warning.type} on one document, then another edited and saved`,
+        should:
+          'stay Not saved with the first document\u2019s notice through the edit and after the save',
+        actual: [
+          after(warning, { type: 'edit', ...b }),
+          after(warning, { type: 'edit', ...b }, { type: 'saved', ...b }),
+        ],
+        expected: [alone, alone],
+      });
+    }
+  });
+
+  test('the most serious notice is the one shown', () => {
+    const unstored: SaveEvent = { type: 'conflict', unstored: true, ...a };
+    assert({
+      given:
+        'typing a reload would lose on one document and a retry on another, in either order',
+      should: 'show the warning about losing text',
+      actual: [
+        after(unstored, { type: 'retrying', ...b }),
+        after({ type: 'retrying', ...b }, unstored),
+      ],
+      expected: [after(unstored), after(unstored)],
+    });
+  });
+
+  test('an edit never carries a conflict or a deletion into Saving', () => {
+    assert({
+      given:
+        'a restore that resolves a conflict, one on a deleted document, and an edit while a save retries',
+      should:
+        'say Saving with no notice for the first two, and keep the retry notice for the third',
+      actual: [
+        after(
+          { type: 'conflict', unstored: false, ...a },
+          { type: 'edit', ...a },
+        ),
+        after({ type: 'gone', ...a }, { type: 'edit', ...a }),
+        after({ type: 'retrying', ...a }, { type: 'edit', ...a }),
+      ],
+      expected: [
+        { save: 'saving', notice: null },
+        { save: 'saving', notice: null },
+        { save: 'saving', notice: RETRYING_NOTICE },
+      ],
+    });
+  });
+
+  test('a draft on offer keeps the room unsaved until it is gone', () => {
+    const offer: SaveEvent = { type: 'recovered', documentIds: ['a'] };
+    const offered = after(offer);
+    assert({
+      given:
+        'a recovered draft offered, another document saving and saved, a conflict beside it, then the offer gone',
+      should:
+        'offer the draft while nothing worse stands, yield to the conflict, and read Saved once no offer is left',
+      actual: [
+        offered.save,
+        after(offer, { type: 'edit', ...b }),
+        after(offer, { type: 'edit', ...b }, { type: 'saved', ...b }),
+        after(offer, { type: 'conflict', unstored: false, ...b }).notice ===
+          offered.notice,
+        after(offer, { type: 'recovered', documentIds: [] }),
+      ],
+      expected: [
+        'unsaved',
+        { save: 'saving', notice: offered.notice },
+        offered,
+        false,
+        saved,
       ],
     });
   });
@@ -274,6 +365,46 @@ for (const status of [401, 403] as const)
           ?.includes('Typed before'),
         storage.getItem('daisy:document-drafts:copy:p:other-round:x') !== null,
       ],
-      expected: [status === 403, { type: 'refused', status }, true, true],
+      expected: [
+        status === 403,
+        { type: 'refused', documentId: 'a', status },
+        true,
+        true,
+      ],
+    });
+  });
+
+for (const status of [404, 403] as const)
+  test(`another document\u2019s save lands beside a ${status} that keeps its notice`, async () => {
+    const events: SaveEvent[] = [];
+    const api: DocumentsApi = {
+      ...listed(() => [stored('a'), stored('b')]),
+      create: async () => stored('c'),
+      save: async ({ id }) => {
+        if (id === 'a') throw Object.assign(new Error('refused'), { status });
+        return { status: 'saved', revision: 2 };
+      },
+    };
+    const sync = documentSaving('p', api, (event) => events.push(event), {
+      ...manualDraftResources(`use-round-sync.test:cross-${status}`, {
+        storage: memoryStorage(),
+      }),
+    });
+    await sync.load();
+    await sync.open('b');
+    sync.change('a', '<p>Kept only here</p>');
+    await sync.flush();
+    const warned = saveStatusOf(events.reduce(reduceSave, initialSavePage));
+    sync.change('b', '<p>Other document</p>');
+    await sync.flush();
+    assert({
+      given: `a document whose save answered ${status}, then another document edited and stored`,
+      should:
+        'report the second document saved, and leave the room Not saved with the first one\u2019s notice',
+      actual: [
+        events.at(-1),
+        saveStatusOf(events.reduce(reduceSave, initialSavePage)),
+      ],
+      expected: [{ type: 'saved', documentId: 'b' }, warned],
     });
   });

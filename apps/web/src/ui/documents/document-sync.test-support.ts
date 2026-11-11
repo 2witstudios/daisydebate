@@ -4,6 +4,12 @@ import {
 } from '../../features/documents/document-draft';
 import { createKeepaliveBudget } from './keepalive-budget';
 import type { DraftStorage } from './document-draft-storage';
+import {
+  initialSavePage,
+  reduceSave,
+  savingReports,
+  saveStatusOf,
+} from './use-document-saving';
 import { createDocumentSync as createOwner } from './document-sync';
 import type {
   DocumentsApi,
@@ -175,4 +181,18 @@ export const overlappingDraftExit = async (
   const second = sync.flushKeepalive();
   release();
   await Promise.all([first, second]);
+};
+
+/** A sync's reports folded into what the room says, exactly as the page folds them. */
+export const roomStatus = () => {
+  let page = initialSavePage;
+  return {
+    reports: savingReports(
+      (event) => {
+        page = reduceSave(page, event);
+      },
+      () => false,
+    ),
+    says: () => saveStatusOf(page),
+  };
 };

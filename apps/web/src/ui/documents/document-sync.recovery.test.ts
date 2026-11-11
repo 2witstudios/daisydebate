@@ -1,8 +1,9 @@
 import { newDraftCopy } from '../../features/documents/document-draft';
 import {
   documentSaving,
-  initialSaveStatus,
+  initialSavePage,
   reduceSave,
+  saveStatusOf,
   type SaveEvent,
 } from './use-document-saving';
 import { DOCUMENT_READ_MAX } from '@daisy/db/documents';
@@ -601,14 +602,16 @@ describe('a conflict with full draft slots', () => {
         'name it unstored, not say reload, and save it as new on the page',
       actual: {
         unstored: conflict,
-        says: reduceSave(initialSaveStatus, conflict!).notice?.includes(
+        says: saveStatusOf(
+          reduceSave(initialSavePage, conflict!),
+        ).notice?.includes(
           'Reload',
         ),
         held,
         copied: created?.html,
       },
       expected: {
-        unstored: { type: 'conflict', unstored: true },
+        unstored: { type: 'conflict', documentId: 'a', unstored: true },
         says: false,
         held: 'a',
         copied: '<p>typed now</p>',

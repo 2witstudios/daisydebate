@@ -6,7 +6,7 @@ import {
   conflictOutcome,
   edited,
   holdsUnstoredText,
-  idleSignal,
+  documentStanding,
   initialSaving,
   nextSend,
   offersOf,
@@ -202,21 +202,30 @@ describe('the whole state', () => {
     });
   });
 
-  test('idleSignal', () => {
+  test('documentStanding', () => {
+    const beside = withDocument(typing, 'b', (d) => ({ ...d, revision: 2 }));
+    const of = (state: typeof typing, id: string) =>
+      documentStanding(savingDocument(state, id));
     assert({
-      given: 'a pending edit, a conflict, and nothing moving',
-      should: 'say busy, conflict and saved',
+      given:
+        'a pending edit, a conflict, a draft that could not be kept, and a document with nothing waiting beside one still saving',
+      should: 'answer for each document alone',
       actual: [
-        idleSignal(typing).kind,
-        idleSignal(
-          withDocument(typing, 'a', (d) => ({
+        of(typing, 'a'),
+        of(
+          withDocument(beside, 'b', (d) => ({
             ...d,
             hold: { kind: 'conflict', latestRevision: 2 },
           })),
-        ).kind,
-        idleSignal(initialSaving).kind,
+          'b',
+        ),
+        of(
+          withDocument(beside, 'b', (d) => ({ ...d, storageProblem: true })),
+          'b',
+        ),
+        of(beside, 'b'),
       ],
-      expected: ['busy', 'conflict', 'saved'],
+      expected: ['waiting', 'conflict', 'waiting', 'stored'],
     });
   });
 

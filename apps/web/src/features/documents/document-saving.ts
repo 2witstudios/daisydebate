@@ -274,24 +274,16 @@ export const nextExpiry = (
   return deadlines.length > 0 ? Math.min(...deadlines) : null;
 };
 
-/** What an owner with nothing moving should say about a document. */
-export type IdleSignal =
-  | { readonly kind: 'conflict'; readonly id: string }
-  | { readonly kind: 'recovery' }
-  | { readonly kind: 'saved' }
-  | { readonly kind: 'busy' };
+/**
+ * What one document says once something about it has resolved. It is the
+ * document's own answer: another one still saving, in conflict or deleted
+ * never changes it. A draft on offer is the owner's to say, not a document's.
+ */
+export type DocumentStanding = 'conflict' | 'waiting' | 'stored';
 
-export const idleSignal = (state: SavingState): IdleSignal => {
-  const documents = [...state.documents];
-  const conflicted = documents.find(([, document]) => isConflicted(document));
-  if (conflicted) return { kind: 'conflict', id: conflicted[0] };
-  if (
-    documents.some(
-      ([, document]) => document.pending || document.storageProblem,
-    )
-  )
-    return { kind: 'busy' };
-  return state.offers.length > 0 ? { kind: 'recovery' } : { kind: 'saved' };
+export const documentStanding = (document: SavingDocument): DocumentStanding => {
+  if (isConflicted(document)) return 'conflict';
+  return document.pending || document.storageProblem ? 'waiting' : 'stored';
 };
 
 /** A new edit: it replaces what is pending and is this owner's own from now on. */
