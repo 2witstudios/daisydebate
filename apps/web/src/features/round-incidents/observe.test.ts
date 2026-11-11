@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundIncidentObserver } from './observe';
+import type { MediaPassReport } from '../round-media/operation-context';
 setupRitewayBun();
 
 const world = (
@@ -25,7 +26,7 @@ const world = (
   });
   return { observer, alerts, logged, calls: () => calls };
 };
-const evidence = (over = {}) => ({
+const evidence = (over: Partial<MediaPassReport> = {}): MediaPassReport => ({
   roundId: 'round',
   observation: {
     kind: 'room',

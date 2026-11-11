@@ -1,4 +1,9 @@
-import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
+import {
+  isRoundOver,
+  type MediaRoomFacts,
+  type MediaRoomFate,
+  type RoundStatus,
+} from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { MediaSnapshot } from './projection';
 import {
@@ -30,7 +35,7 @@ type Caller = { readonly actorId: string; readonly admits: Admits };
  */
 export function createMediaWorld(
   options: {
-    readonly status?: 'opening' | 'active' | 'completed' | 'abandoned';
+    readonly status?: RoundStatus;
     readonly busyClaims?: number;
     /** Another worker claims the reconcile lease the instant each of ours finishes, as recovery does on a busy deployment. */
     readonly reclaimedAfterFinish?: boolean;
@@ -240,7 +245,7 @@ export function createMediaWorld(
     }) => {
       served = running;
       leaseOwner = options.reclaimedAfterFinish ? 'recovery-worker' : null;
-      const terminal = ['completed', 'abandoned'].includes(status);
+      const terminal = isRoundOver(status);
       const kept = bindings.filter((binding) =>
         eligible.get(binding.roundParticipantId),
       );
@@ -272,7 +277,7 @@ export function createMediaWorld(
       };
     },
     ensureBinding: async (input: { caller: Caller }) => {
-      if (['completed', 'abandoned'].includes(status))
+      if (isRoundOver(status))
         throw createAppError('CONFLICT', 'Round media has ended');
       const seat = snapshot(admittedActor(input.caller)).caller!;
       return binding(seat.id);

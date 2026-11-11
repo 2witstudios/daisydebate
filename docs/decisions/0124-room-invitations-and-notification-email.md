@@ -44,7 +44,11 @@ only Watch's Round events, and email carried only sign-in and beta mail.
    `challenge_received`. The producer writes the row in its own transaction,
    with one content-free `user.notification-delivered` signal (kind and id) on
    the invitee's `user:inbox` topic. A read shows a row only while its subject
-   stands (an invitation pending, a challenge open).
+   stands (an invitation open, a challenge open). The inbox and the email job
+   ask one rule each, published by the subject's owner: an invitation is open
+   while it is pending, the reader's instant is before its expiry and its Room
+   is still open (`invitationOpen`); a challenge is open while nobody has
+   accepted it and the instant is before its expiry (`challengeOpen`).
 4. **Channels and preferences.** A preference is per kind and channel (`in_app`,
    `email`); a kind offers only the channels it is sent on, and no stored
    choice means on. The in-app choice hides rows from the inbox without deleting

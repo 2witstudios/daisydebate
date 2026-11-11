@@ -9,10 +9,12 @@ setupRitewayBun();
 
 const host = 'hostaaaaa1b2c3d4e5f6g7h8';
 const member = { member: true, erased: false };
-const round = (overrides: Record<string, unknown> = {}) => ({
+const round = (
+  overrides: Partial<NonNullable<Parameters<typeof requireSponsor>[1]>> = {},
+) => ({
   createdByActorId: host,
   competitionType: 'casual',
-  status: 'opening',
+  status: 'opening' as const,
   ...overrides,
 });
 test('admission targets are cuid2 actor and Round ids', async () => {

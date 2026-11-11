@@ -10,8 +10,10 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { AuthorizationTransaction } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
+import { challengeOpen } from '../challenges/open';
 import { appendOutboxEvent } from '../outbox';
 import { rowsOf } from '../raw-rows';
+import { invitationOpen } from '../room-invitations/open';
 import { wants } from './preferences';
 
 /** What a producer owes one member, in its own transaction (ADR 0124). */
@@ -173,9 +175,9 @@ export const notificationInboxOperations = ({
         (n.kind='followed_debater_live' and r.visibility='public' and u.username is not null
           and exists(select 1 from broadcasts b where b.round_id=n.round_id and b.completed_at is null and b.stopped_at is null))
         or (n.kind='recording_ready' and rc.status='ready')
-        or (n.kind='room_invitation' and i.state='pending' and i.expires_at>${now}
+        or (n.kind='room_invitation' and ${invitationOpen(now, { invitation: sql`i`, room: sql`ro` })}
           and ${wants('room_invitation', 'in_app', sql`n.user_id`)})
-        or (n.kind='challenge_received' and c.room_id is null and c.expires_at>${now}
+        or (n.kind='challenge_received' and ${challengeOpen(now, sql`c`)}
           and ${wants('challenge_received', 'in_app', sql`n.user_id`)}))`;
       const from = sql`from notifications n
         left join rounds r on r.id=n.round_id
@@ -183,6 +185,7 @@ export const notificationInboxOperations = ({
         left join users u on u.id=a.user_id and u.deleted_at is null
         left join recordings rc on rc.round_id=n.round_id
         left join room_invitations i on i.id=n.room_invitation_id
+        left join rooms ro on ro.id=i.room_id
         left join challenges c on c.id=n.challenge_id
         where n.user_id=${input.userId} and ${standing}`;
       const rows = await rowsOf<FlatRow>(

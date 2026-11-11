@@ -379,6 +379,7 @@ export function contentModerationRoute(
   url: URL,
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
+  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- the default is every command route, which `commandOf` is keyed by.
   switch (route) {
     case 'listContentReports':
       return listReports(deps, principal, url);

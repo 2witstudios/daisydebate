@@ -1,4 +1,8 @@
-import type { CompetitionType, RoundWaitingOn } from '@daisy/protocol';
+import {
+  assertNever,
+  type CompetitionType,
+  type RoundWaitingOn,
+} from '@daisy/protocol';
 
 /**
  * The ballots a round is judged by. One ballot decides it: the human
@@ -64,6 +68,8 @@ const decidingStatus = (
     case 'human_window':
     case null:
       return writing;
+    default:
+      return assertNever(state);
   }
 };
 

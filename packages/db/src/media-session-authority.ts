@@ -1,5 +1,9 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, type RoundCommandAuthority } from '@daisy/protocol';
+import {
+  idSchema,
+  type RoundCommandAuthority,
+  type RoundStatus,
+} from '@daisy/protocol';
 import { eq } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -104,14 +108,14 @@ export const unseatedRefusal = () => createAppError('AUTHORIZATION');
 
 /** The engine's decision (`mediaWindowClosed`); the adapter only applies it. */
 export type MediaWindowRule = (
-  status: string,
+  status: RoundStatus,
   now: string,
   finalSegmentEndedAt: string | null,
 ) => boolean;
 
 export function requireMediaWindow(
   closed: MediaWindowRule,
-  status: string,
+  status: RoundStatus,
   now: string,
   finalEndedAt: string | null,
 ) {

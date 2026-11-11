@@ -1,3 +1,4 @@
+import { isRoundRunning } from '@daisy/protocol';
 import { ballotFields } from './fields';
 import { createAppError } from '@daisy/errors';
 import type { RoundBallotRead } from '@daisy/protocol';
@@ -53,5 +54,5 @@ function ballotOpen(view: RoundBallotRead): boolean {
 function pendingDisplay(
   status: RoundBallotRead['round']['status'],
 ): BallotDisplay {
-  return status === 'active' || status === 'opening' ? 'waiting' : 'decided';
+  return isRoundRunning(status) ? 'waiting' : 'decided';
 }

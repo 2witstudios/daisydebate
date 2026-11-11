@@ -1,4 +1,4 @@
-import type { FriendRelation } from '@daisy/protocol';
+import { assertNever, type FriendRelation } from '@daisy/protocol';
 import type { FriendFormState } from '../../features/friends/forms';
 import type { FormAction } from '../form-action/form-action';
 import { FriendButtonForm } from './friend-forms';
@@ -40,7 +40,7 @@ export function ProfileFriendActions({
           label="Cancel friend request"
         />
       );
-    default:
+    case 'none':
       return (
         <FriendButtonForm
           action={friendAction}
@@ -50,5 +50,7 @@ export function ProfileFriendActions({
           variant="primary"
         />
       );
+    default:
+      return assertNever(relation);
   }
 }

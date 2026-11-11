@@ -1,3 +1,4 @@
+import { isRoundOver } from '@daisy/protocol';
 import { HiddenFields } from '../../form-action/hidden-fields';
 import { createAppError } from '@daisy/errors';
 import type { RoundBallotRead } from '@daisy/protocol';
@@ -30,10 +31,7 @@ export function BallotEntry(props: EntryProps) {
     case 'retry':
       return (
         <RetryBallot
-          ended={
-            props.view.round.status === 'completed' ||
-            props.view.round.status === 'abandoned'
-          }
+          ended={isRoundOver(props.view.round.status)}
           answer={props.answer}
           post={props.post}
           pending={props.pending}

@@ -1,3 +1,4 @@
+import { type RoundStatus } from '@daisy/protocol';
 import { loadRoundOpening, type StoredOpening } from './round-opening-read';
 import type {
   CompetitionType,
@@ -27,7 +28,7 @@ export type RoundHydration = {
   readonly resolution: string | null;
   /** The opening and its secret seed, only while the Round is in it. */
   readonly opening: StoredOpening | null;
-  readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
+  readonly status: RoundStatus;
   readonly currentStage: RoundStage | null;
   /** When the Round was launched (its row's creation), on the database clock. */
   readonly launchedAt: string;

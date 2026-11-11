@@ -1,3 +1,4 @@
+import { isRoundOver, type RoundStatus } from '@daisy/protocol';
 import { and, asc, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
@@ -191,16 +192,12 @@ export const roundResolutionAudit = async (
   tx: Pick<Tx, 'select'>,
   round: {
     readonly id: string;
-    readonly status: string;
+    readonly status: RoundStatus;
     readonly resolutionEvidence: ResolutionDrawEvidence | null;
   },
 ): Promise<ResolutionAudit | null> => {
   const evidence = round.resolutionEvidence;
-  if (
-    !evidence ||
-    (round.status !== 'completed' && round.status !== 'abandoned')
-  )
-    return null;
+  if (!evidence || !isRoundOver(round.status)) return null;
   const texts = await tx
     .select()
     .from(roundResolutionDrawTexts)

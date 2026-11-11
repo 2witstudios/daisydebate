@@ -4,7 +4,11 @@ import type {
   RoundPosition,
   RoundRules,
 } from '@daisy/protocol';
-import { conversational, roundStartPolicy } from '@daisy/protocol';
+import {
+  conversational,
+  isRoundRunning,
+  roundStartPolicy,
+} from '@daisy/protocol';
 import { broadcastPhase } from './broadcast-phase';
 import { mediaWindowClosed } from './media-window';
 import { speakingParticipants } from './round-speaking';
@@ -147,7 +151,7 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
   if (
     !seat?.eligible ||
     !Number.isFinite(Date.parse(input.now)) ||
-    !['opening', 'active'].includes(position.status) ||
+    !isRoundRunning(position.status) ||
     !withinMediaWindow(input)
   )
     return denied(seat?.role === 'judge');

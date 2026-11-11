@@ -1,4 +1,8 @@
-import type { BroadcastReleasePolicy } from '@daisy/protocol';
+import {
+  isRoundOver,
+  type BroadcastReleasePolicy,
+  type RoundStatus,
+} from '@daisy/protocol';
 import {
   runningEgress,
   stagePrivacyActions,
@@ -8,7 +12,7 @@ import {
 
 export type BroadcastFacts = {
   readonly nowMs: number;
-  readonly roundStatus: 'opening' | 'active' | 'completed' | 'abandoned';
+  readonly roundStatus: RoundStatus;
   readonly roundEndedAtMs: number | null;
   readonly stoppedAtMs: number | null;
   readonly completedAtMs: number | null;
@@ -55,7 +59,7 @@ export const decideBroadcast = (
       : facts.finalMediaEndMs === null
         ? [{ type: 'record-media-ended' }]
         : [];
-  if (facts.roundStatus === 'completed' || facts.roundStatus === 'abandoned') {
+  if (isRoundOver(facts.roundStatus)) {
     if (live)
       return [{ type: 'stop-egress', id: live.id, reason: 'round-ended' }];
     // No Egress left to stop, as when it failed or never started: media has ended.

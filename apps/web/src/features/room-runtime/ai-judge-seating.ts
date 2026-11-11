@@ -1,4 +1,8 @@
-import type { RoomAssemblyState, RoomView } from '@daisy/protocol';
+import {
+  isOpenRoomStatus,
+  type RoomAssemblyState,
+  type RoomView,
+} from '@daisy/protocol';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 
 /** Display only. Seat mutations obtain a fresh allowance decision under the host fence. */
@@ -7,11 +11,7 @@ export async function roomAiJudgeSeating(
   actorId: string,
   allowance: () => Promise<AllowanceDecision>,
 ): Promise<RoomView['aiJudgeSeating']> {
-  if (
-    state.hostActorId !== actorId ||
-    state.status === 'started' ||
-    state.status === 'closed'
-  )
+  if (state.hostActorId !== actorId || !isOpenRoomStatus(state.status))
     return null;
   if (state.competitionType === 'ranked') return 'free';
   const decision = await allowance();

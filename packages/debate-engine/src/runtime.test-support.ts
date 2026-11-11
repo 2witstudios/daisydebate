@@ -1,4 +1,9 @@
-import type { RoundParticipantSeat, RoundRules } from '@daisy/protocol';
+import {
+  isRoundOver,
+  type RoundParticipantSeat,
+  type RoundRules,
+  type RoundStatus,
+} from '@daisy/protocol';
 import {
   oneOnOneFormatFixture,
   oneOnOneSettingsFixture,
@@ -85,7 +90,7 @@ export const emptyCheckpoint = {
 
 /** Options `runtimeWorld` takes; every field defaults to a fresh round. */
 export type RuntimeWorldOptions = {
-  readonly status?: 'opening' | 'active' | 'completed' | 'abandoned';
+  readonly status?: RoundStatus;
   readonly segments?: Parameters<typeof createRoundRuntime>[0]['segments'];
   readonly checkpoint?: unknown;
   readonly rules?: RoundRules;
@@ -106,8 +111,7 @@ export const runtimeWorld = ({
       status,
       currentStage: null,
       startedAt: status === 'opening' ? null : roundAt(0),
-      completedAt:
-        status === 'completed' || status === 'abandoned' ? roundAt(0) : null,
+      completedAt: isRoundOver(status) ? roundAt(0) : null,
       outcome: null,
     },
     rules,

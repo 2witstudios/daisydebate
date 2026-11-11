@@ -1,4 +1,8 @@
-import { roundMediaPolicy } from '@daisy/protocol';
+import {
+  isRoundRunning,
+  roundMediaPolicy,
+  type RoundStatus,
+} from '@daisy/protocol';
 
 /** The instant shared media closes, from the final segment's end. */
 export const mediaWindowEndsAt = (finalSegmentEndedAt: string) =>
@@ -6,10 +10,10 @@ export const mediaWindowEndsAt = (finalSegmentEndedAt: string) =>
 
 /** The one decision: a finished Round, or the window past its final segment, has no media. */
 export const mediaWindowClosed = (
-  status: string,
+  status: RoundStatus,
   now: string,
   finalSegmentEndedAt: string | null,
 ) =>
-  !['opening', 'active'].includes(status) ||
+  !isRoundRunning(status) ||
   (finalSegmentEndedAt !== null &&
     Date.parse(now) >= mediaWindowEndsAt(finalSegmentEndedAt));

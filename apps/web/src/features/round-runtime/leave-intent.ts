@@ -1,6 +1,6 @@
 import { isNamedSeat, type RoundView } from '@daisy/protocol';
 import { roundPositionAt } from '@daisy/debate-engine/position';
-import { roundControlIntents } from './control-intents';
+import { forfeitLegalNow } from './control-intents';
 
 /** What Leave does for this viewer now (ADR 0070). */
 export type LeaveIntent =
@@ -28,8 +28,8 @@ const awaitingBallot = (view: RoundView, nowMs: number) =>
   }).stage === 'awaiting_ballot';
 
 /**
- * Leaving a live Round forfeits it: a debater's own opening Round, or an
- * active one while forfeit is a legal intent. After the last speech a
+ * Leaving a live Round forfeits it: a debater's own opening or active Round,
+ * while the engine would take the forfeit. After the last speech a
  * debater leaves freed, forfeiting nothing, since judging is the judge's
  * work and the Room released them when the debate ended (ADR 0070). A debater
  * between persisted phases is held, since forfeit cannot be posted yet. Judges
@@ -46,11 +46,7 @@ export function leaveIntent(
       (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
     );
   if (seat === undefined) return { kind: 'navigate' };
-  const forfeits =
-    view.status === 'opening' ||
-    roundControlIntents(view, actorId, nowMs).some(
-      (intent) => intent.type === 'forfeit' && intent.enabled,
-    );
+  const forfeits = forfeitLegalNow(view, actorId, nowMs);
   if (forfeits)
     return {
       kind: 'forfeit',

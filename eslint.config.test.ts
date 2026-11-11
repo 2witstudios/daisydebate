@@ -2,6 +2,7 @@ import { registerProcessEdgeTests } from './eslint.config-process.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   repositoryEslint,
+  typedRepositoryEslint,
   table,
   web,
   serverBindCases,
@@ -365,5 +366,38 @@ test('pure packages reject Bun runtime subpaths while delivery adapters retain S
       ),
     },
     expected: { pure: [true, true, true, true], adapter: false },
+  });
+});
+
+describe('a switch over a union names every member', () => {
+  // The rule reads types, so the probe is linted as a source file on disk.
+  const filePath = 'packages/protocol/src/assert-never.ts';
+  const rule = '@typescript-eslint/switch-exhaustiveness-check';
+  const problems = async (cases: string) => {
+    const [result] = await typedRepositoryEslint().lintText(
+      `type Status = 'opening' | 'active' | 'completed';
+       export const label = (status: Status): string => {
+         switch (status) { ${cases} }
+       };`,
+      { filePath },
+    );
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  test('a missing member fails, with a default or without one', async () => {
+    assert({
+      given:
+        'a switch that names every member, one that leaves a member to its default, and one that leaves it out',
+      should: 'report only the two that do not name every member',
+      actual: [
+        await problems(
+          "case 'opening': case 'active': case 'completed': return status;",
+        ),
+        await problems(
+          "case 'opening': case 'active': return status; default: return 'over';",
+        ),
+        await problems("case 'opening': case 'active': return status;"),
+      ],
+      expected: [0, 1, 1],
+    });
   });
 });

@@ -1,4 +1,4 @@
-import type { RoundStage, SegmentType } from '@daisy/protocol';
+import type { RoundStage, RoundStatus, SegmentType } from '@daisy/protocol';
 import type { BroadcastFacts } from './broadcast-lifecycle';
 
 type Publicity = 'public' | 'private';
@@ -24,7 +24,7 @@ const declaredPublic = (
 ) => name !== null && Object.hasOwn(table, name) && table[name] === 'public';
 
 export type PhasePosition = {
-  readonly status: string;
+  readonly status: RoundStatus;
   readonly openSegment: {
     readonly type: string;
     readonly endsAt: string;
