@@ -17,25 +17,27 @@ export const clockTime = (ms: number): string => {
     : `${minutes}:${seconds}`;
 };
 
-/** Debate that happened and is not in the video. */
-type LostGap = Gap & {
-  readonly reason: 'capture_restart' | 'room_rotation' | 'not_public';
-};
-type PrivateGap = Gap & { readonly reason: 'private_phase' };
-
-const WHY: Readonly<Record<LostGap['reason'], string>> = {
-  capture_restart: 'recording stopped and restarted',
-  not_public: 'not known to be public, so left out',
-  room_rotation: 'the room changed over',
-};
-
 /** Every reason, sorted once, so a new one cannot compile until it is placed. */
-const KIND: Readonly<Record<Gap['reason'], 'lost' | 'private' | 'slate'>> = {
+const KIND = {
   capture_restart: 'lost',
   room_rotation: 'lost',
   not_public: 'lost',
   private_phase: 'private',
   between_speeches: 'slate',
+} as const satisfies Record<Gap['reason'], 'lost' | 'private' | 'slate'>;
+
+type ReasonOf<K> = {
+  [R in keyof typeof KIND]: (typeof KIND)[R] extends K ? R : never;
+}[keyof typeof KIND];
+
+/** Debate that happened and is not in the video. */
+type LostGap = Gap & { readonly reason: ReasonOf<'lost'> };
+type PrivateGap = Gap & { readonly reason: ReasonOf<'private'> };
+
+const WHY: Readonly<Record<LostGap['reason'], string>> = {
+  capture_restart: 'recording stopped and restarted',
+  not_public: 'not known to be public, so left out',
+  room_rotation: 'the room changed over',
 };
 
 const isLost = (gap: Gap): gap is LostGap => KIND[gap.reason] === 'lost';

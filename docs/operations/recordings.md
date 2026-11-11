@@ -144,7 +144,7 @@ the player shows it on its own line as kept private. The slate between speeches
 speech's end into the next by the start-edge stamp lag plus 1.2 s, which is 2.5 s early in
 a capture and about 3.6 s three hours in, and only for a gap that comes from the slate
 before that speech. It also reaches 2.5 s back into the speech it follows, for a gap that
-runs on into the slate. A gap that stays inside a speech is listed as lost.
+runs on into the slate (with the 1 s sliver rule, up to about 3.5 s). A gap that stays inside a speech is listed as lost.
 
 The worker marks a jump between public pieces `capture_restart` when one public interval
 spans it, since only a restart explains that, and `not_public` otherwise. The capture port,

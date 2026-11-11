@@ -316,6 +316,23 @@ describe('explainGaps', () => {
     });
   });
 
+  test('a prep soon after a turnover leaves the turnover between speeches', () => {
+    assert({
+      given: 'a prep starting 1.5 s after the speech ended',
+      should:
+        'state the turnover as between speeches, then the prep as private',
+      actual: explainGaps(
+        [notPublic(20_000, 31_500)],
+        { ...twoSpeeches, prepStartsAtMs: [real(21_500)] },
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 20_000, endMs: 21_500, reason: 'between_speeches' },
+        { startMs: 21_500, endMs: 31_500, reason: 'private_phase' },
+      ],
+    });
+  });
+
   test('a gap opening inside a speech is lost, however early', () => {
     assert({
       given:

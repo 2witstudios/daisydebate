@@ -94,13 +94,16 @@ type Window = Span & {
  */
 const slateWindows = (facts: RoundCoverageFacts, capturedFromMs: number) => {
   const { segments } = facts;
-  /** A speech that ended within the closing margin before `atMs` is reached into. */
+  /**
+   * Only a window that starts as a speech ends, within clock disagreement, reaches
+   * into it. A prep that starts after a turnover leaves that closing to the turnover.
+   */
   const reachBack = (atMs: number) => {
     const endedMs = segments
       .map((segment) => segment.endedAtMs)
       .filter(
         (endMs): endMs is number =>
-          endMs !== null && endMs <= atMs && atMs - endMs < EDGE_OF_SPEECH_MS,
+          endMs !== null && endMs <= atMs && atMs - endMs < SHORTEST_STATED_MS,
       )
       .at(-1);
     return endedMs === undefined ? atMs : endedMs - EDGE_OF_SPEECH_MS;

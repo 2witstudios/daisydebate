@@ -84,11 +84,12 @@ private phase is `private_phase`, and a turnover is `between_speeches`, the coun
 the stage's `between`. A turnover runs from a closed segment's end into the next segment by
 the start-edge stamp lag of ADR 0099 at that age, plus 1.2 s of slack, which is 2.5 s for a
 young capture. A window reaches into a speech's opening only for a gap that comes from the
-slate before it, and back 2.5 s into the speech it follows only for a gap that runs on into
-the slate (public media stops short of a speech's end), so a gap that stays inside a speech
-is lost however near its edge it is. Only a
-window a committed segment closes explains anything: a gap after an open segment, after the
-last one or in a prep no segment follows stays `not_public`. The history page states a
+slate before it, and back 2.5 s into the speech it follows (with the 1 s sliver rule, up to
+about 3.5 s) only for a gap that runs on into the slate, since public media stops short of a
+speech's end. Only the window that starts as a speech ends reaches back into it, so a gap
+that stays inside a speech is lost however near its edge it is. Only a window a committed
+segment closes explains anything: a gap after an open segment, after the last one or in a
+prep no segment follows stays `not_public`. The history page states a
 ready Recording's stored gaps the same way when it is watched, so a Recording built before
 this explanation reads as one built today, with no stored data changed. Only a restart, a
 rotation and an unexplained `not_public` stretch are debate lost. Debate before the first
