@@ -145,20 +145,27 @@ test('a new owner\u2019s page starts from nothing', () => {
     { owner: 'one', page: initialSavePage },
     { owner: 'one', event: { type: 'refused', status: 401, ...a } },
   );
-  const second = reduceOwnedSave(first, {
+  const taken = reduceOwnedSave(first, { owner: 'two', event: 'took-over' });
+  const late = reduceOwnedSave(taken, {
+    owner: 'one',
+    event: { type: 'retrying', ...a },
+  });
+  const edited = reduceOwnedSave(late, {
     owner: 'two',
     event: { type: 'edit', ...b },
   });
   assert({
     given:
-      'a refused save left by one owner, then the first event of the owner who replaced them',
-    should: 'say only what the new owner\u2019s documents say',
+      'a refused save left by one owner, another owner taking the page, a late answer to the first, then the new owner\u2019s edit',
+    should:
+      'start the new owner from Saved, ignore the late answer, and say only what the new owner\u2019s documents say',
     actual: [
       saveStatusOf(first.page).save,
-      second.owner,
-      saveStatusOf(second.page),
+      saveStatusOf(taken.page),
+      late === taken,
+      saveStatusOf(edited.page),
     ],
-    expected: ['unsaved', 'two', { save: 'saving', notice: null }],
+    expected: ['unsaved', saved, true, { save: 'saving', notice: null }],
   });
 });
 

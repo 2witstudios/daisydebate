@@ -264,20 +264,24 @@ export function documentSaving(
 type OwnedSaves = { readonly owner: string; readonly page: SavePage };
 
 /**
- * A saving event under the owner whose sync reported it. The page describes
- * one owner's documents, so another owner's event starts a fresh page rather
- * than adding to what the earlier owner left.
+ * The page describes one owner's documents. A new owner taking the page starts
+ * it afresh, and an event reported under any other owner, such as a late
+ * answer to the owner who left, changes nothing.
  */
 export const reduceOwnedSave = (
   held: OwnedSaves,
-  reported: { readonly owner: string; readonly event: SaveEvent },
-): OwnedSaves => ({
-  owner: reported.owner,
-  page: reduceSave(
-    held.owner === reported.owner ? held.page : initialSavePage,
-    reported.event,
-  ),
-});
+  reported:
+    | { readonly owner: string; readonly event: SaveEvent }
+    | { readonly owner: string; readonly event: 'took-over' },
+): OwnedSaves => {
+  if (reported.event === 'took-over')
+    return held.owner === reported.owner
+      ? held
+      : { owner: reported.owner, page: initialSavePage };
+  return held.owner === reported.owner
+    ? { owner: held.owner, page: reduceSave(held.page, reported.event) }
+    : held;
+};
 
 /** A member's documents, wherever the manager opens. */
 export function useDocumentSaving(
@@ -290,18 +294,18 @@ export function useDocumentSaving(
     owner: principalId,
     page: initialSavePage,
   });
-  // Until its first event, a new owner has nothing saved or owed.
+  // Until the page is theirs, a new owner has nothing saved or owed.
   const page = held.owner === principalId ? held.page : initialSavePage;
-  const owner = useRef(principalId);
+  useEffect(() => {
+    dispatch({ owner: principalId, event: 'took-over' });
+  }, [principalId]);
   const sync = useMemo(
     () =>
       documentSaving(
         principalId,
         createDocumentsApi(),
         (event) => {
-          // A superseded owner's late answers say nothing about this page.
-          if (owner.current === principalId)
-            dispatch({ owner: principalId, event });
+          dispatch({ owner: principalId, event });
           if (event.type === 'refused' && event.status === 401)
             window.dispatchEvent(new Event(DRAFTS_IDENTITY_CHECK_EVENT));
         },
@@ -327,7 +331,6 @@ export function useDocumentSaving(
   useEffect(() => {
     const token = { sync, principalId };
     lifetime.current = token;
-    owner.current = principalId;
     const changed = (event: Event) => {
       if ((event as CustomEvent<unknown>).detail !== principalId)
         sync.dispose({ purge: true });
