@@ -6,20 +6,23 @@ import {
   type RatingLadder,
   type RoomSeatKind,
 } from '@daisy/protocol';
-import { and, eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { requireLeaseMs } from '../lease-policy';
+import {
+  mailQueue,
+  type MailJobClaimInput,
+  type MailJobOutcome,
+} from '../mail-queue';
 import { rowsOf } from '../raw-rows';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
-import { agentLeaseDigest } from '../round-agent-lease';
 import {
   notificationEmails,
   type notificationEmailErrorCodes,
 } from '../schema/notifications';
 
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute' | 'update'>;
+type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
 /** Sent notification emails one member may receive in any hour (ADR 0124). */
 export const NOTIFICATION_EMAILS_PER_HOUR = 20;
@@ -63,14 +66,10 @@ export type NotificationEmailDelivery =
       >;
     };
 
-export type NotificationEmailOutcome =
-  | { readonly kind: 'sent' }
-  | {
-      readonly kind: 'retry';
-      readonly errorCode: 'delivery' | 'delivery-unknown';
-      readonly nextAttemptAt: string;
-    }
-  | { readonly kind: 'failed' | 'cancelled'; readonly errorCode: ErrorCode };
+export type NotificationEmailOutcome = MailJobOutcome<ErrorCode>;
+
+/** Any lapsed lease may have reached the provider. */
+const queue = mailQueue(notificationEmails, { unknownAfterLapse: sql`true` });
 
 const claimRow = z.object({
   id: z.string(),
@@ -108,55 +107,15 @@ export function notificationEmailOperations({
   readonly database: Database;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
-  const held = (id: string, token: string) =>
-    and(
-      eq(notificationEmails.id, id),
-      eq(notificationEmails.state, 'leased'),
-      eq(notificationEmails.leaseTokenDigest, agentLeaseDigest(token)),
-    );
   return {
-    claimNotificationEmails: (input: {
-      readonly limit: number;
-      readonly leaseMs: number;
-      readonly nextToken: () => string;
-    }): Promise<readonly NotificationEmailClaim[]> =>
-      instrumented(eventSink, 'claimNotificationEmails', async () => {
-        requireLeaseMs(input.leaseMs);
-        if (
-          !Number.isSafeInteger(input.limit) ||
-          input.limit < 1 ||
-          input.limit > 50
-        )
-          throw createAppError('VALIDATION');
-        return database.transaction(async (tx) => {
-          const due = await rowsOf<{ id: string }>(
-            tx,
-            sql`select id from notification_emails
-              where (state = 'queued' and next_attempt_at <= clock_timestamp())
-                 or (state = 'leased' and lease_expires_at <= clock_timestamp())
-              order by next_attempt_at, id
-              limit ${input.limit}
-              for update skip locked`,
-          );
-          const claims: NotificationEmailClaim[] = [];
-          for (const { id } of due) {
-            const token = input.nextToken();
-            // A lapsed lease may have reached the provider: say so if it fails.
-            const [row] = await rowsOf(
-              tx,
-              sql`update notification_emails set
-                  last_error_code = case when state = 'leased' then 'delivery-unknown' else last_error_code end,
-                  state = 'leased', attempts = attempts + 1,
-                  lease_token_digest = ${agentLeaseDigest(token)},
-                  lease_expires_at = clock_timestamp() + ${input.leaseMs} * interval '1 millisecond'
-                where id = ${id}
-                returning id, kind, attempts`,
-            );
-            claims.push({ ...claimRow.parse(row), token });
-          }
-          return claims;
-        });
-      }),
+    claimNotificationEmails: (
+      input: MailJobClaimInput,
+    ): Promise<readonly NotificationEmailClaim[]> =>
+      instrumented(eventSink, 'claimNotificationEmails', async () =>
+        (await queue.claimDue(database, input, sql`id, kind, attempts`)).map(
+          ({ row, token }) => ({ ...claimRow.parse(row), token }),
+        ),
+      ),
     /**
      * Reads what a claimed job should say now. It is cancelled when the
      * member is gone or unverified, turned the kind's email off, has had
@@ -231,38 +190,9 @@ export function notificationEmailOperations({
       readonly token: string;
       readonly outcome: NotificationEmailOutcome;
     }): Promise<boolean> =>
-      instrumented(eventSink, 'settleNotificationEmail', async () => {
-        const { outcome } = input;
-        const release = { leaseTokenDigest: null, leaseExpiresAt: null };
-        // An unknown earlier send stays unknown: it may have been delivered.
-        const keepUnknown = (code: string) =>
-          sql`case when last_error_code = 'delivery-unknown' then 'delivery-unknown' else ${code} end`;
-        const set =
-          outcome.kind === 'retry'
-            ? {
-                ...release,
-                state: 'queued' as const,
-                lastErrorCode: keepUnknown(outcome.errorCode),
-                nextAttemptAt: sql`${outcome.nextAttemptAt}::timestamptz`,
-              }
-            : {
-                ...release,
-                state: outcome.kind,
-                lastErrorCode:
-                  outcome.kind === 'sent'
-                    ? null
-                    : outcome.kind === 'failed'
-                      ? keepUnknown(outcome.errorCode)
-                      : outcome.errorCode,
-                completedAt: sql`clock_timestamp()`,
-              };
-        const settled = await database
-          .update(notificationEmails)
-          .set(set)
-          .where(held(input.id, input.token))
-          .returning({ id: notificationEmails.id });
-        return settled.length === 1;
-      }),
+      instrumented(eventSink, 'settleNotificationEmail', () =>
+        queue.settle(database, input),
+      ),
     /** Terminal jobs only, 30 days after they ended: a live job has no `completed_at`. */
     purgeExpiredNotificationEmails: (batch: RetentionBatch) =>
       instrumented(eventSink, 'purgeExpiredNotificationEmails', () =>

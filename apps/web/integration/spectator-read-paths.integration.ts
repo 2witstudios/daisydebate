@@ -320,7 +320,7 @@ test('every public and member read holds a ranked outcome until release', async 
         },
         expected: { text: [`@${hostName} is on air.`], leaks: false },
       });
-      await f.sql`update broadcasts set released_through_at=${completedAt}, stopped_at=${completedAt}, stop_reason='test' where round_id=${roundId}`;
+      await f.sql`update broadcasts set released_through_at=${completedAt}, stopped_at=${completedAt}, stop_reason='technical' where round_id=${roundId}`;
       const stopped = await reads();
       assert({
         given:

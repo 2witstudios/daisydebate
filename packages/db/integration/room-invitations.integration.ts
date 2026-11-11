@@ -112,6 +112,7 @@ test('an invitation holds the judge seat and tells the invitee in the same trans
     const [claim] = await env.notifications.claimNotificationEmails({
       limit: 5,
       leaseMs: 10_000,
+      maxAttempts: 8,
       nextToken: () => 't'.repeat(48),
     });
     const delivery = claim

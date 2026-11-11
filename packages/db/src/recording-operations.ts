@@ -123,10 +123,7 @@ export const recordingOperations = ({
         .where(
           and(
             eq(recordings.status, 'removing'),
-            or(
-              isNull(recordings.deletionDueAt),
-              lte(recordings.deletionDueAt, at),
-            ),
+            lte(recordings.deletionDueAt, at),
             or(isNull(recordings.leaseUntil), lte(recordings.leaseUntil, at)),
           ),
         )

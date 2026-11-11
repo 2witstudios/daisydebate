@@ -31,7 +31,7 @@ import {
   stopBroadcast,
 } from '../src/broadcast-operations';
 import { broadcasts } from '../src/schema/broadcasts';
-import { withFixture } from './constraint-helpers';
+import { rejectedBy, withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -39,6 +39,13 @@ const policy = { kind: 'delay', seconds: 60 } as const;
 const now = new Date('2026-11-02T00:00:00.000Z');
 const later = new Date('2026-11-02T00:01:00.000Z');
 const past = new Date('2026-11-01T00:00:00.000Z');
+
+/** The public manifests said the stream ended: only then may it complete. */
+const endStream = (db: ReturnType<typeof drizzle>, id: string) =>
+  db
+    .update(broadcasts)
+    .set({ streamEndedAt: now })
+    .where(eq(broadcasts.id, id));
 
 const withOps = async (
   run: (
@@ -213,6 +220,7 @@ test('reconcile records are idempotent and a revocation resets its failures', as
     await recordFinalMediaEnd(db, { id: open.id, at: now });
     await recordFinalMediaEnd(db, { id: open.id, at: later });
     const ended = await read();
+    await endStream(db, open.id);
     await completeBroadcast(db, { id: open.id, at: later });
     assert({
       given: 'two failures, a revocation, a restore, two ends and a completion',
@@ -381,6 +389,7 @@ test('a completed Broadcast cannot be stopped', async () => {
       feedKey: createId(),
       releasePolicy: policy,
     });
+    await endStream(db, open.id);
     await completeBroadcast(db, { id: open.id, at: now });
     assert({
       given: 'a Broadcast already complete',
@@ -448,6 +457,7 @@ test('a completed Broadcast is claimed to withdraw its feed once its grace passe
           withdrawFinishedBefore,
         }),
       );
+    await endStream(db, open.id);
     await completeBroadcast(db, { id: open.id, at: now });
     const inGrace = await claim(new Date(now.getTime() - 1));
     const past = await claim(now);
@@ -914,6 +924,138 @@ test('a parked Broadcast is not claimed until it is due', async () => {
       should: 'free its lease, and be claimed only then',
       actual: [parked, tooSoon?.id === id, due?.id === id],
       expected: [true, false, true],
+    });
+  });
+});
+
+test('the schema refuses a Broadcast state its lifecycle cannot reach', async () => {
+  await withOps(async (db, roundId, client) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const at = now.toISOString();
+    const refused = (assignments: string) =>
+      rejectedBy(() =>
+        client.unsafe(`update broadcasts set ${assignments} where id = $1`, [
+          open.id,
+        ]),
+      );
+    assert({
+      given:
+        'completion with no stream end or stop, a withdrawn feed still releasing, an Egress with no start, and a stop reason outside the vocabulary',
+      should: 'refuse each by its own constraint',
+      actual: [
+        await refused(`completed_at = '${at}'`),
+        await refused(`feed_withdrawn_at = '${at}'`),
+        await refused(`egress_id = 'EG_test'`),
+        await refused(`stopped_at = '${at}', stop_reason = 'because'`),
+        await refused(`feed_withdrawal_requested_at = '${at}'`),
+        await refused(`observer_revoked_at = '${at}', revocation_failures = 1`),
+      ],
+      expected: [
+        'broadcasts_completed_check',
+        'broadcasts_feed_withdrawn_check',
+        'broadcasts_egress_check',
+        'broadcasts_stop_reason_check',
+        'broadcasts_feed_withdrawal_requested_check',
+        'broadcasts_observer_revoked_check',
+      ],
+    });
+    assert({
+      given:
+        'the same facts in the order the lifecycle reaches them: stream ended then complete then withdrawn, an Egress with its start, a stop with a known reason',
+      should: 'accept every one',
+      actual: [
+        await refused(
+          `egress_id = 'EG_test', egress_started_at = '${at}', stream_ended_at = '${at}', completed_at = '${at}', feed_withdrawn_at = '${at}'`,
+        ),
+        await refused(
+          `stream_ended_at = null, stopped_at = '${at}', stop_reason = 'recording_removed_by_erasure'`,
+        ),
+      ],
+      expected: [null, null],
+    });
+  });
+});
+
+test('completion waits for the stream to end or a stop', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const completed = async () =>
+      (
+        await db
+          .select({ at: broadcasts.completedAt })
+          .from(broadcasts)
+          .where(eq(broadcasts.id, open.id))
+      )[0]?.at?.toISOString() ?? null;
+    await completeBroadcast(db, { id: open.id, at: now });
+    const early = await completed();
+    await db
+      .update(broadcasts)
+      .set({ streamEndedAt: now })
+      .where(eq(broadcasts.id, open.id));
+    await completeBroadcast(db, { id: open.id, at: later });
+    assert({
+      given: 'a completion before the stream ended, then one after',
+      should:
+        'leave the Broadcast open the first time and complete it the second',
+      actual: [early, await completed()],
+      expected: [null, later.toISOString()],
+    });
+  });
+});
+
+test('an observer write lands only from the state it was decided on', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const read = async () => {
+      const [row] = await db
+        .select({
+          revokedAt: broadcasts.observerRevokedAt,
+          failures: broadcasts.revocationFailures,
+        })
+        .from(broadcasts)
+        .where(eq(broadcasts.id, open.id));
+      return [row?.revokedAt?.toISOString() ?? null, row?.failures];
+    };
+    // A restore with nothing revoked must not clear a counted failure.
+    await recordRevocationFailed(db, open.id);
+    await recordObserverRestored(db, open.id);
+    const restoredUnrevoked = await read();
+    await recordObserverRevoked(db, { id: open.id, now });
+    // A slower pass that decided the same things arrives after the revocation.
+    await recordObserverRevoked(db, { id: open.id, now: later });
+    await recordRevocationFailed(db, open.id);
+    const revokedTwice = await read();
+    await db
+      .update(broadcasts)
+      .set({ stoppedAt: now, stopReason: 'technical', completedAt: now })
+      .where(eq(broadcasts.id, open.id));
+    await recordObserverRestored(db, open.id);
+    assert({
+      given:
+        'a restore with nothing revoked, a second revocation and a late failure after the first, and a restore after completion',
+      should:
+        'keep the failure, keep the first revocation with no failure counted, and leave a finished Broadcast as it was',
+      actual: [restoredUnrevoked, revokedTwice, await read()],
+      expected: [
+        [null, 1],
+        [now.toISOString(), 0],
+        [now.toISOString(), 0],
+      ],
     });
   });
 });

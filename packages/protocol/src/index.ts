@@ -198,9 +198,11 @@ export {
   betaAccessCommandAction,
   betaAccessCommandResultSchema,
   betaAccessStates,
+  decideBetaAccessChange,
   operatorConsoleOrigin,
   type BetaAccessCommandResult,
   type BetaAccessCommandState,
+  type BetaAccessDecision,
   type BetaAccessState,
 } from './beta-access';
 export { closeCodeTable } from './close-codes';
@@ -548,9 +550,11 @@ export type { FrozenCaptureGaps } from './capture-gap';
 export { roundMediaPolicy } from './round-media-policy';
 export { broadcastLivePrefix, officialFeedPath } from './official-feed';
 export {
+  broadcastFeedEndReasons,
   broadcastReleasePolicySchema,
   releaseSkipsSchema,
   SPECTATOR_MARGIN_MS,
+  type BroadcastFeedEndReason,
   type BroadcastReleasePolicy,
 } from './broadcast';
 export {

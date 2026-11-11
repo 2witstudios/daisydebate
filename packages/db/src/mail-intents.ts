@@ -2,17 +2,21 @@ import { canInviteClaimedPreapproval } from './beta-preapproval-decision';
 import { normalizedEmailSql } from './email-identity';
 import { loadAuthorizationAccount } from './authorization';
 import { createAppError } from '@daisy/errors';
-import { and, eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { DIGEST_WINDOW } from './beta-access';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { requireLeaseMs } from './lease-policy';
+import { mailIntentQueue } from './mail-intent-queue';
+import type { MailJobClaimInput, MailJobOutcome } from './mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
-import { agentLeaseDigest } from './round-agent-lease';
-import { mailIntents, mailIntentPurposes } from './schema/mail-intents';
+import {
+  mailIntentErrorCodes,
+  mailIntents,
+  mailIntentPurposes,
+} from './schema/mail-intents';
 
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute' | 'update'>;
+type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
 export type MailIntentClaim = {
   readonly id: string;
@@ -47,23 +51,9 @@ export type MailIntentDelivery =
   /** The mail is no longer owed: access was revoked, or nobody new waits. */
   | { readonly kind: 'not-owed' };
 
-export type MailIntentOutcome =
-  | { readonly kind: 'sent' }
-  | {
-      readonly kind: 'retry';
-      readonly errorCode: 'delivery' | 'delivery-unknown';
-      readonly nextAttemptAt: string;
-    }
-  | {
-      readonly kind: 'failed' | 'cancelled';
-      readonly errorCode:
-        | 'delivery'
-        | 'delivery-unknown'
-        | 'suppressed'
-        | 'recipient-gone'
-        | 'unconfigured'
-        | 'not-owed';
-    };
+export type MailIntentOutcome = MailJobOutcome<
+  (typeof mailIntentErrorCodes)[number]
+>;
 
 const claimRow = z.object({
   id: z.string(),
@@ -93,48 +83,19 @@ export function mailIntentOperations({
   readonly database: Database;
   readonly eventSink: DatabaseEventSink | undefined;
 }) {
-  const held = (id: string, token: string) =>
-    and(
-      eq(mailIntents.id, id),
-      eq(mailIntents.state, 'leased'),
-      eq(mailIntents.leaseTokenDigest, agentLeaseDigest(token)),
-    );
   return {
-    claimMailIntents: (input: {
-      readonly limit: number;
-      readonly leaseMs: number;
-      readonly nextToken: () => string;
-    }): Promise<readonly MailIntentClaim[]> =>
-      instrumented(eventSink, 'claimMailIntents', async () => {
-        requireLeaseMs(input.leaseMs);
-        if (
-          !Number.isSafeInteger(input.limit) ||
-          input.limit < 1 ||
-          input.limit > 50
-        )
-          throw createAppError('VALIDATION');
-        return database.transaction(async (tx) => {
-          const due = (await tx.execute(sql`select id from mail_intents
-            where (state = 'queued' and next_attempt_at <= clock_timestamp())
-               or (state = 'leased' and lease_expires_at <= clock_timestamp())
-            order by next_attempt_at, id
-            limit ${input.limit}
-            for update skip locked`)) as unknown as { id: string }[];
-          const claims: MailIntentClaim[] = [];
-          for (const { id } of due) {
-            const token = input.nextToken();
-            const [row] = (await tx.execute(sql`update mail_intents set
-                last_error_code = case when purpose = 'beta-invitation' and state = 'leased' then 'delivery-unknown' else last_error_code end,
-                state = 'leased', attempts = attempts + 1,
-                lease_token_digest = ${agentLeaseDigest(token)},
-                lease_expires_at = clock_timestamp() + ${input.leaseMs} * interval '1 millisecond'
-              where id = ${id}
-              returning id, purpose, attempts`)) as unknown as unknown[];
-            claims.push({ ...claimRow.parse(row), token });
-          }
-          return claims;
-        });
-      }),
+    claimMailIntents: (
+      input: MailJobClaimInput,
+    ): Promise<readonly MailIntentClaim[]> =>
+      instrumented(eventSink, 'claimMailIntents', async () =>
+        (
+          await mailIntentQueue.claimDue(
+            database,
+            input,
+            sql`id, purpose, attempts`,
+          )
+        ).map(({ row, token }) => ({ ...claimRow.parse(row), token })),
+      ),
     readMailIntentDelivery: (id: string): Promise<MailIntentDelivery> =>
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
         // A digest counts its own window, which retries never move.
@@ -232,33 +193,9 @@ export function mailIntentOperations({
       readonly token: string;
       readonly outcome: MailIntentOutcome;
     }): Promise<boolean> =>
-      instrumented(eventSink, 'settleMailIntent', async () => {
-        const { outcome } = input;
-        const release = { leaseTokenDigest: null, leaseExpiresAt: null };
-        const set =
-          outcome.kind === 'retry'
-            ? {
-                ...release,
-                state: 'queued' as const,
-                lastErrorCode: sql`case when purpose = 'beta-invitation' and last_error_code = 'delivery-unknown' then 'delivery-unknown' else ${outcome.errorCode} end`,
-                nextAttemptAt: sql`${outcome.nextAttemptAt}::timestamptz`,
-              }
-            : {
-                ...release,
-                state: outcome.kind,
-                lastErrorCode:
-                  outcome.kind === 'sent'
-                    ? null
-                    : sql`case when purpose = 'beta-invitation' and last_error_code = 'delivery-unknown' then 'delivery-unknown' else ${outcome.errorCode} end`,
-                completedAt: sql`clock_timestamp()`,
-              };
-        const settled = await database
-          .update(mailIntents)
-          .set(set)
-          .where(held(input.id, input.token))
-          .returning({ id: mailIntents.id });
-        return settled.length === 1;
-      }),
+      instrumented(eventSink, 'settleMailIntent', () =>
+        mailIntentQueue.settle(database, input),
+      ),
     /** Terminal intents only: a queued or leased intent has no `completed_at`. */
     purgeExpiredMailIntents: (batch: RetentionBatch) =>
       instrumented(eventSink, 'purgeExpiredMailIntents', () =>

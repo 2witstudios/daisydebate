@@ -66,7 +66,12 @@ const stateOf = async (fixture: Fixture, id: string) => {
 };
 
 const claim = (database: ReturnType<typeof createDatabase>) =>
-  database.claimMailIntents({ limit: 50, leaseMs: 60_000, nextToken: token });
+  database.claimMailIntents({
+    limit: 50,
+    leaseMs: 60_000,
+    maxAttempts: 8,
+    nextToken: token,
+  });
 
 /** One due approval intent for an approved member, removed afterwards. */
 const withApprovedIntent = (

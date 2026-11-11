@@ -142,6 +142,32 @@ test('the schema refuses a lifecycle that disagrees with its status', async () =
       ),
       expected: 'recordings_class_matches_eligibility_check',
     });
+    const at = '2026-11-02T00:00:00.000Z';
+    const stored = (lifecycle: object, deletionDueAt: string | null) =>
+      rejectedBy(
+        () => client`insert into recordings
+          (id, round_id, recording_class, eligibility, status, lifecycle, deletion_due_at)
+          values (${createId()}, ${roundId}, 'casual',
+            jsonb_build_object('kind','host_opt_in','hostActorId',${hostOptIn.hostActorId}::text),
+            ${(lifecycle as { status: string }).status}, ${JSON.stringify(lifecycle)}::text::jsonb,
+            ${deletionDueAt}::timestamptz)`,
+      );
+    assert({
+      given:
+        'a Recording being removed with no deletion due, and one not being removed with a deletion due',
+      should: 'refuse both: a deletion is due exactly while it is removing',
+      actual: [
+        await stored(
+          { status: 'removing', cause: 'moderation', requestedAt: at },
+          null,
+        ),
+        await stored({ status: 'requested' }, at),
+      ],
+      expected: [
+        'recordings_deletion_due_check',
+        'recordings_deletion_due_check',
+      ],
+    });
   });
 });
 
@@ -661,7 +687,7 @@ test('a ranked Round leaves the archive when its Recording is taken down, transc
       actual: [await listed(), (await count()) - before],
       expected: [false, -1],
     });
-    await client`update recordings set status='removing',
+    await client`update recordings set status='removing', deletion_due_at=${at}::timestamptz,
         lifecycle=${JSON.stringify({ status: 'removing', cause: 'moderation', requestedAt: at })}::text::jsonb
       where id=${id}`;
     assert({
@@ -670,7 +696,7 @@ test('a ranked Round leaves the archive when its Recording is taken down, transc
       actual: await listed(),
       expected: false,
     });
-    await client`update recordings set status='removing',
+    await client`update recordings set status='removing', deletion_due_at=${at}::timestamptz,
         lifecycle=${JSON.stringify({ status: 'removing', cause: 'failed_capture_cleanup', requestedAt: at })}::text::jsonb
       where id=${id}`;
     assert({
