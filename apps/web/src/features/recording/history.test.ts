@@ -168,6 +168,34 @@ describe('media state', () => {
   });
 });
 
+describe('coverage of a stored Recording', () => {
+  test('shows the stored gaps as stated: what was lost and what was kept private', async () => {
+    const { media } = await history({
+      lifecycle: {
+        ...ready,
+        media: {
+          ...ready.media,
+          gaps: [
+            { startMs: 0, endMs: 5000, reason: 'private_phase' },
+            { startMs: 20_015, endMs: 31_500, reason: 'between_speeches' },
+            { startMs: 40_000, endMs: 45_000, reason: 'capture_restart' },
+          ],
+        },
+      },
+    });
+    assert({
+      given: 'a Recording verified with a prep, a turnover and a restart',
+      should:
+        'list the restart as lost, the prep as private, and the turnover nowhere',
+      actual: media.state === 'watch' && [media.lost, media.keptPrivate],
+      expected: [
+        [{ startMs: 40_000, endMs: 45_000, reason: 'capture_restart' }],
+        [{ startMs: 0, endMs: 5000, reason: 'private_phase' }],
+      ],
+    });
+  });
+});
+
 describe('a Broadcast stopped before the Round ended', () => {
   test('withholds the video while the rest of the record stays open', async () => {
     const { media, downloadHref } = await history({
