@@ -40,12 +40,13 @@ const page = (readOnly = false, changeVersion = 0) =>
       },
     },
   );
-const refuse = async () => ({});
+const refuse = async () => ({ text: '', requestId: 'q'.repeat(24) });
 
 /** The hook in a private realm; the test answers each history read in its own time. */
 const mount = async () => {
-  const reads: (PromiseWithResolvers<Response> & { readonly url: string })[] =
-    [];
+  const reads: (ReturnType<typeof Promise.withResolvers<Response>> & {
+    readonly url: string;
+  })[] = [];
   let held: Parameters<Parameters<typeof client.FloorProbe>[0]['hold']>[0];
   const client = await mountBrowserClient<typeof Client>(
     Bun.resolveSync('./use-floor-chat.test-support', import.meta.dir),

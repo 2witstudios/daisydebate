@@ -35,8 +35,9 @@ const mount = async () => {
   const client = await mountBrowserClient<typeof Client>(
     Bun.resolveSync('./use-security-overview.test-support', import.meta.dir),
   );
-  const reads: PromiseWithResolvers<Overview>[] = [];
-  const signOuts: PromiseWithResolvers<SecurityOutcome>[] = [];
+  const reads: ReturnType<typeof Promise.withResolvers<Overview>>[] = [];
+  const signOuts: ReturnType<typeof Promise.withResolvers<SecurityOutcome>>[] =
+    [];
   let held: Parameters<Parameters<typeof client.OverviewProbe>[0]['hold']>[0];
   const load = () => {
     const read = Promise.withResolvers<Overview>();
