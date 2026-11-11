@@ -377,7 +377,10 @@ export const openRecordingHistory = async (
         ? await inputs.readJobState(record.id)
         : null,
       inputs.nowMs(),
-      record && state === 'watch' && permissions.media
+      // Only a not_public gap can be explained, so a video with none reads nothing.
+      record?.lifecycle.status === 'ready' &&
+        permissions.media &&
+        record.lifecycle.media.gaps.some((gap) => gap.reason === 'not_public')
         ? await inputs.readCoverageFacts(round.id)
         : null,
     ),

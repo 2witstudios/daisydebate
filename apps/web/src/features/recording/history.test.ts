@@ -227,11 +227,17 @@ describe('coverage of a stored Recording', () => {
       },
       viewer: { kind: 'account', userId: 'u', actorId: 'stranger' },
     });
+    const explained = await open({});
     assert({
-      given: 'no Recording, or a video withheld from this viewer',
+      given:
+        'no Recording, a video withheld from this viewer, or one with no not_public gap',
       should: "not read the Round's coverage",
-      actual: [none.coverageReads, withheld.coverageReads],
-      expected: [[], []],
+      actual: [
+        none.coverageReads,
+        withheld.coverageReads,
+        explained.coverageReads,
+      ],
+      expected: [[], [], []],
     });
   });
 });

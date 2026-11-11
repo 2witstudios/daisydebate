@@ -144,9 +144,10 @@ the player shows it on its own line as kept private. The slate between speeches
 speech's end into the next by the start-edge stamp lag plus 1.2 s, which is 2.5 s early in
 a capture and about 3.6 s three hours in.
 
-The worker marks every jump between public pieces `not_public`. The capture port, and the
-history page for a Recording already stored, split each one against the Round's segments
-and prep (`explainGaps` in `coverage-statement.ts`). A Recording built before that split
+The worker marks a jump between public pieces `capture_restart` when one public interval
+spans it, since only a restart explains that, and `not_public` otherwise. The capture port,
+and the history page for a Recording already stored, split each `not_public` gap against
+the Round's segments and prep (`explainGaps` in `coverage-statement.ts`). A Recording built before that split
 shows correctly without a rebuild or a data change. A `not_public` gap on the list is a
 real question: it is a stretch inside a speech that history does not prove public.
 
