@@ -30,6 +30,15 @@ type RoundAcknowledged = {
 export type RoundFormState =
   Idle | Refused | RoundConfirming | RoundAcknowledged | Unacknowledged | Moved;
 
+const confirming = (form: FormData): RoundConfirming => ({
+  kind: 'confirming',
+  values: formValues(form),
+});
+const acknowledged = (view: RoundView): RoundAcknowledged => ({
+  kind: 'acknowledged',
+  view,
+});
+
 const unacknowledgedText =
   'The command is not acknowledged. Review the current round before trying again.';
 
@@ -92,7 +101,7 @@ export async function submitRoundForm(
     ['yield', 'forfeit'].includes(envelope.command.type) &&
     form.get('confirmed') !== 'true'
   )
-    return { kind: 'confirming', values: formValues(form) };
+    return confirming(form);
   try {
     const response = await fetch(`/api/rounds/${roundId}/commands`, {
       method: 'POST',
@@ -117,9 +126,7 @@ export async function submitRoundForm(
       roundId,
       envelope.commandId,
     );
-    return view
-      ? { kind: 'acknowledged', view }
-      : roundCommandUnavailable(form);
+    return view ? acknowledged(view) : roundCommandUnavailable(form);
   } catch {
     return roundCommandUnavailable(form);
   }

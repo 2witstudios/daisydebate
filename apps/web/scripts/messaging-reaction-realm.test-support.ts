@@ -32,6 +32,8 @@ const { ConversationLive } =
   await import('../src/ui/messaging/conversation-live');
 const { mountedConversationHistory } =
   await import('../src/ui/messaging/conversation-mounted-fixture.test-support');
+const { reactionCounted } =
+  await import('../src/features/messaging/forms/reaction-pill-form');
 const channelId = 'c'.repeat(24);
 const initial = mountedConversationHistory();
 const history = {
@@ -69,7 +71,7 @@ try {
         reactAction: async (_previous, form) => {
           calls++;
           const own = form.get('active') === 'true';
-          return { own, count: own ? 2 : 1 };
+          return reactionCounted(own, own ? 2 : 1);
         },
       }),
     ),

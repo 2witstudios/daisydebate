@@ -18,6 +18,11 @@ const ROWS = '[key-1 key-2] [here there]';
  */
 const TRANSITIONS: Readonly<Record<string, Readonly<Record<string, string>>>> =
   {
+    'unasked/idle/idle': {
+      'read-asked': 'loading / idle / idle / asks read',
+      'sign-out-asked': 'unasked / asking / idle / asks sign-out-others',
+      'enrolment-asked': 'unasked / idle / waiting / asks enrol',
+    },
     'loading/idle/idle': {
       'read-asked': 'loading / idle / idle / asks read',
       'read-answered': 'read [key-3] [here] / idle / idle / asks nothing',

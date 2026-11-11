@@ -26,6 +26,13 @@ export type KeptForms = {
 
 export type ReadKind = 'latest' | 'older';
 
+/**
+ * Per kind, the reads asked of this floor whose answers may still apply. A read
+ * leaves when it fails, when it or a later one of its kind is applied, and when
+ * the floor is hidden. Any other request's answer changes nothing.
+ */
+export type OutstandingReads = Readonly<Record<ReadKind, readonly number[]>>;
+
 export type OpenFloor = {
   readonly kind: 'ready';
   readonly metadata: FloorMetadata;
@@ -39,12 +46,15 @@ export type OpenFloor = {
     readonly sequence: number;
   } | null;
   /**
-   * Per kind, the newest read that no longer counts: it was applied, or the
-   * floor was opened or hidden after it was asked. A read still on its way
-   * does not move this, so steady traffic never leaves every answer dropped.
+   * The live channel says this reader may not see the floor. Nothing is marked
+   * read or paged meanwhile, and being shown again asks for the latest page.
    */
-  readonly settled: Readonly<Record<ReadKind, number>>;
-  /** Null until the first latest page answers. */
+  readonly hidden: boolean;
+  readonly reads: OutstandingReads;
+  /**
+   * Null while no latest page is held: `reads.latest` says whether one is on
+   * its way, and when none is, `hidden` or `notice` says why.
+   */
   readonly thread: FloorThread | null;
 };
 

@@ -1,6 +1,14 @@
 import type { RoomView } from '@daisy/protocol';
 import { z } from 'zod';
-import { done, refused, unacknowledged, type Moved } from '../forms/form-state';
+import {
+  blankFields,
+  done,
+  formFields,
+  refused,
+  unacknowledged,
+  type FormFields,
+  type Moved,
+} from '../forms/form-state';
 import {
   roomAccepted,
   roomNoticeQuery,
@@ -80,5 +88,28 @@ export function contentWaiverAnswer(
       );
     case 'unavailable':
       return unacknowledged(form);
+  }
+}
+
+/**
+ * A waiver carries no command identifier and needs none: a member's
+ * signature on a season's version is one fact, so sending it again signs
+ * nothing new.
+ */
+const waiverUnacknowledgedText =
+  'Your signature may have been recorded. Signing again is safe: a season’s waiver is signed once, however often it is sent.';
+
+/** What the waiver form renders from each answer; the waiver itself always stays. */
+export function contentWaiverFields(answer: RoomFormState): FormFields {
+  switch (answer.kind) {
+    case 'accepted':
+      return blankFields;
+    case 'unacknowledged':
+      return { values: answer.values, error: waiverUnacknowledgedText };
+    case 'idle':
+    case 'refused':
+    case 'done':
+    case 'moved':
+      return formFields(answer);
   }
 }

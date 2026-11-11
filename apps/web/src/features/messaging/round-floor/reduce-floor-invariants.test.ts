@@ -18,18 +18,31 @@ const violations = (state: FloorState): readonly string[] => {
   if (standing.kind === 'loading' && standing.request > requests)
     bad.push('an entry waits on a request never handed out');
   if (standing.kind !== 'ready') return bad;
-  const { settled, marking, thread, readSequence } = standing;
-  if (settled.latest > requests || settled.older > requests)
-    bad.push('a read is settled before it was asked');
-  if (
-    marking &&
-    (marking.request > requests || marking.sequence <= readSequence)
-  )
+  const { reads, marking, thread, readSequence, hidden, notice } = standing;
+  const awaited = [
+    ...reads.latest,
+    ...reads.older,
+    ...(marking ? [marking.request] : []),
+  ];
+  if (awaited.some((request) => request < 1 || request > requests))
+    bad.push('an answer is awaited for a request never handed out');
+  if (new Set(awaited).size !== awaited.length)
+    bad.push('one request is awaited twice, or by two kinds');
+  if (marking && marking.sequence <= readSequence)
     bad.push('a marker is on its way for messages already read');
-  if (thread && thread.paging !== null) {
-    if (thread.paging > requests || thread.paging <= settled.older)
-      bad.push('Older messages waits on a read that can no longer answer');
-  }
+  if (thread && thread.paging !== null && !reads.older.includes(thread.paging))
+    bad.push('Older messages waits on a read that can no longer answer');
+  if (!thread && reads.older.length > 0)
+    bad.push('an older page is on its way to a floor with no latest page');
+  if (
+    hidden &&
+    (marking !== null ||
+      reads.older.length > 0 ||
+      (thread !== null && (thread.older !== null || thread.paging !== null)))
+  )
+    bad.push('a hidden floor marks messages read or holds older pages');
+  if (!thread && reads.latest.length === 0 && !hidden && notice === null)
+    bad.push('no page is held, none is on its way, and nothing says why');
   if (thread && thread.history.channelId !== standing.metadata.channelId)
     bad.push('the thread is another channel');
   return bad;
@@ -111,37 +124,68 @@ test('every event in every state is total, and a rejected one changes nothing', 
   });
 });
 
-test('an answer to a request already settled changes nothing', () => {
+/** Whether the state waits for this answer: its own kind asked for it, and nothing has answered since. */
+const awaits = (
+  { standing }: FloorState,
+  event: Extract<FloorEvent, { readonly request: number }>,
+): boolean => {
+  switch (event.type) {
+    case 'discovered':
+    case 'opened':
+    case 'entry-refused':
+      return standing.kind === 'loading' && standing.request === event.request;
+    case 'latest-read':
+      return (
+        standing.kind === 'ready' &&
+        standing.reads.latest.includes(event.request)
+      );
+    case 'older-read':
+      return (
+        standing.kind === 'ready' &&
+        standing.reads.older.includes(event.request)
+      );
+    case 'read-refused':
+      return (
+        standing.kind === 'ready' &&
+        standing.reads[event.read].includes(event.request)
+      );
+    case 'read-marked':
+    case 'read-mark-failed':
+      return (
+        standing.kind === 'ready' && standing.marking?.request === event.request
+      );
+  }
+};
+
+test('an answer changes nothing unless its own kind asked for it and still waits', () => {
   const problems: string[] = [];
+  let crossed = 0;
   for (const [name, state] of everyState())
     for (let request = 0; request <= state.requests + 1; request += 1) {
-      const awaited =
-        (state.standing.kind === 'loading' &&
-          state.standing.request === request) ||
-        (state.standing.kind === 'ready' &&
-          (state.standing.marking?.request === request ||
-            (request <= state.requests &&
-              (request > state.standing.settled.latest ||
-                request > state.standing.settled.older))));
-      if (awaited) continue;
       const ids = {
         entry: request,
         latest: request,
         older: request,
         mark: request,
       };
-      for (const [eventName, event] of everyEvent(ids)) {
-        if (!('request' in event)) continue;
+      const events = everyEvent(ids).flatMap(([eventName, event]) =>
+        'request' in event ? [[eventName, event] as const] : [],
+      );
+      const awaitedByAnother = events.some(([, event]) => awaits(state, event));
+      for (const [eventName, event] of events) {
+        if (awaits(state, event)) continue;
+        if (awaitedByAnother) crossed += 1;
         const step = reduceFloor(state, event);
         if (step.state !== state || step.effects.length > 0)
           problems.push(`${name} + ${eventName} #${request}`);
       }
     }
   assert({
-    given: 'every state and every answer whose request it does not await',
+    given:
+      'every state and every answer it does not await, among them answers under a request another kind awaits',
     should: 'return the same state object and ask nothing',
-    actual: problems,
-    expected: [],
+    actual: { problems, crossedKinds: crossed > 50 },
+    expected: { problems: [], crossedKinds: true },
   });
 });
 

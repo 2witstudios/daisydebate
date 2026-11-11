@@ -1,7 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { messagingPreferenceSchemas } from '@daisy/protocol';
 import { parseValidated } from '../../../server/http';
-import type { Idle, Refused } from '../../forms/form-state';
+import {
+  idle,
+  refusedWith,
+  type Idle,
+  type Refused,
+} from '../../forms/form-state';
 
 /** The three selections a preference form holds, each as its option's value. */
 type PreferenceValues = {
@@ -103,16 +108,14 @@ export function preferenceUnavailable(form: FormData): PreferenceRefused {
     const stored = form.get(key);
     return typeof stored === 'string' ? stored : '';
   };
-  return {
-    kind: 'refused',
-    values: {
+  return refusedWith(
+    {
       following: value('following'),
       hidden: value('hidden'),
       notificationLevel: value('notificationLevel'),
     },
-    error:
-      'Could not change these preferences. Your selections are kept; try again.',
-  };
+    'Could not change these preferences. Your selections are kept; try again.',
+  );
 }
 
 type StoredPreference = ReturnType<
@@ -131,7 +134,4 @@ export const preferenceSelections = (
 /** The form a page starts with: what is stored, nothing posted yet. */
 export const preferenceFormState = (
   state: StoredPreference,
-): PreferenceFormState => ({
-  kind: 'idle',
-  values: preferenceSelections(state),
-});
+): PreferenceFormState => idle(preferenceSelections(state));

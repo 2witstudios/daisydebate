@@ -69,7 +69,7 @@ const CHECKS: readonly (readonly [
   [
     'forgets rows it had read',
     (before, _event, { state }) =>
-      before.lists.kind === 'read' && state.lists.kind === 'loading',
+      before.lists.kind === 'read' && state.lists.kind !== 'read',
   ],
   [
     'waits on a number never given out',
@@ -135,7 +135,7 @@ test('every event in every state is total, and a stale answer changes nothing', 
     given: 'every event, current and stale, in every state the screen can hold',
     should: 'yield a legal state, and the same state for every stale answer',
     actual: { problems, pairs, stale },
-    expected: { problems: [], pairs: 48 * 15, stale: 48 * 3 },
+    expected: { problems: [], pairs: 60 * 15, stale: 60 * 3 },
   });
 });
 
@@ -207,7 +207,7 @@ test('whatever is pressed and however the answers are ordered, nothing strands',
         );
       else send(PRESSES[next(PRESSES.length)]!);
     while (unanswered.length > 0) send(answerTo(unanswered.shift()!, 1));
-    if (waits(state).length > 0 || state.lists.kind === 'loading')
+    if (waits(state).length > 0 || state.lists.kind !== 'read')
       problems.push(`seed ${seed}: still waiting once every answer is in`);
   }
   assert({
@@ -268,10 +268,11 @@ test('lists never read hold no rows', () => {
   ).state;
   assert({
     given: 'the screen as it opens, and the screen once a read found no rows',
-    should: 'hold loading with no lists at all, and two lists read as empty',
+    should:
+      'hold nothing asked and no lists at all, and two lists read as empty',
     actual: [opening.lists, empty.lists],
     expected: [
-      { kind: 'loading', version: 0 },
+      { kind: 'unasked' },
       {
         kind: 'read',
         passkeys: { kind: 'listed', rows: [] },
@@ -279,5 +280,21 @@ test('lists never read hold no rows', () => {
         rereading: null,
       },
     ],
+  });
+});
+
+test('an answer to a read the opening screen never asked for is not shown', () => {
+  const opening = openingSecurityOverview();
+  const step = reduceSecurityOverview(opening, {
+    type: 'read-answered',
+    version: 0,
+    answer: answerOf([], []),
+  });
+  assert({
+    given:
+      'the screen as it opens, nothing asked, and an answer numbered as no read has been',
+    should: 'return the very same state: there is no read for it to answer',
+    actual: { same: step.state === opening, inFlight: readInFlight(opening) },
+    expected: { same: true, inFlight: null },
   });
 });

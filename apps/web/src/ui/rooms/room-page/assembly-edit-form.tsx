@@ -54,9 +54,9 @@ export function AssemblyEditFeedback({
 /**
  * Common native edit transport for actual Room details and configuration
  * consumers. A hydrated save hands its accepted view to room sync and
- * then to `onSaved`. A save whose answer was lost keeps the form as posted,
- * with its command identifier and version, so saving again is the same
- * command.
+ * then to `onSaved`. A save whose answer was lost keeps what was typed but
+ * not its command identifier or version: room sync reads the room again and
+ * saving again is a new command on that latest room.
  */
 export function AssemblyEditForm({
   action,

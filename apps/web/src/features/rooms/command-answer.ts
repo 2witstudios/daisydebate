@@ -6,6 +6,7 @@ import {
   unacknowledged,
   type FormFields,
   type FormState,
+  type FormValues,
   type Moved,
   type Unacknowledged,
 } from '../forms/form-state';
@@ -22,8 +23,9 @@ export type RoomAccepted = {
  * A room form's answer. A hydrated page gets the accepted canonical view and
  * hands it to room sync instead of navigating (ADR 0066). `done` is a post
  * that left nothing for sync to adopt. An answer that was lost is
- * `unacknowledged`: it keeps the original fields, whose command identifier
- * makes the retry safe.
+ * `unacknowledged` and keeps the original fields: a command form retries
+ * them unchanged under their command identifier, an edit form keeps what
+ * was typed for a new save on the latest room.
  */
 export type RoomFormState = FormState | RoomAccepted | Unacknowledged;
 
@@ -45,11 +47,21 @@ const commandUnacknowledgedText =
   'This command may have been recorded. Retry it to find out: a recorded command is confirmed, not run twice.';
 
 /**
- * An edit form stays open with what was typed. Saving it again unchanged is
- * the same retry; the room below shows whether the first save landed.
+ * A lost save is not replayed. Room sync reads the room again, and the edit
+ * form takes its version and command identifier from that latest room, so
+ * saving again is a new command: one pinned to the lost save's version would
+ * be refused as stale the moment that save had landed.
  */
 const editUnacknowledgedText =
-  'These changes may have been saved. Review the latest room before saving again.';
+  'These changes may have been saved. Check the latest room: saving again applies what is typed here to it.';
+
+/** The fields that make a save one command; an edit form fills them from the room when they are absent. */
+const commandFence = new Set(['commandId', 'expectedVersion']);
+
+const withoutCommandFence = (values: FormValues): FormValues =>
+  Object.fromEntries(
+    Object.entries(values).filter(([name]) => !commandFence.has(name)),
+  );
 
 /** What a room command's controls render from each answer. */
 export function roomFormFields(answer: RoomFormState): FormFields {
@@ -69,7 +81,10 @@ export function roomFormFields(answer: RoomFormState): FormFields {
 /** What a room edit form renders from each answer. */
 export function roomEditFields(answer: RoomFormState): FormFields {
   return answer.kind === 'unacknowledged'
-    ? { values: answer.values, error: editUnacknowledgedText }
+    ? {
+        values: withoutCommandFence(answer.values),
+        error: editUnacknowledgedText,
+      }
     : roomFormFields(answer);
 }
 

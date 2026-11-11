@@ -28,18 +28,27 @@ function CommandNavigation({ next }: { readonly next: string }) {
   return null;
 }
 /**
- * Native POST keeps the server action. A hydrated answer goes to room sync;
- * only Launch navigates. While an answer is unknown the form offers only the
- * retry of the command it posted.
+ * The transport every in-place room form shares. Native POST keeps the
+ * server action. A hydrated answer goes to room sync; only Launch
+ * navigates. `fields` is the form's own reading of each answer; controls
+ * given as a function choose what to show for it.
  */
-export function AssemblyCommandForm({
+export function RoomAnswerForm({
   action,
+  fields: fieldsOf,
   children,
   className,
 }: {
   readonly action: FormAction<RoomFormState>;
-  readonly children: ReactNode | ((state: FormFields) => ReactNode);
-  readonly className?: string;
+  readonly fields: (answer: RoomFormState) => FormFields;
+  readonly children:
+    | ReactNode
+    | ((
+        answer: RoomFormState,
+        fields: FormFields,
+        pending: boolean,
+      ) => ReactNode);
+  readonly className?: string | undefined;
 }) {
   const [state, post, pending] = useFormAction(
     action,
@@ -49,7 +58,7 @@ export function AssemblyCommandForm({
   useRoomAnswer(state, unanswered);
   const controlsId = useId();
   const feedbackId = useId();
-  const fields = roomFormFields(state);
+  const fields = fieldsOf(state);
   const next = destinationOf(state);
   useFocusAfterAnswer(
     state,
@@ -65,17 +74,45 @@ export function AssemblyCommandForm({
         disabled={pending}
         className="flex flex-wrap items-center gap-2 border-0 p-0"
       >
-        {state.kind === 'unacknowledged' ? (
-          <RetryRoomCommand values={state.values} pending={pending} />
-        ) : typeof children === 'function' ? (
-          children(fields)
-        ) : (
-          children
-        )}
+        {typeof children === 'function'
+          ? children(state, fields, pending)
+          : children}
       </fieldset>
       <div id={feedbackId} tabIndex={-1}>
         <FormError error={fields.error} />
       </div>
     </form>
+  );
+}
+
+/**
+ * A room command's form. While its answer is unknown it offers only the
+ * retry of the command it posted.
+ */
+export function AssemblyCommandForm({
+  action,
+  children,
+  className,
+}: {
+  readonly action: FormAction<RoomFormState>;
+  readonly children: ReactNode | ((state: FormFields) => ReactNode);
+  readonly className?: string;
+}) {
+  return (
+    <RoomAnswerForm
+      action={action}
+      fields={roomFormFields}
+      className={className}
+    >
+      {(answer, fields, pending) =>
+        answer.kind === 'unacknowledged' ? (
+          <RetryRoomCommand values={answer.values} pending={pending} />
+        ) : typeof children === 'function' ? (
+          children(fields)
+        ) : (
+          children
+        )
+      }
+    </RoomAnswerForm>
   );
 }

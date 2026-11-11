@@ -2,9 +2,8 @@
 
 import { headers } from 'next/headers';
 import { readAssembly } from '../../../../features/rooms/read-assembly';
-import { prepareSettings } from '../../../../features/rooms/prepare-settings';
+import { saveSettings } from '../../../../features/rooms/save-settings';
 import { submitAssembly } from '../../../../features/rooms/submit-assembly';
-import { refused, unacknowledged } from '../../../../features/forms/form-state';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { hydratedPost, moveOn } from '../../../../server/form-action';
 import {
@@ -154,39 +153,13 @@ export async function saveRoomSettingsAction(
   state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
-  const current = await roomAssembly(id);
-  if (current.kind !== 'found')
-    return refused(form, 'Settings are unavailable. Try again.');
-  const prepared = prepareSettings(current.view, form);
-  if (prepared.kind !== 'prepared')
-    return refused(
-      form,
-      prepared.kind === 'conflict'
-        ? 'The room changed. Review the latest room before saving.'
-        : 'These settings are not permitted. Check the values and try again.',
-    );
-  const command = new FormData();
-  for (const [name, value] of Object.entries(prepared.command))
-    command.set(
-      name,
-      typeof value === 'object' ? JSON.stringify(value) : String(value),
-    );
-  return aboutPosted(await submitRoomFormAction(id, state, command), form);
-}
-
-/** A settings answer keeps the form as posted, not the command built from it. */
-function aboutPosted(answer: RoomFormState, form: FormData): RoomFormState {
-  switch (answer.kind) {
-    case 'refused':
-      return refused(form, answer.error);
-    case 'unacknowledged':
-      return unacknowledged(form);
-    case 'idle':
-    case 'done':
-    case 'moved':
-    case 'accepted':
-      return answer;
-  }
+  return saveSettings(
+    {
+      read: () => roomAssembly(id),
+      submit: (command) => submitRoomFormAction(id, state, command),
+    },
+    form,
+  );
 }
 
 /** Client consent recovery uses canonical commands without tearing down preview tracks. */

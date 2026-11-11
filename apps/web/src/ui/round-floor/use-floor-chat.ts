@@ -65,7 +65,8 @@ export function useFloorChat({
     thread?.history ?? null,
     channelId ? props.socketUrl : null,
   );
-  const hidden = live.status === 'hidden' || !floor;
+  const withdrawn = live.status === 'hidden';
+  const hidden = withdrawn || !floor || floor.hidden;
   const mayOpen = !props.readOnlyHint;
   const enter = useCallback(
     () => send({ type: 'enter-requested', mayOpen }),
@@ -82,9 +83,12 @@ export function useFloorChat({
   useEffect(() => {
     if (active && state.kind === 'idle') enter();
   }, [active, state.kind, enter]);
+  const held = floor?.hidden ?? null;
   useEffect(() => {
-    if (live.status === 'hidden') send({ type: 'floor-hidden' });
-  }, [live.status, send]);
+    // A floor entered again starts shown, whatever the live channel still says.
+    if (held !== null && held !== withdrawn)
+      send({ type: withdrawn ? 'floor-hidden' : 'floor-shown' });
+  }, [held, withdrawn, send]);
   const history = hidden ? null : live.body;
   const { messages, before } = history
     ? floorPagedHistory(history, thread?.older ?? null)
@@ -123,7 +127,11 @@ export function useFloorChat({
   const pending =
     state.kind === 'idle' ||
     state.kind === 'loading' ||
-    (state.kind === 'ready' && !history && !notice && !hidden);
+    (floor !== null &&
+      floor.reads.latest.length > 0 &&
+      !history &&
+      !notice &&
+      !hidden);
   return {
     state,
     authors,

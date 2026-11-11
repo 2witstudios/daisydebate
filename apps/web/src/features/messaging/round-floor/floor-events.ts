@@ -39,6 +39,8 @@ export type FloorEvent =
     }
   /** The live channel says this reader may no longer see the floor. */
   | { readonly type: 'floor-hidden' }
+  /** The live channel lets this reader see the floor again. */
+  | { readonly type: 'floor-shown' }
   | { readonly type: 'messages-shown'; readonly sequence: number }
   | {
       readonly type: 'read-marked';

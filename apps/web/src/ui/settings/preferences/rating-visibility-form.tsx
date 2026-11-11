@@ -1,14 +1,14 @@
 'use client';
 
 import type { RatingVisibility } from '@daisy/protocol';
+import {
+  initialSaveForm,
+  saveNotice,
+  saveRefused,
+  type SaveFormState,
+} from '../../../features/forms/save-form';
 import { Button } from '../../components/button/button';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
-
-export type RatingVisibilityState = { readonly notice?: string };
-
-const unavailable = (): RatingVisibilityState => ({
-  notice: 'Could not save. Try again.',
-});
 
 /**
  * Which ratings your card shows when people look at you (ADR 0103). Freestyle
@@ -18,10 +18,15 @@ export function RatingVisibilityForm({
   action,
   visibility,
 }: {
-  readonly action: FormAction<RatingVisibilityState>;
+  readonly action: FormAction<SaveFormState>;
   readonly visibility: Pick<RatingVisibility, 'showPolicy' | 'showValue'>;
 }) {
-  const [answer, post, pending] = useFormAction(action, {}, unavailable);
+  const [answer, post, pending] = useFormAction(
+    action,
+    initialSaveForm,
+    saveRefused,
+  );
+  const notice = saveNotice(answer);
   return (
     <form action={post} className="flex flex-col gap-3">
       <label className="flex items-center gap-2 text-base text-ink">
@@ -47,9 +52,9 @@ export function RatingVisibilityForm({
         <Button type="submit" variant="secondary" disabled={pending}>
           Save
         </Button>
-        {answer.notice ? (
+        {notice ? (
           <p role="status" className="text-sm text-ink-muted">
-            {answer.notice}
+            {notice}
           </p>
         ) : null}
       </div>

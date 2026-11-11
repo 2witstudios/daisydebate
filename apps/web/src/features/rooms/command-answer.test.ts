@@ -88,7 +88,7 @@ test('a room command whose answer was lost is never called refused or accepted',
   });
 });
 
-test('a room edit whose answer was lost keeps the form as posted', () => {
+test('a room edit whose answer was lost keeps what was typed for a new save', () => {
   const form = new FormData();
   form.set('commandId', 'c'.repeat(24));
   form.set('expectedVersion', '3');
@@ -100,18 +100,14 @@ test('a room edit whose answer was lost keeps the form as posted', () => {
   assert({
     given: 'a details save the room never answered',
     should:
-      'keep the typed fields with their command identifier and say the save may have landed',
+      'keep the typed fields without the lost save’s command identifier or version, and say the save may have landed and what saving again does',
     actual: [answer.kind, roomEditFields(answer)],
     expected: [
       'unacknowledged',
       {
-        values: {
-          commandId: 'c'.repeat(24),
-          expectedVersion: '3',
-          title: 'Typed title',
-        },
+        values: { title: 'Typed title' },
         error:
-          'These changes may have been saved. Review the latest room before saving again.',
+          'These changes may have been saved. Check the latest room: saving again applies what is typed here to it.',
       },
     ],
   });

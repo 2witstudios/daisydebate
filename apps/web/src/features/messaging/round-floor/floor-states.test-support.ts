@@ -193,7 +193,24 @@ export const everyState = (): readonly Built[] => [
     floor.open();
     return { latest: floor.requestOf('read-latest') };
   }),
+  build('ready, no page, a read failed', (floor) => {
+    floor.open();
+    floor.send({
+      type: 'read-refused',
+      request: floor.requestOf('read-latest'),
+      read: 'latest',
+      denied: false,
+    });
+  }),
+  build('ready, no page, hidden', (floor) => {
+    floor.open();
+    floor.send({ type: 'floor-hidden' });
+  }),
   build('ready', (floor) => floor.read()),
+  build('ready, hidden', (floor) => {
+    floor.read();
+    floor.send({ type: 'floor-hidden' });
+  }),
   build('ready, refreshing', (floor) => {
     floor.read();
     floor.send({ type: 'refresh-requested' });
@@ -281,6 +298,7 @@ export const everyEvent = (
     ),
   ),
   ['floor-hidden', { type: 'floor-hidden' }],
+  ['floor-shown', { type: 'floor-shown' }],
   ['messages-shown', { type: 'messages-shown', sequence: 9 }],
   ['read-marked', { type: 'read-marked', request: inFlight.mark, sequence: 7 }],
   ['read-mark-failed', { type: 'read-mark-failed', request: inFlight.mark }],
@@ -301,7 +319,14 @@ const standingShape = (standing: FloorStanding): string => {
       const { thread } = standing;
       return [
         'ready',
-        ...(thread ? [] : ['first page on its way']),
+        ...(thread
+          ? []
+          : [
+              standing.reads.latest.length > 0
+                ? 'first page on its way'
+                : 'no page',
+            ]),
+        ...(standing.hidden ? ['hidden'] : []),
         ...(standing.metadata.readOnly ? ['read-only'] : []),
         ...(standing.expired ? ['expired'] : []),
         ...(standing.notice ? ['a read failed'] : []),

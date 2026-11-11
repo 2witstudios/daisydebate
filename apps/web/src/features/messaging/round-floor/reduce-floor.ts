@@ -3,6 +3,7 @@ import type { FloorState } from './floor-state';
 import { rejected, stand, type Event, type FloorStep } from './floor-step';
 import { discovered, enter, entryRefused, opened } from './reduce-floor-entry';
 import {
+  askLatest,
   askOlder,
   latestRead,
   olderRead,
@@ -12,21 +13,25 @@ import {
 
 const hide = (state: FloorState): FloorStep => {
   const floor = state.standing;
-  if (floor.kind !== 'ready') return rejected(state);
-  const { thread, settled } = floor;
-  const nothingToDrop =
-    settled.latest === state.requests &&
-    settled.older === state.requests &&
-    floor.marking === null &&
-    (!thread || (thread.older === null && thread.paging === null));
-  if (nothingToDrop) return rejected(state);
+  if (floor.kind !== 'ready' || floor.hidden) return rejected(state);
+  const { thread } = floor;
   return stand(state, {
     ...floor,
+    hidden: true,
     marking: null,
-    settled: { latest: state.requests, older: state.requests },
-    // Older text was read under access that is gone; it needs a fresh protected read.
+    // Whatever was asked under the access that is gone may not answer.
+    reads: { latest: [], older: [] },
+    // Older text was read under that access too; it needs a fresh protected read.
     thread: thread && { ...thread, older: null, paging: null },
   });
+};
+
+/** Being shown again asks for the latest page afresh: hiding dropped whatever was on its way. */
+const show = (state: FloorState): FloorStep => {
+  const floor = state.standing;
+  return floor.kind === 'ready' && floor.hidden
+    ? askLatest(state, { ...floor, hidden: false })
+    : rejected(state);
 };
 
 const messagesShown = (
@@ -36,6 +41,7 @@ const messagesShown = (
   const floor = state.standing;
   if (
     floor.kind !== 'ready' ||
+    floor.hidden ||
     event.sequence <= floor.readSequence ||
     floor.marking?.sequence === event.sequence
   )
@@ -118,6 +124,8 @@ export function reduceFloor(state: FloorState, event: FloorEvent): FloorStep {
       return readRefused(state, event);
     case 'floor-hidden':
       return hide(state);
+    case 'floor-shown':
+      return show(state);
     case 'messages-shown':
       return messagesShown(state, event);
     case 'read-marked':

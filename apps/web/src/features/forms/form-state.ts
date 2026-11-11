@@ -9,8 +9,9 @@
  *   may seed the fields). `refused`: `values` to render again beside `error`.
  *   `done`: accepted, and the page stays where it is. `moved`: accepted, and
  *   the page goes to `next`. `unacknowledged`: the answer was lost, so the
- *   post may have been recorded; `values` are the original fields, which the
- *   retry posts unchanged.
+ *   post may have been recorded; `values` are the original fields. A command
+ *   that is safe to replay retries them unchanged; a form that cannot replay
+ *   (a Room's settings) says to check what was saved and posts afresh.
  * - A form composes its state from these and adds its own accepted variants
  *   beside them (the ballot's `recorded` with its receipt, a Room's
  *   `accepted` with its view). It reuses a shared `kind` only with the shared
@@ -50,17 +51,20 @@ export type FormFields = {
 
 const noValues: FormValues = {};
 
-export const idle = (values: FormValues = noValues): Idle => ({
-  kind: 'idle',
-  values,
-});
+/** `values` keep the form's own field names, so its module narrows nothing by hand. */
+export function idle(): Idle;
+export function idle<V extends FormValues>(
+  values: V,
+): Idle & { readonly values: V };
+export function idle(values: FormValues = noValues): Idle {
+  return { kind: 'idle', values };
+}
 export const initialFormState: FormState = idle();
 
-export const refusedWith = (values: FormValues, error: string): Refused => ({
-  kind: 'refused',
-  values,
-  error,
-});
+export const refusedWith = <V extends FormValues>(
+  values: V,
+  error: string,
+): Refused & { readonly values: V } => ({ kind: 'refused', values, error });
 export const done: Done = { kind: 'done' };
 export const moved = (next: string): Moved => ({ kind: 'moved', next });
 export const unacknowledged = (form: FormData): Unacknowledged => ({

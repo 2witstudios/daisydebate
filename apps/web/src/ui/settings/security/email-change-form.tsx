@@ -7,10 +7,9 @@ import {
   useFormAction,
 } from '../../form-action/form-action';
 import {
-  emailChangeNotice,
+  emailChangeFields,
   emailChangeUnavailable,
   initialEmailChange,
-  refusesNewAddress,
   type EmailChangeState,
 } from './email-change-state';
 
@@ -41,8 +40,9 @@ export function EmailChangeForm({
     emailChangeUnavailable,
   );
   useFocusAfterAnswer(answered, FIELD_ID, !pending);
-  const notice = pending ? undefined : emailChangeNotice(answered);
-  const refused = notice !== undefined && refusesNewAddress(answered);
+  const fields = emailChangeFields(answered);
+  const notice = pending ? undefined : fields.notice;
+  const refused = notice !== undefined && fields.refusesNewAddress;
   return (
     <form action={post} className="flex flex-col items-start gap-3">
       <label htmlFor={FIELD_ID}>New email address</label>
@@ -52,7 +52,7 @@ export function EmailChangeForm({
         type="email"
         required
         autoComplete="email"
-        defaultValue={answered.newEmail}
+        defaultValue={fields.newEmail}
         disabled={pending}
         aria-invalid={refused ? true : undefined}
         aria-describedby={refused ? NOTICE_ID : undefined}

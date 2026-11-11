@@ -2,6 +2,7 @@ import type {
   FloorState,
   FloorThread,
   OpenFloor,
+  OutstandingReads,
   ReadKind,
 } from './floor-state';
 import {
@@ -15,44 +16,78 @@ import {
 import { mergeFloorMessages } from './history';
 import type { FloorPageRead } from './view';
 
-/** The open floor, when this read was asked of it and no later one of its kind has been applied. */
+/** The open floor, when a read of this kind is on its way to it under this request. */
 const awaiting = (
   state: FloorState,
   request: number,
   kind: ReadKind,
 ): OpenFloor | null =>
   state.standing.kind === 'ready' &&
-  request > state.standing.settled[kind] &&
-  request <= state.requests
+  state.standing.reads[kind].includes(request)
     ? state.standing
     : null;
 
-export const refresh = (state: FloorState): FloorStep => {
-  if (state.standing.kind !== 'ready') return rejected(state);
+const asked = (
+  reads: OutstandingReads,
+  kind: ReadKind,
+  request: number,
+): OutstandingReads => ({ ...reads, [kind]: [...reads[kind], request] });
+
+/** An applied read answers for every earlier one of its kind; later ones may still apply. */
+const applied = (
+  reads: OutstandingReads,
+  kind: ReadKind,
+  request: number,
+): OutstandingReads => ({
+  ...reads,
+  [kind]: reads[kind].filter((earlier) => earlier > request),
+});
+
+/** A failed read answers for itself alone: an earlier one may still apply. */
+const failed = (
+  reads: OutstandingReads,
+  kind: ReadKind,
+  request: number,
+): OutstandingReads => ({
+  ...reads,
+  [kind]: reads[kind].filter((other) => other !== request),
+});
+
+/** Asks for the floor's latest page under a request of its own. */
+export const askLatest = (state: FloorState, floor: OpenFloor): FloorStep => {
   const request = state.requests + 1;
   return {
-    state: { ...state, requests: request },
+    state: {
+      requests: request,
+      standing: { ...floor, reads: asked(floor.reads, 'latest', request) },
+    },
     effects: [
-      {
-        type: 'read-latest',
-        request,
-        channelId: state.standing.metadata.channelId,
-      },
+      { type: 'read-latest', request, channelId: floor.metadata.channelId },
     ],
   };
 };
+
+export const refresh = (state: FloorState): FloorStep =>
+  state.standing.kind === 'ready'
+    ? askLatest(state, state.standing)
+    : rejected(state);
 
 export const askOlder = (
   state: FloorState,
   event: Event<'older-requested'>,
 ): FloorStep => {
   const floor = state.standing;
-  if (floor.kind !== 'ready' || !floor.thread) return rejected(state);
+  if (floor.kind !== 'ready' || floor.hidden || !floor.thread)
+    return rejected(state);
   const request = state.requests + 1;
   return {
     state: {
       requests: request,
-      standing: { ...floor, thread: { ...floor.thread, paging: request } },
+      standing: {
+        ...floor,
+        reads: asked(floor.reads, 'older', request),
+        thread: { ...floor.thread, paging: request },
+      },
     },
     effects: [
       {
@@ -84,7 +119,7 @@ export const latestRead = (state: FloorState, event: Event<'latest-read'>) => {
       expired: expiryMoved ? false : floor.expired,
       notice: null,
       readSequence: Math.max(floor.readSequence, page.viewer.readSequence),
-      settled: { ...floor.settled, latest: event.request },
+      reads: applied(floor.reads, 'latest', event.request),
       thread: {
         // A live change may already have moved the history past this read.
         history:
@@ -122,7 +157,7 @@ export const olderRead = (state: FloorState, event: Event<'older-read'>) => {
     ...floor,
     notice: null,
     readSequence: Math.max(floor.readSequence, page.viewer.readSequence),
-    settled: { ...floor.settled, older: event.request },
+    reads: applied(floor.reads, 'older', event.request),
     thread: {
       ...thread,
       authors: [...thread.authors, ...page.authors],
@@ -151,10 +186,10 @@ export const readRefused = (
     return stand(state, { kind: 'denied', kept: keptOf(floor) }, [
       stopWatching,
     ]);
-  // A failed read settles nothing: an earlier one may still answer.
   return stand(state, {
     ...floor,
     notice: 'read-failed',
+    reads: failed(floor.reads, event.read, event.request),
     thread: floor.thread && answered(floor.thread, event.request),
   });
 };

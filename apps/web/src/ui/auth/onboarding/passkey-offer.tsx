@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer } from 'react';
 import { useRouter } from 'next/navigation';
+import { destinationOf } from '../../../features/forms/form-state';
 import { authClient } from '../../../lib/auth-client';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
 import { SavePasskey } from '../save-passkey/save-passkey';
@@ -61,13 +62,14 @@ export function PasskeyOffer({
   useEffect(() => {
     if (state.step === 'done') window.location.assign(destination);
   }, [state.step, destination]);
+  const declinedTo = destinationOf(declined);
   useEffect(() => {
-    if (declined.next !== undefined)
-      replaceRoute(router, browserDocument(), declined.next);
-  }, [declined.next, router]);
+    if (declinedTo !== undefined)
+      replaceRoute(router, browserDocument(), declinedTo);
+  }, [declinedTo, router]);
 
   if (state.step === 'done') return null;
-  const pending = state.saving || declining || declined.next !== undefined;
+  const pending = state.saving || declining || declinedTo !== undefined;
   return (
     <SavePasskey
       username={username}

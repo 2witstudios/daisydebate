@@ -24,6 +24,17 @@ export const onboardingSteps: readonly OnboardingStep[] = flow.map(
   ({ step }) => step,
 );
 
+/**
+ * How many steps show a count: every step but the send-off. The count is of
+ * the whole flow for every member, so one whose age passes over the optional
+ * answers goes from the third of six to the send-off.
+ */
+export const numberedSteps = onboardingSteps.length - 1;
+
+/** A step's 1-based place in the flow, or null on the send-off, which shows no count. */
+export const stepNumber = (step: OnboardingStep): number | null =>
+  step === sendOff.step ? null : onboardingSteps.indexOf(step) + 1;
+
 const asksOptionalAnswers = (step: OnboardingStep): boolean =>
   flow.some((entry) => entry.step === step && entry.asksOptionalAnswers);
 

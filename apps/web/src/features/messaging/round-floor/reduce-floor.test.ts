@@ -555,3 +555,163 @@ test('a page for another channel is not this floor’s', () => {
     expected: true,
   });
 });
+
+test('a floor hidden before its first page reads it once shown again', () => {
+  const floor = floorDriver();
+  floor.open();
+  const first = floor.requestOf('read-latest');
+  floor.send({ type: 'floor-hidden' });
+  const dropped = floor.send({
+    type: 'latest-read',
+    request: first,
+    page: pageRead(),
+  });
+  const hidden = openFloor(floor);
+  const shown = floor.send({ type: 'floor-shown' });
+  const awaited = openFloor(floor);
+  const again = floor.send({ type: 'floor-shown' });
+  const page = pageRead({ messages: [message(3)] });
+  floor.send({
+    type: 'latest-read',
+    request: floor.requestOf('read-latest'),
+    page,
+  });
+  assert({
+    given:
+      'a floor hidden while its first page was on its way, the dropped page answering, then the floor shown twice',
+    should:
+      'hold no page and wait for none while hidden, ask for the latest page once when shown, and hold what that read brings',
+    actual: {
+      droppedRejected: dropped.state.standing === hidden,
+      hidden: [hidden.hidden, hidden.thread, hidden.reads],
+      asked: shown.effects,
+      awaited: [awaited.hidden, awaited.thread, awaited.reads],
+      againRejected:
+        again.state.standing === awaited && again.effects.length === 0,
+      history: openFloor(floor).thread?.history,
+      reads: openFloor(floor).reads,
+    },
+    expected: {
+      droppedRejected: true,
+      hidden: [true, null, { latest: [], older: [] }],
+      asked: [{ type: 'read-latest', request: first + 1, channelId }],
+      awaited: [false, null, { latest: [first + 1], older: [] }],
+      againRejected: true,
+      history: page.history,
+      reads: { latest: [], older: [] },
+    },
+  });
+});
+
+test('a floor that was never hidden is not shown again', () => {
+  const floor = floorDriver();
+  floor.read();
+  const state = floor.state();
+  const step = floor.send({ type: 'floor-shown' });
+  assert({
+    given: 'an open floor the live channel never hid, told it is shown',
+    should: 'change nothing and ask nothing',
+    actual: step.state === state && step.effects.length === 0,
+    expected: true,
+  });
+});
+
+test('a hidden floor marks nothing read and pages nothing older', () => {
+  const floor = floorDriver();
+  floor.read(pageRead({ messages: [message(9)], before: 9 }));
+  floor.send({ type: 'floor-hidden' });
+  const hidden = floor.state();
+  const steps = [
+    floor.send({ type: 'messages-shown', sequence: 9 }),
+    floor.send({ type: 'older-requested', before: 9 }),
+  ];
+  assert({
+    given: 'a hidden floor told messages were shown and asked for older ones',
+    should: 'change nothing and ask nothing',
+    actual: steps.every(
+      (step) => step.state === hidden && step.effects.length === 0,
+    ),
+    expected: true,
+  });
+});
+
+test('an answer applies only to a read of its own kind', () => {
+  const floor = floorDriver();
+  floor.read();
+  floor.send({ type: 'messages-shown', sequence: 7 });
+  const mark = floor.requestOf('mark-read');
+  const page = older(floor);
+  const latest = refresh(floor);
+  const state = floor.state();
+  const crossed = [
+    floor.send({
+      type: 'latest-read',
+      request: mark,
+      page: pageRead({ metadata: { readOnly: true } }),
+    }),
+    floor.send({
+      type: 'read-refused',
+      request: mark,
+      read: 'older',
+      denied: true,
+    }),
+    floor.send({ type: 'older-read', request: latest, page: pageRead() }),
+    floor.send({
+      type: 'read-refused',
+      request: latest,
+      read: 'older',
+      denied: true,
+    }),
+    floor.send({ type: 'latest-read', request: page, page: pageRead() }),
+    floor.send({
+      type: 'read-refused',
+      request: page,
+      read: 'latest',
+      denied: false,
+    }),
+    floor.send({ type: 'read-marked', request: latest, sequence: 7 }),
+    floor.send({ type: 'read-mark-failed', request: page }),
+  ];
+  assert({
+    given:
+      'a read marker, an older page and a latest page on their way, each answered under another kind’s request',
+    should: 'return the same state and ask nothing, every time',
+    actual: {
+      unmoved: crossed.map(
+        (step) => step.state === state && step.effects.length === 0,
+      ),
+      reads: openFloor(floor).reads,
+    },
+    expected: {
+      unmoved: crossed.map(() => true),
+      reads: { latest: [latest], older: [page] },
+    },
+  });
+});
+
+test('a failed read cannot answer twice', () => {
+  const floor = floorDriver();
+  floor.read();
+  const request = refresh(floor);
+  const refusal = {
+    type: 'read-refused',
+    request,
+    read: 'latest',
+    denied: false,
+  } as const;
+  floor.send(refusal);
+  const failed = floor.state();
+  const steps = [
+    floor.send(refusal),
+    floor.send({ ...refusal, denied: true }),
+    floor.send({ type: 'latest-read', request, page: pageRead() }),
+  ];
+  assert({
+    given: 'a read that failed, answering again as failed, denied and read',
+    should: 'change nothing: the request is no longer on its way',
+    actual: steps.every(
+      (step) => step.state === failed && step.effects.length === 0,
+    ),
+    expected: true,
+  });
+});

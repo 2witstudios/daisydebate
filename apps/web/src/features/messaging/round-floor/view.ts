@@ -34,6 +34,22 @@ export const parseFloorDiscovery = (value: unknown, roundId: string) => {
     ? result.data
     : null;
 };
+const readMarkSchema = z.strictObject({
+  version: z.literal(1),
+  channelId: idSchema,
+  // How far the marker may be believed is the floor model's to decide.
+  sequence: z.number(),
+});
+/** The sequence the route says it marked read, for this channel alone. */
+export const parseFloorReadMark = (
+  value: unknown,
+  channelId: string,
+): number | null => {
+  const result = readMarkSchema.safeParse(value, { jitless: true });
+  return result.success && result.data.channelId === channelId
+    ? result.data.sequence
+    : null;
+};
 export async function readFloorResponse(
   response: Response,
   roundId: string,

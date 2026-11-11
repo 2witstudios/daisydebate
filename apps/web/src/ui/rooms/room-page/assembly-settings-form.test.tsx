@@ -10,6 +10,13 @@ import {
   type RoomConfig,
 } from '@daisy/protocol';
 import { prepareSettings } from '../../../features/rooms/prepare-settings';
+import { saveSettings } from '../../../features/rooms/save-settings';
+import {
+  commandUnavailable,
+  roomAccepted,
+  roomEditFields,
+} from '../../../features/rooms/command-answer';
+import type { FormFields } from '../../../features/forms/form-state';
 
 setupRitewayBun();
 
@@ -182,5 +189,73 @@ test('the basics come first and the full rules sit behind one disclosure', () =>
       html.includes('step="0.001"'),
     ],
     expected: [true, true, true, true, true, false, false],
+  });
+});
+
+test('a settings save whose answer was lost is saved again as a new command on the latest room', async () => {
+  const posted = (
+    view: typeof assemblySnapshot,
+    commandId: string,
+    state: FormFields,
+  ) => {
+    const form = nativeInputFields(
+      renderToStaticMarkup(
+        <AssemblySettingsFields
+          view={view}
+          commandId={commandId}
+          state={state}
+          pending={false}
+        />,
+      ),
+    );
+    form.set('interruptionsMode', 'disabled');
+    form.set('yield', 'off');
+    return form;
+  };
+  const recorded = { ...assemblySnapshot, version: 4, changeVersion: 4 };
+  const commands: (readonly [unknown, unknown])[] = [];
+  const lost = await saveSettings(
+    {
+      read: async () => ({ kind: 'found', view: assemblySnapshot }),
+      submit: async (command) => commandUnavailable(command),
+    },
+    posted(assemblySnapshot, 'a'.repeat(24), { values: {}, error: undefined }),
+  );
+  const shown = roomEditFields(lost);
+  const again = await saveSettings(
+    {
+      read: async () => ({ kind: 'found', view: recorded }),
+      submit: async (command) => {
+        commands.push([
+          command.get('commandId'),
+          command.get('expectedVersion'),
+        ]);
+        return roomAccepted(recorded);
+      },
+    },
+    posted(recorded, 'b'.repeat(24), shown),
+  );
+  assert({
+    given:
+      'a save at version three that the room recorded as version four and whose answer was lost, then the same form saved again once room sync has shown version four',
+    should:
+      'keep what was typed without the first save’s command identifier or version, and post a new command against version four, which the room accepts',
+    actual: [
+      lost.kind,
+      'commandId' in shown.values || 'expectedVersion' in shown.values,
+      shown.values['duration.countdown'],
+      commands,
+      again.kind,
+    ],
+    expected: [
+      'unacknowledged',
+      false,
+      posted(assemblySnapshot, 'a'.repeat(24), {
+        values: {},
+        error: undefined,
+      }).get('duration.countdown'),
+      [['b'.repeat(24), '4']],
+      'accepted',
+    ],
   });
 });

@@ -27,10 +27,8 @@ export type BlockChanged = {
 /** What the block-by-username form's action answers. */
 export type BlockFormState = BlockIdle | BlockRefused | BlockChanged;
 
-export const initialBlockForm = (requestId: string): BlockFormState => ({
-  kind: 'idle',
-  values: { requestId, username: '' },
-});
+export const initialBlockForm = (requestId: string): BlockFormState =>
+  idle({ requestId, username: '' });
 
 export const blockChanged = (
   values: BlockValues,
@@ -71,17 +69,16 @@ export function parseBlockForm(input: unknown) {
 }
 export function blockFormUnavailable(input: FormData): BlockRefused {
   const username = input.get('username');
-  return {
-    kind: 'refused',
-    values: {
+  return refusedWith(
+    {
       requestId:
         typeof input.get('requestId') === 'string'
           ? String(input.get('requestId'))
           : '',
       username: typeof username === 'string' ? username : '',
     },
-    error: 'Could not change this contact. Your username is kept; try again.',
-  };
+    'Could not change this contact. Your username is kept; try again.',
+  );
 }
 
 /** The people list's one-button block: its answer, and whether to close. */

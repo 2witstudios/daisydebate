@@ -143,8 +143,8 @@ export function createConnectionStore(
     } catch {
       // The socket may already be closing; nothing to react to.
     }
-    notify();
     scheduleReconnect('standard');
+    notify();
   }
   function scheduleHeartbeatTick(myGeneration: number) {
     heartbeatTimer = deps.scheduler.setTimeout(() => {
@@ -172,6 +172,7 @@ export function createConnectionStore(
     scheduleHeartbeatTick(myGeneration);
   }
 
+  // Called before the `reconnecting` notice: a listener that leaves, disposes or connects on it clears only a timer already armed.
   function scheduleReconnect(kind: 'standard' | 'rate-limited' | 'immediate') {
     reconnectAttempt += 1;
     const delayMs = nextReconnectDelayMs({
@@ -244,8 +245,8 @@ export function createConnectionStore(
       authorityFailures += 1;
     }
     advance({ type: 'socket-closed', terminal: decision.terminal });
-    notify();
     if (decision.reconnect) scheduleReconnect(decision.backoffKind);
+    notify();
   }
 
   function connect() {

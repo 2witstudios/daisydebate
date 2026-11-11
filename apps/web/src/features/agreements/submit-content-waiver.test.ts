@@ -2,10 +2,10 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../rooms/assembly.test-support';
 import {
   contentWaiverAnswer,
+  contentWaiverFields,
   submitContentWaiver,
 } from './submit-content-waiver';
 import { destinationOf, moved } from '../forms/form-state';
-import { roomFormFields } from '../rooms/command-answer';
 
 setupRitewayBun();
 
@@ -66,7 +66,7 @@ describe('submitting the content waiver', () => {
     assert({
       given: 'a refusal on a hydrated page',
       should: 'keep the form with a fixed error',
-      actual: roomFormFields(
+      actual: contentWaiverFields(
         contentWaiverAnswer('refused', 'room', form(), edge),
       ).error,
       expected: 'The waiver was not signed. Review it and try again.',
@@ -90,5 +90,28 @@ describe('submitting the content waiver', () => {
       }),
       expected: { kind: 'done' },
     });
+  });
+});
+
+test('a waiver whose answer was lost says its own thing, not a command’s', () => {
+  const posted = new FormData();
+  posted.set('version', 'draft-1');
+  posted.set('accepted', 'yes');
+  assert({
+    given: 'a signature whose answer was lost, on a hydrated page',
+    should:
+      'say the signature may have been recorded and that signing again is safe, promising nothing about a command',
+    actual: contentWaiverFields(
+      contentWaiverAnswer('unavailable', 'room', posted, {
+        hydrated: true,
+        view: null,
+        move: moved,
+      }),
+    ),
+    expected: {
+      values: { version: 'draft-1', accepted: 'yes' },
+      error:
+        'Your signature may have been recorded. Signing again is safe: a season’s waiver is signed once, however often it is sent.',
+    },
   });
 });

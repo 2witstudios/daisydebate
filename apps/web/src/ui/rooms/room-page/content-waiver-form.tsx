@@ -1,17 +1,22 @@
+'use client';
+
 import Link from 'next/link';
 import {
   CONTENT_WAIVER_VERSION,
   contentWaiverDocument,
 } from '../../../features/legal/agreements';
+import { contentWaiverFields } from '../../../features/agreements/submit-content-waiver';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { buttonClass } from '../../components/button/button-class';
 import type { FormAction } from '../../form-action/form-action';
-import { AssemblyCommandForm } from './assembly-command-form';
+import { RoomAnswerForm } from './assembly-command-form';
 
 /**
  * The season's content waiver, signed in place before Ready (WATCH-15). A
  * native form with a required box: it works without JavaScript, and the server
- * refuses a post without the tick.
+ * refuses a post without the tick. The waiver stays on screen whatever the
+ * answer: when one is lost the member signs again, which is the same
+ * signature.
  */
 export function ContentWaiverForm({
   action,
@@ -19,7 +24,11 @@ export function ContentWaiverForm({
   readonly action: FormAction<RoomFormState>;
 }) {
   return (
-    <AssemblyCommandForm action={action} className="w-full">
+    <RoomAnswerForm
+      action={action}
+      fields={contentWaiverFields}
+      className="w-full"
+    >
       <section
         aria-labelledby="content-waiver-title"
         className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3"
@@ -58,6 +67,6 @@ export function ContentWaiverForm({
           Sign waiver
         </button>
       </section>
-    </AssemblyCommandForm>
+    </RoomAnswerForm>
   );
 }

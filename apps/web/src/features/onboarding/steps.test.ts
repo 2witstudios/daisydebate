@@ -5,6 +5,7 @@ import {
   introductionHref,
   nextStep,
   nextStepHref,
+  numberedSteps,
   onboardingStepHref,
   onboardingSteps,
   optionalAnswersBearOn,
@@ -12,6 +13,7 @@ import {
   previousStepHref,
   sendOffHref,
   stepAdmits,
+  stepNumber,
   type OnboardingStep,
 } from './steps';
 
@@ -186,5 +188,29 @@ describe('onboarding step links', () => {
         '/lobby?tab=a',
       ],
     });
+  });
+});
+
+test('each step is numbered by its place in the flow, and the send-off shows no count', () => {
+  assert({
+    given: 'every step in flow order',
+    should:
+      'number the steps before the send-off from one, give the send-off no number, and count the numbered steps',
+    actual: [
+      onboardingSteps.map((step) => [step, stepNumber(step)]),
+      numberedSteps,
+    ],
+    expected: [
+      [
+        ['daisy', 1],
+        ['styles', 2],
+        ['debate', 3],
+        ['about', 4],
+        ['experience', 5],
+        ['topics', 6],
+        ['ready', null],
+      ],
+      6,
+    ],
   });
 });

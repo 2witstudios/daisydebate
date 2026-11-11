@@ -11,6 +11,7 @@ import { reduceFloor } from '../../features/messaging/round-floor/reduce-floor';
 import {
   parseFloorDiscovery,
   parseFloorMetadata,
+  parseFloorReadMark,
   readFloorResponse,
 } from '../../features/messaging/round-floor/view';
 
@@ -119,18 +120,13 @@ export function createFloorDriver(roundId: string) {
         `${base!}/read`,
         json({ version: 1, channelId, cursor: { channelId, sequence } }),
       );
-      const value: unknown = response.ok ? await response.json() : null;
-      const marked = value as {
-        readonly version?: unknown;
-        readonly channelId?: unknown;
-        readonly sequence?: unknown;
-      } | null;
+      const marked = response.ok
+        ? parseFloorReadMark(await response.json(), channelId)
+        : null;
       send(
-        marked?.version === 1 &&
-          marked.channelId === channelId &&
-          typeof marked.sequence === 'number'
-          ? { type: 'read-marked', request, sequence: marked.sequence }
-          : { type: 'read-mark-failed', request },
+        marked === null
+          ? { type: 'read-mark-failed', request }
+          : { type: 'read-marked', request, sequence: marked },
       );
     } catch {
       send({ type: 'read-mark-failed', request });

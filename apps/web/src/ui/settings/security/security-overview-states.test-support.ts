@@ -44,6 +44,7 @@ const READ: SecurityLists = {
 };
 
 const LISTS: Readonly<Record<string, SecurityLists>> = {
+  unasked: { kind: 'unasked' },
   loading: { kind: 'loading', version: 7 },
   read: READ,
   rereading: { ...READ, rereading: 7 },
@@ -206,8 +207,8 @@ export const stepShape = (
   effects: readonly SecurityOverviewEffect[],
 ): string =>
   [
-    lists.kind === 'loading'
-      ? 'loading'
+    lists.kind !== 'read'
+      ? lists.kind
       : `${lists.rereading === null ? 'read' : 'rereading'} ${rowsOf(lists.passkeys)} ${rowsOf(lists.sessions)}`,
     signOut.kind === 'asking' && signOut.saidBefore !== null
       ? 'asking-again'

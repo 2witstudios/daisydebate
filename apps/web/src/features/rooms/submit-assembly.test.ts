@@ -193,3 +193,40 @@ test('only an answer that never arrived whole is unknown; a refusal is a refusal
     ],
   });
 });
+
+test('a refusal the Room names is a refusal whatever status carries it', async () => {
+  const answered = (send: () => Promise<Response>) =>
+    submitAssembly(send, assemblySnapshot.id, readyForm());
+  assert({
+    given:
+      'a Launch refused before anything was recorded because readiness cannot be read, sent as a 503; then server faults whose bodies name no refusal, an unknown one, and none at all',
+    should:
+      'call the first refused with its reason, and the rest unavailable, since only they may have been recorded',
+    actual: await Promise.all([
+      answered(async () =>
+        Response.json(
+          {
+            error: { code: 'INFRASTRUCTURE' },
+            refusal: 'readiness-unavailable',
+          },
+          { status: 503 },
+        ),
+      ),
+      answered(async () =>
+        Response.json({ error: { code: 'INFRASTRUCTURE' } }, { status: 503 }),
+      ),
+      answered(async () =>
+        Response.json({ refusal: 'not-a-reason' }, { status: 500 }),
+      ),
+      answered(async () => Response.json({ refusal: null }, { status: 502 })),
+      answered(async () => new Response('not json', { status: 503 })),
+    ]),
+    expected: [
+      { kind: 'refused', reason: 'readiness-unavailable' },
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
+    ],
+  });
+});

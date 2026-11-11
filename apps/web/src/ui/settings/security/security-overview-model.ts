@@ -19,9 +19,12 @@ export type SecurityList<Row> =
 
 /**
  * The account's passkeys and sessions. Until a read has answered there are no
- * rows to hold, so lists never read cannot be mistaken for an account with none.
+ * rows to hold, so lists never read cannot be mistaken for an account with none;
+ * and until one has been asked for there is no read to answer.
  */
 export type SecurityLists =
+  /** The screen as it opens: no read asked yet, so no answer can land. */
+  | { readonly kind: 'unasked' }
   | {
       readonly kind: 'loading';
       /** The read whose answer these lists wait for. */
@@ -112,7 +115,7 @@ export const openingSecurityOverview = (
   /** A sign-out that did not happen before this screen opened. */
   signOutNotice?: string,
 ): SecurityOverview => ({
-  lists: { kind: 'loading', version: 0 },
+  lists: { kind: 'unasked' },
   signOut:
     signOutNotice === undefined
       ? { kind: 'idle' }
@@ -136,8 +139,16 @@ const listOf = <Row>(
     : { kind: 'unavailable', notice: OUTCOME_NOTICES[outcome.kind] };
 
 /** The version of the read in flight, if there is one. */
-export const readInFlight = ({ lists }: SecurityOverview): number | null =>
-  lists.kind === 'loading' ? lists.version : lists.rereading;
+export const readInFlight = ({ lists }: SecurityOverview): number | null => {
+  switch (lists.kind) {
+    case 'unasked':
+      return null;
+    case 'loading':
+      return lists.version;
+    case 'read':
+      return lists.rereading;
+  }
+};
 
 /** Starts a read under a new version; whatever was in flight is now stale. */
 const readAgain = (state: SecurityOverview): SecurityOverviewStep => {
@@ -147,9 +158,9 @@ const readAgain = (state: SecurityOverview): SecurityOverviewStep => {
       ...state,
       minted: version,
       lists:
-        state.lists.kind === 'loading'
-          ? { kind: 'loading', version }
-          : { ...state.lists, rereading: version },
+        state.lists.kind === 'read'
+          ? { ...state.lists, rereading: version }
+          : { kind: 'loading', version },
     },
     effects: [{ type: 'read', version }],
   };
@@ -173,7 +184,7 @@ const rowChanged = (
   state: SecurityOverview,
   change: (lists: ReadLists) => ReadLists,
 ): SecurityOverviewStep => {
-  if (state.lists.kind === 'loading') return rejected(state);
+  if (state.lists.kind !== 'read') return rejected(state);
   const lists = change(state.lists);
   if (state.lists.rereading !== null) return readAgain({ ...state, lists });
   return lists.passkeys === state.lists.passkeys &&
