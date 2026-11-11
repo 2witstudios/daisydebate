@@ -1,4 +1,4 @@
-import type { RecordingMedia } from '@daisy/protocol';
+import { startEdgeLagMs, type RecordingMedia } from '@daisy/protocol';
 import { outsideGaps } from './speech-timeline';
 
 type Gap = RecordingMedia['gaps'][number];
@@ -27,13 +27,21 @@ const SHORTEST_STATED_MS = 1000;
 export const ROOM_ROTATION_DROPOUT_MS = 5000;
 
 /**
- * A speech's public clip opens after its start by design (the public interval's
- * start-edge stamp lag, ADR 0099: 1300 ms plus 6 ms a minute of capture age) and the
- * encoder cuts near its end, about a second each way as measured on staging. Debate
- * lost at either end of the video is stated only beyond this, and a speech's opening
- * this long belongs to whatever came before it, a turnover or a private phase.
+ * The first public clip opens after the first speech by design (the public interval's
+ * start margin) and the encoder cuts near the last one's end, about a second each
+ * way as measured on staging. Debate lost at either end is stated only beyond this.
  */
 const EDGE_OF_SPEECH_MS = 2500;
+
+/**
+ * A speech's public clip opens past its start by the start-edge stamp lag (ADR 0099),
+ * which grows with the capture's age. The publisher counts that age from when the
+ * capture was opened, before its first frame, so the lag it used can exceed the one
+ * computed here from the first frame. This slack covers that, the worker's 100 ms
+ * piece tolerance and a probe's error. With no age the opening is 2.5 s, the same
+ * as `EDGE_OF_SPEECH_MS`.
+ */
+const OPENING_SLACK_MS = 1200;
 
 const NEVER_MS = Number.MAX_SAFE_INTEGER;
 
@@ -70,18 +78,19 @@ const split = (span: Span, windows: readonly Span[]) => {
 
 /**
  * Where the stage showed its slate by design, as committed history says: each
- * private stretch, and each turnover from a speech's end to the next one's opening.
- * Every window runs on through the opening of the speech after it.
+ * private stretch a committed segment follows, and each turnover from a closed
+ * segment's end to the next one's opening. Every window runs on through the opening
+ * of the speech after it. Nothing without a committed segment after it is a window,
+ * so an open segment, or time after the last, explains nothing: it fails closed.
  */
-const slateWindows = (facts: RoundCoverageFacts) => {
-  const opening = (endMs: number) =>
-    endMs === NEVER_MS ? NEVER_MS : endMs + EDGE_OF_SPEECH_MS;
+const slateWindows = (facts: RoundCoverageFacts, capturedFromMs: number) => {
+  const opening = (startMs: number) =>
+    startMs + startEdgeLagMs(startMs, capturedFromMs) + OPENING_SLACK_MS;
   const { segments } = facts;
   return {
-    private: privateStretches(facts).map((span) => ({
-      startMs: span.startMs,
-      endMs: opening(span.endMs),
-    })),
+    private: privateStretches(facts)
+      .filter((span) => span.endMs !== NEVER_MS)
+      .map((span) => ({ startMs: span.startMs, endMs: opening(span.endMs) })),
     between: segments.flatMap((segment, index) => {
       const next = segments[index + 1];
       return next && segment.endedAtMs !== null
@@ -106,11 +115,11 @@ export const explainGaps = (
   facts: RoundCoverageFacts,
   capturedFromMs: number,
 ): readonly Gap[] => {
-  const windows = slateWindows(facts);
+  const windows = slateWindows(facts, capturedFromMs);
   const inVideo = (spans: readonly Span[]) =>
     spans.map((span) => ({
       startMs: span.startMs - capturedFromMs,
-      endMs: span.endMs === NEVER_MS ? NEVER_MS : span.endMs - capturedFromMs,
+      endMs: span.endMs - capturedFromMs,
     }));
   const privateInVideo = inVideo(windows.private);
   const betweenInVideo = inVideo(windows.between);

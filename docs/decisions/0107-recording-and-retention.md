@@ -80,9 +80,12 @@ say the video shows as something else (`coverageStatement`): a private phase, wh
 stage's slate, and a room rotation, stated at an estimated 5 seconds because no one records
 its end. The worker knows only what is not proven public, so each of its `not_public` gaps
 is explained against the same record (`explainGaps`): a stretch inside a prep or another
-private phase is `private_phase`, and a turnover, from a segment's end to 2.5 s into the
-next one (the start-edge stamp lag of ADR 0099), is `between_speeches`, the counterpart of
-the stage's `between`. Only what the record does not explain stays `not_public`. The history
+private phase is `private_phase`, and a turnover is `between_speeches`, the counterpart of
+the stage's `between`. A turnover runs from a closed segment's end into the next segment by
+the start-edge stamp lag of ADR 0099 at that age, plus 1.2 s of slack, which is 2.5 s for a
+young capture. Only a window a committed segment closes explains anything, so a gap after an
+open segment, after the last one or in a prep no segment follows stays `not_public`. Only
+what the record does not explain stays `not_public`. The history
 page states a ready Recording's stored gaps the same way when it is watched, so a Recording
 built before this explanation reads as one built today, with no stored data changed. Only a
 restart, a rotation and an unexplained `not_public` stretch are debate lost. Debate before

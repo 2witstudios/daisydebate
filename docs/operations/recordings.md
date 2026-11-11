@@ -139,8 +139,10 @@ explains (`not_public`, ADR 0099). The player lists these, and `media.unrecorded
 "Parts of this debate were not recorded". `media.unrecorded` is debate the video never
 reached: a late start, an early end, or the rest of a Round whose Broadcast was stopped.
 A private phase, which is the stage's slate (`private_phase`), is withheld by design, and
-the player shows it on its own line as kept private. The slate from one speech's end to
-2.5 s into the next (`between_speeches`) holds no debate, and the player does not list it.
+the player shows it on its own line as kept private. The slate between speeches
+(`between_speeches`) holds no debate, and the player does not list it. It runs from one
+speech's end into the next by the start-edge stamp lag plus 1.2 s, which is 2.5 s early in
+a capture and about 3.6 s three hours in.
 
 The worker marks every jump between public pieces `not_public`. The capture port, and the
 history page for a Recording already stored, split each one against the Round's segments

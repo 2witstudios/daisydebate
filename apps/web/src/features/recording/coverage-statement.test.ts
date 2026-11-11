@@ -1,3 +1,4 @@
+import { startEdgeLagMs } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   coverageStatement,
@@ -251,8 +252,8 @@ describe('explainGaps', () => {
         startedAtMs,
       ),
       expected: [
-        { startMs: 20_000, endMs: 32_500, reason: 'between_speeches' },
-        { startMs: 32_500, endMs: 40_000, reason: 'not_public' },
+        { startMs: 20_000, endMs: 32_503, reason: 'between_speeches' },
+        { startMs: 32_503, endMs: 40_000, reason: 'not_public' },
       ],
     });
   });
@@ -308,6 +309,124 @@ describe('explainGaps', () => {
         startedAtMs,
       ),
       expected: [{ startMs: 20_000, endMs: 30_000, reason: 'private_phase' }],
+    });
+  });
+
+  test('the opening covers the real stamp lag at any capture age', () => {
+    const probeSlackMs = 300;
+    for (const [age, nextStartMs] of [
+      ['80 minutes', 80 * 60_000],
+      ['3 hours', 180 * 60_000],
+    ] as const) {
+      const endMs =
+        nextStartMs +
+        startEdgeLagMs(real(nextStartMs), startedAtMs) +
+        probeSlackMs;
+      assert({
+        given: `a turnover whose next speech starts ${age} into the capture`,
+        should: 'state the whole stretch as between speeches',
+        actual: explainGaps(
+          [notPublic(nextStartMs - 10_000, endMs)],
+          {
+            ...none,
+            segments: [
+              {
+                startedAtMs: real(nextStartMs - 60_000),
+                endedAtMs: real(nextStartMs - 10_000),
+              },
+              { startedAtMs: real(nextStartMs), endedAtMs: null },
+            ],
+          },
+          startedAtMs,
+        ),
+        expected: [
+          {
+            startMs: nextStartMs - 10_000,
+            endMs,
+            reason: 'between_speeches',
+          },
+        ],
+      });
+    }
+  });
+
+  test('what history does not close fails closed', () => {
+    const open = {
+      ...none,
+      segments: [
+        { startedAtMs: real(0), endedAtMs: null },
+        { startedAtMs: real(30_000), endedAtMs: real(50_000) },
+      ],
+    };
+    assert({
+      given: 'a not_public gap after a segment still open',
+      should: 'stay not public',
+      actual: explainGaps([notPublic(20_000, 29_000)], open, startedAtMs),
+      expected: [notPublic(20_000, 29_000)],
+    });
+    assert({
+      given: 'a not_public gap after the last committed segment',
+      should: 'stay not public',
+      actual: explainGaps(
+        [notPublic(52_000, 58_000)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [notPublic(52_000, 58_000)],
+    });
+    assert({
+      given: 'a not_public gap in a prep no segment follows',
+      should: 'stay not public',
+      actual: explainGaps(
+        [notPublic(52_000, 58_000)],
+        { ...twoSpeeches, prepStartsAtMs: [real(51_000)] },
+        startedAtMs,
+      ),
+      expected: [notPublic(52_000, 58_000)],
+    });
+  });
+
+  test('its own answer comes back unchanged', () => {
+    const facts = { ...twoSpeeches, prepStartsAtMs: [real(24_000)] };
+    const once = explainGaps(
+      [
+        notPublic(5000, 8000),
+        notPublic(20_000, 40_000),
+        { startMs: 45_000, endMs: 46_000, reason: 'capture_restart' },
+      ],
+      facts,
+      startedAtMs,
+    );
+    assert({
+      given: 'gaps already explained',
+      should: 'explain them the same way again',
+      actual: explainGaps(once, facts, startedAtMs),
+      expected: once,
+    });
+  });
+
+  test('stretches of different reasons are never merged, and none is lost', () => {
+    const gaps = [
+      notPublic(19_600, 40_000),
+      { startMs: 40_000, endMs: 41_000, reason: 'capture_restart' },
+    ] as const;
+    const explained = explainGaps(gaps, twoSpeeches, startedAtMs);
+    assert({
+      given: 'a turnover running into a lost stretch and a restart',
+      should: 'keep each reason apart and cover exactly the same time',
+      actual: [
+        explained.map((gap) => gap.reason),
+        explained.every(
+          (gap, index) =>
+            index === 0 || explained[index - 1]?.endMs === gap.startMs,
+        ),
+        [explained[0]?.startMs, explained.at(-1)?.endMs],
+      ],
+      expected: [
+        ['between_speeches', 'not_public', 'capture_restart'],
+        true,
+        [19_600, 41_000],
+      ],
     });
   });
 
