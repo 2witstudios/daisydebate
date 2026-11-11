@@ -5,6 +5,7 @@ import type {
   SessionRow,
 } from '../../../features/account/security-client';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
+import { OUTCOME_NOTICES } from './security-notices';
 import type * as Client from './use-security-overview.test-support';
 
 setupRitewayBun();
@@ -205,13 +206,47 @@ test('a read that cannot be made says the lists are unavailable', async () => {
   const page = await mount();
   try {
     await page.act(() => page.reads[0]!.reject(new Error('offline')));
+    const unread = page.shown();
     await page.act(() => page.held().reload());
     await page.act(() => page.reads[1]!.resolve(overview([], ['here'])));
     assert({
       given: 'a read that rejects, then one that answers',
-      should: 'show nothing unhandled, and read normally afterwards',
-      actual: page.shown(),
-      expected: { passkeys: [], sessions: ['here'], sessionsNotice: null },
+      should:
+        'say the lists could not be read, then show them and take that back',
+      actual: { unread, after: page.shown() },
+      expected: {
+        unread: {
+          passkeys: [],
+          sessions: [],
+          sessionsNotice: OUTCOME_NOTICES.unavailable,
+        },
+        after: { passkeys: [], sessions: ['here'], sessionsNotice: null },
+      },
+    });
+  } finally {
+    await page.unmount();
+  }
+});
+
+test('a sign-out of the others that cannot be sent can be asked again', async () => {
+  const page = await mount();
+  try {
+    await page.act(() => page.reads[0]!.resolve(overview([], ['here'])));
+    await page.act(() => page.held().signOutOthers());
+    await page.act(() => page.signOuts[0]!.reject(new Error('offline')));
+    const after = {
+      busy: page.held().signingOutOthers,
+      notice: page.shown().sessionsNotice,
+    };
+    await page.act(() => page.held().signOutOthers());
+    assert({
+      given: 'a sign-out request that rejects, then the button pressed again',
+      should: 'say it did not happen, free the button, and send the next one',
+      actual: { after, asked: page.signOuts.length },
+      expected: {
+        after: { busy: false, notice: OUTCOME_NOTICES.unavailable },
+        asked: 2,
+      },
     });
   } finally {
     await page.unmount();
