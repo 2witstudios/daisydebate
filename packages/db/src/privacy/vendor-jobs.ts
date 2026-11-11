@@ -87,26 +87,32 @@ export async function deliverPrivacyJob(
 ): Promise<'idle' | 'retry' | 'succeeded'> {
   checkJobInput(input);
   const rows =
-    await database.execute(sql`select subject_ref as "subjectRef" from privacy_jobs
+    await database.execute(sql`select subject_ref as "subjectRef", attempts from privacy_jobs
     where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'
     and retry_at <= ${input.now}::timestamptz`);
-  const row = (rows as unknown as { subjectRef: string }[])[0];
+  const row = (
+    rows as unknown as { subjectRef: string; attempts: number }[]
+  )[0];
   if (!row) return 'idle';
   if (!idSchema.safeParse(row.subjectRef).success)
     throw createAppError('VALIDATION');
+  // This attempt is the one after those read: runners that read the same
+  // count made the same attempt, and it is counted once.
+  const attempt = row.attempts + 1;
   try {
     await port.erase(row.subjectRef);
   } catch {
     // Vendor failures are deliberately absent from durable fields/telemetry.
     const retried =
-      await database.execute(sql`update privacy_jobs set attempts = attempts + 1,
+      await database.execute(sql`update privacy_jobs set attempts = ${attempt},
       retry_at = ${input.retryAt}::timestamptz
-      where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending' returning id`);
+      where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'
+        and attempts = ${row.attempts} returning id`);
     return retried.length === 1 ? 'retry' : 'idle';
   }
   const completed =
-    await database.execute(sql`update privacy_jobs set status = 'succeeded', attempts = attempts + 1,
-    succeeded_at = ${input.now}::timestamptz
+    await database.execute(sql`update privacy_jobs set status = 'succeeded',
+    attempts = greatest(attempts, ${attempt}), succeeded_at = ${input.now}::timestamptz
     where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending' returning id`);
   return completed.length === 1 ? 'succeeded' : 'idle';
 }

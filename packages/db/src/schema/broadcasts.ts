@@ -9,6 +9,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import {
+  broadcastFeedEndReasons,
   broadcastReleasePolicySchema,
   releaseSkipsSchema,
 } from '@daisy/protocol';
@@ -16,6 +17,7 @@ import {
   createdAtColumn,
   jsonbColumn,
   jsonbIsObject,
+  oneOf,
   timestampColumn,
 } from './columns';
 import { rounds } from './rounds';
@@ -126,6 +128,24 @@ export const broadcasts = pgTable(
     check(
       'broadcasts_withheld_check',
       sql`not ${table.mediaWithheld} or ${table.stoppedAt} is not null`,
+    ),
+    check(
+      'broadcasts_stop_reason_check',
+      sql`${table.stopReason} is null or ${oneOf(table.stopReason, broadcastFeedEndReasons)}`,
+    ),
+    /** It completes once its stream has ended for the audience, or it was stopped. */
+    check(
+      'broadcasts_completed_check',
+      sql`${table.completedAt} is null or ${table.streamEndedAt} is not null or ${table.stoppedAt} is not null`,
+    ),
+    /** Only a finished or stopped Broadcast's feed is withdrawn. */
+    check(
+      'broadcasts_feed_withdrawn_check',
+      sql`${table.feedWithdrawnAt} is null or ${table.completedAt} is not null or ${table.stoppedAt} is not null`,
+    ),
+    check(
+      'broadcasts_egress_check',
+      sql`${table.egressId} is null or ${table.egressStartedAt} is not null`,
     ),
   ],
 );

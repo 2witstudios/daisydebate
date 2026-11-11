@@ -140,3 +140,45 @@ test('an erasure queues a durable observation purge that survives a Redis outage
     await client.close();
   }
 });
+
+test('two runners failing the same observation purge count it once', async () => {
+  const client = new SQL(databaseUrl);
+  const database = drizzle({ client });
+  const fixture = await createMessagingTestFixture(client);
+  try {
+    await fixture.eraseSubject(fixture.actorId);
+    const queuedAt =
+      (await jobOf(client, fixture.userId))?.retryAt.toISOString() ?? '';
+    // Both runners have read the due jobs before either purge fails.
+    let reading = 0;
+    let bothRead!: () => void;
+    const together = new Promise<void>((resolve) => (bothRead = resolve));
+    const failing = () =>
+      deliverObservationPurges(
+        database,
+        { now: queuedAt, limit: 16 },
+        {
+          purge: async () => {
+            if (++reading === 2) bothRead();
+            await together;
+            throw new Error('Redis unavailable');
+          },
+        },
+      );
+    await Promise.all([failing(), failing()]);
+    const job = await jobOf(client, fixture.userId);
+    assert({
+      given: 'two runners that read one pending purge and both fail it',
+      should: 'count one attempt and keep the purge pending',
+      actual: [job?.status, job?.attempts],
+      expected: ['pending', 1],
+    });
+  } finally {
+    await client.unsafe(
+      'delete from observation_purge_jobs where user_id in ($1,$2)',
+      [fixture.userId, fixture.otherUserId],
+    );
+    await fixture.cleanup();
+    await client.close();
+  }
+});

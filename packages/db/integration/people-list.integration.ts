@@ -25,6 +25,7 @@ import {
   type RestrictionRules,
 } from '../src/moderation-composition';
 import { admitParticipants } from '../src/beta-access-testing';
+import { rejectedBy } from './constraint-helpers';
 import { createMessagingTestFixture } from '../src/testing';
 import { withFixture } from './constraint-helpers';
 
@@ -979,6 +980,47 @@ test('moderation: a ban has no end, the sweep counts from erasure, and impossibl
         swept,
       ],
       expected: ['string', null, true, true, 0, 0, 2],
+    });
+  } finally {
+    await ctx.client.unsafe(
+      'delete from moderation_actions where user_id = $1',
+      [userId],
+    );
+    await ctx.cleanup();
+    await ctx.client.close();
+  }
+});
+
+test('moderation: a sanction cannot end or be lifted before it starts', async () => {
+  const ctx = await open();
+  const { userId } = ctx.them;
+  try {
+    const refusedBy = (kind: string, column: string, at: string) =>
+      rejectedBy(() =>
+        ctx.client.unsafe(
+          `insert into moderation_actions (id, user_id, kind, starts_at, ${column}, operator_ref)
+           values ($1, $2, $3, now(), ${at}, 'op')`,
+          [createId(), userId, kind],
+        ),
+      );
+    assert({
+      given:
+        'a suspension ending at or before its start, a ban lifted before its start, and both the right way round',
+      should: 'refuse the impossible intervals and accept the others',
+      actual: [
+        await refusedBy('suspension', 'ends_at', "now() - interval '1 day'"),
+        await refusedBy('suspension', 'ends_at', 'now()'),
+        await refusedBy('ban', 'lifted_at', "now() - interval '1 day'"),
+        await refusedBy('suspension', 'ends_at', "now() + interval '1 day'"),
+        await refusedBy('ban', 'lifted_at', 'now()'),
+      ],
+      expected: [
+        'moderation_actions_ends_after_start_check',
+        'moderation_actions_ends_after_start_check',
+        'moderation_actions_lifted_after_start_check',
+        null,
+        null,
+      ],
     });
   } finally {
     await ctx.client.unsafe(

@@ -136,10 +136,11 @@ test('a legal removal takes the captions too', async () => {
   await withLiveRound('ranked', async (read, { client, roundId }) => {
     const id = createId();
     const at = spoken.toISOString();
-    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle)
+    await client`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle,deletion_due_at)
       values (${id},${roundId},'ranked','removing',
         jsonb_build_object('kind','ranked'),
-        ${JSON.stringify({ status: 'removing', cause: 'legal_removal', requestedAt: at })}::text::jsonb)`;
+        ${JSON.stringify({ status: 'removing', cause: 'legal_removal', requestedAt: at })}::text::jsonb,
+        ${at}::timestamptz)`;
     const hidden = captions(await read(margin(spoken)));
     await client`delete from recordings where id=${id}`;
     assert({

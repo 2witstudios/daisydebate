@@ -116,11 +116,12 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
         });
         const broadcastId = createId();
         await f.sql`insert into broadcasts (id,round_id,feed_key,release_policy,stopped_at,stop_reason,created_at)
-          values (${broadcastId},${roundId},${createId()},${JSON.stringify({ kind: 'delay', delayMs: 15_000 })}::text::jsonb,${broadcastEnded ? stopped : null},${broadcastEnded ? 'moderation' : null},${stopped})`;
+          values (${broadcastId},${roundId},${createId()},${JSON.stringify({ kind: 'delay', delayMs: 15_000 })}::text::jsonb,${broadcastEnded ? stopped : null},${broadcastEnded ? 'policy_violation' : null},${stopped})`;
         if (status)
-          await f.sql`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle,updated_at)
+          await f.sql`insert into recordings (id,round_id,recording_class,status,eligibility,lifecycle,updated_at,deletion_due_at)
             values (${createId()},${roundId},'ranked',${status},
-              jsonb_build_object('kind','ranked'),${JSON.stringify({ status })}::text::jsonb,${settledAt})`;
+              jsonb_build_object('kind','ranked'),${JSON.stringify({ status })}::text::jsonb,${settledAt},
+              ${status === 'removing' ? settledAt : null})`;
         const rows = await store.readPublishing({
           now,
           keepMs: 6 * 3_600_000,

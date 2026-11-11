@@ -5,6 +5,7 @@ import {
   betaAccessCommandResultSchema,
   type BetaAccessCommandResult,
   type BetaAccessCommandState,
+  type BetaAccessDecision,
   type BetaAccessState,
 } from '@daisy/protocol';
 import {
@@ -17,7 +18,8 @@ import { lockAuthorizationActors } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
 import type { DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
-import { applyBetaEntitlementGrants } from './entitlement-grants';
+import { writeBetaAccessChange } from './beta-access-change';
+import { mailIntentQueue } from './mail-intent-queue';
 
 type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 
@@ -65,29 +67,14 @@ export type BetaAccessCommandInput = {
       readonly revision: number;
     } | null,
     ageBand: AccountFact['ageBand'],
-  ) =>
-    | {
-        readonly kind: 'changed';
-        readonly from: BetaAccessState;
-        readonly to: 'approved' | 'revoked';
-        readonly revision: number;
-      }
-    | {
-        readonly kind: 'unchanged';
-        readonly state: BetaAccessState;
-        readonly revision: number;
-      }
-    | {
-        readonly kind: 'refused';
-        readonly reason: 'not-found' | 'stale' | 'age-required';
-      };
+  ) => BetaAccessDecision;
 };
 
 export type BetaAccessCommandOutcome =
   | { readonly kind: 'applied'; readonly result: BetaAccessCommandResult }
   | { readonly kind: 'replayed'; readonly result: BetaAccessCommandResult };
 
-type Decision = ReturnType<BetaAccessCommandInput['decide']>;
+type Decision = BetaAccessDecision;
 type Applied = Exclude<Decision, { kind: 'refused' }>;
 
 const refusalCode = {
@@ -165,28 +152,25 @@ async function applyChange(
   decision: Extract<Decision, { kind: 'changed' }>,
   eventSink: DatabaseEventSink | undefined,
 ) {
-  const principal = `operator:${input.serviceId}/${input.operatorRef}`;
-  await tx.execute(sql`update account_beta_access set state = ${decision.to},
-      revision = ${decision.revision}, decided_at = now()
-    where user_id = ${input.targetUserId}`);
-  // Premium entitlements are their own fact, written with the state change.
-  await applyBetaEntitlementGrants(tx, input.targetUserId, decision.to);
-  // The account fact's revision moves, so live realtime sessions re-check.
-  await tx.execute(
-    sql`update users set version = version + 1 where id = ${input.targetUserId}`,
-  );
-  await tx.execute(sql`insert into account_access_events
-      (id, user_id, command_id, from_state, to_state, revision, principal)
-    values (${input.nextId()}, ${input.targetUserId}, ${input.commandId},
-      ${decision.from}, ${decision.to}, ${decision.revision}, ${principal})`);
+  await writeBetaAccessChange(tx, {
+    userId: input.targetUserId,
+    change: decision,
+    eventId: input.nextId(),
+    commandId: input.commandId,
+    principal: `operator:${input.serviceId}/${input.operatorRef}`,
+  });
   if (decision.to === 'approved')
     await tx.execute(sql`insert into mail_intents
         (id, purpose, recipient_user_id, dedupe_key, next_attempt_at)
       values (${input.nextId()}, 'beta-approved', ${input.targetUserId},
         ${approvalMailKey(input.commandId)}, now())`);
   else {
-    await tx.execute(
-      sql`update mail_intents set state = 'cancelled', completed_at = now(), last_error_code = case when last_error_code = 'delivery-unknown' or state = 'leased' then 'delivery-unknown' else 'not-owed' end, lease_token_digest = null, lease_expires_at = null where preapproval_id in (select id from beta_preapprovals where claimed_user_id = ${input.targetUserId} or email = (select ${normalizedEmailSql(sql`email`)} from users where id = ${input.targetUserId})) and state in ('queued', 'leased')`,
+    // A revoked account's invitations, by its claim or its address, are not owed.
+    await mailIntentQueue.cancelOwed(
+      tx,
+      sql`preapproval_id in (select id from beta_preapprovals
+        where claimed_user_id = ${input.targetUserId}
+          or email = (select ${normalizedEmailSql(sql`email`)} from users where id = ${input.targetUserId}))`,
     );
     await appendSessionRevokedFor(
       tx,

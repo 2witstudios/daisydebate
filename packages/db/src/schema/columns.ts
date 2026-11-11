@@ -146,3 +146,55 @@ export const retriedJobChecks = (
     sql`(${columns.status} = 'succeeded') = (${columns.succeededAt} is not null)`,
   ),
 ];
+
+/** A queued mail job's five states: owed, held by a worker, or ended one of three ways. */
+const mailJobStates = [
+  'queued',
+  'leased',
+  'sent',
+  'failed',
+  'cancelled',
+] as const;
+
+/**
+ * A queued mail job's lifecycle (ADR 0075, ADR 0124): owed from the moment it
+ * is written, sent later by a worker under a lease, retried with backoff, and
+ * ended sent, failed or cancelled. `mailQueue` is its one writer.
+ */
+export const mailJobColumns = () => ({
+  state: text('state').notNull().default('queued'),
+  attempts: integer('attempts').notNull().default(0),
+  leaseTokenDigest: text('lease_token_digest'),
+  leaseExpiresAt: timestampColumn('lease_expires_at'),
+  nextAttemptAt: timestampColumn('next_attempt_at').notNull(),
+  lastErrorCode: text('last_error_code'),
+  createdAt: createdAtColumn(),
+  completedAt: timestampColumn('completed_at'),
+});
+export const mailJobChecks = (
+  table: string,
+  columns: {
+    readonly state: PgColumn;
+    readonly attempts: PgColumn;
+    readonly leaseTokenDigest: PgColumn;
+    readonly leaseExpiresAt: PgColumn;
+    readonly lastErrorCode: PgColumn;
+    readonly completedAt: PgColumn;
+  },
+  errorCodes: readonly string[],
+) => [
+  check(`${table}_state_check`, oneOf(columns.state, mailJobStates)),
+  check(`${table}_attempts_check`, sql`${columns.attempts} >= 0`),
+  check(
+    `${table}_lease_check`,
+    sql`(${columns.state} = 'leased') = (${columns.leaseTokenDigest} is not null and ${columns.leaseExpiresAt} is not null) and (${columns.leaseTokenDigest} is null or ${columns.leaseTokenDigest} ~ '^[0-9a-f]{64}$')`,
+  ),
+  check(
+    `${table}_completed_check`,
+    sql`(${columns.state} in ('sent', 'failed', 'cancelled')) = (${columns.completedAt} is not null)`,
+  ),
+  check(
+    `${table}_error_check`,
+    sql`${columns.lastErrorCode} is null or ${oneOf(columns.lastErrorCode, errorCodes)}`,
+  ),
+];

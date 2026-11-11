@@ -83,6 +83,11 @@ export const recordings = pgTable(
       'recordings_deletion_attempts_check',
       sql`${table.deletionAttempts} >= 0`,
     ),
+    /** A deletion is due exactly while the Recording is being removed. */
+    check(
+      'recordings_deletion_due_check',
+      sql`(${table.status} = 'removing') = (${table.deletionDueAt} is not null)`,
+    ),
     check(
       'recordings_lease_check',
       sql`(${table.leaseOwner} is null) = (${table.leaseUntil} is null)`,

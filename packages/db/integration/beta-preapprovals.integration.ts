@@ -368,6 +368,7 @@ test('an invitation lease recovers a crashed send under one provider identity', 
       const claims = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       const first = claims.find((claim) => claim.id === intent.id)!;
@@ -379,6 +380,7 @@ test('an invitation lease recovers a crashed send under one provider identity', 
       const retried = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       const second = retried.find((claim) => claim.id === intent.id)!;
@@ -663,6 +665,7 @@ test('invitation delivery facts distinguish suppression, rejection, uncertainty 
         const claims = await db.claimMailIntents({
           limit: 50,
           leaseMs: 60000,
+          maxAttempts: 8,
           nextToken: () => `${createId()}${createId()}`,
         });
         const claim = claims.find((item) => item.id === intent.id)!;
@@ -759,6 +762,7 @@ test('explicit resend creates one new invitation after terminal delivery and rep
       const claims = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       for (const claim of claims)
@@ -851,6 +855,7 @@ test('a claimed invitation stops being owed when its verified email changes', as
       const claims = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       const claim = claims.find((item) => item.id === intent.id)!;
@@ -898,6 +903,7 @@ test('long-outage invitation recovery preserves the grant and never assumes an e
       const claims = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       const [intent] =
@@ -908,6 +914,7 @@ test('long-outage invitation recovery preserves the grant and never assumes an e
         await db.claimMailIntents({
           limit: 50,
           leaseMs: 60000,
+          maxAttempts: 8,
           nextToken: () => `${createId()}${createId()}`,
         })
       ).find((item) => item.id === first.id)!;

@@ -99,3 +99,58 @@ test('configured vendor outage cannot reverse committed local erasure', async ()
     }
   });
 });
+
+test('two runners failing the same vendor attempt count it once', async () => {
+  await withPrivacySubject(async ({ client, database, userId, actorId }) => {
+    const jobId = createId();
+    try {
+      await runPrivacyErasure(
+        database,
+        {
+          subject: { userId, actorId },
+          now,
+          vendors: ['posthog'],
+          jobIds: [jobId],
+        },
+        adoption,
+        bindings,
+      );
+      // Both runners have read the job before either vendor call fails.
+      let reading = 0;
+      let bothRead!: () => void;
+      const together = new Promise<void>((resolve) => (bothRead = resolve));
+      const failing = () =>
+        deliverPrivacyJob(
+          database,
+          {
+            jobId,
+            vendor: 'posthog',
+            now,
+            retryAt: '2026-10-09T18:01:00.000Z',
+          },
+          {
+            erase: async () => {
+              if (++reading === 2) bothRead();
+              await together;
+              throw new Error('vendor outage');
+            },
+          },
+        );
+      const outcomes = await Promise.all([failing(), failing()]);
+      const [job] = await client.unsafe(
+        'select status, attempts from privacy_jobs where id=$1',
+        [jobId],
+      );
+      assert({
+        given: 'two runners that read one pending job and both fail it',
+        should: 'record one retry and one attempt, the other finding nothing',
+        actual: [[...outcomes].sort(), job],
+        expected: [['idle', 'retry'], { status: 'pending', attempts: 1 }],
+      });
+    } finally {
+      await client.unsafe('delete from privacy_jobs where subject_ref=$1', [
+        userId,
+      ]);
+    }
+  });
+});

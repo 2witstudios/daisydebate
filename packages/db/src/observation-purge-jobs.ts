@@ -76,9 +76,12 @@ export async function deliverObservationPurges(
       const retryAt = new Date(
         now.getTime() + observationPurgeBackoffMs(row.attempts + 1),
       ).toISOString();
+      // Compare-and-set on the count read: a second runner's failure of the
+      // same attempt is counted once.
       await database.execute(sql`update observation_purge_jobs
-        set attempts = attempts + 1, retry_at = ${retryAt}::timestamptz
-        where user_id = ${row.userId} and status = 'pending'`);
+        set attempts = ${row.attempts + 1}, retry_at = ${retryAt}::timestamptz
+        where user_id = ${row.userId} and status = 'pending'
+          and attempts = ${row.attempts}`);
     }
     return { succeeded: 0, retried: rows.length };
   }
@@ -86,7 +89,8 @@ export async function deliverObservationPurges(
   // read (a newer created_at) stays pending for the next purge.
   for (const row of rows)
     await database.execute(sql`update observation_purge_jobs
-      set status = 'succeeded', attempts = attempts + 1, succeeded_at = ${input.now}::timestamptz
+      set status = 'succeeded', attempts = greatest(attempts, ${row.attempts + 1}),
+        succeeded_at = ${input.now}::timestamptz
       where user_id = ${row.userId} and status = 'pending'
         and created_at = ${row.createdAt.toISOString()}::timestamptz`);
   return { succeeded: rows.length, retried: 0 };
