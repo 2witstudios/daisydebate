@@ -187,3 +187,41 @@ test('two runners failing the same observation purge count it once', async () =>
     await client.close();
   }
 });
+
+test('a purge that a newer erasure overtook is not reported as delivered', async () => {
+  const client = new SQL(databaseUrl);
+  const database = drizzle({ client });
+  const fixture = await createMessagingTestFixture(client);
+  try {
+    await fixture.eraseSubject(fixture.actorId);
+    const queuedAt =
+      (await jobOf(client, fixture.userId))?.retryAt.toISOString() ?? '';
+    const outcome = await deliverObservationPurges(
+      database,
+      { now: queuedAt, limit: 16 },
+      {
+        // The member is erased again while the purge is in flight.
+        purge: () =>
+          queueObservationPurge(
+            database,
+            fixture.userId,
+            new Date(Date.parse(queuedAt) + 60_000).toISOString(),
+          ),
+      },
+    );
+    assert({
+      given:
+        'a confirmed purge whose obligation was re-armed after it was read',
+      should: 'report nothing delivered and leave the newer obligation pending',
+      actual: [outcome, (await jobOf(client, fixture.userId))?.status],
+      expected: [{ succeeded: 0, retried: 0 }, 'pending'],
+    });
+  } finally {
+    await client.unsafe(
+      'delete from observation_purge_jobs where user_id in ($1,$2)',
+      [fixture.userId, fixture.otherUserId],
+    );
+    await fixture.cleanup();
+    await client.close();
+  }
+});

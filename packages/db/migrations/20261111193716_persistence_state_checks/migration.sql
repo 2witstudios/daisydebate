@@ -8,12 +8,13 @@ ALTER TABLE "notification_emails" ALTER COLUMN "attempts" SET DEFAULT 0;--> stat
 -- Two stored states have exactly one right repair, so they are repaired here and
 -- their CHECKs always validate. A failure counted after its revocation landed
 -- means nothing; a removal with no due time is due now, and a due time on a
--- Recording that is not being removed is left over. Each table is locked against
--- writers first and stays locked to commit, so the previous release, still
+-- Recording that is not being removed is left over. Each table takes at once the
+-- lock its ALTERs need (a weaker one, upgraded later, deadlocks a request that
+-- read before it and writes after) and keeps it to commit, so the previous release, still
 -- serving, cannot store a new violation between the repair and its constraint.
 -- The repairs come before the constraints because a row may break another new
 -- CHECK as well, and a NOT VALID CHECK would then refuse the repair itself.
-LOCK TABLE "broadcasts", "recordings" IN SHARE ROW EXCLUSIVE MODE;--> statement-breakpoint
+LOCK TABLE "broadcasts", "recordings" IN ACCESS EXCLUSIVE MODE;--> statement-breakpoint
 UPDATE "broadcasts" SET "revocation_failures" = 0 WHERE "observer_revoked_at" IS NOT NULL AND "revocation_failures" <> 0;--> statement-breakpoint
 UPDATE "recordings" SET "deletion_due_at" = CASE WHEN "status" = 'removing' THEN clock_timestamp() END WHERE ("status" = 'removing') <> ("deletion_due_at" IS NOT NULL);--> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;--> statement-breakpoint
