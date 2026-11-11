@@ -72,6 +72,8 @@ export function useFloorChat({
   );
   const hidden = live.status === 'hidden' || state.kind !== 'ready';
   const generation = useRef(0);
+  /** The newest read of each kind; an answer to an earlier one is stale. */
+  const newest = useRef({ latest: 0, older: 0 });
   const busy = useRef(false);
   const base = idSchema.safeParse(props.roundId).success
     ? `/api/rounds/${props.roundId}/floor`
@@ -80,14 +82,19 @@ export function useFloorChat({
     async (id: string, cursor?: number) => {
       if (!base || !idSchema.safeParse(id).success) return;
       const revision = generation.current;
-      if (cursor !== undefined) setPaging(true);
+      const kind = cursor === undefined ? 'latest' : 'older';
+      const request = (newest.current[kind] += 1);
+      // Hiding the floor, or a later read of the same kind, supersedes this one.
+      const current = () =>
+        generation.current === revision && newest.current[kind] === request;
+      if (kind === 'older') setPaging(true);
       try {
         const response = await fetch(
           `${base}/messages?channelId=${id}${cursor === undefined ? '' : `&before=${cursor}`}`,
           { cache: 'no-store' },
         );
         const value = await readFloorResponse(response, props.roundId, id);
-        if (generation.current !== revision) return;
+        if (!current()) return;
         if (!value) {
           setNotice(
             response.status === 403 || response.status === 404
@@ -134,10 +141,11 @@ export function useFloorChat({
         }
         setNotice(null);
       } catch {
-        if (generation.current === revision)
-          setNotice('Messages could not be loaded. Try again.');
+        if (current()) setNotice('Messages could not be loaded. Try again.');
       } finally {
-        setPaging(false);
+        // Only the older page that set it clears it: another read is not its answer.
+        if (kind === 'older' && newest.current.older === request)
+          setPaging(false);
       }
     },
     [
