@@ -107,11 +107,13 @@ export function useFloorChat({
           }
           return;
         }
-        setState({ kind: 'ready', metadata: value.metadata });
         setReadSequence((sequence) =>
           Math.max(sequence, value.viewer.readSequence),
         );
         if (cursor === undefined) {
+          // What the floor is now comes from the newest read of its latest page
+          // alone: an older page adds messages, and may answer after it.
+          setState({ kind: 'ready', metadata: value.metadata });
           setPage((previous) =>
             previous &&
             previous.history.changeVersion > value.history.changeVersion

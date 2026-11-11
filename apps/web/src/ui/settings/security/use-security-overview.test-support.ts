@@ -20,6 +20,7 @@ export function OverviewProbe(
     JSON.stringify({
       passkeys: held.passkeys.map((row) => row.id),
       sessions: held.sessions.map((row) => row.id),
+      sessionsNotice: held.sessionsNotice ?? null,
     }),
   );
 }

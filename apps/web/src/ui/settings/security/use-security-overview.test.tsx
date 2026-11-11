@@ -31,7 +31,7 @@ const overview = (passkeys: readonly string[], sessions: readonly string[]) =>
 type Overview = ReturnType<typeof overview>;
 
 /** The hook in a private realm; the test answers each read and each sign-out. */
-const mount = async () => {
+const mount = async (signOutNotice?: string) => {
   const client = await mountBrowserClient<typeof Client>(
     Bun.resolveSync('./use-security-overview.test-support', import.meta.dir),
   );
@@ -54,6 +54,7 @@ const mount = async () => {
       client.createElement(client.OverviewProbe, {
         load,
         revokeOthers,
+        signOutNotice,
         hold: (now) => {
           held = now;
         },
@@ -69,6 +70,7 @@ const mount = async () => {
       JSON.parse(client.container.querySelector('output')!.textContent!) as {
         passkeys: string[];
         sessions: string[];
+        sessionsNotice: string | null;
       },
     unmount: () => client.act(async () => client.root.unmount()),
   };
@@ -135,6 +137,38 @@ test('signing out of all other sessions is asked once while it is in flight', as
         'send one request, say it is working, and take the next press once answered',
       actual: { asked, busy, after: page.held().signingOutOthers },
       expected: { asked: 1, busy: true, after: false },
+    });
+  } finally {
+    await page.unmount();
+  }
+});
+
+test('a sign-out that failed stays said until a sign-out succeeds', async () => {
+  const page = await mount('Sign-out did not happen.');
+  try {
+    await page.act(() => page.reads[0]!.resolve(overview([], ['here'])));
+    const afterRead = page.shown().sessionsNotice;
+    await page.act(() => page.held().signOutOthers());
+    await page.act(() => page.signOuts[0]!.resolve({ kind: 'rate-limited' }));
+    const afterRefusal = page.shown().sessionsNotice;
+    await page.act(() => page.held().signOutOthers());
+    await page.act(() => page.signOuts[1]!.resolve({ kind: 'ok' }));
+    await page.act(() => page.reads.at(-1)!.resolve(overview([], ['here'])));
+    assert({
+      given:
+        'a screen opened after a failed sign-out, its lists read, a refused sign-out of the others, then one that works',
+      should:
+        'keep the notice through the read, replace it with the refusal, and clear it once a sign-out succeeds',
+      actual: {
+        afterRead,
+        refused: afterRefusal !== null && afterRefusal !== afterRead,
+        after: page.shown().sessionsNotice,
+      },
+      expected: {
+        afterRead: 'Sign-out did not happen.',
+        refused: true,
+        after: null,
+      },
     });
   } finally {
     await page.unmount();

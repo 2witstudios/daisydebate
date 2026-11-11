@@ -50,7 +50,7 @@ export function SecurityPage({
   const overview = useSecurityOverview({
     load: loadOverview,
     revokeOthers,
-    sessionsNotice: signOutFailed ? SIGN_OUT_FAILED_NOTICE : undefined,
+    signOutNotice: signOutFailed ? SIGN_OUT_FAILED_NOTICE : undefined,
   });
   const { passkeys, sessions, passkeysNotice, sessionsNotice } = overview;
   const [enrolling, setEnrolling] = useState(false);

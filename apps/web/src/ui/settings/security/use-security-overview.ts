@@ -19,22 +19,26 @@ const noticeOf = (outcome: SecurityOutcome): string | undefined =>
  * from the server, then changed here as each row's own action lands. A read
  * still in flight when a change lands here began before it and is stale, so the
  * change discards it and reads again; it can never put a removed row back.
+ * What a read of the sessions said and what a sign-out said are two notices: a
+ * read that succeeds does not take back a sign-out that failed.
  */
 export function useSecurityOverview({
   load,
   revokeOthers,
-  sessionsNotice: initialSessionsNotice,
+  signOutNotice: initialSignOutNotice,
 }: {
   readonly load: () => Promise<Overview>;
   readonly revokeOthers: () => Promise<SecurityOutcome>;
-  readonly sessionsNotice?: string | undefined;
+  /** A sign-out that did not happen before this screen opened. */
+  readonly signOutNotice?: string | undefined;
 }) {
   const [passkeys, setPasskeys] = useState<readonly PasskeyRow[]>([]);
   const [sessions, setSessions] = useState<readonly SessionRow[]>([]);
   const [passkeysNotice, setPasskeysNotice] = useState<string | undefined>();
-  const [sessionsNotice, setSessionsNotice] = useState<string | undefined>(
-    initialSessionsNotice,
-  );
+  const [sessionsReadNotice, setSessionsReadNotice] = useState<
+    string | undefined
+  >();
+  const [signOutNotice, setSignOutNotice] = useState(initialSignOutNotice);
   const [signingOutOthers, setSigningOutOthers] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
@@ -54,7 +58,7 @@ export function useSecurityOverview({
       setPasskeys(overview.passkeys);
       setSessions(overview.sessions);
       setPasskeysNotice(noticeOf(overview.passkeysOutcome));
-      setSessionsNotice(noticeOf(overview.sessionsOutcome));
+      setSessionsReadNotice(noticeOf(overview.sessionsOutcome));
     })();
     return () => {
       cancelled = true;
@@ -65,7 +69,8 @@ export function useSecurityOverview({
     passkeys,
     sessions,
     passkeysNotice,
-    sessionsNotice,
+    // The list that could not be read comes first: nothing below it is current.
+    sessionsNotice: sessionsReadNotice ?? signOutNotice,
     reload,
     signingOutOthers,
     renamePasskey: (id: string, name: string) => {
@@ -87,8 +92,8 @@ export function useSecurityOverview({
       setSigningOutOthers(true);
       void revokeOthers().then((outcome) => {
         setSigningOutOthers(false);
+        setSignOutNotice(noticeOf(outcome));
         if (outcome.kind === 'ok') reload();
-        else setSessionsNotice(OUTCOME_NOTICES[outcome.kind]);
       });
     },
   };

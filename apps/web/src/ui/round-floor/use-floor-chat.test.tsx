@@ -156,3 +156,25 @@ test('a slower earlier read never replaces what a later read said', async () => 
     await floor.unmount();
   }
 });
+
+test('an older page never says what the floor is now', async () => {
+  const floor = await mount();
+  try {
+    await floor.act(() => void floor.held().loadHistory(channelId, 5));
+    const older = floor.reads.at(-1)!;
+    await floor.act(() => floor.held().refresh());
+    // The refresh says the floor has closed to writing; the older page was
+    // read before that and answers after it.
+    await floor.act(() => floor.reads.at(-1)!.resolve(page(true, 1)));
+    await floor.act(() => older.resolve(page(false, 0)));
+    assert({
+      given:
+        'an older page read while the floor was open, answering after a refresh that found it closed',
+      should: 'add its messages and leave the floor read-only',
+      actual: { ...floor.shown() },
+      expected: { state: 'ready', readOnly: true, paging: false },
+    });
+  } finally {
+    await floor.unmount();
+  }
+});
