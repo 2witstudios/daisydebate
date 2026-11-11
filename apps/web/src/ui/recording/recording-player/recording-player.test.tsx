@@ -1,6 +1,8 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { CoverageGap } from '@daisy/protocol';
+import { coverageParts } from '../../../features/recording/coverage-statement';
 import type { RecordingMediaPanel } from '../../../features/recording/history';
 import { RecordingPlayer } from './recording-player';
 import { clockTime, gapCopy } from './recording-player-copy';
@@ -11,12 +13,21 @@ const media: Extract<RecordingMediaPanel, { state: 'watch' }> = {
   state: 'watch',
   playlistHref: '/api/recordings/rec/playback/master.m3u8',
   durationMs: 600_000,
-  gaps: [],
+  lost: [],
+  keptPrivate: [],
   unrecorded: [],
   speeches: [],
 };
-const render = (over: Partial<typeof media> = {}) =>
-  renderToString(h(RecordingPlayer, { media: { ...media, ...over } }));
+/** The panel as the feature builds it from a video's stored gaps. */
+const render = ({
+  gaps = [],
+  ...over
+}: Partial<typeof media> & { gaps?: readonly CoverageGap[] } = {}) =>
+  renderToString(
+    h(RecordingPlayer, {
+      media: { ...media, ...coverageParts(gaps), ...over },
+    }),
+  );
 
 describe('RecordingPlayer', () => {
   test('is the one player, labelled, with native controls and a speed choice', () => {
@@ -52,17 +63,63 @@ describe('RecordingPlayer', () => {
     const said = (over: Parameters<typeof render>[0]) =>
       render(over).replaceAll('&#x27;', "'");
     assert({
-      given: 'each kind of stretch the video shows as something else',
+      given: 'each kind of debate lost',
       should: 'name it plainly',
       actual: [
         said({
-          gaps: [{ startMs: 0, endMs: 5000, reason: 'private_phase' }],
-        }).includes('0:00 to 0:05: a private part of the debate'),
-        said({
           gaps: [{ startMs: 60_000, endMs: 65_000, reason: 'room_rotation' }],
         }).includes('1:00 to 1:05: the room changed over'),
+        said({
+          gaps: [{ startMs: 60_000, endMs: 70_000, reason: 'not_public' }],
+        }).includes('1:00 to 1:10: not known to be public, so left out'),
       ],
       expected: [true, true],
+    });
+    assert({
+      given: 'only the slate between speeches',
+      should: 'list nothing as missing',
+      actual: said({
+        gaps: [
+          { startMs: 60_000, endMs: 71_500, reason: 'between_speeches' },
+          { startMs: 180_000, endMs: 191_500, reason: 'between_speeches' },
+        ],
+      }).includes('not recorded'),
+      expected: false,
+    });
+    const prep = said({
+      gaps: [
+        { startMs: 0, endMs: 5000, reason: 'private_phase' },
+        { startMs: 721_000, endMs: 870_000, reason: 'private_phase' },
+      ],
+    });
+    assert({
+      given: 'private phases and nothing lost',
+      should: 'say they are kept private, never that they were not recorded',
+      actual: [
+        prep.includes('not recorded'),
+        prep.includes(
+          'Kept private by design, so not shown: 0:00 to 0:05, 12:01 to 14:30',
+        ),
+      ],
+      expected: [false, true],
+    });
+    const both = said({
+      gaps: [
+        { startMs: 0, endMs: 5000, reason: 'private_phase' },
+        { startMs: 60_000, endMs: 71_500, reason: 'between_speeches' },
+        { startMs: 90_000, endMs: 120_000, reason: 'capture_restart' },
+      ],
+    });
+    assert({
+      given: 'a restart beside a private phase and a turnover',
+      should: 'list only the restart as not recorded',
+      actual: [
+        both.includes('Parts of this debate were not recorded'),
+        both.includes('1:30 to 2:00: recording stopped and restarted'),
+        both.includes('1:00 to 1:11'),
+        both.includes('Kept private by design, so not shown: 0:00 to 0:05'),
+      ],
+      expected: [true, true, false, true],
     });
     assert({
       given: 'debate before and after the video',
@@ -120,10 +177,10 @@ describe('copy', () => {
       expected: ['0:05', '1:02:05'],
     });
     assert({
-      given: 'each reason',
+      given: 'a lost stretch',
       should: 'say it in words',
-      actual: gapCopy({ startMs: 0, endMs: 1000, reason: 'private_phase' }),
-      expected: '0:00 to 0:01: a private part of the debate',
+      actual: gapCopy({ startMs: 0, endMs: 1000, reason: 'capture_restart' }),
+      expected: '0:00 to 0:01: recording stopped and restarted',
     });
   });
 });

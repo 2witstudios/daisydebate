@@ -1,6 +1,9 @@
+import { startEdgeLagMs } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  coverageParts,
   coverageStatement,
+  explainGaps,
   ROOM_ROTATION_DROPOUT_MS,
 } from './coverage-statement';
 
@@ -161,6 +164,450 @@ describe('coverageStatement', () => {
         segments: [{ startedAtMs: real(-500), endedAtMs: real(60_500) }],
       }),
       expected: { gaps: [], unrecorded: [] },
+    });
+  });
+});
+
+/** SMU Prep on staging: turnovers that end ~1.5 s into the next speech. */
+const twoSpeeches = {
+  ...none,
+  segments: [
+    { startedAtMs: real(0), endedAtMs: real(20_000) },
+    { startedAtMs: real(30_000), endedAtMs: real(50_000) },
+  ],
+};
+const notPublic = (startMs: number, endMs: number) =>
+  ({ startMs, endMs, reason: 'not_public' }) as const;
+
+describe('explainGaps', () => {
+  test('a turnover between two speeches is not lost', () => {
+    assert({
+      given:
+        'a not_public gap from the end of one speech to 1.5 s into the next',
+      should: 'state it as between speeches',
+      actual: explainGaps(
+        [notPublic(20_015, 31_500)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 20_015, endMs: 31_500, reason: 'between_speeches' },
+      ],
+    });
+  });
+
+  test('a long turnover with nothing private committed in it', () => {
+    assert({
+      given: 'a 40 s wait between speeches and no prep',
+      should: 'still be between speeches',
+      actual: explainGaps(
+        [notPublic(20_000, 61_400)],
+        {
+          ...none,
+          segments: [
+            { startedAtMs: real(0), endedAtMs: real(20_000) },
+            { startedAtMs: real(60_000), endedAtMs: real(90_000) },
+          ],
+        },
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 20_000, endMs: 61_400, reason: 'between_speeches' },
+      ],
+    });
+  });
+
+  test('a prep is private, never lost', () => {
+    assert({
+      given: 'a not_public gap over a prep that starts as the speech ends',
+      should: 'state the prep and the next opening as private',
+      actual: explainGaps(
+        [notPublic(19_300, 31_500)],
+        { ...twoSpeeches, prepStartsAtMs: [real(20_000)] },
+        startedAtMs,
+      ),
+      expected: [{ startMs: 19_300, endMs: 31_500, reason: 'private_phase' }],
+    });
+    assert({
+      given: 'a turnover before a prep that starts a while after the speech',
+      should: 'state the turnover as between and the prep as private',
+      actual: explainGaps(
+        [notPublic(20_000, 31_500)],
+        { ...twoSpeeches, prepStartsAtMs: [real(24_000)] },
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 20_000, endMs: 24_000, reason: 'between_speeches' },
+        { startMs: 24_000, endMs: 31_500, reason: 'private_phase' },
+      ],
+    });
+  });
+
+  test('a gap reaching into a speech past its opening is lost from there', () => {
+    assert({
+      given: 'a not_public gap running 10 s into the next speech',
+      should: 'keep the part past the opening margin as not public',
+      actual: explainGaps(
+        [notPublic(20_000, 40_000)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 20_000, endMs: 32_503, reason: 'between_speeches' },
+        { startMs: 32_503, endMs: 40_000, reason: 'not_public' },
+      ],
+    });
+  });
+
+  test('speeches back to back still have their opening', () => {
+    assert({
+      given:
+        'the next speech starting as the last ends, and a gap from 30 ms after',
+      should: 'state the opening as between speeches (Watch check on staging)',
+      actual: explainGaps(
+        [notPublic(20_030, 21_306)],
+        {
+          ...none,
+          segments: [
+            { startedAtMs: real(0), endedAtMs: real(20_000) },
+            { startedAtMs: real(20_000), endedAtMs: real(50_000) },
+          ],
+        },
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 20_030, endMs: 21_306, reason: 'between_speeches' },
+      ],
+    });
+  });
+
+  test('public media stopping short of a speech end is not lost', () => {
+    assert({
+      given:
+        'a prep at the end of a speech and a worker gap from 1.1 s before it',
+      should: 'state the whole stretch as private',
+      actual: explainGaps(
+        [notPublic(18_900, 31_500)],
+        { ...twoSpeeches, prepStartsAtMs: [real(20_000)] },
+        startedAtMs,
+      ),
+      expected: [{ startMs: 18_900, endMs: 31_500, reason: 'private_phase' }],
+    });
+    assert({
+      given: 'a turnover whose worker gap starts 1.1 s before the speech ends',
+      should: 'state the whole stretch as between speeches',
+      actual: explainGaps(
+        [notPublic(18_900, 31_500)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 18_900, endMs: 31_500, reason: 'between_speeches' },
+      ],
+    });
+    assert({
+      given: 'a gap near a speech end that does not reach the slate',
+      should: 'stay not public',
+      actual: explainGaps(
+        [notPublic(17_000, 19_500)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [notPublic(17_000, 19_500)],
+    });
+  });
+
+  test('a prep soon after a turnover leaves the turnover between speeches', () => {
+    assert({
+      given: 'a prep starting 1.5 s after the speech ended',
+      should:
+        'state the turnover as between speeches, then the prep as private',
+      actual: explainGaps(
+        [notPublic(20_000, 31_500)],
+        { ...twoSpeeches, prepStartsAtMs: [real(21_500)] },
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 20_000, endMs: 21_500, reason: 'between_speeches' },
+        { startMs: 21_500, endMs: 31_500, reason: 'private_phase' },
+      ],
+    });
+  });
+
+  test('a gap inside the first speech of a capture that opened with it is lost', () => {
+    assert({
+      given:
+        'capture opening as the first speech starts, and a gap from 0.5 s to 3 s',
+      should:
+        'state it as not public, not as the private time before the debate',
+      actual: explainGaps([notPublic(500, 3000)], twoSpeeches, startedAtMs),
+      expected: [notPublic(500, 3000)],
+    });
+  });
+
+  test('a gap opening inside a speech is lost, however early', () => {
+    assert({
+      given:
+        'a not_public gap from 2.0 s to 4.0 s into a speech, past no slate',
+      should: 'state all of it as not public',
+      actual: explainGaps(
+        [notPublic(32_000, 34_000)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [notPublic(32_000, 34_000)],
+    });
+    assert({
+      given: 'a not_public gap from 2.0 s to 3.4 s into a speech',
+      should: 'not lend it to the turnover before that speech',
+      actual: explainGaps(
+        [notPublic(32_000, 33_400)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [notPublic(32_000, 33_400)],
+    });
+  });
+
+  test('a stretch inside a speech stays not public', () => {
+    assert({
+      given: 'a not_public gap in the middle of a speech',
+      should: 'leave it as it is',
+      actual: explainGaps([notPublic(5000, 8000)], twoSpeeches, startedAtMs),
+      expected: [notPublic(5000, 8000)],
+    });
+  });
+
+  test('a sliver beyond a window is clock disagreement', () => {
+    assert({
+      given: 'a turnover gap starting 400 ms before the speech ends',
+      should: 'not state the sliver as lost',
+      actual: explainGaps(
+        [notPublic(19_600, 31_500)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 19_600, endMs: 31_500, reason: 'between_speeches' },
+      ],
+    });
+  });
+
+  test('every other reason stands, and the answer is stable', () => {
+    const stated = [
+      { startMs: 1000, endMs: 3000, reason: 'capture_restart' },
+      { startMs: 20_000, endMs: 31_500, reason: 'between_speeches' },
+      { startMs: 40_000, endMs: 45_000, reason: 'room_rotation' },
+    ] as const;
+    assert({
+      given: 'gaps already stated',
+      should: 'return them unchanged',
+      actual: explainGaps(stated, twoSpeeches, startedAtMs),
+      expected: stated,
+    });
+  });
+
+  test('touching stretches of one reason are told once', () => {
+    assert({
+      given: 'a worker gap over a prep next to the stated rest of that prep',
+      should: 'state one private stretch',
+      actual: explainGaps(
+        [
+          notPublic(20_000, 25_000),
+          { startMs: 25_000, endMs: 30_000, reason: 'private_phase' },
+        ],
+        { ...twoSpeeches, prepStartsAtMs: [real(20_000)] },
+        startedAtMs,
+      ),
+      expected: [{ startMs: 20_000, endMs: 30_000, reason: 'private_phase' }],
+    });
+  });
+
+  test('the opening covers the real stamp lag at any capture age', () => {
+    // Past a fixed 2.5 s opening by more than the 1 s sliver at 3 hours, so only an
+    // opening derived from the real lag covers it.
+    const probeSlackMs = 1150;
+    for (const [age, nextStartMs] of [
+      ['80 minutes', 80 * 60_000],
+      ['3 hours', 180 * 60_000],
+    ] as const) {
+      const endMs =
+        nextStartMs +
+        startEdgeLagMs(real(nextStartMs), startedAtMs) +
+        probeSlackMs;
+      assert({
+        given: `a turnover whose next speech starts ${age} into the capture`,
+        should: 'state the whole stretch as between speeches',
+        actual: explainGaps(
+          [notPublic(nextStartMs - 10_000, endMs)],
+          {
+            ...none,
+            segments: [
+              {
+                startedAtMs: real(nextStartMs - 60_000),
+                endedAtMs: real(nextStartMs - 10_000),
+              },
+              { startedAtMs: real(nextStartMs), endedAtMs: null },
+            ],
+          },
+          startedAtMs,
+        ),
+        expected: [
+          {
+            startMs: nextStartMs - 10_000,
+            endMs,
+            reason: 'between_speeches',
+          },
+        ],
+      });
+    }
+  });
+
+  test('what history does not close fails closed', () => {
+    const open = {
+      ...none,
+      segments: [
+        { startedAtMs: real(0), endedAtMs: null },
+        { startedAtMs: real(30_000), endedAtMs: real(50_000) },
+      ],
+    };
+    assert({
+      given: 'a not_public gap after a segment still open',
+      should: 'stay not public',
+      actual: explainGaps([notPublic(20_000, 29_000)], open, startedAtMs),
+      expected: [notPublic(20_000, 29_000)],
+    });
+    assert({
+      given: 'a not_public gap after the last committed segment',
+      should: 'stay not public',
+      actual: explainGaps(
+        [notPublic(52_000, 58_000)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [notPublic(52_000, 58_000)],
+    });
+    assert({
+      given: 'a not_public gap in a prep no segment follows',
+      should: 'stay not public',
+      actual: explainGaps(
+        [notPublic(52_000, 58_000)],
+        { ...twoSpeeches, prepStartsAtMs: [real(51_000)] },
+        startedAtMs,
+      ),
+      expected: [notPublic(52_000, 58_000)],
+    });
+  });
+
+  test('its own answer comes back unchanged', () => {
+    const facts = { ...twoSpeeches, prepStartsAtMs: [real(24_000)] };
+    const once = explainGaps(
+      [
+        notPublic(5000, 8000),
+        notPublic(20_000, 40_000),
+        { startMs: 45_000, endMs: 46_000, reason: 'capture_restart' },
+      ],
+      facts,
+      startedAtMs,
+    );
+    assert({
+      given: 'gaps already explained',
+      should: 'explain them the same way again',
+      actual: explainGaps(once, facts, startedAtMs),
+      expected: once,
+    });
+  });
+
+  test('stretches of different reasons are never merged, and none is lost', () => {
+    const gaps = [
+      notPublic(19_600, 40_000),
+      { startMs: 40_000, endMs: 41_000, reason: 'capture_restart' },
+    ] as const;
+    const explained = explainGaps(gaps, twoSpeeches, startedAtMs);
+    assert({
+      given: 'a turnover running into a lost stretch and a restart',
+      should: 'keep each reason apart and cover exactly the same time',
+      actual: [
+        explained.map((gap) => gap.reason),
+        explained.every(
+          (gap, index) =>
+            index === 0 || explained[index - 1]?.endMs === gap.startMs,
+        ),
+        [explained[0]?.startMs, explained.at(-1)?.endMs],
+      ],
+      expected: [
+        ['between_speeches', 'not_public', 'capture_restart'],
+        true,
+        [19_600, 41_000],
+      ],
+    });
+  });
+
+  test('a Round with no record explains nothing', () => {
+    assert({
+      given: 'no segments',
+      should: 'keep the worker gap as not public',
+      actual: explainGaps([notPublic(1000, 5000)], none, startedAtMs),
+      expected: [notPublic(1000, 5000)],
+    });
+  });
+});
+
+describe('coverageStatement with worker turnovers', () => {
+  test('the stored statement is already explained', () => {
+    assert({
+      given: "the worker's not_public gap at a turnover",
+      should: 'store it as between speeches',
+      actual: statement(twoSpeeches, {
+        restartGaps: [notPublic(20_015, 31_500)],
+        durationMs: 50_000,
+      }).gaps,
+      expected: [
+        { startMs: 20_015, endMs: 31_500, reason: 'between_speeches' },
+      ],
+    });
+  });
+
+  test('a prep is stated private where the worker said not public', () => {
+    assert({
+      given: "the worker's not_public gap over part of a prep",
+      should: 'state the whole prep as one private stretch',
+      actual: statement(
+        { ...twoSpeeches, prepStartsAtMs: [real(20_000)] },
+        { restartGaps: [notPublic(19_300, 26_000)], durationMs: 50_000 },
+      ).gaps,
+      expected: [{ startMs: 19_300, endMs: 30_000, reason: 'private_phase' }],
+    });
+  });
+});
+
+describe('coverageParts', () => {
+  test('tells a viewer what was lost and what was kept private, never the slate', () => {
+    const every = (
+      [
+        'capture_restart',
+        'private_phase',
+        'between_speeches',
+        'room_rotation',
+        'not_public',
+      ] as const
+    ).map((reason, index) => ({
+      startMs: index * 1000,
+      endMs: index * 1000 + 500,
+      reason,
+    }));
+    const { lost, keptPrivate } = coverageParts(every);
+    assert({
+      given: 'every reason',
+      should: 'sort each as lost or private, and leave the slate out',
+      actual: [
+        lost.map((gap) => gap.reason),
+        keptPrivate.map((gap) => gap.reason),
+      ],
+      expected: [
+        ['capture_restart', 'room_rotation', 'not_public'],
+        ['private_phase'],
+      ],
     });
   });
 });
