@@ -72,6 +72,7 @@ const mount = async (signOutNotice?: string) => {
         passkeys: string[];
         sessions: string[];
         sessionsNotice: string | null;
+        signOutNotice: string | null;
       },
     unmount: () => client.act(async () => client.root.unmount()),
   };
@@ -152,10 +153,10 @@ test('a sign-out that failed stays said until a sign-out succeeds', async () => 
   const page = await mount('Sign-out did not happen.');
   try {
     await page.act(() => page.reads[0]!.resolve(overview([], ['here'])));
-    const afterRead = page.shown().sessionsNotice;
+    const afterRead = page.shown().signOutNotice;
     await page.act(() => page.held().signOutOthers());
     await page.act(() => page.signOuts[0]!.resolve({ kind: 'rate-limited' }));
-    const afterRefusal = page.shown().sessionsNotice;
+    const afterRefusal = page.shown().signOutNotice;
     await page.act(() => page.held().signOutOthers());
     await page.act(() => page.signOuts[1]!.resolve({ kind: 'ok' }));
     await page.act(() => page.reads.at(-1)!.resolve(overview([], ['here'])));
@@ -167,7 +168,7 @@ test('a sign-out that failed stays said until a sign-out succeeds', async () => 
       actual: {
         afterRead,
         refused: afterRefusal !== null && afterRefusal !== afterRead,
-        after: page.shown().sessionsNotice,
+        after: page.shown().signOutNotice,
       },
       expected: {
         afterRead: 'Sign-out did not happen.',
@@ -219,8 +220,14 @@ test('a read that cannot be made says the lists are unavailable', async () => {
           passkeys: [],
           sessions: [],
           sessionsNotice: OUTCOME_NOTICES.unavailable,
+          signOutNotice: null,
         },
-        after: { passkeys: [], sessions: ['here'], sessionsNotice: null },
+        after: {
+          passkeys: [],
+          sessions: ['here'],
+          sessionsNotice: null,
+          signOutNotice: null,
+        },
       },
     });
   } finally {
@@ -236,7 +243,7 @@ test('a sign-out of the others that cannot be sent can be asked again', async ()
     await page.act(() => page.signOuts[0]!.reject(new Error('offline')));
     const after = {
       busy: page.held().signingOutOthers,
-      notice: page.shown().sessionsNotice,
+      notice: page.shown().signOutNotice,
     };
     await page.act(() => page.held().signOutOthers());
     assert({
@@ -247,6 +254,25 @@ test('a sign-out of the others that cannot be sent can be asked again', async ()
         after: { busy: false, notice: OUTCOME_NOTICES.unavailable },
         asked: 2,
       },
+    });
+  } finally {
+    await page.unmount();
+  }
+});
+
+test('a sign-out that failed is said beside a read that failed', async () => {
+  const page = await mount();
+  try {
+    await page.act(() => page.reads[0]!.reject(new Error('offline')));
+    await page.act(() => page.held().signOutOthers());
+    await page.act(() => page.signOuts[0]!.resolve({ kind: 'rate-limited' }));
+    const shown = page.shown();
+    assert({
+      given:
+        'the sessions could not be read, and a sign-out of the others refused',
+      should: 'say both, each in its own notice',
+      actual: [shown.sessionsNotice, shown.signOutNotice],
+      expected: [OUTCOME_NOTICES.unavailable, OUTCOME_NOTICES['rate-limited']],
     });
   } finally {
     await page.unmount();

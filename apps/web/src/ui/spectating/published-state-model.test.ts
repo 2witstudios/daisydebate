@@ -148,3 +148,35 @@ test('the server is asked again, ever less often, while an address stays gone', 
     },
   });
 });
+
+test('the same object readable again means the address is back', () => {
+  const read = nextPublishedReads(
+    first,
+    { kind: 'state', state: stateAt(5) },
+    10,
+  );
+  const gone = nextPublishedReads(read, { kind: 'missing' }, 20);
+  assert({
+    given:
+      'a missing read, then the same object again with nothing newer published',
+    should: 'no longer be gone, keeping the state and when it last moved',
+    actual: nextPublishedReads(gone, { kind: 'state', state: stateAt(5) }, 30),
+    expected: read,
+  });
+});
+
+test('a refusal keeps the wait the bucket asked for, gone or not', () => {
+  const refused = { kind: 'refused', retryAfterMs: 120_000 } as const;
+  const gone = nextPublishedReads(
+    nextPublishedReads(first, { kind: 'state', state: stateAt(5) }, 10),
+    { kind: 'missing' },
+    20,
+  );
+  assert({
+    given: 'the bucket asking a tab on a gone address to wait two minutes',
+    should: 'wait at least that long, not the 30 s a miss would allow',
+    actual: nextPollDelayMs(0, paceOfPublishedRead(gone, refused), () => 0.5)
+      .delayMs,
+    expected: 120_000,
+  });
+});

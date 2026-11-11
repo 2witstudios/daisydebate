@@ -224,3 +224,26 @@ test('a later read that fails does not cost an earlier one its answer', async ()
     await floor.unmount();
   }
 });
+
+test('a read asked before the floor was denied never reopens it', async () => {
+  const floor = await mount();
+  try {
+    await floor.act(() => floor.held().refresh());
+    const earlier = floor.reads.at(-1)!;
+    await floor.act(() => floor.held().refresh());
+    await floor.act(() =>
+      floor.reads.at(-1)!.resolve(new Response(null, { status: 403 })),
+    );
+    const denied = floor.shown().state;
+    await floor.act(() => earlier.resolve(page()));
+    assert({
+      given:
+        'a read still on its way when a later read is refused access, then answering well',
+      should: 'leave the floor denied',
+      actual: { denied, after: floor.shown().state },
+      expected: { denied: 'denied', after: 'denied' },
+    });
+  } finally {
+    await floor.unmount();
+  }
+});

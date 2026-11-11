@@ -114,6 +114,13 @@ export function SecurityPage({
             title={sessionsNotice}
           />
         ) : null}
+        {overview.signOutNotice ? (
+          <Notice
+            id="sign-out-notice"
+            tone="error"
+            title={overview.signOutNotice}
+          />
+        ) : null}
         <ul>
           {sessions.map((session) => (
             <SessionRowView

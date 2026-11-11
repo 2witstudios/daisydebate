@@ -26,8 +26,9 @@ const noticeOf = (outcome: SecurityOutcome): string | undefined =>
  * from the server, then changed here as each row's own action lands. A read
  * still in flight when a change lands here began before it and is stale, so the
  * change discards it and reads again; it can never put a removed row back.
- * What a read of the sessions said and what a sign-out said are two notices: a
- * read that succeeds does not take back a sign-out that failed.
+ * What a read of the sessions said and what a sign-out said are two notices,
+ * shown apart: a read that succeeds does not take back a sign-out that failed,
+ * and a read that fails does not hide one.
  */
 export function useSecurityOverview({
   load,
@@ -84,8 +85,8 @@ export function useSecurityOverview({
     passkeys,
     sessions,
     passkeysNotice,
-    // The list that could not be read comes first: nothing below it is current.
-    sessionsNotice: sessionsReadNotice ?? signOutNotice,
+    sessionsNotice: sessionsReadNotice,
+    signOutNotice,
     reload,
     signingOutOthers,
     renamePasskey: (id: string, name: string) => {

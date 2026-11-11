@@ -224,33 +224,29 @@ export const roomInvitationOperations = ({
    * expired at its own expiry, so it is purged on the same clock. The sweep
    * holds no Room lock, so the outer statement tests the row again: one a Room
    * command ended while the sweep waited on it is left as that command wrote
-   * it. The seat each one held is freed in a second statement, after the first
+   * it. The seat each one held is freed by a second statement, after the first
    * has committed and let go of the invitation rows: a restriction or an
    * erasure deletes holds before invitations, and one statement taking them
-   * the other way round could deadlock with it. Only a hold whose own time
-   * has passed goes, so a newer invitation's hold for that member stays.
+   * the other way round could deadlock with it. That statement looks for any
+   * hold an ended invitation left, not only this run's, so a run that died
+   * between the two is made good by the next. Only a hold whose own time has
+   * passed goes, so a newer invitation's hold for that member stays.
    */
   purgeEndedRoomInvitations(batch: RetentionBatch) {
     return instrumented(eventSink, 'purgeEndedRoomInvitations', async () => {
       // Refused bounds change nothing: checked before the first write.
       requireRetentionBounds(batch);
-      const lapsed = await rowsOf<{
-        room_id: string;
-        invitee_actor_id: string;
-      }>(
-        database,
-        sql`update room_invitations set state='expired',ended_at=expires_at
-          where id in (select id from room_invitations where state='pending'
-              and expires_at <= clock_timestamp() order by id limit ${batch.limit})
-            and state='pending' and expires_at <= clock_timestamp()
-          returning room_id,invitee_actor_id`,
-      );
-      if (lapsed.length > 0)
-        await database.execute(sql`delete from room_seat_holds
-          where (room_id, actor_id) in (${sql.join(
-            lapsed.map((row) => sql`(${row.room_id},${row.invitee_actor_id})`),
-            sql`,`,
-          )}) and until <= clock_timestamp()`);
+      await database.execute(sql`update room_invitations set state='expired',ended_at=expires_at
+        where id in (select id from room_invitations where state='pending'
+            and expires_at <= clock_timestamp() order by id limit ${batch.limit})
+          and state='pending' and expires_at <= clock_timestamp()`);
+      await database.execute(sql`delete from room_seat_holds
+        where (room_id, actor_id) in (
+            select h.room_id, h.actor_id from room_seat_holds h
+            join room_invitations i on i.room_id=h.room_id
+              and i.invitee_actor_id=h.actor_id and i.state<>'pending'
+            where h.until <= clock_timestamp() limit ${batch.limit})
+          and until <= clock_timestamp()`);
       return deleteExpiredBatch(
         database,
         {

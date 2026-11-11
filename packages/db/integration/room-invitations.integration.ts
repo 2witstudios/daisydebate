@@ -376,6 +376,38 @@ test('an invitation whose time ran out ends, and its retention clock runs', asyn
   });
 });
 
+test('a sweep makes good a hold an earlier run expired but did not free', async () => {
+  await withRoom(async (env) => {
+    const { invitationId } = await invite(env, env.coach.userId);
+    // An earlier run committed the expiry and died before freeing the seat.
+    await env.f
+      .sql`update room_invitations set state='expired',expires_at=clock_timestamp() - interval '1 minute',
+      ended_at=clock_timestamp() - interval '1 minute',created_at=clock_timestamp() - interval '25 hours'
+      where id=${invitationId}`;
+    await env.f
+      .sql`update room_seat_holds set until=clock_timestamp() - interval '1 minute'
+      where room_id=${env.roomId} and actor_id=${env.coach.actorId}`;
+    const judge = await createAuthorizationSubject(env.f);
+    await env.f.sql`insert into room_seat_holds(room_id,actor_id,seat,until)
+      values(${env.roomId},${judge.actorId},'debater',clock_timestamp() + interval '1 hour')`;
+    await env.invitations.purgeEndedRoomInvitations({
+      before: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      limit: 500,
+    });
+    const held = (await env.f
+      .sql`select actor_id from room_seat_holds where room_id=${env.roomId}`) as {
+      actor_id: string;
+    }[];
+    assert({
+      given:
+        'an invitation already expired whose hold was left behind, beside a live hold for someone else',
+      should: 'free the dead hold and leave the live one',
+      actual: held.map((row) => row.actor_id),
+      expected: [judge.actorId],
+    });
+  });
+});
+
 test('the retention sweep leaves alone an invitation that ended while it waited', async () => {
   await withRoom(async (env) => {
     const { invitationId } = await invite(env, env.coach.userId);

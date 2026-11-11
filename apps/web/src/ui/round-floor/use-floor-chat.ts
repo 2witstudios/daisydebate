@@ -106,6 +106,8 @@ export function useFloorChat({
               : 'Messages could not be loaded. Try again.',
           );
           if (response.status === 403 || response.status === 404) {
+            // No read asked before the floor was denied may reopen it.
+            generation.current += 1;
             setState({ kind: 'denied' });
             setOlder(null);
           }
