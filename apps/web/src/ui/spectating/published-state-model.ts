@@ -1,4 +1,5 @@
 import type { AudienceState } from '@daisy/protocol';
+import type { PollAnswer } from '../../features/spectating/poll-pace';
 
 /** What a tab has read of a Round's published state, on its own clock. */
 export type PublishedReads = {
@@ -38,3 +39,14 @@ export const nextPublishedReads = (
     return { state: read.state, movedAtMs: nowMs, gone: false };
   return reads;
 };
+
+/**
+ * What a read says about the next one. While the address is gone a read counts
+ * as a miss, however the bucket answered, so a tab left on a withdrawn address
+ * slows to the longest wait instead of asking every couple of seconds; the first
+ * state read again restores the ordinary pace.
+ */
+export const paceOfPublishedRead = (
+  reads: PublishedReads,
+  answer: PollAnswer,
+): PollAnswer => (reads.gone ? { kind: 'failed' } : answer);

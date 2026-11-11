@@ -24,7 +24,11 @@ import {
   type Tx,
 } from '../room-command-facts';
 import type { roomCommandTransaction } from '../room-command-transaction';
-import { deleteExpiredBatch, type RetentionBatch } from '../retention';
+import {
+  deleteExpiredBatch,
+  requireRetentionBounds,
+  type RetentionBatch,
+} from '../retention';
 import { roomInvitations } from '../schema/room-invitations';
 import { rooms } from '../schema/rooms';
 
@@ -228,6 +232,8 @@ export const roomInvitationOperations = ({
    */
   purgeEndedRoomInvitations(batch: RetentionBatch) {
     return instrumented(eventSink, 'purgeEndedRoomInvitations', async () => {
+      // Refused bounds change nothing: checked before the first write.
+      requireRetentionBounds(batch);
       const lapsed = await rowsOf<{
         room_id: string;
         invitee_actor_id: string;

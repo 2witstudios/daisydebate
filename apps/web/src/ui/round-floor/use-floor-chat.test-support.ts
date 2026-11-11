@@ -21,6 +21,7 @@ export function FloorProbe(
       readOnly:
         held.state.kind === 'ready' ? held.state.metadata.readOnly : null,
       paging: held.paging,
+      notice: held.notice,
     }),
   );
 }

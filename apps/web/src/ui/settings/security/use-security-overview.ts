@@ -11,6 +11,13 @@ import { OUTCOME_NOTICES } from './security-notices';
 
 type Overview = Awaited<ReturnType<typeof loadSecurityOverview>>;
 
+const UNREAD: Overview = {
+  passkeys: [],
+  sessions: [],
+  passkeysOutcome: { kind: 'unavailable' },
+  sessionsOutcome: { kind: 'unavailable' },
+};
+
 const noticeOf = (outcome: SecurityOutcome): string | undefined =>
   outcome.kind === 'ok' ? undefined : OUTCOME_NOTICES[outcome.kind];
 
@@ -43,17 +50,24 @@ export function useSecurityOverview({
   const [reloadToken, setReloadToken] = useState(0);
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
   const reading = useRef(false);
+  /** Counts the changes made here; a read begun under an earlier count is stale. */
+  const changes = useRef(0);
   /** A row changed here: whatever is being read no longer says what is so. */
   const changedHere = () => {
-    if (reading.current) reload();
+    if (!reading.current) return;
+    // The read is stale from this moment, before React runs its cleanup.
+    changes.current += 1;
+    reload();
   };
 
   useEffect(() => {
     let cancelled = false;
+    const begunAt = changes.current;
     reading.current = true;
     void (async () => {
-      const overview = await load();
-      if (cancelled) return;
+      // A read that could not be made at all says the same as one refused.
+      const overview = await load().catch(() => UNREAD);
+      if (cancelled || begunAt !== changes.current) return;
       reading.current = false;
       setPasskeys(overview.passkeys);
       setSessions(overview.sessions);

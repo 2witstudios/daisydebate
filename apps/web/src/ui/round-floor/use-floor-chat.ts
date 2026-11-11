@@ -87,13 +87,10 @@ export function useFloorChat({
       const request = (asked.current[kind] += 1);
       // An answer counts while the floor is still shown and no later read of its
       // kind has been applied. A read still in flight does not supersede it, so
-      // steady traffic never leaves every answer dropped.
-      const current = () => {
-        if (generation.current !== revision) return false;
-        if (request < applied.current[kind]) return false;
-        applied.current[kind] = request;
-        return true;
-      };
+      // steady traffic never leaves every answer dropped; nor does one that
+      // failed, since only a page that was applied moves `applied` on.
+      const current = () =>
+        generation.current === revision && request >= applied.current[kind];
       if (kind === 'older') setPaging(true);
       try {
         const response = await fetch(
@@ -114,6 +111,7 @@ export function useFloorChat({
           }
           return;
         }
+        applied.current[kind] = request;
         setReadSequence((sequence) =>
           Math.max(sequence, value.viewer.readSequence),
         );

@@ -174,3 +174,42 @@ test('a sign-out that failed stays said until a sign-out succeeds', async () => 
     await page.unmount();
   }
 });
+
+test('a read that answers in the same moment as a removal is still stale', async () => {
+  const page = await mount();
+  try {
+    await page.act(() => page.reads[0]!.resolve(overview(['one', 'two'], [])));
+    await page.act(() => page.held().reload());
+    // Before React has run any cleanup: the removal, then the old answer.
+    await page.act(() => {
+      page.held().removePasskey('one');
+      page.reads[1]!.resolve(overview(['one', 'two'], []));
+    });
+    assert({
+      given:
+        'a removal and the answer to an earlier read arriving in the same moment',
+      should: 'keep the row removed and read again',
+      actual: { shown: page.shown().passkeys, reads: page.reads.length },
+      expected: { shown: ['two'], reads: 3 },
+    });
+  } finally {
+    await page.unmount();
+  }
+});
+
+test('a read that cannot be made says the lists are unavailable', async () => {
+  const page = await mount();
+  try {
+    await page.act(() => page.reads[0]!.reject(new Error('offline')));
+    await page.act(() => page.held().reload());
+    await page.act(() => page.reads[1]!.resolve(overview([], ['here'])));
+    assert({
+      given: 'a read that rejects, then one that answers',
+      should: 'show nothing unhandled, and read normally afterwards',
+      actual: page.shown(),
+      expected: { passkeys: [], sessions: ['here'], sessionsNotice: null },
+    });
+  } finally {
+    await page.unmount();
+  }
+});

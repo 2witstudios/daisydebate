@@ -7,6 +7,7 @@ import { startBrowserPoll } from './browser-poll';
 import {
   firstPublishedReads,
   nextPublishedReads,
+  paceOfPublishedRead,
   type PublishedRead,
 } from './published-state-model';
 
@@ -61,7 +62,7 @@ export function usePublishedState(url: string | null, polling: boolean) {
               ? { kind: 'missing' }
               : { kind: 'failed' },
         );
-        return reads.gone ? { kind: 'failed' } : answerOfResponse(response);
+        return paceOfPublishedRead(reads, answerOfResponse(response));
       } catch (error) {
         settle({ kind: 'failed' });
         throw error;

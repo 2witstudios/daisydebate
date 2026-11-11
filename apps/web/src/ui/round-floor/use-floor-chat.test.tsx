@@ -103,6 +103,7 @@ const mount = async () => {
         state: string;
         readOnly: boolean | null;
         paging: boolean;
+        notice: string | null;
       },
     unmount: () => client.act(async () => client.root.unmount()),
   };
@@ -172,7 +173,7 @@ test('an older page never says what the floor is now', async () => {
         'an older page read while the floor was open, answering after a refresh that found it closed',
       should: 'add its messages and leave the floor read-only',
       actual: { ...floor.shown() },
-      expected: { state: 'ready', readOnly: true, paging: false },
+      expected: { state: 'ready', readOnly: true, paging: false, notice: null },
     });
   } finally {
     await floor.unmount();
@@ -193,6 +194,31 @@ test('a read is applied when it answers, though a later one is already on its wa
       should: 'apply it, so steady traffic cannot leave every answer dropped',
       actual: floor.shown().readOnly,
       expected: true,
+    });
+  } finally {
+    await floor.unmount();
+  }
+});
+
+test('a later read that fails does not cost an earlier one its answer', async () => {
+  const floor = await mount();
+  try {
+    await floor.act(() => floor.held().refresh());
+    const first = floor.reads.at(-1)!;
+    await floor.act(() => floor.held().refresh());
+    await floor.act(() => floor.reads.at(-1)!.reject(new Error('offline')));
+    const failed = floor.shown().notice;
+    await floor.act(() => first.resolve(page(true, 1)));
+    assert({
+      given:
+        'a read still on its way when a later read fails, then answering well',
+      should:
+        'say the later read failed, then apply the page and take that back',
+      actual: { failed: failed !== null, after: floor.shown() },
+      expected: {
+        failed: true,
+        after: { state: 'ready', readOnly: true, paging: false, notice: null },
+      },
     });
   } finally {
     await floor.unmount();
