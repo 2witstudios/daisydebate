@@ -9,6 +9,7 @@ import type {
 } from '@daisy/protocol';
 import {
   formatDefinitionSchema,
+  isOpenRoomStatus,
   roundRulesSchema,
   seatSlotsComplete,
 } from '@daisy/protocol';
@@ -42,8 +43,6 @@ export type Edges = {
   /** Facts for a new draw, loaded only for `start-round` on a draw Room. */
   readonly drawStart: DrawStartFacts | null;
 };
-export const assemblyOpen = (room: RoomAssemblyState) =>
-  room.status === 'assembling' || room.status === 'ready';
 export const complete = (room: RoomAssemblyState) =>
   Object.entries(room.rules.seats).every(([role, count]) =>
     seatSlotsComplete(
@@ -83,7 +82,7 @@ export const startBlocker = (
   room: RoomAssemblyState,
   consent: RoomConsent,
 ): RoomRefusal | null => {
-  if (!assemblyOpen(room)) return 'room-closed';
+  if (!isOpenRoomStatus(room.status)) return 'room-closed';
   if (
     !formatDefinitionSchema.safeParse(room.definition).success ||
     !roundRulesSchema.safeParse(room.rules).success

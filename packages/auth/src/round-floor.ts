@@ -1,3 +1,4 @@
+import { isRoundOver } from '@daisy/protocol';
 import {
   roundFloorRetentionMs,
   type RoundFloorFact,
@@ -47,7 +48,7 @@ export function decideRoundFloor(input: FloorDecisionInput):
     !currentAudience(input)
   )
     return { allow: false };
-  const terminal = ['completed', 'abandoned'].includes(fact.status);
+  const terminal = isRoundOver(fact.status);
   if (!terminal)
     return fact.completedAt === null
       ? { allow: true, readOnly: false, expiresAt: null }

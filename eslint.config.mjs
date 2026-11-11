@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import nextVitals from 'eslint-config-next/core-web-vitals';
@@ -884,6 +885,33 @@ export default [
     ],
     rules: {
       'no-restricted-imports': ['error', { patterns: appImportRestrictions }],
+    },
+  },
+  // State is one closed union with total transitions
+  // (docs/architecture/rules.md): a `switch` over a union names every member,
+  // and a `default` does not stand in for one, so a new state fails lint at
+  // each place that has not decided what it means. `assertNever` from
+  // `@daisy/protocol` is the `default` for a value that arrives unvalidated.
+  // The rule needs
+  // types, so it runs on the sources every workspace `tsconfig.json` owns
+  // that are on disk: text linted under a path no project holds has no types.
+  {
+    files: ['packages/*/src/**/*.ts', 'apps/*/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', (filePath) => !existsSync(filePath)],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/switch-exhaustiveness-check': [
+        'error',
+        {
+          considerDefaultExhaustiveForUnions: false,
+          requireDefaultForNonUnion: false,
+        },
+      ],
     },
   },
 ];

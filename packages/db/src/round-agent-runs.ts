@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { isRoundOver, idSchema } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors } from './authorization';
 import { hydrateRoundRows } from './round-hydration';
@@ -51,8 +51,7 @@ export async function lockRoundAgentContext(
     .from(rounds)
     .where(eq(rounds.id, roundId))
     .for('no key update');
-  if (!locked || locked.status === 'completed' || locked.status === 'abandoned')
-    throw createAppError('CONFLICT');
+  if (!locked || isRoundOver(locked.status)) throw createAppError('CONFLICT');
   const round = await hydrateRoundRows(tx, roundId);
   const seat = round?.participants.find(
     (candidate) => candidate.id === participantId,

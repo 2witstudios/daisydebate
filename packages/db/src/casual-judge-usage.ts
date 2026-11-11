@@ -1,3 +1,4 @@
+import { isRoundOver } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { usageStateSchema } from '@daisy/protocol/billing';
@@ -70,11 +71,7 @@ export async function settleCasualJudgeUsageLocked(tx: Tx, roundId: string) {
     from round_participants p join actors a on a.id=p.actor_id and a.kind='bot'
     left join round_judging_jobs j on j.round_id=p.round_id and j.judge_participant_id=p.id
     where p.round_id=${roundId} and p.role='judge'`);
-  if (
-    !['completed', 'abandoned'].includes(round.status) &&
-    (!jobs?.total || jobs.open !== 0)
-  )
-    return;
+  if (!isRoundOver(round.status) && (!jobs?.total || jobs.open !== 0)) return;
   const reservation = await judgeReservation(tx, roundId);
   if (!reservation) return;
   const state = usageStateSchema.parse(reservation.state);

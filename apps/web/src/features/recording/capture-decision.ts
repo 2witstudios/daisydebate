@@ -5,7 +5,11 @@ import {
   type StagePhaseFact,
   type StagePrivacyAction,
 } from '@daisy/debate-engine';
-import { capturedMediaMs, recordingBuildCeilingMs } from '@daisy/protocol';
+import {
+  assertNever,
+  capturedMediaMs,
+  recordingBuildCeilingMs,
+} from '@daisy/protocol';
 import type {
   RecordingJobState,
   RecordingLifecycle,
@@ -196,7 +200,11 @@ export const answerRecordingJob = (input: {
     case 'removing':
     case 'removed':
       return sourcesInUse ? null : { type: 'discard-sources' };
-    default:
+    case 'requested':
+    case 'capturing':
+    case 'taken_down':
       return null;
+    default:
+      return assertNever(lifecycle);
   }
 };

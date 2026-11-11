@@ -60,7 +60,8 @@ const decidingStatus = (
         : 'Settling the result';
     case 'ai_processing':
       return judge === 'ai' ? writing : 'Settling the result';
-    default:
+    case 'human_window':
+    case null:
       return writing;
   }
 };

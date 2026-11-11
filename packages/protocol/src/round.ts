@@ -23,6 +23,26 @@ export const roundStatuses = [
 ] as const;
 export const roundStatusSchema = z.enum(roundStatuses);
 export type RoundStatus = (typeof roundStatuses)[number];
+/** A Round still running: in its opening or its debate, with no ending yet. */
+export const runningRoundStatuses = [
+  'opening',
+  'active',
+] as const satisfies readonly RoundStatus[];
+export type RunningRoundStatus = (typeof runningRoundStatuses)[number];
+/** A Round that has ended, with a result or without one. Nothing leaves these. */
+export const overRoundStatuses = [
+  'completed',
+  'abandoned',
+] as const satisfies readonly RoundStatus[];
+export type OverRoundStatus = (typeof overRoundStatuses)[number];
+/** Whether a Round in `status` is still running. */
+export const isRoundRunning = (
+  status: RoundStatus,
+): status is RunningRoundStatus =>
+  (runningRoundStatuses as readonly RoundStatus[]).includes(status);
+/** Whether a Round in `status` has ended. Every status is running or over. */
+export const isRoundOver = (status: RoundStatus): status is OverRoundStatus =>
+  (overRoundStatuses as readonly RoundStatus[]).includes(status);
 
 /** Where a running round is: what the clock is doing, or that the debate is over and only its result is left. */
 const roundStages = ['countdown', 'prep', 'live', 'awaiting_ballot'] as const;

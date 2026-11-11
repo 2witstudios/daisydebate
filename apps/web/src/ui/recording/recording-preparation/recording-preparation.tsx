@@ -31,7 +31,8 @@ const preparationCopy = (preparation: RecordingPreparation | null): string => {
       return buildStepCopy(preparation.progress);
     case 'capturing':
       return 'The video is still being captured.';
-    default:
+    case 'waiting':
+    case undefined:
       return 'Waiting for its turn to be prepared.';
   }
 };

@@ -3,6 +3,7 @@ import {
   captionKnownPublicSql,
 } from './spectator-release-sql';
 import {
+  isRoundOver,
   recordingHiddenByModeration,
   SPECTATOR_MARGIN_MS,
 } from '@daisy/protocol';
@@ -89,8 +90,7 @@ export const spectatorTimelineReads = ({
             .where(eq(broadcasts.roundId, input.roundId));
           const horizonMs = input.horizonOf({
             competitionType,
-            roundTerminal:
-              round.status === 'completed' || round.status === 'abandoned',
+            roundTerminal: isRoundOver(round.status),
             broadcast: broadcast
               ? {
                   policy: broadcast.releasePolicy,

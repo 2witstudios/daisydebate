@@ -1,3 +1,4 @@
+import { isRoundRunning, runningRoundStatuses } from '@daisy/protocol';
 import { CryptoHasher } from 'bun';
 import { and, eq, inArray, ne } from 'drizzle-orm';
 import type { RoundProjection } from '@daisy/protocol';
@@ -87,13 +88,13 @@ export async function forfeitMemberRounds(
       and(
         eq(roundParticipants.actorId, actorId),
         ne(roundParticipants.role, 'judge'),
-        inArray(rounds.status, ['opening', 'active']),
+        inArray(rounds.status, [...runningRoundStatuses]),
       ),
     )
     .orderBy(rounds.id);
   for (const { id: roundId } of debating) {
     const current = await lockedRoundVersion(tx, roundId);
-    if (current.status !== 'opening' && current.status !== 'active') continue;
+    if (!isRoundRunning(current.status)) continue;
     const now = await sampleRoundExecutionTime(tx);
     const projection = await decideForfeit(tx, roundId, actorId, now, context);
     if (!projection) continue;

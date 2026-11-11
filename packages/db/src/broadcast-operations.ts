@@ -1,3 +1,4 @@
+import { runningRoundStatuses } from '@daisy/protocol';
 import type { BroadcastReleasePolicy } from '@daisy/protocol';
 import {
   and,
@@ -497,7 +498,7 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
           eq(rounds.competitionType, 'ranked'),
           sql`jsonb_typeof(${rounds.capture} -> 'broadcast') = 'object'`,
         ),
-        inArray(rounds.status, ['opening', 'active']),
+        inArray(rounds.status, [...runningRoundStatuses]),
         // A private Round's Broadcast was refused at its edit and its Launch: this holds it.
         ne(rounds.visibility, 'private'),
         isNull(broadcasts.id),

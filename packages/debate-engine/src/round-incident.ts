@@ -1,3 +1,4 @@
+import { isRoundRunning } from '@daisy/protocol';
 import type {
   PlatformIncidentCause,
   RoundIncident,
@@ -66,10 +67,7 @@ const pause = (
   event: Extract<IncidentEvent, { kind: 'pause' }>,
 ): ClockTransition => {
   const { status } = state.lifecycle;
-  if (
-    (status !== 'opening' && status !== 'active') ||
-    debateHasEnded(state, rules.segments.length)
-  )
+  if (!isRoundRunning(status) || debateHasEnded(state, rules.segments.length))
     return stay(state);
   const pointMs = resumePointOf(state, event);
   const open = openRow(state);

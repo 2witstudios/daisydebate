@@ -1,7 +1,7 @@
 'use client';
 import '../../lib/zod-jitless';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { RoundView } from '@daisy/protocol';
+import { isRoundOver, type RoundView } from '@daisy/protocol';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 import { selectMediaAccount } from './account-signout-cleanup';
 import { subscribeBrowserPageEvents } from './adapters/browser-page-events';
@@ -181,7 +181,7 @@ function RoundMediaSession({
     null,
   );
   useEffect(() => {
-    if (view.status === 'completed' || view.status === 'abandoned') {
+    if (isRoundOver(view.status)) {
       dispatch({ type: 'round-ended' });
       return;
     }

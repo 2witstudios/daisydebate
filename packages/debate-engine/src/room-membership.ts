@@ -1,4 +1,8 @@
-import { activeRoomHref } from '@daisy/protocol';
+import {
+  activeRoomHref,
+  isOpenRoomStatus,
+  isRoundRunning,
+} from '@daisy/protocol';
 import type {
   ActiveRoom,
   ActiveRoomFacts,
@@ -20,13 +24,10 @@ type Holding = Pick<RoomAssemblyState, 'status' | 'roundRef'> & {
 export const roundHoldsMembers = (round: {
   readonly status: RoundStatus;
   readonly debateEnded: boolean;
-}) =>
-  (round.status === 'opening' || round.status === 'active') &&
-  !round.debateEnded;
+}) => isRoundRunning(round.status) && !round.debateEnded;
 
 const phaseOf = (room: Holding): ActiveRoomPhase | null => {
-  if (room.status === 'assembling' || room.status === 'ready')
-    return room.status;
+  if (isOpenRoomStatus(room.status)) return room.status;
   // A started Room with no Round yet is the Start round being frozen: the
   // Round its adapter inserts in the same transaction holds, so it is live.
   return room.status === 'started' &&

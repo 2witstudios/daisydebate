@@ -13,6 +13,7 @@ import {
 } from '../contacts/fence';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { restrictionInForce } from '../moderation/in-force';
+import { challengeOpen } from './open';
 import { roomIsOpen } from '../room-open';
 import { challengeFrame, type ChallengeFrame } from './frame';
 
@@ -86,7 +87,7 @@ export function listChallenges(
       where (c.challenged_actor_id = ${scope.actorId} or c.challenger_actor_id = ${scope.actorId})
         and not coalesce(p.low_blocks_high or p.high_blocks_low, false)
         and not ${restrictionInForce(sql`a.user_id`, new Date(now))}
-        and ((c.room_id is null and c.expires_at > ${new Date(now)})
+        and (${challengeOpen(sql`${new Date(now)}`, sql`c`)}
           or (c.room_id is not null and c.follow_until > ${new Date(now)} and ${roomIsOpen()}))
       order by c.created_at desc, c.id
       limit ${CHALLENGE_LIST_MAX}`)) as unknown as (Omit<

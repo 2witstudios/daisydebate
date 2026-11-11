@@ -145,6 +145,7 @@ const decide = (
 ): Decision => {
   const link = state.link;
   if (link.phase === 'ended') return rejected(state);
+  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- the default is every RoomEvent, which reduceRoom's parameter type proves.
   switch (event.type) {
     case 'tab-changed': {
       if (event.owns === true)

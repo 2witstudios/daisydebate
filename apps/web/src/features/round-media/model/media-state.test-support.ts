@@ -97,7 +97,8 @@ const linkFor = (
       return { phase: 'released', why: evidence.failure ?? 'definite' };
     case 'ended':
       return { phase: 'ended' };
-    default: {
+    case 'live':
+    case 'out-of-date': {
       const sources: Record<Source, SourceState> = {
         camera: { phase: 'off' },
         microphone: { phase: 'off' },

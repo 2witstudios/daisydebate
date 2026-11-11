@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import { isRoundOver, isRoundRunning, type RoomView } from '@daisy/protocol';
 
 /** Round status changes independently of the Room's changeVersion. */
 function observeRound(
@@ -9,7 +9,7 @@ function observeRound(
   const current = view.roundRef;
   const roundRef =
     held && (!current || current.id === held.id) ? held : current;
-  if (!roundRef || !['completed', 'abandoned'].includes(roundRef.status))
+  if (!roundRef || !isRoundOver(roundRef.status))
     return { roundRef, terminal: null };
   return {
     roundRef,
@@ -31,7 +31,7 @@ export function roundEntry(
   return {
     ...observed,
     href:
-      round && ['opening', 'active'].includes(round.status) && seated
+      round && isRoundRunning(round.status) && seated
         ? `/rounds/${round.id}/room`
         : null,
   };

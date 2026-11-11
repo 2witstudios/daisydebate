@@ -40,7 +40,7 @@ export function ProfileFriendActions({
           label="Cancel friend request"
         />
       );
-    default:
+    case 'none':
       return (
         <FriendButtonForm
           action={friendAction}

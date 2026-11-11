@@ -60,7 +60,12 @@ function convergeSource(input: {
               { type: 'unpublish', connection, source },
             ],
           };
-    default:
+    case 'failed':
+    case 'missing':
+    case 'capturing':
+    case 'publishing':
+    case 'unpublishing':
+    case 'stale-publication':
       return stay(state);
   }
 }

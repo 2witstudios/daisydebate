@@ -5,6 +5,7 @@ import {
   type StagePhaseFact,
 } from '@daisy/debate-engine';
 import {
+  isRoundOver,
   holdAttemptPrefix,
   publicIntervals,
   recordingBuildDelayed,
@@ -97,9 +98,6 @@ const attemptOf = (
       }
     : null;
 
-const roundEnded = (status: string) =>
-  status === 'completed' || status === 'abandoned';
-
 /**
  * One pass over every unfinished capture and every job with something to answer.
  * Each report is idempotent, so a crash between two steps resolves itself on the
@@ -152,7 +150,7 @@ export const createRecordingCaptureSweep = (deps: {
   ): Promise<RecordingCaptureFacts> => {
     const { broadcast } = open;
     const stopped = broadcast?.stoppedAt != null;
-    const ended = roundEnded(open.roundStatus);
+    const ended = isRoundOver(open.roundStatus);
     return {
       nowMs,
       lifecycle: open.lifecycle,
@@ -179,7 +177,7 @@ export const createRecordingCaptureSweep = (deps: {
   ): Promise<RecordingCaptureFacts> => ({
     nowMs,
     lifecycle: open.lifecycle,
-    roundEnded: roundEnded(open.roundStatus),
+    roundEnded: isRoundOver(open.roundStatus),
     path: {
       kind: 'own',
       latest: attemptOf(own, nowMs),
@@ -222,7 +220,13 @@ export const createRecordingCaptureSweep = (deps: {
           reason: 'capture_failed',
           at: iso(nowMs),
         });
-      default:
+      case 'start-egress':
+      case 'stop-egress':
+      case 'revoke-observer':
+      case 'reassert-revocation':
+      case 'restore-observer':
+      case 'forget-revocation':
+      case 'close-own-capture':
         return null;
     }
   };
@@ -303,7 +307,9 @@ export const createRecordingCaptureSweep = (deps: {
         );
       case 'close-own-capture':
         return store.closeOwn({ recordingId, now: new Date(nowMs) });
-      default:
+      case 'report-started':
+      case 'report-ended':
+      case 'report-failed':
         return runCommon(recordingId, action, nowMs);
     }
   };

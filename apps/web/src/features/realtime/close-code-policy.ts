@@ -78,7 +78,7 @@ export function decideOnClose({
       return reconnect('immediate', false);
     case 'authority_unavailable':
       return reconnect('standard', true);
-    default:
+    case null:
       // 1000, 1001, 1006 and any code the table does not list are all
       // treated as 1006 (ADR 0031 §8: "an unknown code is treated as 1006").
       return reconnect('standard', false);

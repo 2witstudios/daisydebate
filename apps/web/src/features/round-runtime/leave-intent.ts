@@ -1,5 +1,8 @@
 import { isNamedSeat, type RoundView } from '@daisy/protocol';
-import { roundPositionAt } from '@daisy/debate-engine/position';
+import {
+  roundControlsAt,
+  roundPositionAt,
+} from '@daisy/debate-engine/position';
 import { roundControlIntents } from './control-intents';
 
 /** What Leave does for this viewer now (ADR 0070). */
@@ -28,8 +31,27 @@ const awaitingBallot = (view: RoundView, nowMs: number) =>
   }).stage === 'awaiting_ballot';
 
 /**
+ * Whether the engine takes this seat's forfeit in the opening: the rule its
+ * `forfeitInOpening` enforces, read here without the opening's secret seed.
+ */
+const forfeitsInOpening = (
+  view: RoundView,
+  seat: Extract<RoundView['participants'][number], { actorId: string }>,
+  nowMs: number,
+) =>
+  roundControlsAt({
+    round: view,
+    rules: view.rules,
+    segments: view.segments,
+    checkpoint: view.checkpoint,
+    participants: view.participants.filter(isNamedSeat),
+    seat,
+    nowMs,
+  }).options.some((option) => option.type === 'forfeit' && option.legal);
+
+/**
  * Leaving a live Round forfeits it: a debater's own opening Round, or an
- * active one while forfeit is a legal intent. After the last speech a
+ * active one, while forfeit is a legal intent. After the last speech a
  * debater leaves freed, forfeiting nothing, since judging is the judge's
  * work and the Room released them when the debate ended (ADR 0070). A debater
  * between persisted phases is held, since forfeit cannot be posted yet. Judges
@@ -46,11 +68,13 @@ export function leaveIntent(
       (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
     );
   if (seat === undefined) return { kind: 'navigate' };
+  // The opening offers no control intents: its one command is the strike.
   const forfeits =
-    view.status === 'opening' ||
-    roundControlIntents(view, actorId, nowMs).some(
-      (intent) => intent.type === 'forfeit' && intent.enabled,
-    );
+    view.status === 'opening'
+      ? forfeitsInOpening(view, seat, nowMs)
+      : roundControlIntents(view, actorId, nowMs).some(
+          (intent) => intent.type === 'forfeit' && intent.enabled,
+        );
   if (forfeits)
     return {
       kind: 'forfeit',

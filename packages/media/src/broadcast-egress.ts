@@ -37,6 +37,9 @@ export const egressFact = (
       return { kind: 'active', id };
     case EgressStatus.EGRESS_COMPLETE:
       return { kind: 'complete' };
+    case EgressStatus.EGRESS_FAILED:
+    case EgressStatus.EGRESS_ABORTED:
+    case EgressStatus.EGRESS_LIMIT_REACHED:
     default:
       return { kind: 'failed', id };
   }

@@ -1,3 +1,4 @@
+import { assertNever } from './assert-never';
 import type {
   UsageState,
   UsageContext as Context,
@@ -95,8 +96,14 @@ function terminalAt(state: UsageState): string | null {
       return state.refundedAt;
     case 'credited':
       return state.creditedAt;
-    default:
+    case 'unknown':
+    case 'reserved':
+    case 'dispatched':
+    case 'delivered':
+    case 'definite_failure':
       return null;
+    default:
+      return assertNever(state);
   }
 }
 function validHistory(state: UsageState, start: number, now: number): boolean {

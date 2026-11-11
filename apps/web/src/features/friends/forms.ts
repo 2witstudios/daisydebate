@@ -75,7 +75,8 @@ export function friendDoneNotice(
       return `Declined @${username}'s request.`;
     case 'cancel':
       return `Cancelled your request to @${username}.`;
-    default:
+    case 'accept':
+    case 'remove':
       return `@${username} is no longer your friend.`;
   }
 }

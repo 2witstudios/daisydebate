@@ -1,9 +1,11 @@
 import { createInvariantError } from '@daisy/errors';
 import {
   emptyRuntimeCheckpoint,
+  isRoundOver,
   runtimeCheckpointSchema,
   type HydratedRound,
   type HydratedSegment,
+  type OverRoundStatus,
   type RoundOutcome,
   type RoundRules,
   type RoundStatus,
@@ -29,6 +31,12 @@ export type Lifecycle =
       readonly startedAtMs: number | null;
       readonly completedAtMs: number;
     };
+
+/** A Round that has ended: the lifecycles that hold the instant it ended. */
+export const lifecycleOver = (
+  lifecycle: Lifecycle,
+): lifecycle is Extract<Lifecycle, { readonly status: OverRoundStatus }> =>
+  isRoundOver(lifecycle.status);
 
 /** The instant a Round started, in the statuses that can have one. */
 export const startedAtOf = (lifecycle: Lifecycle): number | null =>
@@ -58,7 +66,7 @@ export const abandonedLifecycle = (
   lifecycle: Lifecycle,
   completedAtMs: number,
 ): Lifecycle => {
-  if (lifecycle.status === 'completed' || lifecycle.status === 'abandoned')
+  if (lifecycleOver(lifecycle))
     throw createInvariantError(
       debateInvariantIds.lifecycleMatchesStatus,
       'Only a running round is abandoned',

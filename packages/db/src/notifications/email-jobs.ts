@@ -9,9 +9,11 @@ import {
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
+import { challengeOpen } from '../challenges/open';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { requireLeaseMs } from '../lease-policy';
 import { rowsOf } from '../raw-rows';
+import { invitationOpen } from '../room-invitations/open';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import { agentLeaseDigest } from '../round-agent-lease';
 import {
@@ -174,10 +176,9 @@ export function notificationEmailOperations({
               (select count(*) from notification_emails s where s.user_id=j.user_id and s.state='sent'
                 and s.completed_at > clock_timestamp() - interval '1 hour') as sent_last_hour,
               j.notification_id,au.username as about,
-              (i.state='pending' and i.expires_at > clock_timestamp()
-                and ro.status in ('assembling','ready')) as invitation_open,
+              ${invitationOpen(sql`clock_timestamp()`, { invitation: sql`i`, room: sql`ro` })} as invitation_open,
               i.room_id,ro.title as room_title,i.seat,
-              (c.room_id is null and c.expires_at > clock_timestamp()) as challenge_open,
+              ${challengeOpen(sql`clock_timestamp()`, sql`c`)} as challenge_open,
               c.mode,c.format_id as format
             from notification_emails j
             left join users u on u.id=j.user_id and u.deleted_at is null

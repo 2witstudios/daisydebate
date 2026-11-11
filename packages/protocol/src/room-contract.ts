@@ -19,7 +19,9 @@ import { roomResolutionSelectionSchema } from './room-resolution';
 import {
   competitionTypes,
   roundStageSchema,
+  runningRoundStatuses,
   type CompetitionType,
+  type RoundStatus,
 } from './round';
 
 export const roomStatuses = [
@@ -28,6 +30,7 @@ export const roomStatuses = [
   'started',
   'closed',
 ] as const;
+export type RoomStatus = (typeof roomStatuses)[number];
 /**
  * What a host may choose when creating or editing a Room. Private is refused
  * until an invite path can seat a second human (ISSUE-443, DEC-206).
@@ -218,7 +221,7 @@ export type RoomParticipant = {
 };
 type RoomRoundRef = {
   readonly id: string;
-  readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
+  readonly status: RoundStatus;
 };
 export type RoomRefusal = z.infer<typeof roomRefusalSchema>;
 /** Receipts acknowledge an accepted command; effective consent always comes from a fresh view. */
@@ -247,10 +250,16 @@ export const roomSeatKindSchema = z.enum(roomSeatKinds);
  * A Room still gathering its players (ADR 0070): the only Rooms a challenge
  * or an invitation may point at.
  */
-export const openRoomStatuses = ['assembling', 'ready'] as const;
+export const openRoomStatuses = [
+  'assembling',
+  'ready',
+] as const satisfies readonly RoomStatus[];
+export type OpenRoomStatus = (typeof openRoomStatuses)[number];
 /** Whether a Room in `status` is still open. */
-export const isOpenRoomStatus = (status: string): boolean =>
-  (openRoomStatuses as readonly string[]).includes(status);
+export const isOpenRoomStatus = (
+  status: RoomStatus,
+): status is OpenRoomStatus =>
+  (openRoomStatuses as readonly RoomStatus[]).includes(status);
 /** The kind of seat a role is: the judge's, or a debater's on either side. */
 export const seatKindOf = (role: RoomParticipant['role']): RoomSeatKind =>
   role === 'judge' ? 'judge' : 'debater';
@@ -309,7 +318,7 @@ export type RoomAssemblyState = {
   /** The host took over from a restricted one, and names no human judge (DEC-331). */
   readonly hostInherited: boolean;
   readonly hostLabel: string;
-  readonly status: (typeof roomStatuses)[number];
+  readonly status: RoomStatus;
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
@@ -417,7 +426,7 @@ const roomListEntrySchema = z.strictObject({
   competitionType: z.enum(competitionTypes),
   seated: z.boolean(),
   roundRef: z
-    .strictObject({ id: idSchema, status: z.enum(['opening', 'active']) })
+    .strictObject({ id: idSchema, status: z.enum(runningRoundStatuses) })
     .nullable(),
   /** The joined catalog format's stored name. */
   formatLabel: z.string().min(1),

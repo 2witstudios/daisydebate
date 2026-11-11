@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { emptyRuntimeCheckpoint } from '@daisy/protocol';
 import { leaveIntent } from './leave-intent';
 import {
   view,
@@ -73,5 +74,30 @@ test('a seated debater whose forfeit is unavailable is held, never free to leave
     should: 'hold them, because no command could confirm a departure',
     actual: leaveIntent(overran, aff.actorId, pastPersistedPhase),
     expected: { kind: 'held' },
+  });
+});
+
+test('Leave in the opening follows the engine’s forfeit rule', () => {
+  const opening = { ...view, status: 'opening' as const, startedAt: null };
+  const held = {
+    ...opening,
+    checkpoint: {
+      ...emptyRuntimeCheckpoint,
+      incident: {
+        phase: 'paused' as const,
+        since: at(0),
+        cause: 'vendor_unreachable' as const,
+        resume_point: null,
+      },
+    },
+  };
+  assert({
+    given: 'a debater in an opening Round that a platform incident holds',
+    should:
+      'hold them, as the engine refuses that forfeit, where an unheld opening forfeits',
+    actual: [opening, held].map(
+      (round) => leaveIntent(round, aff.actorId, Date.parse(at(0))).kind,
+    ),
+    expected: ['forfeit', 'held'],
   });
 });

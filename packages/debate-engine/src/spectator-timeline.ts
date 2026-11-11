@@ -206,6 +206,7 @@ const recordingOf = (
       return 'processing';
     case 'failed':
       return 'failed';
+    case null:
     default:
       return 'none';
   }
