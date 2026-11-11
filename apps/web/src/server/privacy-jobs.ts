@@ -1,7 +1,11 @@
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
-import type { DuePrivacyJob, PrivacyVendor } from '@daisy/db/privacy';
+import {
+  privacyVendors,
+  type DuePrivacyJob,
+  type PrivacyVendor,
+} from '@daisy/db/privacy';
 import { createScheduledWorker } from '../features/ops/scheduled-worker';
 import { startRunSchedule } from './run-schedule';
 import type { App } from './app';
@@ -11,6 +15,15 @@ import type { WorkerTimers } from '../lib/worker-timers';
 const privacyJobVendors = ['messaging-typing'] as const;
 export const genericPrivacyJobVendors = (app: App): readonly PrivacyVendor[] =>
   app.posthogErasure ? [...privacyJobVendors, 'posthog'] : privacyJobVendors;
+/**
+ * Every vendor whose pending jobs this worker answers for, deliverable on this
+ * deploy or not: a job queued while its vendor was configured stays an unpaid
+ * obligation after the key is removed, and must show as waiting. Stripe's are
+ * billing cleanup's to count.
+ */
+const owedPrivacyJobVendors: readonly PrivacyVendor[] = privacyVendors.filter(
+  (vendor) => vendor !== 'stripe',
+);
 /** Stripe always has a local fenced zero-effects path; configured vendor transport is needed only for retained effects. */
 export const configuredPrivacyJobVendors = (
   app: App,
@@ -39,6 +52,21 @@ export const privacyJobPort = (
     eraseSubject: (actorId) => app.redis.eraseSubjectTyping(actorId),
   });
 };
+
+/** The durable queue the worker runs over: what it can deliver, and all it owes. */
+export const privacyJobsQueue = (app: App) => ({
+  due: (batch: { readonly now: string; readonly limit: number }) =>
+    app.database.duePrivacyJobs({
+      ...batch,
+      vendors: genericPrivacyJobVendors(app),
+    }),
+  owed: () => app.database.owedPrivacyJobs({ vendors: owedPrivacyJobVendors }),
+  deliver: (job: DuePrivacyJob, now: string, retryAt: string) =>
+    app.database.deliverPrivacyJob(
+      { jobId: job.id, vendor: job.vendor, now, retryAt },
+      privacyJobPort(app, job.vendor),
+    ),
+});
 
 /** How often due vendor deletion jobs are delivered (ISSUE-833). */
 const PRIVACY_JOBS_INTERVAL_MS = 60_000;

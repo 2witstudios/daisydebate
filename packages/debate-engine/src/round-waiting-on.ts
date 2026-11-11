@@ -26,21 +26,33 @@ export function roundWaitingOn(
     ballots: facts.ballots,
     nowMs: input.nowMs,
   });
-  if (decision.kind === 'pending' && decision.waiting.on === 'human_window')
-    return { state: 'human_window', deadlineAt: decision.waiting.deadlineAt };
-  if (decision.kind === 'pending' && decision.waiting.on === 'ai_generating')
-    return { state: 'ai_processing', deadlineAt: decision.waiting.deadlineAt };
-  if (decision.kind === 'pending' && decision.waiting.on === 'ai_recovering')
-    return { state: 'ai_recovering' };
-  if (decision.kind === 'pending' && decision.waiting.on === 'ai_blocked')
-    return { state: 'ai_blocked' };
-  if (!attendanceSettled(input.attendance, input.nowMs))
-    return {
-      state: 'awaiting_attendance',
-      deadlineAt: facts.held.attendanceCutoffAt,
-    };
-  return decision.kind === 'complete' &&
-    panel.aiSeats.some((seat) => seat.standing.state === 'ended')
-    ? { state: 'ai_failed' }
-    : { state: 'settling' };
+  // A wait attendance still gates, or a finished panel, reads attendance first.
+  const awaitingAttendance = (): RoundWaitingOn | null =>
+    attendanceSettled(input.attendance, input.nowMs)
+      ? null
+      : {
+          state: 'awaiting_attendance',
+          deadlineAt: facts.held.attendanceCutoffAt,
+        };
+  if (decision.kind === 'complete')
+    return (
+      awaitingAttendance() ??
+      (panel.aiSeats.some((seat) => seat.standing.state === 'ended')
+        ? { state: 'ai_failed' }
+        : { state: 'settling' })
+    );
+  const { waiting } = decision;
+  switch (waiting.on) {
+    case 'human_window':
+      return { state: 'human_window', deadlineAt: waiting.deadlineAt };
+    case 'ai_generating':
+      return { state: 'ai_processing', deadlineAt: waiting.deadlineAt };
+    case 'ai_recovering':
+      return { state: 'ai_recovering' };
+    case 'ai_blocked':
+      return { state: 'ai_blocked' };
+    // A validated ballot submits once attendance settles (DEC-370).
+    case 'held_ballot':
+      return awaitingAttendance() ?? { state: 'settling' };
+  }
 }
