@@ -5,7 +5,11 @@ import {
   ballotUnavailable,
   type RoundBallotFormState,
 } from '../../../features/round-ballots/form';
-import { judge, view } from '../../debate-room/live-round.test-support';
+import {
+  asActive,
+  judge,
+  view,
+} from '../../debate-room/live-round.test-support';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import type * as Client from './ballot-page-refresh.test-support';
 
@@ -15,8 +19,7 @@ const renderedAtMs = Date.parse('2026-10-22T00:05:00.000Z');
 /** A frozen Round inside its judging window, the judge's ballot not yet cast. */
 const open: RoundBallotRead = {
   round: {
-    ...view,
-    status: 'active',
+    ...asActive(view),
     waitingOn: {
       state: 'human_window',
       deadlineAt: '2026-10-22T00:30:00.000Z',
