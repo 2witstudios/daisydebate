@@ -94,13 +94,17 @@ export async function deliverObservationPurges(
   }
   // Only the obligation that was read: a re-erasure committed after the
   // read (a newer created_at) stays pending for the next purge.
+  let succeeded = 0;
   for (const row of rows)
-    await purgeJob.succeeded(
-      database,
-      sql`${jobOf(row)} and created_at = ${row.createdAt.toISOString()}::timestamptz`,
-      { read: row.attempts, now: input.now },
-    );
-  return { succeeded: rows.length, retried: 0 };
+    if (
+      await purgeJob.succeeded(
+        database,
+        sql`${jobOf(row)} and created_at = ${row.createdAt.toISOString()}::timestamptz`,
+        { read: row.attempts, now: input.now },
+      )
+    )
+      succeeded += 1;
+  return { succeeded, retried: 0 };
 }
 
 /**
