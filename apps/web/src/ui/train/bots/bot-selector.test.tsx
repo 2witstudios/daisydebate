@@ -1,3 +1,4 @@
+import { idle } from '../../../features/forms/form-state';
 import { createElement as h } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { renderToString } from 'react-dom/server';
@@ -60,7 +61,7 @@ const view = {
   ],
 };
 
-const noopAction = async () => ({ values: {} });
+const noopAction = async () => idle();
 
 const render = (props: Parameters<typeof BotSelectorPage>[0]) =>
   renderToString(

@@ -23,10 +23,12 @@ mock.module(join(import.meta.dir, '../../../server/process-app.ts'), () => ({
   },
 }));
 mock.module(join(import.meta.dir, '../../../server/form-action.ts'), () => ({
-  moveOn: (_incoming: Headers, to: string) => ({ next: to }),
+  moveOn: (_incoming: Headers, to: string) => ({ kind: 'moved', next: to }),
 }));
 
 const { saveStepAction, skipAction } = await import('./actions');
+const { initialStepForm } =
+  await import('../../../ui/onboarding/questions/step-form-state');
 
 const run = async <T>(
   answer: typeof routeAnswer,
@@ -51,7 +53,7 @@ test('the topics step is one write: its answers and the finish travel together',
         'topics',
         '/lobby',
         false,
-        {},
+        initialStepForm,
         postedForm({ topics: ['law', 'ethics'] }),
       ),
   );
@@ -61,21 +63,27 @@ test('the topics step is one write: its answers and the finish travel together',
     actual: [topics.posts, topics.state],
     expected: [
       [{ step: 'topics', topics: ['law', 'ethics'] }],
-      { next: '/onboarding/ready?next=%2Flobby' },
+      { kind: 'moved', next: '/onboarding/ready?next=%2Flobby' },
     ],
   });
 });
 
 test('each saved step posts once and moves on; a step that did not save shows the choices again', async () => {
   const about = await run(saved, () =>
-    saveStepAction('about', '/lobby', false, {}, postedForm({ club: 'own' })),
+    saveStepAction(
+      'about',
+      '/lobby',
+      false,
+      initialStepForm,
+      postedForm({ club: 'own' }),
+    ),
   );
   const editing = await run(saved, () =>
     saveStepAction(
       'topics',
       '/settings',
       true,
-      {},
+      initialStepForm,
       postedForm({ topics: ['law'] }),
     ),
   );
@@ -84,12 +92,12 @@ test('each saved step posts once and moves on; a step that did not save shows th
       'topics',
       '/lobby',
       false,
-      {},
+      initialStepForm,
       postedForm({ topics: 'law' }),
     ),
   );
   const unknown = await run(saved, () =>
-    saveStepAction('finish', '/lobby', false, {}, postedForm({})),
+    saveStepAction('finish', '/lobby', false, initialStepForm, postedForm({})),
   );
   assert({
     given:
@@ -105,30 +113,37 @@ test('each saved step posts once and moves on; a step that did not save shows th
     expected: [
       [
         [{ step: 'about', wants: [], club: 'own' }],
-        { next: '/onboarding/experience?next=%2Flobby' },
+        { kind: 'moved', next: '/onboarding/experience?next=%2Flobby' },
       ],
-      [[{ step: 'topics', topics: ['law'] }], { next: '/settings' }],
       [
         [{ step: 'topics', topics: ['law'] }],
-        { refused: true, posted: { topics: ['law'] } },
+        { kind: 'moved', next: '/settings' },
       ],
-      [[], { refused: true }],
+      [
+        [{ step: 'topics', topics: ['law'] }],
+        { kind: 'unsaved', posted: { topics: ['law'] } },
+      ],
+      [[], { kind: 'unsaved', posted: {} }],
     ],
   });
 });
 
 test('Skip records the finish alone and lands on the last step', async () => {
-  const skipped = await run(saved, () => skipAction('/ranked', {}, null));
-  const lost = await run(unavailable, () => skipAction('/ranked', {}, null));
+  const skipped = await run(saved, () =>
+    skipAction('/ranked', initialStepForm, null),
+  );
+  const lost = await run(unavailable, () =>
+    skipAction('/ranked', initialStepForm, null),
+  );
   assert({
     given: 'a Skip the route takes, and one it cannot',
-    should: 'post finish once and move to the send-off, or answer refused',
+    should: 'post finish once and move to the send-off, or answer unsaved',
     actual: [skipped.posts, skipped.state, lost.posts, lost.state],
     expected: [
       [{ step: 'finish' }],
-      { next: '/onboarding/ready?next=%2Franked' },
+      { kind: 'moved', next: '/onboarding/ready?next=%2Franked' },
       [{ step: 'finish' }],
-      { refused: true },
+      { kind: 'unsaved', posted: {} },
     ],
   });
 });

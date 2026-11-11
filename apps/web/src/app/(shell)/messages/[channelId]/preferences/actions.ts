@@ -8,7 +8,8 @@ import { moveOn } from '../../../../../server/form-action';
 import {
   parsePreferenceForm,
   preferenceUnavailable,
-  preferenceFormState,
+  preferenceSaved,
+  preferenceSelections,
   type PreferenceFormState,
 } from '../../../../../features/messaging/forms/preference-form';
 export async function changePreferenceAction(
@@ -19,7 +20,7 @@ export async function changePreferenceAction(
   const incoming = new Headers(await headers()),
     kept = preferenceUnavailable(form);
   let next: string;
-  let saved: PreferenceFormState;
+  let saved: ReturnType<typeof preferenceSelections>;
   try {
     const { operation, command } = parsePreferenceForm(channelId, form);
     const handle = processRoute(
@@ -42,7 +43,7 @@ export async function changePreferenceAction(
         : messagingPreferenceSchemas.result.safeParse(await response.json());
     if (!answer.success || answer.data.channelId !== command.channelId)
       return kept;
-    saved = preferenceFormState(
+    saved = preferenceSelections(
       'state' in answer.data ? answer.data.state : null,
     );
     next = `/messages/${command.channelId}/preferences`;
@@ -50,5 +51,5 @@ export async function changePreferenceAction(
   } catch {
     return kept;
   }
-  return { ...saved, ...moveOn(incoming, next) };
+  return preferenceSaved(saved, moveOn(incoming, next).next);
 }

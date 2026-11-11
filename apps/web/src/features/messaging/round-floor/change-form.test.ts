@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { submitFloorChange } from './change-form';
+import { floorIdle, floorUnacknowledged } from './form-state';
 setupRitewayBun();
 const scope = { roundId: 'r'.repeat(24), channelId: 'c'.repeat(24) };
 const requestId = 'q'.repeat(24),
@@ -16,7 +17,7 @@ test('unknown change cannot become another command', async () => {
       throw Error('lost');
     },
     scope,
-    { text: '', requestId },
+    floorIdle(requestId),
     form(),
     () => 'n'.repeat(24),
   );
@@ -36,8 +37,18 @@ test('unknown change cannot become another command', async () => {
   assert({
     given: 'a lost removal answer then a different target',
     should: 'preserve the original command without sending the alteration',
-    actual: [calls, retry.command, retry.uncertain],
-    expected: [0, lost.command, true],
+    actual: [calls, lost, retry],
+    expected: [
+      0,
+      floorUnacknowledged(
+        { kind: 'remove', messageId, requestId },
+        'Message could not be sent. Your draft is kept; try again.',
+      ),
+      floorUnacknowledged(
+        { kind: 'remove', messageId, requestId },
+        'Retry the original change before starting another one.',
+      ),
+    ],
   });
 });
 test('foreign acknowledgement keeps the change uncertain', async () => {
@@ -45,15 +56,18 @@ test('foreign acknowledgement keeps the change uncertain', async () => {
     async () =>
       Response.json({ id: 'x'.repeat(24), channelId: scope.channelId }),
     scope,
-    { text: '', requestId },
+    floorIdle(requestId),
     form(),
     () => 'n'.repeat(24),
   );
   assert({
     given: 'a success body for another message',
     should: 'retain the request for retry',
-    actual: [result.requestId, result.uncertain, result.sent],
-    expected: [requestId, true, undefined],
+    actual: result,
+    expected: floorUnacknowledged(
+      { kind: 'remove', messageId, requestId },
+      'Message could not be sent. Your draft is kept; try again.',
+    ),
   });
 });
 test('a bound canonical tombstone confirms removal', async () => {
@@ -67,7 +81,7 @@ test('a bound canonical tombstone confirms removal', async () => {
         unavailable: true,
       }),
     scope,
-    { text: '', requestId },
+    floorIdle(requestId),
     form(),
     () => 'n'.repeat(24),
   );
@@ -77,9 +91,10 @@ test('a bound canonical tombstone confirms removal', async () => {
       'settle the command instead of locking a successful removal as uncertain',
     actual: result,
     expected: {
-      text: '',
+      kind: 'changed',
+      messageId,
       requestId: 'n'.repeat(24),
-      sent: messageId,
+      text: '',
       changeVersion: 2,
     },
   });
@@ -101,15 +116,21 @@ test('a confirmed edit preserves the current text for another edit', async () =>
         editedAt: '2026-11-06T00:00:01.000Z',
       }),
     scope,
-    { text: 'Old', requestId },
+    floorIdle(requestId, 'Old'),
     edit,
     () => 'n'.repeat(24),
   );
   assert({
     given: 'a confirmed author edit',
     should: 'keep acknowledged text as the next editable draft',
-    actual: [result.text, result.changeVersion],
-    expected: ['Revised', 2],
+    actual: result,
+    expected: {
+      kind: 'changed',
+      messageId,
+      requestId: 'n'.repeat(24),
+      text: 'Revised',
+      changeVersion: 2,
+    },
   });
 });
 test('an exact edit retry acknowledges the newer current message', async () => {
@@ -129,19 +150,82 @@ test('an exact edit retry acknowledges the newer current message', async () => {
         editedAt: '2026-11-06T00:00:02.000Z',
       }),
     scope,
-    { text: 'First saved edit', requestId, uncertain: true },
+    floorUnacknowledged(
+      { kind: 'edit', messageId, requestId, text: 'First saved edit' },
+      'Message could not be sent. Your draft is kept; try again.',
+    ),
     edit,
     () => 'n'.repeat(24),
   );
   assert({
     given: 'the canonical current-state reply after a digest-validated replay',
     should: 'settle uncertainty with current text and revision',
+    actual: result,
+    expected: {
+      kind: 'changed',
+      messageId,
+      requestId: 'n'.repeat(24),
+      text: 'Later edit from another device',
+      changeVersion: 3,
+    },
+  });
+});
+
+test('a floor change answers exactly one kind', async () => {
+  const answered = (
+    status: number,
+    earlier: unknown = floorIdle(requestId),
+    posted = form(),
+    report = false,
+  ) =>
+    submitFloorChange(
+      async () =>
+        status === 200
+          ? Response.json({ received: true })
+          : new Response(null, { status }),
+      scope,
+      earlier,
+      posted,
+      () => 'n'.repeat(24),
+      report,
+    );
+  const lost = floorUnacknowledged(
+    { kind: 'remove', messageId, requestId },
+    'Message could not be sent. Your draft is kept; try again.',
+  );
+  const invalid = form();
+  invalid.set('kind', 'promote');
+  const reported = new FormData();
+  reported.set('messageId', messageId);
+  reported.set('requestId', requestId);
+  reported.set('reason', 'spam');
+  assert({
+    given:
+      'a refusal, a server failure, a refused retry, an unknown operation, its retry, and a report',
+    should:
+      'refuse what the server turned down, hold what may have committed, and never lose an unacknowledged command',
     actual: [
-      result.text,
-      result.changeVersion,
-      result.uncertain,
-      result.requestId,
+      await answered(403),
+      (await answered(500)).kind,
+      await answered(429, lost),
+      (await answered(200, floorIdle(requestId), invalid)).kind,
+      await answered(403, lost, invalid),
+      await answered(200, floorIdle(requestId), reported, true),
     ],
-    expected: ['Later edit from another device', 3, undefined, 'n'.repeat(24)],
+    expected: [
+      {
+        kind: 'refused',
+        values: { text: '', requestId },
+        error: 'This change was not accepted. Your text is kept.',
+      },
+      'unacknowledged',
+      floorUnacknowledged(lost.values, 'Please wait before trying again.'),
+      'refused',
+      floorUnacknowledged(
+        lost.values,
+        'Retry the original change before starting another one.',
+      ),
+      { kind: 'sent', messageId, requestId: 'n'.repeat(24) },
+    ],
   });
 });

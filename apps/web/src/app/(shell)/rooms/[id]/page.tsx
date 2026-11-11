@@ -1,9 +1,14 @@
 import { systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { idSchema, roomRefusalSchema, type RoomRefusal } from '@daisy/protocol';
+import { idSchema, roomRefusalSchema } from '@daisy/protocol';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
+import {
+  commandRefusedNotice,
+  commandUnacknowledgedNotice,
+  type RoomNotice,
+} from '../../../../features/rooms/command-answer';
 import { roomCommandIds } from '../../../../features/rooms/room-command-ids';
 import { roomWatchHref } from '../../../../features/watch/routes';
 import { requireAccess } from '../../../../lib/access';
@@ -72,7 +77,7 @@ export default async function RoomRoute({
         bots={catalog.bots}
         choices={catalog.choices}
         socketUrl={result.socketUrl}
-        refusal={refusalOf(await searchParams)}
+        notice={noticeOf(await searchParams)}
         commandAction={roomCommandAction.bind(null, id)}
         waiverAction={signContentWaiverAction.bind(null, id)}
         detailsAction={submitRoomFormAction.bind(null, id)}
@@ -85,11 +90,11 @@ export default async function RoomRoute({
   );
 }
 
-/** The refusal a native post returned with: a closed vocabulary, never echoed text. */
-function refusalOf(
-  params: SearchParams,
-): { readonly reason: RoomRefusal | null } | null {
-  if (params.notice !== 'command-refused') return null;
+/** The notice a native post returned with: a closed vocabulary, never echoed text. */
+function noticeOf(params: SearchParams): RoomNotice | null {
+  if (params.notice === commandUnacknowledgedNotice)
+    return { kind: 'unacknowledged' };
+  if (params.notice !== commandRefusedNotice) return null;
   const reason = roomRefusalSchema.safeParse(params.reason);
-  return { reason: reason.success ? reason.data : null };
+  return { kind: 'refused', reason: reason.success ? reason.data : null };
 }

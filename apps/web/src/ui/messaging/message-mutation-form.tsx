@@ -9,7 +9,12 @@ import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
 import { CountedTextarea } from './counted-textarea';
 import { messageMutationUnavailable } from '../../features/messaging/forms/message-mutation-form';
-import type { MessageFormState } from '../../features/messaging/forms/send-form';
+import { destinationOf } from '../../features/forms/form-state';
+import {
+  messageFields,
+  messageIdle,
+  type MessageFormState,
+} from '../../features/messaging/forms/send-form';
 /** These own-message controls do not grant author, posting or cleanup permission. */
 export function MessageMutationForm({
   action,
@@ -29,20 +34,20 @@ export function MessageMutationForm({
   );
   const [removeAnswer, postRemove, removePending] = useFormAction(
     action,
-    { requestId: removeRequestId, text: '' },
+    messageIdle(removeRequestId),
     messageMutationUnavailable,
   );
-  useMovedOn(answer.next ?? removeAnswer.next);
+  useMovedOn(destinationOf(answer) ?? destinationOf(removeAnswer));
+  const edit = messageFields(answer);
+  const removal = messageFields(removeAnswer);
   useFocusAfterAnswer(
     answer,
-    answer.notice ? `message-mutation-${answer.requestId}` : undefined,
+    edit.notice ? `message-mutation-${edit.requestId}` : undefined,
     !editPending,
   );
   useFocusAfterAnswer(
     removeAnswer,
-    removeAnswer.notice
-      ? `message-removal-${removeAnswer.requestId}`
-      : undefined,
+    removal.notice ? `message-removal-${removal.requestId}` : undefined,
     !removePending,
   );
   return (
@@ -73,11 +78,12 @@ export function MessageMutationFields({
   readonly maxUnits: number;
   readonly action: (form: FormData) => void;
 }) {
-  const noticeId = `message-mutation-${answer.requestId}`;
-  const editId = `message-edit-${answer.requestId}`;
+  const { requestId, text, notice } = messageFields(answer);
+  const noticeId = `message-mutation-${requestId}`;
+  const editId = `message-edit-${requestId}`;
   return (
     <form action={action} className="flex flex-col gap-3">
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={requestId} />
       <input type="hidden" name="operation" value="edit" />
       <label htmlFor={editId} className="flex flex-col gap-2">
         Revise your message
@@ -85,18 +91,21 @@ export function MessageMutationFields({
       <CountedTextarea
         id={editId}
         name="text"
-        key={answer.text}
-        defaultValue={answer.text}
+        key={text}
+        defaultValue={text}
         maxUnits={maxUnits}
         rows={3}
         required
         disabled={pending}
         className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink"
-        describedBy={answer.notice ? noticeId : undefined}
+        describedBy={notice ? noticeId : undefined}
       />
-      <DraftNotice id={noticeId} notice={answer.notice} />
+      <DraftNotice id={noticeId} notice={notice} />
       <div className="flex gap-3">
-        <Button type="submit" disabled={pending || answer.next !== undefined}>
+        <Button
+          type="submit"
+          disabled={pending || destinationOf(answer) !== undefined}
+        >
           Save message edit
         </Button>
       </div>
@@ -114,17 +123,15 @@ export function MessageRemovalFields({
   readonly pending: boolean;
   readonly action: (form: FormData) => void;
 }) {
+  const { requestId, notice } = messageFields(answer);
   return (
     <form action={action} className="flex flex-col gap-3">
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={requestId} />
       <input type="hidden" name="operation" value="remove" />
-      <DraftNotice
-        id={`message-removal-${answer.requestId}`}
-        notice={answer.notice}
-      />
+      <DraftNotice id={`message-removal-${requestId}`} notice={notice} />
       <Button
         type="submit"
-        disabled={pending || answer.next !== undefined}
+        disabled={pending || destinationOf(answer) !== undefined}
         formNoValidate
       >
         Remove your message

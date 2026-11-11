@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { destinationOf } from '../../../features/forms/form-state';
 import { useFormAction } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import {
@@ -8,6 +9,7 @@ import {
   initialUsernameForm,
   refusesShape,
   shownNotice,
+  usernameFields,
   type LocalNotice,
   type UsernameFormState,
 } from './claim-form';
@@ -39,14 +41,15 @@ export function Onboarding({
     claimUnavailable,
   );
   const [local, setLocal] = useState<LocalNotice>(undefined);
-  useMovedOn(answered.next);
+  useMovedOn(destinationOf(answered));
   // Moving on keeps the form busy until the next page replaces it.
-  const pending = posting || answered.next !== undefined;
+  const pending = posting || answered.kind === 'moved';
+  const fields = usernameFields(answered);
   return (
     <UsernameForm
-      username={answered.username}
+      username={fields.username}
       pending={pending}
-      notice={shownNotice({ local, answered: answered.notice, pending })}
+      notice={shownNotice({ local, answered: fields.notice, pending })}
       action={post}
       check={(username) => {
         const refused = refusesShape(username);

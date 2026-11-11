@@ -5,8 +5,10 @@ import { Icon } from '../components/icon/icon';
 import { FormError } from '../components/form-field/form-field';
 import {
   roundCommandUnavailable,
+  roundFormFields,
   type RoundFormState,
 } from '../../features/round-runtime/command-form';
+import { destinationOf, idle } from '../../features/forms/form-state';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { leaveRound } from '../../features/rooms/resume-departure';
@@ -57,7 +59,7 @@ export type LeaveLinks = {
 const action =
   'inline-flex h-room-target cursor-pointer items-center justify-center rounded-sm px-4 text-sm font-strong';
 
-const unanswered: RoundFormState = { values: {} };
+const unanswered: RoundFormState = idle();
 
 /** Leave as the confirmed forfeit; it works without script and moves on to the result. */
 function ForfeitLeave({
@@ -73,24 +75,18 @@ function ForfeitLeave({
     roundCommandUnavailable,
   );
   /**
-   * Suppression records only an acknowledged forfeit (ISSUE-879): a
-   * refused, conflicted or unknown outcome leaves the participant's
-   * recovery exactly as live as their membership still is.
+   * Suppression records only an acknowledged forfeit (ISSUE-879), which
+   * is the one answer that moves on: a refused, conflicted or unknown
+   * outcome leaves the participant's recovery exactly as live as their
+   * membership still is.
    */
   useEffect(() => {
-    if (
-      !pending &&
-      answer.acknowledged === true &&
-      !answer.unacknowledged &&
-      !answer.error &&
-      answer.next &&
-      left
-    ) {
+    if (!pending && answer.kind === 'moved' && left) {
       leaveRound(left.actorId, left.roundId);
       clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
     }
   }, [pending, answer, left]);
-  useMovedOn(answer.next);
+  useMovedOn(destinationOf(answer));
   return (
     <form action={post} aria-busy={pending} className="flex flex-col gap-1">
       <input type="hidden" name="version" value="1" />
@@ -103,7 +99,7 @@ function ForfeitLeave({
       <input type="hidden" name="type" value="forfeit" />
       <input type="hidden" name="participantId" value={forfeit.participantId} />
       <input type="hidden" name="confirmed" value="true" />
-      <FormError error={answer.error} />
+      <FormError error={roundFormFields(answer).error} />
       <button
         type="submit"
         disabled={pending}

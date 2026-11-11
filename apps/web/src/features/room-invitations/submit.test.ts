@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { submitInvitationForm } from './submit';
+import {
+  initialInvitationForm,
+  invitationFields,
+  invitationFormUnavailable,
+  submitInvitationForm,
+} from './submit';
 
 setupRitewayBun();
 
@@ -39,11 +44,15 @@ test('submitInvitationForm', async () => {
       posted,
     ],
     expected: [
-      { ok: true, notice: 'Invited @coach. Their seat is held for them.' },
-      { ok: true, notice: 'Invitation withdrawn.' },
       {
-        notice: 'There is no free seat of that kind left to hold.',
-        username: 'coach',
+        kind: 'accepted',
+        notice: 'Invited @coach. Their seat is held for them.',
+      },
+      { kind: 'accepted', notice: 'Invitation withdrawn.' },
+      {
+        kind: 'refused',
+        values: { username: 'coach' },
+        error: 'There is no free seat of that kind left to hold.',
       },
       [
         [
@@ -55,6 +64,133 @@ test('submitInvitationForm', async () => {
           { version: 1, invitationId: 'inv1' },
         ],
       ],
+    ],
+  });
+});
+
+test('an invitation answer is exactly one kind for each way a post can end', async () => {
+  const answering =
+    (response: () => Response | Promise<Response>) => async () =>
+      response();
+  const invite = formOf({
+    intent: 'invite',
+    username: 'coach',
+    seat: 'debater',
+  });
+  const outcomes = {
+    invited: await submitInvitationForm(
+      answering(() => Response.json({ version: 1 })),
+      'room1',
+      invite,
+    ),
+    declined: await submitInvitationForm(
+      answering(() => Response.json({ version: 1 })),
+      'room1',
+      formOf({ intent: 'decline', invitationId: 'inv1' }),
+    ),
+    inviteRefused: await submitInvitationForm(
+      answering(() =>
+        Response.json({ refusal: 'already-seated' }, { status: 409 }),
+      ),
+      'room1',
+      invite,
+    ),
+    withdrawRefused: await submitInvitationForm(
+      answering(() =>
+        Response.json({ refusal: 'invitation-ended' }, { status: 409 }),
+      ),
+      'room1',
+      formOf({ intent: 'withdraw', invitationId: 'inv1' }),
+    ),
+    limited: await submitInvitationForm(
+      answering(() => new Response('{}', { status: 429 })),
+      'room1',
+      invite,
+    ),
+    unreachable: await submitInvitationForm(
+      answering(() => Promise.reject(new Error('down'))),
+      'room1',
+      invite,
+    ),
+    unknownIntent: await submitInvitationForm(
+      answering(() => Response.json({ version: 1 })),
+      'room1',
+      formOf({ intent: 'promote' }),
+    ),
+    neverArrived: invitationFormUnavailable(),
+  };
+  assert({
+    given:
+      'an invite and a decline that worked, an invite and a withdrawal the Room refused, a rate limit, a route that threw, an unknown intent and a call that never arrived',
+    should:
+      'answer accepted with its words, or refused with its words and the username only where an invite has one to keep',
+    actual: outcomes,
+    expected: {
+      invited: {
+        kind: 'accepted',
+        notice: 'Invited @coach. Their seat is held for them.',
+      },
+      declined: { kind: 'accepted', notice: 'Invitation declined.' },
+      inviteRefused: {
+        kind: 'refused',
+        values: { username: 'coach' },
+        error: 'That member is already in a seat.',
+      },
+      withdrawRefused: {
+        kind: 'refused',
+        values: {},
+        error: 'That invitation has already ended.',
+      },
+      limited: {
+        kind: 'refused',
+        values: { username: 'coach' },
+        error: 'Too many invitations. Try again later.',
+      },
+      unreachable: {
+        kind: 'refused',
+        values: {},
+        error: 'That did not work. Try again.',
+      },
+      unknownIntent: {
+        kind: 'refused',
+        values: {},
+        error: 'That did not work. Try again.',
+      },
+      neverArrived: {
+        kind: 'refused',
+        values: {},
+        error: 'That did not work. Try again.',
+      },
+    },
+  });
+});
+
+test('what the invite form shows follows from the one kind it was answered with', () => {
+  assert({
+    given: 'no post yet, a refused invite and an accepted one',
+    should:
+      'start empty, keep the refused username beside its reason, and empty the field under a new key once accepted',
+    actual: [
+      invitationFields(initialInvitationForm),
+      invitationFields({
+        kind: 'refused',
+        values: { username: 'coach' },
+        error: 'That member cannot be invited.',
+      }),
+      invitationFields({ kind: 'accepted', notice: 'Invitation withdrawn.' }),
+    ],
+    expected: [
+      { username: '', notice: undefined, fieldKey: 'draft' },
+      {
+        username: 'coach',
+        notice: 'That member cannot be invited.',
+        fieldKey: 'draft',
+      },
+      {
+        username: '',
+        notice: 'Invitation withdrawn.',
+        fieldKey: 'Invitation withdrawn.',
+      },
     ],
   });
 });

@@ -1,7 +1,11 @@
-import type { RoomRefusal, RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol';
 import { z } from 'zod';
-import { refused } from '../forms/form-state';
-import type { RoomFormState } from '../rooms/command-answer';
+import { done, refused, unacknowledged, type Moved } from '../forms/form-state';
+import {
+  roomAccepted,
+  roomNoticeQuery,
+  type RoomFormState,
+} from '../rooms/command-answer';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -33,11 +37,26 @@ export async function submitContentWaiver(
   }
 }
 
-const refusedReason: RoomRefusal = 'content-waiver-required';
+/** The notice a native post takes back to the room for each outcome. */
+const noticeQuery = (result: WaiverSubmission): string => {
+  switch (result) {
+    case 'signed':
+      return '';
+    case 'refused':
+      return roomNoticeQuery({
+        kind: 'refused',
+        reason: 'content-waiver-required',
+      });
+    case 'unavailable':
+      return roomNoticeQuery({ kind: 'unacknowledged' });
+  }
+};
 
 /**
  * A hydrated page adopts the room the signature unblocks; a native post goes
- * back to the room, with the notice when nothing was signed.
+ * back to the room, with the notice when nothing was signed. A lost answer
+ * may have signed: signing again is the same signature, so it stays
+ * retryable.
  */
 export function contentWaiverAnswer(
   result: WaiverSubmission,
@@ -46,19 +65,20 @@ export function contentWaiverAnswer(
   edge: {
     readonly hydrated: boolean;
     readonly view: RoomView | null;
-    readonly move: (destination: string) => { readonly next: string };
+    readonly move: (destination: string) => Moved;
   },
 ): RoomFormState {
   if (!edge.hydrated)
-    return {
-      values: {},
-      ...edge.move(
-        result === 'signed'
-          ? `/rooms/${roomId}#`
-          : `/rooms/${roomId}?notice=command-refused&reason=${refusedReason}#`,
-      ),
-    };
-  if (result !== 'signed')
-    return refused(form, 'The waiver was not signed. Review it and try again.');
-  return edge.view ? { values: {}, view: edge.view } : { values: {} };
+    return edge.move(`/rooms/${roomId}${noticeQuery(result)}#`);
+  switch (result) {
+    case 'signed':
+      return edge.view ? roomAccepted(edge.view) : done;
+    case 'refused':
+      return refused(
+        form,
+        'The waiver was not signed. Review it and try again.',
+      );
+    case 'unavailable':
+      return unacknowledged(form);
+  }
 }

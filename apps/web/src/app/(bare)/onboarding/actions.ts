@@ -14,7 +14,10 @@ import {
   refusedStep,
   stepBody,
 } from '../../../ui/onboarding/questions/submit-step';
-import type { StepFormState } from '../../../ui/onboarding/questions/step-form-state';
+import {
+  stepUnsaved,
+  type StepFormState,
+} from '../../../ui/onboarding/questions/step-form-state';
 
 const onboardingRoute = processRoute((routes) => routes.onboarding.POST);
 
@@ -34,7 +37,7 @@ export async function saveStepAction(
   _state: StepFormState,
   form: unknown,
 ): Promise<StepFormState> {
-  if (!isQuestionStep(step)) return { refused: true };
+  if (!isQuestionStep(step)) return stepUnsaved();
   const destination = returnableDestination(
     typeof next === 'string' ? next : undefined,
   );
@@ -60,6 +63,6 @@ export async function skipAction(
   );
   const incoming = new Headers(await headers());
   const submit = createSubmitStep(inProcessFetch(onboardingRoute, incoming));
-  if ((await submit({ step: 'finish' })) !== 'saved') return { refused: true };
+  if ((await submit({ step: 'finish' })) !== 'saved') return stepUnsaved();
   return moveOn(incoming, sendOffHref(destination));
 }

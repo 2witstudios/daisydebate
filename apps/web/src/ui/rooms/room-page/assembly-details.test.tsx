@@ -45,7 +45,7 @@ test('non-host details remain visible but cannot submit an edit', () => {
         capabilities: { ...assemblySnapshot.capabilities, canEdit: false },
       }}
       commandId="unused-command"
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
     />,
   );
@@ -67,7 +67,7 @@ test('the edit form never offers private', () => {
     <AssemblyDetailsFields
       view={assemblySnapshot}
       commandId="fresh-command"
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
     />,
   );
@@ -90,7 +90,7 @@ test('the edit form lists public first and checks the saved choice', () => {
         <AssemblyDetailsFields
           view={{ ...assemblySnapshot, visibility }}
           commandId="fresh-command"
-          state={{ values: {} }}
+          state={{ values: {}, error: undefined }}
           pending={false}
         />,
       ).matchAll(/<input[^>]*name="visibility"[^>]*>/g),

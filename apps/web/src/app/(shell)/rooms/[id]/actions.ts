@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { readAssembly } from '../../../../features/rooms/read-assembly';
 import { prepareSettings } from '../../../../features/rooms/prepare-settings';
 import { submitAssembly } from '../../../../features/rooms/submit-assembly';
-import { refused, type FormState } from '../../../../features/forms/form-state';
+import { refused, unacknowledged } from '../../../../features/forms/form-state';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { hydratedPost, moveOn } from '../../../../server/form-action';
 import {
@@ -104,7 +104,7 @@ async function submitRoomCommand(id: string, form: FormData) {
 
 export async function submitRoomFormAction(
   id: string,
-  _state: FormState,
+  _state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
@@ -117,7 +117,7 @@ export async function submitRoomFormAction(
 /** Native posts return to a fresh projection; the hydrated room adopts the answer. */
 export async function roomCommandAction(
   id: string,
-  _state: FormState,
+  _state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
@@ -130,7 +130,7 @@ export async function roomCommandAction(
 /** Signs the season's waiver, then answers with the room it unblocks. */
 export async function signContentWaiverAction(
   id: string,
-  _state: FormState,
+  _state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const incoming = new Headers(await headers());
@@ -151,7 +151,7 @@ export async function signContentWaiverAction(
 /** Form conversions use the fresh canonical source, preserving the submitted version fence. */
 export async function saveRoomSettingsAction(
   id: string,
-  state: FormState,
+  state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const current = await roomAssembly(id);
@@ -171,8 +171,22 @@ export async function saveRoomSettingsAction(
       name,
       typeof value === 'object' ? JSON.stringify(value) : String(value),
     );
-  const result = await submitRoomFormAction(id, state, command);
-  return result.error ? refused(form, result.error) : result;
+  return aboutPosted(await submitRoomFormAction(id, state, command), form);
+}
+
+/** A settings answer keeps the form as posted, not the command built from it. */
+function aboutPosted(answer: RoomFormState, form: FormData): RoomFormState {
+  switch (answer.kind) {
+    case 'refused':
+      return refused(form, answer.error);
+    case 'unacknowledged':
+      return unacknowledged(form);
+    case 'idle':
+    case 'done':
+    case 'moved':
+    case 'accepted':
+      return answer;
+  }
 }
 
 /** Client consent recovery uses canonical commands without tearing down preview tracks. */

@@ -64,7 +64,7 @@ test('legal speech keys cannot collide with ancillary native duration fields', (
     <AssemblySettingsFields
       view={view}
       commandId={'v'.repeat(24)}
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
     />,
   );
@@ -98,7 +98,7 @@ test('settings use the exact persisted sequence and capability-specific controls
     <AssemblySettingsFields
       view={assemblySnapshot}
       commandId="settings-command"
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
     />,
   );
@@ -163,7 +163,7 @@ test('the basics come first and the full rules sit behind one disclosure', () =>
     <AssemblySettingsFields
       view={assemblySnapshot}
       commandId="settings-command"
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
     />,
   );

@@ -3,7 +3,12 @@
 import type { ChallengeList } from '@daisy/protocol';
 import { useEffect, useRef } from 'react';
 import type { EndedOffer } from '../../features/challenges/challenges-held';
-import { challengeFormUnavailable } from '../../features/challenges/forms';
+import {
+  challengeFields,
+  challengeFormUnavailable,
+  initialChallengeForm,
+} from '../../features/challenges/forms';
+import { destinationOf } from '../../features/forms/form-state';
 import { cn } from '../cn';
 import { useFormAction } from '../form-action/form-action';
 import { announceShellNavigation } from '../layout/app-shell/shell-link';
@@ -40,20 +45,22 @@ function IncomingCard({
   const { refresh } = useChallenges();
   const [accepted, accept, accepting] = useFormAction(
     actions.acceptChallenge,
-    {},
+    initialChallengeForm,
     challengeFormUnavailable,
   );
   const [declined, decline, declining] = useFormAction(
     actions.endChallenge,
-    {},
+    initialChallengeForm,
     challengeFormUnavailable,
   );
-  useMovedOn(accepted.next, announceShellNavigation);
+  const next = destinationOf(accepted);
+  useMovedOn(next, announceShellNavigation);
   const initial = useRef(declined);
   useEffect(() => {
     if (declined !== initial.current) refresh();
   }, [declined, refresh]);
-  const notice = accepted.notice ?? declined.notice;
+  const notice =
+    challengeFields(accepted).refusal ?? challengeFields(declined).refusal;
   return (
     <section
       aria-label={`Challenge from @${offer.username}`}
@@ -79,7 +86,7 @@ function IncomingCard({
           <input type="hidden" name="challengeId" value={offer.id} />
           <button
             type="submit"
-            disabled={accepting || accepted.next !== undefined}
+            disabled={accepting || next !== undefined}
             className={stageAccept}
           >
             Accept
@@ -110,13 +117,13 @@ function OutgoingCard({
   const { refresh, noteCancelled, forgetCancelled } = useChallenges();
   const [answer, post, pending] = useFormAction(
     action,
-    {},
+    initialChallengeForm,
     challengeFormUnavailable,
   );
   const initial = useRef(answer);
   useEffect(() => {
     if (answer === initial.current) return;
-    if (answer.notice) forgetCancelled(offer.id);
+    if (challengeFields(answer).refusal) forgetCancelled(offer.id);
     refresh();
   }, [answer, forgetCancelled, offer.id, refresh]);
   return (

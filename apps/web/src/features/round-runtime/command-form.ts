@@ -1,16 +1,53 @@
 import { z } from 'zod';
 import { idSchema, roundViewSchema, type RoundView } from '@daisy/protocol';
-import { formValues } from '../forms/form-state';
+import {
+  blankFields,
+  formFields,
+  formValues,
+  refused,
+  refusedWith,
+  unacknowledged,
+  type FormFields,
+  type FormValues,
+  type Idle,
+  type Moved,
+  type Refused,
+  type Unacknowledged,
+} from '../forms/form-state';
 import { roundCommandFields } from './command-fields';
-export type RoundFormState = {
-  readonly values: Readonly<Record<string, string>>;
-  readonly error?: string;
-  readonly view?: RoundView;
-  readonly next?: string;
-  readonly confirmation?: boolean;
-  readonly acknowledged?: boolean;
-  readonly unacknowledged?: boolean;
+
+/** Yield and forfeit ask once more: `values` are the press to confirm. */
+type RoundConfirming = {
+  readonly kind: 'confirming';
+  readonly values: FormValues;
 };
+/** The Round took the command and answered with the view it leads to. */
+type RoundAcknowledged = {
+  readonly kind: 'acknowledged';
+  readonly view: RoundView;
+};
+/** A Round command's answer; a lost acknowledgement keeps the original envelope for its retry. */
+export type RoundFormState =
+  Idle | Refused | RoundConfirming | RoundAcknowledged | Unacknowledged | Moved;
+
+const unacknowledgedText =
+  'The command is not acknowledged. Review the current round before trying again.';
+
+/** What a Round command's controls render from each answer. */
+export function roundFormFields(answer: RoundFormState): FormFields {
+  switch (answer.kind) {
+    case 'unacknowledged':
+      return { values: answer.values, error: unacknowledgedText };
+    case 'confirming':
+      return { values: answer.values, error: undefined };
+    case 'acknowledged':
+      return blankFields;
+    case 'idle':
+    case 'refused':
+    case 'moved':
+      return formFields(answer);
+  }
+}
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 const responseSchema = z.strictObject({
   receipt: z.strictObject({
@@ -21,12 +58,8 @@ const responseSchema = z.strictObject({
   }),
   view: roundViewSchema,
 });
-export const roundCommandUnavailable = (form: FormData): RoundFormState => ({
-  values: formValues(form),
-  unacknowledged: true,
-  error:
-    'The command is not acknowledged. Review the current round before trying again.',
-});
+export const roundCommandUnavailable = (form: FormData): RoundFormState =>
+  unacknowledged(form);
 function acceptedView(
   body: unknown,
   roundId: string,
@@ -51,15 +84,15 @@ export async function submitRoundForm(
 ): Promise<RoundFormState> {
   const envelope = roundCommandFields(form);
   if (!idSchema.safeParse(roundId).success || !envelope)
-    return {
-      values: formValues(form),
-      error: 'This round command is invalid. Reload the round and try again.',
-    };
+    return refused(
+      form,
+      'This round command is invalid. Reload the round and try again.',
+    );
   if (
     ['yield', 'forfeit'].includes(envelope.command.type) &&
     form.get('confirmed') !== 'true'
   )
-    return { values: formValues(form), confirmation: true };
+    return { kind: 'confirming', values: formValues(form) };
   try {
     const response = await fetch(`/api/rounds/${roundId}/commands`, {
       method: 'POST',
@@ -68,27 +101,24 @@ export async function submitRoundForm(
     });
     if (response.status >= 500) return roundCommandUnavailable(form);
     if (!response.ok)
-      return {
+      return refusedWith(
         // A refused strike keeps its type: its explanation ends with the strike step.
-        values:
-          envelope.command.type === 'strike_resolution'
-            ? { type: envelope.command.type }
-            : {},
-        error:
-          response.status === 409 &&
-          envelope.command.type === 'strike_resolution'
-            ? 'Someone struck first, or time ran out. Here is the draw now.'
-            : response.status === 409
-              ? 'The round changed or that action is no longer legal. Review the current round and try again.'
-              : 'The server refused this round command. Review the current round and try again.',
-      };
+        envelope.command.type === 'strike_resolution'
+          ? { type: envelope.command.type }
+          : {},
+        response.status === 409 && envelope.command.type === 'strike_resolution'
+          ? 'Someone struck first, or time ran out. Here is the draw now.'
+          : response.status === 409
+            ? 'The round changed or that action is no longer legal. Review the current round and try again.'
+            : 'The server refused this round command. Review the current round and try again.',
+      );
     const view = acceptedView(
       await response.json(),
       roundId,
       envelope.commandId,
     );
     return view
-      ? { values: {}, view, acknowledged: true }
+      ? { kind: 'acknowledged', view }
       : roundCommandUnavailable(form);
   } catch {
     return roundCommandUnavailable(form);

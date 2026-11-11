@@ -102,9 +102,10 @@ export async function submitAssembly(
     });
     if (!response.ok) {
       if (response.status >= 500) return { kind: 'unavailable' };
+      // The status already refuses; a body that cannot be read only loses the reason.
       const body = z
         .object({ refusal: roomViewSchema.shape.startRefusal })
-        .safeParse(await response.json());
+        .safeParse(await response.json().catch(() => null));
       return {
         kind: 'refused',
         reason: body.success ? body.data.refusal : null,

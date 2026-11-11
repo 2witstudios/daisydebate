@@ -1,6 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createRequestLink,
+  initialLinkForm,
+  linkSettled,
   signInStateFrom,
   linkUnavailable,
   submitLinkRequest,
@@ -95,7 +97,11 @@ describe('submitLinkRequest', () => {
       should: 'request a link for the trimmed address and echo it back',
       actual: [await submitLinkRequest(requestLink, form), asked],
       expected: [
-        { email: 'ada@example.test', outcome: { kind: 'sent' } },
+        {
+          kind: 'settled',
+          email: 'ada@example.test',
+          outcome: { kind: 'sent' },
+        },
         ['ada@example.test'],
       ],
     });
@@ -123,7 +129,11 @@ describe('submitLinkRequest', () => {
       given: 'a link request that throws',
       should: 'answer unavailable',
       actual: await submitLinkRequest(requestLink, form),
-      expected: { email: 'ada@example.test', outcome: { kind: 'unavailable' } },
+      expected: {
+        kind: 'settled',
+        email: 'ada@example.test',
+        outcome: { kind: 'unavailable' },
+      },
     });
   });
 });
@@ -140,8 +150,12 @@ describe('linkUnavailable', () => {
         'answer unavailable with the trimmed address, or an empty one for a file',
       actual: [linkUnavailable(typed), linkUnavailable(file)],
       expected: [
-        { email: 'ada@example.test', outcome: { kind: 'unavailable' } },
-        { email: '', outcome: { kind: 'unavailable' } },
+        {
+          kind: 'settled',
+          email: 'ada@example.test',
+          outcome: { kind: 'unavailable' },
+        },
+        { kind: 'settled', email: '', outcome: { kind: 'unavailable' } },
       ],
     });
   });
@@ -155,13 +169,10 @@ describe('signInStateFrom', () => {
       should:
         'show the empty email step, the inbox step counting from now, and the email step with its notice',
       actual: [
-        signInStateFrom({ email: '' }, at),
+        signInStateFrom(initialLinkForm, at),
+        signInStateFrom(linkSettled('ada@school.edu', { kind: 'sent' }), at),
         signInStateFrom(
-          { email: 'ada@school.edu', outcome: { kind: 'sent' } },
-          at,
-        ),
-        signInStateFrom(
-          { email: 'ada@school.edu', outcome: { kind: 'rate-limited' } },
+          linkSettled('ada@school.edu', { kind: 'rate-limited' }),
           at,
         ),
       ],

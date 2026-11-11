@@ -1,11 +1,16 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import type { FormState } from '../../../features/forms/form-state';
+import {
+  destinationOf,
+  idle,
+  type FormFields,
+} from '../../../features/forms/form-state';
 import type { PublishedResolution } from '@daisy/protocol';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 import {
   postRoomDraft,
+  roomDraftFields,
   type RoomDraftAnswer,
 } from '../../../features/rooms/create-room-answer';
 import { defaultChoice } from '../../../features/rooms/format-browser';
@@ -16,17 +21,11 @@ import { useFocusAfterAnswer } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { CreateRoomEditor } from './create-room-editor';
 
-type CreateState = {
-  readonly values: Readonly<Record<string, string>>;
-  readonly error?: string;
-  readonly next?: string;
-};
-
 type FieldsProps = {
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
   readonly resolutions?: readonly PublishedResolution[];
-  readonly state: CreateState;
+  readonly state: FormFields;
   readonly pending: boolean;
   readonly initialRanked?: boolean;
 };
@@ -72,16 +71,18 @@ export function CreateAssemblyFields({
   );
 }
 
+const unanswered: RoomDraftAnswer = idle();
+
 /** Local draft editing enhances the same native, authenticated creation action. */
 export function CreateAssemblyForm({
-  initialState = { values: {} },
+  initialState = unanswered,
   sourceRoomId,
   commandId,
   choices,
   resolutions = [],
   initialRanked = false,
 }: {
-  readonly initialState?: FormState;
+  readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
@@ -90,10 +91,11 @@ export function CreateAssemblyForm({
 }) {
   const [state, setState] = useState<RoomDraftAnswer>(initialState);
   const [pending, startTransition] = useTransition();
-  useMovedOn(state.next);
+  const fields = roomDraftFields(state);
+  useMovedOn(destinationOf(state));
   useFocusAfterAnswer(
     state,
-    state.error ? 'create-room-answer' : 'create-settings-title',
+    fields.error ? 'create-room-answer' : 'create-settings-title',
     !pending,
   );
   return (
@@ -122,11 +124,11 @@ export function CreateAssemblyForm({
         <input type="hidden" name="sourceRoomId" value={sourceRoomId} />
       ) : null}
       <CreateAssemblyFields
-        key={JSON.stringify(state.values)}
+        key={JSON.stringify(fields.values)}
         commandId={commandId}
         choices={choices}
-        resolutions={state.resolutions ?? resolutions}
-        state={state}
+        resolutions={fields.resolutions ?? resolutions}
+        state={fields}
         pending={pending}
         initialRanked={initialRanked}
       />

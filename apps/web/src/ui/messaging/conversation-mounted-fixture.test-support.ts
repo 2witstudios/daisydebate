@@ -1,4 +1,9 @@
 import type { MessagingConversation } from '../../features/messaging/conversation';
+import { moved } from '../../features/forms/form-state';
+import {
+  messageRefused,
+  type MessageFormState,
+} from '../../features/messaging/forms/send-form';
 
 export function deferredConversationAction(scenario: string) {
   const started = Promise.withResolvers<void>();
@@ -12,9 +17,9 @@ export function deferredConversationAction(scenario: string) {
   let commits = 0;
   const committedCommands = new Set<string>();
   const action = async (
-    _previous: { readonly text: string; readonly requestId: string },
+    _previous: MessageFormState,
     form: FormData,
-  ) => {
+  ): Promise<MessageFormState> => {
     if (Object.hasOwn(_previous, 'completion'))
       throw new Error('Client origin reached the server action');
     calls++;
@@ -36,20 +41,17 @@ export function deferredConversationAction(scenario: string) {
     )
       throw new Error('Controlled transport refusal');
     if (refused)
-      return {
-        text: String(form.get('text')),
-        requestId,
-        notice: 'Controlled refusal',
-      };
-    return {
-      text: '',
-      requestId,
-      next: fresh
+      return messageRefused(
+        { text: String(form.get('text')), requestId },
+        'Controlled refusal',
+      );
+    return moved(
+      fresh
         ? '/messages/channel?sent=new'
         : successor
           ? '/messages/successor?sent=second'
           : '/messages/channel?sent=message',
-    };
+    );
   };
 
   return {

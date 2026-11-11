@@ -1,7 +1,13 @@
 import { aiJudgePremiumText } from './ai-judge-copy';
 import { createAssembly } from './create-assembly';
 import type { RoomCreateRefusal } from './room-create-response';
-import { refused, type FormState } from '../forms/form-state';
+import {
+  formValues,
+  moved,
+  refused,
+  type Moved,
+  type Refused,
+} from '../forms/form-state';
 import type { readRoomTemplates } from './read-catalog';
 import type { RoomDraftAnswer } from './create-room-answer';
 import { prepareRoomDraft } from './prepare-room-draft';
@@ -24,11 +30,17 @@ export async function submitConfiguredRoomCreation(
   );
   if (prepared.kind === 'invalid')
     return {
-      ...refused(submitted, prepared.error),
+      kind: 'invalid',
+      values: formValues(submitted),
+      error: prepared.error,
       resolutions: catalog.resolutions,
     };
   if (prepared.kind === 'preview')
-    return { values: prepared.values, resolutions: catalog.resolutions };
+    return {
+      kind: 'previewed',
+      values: prepared.values,
+      resolutions: catalog.resolutions,
+    };
   return submitRoomCreation(fetch, incoming, prepared.form, path);
 }
 
@@ -74,11 +86,9 @@ export async function submitRoomCreation(
   form: unknown,
   path = '/api/rooms',
   beforeMoveOn: BeforeMoveOn = async () => {},
-  moveOn: (incoming: Headers, to: string) => { readonly next: string } = (
-    _incoming,
-    to,
-  ) => ({ next: to }),
-): Promise<FormState> {
+  moveOn: (incoming: Headers, to: string) => Moved = (_incoming, to) =>
+    moved(to),
+): Promise<Refused | Moved> {
   const submitted = form instanceof FormData ? form : new FormData();
   const result = await createAssembly(
     (_, init) => fetch(path, init),
@@ -87,7 +97,7 @@ export async function submitRoomCreation(
   if (result.kind === 'created') {
     const notice = await runHook(beforeMoveOn, result.roomId, true);
     if (notice) return refused(submitted, notice);
-    return { values: {}, ...moveOn(incoming, `/rooms/${result.roomId}`) };
+    return moveOn(incoming, `/rooms/${result.roomId}`);
   }
   // One active Room per user (ADR 0070): the answer is to go back to it.
   if (result.kind === 'active-room' && result.href) {
@@ -97,7 +107,7 @@ export async function submitRoomCreation(
       false,
     );
     if (notice) return refused(submitted, notice);
-    return { values: {}, ...moveOn(incoming, result.href) };
+    return moveOn(incoming, result.href);
   }
   return refused(submitted, creationRefusal(result));
 }

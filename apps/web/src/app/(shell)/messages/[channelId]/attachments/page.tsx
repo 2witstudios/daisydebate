@@ -5,6 +5,7 @@ import { systemId } from '@daisy/clock';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { messagingFileResponseSchemas } from '../../../../../features/messaging/files/response';
+import { fileFormIdle } from '../../../../../features/messaging/forms/file-form';
 import { AttachmentForm } from '../../../../../ui/messaging/attachment-form';
 import { GET } from '../../../../api/messaging/channels/[channelId]/files/route';
 export const metadata = { title: 'Message attachments' };
@@ -57,7 +58,7 @@ export default async function MessageAttachmentsPage({
         <AttachmentForm
           channelId={channelId}
           messageId={messageId}
-          state={{ requestId: systemId.next(), filename: '' }}
+          state={fileFormIdle(systemId.next())}
         />
       ) : null}
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>

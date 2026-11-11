@@ -1,26 +1,61 @@
 import { parseUsername } from '@daisy/auth';
+import {
+  idle,
+  type Idle,
+  type Moved,
+  type Refused,
+} from '../../../features/forms/form-state';
 import type { ClaimUsername } from './claim-username';
 
 export type UsernameNotice =
   'invalid' | 'taken' | 'signed-out' | 'rate-limited' | 'unavailable';
 
-/**
- * What the username form shows: the name as typed, and why it was refused;
- * or, once the account has its name, where the page goes next.
- */
-export type UsernameFormState = {
-  readonly username: string;
-  readonly notice?: UsernameNotice;
-  readonly next?: string;
+/** A refused claim: the name as typed (`values.username`), and why. */
+export type UsernameRefused = Refused & {
+  readonly values: { readonly username: string };
+  readonly error: UsernameNotice;
 };
 
-export const initialUsernameForm: UsernameFormState = { username: '' };
+/**
+ * What the username form's action answers: nothing yet, a refusal, or, once
+ * the account has its name, where the page goes next.
+ */
+export type UsernameFormState = Idle | UsernameRefused | Moved;
+
+export const initialUsernameForm: UsernameFormState = idle();
+
+export const usernameRefused = (
+  username: string,
+  notice: UsernameNotice,
+): UsernameRefused => ({
+  kind: 'refused',
+  values: { username },
+  error: notice,
+});
+
+/** What the username form renders: the name to show again and the refusal beside it. */
+export type UsernameFields = {
+  readonly username: string;
+  readonly notice: UsernameNotice | undefined;
+};
+
+const blank: UsernameFields = { username: '', notice: undefined };
+
+export function usernameFields(answer: UsernameFormState): UsernameFields {
+  switch (answer.kind) {
+    case 'idle':
+    case 'moved':
+      return blank;
+    case 'refused':
+      return { username: answer.values.username, notice: answer.error };
+  }
+}
 
 /** How one posted claim ended. Only `claimed` and `already-set` move on. */
 export type ClaimSubmission =
   | { readonly kind: 'claimed' }
   | { readonly kind: 'already-set' }
-  | { readonly kind: 'refused'; readonly state: UsernameFormState };
+  | { readonly kind: 'refused'; readonly state: UsernameRefused };
 
 /** The local shape check, run in the browser and again on the server. */
 export const refusesShape = (username: string): boolean =>
@@ -29,7 +64,10 @@ export const refusesShape = (username: string): boolean =>
 const refused = (
   username: string,
   notice: UsernameNotice,
-): ClaimSubmission => ({ kind: 'refused', state: { username, notice } });
+): ClaimSubmission => ({
+  kind: 'refused',
+  state: usernameRefused(username, notice),
+});
 
 const postedUsername = (form: FormData): string => {
   const field = form.get('username');
@@ -63,10 +101,8 @@ export async function submitClaim(
  * A posted form whose claim never reached the server, because the
  * browser's call to the action failed in transport.
  */
-export const claimUnavailable = (form: FormData): UsernameFormState => ({
-  username: postedUsername(form),
-  notice: 'unavailable',
-});
+export const claimUnavailable = (form: FormData): UsernameRefused =>
+  usernameRefused(postedUsername(form), 'unavailable');
 
 /**
  * What the browser adds to the server's answer: its own refusal of a

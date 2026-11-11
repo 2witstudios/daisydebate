@@ -2,13 +2,14 @@
 
 import type { RoomView } from '@daisy/protocol';
 import { invitedTo } from '../../../features/notifications/notification-words';
-import type { InvitationFormState } from '../../../features/room-invitations/submit';
+import {
+  initialInvitationForm,
+  invitationFields,
+  invitationFormUnavailable,
+  type InvitationFormState,
+} from '../../../features/room-invitations/submit';
 import { buttonClass } from '../../components/button/button-class';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
-
-const unavailable = (): InvitationFormState => ({
-  notice: 'That did not work. Try again.',
-});
 
 function EndForm({
   action,
@@ -21,7 +22,12 @@ function EndForm({
   readonly invitationId: string;
   readonly label: string;
 }) {
-  const [answer, post, pending] = useFormAction(action, {}, unavailable);
+  const [answer, post, pending] = useFormAction(
+    action,
+    initialInvitationForm,
+    invitationFormUnavailable,
+  );
+  const fields = invitationFields(answer);
   return (
     <form action={post} className="flex items-center gap-2">
       <input type="hidden" name="intent" value={intent} />
@@ -33,9 +39,9 @@ function EndForm({
       >
         {label}
       </button>
-      {answer.notice ? (
+      {fields.notice ? (
         <span role="status" className="text-sm text-ink-muted">
-          {answer.notice}
+          {fields.notice}
         </span>
       ) : null}
     </form>
@@ -47,7 +53,12 @@ function InviteForm({
 }: {
   readonly action: FormAction<InvitationFormState>;
 }) {
-  const [answer, post, pending] = useFormAction(action, {}, unavailable);
+  const [answer, post, pending] = useFormAction(
+    action,
+    initialInvitationForm,
+    invitationFormUnavailable,
+  );
+  const fields = invitationFields(answer);
   return (
     <form
       action={post}
@@ -63,8 +74,8 @@ function InviteForm({
             required
             maxLength={65}
             autoComplete="off"
-            defaultValue={answer.ok ? '' : (answer.username ?? '')}
-            key={answer.ok ? answer.notice : 'draft'}
+            defaultValue={fields.username}
+            key={fields.fieldKey}
             className="rounded-md border border-border bg-surface px-3 py-2 text-base text-ink"
           />
         </label>
@@ -87,9 +98,9 @@ function InviteForm({
           Send invitation
         </button>
       </div>
-      {answer.notice ? (
+      {fields.notice ? (
         <p role="status" className="text-sm text-ink-muted">
-          {answer.notice}
+          {fields.notice}
         </p>
       ) : null}
     </form>

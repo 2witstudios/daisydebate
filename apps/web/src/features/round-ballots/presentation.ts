@@ -2,6 +2,7 @@ import { ballotFields } from './fields';
 import { createAppError } from '@daisy/errors';
 import type { RoundBallotRead } from '@daisy/protocol';
 import type { BallotDebaters } from '../judge/ballot';
+import type { RoundBallotFormState } from './form';
 /** Side labels come from all authoritative debater seats, never from judge identity or a sample. */
 export function ballotDebaters(view: RoundBallotRead): BallotDebaters {
   const side = (role: 'affirmative' | 'negative') =>
@@ -17,16 +18,27 @@ export function ballotDebaters(view: RoundBallotRead): BallotDebaters {
 }
 export type BallotDisplay =
   'retry' | 'recorded' | 'open' | 'waiting' | 'decided';
+/** What the ballot page shows: the answer decides first, then the persisted Round. */
 export function ballotDisplay(
   view: RoundBallotRead,
-  answer: import('./form').RoundBallotFormState,
+  answer: RoundBallotFormState,
 ): BallotDisplay {
-  if (
-    answer.unacknowledged &&
-    ballotFields(Object.entries(answer.values), true).ok
-  )
-    return 'retry';
-  if (answer.receipt || view.own?.ballot) return 'recorded';
+  switch (answer.kind) {
+    case 'recorded':
+      return 'recorded';
+    case 'unacknowledged':
+      // Only a ballot that can be posted again unchanged is offered for retry.
+      return ballotFields(Object.entries(answer.values), true).ok
+        ? 'retry'
+        : persistedDisplay(view);
+    case 'idle':
+    case 'refused':
+    case 'moved':
+      return persistedDisplay(view);
+  }
+}
+function persistedDisplay(view: RoundBallotRead): BallotDisplay {
+  if (view.own?.ballot) return 'recorded';
   if (ballotOpen(view)) return 'open';
   return pendingDisplay(view.round.status);
 }

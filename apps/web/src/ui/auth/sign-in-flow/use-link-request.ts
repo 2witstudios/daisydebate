@@ -84,12 +84,16 @@ export function useLinkRequest(
   // The answer a page was rendered with settles nothing: no request is in
   // flight then.
   useEffect(() => {
-    if (answered.outcome === undefined) return;
-    dispatch({
-      type: 'link-settled',
-      outcome: answered.outcome,
-      at: clock.now(),
-    });
+    switch (answered.kind) {
+      case 'idle':
+        return;
+      case 'settled':
+        dispatch({
+          type: 'link-settled',
+          outcome: answered.outcome,
+          at: clock.now(),
+        });
+    }
   }, [answered, clock]);
 
   // Focus follows the state the answer settles into, one commit after the

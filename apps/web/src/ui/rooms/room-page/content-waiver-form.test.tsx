@@ -1,11 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { idle } from '../../../features/forms/form-state';
 import { CONTENT_WAIVER_VERSION } from '../../../features/legal/agreements';
 import { findElements } from '../../test-support/find-elements';
 import { ContentWaiverForm } from './content-waiver-form';
 
 setupRitewayBun();
 
-const tree = ContentWaiverForm({ action: async () => ({ values: {} }) });
+const tree = ContentWaiverForm({ action: async () => idle() });
 const input = (name: string) =>
   findElements(
     tree,

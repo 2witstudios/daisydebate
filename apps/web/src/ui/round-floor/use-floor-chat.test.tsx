@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mountBrowserClient } from '../test-support/browser-client.test-support';
+import { floorIdle } from '../../features/messaging/round-floor/form-state';
 import type * as Client from './use-floor-chat.test-support';
 
 setupRitewayBun();
@@ -40,7 +41,7 @@ const page = (readOnly = false, changeVersion = 0) =>
       },
     },
   );
-const refuse = async () => ({ text: '', requestId: 'q'.repeat(24) });
+const refuse = async () => floorIdle('q'.repeat(24));
 
 /** The hook in a private realm; the test answers each history read in its own time. */
 const mount = async () => {

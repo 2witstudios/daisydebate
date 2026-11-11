@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
 import {
@@ -36,7 +37,7 @@ const ids = {
   reset: 'r'.repeat(24),
   template: 't'.repeat(24),
 };
-const action = async () => ({ values: {} });
+const action = async () => idle();
 
 const strike = {
   enabled: true as const,

@@ -2,8 +2,9 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
   parseMessageForm,
-  messageFormUnavailable,
-  type MessageFormState,
+  messageDraft,
+  messageRefused,
+  type MessageRefused,
 } from './send-form';
 import { parseMessagingFormScope } from './form-scope';
 /** Current author and cleanup/posting permissions are checked by the existing operation. */
@@ -35,12 +36,11 @@ export function parseMessageMutationForm(
         };
   return { operation, command };
 }
-export function messageMutationUnavailable(form: FormData): MessageFormState {
-  return {
-    ...messageFormUnavailable(form),
-    notice: 'Your message could not be changed. The text is kept; try again.',
-  };
-}
+export const messageMutationUnavailable = (form: FormData): MessageRefused =>
+  messageRefused(
+    messageDraft(form),
+    'Your message could not be changed. The text is kept; try again.',
+  );
 
 /**
  * ISSUE-668: the form's request id was already spent on another change (a
@@ -50,11 +50,9 @@ export function messageMutationUnavailable(form: FormData): MessageFormState {
 export function messageMutationConflict(
   form: FormData,
   nextRequestId: string,
-): MessageFormState {
-  return {
-    ...messageFormUnavailable(form),
-    requestId: nextRequestId,
-    notice:
-      'This message changed since you opened it. Your text is kept; review it and save again.',
-  };
+): MessageRefused {
+  return messageRefused(
+    { text: messageDraft(form).text, requestId: nextRequestId },
+    'This message changed since you opened it. Your text is kept; review it and save again.',
+  );
 }

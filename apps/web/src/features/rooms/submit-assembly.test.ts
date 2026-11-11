@@ -157,3 +157,39 @@ test('a draw room’s format choice sends its resolution only when typed (FMT-2b
     ],
   });
 });
+
+test('only an answer that never arrived whole is unknown; a refusal is a refusal whatever its body', async () => {
+  const answered = (send: () => Promise<Response>) =>
+    submitAssembly(send, assemblySnapshot.id, readyForm());
+  assert({
+    given:
+      'a server fault, a dropped call, an accepted reply that cannot be read and one for another room; then refusals with no body and with an unknown reason',
+    should:
+      'call the first four unavailable, since the command may have been recorded, and the last two refused',
+    actual: await Promise.all([
+      answered(async () => new Response(null, { status: 503 })),
+      answered(async () => {
+        throw new Error('lost response');
+      }),
+      answered(async () => new Response('not json')),
+      answered(async () =>
+        Response.json({
+          view: { ...assemblySnapshot, id: 'x'.repeat(24) },
+          receipt: {},
+        }),
+      ),
+      answered(async () => new Response(null, { status: 403 })),
+      answered(async () =>
+        Response.json({ refusal: 'not-a-reason' }, { status: 409 }),
+      ),
+    ]),
+    expected: [
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
+      { kind: 'refused', reason: null },
+      { kind: 'refused', reason: null },
+    ],
+  });
+});

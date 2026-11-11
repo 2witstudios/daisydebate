@@ -8,6 +8,7 @@ import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
 import {
+  preferenceFields,
   preferenceUnavailable,
   type PreferenceFormState,
 } from '../../features/messaging/forms/preference-form';
@@ -23,10 +24,11 @@ export function PreferenceForm({
     state,
     preferenceUnavailable,
   );
-  useMovedOn(answer.next);
+  const fields = preferenceFields(answer);
+  useMovedOn(fields.next);
   useFocusAfterAnswer(
     answer,
-    answer.notice ? 'preference-notice' : 'preference-save',
+    fields.notice ? 'preference-notice' : 'preference-save',
     !pending,
   );
   return (
@@ -39,12 +41,12 @@ export function PreferenceForm({
           {
             name: 'following',
             label: 'Follow this conversation',
-            value: answer.following,
+            value: fields.following,
           },
           {
             name: 'hidden',
             label: 'Hide from inbox',
-            value: answer.hidden,
+            value: fields.hidden,
           },
         ] as const
       ).map(({ name, label, value }) => (
@@ -67,8 +69,8 @@ export function PreferenceForm({
         Notification preference
         <select
           name="notificationLevel"
-          key={answer.notificationLevel}
-          defaultValue={answer.notificationLevel}
+          key={fields.notificationLevel}
+          defaultValue={fields.notificationLevel}
           disabled={pending}
           required
         >
@@ -78,7 +80,7 @@ export function PreferenceForm({
           <option value="none">None</option>
         </select>
       </label>
-      <DraftNotice id="preference-notice" notice={answer.notice} />
+      <DraftNotice id="preference-notice" notice={fields.notice} />
       <Button
         id="preference-save"
         type="submit"

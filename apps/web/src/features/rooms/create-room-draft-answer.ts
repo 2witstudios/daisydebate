@@ -1,7 +1,16 @@
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
-import { roomDraftAnswerSchema } from './create-room-answer';
-import type { FormState } from '../forms/form-state';
+import {
+  roomDraftAnswerSchema,
+  roomDraftFields,
+  type RoomDraftAnswer,
+} from './create-room-answer';
+import {
+  idle,
+  refusedWith,
+  type Idle,
+  type Refused,
+} from '../forms/form-state';
 
 const answerSchema = z.object({
   commandId: idSchema,
@@ -24,7 +33,7 @@ export async function saveRoomDraftAnswer(
   userId: string,
   commandId: string,
   source: string | null,
-  state: FormState,
+  state: RoomDraftAnswer,
 ) {
   const answer = answerSchema.parse({ commandId, source, state });
   await store.setEphemeral(key(userId), JSON.stringify(answer), 300);
@@ -35,30 +44,27 @@ export async function readRoomDraftAnswer(
   userId: string,
   commandId: unknown,
   source: string | null,
-): Promise<FormState> {
-  if (!idSchema.safeParse(commandId).success) return { values: {} };
+): Promise<Idle | Refused> {
+  if (!idSchema.safeParse(commandId).success) return idle();
   const stored = await store.get(key(userId));
-  if (!stored)
-    return {
-      values: {},
-      error: 'This settings preview expired. Choose your settings again.',
-    };
+  if (!stored) return expired;
   let answer: z.infer<typeof answerSchema>;
   try {
     answer = answerSchema.parse(JSON.parse(stored));
   } catch {
-    return { values: {} };
+    return idle();
   }
-  return answer.commandId === commandId && answer.source === source
-    ? {
-        values: answer.state.values,
-        ...(answer.state.error ? { error: answer.state.error } : {}),
-      }
-    : {
-        values: {},
-        error: 'This settings preview expired. Choose your settings again.',
-      };
+  if (answer.commandId !== commandId || answer.source !== source)
+    return expired;
+  // The page reads its own catalog, so only the fields come back.
+  const { values, error } = roomDraftFields(answer.state);
+  return error === undefined ? idle(values) : refusedWith(values, error);
 }
+
+const expired = refusedWith(
+  {},
+  'This settings preview expired. Choose your settings again.',
+);
 
 /** The member's own unsubmitted draft joins their data export without exposing another member's key. */
 export async function exportRoomDraftAnswer(
@@ -68,7 +74,7 @@ export async function exportRoomDraftAnswer(
   const raw = await store.get(key(userId));
   if (!raw) return [];
   const answer = answerSchema.safeParse(JSON.parse(raw));
-  return answer.success ? [answer.data.state.values] : [];
+  return answer.success ? [roomDraftFields(answer.data.state).values] : [];
 }
 
 /** Cache deletion precedes account closure; an outage refuses closure for retry. */

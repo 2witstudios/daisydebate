@@ -1,24 +1,24 @@
 import type { ChallengeList } from '@daisy/protocol';
+import { initialChallengeForm } from '../../features/challenges/forms';
+import { initialPersonBlock } from '../../features/contacts/block-form';
+import { initialFriendForm } from '../../features/friends/forms';
+import { creationIdle } from '../../features/messaging/forms/create-form';
+import { initialReportForm } from '../../features/reports/form';
 import { ChallengeCards } from './challenge-cards';
 import { ChallengeProvider, useChallenges } from './challenge-provider';
 
 export { act, createElement } from 'react';
 export { createRoot } from 'react-dom/client';
 
-const unanswered = async () => ({});
+const unchallenged = async () => initialChallengeForm;
 const actions = {
-  friend: async () => ({ username: '' }),
-  sendChallenge: unanswered,
-  acceptChallenge: unanswered,
-  endChallenge: unanswered,
-  message: async () => ({
-    requestId: '',
-    recipients: '',
-    title: '',
-    introduction: '',
-  }),
-  report: unanswered,
-  block: unanswered,
+  friend: async () => initialFriendForm(),
+  sendChallenge: unchallenged,
+  acceptChallenge: unchallenged,
+  endChallenge: unchallenged,
+  message: async () => creationIdle(''),
+  report: async () => initialReportForm,
+  block: async () => initialPersonBlock,
 };
 
 type Held = ReturnType<typeof useChallenges>;

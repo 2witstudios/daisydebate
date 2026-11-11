@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import {
+  done,
   field,
   refused,
   type FormState,
@@ -74,7 +75,7 @@ export async function postSpectatorChatAction(
   }
   const to = backTo(target.returnTo);
   revalidatePath(to);
-  return { values: {}, ...stayOn(incoming, to) };
+  return stayOn(incoming, to) ?? done;
 }
 
 const FAILED = 'That did not go through. Try again.';
@@ -98,7 +99,7 @@ const mutate = async (
     return refused(form, FAILED);
   }
   revalidatePath(to);
-  return { values: {}, ...stayOn(incoming, to) };
+  return stayOn(incoming, to) ?? done;
 };
 
 /** Sends one reaction; the pressed button names which. */

@@ -75,6 +75,15 @@ The rule that remains is that a click before hydration never leaks what was type
   upload) needs its own route and a recorded decision, not a higher cap.
   The full create-room editor uses a streaming 128 KiB POST route, with
   five-minute member-scoped native preview answers (ADR 0092).
+- A form's answer is exactly one variant of a union discriminated on `kind`
+  (`idle`, `refused`, `done`, `moved`, `unacknowledged`, plus the form's own
+  accepted variants); the convention, the shared variants and their
+  constructors are in `apps/web/src/features/forms/form-state.ts`. Readers
+  switch on `kind`; nothing probes an optional field. A post whose answer was
+  lost (dropped call, server fault, unreadable reply) is `unacknowledged`,
+  not refused: it may have been recorded, so the form says so and keeps the
+  original fields for a retry that posts them unchanged. Ballots, Round
+  commands and Room commands all work this way.
 - A form's action state comes from `useFormAction`
   (`apps/web/src/ui/form-action/form-action.ts`), not a bare
   `useActionState`. With JavaScript on, the action is a fetch the page makes.

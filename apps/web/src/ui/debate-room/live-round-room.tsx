@@ -129,9 +129,20 @@ export function LiveRoundRoom({
   const [outcome, setOutcome] = useState<string | null>(null);
   const onAnswer = useCallback(
     (answer: RoundFormState) => {
-      if (!answer.error) setOutcome('Done.');
-      if (answer.view) driver?.accepted(answer.view);
-      else if (answer.error) driver?.signal();
+      switch (answer.kind) {
+        case 'acknowledged':
+          setOutcome('Done.');
+          driver?.accepted(answer.view);
+          return;
+        case 'refused':
+        case 'unacknowledged':
+          driver?.signal();
+          return;
+        case 'idle':
+        case 'confirming':
+        case 'moved':
+          return;
+      }
     },
     [driver],
   );

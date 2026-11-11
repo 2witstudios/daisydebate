@@ -24,7 +24,7 @@ export function UnacknowledgedCommand({
   readonly pending: boolean;
 }) {
   if (
-    !answer.unacknowledged ||
+    answer.kind !== 'unacknowledged' ||
     !roundCommandFields(Object.entries(answer.values))
   )
     return null;

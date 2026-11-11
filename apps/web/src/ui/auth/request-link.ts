@@ -6,18 +6,28 @@ import {
   type SignInState,
 } from './sign-in-state';
 import { EMAIL_UNDELIVERABLE } from '../../features/auth/mail/undeliverable-codes';
+import { idle, type Idle } from '../../features/forms/form-state';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
 export type RequestLink = (email: string) => Promise<LinkRequestOutcome>;
 
-/** What the sign-in form shows after a post: the address as typed, and how the request ended. */
-export type LinkFormState = {
+/** A posted request's answer: the address as typed, and how the request ended. */
+type LinkSettled = {
+  readonly kind: 'settled';
   readonly email: string;
-  readonly outcome?: LinkRequestOutcome;
+  readonly outcome: LinkRequestOutcome;
 };
 
-export const initialLinkForm: LinkFormState = { email: '' };
+/** What the sign-in form starts from: nothing posted yet, or the last post's answer. */
+export type LinkFormState = Idle | LinkSettled;
+
+export const initialLinkForm: LinkFormState = idle();
+
+export const linkSettled = (
+  email: string,
+  outcome: LinkRequestOutcome,
+): LinkSettled => ({ kind: 'settled', email, outcome });
 
 const UNAVAILABLE: LinkRequestOutcome = { kind: 'unavailable' };
 
@@ -74,7 +84,7 @@ const postedEmail = (form: FormData): string => {
 export async function submitLinkRequest(
   requestLink: RequestLink,
   form: FormData,
-): Promise<LinkFormState> {
+): Promise<LinkSettled> {
   const email = postedEmail(form);
   let outcome: LinkRequestOutcome;
   try {
@@ -82,30 +92,32 @@ export async function submitLinkRequest(
   } catch {
     outcome = UNAVAILABLE;
   }
-  return { email, outcome };
+  return linkSettled(email, outcome);
 }
 
 /**
  * A posted form whose request never reached the server, because the
  * browser's call to the action failed in transport.
  */
-export const linkUnavailable = (form: FormData): LinkFormState => ({
-  email: postedEmail(form),
-  outcome: UNAVAILABLE,
-});
+export const linkUnavailable = (form: FormData): LinkSettled =>
+  linkSettled(postedEmail(form), UNAVAILABLE);
 
 /**
  * The state a page render starts from: where the last posted form ended,
  * with a sent link's cooldown counted from `at` (UTC ISO, this render's
  * clock). Without JavaScript, every post renders the page again from here.
  */
-export const signInStateFrom = (
-  { email, outcome }: LinkFormState,
+export function signInStateFrom(
+  answer: LinkFormState,
   at: string,
-): SignInState =>
-  outcome === undefined
-    ? initialSignInState(email)
-    : signInReducer(
-        { step: 'enter-email', email, pending: 'link' },
-        { type: 'link-settled', outcome, at },
+): SignInState {
+  switch (answer.kind) {
+    case 'idle':
+      return initialSignInState();
+    case 'settled':
+      return signInReducer(
+        { step: 'enter-email', email: answer.email, pending: 'link' },
+        { type: 'link-settled', outcome: answer.outcome, at },
       );
+  }
+}

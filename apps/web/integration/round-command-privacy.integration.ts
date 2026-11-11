@@ -102,7 +102,7 @@ test('real authenticated Round responses and JSON and server-action form replays
           versions: [
             firstBody.view.version,
             retryBody.view.version,
-            native.view?.version,
+            native.kind === 'acknowledged' ? native.view.version : undefined,
             (await f.app.database.getRound(roundId))!.version,
           ],
           replayed: retryBody.receipt.replayed,
@@ -115,7 +115,7 @@ test('real authenticated Round responses and JSON and server-action form replays
               refusal,
             ]).includes(value),
           ),
-          nativeAcknowledged: native.acknowledged,
+          nativeAcknowledged: native.kind === 'acknowledged',
         },
         expected: {
           statuses: [200, 200, 409],

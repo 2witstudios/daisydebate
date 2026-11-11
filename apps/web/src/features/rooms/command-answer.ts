@@ -1,19 +1,77 @@
 import type { RoomRefusal, RoomView } from '@daisy/protocol';
-import { refused, type FormState } from '../forms/form-state';
+import {
+  blankFields,
+  formFields,
+  refused,
+  unacknowledged,
+  type FormFields,
+  type FormState,
+  type Moved,
+  type Unacknowledged,
+} from '../forms/form-state';
 import { aiJudgePremiumText } from './ai-judge-copy';
 import type { submitAssembly } from './submit-assembly';
 
+/** The Room took the command and answered with its canonical view. */
+export type RoomAccepted = {
+  readonly kind: 'accepted';
+  readonly view: RoomView;
+};
+
 /**
  * A room form's answer. A hydrated page gets the accepted canonical view and
- * hands it to room sync instead of navigating (ADR 0066).
+ * hands it to room sync instead of navigating (ADR 0066). `done` is a post
+ * that left nothing for sync to adopt. An answer that was lost is
+ * `unacknowledged`: it keeps the original fields, whose command identifier
+ * makes the retry safe.
  */
-export type RoomFormState = FormState & { readonly view?: RoomView };
+export type RoomFormState = FormState | RoomAccepted | Unacknowledged;
 
-export const commandUnavailable = (form: FormData): FormState =>
-  refused(
-    form,
-    'The command is not acknowledged. Review the room and try again.',
-  );
+export const roomAccepted = (view: RoomView): RoomAccepted => ({
+  kind: 'accepted',
+  view,
+});
+
+/** The answer was lost in transport, a server fault or an unreadable reply. */
+export const commandUnavailable = (form: FormData): RoomFormState =>
+  unacknowledged(form);
+
+/**
+ * The Room answers a command identifier it has already recorded with that
+ * command's receipt before it looks at the version, so the unchanged retry
+ * confirms a recorded command and runs one that never arrived.
+ */
+const commandUnacknowledgedText =
+  'This command may have been recorded. Retry it to find out: a recorded command is confirmed, not run twice.';
+
+/**
+ * An edit form stays open with what was typed. Saving it again unchanged is
+ * the same retry; the room below shows whether the first save landed.
+ */
+const editUnacknowledgedText =
+  'These changes may have been saved. Review the latest room before saving again.';
+
+/** What a room command's controls render from each answer. */
+export function roomFormFields(answer: RoomFormState): FormFields {
+  switch (answer.kind) {
+    case 'accepted':
+      return blankFields;
+    case 'unacknowledged':
+      return { values: answer.values, error: commandUnacknowledgedText };
+    case 'idle':
+    case 'refused':
+    case 'done':
+    case 'moved':
+      return formFields(answer);
+  }
+}
+
+/** What a room edit form renders from each answer. */
+export function roomEditFields(answer: RoomFormState): FormFields {
+  return answer.kind === 'unacknowledged'
+    ? { values: answer.values, error: editUnacknowledgedText }
+    : roomFormFields(answer);
+}
 
 const refusalWords: Partial<Record<RoomRefusal, string>> = {
   'seat-unavailable':
@@ -47,45 +105,69 @@ const refusalWords: Partial<Record<RoomRefusal, string>> = {
 /** Why a room command was refused, in the room's words; generic when unknown. */
 export const commandRefusalText = (reason: RoomRefusal | null): string =>
   (reason && refusalWords[reason]) ??
-  'The command was not acknowledged. Review the current room and try again.';
+  'The room refused that command. Review the current room and try again.';
 
-const refusedReason = (result: Awaited<ReturnType<typeof submitAssembly>>) =>
-  result.kind === 'refused' ? result.reason : null;
+type Submitted = Awaited<ReturnType<typeof submitAssembly>>;
+type Unaccepted = Exclude<Submitted, { readonly kind: 'accepted' }>;
 
-/** A native post returns to the room with its refusal, a closed vocabulary. */
-const refusedQuery = (reason: RoomRefusal | null) =>
-  `?notice=command-refused${reason ? `&reason=${reason}` : ''}`;
+/** What a native post returns to the room with: a closed vocabulary, never echoed text. */
+export type RoomNotice =
+  | { readonly kind: 'refused'; readonly reason: RoomRefusal | null }
+  | { readonly kind: 'unacknowledged' };
+
+/** A native post cannot keep its fields for a retry; the room it returns to is the record. */
+export const roomNoticeText = (notice: RoomNotice): string =>
+  notice.kind === 'unacknowledged'
+    ? 'That command may have been recorded. Review the room before trying again.'
+    : commandRefusalText(notice.reason);
+
+export const commandRefusedNotice = 'command-refused';
+export const commandUnacknowledgedNotice = 'command-unacknowledged';
+
+const noticeOf = (result: Unaccepted): RoomNotice =>
+  result.kind === 'unavailable'
+    ? { kind: 'unacknowledged' }
+    : {
+        kind: 'refused',
+        reason: result.kind === 'refused' ? result.reason : null,
+      };
+
+export const roomNoticeQuery = (notice: RoomNotice) =>
+  notice.kind === 'unacknowledged'
+    ? `?notice=${commandUnacknowledgedNotice}`
+    : `?notice=${commandRefusedNotice}${notice.reason ? `&reason=${notice.reason}` : ''}`;
+
+/** A hydrated page keeps what was posted, with the refusal or for the retry. */
+const unaccepted = (result: Unaccepted, form: FormData): RoomFormState => {
+  const notice = noticeOf(result);
+  return notice.kind === 'unacknowledged'
+    ? unacknowledged(form)
+    : refused(form, commandRefusalText(notice.reason));
+};
 
 /**
  * Navigation is selected only from the canonical response, never submitted
  * Round IDs. Launch always moves to its Round. Otherwise a hydrated page
- * stays put; a native post moves to the room (with a notice when refused).
+ * stays put; a native post moves to the room (with a notice unless accepted).
  */
 export function commandAnswer(
-  result: Awaited<ReturnType<typeof submitAssembly>>,
+  result: Submitted,
   roomId: string,
   form: FormData,
   edge: {
     readonly hydrated: boolean;
-    readonly move: (destination: string) => { readonly next: string };
+    readonly move: (destination: string) => Moved;
   },
 ): RoomFormState {
-  if (
-    result.kind === 'accepted' &&
-    form.get('type') === 'start-round' &&
-    result.view.roundRef
-  )
-    return { values: {}, ...edge.move(`/rounds/${result.view.roundRef.id}`) };
-  if (edge.hydrated)
-    return result.kind === 'accepted'
-      ? { values: {}, view: result.view }
-      : refused(form, commandRefusalText(refusedReason(result)));
-  return {
-    values: {},
-    ...edge.move(
-      `/rooms/${roomId}${result.kind === 'accepted' ? '' : refusedQuery(refusedReason(result))}#`,
-    ),
-  };
+  if (result.kind !== 'accepted')
+    return edge.hydrated
+      ? unaccepted(result, form)
+      : edge.move(`/rooms/${roomId}${roomNoticeQuery(noticeOf(result))}#`);
+  if (form.get('type') === 'start-round' && result.view.roundRef)
+    return edge.move(`/rounds/${result.view.roundRef.id}`);
+  return edge.hydrated
+    ? roomAccepted(result.view)
+    : edge.move(`/rooms/${roomId}#`);
 }
 
 /** Room details/settings saves share the same native fragment-clearing answer. */
@@ -96,14 +178,13 @@ export function roomFormAnswer(
 ): RoomFormState {
   if (result.kind === 'accepted')
     return edge.hydrated
-      ? { values: {}, view: result.view }
-      : { values: {}, ...edge.move(`/rooms/${result.view.id}#`) };
+      ? roomAccepted(result.view)
+      : edge.move(`/rooms/${result.view.id}#`);
+  if (result.kind === 'unavailable') return unacknowledged(form);
   return refused(
     form,
     result.kind === 'refused' && result.reason === 'version-conflict'
       ? 'The room changed. Review the latest room before saving.'
-      : result.kind === 'unavailable'
-        ? 'The update is not acknowledged. Try again.'
-        : 'These changes were refused. Check the room settings.',
+      : 'These changes were refused. Check the room settings.',
   );
 }

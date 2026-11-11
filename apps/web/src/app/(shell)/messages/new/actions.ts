@@ -57,7 +57,7 @@ export async function createConversationAction(
   } catch {
     return kept;
   }
-  return { ...kept, notice: '', ...moveOn(incoming, next) };
+  return moveOn(incoming, next);
 }
 
 /** Opens a conversation from the menu, minting its request here: a row has none. */

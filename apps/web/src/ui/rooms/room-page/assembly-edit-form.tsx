@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { formValues, type FormState } from '../../../features/forms/form-state';
+import {
+  destinationOf,
+  idle,
+  type FormFields,
+} from '../../../features/forms/form-state';
 import {
   useFocusAfterAnswer,
   useFormAction,
@@ -9,14 +13,17 @@ import {
 } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { FormError } from '../../components/form-field/form-field';
-import type { RoomFormState } from '../../../features/rooms/command-answer';
+import {
+  commandUnavailable,
+  roomEditFields,
+  type RoomFormState,
+} from '../../../features/rooms/command-answer';
 import { useRoomAnswer } from './room-sync-context';
 
-const unanswered: RoomFormState = { values: {} };
+const unanswered: RoomFormState = idle();
 
-/** A hydrated save the room accepted: it carries the new view and no error. */
-export const savedAnswer = (state: RoomFormState) =>
-  state.view !== undefined && state.error === undefined;
+/** A hydrated save the room accepted: it carries the new view. */
+export const savedAnswer = (state: RoomFormState) => state.kind === 'accepted';
 
 /** Calls `onSaved` once per accepted answer, whatever its identity per render. */
 function useOnSaved(state: RoomFormState, onSaved?: () => void) {
@@ -33,7 +40,7 @@ export function AssemblyEditFeedback({
   state,
   roomId,
 }: {
-  readonly state: FormState;
+  readonly state: FormFields;
   readonly roomId: string;
 }) {
   return (
@@ -47,7 +54,9 @@ export function AssemblyEditFeedback({
 /**
  * Common native edit transport for actual Room details and configuration
  * consumers. A hydrated save hands its accepted view to room sync and
- * then to `onSaved`.
+ * then to `onSaved`. A save whose answer was lost keeps the form as posted,
+ * with its command identifier and version, so saving again is the same
+ * command.
  */
 export function AssemblyEditForm({
   action,
@@ -58,21 +67,19 @@ export function AssemblyEditForm({
   readonly action: FormAction<RoomFormState>;
   readonly label: string;
   readonly onSaved?: (() => void) | undefined;
-  readonly children: (state: FormState, pending: boolean) => ReactNode;
+  readonly children: (state: FormFields, pending: boolean) => ReactNode;
 }) {
   const [state, post, pending] = useFormAction(
     action,
     unanswered,
-    (form): RoomFormState => ({
-      values: formValues(form),
-      error: 'These changes are not saved. Try again.',
-    }),
+    commandUnavailable,
   );
-  useMovedOn(state.next);
+  const next = destinationOf(state);
+  useMovedOn(next);
   useRoomAnswer(state, unanswered);
   useOnSaved(state, onSaved);
   const feedbackId = useId();
-  useFocusAfterAnswer(state, feedbackId, !pending && state.next === undefined);
+  useFocusAfterAnswer(state, feedbackId, !pending && next === undefined);
   return (
     <form
       action={post}
@@ -82,7 +89,7 @@ export function AssemblyEditForm({
       aria-busy={pending}
       className="flex min-w-0 flex-col gap-4"
     >
-      {children(state, pending)}
+      {children(roomEditFields(state), pending)}
     </form>
   );
 }

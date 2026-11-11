@@ -23,7 +23,7 @@ mock.module(join(import.meta.dir, '../../../../server/process-app.ts'), () => ({
 mock.module(join(import.meta.dir, '../../../../server/form-action.ts'), () => ({
   moveOn: (_incoming: Headers, to: string) => {
     log.push(['moveOn', to]);
-    return { next: to };
+    return { kind: 'moved', next: to };
   },
 }));
 
@@ -86,14 +86,41 @@ test('an unavailable age route keeps every entry and moves nowhere (ISSUE-688)',
       'return the month, year and Terms the member entered, flagged unavailable, with no hold and no move',
     actual: unavailable,
     expected: {
-      state: {
-        month: '5',
-        year: '2014',
-        terms: true,
-        missing: [],
-        unavailable: true,
-      },
+      state: { kind: 'unavailable', month: '5', year: '2014', terms: true },
       log: [],
     },
+  });
+});
+
+test('the age action answers exactly one kind for each way the post can end', async () => {
+  const accepted = await answer(() => Response.json({ recorded: 'recorded' }));
+  const refused = await answer(() =>
+    Response.json(
+      { error: { code: 'AGE_REFUSED', refusal: 'under-13' } },
+      { status: 403 },
+    ),
+  );
+  const incomplete = await ageStepAction(
+    '/lobby',
+    initialAgeForm,
+    new FormData(),
+  );
+  assert({
+    given:
+      'an accepted answer, a refusal the age step will show, and a form with nothing chosen',
+    should:
+      'answer moved to the username step, moved back to the age step, and incomplete naming every field',
+    actual: [accepted.state, refused.state, incomplete],
+    expected: [
+      { kind: 'moved', next: '/onboarding/username?next=%2Flobby' },
+      { kind: 'moved', next: '/onboarding/age?next=%2Flobby' },
+      {
+        kind: 'incomplete',
+        month: '',
+        year: '',
+        terms: false,
+        missing: ['month', 'year', 'terms'],
+      },
+    ],
   });
 });

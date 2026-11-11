@@ -5,7 +5,10 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { channelMessages } from '../../features/messaging/channel-messages';
 import { useRealtime } from '../../features/realtime/use-realtime';
 import { floorUnread } from '../../features/messaging/round-floor/history';
-import type { FloorFormState } from '../../features/messaging/round-floor/form';
+import {
+  floorIdle,
+  type FloorFormState,
+} from '../../features/messaging/round-floor/form-state';
 
 export type FloorChatProps = {
   readonly roundId: string;
@@ -116,7 +119,7 @@ export function useFloorChat({
     !floor ||
     floor.metadata.readOnly ||
     expired;
-  const [initial] = useState(() => ({ text: '', requestId: props.requestId }));
+  const [initial] = useState(() => floorIdle(props.requestId));
   const pending =
     state.kind === 'idle' ||
     state.kind === 'loading' ||

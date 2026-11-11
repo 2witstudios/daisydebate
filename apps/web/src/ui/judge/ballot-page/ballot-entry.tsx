@@ -1,7 +1,7 @@
 import { HiddenFields } from '../../form-action/hidden-fields';
 import { createAppError } from '@daisy/errors';
 import type { RoundBallotRead } from '@daisy/protocol';
-import type { RoundBallotFormState } from '../../../features/round-ballots/form';
+import type { FormFields } from '../../../features/forms/form-state';
 import type { BallotDisplay } from '../../../features/round-ballots/presentation';
 import type { BallotDebaters } from '../../../features/judge/ballot';
 import { buttonClass } from '../../components/button/button-class';
@@ -10,7 +10,8 @@ export const roundBallotErrorId = 'round-ballot-refusal';
 type EntryProps = {
   readonly display: BallotDisplay;
   readonly view: RoundBallotRead;
-  readonly answer: RoundBallotFormState;
+  /** What the answer leaves to render: its values and the message beside them. */
+  readonly answer: FormFields;
   /** Remounts the fields when what they render from is replaced. */
   readonly fieldsRevision: string;
   /** What the fields render from: the refused answer, a restored draft, or nothing. */

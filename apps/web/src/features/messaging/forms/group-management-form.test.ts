@@ -15,7 +15,7 @@ test('group management form binds operation/channel and preserves refused target
       'produce only target username intent and retain refused retry fields',
     actual: [
       parseGroupManagementForm('remove', 'c'.repeat(24), form),
-      groupManagementUnavailable(form).memberUsername,
+      groupManagementUnavailable(form).values.memberUsername,
     ],
     expected: [
       {

@@ -2,8 +2,10 @@
 
 import type { ReactNode } from 'react';
 import {
-  initialFormState,
+  destinationOf,
+  formFields,
   formUnavailable,
+  initialFormState,
   type FormState,
 } from '../../features/forms/form-state';
 import { useFocusAfterAnswer, useFormAction } from './form-action';
@@ -46,11 +48,13 @@ export function ActionForm({
     initialFormState,
     formUnavailable,
   );
-  useMovedOn(answered.next);
-  const pending = posting || answered.next !== undefined;
+  const next = destinationOf(answered);
+  useMovedOn(next);
+  const pending = posting || next !== undefined;
+  const { values, error } = formFields(answered);
   useFocusAfterAnswer(
     answered,
-    answered.error === undefined ? undefined : focusOnRefusal,
+    error === undefined ? undefined : focusOnRefusal,
     !pending,
   );
   return (
@@ -60,7 +64,7 @@ export function ActionForm({
       aria-busy={pending}
       className={className}
     >
-      {children({ values: answered.values, error: answered.error, pending })}
+      {children({ values, error, pending })}
     </form>
   );
 }

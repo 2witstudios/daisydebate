@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { PublishedResolution } from '@daisy/protocol';
 import { buttonClass } from '../../components/button/button-class';
 import { PageHeader } from '../../components/page-header/page-header';
-import type { FormState } from '../../../features/forms/form-state';
+import type { RoomDraftAnswer } from '../../../features/rooms/create-room-answer';
 import { cn } from '../../cn';
 import { CreateAssemblyForm } from './create-assembly-form';
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
@@ -18,7 +18,7 @@ export function CreateRoomPage({
 }: {
   readonly freshRoom?: boolean;
   readonly initialRanked?: boolean;
-  readonly initialState?: FormState;
+  readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];

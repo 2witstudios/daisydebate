@@ -5,13 +5,18 @@ import {
   MessageRemovalFields,
 } from './message-mutation-form';
 import { ReactionFields } from './reaction-form';
+import { moved } from '../../features/forms/form-state';
+import {
+  messageIdle,
+  messageRefused,
+} from '../../features/messaging/forms/send-form';
+import { reactionIdle } from '../../features/messaging/forms/reaction-form';
 setupRitewayBun();
 test('native own-message fields retain escaped drafts and explicit removal while refusing duplicate submission', () => {
-  const state = {
-    requestId: 'r'.repeat(24),
-    text: '<script>private draft</script>',
-    notice: 'Your message could not be changed.',
-  };
+  const state = messageRefused(
+    { requestId: 'r'.repeat(24), text: '<script>private draft</script>' },
+    'Your message could not be changed.',
+  );
   const ready = renderToStaticMarkup(
     <MessageMutationFields
       answer={state}
@@ -22,7 +27,7 @@ test('native own-message fields retain escaped drafts and explicit removal while
   );
   const waiting = renderToStaticMarkup(
     <MessageMutationFields
-      answer={{ ...state, next: '/messages/channel' }}
+      answer={moved('/messages/channel')}
       pending={true}
       maxUnits={100}
       action={() => {}}
@@ -30,7 +35,7 @@ test('native own-message fields retain escaped drafts and explicit removal while
   );
   const removal = renderToStaticMarkup(
     <MessageRemovalFields
-      answer={{ requestId: 's'.repeat(24), text: '' }}
+      answer={messageIdle('s'.repeat(24))}
       pending={false}
       action={() => {}}
     />,
@@ -56,7 +61,7 @@ test('native own-message fields retain escaped drafts and explicit removal while
 test('native reactions keep false cleanup intent distinct from addition and escape untrusted displayed choices', () => {
   const own = renderToStaticMarkup(
     <ReactionFields
-      answer={{ requestId: 'r'.repeat(24) }}
+      answer={reactionIdle('r'.repeat(24))}
       pending={false}
       reaction="👍"
       active={false}
@@ -64,7 +69,7 @@ test('native reactions keep false cleanup intent distinct from addition and esca
   );
   const held = renderToStaticMarkup(
     <ReactionFields
-      answer={{ requestId: 's'.repeat(24), next: '/messages/channel' }}
+      answer={moved('/messages/channel')}
       pending={false}
       reaction="<img>"
       active={true}

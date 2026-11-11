@@ -2,12 +2,13 @@ import { createElement as h } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderInStore } from '../../test-support/render-in-store';
+import { initialFriendForm } from '../../../features/friends/forms';
 import { FriendsPage } from './friends-page';
 
 setupRitewayBun();
 
 const at = '2026-10-26T18:00:00.000Z';
-const action = async () => ({ username: '' });
+const action = async () => initialFriendForm();
 const noop = () => {};
 const router = {
   bfcacheId: 'test',

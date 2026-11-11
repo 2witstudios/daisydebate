@@ -3,6 +3,12 @@ import { renderToString } from 'react-dom/server';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Person, PeopleList } from '@daisy/protocol';
+import { initialChallengeForm } from '../../features/challenges/forms';
+import { initialPersonBlock } from '../../features/contacts/block-form';
+import { initialFriendForm } from '../../features/friends/forms';
+import { creationIdle } from '../../features/messaging/forms/create-form';
+import { initialPresenceForm } from '../../features/presence/form';
+import { initialReportForm } from '../../features/reports/form';
 import { ratingsLabel, ratingText } from './member-card';
 import { ChallengeProvider } from '../challenges/challenge-provider';
 import { LobbyViews } from './lobby-views';
@@ -24,20 +30,14 @@ const router = {
   replace: noop,
   prefetch: noop,
 };
-const action = async () => ({});
 const actions = {
-  friend: async () => ({ username: '' }),
-  sendChallenge: action,
-  acceptChallenge: action,
-  endChallenge: action,
-  message: async () => ({
-    requestId: '',
-    recipients: '',
-    title: '',
-    introduction: '',
-  }),
-  report: action,
-  block: action,
+  friend: async () => initialFriendForm(),
+  sendChallenge: async () => initialChallengeForm,
+  acceptChallenge: async () => initialChallengeForm,
+  endChallenge: async () => initialChallengeForm,
+  message: async () => creationIdle(''),
+  report: async () => initialReportForm,
+  block: async () => initialPersonBlock,
 };
 const person = (over: Partial<Person> = {}): Person => ({
   username: 'ada',
@@ -278,7 +278,12 @@ describe('canBeChallenged', () => {
 
 describe('StatusForm', () => {
   test('one native button per choice, the current one pressed', () => {
-    const html = renderToString(h(StatusForm, { action, chosen: 'busy' }));
+    const html = renderToString(
+      h(StatusForm, {
+        action: async () => initialPresenceForm,
+        chosen: 'busy',
+      }),
+    );
     assert({
       given: 'a member who chose Busy',
       should: 'post each status as a button value, with Busy pressed',

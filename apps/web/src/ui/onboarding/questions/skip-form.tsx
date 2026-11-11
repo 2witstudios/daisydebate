@@ -3,9 +3,15 @@
 import { useFormAction, type FormAction } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { skipClass } from '../frame/frame';
-import { initialStepForm, type StepFormState } from './step-form-state';
+import { destinationOf } from '../../../features/forms/form-state';
+import {
+  initialStepForm,
+  stepFields,
+  stepUnsaved,
+  type StepFormState,
+} from './step-form-state';
 
-const skipUnavailable = (): StepFormState => ({ refused: true });
+const skipUnavailable = (): StepFormState => stepUnsaved();
 
 /**
  * Skip, as a form posting to its server action: it records that the
@@ -22,12 +28,12 @@ export function SkipForm({
     initialStepForm,
     skipUnavailable,
   );
-  useMovedOn(answered.next);
-  const pending = posting || answered.next !== undefined;
+  useMovedOn(destinationOf(answered));
+  const pending = posting || answered.kind === 'moved';
   return (
     <form action={post} aria-busy={pending}>
       <button type="submit" disabled={pending} className={skipClass}>
-        {answered.refused ? 'Skip (try again)' : 'Skip'}
+        {stepFields(answered).unsaved ? 'Skip (try again)' : 'Skip'}
       </button>
     </form>
   );

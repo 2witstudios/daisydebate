@@ -14,13 +14,13 @@ import type {
   RoomCastChoice,
   RoomCatalogChoice,
   RoomView,
-  RoomRefusal,
 } from '@daisy/protocol';
 import { systemScheduler } from '../../../features/realtime/browser-adapters';
 import { browserSyncEdges } from '../../../features/resource-sync/browser';
 import {
-  commandRefusalText,
+  roomNoticeText,
   type RoomFormState,
+  type RoomNotice,
 } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
@@ -50,8 +50,8 @@ type Props = {
   readonly choices: readonly RoomCatalogChoice[];
   /** The realtime endpoint, or null when realtime is not configured. */
   readonly socketUrl: string | null;
-  /** A native post was refused and returned here with the notice and its reason. */
-  readonly refusal: { readonly reason: RoomRefusal | null } | null;
+  /** A native post was not accepted and returned here with its notice. */
+  readonly notice: RoomNotice | null;
   readonly commandAction: FormAction<RoomFormState>;
   readonly waiverAction: FormAction<RoomFormState>;
   readonly detailsAction: FormAction<RoomFormState>;
@@ -135,9 +135,7 @@ export function RoomLive(props: Props) {
       ) : null}
       <RoomResolution view={view} />
       <FreshnessNotice freshness={sync.freshness} noun="room" />
-      {props.refusal ? (
-        <p role="alert">{commandRefusalText(props.refusal.reason)}</p>
-      ) : null}
+      {props.notice ? <p role="alert">{roomNoticeText(props.notice)}</p> : null}
       <AssemblyDeviceReadiness
         side={
           <>

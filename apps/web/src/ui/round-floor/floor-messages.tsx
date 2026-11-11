@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { FloorMessage } from '../../features/messaging/round-floor/history';
-import type { FloorFormState } from '../../features/messaging/round-floor/form';
+import type { FloorFormState } from '../../features/messaging/round-floor/form-state';
 import { floorMessageRows, type FloorAvailableMessage } from './message-rows';
 import { FloorMessageControls } from './message-controls';
 

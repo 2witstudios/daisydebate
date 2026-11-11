@@ -10,8 +10,10 @@ import {
 } from '../../features/round-runtime/control-intents';
 import {
   roundCommandUnavailable,
+  roundFormFields,
   type RoundFormState,
 } from '../../features/round-runtime/command-form';
+import { idle } from '../../features/forms/form-state';
 import type { RoundCommandIds } from '../../features/round-runtime/command-ids';
 import {
   useFormAction,
@@ -21,7 +23,7 @@ import {
 import { FormError } from '../components/form-field/form-field';
 import { browserDocument } from '../round-media/browser-document';
 import { replaceRoute } from '../round-media/replace-route';
-const unanswered: RoundFormState = { values: {} };
+const unanswered: RoundFormState = idle();
 export function CommandForm({
   intent,
   commandId,
@@ -44,11 +46,12 @@ export function CommandForm({
 }) {
   // A confirmation belongs to the segment it was asked in: once another
   // segment opens, the press starts afresh rather than end the new one.
+  const { values } = roundFormFields(answer);
+  const confirming = answer.kind === 'confirming';
   const asked =
-    answer.values.type === intent.type &&
-    (!answer.confirmation || answer.values.segment === segment);
-  const preserved = asked ? answer.values : {};
-  const confirmation = answer.confirmation && asked;
+    values.type === intent.type && (!confirming || values.segment === segment);
+  const preserved = asked ? values : {};
+  const confirmation = confirming && asked;
   return (
     <form action={post} aria-busy={pending} className="flex flex-col gap-1">
       <input type="hidden" name="version" value="1" />
@@ -89,22 +92,25 @@ export function CommandForm({
 }
 /** A refused strike means nothing once the strike is over; other answers stay. */
 export const shownError = (
-  answer: Pick<RoundFormState, 'values' | 'unacknowledged' | 'error'>,
+  answer: RoundFormState,
   view: Pick<RoundView, 'opening'>,
 ) =>
+  answer.kind === 'refused' &&
   answer.values.type === 'strike_resolution' &&
-  !answer.unacknowledged &&
   view.opening?.step.step !== 'strike'
     ? undefined
-    : answer.error;
+    : roundFormFields(answer).error;
 
 /** Where focus goes after an answer: what the answer shows, else its control. */
 export const answerFocusTarget = (
-  answer: Pick<RoundFormState, 'values' | 'unacknowledged' | 'error'>,
+  answer: RoundFormState,
   view: Pick<RoundView, 'opening'>,
   feedback: string,
   control: string,
-) => (shownError(answer, view) ? feedback : `${control}-${answer.values.type}`);
+) =>
+  shownError(answer, view)
+    ? feedback
+    : `${control}-${roundFormFields(answer).values.type}`;
 
 /** Feedback survives a canonical revision that removes the submitted action. */
 export function RoundCommandActions({
@@ -138,15 +144,15 @@ export function RoundCommandActions({
     roundCommandUnavailable,
   );
   const router = useRouter();
+  const lost = answer.kind === 'unacknowledged';
   useEffect(() => {
-    if (!pending && !answer.unacknowledged && !isLiveDebater(view, actorId))
+    if (!pending && !lost && !isLiveDebater(view, actorId))
       replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
-  }, [pending, answer.unacknowledged, view, actorId, router]);
+  }, [pending, lost, view, actorId, router]);
   const feedback = useId(),
     control = useId();
   useEffect(() => {
-    if (answer !== unanswered && (answer.view || answer.error))
-      onAnswer(answer);
+    if (answer !== unanswered) onAnswer(answer);
   }, [answer, onAnswer]);
   // The feedback moves when the Round ends and the frame gives way, so an answer
   // on screen is focused again in its new place.
@@ -157,7 +163,7 @@ export function RoundCommandActions({
     answerFocusTarget(answer, view, feedback, control),
     !pending,
   );
-  const actions = !answer.unacknowledged ? (
+  const actions = !lost ? (
     <>
       {roundControlIntents(view, actorId, nowMs).map((intent) => (
         <CommandForm

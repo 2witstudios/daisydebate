@@ -1,3 +1,4 @@
+import { idle } from '../../features/forms/form-state';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundCommandIds } from '../../features/round-runtime/command-ids';
@@ -25,7 +26,7 @@ test('the canonical live Round mounts its media session and truthful native fall
         principalId="principal"
         renderedAtMs={origin}
         commandIds={roundCommandIds(() => 'c'.repeat(24))}
-        commandAction={async () => ({ values: {} })}
+        commandAction={async () => idle()}
         socketUrl={null}
         read={async () => ({
           kind: 'found',
@@ -39,7 +40,7 @@ test('the canonical live Round mounts its media session and truthful native fall
           confirmHref: '/confirm',
           leaveHref: '/lobby',
         }}
-        leaveAction={async () => ({ values: {} })}
+        leaveAction={async () => idle()}
       />
     </AppRouterContext>,
   );

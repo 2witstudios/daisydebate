@@ -54,5 +54,5 @@ export async function startPracticeAction(
   const answer = await practiceAnswer(response, form);
   // Native server-action posts need an actual 303; hydrated forms navigate
   // from the returned `next` state through useMovedOn.
-  return answer.next ? { ...answer, ...moveOn(incoming, answer.next) } : answer;
+  return answer.kind === 'moved' ? moveOn(incoming, answer.next) : answer;
 }

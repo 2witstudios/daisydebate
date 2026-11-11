@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createLocalCommandAction } from './local-command-action';
+import { idle, moved } from '../forms/form-state';
 
 setupRitewayBun();
 const scenarios = [
@@ -79,17 +80,17 @@ for (const scenario of scenarios) {
       },
       async (_state, form) => {
         forwarded.push(String(form.get('type')));
-        return { values: {}, next: '/rooms/current' };
+        return moved('/rooms/current');
       },
     );
     const form = new FormData();
     form.set('type', scenario.type);
-    const state = await action({ values: {} }, form);
+    const state = await action(idle(), form);
     assert({
       given: 'the latest local device and withdrawal state',
       should:
         'forward permitted prep, explicitly fence Ready/Launch and retain withdrawal recovery',
-      actual: [forwarded, intents, Boolean(state.error)],
+      actual: [forwarded, intents, state.kind === 'refused'],
       expected: [scenario.forwarded, scenario.consent, scenario.error],
     });
   });
