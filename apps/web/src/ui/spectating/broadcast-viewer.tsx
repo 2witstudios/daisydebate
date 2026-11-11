@@ -1,16 +1,20 @@
 'use client';
 import '../../lib/zod-jitless';
-import { type BroadcastStream, type SpectatorTimeline } from '@daisy/protocol';
+import { type SpectatorTimeline } from '@daisy/protocol';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useReducer } from 'react';
 import { replayHref, watchRoutes } from '../../features/watch/routes';
 import { ActionLink } from '../watch/action-link/action-link';
 import { RecordingPreparationStatus } from '../recording/recording-preparation/recording-preparation';
 import { StateCard } from '../watch/state-card/state-card';
 import { StreamThisRound } from '../broadcast/stream-this-round/stream-this-round';
 import { BroadcastPlayer } from './broadcast-player';
-import { PublishedAudience, usePublishedState } from './published-state';
+import {
+  PublishedAudience,
+  type PublishedState,
+  usePublishedState,
+} from './published-state';
 import { SpectatorFacts } from './spectator-timeline';
 import {
   streamableFeedOf,
@@ -19,6 +23,7 @@ import {
   viewerScreenOf,
   viewerSettled,
 } from './viewer-screen';
+import { attemptOf, firstViewing, reduceViewing } from './viewing';
 
 const browseRecordings = (
   <ActionLink href={watchRoutes.recordings}>Browse recordings</ActionLink>
@@ -155,6 +160,18 @@ const playerNotices = {
   interrupted: 'The broadcast is interrupted. It resumes here by itself.',
 } as const;
 
+/** The facts on the page: what was read, or the server's own once its address is gone. */
+const timelineRead = (
+  initial: SpectatorTimeline,
+  published: PublishedState,
+): SpectatorTimeline =>
+  published.gone
+    ? initial
+    : timelineAsOf(
+        published.state?.timeline ?? initial,
+        published.sinceMovedMs,
+      );
+
 /**
  * The public Round page after its first render: the publisher's published state, read
  * from the public bucket every couple of seconds the way the player reads segments,
@@ -176,29 +193,25 @@ export function BroadcastViewer({
   readonly children?: React.ReactNode;
 }) {
   const router = useRouter();
-  const [stream, setStream] = useState<BroadcastStream | null>(null);
-  const [finished, setFinished] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [settledNow, setSettledNow] = useState(viewerSettled(initial));
+  const [viewing, dispatch] = useReducer(reduceViewing, firstViewing);
   // What was read belongs to its address, so a refresh that names a replaced
   // link reads the new one, and the player and the audience beside it stay.
-  const published = usePublishedState(stateUrl, !settledNow);
-  const { gone, serverAsks } = published;
-  const timeline = gone
-    ? initial
-    : timelineAsOf(
-        published.state?.timeline ?? initial,
-        published.sinceMovedMs,
-      );
+  const published = usePublishedState(
+    stateUrl,
+    (read) => !viewerSettled(timelineRead(initial, read)),
+  );
+  const { serverAsks } = published;
+  const timeline = timelineRead(initial, published);
   const settled = viewerSettled(timeline);
-  if (settled !== settledNow) setSettledNow(settled);
   const { broadcast, roundId } = timeline;
-  const screen = viewerScreenOf(timeline, { stream, finished, failed });
+  const screen = viewerScreenOf(timeline, viewing);
   const playing = screen.kind === 'player' ? screen.stream : null;
-  // Kept once seen, so a normal end can let the final seconds of it play out.
-  if (playing && stream?.manifestUrl !== playing.manifestUrl)
-    setStream(playing);
+  const attempt = attemptOf(viewing);
+  // A layout effect, so the viewing is on this stream before its player's own
+  // effect can report: a browser with no engine gives up as the player mounts.
+  useLayoutEffect(() => {
+    if (playing) dispatch({ kind: 'shown', stream: playing });
+  }, [playing]);
   const switchToRecording =
     screen.kind === 'ended' && screen.recording === 'ready';
   // Withdrawn, or a replaced link: the server says what this reader may still see.
@@ -223,8 +236,18 @@ export function BroadcastViewer({
               key={`${screen.stream.manifestUrl}:${attempt}`}
               stream={screen.stream}
               captions={timeline.captions}
-              onFinished={() => setFinished(true)}
-              onFailed={() => setFailed(true)}
+              onFinished={() =>
+                dispatch({
+                  kind: 'finished',
+                  player: { manifestUrl: screen.stream.manifestUrl, attempt },
+                })
+              }
+              onFailed={() =>
+                dispatch({
+                  kind: 'failed',
+                  player: { manifestUrl: screen.stream.manifestUrl, attempt },
+                })
+              }
             />
             {screen.notice ? (
               <p role="status" className="text-sm text-ink-muted">
@@ -242,10 +265,7 @@ export function BroadcastViewer({
           <StateInsteadOfPlayer
             screen={screen}
             roundId={roundId}
-            onRetry={() => {
-              setFailed(false);
-              setAttempt((count) => count + 1);
-            }}
+            onRetry={() => dispatch({ kind: 'retried' })}
           />
         )}
       </div>

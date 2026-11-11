@@ -23,6 +23,16 @@ type Held = {
   readonly serverAsks: number;
 };
 
+/** What a page holds of one address: nothing read yet reads as no state. */
+export type PublishedState = Omit<Held, 'url'>;
+
+const NOTHING_READ: PublishedState = {
+  state: null,
+  sinceMovedMs: 0,
+  gone: false,
+  serverAsks: 0,
+};
+
 /**
  * Polls a Round's published state from the public bucket. No cookie goes with it. Every
  * attempt, answered or not, updates how long the object has stood still, measured here
@@ -30,9 +40,15 @@ type Held = {
  * counts how often it should have by now. What was read
  * belongs to its address: a replaced link starts from nothing. While an address is gone
  * the reads go on, so one that comes back is seen, but slow down as misses do.
+ * The page says, of what has been read, whether there is anything left to read for.
  */
-export function usePublishedState(url: string | null, polling: boolean) {
+export function usePublishedState(
+  url: string | null,
+  keepReading: (published: PublishedState) => boolean,
+): PublishedState {
   const [held, setHeld] = useState<Held | null>(null);
+  const published = held !== null && held.url === url ? held : NOTHING_READ;
+  const polling = keepReading(published);
   useEffect(() => {
     if (!url || !polling) return;
     let stopped = false;
@@ -77,14 +93,7 @@ export function usePublishedState(url: string | null, polling: boolean) {
       stop();
     };
   }, [url, polling]);
-  return held !== null && held.url === url
-    ? {
-        state: held.state,
-        sinceMovedMs: held.sinceMovedMs,
-        gone: held.gone,
-        serverAsks: held.serverAsks,
-      }
-    : { state: null, sinceMovedMs: 0, gone: false, serverAsks: 0 };
+  return published;
 }
 
 /** The published state for what sits beside the player; null with none. */

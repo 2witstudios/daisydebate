@@ -9,7 +9,7 @@ export function PublishedAudienceFeed({
   readonly stateUrl: string | null;
   readonly children: React.ReactNode;
 }) {
-  const { state } = usePublishedState(stateUrl, true);
+  const { state } = usePublishedState(stateUrl, () => true);
   return (
     <PublishedAudience.Provider value={state}>
       {children}

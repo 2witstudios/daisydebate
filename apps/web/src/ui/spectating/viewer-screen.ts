@@ -1,4 +1,5 @@
 import type { BroadcastStream, SpectatorTimeline } from '@daisy/protocol';
+import type { Viewing } from './viewing';
 
 /** A shown notice beside a playing video. */
 type PlayerNotice = 'slate' | 'interrupted' | null;
@@ -23,23 +24,15 @@ export type ViewerScreen =
       readonly preparation?: SpectatorTimeline['recordingPreparation'];
     };
 
-export type ViewerPlayback = {
-  /** The stream this viewing is on, kept so its final seconds play out. */
-  readonly stream: BroadcastStream | null;
-  /** The video reached the stream's end. */
-  readonly finished: boolean;
-  /** The engine gave up, or this browser has none. */
-  readonly failed: boolean;
-};
-
 /**
  * One rule from the released snapshot and this viewing to the screen. A stop
  * or a refusal ends playback at once; a normal end lets the viewer finish the
- * seconds they are behind by, since nothing past release can reach them.
+ * seconds they are behind by, since nothing past release can reach them. A
+ * player that gave up says so of its own stream only: a different one plays.
  */
 export const viewerScreenOf = (
   timeline: SpectatorTimeline,
-  playback: ViewerPlayback,
+  viewing: Viewing,
 ): ViewerScreen => {
   const { broadcast, stage, recording, recordingPreparation } = timeline;
   const ended = {
@@ -59,14 +52,18 @@ export const viewerScreenOf = (
         ? { kind: 'upcoming' }
         : { kind: 'starting' };
     case 'ended':
-      return playback.stream && !playback.finished && !playback.failed
-        ? { kind: 'player', stream: playback.stream, notice: null }
+      return viewing.kind === 'playing'
+        ? { kind: 'player', stream: viewing.stream, notice: null }
         : ended;
     case 'on_air':
     case 'interrupted': {
       if (stage.kind === 'upcoming') return { kind: 'upcoming' };
       if (broadcast.stream === null) return { kind: 'interrupted' };
-      if (playback.failed) return { kind: 'unplayable' };
+      if (
+        viewing.kind === 'unplayable' &&
+        viewing.stream.manifestUrl === broadcast.stream.manifestUrl
+      )
+        return { kind: 'unplayable' };
       const notice =
         broadcast.state === 'interrupted'
           ? 'interrupted'
