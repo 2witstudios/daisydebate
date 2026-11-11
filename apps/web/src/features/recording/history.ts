@@ -8,6 +8,11 @@ import type { RecordingMedia } from '@daisy/protocol';
 import { UNDRAWN_RESOLUTION } from './archive';
 import { resultHeadline } from './archive';
 import {
+  coverageParts,
+  type LostGap,
+  type PrivateGap,
+} from './coverage-statement';
+import {
   mayDownload,
   mayRequestRemoval,
   recordingMediaState,
@@ -102,8 +107,10 @@ export type RecordingMediaPanel =
       /** An authorized read, never a bucket URL. */
       readonly playlistHref: string;
       readonly durationMs: number;
-      /** What the video does not hold, stated rather than hidden. */
-      readonly gaps: RecordingMedia['gaps'];
+      /** Debate the video does not hold, stated rather than hidden. */
+      readonly lost: readonly LostGap[];
+      /** Stretches withheld by design, such as prep. */
+      readonly keptPrivate: readonly PrivateGap[];
       /** Debate the video never reached, before its start or after its end. */
       readonly unrecorded: NonNullable<RecordingMedia['unrecorded']>;
       readonly speeches: readonly {
@@ -242,7 +249,7 @@ const mediaPanel = (
     state: 'watch',
     playlistHref: `/api/recordings/${record.id}/playback/${media.playlistKey.slice(media.playlistKey.lastIndexOf('/') + 1)}`,
     durationMs: media.durationMs,
-    gaps: media.gaps,
+    ...coverageParts(media.gaps),
     unrecorded: media.unrecorded ?? [],
     speeches: media.speeches.map((speech) => ({
       speaker: speaker(speech.roundParticipantId),

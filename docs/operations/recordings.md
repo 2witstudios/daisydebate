@@ -132,12 +132,29 @@ uncaptured, and the debate is untouched. Raise `CASUAL_CAPTURES_AT_ONCE` with th
 
 ## Coverage
 
-`media.gaps` states what the video shows as something other than the debate, and the
-player lists it: a capture restart (`capture_restart`), anything committed Round
-history does not prove public (`not_public`, ADR 0099), a private phase, which is the stage's slate
-(`private_phase`), and a room rotation (`room_rotation`), stated at an estimated 5 seconds.
-`media.unrecorded` states debate the video never reached: a late start, an early end, or the
-rest of a Round whose Broadcast was stopped.
+`media.gaps` states what the video shows as something other than the debate. Debate lost
+is a capture restart (`capture_restart`), a room rotation (`room_rotation`), stated at an
+estimated 5 seconds, and anything committed Round history neither proves public nor
+explains (`not_public`, ADR 0099). Which reason is lost, kept private or the slate is one
+rule, `coverageParts` in `coverage-statement.ts`, which the player only words. The player
+lists what was lost, and `media.unrecorded`, under "Parts of this debate were not recorded". `media.unrecorded` is debate the video never
+reached: a late start, an early end, or the rest of a Round whose Broadcast was stopped.
+A private phase, which is the stage's slate (`private_phase`), is withheld by design, and
+the player shows it on its own line as kept private. The slate between speeches
+(`between_speeches`) holds no debate, and the player does not list it. It runs from one
+speech's end into the next by the start-edge stamp lag plus 1.2 s, which is 2.5 s early in
+a capture and about 3.6 s three hours in, and only for a gap that comes from the slate
+before that speech. It also reaches 2.5 s back into the speech it follows, for a gap that
+runs on into the slate (with the 1 s sliver rule, up to about 3.5 s). A gap that stays inside a speech is listed as lost.
+
+The worker marks a jump between public pieces `capture_restart` when one public interval
+spans it, since only a restart explains that, and `not_public` otherwise. When media is
+verified, the capture port splits each `not_public` gap against the Round's segments and
+prep (`explainGaps` in `coverage-statement.ts`) and stores the result, which the player
+shows as stored. A `not_public` gap on the list is a real question: committed history
+neither proves it public nor explains it. It may sit inside a speech, or where history is
+missing, such as after an open or the last segment, so it does not by itself show that
+speech was lost.
 
 ## Takedown
 

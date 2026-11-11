@@ -1,7 +1,8 @@
 import type { RecordingMediaPanel } from '../../../features/recording/history';
 
 type Watchable = Extract<RecordingMediaPanel, { state: 'watch' }>;
-type Gap = Watchable['gaps'][number];
+type LostGap = Watchable['lost'][number];
+type PrivateGap = Watchable['keptPrivate'][number];
 type Unrecorded = Watchable['unrecorded'][number];
 
 export const RECORDING_SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const;
@@ -17,15 +18,20 @@ export const clockTime = (ms: number): string => {
     : `${minutes}:${seconds}`;
 };
 
-const WHY: Readonly<Record<Gap['reason'], string>> = {
+const WHY: Readonly<Record<LostGap['reason'], string>> = {
   capture_restart: 'recording stopped and restarted',
-  not_public: 'between speeches, or not known to be public, so left out',
-  private_phase: 'a private part of the debate',
+  not_public: 'not known to be public, so left out',
   room_rotation: 'the room changed over',
 };
 
-export const gapCopy = (gap: Gap): string =>
-  `${clockTime(gap.startMs)} to ${clockTime(gap.endMs)}: ${WHY[gap.reason]}`;
+const span = (gap: LostGap | PrivateGap) =>
+  `${clockTime(gap.startMs)} to ${clockTime(gap.endMs)}`;
+
+export const gapCopy = (gap: LostGap): string =>
+  `${span(gap)}: ${WHY[gap.reason]}`;
+
+export const privateCopy = (gaps: readonly PrivateGap[]): string =>
+  `Kept private by design, so not shown: ${gaps.map(span).join(', ')}`;
 
 const UNRECORDED: Readonly<Record<Unrecorded['reason'], string>> = {
   late_start: 'recording started late',
