@@ -41,7 +41,7 @@ const BEFORE_PREP_MARGIN_MS = 700;
  * before any Egress attempt of it, so age can only be overstated: a restarted attempt
  * loses a little more speech, and nothing private gets through.
  */
-const startEdgeLagMs = (edgeMs: number, captureFromMs: number) =>
+export const startEdgeLagMs = (edgeMs: number, captureFromMs: number) =>
   START_EDGE_STAMP_LAG_BASE_MS +
   Math.ceil(
     (Math.max(0, edgeMs - captureFromMs) / 60_000) *
