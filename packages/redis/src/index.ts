@@ -61,13 +61,14 @@ return ARGV[1]
 `);
 
 /**
- * ARGV[1] TTL ms, armed only on the first hit. AUTH-7.7's bounded counters
+ * ARGV[1] TTL ms, armed on the first hit, or when the expiry is somehow
+ * missing, so a counter can never stand for ever. AUTH-7.7's bounded counters
  * (consecutive failures, per-minute request buckets): a quiet period longer
  * than the TTL resets the count to zero on the next increment.
  */
 const incrementWithExpiryScript = defineScript(`
 local count = redis.call('INCR', KEYS[1])
-if count == 1 then
+if count == 1 or redis.call('PTTL', KEYS[1]) < 0 then
   redis.call('PEXPIRE', KEYS[1], ARGV[1])
 end
 return count

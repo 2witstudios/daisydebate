@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { authClient } from '../../../lib/auth-client';
 import {
   createPasskeyEnrollment,
@@ -10,8 +10,6 @@ import {
 import {
   loadSecurityOverview,
   revokeOtherSessions,
-  type PasskeyRow,
-  type SessionRow,
 } from '../../../features/account/security-client';
 import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';
@@ -21,7 +19,7 @@ import { Notice } from '../../auth/notice/notice';
 import { PasskeyRowView } from './passkey-row';
 import { SessionRowView } from './session-row';
 import { EmailChangeForm, type EmailChangeAction } from './email-change-form';
-import { OUTCOME_NOTICES } from './security-notices';
+import { useSecurityOverview } from './use-security-overview';
 
 const supportsPasskeys = () =>
   typeof window !== 'undefined' &&
@@ -31,6 +29,9 @@ const enrollment = createPasskeyEnrollment({
   client: authClient,
   supportsPasskeys,
 });
+
+const loadOverview = () => loadSecurityOverview(authClient);
+const revokeOthers = () => revokeOtherSessions(authClient);
 
 /**
  * Passkeys, sessions and recovery email in one place (AUTH-5.3, 5.5, 5.6).
@@ -46,39 +47,14 @@ export function SecurityPage({
   /** Back from a sign-out that did not happen. */
   readonly signOutFailed?: boolean;
 }) {
-  const [passkeys, setPasskeys] = useState<readonly PasskeyRow[]>([]);
-  const [sessions, setSessions] = useState<readonly SessionRow[]>([]);
-  const [passkeysNotice, setPasskeysNotice] = useState<string | undefined>();
-  const [sessionsNotice, setSessionsNotice] = useState<string | undefined>(
-    signOutFailed ? SIGN_OUT_FAILED_NOTICE : undefined,
-  );
+  const overview = useSecurityOverview({
+    load: loadOverview,
+    revokeOthers,
+    signOutNotice: signOutFailed ? SIGN_OUT_FAILED_NOTICE : undefined,
+  });
+  const { passkeys, sessions, passkeysNotice, sessionsNotice } = overview;
   const [enrolling, setEnrolling] = useState(false);
   const [enrollNotice, setEnrollNotice] = useState<string | undefined>();
-  const [reloadToken, setReloadToken] = useState(0);
-  const reload = () => setReloadToken((token) => token + 1);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const overview = await loadSecurityOverview(authClient);
-      if (cancelled) return;
-      setPasskeys(overview.passkeys);
-      setSessions(overview.sessions);
-      setPasskeysNotice(
-        overview.passkeysOutcome.kind === 'ok'
-          ? undefined
-          : OUTCOME_NOTICES[overview.passkeysOutcome.kind],
-      );
-      setSessionsNotice(
-        overview.sessionsOutcome.kind === 'ok'
-          ? undefined
-          : OUTCOME_NOTICES[overview.sessionsOutcome.kind],
-      );
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadToken]);
 
   return (
     <>
@@ -96,14 +72,8 @@ export function SecurityPage({
             <PasskeyRowView
               key={passkey.id}
               passkey={passkey}
-              onRenamed={(id, name) =>
-                setPasskeys((rows) =>
-                  rows.map((row) => (row.id === id ? { ...row, name } : row)),
-                )
-              }
-              onRemoved={(id) =>
-                setPasskeys((rows) => rows.filter((row) => row.id !== id))
-              }
+              onRenamed={overview.renamePasskey}
+              onRemoved={overview.removePasskey}
             />
           ))}
         </ul>
@@ -114,7 +84,7 @@ export function SecurityPage({
             setEnrollNotice(undefined);
             void enrollSafely(enrollment).then((outcome) => {
               setEnrolling(false);
-              if (outcome.kind === 'saved') reload();
+              if (outcome.kind === 'saved') overview.reload();
               else
                 setEnrollNotice(
                   outcome.kind === 'unavailable'
@@ -144,28 +114,31 @@ export function SecurityPage({
             title={sessionsNotice}
           />
         ) : null}
+        {overview.signOutNotice ? (
+          <Notice
+            id="sign-out-notice"
+            tone="error"
+            title={overview.signOutNotice}
+          />
+        ) : null}
         <ul>
           {sessions.map((session) => (
             <SessionRowView
               key={session.id}
               session={session}
-              onRevoked={(id) =>
-                setSessions((rows) => rows.filter((row) => row.id !== id))
-              }
+              onRevoked={overview.removeSession}
             />
           ))}
         </ul>
         <div className="flex flex-wrap gap-3">
           <Button
             variant="secondary"
-            onClick={() =>
-              void revokeOtherSessions(authClient).then((outcome) => {
-                if (outcome.kind === 'ok') reload();
-                else setSessionsNotice(OUTCOME_NOTICES[outcome.kind]);
-              })
-            }
+            disabled={overview.signingOutOthers}
+            onClick={overview.signOutOthers}
           >
-            Sign out of all other sessions
+            {overview.signingOutOthers
+              ? 'Signing out…'
+              : 'Sign out of all other sessions'}
           </Button>
           <SignOutForm
             next="/settings/security"

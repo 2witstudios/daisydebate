@@ -137,11 +137,13 @@ export const runDeletionSweep = async (deps: {
         removedRecordings += 1;
       } else if (keys.length === 0) {
         await store.deferDeletion(record.id, {
+          owner: deps.owner,
           retryAt: deletionRetryAt(nowMs, 5),
           failed: false,
         });
       } else {
         await store.deferDeletion(record.id, {
+          owner: deps.owner,
           retryAt: new Date(nowMs).toISOString(),
           failed: false,
         });
@@ -149,6 +151,7 @@ export const runDeletionSweep = async (deps: {
     } catch {
       deps.report('recording.deletion_failed');
       await store.deferDeletion(record.id, {
+        owner: deps.owner,
         retryAt: deletionRetryAt(nowMs, attempts),
         failed: true,
       });

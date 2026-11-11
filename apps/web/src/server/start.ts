@@ -22,11 +22,7 @@ import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRunSchedule } from './run-schedule';
 import { startObservationPurges } from './observation-purges';
-import {
-  privacyJobPort,
-  startPrivacyJobs,
-  genericPrivacyJobVendors,
-} from './privacy-jobs';
+import { privacyJobsQueue, startPrivacyJobs } from './privacy-jobs';
 import { startBillingCleanup } from './billing-cleanup';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
@@ -269,18 +265,7 @@ const observationPurges = startObservationPurges({
 // ISSUE-833: an erasure's queued vendor deletion jobs are delivered here,
 // retried with backoff and recorded, so no processor copy outlives its job.
 const privacyJobs = startPrivacyJobs({
-  due: (batch) =>
-    app.database.duePrivacyJobs({
-      ...batch,
-      vendors: genericPrivacyJobVendors(app),
-    }),
-  owed: () =>
-    app.database.owedPrivacyJobs({ vendors: genericPrivacyJobVendors(app) }),
-  deliver: (job, now, retryAt) =>
-    app.database.deliverPrivacyJob(
-      { jobId: job.id, vendor: job.vendor, now, retryAt },
-      privacyJobPort(app, job.vendor),
-    ),
+  ...privacyJobsQueue(app),
   clock: app.clock,
   logger: app.logger,
   timers: workerTimers,

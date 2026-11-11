@@ -170,3 +170,34 @@ describe('roundWaitingOn', () => {
     });
   });
 });
+
+test('every reason a panel is pending has its own reading (no fall-through)', () => {
+  const recovering = aiFacts({ status: 'recovering' });
+  const blocked = aiFacts({ status: 'blocked' });
+  const holding = aiFacts({ holdsBallot: true });
+  assert({
+    given:
+      'each pending panel wait: a human window, generating, recovering, blocked, and a held ballot with attendance open then settled',
+    should:
+      'name each one, the held ballot by what attendance still owes and never by an AI job state',
+    actual: [
+      roundWaitingOn(ended(humanFacts(2_000)))?.state,
+      roundWaitingOn(ended(aiFacts()))?.state,
+      roundWaitingOn(ended(recovering))?.state,
+      roundWaitingOn(ended(blocked))?.state,
+      roundWaitingOn(ended(holding, unsettled))?.state,
+      roundWaitingOn(ended(holding))?.state,
+      // Recovering work outranks open attendance, as it did before.
+      roundWaitingOn(ended(recovering, unsettled))?.state,
+    ],
+    expected: [
+      'human_window',
+      'ai_processing',
+      'ai_recovering',
+      'ai_blocked',
+      'awaiting_attendance',
+      'settling',
+      'ai_recovering',
+    ],
+  });
+});

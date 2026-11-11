@@ -71,13 +71,18 @@ export type RecordingStore = {
     readonly limit: number;
   }) => Promise<readonly RecordingDeletionClaim[]>;
   /**
-   * Releases the lease; the intent stays and comes due again at `retryAt`. Only
-   * a failure counts towards backoff, so a large Recording is not slowed by the
+   * Releases the lease `owner` holds; the intent stays and comes due again at
+   * `retryAt`. A lease another worker has since taken is left alone. Only a
+   * failure counts towards backoff, so a large Recording is not slowed by the
    * batches it needs.
    */
   readonly deferDeletion: (
     recordingId: string,
-    input: { readonly retryAt: string; readonly failed: boolean },
+    input: {
+      readonly owner: string;
+      readonly retryAt: string;
+      readonly failed: boolean;
+    },
   ) => Promise<void>;
   /** Whether anything of this Recording may still wait in the hold bucket. */
   readonly sourcesRemain: (recordingId: string) => Promise<boolean>;

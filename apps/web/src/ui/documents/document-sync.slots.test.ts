@@ -4,6 +4,7 @@ import {
   memoryStorage,
   manualTimers,
   stored,
+  roomStatus,
 } from './document-sync.test-support';
 
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -459,16 +460,17 @@ test('conflict state stays true through typing, Discard and Restore', async () =
 
 test('the status clears when the last offer goes away in another tab', async () => {
   const f = fixture();
-  const saved: string[] = [];
-  const sync = f.owner({ onSaved: (id) => saved.push(id) });
+  const room = roomStatus();
+  const sync = f.owner(room.reports);
   await sync.load();
+  const offered = room.says().save;
   f.storage.removeItem(key);
   sync.refreshRecovery();
   assert({
     given: 'the only offer was discarded elsewhere and nothing is pending',
     should: 'report the room saved rather than keep promising a draft below',
-    actual: [sync.recoveryOffers().length, saved.length > 0],
-    expected: [0, true],
+    actual: [offered, sync.recoveryOffers().length, room.says()],
+    expected: ['unsaved', 0, { save: 'saved', notice: null }],
   });
 });
 
@@ -953,28 +955,32 @@ test('a save whose copy could not be stored leaves no older copy behind', async 
 
 test('a new offer does not overwrite a conflict notice', async () => {
   const f = fixture();
-  const events: string[] = [];
+  const room = roomStatus();
   let server = { ...stored('a', 3), html: '<p>SERVER</p>' };
   const sync = f.owner({
     api: documentApi(
       async () => ({ status: 'conflict', revision: 9 }),
       () => [server],
     ),
-    onConflict: () => events.push('conflict'),
-    onRecoveryChanged: () => events.push('recovered'),
+    ...room.reports,
   });
   await sync.load();
   sync.discardRecovered('a', 'REC');
   server = { ...server, revision: 9 };
   sync.change('a', '<p>MINE</p>');
   await sync.flush();
+  const conflicted = room.says();
   f.storage.setItem(key, JSON.stringify({ recovery: f.recovery }));
   sync.refreshRecovery();
   assert({
     given: 'a conflicted document when another tab adds an offer',
-    should: 'keep the conflict as the last status',
-    actual: [sync.recoveryOffers().length, events.at(-1)],
-    expected: [1, 'conflict'],
+    should: 'keep the conflict as what the room says',
+    actual: [
+      sync.recoveryOffers().length,
+      conflicted.notice?.includes('newer save'),
+      room.says(),
+    ],
+    expected: [1, true, conflicted],
   });
 });
 

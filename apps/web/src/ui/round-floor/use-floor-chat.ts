@@ -72,6 +72,9 @@ export function useFloorChat({
   );
   const hidden = live.status === 'hidden' || state.kind !== 'ready';
   const generation = useRef(0);
+  /** Each kind's reads, numbered as asked, and the newest one that was applied. */
+  const asked = useRef({ latest: 0, older: 0 });
+  const applied = useRef({ latest: 0, older: 0 });
   const busy = useRef(false);
   const base = idSchema.safeParse(props.roundId).success
     ? `/api/rounds/${props.roundId}/floor`
@@ -80,14 +83,22 @@ export function useFloorChat({
     async (id: string, cursor?: number) => {
       if (!base || !idSchema.safeParse(id).success) return;
       const revision = generation.current;
-      if (cursor !== undefined) setPaging(true);
+      const kind = cursor === undefined ? 'latest' : 'older';
+      const request = (asked.current[kind] += 1);
+      // An answer counts while the floor is still shown and no later read of its
+      // kind has been applied. A read still in flight does not supersede it, so
+      // steady traffic never leaves every answer dropped; nor does one that
+      // failed, since only a page that was applied moves `applied` on.
+      const current = () =>
+        generation.current === revision && request >= applied.current[kind];
+      if (kind === 'older') setPaging(true);
       try {
         const response = await fetch(
           `${base}/messages?channelId=${id}${cursor === undefined ? '' : `&before=${cursor}`}`,
           { cache: 'no-store' },
         );
         const value = await readFloorResponse(response, props.roundId, id);
-        if (generation.current !== revision) return;
+        if (!current()) return;
         if (!value) {
           setNotice(
             response.status === 403 || response.status === 404
@@ -95,16 +106,21 @@ export function useFloorChat({
               : 'Messages could not be loaded. Try again.',
           );
           if (response.status === 403 || response.status === 404) {
+            // No read asked before the floor was denied may reopen it.
+            generation.current += 1;
             setState({ kind: 'denied' });
             setOlder(null);
           }
           return;
         }
-        setState({ kind: 'ready', metadata: value.metadata });
+        applied.current[kind] = request;
         setReadSequence((sequence) =>
           Math.max(sequence, value.viewer.readSequence),
         );
         if (cursor === undefined) {
+          // What the floor is now comes from the newest read of its latest page
+          // alone: an older page adds messages, and may answer after it.
+          setState({ kind: 'ready', metadata: value.metadata });
           setPage((previous) =>
             previous &&
             previous.history.changeVersion > value.history.changeVersion
@@ -134,10 +150,11 @@ export function useFloorChat({
         }
         setNotice(null);
       } catch {
-        if (generation.current === revision)
-          setNotice('Messages could not be loaded. Try again.');
+        if (current()) setNotice('Messages could not be loaded. Try again.');
       } finally {
-        setPaging(false);
+        // Only the older page that set it clears it: another read is not its answer.
+        if (kind === 'older' && asked.current.older === request)
+          setPaging(false);
       }
     },
     [

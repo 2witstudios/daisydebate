@@ -558,6 +558,12 @@ operational default, not a financial retention or refund deadline.
 3. No failures and no `worker.run.completed` either: check for jobs still owed
    (`status = 'pending'` on `privacy_jobs` or `observation_purge_jobs`), then that the process is up, as for
    `cleanup_missed`.
+4. `privacy_jobs` owes every vendor's pending job except Stripe's, which
+   `billing_cleanup` counts, whether or not this deploy can deliver to that
+   vendor. A job queued while a vendor was configured (PostHog) stays owed after
+   its key is removed, with no failures logged, because nothing can deliver it:
+   group the pending rows by `vendor`, and restore that vendor's configuration
+   so the worker pays them.
 
 ### Auth mail shed past the bound
 

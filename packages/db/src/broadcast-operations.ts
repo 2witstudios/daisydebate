@@ -445,7 +445,11 @@ export const completeBroadcast = (
       ),
     );
 
-/** Every public object is gone; a finished Broadcast is not claimed again. */
+/**
+ * Every public object is gone; a finished Broadcast is not claimed again. Only a
+ * Broadcast that stopped or completed has a feed to withdraw, and the first
+ * recorded withdrawal stands, as a stopped one is withdrawn again to complete.
+ */
 export const recordFeedWithdrawn = (
   tx: Tx,
   input: { readonly id: string; readonly at: Date },
@@ -453,7 +457,13 @@ export const recordFeedWithdrawn = (
   tx
     .update(broadcasts)
     .set({ feedWithdrawnAt: input.at })
-    .where(eq(broadcasts.id, input.id));
+    .where(
+      and(
+        eq(broadcasts.id, input.id),
+        isNull(broadcasts.feedWithdrawnAt),
+        or(isNotNull(broadcasts.stoppedAt), isNotNull(broadcasts.completedAt)),
+      ),
+    );
 
 /** One page of open Broadcasts' reconcile facts; `after` reaches every one in a pass. */
 export const listOpenBroadcasts = (
