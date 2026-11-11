@@ -76,29 +76,57 @@ const split = (span: Span, windows: readonly Span[]) => {
   return { inside: outsideGaps(span, outside), outside };
 };
 
+/** A slate window, and where the speech after it starts. */
+type Window = Span & { readonly nextStartMs: number };
+
 /**
  * Where the stage showed its slate by design, as committed history says: each
  * private stretch a committed segment follows, and each turnover from a closed
- * segment's end to the next one's opening. Every window runs on through the opening
- * of the speech after it. Nothing without a committed segment after it is a window,
- * so an open segment, or time after the last, explains nothing: it fails closed.
+ * segment's end to the next one's opening. Nothing without a committed segment after
+ * it is a window, so an open segment, or time after the last, explains nothing: it
+ * fails closed.
  */
 const slateWindows = (facts: RoundCoverageFacts, capturedFromMs: number) => {
-  const opening = (startMs: number) =>
-    startMs + startEdgeLagMs(startMs, capturedFromMs) + OPENING_SLACK_MS;
+  const window = (startMs: number, nextStartMs: number): Window => ({
+    startMs,
+    nextStartMs,
+    endMs:
+      nextStartMs +
+      startEdgeLagMs(nextStartMs, capturedFromMs) +
+      OPENING_SLACK_MS,
+  });
   const { segments } = facts;
   return {
     private: privateStretches(facts)
       .filter((span) => span.endMs !== NEVER_MS)
-      .map((span) => ({ startMs: span.startMs, endMs: opening(span.endMs) })),
+      .map((span) => window(span.startMs, span.endMs)),
     between: segments.flatMap((segment, index) => {
       const next = segments[index + 1];
       return next && segment.endedAtMs !== null
-        ? [{ startMs: segment.endedAtMs, endMs: opening(next.startedAtMs) }]
+        ? [window(segment.endedAtMs, next.startedAtMs)]
         : [];
     }),
   };
 };
+
+/**
+ * The windows as one gap may use them, in video time. A window runs on through the
+ * next speech's opening only for a gap that reaches it from before that speech: a
+ * gap that opens inside a speech touches no slate, and is lost however early it is.
+ */
+const windowsFor = (
+  gap: Span,
+  windows: readonly Window[],
+  capturedFromMs: number,
+): readonly Span[] =>
+  windows.map((window) => {
+    const nextStartMs = window.nextStartMs - capturedFromMs;
+    return {
+      startMs: window.startMs - capturedFromMs,
+      endMs:
+        gap.startMs < nextStartMs ? window.endMs - capturedFromMs : nextStartMs,
+    };
+  });
 
 /**
  * The worker knows only what is not proven public. Against the Round's committed
@@ -116,18 +144,14 @@ export const explainGaps = (
   capturedFromMs: number,
 ): readonly Gap[] => {
   const windows = slateWindows(facts, capturedFromMs);
-  const inVideo = (spans: readonly Span[]) =>
-    spans.map((span) => ({
-      startMs: span.startMs - capturedFromMs,
-      endMs: span.endMs - capturedFromMs,
-    }));
-  const privateInVideo = inVideo(windows.private);
-  const betweenInVideo = inVideo(windows.between);
   const explained = gaps.flatMap((gap): readonly Gap[] => {
     if (gap.reason !== 'not_public') return [gap];
-    const privately = split(gap, privateInVideo);
+    const privately = split(
+      gap,
+      windowsFor(gap, windows.private, capturedFromMs),
+    );
     const between = privately.outside.map((span) =>
-      split(span, betweenInVideo),
+      split(span, windowsFor(gap, windows.between, capturedFromMs)),
     );
     const pieces: Gap[] = [
       ...privately.inside.map((span) => ({
@@ -173,9 +197,10 @@ export const explainGaps = (
 /**
  * What a finished video does not hold, stated against the Round's own record.
  * The worker's gaps come first; a dropout or a private phase is stated only where
- * none already covers it, so no moment is told twice, and the worker's `not_public`
- * stretches are then explained (`explainGaps`). Debate before the first frame or after the last has no place in the video,
- * so it is stated apart. Pure and total.
+ * none already covers it, so no moment is told twice, and the worker's
+ * `not_public` stretches are then explained (`explainGaps`). Debate before the
+ * first frame or after the last has no place in the video, so it is stated apart.
+ * Pure and total.
  */
 export const coverageStatement = ({
   facts,

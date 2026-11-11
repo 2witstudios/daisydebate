@@ -258,6 +258,30 @@ describe('explainGaps', () => {
     });
   });
 
+  test('a gap opening inside a speech is lost, however early', () => {
+    assert({
+      given:
+        'a not_public gap from 2.0 s to 4.0 s into a speech, past no slate',
+      should: 'state all of it as not public',
+      actual: explainGaps(
+        [notPublic(32_000, 34_000)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [notPublic(32_000, 34_000)],
+    });
+    assert({
+      given: 'a not_public gap from 2.0 s to 3.4 s into a speech',
+      should: 'not lend it to the turnover before that speech',
+      actual: explainGaps(
+        [notPublic(32_000, 33_400)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [notPublic(32_000, 33_400)],
+    });
+  });
+
   test('a stretch inside a speech stays not public', () => {
     assert({
       given: 'a not_public gap in the middle of a speech',
