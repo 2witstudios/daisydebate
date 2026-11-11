@@ -30,7 +30,7 @@ export const runningRoundStatuses = [
 ] as const satisfies readonly RoundStatus[];
 export type RunningRoundStatus = (typeof runningRoundStatuses)[number];
 /** A Round that has ended, with a result or without one. Nothing leaves these. */
-export const overRoundStatuses = [
+const overRoundStatuses = [
   'completed',
   'abandoned',
 ] as const satisfies readonly RoundStatus[];

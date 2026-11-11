@@ -108,7 +108,6 @@ export {
   roundStatuses,
   roundStatusSchema,
   runningRoundStatuses,
-  overRoundStatuses,
   isRoundRunning,
   isRoundOver,
   roundStageSchema,
@@ -121,7 +120,6 @@ export {
 export type {
   CompetitionType,
   RoundStatus,
-  RunningRoundStatus,
   OverRoundStatus,
   RoundStage,
   RuntimeCheckpoint,
@@ -279,7 +277,6 @@ export type {
 } from './messaging/social';
 export type {
   RoomAssemblyState,
-  RoomStatus,
   RoomSeatHold,
   RoomSeatKind,
   RoomConsent,
