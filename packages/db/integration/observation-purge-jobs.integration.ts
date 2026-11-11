@@ -165,13 +165,18 @@ test('two runners failing the same observation purge count it once', async () =>
           },
         },
       );
-    await Promise.all([failing(), failing()]);
+    const outcomes = await Promise.all([failing(), failing()]);
     const job = await jobOf(client, fixture.userId);
     assert({
       given: 'two runners that read one pending purge and both fail it',
-      should: 'count one attempt and keep the purge pending',
-      actual: [job?.status, job?.attempts],
-      expected: ['pending', 1],
+      should:
+        'count one attempt, report one retry between them, and keep the purge pending',
+      actual: [
+        job?.status,
+        job?.attempts,
+        outcomes.map((outcome) => outcome.retried).sort(),
+      ],
+      expected: ['pending', 1, [0, 1]],
     });
   } finally {
     await client.unsafe(

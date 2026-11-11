@@ -3,7 +3,11 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 
+import { retriedJob } from './retried-job';
+import { observationPurgeJobs } from './schema/observation-purge-jobs';
+
 type Execute = Pick<BunSQLDatabase, 'execute'>;
+const purgeJob = retriedJob(observationPurgeJobs);
 
 /** The longest a failed purge waits for its retry. */
 export const OBSERVATION_PURGE_BACKOFF_CEILING_MS = 300_000;
@@ -69,30 +73,33 @@ export async function deliverObservationPurges(
     createdAt: Date;
   }[];
   if (rows.length === 0) return { succeeded: 0, retried: 0 };
+  const jobOf = (row: (typeof rows)[number]) => sql`user_id = ${row.userId}`;
   try {
     await port.purge();
   } catch {
+    let retried = 0;
     for (const row of rows) {
       const retryAt = new Date(
         now.getTime() + observationPurgeBackoffMs(row.attempts + 1),
       ).toISOString();
-      // Compare-and-set on the count read: a second runner's failure of the
-      // same attempt is counted once.
-      await database.execute(sql`update observation_purge_jobs
-        set attempts = ${row.attempts + 1}, retry_at = ${retryAt}::timestamptz
-        where user_id = ${row.userId} and status = 'pending'
-          and attempts = ${row.attempts}`);
+      if (
+        await purgeJob.failed(database, jobOf(row), {
+          read: row.attempts,
+          retryAt,
+        })
+      )
+        retried += 1;
     }
-    return { succeeded: 0, retried: rows.length };
+    return { succeeded: 0, retried };
   }
   // Only the obligation that was read: a re-erasure committed after the
   // read (a newer created_at) stays pending for the next purge.
   for (const row of rows)
-    await database.execute(sql`update observation_purge_jobs
-      set status = 'succeeded', attempts = greatest(attempts, ${row.attempts + 1}),
-        succeeded_at = ${input.now}::timestamptz
-      where user_id = ${row.userId} and status = 'pending'
-        and created_at = ${row.createdAt.toISOString()}::timestamptz`);
+    await purgeJob.succeeded(
+      database,
+      sql`${jobOf(row)} and created_at = ${row.createdAt.toISOString()}::timestamptz`,
+      { read: row.attempts, now: input.now },
+    );
   return { succeeded: rows.length, retried: 0 };
 }
 

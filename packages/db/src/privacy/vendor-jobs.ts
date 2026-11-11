@@ -2,7 +2,11 @@ import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { retriedJob } from '../retried-job';
+import { privacyJobs } from '../schema/privacy-jobs';
 import { privacyVendors, type PrivacyVendor } from './planner';
+
+const vendorJob = retriedJob(privacyJobs);
 
 /** A committed-pool port. Never pass the local erasure transaction here. */
 type Execute = Pick<BunSQLDatabase, 'execute'>;
@@ -96,25 +100,24 @@ export async function deliverPrivacyJob(
   if (!row) return 'idle';
   if (!idSchema.safeParse(row.subjectRef).success)
     throw createAppError('VALIDATION');
-  // This attempt is the one after those read: runners that read the same
-  // count made the same attempt, and it is counted once.
-  const attempt = row.attempts + 1;
+  const job = sql`id = ${input.jobId} and vendor = ${input.vendor}`;
   try {
     await port.erase(row.subjectRef);
   } catch {
     // Vendor failures are deliberately absent from durable fields/telemetry.
-    const retried =
-      await database.execute(sql`update privacy_jobs set attempts = ${attempt},
-      retry_at = ${input.retryAt}::timestamptz
-      where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'
-        and attempts = ${row.attempts} returning id`);
-    return retried.length === 1 ? 'retry' : 'idle';
+    return (await vendorJob.failed(database, job, {
+      read: row.attempts,
+      retryAt: input.retryAt,
+    }))
+      ? 'retry'
+      : 'idle';
   }
-  const completed =
-    await database.execute(sql`update privacy_jobs set status = 'succeeded',
-    attempts = greatest(attempts, ${attempt}), succeeded_at = ${input.now}::timestamptz
-    where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending' returning id`);
-  return completed.length === 1 ? 'succeeded' : 'idle';
+  return (await vendorJob.succeeded(database, job, {
+    read: row.attempts,
+    now: input.now,
+  }))
+    ? 'succeeded'
+    : 'idle';
 }
 
 function checkJobInput(input: {

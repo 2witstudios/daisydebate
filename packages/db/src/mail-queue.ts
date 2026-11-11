@@ -41,8 +41,9 @@ const MAX_ATTEMPT_CAP = 1000;
 /**
  * The one writer of a queued mail job's lifecycle, for any table built from
  * `mailJobColumns` (ADR 0075, ADR 0124): queued, leased by one worker at a
- * time, and ended sent, failed or cancelled. Every instant is the database's
- * clock at the write. `unknownAfterLapse` names the jobs whose lapsed lease
+ * time, and ended sent, failed or cancelled. The lease, completion and
+ * cancellation instants are the database's clock at the write; a retry's
+ * next attempt is the instant its caller's backoff names. `unknownAfterLapse` names the jobs whose lapsed lease
  * may have reached the provider: such a job says `delivery-unknown` from then
  * on, whatever ends it short of a confirmed send.
  */
@@ -62,7 +63,8 @@ export const mailQueue = (
      * Leases the due jobs and the lapsed leases, oldest first, each to one
      * worker (`FOR UPDATE SKIP LOCKED`). A job already claimed `maxAttempts`
      * times ends failed here instead, so a worker that keeps dying after its
-     * claim cannot hold a job in the queue for ever.
+     * claim cannot hold a job in the queue for ever. Its last holder never
+     * settled and may only be slow, so such a job ends `delivery-unknown`.
      */
     claimDue: (
       database: Pick<BunSQLDatabase, 'transaction'>,
@@ -90,7 +92,8 @@ export const mailQueue = (
         for (const { id, spent } of due) {
           if (spent) {
             await tx.execute(sql`update ${table} set
-                last_error_code = ${unknownIfHeld('delivery')},
+                last_error_code = case when state = 'leased' or last_error_code = 'delivery-unknown'
+                  then 'delivery-unknown' else 'delivery' end,
                 state = 'failed', completed_at = clock_timestamp(),
                 lease_token_digest = null, lease_expires_at = null
               where id = ${id}`);

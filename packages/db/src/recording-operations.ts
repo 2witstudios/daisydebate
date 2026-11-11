@@ -123,12 +123,7 @@ export const recordingOperations = ({
         .where(
           and(
             eq(recordings.status, 'removing'),
-            // A removal stored before `recordings_deletion_due_check` may have
-            // no due time: it is due now, and the claim below gives it one.
-            or(
-              isNull(recordings.deletionDueAt),
-              lte(recordings.deletionDueAt, at),
-            ),
+            lte(recordings.deletionDueAt, at),
             or(isNull(recordings.leaseUntil), lte(recordings.leaseUntil, at)),
           ),
         )
@@ -142,9 +137,6 @@ export const recordingOperations = ({
           .set({
             leaseOwner: input.owner,
             leaseUntil: new Date(input.leaseUntil),
-            // The CHECK applies to this write too: a stored removal with no
-            // due time is repaired here, or it would refuse every claim.
-            deletionDueAt: sql`coalesce(${recordings.deletionDueAt}, ${at.toISOString()}::timestamptz)`,
           })
           .where(eq(recordings.id, id))
           .returning();

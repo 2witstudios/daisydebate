@@ -171,7 +171,10 @@ export const mailJobColumns = () => ({
   createdAt: createdAtColumn(),
   completedAt: timestampColumn('completed_at'),
 });
-export const mailJobChecks = (
+/** The codes `mailQueue` writes itself: a table's own list must hold them. */
+export type MailQueueErrorCode = 'delivery' | 'delivery-unknown' | 'not-owed';
+
+export const mailJobChecks = <const Codes extends readonly string[]>(
   table: string,
   columns: {
     readonly state: PgColumn;
@@ -181,7 +184,9 @@ export const mailJobChecks = (
     readonly lastErrorCode: PgColumn;
     readonly completedAt: PgColumn;
   },
-  errorCodes: readonly string[],
+  // A list without the queue's own codes does not typecheck: its writer could
+  // not write to that table.
+  errorCodes: MailQueueErrorCode extends Codes[number] ? Codes : never,
 ) => [
   check(`${table}_state_check`, oneOf(columns.state, mailJobStates)),
   check(`${table}_attempts_check`, sql`${columns.attempts} >= 0`),

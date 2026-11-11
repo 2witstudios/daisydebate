@@ -229,7 +229,8 @@ for (const queue of queues)
             row: {
               state: 'failed',
               attempts: 2,
-              code: unknown ?? 'delivery',
+              // Its last holder never settled, so no queue calls this a known failure.
+              code: 'delivery-unknown',
               completed: true,
               released: true,
             },

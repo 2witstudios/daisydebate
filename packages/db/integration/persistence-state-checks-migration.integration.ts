@@ -68,9 +68,10 @@ test(
       const recordingId = createId();
       const at = '2026-11-02T00:00:00.000Z';
       // What the schema before allowed: complete with no stream end or stop,
-      // a suspension that ended before it began, a removal with nothing due.
-      await f.sql`insert into broadcasts (id, round_id, feed_key, release_policy, completed_at)
-        values (${broadcastId}, ${roundId}, ${createId()}, '{"kind":"delay","seconds":60}'::jsonb, ${at}::timestamptz)`;
+      // a failure counted after the revocation landed, a suspension that ended
+      // before it began, a removal with nothing due.
+      await f.sql`insert into broadcasts (id, round_id, feed_key, release_policy, completed_at, observer_revoked_at, revocation_failures)
+        values (${broadcastId}, ${roundId}, ${createId()}, '{"kind":"delay","seconds":60}'::jsonb, ${at}::timestamptz, ${at}::timestamptz, 2)`;
       await f.sql`insert into moderation_actions (id, user_id, kind, starts_at, ends_at, operator_ref)
         values (${createId()}, ${userId}, 'suspension', ${at}::timestamptz, ${at}::timestamptz - interval '1 day', 'op')`;
       await f.sql`insert into recordings (id, round_id, recording_class, eligibility, status, lifecycle)
@@ -96,32 +97,34 @@ test(
               f.sql`update broadcasts set stream_ended_at = ${at}::timestamptz where id = ${broadcastId}`,
           ),
         ];
-        // The sweep's own writer must still take the stored removal: a NOT
-        // VALID CHECK applies to its lease write as to any other.
+        // The sweep's own writer must still take the stored removal.
         const claimed = await recordingOperations({
           database: drizzle({ client: f.sql }),
         }).claimRecordingDeletions({
           owner: 'w',
-          now: at,
-          leaseUntil: '2026-11-02T00:01:00.000Z',
+          // The repair made it due at the migration's own clock.
+          now: new Date(Date.now() + 60_000).toISOString(),
+          leaseUntil: new Date(Date.now() + 120_000).toISOString(),
           limit: 100,
         });
-        const [repaired] =
-          await f.sql`select deletion_due_at is not null as due from recordings where id = ${recordingId}`;
+        const [counted] =
+          await f.sql`select revocation_failures as failures from broadcasts where id = ${broadcastId}`;
         assert({
-          given: 'the deletion sweep claiming over that stored removal',
-          should: 'lease it and give it the due time it lacked',
+          given:
+            'the two stored states with one right repair: a removal with nothing due and a failure counted after its revocation',
+          should:
+            'repair both in the migration, so the deletion sweep leases the removal and the count is zero',
           actual: [
             claimed.map((claim) => claim.record.id).includes(recordingId),
-            repaired?.due,
+            counted?.failures,
           ],
-          expected: [true, true],
+          expected: [true, 0],
         });
         assert({
           given:
-            'a completed Broadcast with no stream end, a suspension ending before its start and a removal with nothing due, stored before the migration',
+            'a completed Broadcast with no stream end and a late-counted failure, a suspension ending before its start and a removal with nothing due, stored before the migration',
           should:
-            'apply both folders, leave only the three broken constraints unvalidated, refuse new violations, and accept the write that repairs a stored one',
+            'apply both folders, repair what has one repair, leave only the two other broken constraints unvalidated, refuse new violations, and accept the write that repairs a stored one',
           actual: { afterMigration, newWrites },
           expected: {
             afterMigration: {
@@ -133,7 +136,7 @@ test(
               broadcasts_stop_reason_check: true,
               moderation_actions_ends_after_start_check: false,
               moderation_actions_lifted_after_start_check: true,
-              recordings_deletion_due_check: false,
+              recordings_deletion_due_check: true,
             },
             newWrites: [
               'moderation_actions_ends_after_start_check',
