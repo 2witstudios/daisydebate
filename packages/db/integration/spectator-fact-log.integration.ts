@@ -169,8 +169,8 @@ test('the log refuses a change, and goes only with its Round', async () => {
 
 test('the sweep finds a Round only while a fact has left and no row records it', async () => {
   await withEndedRound(async ({ db, sql, roundId }) => {
-    await sql`insert into broadcasts (id, round_id, feed_key, release_policy, released_through_at, completed_at)
-      values (${'b' + roundId.slice(1)}, ${roundId}, ${'k' + roundId.slice(1)}, ${{ kind: 'delay', seconds: 90 * 86_400 }}, ${started}, ${ended})`;
+    await sql`insert into broadcasts (id, round_id, feed_key, release_policy, released_through_at, stream_ended_at, completed_at)
+      values (${'b' + roundId.slice(1)}, ${roundId}, ${'k' + roundId.slice(1)}, ${{ kind: 'delay', seconds: 90 * 86_400 }}, ${started}, ${ended}, ${ended})`;
     const found = async (at: Date) =>
       (
         await readRoundsAwaitingFactLog(db, {

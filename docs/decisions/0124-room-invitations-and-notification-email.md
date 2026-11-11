@@ -55,7 +55,9 @@ only Watch's Round events, and email carried only sign-in and beta mail.
 LOCKED`, SHA3 lease digest), re-reads at send time and sends through the one
    suppression-honouring transport under the `notification` purpose, with the
    job id as the Resend idempotency key. It retries with ADR 0075's backoff and
-   fails for good after 8 attempts. It is cancelled as `recipient-gone`,
+   fails for good after 8 attempts, at the claim too when its workers keep
+   dying. Its lifecycle is the same one as a beta mail intent's, written by the
+   same `mailQueue` (`packages/db/src/mail-queue.ts`). It is cancelled as `recipient-gone`,
    `preference-off`, `not-owed` (the subject ended), `suppressed` or
    `rate-limited` (20 sent per member per hour; a soft cap read without a
    lock, so instances sending at once may pass it by a batch). A host who

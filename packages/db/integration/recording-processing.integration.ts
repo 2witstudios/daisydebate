@@ -560,7 +560,7 @@ test('the web sees only jobs it can answer, and what still uses their sources', 
       actual: (await listed())?.sourcesInUse,
       expected: true,
     });
-    await client`update broadcasts set stopped_at=now(), stop_reason='test' where round_id=${roundId}`;
+    await client`update broadcasts set stopped_at=now(), stop_reason='technical' where round_id=${roundId}`;
     assert({
       given: 'that Broadcast stopped',
       should: 'say they are free',

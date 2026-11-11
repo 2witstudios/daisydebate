@@ -109,8 +109,8 @@ const broadcast = async (
     readonly slowMode?: number;
   } = {},
 ) => {
-  await client`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,completed_at,stopped_at,stop_reason,chat_slow_mode_seconds)
-    values (${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }},${columns.released ?? null},${columns.completed ?? null},${columns.stopped ?? null},${columns.stopped ? 'test' : null},${columns.slowMode ?? 0})`;
+  await client`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,stream_ended_at,completed_at,stopped_at,stop_reason,chat_slow_mode_seconds)
+    values (${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }},${columns.released ?? null},${columns.completed ?? null},${columns.completed ?? null},${columns.stopped ?? null},${columns.stopped ? 'technical' : null},${columns.slowMode ?? 0})`;
 };
 
 /** The first speech, long enough ago for any release in these tests to have passed it. */
@@ -565,9 +565,9 @@ test('chat keeps its history when a Broadcast fails or stops', async () => {
     });
     const live = await texts();
     // Failed: the Broadcast closed having released nothing (`standingOf`).
-    await env.client`update broadcasts set completed_at=${at(5)}, released_through_at=null where round_id=${roundId}`;
+    await env.client`update broadcasts set stream_ended_at=${at(5)}, completed_at=${at(5)}, released_through_at=null where round_id=${roundId}`;
     const failed = await texts();
-    await env.client`update broadcasts set stopped_at=${at(7)}, stop_reason='test' where round_id=${roundId}`;
+    await env.client`update broadcasts set stopped_at=${at(7)}, stop_reason='technical' where round_id=${roundId}`;
     assert({
       given: 'chat read live, after a failed Broadcast, and after a stop',
       should: 'read the same history each time, in both reads',
@@ -644,7 +644,7 @@ test('the planner sees the ban, slow mode, last post and closed Broadcast in the
     const poster = await member(env.f);
     await post(env, { roundId, ...poster, text: 'First', seconds: 0 });
     await env.client`insert into audience_bans (user_id,banned_by_ref) values (${poster.userId},'operator')`;
-    await env.client`update broadcasts set stopped_at=${at(1)},stop_reason='test' where round_id=${roundId}`;
+    await env.client`update broadcasts set stopped_at=${at(1)},stop_reason='technical' where round_id=${roundId}`;
     let seen: unknown;
     await env.chat.postSpectatorChatMessage(
       {
@@ -853,7 +853,7 @@ test('"on air" reads only while the Broadcast is open', async () => {
     await broadcast(env.client, roundId, { released: at(10) });
     await sweep(env, 11);
     const onAir = await rowsFor(env, fan.userId);
-    await env.client`update broadcasts set stopped_at=${at(12)},stop_reason='test' where round_id=${roundId}`;
+    await env.client`update broadcasts set stopped_at=${at(12)},stop_reason='technical' where round_id=${roundId}`;
     assert({
       given: 'an unread on-air notification, then the Broadcast stopped',
       should: 'stand while it is on air and not after',
@@ -1117,7 +1117,7 @@ test('recording_ready waits for a complete Broadcast, and a takedown takes the n
       values (${createId()},${roundId},'casual',${{ kind: 'casual_opted_in', hostActorId: debater.actorId }},'ready',${{ status: 'ready' }})`;
     await sweep(env, 5);
     const waiting = await rowsFor(env, debater.userId);
-    await env.client`update broadcasts set completed_at=${at(6)},released_through_at=${at(6)} where round_id=${roundId}`;
+    await env.client`update broadcasts set stream_ended_at=${at(6)},completed_at=${at(6)},released_through_at=${at(6)} where round_id=${roundId}`;
     await sweep(env, 120);
     const seated = await rowsFor(env, debater.userId);
     const follower = await rowsFor(env, fan.userId);

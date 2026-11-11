@@ -1,7 +1,7 @@
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
-import { decideBetaAccessChange } from '@daisy/auth';
+import { decideBetaAccessChange } from '@daisy/protocol';
 
 const email = 'transcript-proof@example.test';
 const username = 'staging-transcript-proof';

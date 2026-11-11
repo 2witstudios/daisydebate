@@ -1,7 +1,7 @@
 import { moderationKinds } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
-import { oneOf, timestampColumn } from './columns';
+import { notBefore, oneOf, timestampColumn } from './columns';
 import { users } from './users';
 
 /**
@@ -35,6 +35,14 @@ export const moderationActions = pgTable(
     check(
       'moderation_actions_lifted_check',
       sql`${table.liftedAt} is null or ${table.kind} in ('suspension', 'ban')`,
+    ),
+    check(
+      'moderation_actions_ends_after_start_check',
+      sql`${table.endsAt} is null or ${table.endsAt} > ${table.startsAt}`,
+    ),
+    check(
+      'moderation_actions_lifted_after_start_check',
+      notBefore(table.liftedAt, table.startsAt),
     ),
     check(
       'moderation_actions_acknowledged_check',

@@ -163,6 +163,27 @@ describe('beta email grants through participant operations', () => {
           ],
           expected: ['approved', userId],
         });
+        const [stored] =
+          await f.sql`select revision from account_beta_access where user_id = ${userId}`;
+        const events =
+          await f.sql`select from_state, to_state, revision, principal
+          from account_access_events where user_id = ${userId} and to_state = 'approved'`;
+        assert({
+          given: 'that claim',
+          should:
+            'record the one transition it made: pending to approved, at the revision now stored',
+          actual: events.map((event: Record<string, unknown>) => ({
+            ...event,
+          })),
+          expected: [
+            {
+              from_state: 'pending',
+              to_state: 'approved',
+              revision: stored.revision,
+              principal: 'signup',
+            },
+          ],
+        });
       } finally {
         await db.close();
       }
@@ -368,6 +389,7 @@ test('an invitation lease recovers a crashed send under one provider identity', 
       const claims = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       const first = claims.find((claim) => claim.id === intent.id)!;
@@ -379,6 +401,7 @@ test('an invitation lease recovers a crashed send under one provider identity', 
       const retried = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       const second = retried.find((claim) => claim.id === intent.id)!;
@@ -663,6 +686,7 @@ test('invitation delivery facts distinguish suppression, rejection, uncertainty 
         const claims = await db.claimMailIntents({
           limit: 50,
           leaseMs: 60000,
+          maxAttempts: 8,
           nextToken: () => `${createId()}${createId()}`,
         });
         const claim = claims.find((item) => item.id === intent.id)!;
@@ -759,6 +783,7 @@ test('explicit resend creates one new invitation after terminal delivery and rep
       const claims = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       for (const claim of claims)
@@ -851,6 +876,7 @@ test('a claimed invitation stops being owed when its verified email changes', as
       const claims = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       const claim = claims.find((item) => item.id === intent.id)!;
@@ -898,6 +924,7 @@ test('long-outage invitation recovery preserves the grant and never assumes an e
       const claims = await db.claimMailIntents({
         limit: 50,
         leaseMs: 60000,
+        maxAttempts: 8,
         nextToken: () => `${createId()}${createId()}`,
       });
       const [intent] =
@@ -908,6 +935,7 @@ test('long-outage invitation recovery preserves the grant and never assumes an e
         await db.claimMailIntents({
           limit: 50,
           leaseMs: 60000,
+          maxAttempts: 8,
           nextToken: () => `${createId()}${createId()}`,
         })
       ).find((item) => item.id === first.id)!;

@@ -80,10 +80,10 @@ const withLive = async (
           select u.username from users u join actors a on a.user_id=u.id
           where a.id=${seat.actorId}`;
         if (broadcast)
-          await client`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,stopped_at,stop_reason,completed_at)
+          await client`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,stopped_at,stop_reason,stream_ended_at,completed_at)
             values (${createId()},${roundId},${createId()},${broadcast.policy ?? { kind: 'delay', seconds: 60 }},
               ${broadcast.released ?? null},${broadcast.stopped ?? null},
-              ${broadcast.stopped ? 'moderation' : null},${broadcast.completed ?? null})`;
+              ${broadcast.stopped ? 'policy_violation' : null},${broadcast.completed ?? null},${broadcast.completed ?? null})`;
         return { roundId, aff: named?.username ?? '' };
       };
       const list = async (over = {}) => {
