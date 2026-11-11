@@ -112,7 +112,7 @@ const mount = async () => {
 test('an older page stays loading until its own read answers', async () => {
   const floor = await mount();
   try {
-    await floor.act(() => void floor.held().loadHistory(channelId, 5));
+    await floor.act(() => floor.held().loadOlder(5));
     const older = floor.reads.at(-1)!;
     // A refresh starts and answers while the older page is still on its way.
     await floor.act(() => floor.held().refresh());
@@ -161,7 +161,7 @@ test('a slower earlier read never replaces what a later read said', async () => 
 test('an older page never says what the floor is now', async () => {
   const floor = await mount();
   try {
-    await floor.act(() => void floor.held().loadHistory(channelId, 5));
+    await floor.act(() => floor.held().loadOlder(5));
     const older = floor.reads.at(-1)!;
     await floor.act(() => floor.held().refresh());
     // The refresh says the floor has closed to writing; the older page was
@@ -242,6 +242,30 @@ test('a read asked before the floor was denied never reopens it', async () => {
       should: 'leave the floor denied',
       actual: { denied, after: floor.shown().state },
       expected: { denied: 'denied', after: 'denied' },
+    });
+  } finally {
+    await floor.unmount();
+  }
+});
+
+test('a denied floor holds nothing of the thread it lost', async () => {
+  const floor = await mount();
+  try {
+    await floor.act(() => floor.held().loadOlder(5));
+    await floor.act(() => floor.held().refresh());
+    await floor.act(() =>
+      floor.reads.at(-1)!.resolve(new Response(null, { status: 403 })),
+    );
+    assert({
+      given: 'an older page on its way when a refresh is refused access',
+      should: 'be denied alone: no page loading, and no notice beside it',
+      actual: floor.shown(),
+      expected: {
+        state: 'denied',
+        readOnly: null,
+        paging: false,
+        notice: null,
+      },
     });
   } finally {
     await floor.unmount();

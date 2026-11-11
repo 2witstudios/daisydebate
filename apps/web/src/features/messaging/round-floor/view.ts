@@ -94,3 +94,7 @@ export async function readFloorResponse(
     bounds: bounds.data,
   };
 }
+/** One protected read of a floor's messages, as the route answers it. */
+export type FloorPageRead = NonNullable<
+  Awaited<ReturnType<typeof readFloorResponse>>
+>;
