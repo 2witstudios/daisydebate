@@ -64,6 +64,7 @@ const decidingStatus = (
         : 'Settling the result';
     case 'ai_processing':
       return judge === 'ai' ? writing : 'Settling the result';
+    // A human window, and a Round not yet waiting, read as the ballot being written.
     case 'human_window':
     case null:
       return writing;

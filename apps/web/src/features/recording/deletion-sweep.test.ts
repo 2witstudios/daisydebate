@@ -127,13 +127,14 @@ describe('runDeletionSweep', () => {
     });
     assert({
       given: 'object storage failing',
-      should: 'stay removing and retry later',
+      should: 'stay removing and retry later, releasing only its own lease',
       actual: [
         result.deferred,
         rows.get('rec')?.lifecycle.status,
         deferred[0]?.retryAt,
+        deferred[0]?.owner,
       ],
-      expected: [1, 'removing', deletionRetryAt(nowMs, 0)],
+      expected: [1, 'removing', deletionRetryAt(nowMs, 0), 'w'],
     });
   });
 

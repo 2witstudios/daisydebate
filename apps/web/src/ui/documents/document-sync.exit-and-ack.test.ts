@@ -5,6 +5,7 @@ import {
   manualDraftResources,
   memoryStorage,
   stored,
+  roomStatus,
 } from './document-sync.test-support';
 
 import type { DraftStorage } from './document-draft-storage';
@@ -67,6 +68,7 @@ const syncOf = (
       readonly dump: () => ReadonlyMap<string, string>;
     };
     readonly onSaved?: () => void;
+    readonly reports?: ReturnType<typeof roomStatus>['reports'];
     readonly budget?: KeepaliveBudget;
     readonly onDraftStorageFailed?: (id: string) => void;
   } = {},
@@ -80,6 +82,7 @@ const syncOf = (
     api: api(save, options.documents),
     principalId: 'p',
     onConflict: () => {},
+    ...options.reports,
     ...(options.onSaved ? { onSaved: options.onSaved } : {}),
     ...(options.onDraftStorageFailed
       ? { onDraftStorageFailed: options.onDraftStorageFailed }
@@ -581,11 +584,11 @@ test('one document acknowledgement cannot clear another recovery offer', async (
       savedAt: 100,
     }),
   );
-  let saved = 0;
+  const room = roomStatus();
   const sync = syncOf(async () => ({ status: 'saved', revision: 4 }), {
     documents: ['a', 'b'],
     storage: store,
-    onSaved: () => saved++,
+    reports: room.reports,
   });
   await sync.load();
   sync.change('a', 'A');
@@ -594,10 +597,10 @@ test('one document acknowledgement cannot clear another recovery offer', async (
     given: 'A acknowledges while B still awaits a recovery choice',
     should: 'keep B visibly unsaved',
     actual: [
-      saved,
+      room.says().save,
       sync.recoveryOffers().some((offer) => offer.documentId === 'b'),
     ],
-    expected: [0, true],
+    expected: ['unsaved', true],
   });
   sync.restoreRecovered(
     'b',
@@ -608,8 +611,8 @@ test('one document acknowledgement cannot clear another recovery offer', async (
   assert({
     given: 'B is explicitly restored and acknowledged',
     should: 'then report the owner saved',
-    actual: [saved, sync.recoveryOffers().length],
-    expected: [1, 0],
+    actual: [room.says(), sync.recoveryOffers().length],
+    expected: [{ save: 'saved', notice: null }, 0],
   });
 });
 

@@ -17,7 +17,11 @@ export const fakeRecordingStore = (
 ) => {
   const rows = new Map(seed.map((record) => [record.id, record]));
   const due = new Map<string, number>();
-  const deferred: { readonly id: string; readonly retryAt: string }[] = [];
+  const deferred: {
+    readonly id: string;
+    readonly owner: string;
+    readonly retryAt: string;
+  }[] = [];
   const apply: RecordingStore['apply'] = async (
     id,
     decide,
@@ -63,9 +67,9 @@ export const fakeRecordingStore = (
         .filter((row) => row.lifecycle.status === 'removing')
         .slice(0, limit)
         .map((record) => ({ record, attempts: due.get(record.id) ?? 0 })),
-    deferDeletion: async (id, { retryAt, failed }) => {
+    deferDeletion: async (id, { owner, retryAt, failed }) => {
       if (failed) due.set(id, (due.get(id) ?? 0) + 1);
-      deferred.push({ id, retryAt });
+      deferred.push({ id, owner, retryAt });
     },
     sourcesRemain: async (id) => (options.sourcesRemain ?? []).includes(id),
     listEndedEvidenceHolds: async ({ limit }) =>

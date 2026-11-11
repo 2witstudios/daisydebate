@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
-import { startPrivacyJobs } from './privacy-jobs';
+import type { App } from './app';
+import { privacyJobsQueue, startPrivacyJobs } from './privacy-jobs';
 import { createEventRecorder } from './test-loggers.test-support';
 
 setupRitewayBun();
@@ -141,5 +142,50 @@ test('a vendor failure never reports completion, on its retry or the idle runs a
     should: 'log the failure once and completion never',
     actual: events.map(({ event }) => event),
     expected: ['worker.run.failed'],
+  });
+});
+
+test('jobs for a vendor no longer configured are still counted as owed', async () => {
+  const asked: Record<string, unknown> = {};
+  const app = {
+    posthogErasure: null,
+    database: {
+      duePrivacyJobs: async (input: {
+        readonly vendors: readonly string[];
+      }) => {
+        asked['due'] = input.vendors;
+        return [];
+      },
+      owedPrivacyJobs: async (input: {
+        readonly vendors: readonly string[];
+      }) => {
+        asked['owed'] = input.vendors;
+        return 1;
+      },
+    },
+  } as unknown as App;
+  const queue = privacyJobsQueue(app);
+  await queue.due({ now, limit: 32 });
+  const owed = await queue.owed();
+  assert({
+    given:
+      'a deploy with no PostHog key, where an earlier deploy queued a PostHog deletion',
+    should:
+      'deliver only what it can, and count every vendor but Stripe, whose jobs billing cleanup counts, so the stranded job shows as waiting',
+    actual: { owed, asked },
+    expected: {
+      owed: 1,
+      asked: {
+        due: ['messaging-typing'],
+        owed: [
+          'sentry',
+          'posthog',
+          'beehiiv',
+          'resend',
+          'object-storage',
+          'messaging-typing',
+        ],
+      },
+    },
   });
 });

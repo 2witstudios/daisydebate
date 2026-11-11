@@ -69,6 +69,28 @@ test('rate limit admits exactly max across concurrent instances and expires atom
     }
   }));
 
+test('incrementWithExpiry re-arms a counter that lost its expiry', () =>
+  withRedis(url, async ({ redis, raw, key }) => {
+    const counterKey = key('counter');
+    const first = await redis.incrementWithExpiry('counter', 60);
+    // Stands in for a counter left with no expiry: a restored snapshot, or a
+    // write that landed between an older script's two commands.
+    await raw.send('PERSIST', [counterKey]);
+    const lost = await raw.pttl(counterKey);
+    const second = await redis.incrementWithExpiry('counter', 60);
+    const repaired = await raw.pttl(counterKey);
+    assert({
+      given: 'a counter whose expiry went missing, then another increment',
+      should: 'keep counting and bound the counter by its own TTL again',
+      actual: {
+        counts: [first, second],
+        lost,
+        repaired: repaired > 0 && repaired <= 60_000,
+      },
+      expected: { counts: [1, 2], lost: -1, repaired: true },
+    });
+  }));
+
 test('markOccurrenceSince keeps the since-value and re-arms the TTL on every later occurrence, bridging a continuous run past a single TTL window', () =>
   withRedis(url, async ({ redis, raw, key, expireNow }) => {
     const markerKey = key('marker');

@@ -7,20 +7,32 @@ import { startBrowserPoll } from './browser-poll';
 import {
   firstPublishedReads,
   nextPublishedReads,
+  paceOfPublishedRead,
+  serverAsksOf,
   type PublishedRead,
 } from './published-state-model';
 
 const READ_TIMEOUT_MS = 5_000;
 
+/** What this tab has read from one address. */
+type Held = {
+  readonly url: string;
+  readonly state: AudienceState | null;
+  readonly sinceMovedMs: number;
+  readonly gone: boolean;
+  readonly serverAsks: number;
+};
+
 /**
  * Polls a Round's published state from the public bucket. No cookie goes with it. Every
  * attempt, answered or not, updates how long the object has stood still, measured here
- * on the tab's own clock. `gone` asks the page to read the server again.
+ * on the tab's own clock. `gone` asks the page to read the server again, and `serverAsks`
+ * counts how often it should have by now. What was read
+ * belongs to its address: a replaced link starts from nothing. While an address is gone
+ * the reads go on, so one that comes back is seen, but slow down as misses do.
  */
 export function usePublishedState(url: string | null, polling: boolean) {
-  const [state, setState] = useState<AudienceState | null>(null);
-  const [sinceMovedMs, setSinceMovedMs] = useState(0);
-  const [gone, setGone] = useState(false);
+  const [held, setHeld] = useState<Held | null>(null);
   useEffect(() => {
     if (!url || !polling) return;
     let stopped = false;
@@ -29,9 +41,13 @@ export function usePublishedState(url: string | null, polling: boolean) {
       if (stopped) return;
       const now = performance.now();
       reads = nextPublishedReads(reads, read, now);
-      setState(reads.state);
-      setGone(reads.gone);
-      setSinceMovedMs(now - reads.movedAtMs);
+      setHeld({
+        url,
+        state: reads.state,
+        gone: reads.gone,
+        serverAsks: serverAsksOf(reads),
+        sinceMovedMs: now - reads.movedAtMs,
+      });
     };
     const stop = startBrowserPoll(async () => {
       try {
@@ -50,7 +66,7 @@ export function usePublishedState(url: string | null, polling: boolean) {
               ? { kind: 'missing' }
               : { kind: 'failed' },
         );
-        return answerOfResponse(response);
+        return paceOfPublishedRead(reads, answerOfResponse(response));
       } catch (error) {
         settle({ kind: 'failed' });
         throw error;
@@ -61,7 +77,14 @@ export function usePublishedState(url: string | null, polling: boolean) {
       stop();
     };
   }, [url, polling]);
-  return { state, sinceMovedMs, gone };
+  return held !== null && held.url === url
+    ? {
+        state: held.state,
+        sinceMovedMs: held.sinceMovedMs,
+        gone: held.gone,
+        serverAsks: held.serverAsks,
+      }
+    : { state: null, sinceMovedMs: 0, gone: false, serverAsks: 0 };
 }
 
 /** The published state for what sits beside the player; null with none. */
