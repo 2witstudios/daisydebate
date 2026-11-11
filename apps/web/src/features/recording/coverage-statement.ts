@@ -5,7 +5,6 @@ import {
 } from '@daisy/protocol';
 import { outsideGaps } from './speech-timeline';
 
-type Gap = CoverageGap;
 type Unrecorded = NonNullable<RecordingMedia['unrecorded']>[number];
 
 /** The Round's own record, read as a named input, of what happened when. */
@@ -176,12 +175,12 @@ const windowsFor = (
  * told once. Pure, total and stable: its own answer comes back unchanged.
  */
 export const explainGaps = (
-  gaps: readonly Gap[],
+  gaps: readonly CoverageGap[],
   facts: RoundCoverageFacts,
   capturedFromMs: number,
-): readonly Gap[] => {
+): readonly CoverageGap[] => {
   const windows = slateWindows(facts, capturedFromMs);
-  const explained = gaps.flatMap((gap): readonly Gap[] => {
+  const explained = gaps.flatMap((gap): readonly CoverageGap[] => {
     if (gap.reason !== 'not_public') return [gap];
     const privately = split(
       gap,
@@ -190,7 +189,7 @@ export const explainGaps = (
     const between = privately.outside.map((span) =>
       split(span, windowsFor(gap, windows.between, capturedFromMs)),
     );
-    const pieces: Gap[] = [
+    const pieces: CoverageGap[] = [
       ...privately.inside.map((span) => ({
         ...span,
         reason: 'private_phase' as const,
@@ -219,7 +218,7 @@ export const explainGaps = (
   });
   return [...explained]
     .sort((x, y) => x.startMs - y.startMs)
-    .reduce<Gap[]>((told, gap) => {
+    .reduce<CoverageGap[]>((told, gap) => {
       const last = told.at(-1);
       if (last && last.reason === gap.reason && gap.startMs <= last.endMs)
         told[told.length - 1] = {
@@ -248,16 +247,16 @@ export const coverageStatement = ({
   readonly capture: {
     readonly startedAtMs: number;
     readonly durationMs: number;
-    readonly restartGaps: readonly Gap[];
+    readonly restartGaps: readonly CoverageGap[];
   };
   readonly broadcastStopped: boolean;
 }): {
-  readonly gaps: readonly Gap[];
+  readonly gaps: readonly CoverageGap[];
   readonly unrecorded: readonly Unrecorded[];
 } => {
   const { startedAtMs, durationMs, restartGaps } = capture;
-  const gaps: Gap[] = [...restartGaps];
-  const state = (real: readonly Span[], reason: Gap['reason']) => {
+  const gaps: CoverageGap[] = [...restartGaps];
+  const state = (real: readonly Span[], reason: CoverageGap['reason']) => {
     const inVideo = real
       .map((span) => ({
         startMs: Math.max(0, span.startMs - startedAtMs),
@@ -319,23 +318,26 @@ const GAP_KIND = {
   not_public: 'lost',
   private_phase: 'private',
   between_speeches: 'slate',
-} as const satisfies Record<Gap['reason'], 'lost' | 'private' | 'slate'>;
+} as const satisfies Record<
+  CoverageGap['reason'],
+  'lost' | 'private' | 'slate'
+>;
 
 type ReasonOf<K> = {
   [R in keyof typeof GAP_KIND]: (typeof GAP_KIND)[R] extends K ? R : never;
 }[keyof typeof GAP_KIND];
 
 /** Debate that happened and is not in the video. */
-export type LostGap = Gap & { readonly reason: ReasonOf<'lost'> };
+export type LostGap = CoverageGap & { readonly reason: ReasonOf<'lost'> };
 /** A stretch withheld by design. */
-export type PrivateGap = Gap & { readonly reason: ReasonOf<'private'> };
+export type PrivateGap = CoverageGap & { readonly reason: ReasonOf<'private'> };
 
 /**
  * A video's gaps as a viewer is told them: what was lost, and what was kept private.
  * The slate between speeches is neither, so it is not told.
  */
 export const coverageParts = (
-  gaps: readonly Gap[],
+  gaps: readonly CoverageGap[],
 ): {
   readonly lost: readonly LostGap[];
   readonly keptPrivate: readonly PrivateGap[];

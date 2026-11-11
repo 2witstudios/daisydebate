@@ -135,8 +135,9 @@ uncaptured, and the debate is untouched. Raise `CASUAL_CAPTURES_AT_ONCE` with th
 `media.gaps` states what the video shows as something other than the debate. Debate lost
 is a capture restart (`capture_restart`), a room rotation (`room_rotation`), stated at an
 estimated 5 seconds, and anything committed Round history neither proves public nor
-explains (`not_public`, ADR 0099). The player lists these, and `media.unrecorded`, under
-"Parts of this debate were not recorded". `media.unrecorded` is debate the video never
+explains (`not_public`, ADR 0099). Which reason is lost, kept private or the slate is one
+rule, `coverageParts` in `coverage-statement.ts`, which the player only words. The player
+lists what was lost, and `media.unrecorded`, under "Parts of this debate were not recorded". `media.unrecorded` is debate the video never
 reached: a late start, an early end, or the rest of a Round whose Broadcast was stopped.
 A private phase, which is the stage's slate (`private_phase`), is withheld by design, and
 the player shows it on its own line as kept private. The slate between speeches
