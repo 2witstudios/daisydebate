@@ -1,8 +1,9 @@
 import { accountEntitlements } from '@daisy/auth/authorization';
-import type {
-  EntitlementGrant,
-  RoomAssemblyState,
-  RoomView,
+import {
+  isOpenRoomStatus,
+  type EntitlementGrant,
+  type RoomAssemblyState,
+  type RoomView,
 } from '@daisy/protocol';
 
 /** This account may broadcast or record a casual Round (WATCH-8). */
@@ -25,8 +26,7 @@ export async function roomCaptureOffer(
   if (
     state.competitionType === 'ranked' ||
     state.hostActorId !== actorId ||
-    state.status === 'started' ||
-    state.status === 'closed'
+    !isOpenRoomStatus(state.status)
   )
     return null;
   return (await holds()) ? 'included' : 'premium';

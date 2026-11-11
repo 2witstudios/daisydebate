@@ -1,5 +1,9 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, type RoundProjection } from '@daisy/protocol';
+import {
+  isRoundRunning,
+  idSchema,
+  type RoundProjection,
+} from '@daisy/protocol';
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -167,7 +171,7 @@ export function createRoundIncidentStore(deps: {
               target: roundIncidentWatches.roundId,
               set: { unreachableSince, retirementTakenUpAt },
             });
-        if (read.status !== 'active' && read.status !== 'opening') {
+        if (!isRoundRunning(read.status)) {
           await remember(known.retiredAt);
           return { kind: 'unchanged' };
         }

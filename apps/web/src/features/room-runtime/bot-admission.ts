@@ -1,5 +1,9 @@
 import { castSeatsBotDebater } from '@daisy/debate-engine';
-import type { RoomAssemblyState, RoomView } from '@daisy/protocol';
+import {
+  isOpenRoomStatus,
+  type RoomAssemblyState,
+  type RoomView,
+} from '@daisy/protocol';
 import type { BotAdmissionStatus } from '@daisy/db/round-bot-admission';
 /** Economic metadata is scoped to the current host; it grants no competitive authority. */
 export async function roomBotAdmission(
@@ -10,8 +14,7 @@ export async function roomBotAdmission(
   if (
     state.hostActorId !== actorId ||
     state.competitionType === 'ranked' ||
-    state.status === 'started' ||
-    state.status === 'closed' ||
+    !isOpenRoomStatus(state.status) ||
     !state.participants.some((p) => p.kind === 'bot')
   )
     return null;

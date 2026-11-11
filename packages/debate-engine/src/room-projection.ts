@@ -1,12 +1,12 @@
 import { seatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
-import { freezeRoomConfig, freezeRoomExecutionPlan } from '@daisy/protocol';
 import {
-  assemblyOpen,
-  hostNamesJudges,
-  startBlocker,
-} from './room-assembly-facts';
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  isOpenRoomStatus,
+} from '@daisy/protocol';
+import { hostNamesJudges, startBlocker } from './room-assembly-facts';
 const participantReady = (
   p: Pick<
     RoomAssemblyState['participants'][number],
@@ -135,7 +135,7 @@ export function projectRoom(
     authoredDrawSource:
       source?.kind === 'host' &&
       room.hostActorId === actorId &&
-      assemblyOpen(room)
+      isOpenRoomStatus(room.status)
         ? { resolutions: source.resolutions }
         : null,
     rules: room.rules,
@@ -188,13 +188,12 @@ export function projectRoom(
       version: room.version,
       readyActorIds: consent.readyActorIds.filter((id) => !hidden.has(id)),
     },
-    seatsHeldFromViewer:
-      room.status === 'assembling' || room.status === 'ready'
-        ? {
-            debater: seatsHeldFrom(room, actorId, 'debater', now),
-            judge: seatsHeldFrom(room, actorId, 'judge', now),
-          }
-        : { debater: 0, judge: 0 },
+    seatsHeldFromViewer: isOpenRoomStatus(room.status)
+      ? {
+          debater: seatsHeldFrom(room, actorId, 'debater', now),
+          judge: seatsHeldFrom(room, actorId, 'judge', now),
+        }
+      : { debater: 0, judge: 0 },
     capabilities: roomCapabilities(room, actorId, blocker),
     startRefusal: blocker,
     // A non-participant learns of a live Round only from the spectator timeline.
@@ -212,7 +211,7 @@ const roomCapabilities = (
   blocker: RoomView['startRefusal'],
 ): RoomView['capabilities'] => {
   const host = room.hostActorId === actorId;
-  const open = assemblyOpen(room);
+  const open = isOpenRoomStatus(room.status);
   const own = room.participants.find((p) => p.actorId === actorId);
   return {
     host,

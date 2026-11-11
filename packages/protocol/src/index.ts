@@ -18,6 +18,7 @@ export {
  * added in the same change as its first consumer (knip's
  * `includeEntryExports` fails an export nobody imports).
  */
+export { assertNever } from './assert-never';
 export { segmentDueAtMs, speakingEndMs } from './segment-end';
 export { isSpokenPrefix, spokenPrefix } from './authored-speech';
 export { dueAfterStops, runningMs } from './clock-stops';
@@ -106,6 +107,9 @@ export {
   seatSlotsComplete,
   roundStatuses,
   roundStatusSchema,
+  runningRoundStatuses,
+  isRoundRunning,
+  isRoundOver,
   roundStageSchema,
   runtimeCheckpointSchema,
   emptyRuntimeCheckpoint,
@@ -116,6 +120,7 @@ export {
 export type {
   CompetitionType,
   RoundStatus,
+  OverRoundStatus,
   RoundStage,
   RuntimeCheckpoint,
   RoundIncident,

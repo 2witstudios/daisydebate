@@ -1,5 +1,6 @@
 import { freezeRoundFinalization } from './round-finalization-writer';
 import {
+  isRoundOver,
   attendanceTimingPolicy,
   TRANSCRIPT_ADMISSION_WINDOW_MS,
 } from '@daisy/protocol';
@@ -78,12 +79,11 @@ const projectionChanged = (
   );
 };
 
-const terminal = new Set(['completed', 'abandoned']);
 /** The projection is the one that takes the Round out of play. */
 const endsRound = (current: LockedRound, projection: RoundProjection) =>
   projection.round !== null &&
-  terminal.has(projection.round.status) &&
-  !terminal.has(current.status);
+  isRoundOver(projection.round.status) &&
+  !isRoundOver(current.status);
 
 /** Persist a projection and announce exactly the revision it advances to. */
 export async function writeProjectionWithPhaseSignal(
@@ -219,9 +219,9 @@ export async function insertCommandRow(
   });
   if (
     transition &&
-    !terminal.has(transition.before) &&
+    !isRoundOver(transition.before) &&
     transition.projection?.round &&
-    terminal.has(transition.projection.round.status)
+    isRoundOver(transition.projection.round.status)
   )
     await freezeRoundFinalization(tx, {
       roundId,
@@ -260,7 +260,7 @@ export async function writePrivateSpans(
   if (lifecycle === null) return;
   const before = runtimeCheckpointSchema.parse(current.runtimeState);
   const after = runtimeCheckpointSchema.parse(lifecycle.checkpoint);
-  const ended = terminal.has(lifecycle.status);
+  const ended = isRoundOver(lifecycle.status);
   const changes = privateSpanChanges(
     { stage: current.currentStage, activePrep: prepFacts(before) },
     {

@@ -1,3 +1,4 @@
+import { isRoundRunning } from '@daisy/protocol';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { nextEpoch } from './lease-policy';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -47,12 +48,7 @@ export async function verifyMediaWorkerLease(
     input.roundId,
     tick.transcriptAdmissionCutoff,
   );
-  if (
-    !session ||
-    !round ||
-    !['opening', 'active'].includes(round.status) ||
-    session.endedAt
-  )
+  if (!session || !round || !isRoundRunning(round.status) || session.endedAt)
     throw createRefusal(
       'CONFLICT',
       'capture-closed',

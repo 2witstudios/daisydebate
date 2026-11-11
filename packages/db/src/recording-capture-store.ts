@@ -10,7 +10,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import { recordingHoldPrefix } from '@daisy/protocol';
+import { runningRoundStatuses, recordingHoldPrefix } from '@daisy/protocol';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRoom } from './broadcast-operations';
 import { controlHeartbeat, heartbeatStale } from './control-heartbeat';
@@ -62,7 +62,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
             eq(rounds.competitionType, 'ranked'),
             sql`${rounds.capture} ->> 'recording' = 'true'`,
           ),
-          inArray(rounds.status, ['opening', 'active']),
+          inArray(rounds.status, [...runningRoundStatuses]),
           isNull(recordings.id),
         ),
       )

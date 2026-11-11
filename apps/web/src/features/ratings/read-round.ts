@@ -1,3 +1,4 @@
+import { isRoundOver } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import type { RoundView } from '@daisy/protocol';
 import { rateDebate, ratingAwaited } from '@daisy/debate-engine';
@@ -89,8 +90,7 @@ export async function readRoundRatings(
         })
       : null;
   const rated = postings.length > 0;
-  const staked =
-    !rated && round.status !== 'completed' && round.status !== 'abandoned';
+  const staked = !rated && !isRoundOver(round.status);
   const winA = staked ? calculate('affirmative') : null;
   const winN = staked ? calculate('negative') : null;
   return {

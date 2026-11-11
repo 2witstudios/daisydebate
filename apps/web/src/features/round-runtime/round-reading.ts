@@ -1,3 +1,4 @@
+import { isRoundRunning } from '@daisy/protocol';
 import type { RoundPosition } from '@daisy/debate-engine/position';
 import type { DebateSide, RoundSeat, RoundView } from '@daisy/protocol';
 
@@ -22,7 +23,7 @@ export const isSeat = (p: Participant): p is Seat => p.role !== 'judge';
 
 /** A Round that has not ended: opening, or running. */
 export const isLiveRound = (view: Pick<RoundView, 'status'>): boolean =>
-  view.status === 'opening' || view.status === 'active';
+  isRoundRunning(view.status);
 
 /** Who holds the floor: an accepted interruption's seat, else the segment's side. */
 export const floorSideOf = (

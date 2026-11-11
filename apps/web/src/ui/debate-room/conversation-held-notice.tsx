@@ -1,9 +1,13 @@
 import { roundPositionAt } from '@daisy/debate-engine/position';
-import { conversational, type RoundView } from '@daisy/protocol';
+import {
+  conversational,
+  isRoundRunning,
+  type RoundView,
+} from '@daisy/protocol';
 
 export const conversationHeldShown = (view: RoundView, nowMs: number) => {
   if (view.conversationHeld !== true || view.checkpoint === null) return false;
-  if (view.status !== 'opening' && view.status !== 'active') return false;
+  if (!isRoundRunning(view.status)) return false;
   return conversational(
     roundPositionAt({
       round: view,

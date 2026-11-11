@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
+import type { RoundStatus } from './round';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
@@ -13,7 +14,7 @@ export type RoundFloorFact = {
   readonly policyKey: 'round.floor';
   readonly policyRevision: 1;
   readonly revision: number;
-  readonly status: 'opening' | 'active' | 'completed' | 'abandoned';
+  readonly status: RoundStatus;
   readonly completedAt: string | null;
   readonly actorId: string;
   readonly audience: 'debater' | 'host' | null;

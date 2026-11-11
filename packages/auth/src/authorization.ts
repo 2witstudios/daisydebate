@@ -281,6 +281,9 @@ function resolveMemberResource(
       return decision(resource.actorId === actorId);
     case 'room_collection':
       return allow;
+    case 'round':
+    case 'room':
+    case 'channel':
     default:
       return resource;
   }

@@ -224,6 +224,7 @@ function dispatch(
   url: URL,
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
+  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- the default is every ContentModerationRoute, which its handler's parameter type proves.
   switch (route.route) {
     case 'setFlagState':
     case 'setFlagOverride':

@@ -5,10 +5,6 @@ import {
   clearRoundMediaPreferences,
 } from '../../features/round-media/media-preferences';
 
-/** True once a Round can no longer be debated or judged live. */
-export const roundEnded = (status: string): boolean =>
-  status === 'completed' || status === 'abandoned';
-
 /**
  * What a live room shows once its Round has ended, while it moves to the
  * result page; the link is the same move without JavaScript.

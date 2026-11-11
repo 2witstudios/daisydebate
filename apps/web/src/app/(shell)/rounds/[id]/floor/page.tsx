@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { MediaPageLink } from '../../../../../ui/round-media/media-page-link';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { isRoundOver, idSchema } from '@daisy/protocol';
 import { requireAccess } from '../../../../../lib/access';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { FloorChat } from '../../../../../ui/round-floor/floor-chat';
@@ -26,7 +26,7 @@ export default async function RoundFloorPage({
     id,
     identity.principal.actorId,
     round.socketUrl,
-    round.round.status === 'completed' || round.round.status === 'abandoned',
+    isRoundOver(round.round.status),
     true,
   );
   if (!props) notFound();

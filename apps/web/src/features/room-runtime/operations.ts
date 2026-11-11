@@ -136,8 +136,7 @@ export function createRoomRuntimeOperations({
     const version = requiredContentWaiver(state);
     if (
       !version ||
-      state.status === 'started' ||
-      state.status === 'closed' ||
+      !isOpenRoomStatus(state.status) ||
       !state.participants.some(
         (p) => p.actorId === caller.actorId && p.kind === 'human',
       )

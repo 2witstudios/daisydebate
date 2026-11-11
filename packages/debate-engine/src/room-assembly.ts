@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { resolutionCategories } from '@daisy/protocol/resolution-draw';
+import { isOpenRoomStatus } from '@daisy/protocol';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -8,7 +9,7 @@ import type {
   RoomRefusal,
 } from '@daisy/protocol';
 
-import { assemblyOpen, complete, type Edges } from './room-assembly-facts';
+import { complete, type Edges } from './room-assembly-facts';
 import { activeRoomMembers } from './room-membership';
 import { removeSeat } from './room-edit-transitions';
 export {
@@ -72,7 +73,7 @@ function commandFence(
   command: RoomCommand,
 ): RoomRefusal | null {
   if (command.expectedVersion !== room.version) return 'version-conflict';
-  if (!assemblyOpen(room)) return 'room-closed';
+  if (!isOpenRoomStatus(room.status)) return 'room-closed';
   if (
     roomCommandPolicies[command.type].authority === 'host' &&
     room.hostActorId !== actorId
@@ -111,7 +112,8 @@ export function executeRoomCommand(
     draw,
   } = outcome.mutation;
   if (edit) next = afterEdit(room, next);
-  if (assemblyOpen(next)) next = { ...next, status: assembledStatus(next) };
+  if (isOpenRoomStatus(next.status))
+    next = { ...next, status: assembledStatus(next) };
   next = { ...next, changeVersion: room.changeVersion + 1 };
   if (!topicInvariantHolds(next))
     throw createAppError(
@@ -162,7 +164,9 @@ export const eraseSeats = (
       .filter((p) => p.actorId === actorId)
       .reduce((held, seat) => removeSeat(held, seat.id), room),
   );
-  return assemblyOpen(next) ? { ...next, status: assembledStatus(next) } : next;
+  return isOpenRoomStatus(next.status)
+    ? { ...next, status: assembledStatus(next) }
+    : next;
 };
 
 /**

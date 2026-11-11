@@ -1,6 +1,6 @@
 'use client';
 
-import type { RoomView } from '@daisy/protocol';
+import { isOpenRoomStatus, type RoomView } from '@daisy/protocol';
 import { invitedTo } from '../../../features/notifications/notification-words';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import { buttonClass } from '../../components/button/button-class';
@@ -112,7 +112,7 @@ export function RoomInvitations({
   readonly viewerLabel: string;
   readonly action: FormAction<InvitationFormState>;
 }) {
-  const open = view.status === 'assembling' || view.status === 'ready';
+  const open = isOpenRoomStatus(view.status);
   if (!open) return null;
   const mine = view.invitations.filter(
     (invitation) => invitation.invitee === viewerLabel,

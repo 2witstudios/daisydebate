@@ -36,7 +36,9 @@ export const teardownEffects = (link: MediaLink): readonly PlannedEffect[] => {
           : []),
         { type: 'release-connection', connection: link.connection },
       ];
-    default:
+    case 'waiting':
+    case 'released':
+    case 'ended':
       return cancels;
   }
 };

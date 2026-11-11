@@ -1,3 +1,4 @@
+import { isRoundRunning } from '@daisy/protocol';
 import {
   createRoundRuntime,
   incidentDecision,
@@ -121,7 +122,7 @@ export function createRoundIncidentObserver(input: {
   };
   return async (evidence: MediaPassReport): Promise<void> => {
     const { known, observation, nowMs } = evidence;
-    if (known.status !== 'active' && known.status !== 'opening') return;
+    if (!isRoundRunning(known.status)) return;
     try {
       const watch = await input.store.readRoundIncidentWatch(evidence.roundId);
       if (

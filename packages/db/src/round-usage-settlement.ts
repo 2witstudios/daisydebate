@@ -1,3 +1,4 @@
+import { isRoundOver, type RoundStatus } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { PlatformUsageCredit, UsageEvent } from '@daisy/protocol/billing';
@@ -40,13 +41,14 @@ async function terminal(tx: Tx, roundId: string) {
   const [row] = await tx.execute(
     sql`select status,platform_ending from rounds where id=${roundId}`,
   );
-  return row as { status: string; platform_ending: string | null } | undefined;
+  return row as
+    { status: RoundStatus; platform_ending: string | null } | undefined;
 }
 
 /** Round lock held. Late accounting may finish after revocation but grants no publication authority. */
 export async function refundUnservedPracticeLocked(tx: Tx, roundId: string) {
   const round = await terminal(tx, roundId);
-  if (!round || !['completed', 'abandoned'].includes(round.status)) return;
+  if (!round || !isRoundOver(round.status)) return;
   const row = await botReservation(tx, roundId);
   if (!row) return;
   const state = usageStateSchema.parse(row.state);
@@ -77,7 +79,7 @@ export async function refundPlatformEndedLocked(
   const round = await terminal(tx, roundId);
   if (
     !round ||
-    !['completed', 'abandoned'].includes(round.status) ||
+    !isRoundOver(round.status) ||
     round.platform_ending !== provenance.kind
   )
     throw createAppError(

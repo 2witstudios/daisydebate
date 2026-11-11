@@ -4,8 +4,27 @@ import { ESLint } from 'eslint';
 // expensive step, and under machine load it dominated every test. The lint
 // scripts pass a load-tolerant --timeout instead of Bun's fixed 5 s.
 let shared: ESLint | undefined;
+/**
+ * The repository's rules for probe text under invented paths. Such a path is
+ * in no TypeScript project, so the one typed rule is off here;
+ * `typedRepositoryEslint` proves that rule on a path that exists.
+ */
 export const repositoryEslint = (): ESLint =>
   (shared ??= new ESLint({
+    cwd: process.cwd(),
+    overrideConfigFile: './eslint.config.mjs',
+    overrideConfig: [
+      {
+        files: ['**/*.{ts,tsx}'],
+        languageOptions: { parserOptions: { projectService: false } },
+        rules: { '@typescript-eslint/switch-exhaustiveness-check': 'off' },
+      },
+    ],
+  }));
+let typed: ESLint | undefined;
+/** The repository's configuration exactly as `eslint .` runs it. */
+export const typedRepositoryEslint = (): ESLint =>
+  (typed ??= new ESLint({
     cwd: process.cwd(),
     overrideConfigFile: './eslint.config.mjs',
   }));

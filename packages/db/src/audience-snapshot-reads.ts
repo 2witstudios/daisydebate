@@ -1,4 +1,8 @@
-import { SPECTATOR_CHAT_WINDOW } from '@daisy/protocol';
+import {
+  isRoundOver,
+  type RoundStatus,
+  SPECTATOR_CHAT_WINDOW,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readReactionTotals } from './audience-reactions';
@@ -70,7 +74,7 @@ export const audienceSnapshotReads = ({
       const [row] = await rowsOf<{
         role: string | null;
         competition_type: 'ranked' | 'casual';
-        status: string;
+        status: RoundStatus;
         debaters_read_chat: boolean | null;
       }>(
         database,
@@ -89,8 +93,7 @@ export const audienceSnapshotReads = ({
             kind: 'seat',
             role: row.role,
             competitionType: row.competition_type,
-            roundEnded:
-              row.status === 'completed' || row.status === 'abandoned',
+            roundEnded: isRoundOver(row.status),
             debatersReadChat: row.debaters_read_chat === true,
           } as const);
     });

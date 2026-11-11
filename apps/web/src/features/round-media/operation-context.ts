@@ -1,5 +1,5 @@
 import type { MediaObservation } from '@daisy/debate-engine';
-import type { RoundIncident } from '@daisy/protocol';
+import type { RoundIncident, RoundStatus } from '@daisy/protocol';
 import type { createAdmissionPriority } from './admission-priority';
 import type { Database } from '@daisy/db';
 import type { MediaNodes, MediaVendor } from '@daisy/media';
@@ -14,7 +14,7 @@ export type MediaPassReport = {
   /** Read from the pass's snapshot, so a healthy Round costs no Round lock. */
   readonly known: {
     readonly incident: RoundIncident;
-    readonly status: string;
+    readonly status: RoundStatus;
   };
 };
 

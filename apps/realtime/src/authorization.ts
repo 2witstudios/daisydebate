@@ -131,6 +131,8 @@ export function createRealtimeAuthorization({
           base,
           bound,
         );
+      // Anything this does not authorize is refused, a family it cannot name included.
+      case 'round:presence':
       default:
         return null;
     }

@@ -73,6 +73,7 @@ export function operatorDecision(
     return { allow: false, reason: 'missing-capability' };
   if (contentModerationCapabilities.includes(capability))
     return { allow: true };
+  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- an operator is refused every capability this does not name.
   switch (capability) {
     case 'account.beta_access.update':
       return context.account !== null && context.account.beta !== null

@@ -1,6 +1,11 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { captureDigest } from './capture-input';
-import { speakingEndMs, type CaptureInterval } from '@daisy/protocol';
+import {
+  isRoundOver,
+  type RoundStatus,
+  speakingEndMs,
+  type CaptureInterval,
+} from '@daisy/protocol';
 
 type SegmentTiming = {
   readonly startedAt: Date;
@@ -161,7 +166,7 @@ export function sealAction(
 /** Capture closes at freeze, at the admission cutoff, or at a terminal Round without one. */
 export function captureAdmissionClosed(input: {
   readonly frozen: boolean;
-  readonly roundStatus: string | undefined;
+  readonly roundStatus: RoundStatus | undefined;
   readonly now: string;
   readonly cutoff: string | null;
 }): boolean {
@@ -169,8 +174,7 @@ export function captureAdmissionClosed(input: {
     input.frozen ||
     input.roundStatus === undefined ||
     (input.cutoff !== null && input.now >= input.cutoff) ||
-    (input.cutoff === null &&
-      ['completed', 'abandoned'].includes(input.roundStatus))
+    (input.cutoff === null && isRoundOver(input.roundStatus))
   );
 }
 

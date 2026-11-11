@@ -1,5 +1,10 @@
 import { countdownDue } from './round-start-gate';
-import { clockStopsOf, runningMs, segmentDueAtMs } from '@daisy/protocol';
+import {
+  clockStopsOf,
+  isRoundRunning,
+  runningMs,
+  segmentDueAtMs,
+} from '@daisy/protocol';
 import type {
   DebateSide,
   RoundPosition,
@@ -10,6 +15,7 @@ import type {
 import { advanceRoundClock } from './round-clock';
 import {
   debateHasEnded,
+  lifecycleOver,
   startedAtOf,
   type ClockState,
   type ClockSegment as StoreRow,
@@ -22,10 +28,7 @@ const isoOrNull = (ms: number | null) => (ms === null ? null : iso(ms));
 /** The lifecycle columns a position and a projection both carry, as ISO. */
 export const lifecycleStampsOf = (lifecycle: Lifecycle) => ({
   startedAt: isoOrNull(startedAtOf(lifecycle)),
-  completedAt:
-    lifecycle.status === 'completed' || lifecycle.status === 'abandoned'
-      ? iso(lifecycle.completedAtMs)
-      : null,
+  completedAt: lifecycleOver(lifecycle) ? iso(lifecycle.completedAtMs) : null,
   outcome: lifecycle.status === 'completed' ? lifecycle.outcome : null,
 });
 
@@ -186,8 +189,7 @@ export const roundPositionOf = (
   const open = rows.find((row) => row.endedAtMs === null);
   const spoken = rows.filter((row) => row.endedAtMs !== null).length;
   const active = checkpoint.active_prep;
-  const startable =
-    lifecycle.status === 'opening' || lifecycle.status === 'active';
+  const startable = isRoundRunning(lifecycle.status);
   const inRoundPrep = rules.inRoundPrep;
   const upcoming = nextSegmentOf(open, startable, spoken, rules);
   return {

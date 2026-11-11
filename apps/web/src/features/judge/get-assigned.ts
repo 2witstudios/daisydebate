@@ -1,3 +1,4 @@
+import { isRoundOver, isRoundRunning } from '@daisy/protocol';
 import { drawnTopicLabel } from '../debate-room/vocabulary';
 import type { RoundJudgeAssignment } from '@daisy/protocol';
 export type AssignedDebate = {
@@ -18,10 +19,10 @@ export const getAssignedDebates = (
     status: assignmentStatus(assignment),
     ballotHref: `/judge/ballot/${assignment.roundId}`,
     ballotLabel: assignment.ballotSubmitted ? 'View ballot' : 'Open ballot',
-    followHref: `/rounds/${assignment.roundId}${assignment.status === 'active' || assignment.status === 'opening' ? '/room' : ''}`,
+    followHref: `/rounds/${assignment.roundId}${isRoundRunning(assignment.status) ? '/room' : ''}`,
   }));
 function assignmentStatus(a: RoundJudgeAssignment): string {
-  if (a.status === 'completed' || a.status === 'abandoned')
+  if (isRoundOver(a.status))
     return a.ballotSubmitted
       ? 'Your ballot and the Round result are recorded.'
       : 'This Round is already decided. No ballot is due.';

@@ -1,6 +1,6 @@
 import { insertContentReport } from '../content-report-write';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { isRoundOver, idSchema } from '@daisy/protocol';
 import { roundFloorRetentionMs } from '@daisy/protocol/round-floor';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -29,7 +29,7 @@ export const roundFloorMetadataOf = (
   fact: NonNullable<Awaited<ReturnType<typeof readRoundFloorFact>>>,
 ) => ({
   channelId: fact.channelId!,
-  readOnly: fact.status === 'completed' || fact.status === 'abandoned',
+  readOnly: isRoundOver(fact.status),
   expiresAt:
     fact.completedAt === null
       ? null

@@ -1,4 +1,4 @@
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import { isNamedSeat, isOpenRoomStatus, type RoomView } from '@daisy/protocol';
 import Link from 'next/link';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
@@ -129,8 +129,7 @@ export function AssemblyHeader({
               Room setup
             </a>
           ) : null}
-          {view.capabilities.host &&
-          (view.status === 'assembling' || view.status === 'ready') ? (
+          {view.capabilities.host && isOpenRoomStatus(view.status) ? (
             <CloseRoom
               version={view.version}
               commandId={commandIds.close}

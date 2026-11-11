@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, isRoundRunning, type RoundStatus } from '@daisy/protocol';
 
 type Account = {
   readonly member: boolean;
@@ -8,7 +8,7 @@ type Account = {
 type Round = {
   readonly createdByActorId: string | null;
   readonly competitionType: string;
-  readonly status: string;
+  readonly status: RoundStatus;
 };
 export function requireAdmissionTarget(target: {
   readonly actorId: string;
@@ -35,6 +35,5 @@ export function requireSponsor(
     throw createAppError('AUTHORIZATION');
   if (!account?.member || account.erased || round.competitionType === 'ranked')
     throw createAppError('AUTHORIZATION');
-  if (!['opening', 'active'].includes(round.status))
-    throw createAppError('CONFLICT');
+  if (!isRoundRunning(round.status)) throw createAppError('CONFLICT');
 }
