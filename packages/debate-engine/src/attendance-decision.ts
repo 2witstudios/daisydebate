@@ -51,7 +51,8 @@ function sameDecision(
   if (
     actual.evidence !== 'settled_availability' ||
     expected.decision !== actual.decision ||
-    expected.effectiveDeadlineMs !== actual.effectiveDeadlineMs
+    expected.effectiveDeadlineMs !== actual.effectiveDeadlineMs ||
+    expected.settledHorizonMs !== actual.settledHorizonMs
   )
     return false;
   if (expected.decision === 'forfeit')

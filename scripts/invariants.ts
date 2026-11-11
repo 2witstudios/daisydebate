@@ -13,8 +13,10 @@ import {
   ratePeriod,
   resolveRoomConfiguration,
 } from '@daisy/debate-engine';
+import { roundPositionAt } from '@daisy/debate-engine/position';
 import type {
   HydratedSegment,
+  RoundLifecycle,
   RoundParticipantSeat,
   RoundRules,
   RoundStatus,
@@ -76,6 +78,20 @@ const closedAc: readonly HydratedSegment[] = [
   },
 ];
 
+/** The lifecycle a Round in `status` holds, started and ended at the fixture instant. */
+const lifecycleIn = (status: RoundStatus): RoundLifecycle => {
+  const none = { completedAt: null, outcome: null } as const;
+  switch (status) {
+    case 'opening':
+      return { status, startedAt: null, ...none };
+    case 'active':
+      return { status, startedAt: t0, ...none };
+    case 'completed':
+    case 'abandoned':
+      return { status, startedAt: t0, completedAt: t0, outcome: null };
+  }
+};
+
 /** One runtime, driven only as far as the fixture needs. */
 const round = (input: {
   readonly status?: RoundStatus;
@@ -87,14 +103,13 @@ const round = (input: {
   createRoundRuntime({
     round: {
       id: roundId,
-      status: input.status ?? 'opening',
-      currentStage: null,
-      startedAt: (input.status ?? 'opening') === 'opening' ? null : t0,
-      completedAt:
-        input.status === 'completed' || input.status === 'abandoned'
-          ? t0
-          : null,
-      outcome: null,
+      ...lifecycleIn(input.status ?? 'opening'),
+      currentStage:
+        input.status !== 'active'
+          ? null
+          : (input.segments ?? []).some((row) => row.endedAt === null)
+            ? 'live'
+            : 'countdown',
     },
     rules: input.rules ?? rules(),
     participants: input.participants ?? seats,
@@ -142,15 +157,21 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       panel: { humanWindow: null, aiSeats: [] },
     }),
   'lifecycle-matches-status': () =>
-    createRoundRuntime({
+    roundPositionAt({
       round: {
-        id: roundId,
         status: 'completed',
-        currentStage: null,
         startedAt: null,
         completedAt: t0,
         outcome: null,
       },
+      rules: rules(),
+      checkpoint: freshCheckpoint,
+      segments: [],
+      nowMs: Date.parse(t0),
+    }),
+  'stage-matches-clock': () =>
+    createRoundRuntime({
+      round: { id: roundId, ...lifecycleIn('active'), currentStage: 'live' },
       rules: rules(),
       participants: seats,
       checkpoint: freshCheckpoint,

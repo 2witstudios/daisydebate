@@ -28,6 +28,8 @@ type Target = RoomParticipant & {
 export type Edges = {
   readonly now: string;
   readonly participantId: string;
+  /** The id of the Round a Start round launches; unused by any other command. */
+  readonly roundId: string;
   readonly formatId: string;
   readonly target: Target | null;
   /**

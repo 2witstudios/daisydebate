@@ -50,7 +50,6 @@ const roomRow = (
 export const persistRoomMutation = async (
   tx: Tx,
   mutation: Extract<RoomMutationOutcome, { ok: true }>['mutation'],
-  roundId: string,
   now: string,
   /** True for an accepted participant command: it moves the idle anchor. */
   acceptedCommand: boolean,
@@ -89,14 +88,16 @@ export const persistRoomMutation = async (
       })),
     );
   await holdActiveRoomMembers(tx, next.id, mutation.members);
-  let roundRef = next.roundRef;
   if (mutation.freeze) {
+    // The engine named the Round this Start launches, and the status it launches in.
+    if (next.status !== 'started') throw createAppError('INVARIANT');
     const plan = next.executionPlan;
     const prepMs = plan.preRoundPrep.enabled
       ? plan.preRoundPrep.durationMs
       : null;
+    const roundId = next.roundRef.id;
     // With nothing to run first, the Round starts at this click.
-    const opens = plan.resolutionDraw.enabled || prepMs !== null;
+    const opens = next.roundRef.status === 'opening';
     if (!opens && next.topic === null) throw createAppError('INVARIANT');
     await tx.insert(rounds).values({
       id: roundId,
@@ -133,9 +134,8 @@ export const persistRoomMutation = async (
     );
     if (mutation.draw) await insertRoundDraw(tx, roundId, mutation.draw);
     await appendRoundPhaseChanged(tx, roundId, 1);
-    roundRef = { id: roundId, status: opens ? 'opening' : 'active' };
   }
-  return roundRef;
+  return next.roundRef;
 };
 
 /**
@@ -163,7 +163,6 @@ export const persistRoomOutsideCommands = async (
       draw: null,
       members: activeRoomMembers(state),
     },
-    '',
     now,
     after.hostActorId !== before.hostActorId,
   );

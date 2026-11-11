@@ -1,4 +1,6 @@
 import {
+  type HydratedRound,
+  type HydratedSegment,
   type RoundLifecycle,
   type RoundParticipantSeat,
   type RoundRules,
@@ -9,6 +11,8 @@ import {
   oneOnOneSettingsFixture,
 } from '@daisy/protocol/testing';
 import { createRoundRuntime } from './round-runtime';
+import { normalizeRoundClock } from './round-clock-state';
+import { stageOf } from './round-position-projection';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 /** The canonical protocol fixture keeps parser and resolver tests aligned. */
@@ -116,6 +120,23 @@ export const lifecycleIn = (status: RoundStatus): RoundLifecycle => {
   }
 };
 
+/** The Round row a clock hydrates from: its lifecycle with the stage its clock derives. */
+export const hydratedRound = (
+  lifecycle: RoundLifecycle,
+  clock: {
+    readonly rules: RoundRules;
+    readonly checkpoint: unknown;
+    readonly segments: readonly HydratedSegment[];
+  },
+): HydratedRound => ({
+  id: 'round-1',
+  ...lifecycle,
+  currentStage: stageOf(
+    normalizeRoundClock({ round: lifecycle, ...clock }),
+    clock.rules.segments.length,
+  ),
+});
+
 /** A runtime over the one-on-one format, as the runtime tests execute it. */
 export const runtimeWorld = ({
   status = 'opening',
@@ -125,7 +146,7 @@ export const runtimeWorld = ({
   participants = oneOnOneSeats,
 }: RuntimeWorldOptions = {}) =>
   createRoundRuntime({
-    round: { id: 'round-1', currentStage: null, ...lifecycleIn(status) },
+    round: hydratedRound(lifecycleIn(status), { rules, checkpoint, segments }),
     rules,
     participants: [...participants],
     checkpoint,

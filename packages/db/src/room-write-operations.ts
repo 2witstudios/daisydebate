@@ -238,13 +238,13 @@ async function executeOnce(
   if (!outcome.ok)
     throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);
   const next = outcome.mutation.state;
-  const roundRef = await persistRoomMutation(
-    tx,
-    outcome.mutation,
-    input.roundId,
-    now,
-    true,
-  );
+  // Admission, allowance and capture below all name the Round by this id.
+  if (outcome.mutation.freeze && next.roundRef?.id !== input.roundId)
+    throw createAppError(
+      'INVARIANT',
+      'A Start round names the Round its command carries',
+    );
+  const roundRef = await persistRoomMutation(tx, outcome.mutation, now, true);
   await reserveBotFreeze(
     tx,
     outcome.mutation,

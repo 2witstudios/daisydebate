@@ -110,6 +110,7 @@ const withBotRoom = (
           state: {
             ...state,
             status: 'started',
+            roundRef: { id: roundId, status: 'active' },
             version: state.version + 1,
             changeVersion: state.changeVersion + 1,
           },

@@ -87,7 +87,14 @@ export function createRoundRuntime(input: {
 }): RoundRuntime {
   const rules = input.rules;
   assertAttendanceRules(rules);
-  let store: RoundStore = createRoundStore(normalizeRoundClock(input));
+  const hydrated = normalizeRoundClock(input);
+  // The stored stage is a projection of the clock; one that disagrees is corruption.
+  if (input.round.currentStage !== stageOf(hydrated, rules.segments.length))
+    throw createInvariantError(
+      debateInvariantIds.stageMatchesClock,
+      'The stored stage is not the one the Round clock derives',
+    );
+  let store: RoundStore = createRoundStore(hydrated);
   const segmentIds = new Map(
     input.segments.map((row) => [row.sequence, row.id]),
   );

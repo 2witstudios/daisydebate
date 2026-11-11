@@ -1,6 +1,6 @@
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { ActiveRoomFacts } from '@daisy/protocol';
+import { roomRoundLinkOf, type ActiveRoomFacts } from '@daisy/protocol';
 import { createRefusal } from '@daisy/errors';
 import { roomActiveMemberships, roomParticipants, rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
@@ -83,11 +83,12 @@ export async function activeRoomFacts(
   if (!row) return null;
   return {
     room: { id: row.id, title: row.title, hostActorId: row.hostActorId },
-    status: row.status,
-    roundRef:
+    ...roomRoundLinkOf(
+      row.status,
       row.roundId !== null && row.roundStatus !== null
         ? { id: row.roundId, status: row.roundStatus }
         : null,
+    ),
     seatRole: row.seatRole,
     debateEnded: row.finalSegmentEndedAt !== null,
   };

@@ -85,6 +85,7 @@ export {
   attendancePolicy,
   requireAttendanceWindow,
   adjudicateAttendance,
+  adjudicationFactOf,
   onTimeSpeakerReceipt,
   resolutionCutoffOf,
 } from './attendance';

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { idSchema, type DebateRole } from './primitives';
-import type { RoomAssemblyState } from './room-contract';
+import type { RoomRoundLink } from './room-contract';
 
 /**
  * Where a user's one active Room stands (ADR 0070): still assembling, ready
@@ -10,11 +10,12 @@ const activeRoomPhases = ['assembling', 'ready', 'live'] as const;
 export type ActiveRoomPhase = (typeof activeRoomPhases)[number];
 
 /** The page that holds a member: the Room while it assembles, then its Round's room. */
-export const activeRoomHref = (input: {
-  readonly phase: ActiveRoomPhase;
-  readonly roomId: string;
-  readonly roundId: string | null;
-}): string =>
+export const activeRoomHref = (
+  input: { readonly roomId: string } & (
+    | { readonly phase: 'assembling' | 'ready'; readonly roundId: null }
+    | { readonly phase: 'live'; readonly roundId: string }
+  ),
+): string =>
   input.phase === 'live'
     ? `/rounds/${input.roundId}/room`
     : `/rooms/${input.roomId}`;
@@ -44,7 +45,7 @@ export const activeRoomReadSchema = z.strictObject({
 });
 
 /** Portable facts of the one Room an actor's membership names, supplied by the durable adapter. */
-export type ActiveRoomFacts = Pick<RoomAssemblyState, 'status' | 'roundRef'> & {
+export type ActiveRoomFacts = RoomRoundLink & {
   readonly room: {
     readonly id: string;
     readonly title: string;

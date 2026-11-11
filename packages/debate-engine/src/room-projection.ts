@@ -1,6 +1,11 @@
 import { seatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
-import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
+import type {
+  RoomAssemblyState,
+  RoomConsent,
+  RoomRoundLink,
+  RoomView,
+} from '@daisy/protocol';
 import {
   freezeRoomConfig,
   freezeRoomExecutionPlan,
@@ -78,6 +83,31 @@ const roomKnownTo = (
       };
 
 /**
+ * The status and Round one viewer reads, as the one state the contract holds.
+ * Only the host and the seated learn the Round here: anyone else learns of a
+ * live Round from the spectator timeline alone.
+ */
+const roundLinkFor = (
+  room: RoomAssemblyState,
+  actorId: string,
+): RoomRoundLink => {
+  const own =
+    room.hostActorId === actorId ||
+    room.participants.some((p) => p.actorId === actorId);
+  switch (room.status) {
+    case 'assembling':
+    case 'ready':
+      return { status: room.status, roundRef: null };
+    case 'started':
+      return own
+        ? { status: room.status, roundRef: room.roundRef }
+        : { status: 'closed', roundRef: null };
+    case 'closed':
+      return { status: room.status, roundRef: own ? room.roundRef : null };
+  }
+};
+
+/**
  * Server projection: consumers never infer startability or consent from
  * local device state. Every field is built explicitly — nothing internal is
  * spread — so a host list cannot ride along.
@@ -107,6 +137,7 @@ export function projectRoom(
     ? room.config.resolutionDraw.source
     : null;
   return {
+    ...roundLinkFor(room, actorId),
     id: room.id,
     version: room.version,
     changeVersion: room.changeVersion,
@@ -124,7 +155,6 @@ export function projectRoom(
     watchRoundId: null,
     // The Room read fills these in for its viewer (ADR 0124).
     invitations: [],
-    status: room.status,
     formatId: room.formatId,
     formatVersion: room.formatVersion,
     presetVersion: room.presetVersion,
@@ -196,12 +226,6 @@ export function projectRoom(
       : { debater: 0, judge: 0 },
     capabilities: roomCapabilities(room, actorId, blocker),
     startRefusal: blocker,
-    // A non-participant learns of a live Round only from the spectator timeline.
-    roundRef:
-      room.hostActorId === actorId ||
-      room.participants.some((p) => p.actorId === actorId)
-        ? room.roundRef
-        : null,
   };
 }
 

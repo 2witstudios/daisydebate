@@ -75,7 +75,13 @@ export const availabilityRecoveryPolicy = {
   maxSampleGapMs: 2000,
 } as const;
 
-/** One stored decision, in the shape its evidence allows. */
+/**
+ * One stored decision, in the shape its evidence allows: the row
+ * `round_attendance_adjudications_evidence_check` constrains. It holds what only
+ * the decision knows. A forfeit's winner is the Round's outcome, written by the
+ * same transaction, and an on-time receipt's instant is on the receipt it names,
+ * so neither is stored twice.
+ */
 const attendanceAdjudicationFactSchema = z.discriminatedUnion('evidence', [
   z.object({
     segmentId: z.string(),
@@ -96,6 +102,10 @@ const attendanceAdjudicationFactSchema = z.discriminatedUnion('evidence', [
     decision: z.literal('abandoned'),
   }),
 ]);
+
+export type AttendanceAdjudicationFact = z.infer<
+  typeof attendanceAdjudicationFactSchema
+>;
 
 /** What the attendance ledger holds for one Round, read for the engine's settlement rule. */
 export const attendanceLedgerFactsSchema = z.object({

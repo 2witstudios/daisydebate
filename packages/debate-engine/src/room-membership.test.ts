@@ -1,8 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomAssemblyState } from '@daisy/protocol';
-import { executeRoomCommand } from './room-assembly';
+import { isRoomRoundLink, type RoomAssemblyState } from '@daisy/protocol';
+import { executeRoomCommand, projectRoom } from './room-assembly';
 import { activeRoomMembers, projectActiveRoom } from './room-membership';
-import { consent, edges, state } from './room-assembly.test-support';
+import { consent, edges, started, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 
@@ -19,11 +19,7 @@ const bot = {
 };
 const withRound = (
   status: 'opening' | 'active' | 'completed' | 'abandoned',
-): RoomAssemblyState => ({
-  ...state(),
-  status: 'started',
-  roundRef: { id: 'round', status },
-});
+): RoomAssemblyState => started(state(), status);
 
 describe('one active Room per user', () => {
   test('an open or live Room holds its host and seated humans, never a bot', () => {
@@ -71,7 +67,7 @@ describe('one active Room per user', () => {
 describe('Launch', () => {
   test('starting the Round keeps every member held while it is live', () => {
     const room = state();
-    const started = executeRoomCommand(
+    const launched = executeRoomCommand(
       room,
       'host',
       {
@@ -84,13 +80,20 @@ describe('Launch', () => {
     );
     assert({
       given: 'a ready Room whose host launches its Round',
-      should: 'freeze it started with the host and guest still members',
-      actual: started.ok && [
-        started.mutation.state.status,
-        started.mutation.freeze,
-        started.mutation.members,
+      should:
+        'freeze it started, naming the Round it launches, with the host and guest still members',
+      actual: launched.ok && [
+        launched.mutation.state.status,
+        launched.mutation.state.roundRef,
+        launched.mutation.freeze,
+        launched.mutation.members,
       ],
-      expected: ['started', true, ['host', 'other']],
+      expected: [
+        'started',
+        { id: 'new-round', status: 'active' },
+        true,
+        ['host', 'other'],
+      ],
     });
   });
 });
@@ -269,6 +272,150 @@ describe('my active Room', () => {
         projectActiveRoom({ ...facts, status: 'assembling' }, 'other'),
       ],
       expected: [null, null, null, null],
+    });
+  });
+});
+
+describe('a started Room and its Round', () => {
+  const start = (room: RoomAssemblyState) =>
+    executeRoomCommand(
+      room,
+      'host',
+      {
+        type: 'start-round',
+        commandId: 'start',
+        expectedVersion: room.version,
+      },
+      consent,
+      edges,
+    );
+  const prepFirst = (): RoomAssemblyState => {
+    const room = state();
+    return {
+      ...room,
+      executionPlan: {
+        ...room.executionPlan,
+        preRoundPrep: { enabled: true, durationMs: 60_000 },
+      },
+    };
+  };
+
+  test('Start round names the Round it launches, in the status it launches in', () => {
+    const [plain, prepared] = [start(state()), start(prepFirst())];
+    assert({
+      given:
+        'a Start round with nothing to run first, and one with pre-round prep',
+      should:
+        'name an active Round, and an opening one, under the id the adapter inserts it with',
+      actual: [plain, prepared].map(
+        (outcome) => outcome.ok && outcome.mutation.state.roundRef,
+      ),
+      expected: [
+        { id: 'new-round', status: 'active' },
+        { id: 'new-round', status: 'opening' },
+      ],
+    });
+  });
+
+  test('the member read and the membership rule agree on every Room', () => {
+    const facts = (room: RoomAssemblyState, debateEnded = false) => ({
+      ...room,
+      room: { id: 'r'.repeat(24), title: room.title, hostActorId: 'host' },
+      seatRole: null,
+      debateEnded,
+    });
+    const rooms = [
+      state(),
+      { ...state(), status: 'assembling' as const },
+      started(state(), 'opening'),
+      started(state(), 'active'),
+      started(state(), 'completed'),
+      started(state(), 'abandoned'),
+      { ...state(), status: 'closed' as const },
+      { ...started(state(), 'completed'), status: 'closed' as const },
+    ];
+    assert({
+      given: 'every Room status with every Round it can name, read by its host',
+      should:
+        'hold its members exactly when the host reads an active Room, a live one at its Round',
+      actual: rooms.map((room) => [
+        activeRoomMembers(room).length > 0,
+        projectActiveRoom(facts(room), 'host')?.href ?? null,
+      ]),
+      expected: [
+        [true, `/rooms/${'r'.repeat(24)}`],
+        [true, `/rooms/${'r'.repeat(24)}`],
+        [true, '/rounds/round/room'],
+        [true, '/rounds/round/room'],
+        [false, null],
+        [false, null],
+        [false, null],
+        [false, null],
+      ],
+    });
+    assert({
+      given: 'a started Room whose Round is active and its last speech ended',
+      should: 'hold no one in either',
+      actual: [
+        activeRoomMembers({ ...started(state()), debateEnded: true }),
+        projectActiveRoom(facts(started(state()), true), 'host'),
+      ],
+      expected: [[], null],
+    });
+  });
+});
+
+describe('a viewer reads a Room and its Round as one state', () => {
+  test('only its own people learn a started Room and its Round', () => {
+    const rooms = [
+      state(),
+      started(state(), 'opening'),
+      started(state(), 'completed'),
+      { ...state(), status: 'closed' as const },
+      { ...started(state()), status: 'closed' as const },
+    ];
+    const read = (room: RoomAssemblyState, actorId: string) => {
+      const view = projectRoom(room, actorId, consent, edges.now);
+      return [
+        `${view.status}/${view.roundRef?.status ?? '-'}`,
+        isRoomRoundLink(view),
+      ];
+    };
+    assert({
+      given:
+        'an open, a started and a closed Room, read by its host, a seated member and an outsider',
+      should:
+        'give its own people the Round a started or closed Room names, an outsider a closed Room with none, and always a pair the contract holds',
+      actual: rooms.map((room) =>
+        ['host', 'other', 'outsider'].map((actorId) => read(room, actorId)),
+      ),
+      expected: [
+        [
+          ['ready/-', true],
+          ['ready/-', true],
+          ['ready/-', true],
+        ],
+        [
+          ['started/opening', true],
+          ['started/opening', true],
+          ['closed/-', true],
+        ],
+        [
+          ['started/completed', true],
+          ['started/completed', true],
+          ['closed/-', true],
+        ],
+        [
+          ['closed/-', true],
+          ['closed/-', true],
+          ['closed/-', true],
+        ],
+        [
+          ['closed/active', true],
+          ['closed/active', true],
+          ['closed/-', true],
+        ],
+      ],
     });
   });
 });

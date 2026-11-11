@@ -6,8 +6,10 @@ import type {
   RoomAssemblyState,
   RoomCommand,
   RoomConsent,
+  RoomExecutionPlan,
   RoomMutationOutcome,
   RoomRefusal,
+  RunningRoundStatus,
 } from '@daisy/protocol';
 
 import { startBlocker, type Edges } from './room-assembly-facts';
@@ -16,6 +18,11 @@ const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
 });
+/** A Round with a draw or pre-round prep to run opens first; with neither it starts at Start round. */
+const launchedRoundStatus = (plan: RoomExecutionPlan): RunningRoundStatus =>
+  plan.resolutionDraw.enabled || plan.preRoundPrep.enabled
+    ? 'opening'
+    : 'active';
 export const ready = (
   room: RoomAssemblyState,
   actorId: string,
@@ -75,7 +82,15 @@ export const startRound = (
     : null;
   if (room.executionPlan.resolutionDraw.enabled && !draw)
     return refuse('draw-unavailable');
-  const next: RoomAssemblyState = { ...room, status: 'started' };
+  // A started Room names its Round from the transition that starts it.
+  const next: RoomAssemblyState = {
+    ...room,
+    status: 'started',
+    roundRef: {
+      id: edges.roundId,
+      status: launchedRoundStatus(room.executionPlan),
+    },
+  };
   return acceptedRoomMutation(next, {
     draw,
     freeze: true,

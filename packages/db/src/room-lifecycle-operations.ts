@@ -106,7 +106,7 @@ export const roomLifecycleOperations = ({
           now,
         });
         if (!outcome) return false;
-        await persistRoomMutation(tx, outcome.mutation, '', now, false);
+        await persistRoomMutation(tx, outcome.mutation, now, false);
         await appendRoomChanged(
           tx,
           input.roomId,

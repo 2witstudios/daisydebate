@@ -356,6 +356,8 @@ export function createRoomRuntimeOperations({
                 {
                   now,
                   participantId: seat.participantId,
+                  // Seating launches no Round and publishes no format.
+                  roundId: '',
                   formatId: '',
                   hostMaySeatCasualAiJudge: maySeatCasualAiJudge,
                   // Seating never reads this; only set-capture and Launch do.

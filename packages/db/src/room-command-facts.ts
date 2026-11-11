@@ -8,7 +8,11 @@ import type {
 } from '@daisy/protocol';
 import { buildRoomTopic } from '@daisy/protocol';
 import { botDifficulties } from '@daisy/protocol';
-import { idSchema, roomSeatKindSchema } from '@daisy/protocol';
+import {
+  idSchema,
+  roomRoundLinkOf,
+  roomSeatKindSchema,
+} from '@daisy/protocol';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { authorizationAccountFact } from './authorization-account';
 import {
@@ -230,7 +234,6 @@ const hydrateRoom = async (
     hostActorId: row.hostActorId,
     hostInherited: row.hostInherited,
     hostLabel: host?.label ?? '',
-    status: row.status,
     formatId: row.formatId,
     formatVersion: row.formatVersion,
     presetVersion: row.presetVersion,
@@ -247,7 +250,10 @@ const hydrateRoom = async (
     executionPlan: row.executionPlan,
     rules: row.rulesSnapshot,
     participants,
-    roundRef: round ? { id: round.id, status: round.status } : null,
+    ...roomRoundLinkOf(
+      row.status,
+      round ? { id: round.id, status: round.status } : null,
+    ),
   };
 };
 export const lockCommand = (tx: Tx, commandId: string) =>

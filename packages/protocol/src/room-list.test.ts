@@ -114,6 +114,61 @@ test('Lobby filters and discovery facts are a closed grammar', () => {
   });
 });
 
+test('a listed Room names its Round exactly once it has started', () => {
+  const live = {
+    id: 'a'.repeat(24),
+    version: 1,
+    title: 'Room',
+    topic: 'Topic',
+    visibility: 'public',
+    hostActorId: 'b'.repeat(24),
+    hostLabel: 'Host',
+    status: 'started',
+    competitionType: 'ranked',
+    seated: false,
+    roundRef: { id: 'c'.repeat(24), status: 'active' },
+    formatLabel: 'Foundation',
+    seatsTaken: 3,
+    seatCount: 3,
+    waitingSince: null,
+    live: { stage: 'live', startedAt: '2026-10-09T00:00:00.000Z' },
+    hostRating: null,
+  };
+  const open = {
+    ...live,
+    status: 'ready',
+    roundRef: null,
+    live: null,
+    waitingSince: '2026-10-09T00:00:00.000Z',
+  };
+  const listed = (room: unknown) =>
+    roomListPageSchema.safeParse({
+      rooms: [room],
+      nextCursor: null,
+      retry: false,
+    }).success;
+  assert({
+    given: 'a started Room with its Round, and an open Room waiting',
+    should: 'accept both',
+    actual: [listed(live), listed(open)],
+    expected: [true, true],
+  });
+  assert({
+    given:
+      'a started Room with no Round, with no live facts or still waiting; an open Room naming a Round, carrying live facts or not waiting',
+    should: 'refuse each',
+    actual: [
+      listed({ ...live, roundRef: null }),
+      listed({ ...live, live: null }),
+      listed({ ...live, waitingSince: open.waitingSince }),
+      listed({ ...open, roundRef: live.roundRef }),
+      listed({ ...open, live: live.live }),
+      listed({ ...open, waitingSince: null }),
+    ],
+    expected: [false, false, false, false, false, false],
+  });
+});
+
 test('Lobby sort is a closed server-side query contract', () => {
   assert({
     given: 'oldest and newest orders, then unknown and repeated sorts',

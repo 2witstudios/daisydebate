@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { resolutionCategories } from '@daisy/protocol/resolution-draw';
-import { isOpenRoomStatus } from '@daisy/protocol';
+import { isOpenRoom, isOpenRoomStatus } from '@daisy/protocol';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -112,8 +112,7 @@ export function executeRoomCommand(
     draw,
   } = outcome.mutation;
   if (edit) next = afterEdit(room, next);
-  if (isOpenRoomStatus(next.status))
-    next = { ...next, status: assembledStatus(next) };
+  if (isOpenRoom(next)) next = { ...next, status: assembledStatus(next) };
   next = { ...next, changeVersion: room.changeVersion + 1 };
   if (!topicInvariantHolds(next))
     throw createAppError(
@@ -164,9 +163,7 @@ export const eraseSeats = (
       .filter((p) => p.actorId === actorId)
       .reduce((held, seat) => removeSeat(held, seat.id), room),
   );
-  return isOpenRoomStatus(next.status)
-    ? { ...next, status: assembledStatus(next) }
-    : next;
+  return isOpenRoom(next) ? { ...next, status: assembledStatus(next) } : next;
 };
 
 /**

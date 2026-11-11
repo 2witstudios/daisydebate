@@ -1,5 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
-import { setupRitewayBun, test } from 'riteway/bun';
+import { attendanceLedgerFactsSchema } from '@daisy/protocol';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { adjudicationFactOf, type AttendanceDecision } from './attendance';
 import { requireAttendanceDecision } from './attendance-decision';
 setupRitewayBun();
 const input = {
@@ -31,6 +33,7 @@ const forfeit = {
   decision: 'forfeit' as const,
   winner: 'negative' as const,
   effectiveDeadlineMs: 40000,
+  settledHorizonMs: 45000,
 };
 test('attendance application guards reject unsettled timestamps finalized windows and excluded segments', async () => {
   for (const [facts, id] of [
@@ -96,5 +99,70 @@ test('an on-time receipt decision needs the exact receipt and no settled history
       requireAttendanceDecision(facts, { ...credited, receivedAtMs: 39999 }),
     code: 'INVARIANT',
     invariantId: 'debate.adjudication.timestamp-decides',
+  });
+});
+
+test('every decision is recorded as the one fact its evidence stores', () => {
+  const instant = (atMs: number) => `at ${atMs}`;
+  const settled = {
+    evidence: 'settled_availability',
+    effectiveDeadlineMs: 40000,
+    settledHorizonMs: 45000,
+  } as const;
+  const decisions: readonly AttendanceDecision[] = [
+    {
+      evidence: 'on_time_receipt',
+      decision: 'attended',
+      participantId: 'a',
+      receivedAtMs: 40000,
+    },
+    { ...settled, decision: 'attended' },
+    { ...settled, decision: 'none' },
+    { ...settled, decision: 'abandoned' },
+    forfeit,
+    { evidence: 'resolution_cutoff', decision: 'abandoned' },
+  ];
+  const facts = decisions.map((decision) =>
+    adjudicationFactOf('segment', decision, instant),
+  );
+  const stores = { effectiveDeadline: 'at 40000', settledHorizon: 'at 45000' };
+  assert({
+    given: 'each decision the engine can reach',
+    should:
+      'store the deadline and horizon of settled evidence, the participant of an on-time receipt, and neither a winner nor a receipt time',
+    actual: facts,
+    expected: [
+      {
+        segmentId: 'segment',
+        evidence: 'on_time_receipt',
+        decision: 'attended',
+        receiptParticipantId: 'a',
+      },
+      ...(['attended', 'none', 'abandoned', 'forfeit'] as const).map(
+        (decision) => ({
+          segmentId: 'segment',
+          evidence: 'settled_availability' as const,
+          decision,
+          ...stores,
+        }),
+      ),
+      {
+        segmentId: 'segment',
+        evidence: 'resolution_cutoff',
+        decision: 'abandoned',
+      },
+    ],
+  });
+  assert({
+    given: 'those facts, read back as the ledger reads them',
+    should: 'parse as stored adjudications, unchanged',
+    actual: attendanceLedgerFactsSchema.parse({
+      ruleSegments: [],
+      speeches: [],
+      adjudications: facts,
+      receipts: [],
+      pendingWriter: false,
+    }).adjudications,
+    expected: facts,
   });
 });

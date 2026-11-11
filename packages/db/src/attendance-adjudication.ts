@@ -1,28 +1,14 @@
 import { CryptoHasher } from 'bun';
 import { createAppError } from '@daisy/errors';
-import type { RoundProjection } from '@daisy/protocol';
+import type {
+  AttendanceAdjudicationFact,
+  RoundProjection,
+} from '@daisy/protocol';
 
-/** One durable decision, in the shape its evidence allows. */
-export type AttendanceResolution = {
-  readonly segmentId: string;
+/** One durable decision: the fact the ledger stores, with the Round projection a competitive one carries. */
+export type AttendanceResolution = AttendanceAdjudicationFact & {
   readonly projection: RoundProjection | null;
-} & (
-  | {
-      readonly evidence: 'settled_availability';
-      readonly decision: 'attended' | 'none' | 'forfeit' | 'abandoned';
-      readonly effectiveDeadline: string;
-      readonly settledHorizon: string;
-    }
-  | {
-      readonly evidence: 'on_time_receipt';
-      readonly decision: 'attended';
-      readonly receiptParticipantId: string;
-    }
-  | {
-      readonly evidence: 'resolution_cutoff';
-      readonly decision: 'abandoned';
-    }
-);
+};
 
 type AttendanceSegment = {
   readonly id: string;

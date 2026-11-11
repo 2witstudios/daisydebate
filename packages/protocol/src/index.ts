@@ -131,6 +131,7 @@ export type {
 export type {
   CompetitionType,
   RoundStatus,
+  RunningRoundStatus,
   OverRoundStatus,
   RoundStage,
   RuntimeCheckpoint,
@@ -245,7 +246,10 @@ export {
   roomSeatKindSchema,
   seatKindOf,
   freeSeatsOf,
+  isOpenRoom,
   isOpenRoomStatus,
+  isRoomRoundLink,
+  roomRoundLinkOf,
   openRoomStatuses,
   roomCreateSchema,
   roomCommandSchema,
@@ -289,7 +293,9 @@ export type {
   MessagingSocialBounds,
 } from './messaging/social';
 export type {
+  OpenRoomStatus,
   RoomAssemblyState,
+  RoomRoundLink,
   RoomSeatHold,
   RoomSeatKind,
   RoomConsent,
@@ -557,6 +563,7 @@ export type {
 } from './round-panel-completion';
 export {
   attendanceLedgerFactsSchema,
+  type AttendanceAdjudicationFact,
   type AttendanceLedgerFacts,
 } from './attendance';
 export { attendanceRoundReadSchema } from './attendance';

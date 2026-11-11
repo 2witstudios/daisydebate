@@ -1,4 +1,8 @@
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type {
+  OpenRoomStatus,
+  RoomAssemblyState,
+  RoundStatus,
+} from '@daisy/protocol';
 import { plainRoomConfig } from '@daisy/protocol/testing';
 const rules = {
   version: 2 as const,
@@ -28,7 +32,20 @@ const rules = {
     interruptions: { allowed: 'disabled' as const },
   },
 };
-export const state = (): RoomAssemblyState => ({
+/** A Room still gathering its players: it has launched no Round. */
+type OpenRoom = Extract<RoomAssemblyState, { readonly roundRef: null }> & {
+  readonly status: OpenRoomStatus;
+};
+/** That Room once started: a started Room always names its Round. */
+export const started = (
+  room: RoomAssemblyState,
+  status: RoundStatus = 'active',
+): RoomAssemblyState => ({
+  ...room,
+  status: 'started',
+  roundRef: { id: 'round', status },
+});
+export const state = (): OpenRoom => ({
   id: 'room',
   version: 4,
   changeVersion: 1,
@@ -107,6 +124,7 @@ export const state = (): RoomAssemblyState => ({
 export const edges = {
   now: '2026-10-09T00:00:00.000Z',
   participantId: 'new-seat',
+  roundId: 'new-round',
   formatId: 'new-format',
   target: null,
   hostMaySeatCasualAiJudge: true,

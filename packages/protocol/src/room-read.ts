@@ -7,7 +7,7 @@ import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
 import { roomCaptureSchema } from './room-capture';
 import { competitionTypes, roundStatusSchema } from './round';
 import { formatStandingSchema } from './format-standing';
-import { roomStatuses } from './room-contract';
+import { isRoomRoundLink, roomStatuses } from './room-contract';
 import { roomInvitationViewSchema } from './room-invitations';
 const version = z.int().positive();
 const visibility = z.enum(['public', 'unlisted', 'private']);
@@ -76,7 +76,7 @@ export const roomRefusalSchema = z.enum([
   'capture-notice-changed',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
-export const roomViewSchema = z.strictObject({
+const roomViewFields = z.strictObject({
   id: idSchema,
   version,
   changeVersion: version,
@@ -206,6 +206,19 @@ export const roomViewSchema = z.strictObject({
   startRefusal: roomRefusalSchema.nullable(),
   roundRef,
 });
+/**
+ * One viewer's Room. Its status and its Round agree: an open Room has launched
+ * none and a started Room names its Round. The parsed type stays the plain
+ * shape, because the Room page keeps a finished Round beside a view it re-reads.
+ */
+export const roomViewSchema = roomViewFields.refine(
+  (view): boolean => isRoomRoundLink(view),
+  {
+    message: 'A Room names a Round exactly once it has started',
+    path: ['roundRef'],
+  },
+);
+
 /**
  * One format the picker offers (FMT-1): a Daisy standard or a league
  * template at its current revision and canonical preset. Structure only
