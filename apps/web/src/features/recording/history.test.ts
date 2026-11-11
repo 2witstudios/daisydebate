@@ -15,6 +15,7 @@ import {
   type HistoryRound,
 } from './history';
 import type { RecordingJobState } from '@daisy/protocol';
+import type { RoundCoverageFacts } from './coverage-statement';
 
 setupRitewayBun();
 
@@ -76,9 +77,11 @@ const open = (
     transcript?: HistoryInputs['readTranscript'];
     viewer?: RecordingViewer;
     q?: string;
+    facts?: RoundCoverageFacts;
   } = {},
 ) => {
   const calls: string[] = [];
+  const coverageReads: string[] = [];
   const inputs: HistoryInputs = {
     readHistoryRound: async () => ({ ...round, ...over.round }),
     readBroadcastRelease: async () =>
@@ -97,6 +100,12 @@ const open = (
       return ballots;
     },
     holdsRecordingDownload: async () => over.subscribed ?? false,
+    readCoverageFacts: async (roundId) => {
+      coverageReads.push(roundId);
+      return (
+        over.facts ?? { segments: [], prepStartsAtMs: [], rotationsAtMs: [] }
+      );
+    },
     readJobState: async () => over.job ?? null,
     nowMs: () => over.nowMs ?? Date.parse(at),
     findRecordingByRound: async () =>
@@ -112,7 +121,7 @@ const open = (
     roundId: 'round',
     viewer: over.viewer ?? visitor,
     q: over.q ?? '',
-  }).then((screen) => ({ screen, calls }));
+  }).then((screen) => ({ screen, calls, coverageReads }));
 };
 
 const history = async (over: Parameters<typeof open>[0] = {}) => {
@@ -165,6 +174,65 @@ describe('media state', () => {
         ],
       });
     }
+  });
+});
+
+describe('coverage of a stored Recording', () => {
+  test('states turnovers and prep stored as not public against the Round', async () => {
+    const from = Date.parse(at);
+    const { media, coverageReads } = await open({
+      lifecycle: {
+        ...ready,
+        media: {
+          ...ready.media,
+          gaps: [
+            { startMs: 20_015, endMs: 31_500, reason: 'not_public' },
+            { startMs: 40_000, endMs: 52_500, reason: 'not_public' },
+          ],
+        },
+      },
+      facts: {
+        segments: [
+          { startedAtMs: from, endedAtMs: from + 20_000 },
+          { startedAtMs: from + 30_000, endedAtMs: from + 40_000 },
+          { startedAtMs: from + 50_000, endedAtMs: from + 60_000 },
+        ],
+        prepStartsAtMs: [from + 40_000],
+        rotationsAtMs: [],
+      },
+    }).then(({ screen, coverageReads }) => {
+      if (screen.kind !== 'history') throw new Error('expected history');
+      return { media: screen.media, coverageReads };
+    });
+    assert({
+      given: 'a ready Recording stored before turnovers were explained',
+      should: 'show the turnover as between speeches and the prep as private',
+      actual: [media.state === 'watch' && media.gaps, coverageReads],
+      expected: [
+        [
+          { startMs: 20_015, endMs: 31_500, reason: 'between_speeches' },
+          { startMs: 40_000, endMs: 52_500, reason: 'private_phase' },
+        ],
+        ['round'],
+      ],
+    });
+  });
+
+  test('reads the Round only for a video this viewer may watch', async () => {
+    const none = await open({ lifecycle: null });
+    const withheld = await open({
+      release: {
+        releasedThroughMs: Number.MAX_SAFE_INTEGER,
+        stop: 'media_withheld',
+      },
+      viewer: { kind: 'account', userId: 'u', actorId: 'stranger' },
+    });
+    assert({
+      given: 'no Recording, or a video withheld from this viewer',
+      should: "not read the Round's coverage",
+      actual: [none.coverageReads, withheld.coverageReads],
+      expected: [[], []],
+    });
   });
 });
 

@@ -41,12 +41,19 @@ const objectKey = z
   .max(512)
   .refine((key) => !key.split('/').includes('..'));
 
-/** A stretch of the video no media covers, stated rather than hidden. */
+/**
+ * A stretch of the video that shows something other than the debate, stated rather
+ * than hidden. `capture_restart`, `room_rotation` and `not_public` (history does not
+ * explain it) are debate lost. `private_phase` is withheld by design, and
+ * `between_speeches` is the stage's slate from one speech's end to the next one's
+ * opening, the counterpart of the stage's `between`: neither is debate lost.
+ */
 const coverageGapSchema = z.strictObject({
   startMs: offsetMs,
   endMs: offsetMs,
   reason: z.enum([
     'private_phase',
+    'between_speeches',
     'room_rotation',
     'capture_restart',
     'not_public',

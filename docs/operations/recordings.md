@@ -132,12 +132,21 @@ uncaptured, and the debate is untouched. Raise `CASUAL_CAPTURES_AT_ONCE` with th
 
 ## Coverage
 
-`media.gaps` states what the video shows as something other than the debate, and the
-player lists it: a capture restart (`capture_restart`), anything committed Round
-history does not prove public (`not_public`, ADR 0099), a private phase, which is the stage's slate
-(`private_phase`), and a room rotation (`room_rotation`), stated at an estimated 5 seconds.
-`media.unrecorded` states debate the video never reached: a late start, an early end, or the
-rest of a Round whose Broadcast was stopped.
+`media.gaps` states what the video shows as something other than the debate. Debate lost
+is a capture restart (`capture_restart`), a room rotation (`room_rotation`), stated at an
+estimated 5 seconds, and anything committed Round history neither proves public nor
+explains (`not_public`, ADR 0099). The player lists these, and `media.unrecorded`, under
+"Parts of this debate were not recorded". `media.unrecorded` is debate the video never
+reached: a late start, an early end, or the rest of a Round whose Broadcast was stopped.
+A private phase, which is the stage's slate (`private_phase`), is withheld by design, and
+the player shows it on its own line as kept private. The slate from one speech's end to
+2.5 s into the next (`between_speeches`) holds no debate, and the player does not list it.
+
+The worker marks every jump between public pieces `not_public`. The capture port, and the
+history page for a Recording already stored, split each one against the Round's segments
+and prep (`explainGaps` in `coverage-statement.ts`). A Recording built before that split
+shows correctly without a rebuild or a data change. A `not_public` gap on the list is a
+real question: it is a stretch inside a speech that history does not prove public.
 
 ## Takedown
 

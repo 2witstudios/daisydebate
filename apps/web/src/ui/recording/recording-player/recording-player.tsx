@@ -7,6 +7,9 @@ import { StreamVideo } from '../../spectating/stream-video';
 import {
   clockTime,
   gapCopy,
+  lostGaps,
+  privateCopy,
+  privateGaps,
   RECORDING_SPEEDS,
   unrecordedCopy,
 } from './recording-player-copy';
@@ -15,8 +18,9 @@ type Watchable = Extract<RecordingMediaPanel, { state: 'watch' }>;
 
 /**
  * A Recording on the one player, with what a replay adds: speed, a speech timeline
- * that seeks, and a plain statement of anything the video does not hold. Seeking
- * and volume are the browser's own controls.
+ * that seeks, and a plain statement of any debate the video does not hold, apart
+ * from what is kept private by design. The slate between speeches is not listed.
+ * Seeking and volume are the browser's own controls.
  */
 export function RecordingPlayer({ media }: { readonly media: Watchable }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -26,6 +30,8 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
   };
   if (failed)
     return <StateCard icon="alert" title="This video could not be played" />;
+  const lost = lostGaps(media.gaps);
+  const kept = privateGaps(media.gaps);
   return (
     <div className="flex flex-col gap-3">
       <StreamVideo
@@ -55,7 +61,7 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
           ))}
         </select>
       </label>
-      {media.gaps.length > 0 || media.unrecorded.length > 0 ? (
+      {lost.length > 0 || media.unrecorded.length > 0 ? (
         <section
           aria-label="Missing from this recording"
           className="flex flex-col gap-1 rounded-md border border-border bg-surface p-3 text-sm"
@@ -67,11 +73,14 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
             {media.unrecorded.map((part) => (
               <li key={part.part}>{unrecordedCopy(part)}</li>
             ))}
-            {media.gaps.map((gap) => (
+            {lost.map((gap) => (
               <li key={gap.startMs}>{gapCopy(gap)}</li>
             ))}
           </ul>
         </section>
+      ) : null}
+      {kept.length > 0 ? (
+        <p className="text-sm text-ink-muted">{privateCopy(kept)}</p>
       ) : null}
       {media.speeches.length > 0 ? (
         <nav aria-label="Speech timeline">

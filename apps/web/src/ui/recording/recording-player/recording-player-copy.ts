@@ -17,15 +17,38 @@ export const clockTime = (ms: number): string => {
     : `${minutes}:${seconds}`;
 };
 
-const WHY: Readonly<Record<Gap['reason'], string>> = {
+/** Debate that happened and is not in the video. */
+type LostGap = Gap & {
+  readonly reason: 'capture_restart' | 'room_rotation' | 'not_public';
+};
+type PrivateGap = Gap & { readonly reason: 'private_phase' };
+
+const WHY: Readonly<Record<LostGap['reason'], string>> = {
   capture_restart: 'recording stopped and restarted',
-  not_public: 'between speeches, or not known to be public, so left out',
-  private_phase: 'a private part of the debate',
+  not_public: 'not known to be public, so left out',
   room_rotation: 'the room changed over',
 };
 
-export const gapCopy = (gap: Gap): string =>
-  `${clockTime(gap.startMs)} to ${clockTime(gap.endMs)}: ${WHY[gap.reason]}`;
+const isLost = (gap: Gap): gap is LostGap => gap.reason in WHY;
+
+/**
+ * What the "not recorded" list names. A private phase is withheld by design and the
+ * slate between speeches holds no debate, so neither is listed as missing.
+ */
+export const lostGaps = (gaps: readonly Gap[]): readonly LostGap[] =>
+  gaps.filter(isLost);
+
+export const privateGaps = (gaps: readonly Gap[]): readonly PrivateGap[] =>
+  gaps.filter((gap): gap is PrivateGap => gap.reason === 'private_phase');
+
+const span = (gap: Gap) =>
+  `${clockTime(gap.startMs)} to ${clockTime(gap.endMs)}`;
+
+export const gapCopy = (gap: LostGap): string =>
+  `${span(gap)}: ${WHY[gap.reason]}`;
+
+export const privateCopy = (gaps: readonly PrivateGap[]): string =>
+  `Kept private by design, so not shown: ${gaps.map(span).join(', ')}`;
 
 const UNRECORDED: Readonly<Record<Unrecorded['reason'], string>> = {
   late_start: 'recording started late',

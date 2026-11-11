@@ -27,9 +27,11 @@ const SHORTEST_STATED_MS = 1000;
 export const ROOM_ROTATION_DROPOUT_MS = 5000;
 
 /**
- * The first public clip opens after the first speech by design (the public interval's
- * start margin) and the encoder cuts near the last one's end, about a second each
- * way as measured on staging. Debate lost at either end is stated only beyond this.
+ * A speech's public clip opens after its start by design (the public interval's
+ * start-edge stamp lag, ADR 0099: 1300 ms plus 6 ms a minute of capture age) and the
+ * encoder cuts near its end, about a second each way as measured on staging. Debate
+ * lost at either end of the video is stated only beyond this, and a speech's opening
+ * this long belongs to whatever came before it, a turnover or a private phase.
  */
 const EDGE_OF_SPEECH_MS = 2500;
 
@@ -60,11 +62,110 @@ const privateStretches = ({
   ];
 };
 
+/** Pieces of a span inside any window, and the rest of it. */
+const split = (span: Span, windows: readonly Span[]) => {
+  const outside = outsideGaps(span, windows);
+  return { inside: outsideGaps(span, outside), outside };
+};
+
+/**
+ * Where the stage showed its slate by design, as committed history says: each
+ * private stretch, and each turnover from a speech's end to the next one's opening.
+ * Every window runs on through the opening of the speech after it.
+ */
+const slateWindows = (facts: RoundCoverageFacts) => {
+  const opening = (endMs: number) =>
+    endMs === NEVER_MS ? NEVER_MS : endMs + EDGE_OF_SPEECH_MS;
+  const { segments } = facts;
+  return {
+    private: privateStretches(facts).map((span) => ({
+      startMs: span.startMs,
+      endMs: opening(span.endMs),
+    })),
+    between: segments.flatMap((segment, index) => {
+      const next = segments[index + 1];
+      return next && segment.endedAtMs !== null
+        ? [{ startMs: segment.endedAtMs, endMs: opening(next.startedAtMs) }]
+        : [];
+    }),
+  };
+};
+
+/**
+ * The worker knows only what is not proven public. Against the Round's committed
+ * record, each `not_public` gap's stretches inside a private phase are
+ * `private_phase`, and those in a turnover are `between_speeches`: neither is
+ * debate lost. What history does not explain stays `not_public`, and a sliver of
+ * it under a second beside an explained stretch is clock disagreement, told with
+ * that stretch. Every other reason stands. Touching stretches of one reason are
+ * told once. Pure, total and stable: its own answer comes back unchanged, so it
+ * can state a Recording stored before it as well as a new one.
+ */
+export const explainGaps = (
+  gaps: readonly Gap[],
+  facts: RoundCoverageFacts,
+  capturedFromMs: number,
+): readonly Gap[] => {
+  const windows = slateWindows(facts);
+  const inVideo = (spans: readonly Span[]) =>
+    spans.map((span) => ({
+      startMs: span.startMs - capturedFromMs,
+      endMs: span.endMs === NEVER_MS ? NEVER_MS : span.endMs - capturedFromMs,
+    }));
+  const privateInVideo = inVideo(windows.private);
+  const betweenInVideo = inVideo(windows.between);
+  const explained = gaps.flatMap((gap): readonly Gap[] => {
+    if (gap.reason !== 'not_public') return [gap];
+    const privately = split(gap, privateInVideo);
+    const between = privately.outside.map((span) =>
+      split(span, betweenInVideo),
+    );
+    const pieces: Gap[] = [
+      ...privately.inside.map((span) => ({
+        ...span,
+        reason: 'private_phase' as const,
+      })),
+      ...between.flatMap(({ inside }) =>
+        inside.map((span) => ({
+          ...span,
+          reason: 'between_speeches' as const,
+        })),
+      ),
+      ...between.flatMap(({ outside }) =>
+        outside.map((span) => ({ ...span, reason: 'not_public' as const })),
+      ),
+    ].sort((x, y) => x.startMs - y.startMs);
+    return pieces.map((piece, index) => {
+      if (
+        piece.reason !== 'not_public' ||
+        piece.endMs - piece.startMs >= SHORTEST_STATED_MS
+      )
+        return piece;
+      const beside = [pieces[index - 1], pieces[index + 1]].find(
+        (other) => other && other.reason !== 'not_public',
+      );
+      return beside ? { ...piece, reason: beside.reason } : piece;
+    });
+  });
+  return [...explained]
+    .sort((x, y) => x.startMs - y.startMs)
+    .reduce<Gap[]>((told, gap) => {
+      const last = told.at(-1);
+      if (last && last.reason === gap.reason && gap.startMs <= last.endMs)
+        told[told.length - 1] = {
+          ...last,
+          endMs: Math.max(last.endMs, gap.endMs),
+        };
+      else told.push(gap);
+      return told;
+    }, []);
+};
+
 /**
  * What a finished video does not hold, stated against the Round's own record.
- * Capture restarts come from the worker and stand; a dropout or a private phase is
- * stated only where a restart does not already cover it, so no moment is told
- * twice. Debate before the first frame or after the last has no place in the video,
+ * The worker's gaps come first; a dropout or a private phase is stated only where
+ * none already covers it, so no moment is told twice, and the worker's `not_public`
+ * stretches are then explained (`explainGaps`). Debate before the first frame or after the last has no place in the video,
  * so it is stated apart. Pure and total.
  */
 export const coverageStatement = ({
@@ -112,7 +213,7 @@ export const coverageStatement = ({
   const missedAtEnd =
     debateEndMs === null ? 0 : debateEndMs - (startedAtMs + durationMs);
   return {
-    gaps: [...gaps].sort((x, y) => x.startMs - y.startMs),
+    gaps: explainGaps(gaps, facts, startedAtMs),
     unrecorded: [
       ...(missedAtStart >= EDGE_OF_SPEECH_MS
         ? [

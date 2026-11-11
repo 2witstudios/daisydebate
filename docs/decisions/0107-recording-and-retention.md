@@ -78,9 +78,17 @@ Recording never pretends to be continuous. A speech marker claims nothing inside
 port adds to the worker's restarts what the Round's segments, prep and media room rotations
 say the video shows as something else (`coverageStatement`): a private phase, which is the
 stage's slate, and a room rotation, stated at an estimated 5 seconds because no one records
-its end. Debate before the first frame or after the last has no place in video time, so
-`media.unrecorded` states it apart: a late start, an early end, or a stopped Broadcast. The
-worker reads none of this: its login reaches its job table and nothing else.
+its end. The worker knows only what is not proven public, so each of its `not_public` gaps
+is explained against the same record (`explainGaps`): a stretch inside a prep or another
+private phase is `private_phase`, and a turnover, from a segment's end to 2.5 s into the
+next one (the start-edge stamp lag of ADR 0099), is `between_speeches`, the counterpart of
+the stage's `between`. Only what the record does not explain stays `not_public`. The history
+page states a ready Recording's stored gaps the same way when it is watched, so a Recording
+built before this explanation reads as one built today, with no stored data changed. Only a
+restart, a rotation and an unexplained `not_public` stretch are debate lost. Debate before
+the first frame or after the last has no place in video time, so `media.unrecorded` states
+it apart: a late start, an early end, or a stopped Broadcast. The worker reads none of this:
+its login reaches its job table and nothing else. None of it changes what is published.
 
 **Preparation says how far it really is.** A running build writes its figures on its own
 job row, in each step's units: attempts read, milliseconds encoded as ffmpeg counts them,
