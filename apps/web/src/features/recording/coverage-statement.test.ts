@@ -280,6 +280,42 @@ describe('explainGaps', () => {
     });
   });
 
+  test('public media stopping short of a speech end is not lost', () => {
+    assert({
+      given:
+        'a prep at the end of a speech and a worker gap from 1.1 s before it',
+      should: 'state the whole stretch as private',
+      actual: explainGaps(
+        [notPublic(18_900, 31_500)],
+        { ...twoSpeeches, prepStartsAtMs: [real(20_000)] },
+        startedAtMs,
+      ),
+      expected: [{ startMs: 18_900, endMs: 31_500, reason: 'private_phase' }],
+    });
+    assert({
+      given: 'a turnover whose worker gap starts 1.1 s before the speech ends',
+      should: 'state the whole stretch as between speeches',
+      actual: explainGaps(
+        [notPublic(18_900, 31_500)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [
+        { startMs: 18_900, endMs: 31_500, reason: 'between_speeches' },
+      ],
+    });
+    assert({
+      given: 'a gap near a speech end that does not reach the slate',
+      should: 'stay not public',
+      actual: explainGaps(
+        [notPublic(17_000, 19_500)],
+        twoSpeeches,
+        startedAtMs,
+      ),
+      expected: [notPublic(17_000, 19_500)],
+    });
+  });
+
   test('a gap opening inside a speech is lost, however early', () => {
     assert({
       given:

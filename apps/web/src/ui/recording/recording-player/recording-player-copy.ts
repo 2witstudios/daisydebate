@@ -29,7 +29,16 @@ const WHY: Readonly<Record<LostGap['reason'], string>> = {
   room_rotation: 'the room changed over',
 };
 
-const isLost = (gap: Gap): gap is LostGap => gap.reason in WHY;
+/** Every reason, sorted once, so a new one cannot compile until it is placed. */
+const KIND: Readonly<Record<Gap['reason'], 'lost' | 'private' | 'slate'>> = {
+  capture_restart: 'lost',
+  room_rotation: 'lost',
+  not_public: 'lost',
+  private_phase: 'private',
+  between_speeches: 'slate',
+};
+
+const isLost = (gap: Gap): gap is LostGap => KIND[gap.reason] === 'lost';
 
 /**
  * What the "not recorded" list names. A private phase is withheld by design and the
@@ -39,7 +48,7 @@ export const lostGaps = (gaps: readonly Gap[]): readonly LostGap[] =>
   gaps.filter(isLost);
 
 export const privateGaps = (gaps: readonly Gap[]): readonly PrivateGap[] =>
-  gaps.filter((gap): gap is PrivateGap => gap.reason === 'private_phase');
+  gaps.filter((gap): gap is PrivateGap => KIND[gap.reason] === 'private');
 
 const span = (gap: Gap) =>
   `${clockTime(gap.startMs)} to ${clockTime(gap.endMs)}`;

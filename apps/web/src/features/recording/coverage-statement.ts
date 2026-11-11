@@ -76,8 +76,14 @@ const split = (span: Span, windows: readonly Span[]) => {
   return { inside: outsideGaps(span, outside), outside };
 };
 
-/** A slate window, and where the speech after it starts. */
-type Window = Span & { readonly nextStartMs: number };
+/**
+ * A slate window, where the speech after it starts, and where it may reach back to:
+ * into the speech it directly follows, or nowhere.
+ */
+type Window = Span & {
+  readonly nextStartMs: number;
+  readonly reachesBackToMs: number;
+};
 
 /**
  * Where the stage showed its slate by design, as committed history says: each
@@ -87,15 +93,27 @@ type Window = Span & { readonly nextStartMs: number };
  * fails closed.
  */
 const slateWindows = (facts: RoundCoverageFacts, capturedFromMs: number) => {
+  const { segments } = facts;
+  /** A speech that ended within the closing margin before `atMs` is reached into. */
+  const reachBack = (atMs: number) => {
+    const endedMs = segments
+      .map((segment) => segment.endedAtMs)
+      .filter(
+        (endMs): endMs is number =>
+          endMs !== null && endMs <= atMs && atMs - endMs < EDGE_OF_SPEECH_MS,
+      )
+      .at(-1);
+    return endedMs === undefined ? atMs : endedMs - EDGE_OF_SPEECH_MS;
+  };
   const window = (startMs: number, nextStartMs: number): Window => ({
     startMs,
     nextStartMs,
+    reachesBackToMs: reachBack(startMs),
     endMs:
       nextStartMs +
       startEdgeLagMs(nextStartMs, capturedFromMs) +
       OPENING_SLACK_MS,
   });
-  const { segments } = facts;
   return {
     private: privateStretches(facts)
       .filter((span) => span.endMs !== NEVER_MS)
@@ -110,27 +128,36 @@ const slateWindows = (facts: RoundCoverageFacts, capturedFromMs: number) => {
 };
 
 /**
- * The windows as one gap may use them, in video time. A window runs on through the
- * next speech's opening only for a gap that reaches it from before that speech, to
- * within clock disagreement: speeches can run back to back, and a probed piece ends
- * a few milliseconds off. A gap that opens later inside a speech touches no slate,
- * and is lost however early it is.
+ * The windows as one gap may use them, in video time. Public media stops short of a
+ * speech's end (the encoder cuts near it, and 700 ms before a prep), so a window
+ * that follows a speech reaches back `EDGE_OF_SPEECH_MS` into it, but only for a gap
+ * that runs on into the slate. It runs on through the next speech's opening only for a
+ * gap that reaches it from before that speech, to within clock disagreement: speeches
+ * can run back to back, and a probed piece ends a few milliseconds off. A gap that
+ * stays inside a speech touches no slate, and is lost however near its edge it is.
  */
 const windowsFor = (
   gap: Span,
   windows: readonly Window[],
   capturedFromMs: number,
 ): readonly Span[] =>
-  windows.map((window) => {
-    const nextStartMs = window.nextStartMs - capturedFromMs;
-    return {
-      startMs: window.startMs - capturedFromMs,
-      endMs:
-        gap.startMs < nextStartMs + SHORTEST_STATED_MS
-          ? window.endMs - capturedFromMs
-          : nextStartMs,
-    };
-  });
+  windows
+    .map((window) => {
+      const startMs = window.startMs - capturedFromMs;
+      const nextStartMs = window.nextStartMs - capturedFromMs;
+      return {
+        startMs:
+          gap.endMs > startMs
+            ? Math.min(startMs, window.reachesBackToMs - capturedFromMs)
+            : startMs,
+        endMs:
+          gap.startMs < nextStartMs + SHORTEST_STATED_MS
+            ? window.endMs - capturedFromMs
+            : nextStartMs,
+      };
+    })
+    // Clocks can disagree enough to turn a window inside out; it explains nothing.
+    .filter((window) => window.endMs > window.startMs);
 
 /**
  * The worker knows only what is not proven public. Against the Round's committed
