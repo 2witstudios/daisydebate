@@ -163,6 +163,27 @@ describe('beta email grants through participant operations', () => {
           ],
           expected: ['approved', userId],
         });
+        const [stored] =
+          await f.sql`select revision from account_beta_access where user_id = ${userId}`;
+        const events =
+          await f.sql`select from_state, to_state, revision, principal
+          from account_access_events where user_id = ${userId} and to_state = 'approved'`;
+        assert({
+          given: 'that claim',
+          should:
+            'record the one transition it made: pending to approved, at the revision now stored',
+          actual: events.map((event: Record<string, unknown>) => ({
+            ...event,
+          })),
+          expected: [
+            {
+              from_state: 'pending',
+              to_state: 'approved',
+              revision: stored.revision,
+              principal: 'signup',
+            },
+          ],
+        });
       } finally {
         await db.close();
       }
