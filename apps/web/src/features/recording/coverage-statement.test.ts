@@ -334,6 +334,17 @@ describe('explainGaps', () => {
     });
   });
 
+  test('a gap inside the first speech of a capture that opened with it is lost', () => {
+    assert({
+      given:
+        'capture opening as the first speech starts, and a gap from 0.5 s to 3 s',
+      should:
+        'state it as not public, not as the private time before the debate',
+      actual: explainGaps([notPublic(500, 3000)], twoSpeeches, startedAtMs),
+      expected: [notPublic(500, 3000)],
+    });
+  });
+
   test('a gap opening inside a speech is lost, however early', () => {
     assert({
       given:

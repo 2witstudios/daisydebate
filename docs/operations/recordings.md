@@ -151,8 +151,10 @@ The worker marks a jump between public pieces `capture_restart` when one public 
 spans it, since only a restart explains that, and `not_public` otherwise. When media is
 verified, the capture port splits each `not_public` gap against the Round's segments and
 prep (`explainGaps` in `coverage-statement.ts`) and stores the result, which the player
-shows as stored. A `not_public` gap on the list is a real question: it is a stretch inside a
-speech that history does not prove public.
+shows as stored. A `not_public` gap on the list is a real question: committed history
+neither proves it public nor explains it. It may sit inside a speech, or where history is
+missing, such as after an open or the last segment, so it does not by itself show that
+speech was lost.
 
 ## Takedown
 

@@ -140,7 +140,8 @@ const slateWindows = (facts: RoundCoverageFacts, capturedFromMs: number) => {
  * that runs on into the slate. It runs on through the next speech's opening only for a
  * gap that reaches it from before that speech, to within clock disagreement: speeches
  * can run back to back, and a probed piece ends a few milliseconds off. A gap that
- * stays inside a speech touches no slate, and is lost however near its edge it is.
+ * stays inside a speech touches no slate, and is lost however near its edge it is,
+ * including at the very start of a capture, where no slate came before.
  */
 const windowsFor = (
   gap: Span,
@@ -156,8 +157,11 @@ const windowsFor = (
           gap.endMs > startMs
             ? Math.min(startMs, window.reachesBackToMs - capturedFromMs)
             : startMs,
+        // The gap comes from the slate: it starts before the speech, or within clock
+        // disagreement of where a back-to-back slate began.
         endMs:
-          gap.startMs < nextStartMs + SHORTEST_STATED_MS
+          gap.startMs < nextStartMs ||
+          gap.startMs < startMs + SHORTEST_STATED_MS
             ? window.endMs - capturedFromMs
             : nextStartMs,
       };
