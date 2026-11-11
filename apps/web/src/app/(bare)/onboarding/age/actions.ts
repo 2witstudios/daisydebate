@@ -3,7 +3,7 @@
 import { cookies, headers } from 'next/headers';
 import {
   ageAnswerHref,
-  initialAgeForm,
+  ageUnavailable,
   readAgeAnswer,
   readAgeForm,
   type AgeFormState,
@@ -50,18 +50,16 @@ export async function ageStepAction(
   const answer = await readAgeAnswer(response);
   const href = ageAnswerHref(answer, destination);
   if (href === null)
-    return {
+    return ageUnavailable({
       month: String(read.body.month),
       year: String(read.body.year),
       terms: true,
-      missing: [],
-      unavailable: true,
-    };
+    });
   if (answer.kind === 'refused')
     (await cookies()).set(
       AGE_HOLD_COOKIE,
       answer.refusal,
       AGE_HOLD_COOKIE_OPTIONS,
     );
-  return { ...initialAgeForm, ...moveOn(incoming, href) };
+  return moveOn(incoming, href);
 }

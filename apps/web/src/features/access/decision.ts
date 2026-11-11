@@ -107,20 +107,6 @@ export const restrictedHref = (search: SearchParams): string =>
 export const passkeyOfferHref = (destination: string): string =>
   `/onboarding/passkey?next=${encodeURIComponent(destination)}`;
 
-/** The onboarding steps after the passkey offer. */
-export type OnboardingStep =
-  'daisy' | 'styles' | 'debate' | 'about' | 'experience' | 'topics' | 'ready';
-
-/** One onboarding step, then the already validated destination. */
-export const onboardingStepHref = (
-  step: OnboardingStep,
-  destination: string,
-): string => `/onboarding/${step}?next=${encodeURIComponent(destination)}`;
-
-/** The first onboarding step, where the passkey offer's exits lead. */
-export const introductionHref = (destination: string): string =>
-  onboardingStepHref('daisy', destination);
-
 /** The requested page as a local path with its query, for the return trip. */
 export const requestedPath = (path: string, search: SearchParams): string => {
   const query = new URLSearchParams();

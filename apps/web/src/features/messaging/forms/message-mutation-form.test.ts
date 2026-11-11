@@ -62,9 +62,9 @@ test('native mutation refusal retains draft and request identity without permitt
     should: 'retain the exact draft/request with a content-free notice',
     actual: messageMutationUnavailable(form),
     expected: {
-      text: 'Retained own edit',
-      requestId: 'r'.repeat(24),
-      notice: 'Your message could not be changed. The text is kept; try again.',
+      kind: 'refused',
+      values: { text: 'Retained own edit', requestId: 'r'.repeat(24) },
+      error: 'Your message could not be changed. The text is kept; try again.',
     },
   });
   await assertRejects({
@@ -85,7 +85,11 @@ test('a spent request id answers a fresh one with the text kept (ISSUE-668)', ()
     given:
       'an edit refused because its request id already carried another change',
     should: 'keep the revised text and submit next time under a new request id',
-    actual: [state.requestId, state.text, Boolean(state.notice)],
-    expected: ['n'.repeat(24), 'Revised text', true],
+    actual: [state.kind, state.values, Boolean(state.error)],
+    expected: [
+      'refused',
+      { requestId: 'n'.repeat(24), text: 'Revised text' },
+      true,
+    ],
   });
 });

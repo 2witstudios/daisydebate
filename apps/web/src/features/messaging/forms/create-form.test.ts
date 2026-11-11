@@ -35,7 +35,7 @@ test('native creation forms preserve username intents, drafts and request bindin
   assert({
     given: 'an unavailable submission',
     should: 'retain the entered names and body with its idempotency key',
-    actual: creationFormUnavailable(form).recipients,
+    actual: creationFormUnavailable(form).values.recipients,
     expected: 'Peer_One',
   });
   form.append('recipients', 'another');

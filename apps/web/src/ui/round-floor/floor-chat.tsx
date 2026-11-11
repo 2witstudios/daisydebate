@@ -29,7 +29,8 @@ function BoundFloorChat({
 }) {
   const {
     state,
-    page,
+    authors,
+    messageUnits,
     before,
     paging,
     notice,
@@ -43,7 +44,7 @@ function BoundFloorChat({
     initial,
     pending,
     enter,
-    loadHistory,
+    loadOlder,
     refresh,
   } = useFloorChat({ ...props, active, onUnread });
   return (
@@ -70,11 +71,7 @@ function BoundFloorChat({
         state.kind === 'denied' ||
         live.status === 'hidden' ||
         notice ? (
-          <button
-            type="button"
-            onClick={() => void enter()}
-            className={buttonClass}
-          >
+          <button type="button" onClick={enter} className={buttonClass}>
             Try again
           </button>
         ) : null}
@@ -83,7 +80,7 @@ function BoundFloorChat({
             type="button"
             disabled={paging}
             className={buttonClass}
-            onClick={() => channelId && void loadHistory(channelId, before)}
+            onClick={() => loadOlder(before)}
           >
             {paging ? 'Loading…' : 'Older messages'}
           </button>
@@ -95,10 +92,10 @@ function BoundFloorChat({
             actorId={props.actorId}
             roundId={props.roundId}
             messages={messages}
-            authors={page?.authors ?? []}
+            authors={authors}
             hidden={hidden || expired}
             locked={locked}
-            maxUnits={page?.bounds.messageUnits ?? 4000}
+            maxUnits={messageUnits}
             mutateAction={props.mutateAction}
             reportAction={props.reportAction}
             refresh={refresh}
@@ -116,7 +113,7 @@ function BoundFloorChat({
           id={`floor-message-${props.roundId}`}
           initial={initial}
           action={props.sendAction.bind(null, channelId)}
-          maxUnits={page?.bounds.messageUnits ?? 4000}
+          maxUnits={messageUnits}
           locked={locked}
           onSent={refresh}
         />

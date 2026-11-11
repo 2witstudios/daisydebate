@@ -96,7 +96,7 @@ describe('refusedStep', () => {
     assert({
       given: 'an about post that was refused, naming a club it did not pick',
       should:
-        'answer refused with the posted choices to show again, holding no name for a choice that hides the field',
+        'answer unsaved with the posted choices to show again, holding no name for a choice that hides the field',
       actual: refusedStep('about')(
         postedForm({
           wants: ['judge'],
@@ -105,7 +105,7 @@ describe('refusedStep', () => {
         }),
       ),
       expected: {
-        refused: true,
+        kind: 'unsaved',
         posted: {
           wants: ['judge'],
           club: 'starting',
@@ -124,7 +124,7 @@ describe('refusedStep', () => {
         }),
       ),
       expected: {
-        refused: true,
+        kind: 'unsaved',
         posted: {
           wants: ['judge'],
           club: 'joining',
@@ -136,7 +136,7 @@ describe('refusedStep', () => {
       given: 'a post carrying a value off the list',
       should: 'show nothing new rather than a value the step cannot hold',
       actual: refusedStep('topics')(postedForm({ topics: 'astrology' })),
-      expected: { refused: true, posted: {} },
+      expected: { kind: 'unsaved', posted: {} },
     });
   });
 });

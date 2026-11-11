@@ -81,7 +81,12 @@ export function attachTypingReader({
     },
   );
   const stopState = connection.subscribe((state) => {
-    if (state.status === 'open' || state.status === 'closed') refresh();
+    if (
+      state.status === 'open' ||
+      state.status === 'reconnecting' ||
+      state.status === 'closed'
+    )
+      refresh();
   });
   refresh();
   return {

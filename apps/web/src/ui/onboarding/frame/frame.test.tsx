@@ -1,13 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  NextButton,
-  NextLink,
-  OnboardingFrame,
-  StepFooter,
-  onboardingSteps,
-} from './frame';
+import { NextButton, NextLink, OnboardingFrame, StepFooter } from './frame';
 
 setupRitewayBun();
 
@@ -36,7 +30,7 @@ describe('OnboardingFrame', () => {
       given: 'the second step',
       should: 'say 2 of 6 and fill two of six segments',
       actual: [
-        html.includes(`2 of ${onboardingSteps}`),
+        html.includes('2 of 6'),
         count(html, 'data-segment="done"'),
         count(html, 'data-segment="todo"'),
       ],

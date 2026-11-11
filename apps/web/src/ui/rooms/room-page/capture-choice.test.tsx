@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { WithAppRouter } from '../../test-support/app-router';
 import {
@@ -9,7 +10,7 @@ import {
 
 setupRitewayBun();
 
-const action = async () => ({ values: {} });
+const action = async () => idle();
 const render = (
   captureOffer: 'included' | 'premium' | null,
   capture: Parameters<typeof CaptureChoice>[0]['view']['capture'] = null,

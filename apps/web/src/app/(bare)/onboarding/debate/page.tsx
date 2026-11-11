@@ -1,12 +1,9 @@
 import type { Metadata } from 'next';
-import {
-  onboardingStepHref,
-  type SearchParams,
-} from '../../../../features/access/decision';
+import type { SearchParams } from '../../../../features/access/decision';
 import { DebateStep } from '../../../../ui/onboarding/intro/debate-step';
 import { stepSkip } from '../skip';
 import { readStepEntry, stepRobots } from '../step-entry';
-import { requestOptionalAnswersAdmitted } from '../../../../lib/request-session';
+import { readStepLinks } from '../step-links';
 
 export const metadata: Metadata = {
   title: 'How a debate works',
@@ -19,13 +16,11 @@ export default async function OnboardingDebateStepPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { destination } = await readStepEntry(searchParams, 'debate');
+  const { nextHref, backHref } = await readStepLinks('debate', destination);
   return (
     <DebateStep
-      nextHref={onboardingStepHref(
-        (await requestOptionalAnswersAdmitted()) ? 'about' : 'ready',
-        destination,
-      )}
-      backHref={onboardingStepHref('styles', destination)}
+      nextHref={nextHref}
+      backHref={backHref}
       skip={stepSkip(destination)}
     />
   );

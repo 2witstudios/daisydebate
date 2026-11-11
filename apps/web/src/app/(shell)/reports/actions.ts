@@ -2,8 +2,8 @@
 
 import { reportResultSchema } from '@daisy/protocol';
 import {
-  reportDoneNotice,
-  reportFailedNotice,
+  reported,
+  reportFormUnavailable,
   type ReportFormState,
 } from '../../../features/reports/form';
 import { processRoute } from '../../../server/process-app';
@@ -26,10 +26,8 @@ export async function reportAction(
     const result = reportResultSchema.safeParse(
       response.ok ? await response.json() : null,
     );
-    return result.success
-      ? { done: true, notice: reportDoneNotice }
-      : { notice: reportFailedNotice };
+    return result.success ? reported : reportFormUnavailable();
   } catch {
-    return { notice: reportFailedNotice };
+    return reportFormUnavailable();
   }
 }

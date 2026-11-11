@@ -1,0 +1,253 @@
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { BallotRefresh } from '../../../features/round-ballots/ballot-refresh';
+import { refreshOnSchedule } from './use-ballot-refresh';
+
+setupRitewayBun();
+
+/** One timeout at most, fired by hand, and a page shown or hidden by hand. */
+const manualEdges = () => {
+  let run: (() => void) | null = null;
+  let visible = true;
+  let listeners: (() => void)[] = [];
+  const delays: number[] = [];
+  return {
+    delays,
+    armed: () => run !== null,
+    listening: () => listeners.length,
+    fire: () => {
+      const due = run;
+      run = null;
+      due?.();
+    },
+    show: (shown: boolean) => {
+      visible = shown;
+      for (const listener of listeners) listener();
+    },
+    edges: {
+      setTimeout: (callback: () => void, inMs: number) => {
+        run = callback;
+        delays.push(inMs);
+        return delays.length;
+      },
+      clearTimeout: () => {
+        run = null;
+      },
+      visible: () => visible,
+      onVisibilityChange: (listener: () => void) => {
+        listeners = [...listeners, listener];
+        return () => {
+          listeners = listeners.filter((kept) => kept !== listener);
+        };
+      },
+    },
+  };
+};
+
+const inMs = (ms: number): BallotRefresh => ({ kind: 'in', ms });
+const once: BallotRefresh = { kind: 'once' };
+const none: BallotRefresh = { kind: 'none' };
+
+/** A schedule whose next refresh is read from `next` at the present; firing advances the present by the delay. */
+const started = (
+  next: (nowMs: number) => BallotRefresh,
+  { hidden = false } = {},
+) => {
+  const browser = manualEdges();
+  if (hidden) browser.show(false);
+  let nowMs = 0;
+  let refreshes = 0;
+  const stop = refreshOnSchedule({
+    next,
+    nowMs: () => nowMs,
+    refresh: () => (refreshes += 1),
+    edges: browser.edges,
+  });
+  const pass = (timeouts: number) => {
+    for (let passed = 0; passed < timeouts; passed += 1) {
+      nowMs += browser.delays.at(-1) ?? 0;
+      browser.fire();
+    }
+    return refreshes;
+  };
+  return {
+    browser,
+    pass,
+    stop,
+    refreshes: () => refreshes,
+    /** The present moves on with no timer firing: a hidden tab, a sleeping laptop. */
+    elapse: (ms: number) => {
+      nowMs += ms;
+    },
+  };
+};
+
+test('refreshing runs until there is no next refresh', () => {
+  const { browser, pass } = started((at) => (at < 15_000 ? inMs(5_000) : none));
+  assert({
+    given:
+      'a page refreshed every five seconds for fifteen, with no new props in that time',
+    should:
+      'refresh on the first two, stop itself at the third and never refresh again',
+    actual: [pass(2), browser.armed(), pass(3), browser.armed()],
+    expected: [2, true, 2, false],
+  });
+});
+
+test('each refresh is scheduled by the delay named at that moment', () => {
+  const { browser, pass } = started((at) => inMs(5_000 + at));
+  const refreshed = pass(3);
+  assert({
+    given: 'a delay that grows with the present',
+    should: 'wait the delay named when each refresh was sent',
+    actual: [refreshed, browser.delays],
+    expected: [3, [5_000, 10_000, 20_000, 40_000]],
+  });
+});
+
+test('a page with no next refresh starts no timer', () => {
+  const { browser, pass } = started(() => none);
+  assert({
+    given: 'a page with no next refresh when it mounts',
+    should: 'start no timer and never refresh',
+    actual: [browser.delays, pass(2)],
+    expected: [[], 0],
+  });
+});
+
+test('leaving the page stops the refreshing', () => {
+  const { browser, pass, stop } = started(() => inMs(5_000));
+  const before = pass(1);
+  stop();
+  assert({
+    given: 'a refreshing page that is left',
+    should: 'refresh no more and stop watching whether it is shown',
+    actual: [before, browser.armed(), pass(2), browser.listening()],
+    expected: [1, false, 1, 0],
+  });
+});
+
+test('a hidden page is not refreshed, and is refreshed at once when shown', () => {
+  const { browser, pass, refreshes } = started(() => inMs(5_000));
+  browser.show(false);
+  const hidden = [browser.armed(), pass(2)];
+  browser.show(true);
+  assert({
+    given: 'a refreshing page hidden, then shown again',
+    should:
+      'hold no timer and refresh nothing while hidden, then refresh at once and go on',
+    actual: [hidden, refreshes(), browser.armed(), pass(1)],
+    expected: [[false, 0], 1, true, 2],
+  });
+});
+
+test('a page opened hidden waits to be shown', () => {
+  const { browser, pass, refreshes } = started(() => inMs(5_000), {
+    hidden: true,
+  });
+  const hidden = [browser.delays.length, pass(1)];
+  browser.show(true);
+  assert({
+    given: 'a page that mounts in a hidden tab, then is shown',
+    should: 'start no timer until it is shown, then refresh and go on',
+    actual: [hidden, refreshes(), browser.armed()],
+    expected: [[0, 0], 1, true],
+  });
+});
+
+test('a page with no next refresh is not refreshed for being shown', () => {
+  const { browser, refreshes } = started(() => none);
+  browser.show(false);
+  browser.show(true);
+  assert({
+    given: 'a page with no next refresh, hidden and shown again',
+    should: 'refresh nothing and start no timer',
+    actual: [refreshes(), browser.armed()],
+    expected: [0, false],
+  });
+});
+
+/** A dated wait: steadily to the deadline, once if it passed since `renderedAtMs`, then nothing. */
+const dated =
+  (deadlineMs: number, renderedAtMs = 0) =>
+  (at: number): BallotRefresh =>
+    at < deadlineMs ? inMs(5_000) : renderedAtMs < deadlineMs ? once : none;
+
+test('a deadline that passes while the page is hidden is followed by one refresh when shown', () => {
+  const { browser, pass, refreshes, elapse } = started(dated(30_000));
+  browser.show(false);
+  elapse(90_000);
+  const hidden = [browser.armed(), refreshes()];
+  browser.show(true);
+  const shown = [refreshes(), browser.armed()];
+  browser.show(false);
+  browser.show(true);
+  assert({
+    given:
+      'a page hidden before its deadline and shown a minute after it, then hidden and shown again with no new render',
+    should:
+      'refresh nothing while hidden, once on being shown with no timer after it, and once more for being shown again',
+    actual: [hidden, shown, refreshes(), browser.armed(), pass(3)],
+    expected: [[false, 0], [1, false], 2, false, 2],
+  });
+});
+
+test('a timer that fires after the deadline refreshes once and starts no other', () => {
+  const { browser, pass, refreshes, elapse } = started(dated(8_000));
+  elapse(7_000);
+  const fired = pass(1);
+  assert({
+    given:
+      'a visible page whose five-second timer fires twelve seconds late, past its deadline',
+    should: 'refresh once, start no timer and never refresh again',
+    actual: [fired, browser.armed(), browser.delays, pass(3), refreshes()],
+    expected: [1, false, [5_000], 1, 1],
+  });
+});
+
+test('a page that starts past a deadline its render never saw refreshes at once', () => {
+  const { browser, pass } = started(() => once);
+  assert({
+    given: 'a page that mounts shown, long after it was rendered',
+    should: 'refresh once at once and start no timer',
+    actual: [pass(0), browser.armed(), pass(3)],
+    expected: [1, false, 1],
+  });
+});
+
+test('a server that keeps naming the same passed deadline is asked once', () => {
+  const deadlineMs = 30_000;
+  const browser = manualEdges();
+  let nowMs = 0;
+  let refreshes = 0;
+  let stop = () => {};
+  /** Each refresh is a new render at the present, still naming the deadline. */
+  const render = () => {
+    stop();
+    stop = refreshOnSchedule({
+      next: dated(deadlineMs, nowMs),
+      nowMs: () => nowMs,
+      refresh: () => {
+        refreshes += 1;
+        render();
+      },
+      edges: browser.edges,
+    });
+  };
+  render();
+  browser.show(false);
+  nowMs = 90_000;
+  browser.show(true);
+  const returned = [refreshes, browser.armed()];
+  browser.show(false);
+  nowMs = 200_000;
+  browser.show(true);
+  stop();
+  assert({
+    given:
+      'a page shown a minute after its deadline, whose every refresh renders the same passed deadline again',
+    should:
+      'refresh once, start no timer, and refresh nothing for being shown again',
+    actual: [returned, refreshes, browser.armed()],
+    expected: [[1, false], 1, false],
+  });
+});

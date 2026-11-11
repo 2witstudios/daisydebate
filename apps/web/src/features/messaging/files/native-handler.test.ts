@@ -84,9 +84,12 @@ test('multipart attachment authenticates before decode and enforces its independ
 });
 test('native retry response keeps only escaped filename/request intent and uses a fresh chooser', async () => {
   const response = nativeFileResponse('c'.repeat(24), 'm'.repeat(24), {
-    requestId: 'r'.repeat(24),
-    filename: '<script>private.pdf</script>',
-    notice: 'Choose it again.',
+    kind: 'refused',
+    values: {
+      requestId: 'r'.repeat(24),
+      filename: '<script>private.pdf</script>',
+    },
+    error: 'Choose it again.',
   });
   const html = await response.text();
   assert({

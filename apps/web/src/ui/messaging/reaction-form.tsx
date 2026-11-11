@@ -7,15 +7,13 @@ import {
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
-export type ReactionFormState = {
-  readonly requestId: string;
-  readonly notice?: string;
-  readonly next?: string;
-};
-const unavailable = (form: FormData): ReactionFormState => ({
-  requestId: String(form.get('requestId') ?? ''),
-  notice: 'Reaction could not be changed. Try again.',
-});
+import { destinationOf } from '../../features/forms/form-state';
+import {
+  reactionFields,
+  reactionIdle,
+  reactionUnavailable,
+  type ReactionFormState,
+} from '../../features/messaging/forms/reaction-form';
 export function ReactionForm({
   action,
   requestId,
@@ -29,13 +27,14 @@ export function ReactionForm({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { requestId },
-    unavailable,
+    reactionIdle(requestId),
+    reactionUnavailable,
   );
-  useMovedOn(answer.next);
+  useMovedOn(destinationOf(answer));
+  const fields = reactionFields(answer);
   useFocusAfterAnswer(
     answer,
-    answer.notice ? `reaction-${answer.requestId}` : undefined,
+    fields.notice ? `reaction-${fields.requestId}` : undefined,
     !pending,
   );
   return (
@@ -61,15 +60,19 @@ export function ReactionFields({
   readonly reaction: string;
   readonly active: boolean;
 }) {
+  const { requestId, notice } = reactionFields(answer);
   return (
     <>
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={requestId} />
       <input type="hidden" name="reaction" value={reaction} />
       <input type="hidden" name="active" value={String(active)} />
-      <Button type="submit" disabled={pending || answer.next !== undefined}>
+      <Button
+        type="submit"
+        disabled={pending || destinationOf(answer) !== undefined}
+      >
         {active ? `React ${reaction}` : `Remove ${reaction}`}
       </Button>
-      <DraftNotice id={`reaction-${answer.requestId}`} notice={answer.notice} />
+      <DraftNotice id={`reaction-${requestId}`} notice={notice} />
     </>
   );
 }

@@ -3,8 +3,8 @@
 import { systemId } from '@daisy/clock';
 import { contactBlockResultSchema } from '@daisy/protocol';
 import {
-  personBlockedNotice,
-  personBlockFailedNotice,
+  personBlocked,
+  personBlockUnavailable,
   type PersonBlockState,
 } from '../../../features/contacts/block-form';
 import { processRoute } from '../../../server/process-app';
@@ -27,10 +27,8 @@ export async function blockAction(
     const result = contactBlockResultSchema.safeParse(
       response.ok ? await response.json() : null,
     );
-    return result.success
-      ? { done: true, notice: personBlockedNotice }
-      : { notice: personBlockFailedNotice };
+    return result.success ? personBlocked : personBlockUnavailable();
   } catch {
-    return { notice: personBlockFailedNotice };
+    return personBlockUnavailable();
   }
 }

@@ -1,3 +1,4 @@
+import { idle } from '../../../features/forms/form-state';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -58,7 +59,7 @@ const render = (state: 'waiting' | 'open' | 'submitted') =>
               }
             : input,
       commandId: 'c'.repeat(24),
-      action: async () => ({ values: {} }),
+      action: async () => idle(),
       renderedAtMs: 0,
     }),
   );
@@ -164,7 +165,7 @@ describe('a ballot opened before attendance settles', () => {
       h(BallotPage, {
         view: { ...input, round },
         commandId: 'c'.repeat(24),
-        action: async () => ({ values: {} }),
+        action: async () => idle(),
         renderedAtMs,
       }),
     );
@@ -213,7 +214,7 @@ describe('BallotPage, how the ballot works', () => {
           },
         },
         commandId: 'c'.repeat(24),
-        action: async () => ({ values: {} }),
+        action: async () => idle(),
         renderedAtMs: 60_000,
       }),
     );

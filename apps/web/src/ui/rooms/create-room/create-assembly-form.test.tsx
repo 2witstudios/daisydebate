@@ -8,7 +8,7 @@ setupRitewayBun();
 test('creation presents format first and a complete progressively enhanced editor', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'m'.repeat(24)}
       choices={[{ ...unequalTemplate, formatId: 'value', role: 'standard' }]}
@@ -39,7 +39,7 @@ test('creation presents format first and a complete progressively enhanced edito
 test('an empty catalog cannot submit a fabricated template', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'m'.repeat(24)}
       choices={[]}
@@ -69,6 +69,7 @@ test('native template selection carries the immutable revision and exact default
           customResolution: 'Retained topic',
           commandId: 'p'.repeat(24),
         },
+        error: undefined,
       }}
       pending={false}
       commandId={'q'.repeat(24)}
@@ -96,7 +97,7 @@ test('native template selection carries the immutable revision and exact default
 test('a new Room cannot be made private while no invite path exists', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'q'.repeat(24)}
       choices={[unequalTemplate]}

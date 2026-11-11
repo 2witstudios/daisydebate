@@ -1,7 +1,7 @@
 'use client';
 
 import type { RoomView } from '@daisy/protocol';
-import type { FormState } from '../../../features/forms/form-state';
+import type { FormFields } from '../../../features/forms/form-state';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';
 import { FormField } from '../../components/form-field/form-field';
@@ -58,7 +58,7 @@ export function AssemblyDetailsFields({
 }: {
   readonly view: View;
   readonly commandId: string;
-  readonly state: FormState;
+  readonly state: FormFields;
   readonly pending: boolean;
 }) {
   return (

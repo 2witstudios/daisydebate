@@ -8,6 +8,7 @@ const actorId = 'a'.repeat(24);
 const admitted = {
   userId: 'user-1',
   actorId,
+  completes: false,
   now: at.toISOString(),
   admits: () => true,
 };
@@ -121,6 +122,54 @@ describe('saveOnboardingStep', () => {
           'delete from member_leagues',
           'insert into member_leagues',
         ],
+      ],
+    });
+  });
+});
+
+describe('saveOnboardingStep finishing onboarding', () => {
+  /** The answers row's upsert, as sent. */
+  const upsert = (queries: readonly { query: string }[]) =>
+    queries.find(({ query }) =>
+      query.startsWith('insert into "member_onboarding"'),
+    )?.query ?? '';
+  const firstFinishKept = 'coalesce("member_onboarding"."completed_at"';
+
+  test('the finishing step records the first finish in its own transaction', async () => {
+    const finishing = createTestDatabase([fence, [], [], []]);
+    await finishing.database.saveOnboardingStep({
+      ...admitted,
+      completes: true,
+      answers: { step: 'topics', topics: ['law'] },
+    });
+    const plain = createTestDatabase([fence, [], [], []]);
+    await plain.database.saveOnboardingStep({
+      ...admitted,
+      answers: { step: 'topics', topics: ['law'] },
+    });
+    assert({
+      given: 'a topics step that finishes onboarding, and one that does not',
+      should:
+        'write the answers row once with the topics, setting completion (an earlier finish kept) only for the finishing step',
+      actual: [
+        writes(finishing.queries),
+        upsert(finishing.queries).includes(firstFinishKept),
+        writes(plain.queries),
+        upsert(plain.queries).includes('completed_at" ='),
+      ],
+      expected: [
+        [
+          'insert into member_onboarding',
+          'delete from member_topics',
+          'insert into member_topics',
+        ],
+        true,
+        [
+          'insert into member_onboarding',
+          'delete from member_topics',
+          'insert into member_topics',
+        ],
+        false,
       ],
     });
   });

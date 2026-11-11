@@ -1,7 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomTemplate } from '../rooms/read-catalog';
 import { acceptOffer, type AcceptOfferPorts } from './accept-offer';
-import { challengeRefusal } from './forms';
+import { moved, refusedWith } from '../forms/form-state';
+import { challengeRefusal, challengeRefused } from './forms';
 
 setupRitewayBun();
 
@@ -37,7 +38,7 @@ const ports = (
   }),
   openRoom: async (_form, beforeMoveOn) => {
     const notice = await beforeMoveOn('r'.repeat(24), true);
-    return notice ? { error: notice } : { next: '/rooms/room' };
+    return notice ? refusedWith({}, notice) : moved('/rooms/room');
   },
   nameRoom: async () => ({ ok: true, status: 200 }),
   closeRoom: async () => {},
@@ -54,7 +55,7 @@ describe('acceptOffer', () => {
         openRoom: async (form, beforeMoveOn) => {
           forms.push(form);
           await beforeMoveOn('r'.repeat(24), true);
-          return { next: '/rooms/room' };
+          return moved('/rooms/room');
         },
         nameRoom: async (roomId) => {
           named.push(roomId);
@@ -67,7 +68,7 @@ describe('acceptOffer', () => {
       should: 'hold both seats, name the room and go there',
       actual: [answer, named, forms[0]?.getAll('holdSeatFor')],
       expected: [
-        { next: '/rooms/room' },
+        moved('/rooms/room'),
         ['r'.repeat(24)],
         [input.actorId, offer.actorId],
       ],
@@ -78,7 +79,7 @@ describe('acceptOffer', () => {
     const counting = {
       openRoom: async () => {
         opened += 1;
-        return { next: '/rooms/room' };
+        return moved('/rooms/room');
       },
     };
     const answers = [
@@ -97,8 +98,8 @@ describe('acceptOffer', () => {
       actual: [answers, opened],
       expected: [
         [
-          { notice: challengeRefusal('accept', 404) },
-          { notice: challengeRefusal('accept-placed', 409) },
+          challengeRefused(challengeRefusal('accept', 404)),
+          challengeRefused(challengeRefusal('accept-placed', 409)),
         ],
         0,
       ],
@@ -120,7 +121,7 @@ describe('acceptOffer', () => {
       should: 'close the listed room naming them both, and say the offer ended',
       actual: [answer, closed],
       expected: [
-        { notice: challengeRefusal('accept-lost', 404) },
+        challengeRefused(challengeRefusal('accept-lost', 404)),
         ['r'.repeat(24)],
       ],
     });
@@ -136,7 +137,7 @@ describe('acceptOffer', () => {
         },
         openRoom: async (_form, beforeMoveOn) => {
           const notice = await beforeMoveOn('h'.repeat(24), false);
-          return notice ? { error: notice } : {};
+          return refusedWith({}, notice ?? 'not opened');
         },
       }),
     );

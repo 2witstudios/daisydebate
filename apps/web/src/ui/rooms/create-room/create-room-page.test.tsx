@@ -2,7 +2,7 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
-import { initialFormState } from '../../../features/forms/form-state';
+import { idle } from '../../../features/forms/form-state';
 import { roundCaptureNotice } from '../../../features/legal/agreements';
 import { unequalTemplate } from '../../../features/rooms/assembly.test-support';
 
@@ -14,7 +14,7 @@ const { CreateRoomEditor } = await import('./create-room-editor');
 test('create page renders durable-create fields without a placeholder judge', () => {
   const html = renderToString(
     h(CreateRoomPage, {
-      initialState: initialFormState,
+      initialState: idle(),
       choices: [],
       commandId: 'n'.repeat(24),
     }),

@@ -3,15 +3,19 @@
 import { headers } from 'next/headers';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
-import type { RatingVisibilityState } from '../../../ui/settings/preferences/rating-visibility-form';
+import { done } from '../../../features/forms/form-state';
+import {
+  saveRefused,
+  type SaveFormState,
+} from '../../../features/forms/save-form';
 
 const ratingVisibilityRoute = processRoute((all) => all.ratingVisibility.write);
 
 /** Which ratings the member's card shows besides Freestyle (ADR 0103). */
 export async function saveRatingVisibilityAction(
-  _previous: RatingVisibilityState,
+  _previous: SaveFormState,
   form: FormData,
-): Promise<RatingVisibilityState> {
+): Promise<SaveFormState> {
   try {
     const response = await inProcessFetch(
       ratingVisibilityRoute,
@@ -25,8 +29,8 @@ export async function saveRatingVisibilityAction(
         showValue: form.get('showValue') === 'on',
       }),
     });
-    return { notice: response.ok ? 'Saved.' : 'Could not save. Try again.' };
+    return response.ok ? done() : saveRefused(form);
   } catch {
-    return { notice: 'Could not save. Try again.' };
+    return saveRefused(form);
   }
 }

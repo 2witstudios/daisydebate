@@ -48,5 +48,5 @@ export async function decideInvitationAction(
   } catch {
     return kept;
   }
-  return { requestId: kept.requestId, ...moveOn(incoming, next) };
+  return moveOn(incoming, next);
 }

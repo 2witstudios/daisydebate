@@ -1,4 +1,5 @@
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
+import { stepNumber } from '../../../features/onboarding/steps';
 import { heading, type IntroStepProps } from './intro';
 
 /** The three formats with a rating ladder, Freestyle first. */
@@ -28,7 +29,11 @@ const pill =
 
 export function StylesStep({ nextHref, backHref, skip }: IntroStepProps) {
   return (
-    <OnboardingFrame step={2} titleId="onboarding-title" skip={skip}>
+    <OnboardingFrame
+      step={stepNumber('styles')}
+      titleId="onboarding-title"
+      skip={skip}
+    >
       <h1 id="onboarding-title" className={heading}>
         Ranked ladders and custom formats
       </h1>

@@ -11,6 +11,7 @@ import type { OnboardingAnswers } from '../../../features/onboarding/answers';
 import { Icon } from '../../components/icon/icon';
 import { Notice } from '../../components/notice/notice';
 import { NextButton, OnboardingFrame, StepFooter } from '../frame/frame';
+import { stepNumber } from '../../../features/onboarding/steps';
 import {
   clubLabels,
   experienceLabels,
@@ -98,7 +99,6 @@ function StepForm({
   refused,
   backHref,
   skip,
-  stepNumber,
   finish = false,
   editing = false,
   children,
@@ -106,13 +106,12 @@ function StepForm({
   readonly step: 'about' | 'experience' | 'topics';
   readonly title: string;
   readonly aside?: ReactNode;
-  readonly stepNumber: number;
   readonly finish?: boolean;
   readonly children: ReactNode;
 }) {
   return (
     <OnboardingFrame
-      step={editing ? null : stepNumber}
+      step={editing ? null : stepNumber(step)}
       titleId="onboarding-title"
       skip={skip}
     >
@@ -151,10 +150,10 @@ function StepForm({
   );
 }
 
-/** Step 4: what the member wants to do here, and their club. */
+/** What the member wants to do here, and their club. */
 export function AboutStep({ answers, ...rest }: QuestionStepProps) {
   return (
-    <StepForm step="about" title="About you" stepNumber={4} {...rest}>
+    <StepForm step="about" title="About you" {...rest}>
       <fieldset className="m-0 border-0 p-0">
         <legend className={legend}>I want to</legend>
         <div className="grid grid-cols-4 gap-3 max-narrow:grid-cols-2">
@@ -213,14 +212,14 @@ export function AboutStep({ answers, ...rest }: QuestionStepProps) {
   );
 }
 
-/** Step 5: experience, and the leagues they have debated under. */
+/** Experience, and the leagues they have debated under. */
 export function ExperienceStep({ answers, ...rest }: QuestionStepProps) {
   const saved = new Set(answers.leagues);
   const custom = answers.leagues.filter(
     (league) => !leagueSuggestions.includes(league),
   );
   return (
-    <StepForm step="experience" title="Experience" stepNumber={5} {...rest}>
+    <StepForm step="experience" title="Experience" {...rest}>
       <fieldset className="m-0 border-0 p-0">
         <legend className={legend}>Debating so far</legend>
         <div className="grid grid-cols-2 gap-3 max-narrow:grid-cols-1">
@@ -274,14 +273,13 @@ export function ExperienceStep({ answers, ...rest }: QuestionStepProps) {
   );
 }
 
-/** Step 6: the topics the member wants to argue. */
+/** The topics the member wants to argue. */
 export function TopicsStep({ answers, ...rest }: QuestionStepProps) {
   const [picked, setPicked] = useState(answers.topics.length);
   return (
     <StepForm
       step="topics"
       title="Topics"
-      stepNumber={6}
       finish
       aside={
         <p className="text-sm text-ink-muted tabular-nums" aria-live="polite">

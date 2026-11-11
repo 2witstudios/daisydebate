@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { LaddersFigure } from './ladders-figure';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
+import { stepNumber } from '../../../features/onboarding/steps';
 
 export type IntroStepProps = {
   readonly nextHref: string;
@@ -26,7 +27,11 @@ export function DaisyStep({ nextHref, backHref, skip }: IntroStepProps) {
     ['Ladder', 'Ranked results move your rating on that format’s ladder.'],
   ];
   return (
-    <OnboardingFrame step={1} titleId="onboarding-title" skip={skip}>
+    <OnboardingFrame
+      step={stepNumber('daisy')}
+      titleId="onboarding-title"
+      skip={skip}
+    >
       <h1 id="onboarding-title" className={heading}>
         How Daisy works
       </h1>

@@ -21,7 +21,7 @@ const render = (
   );
 
 test('only an unacknowledged, still-valid original envelope can be retried', () => {
-  const html = render({ values: original, unacknowledged: true });
+  const html = render({ kind: 'unacknowledged', values: original });
   assert({
     given:
       'an unacknowledged yield envelope, then an acknowledged one, one with a stray field and a malformed one',
@@ -31,11 +31,11 @@ test('only an unacknowledged, still-valid original envelope can be retried', () 
       html.includes('aria-label="Retry unacknowledged command"'),
       html.includes(`name="commandId" value="${id}"`),
       html.includes('name="type" value="yield"'),
-      render({ values: original }),
-      render({ values: { ...original, note: 'x' }, unacknowledged: true }),
+      render({ kind: 'idle', values: original }),
+      render({ kind: 'unacknowledged', values: { ...original, note: 'x' } }),
       render({
+        kind: 'unacknowledged',
         values: { ...original, commandId: 'bad' },
-        unacknowledged: true,
       }),
     ],
     expected: [true, true, true, '', '', ''],
@@ -43,7 +43,7 @@ test('only an unacknowledged, still-valid original envelope can be retried', () 
 });
 
 test('a pending retry is busy and cannot be sent twice', () => {
-  const html = render({ values: original, unacknowledged: true }, true);
+  const html = render({ kind: 'unacknowledged', values: original }, true);
   assert({
     given: 'a retry already in flight',
     should: 'mark the form busy and disable its button',
@@ -58,13 +58,13 @@ test('a pending retry is busy and cannot be sent twice', () => {
 
 test('a retried strike carries the turn and position the debater struck', () => {
   const html = render({
+    kind: 'unacknowledged',
     values: {
       ...original,
       type: 'strike_resolution',
       ordinal: '1',
       position: '2',
     },
-    unacknowledged: true,
   });
   assert({
     given: 'an unacknowledged strike',
@@ -79,8 +79,8 @@ test('a retried strike carries the turn and position the debater struck', () => 
 
 test('the retry posts exactly the fields the debater sent, its segment included (ISSUE-838)', () => {
   const html = render({
+    kind: 'unacknowledged',
     values: { ...original, confirmed: 'true', segment: '0' },
-    unacknowledged: true,
   });
   assert({
     given: 'an unacknowledged confirmed yield sent from segment 0',

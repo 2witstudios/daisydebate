@@ -1,12 +1,63 @@
 import type { RoomInvitationRefusal } from '@daisy/protocol';
+import {
+  idle,
+  refusedWith,
+  type Idle,
+  type Refused,
+} from '../forms/form-state';
 
-/** What an invitation form answers with: a notice, and whether it worked. */
-export type InvitationFormState = {
-  readonly notice?: string;
-  readonly ok?: boolean;
-  /** The username to keep in the field after a refusal. */
-  readonly username?: string;
+/** The invitation was sent, withdrawn or declined; `notice` says which. */
+type InvitationAccepted = {
+  readonly kind: 'accepted';
+  readonly notice: string;
 };
+
+/**
+ * What an invitation form answers with. A refused invite keeps the username
+ * it named in `values.username`; withdraw and decline have nothing to keep.
+ */
+export type InvitationFormState = Idle | Refused | InvitationAccepted;
+
+export const initialInvitationForm: InvitationFormState = idle();
+
+const accepted = (notice: string): InvitationAccepted => ({
+  kind: 'accepted',
+  notice,
+});
+
+const failed = 'That did not work. Try again.';
+
+/** The answer when the call never arrived or the form named no known intent. */
+export const invitationFormUnavailable = (): InvitationFormState =>
+  refusedWith({}, failed);
+
+/**
+ * What an invitation form renders: the username to keep in the field, the
+ * notice beside it, and a key that changes when an accepted invite should
+ * empty the field.
+ */
+export type InvitationFields = {
+  readonly username: string;
+  readonly notice: string | undefined;
+  readonly fieldKey: string;
+};
+
+export function invitationFields(
+  answer: InvitationFormState,
+): InvitationFields {
+  switch (answer.kind) {
+    case 'idle':
+      return { username: '', notice: undefined, fieldKey: 'draft' };
+    case 'refused':
+      return {
+        username: answer.values['username'] ?? '',
+        notice: answer.error,
+        fieldKey: 'draft',
+      };
+    case 'accepted':
+      return { username: '', notice: answer.notice, fieldKey: answer.notice };
+  }
+}
 
 const refusalWords: Record<RoomInvitationRefusal, string> = {
   'not-host': 'Only the host can do that.',
@@ -51,19 +102,17 @@ export async function submitInvitationForm(
             invitationId: text(form, 'invitationId'),
           })
         : null;
-  if (!request) return { notice: 'That did not work. Try again.' };
+  if (!request) return invitationFormUnavailable();
   try {
     const response = await request;
     if (response.ok)
-      return {
-        ok: true,
-        notice:
-          intent === 'invite'
-            ? `Invited @${username}. Their seat is held for them.`
-            : intent === 'withdraw'
-              ? 'Invitation withdrawn.'
-              : 'Invitation declined.',
-      };
+      return accepted(
+        intent === 'invite'
+          ? `Invited @${username}. Their seat is held for them.`
+          : intent === 'withdraw'
+            ? 'Invitation withdrawn.'
+            : 'Invitation declined.',
+      );
     const body = (await response.json().catch(() => null)) as {
       refusal?: unknown;
     } | null;
@@ -75,9 +124,9 @@ export async function submitInvitationForm(
           ? 'Too many invitations. Try again later.'
           : response.status === 400
             ? 'Enter a username.'
-            : 'That did not work. Try again.';
-    return { notice: words, ...(intent === 'invite' ? { username } : {}) };
+            : failed;
+    return refusedWith(intent === 'invite' ? { username } : {}, words);
   } catch {
-    return { notice: 'That did not work. Try again.' };
+    return invitationFormUnavailable();
   }
 }

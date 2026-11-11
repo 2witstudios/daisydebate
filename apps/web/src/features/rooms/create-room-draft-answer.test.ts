@@ -5,6 +5,7 @@ import {
   eraseRoomDraftAnswer,
   saveRoomDraftAnswer,
 } from './create-room-draft-answer';
+import { idle } from '../forms/form-state';
 setupRitewayBun();
 
 test('native preview answers are bounded and principal scoped', async () => {
@@ -23,9 +24,10 @@ test('native preview answers are bounded and principal scoped', async () => {
   const member = 'm'.repeat(24),
     command = 'c'.repeat(24),
     other = 'o'.repeat(24);
-  const state = {
-    values: { title: 'Kept room', 'duration.segment.0': '4:32.123' },
-  };
+  const state = idle({
+    title: 'Kept room',
+    'duration.segment.0': '4:32.123',
+  });
   await saveRoomDraftAnswer(store, member, command, null, state);
   const found = await readRoomDraftAnswer(store, member, command, null);
   const wrongMember = await readRoomDraftAnswer(store, other, command, null);
@@ -34,24 +36,46 @@ test('native preview answers are bounded and principal scoped', async () => {
   const exported = await exportRoomDraftAnswer(store, member);
   const otherExport = await exportRoomDraftAnswer(store, other);
   await saveRoomDraftAnswer(store, member, other, null, {
+    kind: 'invalid',
     values: { title: 'Newest' },
+    error: 'Choose a resolution.',
+    resolutions: [],
   });
   assert({
     given:
       'a native settings answer and reads from another member, command and rematch',
     should:
-      'expire in five minutes, disclose only its exact owner context and keep one latest answer per member',
+      'expire in five minutes, disclose only its exact owner context, keep one latest answer per member and hand back a refused draft with its error',
     actual: [
       found,
-      wrongMember.values,
-      wrongCommand.values,
-      wrongSource.values,
+      wrongMember,
+      wrongCommand.kind,
+      wrongSource.kind,
       expiries,
       data.size,
       exported,
       otherExport,
+      await readRoomDraftAnswer(store, member, other, null),
     ],
-    expected: [state, {}, {}, {}, [300, 300], 1, [state.values], []],
+    expected: [
+      state,
+      {
+        kind: 'refused',
+        values: {},
+        error: 'This settings preview expired. Choose your settings again.',
+      },
+      'refused',
+      'refused',
+      [300, 300],
+      1,
+      [state.values],
+      [],
+      {
+        kind: 'refused',
+        values: { title: 'Newest' },
+        error: 'Choose a resolution.',
+      },
+    ],
   });
   await eraseRoomDraftAnswer(store, member);
   assert({

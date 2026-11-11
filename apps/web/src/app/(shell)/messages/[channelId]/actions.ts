@@ -21,6 +21,7 @@ import {
 import {
   parseMessageForm,
   messageFormUnavailable,
+  messageRefused,
   type MessageFormState,
 } from '../../../../features/messaging/forms/send-form';
 
@@ -81,10 +82,9 @@ export async function sendMessageAction(
     403: 'You cannot send to this conversation now. Your draft is kept.',
     404: 'You cannot send to this conversation now. Your draft is kept.',
   };
-  let command: ReturnType<typeof parseMessageForm>;
   let next: string;
   try {
-    command = parseMessageForm(channelId, form);
+    const command = parseMessageForm(channelId, form);
     const response = await inProcessFetch(send, incoming)(
       '/api/messaging/messages',
       {
@@ -94,10 +94,10 @@ export async function sendMessageAction(
       },
     );
     if (!response.ok)
-      return {
-        ...kept,
-        notice: notices[response.status] ?? kept.notice!,
-      };
+      return messageRefused(
+        kept.values,
+        notices[response.status] ?? kept.error,
+      );
     const result: unknown = await response.json();
     const reply = z.object({ id: idSchema }).safeParse(result);
     if (!reply.success) return kept;
@@ -108,7 +108,7 @@ export async function sendMessageAction(
   } catch {
     return kept;
   }
-  return { text: '', requestId: command.requestId, ...moveOn(incoming, next) };
+  return moveOn(incoming, next);
 }
 
 const edit = processRoute((routes) => routes.messaging.edit);
@@ -141,5 +141,5 @@ export async function changeMessageAction(
     return kept;
   }
   const path = `/messages/${channelId}`;
-  return { text: '', requestId: kept.requestId, ...moveOn(incoming, path) };
+  return moveOn(incoming, path);
 }

@@ -1,11 +1,57 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { singleFormField } from '../../server/form-field';
-export type BlockFormState = {
+import {
+  idle,
+  refusedWith,
+  type Idle,
+  type Refused,
+} from '../forms/form-state';
+
+/** The two fields the block form posts and shows again. */
+export type BlockValues = {
   readonly requestId: string;
   readonly username: string;
-  readonly notice?: string;
 };
+
+type BlockIdle = Idle & { readonly values: BlockValues };
+type BlockRefused = Refused & { readonly values: BlockValues };
+
+/** The contact was blocked or unblocked; `values.requestId` is new, for the next post. */
+export type BlockChanged = {
+  readonly kind: 'changed';
+  readonly values: BlockValues;
+  readonly notice: string;
+};
+
+/** What the block-by-username form's action answers. */
+export type BlockFormState = BlockIdle | BlockRefused | BlockChanged;
+
+export const initialBlockForm = (requestId: string): BlockFormState =>
+  idle({ requestId, username: '' });
+
+export const blockChanged = (
+  values: BlockValues,
+  blocked: boolean,
+): BlockChanged => ({
+  kind: 'changed',
+  values,
+  notice: blocked ? 'Contact blocked.' : 'Contact unblocked.',
+});
+
+/** What the block form renders: its fields and the notice beside them. */
+export type BlockFields = BlockValues & { readonly notice: string | undefined };
+
+export function blockFields(answer: BlockFormState): BlockFields {
+  switch (answer.kind) {
+    case 'idle':
+      return { ...answer.values, notice: undefined };
+    case 'refused':
+      return { ...answer.values, notice: answer.error };
+    case 'changed':
+      return { ...answer.values, notice: answer.notice };
+  }
+}
 /** The native block form's one command: a username and the choice. */
 export function parseBlockForm(input: unknown) {
   if (!(input instanceof FormData)) throw createAppError('VALIDATION');
@@ -21,23 +67,39 @@ export function parseBlockForm(input: unknown) {
     blocked: decision === 'block',
   };
 }
-export function blockFormUnavailable(input: FormData): BlockFormState {
+export function blockFormUnavailable(input: FormData): BlockRefused {
   const username = input.get('username');
-  return {
-    requestId:
-      typeof input.get('requestId') === 'string'
-        ? String(input.get('requestId'))
-        : '',
-    username: typeof username === 'string' ? username : '',
-    notice: 'Could not change this contact. Your username is kept; try again.',
-  };
+  return refusedWith(
+    {
+      requestId:
+        typeof input.get('requestId') === 'string'
+          ? String(input.get('requestId'))
+          : '',
+      username: typeof username === 'string' ? username : '',
+    },
+    'Could not change this contact. Your username is kept; try again.',
+  );
 }
 
 /** The people list's one-button block: its answer, and whether to close. */
-export type PersonBlockState = {
-  readonly done?: boolean;
-  readonly notice?: string;
-};
+export type PersonBlockState = Idle | Refused | { readonly kind: 'blocked' };
 
-export const personBlockedNotice = 'Blocked.';
-export const personBlockFailedNotice = 'Could not block them. Try again.';
+export const initialPersonBlock: PersonBlockState = idle();
+export const personBlocked: PersonBlockState = { kind: 'blocked' };
+/** A failed call says to try again; the form is one button, so nothing is lost. */
+export const personBlockUnavailable = (): PersonBlockState =>
+  refusedWith({}, 'Could not block them. Try again.');
+
+/** What the button says beside itself, if anything. */
+export function personBlockNotice(
+  answer: PersonBlockState,
+): string | undefined {
+  switch (answer.kind) {
+    case 'idle':
+      return undefined;
+    case 'refused':
+      return answer.error;
+    case 'blocked':
+      return 'Blocked.';
+  }
+}

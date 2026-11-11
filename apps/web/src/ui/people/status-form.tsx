@@ -3,6 +3,8 @@
 import { chosenStatuses, type ChosenStatus } from '@daisy/protocol';
 import { useEffect } from 'react';
 import {
+  initialPresenceForm,
+  presenceFields,
   presenceFormUnavailable,
   type PresenceFormState,
 } from '../../features/presence/form';
@@ -83,12 +85,13 @@ export function StatusForm({
   const people = useOptionalPeople();
   const [answer, post, pending] = useFormAction(
     action,
-    {},
+    initialPresenceForm,
     presenceFormUnavailable,
   );
-  const current = answer.status ?? chosen;
+  const { status, notice } = presenceFields(answer);
+  const current = status ?? chosen;
   useEffect(() => {
-    if (answer.status) people?.refresh();
+    if (status) people?.refresh();
     // Refresh once per answer; `people` changes with every list read.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answer]);
@@ -106,9 +109,9 @@ export function StatusForm({
           pending={pending}
         />
       ))}
-      {answer.notice ? (
+      {notice ? (
         <p role="status" className="px-3 pb-1 text-xs text-ink-muted">
-          {answer.notice}
+          {notice}
         </p>
       ) : null}
     </form>

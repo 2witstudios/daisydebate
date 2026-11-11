@@ -1,28 +1,17 @@
-import {
-  onboardingStepHref,
-  type OnboardingStep,
-  type SearchParams,
-} from '../../../features/access/decision';
+import type { SearchParams } from '../../../features/access/decision';
 import type { QuestionStep } from '../../../features/onboarding/answers';
 import { readOnboardingAnswers } from './answers';
 import { QuestionForm } from '../../../ui/onboarding/questions/question-form';
 import { saveStepAction } from './actions';
 import { stepSkip } from './skip';
 import { readStepEntry } from './step-entry';
-import { redirect } from 'next/navigation';
-import { requestOptionalAnswersAdmitted } from '../../../lib/request-session';
+import { readStepLinks } from './step-links';
 import { isEditing } from '../../../features/onboarding/continue';
-
-const previous: Record<QuestionStep, OnboardingStep> = {
-  about: 'debate',
-  experience: 'about',
-  topics: 'experience',
-};
 
 /**
  * A questionnaire step's page: the member's saved answers, bound forms. A
- * member whose canonical age does not admit optional answers skips to the
- * last step; nothing is asked, so nothing is stored (ISSUE-645).
+ * member whose canonical age does not admit optional answers passes on to the
+ * next step that admits them; nothing is asked, so nothing is stored (ISSUE-645).
  */
 export async function QuestionPage({
   step,
@@ -34,16 +23,13 @@ export async function QuestionPage({
   const { destination } = await readStepEntry(searchParams, step);
   // Opened from Settings to change one answer: save, then straight back.
   const editing = isEditing(await searchParams);
-  if (!(await requestOptionalAnswersAdmitted()))
-    redirect(onboardingStepHref('ready', destination));
+  const { backHref } = await readStepLinks(step, destination);
   return (
     <QuestionForm
       step={step}
       action={saveStepAction.bind(null, step, destination, editing)}
       answers={await readOnboardingAnswers()}
-      backHref={
-        editing ? destination : onboardingStepHref(previous[step], destination)
-      }
+      backHref={editing ? destination : (backHref ?? destination)}
       skip={editing ? null : stepSkip(destination)}
       editing={editing}
     />

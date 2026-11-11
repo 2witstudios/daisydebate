@@ -7,7 +7,10 @@ import {
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
+import { destinationOf } from '../../features/forms/form-state';
 import {
+  groupManagementFields,
+  groupManagementIdle,
   groupManagementUnavailable,
   type GroupManagementFormState,
 } from '../../features/messaging/forms/group-management-form';
@@ -24,13 +27,15 @@ export function GroupManagementForm({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { requestId, memberUsername: '' },
+    groupManagementIdle(requestId),
     groupManagementUnavailable,
   );
-  useMovedOn(answer.next);
+  const next = destinationOf(answer);
+  useMovedOn(next);
+  const fields = groupManagementFields(answer);
   useFocusAfterAnswer(
     answer,
-    answer.notice ? 'group-management-notice' : 'group-management-submit',
+    fields.notice ? 'group-management-notice' : 'group-management-submit',
     !pending,
   );
   return (
@@ -38,25 +43,25 @@ export function GroupManagementForm({
       action={post}
       className="flex flex-col gap-4 rounded-lg border border-border p-5"
     >
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={fields.requestId} />
       {targeted ? (
         <label className="flex flex-col gap-2 text-sm font-semibold">
           Member username
           <input
             name="memberUsername"
-            key={answer.memberUsername}
-            defaultValue={answer.memberUsername}
+            key={fields.memberUsername}
+            defaultValue={fields.memberUsername}
             required
             disabled={pending}
             className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink"
           />
         </label>
       ) : null}
-      <DraftNotice id="group-management-notice" notice={answer.notice} />
+      <DraftNotice id="group-management-notice" notice={fields.notice} />
       <Button
         id="group-management-submit"
         type="submit"
-        disabled={pending || answer.next !== undefined}
+        disabled={pending || next !== undefined}
       >
         {title}
       </Button>

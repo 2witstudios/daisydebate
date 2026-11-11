@@ -189,3 +189,40 @@ test('an address that comes back is read again without a new link', async () => 
     await viewer.client.act(async () => viewer.client.root.unmount());
   }
 });
+
+test('a Round with nothing left to change is read no more', async () => {
+  const viewer = await mount();
+  try {
+    const settled: AudienceState = {
+      ...published(2),
+      timeline: {
+        ...timeline,
+        broadcast: { state: 'ended' },
+        stage: { kind: 'ended' },
+        recording: 'none',
+      },
+    };
+    viewer.answers.set(first, () => Response.json(published(1)));
+    await viewer.show(first);
+    await viewer.poll();
+    viewer.answers.set(first, () => Response.json(settled));
+    await viewer.poll();
+    const whenSettled = viewer.reads.length;
+    await viewer.poll();
+    await viewer.poll();
+    assert({
+      given: 'a published state that says the Round ended with no Recording',
+      should: 'show the end and stop reading',
+      actual: {
+        whenSettled,
+        reads: viewer.reads.length,
+        ended: (viewer.client.container.textContent ?? '').includes(
+          'This debate has ended',
+        ),
+      },
+      expected: { whenSettled: 2, reads: 2, ended: true },
+    });
+  } finally {
+    await viewer.client.act(async () => viewer.client.root.unmount());
+  }
+});

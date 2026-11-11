@@ -9,7 +9,7 @@ setupRitewayBun();
 test('NotificationPreferencesForm', () => {
   const html = renderToStaticMarkup(
     h(NotificationPreferencesForm, {
-      action: async () => ({}),
+      action: async (previous) => previous,
       choices: {
         ...defaultNotificationChoices,
         challenge_received: { in_app: true, email: false },

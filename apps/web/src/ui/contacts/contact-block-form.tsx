@@ -7,7 +7,9 @@ import {
 import { Button } from '../components/button/button';
 import { DraftNotice } from '../messaging/draft-notice';
 import {
+  blockFields,
   blockFormUnavailable,
+  initialBlockForm,
   type BlockFormState,
 } from '../../features/contacts/block-form';
 export function ContactBlockForm({
@@ -19,12 +21,13 @@ export function ContactBlockForm({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { requestId, username: '' },
+    initialBlockForm(requestId),
     blockFormUnavailable,
   );
+  const fields = blockFields(answer);
   useFocusAfterAnswer(
     answer,
-    answer.notice ? 'contact-notice' : 'contact-username',
+    fields.notice ? 'contact-notice' : 'contact-username',
     !pending,
   );
   return (
@@ -32,20 +35,20 @@ export function ContactBlockForm({
       action={post}
       className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
     >
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={fields.requestId} />
       <label htmlFor="contact-username" className="text-sm font-semibold">
         Username
       </label>
       <input
         id="contact-username"
         name="username"
-        key={answer.username}
-        defaultValue={answer.username}
+        key={fields.username}
+        defaultValue={fields.username}
         required
         disabled={pending}
         className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink disabled:opacity-60"
       />
-      <DraftNotice id="contact-notice" notice={answer.notice} />
+      <DraftNotice id="contact-notice" notice={fields.notice} />
       <div className="flex gap-3">
         <Button type="submit" name="decision" value="block" disabled={pending}>
           Block contact

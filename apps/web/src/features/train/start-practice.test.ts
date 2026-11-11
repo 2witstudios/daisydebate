@@ -6,6 +6,7 @@ import {
   type PracticeCatalog,
 } from './start-practice';
 import { debater, judge } from './roster.test-support';
+import { destinationOf, formFields } from '../forms/form-state';
 import { unequalTemplate } from '../rooms/assembly.test-support';
 
 setupRitewayBun();
@@ -185,7 +186,7 @@ const refusedLine = async (status: number, body?: object) => {
     new Response(body ? JSON.stringify(body) : null, { status }),
     form('wren-actor-id-000000'),
   );
-  return answer.error;
+  return formFields(answer).error;
 };
 
 test('a Start practice refusal says its own reason (ISSUE-1011)', async () => {
@@ -233,28 +234,28 @@ test('Start practice moves on only on the answer every Room form reads', async (
     given: 'a member who already holds a Room',
     should: 'take them back to it, or to the lobby with no link',
     actual: [
-      (
-        await answered(409, {
-          refusal: 'active-room',
-          activeRoom: {
-            version: 1,
-            id: 'r'.repeat(24),
-            title: 'Open room',
-            phase: 'assembling',
-            role: 'host',
-            seated: true,
-            href: `/rooms/${'r'.repeat(24)}`,
-          },
-        })
-      ).next,
-      (await answered(409, { refusal: 'active-room', activeRoom: null })).next,
-    ],
+      await answered(409, {
+        refusal: 'active-room',
+        activeRoom: {
+          version: 1,
+          id: 'r'.repeat(24),
+          title: 'Open room',
+          phase: 'assembling',
+          role: 'host',
+          seated: true,
+          href: `/rooms/${'r'.repeat(24)}`,
+        },
+      }),
+      await answered(409, { refusal: 'active-room', activeRoom: null }),
+    ].map(destinationOf),
     expected: [`/rooms/${'r'.repeat(24)}`, '/lobby'],
   });
   assert({
     given: 'a 201 whose body is only a receipt, not the Room it created',
     should: 'not move on',
-    actual: (await answered(201, { receipt: { roomId: 'r'.repeat(24) } })).next,
+    actual: destinationOf(
+      await answered(201, { receipt: { roomId: 'r'.repeat(24) } }),
+    ),
     expected: undefined,
   });
 });

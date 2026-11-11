@@ -17,30 +17,20 @@ export type TerminalReason = 'revoked' | 'unsupported' | 'signed-out';
 export type CloseDecision =
   | {
       readonly reconnect: true;
-      readonly refreshTicket: boolean;
       readonly backoffKind: ReconnectKind;
       readonly terminal: null;
     }
   | {
       readonly reconnect: false;
-      readonly refreshTicket: false;
       readonly backoffKind: null;
       readonly terminal: TerminalReason;
     };
 
-function reconnect(
-  backoffKind: ReconnectKind,
-  refreshTicket: boolean,
-): CloseDecision {
-  return { reconnect: true, refreshTicket, backoffKind, terminal: null };
+function reconnect(backoffKind: ReconnectKind): CloseDecision {
+  return { reconnect: true, backoffKind, terminal: null };
 }
 function stop(terminal: TerminalReason): CloseDecision {
-  return {
-    reconnect: false,
-    refreshTicket: false,
-    backoffKind: null,
-    terminal,
-  };
+  return { reconnect: false, backoffKind: null, terminal };
 }
 
 /**
@@ -65,22 +55,22 @@ export function decideOnClose({
     case 'auth_failed':
       return consecutiveAuthFailures + 1 >= AUTH_FAILURE_LIMIT
         ? stop('signed-out')
-        : reconnect('standard', true);
+        : reconnect('standard');
     case 'revoked':
       return stop('revoked');
     case 'protocol_unsupported':
       return stop('unsupported');
     case 'rate_limited':
-      return reconnect('rate-limited', false);
+      return reconnect('rate-limited');
     case 'slow_consumer':
-      return reconnect('standard', false);
+      return reconnect('standard');
     case 'server_restarting':
-      return reconnect('immediate', false);
+      return reconnect('immediate');
     case 'authority_unavailable':
-      return reconnect('standard', true);
+      return reconnect('standard');
     case null:
       // 1000, 1001, 1006 and any code the table does not list are all
       // treated as 1006 (ADR 0031 §8: "an unknown code is treated as 1006").
-      return reconnect('standard', false);
+      return reconnect('standard');
   }
 }

@@ -2,8 +2,11 @@
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
+import { destinationOf } from '../../features/forms/form-state';
 import {
+  creationFields,
   creationFormUnavailable,
+  creationIdle,
   type CreationFormState,
 } from '../../features/messaging/forms/create-form';
 
@@ -26,10 +29,10 @@ export function MessageUserButton({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { requestId, recipients: username, title: '', introduction: '' },
+    creationIdle(requestId, username),
     creationFormUnavailable,
   );
-  useMovedOn(answer.next);
+  useMovedOn(destinationOf(answer));
   return (
     <MessageUserFields
       username={username}
@@ -54,20 +57,21 @@ export function MessageUserFields({
   readonly action: (form: FormData) => void;
   readonly variant: 'primary' | 'secondary';
 }) {
+  const { requestId, notice } = creationFields(answer);
   return (
     <form action={action} className="inline-flex flex-col gap-1">
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={requestId} />
       <input type="hidden" name="recipients" value={username} />
       <input type="hidden" name="introduction" value="" />
       <Button
         type="submit"
         variant={variant}
-        disabled={pending || answer.next !== undefined}
+        disabled={pending || destinationOf(answer) !== undefined}
         aria-label={`Message @${username}`}
       >
         Message
       </Button>
-      {answer.notice ? (
+      {notice ? (
         <p role="status" className="text-sm text-ink-muted">
           {`Could not open a conversation with @${username}. Try again.`}
         </p>

@@ -1,89 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type {
-  PasskeyRow,
-  SecurityOutcome,
-  SessionRow,
-} from '../../../features/account/security-client';
-import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import { OUTCOME_NOTICES } from './security-notices';
-import type * as Client from './use-security-overview.test-support';
+import { mount, overview } from './security-overview-mount.test-support';
 
 setupRitewayBun();
-
-const passkey = (id: string): PasskeyRow => ({
-  id,
-  createdAt: '2026-11-01T00:00:00.000Z',
-});
-const session = (id: string): SessionRow => ({
-  id,
-  createdAt: '2026-11-01T00:00:00.000Z',
-  updatedAt: '2026-11-01T00:00:00.000Z',
-  expiresAt: '2026-12-01T00:00:00.000Z',
-  userAgent: null,
-  current: false,
-});
-const overview = (passkeys: readonly string[], sessions: readonly string[]) =>
-  ({
-    passkeys: passkeys.map(passkey),
-    sessions: sessions.map(session),
-    passkeysOutcome: { kind: 'ok' },
-    sessionsOutcome: { kind: 'ok' },
-  }) as const;
-type Overview = ReturnType<typeof overview>;
-
-/** The hook in a private realm; the test answers each read and each sign-out. */
-const mount = async (signOutNotice?: string) => {
-  const client = await mountBrowserClient<typeof Client>(
-    Bun.resolveSync('./use-security-overview.test-support', import.meta.dir),
-  );
-  const reads: ReturnType<typeof Promise.withResolvers<Overview>>[] = [];
-  const signOuts: ReturnType<typeof Promise.withResolvers<SecurityOutcome>>[] =
-    [];
-  let held: Parameters<Parameters<typeof client.OverviewProbe>[0]['hold']>[0];
-  const load = () => {
-    const read = Promise.withResolvers<Overview>();
-    reads.push(read);
-    return read.promise;
-  };
-  const revokeOthers = () => {
-    const signOut = Promise.withResolvers<SecurityOutcome>();
-    signOuts.push(signOut);
-    return signOut.promise;
-  };
-  await client.act(async () =>
-    client.root.render(
-      client.createElement(client.OverviewProbe, {
-        load,
-        revokeOthers,
-        signOutNotice,
-        hold: (now) => {
-          held = now;
-        },
-      }),
-    ),
-  );
-  return {
-    reads,
-    signOuts,
-    held: () => held,
-    act: (work: () => void) => client.act(async () => work()),
-    shown: () =>
-      JSON.parse(client.container.querySelector('output')!.textContent!) as {
-        passkeys: string[];
-        sessions: string[];
-        sessionsNotice: string | null;
-        signOutNotice: string | null;
-      },
-    unmount: () => client.act(async () => client.root.unmount()),
-  };
-};
 
 test('a read begun before a removal here never brings the removed row back', async () => {
   const page = await mount();
   try {
     await page.act(() => page.reads[0]!.resolve(overview(['one', 'two'], [])));
     // A passkey was just added: the screen reads again, and that read is slow.
-    await page.act(() => page.held().reload());
+    await page.savePasskey();
     await page.act(() => page.held().removePasskey('one'));
     // The slow read was taken before the removal landed.
     await page.act(() =>
@@ -133,7 +59,7 @@ test('signing out of all other sessions is asked once while it is in flight', as
       page.held().signOutOthers();
       page.held().signOutOthers();
     });
-    const busy = page.held().signingOutOthers;
+    const busy = page.signingOutOthers();
     await page.act(() => page.held().signOutOthers());
     const asked = page.signOuts.length;
     await page.act(() => page.signOuts[0]!.resolve({ kind: 'ok' }));
@@ -141,7 +67,7 @@ test('signing out of all other sessions is asked once while it is in flight', as
       given: 'the button pressed again before the first answer',
       should:
         'send one request, say it is working, and take the next press once answered',
-      actual: { asked, busy, after: page.held().signingOutOthers },
+      actual: { asked, busy, after: page.signingOutOthers() },
       expected: { asked: 1, busy: true, after: false },
     });
   } finally {
@@ -185,7 +111,7 @@ test('a read that answers in the same moment as a removal is still stale', async
   const page = await mount();
   try {
     await page.act(() => page.reads[0]!.resolve(overview(['one', 'two'], [])));
-    await page.act(() => page.held().reload());
+    await page.savePasskey();
     // Before React has run any cleanup: the removal, then the old answer.
     await page.act(() => {
       page.held().removePasskey('one');
@@ -208,7 +134,7 @@ test('a read that cannot be made says the lists are unavailable', async () => {
   try {
     await page.act(() => page.reads[0]!.reject(new Error('offline')));
     const unread = page.shown();
-    await page.act(() => page.held().reload());
+    await page.savePasskey();
     await page.act(() => page.reads[1]!.resolve(overview([], ['here'])));
     assert({
       given: 'a read that rejects, then one that answers',
@@ -242,7 +168,7 @@ test('a sign-out of the others that cannot be sent can be asked again', async ()
     await page.act(() => page.held().signOutOthers());
     await page.act(() => page.signOuts[0]!.reject(new Error('offline')));
     const after = {
-      busy: page.held().signingOutOthers,
+      busy: page.signingOutOthers(),
       notice: page.shown().signOutNotice,
     };
     await page.act(() => page.held().signOutOthers());
@@ -276,5 +202,27 @@ test('a sign-out that failed is said beside a read that failed', async () => {
     });
   } finally {
     await page.unmount();
+  }
+});
+
+test('lists not yet read are not held as an account with none', async () => {
+  const unread = await mount();
+  const empty = await mount();
+  try {
+    await empty.act(() => empty.reads[0]!.resolve(overview([], [])));
+    assert({
+      given:
+        'one screen whose first read is still in flight, and one whose read said the account has no passkeys and no sessions',
+      should: 'hold the two differently',
+      actual: {
+        same: JSON.stringify(unread.held()) === JSON.stringify(empty.held()),
+        unread: unread.lists(),
+        empty: empty.lists(),
+      },
+      expected: { same: false, unread: 'loading', empty: 'read' },
+    });
+  } finally {
+    await unread.unmount();
+    await empty.unmount();
   }
 });

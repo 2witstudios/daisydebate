@@ -6,9 +6,21 @@ import {
   reportReasonLabels,
   reportReasons,
 } from '@daisy/protocol';
-import { challengeFormUnavailable } from '../../features/challenges/forms';
-import { personBlockFailedNotice } from '../../features/contacts/block-form';
-import { reportFailedNotice } from '../../features/reports/form';
+import {
+  challengeFields,
+  challengeFormUnavailable,
+  initialChallengeForm,
+} from '../../features/challenges/forms';
+import {
+  initialPersonBlock,
+  personBlockNotice,
+  personBlockUnavailable,
+} from '../../features/contacts/block-form';
+import {
+  initialReportForm,
+  reportFields,
+  reportFormUnavailable,
+} from '../../features/reports/form';
 import { Button } from '../components/button/button';
 import { controlClass } from '../components/form-field/form-field-class';
 import { useFormAction } from '../form-action/form-action';
@@ -38,19 +50,22 @@ export function ProfilePersonActions({
 }) {
   const [sent, send, sending] = useFormAction(
     actions.sendChallenge,
-    {},
+    initialChallengeForm,
     challengeFormUnavailable,
   );
+  const challengeNotice = challengeFields(sent).notice;
   const [reported, report, reporting] = useFormAction(
     actions.report,
-    {},
-    () => ({
-      notice: reportFailedNotice,
-    }),
+    initialReportForm,
+    reportFormUnavailable,
   );
-  const [blocked, block, blocking] = useFormAction(actions.block, {}, () => ({
-    notice: personBlockFailedNotice,
-  }));
+  const reportNotice = reportFields(reported).notice;
+  const [blocked, block, blocking] = useFormAction(
+    actions.block,
+    initialPersonBlock,
+    personBlockUnavailable,
+  );
+  const blockNotice = personBlockNotice(blocked);
   return (
     <>
       <details>
@@ -109,9 +124,9 @@ export function ProfilePersonActions({
           </Button>
         </form>
       </details>
-      {(sent.notice ?? reported.notice) ? (
+      {(challengeNotice ?? reportNotice) ? (
         <p role="status" className="text-sm text-ink-muted">
-          {sent.notice ?? reported.notice}
+          {challengeNotice ?? reportNotice}
         </p>
       ) : null}
       <form action={block} className="inline-flex items-center gap-2">
@@ -119,9 +134,9 @@ export function ProfilePersonActions({
         <Button type="submit" variant="ghost" disabled={blocking}>
           Block
         </Button>
-        {blocked.notice ? (
+        {blockNotice ? (
           <p role="status" className="text-sm text-ink-muted">
-            {blocked.notice}
+            {blockNotice}
           </p>
         ) : null}
       </form>

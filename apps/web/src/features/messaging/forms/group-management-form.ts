@@ -1,11 +1,44 @@
 import { createAppError } from '@daisy/errors';
+import type { Idle, Moved, Refused } from '../../forms/form-state';
 import { parseMessagingFormScope, formRequestId } from './form-scope';
-export type GroupManagementFormState = {
-  readonly requestId: string;
-  readonly memberUsername: string;
-  readonly notice?: string;
-  readonly next?: string;
+
+/** The request a group change posts under and the member it names, if any. */
+type GroupManagementValues = {
+  readonly values: {
+    readonly requestId: string;
+    readonly memberUsername: string;
+  };
 };
+export type GroupManagementRefused = Refused & GroupManagementValues;
+
+/** A group-management form's answer; a refusal keeps the member typed. */
+export type GroupManagementFormState =
+  (Idle & GroupManagementValues) | GroupManagementRefused | Moved;
+
+export const groupManagementIdle = (
+  requestId: string,
+): GroupManagementFormState => ({
+  kind: 'idle',
+  values: { requestId, memberUsername: '' },
+});
+
+/** What a group-management form renders. */
+export type GroupManagementFields = GroupManagementValues['values'] & {
+  readonly notice: string | undefined;
+};
+
+export function groupManagementFields(
+  answer: GroupManagementFormState,
+): GroupManagementFields {
+  switch (answer.kind) {
+    case 'idle':
+      return { ...answer.values, notice: undefined };
+    case 'refused':
+      return { ...answer.values, notice: answer.error };
+    case 'moved':
+      return { requestId: '', memberUsername: '', notice: undefined };
+  }
+}
 export function parseGroupManagementForm(
   operation: unknown,
   channel: unknown,
@@ -41,11 +74,14 @@ export function parseGroupManagementForm(
 }
 export function groupManagementUnavailable(
   form: FormData,
-): GroupManagementFormState {
+): GroupManagementRefused {
   const value = form.get('memberUsername');
   return {
-    requestId: formRequestId(form),
-    memberUsername: typeof value === 'string' ? value : '',
-    notice: 'Could not complete this change. Your entry is kept; try again.',
+    kind: 'refused',
+    values: {
+      requestId: formRequestId(form),
+      memberUsername: typeof value === 'string' ? value : '',
+    },
+    error: 'Could not complete this change. Your entry is kept; try again.',
   };
 }

@@ -4,7 +4,13 @@ import type {
   RoomCastChoice,
   RoomCreate,
 } from '@daisy/protocol';
-import { field, refused, type FormState } from '../forms/form-state';
+import {
+  field,
+  moved,
+  refused,
+  type Moved,
+  type Refused,
+} from '../forms/form-state';
 import { aiJudgePremiumText } from '../rooms/ai-judge-copy';
 import { casualSelection } from '../rooms/format-browser';
 import {
@@ -121,13 +127,13 @@ const refusalLines: Readonly<Record<RoomCreateRefusal, string>> = {
 export async function practiceAnswer(
   response: Response,
   form: FormData,
-): Promise<FormState> {
+): Promise<Refused | Moved> {
   const answer = await readRoomCreateAnswer(response);
   switch (answer.kind) {
     case 'created':
-      return { values: {}, next: `/rooms/${answer.roomId}` };
+      return moved(`/rooms/${answer.roomId}`);
     case 'active-room':
-      return { values: {}, next: answer.href ?? '/lobby' };
+      return moved(answer.href ?? '/lobby');
     case 'refused':
       return refused(form, refusalLines[answer.reason]);
     case 'unavailable':

@@ -9,8 +9,11 @@ import {
 } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
+import { destinationOf } from '../../features/forms/form-state';
 import {
+  creationFields,
   creationFormUnavailable,
+  creationIdle,
   type CreationFormState,
 } from '../../features/messaging/forms/create-form';
 const fieldClass =
@@ -26,13 +29,15 @@ export function ConversationCreation({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { requestId, recipients: '', title: '', introduction: '' },
+    creationIdle(requestId),
     creationFormUnavailable,
   );
-  useMovedOn(answer.next);
+  const next = destinationOf(answer);
+  useMovedOn(next);
+  const fields = creationFields(answer);
   useFocusAfterAnswer(
     answer,
-    answer.notice ? 'creation-notice' : 'creation-recipient',
+    fields.notice ? 'creation-notice' : 'creation-recipient',
     !pending,
   );
   const group = kind === 'private_group';
@@ -41,15 +46,15 @@ export function ConversationCreation({
       action={post}
       className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
     >
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={fields.requestId} />
       <label htmlFor="creation-recipient" className="text-sm font-semibold">
         {group ? 'Invite usernames' : 'Username'}
       </label>
       <textarea
         id="creation-recipient"
         name="recipients"
-        key={answer.recipients}
-        defaultValue={answer.recipients}
+        key={fields.recipients}
+        defaultValue={fields.recipients}
         required
         disabled={pending}
         rows={group ? 3 : 1}
@@ -68,8 +73,8 @@ export function ConversationCreation({
           <input
             id="creation-title"
             name="title"
-            key={answer.title}
-            defaultValue={answer.title}
+            key={fields.title}
+            defaultValue={fields.title}
             required
             disabled={pending}
             className={fieldClass}
@@ -86,8 +91,8 @@ export function ConversationCreation({
           <CountedTextarea
             id="creation-introduction"
             name="introduction"
-            key={answer.introduction}
-            defaultValue={answer.introduction}
+            key={fields.introduction}
+            defaultValue={fields.introduction}
             maxUnits={messagingBetaLimits.introductionUnits}
             disabled={pending}
             rows={4}
@@ -95,9 +100,9 @@ export function ConversationCreation({
           />
         </>
       )}
-      <DraftNotice id="creation-notice" notice={answer.notice} />
+      <DraftNotice id="creation-notice" notice={fields.notice} />
       <div className="flex justify-end">
-        <Button type="submit" disabled={pending || answer.next !== undefined}>
+        <Button type="submit" disabled={pending || next !== undefined}>
           {group ? 'Create private group' : 'Send request'}
         </Button>
       </div>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { RoomView } from '@daisy/protocol';
-import type { FormState } from '../../../features/forms/form-state';
+import type { FormFields } from '../../../features/forms/form-state';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import {
@@ -30,7 +30,7 @@ export function DurationField({
   readonly ms: number | null;
   readonly min: number;
   readonly max: number;
-  readonly state: FormState;
+  readonly state: FormFields;
   readonly disabled: boolean;
   readonly required?: boolean;
 }) {
@@ -88,7 +88,7 @@ function ChoiceField({
   readonly hint?: string;
   readonly choices: readonly Choice[];
   readonly saved: string;
-  readonly state: FormState;
+  readonly state: FormFields;
   readonly disabled: boolean;
 }) {
   const selected = state.values[name] ?? saved;
@@ -134,7 +134,7 @@ export function PrepToggle({
   readonly label: string;
   readonly hint: string;
   readonly checked: boolean;
-  readonly state: FormState;
+  readonly state: FormFields;
   readonly disabled: boolean;
   readonly children: ReactNode;
 }) {
@@ -166,7 +166,7 @@ export function PreparationFields({
   disabled,
 }: {
   readonly view: RoomView;
-  readonly state: FormState;
+  readonly state: FormFields;
   readonly disabled: boolean;
 }) {
   const capability = view.definition.configurable;
@@ -224,7 +224,7 @@ export function InteractionFields({
   disabled,
 }: {
   readonly view: RoomView;
-  readonly state: FormState;
+  readonly state: FormFields;
   readonly disabled: boolean;
 }) {
   const capability = view.definition.configurable.interaction;

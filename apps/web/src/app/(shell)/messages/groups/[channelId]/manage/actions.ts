@@ -48,5 +48,5 @@ export async function manageGroupAction(
   } catch {
     return kept;
   }
-  return { ...kept, notice: '', ...moveOn(incoming, next) };
+  return moveOn(incoming, next);
 }

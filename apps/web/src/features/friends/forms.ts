@@ -1,6 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import type { FriendRelation } from '@daisy/protocol';
 import { singleFormField } from '../../server/form-field';
+import type { Idle, Refused } from '../forms/form-state';
 
 /** What each friend form button asks; `cancel` withdraws one's own request. */
 const friendIntents = [
@@ -12,10 +13,51 @@ const friendIntents = [
 ] as const;
 export type FriendIntent = (typeof friendIntents)[number];
 
-export type FriendFormState = {
-  readonly username: string;
-  readonly notice?: string;
+type Named = { readonly values: { readonly username: string } };
+type FriendIdle = Idle & Named;
+type FriendRefused = Refused & Named;
+
+/** The friendship changed; `notice` confirms how. */
+export type FriendChanged = {
+  readonly kind: 'changed';
+  readonly notice: string;
 };
+
+/** What a friend form answers; a refusal keeps the username it was about. */
+export type FriendFormState = FriendIdle | FriendRefused | FriendChanged;
+
+/** Add-a-friend starts empty; a button about one member starts with their name. */
+export const initialFriendForm = (username = ''): FriendFormState => ({
+  kind: 'idle',
+  values: { username },
+});
+
+export const friendRefused = (
+  username: string,
+  error: string,
+): FriendRefused => ({ kind: 'refused', values: { username }, error });
+
+export const friendChanged = (notice: string): FriendChanged => ({
+  kind: 'changed',
+  notice,
+});
+
+/** What a friend form renders: the username in its field and the notice beside it. */
+export type FriendFields = {
+  readonly username: string;
+  readonly notice: string | undefined;
+};
+
+export function friendFields(answer: FriendFormState): FriendFields {
+  switch (answer.kind) {
+    case 'idle':
+      return { username: answer.values.username, notice: undefined };
+    case 'refused':
+      return { username: answer.values.username, notice: answer.error };
+    case 'changed':
+      return { username: '', notice: answer.notice };
+  }
+}
 
 /** Which route each intent posts to, and the body it sends. */
 export function friendRouteFor(intent: FriendIntent, username: string) {
@@ -56,10 +98,11 @@ const typedName = (form: FormData) => {
 };
 
 /** A failed call keeps what was typed and says to try again. */
-export const friendFormUnavailable = (form: FormData): FriendFormState => ({
-  username: typedName(form),
-  notice: 'Could not reach Daisy. Your entry is kept; try again.',
-});
+export const friendFormUnavailable = (form: FormData): FriendRefused =>
+  friendRefused(
+    typedName(form),
+    'Could not reach Daisy. Your entry is kept; try again.',
+  );
 
 /** The confirmation for a change that went through. */
 export function friendDoneNotice(

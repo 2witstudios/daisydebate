@@ -1,10 +1,13 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
+import { floorFormUnavailable } from '../../features/messaging/round-floor/form';
 import {
-  floorFormUnavailable,
+  floorAcceptedMessage,
+  floorFields,
+  floorIdle,
   type FloorFormState,
-} from '../../features/messaging/round-floor/form';
+} from '../../features/messaging/round-floor/form-state';
 import {
   useFormAction,
   useFocusAfterAnswer,
@@ -57,10 +60,9 @@ export function FloorMessageControls({
   );
   const [reason, setReason] = useState('harassment');
   const [dirty, setDirty] = useState<FloorEditDraft | null>(null);
-  const [initial] = useState<FloorFormState>(() => ({
-    text,
-    requestId: systemId.next(),
-  }));
+  const [initial] = useState<FloorFormState>(() =>
+    floorIdle(systemId.next(), text),
+  );
   const [answer, post, pending] = useFormAction<FloorFormState>(
     kind === 'report' ? reportAction : mutateAction,
     initial,
@@ -68,12 +70,14 @@ export function FloorMessageControls({
   );
   const seen = useRef(answer);
   useEffect(() => {
-    if (answer.sent && answer !== seen.current) {
+    const accepted = floorAcceptedMessage(answer);
+    if (accepted !== undefined && answer !== seen.current) {
       seen.current = answer;
       if (kind === 'remove') releaseDraft?.();
-      onSent(answer.sent);
+      onSent(accepted);
     }
   }, [answer, onSent, kind, releaseDraft]);
+  const fields = floorFields(answer);
   const removing = useRef(false);
   const form = useRef<HTMLFormElement>(null);
   const ownedFocus = useRef(false);
@@ -98,8 +102,10 @@ export function FloorMessageControls({
   const fieldId = `floor-edit-${messageId}`;
   const submitId = `floor-action-${messageId}`;
   const notice =
-    answer.notice ??
-    (kind === 'report' && answer.sent ? 'Report received.' : null);
+    fields.notice ??
+    (kind === 'report' && floorAcceptedMessage(answer) !== undefined
+      ? 'Report received.'
+      : null);
   useFocusAfterAnswer(
     answer,
     locked
@@ -119,10 +125,10 @@ export function FloorMessageControls({
       className="text-sm"
       onToggle={(event) => {
         const hasDraft =
-          dirty?.requestId === answer.requestId ||
+          dirty?.requestId === fields.requestId ||
           pending ||
-          answer.uncertain ||
-          answer.notice;
+          fields.retrying ||
+          fields.notice;
         if (own && !event.currentTarget.open && !hasDraft) releaseDraft?.();
       }}
     >
@@ -153,13 +159,13 @@ export function FloorMessageControls({
         className="flex flex-col gap-2 py-2"
       >
         <input type="hidden" name="messageId" value={messageId} />
-        <input type="hidden" name="requestId" value={answer.requestId} />
+        <input type="hidden" name="requestId" value={fields.requestId} />
         {own ? (
           <select
             aria-label="Message action"
             name="kind"
             value={kind}
-            disabled={pending || answer.uncertain === true || locked}
+            disabled={pending || fields.retrying || locked}
             onChange={(event) =>
               setKind(event.target.value === 'remove' ? 'remove' : 'edit')
             }
@@ -170,7 +176,7 @@ export function FloorMessageControls({
             <option value="remove">Remove</option>
           </select>
         ) : null}
-        {own && (pending || answer.uncertain || locked) ? (
+        {own && (pending || fields.retrying || locked) ? (
           <input type="hidden" name="kind" value={kind} />
         ) : null}
         {kind === 'edit' ? (
@@ -184,12 +190,12 @@ export function FloorMessageControls({
             required
             onInput={() =>
               setDirty((current) =>
-                current?.requestId === answer.requestId
+                current?.requestId === fields.requestId
                   ? current
-                  : { requestId: answer.requestId, baseline: seed.baseline },
+                  : { requestId: fields.requestId, baseline: seed.baseline },
               )
             }
-            readOnly={locked || editingLocked || answer.uncertain === true}
+            readOnly={locked || editingLocked || fields.retrying}
             disabled={pending}
             className="rounded-sm border border-border bg-background p-2"
           />
@@ -198,7 +204,7 @@ export function FloorMessageControls({
           <select
             name="reason"
             aria-label="Report reason"
-            disabled={pending || answer.uncertain === true || locked}
+            disabled={pending || fields.retrying || locked}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           >
@@ -209,7 +215,7 @@ export function FloorMessageControls({
             ))}
           </select>
         ) : null}
-        {kind === 'report' && (pending || answer.uncertain || locked) ? (
+        {kind === 'report' && (pending || fields.retrying || locked) ? (
           <input type="hidden" name="reason" value={reason} />
         ) : null}
         {notice ? (
@@ -225,7 +231,7 @@ export function FloorMessageControls({
         >
           {pending
             ? 'Submitting…'
-            : answer.uncertain
+            : fields.retrying
               ? 'Retry'
               : kind === 'edit'
                 ? 'Save edit'

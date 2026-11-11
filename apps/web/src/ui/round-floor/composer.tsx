@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { floorFormUnavailable } from '../../features/messaging/round-floor/form';
 import {
-  floorFormUnavailable,
+  floorAcceptedMessage,
+  floorFields,
   type FloorFormState,
-} from '../../features/messaging/round-floor/form';
+} from '../../features/messaging/round-floor/form-state';
 import {
   useFormAction,
   useFocusAfterAnswer,
@@ -34,33 +36,35 @@ export function FloorComposer({
     initial,
     floorFormUnavailable,
   );
-  const seen = useRef(initial.sent);
+  const sent = floorAcceptedMessage(answer);
+  const seen = useRef(floorAcceptedMessage(initial));
   useEffect(() => {
-    if (answer.sent && seen.current !== answer.sent) {
-      seen.current = answer.sent;
-      onSent(answer.sent);
+    if (sent !== undefined && seen.current !== sent) {
+      seen.current = sent;
+      onSent(sent);
     }
-  }, [answer.sent, onSent]);
+  }, [sent, onSent]);
+  const fields = floorFields(answer);
   const noticeId = `${id}-notice`;
-  useFocusAfterAnswer(answer, answer.notice ? noticeId : id, !pending);
+  useFocusAfterAnswer(answer, fields.notice ? noticeId : id, !pending);
   return (
     <form
       action={post}
       className="flex shrink-0 flex-col gap-2 border-t border-border p-3"
     >
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={fields.requestId} />
       <CountedTextarea
-        key={answer.text}
+        key={fields.text}
         id={id}
         name="text"
         aria-label="Message debaters and host"
-        defaultValue={answer.text}
+        defaultValue={fields.text}
         required
         rows={2}
         maxUnits={maxUnits}
         disabled={pending}
-        readOnly={locked || answer.uncertain === true}
-        describedBy={answer.notice ? noticeId : undefined}
+        readOnly={locked || fields.retrying}
+        describedBy={fields.notice ? noticeId : undefined}
         placeholder="Message debaters and host"
         className="min-w-0 resize-none rounded-sm border border-border-strong bg-background px-3 py-2 text-sm disabled:opacity-60"
         onKeyDown={(event) => {
@@ -76,24 +80,24 @@ export function FloorComposer({
           event.currentTarget.form?.requestSubmit();
         }}
       />
-      {answer.notice ? (
+      {fields.notice ? (
         <p
           id={noticeId}
           role="status"
           tabIndex={-1}
           className="text-sm text-ink-muted"
         >
-          {answer.notice}
+          {fields.notice}
         </p>
       ) : null}
       <button
         type="submit"
         disabled={pending || locked}
-        aria-label={answer.uncertain ? 'Retry message' : 'Send message'}
+        aria-label={fields.retrying ? 'Retry message' : 'Send message'}
         className="inline-flex h-room-target cursor-pointer items-center justify-center gap-2 self-end rounded-sm bg-accent px-3 text-sm font-strong text-accent-ink disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Icon name="send" size={16} />
-        {pending ? 'Sending…' : answer.uncertain ? 'Retry message' : 'Send'}
+        {pending ? 'Sending…' : fields.retrying ? 'Retry message' : 'Send'}
       </button>
     </form>
   );

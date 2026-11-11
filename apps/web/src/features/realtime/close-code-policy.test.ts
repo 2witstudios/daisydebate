@@ -11,7 +11,6 @@ describe('decideOnClose (ADR 0031 §8 close-code table)', () => {
       actual: decideOnClose({ code: 4001, consecutiveAuthFailures: 0 }),
       expected: {
         reconnect: true,
-        refreshTicket: true,
         backoffKind: 'standard',
         terminal: null,
       },
@@ -26,7 +25,6 @@ describe('decideOnClose (ADR 0031 §8 close-code table)', () => {
       actual: decideOnClose({ code: 4001, consecutiveAuthFailures: 2 }),
       expected: {
         reconnect: false,
-        refreshTicket: false,
         backoffKind: null,
         terminal: 'signed-out',
       },
@@ -40,7 +38,6 @@ describe('decideOnClose (ADR 0031 §8 close-code table)', () => {
       actual: decideOnClose({ code: 4002, consecutiveAuthFailures: 0 }),
       expected: {
         reconnect: false,
-        refreshTicket: false,
         backoffKind: null,
         terminal: 'revoked',
       },
@@ -54,7 +51,6 @@ describe('decideOnClose (ADR 0031 §8 close-code table)', () => {
       actual: decideOnClose({ code: 4003, consecutiveAuthFailures: 0 }),
       expected: {
         reconnect: false,
-        refreshTicket: false,
         backoffKind: null,
         terminal: 'unsupported',
       },
@@ -68,7 +64,6 @@ describe('decideOnClose (ADR 0031 §8 close-code table)', () => {
       actual: decideOnClose({ code: 4004, consecutiveAuthFailures: 0 }),
       expected: {
         reconnect: true,
-        refreshTicket: false,
         backoffKind: 'rate-limited',
         terminal: null,
       },
@@ -82,7 +77,6 @@ describe('decideOnClose (ADR 0031 §8 close-code table)', () => {
       actual: decideOnClose({ code: 4005, consecutiveAuthFailures: 0 }),
       expected: {
         reconnect: true,
-        refreshTicket: false,
         backoffKind: 'standard',
         terminal: null,
       },
@@ -96,7 +90,6 @@ describe('decideOnClose (ADR 0031 §8 close-code table)', () => {
       actual: decideOnClose({ code: 4006, consecutiveAuthFailures: 0 }),
       expected: {
         reconnect: true,
-        refreshTicket: false,
         backoffKind: 'immediate',
         terminal: null,
       },
@@ -125,13 +118,11 @@ describe('decideOnClose (ADR 0031 §8 close-code table)', () => {
       expected: [
         {
           reconnect: true,
-          refreshTicket: false,
           backoffKind: 'standard',
           terminal: null,
         },
         {
           reconnect: true,
-          refreshTicket: false,
           backoffKind: 'standard',
           terminal: null,
         },

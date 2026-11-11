@@ -2,6 +2,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ClaimOutcome } from './claim-username';
 import {
   claimUnavailable,
+  initialUsernameForm,
+  usernameFields,
+  usernameRefused,
   refusesShape,
   shownNotice,
   submitClaim,
@@ -65,7 +68,7 @@ describe('submitClaim', () => {
       actual,
       expected: outcomes.map((notice) => ({
         kind: 'refused' as const,
-        state: { username: 'Ada', notice },
+        state: usernameRefused('Ada', notice),
       })),
     });
   });
@@ -82,9 +85,30 @@ describe('submitClaim', () => {
         asked,
       ],
       expected: [
-        { kind: 'refused', state: { username: 'a b', notice: 'invalid' } },
-        { kind: 'refused', state: { username: '', notice: 'invalid' } },
-        { kind: 'refused', state: { username: '', notice: 'invalid' } },
+        {
+          kind: 'refused',
+          state: {
+            kind: 'refused',
+            values: { username: 'a b' },
+            error: 'invalid',
+          },
+        },
+        {
+          kind: 'refused',
+          state: {
+            kind: 'refused',
+            values: { username: '' },
+            error: 'invalid',
+          },
+        },
+        {
+          kind: 'refused',
+          state: {
+            kind: 'refused',
+            values: { username: '' },
+            error: 'invalid',
+          },
+        },
         [],
       ],
     });
@@ -98,7 +122,11 @@ describe('submitClaim', () => {
       actual: await submitClaim(claim, posted('ada')),
       expected: {
         kind: 'refused',
-        state: { username: 'ada', notice: 'unavailable' },
+        state: {
+          kind: 'refused',
+          values: { username: 'ada' },
+          error: 'unavailable',
+        },
       },
     });
   });
@@ -115,8 +143,8 @@ describe('claimUnavailable', () => {
         claimUnavailable(posted(new Blob(['x']))),
       ],
       expected: [
-        { username: 'ada', notice: 'unavailable' },
-        { username: '', notice: 'unavailable' },
+        { kind: 'refused', values: { username: 'ada' }, error: 'unavailable' },
+        { kind: 'refused', values: { username: '' }, error: 'unavailable' },
       ],
     });
   });
@@ -158,6 +186,27 @@ describe('shownNotice', () => {
         pending: true,
       }),
       expected: undefined,
+    });
+  });
+});
+
+describe('usernameFields', () => {
+  test('shows only what the one answered kind holds', () => {
+    const answers = [
+      initialUsernameForm,
+      usernameRefused('Ada', 'taken'),
+      { kind: 'moved', next: '/onboarding/passkey' } as const,
+    ];
+    assert({
+      given: 'nothing posted, a refused claim and a claim that moved on',
+      should:
+        'start empty, show the typed name beside its refusal, and show neither once moved',
+      actual: answers.map((answer) => [answer.kind, usernameFields(answer)]),
+      expected: [
+        ['idle', { username: '', notice: undefined }],
+        ['refused', { username: 'Ada', notice: 'taken' }],
+        ['moved', { username: '', notice: undefined }],
+      ],
     });
   });
 });

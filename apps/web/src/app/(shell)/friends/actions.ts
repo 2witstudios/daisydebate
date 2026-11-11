@@ -4,8 +4,10 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { friendCommandResultSchema } from '@daisy/protocol';
 import {
+  friendChanged,
   friendDoneNotice,
   friendFormUnavailable,
+  friendRefused,
   friendRefusalNotice,
   friendRouteFor,
   parseFriendForm,
@@ -43,10 +45,10 @@ export async function friendAction(
       body: JSON.stringify(body),
     });
     if (!response.ok)
-      return {
-        username: kept.username,
-        notice: friendRefusalNotice(intent, response.status),
-      };
+      return friendRefused(
+        kept.values.username,
+        friendRefusalNotice(intent, response.status),
+      );
     const reply: unknown = await response.json();
     const notice = friendDoneNoticeOf(
       intent,
@@ -55,7 +57,7 @@ export async function friendAction(
     if (notice === null) return kept;
     revalidatePath('/friends');
     revalidatePath('/profile/[username]', 'page');
-    return { username: '', notice };
+    return friendChanged(notice);
   } catch {
     return kept;
   }

@@ -1,6 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { parseBlockForm } from './block-form';
+import {
+  blockChanged,
+  blockFields,
+  blockFormUnavailable,
+  initialBlockForm,
+  parseBlockForm,
+} from './block-form';
 setupRitewayBun();
 test('native safety forms bind exact username, operation and request identity', async () => {
   const form = new FormData();
@@ -34,5 +40,43 @@ test('native safety forms bind exact username, operation and request identity', 
     should: 'refuse before discovery',
     actual: async () => parseBlockForm(form),
     code: 'VALIDATION',
+  });
+});
+
+test('a block form answer is one kind, and its fields follow from it', () => {
+  const posted = new FormData();
+  posted.set('requestId', 'r1');
+  posted.set('username', 'peer_one');
+  const answers = [
+    initialBlockForm('r0'),
+    blockFormUnavailable(posted),
+    blockChanged({ requestId: 'r2', username: 'peer_one' }, true),
+    blockChanged({ requestId: 'r3', username: 'peer_one' }, false),
+  ];
+  assert({
+    given: 'nothing posted, a change that failed, a block and an unblock',
+    should:
+      'be idle with the page request id, refused keeping the same request id and username, and changed with a new request id and its confirmation',
+    actual: answers.map((answer) => [answer.kind, blockFields(answer)]),
+    expected: [
+      ['idle', { requestId: 'r0', username: '', notice: undefined }],
+      [
+        'refused',
+        {
+          requestId: 'r1',
+          username: 'peer_one',
+          notice:
+            'Could not change this contact. Your username is kept; try again.',
+        },
+      ],
+      [
+        'changed',
+        { requestId: 'r2', username: 'peer_one', notice: 'Contact blocked.' },
+      ],
+      [
+        'changed',
+        { requestId: 'r3', username: 'peer_one', notice: 'Contact unblocked.' },
+      ],
+    ],
   });
 });

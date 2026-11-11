@@ -44,7 +44,7 @@ describe('connection store: close-code reactions and backoff (ADR 0031 §8)', ()
         'stop reconnecting and report signed-out, opening no further sockets',
       actual: { state: h.store.getState(), socketCount: h.sockets.length },
       expected: {
-        state: { status: 'closed', generation: 3, terminal: 'signed-out' },
+        state: { status: 'closed', generation: 3, why: 'signed-out' },
         socketCount: 3,
       },
     });
@@ -65,7 +65,7 @@ describe('connection store: close-code reactions and backoff (ADR 0031 §8)', ()
       should: 'stay closed with terminal revoked and open no new socket',
       actual: { state: h.store.getState(), socketCount: h.sockets.length },
       expected: {
-        state: { status: 'closed', generation: 1, terminal: 'revoked' },
+        state: { status: 'closed', generation: 1, why: 'revoked' },
         socketCount: 1,
       },
     });
@@ -125,11 +125,11 @@ describe('connection store: close-code reactions and backoff (ADR 0031 §8)', ()
       should:
         'stay non-terminal, fetch another ticket and open a second socket',
       actual: {
-        terminal: whileWaiting.terminal,
+        whileWaiting: whileWaiting.status,
         freshTicket: h.ticketCalls.length > ticketsBefore,
         sockets: h.sockets.length,
       },
-      expected: { terminal: null, freshTicket: true, sockets: 2 },
+      expected: { whileWaiting: 'reconnecting', freshTicket: true, sockets: 2 },
     });
   });
 

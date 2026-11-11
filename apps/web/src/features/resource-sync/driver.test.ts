@@ -125,7 +125,7 @@ describe('resource sync driver', () => {
 
   test('the resource is read again at its deadline', async () => {
     const timed = harness({ deadline: (state) => state.readAt + 12000 });
-    timed.connectionState({ status: 'open', generation: 1, terminal: null });
+    timed.connectionState({ status: 'open', generation: 1 });
     timed.advance(11999);
     const early = timed.reads();
     timed.advance(1);
@@ -139,7 +139,7 @@ describe('resource sync driver', () => {
 
   test('a deadline fires once, so a failed read at it is paced, not looped', async () => {
     const timed = harness({ deadline: (state) => state.readAt + 12000 });
-    timed.connectionState({ status: 'open', generation: 1, terminal: null });
+    timed.connectionState({ status: 'open', generation: 1 });
     timed.advance(12000);
     timed.answer({ kind: 'unavailable' });
     await timed.flush();
@@ -168,15 +168,15 @@ describe('resource sync driver', () => {
 
   test('a lost or reopened connection looks again', async () => {
     const socket = harness();
-    socket.connectionState({ status: 'open', generation: 1, terminal: null });
+    socket.connectionState({ status: 'open', generation: 1 });
     const first = socket.reads();
-    socket.connectionState({ status: 'open', generation: 2, terminal: null });
+    socket.connectionState({ status: 'open', generation: 2 });
     socket.answer({ kind: 'found', value: doc(3) });
     await socket.flush();
     socket.connectionState({
       status: 'closed',
       generation: 2,
-      terminal: 'revoked',
+      why: 'revoked',
     });
     assert({
       given: 'a first open, a reopen and then a terminal close',
@@ -206,14 +206,14 @@ describe('resource sync driver', () => {
     const beforeOpen = paced.reads();
     paced.answer({ kind: 'found', value: doc(3) });
     await paced.flush();
-    paced.connectionState({ status: 'open', generation: 1, terminal: null });
+    paced.connectionState({ status: 'open', generation: 1 });
     paced.advance(RESOURCE_POLL_MS.alone);
     const whileOpen = paced.reads();
     paced.advance(RESOURCE_POLL_MS.doorbell - RESOURCE_POLL_MS.alone);
     const afterSlowInterval = paced.reads();
     paced.answer({ kind: 'found', value: doc(3) });
     await paced.flush();
-    paced.connectionState({ status: 'closed', generation: 1, terminal: null });
+    paced.connectionState({ status: 'reconnecting', generation: 1 });
     paced.advance(RESOURCE_POLL_MS.alone);
     assert({
       given: 'a connection not yet open, then open, then dropped',
@@ -255,10 +255,10 @@ test('one existing socket notifies attendance once per actual open generation', 
       opens += 1;
     },
   });
-  socket.connectionState({ status: 'open', generation: 1, terminal: null });
-  socket.connectionState({ status: 'open', generation: 1, terminal: null });
-  socket.connectionState({ status: 'closed', generation: 1, terminal: null });
-  socket.connectionState({ status: 'open', generation: 2, terminal: null });
+  socket.connectionState({ status: 'open', generation: 1 });
+  socket.connectionState({ status: 'open', generation: 1 });
+  socket.connectionState({ status: 'reconnecting', generation: 1 });
+  socket.connectionState({ status: 'open', generation: 2 });
   assert({
     given: 'initial open, repeated state, disconnect and real reconnect',
     should: 'notify twice through the existing connection',

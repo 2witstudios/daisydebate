@@ -1,10 +1,13 @@
 'use client';
 
 import {
+  ageFields,
+  ageFormUnavailable,
   initialAgeForm,
   monthNames,
   type AgeFormState,
 } from '../../../features/account/age-form';
+import { destinationOf } from '../../../features/forms/form-state';
 import { useFormAction } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { Button } from '../../components/button/button';
@@ -20,11 +23,6 @@ export type AgeAction = (
   state: AgeFormState,
   form: FormData,
 ) => Promise<AgeFormState>;
-
-const unavailable = (): AgeFormState => ({
-  ...initialAgeForm,
-  unavailable: true,
-});
 
 const selectClass =
   'h-auth-control min-w-0 flex-1 max-narrow:flex-none rounded-md border border-border-strong bg-surface-raised px-4 text-md text-ink aria-invalid:border-live disabled:opacity-60';
@@ -51,12 +49,14 @@ export function AgeStep({
   const [answered, post, posting] = useFormAction(
     action,
     initialAgeForm,
-    unavailable,
+    ageFormUnavailable,
   );
-  useMovedOn(answered.next);
-  const pending = posting || answered.next !== undefined;
-  const missing = new Set(answered.missing);
-  const errors = answered.missing.map((name) => missingCopy[name]);
+  useMovedOn(destinationOf(answered));
+  // Moving on keeps the form busy until the next page replaces it.
+  const pending = posting || answered.kind === 'moved';
+  const fields = ageFields(answered);
+  const missing = new Set(fields.missing);
+  const errors = fields.missing.map((name) => missingCopy[name]);
   return (
     <AuthFrame panel={taglinePanel} footer="Next: choose your username.">
       <AuthHeading eyebrow="Before you start" title="When were you born?">
@@ -75,7 +75,7 @@ export function AgeStep({
               name="month"
               aria-label="Month"
               required
-              defaultValue={answered.month}
+              defaultValue={fields.month}
               aria-invalid={missing.has('month') ? true : undefined}
               className={selectClass}
             >
@@ -90,7 +90,7 @@ export function AgeStep({
               name="year"
               aria-label="Year"
               required
-              defaultValue={answered.year}
+              defaultValue={fields.year}
               aria-invalid={missing.has('year') ? true : undefined}
               className={selectClass}
             >
@@ -109,7 +109,7 @@ export function AgeStep({
             name="terms"
             value="accepted"
             required
-            defaultChecked={answered.terms}
+            defaultChecked={fields.terms}
             disabled={pending}
             aria-invalid={missing.has('terms') ? true : undefined}
             className="mt-1 size-5 shrink-0 accent-accent"
@@ -132,7 +132,7 @@ export function AgeStep({
               {error}
             </p>
           ))}
-          {answered.unavailable ? (
+          {fields.unavailable ? (
             <p className="text-sm font-semibold text-live">
               That didn’t save. Try again.
             </p>

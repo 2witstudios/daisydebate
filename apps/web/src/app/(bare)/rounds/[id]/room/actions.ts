@@ -31,8 +31,8 @@ export async function roundCommandAction(
   form: FormData,
 ): Promise<RoundFormState> {
   const { incoming, answer } = await submitRound(roundId, form);
-  if (answer.acknowledged && !hydratedPost(incoming))
-    return { values: {}, ...moveOn(incoming, `/rounds/${roundId}/room`) };
+  if (answer.kind === 'acknowledged' && !hydratedPost(incoming))
+    return moveOn(incoming, `/rounds/${roundId}/room`);
   return answer;
 }
 
@@ -48,12 +48,8 @@ export async function leaveRoundAction(
   form: FormData,
 ): Promise<RoundFormState> {
   const { incoming, answer } = await submitRound(roundId, form);
-  if (!answer.acknowledged) return answer;
-  return {
-    values: {},
-    acknowledged: true,
-    ...moveOn(incoming, `/rounds/${roundId}`),
-  };
+  if (answer.kind !== 'acknowledged') return answer;
+  return moveOn(incoming, `/rounds/${roundId}`);
 }
 
 const nativeState = processRoute(

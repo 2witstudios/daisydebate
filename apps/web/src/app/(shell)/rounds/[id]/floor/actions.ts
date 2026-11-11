@@ -3,10 +3,8 @@ import { headers } from 'next/headers';
 import { systemId } from '@daisy/clock';
 import { processRoute } from '../../../../../server/process-app';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
-import {
-  submitFloorMessage,
-  type FloorFormState,
-} from '../../../../../features/messaging/round-floor/form';
+import { submitFloorMessage } from '../../../../../features/messaging/round-floor/form';
+import type { FloorFormState } from '../../../../../features/messaging/round-floor/form-state';
 import { submitFloorChange } from '../../../../../features/messaging/round-floor/change-form';
 const send = processRoute(
   (routes) => (request) =>

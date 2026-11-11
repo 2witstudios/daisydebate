@@ -2,8 +2,10 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../rooms/assembly.test-support';
 import {
   contentWaiverAnswer,
+  contentWaiverFields,
   submitContentWaiver,
 } from './submit-content-waiver';
+import { destinationOf, moved } from '../forms/form-state';
 
 setupRitewayBun();
 
@@ -17,7 +19,7 @@ const answering =
   (status: number, body: unknown = {}) =>
   async () =>
     Response.json(body, { status });
-const move = (next: string) => ({ next });
+const move = moved;
 
 describe('submitting the content waiver', () => {
   test('what the handler answered', async () => {
@@ -39,15 +41,16 @@ describe('submitting the content waiver', () => {
   test('a native post returns to the room', () => {
     const edge = { hydrated: false, view: null, move };
     assert({
-      given: 'a signature and a refusal, with no script',
-      should: 'move to the room, with the notice when refused',
-      actual: [
-        contentWaiverAnswer('signed', 'room', form(), edge).next,
-        contentWaiverAnswer('refused', 'room', form(), edge).next,
-      ],
+      given: 'a signature, a refusal and a lost answer, with no script',
+      should:
+        'move to the room, with the notice of a refusal or of an unknown outcome',
+      actual: (['signed', 'refused', 'unavailable'] as const).map((result) =>
+        destinationOf(contentWaiverAnswer(result, 'room', form(), edge)),
+      ),
       expected: [
         '/rooms/room#',
         '/rooms/room?notice=command-refused&reason=content-waiver-required#',
+        '/rooms/room?notice=command-unacknowledged#',
       ],
     });
   });
@@ -58,13 +61,57 @@ describe('submitting the content waiver', () => {
       given: 'a signature on a hydrated page',
       should: 'answer with the fresh view and no navigation',
       actual: contentWaiverAnswer('signed', 'room', form(), edge),
-      expected: { values: {}, view: assemblySnapshot as never },
+      expected: { kind: 'accepted', view: assemblySnapshot as never },
     });
     assert({
       given: 'a refusal on a hydrated page',
       should: 'keep the form with a fixed error',
-      actual: contentWaiverAnswer('refused', 'room', form(), edge).error,
+      actual: contentWaiverFields(
+        contentWaiverAnswer('refused', 'room', form(), edge),
+      ).error,
       expected: 'The waiver was not signed. Review it and try again.',
     });
+    assert({
+      given: 'a signature whose answer was lost, on a hydrated page',
+      should:
+        'say nothing was refused: keep the posted waiver for a retry, which signs the same thing',
+      actual: contentWaiverAnswer('unavailable', 'room', form(), edge),
+      expected: {
+        kind: 'unacknowledged',
+        values: { version: 'draft-1', accepted: 'yes' },
+      },
+    });
+    assert({
+      given: 'a signature with no room to adopt',
+      should: 'answer that it is done',
+      actual: contentWaiverAnswer('signed', 'room', form(), {
+        ...edge,
+        view: null,
+      }),
+      expected: { kind: 'done' },
+    });
+  });
+});
+
+test('a waiver whose answer was lost says its own thing, not a command’s', () => {
+  const posted = new FormData();
+  posted.set('version', 'draft-1');
+  posted.set('accepted', 'yes');
+  assert({
+    given: 'a signature whose answer was lost, on a hydrated page',
+    should:
+      'say the signature may have been recorded and that signing again is safe, promising nothing about a command',
+    actual: contentWaiverFields(
+      contentWaiverAnswer('unavailable', 'room', posted, {
+        hydrated: true,
+        view: null,
+        move: moved,
+      }),
+    ),
+    expected: {
+      values: { version: 'draft-1', accepted: 'yes' },
+      error:
+        'Your signature may have been recorded. Signing again is safe: a season’s waiver is signed once, however often it is sent.',
+    },
   });
 });

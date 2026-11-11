@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { CloseRoom } from './close-room';
 
 setupRitewayBun();
-const action = async () => ({ values: {} });
+const action = async () => idle();
 
 describe('CloseRoom', () => {
   const html = renderToStaticMarkup(

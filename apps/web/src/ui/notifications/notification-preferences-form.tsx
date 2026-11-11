@@ -10,14 +10,14 @@ import {
   choiceField,
   chosen,
 } from '../../features/notifications/preference-form';
+import {
+  initialSaveForm,
+  saveNotice,
+  saveRefused,
+  type SaveFormState,
+} from '../../features/forms/save-form';
 import { Button } from '../components/button/button';
 import { useFormAction, type FormAction } from '../form-action/form-action';
-
-export type NotificationPreferencesState = { readonly notice?: string };
-
-const unavailable = (): NotificationPreferencesState => ({
-  notice: 'Could not save. Try again.',
-});
 
 const kindLabel: Record<NotificationKind, string> = {
   followed_debater_live: 'A debater I follow is on air',
@@ -39,10 +39,15 @@ export function NotificationPreferencesForm({
   action,
   choices,
 }: {
-  readonly action: FormAction<NotificationPreferencesState>;
+  readonly action: FormAction<SaveFormState>;
   readonly choices: NotificationChoices;
 }) {
-  const [answer, post, pending] = useFormAction(action, {}, unavailable);
+  const [answer, post, pending] = useFormAction(
+    action,
+    initialSaveForm,
+    saveRefused,
+  );
+  const notice = saveNotice(answer);
   return (
     <form
       action={post}
@@ -74,9 +79,9 @@ export function NotificationPreferencesForm({
         <Button type="submit" variant="secondary" disabled={pending}>
           Save
         </Button>
-        {answer.notice ? (
+        {notice ? (
           <p role="status" className="text-sm text-ink-muted">
-            {answer.notice}
+            {notice}
           </p>
         ) : null}
       </div>

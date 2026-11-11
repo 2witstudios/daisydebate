@@ -13,14 +13,26 @@ export type RoomSyncHandle = {
 export const RoomSyncContext = createContext<RoomSyncHandle | null>(null);
 
 /**
- * Hands each new answer to room sync: an accepted view is adopted, a refusal
- * asks for a read. The answer the page rendered with is not new.
+ * Hands each new answer to room sync: an accepted view is adopted; a refusal
+ * or a lost answer asks for a read, since the room may have moved. The
+ * answer the page rendered with is not new.
  */
 export function useRoomAnswer(state: RoomFormState, initial: RoomFormState) {
   const sync = useContext(RoomSyncContext);
   useEffect(() => {
     if (sync === null || state === initial) return;
-    if (state.view) sync.accepted(state.view);
-    else if (state.error) sync.signal();
+    switch (state.kind) {
+      case 'accepted':
+        sync.accepted(state.view);
+        return;
+      case 'refused':
+      case 'unacknowledged':
+        sync.signal();
+        return;
+      case 'idle':
+      case 'done':
+      case 'moved':
+        return;
+    }
   }, [sync, state, initial]);
 }

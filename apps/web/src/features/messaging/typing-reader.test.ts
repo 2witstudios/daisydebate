@@ -33,9 +33,9 @@ test('reconnect discards the earlier typing HTTP result and coalesces a fresh re
       if (value === false) refreshed.resolve();
     },
   });
-  state({ status: 'connecting', generation: 2, terminal: null });
-  state({ status: 'closed', generation: 2, terminal: null });
-  state({ status: 'open', generation: 3, terminal: null });
+  state({ status: 'ticketing', generation: 2 });
+  state({ status: 'reconnecting', generation: 2 });
+  state({ status: 'open', generation: 3 });
   first.resolve(
     Response.json({
       version: 1,
@@ -55,7 +55,7 @@ test('reconnect discards the earlier typing HTTP result and coalesces a fresh re
   await refreshed.promise;
   reader.close();
   timers.advance(1000);
-  state({ status: 'open', generation: 4, terminal: null });
+  state({ status: 'open', generation: 4 });
   assert({
     given: 'a pending pre-reconnect response and several socket state changes',
     should:

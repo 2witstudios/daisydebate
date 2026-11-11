@@ -1,3 +1,4 @@
+import { idle } from '../../features/forms/form-state';
 import { createId } from '@paralleldrive/cuid2';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
@@ -36,7 +37,7 @@ const snapshot = {
   viewers: 12,
 };
 const everything = { chat: true, reactions: true, viewers: true };
-const action = async () => ({ values: {} });
+const action = async () => idle();
 const account = {
   kind: 'account' as const,
   requestId: createId(),

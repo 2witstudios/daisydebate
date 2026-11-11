@@ -1,3 +1,4 @@
+import { idle } from '../../../features/forms/form-state';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
@@ -9,8 +10,8 @@ const nativeProps = {
   side: null,
   prep: null,
   actorId,
-  action: async () => ({ values: {} }),
-  waiverAction: async () => ({ values: {} }),
+  action: async () => idle(),
+  waiverAction: async () => idle(),
   read: async () => ({ kind: 'found' as const, view: assemblySnapshot }),
   send: async () => ({ kind: 'unavailable' as const }),
   commandIds: {

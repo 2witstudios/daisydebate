@@ -89,14 +89,14 @@ test('opens exactly one socket per tab even when many components mount, and the 
       (
         window as unknown as {
           __rtStore: {
-            getState(): { generation: number; terminal: string | null };
+            getState(): { generation: number; why?: string };
           };
         }
       ).__rtStore.getState(),
     );
 
   await expect
-    .poll(async () => (await getState()).terminal, { timeout: 20_000 })
+    .poll(async () => (await getState()).why, { timeout: 20_000 })
     .toBe('signed-out');
 
   const [state, socketCount] = await Promise.all([
