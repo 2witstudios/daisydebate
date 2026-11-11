@@ -281,7 +281,9 @@ export const nextExpiry = (
  */
 export type DocumentStanding = 'conflict' | 'waiting' | 'stored';
 
-export const documentStanding = (document: SavingDocument): DocumentStanding => {
+export const documentStanding = (
+  document: SavingDocument,
+): DocumentStanding => {
   if (isConflicted(document)) return 'conflict';
   return document.pending || document.storageProblem ? 'waiting' : 'stored';
 };

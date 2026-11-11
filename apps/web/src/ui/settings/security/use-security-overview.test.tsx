@@ -85,7 +85,9 @@ test('a read begun before a removal here never brings the removed row back', asy
       page.reads[1]!.resolve(overview(['one', 'two', 'three'], [])),
     );
     const afterStale = page.shown().passkeys;
-    await page.act(() => page.reads.at(-1)!.resolve(overview(['two', 'three'], [])));
+    await page.act(() =>
+      page.reads.at(-1)!.resolve(overview(['two', 'three'], [])),
+    );
     assert({
       given:
         'a passkey removed here while an earlier read of the lists is still in flight',

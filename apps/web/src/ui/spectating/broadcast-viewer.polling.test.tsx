@@ -73,7 +73,11 @@ const mount = async () => {
         return handle;
       },
       clearTimeout: (handle: object | Parameters<typeof clearTimeout>[0]) => {
-        if (typeof handle === 'object' && handle !== null && polls.delete(handle))
+        if (
+          typeof handle === 'object' &&
+          handle !== null &&
+          polls.delete(handle)
+        )
           return;
         clearTimeout(handle as Parameters<typeof clearTimeout>[0]);
       },

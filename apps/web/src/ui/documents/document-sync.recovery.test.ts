@@ -604,9 +604,7 @@ describe('a conflict with full draft slots', () => {
         unstored: conflict,
         says: saveStatusOf(
           reduceSave(initialSavePage, conflict!),
-        ).notice?.includes(
-          'Reload',
-        ),
+        ).notice?.includes('Reload'),
         held,
         copied: created?.html,
       },

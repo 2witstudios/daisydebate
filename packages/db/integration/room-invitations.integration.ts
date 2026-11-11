@@ -405,7 +405,8 @@ test('the retention sweep leaves alone an invitation that ended while it waited'
       assert({
         given:
           'an invitation accepted by a transaction the sweep had to wait for',
-        should: 'keep it accepted: the sweep expires only what is still pending',
+        should:
+          'keep it accepted: the sweep expires only what is still pending',
         actual: row.state,
         expected: 'accepted',
       });

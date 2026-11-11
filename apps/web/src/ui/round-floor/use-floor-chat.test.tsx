@@ -25,7 +25,11 @@ const page = (readOnly = false, changeVersion = 0) =>
         changeVersion,
         messages: [],
         nextBefore: null,
-        viewer: { readSequence: 0, firstUnreadSequence: null, ownReactions: [] },
+        viewer: {
+          readSequence: 0,
+          firstUnreadSequence: null,
+          ownReactions: [],
+        },
       },
       authors: [],
     }),

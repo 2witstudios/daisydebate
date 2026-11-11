@@ -150,7 +150,9 @@ test('jobs for a vendor no longer configured are still counted as owed', async (
   const app = {
     posthogErasure: null,
     database: {
-      duePrivacyJobs: async (input: { readonly vendors: readonly string[] }) => {
+      duePrivacyJobs: async (input: {
+        readonly vendors: readonly string[];
+      }) => {
         asked['due'] = input.vendors;
         return [];
       },
