@@ -4,9 +4,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
 
-/** The fence's body from its parameter list on, however it was created. */
+/** The fence from its name on, however it was created. */
 const declaration =
-  /CREATE (?:OR REPLACE )?FUNCTION public\.daisy_authorization_accounts_v\d+(\([\s\S]*?\$authorization_accounts\$;)/i;
+  /CREATE (?:OR REPLACE )?FUNCTION (public\.daisy_authorization_accounts_v\d+\([\s\S]*?\$authorization_accounts\$;)/i;
 const bodyOf = (sql: string) => declaration.exec(sql)?.[1];
 const migrations = join(import.meta.dir, '../migrations');
 
