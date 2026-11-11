@@ -227,7 +227,9 @@ test('concurrent deletion claims share nothing; a defer keeps the intent', async
       expected: [[...ids].sort(), 0],
     });
     const target = ids[0]!;
+    const holder = mine(first).includes(target) ? 'a' : 'b';
     await ops.deferRecordingDeletion(target, {
+      owner: holder,
       retryAt: new Date(later.getTime() + 120_000).toISOString(),
       failed: true,
     });
@@ -248,6 +250,57 @@ test('concurrent deletion claims share nothing; a defer keeps the intent', async
       should: 'come back with its failures counted',
       actual: retried.find((c) => c.record.id === target)?.attempts,
       expected: 1,
+    });
+  });
+});
+
+test('a former holder cannot release a newer holder\u2019s deletion lease', async () => {
+  await withStore(async ({ ops, fixture, track }) => {
+    const id = createId();
+    await ops.requestRecording({
+      id,
+      roundId: track(await fixture.round()),
+      class: 'casual',
+      eligibility: hostOptIn,
+    });
+    await ops.applyRecording(id, () => ({ kind: 'moved', next: removing }));
+    const claim = (owner: string, atMs: number) =>
+      ops.claimRecordingDeletions({
+        owner,
+        now: new Date(atMs).toISOString(),
+        leaseUntil: new Date(atMs + 60_000).toISOString(),
+        limit: 100,
+      });
+    const holds = (claims: Awaited<ReturnType<typeof claim>>) =>
+      claims.some((c) => c.record.id === id);
+    const slow = holds(await claim('slow', later.getTime()));
+    // The slow worker's lease runs out mid-attempt and another takes over.
+    const takeover = later.getTime() + 61_000;
+    const newer = holds(await claim('newer', takeover));
+    await ops.deferRecordingDeletion(id, {
+      owner: 'slow',
+      retryAt: new Date(takeover).toISOString(),
+      failed: true,
+    });
+    const stolen = holds(await claim('third', takeover + 1_000));
+    await ops.deferRecordingDeletion(id, {
+      owner: 'newer',
+      retryAt: new Date(takeover + 2_000).toISOString(),
+      failed: true,
+    });
+    const after = await claim('third', takeover + 3_000);
+    assert({
+      given:
+        'a worker whose lease lapsed and was taken over, deferring after the takeover',
+      should:
+        'leave the newer lease and its failure count alone; only the holder releases it',
+      actual: {
+        slow,
+        newer,
+        stolen,
+        released: after.find((c) => c.record.id === id)?.attempts,
+      },
+      expected: { slow: true, newer: true, stolen: false, released: 1 },
     });
   });
 });

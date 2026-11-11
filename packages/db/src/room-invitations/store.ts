@@ -217,13 +217,21 @@ export const roomInvitationOperations = ({
   /**
    * Retention: an ended invitation goes 30 days after it ended (ADR 0124).
    * One whose time ran out in a Room nothing touched since ends first, as
-   * expired at its own expiry, so it is purged on the same clock.
+   * expired at its own expiry, so it is purged on the same clock, and frees
+   * the seat it held as every other end does. The sweep holds no Room lock,
+   * so the outer statement tests the row again: one a Room command ended
+   * while the sweep waited on it is left as that command wrote it.
    */
   purgeEndedRoomInvitations(batch: RetentionBatch) {
     return instrumented(eventSink, 'purgeEndedRoomInvitations', async () => {
-      await database.execute(sql`update room_invitations set state='expired',ended_at=expires_at
-        where id in (select id from room_invitations where state='pending'
-          and expires_at <= clock_timestamp() order by id limit ${batch.limit})`);
+      await database.execute(sql`with lapsed as (
+          update room_invitations set state='expired',ended_at=expires_at
+          where id in (select id from room_invitations where state='pending'
+              and expires_at <= clock_timestamp() order by id limit ${batch.limit})
+            and state='pending' and expires_at <= clock_timestamp()
+          returning room_id,invitee_actor_id)
+        delete from room_seat_holds h using lapsed
+          where h.room_id=lapsed.room_id and h.actor_id=lapsed.invitee_actor_id`);
       return deleteExpiredBatch(
         database,
         {

@@ -149,9 +149,17 @@ export const recordingOperations = ({
     });
   },
 
+  /**
+   * Only the lease's holder releases it: a worker whose lease lapsed and was
+   * taken over changes nothing, so the newer holder keeps its claim.
+   */
   async deferRecordingDeletion(
     id: string,
-    input: { readonly retryAt: string; readonly failed: boolean },
+    input: {
+      readonly owner: string;
+      readonly retryAt: string;
+      readonly failed: boolean;
+    },
   ): Promise<void> {
     await database
       .update(recordings)
@@ -163,7 +171,13 @@ export const recordingOperations = ({
         leaseOwner: null,
         leaseUntil: null,
       })
-      .where(and(eq(recordings.id, id), eq(recordings.status, 'removing')));
+      .where(
+        and(
+          eq(recordings.id, id),
+          eq(recordings.status, 'removing'),
+          eq(recordings.leaseOwner, input.owner),
+        ),
+      );
   },
 
   /**

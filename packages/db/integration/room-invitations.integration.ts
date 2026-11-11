@@ -6,6 +6,7 @@ import {
   releaseRestrictedMember,
 } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
+import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { notificationOperations } from '../src/notifications';
@@ -337,6 +338,10 @@ test('an invitation whose time ran out ends, and its retention clock runs', asyn
       limit: 500,
     });
     const swept = await stateOf(untouched.invitationId);
+    const heldAfterSweep = (
+      await env.f
+        .sql`select 1 from room_seat_holds where room_id=${env.roomId} and actor_id=${debater.actorId}`
+    ).length;
     await env.invitations.purgeEndedRoomInvitations({
       before: new Date(Date.now() + 31 * day).toISOString(),
       limit: 500,
@@ -345,10 +350,11 @@ test('an invitation whose time ran out ends, and its retention clock runs', asyn
       given:
         'a lapsed invitation in a Room that then closed, and one in a Room nothing touched',
       should:
-        'expire the first on close, and the retention sweep expire the second and later purge both',
+        'expire the first on close, and the retention sweep expire the second, free the seat it held, and later purge both',
       actual: {
         afterClose,
         swept,
+        heldAfterSweep,
         purged: [
           await stateOf(judge.invitationId),
           await stateOf(untouched.invitationId),
@@ -357,9 +363,55 @@ test('an invitation whose time ran out ends, and its retention clock runs', asyn
       expected: {
         afterClose: 'expired',
         swept: 'expired',
+        heldAfterSweep: 0,
         purged: ['purged', 'purged'],
       },
     });
+  });
+});
+
+test('the retention sweep leaves alone an invitation that ended while it waited', async () => {
+  await withRoom(async (env) => {
+    const { invitationId } = await invite(env, env.coach.userId);
+    await env.f
+      .sql`update room_invitations set expires_at=clock_timestamp() - interval '1 minute',
+      created_at=clock_timestamp() - interval '25 hours' where id=${invitationId}`;
+    const accepting = new SQL(databaseUrl, { max: 1 });
+    let sweep: Promise<number> | undefined;
+    try {
+      // A Room command that began before the deadline accepts the invitation
+      // and commits only after the sweep has read it as pending and lapsed.
+      await accepting.begin(async (tx) => {
+        await tx`update room_invitations set state='accepted',ended_at=clock_timestamp() where id=${invitationId}`;
+        sweep = env.invitations.purgeEndedRoomInvitations({
+          before: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          limit: 500,
+        });
+        void sweep.catch(() => {});
+        let waiting = false;
+        for (let poll = 0; poll < 200 && !waiting; poll += 1) {
+          const [lock] = await env.f
+            .sql`select exists(select 1 from pg_locks l join pg_stat_activity a on a.pid=l.pid
+              where not l.granted and l.locktype='transactionid' and a.datname=current_database()
+                and a.query like '%update room_invitations set state=''expired''%') as waiting`;
+          waiting = lock.waiting;
+          if (!waiting) await Bun.sleep(10);
+        }
+        if (!waiting) throw new Error('The sweep did not reach the held row');
+      });
+      await sweep;
+      const [row] = await env.f
+        .sql`select state from room_invitations where id=${invitationId}`;
+      assert({
+        given:
+          'an invitation accepted by a transaction the sweep had to wait for',
+        should: 'keep it accepted: the sweep expires only what is still pending',
+        actual: row.state,
+        expected: 'accepted',
+      });
+    } finally {
+      await accepting.close();
+    }
   });
 });
 

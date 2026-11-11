@@ -467,6 +467,38 @@ test('a completed Broadcast is claimed to withdraw its feed once its grace passe
   });
 });
 
+test('a feed is recorded withdrawn once, and only after the Broadcast ended', async () => {
+  await withOps(async (db, roundId) => {
+    const open = await openBroadcast(db, {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: policy,
+    });
+    const withdrawnAt = async () =>
+      (
+        await db
+          .select({ at: broadcasts.feedWithdrawnAt })
+          .from(broadcasts)
+          .where(eq(broadcasts.id, open.id))
+      )[0]?.at?.toISOString() ?? null;
+    await recordFeedWithdrawn(db, { id: open.id, at: now });
+    const whileLive = await withdrawnAt();
+    await completeBroadcast(db, { id: open.id, at: now });
+    await recordFeedWithdrawn(db, { id: open.id, at: now });
+    const first = await withdrawnAt();
+    await recordFeedWithdrawn(db, { id: open.id, at: later });
+    assert({
+      given:
+        'a withdrawal recorded on a live Broadcast, then on it completed, then again later',
+      should:
+        'refuse the live one, since its feed is still being written, and keep the first instant',
+      actual: [whileLive, first, await withdrawnAt()],
+      expected: [null, now.toISOString(), now.toISOString()],
+    });
+  });
+});
+
 test('a stopped Broadcast goes to withdrawal at once and to no release slot', async () => {
   await withOps(async (db, roundId) => {
     const open = await openBroadcast(db, {
