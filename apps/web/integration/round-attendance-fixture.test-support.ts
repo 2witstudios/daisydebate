@@ -53,7 +53,9 @@ export const passAttendanceCutoff = (
     await tx`update round_speaking_intervals i set started_at=s.started_at,ended_at=s.ended_at,
         ended_version=coalesce(i.ended_version,i.started_version)
       from round_segments s where s.id=i.segment_id and i.round_id=${roundId}`;
+    // Every speech has closed, so a Round still active awaits its ballot: the stage the clock derives.
     await tx`update rounds r set
+      current_stage=case when r.status='active' then 'awaiting_ballot' end,
       started_at=least(r.started_at,first.at),
       final_segment_ended_at=last.at,
       transcript_admission_cutoff=last.at+interval '120 seconds',
