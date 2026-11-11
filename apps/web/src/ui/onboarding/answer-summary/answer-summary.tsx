@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { onboardingStepHref } from '../../../features/access/decision';
+import { onboardingStepHref } from '../../../features/onboarding/steps';
 import type {
   OnboardingAnswers,
   QuestionStep,

@@ -40,10 +40,12 @@ export const save = (
   database: ReturnType<typeof createDatabase>,
   ids: { userId: string; actorId: string },
   answers: OnboardingStepWrite,
+  { completes = false, at = now } = {},
 ) =>
   database.saveOnboardingStep({
     ...ids,
     answers,
-    now,
+    completes,
+    now: at,
     admits: admitsOptionalAnswers,
   });

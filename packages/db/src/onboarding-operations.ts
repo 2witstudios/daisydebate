@@ -95,10 +95,21 @@ type OnboardingSaveInput = {
   readonly userId: string;
   readonly actorId: string;
   readonly answers: OnboardingStepWrite;
+  /**
+   * Whether this step's write also finishes onboarding, in the same
+   * transaction: the member never holds the last answers without the finish.
+   */
+  readonly completes: boolean;
   /** Trusted UTC ISO time from the injected clock. */
   readonly now: string;
   readonly admits: OptionalAnswerAgePolicy;
 };
+
+type OnboardingAgeCheck = Omit<OnboardingSaveInput, 'answers' | 'completes'>;
+
+/** The first finish stays: a later one never moves it. */
+const firstCompletion = (at: string) =>
+  sql`coalesce(${memberOnboarding.completedAt}, ${at}::timestamptz)`;
 
 /**
  * Takes the account fence, then reads the canonical age fact in the same
@@ -108,7 +119,7 @@ type OnboardingSaveInput = {
  */
 async function requireOptionalAnswerAge(
   tx: AuthorizationTransaction,
-  input: Omit<OnboardingSaveInput, 'answers'>,
+  input: OnboardingAgeCheck,
 ): Promise<void> {
   const [account] = await lockAuthorizationActors(tx, [input.actorId], {
     maxActors: 1,
@@ -128,7 +139,8 @@ async function requireOptionalAnswerAge(
 
 /**
  * Onboarding answers (ONB): each step replaces its own answers in one
- * transaction, so a member never holds half of a step. The CHECKs pin every
+ * transaction, so a member never holds half of a step; the step that
+ * finishes onboarding records the finish in that same transaction. The CHECKs pin every
  * value to the protocol vocabularies; the caller has already parsed them.
  */
 export const onboardingOperations = ({
@@ -142,9 +154,16 @@ export const onboardingOperations = ({
     userId,
     actorId,
     answers,
+    completes,
     now,
     admits,
   }: OnboardingSaveInput): Promise<void> {
+    const finish = completes
+      ? {
+          first: { completedAt: new Date(now) },
+          again: { completedAt: firstCompletion(now) },
+        }
+      : { first: {}, again: {} };
     return instrumented(eventSink, 'saveOnboardingStep', () =>
       database.transaction(async (tx) => {
         await requireOptionalAnswerAge(tx, { userId, actorId, now, admits });
@@ -156,10 +175,10 @@ export const onboardingOperations = ({
               : {};
         await tx
           .insert(memberOnboarding)
-          .values({ userId, ...columns })
+          .values({ userId, ...columns, ...finish.first })
           .onConflictDoUpdate({
             target: memberOnboarding.userId,
-            set: { ...columns, ...touched },
+            set: { ...columns, ...finish.again, ...touched },
           });
         if (answers.step === 'about') {
           await tx
@@ -199,7 +218,7 @@ export const onboardingOperations = ({
         .onConflictDoUpdate({
           target: memberOnboarding.userId,
           set: {
-            completedAt: sql`coalesce(${memberOnboarding.completedAt}, ${at.toISOString()}::timestamptz)`,
+            completedAt: firstCompletion(at.toISOString()),
             ...touched,
           },
         });
@@ -207,9 +226,7 @@ export const onboardingOperations = ({
   },
 
   /** Whether optional answers may be asked for now; the write still decides under the fence. */
-  async optionalAnswersAdmitted(
-    input: Omit<OnboardingSaveInput, 'answers'>,
-  ): Promise<boolean> {
+  async optionalAnswersAdmitted(input: OnboardingAgeCheck): Promise<boolean> {
     return instrumented(eventSink, 'optionalAnswersAdmitted', () =>
       database.transaction(async (tx) => {
         const account = await loadAuthorizationAccount(tx, input.userId);

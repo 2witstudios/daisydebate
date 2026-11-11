@@ -4,10 +4,8 @@ import {
   decideAccess,
   nextDestination,
   onboardingHref,
-  onboardingStepHref,
   passkeyOfferHref,
   requirementFor,
-  introductionHref,
   signInHref,
   isGuardedPath,
   requestedPath,
@@ -255,23 +253,6 @@ describe('return links', () => {
         '/onboarding/age?next=%2Franked',
         '/sign-in?next=%2Fonboarding%2Fage%3Fnext%3D%252Franked',
         '/onboarding/passkey?next=%2Flobby%3Ftab%3Da',
-      ],
-    });
-  });
-
-  test('build the onboarding step links', () => {
-    assert({
-      given: 'the opening step and a later step, each with a destination',
-      should: 'carry the destination as one encoded next value',
-      actual: [
-        introductionHref('/ranked?tab=a'),
-        onboardingStepHref('topics', '/lobby'),
-        onboardingStepHref('ready', '/lobby'),
-      ],
-      expected: [
-        '/onboarding/daisy?next=%2Franked%3Ftab%3Da',
-        '/onboarding/topics?next=%2Flobby',
-        '/onboarding/ready?next=%2Flobby',
       ],
     });
   });

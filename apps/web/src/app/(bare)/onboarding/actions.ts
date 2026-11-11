@@ -2,9 +2,9 @@
 
 import { headers } from 'next/headers';
 
-import { onboardingStepHref } from '../../../features/access/decision';
 import { isQuestionStep } from '../../../features/onboarding/answers';
 import { afterStepHref } from '../../../features/onboarding/continue';
+import { sendOffHref } from '../../../features/onboarding/steps';
 import { returnableDestination } from '../../../features/auth/redirect';
 import { moveOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
@@ -23,7 +23,8 @@ const onboardingRoute = processRoute((routes) => routes.onboarding.POST);
  * hydration and without JavaScript. It runs POST /api/account/onboarding in
  * process with this request's headers, so every gate of that route applies.
  * Every argument comes from the browser: the step and `next` are checked
- * again here. The topics step also finishes onboarding. A saved step moves
+ * again here. The route finishes onboarding with the last question's own
+ * write. A saved step moves
  * on (a 303 without JavaScript, `next` for a hydrated page to navigate to).
  */
 export async function saveStepAction(
@@ -40,10 +41,7 @@ export async function saveStepAction(
   const posted = form instanceof FormData ? form : new FormData();
   const incoming = new Headers(await headers());
   const submit = createSubmitStep(inProcessFetch(onboardingRoute, incoming));
-  if (
-    (await submit(stepBody(step, posted))) !== 'saved' ||
-    (step === 'topics' && (await submit({ step: 'finish' })) !== 'saved')
-  )
+  if ((await submit(stepBody(step, posted))) !== 'saved')
     return refusedStep(step)(posted);
   return moveOn(incoming, afterStepHref(step, destination, editing === true));
 }
@@ -63,5 +61,5 @@ export async function skipAction(
   const incoming = new Headers(await headers());
   const submit = createSubmitStep(inProcessFetch(onboardingRoute, incoming));
   if ((await submit({ step: 'finish' })) !== 'saved') return { refused: true };
-  return moveOn(incoming, onboardingStepHref('ready', destination));
+  return moveOn(incoming, sendOffHref(destination));
 }

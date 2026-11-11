@@ -70,12 +70,14 @@ describe('optional onboarding answers and age (ISSUE-645)', () => {
               userId: ids.userId,
               actorId: other,
               answers,
+              completes: false,
               now,
               admits: admitsOptionalAnswers,
             }),
             await refused({
               ...ids,
               answers,
+              completes: false,
               now,
               admits: (fact, actorId) =>
                 admitsOptionalAnswers(

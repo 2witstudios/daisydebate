@@ -33,6 +33,7 @@ const handlerWith = ({
     userId: string;
     actorId: string;
     answers: OnboardingStepWrite;
+    completes: boolean;
     now: string;
   }> = [];
   const completed: Array<{ userId: string; at: string }> = [];
@@ -183,9 +184,36 @@ describe('POST /api/account/onboarding answers', () => {
               club: 'own',
               clubName: null,
             },
+            completes: false,
             now: NOW,
           },
         ],
+      ],
+    });
+  });
+
+  test('the last question is saved and finished in one write', async () => {
+    const { handler, saved, completed } = handlerWith();
+    const statuses = [
+      (await handler(post({ step: 'experience', leagues: [] }))).status,
+      (await handler(post({ step: 'topics', topics: ['law'] }))).status,
+    ];
+    assert({
+      given: 'a member posting the experience step, then the topics step',
+      should:
+        'hand each to the one save, only the topics step also finishing, with no separate completion',
+      actual: [
+        statuses,
+        saved.map(({ answers, completes }) => [answers.step, completes]),
+        completed,
+      ],
+      expected: [
+        [200, 200],
+        [
+          ['experience', false],
+          ['topics', true],
+        ],
+        [],
       ],
     });
   });

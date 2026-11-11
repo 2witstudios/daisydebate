@@ -2,10 +2,12 @@ import { redirect } from 'next/navigation';
 import { readOnboardingEntry } from '../../../lib/auth-entry';
 import {
   onboardingHref,
-  onboardingStepHref,
-  type OnboardingStep,
   type SearchParams,
 } from '../../../features/access/decision';
+import {
+  onboardingStepHref,
+  type OnboardingStep,
+} from '../../../features/onboarding/steps';
 
 /**
  * An onboarding step's entry, after the passkey offer: the validated
