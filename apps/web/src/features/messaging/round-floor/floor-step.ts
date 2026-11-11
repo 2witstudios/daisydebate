@@ -32,7 +32,10 @@ export const keptOf = (standing: FloorStanding): KeptForms | null => {
         channelId: standing.metadata.channelId,
         messageUnits: standing.thread?.bounds.messageUnits ?? null,
       };
-    default:
+    case 'loading':
+    case 'empty':
+    case 'unavailable':
+    case 'denied':
       return standing.kept;
   }
 };

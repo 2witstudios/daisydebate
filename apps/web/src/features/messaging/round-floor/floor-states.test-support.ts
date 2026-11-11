@@ -335,7 +335,9 @@ const standingShape = (standing: FloorStanding): string => {
         ...(standing.marking ? ['marking read'] : []),
       ].join(', ');
     }
-    default:
+    case 'empty':
+    case 'unavailable':
+    case 'denied':
       return standing.kept ? `${standing.kind}, forms kept` : standing.kind;
   }
 };
