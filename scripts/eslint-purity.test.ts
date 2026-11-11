@@ -1,14 +1,11 @@
-import { ESLint } from 'eslint';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { repositoryEslint } from '../eslint.config.test-support';
 
 setupRitewayBun();
 
-// The repository config, linted from the repository root. Each test allows
-// minutes, not Bun's fixed 5 s: building the lint program is slow under load.
-const eslint = new ESLint({
-  cwd: process.cwd(),
-  overrideConfigFile: './eslint.config.mjs',
-});
+// The repository config for probe text under invented paths, linted from the
+// repository root. Each test allows minutes, not Bun's fixed 5 s.
+const eslint = repositoryEslint();
 
 describe('domain and contract purity (ISSUE-9)', () => {
   const ambientReads = [
