@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -172,7 +173,7 @@ test('a host invites a judge and a debater; the held judge seat waits for its co
       });
     } finally {
       await f.sql`delete from outbox where kind='user.notification-delivered'
-        and topic in ${f.sql([judge, debater].map((who) => `user:${who.actorId}:inbox`))}`;
+        and topic in ${f.sql([judge, debater].map((who) => buildUserInboxTopic(who.actorId)))}`;
     }
   });
 });
