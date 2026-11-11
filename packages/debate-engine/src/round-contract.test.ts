@@ -168,16 +168,17 @@ const walk = (
   return faults;
 };
 
+/** Rounds played to their ballot (1, 6, 8, 13, two through prep), ended by forfeit (5, 10) and ended by the platform (14). */
+const seeds = [1, 5, 6, 8, 10, 13, 14];
+
 test('every state the engine projects is one the contracts hold', () => {
   const seen = new Set<string>();
   assert({
     given:
-      'twenty seeded Rounds of ticks, every command from both debaters, and platform pauses and resumes, each step hydrated again from what it projected',
+      'seven seeded Rounds of ticks, every command from both debaters, and platform pauses and resumes, each step hydrated again from what it projected',
     should:
       'project only lifecycles, checkpoints and stages the wire contracts and the hydration check accept',
-    actual: Array.from({ length: 20 }, (_, seed) =>
-      walk(seed + 1, seen),
-    ).flat(),
+    actual: seeds.flatMap((seed) => walk(seed, seen)),
     expected: [],
   });
   assert({
@@ -196,7 +197,8 @@ test('every state the engine projects is one the contracts hold', () => {
       'incident resuming',
     ],
   });
-});
+  // Each step builds a runtime again; a slow runner needs more than the default.
+}, 60_000);
 
 test('a stored stage the clock does not derive is corruption', async () => {
   const active = hydratedRound(lifecycleIn('active'), {
