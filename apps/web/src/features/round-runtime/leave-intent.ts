@@ -33,6 +33,8 @@ const awaitingBallot = (view: RoundView, nowMs: number) =>
 /**
  * Whether the engine takes this seat's forfeit in the opening: the rule its
  * `forfeitInOpening` enforces, read here without the opening's secret seed.
+ * An unreadable (null) checkpoint reads as an untouched opening, as the engine
+ * reads it, so the forfeit is still offered and the server decides.
  */
 const forfeitsInOpening = (
   view: RoundView,

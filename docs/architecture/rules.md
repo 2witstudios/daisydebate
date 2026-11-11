@@ -31,10 +31,13 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   small explicit interfaces.
   A lifecycle's predicates live once, beside its status vocabulary
   (`isRoundRunning`, `isRoundOver`, `isOpenRoomStatus` in `@daisy/protocol`);
-  code never re-spells them from status literals. A `switch` over a union names
-  every member, which `@typescript-eslint/switch-exhaustiveness-check` enforces
-  on workspace sources; `assertNever` is the `default` for a value that may
-  arrive unvalidated.
+  TypeScript never re-spells them from status literals, except where a status
+  is kept a loose string on purpose for version skew (the attendance client,
+  ISSUE-941). SQL that still spells them is tracked in ISSUE-1395. A `switch`
+  over a union names every member, which
+  `@typescript-eslint/switch-exhaustiveness-check` enforces on workspace
+  sources; `assertNever` is the `default` for a value that may arrive
+  unvalidated.
 
 ## Dependency rules
 
