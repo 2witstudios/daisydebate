@@ -106,7 +106,7 @@ export type RecordingMediaPanel =
       readonly playlistHref: string;
       readonly durationMs: number;
       /** What the video does not hold, stated rather than hidden. */
-      readonly gaps: RecordingMedia['gaps'];
+      readonly gaps: readonly RecordingMedia['gaps'][number][];
       /** Debate the video never reached, before its start or after its end. */
       readonly unrecorded: NonNullable<RecordingMedia['unrecorded']>;
       readonly speeches: readonly {
