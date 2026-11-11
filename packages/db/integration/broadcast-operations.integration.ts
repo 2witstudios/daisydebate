@@ -494,6 +494,7 @@ test('a feed is recorded withdrawn once, and only after the Broadcast ended', as
       )[0]?.at?.toISOString() ?? null;
     await recordFeedWithdrawn(db, { id: open.id, at: now });
     const whileLive = await withdrawnAt();
+    await endStream(db, open.id);
     await completeBroadcast(db, { id: open.id, at: now });
     await recordFeedWithdrawn(db, { id: open.id, at: now });
     const first = await withdrawnAt();
