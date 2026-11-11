@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { presenceSettingResultSchema } from '@daisy/protocol';
 import {
   presenceFormUnavailable,
+  presenceSet,
   type PresenceFormState,
 } from '../../../features/presence/form';
 import { post, text } from '../form-post';
@@ -37,7 +38,7 @@ export async function setStatusAction(
       response.ok ? await response.json() : null,
     );
     return result.success
-      ? { status: result.data.status }
+      ? presenceSet(result.data.status)
       : presenceFormUnavailable();
   } catch {
     return presenceFormUnavailable();

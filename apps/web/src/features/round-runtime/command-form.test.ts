@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { submitRoundForm } from './command-form';
+import { roundFormFields, submitRoundForm } from './command-form';
 import { roundCommandFields } from './command-fields';
 import { view, aff } from '../../ui/debate-room/live-round.test-support';
 setupRitewayBun();
@@ -29,13 +29,14 @@ test('Round command form confirms yield and preserves its principal-free envelop
   assert({
     given: 'the first End speech press',
     should: 'ask for confirmation without mutating the server',
-    actual: { calls, confirmation: confirmation.confirmation },
-    expected: { calls: 0, confirmation: true },
+    actual: { calls, confirmation: confirmation.kind },
+    expected: { calls: 0, confirmation: 'confirming' },
   });
   form.set('confirmed', 'true');
   const missing = await submitRoundForm(send, view.id, form);
+  const kept = roundFormFields(missing).values;
   const retry = new FormData();
-  for (const [k, v] of Object.entries(missing.values)) retry.set(k, v);
+  for (const [k, v] of Object.entries(kept)) retry.set(k, v);
   await submitRoundForm(send, view.id, retry);
   assert({
     given: 'two unacknowledged attempts',
@@ -44,7 +45,8 @@ test('Round command form confirms yield and preserves its principal-free envelop
     actual: {
       same: bodies[0] === bodies[1],
       body: JSON.parse(bodies[0]!),
-      values: missing.values.commandId,
+      lost: missing.kind,
+      values: kept.commandId,
     },
     expected: {
       same: true,
@@ -54,6 +56,7 @@ test('Round command form confirms yield and preserves its principal-free envelop
         expectedVersion: view.version,
         command: { type: 'yield', participantId: aff.id },
       },
+      lost: 'unacknowledged',
       values: commandId,
     },
   });
@@ -87,11 +90,17 @@ test('Round form accepts only its own receipt and current canonical view', async
     should:
       'adopt only an acknowledged matching projection and keep unknown retries intact',
     actual: {
-      accepted: accepted.acknowledged,
-      foreign: foreign.acknowledged,
-      unknownId: unavailable.values.commandId,
+      accepted,
+      foreign: foreign.kind,
+      unknown: unavailable.kind,
+      unknownId: roundFormFields(unavailable).values.commandId,
     },
-    expected: { accepted: true, foreign: undefined, unknownId: commandId },
+    expected: {
+      accepted: { kind: 'acknowledged', view },
+      foreign: 'unacknowledged',
+      unknown: 'unacknowledged',
+      unknownId: commandId,
+    },
   });
   const refused = await submitRoundForm(
     async () => new Response(null, { status: 409 }),
@@ -102,8 +111,8 @@ test('Round form accepts only its own receipt and current canonical view', async
     given: 'a definitive stale-version refusal',
     should:
       'permit a new intent from the fresh reread instead of replaying an obsolete envelope',
-    actual: refused.values,
-    expected: {},
+    actual: [refused.kind, roundFormFields(refused).values],
+    expected: ['refused', {}],
   });
 });
 test('flat command fields reject duplicates, claimed actors and fractional versions', () => {
@@ -166,7 +175,7 @@ test('a strike posts its turn and position, and a lost race says so', async () =
   assert({
     given: 'a strike that lost to a time-out or the other side',
     should: 'say why, in words',
-    actual: answer.error,
+    actual: roundFormFields(answer).error,
     expected: 'Someone struck first, or time ran out. Here is the draw now.',
   });
 });

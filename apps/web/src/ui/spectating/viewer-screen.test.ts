@@ -6,8 +6,8 @@ import {
   timelineAsOf,
   viewerScreenOf,
   viewerSettled,
-  type ViewerPlayback,
 } from './viewer-screen';
+import type { Viewing } from './viewing';
 
 setupRitewayBun();
 
@@ -36,9 +36,9 @@ const timeline = (over: Partial<SpectatorTimeline>): SpectatorTimeline => ({
   releasedThrough: null,
   ...over,
 });
-const fresh: ViewerPlayback = { stream: null, finished: false, failed: false };
-const screen = (over: Partial<SpectatorTimeline>, playback = fresh) =>
-  viewerScreenOf(timeline(over), playback);
+const fresh: Viewing = { kind: 'unseen' };
+const screen = (over: Partial<SpectatorTimeline>, viewing: Viewing = fresh) =>
+  viewerScreenOf(timeline(over), viewing);
 
 describe('streamableFeedOf', () => {
   test('a streamer is offered the feed the audience plays, while it plays', () => {
@@ -109,8 +109,21 @@ describe('viewerScreenOf', () => {
     assert({
       given: 'an engine that gave up on a live stream',
       should: 'offer the failed playback screen',
-      actual: screen({}, { ...fresh, failed: true }),
+      actual: screen({}, { kind: 'unplayable', stream, attempt: 0 }),
       expected: { kind: 'unplayable' },
+    });
+    const next: BroadcastStream = {
+      path: 'owned_hls',
+      manifestUrl: 'https://feed.daisy.invalid/live/c/master.m3u8',
+    };
+    assert({
+      given: 'an engine that gave up on a stream, and a different one on air',
+      should: 'play the one on air',
+      actual: screen(
+        { broadcast: { state: 'on_air', stream: next } },
+        { kind: 'unplayable', stream, attempt: 0 },
+      ),
+      expected: { kind: 'player', stream: next, notice: null },
     });
   });
 
@@ -139,7 +152,7 @@ describe('viewerScreenOf', () => {
   });
 
   test('how it finishes', () => {
-    const playing = { ...fresh, stream };
+    const playing: Viewing = { kind: 'playing', stream, attempt: 0 };
     assert({
       given: 'a stop while playing',
       should: 'end playback at once',
@@ -163,9 +176,18 @@ describe('viewerScreenOf', () => {
       should: 'show the end with its Recording',
       actual: screen(
         { broadcast: { state: 'ended' }, recording: 'ready' },
-        { ...playing, finished: true },
+        { ...playing, kind: 'finished' },
       ),
       expected: { kind: 'ended', recording: 'ready' },
+    });
+    assert({
+      given: 'a normal end on a stream whose player gave up',
+      should: 'show the end, with no player',
+      actual: screen(
+        { broadcast: { state: 'ended' } },
+        { ...playing, kind: 'unplayable' },
+      ),
+      expected: { kind: 'ended', recording: 'none' },
     });
     assert({
       given: 'a viewer arriving after the end',

@@ -74,7 +74,7 @@ test('the Invite form reaches the invite route', async () => {
     actual: { state, calls },
     expected: {
       state: {
-        ok: true,
+        kind: 'accepted',
         notice: 'Invited @coach_b. Their seat is held for them.',
       },
       calls: [
@@ -97,9 +97,9 @@ test('a refused invite answers in words', async () => {
   );
   assert({
     given: 'an invite the Room refuses with a closed reason',
-    should: 'come back as a notice, not a success',
-    actual: state.ok ?? false,
-    expected: false,
+    should: 'come back as a refusal, not a success',
+    actual: state.kind,
+    expected: 'refused',
   });
 });
 

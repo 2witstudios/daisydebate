@@ -4,18 +4,40 @@ import {
   idSchema,
   messagingBetaLimits,
 } from '@daisy/protocol';
-import { floorFormUnavailable, type FloorFormState } from './form';
+import { messageDraft, messageUnsentNotice } from '../forms/send-form';
+import {
+  floorChanged,
+  floorCommand,
+  floorRefused,
+  floorSent,
+  floorUnacknowledged,
+  sameFloorCommand,
+  unacknowledgedFloorCommand,
+  type FloorFormState,
+} from './form-state';
 const schemas = createMessagingCoreSchemas(messagingBetaLimits);
 /** A retry repeats the full original command, including its target and operation. */
 export async function submitFloorChange(
   send: (kind: string, url: string, init: RequestInit) => Promise<Response>,
   scope: { readonly roundId: string; readonly channelId: string },
-  previous: FloorFormState,
+  previous: unknown,
   form: FormData,
   nextId: () => string,
   report = false,
 ): Promise<FloorFormState> {
-  const kept = floorFormUnavailable(form);
+  const posted = floorCommand(form);
+  const original = unacknowledgedFloorCommand(previous);
+  if (original !== null && !sameFloorCommand(original, posted))
+    return floorUnacknowledged(
+      original,
+      'Retry the original change before starting another one.',
+    );
+  const lost = floorUnacknowledged(posted, messageUnsentNotice);
+  // Once unacknowledged, only a confirmed answer releases the command.
+  const refuse = (error: string, mayHaveCommitted = false): FloorFormState =>
+    original !== null || mayHaveCommitted
+      ? floorUnacknowledged(posted, error)
+      : floorRefused(messageDraft(form), error);
   let command: unknown, kind: string, messageId: string;
   try {
     idSchema.parse(scope.roundId);
@@ -42,19 +64,10 @@ export async function submitFloorChange(
     } else if (kind === 'edit')
       command = schemas.edit.parse({ ...base, text: form.get('text') });
     else if (kind === 'remove') command = schemas.remove.parse(base);
-    else return { ...kept, uncertain: previous.uncertain === true };
+    else return refuse(messageUnsentNotice);
   } catch {
-    return { ...kept, uncertain: previous.uncertain === true };
+    return refuse(messageUnsentNotice);
   }
-  const signature = JSON.stringify({ kind, command });
-  if (previous.uncertain && previous.command && previous.command !== signature)
-    return {
-      ...previous,
-      notice: 'Retry the original change before starting another one.',
-    };
-  const unknown = { ...kept, command: signature };
-  let acknowledgedText = '';
-  let changeVersion: number | undefined;
   try {
     const response = await send(
       kind,
@@ -66,45 +79,36 @@ export async function submitFloorChange(
       },
     );
     if (!response.ok)
-      return {
-        ...unknown,
-        uncertain: previous.uncertain === true || response.status >= 500,
-        notice:
-          response.status === 429
-            ? 'Please wait before trying again.'
-            : 'This change was not accepted. Your text is kept.',
-      };
+      return refuse(
+        response.status === 429
+          ? 'Please wait before trying again.'
+          : 'This change was not accepted. Your text is kept.',
+        response.status >= 500,
+      );
     const result: unknown = await response.json();
-    if (report) {
-      if (
-        !result ||
-        typeof result !== 'object' ||
-        !('received' in result) ||
-        result.received !== true
-      )
-        return unknown;
-    } else {
-      const parsed = schemas.messageResult.safeParse(result);
-      if (
-        !parsed.success ||
-        parsed.data.id !== messageId ||
-        parsed.data.channelId !== scope.channelId
-      )
-        return unknown;
-      changeVersion = parsed.data.changeVersion;
-      if (kind === 'remove' && !('unavailable' in parsed.data)) return unknown;
-      if (kind === 'edit') {
-        if ('unavailable' in parsed.data) return unknown;
-        acknowledgedText = parsed.data.text;
-      }
-    }
-    return {
-      text: acknowledgedText,
-      requestId: idSchema.parse(nextId()),
-      sent: messageId,
-      ...(changeVersion === undefined ? {} : { changeVersion }),
-    };
+    if (report)
+      return result &&
+        typeof result === 'object' &&
+        'received' in result &&
+        result.received === true
+        ? floorSent(messageId, idSchema.parse(nextId()))
+        : lost;
+    const parsed = schemas.messageResult.safeParse(result);
+    if (
+      !parsed.success ||
+      parsed.data.id !== messageId ||
+      parsed.data.channelId !== scope.channelId
+    )
+      return lost;
+    const removed = 'unavailable' in parsed.data;
+    if (removed !== (kind === 'remove')) return lost;
+    return floorChanged(
+      messageId,
+      idSchema.parse(nextId()),
+      'unavailable' in parsed.data ? '' : parsed.data.text,
+      parsed.data.changeVersion,
+    );
   } catch {
-    return unknown;
+    return lost;
   }
 }

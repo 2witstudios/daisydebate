@@ -1,9 +1,10 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { floorIdle } from '../../features/messaging/round-floor/form-state';
 import { FloorMessageControls } from './message-controls';
 setupRitewayBun();
-const action = async () => ({ text: '', requestId: 'r'.repeat(24) });
+const action = async () => floorIdle('r'.repeat(24));
 const props = {
   messageId: 'm'.repeat(24),
   changeVersion: 1,

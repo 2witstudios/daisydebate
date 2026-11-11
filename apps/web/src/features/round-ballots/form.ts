@@ -4,22 +4,52 @@ import {
   roundBallotReceiptSchema,
   type RoundBallotReceipt,
 } from '@daisy/protocol';
-import { formValues } from '../forms/form-state';
+import {
+  blankFields,
+  formFields,
+  refused,
+  unacknowledged,
+  type FormFields,
+  type Idle,
+  type Moved,
+  type Refused,
+  type Unacknowledged,
+} from '../forms/form-state';
 import { ballotFields } from './fields';
-export type RoundBallotFormState = {
-  readonly values: Readonly<Record<string, string>>;
-  readonly error?: string;
-  readonly receipt?: RoundBallotReceipt;
-  readonly unacknowledged?: boolean;
-  readonly next?: string;
+
+/** The ballot is recorded: the receipt is the acknowledgement. */
+type BallotRecorded = {
+  readonly kind: 'recorded';
+  readonly receipt: RoundBallotReceipt;
 };
-type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
-export const ballotUnavailable = (form: FormData): RoundBallotFormState => ({
-  values: formValues(form),
-  unacknowledged: true,
-  error:
-    'The ballot is not acknowledged. Retry the original ballot to find out whether it was recorded.',
+/** A ballot form's answer; a lost acknowledgement keeps the original ballot for its retry. */
+export type RoundBallotFormState =
+  Idle | Refused | BallotRecorded | Unacknowledged | Moved;
+
+const recorded = (receipt: RoundBallotReceipt): BallotRecorded => ({
+  kind: 'recorded',
+  receipt,
 });
+type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
+export const ballotUnavailable = (form: FormData): RoundBallotFormState =>
+  unacknowledged(form);
+
+const unacknowledgedText =
+  'The ballot is not acknowledged. Retry the original ballot to find out whether it was recorded.';
+
+/** What the ballot's fields render from each answer. */
+export function ballotFormFields(answer: RoundBallotFormState): FormFields {
+  switch (answer.kind) {
+    case 'unacknowledged':
+      return { values: answer.values, error: unacknowledgedText };
+    case 'recorded':
+      return blankFields;
+    case 'idle':
+    case 'refused':
+    case 'moved':
+      return formFields(answer);
+  }
+}
 /** The same strict API boundary before hydration, without JavaScript and with enhanced retry. */
 export async function submitRoundBallotForm(
   fetch: FetchLike,
@@ -28,13 +58,12 @@ export async function submitRoundBallotForm(
   debaters?: BallotDebaters,
 ): Promise<RoundBallotFormState> {
   const parsed = ballotFields(form, true, debaters);
-  if (!parsed.ok) return { values: formValues(form), error: parsed.error };
+  if (!parsed.ok) return refused(form, parsed.error);
   if (!idSchema.safeParse(roundId).success)
-    return {
-      values: formValues(form),
-      error:
-        'This Round is invalid. Return to Judge and refresh your assignments.',
-    };
+    return refused(
+      form,
+      'This Round is invalid. Return to Judge and refresh your assignments.',
+    );
   try {
     const response = await fetch(`/api/rounds/${roundId}/ballots`, {
       method: 'POST',
@@ -59,7 +88,7 @@ export async function submitRoundBallotForm(
       )
     )
       return ballotUnavailable(form);
-    return { values: {}, receipt: accepted };
+    return recorded(accepted);
   } catch {
     return ballotUnavailable(form);
   }
@@ -77,5 +106,5 @@ async function ballotRefusal(
         ? 'Not recorded yet: attendance for the last speeches is still being confirmed. Your entries are kept; submit again in a few seconds.'
         : 'The Round changed or a ballot is already recorded. Your entries are kept. Refresh before trying again.';
   }
-  return { values: formValues(form), error };
+  return refused(form, error);
 }

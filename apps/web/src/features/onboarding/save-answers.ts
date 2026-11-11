@@ -12,6 +12,7 @@ import {
   requireSignedIn,
 } from '../../server/http';
 import { parseStepAnswers } from './answers';
+import { finishesOnboarding } from './steps';
 
 /** A member clicking through six steps, with room for going back. */
 const SAVE_RULE = { windowSeconds: 60, max: 30 } as const;
@@ -34,6 +35,8 @@ type OnboardingDependencies = {
     readonly userId: string;
     readonly actorId: string;
     readonly answers: OnboardingStepWrite;
+    /** The last question's write also records the finish, as one write. */
+    readonly completes: boolean;
     readonly now: string;
   }) => Promise<void>;
   readonly complete: (userId: string, at: Date) => Promise<void>;
@@ -61,12 +64,13 @@ const isFinish = (body: unknown) =>
 
 /**
  * POST /api/account/onboarding: saves one questionnaire step, or records
- * that the member finished (Finish or Skip). Gate order is ADR 0020: same
+ * that the member finished (Skip). The last question's step is saved and
+ * finished in one write, so it never lands half done. Gate order is ADR 0020: same
  * origin, the session Principal, a member with a username (never a
  * body-supplied id), an atomic rate limit, a strict body, and only then
  * durable work. Optional answers also need the member's canonical age
  * fact to admit them (16 or over, DEC-106); the body never carries an age.
- * A refused answer stores nothing; Finish needs no age.
+ * A refused answer stores nothing; finishing alone needs no age.
  */
 export function createOnboardingHandler(dependencies: OnboardingDependencies) {
   return (request: Request) =>
@@ -101,6 +105,7 @@ export function createOnboardingHandler(dependencies: OnboardingDependencies) {
           userId,
           actorId,
           answers: parsed.value,
+          completes: finishesOnboarding(parsed.value.step),
           now: dependencies.clock.now(),
         });
         return Response.json({ saved: parsed.value.step });

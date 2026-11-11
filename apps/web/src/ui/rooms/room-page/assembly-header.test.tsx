@@ -1,3 +1,4 @@
+import { idle } from '../../../features/forms/form-state';
 import type { RoomView } from '@daisy/protocol';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -8,7 +9,7 @@ import { RoomInvite } from './room-invite';
 import { ROOM_SETUP_HOME } from './room-setup-modal';
 
 setupRitewayBun();
-const action = async () => ({ values: {} });
+const action = async () => idle();
 const header = (view: RoomView, actorId: string, roomNumber?: number) =>
   AssemblyHeader({
     view,

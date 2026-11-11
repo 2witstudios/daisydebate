@@ -1,6 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   ageAnswerHref,
+  ageFields,
+  ageFormUnavailable,
+  ageIncomplete,
+  ageUnavailable,
+  initialAgeForm,
   birthYears,
   readAgeAnswer,
   readAgeForm,
@@ -28,6 +33,7 @@ test('the age form reads as the route body or names what is missing', () => {
       {
         ok: false,
         state: {
+          kind: 'incomplete',
           month: '',
           year: '2001',
           terms: false,
@@ -102,6 +108,52 @@ test('where the form goes after the answer, keeping the destination', async () =
       '/onboarding/username?next=%2Franked',
       '/onboarding/age?next=%2Franked',
       null,
+    ],
+  });
+});
+
+test('an age answer is exactly one kind, and the form shows only what that kind holds', () => {
+  const entry = { month: '5', year: '2014', terms: true };
+  const answers = [
+    initialAgeForm,
+    ageIncomplete({ month: '', year: '2014', terms: false }, [
+      'month',
+      'terms',
+    ]),
+    ageUnavailable(entry),
+    ageFormUnavailable(),
+    { kind: 'moved', next: '/onboarding/username' } as const,
+  ];
+  assert({
+    given:
+      'nothing posted, an incomplete answer, one the route could not record, a call that never arrived, and an accepted answer',
+    should:
+      'be idle, incomplete with its missing fields, unavailable with the entry kept (or blank when the call was lost), and moved with nothing to show',
+    actual: answers.map((answer) => [answer.kind, ageFields(answer)]),
+    expected: [
+      [
+        'idle',
+        { month: '', year: '', terms: false, missing: [], unavailable: false },
+      ],
+      [
+        'incomplete',
+        {
+          month: '',
+          year: '2014',
+          terms: false,
+          missing: ['month', 'terms'],
+          unavailable: false,
+        },
+      ],
+      ['unavailable', { ...entry, missing: [], unavailable: true }],
+      [
+        'unavailable',
+        { month: '', year: '', terms: false, missing: [], unavailable: true },
+      ],
+      [
+        'moved',
+        { month: '', year: '', terms: false, missing: [], unavailable: false },
+      ],
     ],
   });
 });

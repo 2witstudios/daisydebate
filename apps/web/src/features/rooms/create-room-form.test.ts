@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot, rankedCreateForm } from './assembly.test-support';
 import { submitRoomCreation } from './create-room-form';
+import { destinationOf, formFields, formValues } from '../forms/form-state';
 
 setupRitewayBun();
 
@@ -42,10 +43,10 @@ test('creation refusals answer with what happened, and an active Room returns it
             Response.json({ refusal: 'command-conflict' }, { status: 409 }),
           ].map((response) => answer(response)),
         )
-      ).map((state) => state.error),
+      ).map((state) => formFields(state).error),
     ],
     expected: [
-      { values: {}, next: href },
+      { kind: 'moved', next: href },
       'Your account cannot create rooms right now.',
       'You are creating rooms too quickly. Wait a moment and try again.',
       'This form was already sent. Reload the page and try again.',
@@ -96,7 +97,7 @@ test('the hook sees the Room its member reaches while it assembles, and never bl
       'a created Room whose hook throws, then a held assembling Room, then a held live one',
     should:
       'still move on to the created Room, and hand the hook only the assembling Room',
-    actual: [created.next, seen],
+    actual: [destinationOf(created), seen],
     expected: [`/rooms/${assemblySnapshot.id}`, [held]],
   });
 });
@@ -116,7 +117,11 @@ test('a hook that answers a notice keeps its member in place to read it', async 
   assert({
     given: 'a created Room whose hook answers a notice',
     should: 'answer that notice instead of moving on',
-    actual: [state.next, state.error],
-    expected: [undefined, 'Your friend was not invited.'],
+    actual: state,
+    expected: {
+      kind: 'refused',
+      values: formValues(form()),
+      error: 'Your friend was not invited.',
+    },
   });
 });

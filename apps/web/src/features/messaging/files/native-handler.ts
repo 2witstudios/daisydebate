@@ -3,8 +3,11 @@ import { idSchema } from '@daisy/protocol';
 import { readBytes, parseValidated } from '../../../server/http';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 
+import { moved } from '../../forms/form-state';
 import {
   fileFormUnavailable,
+  fileStranded,
+  isFileFormState,
   type MessagingFileFormState,
 } from '../forms/file-form';
 import { attachMessagingFormFile } from './form-upload';
@@ -38,7 +41,8 @@ export function nativeFileHandler(
     operation: async (value) => {
       // Values are validated again by the common form parser and each actual operation.
       if (!isNativeForm(value)) throw createAppError('VALIDATION');
-      let kept = fileFormUnavailable(value.form);
+      const refusal = fileFormUnavailable(value.form);
+      let kept: MessagingFileFormState = refusal;
       const json =
         (handler: (request: Request) => Promise<Response>, path: string) =>
         (command: unknown) =>
@@ -54,11 +58,7 @@ export function nativeFileHandler(
           value.form,
           {
             reserved: (token) => {
-              kept = {
-                ...kept,
-                fileId: token.fileId,
-                generation: token.generation,
-              };
+              kept = fileStranded(refusal, token);
             },
             reserve: json(input.files.reserve, '/api/messaging/files/reserve'),
             finalize: json(
@@ -79,13 +79,13 @@ export function nativeFileHandler(
               ),
           },
         );
-        return { ...kept, notice: '', next: `/messages/${value.channelId}` };
+        return moved(`/messages/${value.channelId}`);
       } catch {
         return kept;
       }
     },
     respond: (value) => {
-      if (!isFormState(value)) throw createAppError('INFRASTRUCTURE');
+      if (!isFileFormState(value)) throw createAppError('INFRASTRUCTURE');
       return input.respond(value);
     },
   });
@@ -104,17 +104,6 @@ function isNativeForm(
     value.form instanceof FormData
   );
 }
-function isFormState(value: unknown): value is MessagingFileFormState {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'requestId' in value &&
-    typeof value.requestId === 'string' &&
-    'filename' in value &&
-    typeof value.filename === 'string'
-  );
-}
-
 async function multipartForm(
   url: string,
   type: string,

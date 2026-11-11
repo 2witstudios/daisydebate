@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { signOutNoticeOf } from './security-overview-model';
 import { useSecurityOverview } from './use-security-overview';
 
 export { act, createElement } from 'react';
@@ -14,14 +15,22 @@ export function OverviewProbe(
   const { hold, ...deps } = props;
   const held = useSecurityOverview(deps);
   hold(held);
+  const { lists } = held.overview;
+  const rows = (list: 'passkeys' | 'sessions') =>
+    lists.kind === 'read' && lists[list].kind === 'listed'
+      ? lists[list].rows.map((row) => row.id)
+      : [];
   return createElement(
     'output',
-    null,
+    { 'data-lists': lists.kind },
     JSON.stringify({
-      passkeys: held.passkeys.map((row) => row.id),
-      sessions: held.sessions.map((row) => row.id),
-      sessionsNotice: held.sessionsNotice ?? null,
-      signOutNotice: held.signOutNotice ?? null,
+      passkeys: rows('passkeys'),
+      sessions: rows('sessions'),
+      sessionsNotice:
+        lists.kind === 'read' && lists.sessions.kind === 'unavailable'
+          ? lists.sessions.notice
+          : null,
+      signOutNotice: signOutNoticeOf(held.overview),
     }),
   );
 }

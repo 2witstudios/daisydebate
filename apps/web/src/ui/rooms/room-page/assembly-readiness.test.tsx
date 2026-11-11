@@ -1,4 +1,5 @@
 import { AssemblyCommandForm } from './assembly-command-form';
+import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { findElements, byText } from '../../test-support/find-elements';
 import { StartControl, ReadyControl } from './assembly-readiness';
@@ -31,7 +32,7 @@ const base = {
   capabilities: { canReady: true, host: true, canStart: false },
   startRefusal: 'not-ready' as const,
 };
-const action = async () => ({ values: {} });
+const action = async () => idle();
 type Props = Parameters<typeof ReadyControl>[0];
 const controls = (props: Props) => [ReadyControl(props), StartControl(props)];
 const props = {

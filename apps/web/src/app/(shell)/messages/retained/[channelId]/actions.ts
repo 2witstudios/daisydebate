@@ -4,7 +4,10 @@ import { headers } from 'next/headers';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { moveOn } from '../../../../../server/form-action';
 import { processRoute } from '../../../../../server/process-app';
-import type { RetainedDeleteState } from '../../../../../ui/messaging/retained-delete-form';
+import {
+  retainedDeleteRefused,
+  type RetainedDeleteState,
+} from '../../../../../features/messaging/forms/retained-delete-form';
 
 const remove = processRoute((all) => all.messaging.retained.remove);
 
@@ -22,7 +25,6 @@ export async function deleteRetainedAction(
       body: JSON.stringify({ version: 1, channelId }),
     },
   );
-  if (!response.ok)
-    return { notice: 'Could not delete this conversation. Try again.' };
+  if (!response.ok) return retainedDeleteRefused;
   return moveOn(incoming, '/messages');
 }

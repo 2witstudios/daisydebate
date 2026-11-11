@@ -40,7 +40,7 @@ const render = (view: RoomView, error?: string) =>
       state={
         error
           ? { values: { drawSize: '6', drawSource: 'bank' }, error }
-          : { values: {} }
+          : { values: {}, error: undefined }
       }
       disabled={false}
     />,

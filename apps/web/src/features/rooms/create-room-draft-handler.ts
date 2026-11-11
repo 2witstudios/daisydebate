@@ -72,7 +72,7 @@ export function createRoomDraftHandler(dependencies: Dependencies) {
         );
         if (request.headers.get('accept') === 'application/json')
           return Response.json(state);
-        if (state.next)
+        if (state.kind === 'moved')
           return new Response(null, {
             status: 303,
             headers: { location: state.next },

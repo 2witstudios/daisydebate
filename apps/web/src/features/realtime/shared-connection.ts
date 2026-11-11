@@ -7,10 +7,7 @@ type Shared = {
   readonly topics: Map<string, number>;
 };
 
-const isOpen = (store: ConnectionStore) => {
-  const state = store.getState();
-  return state.status === 'open' && state.terminal === null;
-};
+const isOpen = (store: ConnectionStore) => store.getState().status === 'open';
 
 /**
  * One realtime socket per URL for the whole tab: every resource sync on a

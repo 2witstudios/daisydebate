@@ -20,6 +20,7 @@ import {
   messageFormUnavailable,
   type MessageFormState,
 } from '../../features/messaging/forms/send-form';
+import { destinationOf } from '../../features/forms/form-state';
 import {
   answerUnavailableOnThrow,
   type FormAction,
@@ -181,10 +182,11 @@ export function useConversationCompletion(
     seen.current = answer;
     const captured = answer.completion;
     if (captured == null) return;
+    const next = destinationOf(answer);
     const apply = captured.scope.accept({
-      type: answer.next === undefined ? 'failed' : 'complete',
+      type: next === undefined ? 'failed' : 'complete',
       origin: captured.id,
     });
-    if (apply && answer.next !== undefined) followAnswer(router, answer.next);
+    if (apply && next !== undefined) followAnswer(router, next);
   }, [answer, pending, router]);
 }

@@ -1,13 +1,59 @@
 import { createAppError } from '@daisy/errors';
 import { messagingPreferenceSchemas } from '@daisy/protocol';
 import { parseValidated } from '../../../server/http';
-export type PreferenceFormState = {
-  readonly following: string;
-  readonly hidden: string;
-  readonly notificationLevel: string;
-  readonly notice?: string;
-  readonly next?: string;
+import {
+  idle,
+  refusedWith,
+  type Idle,
+  type Refused,
+} from '../../forms/form-state';
+
+/** The three selections a preference form holds, each as its option's value. */
+type PreferenceValues = {
+  readonly values: {
+    readonly following: string;
+    readonly hidden: string;
+    readonly notificationLevel: string;
+  };
 };
+export type PreferenceRefused = Refused & PreferenceValues;
+/**
+ * Saved: the page it was posted from is where it leads, so the form stays
+ * and shows what the server now holds.
+ */
+export type PreferenceSaved = {
+  readonly kind: 'saved';
+  readonly values: PreferenceValues['values'];
+  readonly next: string;
+};
+
+/** A preference form's answer. */
+export type PreferenceFormState =
+  (Idle & PreferenceValues) | PreferenceRefused | PreferenceSaved;
+
+export const preferenceSaved = (
+  values: PreferenceValues['values'],
+  next: string,
+): PreferenceSaved => ({ kind: 'saved', values, next });
+
+/** What a preference form renders: its selections, a refusal, and where a save leads. */
+export type PreferenceFields = PreferenceValues['values'] & {
+  readonly notice: string | undefined;
+  readonly next: string | undefined;
+};
+
+export function preferenceFields(
+  answer: PreferenceFormState,
+): PreferenceFields {
+  switch (answer.kind) {
+    case 'idle':
+      return { ...answer.values, notice: undefined, next: undefined };
+    case 'refused':
+      return { ...answer.values, notice: answer.error, next: undefined };
+    case 'saved':
+      return { ...answer.values, notice: undefined, next: answer.next };
+  }
+}
 function choice(form: FormData, key: string) {
   const value = form.get(key);
   if (typeof value !== 'string' || form.getAll(key).length !== 1)
@@ -57,26 +103,35 @@ export function parsePreferenceForm(
     }),
   };
 }
-export function preferenceUnavailable(form: FormData): PreferenceFormState {
+export function preferenceUnavailable(form: FormData): PreferenceRefused {
   const value = (key: string) => {
     const stored = form.get(key);
     return typeof stored === 'string' ? stored : '';
   };
-  return {
-    following: value('following'),
-    hidden: value('hidden'),
-    notificationLevel: value('notificationLevel'),
-    notice:
-      'Could not change these preferences. Your selections are kept; try again.',
-  };
+  return refusedWith(
+    {
+      following: value('following'),
+      hidden: value('hidden'),
+      notificationLevel: value('notificationLevel'),
+    },
+    'Could not change these preferences. Your selections are kept; try again.',
+  );
 }
 
-export function preferenceFormState(
-  state: ReturnType<typeof messagingPreferenceSchemas.result.parse>['state'],
-): PreferenceFormState {
-  return {
-    following: state === null ? '' : state.following ? 'yes' : 'no',
-    hidden: state === null ? '' : state.hidden ? 'yes' : 'no',
-    notificationLevel: state?.notificationLevel ?? '',
-  };
-}
+type StoredPreference = ReturnType<
+  typeof messagingPreferenceSchemas.result.parse
+>['state'];
+
+/** The selections that show a stored preference; none stored shows no choice. */
+export const preferenceSelections = (
+  state: StoredPreference,
+): PreferenceValues['values'] => ({
+  following: state === null ? '' : state.following ? 'yes' : 'no',
+  hidden: state === null ? '' : state.hidden ? 'yes' : 'no',
+  notificationLevel: state?.notificationLevel ?? '',
+});
+
+/** The form a page starts with: what is stored, nothing posted yet. */
+export const preferenceFormState = (
+  state: StoredPreference,
+): PreferenceFormState => idle(preferenceSelections(state));

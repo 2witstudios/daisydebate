@@ -4,6 +4,7 @@ import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { catalogFormats } from '@daisy/db/catalog-formats';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
+import { stepNumber } from '../../../features/onboarding/steps';
 import { heading, type IntroStepProps } from './intro';
 
 const plainName: Record<string, string> = {
@@ -113,7 +114,11 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
     ],
   ] as const;
   return (
-    <OnboardingFrame step={3} titleId="onboarding-title" skip={skip}>
+    <OnboardingFrame
+      step={stepNumber('debate')}
+      titleId="onboarding-title"
+      skip={skip}
+    >
       <h1 id="onboarding-title" className={heading}>
         How a debate works
       </h1>

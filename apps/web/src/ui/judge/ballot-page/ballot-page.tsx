@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { StoredBallotScores } from '../../ballot/stored-ballot-scores';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { idle } from '../../../features/forms/form-state';
 import type { RoundBallotRead } from '@daisy/protocol';
 import {
   ballotDebaters,
   ballotDisplay,
 } from '../../../features/round-ballots/presentation';
 import {
+  ballotFormFields,
   ballotUnavailable,
   type RoundBallotFormState,
 } from '../../../features/round-ballots/form';
@@ -26,6 +28,8 @@ import { MediaPageLink } from '../../round-media/media-page-link';
 import { BallotOpensNotice, useBallotOpensIn } from './ballot-opens';
 import { BallotRules } from './ballot-rules';
 import { useBallotDraft } from './use-ballot-draft';
+import { useBallotRefresh } from './use-ballot-refresh';
+const unanswered: RoundBallotFormState = idle();
 /** Mounted above every canonical state, so an unknown acknowledgement always keeps its original retry. */
 export function BallotPage({
   view,
@@ -43,27 +47,28 @@ export function BallotPage({
   const [commandId] = useState(seedId);
   const [answer, post, pending] = useFormAction<RoundBallotFormState>(
     action,
-    { values: {} },
+    unanswered,
     ballotUnavailable,
   );
+  const fields = ballotFormFields(answer);
   const [rendered, setRendered] = useState({ answer, revision: 0 });
   // A settled refusal restores the submitted controls, including the native range inputs.
   // Keep the command/retry owner mounted while replacing only that editable field tree.
   if (rendered.answer !== answer)
     setRendered({ answer, revision: rendered.revision + 1 });
-  useFocusAfterAnswer(answer, answer.error ? errorId : undefined, !pending);
+  useFocusAfterAnswer(answer, fields.error ? errorId : undefined, !pending);
   useEffect(() => {
-    if (answer.receipt) router.refresh();
-  }, [answer.receipt, router]);
-  useEffect(() => {
-    if (view.round.status !== 'active' || view.freeze || answer.unacknowledged)
-      return;
-    const timer = window.setInterval(() => router.refresh(), 5000);
-    return () => window.clearInterval(timer);
-  }, [view.round.status, view.freeze, answer.unacknowledged, router]);
+    if (answer.kind === 'recorded') router.refresh();
+  }, [answer, router]);
+  useBallotRefresh(
+    view,
+    pending || answer.kind === 'unacknowledged',
+    renderedAtMs,
+    router,
+  );
   const debaters = ballotDebaters(view);
   const display = ballotDisplay(view, answer);
-  const draft = useBallotDraft(view, display, answer.values);
+  const draft = useBallotDraft(view, display, fields.values);
   const own = display === 'retry' ? null : view.own?.ballot;
   const opensInMs = useBallotOpensIn(
     view.round,
@@ -96,7 +101,7 @@ export function BallotPage({
       <BallotEntry
         display={display}
         view={view}
-        answer={answer}
+        answer={fields}
         fieldsRevision={`${rendered.revision}-${draft.restored ? 'draft' : 'fresh'}`}
         fieldValues={draft.values}
         onFieldsChange={draft.save}

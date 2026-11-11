@@ -2,9 +2,8 @@
 
 import { headers } from 'next/headers';
 import { readAssembly } from '../../../../features/rooms/read-assembly';
-import { prepareSettings } from '../../../../features/rooms/prepare-settings';
+import { saveSettings } from '../../../../features/rooms/save-settings';
 import { submitAssembly } from '../../../../features/rooms/submit-assembly';
-import { refused, type FormState } from '../../../../features/forms/form-state';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { hydratedPost, moveOn } from '../../../../server/form-action';
 import {
@@ -104,7 +103,7 @@ async function submitRoomCommand(id: string, form: FormData) {
 
 export async function submitRoomFormAction(
   id: string,
-  _state: FormState,
+  _state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
@@ -117,7 +116,7 @@ export async function submitRoomFormAction(
 /** Native posts return to a fresh projection; the hydrated room adopts the answer. */
 export async function roomCommandAction(
   id: string,
-  _state: FormState,
+  _state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
@@ -130,7 +129,7 @@ export async function roomCommandAction(
 /** Signs the season's waiver, then answers with the room it unblocks. */
 export async function signContentWaiverAction(
   id: string,
-  _state: FormState,
+  _state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
   const incoming = new Headers(await headers());
@@ -151,28 +150,16 @@ export async function signContentWaiverAction(
 /** Form conversions use the fresh canonical source, preserving the submitted version fence. */
 export async function saveRoomSettingsAction(
   id: string,
-  state: FormState,
+  state: RoomFormState,
   form: FormData,
 ): Promise<RoomFormState> {
-  const current = await roomAssembly(id);
-  if (current.kind !== 'found')
-    return refused(form, 'Settings are unavailable. Try again.');
-  const prepared = prepareSettings(current.view, form);
-  if (prepared.kind !== 'prepared')
-    return refused(
-      form,
-      prepared.kind === 'conflict'
-        ? 'The room changed. Review the latest room before saving.'
-        : 'These settings are not permitted. Check the values and try again.',
-    );
-  const command = new FormData();
-  for (const [name, value] of Object.entries(prepared.command))
-    command.set(
-      name,
-      typeof value === 'object' ? JSON.stringify(value) : String(value),
-    );
-  const result = await submitRoomFormAction(id, state, command);
-  return result.error ? refused(form, result.error) : result;
+  return saveSettings(
+    {
+      read: () => roomAssembly(id),
+      submit: (command) => submitRoomFormAction(id, state, command),
+    },
+    form,
+  );
 }
 
 /** Client consent recovery uses canonical commands without tearing down preview tracks. */

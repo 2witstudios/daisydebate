@@ -5,6 +5,7 @@ import { systemId } from '@daisy/clock';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { readConversationResponse } from '../../../../../features/messaging/conversation';
+import { messageIdle } from '../../../../../features/messaging/forms/send-form';
 import { MessageMutationForm } from '../../../../../ui/messaging/message-mutation-form';
 import { messagePageContext } from '../message-page-context';
 import { GET } from '../../../../api/messaging/channels/[channelId]/messages/route';
@@ -42,7 +43,7 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
       <p>Revise your message or remove it from the conversation.</p>
       <MessageMutationForm
         action={changeMessageAction.bind(null, channelId, messageId)}
-        state={{ requestId, text: message.text }}
+        state={messageIdle(requestId, message.text)}
         removeRequestId={systemId.next()}
         maxUnits={conversation.bounds.messageUnits}
       />

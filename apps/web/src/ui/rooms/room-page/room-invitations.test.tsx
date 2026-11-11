@@ -3,6 +3,7 @@ import { createElement as h } from 'react';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomView } from '@daisy/protocol';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import { initialInvitationForm } from '../../../features/room-invitations/submit';
 import { RoomInvitations } from './room-invitations';
 
 setupRitewayBun();
@@ -16,7 +17,11 @@ const invitation = {
 };
 const render = (view: RoomView, viewerLabel: string) =>
   renderToStaticMarkup(
-    h(RoomInvitations, { view, viewerLabel, action: async () => ({}) }),
+    h(RoomInvitations, {
+      view,
+      viewerLabel,
+      action: async () => initialInvitationForm,
+    }),
   );
 const guest: RoomView = {
   ...assemblySnapshot,

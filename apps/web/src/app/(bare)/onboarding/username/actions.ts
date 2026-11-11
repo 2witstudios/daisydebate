@@ -40,13 +40,10 @@ export async function claimUsernameAction(
     form instanceof FormData ? form : new FormData(),
   );
   if (result.kind === 'refused') return result.state;
-  return {
-    username: '',
-    ...moveOn(
-      incoming,
-      result.kind === 'claimed'
-        ? passkeyOfferHref(destination)
-        : await afterPasskey(destination),
-    ),
-  };
+  return moveOn(
+    incoming,
+    result.kind === 'claimed'
+      ? passkeyOfferHref(destination)
+      : await afterPasskey(destination),
+  );
 }

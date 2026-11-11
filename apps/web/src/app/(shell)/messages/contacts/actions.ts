@@ -7,6 +7,7 @@ import { processRoute } from '../../../../server/process-app';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import {
   parseBlockForm,
+  blockChanged,
   blockFormUnavailable,
   type BlockFormState,
 } from '../../../../features/contacts/block-form';
@@ -30,11 +31,10 @@ export async function blockContactAction(
     const result = contactBlockResultSchema.safeParse(await response.json());
     if (!result.success || result.data.blocked !== command.blocked) return kept;
     revalidatePath('/messages');
-    return {
-      requestId: systemId.next(),
-      username: kept.username,
-      notice: result.data.blocked ? 'Contact blocked.' : 'Contact unblocked.',
-    };
+    return blockChanged(
+      { requestId: systemId.next(), username: kept.values.username },
+      result.data.blocked,
+    );
   } catch {
     return kept;
   }

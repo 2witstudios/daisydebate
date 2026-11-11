@@ -6,8 +6,11 @@ import { systemId } from '@daisy/clock';
 import { challengeListSchema, challengeResultSchema } from '@daisy/protocol';
 import { acceptOffer } from '../../../features/challenges/accept-offer';
 import {
+  challengeEnded,
   challengeFormUnavailable,
   challengeRefusal,
+  challengeRefused,
+  challengeSent,
   type ChallengeFormState,
 } from '../../../features/challenges/forms';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
@@ -54,9 +57,9 @@ export async function sendChallengeAction(
       format: text(form, 'format'),
     });
     if (!response.ok)
-      return { notice: challengeRefusal('send', response.status) };
+      return challengeRefused(challengeRefusal('send', response.status));
     return challengeResultSchema.safeParse(await response.json()).success
-      ? { sent: true, notice: 'Challenge sent.' }
+      ? challengeSent
       : challengeFormUnavailable();
   } catch {
     return challengeFormUnavailable();
@@ -70,7 +73,7 @@ export async function acceptChallengeAction(
 ): Promise<ChallengeFormState> {
   const identity = await requestIdentity();
   if (identity.state !== 'member')
-    return { notice: challengeRefusal('accept', 404) };
+    return challengeRefused(challengeRefusal('accept', 404));
   const incoming = new Headers(await headers());
   const challengeId = text(form, 'challengeId');
   try {
@@ -159,8 +162,8 @@ export async function endChallengeAction(
       challengeId: text(form, 'challengeId'),
     });
     return response.ok
-      ? {}
-      : { notice: challengeRefusal('end', response.status) };
+      ? challengeEnded
+      : challengeRefused(challengeRefusal('end', response.status));
   } catch {
     return challengeFormUnavailable();
   }

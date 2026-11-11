@@ -1,17 +1,20 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { idle } from '../../../features/forms/form-state';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sequentialId } from '@daisy/clock';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { roomCommandIds } from '../../../features/rooms/room-command-ids';
 import { WithAppRouter } from '../../test-support/app-router';
-import type { RoomRefusal, RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol';
+import type { RoomNotice } from '../../../features/rooms/command-answer';
+import { initialInvitationForm } from '../../../features/room-invitations/submit';
 import { RoomLive } from './room-live';
 
 setupRitewayBun();
 
 const render = (
-  refusal: { readonly reason: RoomRefusal | null } | null,
+  notice: RoomNotice | null,
   view: RoomView = assemblySnapshot,
 ) => {
   const ids = sequentialId('seed');
@@ -27,14 +30,14 @@ const render = (
         bots: [],
         choices: [],
         socketUrl: null,
-        refusal,
-        commandAction: async () => ({ values: {} }),
-        waiverAction: async () => ({ values: {} }),
-        detailsAction: async () => ({ values: {} }),
-        settingsAction: async () => ({ values: {} }),
+        notice,
+        commandAction: async () => idle(),
+        waiverAction: async () => idle(),
+        detailsAction: async () => idle(),
+        settingsAction: async () => idle(),
         read: async () => ({ kind: 'unavailable' }) as const,
         send: async () => ({ kind: 'unavailable' }) as const,
-        invitationAction: async () => ({}),
+        invitationAction: async () => initialInvitationForm,
       }),
     ),
   );
@@ -49,26 +52,32 @@ describe('RoomLive', () => {
       actual: {
         topic: html.includes('Persisted debate topic'),
         seededIds: html.includes('value="seed-1"'),
-        notice: /Reconnecting|no longer available|not acknowledged/.test(html),
+        notice: /Reconnecting|no longer available|refused|may have been/.test(
+          html,
+        ),
       },
       expected: { topic: true, seededIds: true, notice: false },
     });
   });
 
-  test('a refused native post shows its notice', () => {
+  test('a native post that was not accepted shows its notice', () => {
     assert({
       given:
-        'a room page returned to with the command-refused notice, without and with a known reason',
-      should: 'say the command was not acknowledged, or why it was refused',
+        'a room page returned to with the command-refused notice, without and with a known reason, and with the notice of a lost answer',
+      should:
+        'say the command was refused, or why, or that it may have been recorded',
       actual: [
-        render({ reason: null }).includes(
-          'The command was not acknowledged. Review the current room and try again.',
+        render({ kind: 'refused', reason: null }).includes(
+          'The room refused that command. Review the current room and try again.',
         ),
-        render({ reason: 'version-conflict' }).includes(
+        render({ kind: 'refused', reason: 'version-conflict' }).includes(
           'The room changed. Review the latest room and try again.',
         ),
+        render({ kind: 'unacknowledged' }).includes(
+          'That command may have been recorded. Review the room before trying again.',
+        ),
       ],
-      expected: [true, true],
+      expected: [true, true, true],
     });
   });
 });

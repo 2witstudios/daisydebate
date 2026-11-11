@@ -1,25 +1,77 @@
 import { onboardingHref, usernameHref } from '../access/decision';
+import { idle, type Idle, type Moved } from '../forms/form-state';
 
-/** What the age form's server action answers. */
-export type AgeFormState = {
-  /** The choices as posted, so a refused form shows them again. */
+/** The choices as posted, so a form shown again keeps them. */
+export type AgeEntry = {
   readonly month: string;
   readonly year: string;
   readonly terms: boolean;
-  /** Fields the answer is missing; empty when it was complete. */
-  readonly missing: readonly ('month' | 'year' | 'terms')[];
-  /** The answer could not be recorded; try again. */
-  readonly unavailable?: boolean;
-  /** Where a hydrated page navigates once the answer landed. */
-  readonly next?: string;
 };
 
-export const initialAgeForm: AgeFormState = {
-  month: '',
-  year: '',
-  terms: false,
-  missing: [],
+export type AgeField = keyof AgeEntry;
+
+/** The answer left something out; `missing` is never empty. */
+export type AgeIncomplete = AgeEntry & {
+  readonly kind: 'incomplete';
+  readonly missing: readonly AgeField[];
 };
+
+/** The answer was complete but could not be recorded; try again. */
+export type AgeUnavailable = AgeEntry & { readonly kind: 'unavailable' };
+
+/** What the age form's server action answers. */
+export type AgeFormState = Idle | AgeIncomplete | AgeUnavailable | Moved;
+
+export const initialAgeForm: AgeFormState = idle();
+
+const blankEntry: AgeEntry = { month: '', year: '', terms: false };
+
+export const ageIncomplete = (
+  entry: AgeEntry,
+  missing: readonly AgeField[],
+): AgeIncomplete => ({ kind: 'incomplete', ...entry, missing });
+
+export const ageUnavailable = (entry: AgeEntry): AgeUnavailable => ({
+  kind: 'unavailable',
+  ...entry,
+});
+
+/**
+ * A posted form whose answer never reached the server, because the
+ * browser's call to the action failed in transport.
+ */
+export const ageFormUnavailable = (): AgeFormState =>
+  ageUnavailable(blankEntry);
+
+/** What the age form renders: the entry to show again and what is wrong with it. */
+export type AgeFields = AgeEntry & {
+  readonly missing: readonly AgeField[];
+  readonly unavailable: boolean;
+};
+
+export function ageFields(answer: AgeFormState): AgeFields {
+  switch (answer.kind) {
+    case 'idle':
+    case 'moved':
+      return { ...blankEntry, missing: [], unavailable: false };
+    case 'incomplete':
+      return {
+        month: answer.month,
+        year: answer.year,
+        terms: answer.terms,
+        missing: answer.missing,
+        unavailable: false,
+      };
+    case 'unavailable':
+      return {
+        month: answer.month,
+        year: answer.year,
+        terms: answer.terms,
+        missing: [],
+        unavailable: true,
+      };
+  }
+}
 
 /** The months, in order, as the select offers them; values are 1 to 12. */
 export const monthNames = [
@@ -58,7 +110,7 @@ export function readAgeForm(form: FormData):
       readonly ok: true;
       readonly body: { month: number; year: number; terms: true };
     }
-  | { readonly ok: false; readonly state: AgeFormState } {
+  | { readonly ok: false; readonly state: AgeIncomplete } {
   const month = field(form, 'month');
   const year = field(form, 'year');
   const terms = field(form, 'terms') === 'accepted';
@@ -72,7 +124,7 @@ export function readAgeForm(form: FormData):
         ok: true,
         body: { month: Number(month), year: Number(year), terms: true },
       }
-    : { ok: false, state: { month, year, terms, missing } };
+    : { ok: false, state: ageIncomplete({ month, year, terms }, missing) };
 }
 
 /** What POST /api/account/age answered, as the form action needs it. */

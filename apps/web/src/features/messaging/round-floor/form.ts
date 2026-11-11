@@ -3,23 +3,25 @@ import {
   idSchema,
   messagingBetaLimits,
 } from '@daisy/protocol';
-import { parseMessageForm, messageFormUnavailable } from '../forms/send-form';
-
-export type FloorFormState = {
-  readonly text: string;
-  readonly requestId: string;
-  readonly notice?: string;
-  readonly uncertain?: boolean;
-  readonly command?: string;
-  readonly changeVersion?: number;
-  readonly sent?: string;
-};
+import {
+  messageDraft,
+  messageUnsentNotice,
+  parseMessageForm,
+} from '../forms/send-form';
+import {
+  floorCommand,
+  floorRefused,
+  floorSent,
+  floorUnacknowledged,
+  sameFloorCommand,
+  unacknowledgedFloorCommand,
+  type FloorFormState,
+  type FloorUnacknowledged,
+} from './form-state';
 
 /** A lost answer may already have committed: keep the original command retryable. */
-export const floorFormUnavailable = (form: FormData): FloorFormState => ({
-  ...messageFormUnavailable(form),
-  uncertain: true,
-});
+export const floorFormUnavailable = (form: FormData): FloorUnacknowledged =>
+  floorUnacknowledged(floorCommand(form), messageUnsentNotice);
 
 const notices: Readonly<Record<number, string>> = {
   400: 'Your message needs text and must fit the character limit. Your draft is kept.',
@@ -34,30 +36,27 @@ const schemas = createMessagingCoreSchemas(messagingBetaLimits);
 export async function submitFloorMessage(
   send: (url: string, init: RequestInit) => Promise<Response>,
   scope: { readonly roundId: string; readonly channelId: string },
-  previous: FloorFormState,
+  previous: unknown,
   form: FormData,
   nextId: () => string,
 ): Promise<FloorFormState> {
-  const kept = messageFormUnavailable(form);
-  if (
-    previous.uncertain === true &&
-    typeof previous.text === 'string' &&
-    idSchema.safeParse(previous.requestId).success &&
-    (kept.text !== previous.text || kept.requestId !== previous.requestId)
-  )
-    return {
-      text: previous.text,
-      requestId: previous.requestId,
-      uncertain: true,
-      notice:
-        'Retry the original message before starting another one. Your draft is kept.',
-    };
+  const original = unacknowledgedFloorCommand(previous);
+  if (original !== null && !sameFloorCommand(original, floorCommand(form)))
+    return floorUnacknowledged(
+      original,
+      'Retry the original message before starting another one. Your draft is kept.',
+    );
+  // Once unacknowledged, only a confirmed answer releases the command.
+  const refuse = (error: string, mayHaveCommitted = false): FloorFormState =>
+    original !== null || mayHaveCommitted
+      ? floorUnacknowledged(floorCommand(form), error)
+      : floorRefused(messageDraft(form), error);
   let command: ReturnType<typeof parseMessageForm>;
   try {
     idSchema.parse(scope.roundId);
     command = schemas.send.parse(parseMessageForm(scope.channelId, form));
   } catch {
-    return { ...kept, ...(previous.uncertain ? { uncertain: true } : {}) };
+    return refuse(messageUnsentNotice);
   }
   try {
     const response = await send(`/api/rounds/${scope.roundId}/floor/messages`, {
@@ -66,22 +65,15 @@ export async function submitFloorMessage(
       body: JSON.stringify(command),
     });
     if (!response.ok)
-      return {
-        ...kept,
-        notice: notices[response.status] ?? kept.notice!,
-        ...(previous.uncertain || response.status >= 500
-          ? { uncertain: true }
-          : {}),
-      };
+      return refuse(
+        notices[response.status] ?? messageUnsentNotice,
+        response.status >= 500,
+      );
     // Receipt replay returns current content, which may include a later edit.
     const result = schemas.message.safeParse(await response.json());
     if (!result.success || result.data.channelId !== scope.channelId)
       return floorFormUnavailable(form);
-    return {
-      text: '',
-      requestId: idSchema.parse(nextId()),
-      sent: result.data.id,
-    };
+    return floorSent(result.data.id, idSchema.parse(nextId()));
   } catch {
     return floorFormUnavailable(form);
   }

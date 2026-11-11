@@ -4,6 +4,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import type { SaveState } from './document-pane';
 import { tabConnection } from '../../features/realtime/browser-adapters';
+import { terminalReason } from '../../features/realtime/connection-status';
 import { createDocumentsApi } from './documents-api';
 import {
   createDocumentSync,
@@ -318,7 +319,8 @@ export function useDocumentSaving(
     const connection = tabConnection(socketUrl);
     const stop = connection.subscribe((state) => {
       // A socket can close this way on a transient failure, so it only asks.
-      if (state.terminal === 'revoked' || state.terminal === 'signed-out')
+      const reason = terminalReason(state);
+      if (reason === 'revoked' || reason === 'signed-out')
         window.dispatchEvent(new Event(DRAFTS_IDENTITY_CHECK_EVENT));
     });
     connection.connect();

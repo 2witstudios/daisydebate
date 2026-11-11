@@ -72,3 +72,22 @@ test('floor history refuses a valid message page borrowed from another channel',
     expected: [true, null],
   });
 });
+
+test('a read marker answer is this channel’s, in the shape the route gives', async () => {
+  const { parseFloorReadMark } = await import('./view');
+  const marked = { version: 1, channelId, sequence: 7 };
+  assert({
+    given:
+      'the route’s answer, another channel’s, one with no number, another version and one with more than was asked',
+    should: 'give the marked sequence for the first alone',
+    actual: [
+      parseFloorReadMark(marked, channelId),
+      parseFloorReadMark(marked, 'x'.repeat(24)),
+      parseFloorReadMark({ ...marked, sequence: '7' }, channelId),
+      parseFloorReadMark({ ...marked, version: 2 }, channelId),
+      parseFloorReadMark({ ...marked, text: 'hello' }, channelId),
+      parseFloorReadMark(null, channelId),
+    ],
+    expected: [7, null, null, null, null, null],
+  });
+});

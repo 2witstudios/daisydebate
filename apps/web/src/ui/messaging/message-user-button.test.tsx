@@ -1,15 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { parseCreationForm } from '../../features/messaging/forms/create-form';
+import { moved } from '../../features/forms/form-state';
+import {
+  creationFormUnavailable,
+  creationIdle,
+  parseCreationForm,
+} from '../../features/messaging/forms/create-form';
 import { MessageUserFields } from './message-user-button';
 setupRitewayBun();
 const requestId = 'r'.repeat(24);
-const answer = {
-  requestId,
-  recipients: 'kelvin',
-  title: '',
-  introduction: '',
-};
+const answer = creationIdle(requestId, 'kelvin');
 const render = (
   state: Parameters<typeof MessageUserFields>[0]['answer'],
   pending = false,
@@ -54,7 +54,7 @@ test('the Message button refuses double submission and reports a refused request
     should: 'disable the button',
     actual: [
       render(answer, true).includes('disabled=""'),
-      render({ ...answer, next: '/messages/x' }).includes('disabled=""'),
+      render(moved('/messages/x')).includes('disabled=""'),
       render(answer).includes('disabled=""'),
     ],
     expected: [true, true, false],
@@ -62,7 +62,7 @@ test('the Message button refuses double submission and reports a refused request
   assert({
     given: 'a refused or failed request',
     should: 'say so without leaking why',
-    actual: render({ ...answer, notice: 'Could not start' }).includes(
+    actual: render(creationFormUnavailable(new FormData())).includes(
       'Could not open a conversation with @kelvin. Try again.',
     ),
     expected: true,

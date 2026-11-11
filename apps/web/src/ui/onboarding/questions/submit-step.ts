@@ -3,7 +3,7 @@ import {
   type OnboardingAnswers,
   type QuestionStep,
 } from '../../../features/onboarding/answers';
-import type { StepFormState } from './step-form-state';
+import { stepUnsaved, type StepFormState } from './step-form-state';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -80,7 +80,5 @@ function postedAnswers(
 /** A step's answer when its save was refused or never arrived. */
 export const refusedStep =
   (step: QuestionStep) =>
-  (form: FormData): StepFormState => ({
-    refused: true,
-    posted: postedAnswers(step, form),
-  });
+  (form: FormData): StepFormState =>
+    stepUnsaved(postedAnswers(step, form));

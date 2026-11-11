@@ -14,8 +14,11 @@ import {
   useConversationCompletion,
 } from './conversation-navigation';
 import { Icon } from '../components/icon/icon';
+import { destinationOf } from '../../features/forms/form-state';
 import {
+  messageFields,
   messageFormUnavailable,
+  messageIdle,
   type MessageFormState,
 } from '../../features/messaging/forms/send-form';
 
@@ -61,7 +64,7 @@ function MessageComposerForm({
   const dispatch = useConversationAction(action);
   const [answer, post, pending] = useFormAction(
     dispatch,
-    { text: '', requestId },
+    messageIdle(requestId),
     messageFormUnavailable,
   );
   const typing = useRef<ReturnType<typeof createBrowserTypingWriter> | null>(
@@ -79,9 +82,11 @@ function MessageComposerForm({
     if (pending) void typing.current?.activity(false);
   }, [pending]);
   useConversationCompletion(answer, pending);
+  const fields = messageFields(answer);
+  const moving = destinationOf(answer) !== undefined;
   useFocusAfterAnswer(
     answer,
-    answer.notice ? 'message-notice' : 'message-text',
+    fields.notice ? 'message-notice' : 'message-text',
     !pending,
   );
   return (
@@ -89,7 +94,7 @@ function MessageComposerForm({
       action={post}
       className="flex shrink-0 flex-col gap-1 px-6 pb-4 max-narrow:px-4"
     >
-      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="requestId" value={fields.requestId} />
       {readThrough == null ? null : (
         <input type="hidden" name="readThrough" value={readThrough} />
       )}
@@ -98,14 +103,14 @@ function MessageComposerForm({
           Your message
         </label>
         <CountedTextarea
-          key={answer.text}
+          key={fields.text}
           id="message-text"
           name="text"
-          defaultValue={answer.text}
+          defaultValue={fields.text}
           maxUnits={maxUnits}
           required
           autoFocus={restoreFocus}
-          disabled={pending || answer.next !== undefined}
+          disabled={pending || moving}
           rows={1}
           placeholder={placeholder}
           onKeyDown={(event) => {
@@ -127,12 +132,12 @@ function MessageComposerForm({
             void typing.current?.activity(false);
           }}
           className="field-sizing-content max-h-composer-max min-w-0 flex-1 resize-none bg-transparent px-2 py-2 leading-normal text-ink placeholder:text-ink-muted disabled:opacity-60"
-          describedBy={answer.notice ? 'message-notice' : undefined}
+          describedBy={fields.notice ? 'message-notice' : undefined}
           countClassName="order-last basis-full px-2 pb-1"
         />
         <button
           type="submit"
-          disabled={pending || answer.next !== undefined}
+          disabled={pending || moving}
           aria-label={pending ? 'Sending…' : 'Send message'}
           title="Send message"
           className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-sm bg-accent text-accent-ink hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
@@ -140,7 +145,7 @@ function MessageComposerForm({
           <Icon name="send" />
         </button>
       </div>
-      <DraftNotice id="message-notice" notice={answer.notice} />
+      <DraftNotice id="message-notice" notice={fields.notice} />
     </form>
   );
 }

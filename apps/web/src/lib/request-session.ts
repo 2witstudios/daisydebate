@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { analyticsConfiguration } from '../features/analytics/config';
 import { CONSENT_COOKIE, parseConsent } from '../features/analytics/consent';
 import { readRoomDraftAnswer } from '../features/rooms/create-room-draft-answer';
+import { idle } from '../features/forms/form-state';
 import { createAppError } from '@daisy/errors';
 import { readLadder } from '../features/leaderboard/read-leaderboard';
 import { readMemberStandings } from '../features/ratings/read-member';
@@ -457,7 +458,7 @@ export async function requestRoomDraftAnswer(
   source: string | null = null,
 ) {
   const identity = await requestIdentity();
-  if (identity.state !== 'member') return { values: {} };
+  if (identity.state !== 'member') return idle();
   return readRoomDraftAnswer(
     processApp().redis,
     identity.principal.userId,

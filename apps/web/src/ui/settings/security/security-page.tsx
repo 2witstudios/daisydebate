@@ -1,24 +1,17 @@
 'use client';
 
-import { useState } from 'react';
 import { authClient } from '../../../lib/auth-client';
 import {
   createPasskeyEnrollment,
-  enrollmentNotices,
   enrollSafely,
 } from '../../auth/onboarding/passkey-enrollment';
 import {
   loadSecurityOverview,
   revokeOtherSessions,
 } from '../../../features/account/security-client';
-import { Button } from '../../components/button/button';
-import { buttonClass } from '../../components/button/button-class';
-import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
 import { SIGN_OUT_FAILED_NOTICE } from '../../components/sign-out-form/sign-out-notice';
-import { Notice } from '../../auth/notice/notice';
-import { PasskeyRowView } from './passkey-row';
-import { SessionRowView } from './session-row';
 import { EmailChangeForm, type EmailChangeAction } from './email-change-form';
+import { SecurityOverviewSections } from './security-overview-sections';
 import { useSecurityOverview } from './use-security-overview';
 
 const supportsPasskeys = () =>
@@ -32,6 +25,7 @@ const enrollment = createPasskeyEnrollment({
 
 const loadOverview = () => loadSecurityOverview(authClient);
 const revokeOthers = () => revokeOtherSessions(authClient);
+const enrol = () => enrollSafely(enrollment);
 
 /**
  * Passkeys, sessions and recovery email in one place (AUTH-5.3, 5.5, 5.6).
@@ -47,106 +41,16 @@ export function SecurityPage({
   /** Back from a sign-out that did not happen. */
   readonly signOutFailed?: boolean;
 }) {
-  const overview = useSecurityOverview({
+  const { overview, ...screen } = useSecurityOverview({
     load: loadOverview,
     revokeOthers,
+    enrol,
     signOutNotice: signOutFailed ? SIGN_OUT_FAILED_NOTICE : undefined,
   });
-  const { passkeys, sessions, passkeysNotice, sessionsNotice } = overview;
-  const [enrolling, setEnrolling] = useState(false);
-  const [enrollNotice, setEnrollNotice] = useState<string | undefined>();
 
   return (
     <>
-      <section aria-labelledby="passkeys-heading">
-        <h2 id="passkeys-heading">Passkeys</h2>
-        {passkeysNotice ? (
-          <Notice
-            id="passkeys-load-notice"
-            tone="error"
-            title={passkeysNotice}
-          />
-        ) : null}
-        <ul>
-          {passkeys.map((passkey) => (
-            <PasskeyRowView
-              key={passkey.id}
-              passkey={passkey}
-              onRenamed={overview.renamePasskey}
-              onRemoved={overview.removePasskey}
-            />
-          ))}
-        </ul>
-        <Button
-          disabled={enrolling}
-          onClick={() => {
-            setEnrolling(true);
-            setEnrollNotice(undefined);
-            void enrollSafely(enrollment).then((outcome) => {
-              setEnrolling(false);
-              if (outcome.kind === 'saved') overview.reload();
-              else
-                setEnrollNotice(
-                  outcome.kind === 'unavailable'
-                    ? 'Saving a passkey is not available on this device.'
-                    : outcome.kind === 'cancelled'
-                      ? 'Nothing was saved.'
-                      : outcome.kind === 'stale-session'
-                        ? enrollmentNotices['stale-session']
-                        : 'We could not save a passkey. Please try again.',
-                );
-            });
-          }}
-        >
-          {enrolling ? 'Waiting for your device…' : 'Add a passkey'}
-        </Button>
-        {enrollNotice ? (
-          <Notice id="enroll-notice" tone="error" title={enrollNotice} />
-        ) : null}
-      </section>
-
-      <section aria-labelledby="sessions-heading">
-        <h2 id="sessions-heading">Sessions</h2>
-        {sessionsNotice ? (
-          <Notice
-            id="sessions-load-notice"
-            tone="error"
-            title={sessionsNotice}
-          />
-        ) : null}
-        {overview.signOutNotice ? (
-          <Notice
-            id="sign-out-notice"
-            tone="error"
-            title={overview.signOutNotice}
-          />
-        ) : null}
-        <ul>
-          {sessions.map((session) => (
-            <SessionRowView
-              key={session.id}
-              session={session}
-              onRevoked={overview.removeSession}
-            />
-          ))}
-        </ul>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="secondary"
-            disabled={overview.signingOutOthers}
-            onClick={overview.signOutOthers}
-          >
-            {overview.signingOutOthers
-              ? 'Signing out…'
-              : 'Sign out of all other sessions'}
-          </Button>
-          <SignOutForm
-            next="/settings/security"
-            className={buttonClass('ghost')}
-          />
-        </div>
-      </section>
-
+      <SecurityOverviewSections overview={overview} screen={screen} />
       <section aria-labelledby="email-heading">
         <h2 id="email-heading">Recovery email</h2>
         <EmailChangeForm action={changeEmail} />

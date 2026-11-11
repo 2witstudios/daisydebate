@@ -7,11 +7,20 @@ import { readReactionResponse } from '../../../../../features/messaging/reaction
 import { readReactionChangeResponse } from '../../../../../features/messaging/reaction-change-response';
 import { submitMessagingForm } from '../../../../../server/messaging-form-submit';
 import { moveOn, stayOn } from '../../../../../server/form-action';
-import { parseReactionForm } from '../../../../../features/messaging/forms/reaction-form';
+import {
+  parseReactionForm,
+  reactionUnavailable,
+  type ReactionFormState,
+} from '../../../../../features/messaging/forms/reaction-form';
 import { systemId } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol';
-import type { ReactionFormState } from '../../../../../ui/messaging/reaction-form';
-import type { ReactionPillState } from '../../../../../ui/messaging/reaction-pill';
+import {
+  reactionCounted,
+  reactionMarked,
+  reactionPillUnavailable,
+  reactionWithdrawnUncounted,
+  type ReactionPillState,
+} from '../../../../../features/messaging/forms/reaction-pill-form';
 const change = processRoute((routes) => routes.messaging.reactions);
 export async function changeReactionAction(
   channelId: string,
@@ -20,10 +29,7 @@ export async function changeReactionAction(
   form: FormData,
 ): Promise<ReactionFormState> {
   const incoming = new Headers(await headers());
-  const kept = {
-    requestId: String(form.get('requestId') ?? ''),
-    notice: 'Reaction could not be changed. Try again.',
-  };
+  const kept = reactionUnavailable(form);
   try {
     const command = parseReactionForm(channelId, messageId, form);
     if (
@@ -42,7 +48,7 @@ export async function changeReactionAction(
   const path = `/messages/${channelId}/reactions?messageId=${messageId}`;
   revalidatePath(`/messages/${channelId}`);
   revalidatePath(`/messages/${channelId}/reactions`);
-  return { requestId: kept.requestId, ...moveOn(incoming, path) };
+  return moveOn(incoming, path);
 }
 
 /**
@@ -57,7 +63,7 @@ export async function reactToMessageAction(
   form: FormData,
 ): Promise<ReactionPillState> {
   const incoming = new Headers(await headers());
-  const refused = { notice: 'Reaction could not be changed. Try again.' };
+  const refused = reactionPillUnavailable();
   const channel = idSchema.safeParse(form.get('channelId'));
   const message = idSchema.safeParse(form.get('messageId'));
   if (!channel.success || !message.success) return refused;
@@ -77,10 +83,9 @@ export async function reactToMessageAction(
     const accepted = result.reactions.find(
       (item) => item.reaction === command.reaction,
     );
-    aggregate = {
-      own: command.active,
-      ...(accepted ? { count: accepted.count } : {}),
-    };
+    aggregate = accepted
+      ? reactionCounted(command.active, accepted.count)
+      : reactionMarked(command.active);
     // A withdrawal grants no read authority (ADR 0075). An HTTP-only view
     // separately reauthorizes a fresh aggregate instead of inferring zero.
     if (!command.active && form.get('observed') === 'false') {
@@ -100,20 +105,18 @@ export async function reactToMessageAction(
       );
       aggregate =
         current === null
-          ? {
-              own: false,
-              notice: 'Reaction removed. Reload to see the current count.',
-            }
-          : {
-              own: false,
-              count:
-                current.result.reactions.find(
-                  (item) => item.reaction === command.reaction,
-                )?.count ?? 0,
-            };
+          ? reactionWithdrawnUncounted
+          : reactionCounted(
+              false,
+              current.result.reactions.find(
+                (item) => item.reaction === command.reaction,
+              )?.count ?? 0,
+            );
     }
   } catch {
     return refused;
   }
-  return { ...aggregate, ...stayOn(incoming, `/messages/${channel.data}`) };
+  // A native post leaves here by its 303; a hydrated one stays and takes the answer.
+  stayOn(incoming, `/messages/${channel.data}`);
+  return aggregate;
 }

@@ -50,9 +50,9 @@ test('invalid ready cannot open a connection', async () => {
   h.latestSocket().message({ type: 'ready' });
   assert({
     given: 'a missing envelope version',
-    should: 'remain connecting',
+    should: 'remain ticketing',
     actual: h.store.getState().status,
-    expected: 'connecting',
+    expected: 'ticketing',
   });
 });
 test('resync clears a historical cursor before the feature resubscribes', async () => {

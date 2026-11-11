@@ -7,7 +7,10 @@ import {
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { Notice } from '../components/notice/notice';
+import { destinationOf } from '../../features/forms/form-state';
 import {
+  dmDecisionFields,
+  dmDecisionIdle,
   dmDecisionUnavailable,
   type DmDecisionFormState,
 } from '../../features/messaging/forms/decide-form';
@@ -27,24 +30,26 @@ export function RequestDecision({
 }) {
   const [answer, post, pending] = useFormAction<DmDecisionFormState>(
     action,
-    { requestId },
+    dmDecisionIdle(requestId),
     dmDecisionUnavailable,
   );
-  useMovedOn(answer.next);
+  const next = destinationOf(answer);
+  useMovedOn(next);
+  const fields = dmDecisionFields(answer);
   useFocusAfterAnswer(
     answer,
-    answer.notice ? 'request-notice' : 'request-primary',
+    fields.notice ? 'request-notice' : 'request-primary',
     !pending,
   );
   return (
     <form action={post} className="flex flex-col gap-4">
-      <input type="hidden" name="requestId" value={answer.requestId} />
-      {answer.notice ? (
+      <input type="hidden" name="requestId" value={fields.requestId} />
+      {fields.notice ? (
         <div id="request-notice" tabIndex={-1}>
           <Notice
             tone="neutral"
             icon="info"
-            title={answer.notice}
+            title={fields.notice}
             role="status"
           />
         </div>
@@ -56,7 +61,7 @@ export function RequestDecision({
             type="submit"
             name="decision"
             value={mode === 'sender' ? 'cancel' : 'accept'}
-            disabled={pending || answer.next !== undefined}
+            disabled={pending || next !== undefined}
           >
             {mode === 'sender' ? `Cancel ${subject}` : `Accept ${subject}`}
           </Button>
@@ -68,7 +73,7 @@ export function RequestDecision({
             name="decision"
             value="decline"
             variant="secondary"
-            disabled={pending || answer.next !== undefined}
+            disabled={pending || next !== undefined}
           >
             Decline
           </Button>

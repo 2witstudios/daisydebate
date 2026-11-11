@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { idle } from '../../../features/forms/form-state';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   assemblySnapshot,
@@ -10,7 +11,7 @@ import { RoomSetup, finishSetupSave } from './room-setup';
 import { sheetOpen } from './room-setup-modal';
 
 setupRitewayBun();
-const action = async () => ({ values: {} });
+const action = async () => idle();
 const html = renderToStaticMarkup(
   <WithAppRouter>
     <RoomSetup
@@ -87,17 +88,17 @@ test('the sheet is open while its fragment is the URL’s or a refused save is o
 test('an accepted save closes the sheet, as the native redirect does', () => {
   assert({
     given:
-      'nothing answered yet, an accepted save, a refusal, and a refusal that still carries a view',
+      'nothing answered yet, an accepted save, a refusal, and a save whose answer was lost',
     should: 'count only the accepted save',
     actual: [
-      savedAnswer({ values: {} }),
-      savedAnswer({ values: {}, view: assemblySnapshot }),
-      savedAnswer({ values: {}, error: 'The room changed.' }),
+      savedAnswer(idle()),
+      savedAnswer({ kind: 'accepted', view: assemblySnapshot }),
       savedAnswer({
+        kind: 'refused',
         values: {},
-        view: assemblySnapshot,
         error: 'The room changed.',
       }),
+      savedAnswer({ kind: 'unacknowledged', values: {} }),
     ],
     expected: [false, true, false, false],
   });

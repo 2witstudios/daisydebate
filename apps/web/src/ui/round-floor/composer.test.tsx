@@ -1,10 +1,15 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import {
+  floorIdle,
+  floorUnacknowledged,
+} from '../../features/messaging/round-floor/form-state';
 import { FloorComposer } from './composer';
 
 setupRitewayBun();
-const initial = { text: 'A kept draft', requestId: 'r'.repeat(24) };
+const requestId = 'r'.repeat(24);
+const initial = floorIdle(requestId, 'A kept draft');
 const props = {
   id: 'floor-message',
   initial,
@@ -30,7 +35,10 @@ test('a floor composer names its audience and submits safely before hydration', 
 });
 test('an unknown send keeps the exact retry text read-only', () => {
   const html = renderToString(
-    h(FloorComposer, { ...props, initial: { ...initial, uncertain: true } }),
+    h(FloorComposer, {
+      ...props,
+      initial: floorUnacknowledged(initial.values, 'Not confirmed.'),
+    }),
   );
   assert({
     given: 'a command whose result has not been confirmed',
@@ -39,7 +47,7 @@ test('an unknown send keeps the exact retry text read-only', () => {
       html.includes('readOnly=""'),
       html.includes('A kept draft'),
       html.includes('aria-label="Retry message"'),
-      html.includes(`value="${initial.requestId}"`),
+      html.includes(`value="${requestId}"`),
     ],
     expected: [true, true, true, true],
   });

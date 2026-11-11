@@ -12,7 +12,12 @@ import {
 } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { AboutStep, ExperienceStep, TopicsStep } from './questions';
-import { initialStepForm, type StepFormState } from './step-form-state';
+import { destinationOf } from '../../../features/forms/form-state';
+import {
+  initialStepForm,
+  stepFields,
+  type StepFormState,
+} from './step-form-state';
 import { refusedStep } from './submit-step';
 
 const steps = {
@@ -49,16 +54,17 @@ export function QuestionForm({
     initialStepForm,
     refusedStep(step),
   );
-  useMovedOn(answered.next);
-  const pending = posting || answered.next !== undefined;
+  useMovedOn(destinationOf(answered));
+  const pending = posting || answered.kind === 'moved';
+  const { posted, unsaved } = stepFields(answered);
   useFocusAfterAnswer(answered, 'onboarding-title', !pending);
   const Step = steps[step];
   return (
     <Step
-      answers={{ ...answers, ...answered.posted }}
+      answers={{ ...answers, ...posted }}
       action={post}
       pending={pending}
-      refused={answered.refused === true}
+      refused={unsaved}
       backHref={backHref}
       skip={skip}
       editing={editing}

@@ -1,14 +1,7 @@
+import type { FloorOlderPages } from '../../features/messaging/round-floor/floor-state';
 import type { MessagingConversation } from '../../features/messaging/conversation';
-import {
-  mergeFloorMessages,
-  type FloorMessage,
-} from '../../features/messaging/round-floor/history';
+import { mergeFloorMessages } from '../../features/messaging/round-floor/history';
 
-export type FloorOlderPages = {
-  readonly changeVersion: number;
-  readonly messages: readonly FloorMessage[];
-  readonly before: number | null;
-};
 /** A live change can remove text outside the latest page; older text needs a fresh protected read. */
 export function floorPagedHistory(
   latest: MessagingConversation,

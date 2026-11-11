@@ -100,8 +100,8 @@ function harness() {
     ready,
     snapshot,
     stateFrame,
-    open: () => state({ status: 'open', generation: 1, terminal: null }),
-    drop: () => state({ status: 'closed', generation: 1, terminal: null }),
+    open: () => state({ status: 'open', generation: 1 }),
+    drop: () => state({ status: 'reconnecting', generation: 1 }),
     advance: (ms: number) => {
       clock += ms;
       for (const timer of timers)

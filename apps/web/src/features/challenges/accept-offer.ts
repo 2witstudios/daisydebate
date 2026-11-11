@@ -1,6 +1,11 @@
 import type { ChallengeList, PublishedResolution } from '@daisy/protocol';
 import type { RoomTemplate } from '../rooms/read-catalog';
-import { challengeRefusal, type ChallengeFormState } from './forms';
+import type { Moved, Refused } from '../forms/form-state';
+import {
+  challengeRefusal,
+  challengeRefused,
+  type ChallengeFormState,
+} from './forms';
 import { challengeRoomForm, templateFor } from './room';
 
 type Offer = ChallengeList['incoming'][number];
@@ -25,10 +30,7 @@ export type AcceptOfferPorts = {
       roomId: string,
       created: boolean,
     ) => Promise<string | undefined>,
-  ) => Promise<{
-    readonly next?: string | undefined;
-    readonly error?: string | undefined;
-  }>;
+  ) => Promise<Refused | Moved>;
   /** Names the room on the challenge, which rings the challenger. */
   readonly nameRoom: (roomId: string) => Promise<{
     readonly ok: boolean;
@@ -54,17 +56,17 @@ export async function acceptOffer(
 ): Promise<ChallengeFormState> {
   const offers = await ports.readOffers();
   const offer = offers?.find((row) => row.id === input.challengeId);
-  if (!offer) return { notice: challengeRefusal('accept', 404) };
+  if (!offer) return challengeRefused(challengeRefusal('accept', 404));
   // A member already in a room finishes there first; nothing else is opened.
   if (await ports.inARoom())
-    return { notice: challengeRefusal('accept-placed', 409) };
+    return challengeRefused(challengeRefusal('accept-placed', 409));
   const catalog = await ports.readCatalog();
   const template =
     catalog.kind === 'found'
       ? templateFor(catalog.choices, offer.format)
       : undefined;
   if (!template || catalog.kind !== 'found')
-    return { notice: challengeRefusal('accept', 500) };
+    return challengeRefused(challengeRefusal('accept', 500));
   let notNamed: string | undefined;
   const created = await ports.openRoom(
     challengeRoomForm({
@@ -92,12 +94,15 @@ export async function acceptOffer(
       return notNamed;
     },
   );
-  if (created.next !== undefined) return { next: created.next };
-  return {
-    notice:
-      notNamed ??
-      (offer.mode === 'ranked'
-        ? challengeRefusal('accept-ranked', 500)
-        : (created.error ?? challengeRefusal('accept', 500))),
-  };
+  switch (created.kind) {
+    case 'moved':
+      return created;
+    case 'refused':
+      return challengeRefused(
+        notNamed ??
+          (offer.mode === 'ranked'
+            ? challengeRefusal('accept-ranked', 500)
+            : created.error),
+      );
+  }
 }

@@ -1,3 +1,4 @@
+import { idle } from '../../../features/forms/form-state';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
@@ -31,8 +32,8 @@ const render = (
           items,
           items.filter((item) => item.unread).length,
         ),
-        markRead: () => async () => ({ values: {} }),
-        markAllRead: async () => ({ values: {} }),
+        markRead: () => async () => idle(),
+        markAllRead: async () => idle(),
       }),
     ),
   );

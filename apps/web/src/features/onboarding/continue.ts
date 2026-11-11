@@ -1,10 +1,6 @@
-import {
-  onboardingStepHref,
-  introductionHref,
-  type OnboardingStep,
-  type SearchParams,
-} from '../access/decision';
+import type { SearchParams } from '../access/decision';
 import type { QuestionStep } from './answers';
+import { introductionHref, nextStepHref } from './steps';
 
 /** Whether a local path is already one of the onboarding steps. */
 const isOnboardingPath = (destination: string): boolean =>
@@ -24,12 +20,6 @@ export const afterPasskeyHref = (
     ? introductionHref(destination)
     : destination;
 
-const following: Record<QuestionStep, OnboardingStep> = {
-  about: 'experience',
-  experience: 'topics',
-  topics: 'ready',
-};
-
 /** Whether a question step was opened to change one answer (`edit=1`). */
 export const isEditing = (searchParams: SearchParams): boolean =>
   searchParams.edit === '1';
@@ -44,4 +34,5 @@ export const afterStepHref = (
   destination: string,
   editing: boolean,
 ): string =>
-  editing ? destination : onboardingStepHref(following[step], destination);
+  // A question step is saved only for a member optional answers admit.
+  editing ? destination : nextStepHref(step, true, destination);

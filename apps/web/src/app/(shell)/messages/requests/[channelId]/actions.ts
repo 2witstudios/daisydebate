@@ -41,5 +41,5 @@ export async function decideDmAction(
   } catch {
     return kept;
   }
-  return { requestId: kept.requestId, ...moveOn(incoming, next) };
+  return moveOn(incoming, next);
 }

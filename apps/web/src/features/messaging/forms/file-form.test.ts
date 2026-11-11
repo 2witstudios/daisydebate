@@ -20,7 +20,7 @@ test('native attachment binds message and channel while retaining retry metadata
       parsed.messageId,
       parsed.file.name,
       parsed.file.size,
-      fileFormUnavailable(form).requestId,
+      fileFormUnavailable(form).values.requestId,
     ],
     expected: ['c'.repeat(24), 'm'.repeat(24), 'report.pdf', 3, 'r'.repeat(24)],
   });

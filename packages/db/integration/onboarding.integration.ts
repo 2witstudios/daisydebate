@@ -93,6 +93,64 @@ describe('onboarding answers (ONB-1.4)', () => {
     });
   });
 
+  test('the finishing step stores its answers and the finish together', async () => {
+    await withFixture(url, async (fixture) => {
+      const first = '2026-10-15T12:00:00.000Z';
+      const later = '2026-10-16T12:00:00.000Z';
+      const result = await member(fixture, '2000-01', (ids) =>
+        withDatabase(async (database) => {
+          await save(
+            database,
+            ids,
+            { step: 'topics', topics: ['law'] },
+            { completes: true, at: first },
+          );
+          const finished = await database.readOnboarding(ids.userId);
+          await save(
+            database,
+            ids,
+            { step: 'topics', topics: ['ethics'] },
+            { completes: true, at: later },
+          );
+          const edited = await database.readOnboarding(ids.userId);
+          await save(
+            database,
+            ids,
+            { step: 'topics', topics: ['health', 'astrology' as never] },
+            { completes: true, at: later },
+          ).catch(() => undefined);
+          return [
+            [finished.topics, finished.completedAt],
+            [edited.topics, edited.completedAt],
+            (await database.readOnboarding(ids.userId)).topics,
+          ];
+        }),
+      );
+      const unfinished = await member(fixture, '2000-01', (ids) =>
+        withDatabase(async (database) => {
+          await save(
+            database,
+            ids,
+            { step: 'topics', topics: ['astrology' as never] },
+            { completes: true, at: first },
+          ).catch(() => undefined);
+          return database.readOnboarding(ids.userId);
+        }),
+      );
+      assert({
+        given:
+          'a finishing topics write, the same step changed a day later, and a finishing write the CHECK refuses',
+        should:
+          'store topics and completion in one write, keep the first completion when the topics change, and store neither when the write is refused',
+        actual: [result, [unfinished.topics, unfinished.completedAt]],
+        expected: [
+          [[['law'], first], [['ethics'], first], ['ethics']],
+          [[], null],
+        ],
+      });
+    });
+  });
+
   test('a value off the vocabulary leaves the step unchanged', async () => {
     await withFixture(url, async (fixture) => {
       const answers = await member(fixture, '2000-01', (ids) =>

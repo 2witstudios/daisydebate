@@ -13,11 +13,32 @@ import {
 } from '@daisy/protocol';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useEffect, useRef, useState } from 'react';
-import { challengeFormUnavailable } from '../../features/challenges/forms';
-import { friendFormUnavailable } from '../../features/friends/forms';
-import { creationFormUnavailable } from '../../features/messaging/forms/create-form';
-import { personBlockFailedNotice } from '../../features/contacts/block-form';
-import { reportFailedNotice } from '../../features/reports/form';
+import {
+  challengeFields,
+  challengeFormUnavailable,
+  initialChallengeForm,
+  type ChallengeFormState,
+} from '../../features/challenges/forms';
+import { destinationOf } from '../../features/forms/form-state';
+import {
+  friendFormUnavailable,
+  initialFriendForm,
+} from '../../features/friends/forms';
+import {
+  creationFields,
+  creationFormUnavailable,
+  creationIdle,
+} from '../../features/messaging/forms/create-form';
+import {
+  initialPersonBlock,
+  personBlockNotice,
+  personBlockUnavailable,
+} from '../../features/contacts/block-form';
+import {
+  initialReportForm,
+  reportFields,
+  reportFormUnavailable,
+} from '../../features/reports/form';
 import { cn } from '../cn';
 import { buttonClass } from '../components/button/button-class';
 import { useFormAction } from '../form-action/form-action';
@@ -66,7 +87,7 @@ function FriendItem({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { username },
+    initialFriendForm(username),
     friendFormUnavailable,
   );
   useAnswered(answer, onDone);
@@ -102,12 +123,12 @@ function CancelChallengeItem({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    {},
+    initialChallengeForm,
     challengeFormUnavailable,
   );
   const { noteCancelled, forgetCancelled } = useChallenges();
   useAnswered(answer, () => {
-    if (answer.notice) forgetCancelled(challengeId);
+    if (challengeFields(answer).refusal) forgetCancelled(challengeId);
     onDone();
   });
   return (
@@ -130,10 +151,11 @@ function MessageItem({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { requestId: '', recipients: username, title: '', introduction: '' },
+    creationIdle('', username),
     creationFormUnavailable,
   );
-  useMovedOn(answer.next, announceShellNavigation);
+  const next = destinationOf(answer);
+  useMovedOn(next, announceShellNavigation);
   return (
     <form action={post}>
       <input type="hidden" name="recipients" value={username} />
@@ -141,12 +163,12 @@ function MessageItem({
       <button
         type="submit"
 
-        disabled={pending || answer.next !== undefined}
+        disabled={pending || next !== undefined}
         className={item}
       >
         Message
       </button>
-      {answer.notice ? (
+      {creationFields(answer).notice ? (
         <p role="status" className="px-2 text-xs text-ink-muted">
           {`Could not open a conversation with @${username}. Try again.`}
         </p>
@@ -164,25 +186,42 @@ function BlockItem({
   readonly username: string;
   readonly onDone: () => void;
 }) {
-  const [answer, post, pending] = useFormAction(action, {}, () => ({
-    notice: personBlockFailedNotice,
-  }));
+  const [answer, post, pending] = useFormAction(
+    action,
+    initialPersonBlock,
+    personBlockUnavailable,
+  );
   useAnswered(answer, () => {
-    if (answer.done) onDone();
+    if (answer.kind === 'blocked') onDone();
   });
+  const notice =
+    answer.kind === 'blocked' ? undefined : personBlockNotice(answer);
   return (
     <form action={post}>
       <input type="hidden" name="username" value={username} />
       <button type="submit" disabled={pending} className={item}>
         Block
       </button>
-      {answer.notice && !answer.done ? (
+      {notice ? (
         <p role="status" className="px-2 text-xs text-ink-muted">
-          {answer.notice}
+          {notice}
         </p>
       ) : null}
     </form>
   );
+}
+
+/** Whether the offer went out, which is when its menu closes. */
+function wasSent(answer: ChallengeFormState): boolean {
+  switch (answer.kind) {
+    case 'sent':
+      return true;
+    case 'idle':
+    case 'refused':
+    case 'done':
+    case 'moved':
+      return false;
+  }
 }
 
 function ChallengeView({
@@ -200,12 +239,13 @@ function ChallengeView({
   const [format, setFormat] = useState<RatingLadder>('freestyle');
   const [answer, post, pending] = useFormAction(
     action,
-    {},
+    initialChallengeForm,
     challengeFormUnavailable,
   );
   useAnswered(answer, () => {
-    if (answer.sent) onDone();
+    if (wasSent(answer)) onDone();
   });
+  const { refusal } = challengeFields(answer);
   return (
     <form action={post} className="flex flex-col gap-2">
       <input type="hidden" name="username" value={username} />
@@ -237,9 +277,9 @@ function ChallengeView({
           </button>
         ))}
       </div>
-      {answer.notice && !answer.sent ? (
+      {refusal ? (
         <p role="status" className="text-sm text-ink-muted">
-          {answer.notice}
+          {refusal}
         </p>
       ) : null}
       <button
@@ -272,11 +312,14 @@ function ReportView({
   readonly onDone: () => void;
 }) {
   const [reason, setReason] = useState<ReportReason | null>(null);
-  const [answer, post, pending] = useFormAction(action, {}, () => ({
-    notice: reportFailedNotice,
-  }));
+  const [answer, post, pending] = useFormAction(
+    action,
+    initialReportForm,
+    reportFormUnavailable,
+  );
+  const { filed, refusal } = reportFields(answer);
   useAnswered(answer, () => {
-    if (answer.done) onDone();
+    if (filed) onDone();
   });
   return (
     <form action={post} className="flex flex-col gap-2">
@@ -296,9 +339,9 @@ function ReportView({
           </button>
         ))}
       </div>
-      {answer.notice && !answer.done ? (
+      {refusal ? (
         <p role="status" className="text-sm text-ink-muted">
-          {answer.notice}
+          {refusal}
         </p>
       ) : null}
       <button

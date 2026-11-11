@@ -1,15 +1,13 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-
-/** The numbered steps; the last step (your first debate) shows no count. */
-export const onboardingSteps = 6;
+import { numberedSteps } from '../../../features/onboarding/steps';
 
 const touch =
   'inline-flex min-h-onboarding-touch items-center justify-center rounded-round px-6 text-md font-strong no-underline hover:no-underline';
 const primary = `${touch} bg-accent text-accent-ink hover:bg-accent-strong`;
 
 export type OnboardingFrameProps = {
-  /** 1-based step number, or null on the last step. */
+  /** The step's number in the flow, or null where no count is shown. */
   readonly step: number | null;
   /** The id of the step's heading, which names the dialog. */
   readonly titleId: string;
@@ -44,7 +42,7 @@ export function OnboardingFrame({
           ) : (
             <div className="flex items-center gap-3">
               <div className="flex gap-2" aria-hidden="true">
-                {Array.from({ length: onboardingSteps }, (_, index) => (
+                {Array.from({ length: numberedSteps }, (_, index) => (
                   <span
                     key={index}
                     data-segment={index < step ? 'done' : 'todo'}
@@ -53,7 +51,7 @@ export function OnboardingFrame({
                 ))}
               </div>
               <p className="text-sm text-ink-muted tabular-nums">
-                {`${step} of ${onboardingSteps}`}
+                {`${step} of ${numberedSteps}`}
               </p>
             </div>
           )}

@@ -13,7 +13,7 @@ describe('moveOn', () => {
         new Headers({ 'next-action': 'a1b2' }),
         '/onboarding/passkey',
       ),
-      expected: { next: '/onboarding/passkey' },
+      expected: { kind: 'moved', next: '/onboarding/passkey' },
     });
   });
 

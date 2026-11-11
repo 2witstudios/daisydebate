@@ -2,6 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { AssemblyDetailsFields } from './assembly-details';
+import {
+  commandUnavailable,
+  roomEditFields,
+} from '../../../features/rooms/command-answer';
 
 setupRitewayBun();
 
@@ -45,7 +49,7 @@ test('non-host details remain visible but cannot submit an edit', () => {
         capabilities: { ...assemblySnapshot.capabilities, canEdit: false },
       }}
       commandId="unused-command"
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
     />,
   );
@@ -67,7 +71,7 @@ test('the edit form never offers private', () => {
     <AssemblyDetailsFields
       view={assemblySnapshot}
       commandId="fresh-command"
-      state={{ values: {} }}
+      state={{ values: {}, error: undefined }}
       pending={false}
     />,
   );
@@ -90,7 +94,7 @@ test('the edit form lists public first and checks the saved choice', () => {
         <AssemblyDetailsFields
           view={{ ...assemblySnapshot, visibility }}
           commandId="fresh-command"
-          state={{ values: {} }}
+          state={{ values: {}, error: undefined }}
           pending={false}
         />,
       ).matchAll(/<input[^>]*name="visibility"[^>]*>/g),
@@ -106,5 +110,42 @@ test('the edit form lists public first and checks the saved choice', () => {
       ['public*', 'unlisted'],
       ['public', 'unlisted*'],
     ],
+  });
+});
+
+test('a details save whose answer was lost is offered again as a new command on the latest room', () => {
+  const lost = new FormData();
+  for (const [name, value] of Object.entries({
+    type: 'update-details',
+    commandId: 'previous-command',
+    expectedVersion: '3',
+    title: 'Typed title',
+    topic: 'Typed topic',
+    visibility: 'public',
+  }))
+    lost.set(name, value);
+  const html = renderToStaticMarkup(
+    <AssemblyDetailsFields
+      view={{ ...assemblySnapshot, version: 4 }}
+      commandId="fresh-command"
+      state={roomEditFields(commandUnavailable(lost))}
+      pending={false}
+    />,
+  );
+  assert({
+    given:
+      'details saved at version three whose answer was lost, and the latest room at version four',
+    should:
+      'keep what was typed, take the version and command identifier from the latest room, and say the save may have landed',
+    actual: [
+      html.includes('Typed title'),
+      html.includes('Typed topic'),
+      html.includes('name="expectedVersion" value="4"'),
+      html.includes('name="commandId" value="fresh-command"'),
+      html.includes('previous-command'),
+      html.includes('These changes may have been saved.'),
+      html.includes('Review latest room'),
+    ],
+    expected: [true, true, true, true, false, true, true],
   });
 });

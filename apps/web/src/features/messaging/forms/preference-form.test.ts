@@ -33,10 +33,9 @@ test('native preferences require explicit choices and keep retry state', () => {
         },
       },
       {
-        following: 'no',
-        hidden: 'yes',
-        notificationLevel: 'none',
-        notice:
+        kind: 'refused',
+        values: { following: 'no', hidden: 'yes', notificationLevel: 'none' },
+        error:
           'Could not change these preferences. Your selections are kept; try again.',
       },
     ],
@@ -82,8 +81,14 @@ test('successful clear discards submitted choices while saved answers keep actua
       preferenceFormState(null),
     ],
     expected: [
-      { following: 'no', hidden: 'yes', notificationLevel: 'none' },
-      { following: '', hidden: '', notificationLevel: '' },
+      {
+        kind: 'idle',
+        values: { following: 'no', hidden: 'yes', notificationLevel: 'none' },
+      },
+      {
+        kind: 'idle',
+        values: { following: '', hidden: '', notificationLevel: '' },
+      },
     ],
   });
 });

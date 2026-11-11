@@ -1,6 +1,6 @@
 import { ballotFormFixture } from './ballot-form.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { submitRoundBallotForm } from './form';
+import { ballotFormFields, submitRoundBallotForm } from './form';
 setupRitewayBun();
 test('unknown ballot acknowledgements retain the exact envelope while low-point confirmation stays current', async () => {
   const form = ballotFormFixture();
@@ -10,21 +10,21 @@ test('unknown ballot acknowledgements retain the exact envelope while low-point 
     throw Error('lost response');
   };
   const first = await submitRoundBallotForm(send, 'r'.repeat(24), form);
+  const kept = ballotFormFields(first).values;
   const retry = new FormData();
-  for (const [key, value] of Object.entries(first.values))
-    retry.set(key, value);
+  for (const [key, value] of Object.entries(kept)) retry.set(key, value);
   await submitRoundBallotForm(send, 'r'.repeat(24), retry);
   assert({
     given: 'two unknown acknowledgements',
     should:
       'keep the exact ballot id, revision, vote and rubric across retries',
     actual: [
-      first.unacknowledged,
+      first.kind,
       bodies.length,
       bodies[0] === bodies[1],
-      first.values.commandId,
+      kept.commandId,
     ],
-    expected: [true, 2, true, 'c'.repeat(24)],
+    expected: ['unacknowledged', 2, true, 'c'.repeat(24)],
   });
   retry.set('affirmative-thesis', '1');
   retry.set('low-point', 'affirmative:30:30');
@@ -32,7 +32,11 @@ test('unknown ballot acknowledgements retain the exact envelope while low-point 
   assert({
     given: 'changed scores with old low-point confirmation',
     should: 'refuse before transport and retain entered scores',
-    actual: [bodies.length, stale.error, stale.values['affirmative-thesis']],
+    actual: [
+      bodies.length,
+      ballotFormFields(stale).error,
+      ballotFormFields(stale).values['affirmative-thesis'],
+    ],
     expected: [2, 'Confirm the low-point win, or change the scores.', '1'],
   });
 });
@@ -69,28 +73,35 @@ test('ballot responses keep entries on refusal and accept only the matching rece
     should:
       'keep entries with a specific message for each refusal, and clear them only on the matching receipt',
     actual: results.map((r) => [
-      r.error?.split('.')[0] ?? null,
-      Object.keys(r.values).length > 0,
-      r.receipt?.ballotId ?? null,
+      r.kind,
+      ballotFormFields(r).error?.split('.')[0] ?? null,
+      Object.keys(ballotFormFields(r).values).length > 0,
+      r.kind === 'recorded' ? r.receipt.ballotId : null,
     ]),
     expected: [
-      ['The ballot is not acknowledged', true, null],
-      ['The server refused this ballot', true, null],
+      ['unacknowledged', 'The ballot is not acknowledged', true, null],
+      ['refused', 'The server refused this ballot', true, null],
       [
+        'refused',
         'Not recorded yet: attendance for the last speeches is still being confirmed',
         true,
         null,
       ],
-      ['The Round changed or a ballot is already recorded', true, null],
-      ['The ballot is not acknowledged', true, null],
-      [null, false, 'b'.repeat(24)],
+      [
+        'refused',
+        'The Round changed or a ballot is already recorded',
+        true,
+        null,
+      ],
+      ['unacknowledged', 'The ballot is not acknowledged', true, null],
+      ['recorded', null, false, 'b'.repeat(24)],
     ],
   });
   const invalid = await submitRoundBallotForm(reply(200), 'not-a-round', form);
   assert({
     given: 'a malformed Round id',
     should: 'refuse before transport with the refresh guidance',
-    actual: invalid.error,
+    actual: ballotFormFields(invalid).error,
     expected:
       'This Round is invalid. Return to Judge and refresh your assignments.',
   });

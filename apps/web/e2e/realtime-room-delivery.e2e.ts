@@ -245,9 +245,9 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     expect(revoked.status()).toBe(200);
     await expect
       .poll(() =>
-        hostPage.evaluate(() => window.realtimeProof.store.getState().terminal),
+        hostPage.evaluate(() => window.realtimeProof.store.getState()),
       )
-      .toBe('revoked');
+      .toMatchObject({ status: 'closed', why: 'revoked' });
     await outsiderPage.evaluate(() => window.realtimeProof.store.close());
   } finally {
     await accounts.closeContexts();

@@ -2,6 +2,7 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { initialFriendForm } from '../../features/friends/forms';
 import { ProfileFriendActions } from './profile-friend-actions';
 
 setupRitewayBun();
@@ -16,7 +17,7 @@ const router = {
   replace: noop,
   prefetch: noop,
 };
-const action = async () => ({ username: '' });
+const action = async () => initialFriendForm();
 const render = (relation: 'none' | 'friends' | 'incoming' | 'outgoing') =>
   renderToString(
     h(

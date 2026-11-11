@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   idSchema,
   roomCommandSchema,
+  roomRefusalSchema,
   roomViewSchema,
   type RoomView,
   type RoomRefusal,
@@ -80,6 +81,14 @@ const formatTupleSchema = z.strictObject({
 });
 
 const responseSchema = z.object({ view: roomViewSchema });
+const refusalSchema = z.object({ refusal: roomRefusalSchema });
+
+/** The Room refusal a reply's body names; null when it cannot be read or names none. */
+async function namedRefusal(response: Response): Promise<RoomRefusal | null> {
+  const body = refusalSchema.safeParse(await response.json().catch(() => null));
+  return body.success ? body.data.refusal : null;
+}
+
 export async function submitAssembly(
   fetch: FetchLike,
   roomId: string,
@@ -101,14 +110,13 @@ export async function submitAssembly(
       body: JSON.stringify(parsed.data),
     });
     if (!response.ok) {
-      if (response.status >= 500) return { kind: 'unavailable' };
-      const body = z
-        .object({ refusal: roomViewSchema.shape.startRefusal })
-        .safeParse(await response.json());
-      return {
-        kind: 'refused',
-        reason: body.success ? body.data.refusal : null,
-      };
+      const reason = await namedRefusal(response);
+      // A refusal the Room names recorded nothing, whatever status carries
+      // it (readiness that cannot be read is a 503). A server fault that
+      // names none may have recorded the command.
+      return reason === null && response.status >= 500
+        ? { kind: 'unavailable' }
+        : { kind: 'refused', reason };
     }
     const body = responseSchema.safeParse(await response.json());
     return body.success && body.data.view.id === roomId

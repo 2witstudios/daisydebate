@@ -1,6 +1,10 @@
-import { refused, type FormState } from '../forms/form-state';
+import { done, refused } from '../forms/form-state';
+import type { RoomFormState } from './command-answer';
 
-type CommandAction = (state: FormState, form: FormData) => Promise<FormState>;
+type CommandAction = (
+  state: RoomFormState,
+  form: FormData,
+) => Promise<RoomFormState>;
 
 type Consent = {
   readonly readSnapshot: () => {
@@ -22,7 +26,7 @@ export function createLocalCommandAction(
       return refused(form, 'Check your current devices before Ready.');
     if (type === 'ready' || type === 'unready') {
       await (type === 'ready' ? consent.ready() : consent.unready());
-      return { values: {} };
+      return done();
     }
     if (type === 'start-round' && (local.pending || !local.devicesPassed))
       return refused(form, 'Confirm your current readiness before Launch.');

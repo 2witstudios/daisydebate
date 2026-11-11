@@ -164,7 +164,7 @@ test('a deliberate close stays reusable', async () => {
       status: store.getState().status,
       listeners: visibility.held(),
     },
-    expected: { sockets: 2, status: 'connecting', listeners: 1 },
+    expected: { sockets: 2, status: 'ticketing', listeners: 1 },
   });
   store.dispose();
 });

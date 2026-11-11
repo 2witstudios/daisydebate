@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { submitFloorMessage } from './form';
+import { floorFormUnavailable, submitFloorMessage } from './form';
+import { floorIdle, floorUnacknowledged } from './form-state';
 
 setupRitewayBun();
 const roundId = 'r'.repeat(24);
@@ -14,7 +15,11 @@ const draft = () => {
   return form;
 };
 const scope = { roundId, channelId };
-const previous = { text: '', requestId };
+const previous = floorIdle(requestId);
+const lost = floorUnacknowledged(
+  { text: 'Keep this draft', requestId },
+  'Message could not be sent. Your draft is kept; try again.',
+);
 const message = {
   id: messageId,
   channelId,
@@ -44,7 +49,7 @@ describe('embedded Round floor send', () => {
       should:
         'rotate the command and clear its draft without navigating the Round',
       actual: answer,
-      expected: { text: '', requestId: nextId, sent: messageId },
+      expected: { kind: 'sent', messageId, requestId: nextId },
     });
     assert({
       given: 'the embedded form',
@@ -80,13 +85,8 @@ describe('embedded Round floor send', () => {
       given: 'a send whose transport failed after possible commitment',
       should:
         'retain the exact text and command and prevent changing a retry payload',
-      actual: [
-        answer.text,
-        answer.requestId,
-        answer.uncertain,
-        'sent' in answer,
-      ],
-      expected: ['Keep this draft', requestId, true, false],
+      actual: answer,
+      expected: lost,
     });
   });
 
@@ -94,7 +94,7 @@ describe('embedded Round floor send', () => {
     const answer = await submitFloorMessage(
       async () => new Response(null, { status: 429 }),
       scope,
-      { text: 'Keep this draft', requestId, uncertain: true },
+      lost,
       draft(),
       () => nextId,
     );
@@ -102,13 +102,11 @@ describe('embedded Round floor send', () => {
       given:
         'a retry refused temporarily while the original outcome remains unknown',
       should: 'keep its identity and payload locked until a confirmed result',
-      actual: [
-        answer.text,
-        answer.requestId,
-        answer.uncertain,
-        Boolean(answer.notice),
-      ],
-      expected: ['Keep this draft', requestId, true, true],
+      actual: answer,
+      expected: floorUnacknowledged(
+        lost.values,
+        'Please wait before sending again. Your draft is kept.',
+      ),
     });
   });
 
@@ -123,13 +121,8 @@ describe('embedded Round floor send', () => {
     assert({
       given: 'an acknowledged body bound to a different channel',
       should: 'keep the draft as an unknown result rather than claim delivery',
-      actual: [
-        answer.requestId,
-        answer.text,
-        answer.uncertain,
-        'sent' in answer,
-      ],
-      expected: [requestId, 'Keep this draft', true, false],
+      actual: answer,
+      expected: lost,
     });
   });
 
@@ -143,15 +136,21 @@ describe('embedded Round floor send', () => {
         return Response.json(message);
       },
       scope,
-      { text: 'Keep this draft', requestId, uncertain: true },
+      lost,
       edited,
       () => nextId,
     );
     assert({
       given: 'changed text on a command whose commitment remains unknown',
       should: 'keep the original retry payload and avoid another request',
-      actual: [called, answer.text, answer.requestId, answer.uncertain],
-      expected: [false, 'Keep this draft', requestId, true],
+      actual: [called, answer],
+      expected: [
+        false,
+        floorUnacknowledged(
+          lost.values,
+          'Retry the original message before starting another one. Your draft is kept.',
+        ),
+      ],
     });
   });
 
@@ -170,8 +169,15 @@ describe('embedded Round floor send', () => {
     assert({
       given: 'a forged bound Round identifier',
       should: 'refuse without calling a route and keep the typed draft',
-      actual: [called, answer.text, answer.requestId, Boolean(answer.notice)],
-      expected: [false, 'Keep this draft', requestId, true],
+      actual: [called, answer],
+      expected: [
+        false,
+        {
+          kind: 'refused',
+          values: { text: 'Keep this draft', requestId },
+          error: 'Message could not be sent. Your draft is kept; try again.',
+        },
+      ],
     });
   });
 });
@@ -184,7 +190,7 @@ test('a canonical send retry can return a later edit of the committed message', 
         changeVersion: 3,
       }),
     scope,
-    { text: 'Keep this draft', requestId, uncertain: true },
+    lost,
     draft(),
     () => nextId,
   );
@@ -194,6 +200,57 @@ test('a canonical send retry can return a later edit of the committed message', 
     should:
       'settle the valid canonical reply instead of keeping the command uncertain',
     actual: answer,
-    expected: { text: '', requestId: nextId, sent: messageId },
+    expected: { kind: 'sent', messageId, requestId: nextId },
+  });
+});
+
+describe('a floor send answers exactly one kind', () => {
+  const answered = (status: number, earlier: unknown = previous) =>
+    submitFloorMessage(
+      async () => new Response(null, { status }),
+      scope,
+      earlier,
+      draft(),
+      () => nextId,
+    );
+  test('refusals and lost answers', async () => {
+    assert({
+      given: 'a refusal, a server failure, and a refusal of a retry',
+      should:
+        'refuse a first attempt the server turned down, and hold any that may have committed as unacknowledged',
+      actual: [
+        (await answered(403)).kind,
+        (await answered(500)).kind,
+        (await answered(403, lost)).kind,
+      ],
+      expected: ['refused', 'unacknowledged', 'unacknowledged'],
+    });
+  });
+  test('a call that never arrived', () => {
+    assert({
+      given: 'a form whose call failed in the browser',
+      should: 'keep the whole command for its retry',
+      actual: floorFormUnavailable(draft()),
+      expected: lost,
+    });
+  });
+  test('a previous answer the browser forged', async () => {
+    let calls = 0;
+    const answer = await submitFloorMessage(
+      async () => {
+        calls += 1;
+        return Response.json(message);
+      },
+      scope,
+      { kind: 'unacknowledged', values: { requestId: 'forged', text: 7 } },
+      draft(),
+      () => nextId,
+    );
+    assert({
+      given: 'an unacknowledged answer that names no real command',
+      should: 'hold nothing back and send the posted message',
+      actual: [calls, answer.kind],
+      expected: [1, 'sent'],
+    });
   });
 });

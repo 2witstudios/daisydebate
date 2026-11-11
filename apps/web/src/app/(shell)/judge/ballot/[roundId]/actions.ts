@@ -43,11 +43,8 @@ export async function submitBallotAction(
     form,
     current.kind === 'found' ? ballotDebaters(current.view) : undefined,
   );
-  if (answer.receipt && !hydratedPost(incoming))
-    return {
-      ...answer,
-      ...moveOn(incoming, `/judge/ballot/${answer.receipt.roundId}`),
-    };
+  if (answer.kind === 'recorded' && !hydratedPost(incoming))
+    return moveOn(incoming, `/judge/ballot/${answer.receipt.roundId}`);
   return answer;
 }
 

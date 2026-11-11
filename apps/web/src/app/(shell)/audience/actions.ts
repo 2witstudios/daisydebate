@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import {
+  done,
   field,
   refused,
   type FormState,
@@ -18,7 +19,10 @@ import { stayOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import { audienceRefusalText } from '../../../ui/audience/audience-copy';
-import type { NotificationPreferencesState } from '../../../ui/notifications/notification-preferences-form';
+import {
+  saveRefused,
+  type SaveFormState,
+} from '../../../features/forms/save-form';
 import { choicesFromForm } from '../../../features/notifications/preference-form';
 import { post } from '../form-post';
 
@@ -74,7 +78,7 @@ export async function postSpectatorChatAction(
   }
   const to = backTo(target.returnTo);
   revalidatePath(to);
-  return { values: {}, ...stayOn(incoming, to) };
+  return stayOn(incoming, to) ?? done();
 }
 
 const FAILED = 'That did not go through. Try again.';
@@ -98,7 +102,7 @@ const mutate = async (
     return refused(form, FAILED);
   }
   revalidatePath(to);
-  return { values: {}, ...stayOn(incoming, to) };
+  return stayOn(incoming, to) ?? done();
 };
 
 /** Sends one reaction; the pressed button names which. */
@@ -191,21 +195,21 @@ export async function markAllNotificationsReadAction(
 
 /** Stores what the member chose; Settings then reads it back (ISSUE-1045). */
 export async function saveNotificationPreferencesAction(
-  _previous: NotificationPreferencesState,
+  _previous: SaveFormState,
   form: FormData,
-): Promise<NotificationPreferencesState> {
+): Promise<SaveFormState> {
   try {
     const response = await post(
       routes.preferences,
       '/api/notifications/preferences',
       { version: 2, choices: choicesFromForm(form) },
     );
-    if (!response.ok) return { notice: 'Could not save. Try again.' };
+    if (!response.ok) return saveRefused(form);
   } catch {
-    return { notice: 'Could not save. Try again.' };
+    return saveRefused(form);
   }
   revalidatePath('/settings');
-  return { notice: 'Saved.' };
+  return done();
 }
 
 /** Files what the page's form names through /api/content-reports, then comes back. */

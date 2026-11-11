@@ -39,20 +39,20 @@ test('a confirmation confirms the round the debater sees now (ISSUE-838)', () =>
       'confirm against version 3, and replay the unacknowledged attempt with its original version 2',
     actual: [
       expectedVersion({
+        kind: 'confirming',
         values: {
           type: 'yield',
           expectedVersion: '2',
           commandId: 'c'.repeat(24),
         },
-        confirmation: true,
       }),
       expectedVersion({
+        kind: 'unacknowledged',
         values: {
           type: 'yield',
           expectedVersion: '2',
           commandId: 'c'.repeat(24),
         },
-        unacknowledged: true,
       }),
     ],
     expected: ['3', '2'],
@@ -92,11 +92,18 @@ test('a refused strike says so only while the strike is open; a lost answer alwa
       shownError(refused, opening('strike')),
       shownError(refused, opening('prep')),
       shownError(refused, { opening: null }),
-      shownError(yielded, { opening: null }) === yielded.error,
-      shownError(lost, opening('prep')) === lost.error,
+      shownError(yielded, { opening: null }),
+      shownError(lost, opening('prep')),
       shownError(forbidden, opening('prep')),
     ],
-    expected: [refused.error, undefined, undefined, true, true, undefined],
+    expected: [
+      'Someone struck first, or time ran out. Here is the draw now.',
+      undefined,
+      undefined,
+      'The round changed or that action is no longer legal. Review the current round and try again.',
+      'The command is not acknowledged. Review the current round before trying again.',
+      undefined,
+    ],
   });
   assert({
     given: 'a refusal on the strike step, and the same refusal once prep runs',
@@ -118,13 +125,13 @@ const confirming = (asked: string) =>
       segment="2"
       post={() => undefined}
       answer={{
+        kind: 'confirming',
         values: {
           type: 'yield',
           expectedVersion: '5',
           commandId: 'c'.repeat(24),
           segment: asked,
         },
-        confirmation: true,
       }}
       pending={false}
       control="control"

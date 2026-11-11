@@ -1,4 +1,7 @@
-import type { MessagingFileFormState } from '../../features/messaging/forms/file-form';
+import {
+  fileFields,
+  type MessagingFileFormState,
+} from '../../features/messaging/forms/file-form';
 /** A real multipart POST works before hydration and never serializes file bytes into state. */
 export function AttachmentForm({
   channelId,
@@ -9,6 +12,7 @@ export function AttachmentForm({
   readonly messageId: string;
   readonly state: MessagingFileFormState;
 }) {
+  const { requestId, filename, notice } = fileFields(state);
   return (
     <form
       action={`/api/messaging/channels/${channelId}/messages/${messageId}/attachments`}
@@ -16,9 +20,9 @@ export function AttachmentForm({
       encType="multipart/form-data"
       className="flex flex-col gap-4 rounded-lg border border-border p-5"
     >
-      <input type="hidden" name="requestId" value={state.requestId} />
-      {state.notice ? <p role="status">{state.notice}</p> : null}
-      {state.filename ? <p>Selected file: {state.filename}</p> : null}
+      <input type="hidden" name="requestId" value={requestId} />
+      {notice ? <p role="status">{notice}</p> : null}
+      {filename ? <p>Selected file: {filename}</p> : null}
       <label>
         Image or PDF{' '}
         <input

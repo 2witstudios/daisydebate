@@ -1,10 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { SecurityOutcome } from '../../../features/account/security-client';
 import {
-  emailChangeNotice,
-  refusesNewAddress,
+  emailChangeFields,
+  emailChangeSent,
   emailChangeUnavailable,
+  emailChangeUnsent,
+  initialEmailChange,
   submitEmailChange,
+  type EmailChangeRefusal,
 } from './email-change-state';
 
 setupRitewayBun();
@@ -29,9 +32,24 @@ describe('submitEmailChange', () => {
       should: 'request the trimmed address and answer with its outcome',
       actual: [await submitEmailChange(change, form), asked],
       expected: [
-        { newEmail: 'taken@example.test', outcome: 'conflict' },
+        {
+          kind: 'unsent',
+          values: { newEmail: 'taken@example.test' },
+          reason: 'conflict',
+        },
         ['taken@example.test'],
       ],
+    });
+  });
+
+  test('answers sent, and only sent, for an accepted change', async () => {
+    const form = new FormData();
+    form.set('newEmail', 'ada@example.test');
+    assert({
+      given: 'a change the route accepted',
+      should: 'answer the one variant that holds no refusal',
+      actual: await submitEmailChange(recording({ kind: 'ok' }).change, form),
+      expected: { kind: 'sent', values: { newEmail: 'ada@example.test' } },
     });
   });
 
@@ -40,57 +58,62 @@ describe('submitEmailChange', () => {
     form.set('newEmail', new Blob(['x']));
     assert({
       given: 'a file for the address, and a change that throws',
-      should: 'use an empty address, and answer unavailable, never ok',
+      should: 'use an empty address, and answer unavailable, never sent',
       actual: [
         await submitEmailChange(recording({ kind: 'invalid' }).change, form),
         await submitEmailChange(recording(new Error('down')).change, form),
       ],
       expected: [
-        { newEmail: '', outcome: 'invalid' },
-        { newEmail: '', outcome: 'unavailable' },
+        { kind: 'unsent', values: { newEmail: '' }, reason: 'invalid' },
+        { kind: 'unsent', values: { newEmail: '' }, reason: 'unavailable' },
       ],
     });
   });
 });
 
-describe('emailChangeNotice', () => {
+describe('emailChangeFields', () => {
   test('says where the approval went, or why nothing started', () => {
     assert({
       given: 'no answer yet, an accepted change, and a conflict',
       should:
-        'show nothing, then an approval notice, then the refusal as an error',
+        'show nothing, then an approval notice, then the refusal as an error, each beside its address',
       actual: [
-        emailChangeNotice({ newEmail: '' }),
-        emailChangeNotice({ newEmail: 'a@b.test', outcome: 'ok' }),
-        emailChangeNotice({ newEmail: 'a@b.test', outcome: 'conflict' }),
+        emailChangeFields(initialEmailChange),
+        emailChangeFields(emailChangeSent('a@b.test')),
+        emailChangeFields(emailChangeUnsent('a@b.test', 'conflict')),
       ],
       expected: [
-        undefined,
+        { newEmail: '', notice: undefined, refusesNewAddress: false },
         {
-          tone: 'info',
-          title:
-            'Check the inbox for the address currently on file to approve this change.',
+          newEmail: 'a@b.test',
+          notice: {
+            tone: 'info',
+            title:
+              'Check the inbox for the address currently on file to approve this change.',
+          },
+          refusesNewAddress: false,
         },
-        { tone: 'error', title: 'That email is already in use.' },
+        {
+          newEmail: 'a@b.test',
+          notice: { tone: 'error', title: 'That email is already in use.' },
+          refusesNewAddress: false,
+        },
       ],
     });
   });
-});
 
-describe('emailChangeNotice for an undeliverable address (ISSUE-113)', () => {
-  test('says which address cannot receive email, and only asks for another new one when that helps', () => {
-    const answer = (outcome: 'undeliverable' | 'current-undeliverable') => ({
-      notice: emailChangeNotice({ newEmail: 'a@b.test', outcome }),
-      refusesNewAddress: refusesNewAddress({ newEmail: 'a@b.test', outcome }),
-    });
+  test('says which address cannot receive email, and only asks for another new one when that helps (ISSUE-113)', () => {
     assert({
       given:
         'a refusal because the new address cannot receive email, then because the address on file cannot',
       should:
         'ask for a different new address and mark the field, then explain the approval cannot be emailed without blaming the new address',
-      actual: [answer('undeliverable'), answer('current-undeliverable')],
+      actual: (['undeliverable', 'current-undeliverable'] as const).map(
+        (reason) => emailChangeFields(emailChangeUnsent('a@b.test', reason)),
+      ),
       expected: [
         {
+          newEmail: 'a@b.test',
           notice: {
             tone: 'error',
             title:
@@ -99,6 +122,7 @@ describe('emailChangeNotice for an undeliverable address (ISSUE-113)', () => {
           refusesNewAddress: true,
         },
         {
+          newEmail: 'a@b.test',
           notice: {
             tone: 'error',
             title:
@@ -111,27 +135,24 @@ describe('emailChangeNotice for an undeliverable address (ISSUE-113)', () => {
   });
 
   test('marks the field only for an undeliverable new address', () => {
+    const others: readonly EmailChangeRefusal[] = [
+      'stale-session',
+      'not-found',
+      'conflict',
+      'rate-limited',
+      'invalid',
+      'current-undeliverable',
+      'unavailable',
+    ];
     assert({
       given: 'no answer, an accepted change and every other refusal',
       should: 'leave the field valid',
-      actual: (
-        [
-          undefined,
-          'ok',
-          'stale-session',
-          'conflict',
-          'rate-limited',
-          'invalid',
-          'unavailable',
-        ] as const
-      ).map((outcome) =>
-        refusesNewAddress(
-          outcome === undefined
-            ? { newEmail: '' }
-            : { newEmail: 'a@b.test', outcome },
-        ),
-      ),
-      expected: [false, false, false, false, false, false, false],
+      actual: [
+        initialEmailChange,
+        emailChangeSent('a@b.test'),
+        ...others.map((reason) => emailChangeUnsent('a@b.test', reason)),
+      ].map((answer) => emailChangeFields(answer).refusesNewAddress),
+      expected: [false, false, false, false, false, false, false, false, false],
     });
   });
 });
@@ -148,8 +169,12 @@ describe('emailChangeUnavailable', () => {
         'answer unavailable with the trimmed address, or an empty one for a file',
       actual: [emailChangeUnavailable(typed), emailChangeUnavailable(file)],
       expected: [
-        { newEmail: 'ada@example.test', outcome: 'unavailable' },
-        { newEmail: '', outcome: 'unavailable' },
+        {
+          kind: 'unsent',
+          values: { newEmail: 'ada@example.test' },
+          reason: 'unavailable',
+        },
+        { kind: 'unsent', values: { newEmail: '' }, reason: 'unavailable' },
       ],
     });
   });

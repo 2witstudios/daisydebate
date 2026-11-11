@@ -6,6 +6,10 @@ import {
   friendRefusalNotice,
   friendRouteFor,
   parseFriendForm,
+  initialFriendForm,
+  friendRefused,
+  friendChanged,
+  friendFields,
 } from './forms';
 
 setupRitewayBun();
@@ -100,9 +104,38 @@ test('notices', () => {
   });
   assert({
     given: 'a failed call',
-    should: 'keep the typed username',
-    actual: friendFormUnavailable(form([['username', 'ad']])).username,
-    expected: 'ad',
+    should: 'refuse, keeping the typed username',
+    actual: friendFormUnavailable(form([['username', 'ad']])),
+    expected: {
+      kind: 'refused',
+      values: { username: 'ad' },
+      error: 'Could not reach Daisy. Your entry is kept; try again.',
+    },
+  });
+});
+
+test('a friend form answer is one kind, and its fields follow from it', () => {
+  const answers = [
+    initialFriendForm(),
+    initialFriendForm('ada'),
+    friendRefused('ad', 'That request is no longer open.'),
+    friendChanged('Friend request sent to @ada.'),
+  ];
+  assert({
+    given:
+      'the add form before a post, a button about one member, a refusal and a change',
+    should:
+      'be idle with its seed, refused with the typed name, and changed with an emptied field',
+    actual: answers.map((answer) => [answer.kind, friendFields(answer)]),
+    expected: [
+      ['idle', { username: '', notice: undefined }],
+      ['idle', { username: 'ada', notice: undefined }],
+      [
+        'refused',
+        { username: 'ad', notice: 'That request is no longer open.' },
+      ],
+      ['changed', { username: '', notice: 'Friend request sent to @ada.' }],
+    ],
   });
 });
 

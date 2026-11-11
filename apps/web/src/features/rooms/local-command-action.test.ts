@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createLocalCommandAction } from './local-command-action';
+import { idle, moved } from '../forms/form-state';
 
 setupRitewayBun();
 const scenarios = [
@@ -79,18 +80,43 @@ for (const scenario of scenarios) {
       },
       async (_state, form) => {
         forwarded.push(String(form.get('type')));
-        return { values: {}, next: '/rooms/current' };
+        return moved('/rooms/current');
       },
     );
     const form = new FormData();
     form.set('type', scenario.type);
-    const state = await action({ values: {} }, form);
+    const state = await action(idle(), form);
     assert({
       given: 'the latest local device and withdrawal state',
       should:
         'forward permitted prep, explicitly fence Ready/Launch and retain withdrawal recovery',
-      actual: [forwarded, intents, Boolean(state.error)],
+      actual: [forwarded, intents, state.kind === 'refused'],
       expected: [scenario.forwarded, scenario.consent, scenario.error],
     });
   });
 }
+
+test('each local Ready and Not ready answers anew', async () => {
+  const action = createLocalCommandAction(
+    {
+      readSnapshot: () => ({ devicesPassed: true, pending: false }),
+      ready: async () => {},
+      unready: async () => {},
+    },
+    async () => moved('/rooms/current'),
+  );
+  const post = (type: string) => {
+    const form = new FormData();
+    form.set('type', type);
+    return action(idle(), form);
+  };
+  const ready = await post('ready');
+  const unready = await post('unready');
+  assert({
+    given: 'Ready, then Not ready, both answered in the browser',
+    should:
+      'answer done each time with an object of its own, so the form can tell a new answer from the last',
+    actual: [ready, unready, ready === unready],
+    expected: [{ kind: 'done' }, { kind: 'done' }, false],
+  });
+});

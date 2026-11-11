@@ -4,7 +4,9 @@
 import '../../lib/zod-jitless';
 import { useId } from 'react';
 import {
+  friendFields,
   friendFormUnavailable,
+  initialFriendForm,
   type FriendFormState,
   type FriendIntent,
 } from '../../features/friends/forms';
@@ -24,9 +26,10 @@ type Action = FormAction<FriendFormState>;
 export function AddFriendForm({ action }: { readonly action: Action }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { username: '' },
+    initialFriendForm(),
     friendFormUnavailable,
   );
+  const fields = friendFields(answer);
   useFocusAfterAnswer(answer, 'add-friend-notice', !pending);
   return (
     <form action={post} className="flex flex-col gap-3">
@@ -35,8 +38,8 @@ export function AddFriendForm({ action }: { readonly action: Action }) {
         <input
           id="add-friend-username"
           name="username"
-          key={answer.username}
-          defaultValue={answer.username}
+          key={fields.username}
+          defaultValue={fields.username}
           required
           autoComplete="off"
           autoCapitalize="none"
@@ -45,7 +48,7 @@ export function AddFriendForm({ action }: { readonly action: Action }) {
           className={controlClass}
         />
       </FormField>
-      <DraftNotice id="add-friend-notice" notice={answer.notice} />
+      <DraftNotice id="add-friend-notice" notice={fields.notice} />
       <div>
         <Button type="submit" disabled={pending}>
           Send friend request
@@ -77,7 +80,7 @@ export function FriendButtonForm({
 }) {
   const [answer, post, pending] = useFormAction(
     action,
-    { username },
+    initialFriendForm(username),
     friendFormUnavailable,
   );
   const noticeId = useId();
@@ -95,7 +98,7 @@ export function FriendButtonForm({
       >
         {label}
       </Button>
-      <DraftNotice id={noticeId} notice={answer.notice} />
+      <DraftNotice id={noticeId} notice={friendFields(answer).notice} />
     </form>
   );
 }
