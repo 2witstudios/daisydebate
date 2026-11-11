@@ -2,29 +2,33 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
-import {
-  buildUserInboxTopic,
-  challengeListSchema,
-  type ChallengeList,
-} from '@daisy/protocol';
+import { challengeListSchema, type ChallengeList } from '@daisy/protocol';
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
-import { tabConnection } from '../../features/realtime/browser-adapters';
-import { PEOPLE_READ_CEILING_MS } from '../../features/presence/refresh-schedule';
+import {
+  createChallengeSyncDriver,
+  seedChallengeSync,
+} from '../../features/challenges/challenge-sync-driver';
+import {
+  challengeListOf,
+  endedOffersOf,
+  type EndedOffer,
+} from '../../features/challenges/challenges-held';
+import { browserSyncEdges } from '../../features/resource-sync/browser';
+import type { ResourceRead } from '../../features/resource-sync/driver';
+import { useResourceSync } from '../resource-sync/use-resource-sync';
 
 type ChallengeView = {
   readonly challenges: ChallengeList;
-  /** People whose offer from this member ended without the member ending it. */
-  readonly endedOffers: readonly string[];
-  readonly dismissEnded: (username: string) => void;
+  /** Offers from this member that ended without the member ending them. */
+  readonly endedOffers: readonly EndedOffer[];
+  readonly dismissEnded: (id: string) => void;
   /** The member is withdrawing this offer, so its end needs no notice. */
   readonly noteCancelled: (id: string) => void;
   /** That withdrawal failed, so the offer's end needs a notice after all. */
@@ -32,9 +36,6 @@ type ChallengeView = {
   /** Re-reads at once, after the member's own action. */
   readonly refresh: () => void;
 };
-
-/** How often a member with an open offer checks it still stands. */
-const OFFER_WATCH_MS = 5_000;
 
 const ChallengeContext = createContext<ChallengeView | null>(null);
 
@@ -46,21 +47,19 @@ export const useChallenges = (): ChallengeView => {
 
 const challengeRead = challengeListSchema.loose();
 
-const readList = async () => {
-  try {
-    const response = await fetch('/api/challenges', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    });
-    // jitless: the strict CSP refuses Zod's eval-compiled parser.
-    const parsed = challengeRead.safeParse(
-      response.ok ? await response.json() : null,
-      { jitless: true },
-    );
-    return parsed.success ? (parsed.data as ChallengeList) : null;
-  } catch {
-    return null;
-  }
+const readList = async (): Promise<ResourceRead<ChallengeList>> => {
+  const response = await fetch('/api/challenges', {
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+  // jitless: the strict CSP refuses Zod's eval-compiled parser.
+  const parsed = challengeRead.safeParse(
+    response.ok ? await response.json() : null,
+    { jitless: true },
+  );
+  return parsed.success
+    ? { kind: 'found', value: parsed.data as ChallengeList }
+    : { kind: 'unavailable' };
 };
 
 /**
@@ -79,95 +78,43 @@ export function ChallengeProvider({
   readonly socketUrl: string | null;
   readonly children: ReactNode;
 }) {
-  const [challenges, setChallenges] = useState(initialChallenges);
-  const [endedOffers, setEndedOffers] = useState<readonly string[]>([]);
-  // Only the newest answer lands: a slow one must not restore a removed card.
-  const seq = useRef(0);
-  const shown = useRef(initialChallenges);
-  const cancelled = useRef(new Set<string>());
-  const read = useCallback(async () => {
-    seq.current += 1;
-    const mine = seq.current;
-    const list = await readList();
-    if (!list || mine !== seq.current) return;
-    const gone = shown.current.outgoing.filter(
-      (offer) =>
-        !cancelled.current.has(offer.id) &&
-        !list.outgoing.some((next) => next.id === offer.id) &&
-        !list.accepted.some((next) => next.id === offer.id),
+  // The first render's list: a later render of the shell never restarts the sync.
+  const [seed] = useState(initialChallenges);
+  const start = useCallback(() => {
+    const { connection, ...edges } = browserSyncEdges(
+      actorId === null ? null : socketUrl,
     );
-    if (gone.length > 0)
-      setEndedOffers((current) => [
-        ...new Set([...current, ...gone.map((offer) => offer.username)]),
-      ]);
-    shown.current = list;
-    setChallenges(list);
-  }, []);
-
-  useEffect(() => {
-    const poll = setInterval(() => void read(), PEOPLE_READ_CEILING_MS);
-    return () => clearInterval(poll);
-  }, [read]);
-
-  useEffect(() => {
-    if (socketUrl === null || actorId === null) return;
-    const connection = tabConnection(socketUrl);
-    connection.connect();
-    const stop = connection.subscribeTopic(
-      buildUserInboxTopic(actorId),
-      (frame) => {
-        // A ring missed while the socket was down reads on re-subscribing.
-        if (
-          frame.type === 'subscribed' ||
-          (frame.type === 'event' && frame.payload.kind === 'challenge.changed')
-        )
-          void read();
-      },
-    );
-    return () => {
-      stop();
-      connection.dispose();
-    };
-  }, [actorId, read, socketUrl]);
-
-  // An offer running out rings nobody, so while one stands, keep reading.
-  const offersOpen =
-    challenges.outgoing.length > 0 || challenges.incoming.length > 0;
-  useEffect(() => {
-    if (!offersOpen) return;
-    const watch = setInterval(() => void read(), OFFER_WATCH_MS);
-    return () => clearInterval(watch);
-  }, [offersOpen, read]);
-
-  const dismissEnded = useCallback((username: string) => {
-    setEndedOffers((current) => current.filter((name) => name !== username));
-  }, []);
-  const noteCancelled = useCallback((id: string) => {
-    cancelled.current.add(id);
-  }, []);
-  const forgetCancelled = useCallback((id: string) => {
-    cancelled.current.delete(id);
-  }, []);
-  const refresh = useCallback(() => void read(), [read]);
-
-  const view = useMemo(
-    () => ({
-      challenges,
-      endedOffers,
-      dismissEnded,
-      noteCancelled,
-      forgetCancelled,
-      refresh,
-    }),
-    [
-      challenges,
-      dismissEnded,
-      endedOffers,
-      forgetCancelled,
-      noteCancelled,
-      refresh,
-    ],
+    return createChallengeSyncDriver({
+      seed,
+      read: readList,
+      inbox: connection && actorId !== null ? { actorId, connection } : null,
+      ...edges,
+    });
+  }, [actorId, seed, socketUrl]);
+  const [sync, driver] = useResourceSync(
+    () => seedChallengeSync(seed, 0),
+    start,
   );
+  const held = sync.value;
+  const shown = useMemo(
+    () => ({
+      challenges: challengeListOf(held),
+      endedOffers: endedOffersOf(held),
+    }),
+    [held],
+  );
+  // Held apart from what is shown: a card's effect that names one of these
+  // must not run again on every read.
+  const commands = useMemo(
+    () => ({
+      dismissEnded: (id: string) => driver?.dismiss(id),
+      noteCancelled: (id: string) => driver?.cancelling(id),
+      forgetCancelled: (id: string) => driver?.cancelRefused(id),
+      refresh: () => driver?.refresh(),
+    }),
+    [driver],
+  );
+  const view = useMemo(() => ({ ...shown, ...commands }), [commands, shown]);
   return (
     <ChallengeContext.Provider value={view}>
       {children}

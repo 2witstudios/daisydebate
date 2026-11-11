@@ -2,6 +2,7 @@
 
 import type { ChallengeList } from '@daisy/protocol';
 import { useEffect, useRef } from 'react';
+import type { EndedOffer } from '../../features/challenges/challenges-held';
 import { challengeFormUnavailable } from '../../features/challenges/forms';
 import { cn } from '../cn';
 import { useFormAction } from '../form-action/form-action';
@@ -145,10 +146,10 @@ function OutgoingCard({
 
 /** Says when an offer ended without an answer the member could otherwise see. */
 function EndedCard({
-  username,
+  offer: { id, username },
   className,
 }: {
-  readonly username: string;
+  readonly offer: EndedOffer;
   readonly className?: string;
 }) {
   const { dismissEnded } = useChallenges();
@@ -165,7 +166,7 @@ function EndedCard({
       </p>
       <button
         type="button"
-        onClick={() => dismissEnded(username)}
+        onClick={() => dismissEnded(id)}
         className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
       >
         Dismiss
@@ -314,10 +315,10 @@ export function ChallengeCards({
           {...(cardClassName ? { className: cardClassName } : {})}
         />
       ))}
-      {endedOffers.map((username) => (
+      {endedOffers.map((offer) => (
         <EndedCard
-          key={username}
-          username={username}
+          key={offer.id}
+          offer={offer}
           {...(cardClassName ? { className: cardClassName } : {})}
         />
       ))}
