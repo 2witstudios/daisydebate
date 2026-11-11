@@ -5,14 +5,14 @@ import { sharedConnections } from './shared-connection';
 setupRitewayBun();
 
 /** A recording store: its state, closes, topic registrations and resubscribes. */
-const fakeStore = (status: ConnectionState['status']) => {
+const fakeStore = (status: 'ticketing' | 'open') => {
   const record = {
     closed: 0,
     disposed: 0,
     resubscribed: [] as string[],
     topicListeners: new Map<string, Set<() => void>>(),
   };
-  const state: ConnectionState = { status, generation: 1, terminal: null };
+  const state: ConnectionState = { status, generation: 1 };
   const store = {
     getState: () => state,
     subscribe: () => () => undefined,
@@ -32,7 +32,7 @@ const fakeStore = (status: ConnectionState['status']) => {
 test('resource syncs on one page share one realtime socket per URL', () => {
   const stores = new Map<string, ReturnType<typeof fakeStore>[]>();
   const acquire = sharedConnections((url) => {
-    const made = fakeStore('connecting');
+    const made = fakeStore('ticketing');
     stores.set(url, [...(stores.get(url) ?? []), made]);
     return made.store;
   });

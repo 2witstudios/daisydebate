@@ -4,7 +4,7 @@ import type {
   PresenceActivity,
   ServerMessage,
 } from '@daisy/protocol';
-import type { TerminalReason } from './close-code-policy';
+import type { ConnectionPhase } from './connection-status';
 
 /**
  * The subset of the browser's native `WebSocket` this store uses. Tests
@@ -32,12 +32,9 @@ export type Scheduler = {
   readonly clearTimeout: (id: unknown) => void;
 };
 
-export type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed';
-
-export type ConnectionState = {
-  readonly status: ConnectionStatus;
+/** The connection's phase, and which socket of this store's life it describes. */
+export type ConnectionState = ConnectionPhase & {
   readonly generation: number;
-  readonly terminal: TerminalReason | null;
 };
 
 export type ConnectionStoreDeps = {
@@ -76,7 +73,7 @@ export type ConnectionStore = {
     readonly id: string;
     readonly resource: ObservationResource;
   }) => boolean;
-  /** Single-flight: a no-op while already connecting or open. */
+  /** Single-flight: a no-op while already ticketing, handshaking or open. */
   readonly connect: () => void;
   /**
    * This tab's presence activity (ADR 0033 §1, ADR 0072): a reporting

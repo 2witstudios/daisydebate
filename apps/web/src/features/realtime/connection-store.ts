@@ -11,16 +11,16 @@ import {
 } from './topic-subscriptions';
 import { nextReconnectDelayMs } from './backoff';
 import { createOutstandingPing } from './outstanding-ping';
+import { closeReasonForCode, decideOnClose } from './close-code-policy';
 import {
-  closeReasonForCode,
-  decideOnClose,
-  type TerminalReason,
-} from './close-code-policy';
+  nextConnectionPhase,
+  type ConnectionEvent,
+  type ConnectionPhase,
+} from './connection-status';
 
 import type {
   ConnectionStore,
   ConnectionStoreDeps,
-  ConnectionStatus,
   ConnectionState,
   WebSocketLike,
 } from './connection-types';
@@ -38,8 +38,7 @@ export function createConnectionStore(
 ): ConnectionStore {
   const diagnostics = createConnectionDiagnostics();
   let generation = 0;
-  let status: ConnectionStatus = 'idle';
-  let terminal: TerminalReason | null = null;
+  let phase: ConnectionPhase = { status: 'idle' };
   let socket: WebSocketLike | null = null;
   let consecutiveAuthFailures = 0;
   let reconnectAttempt = 0;
@@ -59,18 +58,26 @@ export function createConnectionStore(
   const listeners = new Set<(state: ConnectionState) => void>();
   const topics = createTopicSubscriptions({
     send: (frame) => {
-      if (status === 'open' && socket) socket.send(JSON.stringify(frame));
+      if (phase.status === 'open' && socket) socket.send(JSON.stringify(frame));
     },
   });
 
-  let disposed = false;
   const lifetime = new AbortController();
   const stopVisibility = deps.onVisibilityChange((visible) => {
-    if (visible && status === 'open' && socket) sendVisibilityPing(generation);
+    if (visible && phase.status === 'open' && socket)
+      sendVisibilityPing(generation);
   });
 
+  const disposed = () => phase.status === 'closed' && phase.why === 'disposed';
+  /** Moves the phase; false when the event does not apply where it is. */
+  function advance(event: ConnectionEvent): boolean {
+    const next = nextConnectionPhase(phase, event);
+    if (next === phase) return false;
+    phase = next;
+    return true;
+  }
   function snapshot(): ConnectionState {
-    return { status, generation, terminal };
+    return { ...phase, generation };
   }
   function notify() {
     const state = snapshot();
@@ -130,7 +137,7 @@ export function createConnectionStore(
     generation += 1;
     const deadSocket = socket;
     socket = null;
-    status = 'closed';
+    advance({ type: 'socket-reaped' });
     try {
       deadSocket?.close();
     } catch {
@@ -194,6 +201,7 @@ export function createConnectionStore(
       }),
     );
     diagnostics.emit(myGeneration, 'hello-sent');
+    if (advance({ type: 'hello-sent' })) notify();
   }
   function handleMessage(myGeneration: number, raw: unknown) {
     if (myGeneration !== generation) return;
@@ -202,9 +210,7 @@ export function createConnectionStore(
     if (!frame) return;
     const type = frame.type;
     if (type === 'ready') {
-      if (status !== 'connecting') return;
-      status = 'open';
-      terminal = null;
+      if (!advance({ type: 'ready' })) return;
       consecutiveAuthFailures = 0;
       reconnectAttempt = 0;
       startHeartbeat(myGeneration);
@@ -214,7 +220,7 @@ export function createConnectionStore(
       topics.emit(frame);
       return;
     }
-    if (status !== 'open') return;
+    if (phase.status !== 'open') return;
     if (type === 'pong' || type === 'subscribed') authorityFailures = 0;
     if (type === 'pong') {
       // Only a pong matching the earliest outstanding ping's own id clears
@@ -237,24 +243,15 @@ export function createConnectionStore(
       reconnectAttempt = authorityFailures;
       authorityFailures += 1;
     }
-    if (!decision.reconnect) {
-      status = 'closed';
-      terminal = decision.terminal;
-      notify();
-      return;
-    }
-    status = 'closed';
-    terminal = null;
+    advance({ type: 'socket-closed', terminal: decision.terminal });
     notify();
-    scheduleReconnect(decision.backoffKind);
+    if (decision.reconnect) scheduleReconnect(decision.backoffKind);
   }
 
   function connect() {
-    if (disposed || status === 'connecting' || status === 'open') return;
+    if (!advance({ type: 'connect-asked' })) return;
     generation += 1;
     const myGeneration = generation;
-    status = 'connecting';
-    terminal = null;
     clearReconnect();
     notify();
 
@@ -302,12 +299,12 @@ export function createConnectionStore(
       .catch((error: unknown) => fail('ticket-failed', error));
   }
 
-  function close() {
+  function end(how: 'left' | 'disposed') {
+    if (disposed()) return;
+    advance({ type: how });
     clearReconnect();
     clearHeartbeat();
     generation += 1;
-    status = 'closed';
-    terminal = null;
     consecutiveAuthFailures = 0;
     reconnectAttempt = 0;
     authorityFailures = 0;
@@ -323,12 +320,12 @@ export function createConnectionStore(
     }
   }
 
-  // RT-2.6a-arch1: `close`'s generation fences late tickets and sockets.
+  const close = () => end('left');
+  // RT-2.6a-arch1: the end's generation fences late tickets and sockets, and
+  // a listener reacting to the final `closed` cannot reconnect a disposed store.
   function dispose() {
-    if (disposed) return;
-    // First, so a listener reacting to the final `closed` cannot reconnect.
-    disposed = true;
-    close();
+    if (disposed()) return;
+    end('disposed');
     for (const release of [stopVisibility, topics.release, diagnostics.release])
       release();
     listeners.clear();
@@ -338,7 +335,7 @@ export function createConnectionStore(
   const live =
     <A extends unknown[]>(register: (...args: A) => () => unknown) =>
     (...args: A) =>
-      disposed ? () => {} : register(...args);
+      disposed() ? () => {} : register(...args);
 
   return {
     onDiagnostic: live(diagnostics.subscribe),
@@ -346,14 +343,14 @@ export function createConnectionStore(
     onMessage: live(topics.onMessage),
     resubscribeTopic: topics.resubscribe,
     sendObservation: (frame) => {
-      if (disposed || status !== 'open' || !socket) return false;
+      if (phase.status !== 'open' || !socket) return false;
       socket.send(JSON.stringify({ v: ENVELOPE_VERSION, ...frame }));
       return true;
     },
     connect,
     close,
     dispose,
-    reportActivity: (next) => activity.report(next, status === 'open'),
+    reportActivity: (next) => activity.report(next, phase.status === 'open'),
     notifyTokenRefreshed: () => {
       // Intentionally a no-op: a token refresh never reconnects a healthy
       // socket (RT-2.6a AC4). The seam exists so a caller has somewhere to

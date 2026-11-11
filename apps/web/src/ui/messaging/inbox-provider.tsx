@@ -18,6 +18,7 @@ import {
 import { createInboxReads } from '../../features/messaging/inbox-reads';
 import { attachMessagingInboxDoorbells } from '../../features/messaging/doorbells';
 import { tabConnection } from '../../features/realtime/browser-adapters';
+import { terminalReason } from '../../features/realtime/connection-status';
 
 type InboxState = MessagingInboxPageAnswer & {
   /** When these rows' ages were last measured. */
@@ -136,7 +137,7 @@ export function InboxProvider({
     });
     doorbell.current = attached;
     const unsubscribe = connection.subscribe((state) => {
-      if (state.terminal !== null) reader.current?.ring();
+      if (terminalReason(state) !== null) reader.current?.ring();
     });
     connection.connect();
     return () => {

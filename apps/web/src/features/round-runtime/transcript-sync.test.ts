@@ -27,7 +27,7 @@ const connectedTranscript = () => {
     seed: seedTranscript(transcript(0)),
     ...edges,
   });
-  edges.connectionState({ status: 'open', generation: 1, terminal: null });
+  edges.connectionState({ status: 'open', generation: 1 });
   return { edges, driver };
 };
 test('capture invalidation refreshes independently of competitive Round version', async () => {

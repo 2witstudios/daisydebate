@@ -1,4 +1,5 @@
 import type { ConnectionStore, Scheduler } from '../realtime/connection-store';
+import { terminalReason } from '../realtime/connection-status';
 import {
   resourceSync,
   shouldRead,
@@ -156,12 +157,12 @@ export function createResourceSyncDriver<T>({
   const bell = connection ? doorbell(connection, signal) : null;
   let opened: number | null = null;
   const stopConnection = connection?.subscribe((next) => {
-    const open = next.status === 'open' && next.terminal === null;
+    const open = next.status === 'open';
     if (open !== ringing) {
       ringing = open;
       armPoll();
     }
-    if (next.terminal !== null) signal(null);
+    if (terminalReason(next) !== null) signal(null);
     else if (open) {
       if (opened !== null && opened !== next.generation) signal(null);
       if (opened !== next.generation) onConnectionOpen?.();
