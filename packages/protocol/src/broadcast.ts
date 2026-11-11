@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { broadcastStopReasons } from './content-moderation';
 
 /** When a Broadcast may release: a delay behind what was captured. */
 export const broadcastReleasePolicySchema = z.strictObject({
@@ -26,10 +27,7 @@ export const SPECTATOR_MARGIN_MS = 15_000;
  * `stop_reason` is one of these and nothing else.
  */
 export const broadcastFeedEndReasons = [
-  'policy_violation',
-  'legal_request',
-  'participant_safety',
-  'technical',
+  ...broadcastStopReasons,
   'recording_removed',
   'recording_legally_removed',
   'recording_removed_by_participant',

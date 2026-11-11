@@ -13,6 +13,8 @@ BEGIN
       ('broadcasts', 'broadcasts_completed_check'),
       ('broadcasts', 'broadcasts_feed_withdrawn_check'),
       ('broadcasts', 'broadcasts_egress_check'),
+      ('broadcasts', 'broadcasts_feed_withdrawal_requested_check'),
+      ('broadcasts', 'broadcasts_observer_revoked_check'),
       ('moderation_actions', 'moderation_actions_ends_after_start_check'),
       ('moderation_actions', 'moderation_actions_lifted_after_start_check'),
       ('recordings', 'recordings_deletion_due_check')

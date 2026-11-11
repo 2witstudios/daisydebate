@@ -1,10 +1,15 @@
 import { createAppError } from '@daisy/errors';
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { PgTable } from 'drizzle-orm/pg-core';
+import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { requireLeaseMs } from './lease-policy';
 import { rowsOf } from './raw-rows';
 import { agentLeaseDigest } from './round-agent-lease';
+import type { mailJobColumns } from './schema/columns';
+
+/** A table that carries the mail job recipe's columns. */
+type MailJobTable = PgTable &
+  Record<keyof ReturnType<typeof mailJobColumns>, PgColumn>;
 
 type Execute = Pick<BunSQLDatabase, 'execute'>;
 
@@ -30,6 +35,8 @@ export type MailJobClaimInput = {
 type Claimed = { readonly row: unknown; readonly token: string };
 
 const MAX_CLAIM = 50;
+/** No retry policy needs more; a larger cap is a caller's mistake. */
+const MAX_ATTEMPT_CAP = 1000;
 
 /**
  * The one writer of a queued mail job's lifecycle, for any table built from
@@ -40,7 +47,7 @@ const MAX_CLAIM = 50;
  * on, whatever ends it short of a confirmed send.
  */
 export const mailQueue = (
-  table: PgTable,
+  table: MailJobTable,
   options: { readonly unknownAfterLapse: SQL },
 ) => {
   /** An earlier send that may have landed stays unknown under any later reason. */
@@ -65,7 +72,7 @@ export const mailQueue = (
       requireLeaseMs(input.leaseMs);
       for (const [value, most] of [
         [input.limit, MAX_CLAIM],
-        [input.maxAttempts, 1000],
+        [input.maxAttempts, MAX_ATTEMPT_CAP],
       ] as const)
         if (!Number.isSafeInteger(value) || value < 1 || value > most)
           throw createAppError('VALIDATION');

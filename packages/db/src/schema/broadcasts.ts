@@ -143,6 +143,16 @@ export const broadcasts = pgTable(
       'broadcasts_feed_withdrawn_check',
       sql`${table.feedWithdrawnAt} is null or ${table.completedAt} is not null or ${table.stoppedAt} is not null`,
     ),
+    /** A feed is asked to go at once only after its Broadcast completed. */
+    check(
+      'broadcasts_feed_withdrawal_requested_check',
+      sql`${table.feedWithdrawalRequestedAt} is null or ${table.completedAt} is not null`,
+    ),
+    /** A revocation that landed has no failure left to count. */
+    check(
+      'broadcasts_observer_revoked_check',
+      sql`${table.observerRevokedAt} is null or ${table.revocationFailures} = 0`,
+    ),
     check(
       'broadcasts_egress_check',
       sql`${table.egressId} is null or ${table.egressStartedAt} is not null`,

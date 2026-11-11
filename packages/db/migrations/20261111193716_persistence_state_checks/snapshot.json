@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ee5fbef0-318c-4bf8-8c7c-63520f47d336",
+  "id": "74d1617c-a82e-4202-b489-85e127f8ff61",
   "prevIds": [
     "28b4a824-69bd-429f-a963-dd6498c3a5fa"
   ],
@@ -28902,6 +28902,20 @@
     {
       "value": "\"feed_withdrawn_at\" is null or \"completed_at\" is not null or \"stopped_at\" is not null",
       "name": "broadcasts_feed_withdrawn_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "value": "\"feed_withdrawal_requested_at\" is null or \"completed_at\" is not null",
+      "name": "broadcasts_feed_withdrawal_requested_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "broadcasts"
+    },
+    {
+      "value": "\"observer_revoked_at\" is null or \"revocation_failures\" = 0",
+      "name": "broadcasts_observer_revoked_check",
       "entityType": "checks",
       "schema": "public",
       "table": "broadcasts"

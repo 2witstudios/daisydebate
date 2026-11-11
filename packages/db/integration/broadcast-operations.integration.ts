@@ -920,12 +920,16 @@ test('the schema refuses a Broadcast state its lifecycle cannot reach', async ()
         await refused(`feed_withdrawn_at = '${at}'`),
         await refused(`egress_id = 'EG_test'`),
         await refused(`stopped_at = '${at}', stop_reason = 'because'`),
+        await refused(`feed_withdrawal_requested_at = '${at}'`),
+        await refused(`observer_revoked_at = '${at}', revocation_failures = 1`),
       ],
       expected: [
         'broadcasts_completed_check',
         'broadcasts_feed_withdrawn_check',
         'broadcasts_egress_check',
         'broadcasts_stop_reason_check',
+        'broadcasts_feed_withdrawal_requested_check',
+        'broadcasts_observer_revoked_check',
       ],
     });
     assert({

@@ -123,7 +123,12 @@ export const recordingOperations = ({
         .where(
           and(
             eq(recordings.status, 'removing'),
-            lte(recordings.deletionDueAt, at),
+            // A removal stored before `recordings_deletion_due_check` may have
+            // no due time: it is due now, and its first deferral repairs it.
+            or(
+              isNull(recordings.deletionDueAt),
+              lte(recordings.deletionDueAt, at),
+            ),
             or(isNull(recordings.leaseUntil), lte(recordings.leaseUntil, at)),
           ),
         )

@@ -12,8 +12,8 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const added = '20261111191626_persistence_state_checks';
-const validated = '20261111191639_persistence_state_checks_validated';
+const added = '20261111193716_persistence_state_checks';
+const validated = '20261111193718_persistence_state_checks_validated';
 const scratch = scratchDatabase(url, 'statechecks');
 
 afterAll(() => scratch.drop());
@@ -21,7 +21,9 @@ afterAll(() => scratch.drop());
 const checks = [
   'broadcasts_completed_check',
   'broadcasts_egress_check',
+  'broadcasts_feed_withdrawal_requested_check',
   'broadcasts_feed_withdrawn_check',
+  'broadcasts_observer_revoked_check',
   'broadcasts_stop_reason_check',
   'moderation_actions_ends_after_start_check',
   'moderation_actions_lifted_after_start_check',
@@ -43,7 +45,7 @@ test('a database with no violating row ends with every new CHECK validated', asy
   try {
     assert({
       given: 'the committed migrations applied to a database with no rows',
-      should: 'leave all seven constraints validated',
+      should: 'leave all nine constraints validated',
       actual: await validity(sql),
       expected: Object.fromEntries(checks.map((name) => [name, true])),
     });
@@ -102,7 +104,9 @@ test(
             afterMigration: {
               broadcasts_completed_check: false,
               broadcasts_egress_check: true,
+              broadcasts_feed_withdrawal_requested_check: true,
               broadcasts_feed_withdrawn_check: true,
+              broadcasts_observer_revoked_check: true,
               broadcasts_stop_reason_check: true,
               moderation_actions_ends_after_start_check: false,
               moderation_actions_lifted_after_start_check: true,
