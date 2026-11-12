@@ -8,6 +8,7 @@ export {
   isDefiniteProviderFailure,
   isTransientProviderFailure,
   isUnhealableProviderRefusal,
+  type ChatMessage,
   type OpenRouter,
 } from './openrouter';
 export { judgingStageMessages } from './staged-judge';
