@@ -63,42 +63,64 @@ const rejected = (
   category: JudgingAttemptDiagnostic['category'],
   finish: JudgingFinish,
   issues: readonly z.core.$ZodIssue[] = [],
+  record: (issue: z.core.$ZodIssue) => IssueRecord = issueRecord,
 ): Rejected => ({
   ok: false,
   diagnostic: {
     category,
     finish,
     issueCount: issues.length,
-    issues: issues.slice(0, judgingRecordedIssueLimit).map(issueRecord),
+    issues: issues.slice(0, judgingRecordedIssueLimit).map(record),
   },
 });
 
-/**
- * A judge model's answer as the one ballot contract the human judging UI
- * produces (ADR 0058 §6), or the safe reason it is not. Validation is exact:
- * nothing is trimmed, defaulted or repaired to make a ballot pass.
- */
-export function judgeAnswer(answer: {
+type ModelAnswer = {
   readonly text: string;
   readonly finish: JudgingFinish;
   readonly refused: boolean;
-}): JudgedAnswer {
+};
+
+/**
+ * One model answer read as one exact contract, or the safe reason it is
+ * not: refused, truncated, malformed or rejected. Nothing is trimmed,
+ * defaulted or repaired to make an answer pass.
+ */
+function contractAnswer<T>(
+  answer: ModelAnswer,
+  schema: z.ZodType<T>,
+  malformed: string,
+  record?: (issue: z.core.$ZodIssue) => IssueRecord,
+): { readonly ok: true; readonly value: T } | Rejected {
   const { finish } = answer;
   if (answer.refused || finish === 'content_filter')
     return rejected('refused', finish);
   let value: unknown;
   try {
-    value = modelJson(answer.text, 'The judge answered malformed JSON');
+    value = modelJson(answer.text, malformed);
   } catch {
     return rejected(finish === 'length' ? 'truncated' : 'invalid_json', finish);
   }
-  const result = ballotSchema.safeParse(value);
-  if (result.success) return { ok: true, ballot: result.data };
+  const result = schema.safeParse(value);
+  if (result.success) return { ok: true, value: result.data };
   return rejected(
     finish === 'length' ? 'truncated' : 'schema_rejected',
     finish,
     result.error.issues,
+    record,
   );
+}
+
+/**
+ * A judge model's answer as the one ballot contract the human judging UI
+ * produces (ADR 0058 §6), or the safe reason it is not.
+ */
+export function judgeAnswer(answer: ModelAnswer): JudgedAnswer {
+  const judged = contractAnswer(
+    answer,
+    ballotSchema,
+    'The judge answered malformed JSON',
+  );
+  return judged.ok ? { ok: true, ballot: judged.value } : judged;
 }
 
 type CaseMapAnswer =
@@ -107,36 +129,15 @@ type CaseMapAnswer =
 
 /**
  * A case-map answer as the case-map contract (ADR 0125), or the safe reason
- * it is not. Validation is exact, and a rejection names only `case_map`:
- * no path, key or value from the answer is recorded.
+ * it is not. A rejection names only `case_map`: no path, key or value from
+ * the answer is recorded.
  */
-export function caseMapAnswer(answer: {
-  readonly text: string;
-  readonly finish: JudgingFinish;
-  readonly refused: boolean;
-}): CaseMapAnswer {
-  const { finish } = answer;
-  if (answer.refused || finish === 'content_filter')
-    return rejected('refused', finish);
-  let value: unknown;
-  try {
-    value = modelJson(answer.text, 'The case map answered malformed JSON');
-  } catch {
-    return rejected(finish === 'length' ? 'truncated' : 'invalid_json', finish);
-  }
-  const result = caseMapSchema.safeParse(value);
-  if (result.success) return { ok: true, caseMap: result.data };
-  const issues = result.error.issues;
-  return {
-    ok: false,
-    diagnostic: {
-      category: finish === 'length' ? 'truncated' : 'schema_rejected',
-      finish,
-      issueCount: issues.length,
-      issues: issues.slice(0, judgingRecordedIssueLimit).map((issue) => {
-        const record = issueRecord(issue);
-        return { ...record, field: 'case_map' as const };
-      }),
-    },
-  };
+export function caseMapAnswer(answer: ModelAnswer): CaseMapAnswer {
+  const mapped = contractAnswer(
+    answer,
+    caseMapSchema,
+    'The case map answered malformed JSON',
+    (issue) => ({ ...issueRecord(issue), field: 'case_map' }),
+  );
+  return mapped.ok ? { ok: true, caseMap: mapped.value } : mapped;
 }
