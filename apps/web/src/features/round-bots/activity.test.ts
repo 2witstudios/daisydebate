@@ -172,3 +172,26 @@ test('loud frames either side of a short gap do not add up to a barge-in', () =>
     expected: ['unknown'],
   });
 });
+
+test('quiet speech in the echo tail puts the instant a peer last spoke at most the tail early', () => {
+  let playing = true;
+  const { events, frames } = hearing(() => playing);
+  // The peer talks over the bot, loudly enough to cut it.
+  frames(0, 300, LOUD);
+  playing = false;
+  // They carry on quietly, under the barge-in level, and stop at 700 ms:
+  // for the 400 ms echo tail those frames may be the bot's own voice.
+  frames(300, 700, 600);
+  frames(700, 1800, 0);
+  const spokeUntil = Number(
+    /spoke-until \+(\d+)/.exec(events.at(-1) ?? '')?.[1],
+  );
+  assert({
+    given:
+      'a barge-in, then 400 ms of quiet speech inside the echo tail, then silence',
+    should:
+      'end the turn, naming an instant no more than the 400 ms tail before the peer stopped (the peer-line read allows 500 ms)',
+    actual: [events[0], 700 - spokeUntil <= 400, 700 - spokeUntil < 500],
+    expected: ['barge-in', true, true],
+  });
+});
