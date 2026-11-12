@@ -14,6 +14,10 @@ const labels: ContextChatLabels = {
   heading: 'Room chat',
   audience: 'Everyone in the room',
   composer: 'Message everyone in the room',
+  readOnly: {
+    notice: 'Judges read this chat but don’t post in it.',
+    composer: 'none',
+  },
   messages: 'Room chat messages',
   idPrefix: 'room-chat',
 };

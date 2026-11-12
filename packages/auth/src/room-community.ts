@@ -1,9 +1,11 @@
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
   roomCommunityRetentionMs,
+  roomCommunitySeatReadsOnly,
   type RoomCommunityFact,
 } from '@daisy/protocol/room-community';
 import type { AccountAuthorizationFact } from './authorization-facts';
+import { roomReadable } from './authorization-room';
 import { participantAccess } from './participant-access';
 
 type RoomCommunityDecisionInput = {
@@ -41,14 +43,42 @@ const currentFact = ({ fact, principal }: RoomCommunityDecisionInput) =>
   Number.isSafeInteger(fact.revision) &&
   fact.revision > 0;
 
-/** While the Room gathers: a standing reads and posts, and an author may always withdraw. */
+/** What an actor is to a Room's chat, from the Room's facts about them. */
+export type RoomCommunityStanding = 'seated' | 'visitor' | 'judge' | null;
+
+/**
+ * Whoever may read the Room (`room.read`) is in its chat. A judge's seat reads
+ * and never posts, host or not, so no message can name an anonymous judge
+ * (DEC-174). The host and the debaters post; so does a visitor, a member who
+ * may read the Room and holds no seat.
+ */
+export const roomCommunityStanding = ({
+  visibility,
+  host,
+  seatRole,
+}: Pick<
+  RoomCommunityFact,
+  'visibility' | 'host' | 'seatRole'
+>): RoomCommunityStanding => {
+  const seated = seatRole !== null;
+  if (!roomReadable({ visibility, host, seated })) return null;
+  if (roomCommunitySeatReadsOnly(seatRole)) return 'judge';
+  return host || seated ? 'seated' : 'visitor';
+};
+
+/** While the Room gathers: a standing reads, all but a judge post, and an author may always withdraw. */
 const whileOpen = ({
   fact,
   action,
-}: RoomCommunityDecisionInput): RoomCommunityDecision =>
-  fact.endedAt === null && (action === 'remove' || fact.standing !== null)
-    ? { allow: true, readOnly: false, expiresAt: null }
+}: RoomCommunityDecisionInput): RoomCommunityDecision => {
+  const standing = roomCommunityStanding(fact);
+  const admitted =
+    action === 'remove' ||
+    (standing !== null && (action === 'read' || standing !== 'judge'));
+  return fact.endedAt === null && admitted
+    ? { allow: true, readOnly: standing === 'judge', expiresAt: null }
     : denied;
+};
 
 /** After the Room ended: own removal alone, until the rows are due to be purged. */
 const afterEnd = (
@@ -62,9 +92,10 @@ const afterEnd = (
 };
 
 /**
- * Room chat belongs to a Room while it gathers. Its host, its seats and every
- * member who may read the Room read and post while it is open. Once the Room
- * has started or closed nobody reads, posts or observes. An author may still
+ * Room chat belongs to a Room while it gathers. Everyone who may read the Room
+ * reads it while it is open; its host, its debaters and its visitors post, and
+ * a judge only reads. Once the Room has started or closed nobody reads, posts
+ * or observes. An author may still
  * remove their own message, whatever their standing has become, until the rows
  * are due to be purged; that discloses no one else's content.
  */

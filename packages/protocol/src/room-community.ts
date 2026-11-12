@@ -1,15 +1,21 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import type { RoomStatus, RoomView } from './room-contract';
+import {
+  seatKindOf,
+  type RoomParticipant,
+  type RoomStatus,
+  type RoomView,
+} from './room-contract';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
 } from './messaging/core';
 
 /**
- * Caller-specific Room chat authority. The standing says only whether this
- * actor holds a place in the Room (its host or any seat) or may read it
- * without one; no role, seat or judge identity is disclosed.
+ * Caller-specific Room chat authority: raw facts about the Room and about this
+ * one actor (whether they host it, and their own seat). `decideRoomCommunity`
+ * derives what they may do. It says nothing about anyone else and never
+ * reaches the wire; the caller is told only whether their chat is read-only.
  */
 export type RoomCommunityFact = {
   readonly kind: 'room_community';
@@ -23,8 +29,19 @@ export type RoomCommunityFact = {
   /** When the Room started or closed; null exactly while it is open. */
   readonly endedAt: string | null;
   readonly actorId: string;
-  readonly standing: 'seated' | 'visitor' | null;
+  /** Whether this actor hosts the Room. */
+  readonly host: boolean;
+  /** This actor's own seat, or null when they hold none. */
+  readonly seatRole: RoomParticipant['role'] | null;
 };
+/**
+ * A human judge reads Room chat and never posts in it: a judge is anonymous to
+ * the debaters (DEC-174), and a message under a username would name them. No
+ * seat reads only when there is none.
+ */
+export const roomCommunitySeatReadsOnly = (
+  seatRole: RoomParticipant['role'] | null,
+): boolean => seatRole !== null && seatKindOf(seatRole) === 'judge';
 /** Rows outlive the conversation for reports, export and erasure only. */
 export const roomCommunityRetentionMs = 180 * 24 * 60 * 60 * 1000;
 

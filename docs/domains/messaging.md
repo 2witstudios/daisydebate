@@ -27,20 +27,32 @@ Room chat storage uses kind `room_community` and policy `room.community`, with
 `room_id` as its one owner and a unique `(room_id, kind)` pair: a Room channel
 names no Round, and a Round or social channel names no Room. The Room chat
 authority producer (`daisy_room_community_fact`) and `decideRoomCommunity`
-evaluate the caller's standing and current account under account → Room →
-channel locks. The standing is `seated` for the host and any seat, `visitor`
-for a member who may read a public or unlisted Room without a seat, and none
-otherwise; it never leaves the fact, so a judge is not told apart. Both
-standings read and post while the Room is open; a host control over visitor
-posting is not built. The explicit open POST creates the channel once;
-discovery and rendering never create one. Room commands hold the Room row
+evaluate the caller's current account and Room facts under account → Room →
+channel locks. The fact is raw (status, visibility, end instant, whether the
+caller hosts, the caller's own seat) and never reaches a client; the pure
+decision derives the standing with the one `room.read` rule (`roomReadable`).
+The standing is `seated` for the host and a debater's seat, `visitor` for a
+member who may read a public or unlisted Room without a seat, `judge` for a
+human in a judge's seat (the host included), and none otherwise. Seated members
+and visitors read and post while the Room is open. A judge reads and does not
+post, and is told their chat is read-only: a judge is anonymous to the debaters
+(DEC-174) and a message carries its author's username, so no message can name a
+judge. A host control over visitor posting is not built. The explicit open POST
+creates the channel once; server render and `GET` discovery never create one.
+The page of a member who may post sends that POST on entering an open Room that
+has no chat yet, as the floor does; a judge's page never does, and a judge's
+open is refused. Room commands hold the Room row
 exclusively, so Start and close serialize with every chat write.
 
 Room chat ends when its Room starts or closes: reads, posts and observation are
 denied to everyone from that write, answered as not found, and there is no
 retained-history entry. Own-message withdrawal stays available without posting
 admission or standing. Rows are purged 180 days after the Room's end by the
-same bounded sweep shape as the floor; a filed report stays reviewable for that
+same bounded sweep shape as the floor. That end is `rooms.updated_at`: no write
+moves it once a Room has started or closed (ADR 0126), and
+`room-community-end-instant.integration.ts` pins that. A refused post answers
+403 and any other refusal 404, from the one context-chat fence both contexts
+use (`context-chat/authority.ts`); a filed report stays reviewable for that
 window. Routes are `/api/rooms/:id/chat` (`GET` discover, `POST` open) with
 `/messages`, `/read`, `/edit`, `/remove` and `/report`. See ADR 0126.
 

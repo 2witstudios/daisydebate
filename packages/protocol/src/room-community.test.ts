@@ -1,5 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createRoomCommunitySchemas } from './room-community';
+import {
+  createRoomCommunitySchemas,
+  roomCommunitySeatReadsOnly,
+} from './room-community';
 setupRitewayBun();
 const schemas = createRoomCommunitySchemas({
   messageUnits: 4000,
@@ -46,5 +49,14 @@ describe('Room chat contracts', () => {
         before: { channelId: requestId, sequence: 1 },
       }).success,
       expected: false,
+    }));
+  test('the seat that reads without posting', () =>
+    assert({
+      given: 'each seat and no seat',
+      should: 'be read-only for the judge alone',
+      actual: (['affirmative', 'negative', 'judge', null] as const).map(
+        roomCommunitySeatReadsOnly,
+      ),
+      expected: [false, false, true, false],
     }));
 });

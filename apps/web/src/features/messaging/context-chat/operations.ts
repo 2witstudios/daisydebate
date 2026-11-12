@@ -10,15 +10,14 @@ import {
   channelHistoryView,
   channelMessageView,
   createMessagingCoreSchemas,
-  idSchema,
   contentReportCreateSchema,
 } from '@daisy/protocol';
-import { z } from 'zod';
 import type { App } from '../../../server/app';
 import { parseValidated } from '../../../server/http';
 import { consumeWindowsOrThrow } from '../../../server/rate-limit';
 import { requireMemberActor } from '../../access/actor';
 import { consumeMessagingRead } from '../handler-boundary';
+import { contextChatReportSchema } from './report-command';
 import { sendMessagingMessage } from '../send';
 import { mutateMessagingMessage } from '../mutate';
 
@@ -210,15 +209,7 @@ export function contextChatOperations<Fact extends ContextChannelFact>(
       { ownerId, value }: Input,
       principal: AuthorizationPrincipal,
     ) => {
-      const command = parseValidated(
-        z.strictObject({
-          version: z.literal(1),
-          channelId: idSchema,
-          messageId: idSchema,
-          reason: z.string(),
-        }),
-        value,
-      );
+      const command = parseValidated(contextChatReportSchema, value);
       const report = parseValidated(contentReportCreateSchema, {
         targetKind: 'chat_message',
         targetId: command.messageId,

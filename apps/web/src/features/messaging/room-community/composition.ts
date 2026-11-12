@@ -1,7 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { decideRoomCommunity } from '@daisy/auth/room-community';
 import { roomCommunityMetadataOf } from '@daisy/db/messaging';
-import { createAppError } from '@daisy/errors';
 import {
   createRoomCommunitySchemas,
   type RoomCommunityFact,
@@ -9,6 +8,7 @@ import {
 import type { App } from '../../../server/app';
 import { memberHttpBoundary } from '../../../server/member-boundary';
 import { requireMemberActor } from '../../access/actor';
+import { contextChatFence } from '../context-chat/authority';
 import { createContextChatHandlers } from '../context-chat/handlers';
 import {
   contextChatOperations,
@@ -29,21 +29,17 @@ export function composeRoomCommunityRoutes(app: App) {
   ): ContextChatStore<RoomCommunityFact> => {
     const caller = requireMemberActor(principal);
     const chat = app.database.roomCommunityStore(
-      async ({ scope, fact, account, action }) => {
-        const bound =
-          scope.userId === caller.userId && scope.actorId === caller.actorId;
-        const decision = decideRoomCommunity({
-          principal: caller,
-          fact,
-          account,
-          action,
-          now: app.clock.now(),
-        });
-        if (!bound || !decision.allow)
-          throw createAppError(
-            action === 'post' ? 'AUTHORIZATION' : 'NOT_FOUND',
-          );
-      },
+      contextChatFence(
+        caller,
+        ({ fact, account, action }) =>
+          decideRoomCommunity({
+            principal: caller,
+            fact,
+            account,
+            action,
+            now: app.clock.now(),
+          }).allow,
+      ),
     );
     return {
       discover: (scope) => chat.discover({ roomId, ...scope }),

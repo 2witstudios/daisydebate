@@ -116,10 +116,10 @@ describe('Room chat Messaging producer', () => {
                 store.readChat({ ...scope, ...who }, async (frame) => {
                   if (
                     Object.keys(frame.fact).sort().join() !==
-                    'actorId,channelId,endedAt,kind,policyKey,policyRevision,revision,roomId,standing,status,visibility'
+                    'actorId,channelId,endedAt,host,kind,policyKey,policyRevision,revision,roomId,seatRole,status,visibility'
                   )
                     throw new Error('The fact carries more than its contract');
-                  return frame.fact.standing;
+                  return null;
                 }),
               ),
             ),
@@ -143,8 +143,8 @@ describe('Room chat Messaging producer', () => {
             given: `the host, a debater seat, a judge seat and a member with no seat in a ${visibility} Room`,
             should:
               visibility === 'private'
-                ? 'admit the host and both seats and refuse the member with no seat'
-                : 'admit all four, the seatless member as a visitor',
+                ? 'let the host and the debater read and post, the judge read only, and refuse the member with no seat'
+                : 'let the host, the debater and the seatless visitor read and post, and the judge read only',
             actual: {
               facts,
               posts,
@@ -157,37 +157,134 @@ describe('Room chat Messaging producer', () => {
             },
             expected: {
               facts: [null, null, null, admitted],
-              posts: [null, null, null, admitted],
+              posts: [null, null, 'AUTHORIZATION', admitted],
               reads: [null, null, null, admitted],
-              messages: visibility === 'private' ? 3 : 4,
+              messages: visibility === 'private' ? 2 : 3,
             },
           });
         } finally {
           await cleanupRoomChat(f, scope.roomId);
         }
       }));
-  test('a judge seat is not told apart from any other seat', async () =>
+  test('the fact is raw: who hosts and the caller’s own seat, and a judge’s chat is read-only', async () =>
+    withFixture(databaseUrl, async (f) => {
+      const { store, scope } = await prepared(f, { visibility: 'private' });
+      try {
+        const judge = await member(f);
+        const debater = await member(f);
+        const stranger = await member(f);
+        await seat(f, scope.roomId, judge.actorId, 'judge');
+        await seat(f, scope.roomId, debater.actorId, 'negative');
+        const own = (who: { userId: string; actorId: string }) =>
+          store.readChat({ ...scope, ...who }, async ({ fact }) => [
+            fact.host,
+            fact.seatRole,
+            fact.visibility,
+          ]);
+        const readOnly = async (who: { userId: string; actorId: string }) =>
+          (await store.discover({ ...scope, ...who }))?.readOnly;
+        await send(store, scope);
+        const counters = () =>
+          f.sql`select message_sequence::text,change_version::text from messaging_channel_streams where channel_id=${scope.channelId}`;
+        const before = await counters();
+        const judgePost = await refusal(() =>
+          send(store, { ...scope, ...judge }),
+        );
+        const judgeHistory = await store.readChat(
+          { ...scope, ...judge },
+          (frame) => frame.history({ limit: 10 }),
+        );
+        assert({
+          given:
+            'the host, a judge, a debater and a stranger of a private Room, and a post by the judge',
+          should:
+            'state each caller’s own host and seat facts and decide nothing in SQL, give the judge a read-only chat they can read, and refuse the judge’s post leaving the stream unchanged',
+          actual: {
+            host: await own(scope),
+            judge: await own(judge),
+            debater: await own(debater),
+            stranger: await refusal(() => own(stranger)),
+            readOnly: [
+              await readOnly(scope),
+              await readOnly(judge),
+              await readOnly(debater),
+            ],
+            judgePost,
+            judgeReads: judgeHistory.messages.length,
+            unchanged:
+              JSON.stringify(await counters()) === JSON.stringify(before),
+            messages: await f.count(
+              'messaging_messages',
+              'channel_id',
+              scope.channelId,
+            ),
+          },
+          expected: {
+            host: [true, null, 'private'],
+            judge: [false, 'judge', 'private'],
+            debater: [false, 'negative', 'private'],
+            stranger: 'AUTHORIZATION',
+            readOnly: [false, true, false],
+            judgePost: 'AUTHORIZATION',
+            judgeReads: 1,
+            unchanged: true,
+            messages: 1,
+          },
+        });
+      } finally {
+        await cleanupRoomChat(f, scope.roomId);
+      }
+    }));
+  test('a host seated as judge reads and cannot post or open', async () =>
     withFixture(databaseUrl, async (f) => {
       const { store, scope } = await prepared(f);
       try {
-        const judge = await member(f);
-        const visitor = await member(f);
-        await seat(f, scope.roomId, judge.actorId, 'judge');
-        const standing = (who: { userId: string; actorId: string }) =>
-          store.readChat(
-            { ...scope, ...who },
-            async (frame) => frame.fact.standing,
-          );
+        await cleanupRoomChat(f, scope.roomId);
+        await seat(f, scope.roomId, scope.actorId, 'judge');
+        const opening = await refusal(() =>
+          store.open({ ...scope, newChannelId: createId() }),
+        );
+        const channels = await f.count(
+          'messaging_channels',
+          'room_id',
+          scope.roomId,
+        );
+        const debater = await member(f);
+        await seat(f, scope.roomId, debater.actorId, 'affirmative');
+        const opened = await store.open({
+          ...scope,
+          ...debater,
+          newChannelId: createId(),
+        });
+        const channel = { ...scope, channelId: opened.channelId };
+        await send(store, { ...channel, ...debater });
         assert({
-          given: 'the host, a judge seat and a visitor',
+          given:
+            'a host who holds the judge seat, before and after a debater opens the chat',
           should:
-            'give the fact only seated or visitor, with nothing naming the judge',
-          actual: [
-            await standing(scope),
-            await standing(judge),
-            await standing(visitor),
-          ],
-          expected: ['seated', 'seated', 'visitor'],
+            'refuse the host-judge’s open and create nothing, then let them read a read-only chat and refuse their post',
+          actual: {
+            opening,
+            channels,
+            metadata: await store.open({ ...scope, newChannelId: createId() }),
+            read: (
+              await store.readChat(channel, (frame) =>
+                frame.history({ limit: 10 }),
+              )
+            ).messages.length,
+            post: await refusal(() => send(store, channel)),
+          },
+          expected: {
+            opening: 'AUTHORIZATION',
+            channels: 0,
+            metadata: {
+              channelId: opened.channelId,
+              readOnly: true,
+              expiresAt: null,
+            },
+            read: 1,
+            post: 'AUTHORIZATION',
+          },
         });
       } finally {
         await cleanupRoomChat(f, scope.roomId);
@@ -471,9 +568,10 @@ describe('Room chat Messaging producer', () => {
         const open = await cohort(
           { channelId: scope.channelId, viewers },
           async (frame) => ({
-            standings: viewers.map(
-              (viewer) => frame.factFor(viewer.actorId).standing,
-            ),
+            facts: viewers.map((viewer) => {
+              const { host, seatRole } = frame.factFor(viewer.actorId);
+              return [host, seatRole];
+            }),
             revision: frame.factFor(scope.actorId).revision === revision,
             content: frame.contentRevision,
           }),
@@ -491,11 +589,14 @@ describe('Room chat Messaging producer', () => {
           given:
             'the actual realtime role with no message table grant, before and after the Room starts',
           should:
-            'read the cohort’s standings and matching disclosure header through narrow functions, then find nothing to observe',
+            'read each viewer’s own facts and the matching disclosure header through narrow functions, then find nothing to observe',
           actual: { open, ended, foreign },
           expected: {
             open: {
-              standings: ['seated', 'visitor'],
+              facts: [
+                [true, null],
+                [false, null],
+              ],
               revision: true,
               content: 1,
             },

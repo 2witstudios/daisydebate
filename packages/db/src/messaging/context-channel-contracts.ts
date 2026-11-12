@@ -56,7 +56,13 @@ export type ContextChannelOwner<Fact extends ContextChannelFact> = {
     tx: AuthorizationTransaction,
     input: { readonly ownerId: string; readonly channelId: string },
   ) => Promise<boolean>;
-  /** The labels this context lets a reader see for the authors of a page. */
+  /**
+   * The labels this context lets a reader see. `authorActorIds` are the
+   * authors of the page being read; a context answers at least those it may
+   * label and may answer more of the channel's authors (the floor answers its
+   * whole named audience), so a caller looks labels up by actor and never
+   * assumes the answer is the page's authors alone.
+   */
   readonly readAuthors: (
     tx: AuthorizationTransaction,
     input: {

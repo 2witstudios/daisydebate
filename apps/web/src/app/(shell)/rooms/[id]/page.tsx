@@ -27,6 +27,7 @@ import {
   saveRoomSettingsAction,
   roomInvitationAction,
 } from './actions';
+import { readsRoomChatOnly } from '../../../../features/messaging/room-community/room-chat-reader';
 import { roomChatProps } from './chat/chat-props';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 
@@ -90,6 +91,7 @@ export default async function RoomRoute({
           id,
           identity.principal.actorId,
           result.socketUrl,
+          readsRoomChatOnly(view, identity.principal.actorId),
         )}
       />
     </div>

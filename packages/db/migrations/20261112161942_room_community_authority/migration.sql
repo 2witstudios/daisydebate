@@ -34,20 +34,22 @@ REVOKE ALL ON FUNCTION public.daisy_room_community_channel(text) FROM PUBLIC;
 --> statement-breakpoint
 GRANT EXECUTE ON FUNCTION public.daisy_room_community_channel(text) TO daisy_realtime;
 --> statement-breakpoint
--- Only Room lifecycle, visibility and this caller's standing leave this read.
--- 'seated' is the host or any seat, with no role: a judge is not told apart.
--- 'visitor' is anyone else while the Room is one anyone may read (room.read).
+-- Raw facts only: Room lifecycle and visibility, and about this one caller
+-- whether they host the Room and their own seat. Who may read or post is
+-- decided once, in decideRoomCommunity (@daisy/auth), never here.
 -- The version moves with every Room write (command or sync), so a permit
--- granted before a change is never mistaken for a current one. A Room is not
--- written again once it has started or closed, so its last write is its end.
+-- granted before a change is never mistaken for a current one. updated_at is
+-- the Room's end: no write moves it once a Room has started or closed (ADR
+-- 0126; pinned by room-community-end-instant.integration.ts).
+-- The open-Room status literals here and in the two observation functions
+-- below are SQL spellings of isOpenRoomStatus (ISSUE-1395).
 CREATE FUNCTION public.daisy_room_community_fact(requested_room_id text, requested_actor_id text)
-RETURNS TABLE(version bigint,status text,visibility text,ended_at timestamptz,standing text,channel_id text,authority_revision bigint)
+RETURNS TABLE(version bigint,status text,visibility text,ended_at timestamptz,host boolean,seat_role text,channel_id text,authority_revision bigint)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public
 AS $room_community_fact$
  SELECT r.version::bigint+r.change_version::bigint,r.status,r.visibility,
  CASE WHEN r.status IN ('assembling','ready') THEN NULL ELSE r.updated_at END,
- CASE WHEN r.host_actor_id=requested_actor_id OR p.actor_id IS NOT NULL THEN 'seated'
- WHEN r.visibility IN ('public','unlisted') THEN 'visitor' ELSE NULL END,
+ r.host_actor_id=requested_actor_id,p.role,
  c.id,c.authority_revision
  FROM public.rooms r LEFT JOIN public.room_participants p ON p.room_id=r.id AND p.actor_id=requested_actor_id
  LEFT JOIN public.messaging_channels c ON c.room_id=r.id AND c.kind='room_community'

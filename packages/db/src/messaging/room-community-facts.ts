@@ -9,7 +9,8 @@ type RoomCommunityRow = {
   readonly status: RoomCommunityFact['status'];
   readonly visibility: RoomCommunityFact['visibility'];
   readonly ended_at: Date | null;
-  readonly standing: RoomCommunityFact['standing'];
+  readonly host: boolean;
+  readonly seat_role: RoomCommunityFact['seatRole'];
   readonly channel_id: string | null;
   readonly authority_revision: number | null;
 };
@@ -24,10 +25,11 @@ const factOf = (roomId: string, row: RoomCommunityRow): RoomCommunityFact => ({
   visibility: row.visibility,
   endedAt: row.ended_at === null ? null : new Date(row.ended_at).toISOString(),
   actorId: row.actor_id,
-  standing: row.standing,
+  host: row.host === true,
+  seatRole: row.seat_role,
 });
 
-/** Only the requested callers' standings cross the boundary, in one cohort statement. */
+/** Only the requested callers' own facts cross the boundary, in one cohort statement. */
 export async function readRoomCommunityFacts(
   tx: AuthorizationTransaction,
   roomId: string,

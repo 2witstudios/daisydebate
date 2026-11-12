@@ -30,7 +30,8 @@ const fact: RoomCommunityFact = {
   visibility: 'public',
   endedAt: null,
   actorId: 'actor',
-  standing: 'visitor',
+  host: false,
+  seatRole: null,
 };
 const input = {
   principal,
@@ -43,15 +44,23 @@ const input = {
 };
 const denied = { status: 'denied' as const };
 describe('Room chat observation permits', () => {
-  test('a seated or visiting member of an open Room', () =>
+  test('a visitor, a debater, the host and a judge of an open Room', () =>
     assert({
-      given: 'an eligible visitor and seat of an open Room',
+      given:
+        'an eligible visitor, debater seat, host and judge seat of an open Room',
       should:
-        'issue each the same standard short permit with the exact disclosure revision and content floor',
-      actual: (['visitor', 'seated'] as const).map((standing) =>
-        decideRoomCommunityPermit({ ...input, fact: { ...fact, standing } }),
+        'issue each the same standard short permit with the exact disclosure revision and content floor: a judge reads what everyone reads',
+      actual: (
+        [
+          { host: false, seatRole: null },
+          { host: false, seatRole: 'negative' },
+          { host: true, seatRole: null },
+          { host: false, seatRole: 'judge' },
+        ] as const
+      ).map((caller) =>
+        decideRoomCommunityPermit({ ...input, fact: { ...fact, ...caller } }),
       ),
-      expected: [1, 2].map(() => ({
+      expected: [1, 2, 3, 4].map(() => ({
         status: 'allowed' as const,
         partition: 'members',
         disclosureRevision: 5,
@@ -89,14 +98,14 @@ describe('Room chat observation permits', () => {
           ...input,
           fact: {
             ...fact,
-            standing: 'seated',
+            seatRole: 'affirmative',
             status: 'closed',
             endedAt: instant,
           },
         }),
         decideRoomCommunityPermit({
           ...input,
-          fact: { ...fact, visibility: 'private', standing: null },
+          fact: { ...fact, visibility: 'private' },
         }),
         decideRoomCommunityPermit({ ...input, session: null }),
         decideRoomCommunityPermit({

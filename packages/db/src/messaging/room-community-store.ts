@@ -1,6 +1,7 @@
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
   roomCommunityRetentionMs,
+  roomCommunitySeatReadsOnly,
   type RoomCommunityFact,
 } from '@daisy/protocol/room-community';
 import { sql } from 'drizzle-orm';
@@ -19,10 +20,14 @@ import type {
 } from './room-community-contracts';
 
 type DiscoveryScope = Omit<RoomCommunityScope, 'channelId'>;
-/** Read-only and expiring only once the Room has ended, when own removal is all that is left. */
+/**
+ * Read-only for a judge, who reads and never posts, and for everyone once the
+ * Room has ended, when own removal is all that is left and the rows expire.
+ */
 export const roomCommunityMetadataOf = (fact: RoomCommunityFact) => ({
   channelId: fact.channelId!,
-  readOnly: !isOpenRoomStatus(fact.status),
+  readOnly:
+    !isOpenRoomStatus(fact.status) || roomCommunitySeatReadsOnly(fact.seatRole),
   expiresAt:
     fact.endedAt === null
       ? null

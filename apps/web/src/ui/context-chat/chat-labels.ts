@@ -7,6 +7,15 @@ export type ContextChatLabels = {
   readonly audience: string;
   /** The composer's accessible name and placeholder. */
   readonly composer: string;
+  /**
+   * For a reader who may read and not post: what they are told, and whether
+   * the composer stays, locked, or is not shown. A chat that ended keeps a
+   * draft in view; a reader who never posts has none to keep.
+   */
+  readonly readOnly: {
+    readonly notice: string;
+    readonly composer: 'locked' | 'none';
+  };
   /** The accessible name of the message list. */
   readonly messages: string;
   /** Begins every element id the thread mints, so two chats never share one. */

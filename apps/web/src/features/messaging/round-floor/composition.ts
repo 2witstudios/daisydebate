@@ -1,7 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { decideRoundFloor } from '@daisy/auth/round-floor';
 import { roundFloorMetadataOf } from '@daisy/db/messaging';
-import { createAppError } from '@daisy/errors';
 import {
   createRoundFloorSchemas,
   type RoundFloorFact,
@@ -9,6 +8,7 @@ import {
 import type { App } from '../../../server/app';
 import { memberHttpBoundary } from '../../../server/member-boundary';
 import { requireMemberActor } from '../../access/actor';
+import { contextChatFence } from '../context-chat/authority';
 import { createContextChatHandlers } from '../context-chat/handlers';
 import {
   contextChatOperations,
@@ -25,21 +25,17 @@ export function composeRoundFloorRoutes(app: App) {
   ): ContextChatStore<RoundFloorFact> => {
     const caller = requireMemberActor(principal);
     const floor = app.database.roundFloorStore(
-      async ({ scope, fact, account, action }) => {
-        const bound =
-          scope.userId === caller.userId && scope.actorId === caller.actorId;
-        const decision = decideRoundFloor({
-          principal: caller,
-          fact,
-          account,
-          action,
-          now: app.clock.now(),
-        });
-        if (!bound || !decision.allow)
-          throw createAppError(
-            action === 'post' ? 'AUTHORIZATION' : 'NOT_FOUND',
-          );
-      },
+      contextChatFence(
+        caller,
+        ({ fact, account, action }) =>
+          decideRoundFloor({
+            principal: caller,
+            fact,
+            account,
+            action,
+            now: app.clock.now(),
+          }).allow,
+      ),
     );
     return {
       discover: (scope) => floor.discover({ roundId, ...scope }),

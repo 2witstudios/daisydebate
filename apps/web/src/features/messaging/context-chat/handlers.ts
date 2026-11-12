@@ -4,8 +4,9 @@ import {
   createMessagingCoreSchemas,
   idSchema,
 } from '@daisy/protocol';
-import { z } from 'zod';
+import type { z } from 'zod';
 import type { OperationName } from '../../ops/operation-names';
+import { contextChatReportSchema } from './report-command';
 import { parseValidated, readJson } from '../../../server/http';
 import {
   runEvaluatedRoute,
@@ -25,12 +26,6 @@ export type ContextChatRequestKind =
   | 'remove'
   | 'markRead'
   | 'report';
-const reportInput = z.strictObject({
-  version: z.literal(1),
-  channelId: idSchema,
-  messageId: idSchema,
-  reason: z.string(),
-});
 
 /**
  * Every surface of a context chat enters the same origin/session boundary and
@@ -128,7 +123,7 @@ export function createContextChatHandlers<Open>(
     report: (request: Request, ownerId: string) =>
       run(request, ownerId, 'report', async () => {
         const value = parseValidated(
-          reportInput,
+          contextChatReportSchema,
           await readJson(request, deps.maxBodyBytes),
         );
         const report = parseValidated(contentReportCreateSchema, {

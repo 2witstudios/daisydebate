@@ -60,3 +60,19 @@ test('Room chat creates nothing and shows no composer before its channel is know
     expected: [false, false],
   });
 });
+
+test('a judge’s Room chat says why there is nowhere to write', () => {
+  const html = renderToString(h(RoomChat, { ...props, readOnlyHint: true }));
+  assert({
+    given: 'a Room chat whose reader may read and not post',
+    should:
+      'say that judges read and do not post, in the Room’s own words, with no message field',
+    actual: [
+      html.includes('Judges read this chat but don’t post in it.'),
+      html.includes('is read-only'),
+      html.includes('<textarea'),
+      html.includes('<form'),
+    ],
+    expected: [true, false, false, false],
+  });
+});

@@ -280,9 +280,10 @@ Round waits on and holds only the host's Start round.
 
 Room chat is the Room's own conversation for everyone who may read the Room,
 seat or no seat (ADR 0126). A message shows its author's username and, where
-the viewer may name that seat, the seat and the host mark; nobody else gets a
-label, so an anonymous judge reads like a visitor. It ends when the Round starts
-or the Room closes.
+the viewer may name that seat, the seat and the host mark; a visitor gets no
+label. A judge reads the chat and does not post in it, so no message can name
+an anonymous judge: a judge's thread has no composer and says "Judges read this
+chat but don’t post in it." It ends when the Round starts or the Room closes.
 
 Duration forms use integer minutes and decimal seconds (0–59.999). The form
 boundary converts their strings to exact integer milliseconds and checks the

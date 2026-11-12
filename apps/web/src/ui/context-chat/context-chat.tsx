@@ -54,6 +54,9 @@ function BoundContextChat({
     refresh,
   } = useContextChat({ ...props, context, active, onUnread });
   const composerId = `${labels.idPrefix}-message-${props.ownerId}`;
+  const readOnly =
+    props.readOnlyHint || (state.kind === 'ready' && state.metadata.readOnly);
+  const composed = !readOnly || labels.readOnly.composer === 'locked';
   return (
     <section
       aria-label={labels.region}
@@ -114,13 +117,17 @@ function BoundContextChat({
           />
         ) : null}
       </div>
-      {props.readOnlyHint ||
-      (state.kind === 'ready' && state.metadata.readOnly) ? (
-        <p role="status" className="px-3 text-sm text-ink-muted">
-          {`This ${context.name} is read-only.`}
+      {readOnly ? (
+        <p
+          role="status"
+          className="px-3 text-sm text-ink-muted"
+          // With no composer, a message control returns focus here instead.
+          {...(composed ? {} : { id: composerId, tabIndex: -1 })}
+        >
+          {labels.readOnly.notice}
         </p>
       ) : null}
-      {channelId && idSchema.safeParse(channelId).success ? (
+      {composed && channelId && idSchema.safeParse(channelId).success ? (
         <ContextChatComposer
           id={composerId}
           label={labels.composer}

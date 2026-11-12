@@ -4,8 +4,9 @@ import { contextChannelRetention } from './context-channel-retention';
 
 /**
  * Cutoff supplied as now minus the fixed 180-day Room chat window, measured
- * from the Room's end: a Room is not written again once it has started or
- * closed, so its last write is that end. Counters survive.
+ * from the Room's end: no write moves `updated_at` once a Room has started or
+ * closed (ADR 0126), so it is that end. Counters survive. The ended statuses
+ * are a SQL spelling of `!isOpenRoomStatus` (ISSUE-1395).
  */
 export function roomCommunityRetention(
   database: Pick<BunSQLDatabase, 'execute'>,

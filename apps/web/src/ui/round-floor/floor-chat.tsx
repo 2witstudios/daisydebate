@@ -14,6 +14,7 @@ const labels: ContextChatLabels = {
   heading: 'Debaters and host',
   audience: 'The host can read this chat.',
   composer: 'Message debaters and host',
+  readOnly: { notice: 'This Round chat is read-only.', composer: 'locked' },
   messages: 'Floor messages',
   idPrefix: 'floor',
 };

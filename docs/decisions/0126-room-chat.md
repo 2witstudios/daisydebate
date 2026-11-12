@@ -16,31 +16,49 @@ exactly one owner: a Room channel names its Room and no Round, a Round channel
 its Round and no Room, a social channel neither; a Room has at most one.
 
 The audience is Room read access, not presence. Daisy keeps no roster of who is
-"in the room" without a seat and this decision invents none. A member has one of
-two standings, decided from Room facts and never from the client:
+"in the room" without a seat and this decision invents none. Whoever may read
+the Room (`room.read`: any member for a public or unlisted Room, its host and
+its seats alone for a private one) reads its chat. A member has one of three
+standings, decided from Room facts and never from the client:
 
-- seated: the Room's host and anyone holding a seat, debater or judge;
-- visitor: a member who may read the Room and holds no seat. A public or
-  unlisted Room admits any member; a private Room admits only its host and
-  seats.
+- seated: the Room's host and anyone holding a debater's seat. They read and
+  post;
+- visitor: a member who may read the Room and holds no seat. They read and
+  post;
+- judge: a human holding a judge's seat, the host included when the host sits
+  as judge. They read and do not post.
 
-Both read and post. Each needs a member account that is not erased, is bound to
-the principal and passes participant access (approved beta, no restriction, the
-age floor). Visitors post by default, which is ADR 0062's proposed default; the
+A human judge is anonymous to the debaters (DEC-174), and a message is shown
+under its author's username, so a judge's message would name them: by
+elimination in a private Room, where every other author is a named seat or the
+host. So a judge does not post, in any visibility, and no message can name a
+judge. A bot judge has no account and is not in the chat at all. The Round
+floor excludes judges for the same reason (ADR 0120).
+
+Each standing needs a member account that is not erased, is bound to the
+principal and passes participant access (approved beta, no restriction, the age
+floor). Visitors post by default, which is ADR 0062's proposed default; the
 host's control over visitor posting is a later leaf and is not part of this
 decision. Social DM blocks neither grant nor remove this audience.
 
-The authority fact carries the Room's status, visibility and end instant, the
-caller's standing and the channel's identity and revisions, and nothing else.
-`seated` covers the host and every seat alike, so a judge is not told apart
-from a debater by this fact, and no standing leaves it for a client: a thread
-shows usernames only. An anonymous judge (DEC-174) is therefore
-indistinguishable from a visitor in Room chat. A page that may name a seat adds
-that from the Room it already reads.
+The authority fact is raw: the Room's status, visibility and end instant,
+whether this caller hosts the Room, this caller's own seat, and the channel's
+identity and revisions. SQL decides nothing. The pure `decideRoomCommunity`
+derives the standing from it with the one `room.read` rule that Room pages use
+(`roomReadable` in `@daisy/auth`), so the chat's audience cannot drift from
+"everyone who may read the Room". The fact is about the caller alone and never
+reaches a client. A caller is told only whether their own chat is read-only; a
+thread shows usernames only; and a page that may name a seat adds that from the
+Room it already reads.
 
-Rendering and discovery are reads. A protected explicit POST creates the channel
-once under the Room's lock, and concurrent opens converge on the unique
-Room/kind channel. Every content operation rechecks the current account and
+Rendering and `GET` discovery are reads and never create a channel. A protected
+explicit POST creates the channel once under the Room's lock, and concurrent
+opens converge on the unique Room/kind channel. That POST is sent without a
+gesture: when the page of a member who may post enters an open Room and finds
+no chat yet, it opens one, as the Round floor does. A Room therefore has a
+channel from the first such page view, not from the first message. A judge's
+page never asks to open one, and a judge's open is refused. Every content
+operation rechecks the current account and
 standing under the lock order account, Room, channel, stream. Room commands hold
 the Room exclusively, so Start and close serialize with every chat write.
 Shared message sequencing, retry receipts, edits, author removal, read markers,
@@ -58,8 +76,14 @@ stays available until the rows are due to be purged.
 
 Rows are retained 180 days from the Room's end for reports, export and erasure,
 then swept in bounded batches: receipts, then message leaves, then read state.
-A Room is not written again once it has started or closed, so its last write is
-its end. Ordinary account export and erasure apply. Visible peer messages can be
+The Room's end is `rooms.updated_at`, under this invariant: once a Room has
+started or closed, no write moves `updated_at`. Room commands, maintenance,
+account closure and a restriction's release act only on an open Room, and an
+invitation or a sync signal moves only `change_version`. A later writer that
+set `updated_at` on an ended Room would restart the 180-day clock, so
+`packages/db/integration/room-community-end-instant.integration.ts` pins the
+invariant against every such writer, and any new writer of `rooms` must keep
+it. Ordinary account export and erasure apply. Visible peer messages can be
 reported with the closed chat-message safety reasons; a filed report and signed
 operator review and removal use the existing Content Reports boundaries and
 outlive the conversation for the same window. No new personal content enters
@@ -78,4 +102,6 @@ compliance inventory with a retention window measured from the Room's end.
 A viewer's observation permit is the standard short permit: a tab outlives the
 end of its authority by at most that permit, and receives nothing new in that
 time because no post is accepted. Visitor posting cannot yet be turned off by a
-host.
+host. A human judge can read the Room's conversation and cannot take part in
+it. An unlabelled author in a private Room is someone who has since left their
+seat, never a sitting judge.
