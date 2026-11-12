@@ -45,3 +45,6 @@ apps/web/.proof-hold/
 
 # Prepared Launch browser archive; never includes fixture trust material.
 .cache/launch-browser-image/
+
+# judge bench: pulled rounds and runs (user data, local only)
+.evals/
