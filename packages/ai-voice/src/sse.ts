@@ -1,17 +1,18 @@
 import { createAppError } from '@daisy/errors';
 
 /**
- * The `data` payloads of a server-sent event stream, in order, each as soon
- * as its event is complete. Comments and other fields are skipped; an event
- * left open when the body ends is dropped, since it was never finished.
- */
-/**
  * The most text one line or one event may hold. A completion chunk is a few
  * hundred bytes; a body that sends this much with no line or event end is
  * not an event stream, and reading on would only fill memory.
  */
 const MAX_BUFFERED_CHARS = 1_048_576;
 
+/**
+ * The `data` payloads of a server-sent event stream, in order, each as soon
+ * as its event is complete. Comments and other fields are skipped; an event
+ * left open when the body ends is dropped, since it was never finished. A
+ * line or an event longer than `MAX_BUFFERED_CHARS` fails the stream.
+ */
 export async function* sseData(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<string, void, void> {
