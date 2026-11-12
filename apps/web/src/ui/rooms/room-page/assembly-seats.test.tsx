@@ -50,7 +50,6 @@ test('seat rows render actual readiness without treating empty seats as ready', 
   const html = renderToStaticMarkup(
     <AssemblySeats
       ready={null}
-      ready={null}
       view={occupied}
       viewer={viewer}
       bots={[]}
@@ -199,7 +198,6 @@ test("the viewer's own seat row carries their Ready control (RCHAT-11)", () => {
     html.split('<li ').find((item) => item.includes(`>${name}<`)) ?? '';
   const withControl = renderToStaticMarkup(
     <AssemblySeats
-      ready={null}
       ready={<button type="submit">Not ready</button>}
       view={occupied}
       viewer={viewer}
@@ -209,7 +207,6 @@ test("the viewer's own seat row carries their Ready control (RCHAT-11)", () => {
   );
   const without = renderToStaticMarkup(
     <AssemblySeats
-      ready={null}
       ready={null}
       view={occupied}
       viewer={viewer}
