@@ -5,7 +5,6 @@ import { requireProviderNotCancelled } from './cancellation';
 import { readTranscription } from './transcription-response';
 import { readCompletionStream } from './completion-stream';
 import { finishOf } from './completion-finish';
-export type { CompletionFinish } from './completion-finish';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
