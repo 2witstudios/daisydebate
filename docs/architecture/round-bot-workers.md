@@ -271,8 +271,10 @@ name the effects the speaker runs. In cross-examination:
 - Speech heard for under 400 ms, first frame to last, is not a turn to
   answer (a cough, a click): it still counts as the peer speaking, so it
   holds the bot's audio and an unanswered question is not pressed, but it
-  owes nothing and drops nothing (DEC-398). A bot that was talked over
-  answers whatever followed, however brief: it stopped for it.
+  owes nothing and drops nothing (DEC-398). Giving way never loses an
+  answer: a bot that was talked over answers whatever that peer then said,
+  however brief, and a turn that stood down for a peer's sound before
+  buying anything is owed again when that sound proves brief.
 - The asking seat presses a question that met about 8 s of silence, once per
   question (DEC-397); a respondent never does.
 

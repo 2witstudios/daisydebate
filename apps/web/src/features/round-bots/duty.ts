@@ -21,13 +21,14 @@ export type Duty =
   /**
    * Nothing is owed until a peer's turn ends. `unanswered` is true while the
    * asking seat's last question has met no peer speech, and may be pressed
-   * once. `cutOff` is true when a peer talked over the bot: it stopped for
-   * them, so it answers whatever they then said, however brief.
+   * once. `yielded` is what the bot gave way to a peer's speech: that
+   * speech ending owes an answer however brief it was, so giving way never
+   * loses one.
    */
   | {
       readonly status: 'waiting';
       readonly unanswered: boolean;
-      readonly cutOff: boolean;
+      readonly yielded: Yielded | null;
     }
   /**
    * A turn is owed. `paused` after a refusal or a failure: it starts only
@@ -37,6 +38,13 @@ export type Duty =
   | ({ readonly status: 'speaking' } & Turn)
   /** Nothing more is ever said under this claim. */
   | { readonly status: 'over' };
+
+/** What a waiting bot gave way to a peer's speech. */
+export type Yielded =
+  /** Its audio: `peer` talked over it, and it answers what they said. */
+  | { readonly kind: 'audio'; readonly peer: string }
+  /** A turn it had started but bought nothing for: still owed if the peer said nothing more. */
+  | { readonly kind: 'turn'; readonly to: Owed };
 
 /** One owed turn and what it has cost so far. */
 type Turn = {
@@ -128,9 +136,16 @@ export const initialSpeakerState = (rules: DutyRules): SpeakerState => ({
   midTurn: [],
 });
 
-const WAITING: Duty = { status: 'waiting', unanswered: false, cutOff: false };
-/** Talked over: the bot stopped, and owes a reply to whatever comes. */
-const CUT_OFF: Duty = { status: 'waiting', unanswered: false, cutOff: true };
+const WAITING: Duty = {
+  status: 'waiting',
+  unanswered: false,
+  yielded: null,
+};
+const yieldedTo = (yielded: Yielded): Duty => ({
+  status: 'waiting',
+  unanswered: false,
+  yielded,
+});
 /**
  * Speech shorter than this is not a turn to answer: a cough, a click, a
  * breath. A one-word answer ("yes", "no") runs 300 to 500 ms as heard, first
@@ -162,17 +177,32 @@ function peerSpoke(
     case 'speaking':
       // Talked over: the bot stops and waits for that peer's turn to end.
       if (event.audible)
-        return { state: { duty: CUT_OFF, midTurn }, effects: ['cut', 'drop'] };
+        return {
+          state: {
+            duty: yieldedTo({ kind: 'audio', peer: event.peer }),
+            midTurn,
+          },
+          effects: ['cut', 'drop'],
+        };
       // The peer has more to say and nothing was bought for what they said
       // so far: the turn stands down, and their turn ending owes the answer.
       // A turn that has bought its answer keeps it and holds its audio.
       return event.bought
         ? { state: { duty, midTurn }, effects: [] }
-        : { state: { duty: WAITING, midTurn }, effects: ['restart'] };
+        : {
+            state: {
+              duty: yieldedTo({ kind: 'turn', to: duty.to }),
+              midTurn,
+            },
+            effects: ['restart'],
+          };
     case 'waiting':
       // The peer replied (or spoke at all): the question is not unanswered.
       return {
-        state: { duty: duty.cutOff ? CUT_OFF : WAITING, midTurn },
+        state: {
+          duty: duty.yielded ? yieldedTo(duty.yielded) : WAITING,
+          midTurn,
+        },
         effects: event.audible ? ['silence'] : [],
       };
     case 'owed':
@@ -197,13 +227,17 @@ function peerTurnEnded(
   const { duty } = state;
   if (duty.status === 'over') return { state: { duty, midTurn }, effects: [] };
   // Too brief to be a turn: the peer is no longer mid-turn, and nothing is
-  // owed for it or dropped because of it. A bot that was talked over still
-  // answers: it stopped for this.
-  if (
-    event.spokeForMs < BRIEF_TURN_MS &&
-    !(duty.status === 'waiting' && duty.cutOff)
-  )
-    return { state: { duty, midTurn }, effects: [] };
+  // owed for it or dropped because of it. What the bot gave way for is the
+  // exception: giving way must never lose an answer.
+  if (event.spokeForMs < BRIEF_TURN_MS) {
+    const yielded = duty.status === 'waiting' ? duty.yielded : null;
+    // The turn it stood down from is owed again: the peer added nothing.
+    if (yielded?.kind === 'turn')
+      return { state: { duty: owe(yielded.to), midTurn }, effects: [] };
+    // Another peer's brief sound is not what cut the bot off.
+    if (yielded?.kind !== 'audio' || yielded.peer !== event.peer)
+      return { state: { duty, midTurn }, effects: [] };
+  }
   // Turns end in the order they are heard to, not the order they were spoken:
   // an unheard peer's turn ends late. The turn spoken last is the one owed.
   if (
@@ -239,7 +273,7 @@ function turnEnded(
       // A question may be pressed once: never the pressing itself.
       const unanswered = rules.asks && duty.to.kind !== 'unanswered';
       return {
-        duty: { status: 'waiting', unanswered, cutOff: false },
+        duty: { status: 'waiting', unanswered, yielded: null },
         effects: unanswered ? ['drop', 'await-reply'] : ['drop'],
       };
     }

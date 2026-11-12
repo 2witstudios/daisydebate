@@ -269,3 +269,22 @@ test('the hearing leaves a trace of what it heard, discarded and was refused', a
     expected: [],
   });
 });
+
+test('an ended turn is traced with how long the peer spoke', async () => {
+  const s = session();
+  s.listening.start();
+  await s.joined();
+  await s.listening.poll();
+  s.speak(['peer-identity']);
+  // A second of silence after 200 ms of speech ends the turn.
+  for (let sequence = 20; sequence < 120; sequence++) {
+    s.subscriptions.at(-1)!.frame('peer-identity', sequence, 0);
+    s.advance(10);
+  }
+  assert({
+    given: '200 ms of peer speech, then a pause',
+    should: 'trace the end of the turn with the 200 ms it lasted',
+    actual: s.observed.at(-1),
+    expected: `activity.end-of-turn 200 ${'r'.repeat(24)}`,
+  });
+});

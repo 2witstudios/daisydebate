@@ -107,7 +107,14 @@ export function createBotListening(
     staleAfterMs: STALE_AFTER_MS,
     playing: input.playing,
     onEvent: (event) => {
-      observed(`activity.${event.kind}`);
+      // An ended turn says how long the peer spoke: a turn let go as too
+      // brief is told from one answered by that alone.
+      observed(
+        `activity.${event.kind}`,
+        event.kind === 'end-of-turn'
+          ? { durationMs: event.spokeForMs }
+          : undefined,
+      );
       input.onEvent(event);
     },
   });
