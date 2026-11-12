@@ -69,9 +69,11 @@ const focusLost = () => {
  * `onlyWhenLost` is for a form whose neighbours stay usable while its answer
  * is on the way (one row's button among several, inside a dialog). Focus
  * then moves only if it is lost, never away from where the member has since
- * put it. Such a form may also leave the page before its answer arrives,
- * when live sync removes its row first; a debt still unpaid at that moment
- * is paid on the way out, on the same condition.
+ * put it. Such a form may also leave the page, when live sync removes its
+ * row: before its answer arrives, or after an answer that found focus still
+ * on the form's own control (an engine that keeps focus on a control while
+ * it is disabled). A debt unpaid at that moment is paid on the way out, on
+ * the same condition.
  */
 export function useFocusAfterAnswer(
   answered: unknown,
@@ -81,26 +83,28 @@ export function useFocusAfterAnswer(
 ) {
   const seen = useRef(answered);
   const owed = useRef(false);
-  const waiting = useRef(false);
-  const pay = useRef(() => {});
+  /** What unmounting still has to pay: an answer on its way, or one that moved nothing. */
+  const owedOnLeaving = useRef(false);
+  const pay = useRef<() => boolean>(() => false);
   useEffect(() => {
     if (answered === seen.current) return;
     seen.current = answered;
     owed.current = true;
   }, [answered]);
   useEffect(() => {
-    waiting.current = !settled;
     pay.current = () => {
-      if (targetId === undefined || (onlyWhenLost && !focusLost())) return;
-      document.getElementById(targetId)?.focus();
+      if (onlyWhenLost && !focusLost()) return false;
+      if (targetId !== undefined) document.getElementById(targetId)?.focus();
+      return true;
     };
+    if (!settled) owedOnLeaving.current = true;
     if (!owed.current || !settled) return;
     owed.current = false;
-    pay.current();
+    owedOnLeaving.current = !pay.current();
   });
   useEffect(
     () => () => {
-      if (onlyWhenLost && (owed.current || waiting.current)) pay.current();
+      if (onlyWhenLost && owedOnLeaving.current) pay.current();
     },
     [onlyWhenLost],
   );

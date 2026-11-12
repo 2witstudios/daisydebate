@@ -142,7 +142,7 @@ test('the host invites from a header dialog that stays open, and the invited mem
     await hydrated(decline);
     await decline.focus();
     await guest.page.keyboard.press('Enter');
-    await expectFocusOn(guest.page, 'h1', 'room-title');
+    await expectFocusOn(guest.page, 'h1', 'room-heading');
     await expect(notice).toHaveCount(0, SYNCED);
     await page.reload();
     await hydrated(opener);

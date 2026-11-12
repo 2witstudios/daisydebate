@@ -216,6 +216,26 @@ test('a Withdraw answer hands focus to the username field only when focus is los
   await movedOn.close();
 });
 
+test('a Withdraw whose button kept focus hands it to the username field when its row goes', async () => {
+  // happy-dom, like some engines, leaves focus on a control as it is disabled.
+  const page = await openDialog([pending[0]!]);
+  await page.press(page.buttons('Withdraw')[0]);
+  await page.answer(0, withdrawn);
+  const afterAnswer =
+    page.browser.document.activeElement ===
+    (page.buttons('Withdraw')[0] as unknown);
+  await page.show([]);
+  assert({
+    given:
+      'a Withdraw answered while focus never left its button, then its row removed by room sync',
+    should:
+      'leave focus on the button at the answer, and move it to the username field when the row goes',
+    actual: [afterAnswer, page.focus()],
+    expected: [true, 'invite-people-username'],
+  });
+  await page.close();
+});
+
 test('an invitation that ends elsewhere moves no focus', async () => {
   const page = await openDialog(pending);
   page.dropFocus();

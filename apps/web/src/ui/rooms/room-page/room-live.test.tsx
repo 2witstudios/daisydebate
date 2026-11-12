@@ -127,6 +127,13 @@ describe('RoomLive', () => {
         invitedNotice: false,
       },
     });
+    const ids = [...host.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
+    assert({
+      given: 'the host’s page, with Room setup and both header dialogs in it',
+      should: 'give no two elements the same id',
+      actual: ids.filter((id, index) => ids.indexOf(id) !== index),
+      expected: [],
+    });
     assert({
       given: 'the invited member',
       should:
