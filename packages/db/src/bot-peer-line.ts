@@ -18,6 +18,12 @@ import { utterances } from './schema/utterances';
  * calibration: a line may sit this far from the instant and still hold it.
  */
 const CLOCK_SKEW_MS = 100;
+/**
+ * An authored line ends when its audio does, with no closing pause, on its
+ * publisher's clock; the hearing names the instant a subscriber received
+ * the last of it, later by the media hop. Its end is allowed this much.
+ */
+const AUTHORED_END_ALLOWANCE_MS = 500;
 
 /**
  * Whether the line holding what a peer said at `at` is in the transcript, as
@@ -41,8 +47,8 @@ export async function peerLineCovers(
   const instant = sql`${at.toISOString()}::timestamptz`;
   const skew = sql`${CLOCK_SKEW_MS} * interval '1 millisecond'`;
   /** A stretch from `start` lasting `durationMs` that holds the instant. */
-  const covers = (start: SQL, durationMs: AnyColumn) =>
-    sql`${start} <= ${instant} + ${skew} and ${start} + ${durationMs} * interval '1 millisecond' >= ${instant} - ${skew}`;
+  const covers = (start: SQL, durationMs: AnyColumn, endAllowanceMs: number) =>
+    sql`${start} <= ${instant} + ${skew} and ${start} + (${durationMs} + ${endAllowanceMs}) * interval '1 millisecond' >= ${instant}`;
   const [line] = await tx
     .select({ id: utterances.id })
     .from(utterances)
@@ -64,13 +70,18 @@ export async function peerLineCovers(
             covers(
               sql`${roundSegments.startedAt} + ${utterances.captureStartOffsetMs} * interval '1 millisecond'`,
               utterances.captureDurationMs,
+              CLOCK_SKEW_MS,
             ),
           ),
           // An authored line is dated at its audio start, and is history once closed.
           and(
             isNotNull(utterances.botPhraseId),
             eq(utterances.complete, true),
-            covers(sql`${utterances.createdAt}`, utterances.botDurationMs),
+            covers(
+              sql`${utterances.createdAt}`,
+              utterances.botDurationMs,
+              AUTHORED_END_ALLOWANCE_MS,
+            ),
           ),
         ),
       ),

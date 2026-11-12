@@ -229,7 +229,13 @@ export function createBotGeneration(input: {
         record = () => finish(answer.outcome, NO_USAGE);
         // The whole sentences already written are still said.
         producer.push(stream.cut());
-        producer.cut(answer.error);
+        producer.cut(
+          // A stall is the provider failing, not the claim's authority
+          // changing: it reads as cancelled only because the watch stopped it.
+          stalled.signal.aborted
+            ? createAppError('INFRASTRUCTURE', 'Bot answer stalled')
+            : answer.error,
+        );
       })
       // Refused before dispatch (a full budget, a cancelled call): nothing was bought.
       .catch((error: unknown) => producer.cut(error))

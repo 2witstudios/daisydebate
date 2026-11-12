@@ -66,13 +66,20 @@ test('a bot reads whether the line holding a peer’s words at an instant is wri
     assert({
       given:
         'a bot peer’s authored line from 5000 to 7000 ms, read while it plays, once closed, and past its end',
-      should: 'count only once closed, for an instant its audio holds',
+      should:
+        'count only once closed, for an instant its audio holds or that was heard up to 500 ms after it ended',
       actual: {
         stillPlaying,
         closed: await reads([bot.id], 6000),
-        past: await reads([bot.id], 7101),
+        past: await reads([bot.id], 7501),
+        heardLate: await reads([bot.id], 7400),
       },
-      expected: { stillPlaying: false, closed: true, past: false },
+      expected: {
+        stillPlaying: false,
+        closed: true,
+        past: false,
+        heardLate: true,
+      },
     });
     await assertRejects({
       given: 'a wrong claim token',

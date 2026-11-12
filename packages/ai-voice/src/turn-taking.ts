@@ -46,8 +46,15 @@ export const turnTakingSettings: TurnTakingSettings = {
 export type TurnTakingEvent =
   | { readonly kind: 'speech-start' }
   | { readonly kind: 'barge-in' }
-  /** `spokeUntil` is the instant of the last frame counted as the peer's own speech. */
-  | { readonly kind: 'end-of-turn'; readonly spokeUntil: number };
+  /**
+   * `spokeFrom` and `spokeUntil` are the instants of the first and the last
+   * frame counted as the peer's own speech in the turn.
+   */
+  | {
+      readonly kind: 'end-of-turn';
+      readonly spokeFrom: number;
+      readonly spokeUntil: number;
+    };
 
 export function createTurnTaking(settings: TurnTakingSettings) {
   let speaking = false;
@@ -61,12 +68,13 @@ export function createTurnTaking(settings: TurnTakingSettings) {
   let bargeSince: number | null = null;
   /** One barge-in per stretch of talking over: armed again once it stops. */
   let barged = false;
+  let spokeFrom = 0;
   let spokeUntil = 0;
   const endTurn = (): TurnTakingEvent => {
     speaking = false;
     aboveSince = null;
     quietSince = null;
-    return { kind: 'end-of-turn', spokeUntil };
+    return { kind: 'end-of-turn', spokeFrom, spokeUntil };
   };
   /** Time without speech counts toward the end of a turn in progress. */
   const pause = (at: number): TurnTakingEvent | null => {
@@ -97,6 +105,7 @@ export function createTurnTaking(settings: TurnTakingSettings) {
     if (barged || at - bargeSince < settings.bargeMs) return null;
     barged = true;
     // A peer already mid-turn is still talking over the bot.
+    if (!speaking) spokeFrom = bargeSince;
     speaking = true;
     return { kind: 'barge-in' };
   };
@@ -112,6 +121,7 @@ export function createTurnTaking(settings: TurnTakingSettings) {
     aboveSince ??= at;
     if (at - aboveSince < settings.minSpeechMs) return null;
     speaking = true;
+    spokeFrom = aboveSince;
     aboveSince = null;
     return { kind: 'speech-start' };
   };

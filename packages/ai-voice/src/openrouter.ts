@@ -123,21 +123,34 @@ export function createOpenRouter({
     'X-Title': 'Daisy',
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
-  const post = async (path: string, body: unknown, signal?: AbortSignal) => {
+  /**
+   * `timeoutMs` bounds the whole call, body included. A streamed answer is
+   * as long as it is, so for `streamed` it bounds only the wait for the
+   * response to begin; the caller watches the stream itself.
+   */
+  const post = async (
+    path: string,
+    body: unknown,
+    signal?: AbortSignal,
+    streamed = false,
+  ) => {
     if (signal?.aborted)
       throw definite(
         createAppError('CONFLICT', 'Provider operation cancelled'),
       );
+    const late = new AbortController();
+    const waiting = streamed
+      ? setTimeout(() => late.abort(), timeoutMs)
+      : undefined;
+    const bound = streamed ? late.signal : AbortSignal.timeout(timeoutMs);
     let response: Response;
     try {
       response = await fetch(`${BASE}${path}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: signal
-          ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
-          : AbortSignal.timeout(timeoutMs),
-      });
+        signal: signal ? AbortSignal.any([signal, bound]) : bound,
+      }).finally(() => clearTimeout(waiting));
     } catch (cause) {
       requireProviderNotCancelled(signal);
       throw createAppError(
@@ -255,6 +268,7 @@ export function createOpenRouter({
         path,
         { ...chatBody(request), stream: true, usage: { include: true } },
         request.signal,
+        true,
       );
       return reading(
         path,

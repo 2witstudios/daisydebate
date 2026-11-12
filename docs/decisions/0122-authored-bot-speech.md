@@ -164,11 +164,15 @@ first phrase; and cross-examination was not a back-and-forth.
    unfinished sentence is dropped, the failure is reported once, the call
    settles `unknown` (or `failed` when certainly unserved), and nothing is
    bought in its place. A stream that fails before its first phrase is a
-   failed call under the existing attempt rule.
+   failed call under the existing attempt rule. A stream is as long as
+   its answer, so nothing bounds its whole length: it is stopped when no
+   text has arrived for the call timeout, and a stall is a provider failure
+   like any other (before the first phrase it spends an attempt; after it,
+   the speech ends at its last whole phrase).
 5. **Cross-examination answers the words in the transcript.** Capture stays
    the one source of a person's words; the bot never transcribes what it
    hears. Its hearing only times turns. An answer to a peer turn is made once
-   that peer's captured line reaching the instant they last spoke is in the
+   that peer's line covering the instant they last spoke is in the
    transcript, or after 4 s.
 
 Not built, on purpose, and each a later phrase source or optimization that

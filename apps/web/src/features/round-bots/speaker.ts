@@ -116,6 +116,8 @@ export type PeerActivity =
       readonly peer: string;
       /** The server instant that peer last spoke. */
       readonly spokeUntilMs: number;
+      /** How long their speech in the turn lasted, first frame to last. */
+      readonly spokeForMs: number;
     };
 /**
  * One speaking turn at a time per owned claim. What the seat owes is one
@@ -638,6 +640,7 @@ export function createBotSpeaker(input: {
             type: 'peer-turn-ended',
             peer: activity.peer,
             spokeUntilMs: activity.spokeUntilMs,
+            spokeForMs: activity.spokeForMs,
           });
       }
     },

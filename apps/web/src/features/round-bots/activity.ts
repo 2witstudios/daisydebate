@@ -28,13 +28,19 @@ type PeerState = {
  * that peer speaking.
  */
 const ECHO_TAIL_MS = 400;
+/** One frame of peer audio: 160 samples at 16 kHz. */
+const FRAME_MS = 10;
 /** What the hearing reports about one peer; instants are server milliseconds. */
 export type BotAudioActivityEvent = {
   readonly roundParticipantId: string;
 } & (
   | { readonly kind: 'speech-start' | 'barge-in' | 'unknown' }
-  /** `spokeUntilMs` is when that peer last spoke. */
-  | { readonly kind: 'end-of-turn'; readonly spokeUntilMs: number }
+  /** `spokeUntilMs` is when that peer last spoke; `spokeForMs`, for how long in all. */
+  | {
+      readonly kind: 'end-of-turn';
+      readonly spokeUntilMs: number;
+      readonly spokeForMs: number;
+    }
 );
 function freshFrame(frame: BotAudioActivityFrame, staleAfterMs: number) {
   const oldest = Date.parse(frame.serverWindow.before),
@@ -126,6 +132,8 @@ export function createBotAudioActivity(input: {
             kind: event.kind,
             roundParticipantId: participantId,
             spokeUntilMs: event.spokeUntil,
+            // Both instants are frame ends: the first frame's own length counts.
+            spokeForMs: event.spokeUntil - event.spokeFrom + FRAME_MS,
           }
         : { kind: event.kind, roundParticipantId: participantId },
     );

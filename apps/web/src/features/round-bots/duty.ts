@@ -20,9 +20,15 @@ export type Owed =
 export type Duty =
   /**
    * Nothing is owed until a peer's turn ends. `unanswered` is true while the
-   * asking seat's last question has met no peer speech, and may be pressed once.
+   * asking seat's last question has met no peer speech, and may be pressed
+   * once. `cutOff` is true when a peer talked over the bot: it stopped for
+   * them, so it answers whatever they then said, however brief.
    */
-  | { readonly status: 'waiting'; readonly unanswered: boolean }
+  | {
+      readonly status: 'waiting';
+      readonly unanswered: boolean;
+      readonly cutOff: boolean;
+    }
   /**
    * A turn is owed. `paused` after a refusal or a failure: it starts only
    * once the pause is over. A turn that replaces it starts with no pause.
@@ -82,6 +88,8 @@ export type DutyEvent =
       readonly type: 'peer-turn-ended';
       readonly peer: string;
       readonly spokeUntilMs: number;
+      /** How long that peer's speech in the turn lasted. */
+      readonly spokeForMs: number;
     }
   /** The asking seat's question has met silence for long enough. */
   | { readonly type: 'silence-elapsed' }
@@ -116,14 +124,20 @@ type Step = {
 };
 
 export const initialSpeakerState = (rules: DutyRules): SpeakerState => ({
-  duty:
-    !rules.crossEx || rules.asks
-      ? owe({ kind: 'opening' })
-      : { status: 'waiting', unanswered: false },
+  duty: !rules.crossEx || rules.asks ? owe({ kind: 'opening' }) : WAITING,
   midTurn: [],
 });
 
-const WAITING: Duty = { status: 'waiting', unanswered: false };
+const WAITING: Duty = { status: 'waiting', unanswered: false, cutOff: false };
+/** Talked over: the bot stopped, and owes a reply to whatever comes. */
+const CUT_OFF: Duty = { status: 'waiting', unanswered: false, cutOff: true };
+/**
+ * Speech shorter than this is not a turn to answer: a cough, a click, a
+ * breath. A one-word answer ("yes", "no") runs 300 to 500 ms as heard, first
+ * frame to last, so the bound sits inside that range on purpose: the
+ * shortest of them are let go rather than every cough answered (DEC-398).
+ */
+export const BRIEF_TURN_MS = 400;
 /** A turn newly owed: nothing spent, nothing to wait for. */
 const owe = (to: Owed): Duty => ({
   status: 'owed',
@@ -148,7 +162,7 @@ function peerSpoke(
     case 'speaking':
       // Talked over: the bot stops and waits for that peer's turn to end.
       if (event.audible)
-        return { state: { duty: WAITING, midTurn }, effects: ['cut', 'drop'] };
+        return { state: { duty: CUT_OFF, midTurn }, effects: ['cut', 'drop'] };
       // The peer has more to say and nothing was bought for what they said
       // so far: the turn stands down, and their turn ending owes the answer.
       // A turn that has bought its answer keeps it and holds its audio.
@@ -158,7 +172,7 @@ function peerSpoke(
     case 'waiting':
       // The peer replied (or spoke at all): the question is not unanswered.
       return {
-        state: { duty: WAITING, midTurn },
+        state: { duty: duty.cutOff ? CUT_OFF : WAITING, midTurn },
         effects: event.audible ? ['silence'] : [],
       };
     case 'owed':
@@ -182,6 +196,14 @@ function peerTurnEnded(
   const midTurn = state.midTurn.filter((peer) => peer !== event.peer);
   const { duty } = state;
   if (duty.status === 'over') return { state: { duty, midTurn }, effects: [] };
+  // Too brief to be a turn: the peer is no longer mid-turn, and nothing is
+  // owed for it or dropped because of it. A bot that was talked over still
+  // answers: it stopped for this.
+  if (
+    event.spokeForMs < BRIEF_TURN_MS &&
+    !(duty.status === 'waiting' && duty.cutOff)
+  )
+    return { state: { duty, midTurn }, effects: [] };
   // Turns end in the order they are heard to, not the order they were spoken:
   // an unheard peer's turn ends late. The turn spoken last is the one owed.
   if (
@@ -217,7 +239,7 @@ function turnEnded(
       // A question may be pressed once: never the pressing itself.
       const unanswered = rules.asks && duty.to.kind !== 'unanswered';
       return {
-        duty: { status: 'waiting', unanswered },
+        duty: { status: 'waiting', unanswered, cutOff: false },
         effects: unanswered ? ['drop', 'await-reply'] : ['drop'],
       };
     }

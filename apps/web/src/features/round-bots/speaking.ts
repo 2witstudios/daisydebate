@@ -146,6 +146,7 @@ export function createSpeakingBotControl(input: {
                     kind: event.kind,
                     peer: event.roundParticipantId,
                     spokeUntilMs: event.spokeUntilMs,
+                    spokeForMs: event.spokeForMs,
                   }
                 : { kind: event.kind, peer: event.roundParticipantId },
             ),

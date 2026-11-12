@@ -346,3 +346,20 @@ test('a language stream is stopped when it goes quiet, not for being long', asyn
     expected: [true, 'Two.', ['unknown:0']],
   });
 });
+
+test('a stream that stalls before its first phrase is a provider failure, not a cancellation', async () => {
+  const { generate, finished, watches, settle } = streamedGeneration();
+  const opening = generate().then(
+    () => 'opened',
+    (error: unknown) => (error as { code?: string }).code,
+  );
+  await settle();
+  watches[0]?.run();
+  assert({
+    given: 'a response that begins and then writes nothing for the stall time',
+    should:
+      'fail the call as INFRASTRUCTURE, so the speaker spends an attempt, and settle it unknown',
+    actual: [await opening, finished],
+    expected: ['INFRASTRUCTURE', ['unknown:0']],
+  });
+});

@@ -211,7 +211,8 @@ next two phrases that exist are voiced while the current one plays, so
 sentences follow each other with no gap even when a long phrase follows a
 short one; each is bought and settled once and kept across retries, so
 nothing is bought twice. The answer's usage is recorded once, when its stream
-ends. An answer that stops short is spoken to its last whole phrase and ends
+ends. The stream has no bound on its whole length: it is stopped when no text
+has arrived for the policy's `callTimeoutMs`, which is a provider failure. An answer that stops short is spoken to its last whole phrase and ends
 there; nothing is bought in its place, and the database refuses a second
 answer for a speech segment in which the seat has already said a line.
 
@@ -267,6 +268,11 @@ name the effects the speaker runs. In cross-examination:
   it prepared and waits for that turn to end. Once audible, a peer who talks
   over it (a barge-in) stops it within about 300 ms, and it waits for their
   turn to end. Unheard audio (`unknown`) changes nothing.
+- Speech heard for under 400 ms, first frame to last, is not a turn to
+  answer (a cough, a click): it still counts as the peer speaking, so it
+  holds the bot's audio and an unanswered question is not pressed, but it
+  owes nothing and drops nothing (DEC-398). A bot that was talked over
+  answers whatever followed, however brief: it stopped for it.
 - The asking seat presses a question that met about 8 s of silence, once per
   question (DEC-397); a respondent never does.
 

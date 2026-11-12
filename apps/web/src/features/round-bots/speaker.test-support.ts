@@ -42,7 +42,7 @@ export const peerSaid = (
   peer = 'peer',
 ): PeerActivity =>
   kind === 'end-of-turn'
-    ? { kind, peer, spokeUntilMs: (spokeUntilMs += 1000) }
+    ? { kind, peer, spokeUntilMs: (spokeUntilMs += 1000), spokeForMs: 800 }
     : { kind, peer };
 /**
  * One-shot timers for a speaker under test. The short pause after a refusal

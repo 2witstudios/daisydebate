@@ -25,10 +25,11 @@ const after = (rules: DutyRules, ...events: DutyEvent[]) => {
   return { duty: state.duty, midTurn: state.midTurn, effects };
 };
 const woke: DutyEvent = { type: 'woke' };
-const turnEnded = (spokeUntilMs: number): DutyEvent => ({
+const turnEnded = (spokeUntilMs: number, spokeForMs = 800): DutyEvent => ({
   type: 'peer-turn-ended',
   peer: 'p',
   spokeUntilMs,
+  spokeForMs,
 });
 const spoke = (audible: boolean, bought = true): DutyEvent => ({
   type: 'peer-spoke',
@@ -185,7 +186,7 @@ describe('a cross-examination', () => {
           setbacks: 0,
           paused: false,
         },
-        { status: 'waiting', unanswered: false },
+        { status: 'waiting', unanswered: false, cutOff: false },
       ],
     });
   });
@@ -214,7 +215,7 @@ describe('a cross-examination', () => {
         'stop the turn with nothing bought and wait for their turn to end',
       actual: after(respondent, turnEnded(1), woke, spoke(false, false)),
       expected: {
-        duty: { status: 'waiting', unanswered: false },
+        duty: { status: 'waiting', unanswered: false, cutOff: false },
         midTurn: ['p'],
         effects: ['drop', 'start', 'restart'],
       },
@@ -227,7 +228,7 @@ describe('a cross-examination', () => {
       should: 'cut the turn and wait for that peer',
       actual: cut,
       expected: {
-        duty: { status: 'waiting', unanswered: false },
+        duty: { status: 'waiting', unanswered: false, cutOff: true },
         midTurn: ['p'],
         effects: ['start', 'cut', 'drop'],
       },
@@ -272,6 +273,7 @@ describe('a cross-examination', () => {
       type: 'peer-turn-ended',
       peer: 'q',
       spokeUntilMs: 1,
+      spokeForMs: 800,
     };
     assert({
       given:
@@ -291,6 +293,46 @@ describe('a cross-examination', () => {
       },
     });
   });
+  test('speech too brief to be a turn owes nothing, unless the bot was cut for it', () => {
+    assert({
+      given:
+        'the asking seat’s question, then 350 ms of peer sound that starts and ends',
+      should:
+        'count as the peer speaking (the question is not pressed) but owe no answer',
+      actual: after(
+        asker,
+        woke,
+        { type: 'delivered' },
+        spoke(false),
+        turnEnded(5, 350),
+        { type: 'silence-elapsed' },
+      ),
+      expected: {
+        duty: { status: 'waiting', unanswered: false, cutOff: false },
+        midTurn: [],
+        effects: ['start', 'drop', 'await-reply'],
+      },
+    });
+    assert({
+      given: 'the same with 450 ms of speech',
+      should: 'owe an answer to it',
+      actual: after(asker, woke, { type: 'delivered' }, turnEnded(5, 450)).duty
+        .status,
+      expected: 'owed',
+    });
+    assert({
+      given: 'a brief sound while an answer to an earlier turn is prepared',
+      should: 'leave that answer alone',
+      actual: after(respondent, turnEnded(1), woke, turnEnded(2, 350)).effects,
+      expected: ['drop', 'start'],
+    });
+    assert({
+      given: 'a brief sound that talked over the bot and cut it',
+      should: 'still be answered: the bot stopped for it',
+      actual: after(asker, woke, spoke(true), turnEnded(3, 350)).duty.status,
+      expected: 'owed',
+    });
+  });
   test('attempts are counted per owed turn', () => {
     const spent = after(
       respondent,
@@ -305,7 +347,7 @@ describe('a cross-examination', () => {
       given: 'two failed attempts at one peer turn',
       should: 'give that turn up and wait',
       actual: spent.duty,
-      expected: { status: 'waiting', unanswered: false },
+      expected: { status: 'waiting', unanswered: false, cutOff: false },
     });
     assert({
       given: 'a later peer turn after a spent one',
@@ -347,7 +389,7 @@ describe('a cross-examination', () => {
       should: 'wait for a reply and start counting the silence',
       actual: asked,
       expected: {
-        duty: { status: 'waiting', unanswered: true },
+        duty: { status: 'waiting', unanswered: true, cutOff: false },
         midTurn: [],
         effects: ['start', 'drop', 'await-reply'],
       },
@@ -364,7 +406,7 @@ describe('a cross-examination', () => {
         { type: 'delivered' },
         { type: 'silence-elapsed' },
       ).duty,
-      expected: { status: 'waiting', unanswered: false },
+      expected: { status: 'waiting', unanswered: false, cutOff: false },
     });
     assert({
       given: 'a peer who starts to reply before the silence elapses',
@@ -372,7 +414,7 @@ describe('a cross-examination', () => {
       actual: after(asker, woke, { type: 'delivered' }, spoke(false), {
         type: 'silence-elapsed',
       }).duty,
-      expected: { status: 'waiting', unanswered: false },
+      expected: { status: 'waiting', unanswered: false, cutOff: false },
     });
     assert({
       given: 'the respondent’s answer delivered, then silence',
@@ -384,7 +426,7 @@ describe('a cross-examination', () => {
         { type: 'delivered' },
         { type: 'silence-elapsed' },
       ).duty,
-      expected: { status: 'waiting', unanswered: false },
+      expected: { status: 'waiting', unanswered: false, cutOff: false },
     });
   });
   test('a turn already replaced has no say over what replaced it', () => {
@@ -392,7 +434,7 @@ describe('a cross-examination', () => {
       given: 'a late failure from a turn that a barge-in already cut',
       should: 'leave the duty as the barge-in left it',
       actual: after(asker, woke, spoke(true), failed).duty,
-      expected: { status: 'waiting', unanswered: false },
+      expected: { status: 'waiting', unanswered: false, cutOff: true },
     });
   });
   test('a stopped claim is over', () => {

@@ -69,7 +69,7 @@ test('actual PCM activity can cancel a phrase without granting competitive autho
 });
 
 /** A hearing of one peer, fed 10 ms frames on a server clock starting at T0. */
-function hearing(playing: () => boolean = () => false) {
+function hearing(playing: () => boolean = () => false, longTurns = false) {
   const events: string[] = [];
   const T0 = 2_000_000;
   const observer = createBotAudioActivity({
@@ -81,7 +81,7 @@ function hearing(playing: () => boolean = () => false) {
     onEvent: (event) =>
       events.push(
         event.kind === 'end-of-turn'
-          ? `end-of-turn spoke-until +${event.spokeUntilMs - T0}`
+          ? `end-of-turn spoke-until +${event.spokeUntilMs - T0}${longTurns ? ` for ${event.spokeForMs}` : ''}`
           : event.kind,
       ),
   });
@@ -193,5 +193,27 @@ test('quiet speech in the echo tail puts the instant a peer last spoke at most t
       'end the turn, naming an instant no more than the 400 ms tail before the peer stopped: still inside their last stretch of speech',
     actual: [events[0], 700 - spokeUntil <= 400],
     expected: ['barge-in', true],
+  });
+});
+
+test('the hearing says how long a peer spoke, so a cough can be told from a word', () => {
+  const lengths = [350, 450].map((spokenMs) => {
+    const { events, frames } = hearing(() => false, true);
+    // Speech as heard: 120 ms syllables with a 50 ms dip in each.
+    for (let at = 0; at < spokenMs; at += 10)
+      frames(at, at + 10, at % 120 < 70 || at >= spokenMs - 10 ? LOUD : 100);
+    frames(spokenMs, spokenMs + 1200, 0);
+    return events.at(-1);
+  });
+  assert({
+    given:
+      '350 ms and 450 ms of speech with syllable dips, each ended by a pause',
+    should:
+      'report each turn with the length of its speech, first frame to last',
+    actual: lengths,
+    expected: [
+      'end-of-turn spoke-until +350 for 350',
+      'end-of-turn spoke-until +450 for 450',
+    ],
   });
 });

@@ -118,3 +118,51 @@ describe('completeStreamed', () => {
     });
   });
 });
+
+test('a stream may run longer than the adapter timeout, which bounds only its start', async () => {
+  const slow = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (text: string) =>
+        controller.enqueue(new TextEncoder().encode(text));
+      for (const word of ['One. ', 'Two. ', 'Three.']) {
+        send(delta(word));
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+      send('data: [DONE]\n\n');
+      controller.close();
+    },
+  });
+  const heard: string[] = [];
+  const answer = await createOpenRouter({
+    apiKey: 'k',
+    fetch: async () => new Response(slow),
+    timeoutMs: 50,
+  }).completeStreamed(request, (text) => heard.push(text));
+  assert({
+    given: 'a stream that takes 120 ms to write under a 50 ms adapter timeout',
+    should: 'be read to its end',
+    actual: [heard.length, answer.text],
+    expected: [3, 'One. Two. Three.'],
+  });
+  const never = await createOpenRouter({
+    apiKey: 'k',
+    fetch: (_url, init) =>
+      new Promise<Response>((_resolve, reject) =>
+        init.signal?.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError')),
+        ),
+      ),
+    timeoutMs: 30,
+  })
+    .completeStreamed(request, () => undefined)
+    .then(
+      () => 'answered',
+      () => 'failed',
+    );
+  assert({
+    given: 'a streamed request whose response never begins',
+    should: 'fail at the adapter timeout',
+    actual: never,
+    expected: 'failed',
+  });
+});
