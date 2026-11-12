@@ -47,6 +47,7 @@ export const state: RoomAssemblyState = {
   seatHolds: [],
   status: 'assembling',
   capture: null,
+  postRoundCall: false,
   formatId: 'one-on-one',
   formatVersion: 1,
   presetVersion: null,

@@ -16,6 +16,7 @@ const sound = {
   lastOccupiedSid: null,
   sawCapture: false,
   seen: null,
+  call: 'none' as const,
 };
 
 test('a room is settled by observed absence, or by uncertainty outlasting the bound', () => {
@@ -66,6 +67,53 @@ test('a room is settled by observed absence, or by uncertainty outlasting the bo
       'already ended, seen absent',
       { ...sound, ended: true, absenceProven: true },
       'clear',
+    ],
+    [
+      'a call opening, the old room still there',
+      { ...sound, call: 'opening', uncertainSinceMs: 0 },
+      'keep',
+    ],
+    [
+      'a call opening, the old room last seen occupied and now absent',
+      {
+        ...sound,
+        call: 'opening',
+        lastOccupiedSid: 'RM_old',
+        sawCapture: true,
+        seen: { kind: 'absent' },
+      },
+      'keep',
+    ],
+    [
+      'a call opening, the old room proven absent',
+      { ...sound, call: 'opening', absenceProven: true, seatRevoked: true },
+      'open-post-round-call',
+    ],
+    [
+      'an open call whose room closed after everyone left',
+      {
+        ...sound,
+        call: 'open',
+        lastOccupiedSid: 'RM_call',
+        seen: { kind: 'absent' },
+      },
+      'keep',
+    ],
+    [
+      'an open call whose room came back under a new id',
+      {
+        ...sound,
+        call: 'open',
+        lastOccupiedSid: 'RM_call',
+        seen: {
+          kind: 'read',
+          sid: 'RM_other',
+          empty: false,
+          captureListed: false,
+          answered: null,
+        },
+      },
+      'rotate:lost',
     ],
   ] as const;
   for (const [given, facts, expected] of cases) {

@@ -9,6 +9,7 @@ setupRitewayBun();
 const base = {
   contentWaiver: null,
   captureNotice: null,
+  postRoundCall: false,
   capture: null,
   resolutionDraw: null,
   botAdmission: null,

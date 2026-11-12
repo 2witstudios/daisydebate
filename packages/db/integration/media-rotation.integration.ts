@@ -1,4 +1,8 @@
-import { mediaRoomFate, mediaWindowClosed } from '@daisy/debate-engine';
+import {
+  mediaPhase,
+  mediaRoomFate,
+  nextRoomVacancy,
+} from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -35,7 +39,7 @@ for (const failure of [
       const { roundId, seat } = await mediaTestHuman(f);
       const store = mediaTestStore(f.sql);
       const binding = await store.ensureBinding({
-        mediaWindowClosed,
+        mediaPhase,
         roundId,
         caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
         buildProjection: mediaTestTick,
@@ -46,7 +50,7 @@ for (const failure of [
         await f.sql`select user_id from actors where id=${judge.actorId}`;
       await admitParticipants(f.sql, [judgeUser!.user_id as string]);
       await store.ensureBinding({
-        mediaWindowClosed,
+        mediaPhase,
         roundId,
         caller: { actorId: judge.actorId, admits: admitsPrincipalAccess },
         buildProjection: mediaTestTick,
@@ -83,8 +87,9 @@ for (const failure of [
         };
         await store.finishMediaReconcile({
           roomFate: mediaRoomFate(6_000),
+          roomVacancy: nextRoomVacancy,
           seen: null,
-          mediaWindowClosed,
+          mediaPhase,
           ...claim.fence,
           absenceProof,
           clean: true,
@@ -135,7 +140,7 @@ for (const failure of [
           code: 'AUTHORIZATION',
           actual: () =>
             store.ensureBinding({
-              mediaWindowClosed,
+              mediaPhase,
               roundId,
               caller: { actorId: judge.actorId, admits: admitsPrincipalAccess },
               buildProjection: mediaTestTick,

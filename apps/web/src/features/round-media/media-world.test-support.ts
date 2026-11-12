@@ -1,6 +1,8 @@
 import {
   isRoundOver,
+  type MediaPhase,
   type MediaRoomFacts,
+  type MediaWindowFacts,
   type MediaRoomFate,
   type RoundStatus,
 } from '@daisy/protocol';
@@ -39,6 +41,8 @@ export function createMediaWorld(
     readonly busyClaims?: number;
     /** Another worker claims the reconcile lease the instant each of ours finishes, as recovery does on a busy deployment. */
     readonly reclaimedAfterFinish?: boolean;
+    /** The Round's host chose the post-round call (ADR 0126). */
+    readonly postRoundCall?: boolean;
     /** Runs as the first vendor mutation begins (it may change state or throw). */
     readonly beforeFirstMutation?: () => void;
   } = {},
@@ -88,6 +92,7 @@ export function createMediaWorld(
   let reconciles = 0;
   let unsafeAt: string | null = null,
     endedAt: string | null = null,
+    callOpenedAt: string | null = null,
     requested = 0,
     running = 0,
     served = 0,
@@ -102,6 +107,19 @@ export function createMediaWorld(
     failures.set(call, left - 1);
     throw new Error(`${call} unavailable`);
   };
+  /** What the engine's phase rule reads, as the store reads it. */
+  const mediaWindow = (): MediaWindowFacts => ({
+    status,
+    now,
+    finalSegmentEndedAt: null,
+    postRoundCall: {
+      optedIn: options.postRoundCall === true,
+      status,
+      roundEndedAt: isRoundOver(status) ? now : null,
+      openedAt: callOpenedAt,
+      vacantSince: null,
+    },
+  });
   /**
    * As the store does: the caller's rule over its own fenced facts. An
    * unseated caller is refused by its seat, which `snapshot` checks.
@@ -167,6 +185,7 @@ export function createMediaWorld(
       bindings: bindings.map((binding) => ({ ...binding, roomName })),
       now,
       finalSegmentEndedAt: null,
+      mediaWindow: mediaWindow(),
       unresolved: pending.size > 0,
       reconciling: false,
     } as unknown as MediaSnapshot;
@@ -243,10 +262,12 @@ export function createMediaWorld(
     finishMediaReconcile: async (request: {
       absenceProof: { mutationHorizon: number } | null;
       roomFate: (facts: MediaRoomFacts) => MediaRoomFate;
+      mediaPhase: (facts: MediaWindowFacts) => MediaPhase;
     }) => {
       served = running;
       leaseOwner = options.reclaimedAfterFinish ? 'recovery-worker' : null;
-      const terminal = isRoundOver(status);
+      const phase = request.mediaPhase(mediaWindow());
+      const terminal = phase === 'closed';
       const kept = bindings.filter((binding) =>
         eligible.get(binding.roundParticipantId),
       );
@@ -260,6 +281,12 @@ export function createMediaWorld(
         lastOccupiedSid: null,
         sawCapture: false,
         seen: null,
+        call:
+          phase === 'post-round-call-opening'
+            ? 'opening'
+            : phase === 'post-round-call'
+              ? 'open'
+              : 'none',
       });
       const uncertain = unsafeAt !== null || pending.size > 0;
       if (fate.kind !== 'keep') {
@@ -271,15 +298,25 @@ export function createMediaWorld(
         bindings.splice(0, bindings.length, ...kept);
         roomName = nextId();
       }
+      if (fate.kind === 'open-post-round-call') {
+        roomName = nextId();
+        callOpenedAt = now;
+      }
       return {
         safe: fate.kind !== 'keep' || !uncertain,
         ended: fate.kind === 'end',
         fate,
       };
     },
-    ensureBinding: async (input: { caller: Caller }) => {
-      if (isRoundOver(status))
+    ensureBinding: async (input: {
+      caller: Caller;
+      mediaPhase: (facts: MediaWindowFacts) => MediaPhase;
+    }) => {
+      const phase = input.mediaPhase(mediaWindow());
+      if (phase === 'closed')
         throw createAppError('CONFLICT', 'Round media has ended');
+      if (phase === 'post-round-call-opening')
+        throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
       const seat = snapshot(admittedActor(input.caller)).caller!;
       return binding(seat.id);
     },
@@ -323,8 +360,9 @@ export function createMediaWorld(
               now: '2026-01-01T00:00:00.000Z',
               lastPassAt: null,
               roundChangedAt: '2026-01-01T00:00:00.000Z',
-              roundStatus: 'active',
+              roundStatus: status,
               finalSegmentEndedAt: null,
+              postRoundCall: mediaWindow().postRoundCall,
               unsafe: false,
               claimWait: null,
               lastPassClean: true,
@@ -404,6 +442,8 @@ export function createMediaWorld(
     markUnsafe: () => void (unsafeAt ??= now),
     /** Reconcile leases claimed so far. */
     reconciles: () => reconciles,
+    /** The session's current room name, which a rotation or a call's opening changes. */
+    currentRoom: () => roomName,
     state: () => ({
       unsafe: unsafeAt !== null,
       ended: endedAt !== null,

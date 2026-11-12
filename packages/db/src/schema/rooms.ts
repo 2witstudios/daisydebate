@@ -87,6 +87,8 @@ export const rooms = pgTable(
     config: jsonbColumn('config', roomConfigSchema).notNull(),
     /** The casual host's broadcast and recording choice (WATCH-8); null is none. */
     capture: jsonbColumnNullable('capture', roomCaptureSchema),
+    /** The casual host keeps the call open after the Round (ADR 0126). */
+    postRoundCall: boolean('post_round_call').notNull().default(false),
     /** RoomExecutionPlan, resolved. */
     executionPlan: jsonbColumn(
       'execution_plan',

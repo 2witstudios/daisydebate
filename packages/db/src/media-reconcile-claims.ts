@@ -30,6 +30,10 @@ type ActiveSessionRow = {
   readonly deletion_requested_at: Date | null;
   readonly status: RoundStatus;
   readonly final_segment_ended_at: Date | null;
+  readonly completed_at: Date | null;
+  readonly post_round_call: boolean;
+  readonly post_round_call_opened_at: Date | null;
+  readonly room_vacant_since: Date | null;
   readonly started_at: Date | null;
   readonly updated_at: Date;
   readonly runtime_state: RuntimeCheckpoint;
@@ -52,6 +56,13 @@ const activeSession = (row: ActiveSessionRow) => {
     roundChangedAt: row.updated_at.toISOString(),
     roundStatus: row.status,
     finalSegmentEndedAt: row.final_segment_ended_at?.toISOString() ?? null,
+    postRoundCall: {
+      optedIn: row.post_round_call,
+      status: row.status,
+      roundEndedAt: row.completed_at?.toISOString() ?? null,
+      openedAt: row.post_round_call_opened_at?.toISOString() ?? null,
+      vacantSince: row.room_vacant_since?.toISOString() ?? null,
+    },
     unsafe: row.unsafe_at !== null || row.deletion_requested_at !== null,
     lastPassClean: row.reconcile_last_pass_clean,
     claimWait: claimWaitOf(
@@ -209,6 +220,10 @@ export function createMediaReconcileClaims(deps: {
           s.deletion_requested_at,
           r.status,
           r.final_segment_ended_at,
+          r.completed_at,
+          r.post_round_call,
+          s.post_round_call_opened_at,
+          s.room_vacant_since,
           r.started_at,
           r.updated_at,
           r.runtime_state,

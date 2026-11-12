@@ -42,7 +42,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
     /** ADR 0075: participant access, for the human caller and every human seat. */
     readonly admits: ParticipantAdmission;
     readonly buildProjection: LockedRoundTickInput['buildProjection'];
-    readonly mediaWindowClosed: MediaWindowRule;
+    readonly mediaPhase: MediaWindowRule;
     /**
      * The reconcile lease owner the caller holds, if any. A live lease
      * refuses the token unless it is the caller's own (ISSUE-534).
@@ -78,12 +78,10 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         (binding) => binding.roundParticipantId === participantId,
       );
       if (!binding) throw createAppError('AUTHORIZATION');
-      requireMediaWindow(
-        input.mediaWindowClosed,
-        snapshot.round.status,
-        snapshot.now,
-        snapshot.finalSegmentEndedAt,
-      );
+      const phase = requireMediaWindow(input.mediaPhase, snapshot.mediaWindow);
+      // A bot speaks only in its Round: it is never on a post-round call.
+      if (input.principal.kind === 'bot' && phase !== 'round')
+        throw createAppError('CONFLICT', 'Round media has ended');
       if (
         snapshot.session.endedAt ||
         snapshot.session.unsafeAt ||

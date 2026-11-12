@@ -180,6 +180,7 @@ const startRows = (changeVersion = 1) => [
       formatId: readyRoom.formatId,
       config: readyRoom.config,
       capture: null,
+      postRoundCall: false,
       executionPlan: readyRoom.executionPlan,
       rulesSnapshot: readyRoom.rules,
       status: 'ready',

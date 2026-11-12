@@ -4,7 +4,7 @@ import type { MediaNodes, MediaVendor } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { createRoundMediaOperations } from './operations';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { admissionRevoked, mediaEnded, mediaRuntime } from './projection';
+import { admissionRevoked, mediaPhaseOf, mediaRuntime } from './projection';
 
 type Capture = ReturnType<Database['createMediaCaptureOperations']>;
 type CaptureScope = Awaited<ReturnType<Capture['verifyMediaWorkerLease']>>;
@@ -56,7 +56,8 @@ export function createMediaWorkerTokenBroker(input: {
         // A terminal session has ended for good, whoever holds it: the worker
         // stops and is never relaunched (ISSUE-494, ISSUE-495). Its own
         // message, apart from a write refused during a temporary unsafe window.
-        if (state.session.endedAt || mediaEnded(state))
+        // Capture is the Round's: a post-round call is never captured (ADR 0126).
+        if (state.session.endedAt || mediaPhaseOf(state) !== 'round')
           throw createRefusal(
             'CONFLICT',
             'capture-closed',

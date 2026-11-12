@@ -44,6 +44,9 @@ export const isRoundRunning = (
 export const isRoundOver = (status: RoundStatus): status is OverRoundStatus =>
   (overRoundStatuses as readonly RoundStatus[]).includes(status);
 
+/** Whether a Round in `status` ended with its debate played out or forfeited, not abandoned. */
+export const isRoundCompleted = (status: RoundStatus) => status === 'completed';
+
 /** Where a running round is: what the clock is doing, or that the debate is over and only its result is left. */
 const roundStages = ['countdown', 'prep', 'live', 'awaiting_ballot'] as const;
 export const roundStageSchema = z.enum(roundStages);

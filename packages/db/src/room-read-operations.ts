@@ -108,6 +108,7 @@ export async function launchedRoundRows(
     config: row.roomConfigSnapshot,
     rules: row.rulesSnapshot,
     participants,
+    postRoundCall: row.postRoundCall,
     platformEnding: row.platformEnding,
     // A ruling belongs to a panel completion: a Round that is not completed carries none.
     panelRuling:

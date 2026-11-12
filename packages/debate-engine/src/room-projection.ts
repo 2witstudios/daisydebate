@@ -155,6 +155,7 @@ export function projectRoom(
     captureOffer: null,
     capture: room.capture,
     captureNotice: null,
+    postRoundCall: room.postRoundCall,
     botAdmission: null,
     watchRoundId: null,
     // The Room read fills these in for its viewer (ADR 0124).

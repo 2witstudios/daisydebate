@@ -262,7 +262,10 @@ export function createRoomRuntimeOperations({
       resolved,
       recheck,
     } = await resolveRoomSelection(body, store, ids);
-    if (competitionType === 'ranked' && body.recording !== undefined)
+    if (
+      competitionType === 'ranked' &&
+      (body.recording !== undefined || body.postRoundCall === true)
+    )
       throw createRefusal('CONFLICT', 'illegal-config');
     const createNotice = createNoticeOf(
       competitionType,
@@ -324,6 +327,7 @@ export function createRoomRuntimeOperations({
           }
         : {}),
       ...(body.holdSeatsFor ? { holdSeatsFor: body.holdSeatsFor } : {}),
+      ...(body.postRoundCall ? { postRoundCall: true } : {}),
       notice:
         createNotice.kind === 'shown'
           ? {

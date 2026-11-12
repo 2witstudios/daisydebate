@@ -110,6 +110,7 @@ export {
   runningRoundStatuses,
   isRoundRunning,
   isRoundOver,
+  isRoundCompleted,
   roundStageSchema,
   runtimeCheckpointSchema,
   emptyRuntimeCheckpoint,
@@ -569,6 +570,17 @@ export { roundRecordSchema, type RoundRecord } from './round-view';
 export { frozenCaptureGapsSchema } from './capture-gap';
 export type { FrozenCaptureGaps } from './capture-gap';
 export { roundMediaPolicy } from './round-media-policy';
+export {
+  freezePostRoundCall,
+  noPostRoundCall,
+  postRoundCallPolicy,
+} from './post-round-call';
+export type {
+  MediaPhase,
+  MediaWindowFacts,
+  PostRoundCallFacts,
+  PostRoundCallState,
+} from './post-round-call';
 export { broadcastLivePrefix, officialFeedPath } from './official-feed';
 export {
   broadcastFeedEndReasons,

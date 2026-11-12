@@ -104,6 +104,8 @@ export const rounds = pgTable(
     ),
     /** What every participant was told is captured, frozen at Launch (WATCH-8). */
     capture: jsonbColumnNullable('capture', roomCaptureSchema),
+    /** The Room's post-round call choice, frozen at Launch (ADR 0126). */
+    postRoundCall: boolean('post_round_call').notNull().default(false),
     /** Proof metadata of the Room's draw, frozen at Launch; null without one. */
     resolutionEvidence: jsonbColumn(
       'resolution_evidence',
