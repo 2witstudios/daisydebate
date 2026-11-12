@@ -61,8 +61,199 @@ test('actual PCM activity can cancel a phrase without granting competitive autho
   assert({
     given:
       'queued PCM with a new PG ingress receipt and old calibrated capture window',
-    should: 'remain unknown rather than relabel the frame with ingress time',
+    should:
+      'stay unheard, said once, rather than relabel the frame with ingress time',
     actual: events,
-    expected: ['barge-in', 'unknown', 'unknown', 'unknown'],
+    expected: ['barge-in', 'unknown', 'unknown'],
+  });
+});
+
+/** A hearing of one peer, fed 10 ms frames on a server clock starting at T0. */
+function hearing(playing: () => boolean = () => false, longTurns = false) {
+  const events: string[] = [];
+  const T0 = 2_000_000;
+  const observer = createBotAudioActivity({
+    roundId,
+    participantId,
+    peerParticipantIds: [peer],
+    staleAfterMs: 250,
+    playing,
+    onEvent: (event) =>
+      events.push(
+        event.kind === 'end-of-turn'
+          ? `end-of-turn spoke-until +${event.spokeUntilMs - T0}${longTurns ? ` for ${event.spokeForMs}` : ''}`
+          : event.kind,
+      ),
+  });
+  let sequence = 0;
+  /** Frames covering `fromMs` to `toMs`; a gap in time is a gap in sequence too. */
+  const frames = (fromMs: number, toMs: number, level: number) => {
+    for (let at = fromMs; at < toMs; at += 10) {
+      sequence = at / 10;
+      observer.observe({
+        roundId,
+        roundParticipantId: peer,
+        trackId: 'track',
+        sequence,
+        beforeMs: at,
+        afterMs: at + 10,
+        serverWindow: {
+          before: new Date(T0 + at).toISOString(),
+          after: new Date(T0 + at + 10).toISOString(),
+        },
+        receivedAt: new Date(T0 + at + 20).toISOString(),
+        pcm: new Int16Array(160).fill(level),
+      });
+    }
+  };
+  /** The seat's 50 ms polls from `fromMs` to `toMs`, with no frame arriving. */
+  const silence = (fromMs: number, toMs: number) => {
+    for (let at = fromMs; at < toMs; at += 50)
+      observer.expire(new Date(T0 + at).toISOString());
+  };
+  return { events, frames, silence };
+}
+const LOUD = 4000;
+
+test('a 300 ms stall in a peer’s frames keeps the turn, and the pause after still ends it', () => {
+  const { events, frames, silence } = hearing();
+  frames(0, 1000, LOUD);
+  silence(1000, 1300);
+  frames(1300, 1800, LOUD);
+  frames(1800, 2800, 0);
+  assert({
+    given:
+      'a peer speaking, a 300 ms stall with no frames, more speech, then a pause',
+    should:
+      'report the stall as unheard once and end the one turn at the instant the peer last spoke',
+    actual: events,
+    expected: ['speech-start', 'unknown', 'end-of-turn spoke-until +1800'],
+  });
+});
+
+test('a peer who goes unheard after speaking has ended their turn', () => {
+  const { events, frames, silence } = hearing();
+  frames(0, 1000, LOUD);
+  silence(1000, 2400);
+  assert({
+    given: 'a peer who asked a question and whose audio then stopped arriving',
+    should: 'end their turn after the end-of-turn pause, so the bot answers',
+    actual: events,
+    expected: ['speech-start', 'unknown', 'end-of-turn spoke-until +1000'],
+  });
+});
+
+test('the bot’s own voice coming back just after it stops is not a peer turn', () => {
+  let playing = true;
+  const { events, frames } = hearing(() => playing);
+  frames(0, 500, 600);
+  playing = false;
+  frames(500, 800, 600);
+  frames(800, 2000, 0);
+  assert({
+    given:
+      'a faint level in the peer’s microphone while the bot plays and for 300 ms after it stops',
+    should: 'report no peer speech and no ended turn',
+    actual: events,
+    expected: [],
+  });
+});
+
+test('loud frames either side of a short gap do not add up to a barge-in', () => {
+  const { events, frames } = hearing(() => true);
+  frames(0, 100, LOUD);
+  // 200 ms of frames lost: shorter than the stale bound, so no poll saw it.
+  frames(300, 400, LOUD);
+  assert({
+    given:
+      'the bot playing, 100 ms of loud peer audio, a 200 ms gap in the frames, then 100 ms more',
+    should: 'report the gap and no barge-in',
+    actual: events,
+    expected: ['unknown'],
+  });
+});
+
+test('quiet speech in the echo tail puts the instant a peer last spoke at most the tail early', () => {
+  let playing = true;
+  const { events, frames } = hearing(() => playing);
+  // The peer talks over the bot, loudly enough to cut it.
+  frames(0, 300, LOUD);
+  playing = false;
+  // They carry on quietly, under the barge-in level, and stop at 700 ms:
+  // for the 400 ms echo tail those frames may be the bot's own voice.
+  frames(300, 700, 600);
+  frames(700, 1800, 0);
+  const spokeUntil = Number(
+    /spoke-until \+(\d+)/.exec(events.at(-1) ?? '')?.[1],
+  );
+  assert({
+    given:
+      'a barge-in, then 400 ms of quiet speech inside the echo tail, then silence',
+    should:
+      'end the turn, naming an instant no more than the 400 ms tail before the peer stopped: still inside their last stretch of speech',
+    actual: [events[0], 700 - spokeUntil <= 400],
+    expected: ['barge-in', true],
+  });
+});
+
+test('the hearing says how long a peer spoke, so a cough can be told from a word', () => {
+  const lengths = [350, 450].map((spokenMs) => {
+    const { events, frames } = hearing(() => false, true);
+    // Speech as heard: 120 ms syllables with a 50 ms dip in each.
+    for (let at = 0; at < spokenMs; at += 10)
+      frames(at, at + 10, at % 120 < 70 || at >= spokenMs - 10 ? LOUD : 100);
+    frames(spokenMs, spokenMs + 1200, 0);
+    return events.at(-1);
+  });
+  assert({
+    given:
+      '350 ms and 450 ms of speech with syllable dips, each ended by a pause',
+    should:
+      'report each turn with the length of its speech, first frame to last',
+    actual: lengths,
+    expected: [
+      'end-of-turn spoke-until +350 for 350',
+      'end-of-turn spoke-until +450 for 450',
+    ],
+  });
+});
+
+test('sound before a peer went unheard does not carry into the first frame heard again', () => {
+  const T0 = 3_000_000;
+  const events: string[] = [];
+  const observer = createBotAudioActivity({
+    roundId,
+    participantId,
+    peerParticipantIds: [peer],
+    staleAfterMs: 250,
+    playing: () => false,
+    onEvent: (event) => events.push(event.kind),
+  });
+  const frame = (trackId: string, sequence: number, at: number) =>
+    observer.observe({
+      roundId,
+      roundParticipantId: peer,
+      trackId,
+      sequence,
+      beforeMs: at,
+      afterMs: at + 10,
+      serverWindow: {
+        before: new Date(T0 + at).toISOString(),
+        after: new Date(T0 + at + 10).toISOString(),
+      },
+      receivedAt: new Date(T0 + at + 20).toISOString(),
+      pcm: new Int16Array(160).fill(LOUD),
+    });
+  // 100 ms of sound, the track closes, and a new track starts at once.
+  for (let i = 0; i < 10; i++) frame('old', i, i * 10);
+  observer.unknown({ roundId, roundParticipantId: peer, trackId: 'old' });
+  for (let i = 0; i < 10; i++) frame('new', i, 100 + i * 10);
+  assert({
+    given:
+      '100 ms of sound on a track that closes, then 100 ms on a new track straight after',
+    should:
+      'report the peer unheard and count the new track from its own first frame: no speech yet',
+    actual: events,
+    expected: ['unknown'],
   });
 });

@@ -47,7 +47,9 @@ const streamed = (text: string) =>
         (delta) =>
           `data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`,
       )
-      .join('') + 'data: [DONE]\n\n',
+      .join('') +
+      `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 10, completion_tokens: 5 } })}\n\n` +
+      'data: [DONE]\n\n',
   );
 
 /** The stubbed answer for an OpenRouter request, or null for anything else. */

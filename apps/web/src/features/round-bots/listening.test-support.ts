@@ -44,7 +44,12 @@ export function session(
   const events: string[] = [];
   /** Each reported join failure, by its message. */
   const failures: string[] = [];
+  /** The hearing's trace: each operation with its fields. */
+  const observed: string[] = [];
   const listening = createBotListening({
+    observed: (operation, fields) => {
+      observed.push([operation, ...Object.values(fields ?? {})].join(' '));
+    },
     failed: (error) => {
       failures.push(error instanceof Error ? error.message : String(error));
       if (options.reportThrows) throw new Error('reporter down');
@@ -130,6 +135,7 @@ export function session(
     subscriptions,
     events,
     failures,
+    observed,
     advance: (ms: number) => {
       now += ms;
     },

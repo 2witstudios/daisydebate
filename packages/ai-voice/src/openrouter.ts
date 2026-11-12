@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
 import { requireProviderNotCancelled } from './cancellation';
 import { readTranscription } from './transcription-response';
+import { readCompletionStream } from './completion-stream';
+import { finishOf } from './completion-finish';
+export type { CompletionFinish } from './completion-finish';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -58,17 +61,6 @@ const completionSchema = z.object({
     .object({ prompt_tokens: z.number(), completion_tokens: z.number() })
     .optional(),
 });
-/** How a completion ended, as a closed fact; the raw string goes no further. */
-export type CompletionFinish =
-  'stop' | 'length' | 'content_filter' | 'other' | 'none';
-
-const finishOf = (reason: string | null | undefined): CompletionFinish => {
-  if (reason === undefined || reason === null) return 'none';
-  return reason === 'stop' || reason === 'length' || reason === 'content_filter'
-    ? reason
-    : 'other';
-};
-
 const definiteFailures = new WeakSet<Error>();
 /**
  * The vendor certainly did not serve the call: it refused the request itself
@@ -131,21 +123,34 @@ export function createOpenRouter({
     'X-Title': 'Daisy',
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
-  const post = async (path: string, body: unknown, signal?: AbortSignal) => {
+  /**
+   * `timeoutMs` bounds the whole call, body included. A streamed answer is
+   * as long as it is, so for `streamed` it bounds only the wait for the
+   * response to begin; the caller watches the stream itself.
+   */
+  const post = async (
+    path: string,
+    body: unknown,
+    signal?: AbortSignal,
+    streamed = false,
+  ) => {
     if (signal?.aborted)
       throw definite(
         createAppError('CONFLICT', 'Provider operation cancelled'),
       );
+    const late = new AbortController();
+    const waiting = streamed
+      ? setTimeout(() => late.abort(), timeoutMs)
+      : undefined;
+    const bound = streamed ? late.signal : AbortSignal.timeout(timeoutMs);
     let response: Response;
     try {
       response = await fetch(`${BASE}${path}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: signal
-          ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
-          : AbortSignal.timeout(timeoutMs),
-      });
+        signal: signal ? AbortSignal.any([signal, bound]) : bound,
+      }).finally(() => clearTimeout(waiting));
     } catch (cause) {
       requireProviderNotCancelled(signal);
       throw createAppError(
@@ -246,6 +251,30 @@ export function createOpenRouter({
         promptTokens: body.usage?.prompt_tokens ?? 0,
         completionTokens: body.usage?.completion_tokens ?? 0,
       };
+    },
+    /**
+     * The same answer as `complete`, read as it is written: `onText` gets
+     * each piece of text as it arrives, and the result (with the token usage
+     * the last chunk carries) resolves once the stream ends. A stream that
+     * breaks, reports an error or ends before its end marker fails as
+     * uncertain, since the vendor served at least part of it.
+     */
+    async completeStreamed(
+      request: CompletionRequest,
+      onText: (text: string) => void,
+    ) {
+      const path = '/chat/completions';
+      const response = await post(
+        path,
+        { ...chatBody(request), stream: true, usage: { include: true } },
+        request.signal,
+        true,
+      );
+      return reading(
+        path,
+        () => readCompletionStream(response.body, onText, request.signal),
+        request.signal,
+      );
     },
     /** Validated in-memory PCM for the server publication worker, never a transcript. */
     async speakPcm({

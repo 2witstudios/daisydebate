@@ -1,5 +1,5 @@
 import type { AllowanceAccountPolicy } from './usage-ledger';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -36,6 +36,7 @@ import { rounds } from './schema/rounds';
 import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
+import { utterances } from './schema/utterances';
 
 async function speechModel(
   tx: BoundedTransactionContext,
@@ -62,7 +63,14 @@ async function speechModel(
   );
   return model;
 }
-/** One received answer per speech seat and segment, across worker recoveries (ISSUE-456). */
+/**
+ * One answer per speech seat and segment, across worker recoveries
+ * (ISSUE-456, DEC-210). An answer counts once the vendor's reply was
+ * recorded, and also once the seat has said any line of it: a streamed
+ * answer is spoken before its usage is known, so a worker lost mid-speech
+ * must not leave its successor free to buy the speech again and start it
+ * from the top.
+ */
 async function requireUnansweredSpeech(
   tx: BoundedTransactionContext,
   scope: BotPublicationScope,
@@ -80,6 +88,19 @@ async function requireUnansweredSpeech(
     )
     .limit(1);
   if (answered) throw refuseFinalSpeech('Speech already answered');
+  const [said] = await tx
+    .select({ id: utterances.id })
+    .from(utterances)
+    .where(
+      and(
+        eq(utterances.roundId, scope.roundId),
+        eq(utterances.segmentId, scope.segmentId),
+        eq(utterances.roundParticipantId, scope.roundParticipantId),
+        isNotNull(utterances.botPhraseId),
+      ),
+    )
+    .limit(1);
+  if (said) throw refuseFinalSpeech('Speech already begun');
 }
 /** Dispatch authority and usage settlement are distinct capabilities; neither writes speech. */
 export function createBotGenerationOperations(input: {

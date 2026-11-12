@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { phrasesOf, splitSentences, wordBudget } from './speech';
+import {
+  createPhraseStream,
+  phrasesOf,
+  splitSentences,
+  wordBudget,
+} from './speech';
 
 setupRitewayBun();
 
@@ -79,6 +84,49 @@ describe('phrases, ramping up', () => {
         'voice one sentence, then up to 160 characters, then up to 320, each a whole number of sentences',
       actual: phrasesOf(text).map((phrase) => splitSentences(phrase).length),
       expected: [1, 4, 7],
+    });
+  });
+});
+
+describe('createPhraseStream', () => {
+  const text =
+    'Thank you, judge. I stand against the resolution! Why? It grew 3.5 percent. ' +
+    'She said "no." Then it fell.\n\nMy second point is longer and it carries on for a good while so that phrases close as the limit is reached, again and again. ' +
+    'A third. A fourth sentence follows here. And a tail without a stop';
+  /** Streams `text` in pieces of `size` and returns the phrases in the order closed. */
+  const streamed = (size: number) => {
+    const stream = createPhraseStream();
+    const phrases: string[] = [];
+    for (let at = 0; at < text.length; at += size)
+      phrases.push(...stream.push(text.slice(at, at + size)));
+    return [...phrases, ...stream.end()];
+  };
+  test('equals the phrases of the finished text, however it is cut', () => {
+    for (const size of [1, 2, 3, 7, 16, 61, 1000])
+      assert({
+        given: `text arriving ${size} characters at a time`,
+        should: 'close exactly the phrases of the finished text',
+        actual: streamed(size),
+        expected: phrasesOf(text),
+      });
+  });
+  test('gives the opening sentence as soon as it is written', () => {
+    const stream = createPhraseStream();
+    assert({
+      given: 'a first sentence and the start of the next',
+      should: 'close the first phrase before the rest exists',
+      actual: [stream.push('Thank you, judge.'), stream.push(' I st')],
+      expected: [[], ['Thank you, judge.']],
+    });
+  });
+  test('a cut stream never speaks an unfinished sentence', () => {
+    const stream = createPhraseStream();
+    stream.push('One. Two is whole. Three is unfini');
+    assert({
+      given: 'text that stopped mid-sentence',
+      should: 'give the whole sentences still open and drop the fragment',
+      actual: stream.cut(),
+      expected: ['Two is whole.'],
     });
   });
 });

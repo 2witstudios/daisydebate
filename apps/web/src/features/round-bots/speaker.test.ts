@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { refuseFinalSpeech } from '@daisy/db/testing';
-import { answered, harness, job } from './speaker.test-support';
+import { answered, harness, job, peerSaid } from './speaker.test-support';
 setupRitewayBun();
 test('a speech claim delivers its generated phrases once without overlapping turns', async () => {
   const { speaker, log, release, settle } = harness('speech');
@@ -85,7 +85,7 @@ test('a cross-examination respondent stays silent until a question ends', async 
     actual: [log.length, speaker.playing()],
     expected: [0, false],
   });
-  speaker.peer('end-of-turn');
+  speaker.peer(peerSaid('end-of-turn'));
   speaker.wake();
   await settle();
   assert({
@@ -107,7 +107,7 @@ test('cross-examination answers each peer turn once and cancels the active phras
     actual: [log.length, speaker.playing()],
     expected: [5, true],
   });
-  speaker.peer('barge-in');
+  speaker.peer(peerSaid('barge-in'));
   await settle();
   speaker.wake();
   await settle();
@@ -118,8 +118,8 @@ test('cross-examination answers each peer turn once and cancels the active phras
     actual: [speaker.playing(), log.length],
     expected: [false, 5],
   });
-  speaker.peer('end-of-turn');
-  speaker.peer('end-of-turn');
+  speaker.peer(peerSaid('end-of-turn'));
+  speaker.peer(peerSaid('end-of-turn'));
   await release();
   await release();
   speaker.wake();
@@ -130,9 +130,9 @@ test('cross-examination answers each peer turn once and cancels the active phras
     actual: log.filter((line) => line === 'generate').length,
     expected: 2,
   });
-  speaker.peer('end-of-turn');
+  speaker.peer(peerSaid('end-of-turn'));
   await settle();
-  speaker.peer('unknown');
+  speaker.peer(peerSaid('unknown'));
   await speaker.stop();
   assert({
     given: 'unknown activity followed by shutdown',
@@ -154,7 +154,7 @@ test('a peer speaking over a cross-examination tail still queued silences it at 
   speaker.wake();
   await settle();
   const playingTail = speaker.playing();
-  speaker.peer('speech-start');
+  speaker.peer(peerSaid('speech-start'));
   queued = false;
   assert({
     given:

@@ -23,3 +23,21 @@ test('stubbed bot speech is PCM the real adapter accepts', async () => {
     expected: [24000, 1, 72000],
   });
 });
+
+test('a stubbed bot answer streams as the real adapter reads it', async () => {
+  const heard: string[] = [];
+  const answer = await stubbed.completeStreamed(
+    { model: 'm', messages: [], maxTokens: 10 },
+    (text) => heard.push(text),
+  );
+  assert({
+    given: 'a streamed completion answered by the OpenRouter stub',
+    should: 'arrive in pieces, whole, with its token usage',
+    actual: [
+      heard.length > 1,
+      heard.join('') === answer.text,
+      answer.completionTokens,
+    ],
+    expected: [true, true, 5],
+  });
+});
