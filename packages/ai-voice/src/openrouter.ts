@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
 import { requireProviderNotCancelled } from './cancellation';
 import { readTranscription } from './transcription-response';
+import { sseData } from './sse';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -57,6 +58,28 @@ const completionSchema = z.object({
   usage: z
     .object({ prompt_tokens: z.number(), completion_tokens: z.number() })
     .optional(),
+});
+/** One chunk of a streamed completion; the last one carries the usage. */
+const completionChunkSchema = z.object({
+  choices: z
+    .array(
+      z.object({
+        delta: z
+          .object({
+            content: z.string().nullable().optional(),
+            refusal: z.string().nullable().optional(),
+          })
+          .optional(),
+        finish_reason: z.string().nullable().optional(),
+      }),
+    )
+    .optional(),
+  usage: z
+    .object({ prompt_tokens: z.number(), completion_tokens: z.number() })
+    .nullable()
+    .optional(),
+  /** A failure after the stream opened arrives as a chunk, never a status. */
+  error: z.unknown().optional(),
 });
 /** How a completion ended, as a closed fact; the raw string goes no further. */
 export type CompletionFinish =
@@ -246,6 +269,72 @@ export function createOpenRouter({
         promptTokens: body.usage?.prompt_tokens ?? 0,
         completionTokens: body.usage?.completion_tokens ?? 0,
       };
+    },
+    /**
+     * The same answer as `complete`, read as it is written: `onText` gets
+     * each piece of text as it arrives, and the result (with the token usage
+     * the last chunk carries) resolves once the stream ends. A stream that
+     * breaks, reports an error or ends before its end marker fails as
+     * uncertain, since the vendor served at least part of it.
+     */
+    async completeStreamed(
+      request: CompletionRequest,
+      onText: (text: string) => void,
+    ) {
+      const path = '/chat/completions';
+      const response = await post(
+        path,
+        { ...chatBody(request), stream: true, usage: { include: true } },
+        request.signal,
+      );
+      return reading(
+        path,
+        async () => {
+          if (!response.body)
+            throw createAppError(
+              'INFRASTRUCTURE',
+              `OpenRouter ${path} answered no stream`,
+            );
+          let text = '',
+            finish: CompletionFinish = 'none',
+            refused = false,
+            promptTokens = 0,
+            completionTokens = 0,
+            ended = false;
+          for await (const data of sseData(response.body)) {
+            requireProviderNotCancelled(request.signal);
+            if (data === '[DONE]') {
+              ended = true;
+              break;
+            }
+            const chunk = parse(completionChunkSchema, JSON.parse(data), path);
+            if (chunk.error !== undefined)
+              throw createAppError(
+                'INFRASTRUCTURE',
+                `OpenRouter ${path} stream failed`,
+              );
+            const choice = chunk.choices?.[0];
+            if (choice?.delta?.refusal) refused = true;
+            if (choice?.finish_reason) finish = finishOf(choice.finish_reason);
+            if (chunk.usage) {
+              promptTokens = chunk.usage.prompt_tokens;
+              completionTokens = chunk.usage.completion_tokens;
+            }
+            const piece = choice?.delta?.content;
+            if (piece) {
+              text += piece;
+              onText(piece);
+            }
+          }
+          if (!ended)
+            throw createAppError(
+              'INFRASTRUCTURE',
+              `OpenRouter ${path} stream ended early`,
+            );
+          return { text, finish, refused, promptTokens, completionTokens };
+        },
+        request.signal,
+      );
     },
     /** Validated in-memory PCM for the server publication worker, never a transcript. */
     async speakPcm({

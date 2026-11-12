@@ -76,6 +76,47 @@ function createPhraseBuffer(maxChars = PHRASE_CHARS) {
   };
 }
 
+/**
+ * Phrases from text that arrives in pieces of any size: each phrase is
+ * returned as soon as it is decided, and together they equal `phrasesOf` of
+ * the whole text. A sentence is decided only once the whitespace after its
+ * stop has arrived, so a piece boundary never splits one.
+ */
+export function createPhraseStream(maxChars = PHRASE_CHARS) {
+  const buffer = createPhraseBuffer(maxChars);
+  let pending = '';
+  /** The sentences decided so far leave `pending`; its tail may still grow. */
+  const decided = () => {
+    const pieces = pending.split(SENTENCE_END);
+    pending = pieces.pop() ?? '';
+    return pieces
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 0)
+      .flatMap((sentence) => buffer.push(sentence));
+  };
+  return {
+    /** More text; returns the phrases it closed. */
+    push(text: string): string[] {
+      pending += text;
+      return decided();
+    },
+    /** The text is finished: its tail is a sentence too, as in `phrasesOf`. */
+    end(): string[] {
+      const tail = pending.trim();
+      pending = '';
+      return [...(tail ? buffer.push(tail) : []), ...buffer.flush()];
+    },
+    /**
+     * The text stopped short: the whole sentences still open are a phrase,
+     * and the unfinished one is dropped, never spoken as if it were whole.
+     */
+    cut(): string[] {
+      pending = '';
+      return buffer.flush();
+    },
+  };
+}
+
 /** The phrases of finished text, exactly as they were voiced. */
 export function phrasesOf(text: string, maxChars = PHRASE_CHARS): string[] {
   const buffer = createPhraseBuffer(maxChars);
