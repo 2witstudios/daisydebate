@@ -33,6 +33,7 @@ async function settlementOf(
     voice: () => createOpenRouter({ apiKey: 'key', fetch }),
     withProvider: (_signal, work) => work(),
     nowMs: () => 0,
+    pause: async () => undefined,
     maxTokens: 100,
   });
   await generation

@@ -19,7 +19,6 @@ export function createPeerLineWait(input: {
   readonly claim: {
     readonly scope: BotPublicationScope;
     readonly token: string;
-    readonly peerParticipantIds: readonly string[];
   };
   readonly readPeerLine: (
     scope: BotPublicationScope,
@@ -33,19 +32,32 @@ export function createPeerLineWait(input: {
   /** How a wait ended, for the hearing's trace. */
   readonly waited: (outcome: 'line' | 'cap' | 'unread', ms: number) => void;
 }) {
-  const { scope, token, peerParticipantIds } = input.claim;
-  return async (spokeUntilMs: number, signal: AbortSignal): Promise<void> => {
+  const { scope, token } = input.claim;
+  return async (
+    peer: string,
+    spokeUntilMs: number,
+    signal: AbortSignal,
+  ): Promise<void> => {
     const since = new Date(spokeUntilMs - SLACK_MS).toISOString();
     const startedAt = input.monotonicNowMs();
     const elapsed = () => Math.round(input.monotonicNowMs() - startedAt);
+    // One deadline for the whole wait: a slow read never stretches it.
+    const capped = input
+      .sleep(WAIT_AT_MOST_MS, signal)
+      .then(() => 'cap' as const);
+    // Only the peer whose turn ended: another peer's line is not their words.
+    const read = () =>
+      Promise.race([input.readPeerLine(scope, token, [peer], since), capped]);
     while (!signal.aborted) {
+      let landed: boolean | 'cap';
       try {
-        if (await input.readPeerLine(scope, token, peerParticipantIds, since))
-          return input.waited('line', elapsed());
+        landed = await read();
       } catch {
         return input.waited('unread', elapsed());
       }
-      if (elapsed() + READ_EVERY_MS > WAIT_AT_MOST_MS) break;
+      if (landed === true) return input.waited('line', elapsed());
+      if (landed === 'cap' || elapsed() + READ_EVERY_MS > WAIT_AT_MOST_MS)
+        break;
       await input.sleep(READ_EVERY_MS, signal);
     }
     if (!signal.aborted) input.waited('cap', elapsed());

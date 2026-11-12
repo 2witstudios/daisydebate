@@ -78,8 +78,8 @@ test('a cross-examination answer is made only after the peer’s words are in th
   const order: string[] = [];
   const line = Promise.withResolvers<void>();
   const { speaker, settle } = harness('cross_ex', {
-    heard: async (spokeUntilMs) => {
-      order.push(`wait:${spokeUntilMs > 0}`);
+    heard: async (peer, spokeUntilMs) => {
+      order.push(`wait:${peer}:${spokeUntilMs > 0}`);
       await line.promise;
     },
     generate: async (to) => {
@@ -105,9 +105,9 @@ test('a cross-examination answer is made only after the peer’s words are in th
   assert({
     given:
       'a peer turn ended, before and after its line reaches the transcript',
-    should: 'wait for the line, then generate the follow-up',
+    should: 'wait for that peer’s line, then generate the follow-up',
     actual: [before.slice(1), order.slice(1)],
-    expected: [['wait:true'], ['wait:true', 'generate:peer-turn']],
+    expected: [['wait:peer:true'], ['wait:peer:true', 'generate:peer-turn']],
   });
   await speaker.stop();
 });
@@ -233,4 +233,46 @@ test('a full provider budget keeps a cross-examination answer already bought', a
     expected: [['generate:opening'], ['publish:To opening.'], []],
   });
   await speaker.stop();
+});
+
+test('no later phrase starts over a peer who began in the gap before it', async () => {
+  const { speaker, log, release, settle } = harness('cross_ex', {
+    generate: async () => answered({ phrases: ['One.', 'Two.'] }),
+  });
+  speaker.wake();
+  await settle();
+  // The first phrase has played out and nothing is audible; the peer starts.
+  speaker.peer(peerSaid('speech-start'));
+  await release();
+  assert({
+    given: 'a peer who starts speaking in the gap between two phrases',
+    should: 'hold the second phrase back',
+    actual: published(log),
+    expected: ['publish:One.'],
+  });
+  await speaker.stop();
+});
+
+test('the pressing of an unanswered question voices its later phrases ahead', async () => {
+  const { speaker, log, settle, elapse } = harness('cross_ex', {
+    generate: async (to) =>
+      answered({
+        phrases: to.kind === 'unanswered' ? ['Again.', 'Well?'] : ['Why?'],
+      }),
+    publish: async (job) => {
+      if (job.text === 'Again.') await new Promise(() => undefined);
+      return { complete: true, segmentEnded: false };
+    },
+  });
+  speaker.wake();
+  await settle();
+  elapse();
+  await settle();
+  assert({
+    given: 'a second turn under one claim, after the first was delivered',
+    should: 'voice its second phrase while its first plays',
+    actual: log.filter((line) => line.startsWith('tts:')),
+    expected: ['tts:Why?', 'tts:Again.', 'tts:Well?'],
+  });
+  void speaker.stop();
 });

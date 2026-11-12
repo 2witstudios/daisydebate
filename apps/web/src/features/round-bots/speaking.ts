@@ -76,6 +76,7 @@ export function createSpeakingBotControl(input: {
     voice: input.voice,
     withProvider: input.withProvider,
     nowMs: input.nowMs,
+    pause: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     maxTokens: MAX_TOKENS,
   });
   const publisher = createBotPublisher({

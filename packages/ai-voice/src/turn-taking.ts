@@ -126,11 +126,13 @@ export function createTurnTaking(settings: TurnTakingSettings) {
       readonly aiPlaying: boolean;
     }): TurnTakingEvent | null {
       if (level === null) return unheard(at);
-      if (level >= settings.speechLevel) {
-        speechAt = at;
-        spokeUntil = at;
-      }
+      if (level >= settings.speechLevel) speechAt = at;
       if (level >= settings.bargeLevel) bargeAt = at;
+      // Only a frame counted as the peer's own speech moves the instant they
+      // last spoke: while the bot plays, that is a barge-in level, since a
+      // lower one may be the bot's echo.
+      if (level >= (aiPlaying ? settings.bargeLevel : settings.speechLevel))
+        spokeUntil = at;
       return aiPlaying ? whilePlaying(at) : whileListening(at);
     },
     /** Whether the peer is mid-turn: speech started and its turn has not ended. */

@@ -21,6 +21,7 @@ const synthesizeOne = (
       }) as never,
     withProvider: (_signal, work) => work(),
     nowMs: () => 0,
+    pause: async () => undefined,
     maxTokens: 100,
   }).synthesize(
     scope,
@@ -122,6 +123,7 @@ function streamedGeneration(options: { readonly budget?: () => void } = {}) {
       return work();
     },
     nowMs: () => 1000,
+    pause: async () => undefined,
     maxTokens: 100,
   });
   const generate = () =>

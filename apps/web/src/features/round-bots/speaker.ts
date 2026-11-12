@@ -141,10 +141,14 @@ export function createBotSpeaker(input: {
     to: Owed,
   ) => Promise<Generated>;
   /**
-   * Resolves once the peer's own words up to `spokeUntilMs` are in the
+   * Resolves once that peer's own words up to `spokeUntilMs` are in the
    * transcript, or it has waited long enough; it never rejects.
    */
-  readonly heard: (spokeUntilMs: number, signal: AbortSignal) => Promise<void>;
+  readonly heard: (
+    peer: string,
+    spokeUntilMs: number,
+    signal: AbortSignal,
+  ) => Promise<void>;
   /** Wakes the speaker again after a refusal, and after an unanswered question. */
   readonly timer: OneShotTimer;
   readonly synthesize: (
@@ -369,8 +373,8 @@ export function createBotSpeaker(input: {
   const unlessStopped = <T>(work: Promise<T>, signal: AbortSignal) =>
     unlessAborted(work, signal, STOPPED);
   /**
-   * A turn never starts its audio over a peer who is mid-turn: it keeps what
-   * it prepared and waits. That peer's turn ending owes a newer answer, which
+   * No phrase starts over a peer who is mid-turn: the turn keeps what it
+   * prepared and waits. That peer's turn ending owes a newer answer, which
    * replaces this one.
    */
   const floorClear = async (signal: AbortSignal) => {
@@ -389,7 +393,10 @@ export function createBotSpeaker(input: {
       // The peer's words reach the transcript after their turn ends: the
       // answer is made from them, never from the line before.
       if (to.kind === 'peer-turn')
-        await unlessStopped(input.heard(to.spokeUntilMs, signal), signal);
+        await unlessStopped(
+          input.heard(to.peer, to.spokeUntilMs, signal),
+          signal,
+        );
       progress.generated = await input.generate(scope, token, signal, to);
     }
     if (!progress.settled) {
@@ -400,7 +407,6 @@ export function createBotSpeaker(input: {
     stage = 'publish';
     // Once per speech, off the audio path: no phrase plays past the cutoff.
     const stopAtMs = await input.deadline();
-    let started = false;
     for (;;) {
       const text =
         phrases.ready(progress.spoken) ??
@@ -417,8 +423,9 @@ export function createBotSpeaker(input: {
         progress.ready = true;
       }
       if (progress.spoken === 0) await holdShortOpening(signal);
-      if (!started && crossEx) await floorClear(signal);
-      started = true;
+      // Before every phrase, not only the first: a peer may start in the gap
+      // between two.
+      if (crossEx) await floorClear(signal);
       stage = 'publish';
       const speaking = speak(progress.synthesized.value, signal, stopAtMs);
       // The next phrase, if already voiced, has its line written as this plays.
@@ -572,9 +579,6 @@ export function createBotSpeaker(input: {
     if (abort.signal.aborted) return resetProgress();
     if (failure) recover(failure.error);
     else apply({ type: 'delivered' });
-    // The last attempt is spent, or the speech is over: nothing more is bought.
-    if (state.duty.status === 'over' || state.duty.status === 'waiting')
-      dropAhead();
   };
   const start = () => {
     if (state.duty.status !== 'speaking') return;

@@ -128,3 +128,19 @@ describe('createTurnTaking', () => {
     });
   });
 });
+
+test('sound under the barge-in level while the bot plays does not move when the peer last spoke', () => {
+  const machine = createTurnTaking(turnTakingSettings);
+  run(machine, 0, 1000, steady(0.08));
+  // The bot starts over the peer's pause: its echo sits between the levels.
+  run(machine, 1000, 2000, steady(0.02), true);
+  assert({
+    given:
+      'a peer who stopped at 990 ms, then a second of faint echo while the bot plays, then silence',
+    should: 'end the turn naming 990 ms, not the echo',
+    actual: run(machine, 2000, 3200, steady(0.002)).map(
+      (event) => event.split(' spoke-until ')[1],
+    ),
+    expected: ['990'],
+  });
+});

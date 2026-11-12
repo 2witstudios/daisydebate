@@ -44,3 +44,25 @@ describe('sseData', () => {
     });
   });
 });
+
+test('a CRLF split across two network chunks is one line break', async () => {
+  const data: string[] = [];
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of [
+        'data: {"a":\r',
+        '\ndata: 1}\r\n\r',
+        '\ndata: end\r\r',
+      ])
+        controller.enqueue(new TextEncoder().encode(chunk));
+      controller.close();
+    },
+  });
+  for await (const payload of sseData(body)) data.push(payload);
+  assert({
+    given: 'chunks that end between the CR and the LF of a line break',
+    should: 'keep each event whole, and still end an event at CR line breaks',
+    actual: data,
+    expected: ['{"a":\n1}', 'end'],
+  });
+});

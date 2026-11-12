@@ -115,7 +115,7 @@ describe('a cross-examination', () => {
       expected: {
         duty: {
           status: 'speaking',
-          to: { kind: 'peer-turn', spokeUntilMs: 1 },
+          to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 1 },
           attempts: 0,
         },
         midTurn: ['p'],
@@ -142,7 +142,7 @@ describe('a cross-examination', () => {
       expected: {
         duty: {
           status: 'owed',
-          to: { kind: 'peer-turn', spokeUntilMs: 9 },
+          to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 9 },
           attempts: 0,
         },
         midTurn: [],
@@ -158,11 +158,33 @@ describe('a cross-examination', () => {
       expected: {
         duty: {
           status: 'owed',
-          to: { kind: 'peer-turn', spokeUntilMs: 2 },
+          to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 2 },
           attempts: 0,
         },
         midTurn: [],
         effects: ['drop', 'start', 'restart'],
+      },
+    });
+  });
+  test('a turn that was spoken earlier but ends later replaces nothing', () => {
+    const late: DutyEvent = {
+      type: 'peer-turn-ended',
+      peer: 'q',
+      spokeUntilMs: 1,
+    };
+    assert({
+      given:
+        'one peer’s turn ended and one attempt spent, then another peer’s earlier turn ending late',
+      should: 'keep owing the turn spoken last, with its attempt still counted',
+      actual: after(respondent, turnEnded(5), woke, failed, late),
+      expected: {
+        duty: {
+          status: 'owed',
+          to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 5 },
+          attempts: 1,
+        },
+        midTurn: [],
+        effects: ['drop', 'start', 'retry-soon'],
       },
     });
   });
@@ -188,7 +210,7 @@ describe('a cross-examination', () => {
       ).duty,
       expected: {
         status: 'owed',
-        to: { kind: 'peer-turn', spokeUntilMs: 2 },
+        to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 2 },
         attempts: 0,
       },
     });

@@ -5,7 +5,11 @@ export type Owed =
   /** The speech itself, or the asking seat's first question. */
   | { readonly kind: 'opening' }
   /** One peer turn, named by the server instant that peer last spoke. */
-  | { readonly kind: 'peer-turn'; readonly spokeUntilMs: number }
+  | {
+      readonly kind: 'peer-turn';
+      readonly peer: string;
+      readonly spokeUntilMs: number;
+    }
   /** The asking seat's own question, which met silence. */
   | { readonly kind: 'unanswered' };
 
@@ -140,9 +144,21 @@ function peerTurnEnded(
   const midTurn = state.midTurn.filter((peer) => peer !== event.peer);
   const { duty } = state;
   if (duty.status === 'over') return { state: { duty, midTurn }, effects: [] };
+  // Turns end in the order they are heard to, not the order they were spoken:
+  // an unheard peer's turn ends late. The turn spoken last is the one owed.
+  if (
+    (duty.status === 'owed' || duty.status === 'speaking') &&
+    duty.to.kind === 'peer-turn' &&
+    duty.to.spokeUntilMs >= event.spokeUntilMs
+  )
+    return { state: { duty, midTurn }, effects: [] };
   const owed: Duty = {
     status: 'owed',
-    to: { kind: 'peer-turn', spokeUntilMs: event.spokeUntilMs },
+    to: {
+      kind: 'peer-turn',
+      peer: event.peer,
+      spokeUntilMs: event.spokeUntilMs,
+    },
     attempts: 0,
   };
   return {

@@ -89,6 +89,8 @@ type Usage = {
   readonly outputTokens: number;
   readonly characters: number;
 };
+/** How long after each refused usage record it is asked again, by itself. */
+const SETTLE_AGAIN_AFTER_MS = [200, 400, 800, 1600, 3200];
 const NO_USAGE: Usage = { inputTokens: 0, outputTokens: 0, characters: 0 };
 /** Only memory phrases/PCM leave this operation; capture owns durable transcript evidence. */
 export function createBotGeneration(input: {
@@ -96,6 +98,8 @@ export function createBotGeneration(input: {
   readonly voice: () => Pick<OpenRouter, 'completeStreamed' | 'speakPcm'>;
   readonly withProvider: ProviderCall;
   readonly nowMs: () => number;
+  /** Resolves after `ms`: the wait between two tries at recording usage. */
+  readonly pause: (ms: number) => Promise<void>;
   readonly maxTokens: number;
 }) {
   if (
@@ -260,9 +264,21 @@ export function createBotGeneration(input: {
       // Refused before dispatch (a full budget, a cancelled call): nothing was bought.
       .catch((error: unknown) => producer.cut(error))
       .finally(() => opened.resolve());
-    // Recorded as soon as the stream ends, while the speech still plays; a
-    // refusal here is left for `close`, which the speaker asks at its end.
-    void ended.then(close).catch(() => undefined);
+    // Recorded as soon as the stream ends, while the speech still plays, and
+    // asked again by itself while it is refused: a turn that is cut never
+    // reaches its own `close`, and a paid call must not stay unsettled.
+    void ended.then(async () => {
+      for (const pauseMs of [...SETTLE_AGAIN_AFTER_MS, null]) {
+        if (
+          await close().then(
+            () => true,
+            () => false,
+          )
+        )
+          return;
+        if (pauseMs !== null) await input.pause(pauseMs);
+      }
+    });
     void producer.source.at(0).then(() => opened.resolve());
     await opened.promise;
     const cut = producer.source.cutBy();
