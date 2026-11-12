@@ -63,6 +63,17 @@
     padding: 4px 0 0;
   }
 
+  /* A post-round call seats the judge too: three tiles leave the controls their room. */
+  @media (width >= 901px) {
+    & [data-room-media='grid']:has(> :nth-child(3)) [data-room-media='tile'] {
+      width: min(
+        calc(var(--room-tile-height, 200px) * 16 / 9),
+        18vw,
+        calc(30dvh * 16 / 9)
+      );
+    }
+  }
+
   @media (width < 1101px) {
     & [data-room-media='tile'] {
       width: min(

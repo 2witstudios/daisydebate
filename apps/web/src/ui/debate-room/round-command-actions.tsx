@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useId, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { isLiveDebater } from './live-round';
+import { isCallDebater, isLiveDebater } from './live-round';
 import { UnacknowledgedCommand } from './unacknowledged-command';
 import type { RoundView } from '@daisy/protocol';
 import {
@@ -146,9 +146,15 @@ export function RoundCommandActions({
   const router = useRouter();
   const lost = answer.kind === 'unacknowledged';
   useEffect(() => {
-    if (!pending && !lost && !isLiveDebater(view, actorId))
+    // A debater on the post-round call stays in the room until it ends (ADR 0126).
+    if (
+      !pending &&
+      !lost &&
+      !isLiveDebater(view, actorId) &&
+      !isCallDebater(view, actorId, nowMs)
+    )
       replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
-  }, [pending, lost, view, actorId, router]);
+  }, [pending, lost, view, actorId, nowMs, router]);
   const feedback = useId(),
     control = useId();
   useEffect(() => {

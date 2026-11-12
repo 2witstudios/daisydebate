@@ -205,6 +205,37 @@ test('a casual recording choice reaches canonical creation; ranked stays automat
   });
 });
 
+test('a casual post-round call choice reaches canonical creation; ranked never asks for one', async () => {
+  const sent: Record<string, unknown>[] = [];
+  for (const ranked of [false, true]) {
+    const fields = form();
+    fields.set('postRoundCall', 'on');
+    if (!ranked) {
+      fields.set('competition', 'casual');
+      fields.set(
+        'selection',
+        JSON.stringify({
+          kind: 'catalog',
+          formatId: 'stored-format',
+          formatVersion: 2,
+          presetVersion: 3,
+          competitionType: 'casual',
+        }),
+      );
+    }
+    await createAssembly(async (_url, init) => {
+      sent.push(JSON.parse(String(init.body)));
+      return Response.json({ refusal: 'illegal-config' }, { status: 409 });
+    }, fields);
+  }
+  assert({
+    given: 'the box ticked on a casual form, then on a Ranked one',
+    should: 'ask for the call only for casual',
+    actual: sent.map((body) => body.postRoundCall ?? null),
+    expected: [true, null],
+  });
+});
+
 test('recording subscription refusal stays actionable on creation', async () => {
   assert({
     given: 'canonical creation refusing a recording subscription',

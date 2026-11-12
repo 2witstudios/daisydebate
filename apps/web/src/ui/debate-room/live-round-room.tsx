@@ -15,7 +15,9 @@ import type { RoundRead } from '../../features/round-runtime/read-round';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
 import type { LeaveLinks } from './leave-room';
-import { liveRoundOf } from './live-round';
+import { isCallDebater, liveRoundOf, postRoundCallRoundOf } from './live-round';
+import { MediaPageLink } from '../round-media/media-page-link';
+import { buttonClass } from '../components/button/button-class';
 import { DebateRoom } from './room';
 import { useDocumentSaving } from '../documents/use-document-saving';
 import { BoundedDocuments } from '../documents/bounded-documents';
@@ -100,8 +102,12 @@ export function LiveRoundRoom({
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);
   const now = useSecond(renderedAtMs, roundTime);
+  // The post-round call keeps this same room on screen (ADR 0126).
+  const onCall = isCallDebater(view, actorId, now);
   const round = useMemo(
-    () => liveRoundOf(view, actorId, now),
+    () =>
+      liveRoundOf(view, actorId, now) ??
+      postRoundCallRoundOf(view, actorId, now),
     [view, actorId, now],
   );
   const [publication, setPublication] = useState<LocalPublication>(null);
@@ -148,8 +154,10 @@ export function LiveRoundRoom({
   );
   const { sync, notice, save } = useDocumentSaving(principalId, socketUrl);
   const intent = leaveIntent(view, actorId, now);
-  const leaving: LeaveLinks =
-    intent.kind === 'forfeit'
+  const leaving: LeaveLinks = onCall
+    ? // The Round is over: leaving the call forfeits nothing and holds no one.
+      { ...leave, freed: true, held: false }
+    : intent.kind === 'forfeit'
       ? {
           ...leave,
           forfeit: {
@@ -217,7 +225,18 @@ export function LiveRoundRoom({
             }
             media={(mediaSlot ?? defaultMedia)(view)}
             publication={publication}
-            actions={actions}
+            actions={
+              onCall ? (
+                <MediaPageLink
+                  href={`/rounds/${view.id}`}
+                  className={buttonClass('primary')}
+                >
+                  See the result
+                </MediaPageLink>
+              ) : (
+                actions
+              )
+            }
             round={round}
             sync={sync}
             notice={notice}

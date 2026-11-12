@@ -10,6 +10,10 @@ import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
 import { startRefusalText, waitingOn } from './room-labels';
 
+/** What every seat is told before Ready when the host chose the call (ADR 0126). */
+export const postRoundCallText =
+  'The call stays open after the round for feedback. Judges can be seen and heard. Not recorded.';
+
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
   RoomView,
@@ -21,6 +25,7 @@ type View = Pick<
   | 'contentWaiver'
   | 'captureNotice'
   | 'capture'
+  | 'postRoundCall'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly capabilities: Pick<
@@ -118,6 +123,11 @@ export function ReadyControl({
       ) : null}
       {ready.type === 'ready' ? (
         <CaptureSummary capture={view.capture} />
+      ) : null}
+      {ready.type === 'ready' && view.postRoundCall ? (
+        <p role="note" className="w-full text-sm font-strong">
+          {postRoundCallText}
+        </p>
       ) : null}
       {ready.reason ? (
         <p role="status" className="mr-auto text-sm text-ink-muted">

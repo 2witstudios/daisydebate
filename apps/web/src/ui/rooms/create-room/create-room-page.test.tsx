@@ -124,6 +124,45 @@ test('recording is a visible casual choice and automatically on for Ranked', () 
   });
 });
 
+test('post-round feedback is a casual choice that Ranked switches off', () => {
+  const template = {
+    ...unequalTemplate,
+    role: 'standard' as const,
+    preset: { ...unequalTemplate.preset, rankedEligible: true },
+  };
+  const box = (initialRanked: boolean, values = {}) =>
+    renderToString(
+      h(CreateRoomEditor, {
+        choices: [template],
+        resolutions: [],
+        initialChoice: template,
+        values,
+        commandId: 'n'.repeat(24),
+        initialRanked,
+        pending: false,
+      }),
+    ).match(/<input[^>]*name="postRoundCall"[^>]*>/)?.[0] ?? '';
+  const has = (input: string, attribute: string) => input.includes(attribute);
+  const casual = box(false);
+  const chosen = box(false, { postRoundCall: 'on' });
+  const ranked = box(true, { postRoundCall: 'on', ranked: 'on' });
+  assert({
+    given: 'casual defaults, a retained choice, and Ranked with that choice',
+    should:
+      'offer the box unticked, keep a tick, and untick and disable it for Ranked',
+    actual: [
+      [has(casual, 'checked=""'), has(casual, 'disabled=""')],
+      [has(chosen, 'checked=""'), has(chosen, 'disabled=""')],
+      [has(ranked, 'checked=""'), has(ranked, 'disabled=""')],
+    ],
+    expected: [
+      [false, false],
+      [true, false],
+      [false, true],
+    ],
+  });
+});
+
 test('a casual Room is public unless its host chooses otherwise', () => {
   const render = (values: Readonly<Record<string, string>>) =>
     renderToString(

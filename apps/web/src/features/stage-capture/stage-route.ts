@@ -1,4 +1,5 @@
 import { createRoundRuntime } from '@daisy/debate-engine';
+import { isRoundRunning } from '@daisy/protocol';
 import {
   observerAccess,
   stageCredentialValid,
@@ -77,15 +78,18 @@ export const createStageRoute =
       {
         ...stageSnapshot({ position, seats: read.seats }),
         nowMs: deps.now(),
-        room: read.roomName
-          ? {
-              url: deps.livekitUrlFor(read.roomName),
-              token: await deps.observerToken(
-                read.roomName,
-                observerAccess(read.capture),
-              ),
-            }
-          : null,
+        // A Round that is over has no stage: its session's room may by now be a
+        // post-round call's, which nothing ever observes (ADR 0126).
+        room:
+          read.roomName && isRoundRunning(read.round.status)
+            ? {
+                url: deps.livekitUrlFor(read.roomName),
+                token: await deps.observerToken(
+                  read.roomName,
+                  observerAccess(read.capture),
+                ),
+              }
+            : null,
       },
       { headers: { 'cache-control': 'no-store' } },
     );

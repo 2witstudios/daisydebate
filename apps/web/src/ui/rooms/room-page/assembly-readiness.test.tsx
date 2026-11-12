@@ -2,7 +2,11 @@ import { AssemblyCommandForm } from './assembly-command-form';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { findElements, byText } from '../../test-support/find-elements';
-import { StartControl, ReadyControl } from './assembly-readiness';
+import {
+  StartControl,
+  ReadyControl,
+  postRoundCallText,
+} from './assembly-readiness';
 import { ContentWaiverForm } from './content-waiver-form';
 
 setupRitewayBun();
@@ -87,6 +91,20 @@ describe('native room readiness and Start round controls', () => {
         ).length,
       ],
       expected: [1, 1],
+    });
+  });
+
+  test('a Room with the post-round call says so before Ready', () => {
+    const told = (postRoundCall: boolean) =>
+      findElements(
+        ReadyControl({ ...props, view: { ...base, postRoundCall } }),
+        (element) => element.props.children === postRoundCallText,
+      ).length;
+    assert({
+      given: 'a Room whose host chose the call, and one whose host did not',
+      should: 'tell the seat only when it was chosen',
+      actual: [told(true), told(false)],
+      expected: [1, 0],
     });
   });
 

@@ -340,6 +340,36 @@ test('Record match stays visible and Ranked shows automatic recording without lo
   }
 });
 
+test('Post-round feedback is a casual choice: Ranked switches it off, and the Room keeps it', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  await page.goto('/play/room');
+  await hydrated(formOf(page));
+  const form = formOf(page);
+  const feedback = form.getByRole('checkbox', {
+    name: 'Post-round feedback',
+    exact: true,
+  });
+  const ranked = form.getByRole('checkbox', { name: 'Ranked', exact: true });
+  await expect(feedback).toBeVisible();
+  await expect(feedback).not.toBeChecked();
+  await feedback.check();
+  await ranked.check();
+  await expect(feedback).not.toBeChecked();
+  await expect(feedback).toBeDisabled();
+  await ranked.uncheck();
+  await expect(feedback).toBeEnabled();
+  await expect(feedback).toBeChecked();
+  await form.getByLabel('Room name', { exact: true }).fill('Feedback match');
+  const view = await createConfiguredRoom(page);
+  try {
+    expect(view.postRoundCall).toBe(true);
+  } finally {
+    await closeRoom(page.request, view.id);
+  }
+});
+
 test('a recording subscription refusal keeps the draft and notice, and turning it off creates normally', async ({
   page,
 }) => {

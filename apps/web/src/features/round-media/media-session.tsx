@@ -2,6 +2,7 @@
 import '../../lib/zod-jitless';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver, type RoundView } from '@daisy/protocol';
+import { postRoundCallChosen } from '../post-round-call/offered';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 import { selectMediaAccount } from './account-signout-cleanup';
 import { subscribeBrowserPageEvents } from './adapters/browser-page-events';
@@ -181,7 +182,8 @@ function RoundMediaSession({
     null,
   );
   useEffect(() => {
-    if (isRoundOver(view.status)) {
+    // A post-round call outlives its Round: the server's own answer ends it.
+    if (isRoundOver(view.status) && !postRoundCallChosen(view)) {
       dispatch({ type: 'round-ended' });
       return;
     }
@@ -226,7 +228,12 @@ function RoundMediaSession({
         ownMuted={stage.ownMuted}
         remotePeers={stage.remotePeers}
       />
-      <MediaBar state={state} dispatch={dispatch} questioning={questioning} />
+      <MediaBar
+        state={state}
+        dispatch={dispatch}
+        // Anyone on a post-round call may mute themselves.
+        questioning={questioning || postRoundCallChosen(view)}
+      />
       {nativeMediaNotice}
     </section>
   );
