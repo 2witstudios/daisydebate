@@ -11,7 +11,7 @@ import { withFixture } from './constraint-helpers';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const ballot: Ballot = {
-  rubricVersion: 'speaker-10@1',
+  rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
   reason: 'The affirmative answered the decisive argument.',
   feedback: {},

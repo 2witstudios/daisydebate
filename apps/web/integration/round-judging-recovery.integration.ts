@@ -1,4 +1,5 @@
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '@daisy/db/testing';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
@@ -19,8 +20,13 @@ test('cached judging response retries actual shared completion without redispatc
   await withRoomRuntime(
     async (f) => {
       const { roundId, target } = await freezeBotJudge(f);
+      await atFinalJudgingStage(f.sql, target);
       const first = await f.store.claimRoundJudgingJob(target);
-      await f.store.beginRoundJudgingModelCall(first.scope, first.token);
+      await f.store.beginRoundJudgingModelCall(
+        first.scope,
+        first.token,
+        'final',
+      );
       await f.store.saveRoundJudgingResult(first.scope, first.token, ballot, {
         inputTokens: 11,
         outputTokens: 5,

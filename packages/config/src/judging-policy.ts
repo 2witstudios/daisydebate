@@ -8,7 +8,8 @@ const policy = z
     scanMs: positive.max(500),
     leaseMs: positive.max(60000),
     renewMs: positive,
-    callTimeoutMs: positive.max(60000),
+    /** One stage's call; the case map is the long one (ADR 0125). */
+    callTimeoutMs: positive.max(120000),
     model: workerModel,
   })
   .refine(

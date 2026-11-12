@@ -135,6 +135,42 @@ describe('complete', () => {
     });
   });
 
+  test('a call with its own bound outlives the client default', async () => {
+    const answered = () =>
+      Response.json({
+        choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+      });
+    const waiting = (wait: number) => {
+      const seen: boolean[] = [];
+      const fetch: Fetch = async (_url, init) => {
+        await Bun.sleep(wait);
+        seen.push(Boolean(init?.signal?.aborted));
+        return answered();
+      };
+      return { seen, fetch };
+    };
+    const own = waiting(40);
+    await createOpenRouter({
+      apiKey: 'k',
+      fetch: own.fetch,
+      timeoutMs: 5,
+    }).complete({ model: 'm', messages: [], maxTokens: 1, timeoutMs: 5000 });
+    const fallback = waiting(40);
+    await createOpenRouter({
+      apiKey: 'k',
+      fetch: fallback.fetch,
+      timeoutMs: 5,
+    }).complete({ model: 'm', messages: [], maxTokens: 1 });
+    assert({
+      given:
+        'a slow answer under a 5 ms client default, with and without a 5 s bound on the call',
+      should:
+        'keep the call open under its own bound, and abort it at the default without one',
+      actual: [own.seen, fallback.seen],
+      expected: [[false], [true]],
+    });
+  });
+
   test('a vendor failure is an infrastructure error without the body', async () => {
     const { fetch } = recording(
       () => new Response('secret provider detail', { status: 502 }),

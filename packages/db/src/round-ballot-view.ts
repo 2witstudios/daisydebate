@@ -1,11 +1,16 @@
-import { ballotSchema, type Ballot, type DebateSide } from '@daisy/protocol';
+import {
+  storedBallotSchema,
+  type DebateSide,
+  type StoredBallot,
+} from '@daisy/protocol';
 import type { FrozenRoundTranscript } from './frozen-transcript';
 import type { ballots } from './schema/ballots';
 
-type StoredBallot = typeof ballots.$inferSelect;
+type BallotRow = typeof ballots.$inferSelect;
 
-const ballotBody = (row: StoredBallot) =>
-  ballotSchema.parse({
+/** A stored ballot on the rubric version it was written on. */
+const ballotBody = (row: BallotRow) =>
+  storedBallotSchema.parse({
     rubricVersion: row.rubricVersion,
     winner: row.winner,
     scores: row.scores,
@@ -31,9 +36,9 @@ export const ownJudgeSeat = <
 
 /** A ballot's feedback narrowed to the one side this reader debated, if any. */
 const feedbackFor = (
-  feedback: Ballot['feedback'],
+  feedback: StoredBallot['feedback'],
   side: DebateSide | undefined,
-): Ballot['feedback'] => {
+): StoredBallot['feedback'] => {
   const text = side ? feedback[side] : undefined;
   return side && text ? { [side]: text } : {};
 };
@@ -50,7 +55,7 @@ export function ballotReadView(input: {
   readonly ownSeatId: string | undefined;
   readonly viewerSide: DebateSide | undefined;
   readonly aiJudgeSeatIds: ReadonlySet<string>;
-  readonly rows: readonly StoredBallot[];
+  readonly rows: readonly BallotRow[];
   readonly frozen: FrozenRoundTranscript | null;
 }) {
   const own = input.rows.find((b) => b.judgeParticipantId === input.ownSeatId);

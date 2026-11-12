@@ -51,7 +51,9 @@ describe('ScoreSheet', () => {
         /Maya Singh: <\/span><span[^>]*>40<\/span><span[^>]*>\/ 50/.test(html),
         /Daniel Kim: <\/span><span[^>]*>32<\/span><span[^>]*>\/ 50/.test(html),
         (html.match(/<details/g) ?? []).length,
-        html.includes('Set the terms the round was judged on'),
+        html.includes(
+          'Set the burdens the round was decided on, and won the dispute over them',
+        ),
       ],
       expected: [true, true, 10, true],
     });

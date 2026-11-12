@@ -97,6 +97,23 @@ describe('ballot draft', () => {
     });
   });
 
+  test('a draft written on the earlier rubric is never read into the current form', () => {
+    const storage = memory();
+    // What a tab on the speaker-10@1 build stored for this seat.
+    const earlier = 'daisy:ballot-draft:speaker-10@1:round-1:seat-1';
+    storage.setItem(earlier, JSON.stringify({ winner: 'negative' }));
+    assert({
+      given: 'a speaker-10@1 draft stored for the same Round and seat',
+      should: 'read no draft under the current rubric’s key',
+      actual: [
+        key.includes(':speaker-10@2:'),
+        readBallotDraft(storage, earlier),
+        readBallotDraft(storage, key),
+      ],
+      expected: [true, { winner: 'negative' }, null],
+    });
+  });
+
   test('an over-long value is not kept', () => {
     assert({
       given: 'a reason far beyond any ballot limit',

@@ -12,7 +12,7 @@ function oneJob(input: {
     | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason }
   >;
   readonly execute: (signal: AbortSignal) => Promise<unknown>;
-  readonly pendingBallot: unknown;
+  readonly ballotHeld: boolean;
   readonly jobEnded?: (reason: JudgingTerminalReason) => void;
 }) {
   const { failures, failed } = failureLog();
@@ -33,7 +33,11 @@ function oneJob(input: {
       },
       renewRoundJudgingJob: input.renew,
       verifyRoundJudgingJob: async () => ({
-        pendingBallot: input.pendingBallot,
+        progress: {
+          kind: input.ballotHeld
+            ? ('ballot_held' as const)
+            : ('stage_due' as const),
+        },
       }),
     },
     execute: (_claim, signal) => input.execute(signal),
@@ -72,7 +76,7 @@ test('a renewal that finds the job ended cancels the call and names the reason',
           resolve(undefined);
         }),
       ),
-    pendingBallot: null,
+    ballotHeld: false,
     jobEnded: (reason) => ended.push(reason),
   });
   await job.scan();
@@ -100,7 +104,7 @@ test('a renewal that fails for a transient reason keeps the paid call running', 
           resolve(undefined);
         }),
       ),
-    pendingBallot: null,
+    ballotHeld: false,
   });
   await job.service.started;
   await job.renew();
@@ -124,7 +128,7 @@ test('a saved ballot that keeps failing to submit is reported and its slot relea
       executions++;
       throw refusal;
     },
-    pendingBallot: { winner: 'affirmative' },
+    ballotHeld: true,
   });
   await job.service.started;
   for (let i = 0; i < 4; i++) await job.scan();
@@ -170,7 +174,9 @@ test('a delayed old renewal cannot remove a replacement judging claim', async ()
         if (token === '1') await oldRenewal.promise;
         return { kind: 'renewed' };
       },
-      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'stage_due' as const },
+      }),
     },
     execute: async (claim, signal) => {
       if (claim.token === '1') return firstExecution.promise;

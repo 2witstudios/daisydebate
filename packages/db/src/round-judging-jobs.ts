@@ -2,7 +2,9 @@ import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   ballotSchema,
+  caseMapSchema,
   judgingAttemptDiagnosticSchema,
+  type JudgingStage,
   type JudgingAttemptDiagnostic,
   type JudgingTerminalReason,
   type JudgingRecoveryReason,
@@ -36,7 +38,9 @@ import {
 } from './casual-judge-usage';
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import {
+  judgingProgress,
   pendingBallotAction,
+  requireNextStage,
   requireUndispatched,
 } from './round-judging-decisions';
 export type { JudgingScope } from './round-judging-context';
@@ -50,6 +54,24 @@ export type LeaseRenewed =
   | { readonly kind: 'ended'; readonly reason: JudgingTerminalReason };
 /** A valid answer is held for submission, or its budget had passed and the job ended. */
 export type AnswerSaved = { readonly kind: 'held' };
+/** An earlier stage's validated output (ADR 0125): the first pass or the case map. */
+export type StageRecord =
+  | { readonly stage: 'first'; readonly ballot: unknown }
+  | { readonly stage: 'map'; readonly caseMap: unknown };
+/** A stage record validated by its own contract, as the job's columns it fills. */
+function storedStage(record: StageRecord) {
+  if (record.stage === 'first') {
+    const ballot = ballotSchema.safeParse(record.ballot);
+    if (!ballot.success) throw createAppError('VALIDATION');
+    return (now: Date) => ({
+      firstBallot: ballot.data,
+      firstBallotReceivedAt: now,
+    });
+  }
+  const caseMap = caseMapSchema.safeParse(record.caseMap);
+  if (!caseMap.success) throw createAppError('VALIDATION');
+  return (now: Date) => ({ caseMap: caseMap.data, caseMapReceivedAt: now });
+}
 export type AttemptDeferred =
   | { readonly kind: 'retry' }
   | {
@@ -196,15 +218,18 @@ export function createRoundJudgingJobs(input: {
     verify: (scope: JudgingScope, token: string) =>
       withLease(scope, token, (_tx, { round, job }) => ({
         expectedVersion: round.version,
-        pendingBallot: job.pendingBallot,
+        /** The held final ballot, or the one stage this claim may buy. */
+        progress: judgingProgress(job),
       })),
     /** Ranked judging stays free; casual judging counts its admitted use before model I/O. */
     beginModelCall: (
       scope: JudgingScope,
       token: string,
+      stage: JudgingStage,
     ): Promise<ModelCallBegun> =>
       withLease(scope, token, async (tx, { run, job, now }) => {
         requireUndispatched(job, await attemptOfRun(tx, run.id));
+        requireNextStage(job, stage);
         const recovery = await recoveryFor(tx, scope, job, now);
         if (recovery.status !== 'queued') {
           await deferLockedJudgingJob(tx, scope, run.id, recovery);
@@ -232,6 +257,7 @@ export function createRoundJudgingJobs(input: {
           jobEpoch: scope.jobEpoch,
           model: run.model ?? input.model,
           contractVersion: input.contractVersion,
+          stage,
           outcome: 'dispatched',
         });
         return { kind: 'dispatched' };
@@ -255,6 +281,8 @@ export function createRoundJudgingJobs(input: {
         token,
         async (tx, { run, job, now }): Promise<AnswerSaved> => {
           const attempt = await attemptOfRun(tx, run.id);
+          if (attempt && attempt.stage !== 'final')
+            throw createAppError('CONFLICT', 'Not a final-stage call');
           if (pendingBallotAction(job, attempt, parsed.data) === 'kept')
             return { kind: 'held' };
           await tx
@@ -273,6 +301,39 @@ export function createRoundJudgingJobs(input: {
           return { kind: 'held' };
         },
       );
+    },
+    /**
+     * An earlier stage's validated output, stored once (ADR 0125). The claim
+     * then ends and the job is due at once, so the next claim buys the next
+     * stage; a takeover reads the stored output and never buys it again.
+     */
+    saveStage: async (
+      scope: JudgingScope,
+      token: string,
+      record: StageRecord,
+      usage: { readonly inputTokens: number; readonly outputTokens: number },
+    ): Promise<void> => {
+      await recordJudgingUsage(input.run, scope, token, usage);
+      const stored = storedStage(record);
+      await withLease(scope, token, async (tx, { run, job, now }) => {
+        const attempt = await attemptOfRun(tx, run.id);
+        if (!attempt || attempt.stage !== record.stage)
+          throw createAppError('CONFLICT', 'Model call not dispatched');
+        requireNextStage(job, record.stage);
+        await tx
+          .update(roundJudgingAttempts)
+          .set({ outcome: 'succeeded' })
+          .where(eq(roundJudgingAttempts.agentRunId, run.id));
+        await tx
+          .update(roundJudgingJobs)
+          .set(stored(now))
+          .where(judgingJobWhere(scope));
+        await deferLockedJudgingJob(tx, scope, run.id, {
+          status: 'queued',
+          reason: null,
+          retryAt: now.toISOString(),
+        });
+      });
     },
     /**
      * Durable and immediate: the attempt's safe reason, then either a later
@@ -295,8 +356,15 @@ export function createRoundJudgingJobs(input: {
         // The first validated reply won. An out-of-order failure cannot
         // rewrite its successful attempt or remove its submission authority.
         if (job.pendingBallot) return { kind: 'retry' as const };
-        if (!(await attemptOfRun(tx, run.id)))
+        const attempt = await attemptOfRun(tx, run.id);
+        if (!attempt)
           throw createAppError('CONFLICT', 'Model call not dispatched');
+        // The first pass is a record with one try: it never holds back the ballot.
+        if (attempt.stage === 'first')
+          await tx
+            .update(roundJudgingJobs)
+            .set({ firstBallotFailed: true })
+            .where(judgingJobWhere(scope));
         // A provider_refused attempt was certainly not served, so it buys nothing.
         await tx
           .update(roundJudgingAttempts)

@@ -27,7 +27,9 @@ test('a held reply beyond a full paid-work page remains discoverable without pro
         return { scope, token: 'memory-only' };
       },
       renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
-      verifyRoundJudgingJob: async () => ({ pendingBallot: {} }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'ballot_held' as const },
+      }),
     },
     execute: async (claim, signal) => {
       if (claim.scope.roundId === 'late-cache' && !signal.aborted)
@@ -80,7 +82,9 @@ test('provider saturation cannot hide a later validated reply', async () => {
         return { scope, token: 'memory-only' };
       },
       renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
-      verifyRoundJudgingJob: async () => ({ pendingBallot: {} }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'ballot_held' as const },
+      }),
     },
     execute: async (claim) => {
       submitted.push(claim.scope.roundId);
@@ -119,7 +123,9 @@ test('a Round with several due judges cannot consume every provider slot', async
         return { scope, token: 'memory-only' };
       },
       renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
-      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'stage_due' as const },
+      }),
     },
     execute: async (_claim, signal) => {
       if (signal.aborted) return;

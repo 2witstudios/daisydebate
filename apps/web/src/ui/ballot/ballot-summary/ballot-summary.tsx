@@ -1,4 +1,4 @@
-import { debateSides, type Ballot } from '@daisy/protocol';
+import { debateSides, type StoredBallot } from '@daisy/protocol';
 import type { BallotDebaters } from '../../../features/judge/ballot';
 import { Avatar } from '../../components/avatar/avatar';
 import { ballotEyebrowClass, ballotHeadingClass } from '../ballot-class';
@@ -15,7 +15,7 @@ export function BallotSummary({
   feedbackTitle = 'Feedback',
 }: {
   readonly title: string;
-  readonly ballot: Ballot;
+  readonly ballot: StoredBallot;
   readonly debaters: BallotDebaters;
   readonly feedbackTitle?: string;
 }) {

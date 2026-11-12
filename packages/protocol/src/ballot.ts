@@ -1,143 +1,75 @@
 import { z } from 'zod';
 import { debateSideSchema, debateSides } from './primitives';
+import { ballotRubrics, type BallotRubricVersion } from './ballot-rubrics';
 
 /**
  * The speaker rubric every ballot scores against, human or AI. Ten
  * categories in four groups; each debater gets 1–5 in each. The anchors say
  * what a 1, a 3 and a 5 look like; 2 and 4 sit between them. The version is
- * stored with every ballot, so a later rubric never re-reads an old one.
+ * stored with every ballot, so a later rubric never re-reads an old one:
+ * every version stays as data in `ballot-rubrics.ts`, and only the current
+ * one is written.
  */
-export const ballotRubricVersion = 'speaker-10@1';
+export { ballotRubrics, type BallotRubricVersion };
+export const ballotRubricVersions = Object.keys(
+  ballotRubrics,
+) as readonly BallotRubricVersion[];
 
-export const ballotRubric = [
-  {
-    id: 'construction',
-    name: 'Construction',
-    categories: [
-      {
-        id: 'thesis',
-        name: 'Thesis',
-        rewards: 'One clear claim carried through',
-        anchors: [
-          'No central claim',
-          'Claim stated, drifts',
-          'Every speech serves one claim',
-        ],
-      },
-      {
-        id: 'framework',
-        name: 'Framework',
-        rewards: 'Set the standard and won it',
-        anchors: [
-          'No standard offered',
-          'Standard offered, not defended',
-          'Set the terms the round was judged on',
-        ],
-      },
-      {
-        id: 'analysis',
-        name: 'Analysis',
-        rewards: 'Warranted why, not asserted',
-        anchors: [
-          'Assertions only, or invented evidence',
-          'Some warrants and examples',
-          'Every claim warranted, examples accurate',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'clash',
-    name: 'Clash',
-    categories: [
-      {
-        id: 'refutation',
-        name: 'Refutation',
-        rewards: 'Answered theirs, dropped nothing',
-        anchors: [
-          'Ignored the opponent',
-          'Answered some, dropped some',
-          'Answered every key argument, extended the answers',
-        ],
-      },
-      {
-        id: 'impact',
-        name: 'Impact',
-        rewards: 'Said why each argument matters',
-        anchors: [
-          'No stakes',
-          'Stakes stated, not developed',
-          'Clear magnitude, likelihood and timeframe',
-        ],
-      },
-      {
-        id: 'weighing',
-        name: 'Weighing',
-        rewards: 'Compared: why mine outweighs',
-        anchors: [
-          'No comparison',
-          'Asserted “we outweigh”',
-          'Explicit comparison on the opponent’s terms',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'cross-ex',
-    name: 'Cross-ex',
-    categories: [
-      {
-        id: 'questioning',
-        name: 'Questioning',
-        rewards: 'Questions that set up arguments',
-        anchors: [
-          'Aimless, or speeches as questions',
-          'Some useful concessions',
-          'Won concessions used later',
-        ],
-      },
-      {
-        id: 'answering',
-        name: 'Answering',
-        rewards: 'Direct, honest, no evasion',
-        anchors: [
-          'Evasive or stalling',
-          'Mostly direct',
-          'Concise, honest, kept position',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'presentation',
-    name: 'Presentation',
-    categories: [
-      {
-        id: 'organization',
-        name: 'Organization',
-        rewards: 'Signposted, easy to flow',
-        anchors: [
-          'Impossible to follow',
-          'Mostly followable',
-          'Roadmap, signposts, clean flow',
-        ],
-      },
-      {
-        id: 'delivery',
-        name: 'Delivery',
-        rewards: 'Clear, paced, persuasive',
-        anchors: [
-          'Unclear or rushed',
-          'Understandable',
-          'Clear, confident, used the time',
-        ],
-      },
-    ],
-  },
-] as const;
+/** The rubric every new ballot is written on. */
+export const ballotRubricVersion = 'speaker-10@2' satisfies BallotRubricVersion;
+export const ballotRubric = ballotRubrics[ballotRubricVersion];
 
-/** The ten category ids, in rubric order. */
+type CategoryOf<V extends BallotRubricVersion> =
+  (typeof ballotRubrics)[V][number]['categories'][number]['id'];
+/** A rubric version's ten category ids, in rubric order. */
+export const rubricCategories = <V extends BallotRubricVersion>(
+  version: V,
+): readonly CategoryOf<V>[] =>
+  ballotRubrics[version].flatMap((group) =>
+    group.categories.map((category) => category.id),
+  ) as readonly CategoryOf<V>[];
+
+/** The current rubric's ten category ids, in rubric order. */
 export const ballotCategories = [
+  'thesis',
+  'burdens',
+  'warrants',
+  'coherence',
+  'refutation',
+  'weighing',
+  'questioning',
+  'answering',
+  'organization',
+  'delivery',
+] as const satisfies readonly CategoryOf<typeof ballotRubricVersion>[];
+export type BallotCategory = (typeof ballotCategories)[number];
+
+/** The score every category starts at on a new ballot. */
+export const ballotDefaultScore = 3;
+export const ballotScoreMax = 5;
+const ballotReasonMax = 600;
+const ballotFeedbackMax = 280;
+
+const scoreSchema = z.int().min(1).max(ballotScoreMax);
+const citationSchema = z.strictObject({
+  turn: z.string().trim().min(1).max(8),
+  note: z.string().trim().min(1).max(200),
+});
+
+const versionSchemas = <const C extends readonly [string, ...string[]]>(
+  categories: C,
+) => {
+  const category = z.enum(categories);
+  return {
+    scores: z.record(debateSideSchema, z.record(category, scoreSchema)),
+    citations: z.partialRecord(
+      debateSideSchema,
+      z.partialRecord(category, citationSchema),
+    ),
+  };
+};
+const current = versionSchemas(ballotCategories);
+const v1 = versionSchemas([
   'thesis',
   'framework',
   'analysis',
@@ -148,30 +80,15 @@ export const ballotCategories = [
   'answering',
   'organization',
   'delivery',
-] as const;
-export type BallotCategory = (typeof ballotCategories)[number];
-
-/** The score every category starts at on a new ballot. */
-export const ballotDefaultScore = 3;
-export const ballotScoreMax = 5;
-const ballotReasonMax = 600;
-const ballotFeedbackMax = 280;
-
-const scoreSchema = z.int().min(1).max(ballotScoreMax);
-const categorySchema = z.enum(ballotCategories);
-const sideScoresSchema = z.record(categorySchema, scoreSchema);
-const citationSchema = z.strictObject({
-  turn: z.string().trim().min(1).max(8),
-  note: z.string().trim().min(1).max(200),
-});
+] as const satisfies readonly CategoryOf<'speaker-10@1'>[]);
 
 /**
- * The numeric scoring portion of the ballot contract alone: what the
- * `ballots.scores` column stores (ADR 0058). The full `ballotSchema` —
- * rubric version, winner, reason, feedback, citations together — is what a
- * write path validates before the row is decomposed into its columns.
+ * The numeric scoring portion of the ballot contract alone, on the current
+ * rubric: what a new ballot writes to the `ballots.scores` column (ADR 0058).
  */
-export const ballotScoresSchema = z.record(debateSideSchema, sideScoresSchema);
+export const ballotScoresSchema = current.scores;
+/** What the `ballots.scores` column holds: scores on any rubric version. */
+export const storedBallotScoresSchema = z.union([current.scores, v1.scores]);
 
 /** The per-side feedback the ballot may carry, as its column stores it. */
 export const ballotFeedbackSchema = z.partialRecord(
@@ -179,42 +96,60 @@ export const ballotFeedbackSchema = z.partialRecord(
   z.string().trim().min(1).max(ballotFeedbackMax),
 );
 
-/** The turn behind each score, as its column stores it. */
-export const ballotCitationsSchema = z.partialRecord(
-  debateSideSchema,
-  z.partialRecord(categorySchema, citationSchema),
-);
+/** The turn behind each score, as a new ballot writes it. */
+export const ballotCitationsSchema = current.citations;
+/** What the `ballots.citations` column holds, on any rubric version. */
+export const storedBallotCitationsSchema = z.union([
+  current.citations,
+  v1.citations,
+]);
+
+const ballotFields = {
+  winner: debateSideSchema,
+  reason: z.string().trim().min(1).max(ballotReasonMax),
+  feedback: ballotFeedbackSchema,
+};
 
 /**
- * One judge's ballot. The judge picks a winner (there are no draws), scores
- * every category for both sides, and gives a reason both debaters see.
- * Feedback for each debater is optional. An AI ballot adds the turn behind
- * each score as citations.
+ * One judge's ballot, as every write path accepts it: on the current rubric
+ * only. The judge picks a winner (there are no draws), scores every category
+ * for both sides, and gives a reason both debaters see. Feedback for each
+ * debater is optional. An AI ballot adds the turn behind each score as
+ * citations.
  */
 export const ballotSchema = z.strictObject({
   rubricVersion: z.literal(ballotRubricVersion),
-  winner: debateSideSchema,
-  scores: ballotScoresSchema,
-  reason: z.string().trim().min(1).max(ballotReasonMax),
-  feedback: ballotFeedbackSchema,
-  citations: ballotCitationsSchema.optional(),
+  ...ballotFields,
+  scores: current.scores,
+  citations: current.citations.optional(),
 });
 export type Ballot = z.infer<typeof ballotSchema>;
 
+/**
+ * A ballot as it is read back: on the rubric version it was written on, with
+ * that version's categories.
+ */
+export const storedBallotSchema = z.discriminatedUnion('rubricVersion', [
+  ballotSchema,
+  z.strictObject({
+    rubricVersion: z.literal('speaker-10@1'),
+    ...ballotFields,
+    scores: v1.scores,
+    citations: v1.citations.optional(),
+  }),
+]);
+export type StoredBallot = z.infer<typeof storedBallotSchema>;
+
 /** One side's speaker score: the sum of its ten category scores, out of 50. */
 export const speakerTotal = (
-  scores: Readonly<Record<BallotCategory, number>>,
-): number =>
-  ballotCategories.reduce((sum, category) => sum + scores[category], 0);
+  scores: Readonly<Record<string, number>>,
+): number => Object.values(scores).reduce((sum, score) => sum + score, 0);
 
 /** True when the winner's speaker score is lower than the loser's. */
 export const isLowPointWin = (
   winner: (typeof debateSides)[number],
   scores: Readonly<
-    Record<
-      (typeof debateSides)[number],
-      Readonly<Record<BallotCategory, number>>
-    >
+    Record<(typeof debateSides)[number], Readonly<Record<string, number>>>
   >,
 ): boolean => {
   const loser = debateSides.find((side) => side !== winner) ?? winner;

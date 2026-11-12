@@ -1,4 +1,6 @@
 import { SQL } from 'bun';
+import { judgingPolicy } from '@daisy/protocol';
+import { atFinalJudgingStage } from '../src/testing-judging';
 import { readFile } from 'node:fs/promises';
 import { createHash, randomBytes } from 'node:crypto';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -291,6 +293,8 @@ test(
         const target = await seedHistoricalJudge(f, 'live_received');
         try {
           await scratch.migrate(() => true);
+          // A historical job resumes at the final stage it always bought (ADR 0125).
+          await atFinalJudgingStage(f.sql, target);
           const client = new SQL(scratch.url, { max: 4 });
           const run = createBoundedTransaction({
             lane: testLane(client, 4),
@@ -299,7 +303,7 @@ test(
           const jobs = judgingJobs(run);
           try {
             const claimed = await jobs.claim(target);
-            await jobs.beginModelCall(claimed.scope, claimed.token);
+            await jobs.beginModelCall(claimed.scope, claimed.token, 'final');
             await jobs.recordAttemptFailure(claimed.scope, claimed.token, {
               diagnostic: {
                 category: 'timeout',
@@ -358,8 +362,10 @@ test(
         try {
           await f.sql`update rounds set status='active',current_stage='live',completed_at=null where id=${target.roundId}`;
           await f.sql`update round_judging_jobs set status='queued',terminal_reason=null where round_id=${target.roundId}`;
-          await f.sql`update agent_runs set requests=2 where round_participant_id=${target.judgeParticipantId}`;
+          await f.sql`update agent_runs set requests=${judgingPolicy.maxPaidCalls} where round_participant_id=${target.judgeParticipantId}`;
           await scratch.migrate(() => true);
+          // A historical job resumes at the final stage it always bought (ADR 0125).
+          await atFinalJudgingStage(f.sql, target);
           const [before] =
             await f.sql`select id,actor_id,source,state,reserved_at,binds_free_judge from usage_reservations where round_id=${target.roundId}`;
           const client = new SQL(scratch.url, { max: 4 });
@@ -373,6 +379,7 @@ test(
             const begun = await jobs.beginModelCall(
               claimed.scope,
               claimed.token,
+              'final',
             );
             const [after] =
               await f.sql`select id,actor_id,source,state,reserved_at,binds_free_judge,(select sum(requests)::int from agent_runs where round_participant_id=${target.judgeParticipantId}) as requests,
@@ -385,13 +392,17 @@ test(
               from round_judging_jobs where round_id=${target.roundId}`;
             assert({
               given:
-                'two durable prior judge requests with missing attempt records, migrated before a retry claim',
+                'a window of durable prior judge requests with missing attempt records, migrated before a retry claim',
               should:
                 'defer the spent window with bounded backoff and released capacity, preserving the original usage identity, historical budget and lack of new dispatch or relief',
               actual: [begun, after, pending],
               expected: [
                 { kind: 'deferred', reason: 'attempt_window' },
-                { ...before, requests: 2, attempts: 0 },
+                {
+                  ...before,
+                  requests: judgingPolicy.maxPaidCalls,
+                  attempts: 0,
+                },
                 {
                   status: 'recovering',
                   recovery_reason: 'attempt_window',

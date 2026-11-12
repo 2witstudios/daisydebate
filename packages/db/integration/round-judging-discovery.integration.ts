@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { atFinalJudgingStage } from '../src/testing-judging';
 import { isAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBotSeat } from './bot-seat.test-support';
@@ -37,7 +38,7 @@ test('cached discovery is independent of a full page of older uncached Rounds', 
       created.push(cachedId);
       const cached = await seedJudgingIntent(fixture, cachedId, run);
       const holder = await jobs.claim(cached);
-      await jobs.beginModelCall(holder.scope, holder.token);
+      await jobs.beginModelCall(holder.scope, holder.token, 'final');
       await jobs.saveResult(
         holder.scope,
         holder.token,
@@ -73,6 +74,10 @@ test('concurrent judge claims serialize one active operation per Round', async (
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const other = await createBotSeat(fixture, roundId, 'judge', 1);
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${other.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+    await atFinalJudgingStage(fixture.sql, {
+      roundId: roundId,
+      judgeParticipantId: other.id,
+    });
     const attempts = await Promise.allSettled([
       jobs.claim(target),
       jobs.claim({ roundId, judgeParticipantId: other.id }),
@@ -130,6 +135,10 @@ test('discovery pages eligible Rounds before a large panel can fill the batch', 
       );
       await panel.fixture
         .sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${panel.roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+      await atFinalJudgingStage(panel.fixture.sql, {
+        roundId: panel.roundId,
+        judgeParticipantId: seat.id,
+      });
     }
     await withJudgingJob(async (other) => {
       const relevant = (rows: Awaited<ReturnType<typeof other.jobs.scan>>) =>
@@ -144,7 +153,7 @@ test('discovery pages eligible Rounds before a large panel can fill the batch', 
         expected: [panel.roundId, other.roundId],
       });
       const holder = await panel.jobs.claim(panel.target);
-      await panel.jobs.beginModelCall(holder.scope, holder.token);
+      await panel.jobs.beginModelCall(holder.scope, holder.token, 'final');
       await panel.jobs.saveResult(
         holder.scope,
         holder.token,
@@ -198,6 +207,10 @@ test('finishing a panel member cannot reset its Round ahead of waiting work', as
     );
     await panel.fixture
       .sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${panel.roundId},${sibling.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+    await atFinalJudgingStage(panel.fixture.sql, {
+      roundId: panel.roundId,
+      judgeParticipantId: sibling.id,
+    });
     await withJudgingJob(async (other) => {
       const claim = await panel.jobs.claim(panel.target);
       // An ended member no longer participates in the eligible-row partition,
@@ -221,7 +234,7 @@ test('finishing a panel member cannot reset its Round ahead of waiting work', as
 test('new arrivals cannot outrank an older service turn once its backoff is due', async () => {
   await withJudgingJob(async (older) => {
     const claim = await older.jobs.claim(older.target);
-    await older.jobs.beginModelCall(claim.scope, claim.token);
+    await older.jobs.beginModelCall(claim.scope, claim.token, 'final');
     await older.jobs.recordAttemptFailure(claim.scope, claim.token, failure);
     for (let arrival = 0; arrival < 3; arrival++) {
       await withJudgingJob(async (newer) => {

@@ -1,11 +1,28 @@
 import { z } from 'zod';
 import { ballotCategories } from './ballot';
+import type { CaseMap } from './case-map';
 
 const sides = ['affirmative', 'negative'] as const;
 const UNKNOWN_FIELD = 'unknown_field';
 
 /**
- * Every ballot field a rejection may name. A path outside this list becomes
+ * The stages of coherency judging (ADR 0125), in order, one paid call each:
+ * the first-pass record, the case map, and the official final ballot.
+ */
+export const judgingStages = ['first', 'map', 'final'] as const;
+export type JudgingStage = (typeof judgingStages)[number];
+/**
+ * The one stage a job needs next with what its call reads: the final ballot
+ * is always decided from the stored case map, so it cannot be due without one.
+ */
+export type JudgingStageInput =
+  | { readonly stage: 'first' }
+  | { readonly stage: 'map' }
+  | { readonly stage: 'final'; readonly caseMap: CaseMap };
+
+/**
+ * Every ballot field a rejection may name, plus `case_map` for any rejected
+ * case-map answer, which is never broken down by path. A path outside this list becomes
  * the unknown marker, so a model-chosen key can never reach storage or telemetry.
  */
 export const judgingBallotFields = [
@@ -20,6 +37,7 @@ export const judgingBallotFields = [
     `feedback.${side}`,
     ...ballotCategories.map((category) => `scores.${side}.${category}`),
   ]),
+  'case_map',
   UNKNOWN_FIELD,
 ] as const;
 

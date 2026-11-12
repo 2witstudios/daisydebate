@@ -1,4 +1,5 @@
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '../src/testing-judging';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -19,6 +20,10 @@ test('configured root judging aliases share the owned pool and claim actual froz
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+    await atFinalJudgingStage(fixture.sql, {
+      roundId: roundId,
+      judgeParticipantId: seat.id,
+    });
     try {
       const inert = createDatabase({
         url: services.databaseUrl,
@@ -136,7 +141,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
           tokenHashed: true,
         },
       });
-      await store.beginRoundJudgingModelCall(claim.scope, claim.token);
+      await store.beginRoundJudgingModelCall(claim.scope, claim.token, 'final');
       await store.recordRoundJudgingUsage(claim.scope, claim.token, {
         inputTokens: 11,
         outputTokens: 5,

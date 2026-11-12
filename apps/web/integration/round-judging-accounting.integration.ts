@@ -1,4 +1,5 @@
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '@daisy/db/testing';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -22,6 +23,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
     await withRoomRuntime(
       async (f) => {
         const { roundId, target } = await freezeBotJudge(f);
+        await atFinalJudgingStage(f.sql, target);
         const claim = await f.store.claimRoundJudgingJob(target);
         const readRun = () =>
           f.sql`select requests,input_tokens,output_tokens,(select case when answered_at is not null then 'received' when outcome='dispatched' or category<>'provider_refused' then 'unknown' else 'refused' end from round_judging_attempts where agent_run_id=${claim.scope.agentRunId}) as outcome from agent_runs where id=${claim.scope.agentRunId}`;

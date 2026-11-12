@@ -1,5 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { stubCaseMap } from '@daisy/ai-voice/testing';
 import { createRoundJudgingOperations } from './operations';
+import { claim, harness, reply } from './operations.test-support';
 import {
   frozen,
   round,
@@ -13,7 +15,10 @@ test('a judging job that may buy no more calls never reaches the provider', asyn
     store: {
       verifyRoundJudgingJob: async () => ({
         expectedVersion: 1,
-        pendingBallot: null,
+        progress: {
+          kind: 'stage_due' as const,
+          due: { stage: 'final' as const, caseMap: stubCaseMap },
+        },
       }),
       beginRoundJudgingModelCall: async () => ({
         kind: 'deferred' as const,
@@ -45,67 +50,6 @@ test('a judging job that may buy no more calls never reaches the provider', asyn
     actual: { provider, submitted },
     expected: { provider: 0, submitted: 0 },
   });
-});
-
-const claim = { scope: {}, token: 't', model: 'm', round, frozen } as never;
-function harness(complete: (request: unknown) => Promise<unknown>) {
-  const log = {
-    provider: 0,
-    saved: 0,
-    submitted: 0,
-    failures: [] as { category: string; final: boolean }[],
-    usage: 0,
-  };
-  const operations = createRoundJudgingOperations({
-    store: {
-      verifyRoundJudgingJob: async () => ({
-        expectedVersion: 1,
-        pendingBallot: null,
-      }),
-      beginRoundJudgingModelCall: async () => ({ kind: 'dispatched' as const }),
-      recordRoundJudgingUsage: async () => {
-        log.usage++;
-      },
-      recordRoundJudgingAttemptFailure: async (
-        _scope: unknown,
-        _token: unknown,
-        input: {
-          diagnostic: { category: string };
-          final: boolean;
-        },
-      ) => {
-        log.failures.push({
-          category: input.diagnostic.category,
-          final: input.final,
-        });
-        return { kind: 'retry' };
-      },
-      saveRoundJudgingResult: async () => {
-        log.saved++;
-        return { kind: 'held' as const };
-      },
-      submitRoundJudgingResult: async () => {
-        log.submitted++;
-      },
-    } as never,
-    nextId: () => 'x'.repeat(24),
-    voice: () =>
-      ({
-        complete: async (request: unknown) => {
-          log.provider++;
-          return complete(request);
-        },
-      }) as never,
-    withProvider: (_signal, work) => work(),
-  });
-  return { log, operations };
-}
-const reply = (text: string, finish = 'stop') => ({
-  text,
-  finish,
-  refused: false,
-  promptTokens: 5,
-  completionTokens: 5,
 });
 
 test('the judging request asks only for what its route can serve (ISSUE-884)', async () => {
