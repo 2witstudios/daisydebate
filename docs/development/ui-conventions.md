@@ -270,6 +270,16 @@ Seat assignment pickers show the saved occupant, or an explicit empty choice.
 An acknowledged assignment follows the canonical Room view; a refused enhanced
 submission retains its selected participant and shows the refusal.
 
+Invite people is a host tool, so it takes no page space: it is a button in the
+header's button row that opens a modal dialog, built like Close room, and it
+shows only to the host while the Room is open. The button carries the number of
+pending invitations. The dialog holds the invite form and the pending
+invitations with Withdraw, and stays open after each answer, so the notice is
+read in place and the next name can follow; each answer hands focus back to the
+username field. Esc and Done close it. An invited member's "You're invited"
+notice with Decline is a prompt they must see, so it stays inline on the page
+(`e2e/room-invite-dialog.e2e.ts`).
+
 ## Round room
 
 A debater's live round (`/rounds/[id]/room`, ADR 0054, ADR 0097) has no app

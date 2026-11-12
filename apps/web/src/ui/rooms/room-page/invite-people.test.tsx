@@ -40,7 +40,7 @@ describe('InvitePeople', () => {
       should:
         'offer Invite people as a button opening a dialog, closed and shown only while open',
       actual: [
-        /<button[^>]*aria-haspopup="dialog"[^>]*>Invite people/.test(html),
+        openerLabel(html)?.startsWith('Invite people'),
         /<dialog[^>]*\sopen(=|\s|>)/.test(html),
         html.includes('open:flex'),
         /(?:^|\s)flex(?:\s|$)/.test(

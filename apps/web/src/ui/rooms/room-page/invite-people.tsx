@@ -98,14 +98,17 @@ export function InvitePeople({
         onClick={() => dialog.current?.showModal()}
         className={buttonClass('secondary')}
       >
-        Invite people
-        {invitations.length > 0 ? (
-          <>
-            {' '}
-            ({invitations.length}
-            <span className="sr-only"> pending</span>)
-          </>
-        ) : null}
+        {/* One element: the button's gap would otherwise part the count from its bracket. */}
+        <span>
+          Invite people
+          {invitations.length > 0 ? (
+            <>
+              {' '}
+              ({invitations.length}
+              <span className="sr-only"> pending</span>)
+            </>
+          ) : null}
+        </span>
       </button>
       <dialog
         ref={dialog}
