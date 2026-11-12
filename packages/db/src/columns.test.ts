@@ -88,6 +88,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'round_commands.result',
         'round_draw_private_inputs.inputs',
         'round_judging_attempts.diagnostic',
+        'round_judging_jobs.case_map',
+        'round_judging_jobs.first_ballot',
         'round_judging_jobs.pending_ballot',
         'round_resolution_draws.manifest',
         'round_transcript_freezes.capture_gaps',
@@ -119,6 +121,8 @@ describe('jsonb columns (ISSUE-24)', () => {
           name === 'round_judging_attempts.diagnostic' ||
           name === 'rooms.capture' ||
           name === 'rounds.capture' ||
+          name === 'round_judging_jobs.case_map' ||
+          name === 'round_judging_jobs.first_ballot' ||
           name === 'round_judging_jobs.pending_ballot'
             ? ['VALIDATION', 'VALIDATION', 'VALIDATION', 'accepted']
             : ['VALIDATION', 'VALIDATION', 'VALIDATION', 'VALIDATION'],
