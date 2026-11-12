@@ -19,6 +19,7 @@ import {
   countMediaAdmissions,
   expectPeerCamera,
   grantMedia,
+  enableSound,
   installMediaCapture,
 } from './support/round-media';
 
@@ -45,9 +46,7 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
       await expect(
         page.getByRole('status').filter({ hasText: /^Connected$/ }),
       ).toBeVisible(MEDIA_POLL);
-      await page
-        .getByRole('button', { name: 'Enable sound', exact: true })
-        .click();
+      await enableSound(page);
       await expectPeerCamera(page);
     }
     const observer = pages[1]!;
@@ -174,6 +173,9 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     await expect(
       judgePage.getByRole('status').filter({ hasText: /^Connected$/ }),
     ).toBeVisible(MEDIA_POLL);
+    await expect(
+      judgePage.getByRole('button', { name: 'Enable sound', exact: true }),
+    ).toHaveCount(0);
     await expect
       .poll(
         () =>
