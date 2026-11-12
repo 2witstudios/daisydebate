@@ -236,3 +236,55 @@ test('a calibrated listener re-reads PostgreSQL time once a second, however slow
     expected: 3,
   });
 });
+
+test('the hearing leaves a trace of what it heard, discarded and was refused', async () => {
+  const refused = session({
+    refuse: () => createAppError('AUTHORIZATION', 'Bot claim changed'),
+  });
+  refused.listening.start();
+  await refused.listening.poll();
+  await Promise.resolve();
+  const { s } = await timedReads(150);
+  const heard = session();
+  heard.listening.start();
+  await heard.joined();
+  await heard.listening.poll();
+  heard.speak(['peer-identity']);
+  assert({
+    given:
+      'a refused join, a calibration read with a 150 ms round trip, and a peer starting to speak',
+    should:
+      'trace each once by name, with the error code or the round trip, and the Round it happened in',
+    actual: [refused.observed, s.observed, heard.observed],
+    expected: [
+      [`join.refused AUTHORIZATION ${'r'.repeat(24)}`],
+      [`calibration.discarded 150 ${'r'.repeat(24)}`],
+      [`activity.speech-start ${'r'.repeat(24)}`],
+    ],
+  });
+  assert({
+    given: 'one refused join',
+    should: 'still report nothing as a failure before the refusal persists',
+    actual: refused.failures,
+    expected: [],
+  });
+});
+
+test('an ended turn is traced with how long the peer spoke', async () => {
+  const s = session();
+  s.listening.start();
+  await s.joined();
+  await s.listening.poll();
+  s.speak(['peer-identity']);
+  // A second of silence after 200 ms of speech ends the turn.
+  for (let sequence = 20; sequence < 120; sequence++) {
+    s.subscriptions.at(-1)!.frame('peer-identity', sequence, 0);
+    s.advance(10);
+  }
+  assert({
+    given: '200 ms of peer speech, then a pause',
+    should: 'trace the end of the turn with the 200 ms it lasted',
+    actual: s.observed.at(-1),
+    expected: `activity.end-of-turn 200 ${'r'.repeat(24)}`,
+  });
+});

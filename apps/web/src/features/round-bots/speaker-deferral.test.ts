@@ -1,7 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createBotSpeaker } from './speaker';
-import { answered, harness, job, scope } from './speaker.test-support';
+import {
+  answered,
+  generated,
+  harness,
+  isBudgetFull,
+  job,
+  scope,
+  testTimer,
+} from './speaker.test-support';
 setupRitewayBun();
 test('pool capacity refusals defer the speech without spending attempts', async () => {
   for (const segmentType of ['speech', 'cross_ex'] as const) {
@@ -48,6 +56,7 @@ test('a deferred turn resumes at its refused step without buying or speaking any
   const spoken: string[] = [];
   const stages: string[] = [];
   let ids = 0;
+  const timers = testTimer();
   const speaker = createBotSpeaker({
     claim: {
       scope,
@@ -57,11 +66,13 @@ test('a deferred turn resumes at its refused step without buying or speaking any
     },
     generate: async () => {
       calls.language++;
-      return {
-        value: { text: 'One. Two.', phrases: ['One.', 'Two.'] },
+      return generated({
+        value: { phrases: ['One.', 'Two.'] },
         settle: async () => refuse('settle:generate'),
-      };
+      });
     },
+    heard: async () => undefined,
+    timer: timers.timer,
     synthesize: async (_scope, _token, phraseId, text) => {
       calls.speech++;
       return {
@@ -83,11 +94,13 @@ test('a deferred turn resumes at its refused step without buying or speaking any
     },
     nextId: () => `phrase-${++ids}`,
     maxAttempts: 2,
+    busy: isBudgetFull,
     failed: (_error, stage) => {
       stages.push(stage);
     },
   });
   for (let i = 0; i < 8; i++) {
+    timers.resume();
     speaker.wake();
     for (let j = 0; j < 20; j++) await Promise.resolve();
   }

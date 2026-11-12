@@ -1,6 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createProviderBudget } from './provider-budget';
+import {
+  createProviderBudget,
+  isProviderBudgetRefusal,
+} from './provider-budget';
 setupRitewayBun();
 test('provider slots remain occupied until actual calls settle, even when cancelled', async () => {
   const budget = createProviderBudget(1);
@@ -90,5 +93,27 @@ test('a budget needs a positive integer limit', async () => {
     should: 'refuse with VALIDATION',
     actual: async () => createProviderBudget(0),
     code: 'VALIDATION',
+  });
+});
+
+test('a full budget refuses as backpressure; a cancelled call does not', async () => {
+  const budget = createProviderBudget(1);
+  const held = Promise.withResolvers<void>();
+  const first = budget(new AbortController().signal, () => held.promise);
+  const kind = (signal: AbortSignal) =>
+    budget(signal, async () => undefined).then(
+      () => 'ran',
+      (error: unknown) =>
+        isProviderBudgetRefusal(error) ? 'budget full' : 'other refusal',
+    );
+  const full = await kind(new AbortController().signal);
+  held.resolve();
+  await first;
+  assert({
+    given:
+      'a call while the budget is full, then a call already cancelled with room to spare',
+    should: 'name only the first as the budget being full',
+    actual: [full, await kind(AbortSignal.abort())],
+    expected: ['budget full', 'other refusal'],
   });
 });

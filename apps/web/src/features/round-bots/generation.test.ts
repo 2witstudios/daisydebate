@@ -21,6 +21,9 @@ const synthesizeOne = (
       }) as never,
     withProvider: (_signal, work) => work(),
     nowMs: () => 0,
+    pause: async () => undefined,
+    timer: { setTimeout: () => null, clearTimeout: () => undefined },
+    stallMs: 1000,
     maxTokens: 100,
   }).synthesize(
     scope,
@@ -62,5 +65,301 @@ test('a refused settlement retried records the received usage once', async () =>
     should: 'record the received usage once and verify twice',
     actual: { first, finished, verifications },
     expected: { first: 'refused', finished: ['received'], verifications: 2 },
+  });
+});
+
+/** A language generation over a voice the test streams by hand. */
+function streamedGeneration(
+  options: {
+    readonly budget?: () => void;
+    /** How many times the usage record is refused before it lands. */
+    readonly refuseRecord?: number;
+  } = {},
+) {
+  let refusals = options.refuseRecord ?? 0;
+  const pauses: number[] = [];
+  const signals: AbortSignal[] = [];
+  /** The stall watches now armed. */
+  const watches: { run: () => void; ms: number }[] = [];
+  const finished: string[] = [];
+  const requests: Record<string, unknown>[] = [];
+  let hear: (text: string) => void = () => undefined;
+  const answer = Promise.withResolvers<{
+    text: string;
+    finish: 'stop';
+    refused: boolean;
+    promptTokens: number;
+    completionTokens: number;
+  }>();
+  const generation = createBotGeneration({
+    store: {
+      beginRoundBotGeneration: (async () => ({
+        execution: 'execution',
+        model: 'model',
+        profile: { name: 'Bot', persona: '', difficulty: 'easy' },
+        seat: { role: 'affirmative', slot: 0 },
+        utterances: [],
+        round: {
+          resolution: 'Resolved.',
+          participants: [],
+          rules: { segments: [{ key: 'AC', label: 'Constructive' }] },
+          segments: [
+            {
+              id: scope.segmentId,
+              type: 'speech',
+              rulesSegmentKey: 'AC',
+              startedAt: new Date(0).toISOString(),
+              durationMs: 60000,
+              returnedMs: 0,
+            },
+          ],
+        },
+      })) as never,
+      finishRoundBotGeneration: async (_scope, _execution, outcome, usage) => {
+        if (refusals-- > 0) throw refuseCapacity();
+        finished.push(`${outcome}:${usage.outputTokens}`);
+      },
+      verifyRoundBotPublication: (async () => undefined) as never,
+    },
+    voice: () =>
+      ({
+        completeStreamed: async (
+          request: Record<string, unknown>,
+          onText: (text: string) => void,
+        ) => {
+          requests.push(request);
+          hear = onText;
+          const signal = request['signal'] as AbortSignal;
+          signals.push(signal);
+          // As the real adapter does: a call aborted mid-stream rejects.
+          signal.addEventListener('abort', () =>
+            answer.reject(new Error('aborted')),
+          );
+          return answer.promise;
+        },
+      }) as never,
+    withProvider: async (_signal, work) => {
+      options.budget?.();
+      return work();
+    },
+    nowMs: () => 1000,
+    pause: async (ms) => {
+      pauses.push(ms);
+    },
+    timer: {
+      setTimeout: (run, ms) => {
+        watches.push({ run, ms });
+        return run;
+      },
+      clearTimeout: (handle) => {
+        const at = watches.findIndex((watch) => watch.run === handle);
+        if (at >= 0) watches.splice(at, 1);
+      },
+    },
+    stallMs: 9000,
+    maxTokens: 100,
+  });
+  const generate = () =>
+    generation.generate(scope, 'token', new AbortController().signal, {
+      kind: 'opening',
+    });
+  const settle = async () => {
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+  };
+  return {
+    generate,
+    finished,
+    requests,
+    pauses,
+    signals,
+    watches,
+    settle,
+    hear: (text: string) => hear(text),
+    answer,
+  };
+}
+
+test('a speech answer opens with its first sentence and records its usage once, at its end', async () => {
+  const { generate, finished, requests, hear, answer, settle } =
+    streamedGeneration();
+  const opening = generate();
+  await settle();
+  hear('Thank you, judge. I st');
+  const opened = await opening;
+  assert({
+    given: 'a streamed answer whose first sentence has been written',
+    should:
+      'open with that phrase, ask for no reasoning and record no usage yet',
+    actual: [
+      opened.value.phrases.ready(0),
+      opened.value.phrases.ended(),
+      requests[0]?.['reasoning'],
+      finished,
+    ],
+    expected: ['Thank you, judge.', false, 'none', []],
+  });
+  hear('and firmly against it.');
+  answer.resolve({
+    text: 'Thank you, judge. I stand firmly against it.',
+    finish: 'stop',
+    refused: false,
+    promptTokens: 12,
+    completionTokens: 9,
+  });
+  await settle();
+  await opened.close();
+  await opened.close();
+  assert({
+    given: 'the stream ending, then its close asked twice',
+    should: 'give the rest as the second phrase and record received usage once',
+    actual: [
+      opened.value.phrases.ready(1),
+      opened.value.phrases.ended(),
+      opened.value.phrases.cutBy(),
+      finished,
+    ],
+    expected: ['I stand firmly against it.', true, null, ['received:9']],
+  });
+});
+
+test('a stream that breaks leaves its whole sentences standing; one that never starts is a failed call', async () => {
+  const broken = streamedGeneration();
+  const opening = broken.generate();
+  await broken.settle();
+  broken.hear('One. Two is whole. Three is unfini');
+  const opened = await opening;
+  broken.answer.reject(new Error('connection reset'));
+  await broken.settle();
+  assert({
+    given: 'a stream that breaks mid-sentence after two whole sentences',
+    should:
+      'keep the whole sentences, drop the fragment, and settle the call unknown',
+    actual: [
+      opened.value.phrases.ready(0),
+      opened.value.phrases.ready(1),
+      await opened.value.phrases.at(2),
+      opened.value.phrases.cutBy() !== null,
+      broken.finished,
+    ],
+    expected: ['One.', 'Two is whole.', null, true, ['unknown:0']],
+  });
+  const unreachable = streamedGeneration();
+  const failing = unreachable.generate();
+  await unreachable.settle();
+  unreachable.answer.reject(new Error('connection reset'));
+  const refused = streamedGeneration({
+    budget: () => {
+      throw refuseCapacity();
+    },
+  });
+  assert({
+    given:
+      'a stream that fails before any sentence, and a call refused before dispatch',
+    should: 'reject both, settling only the dispatched one',
+    actual: [
+      await failing.then(
+        () => 'opened',
+        () => 'failed',
+      ),
+      unreachable.finished,
+      await refused.generate().then(
+        () => 'opened',
+        () => 'refused',
+      ),
+      refused.finished,
+    ],
+    expected: ['failed', ['unknown:0'], 'refused', []],
+  });
+});
+
+test('a refused usage record settles by itself, with no close asked', async () => {
+  const { generate, finished, pauses, hear, answer, settle } =
+    streamedGeneration({ refuseRecord: 2 });
+  const opening = generate();
+  await settle();
+  hear('One. ');
+  await opening;
+  answer.resolve({
+    text: 'One.',
+    finish: 'stop',
+    refused: false,
+    promptTokens: 3,
+    completionTokens: 2,
+  });
+  for (let i = 0; i < 5; i++) await settle();
+  assert({
+    given:
+      'a stream that ends while the pool refuses its usage record twice, and a speaker that never closes the answer',
+    should: 'ask again after 200 and 400 ms and record the usage once',
+    actual: [pauses, finished],
+    expected: [[200, 400], ['received:2']],
+  });
+});
+
+test('an abandoned answer stops its stream and still settles what it cost', async () => {
+  const { generate, finished, signals, hear, settle } = streamedGeneration();
+  const opening = generate();
+  await settle();
+  hear('One. Two is unfini');
+  const opened = await opening;
+  const before = signals[0]?.aborted;
+  opened.abandon();
+  for (let i = 0; i < 3; i++) await settle();
+  assert({
+    given: 'an answer still being written when it is abandoned',
+    should:
+      'abort the provider call, end the source at its last whole sentence and settle the call unknown',
+    actual: [
+      before,
+      signals[0]?.aborted,
+      opened.value.phrases.ended(),
+      await opened.value.phrases.at(1),
+      finished,
+    ],
+    expected: [false, true, true, null, ['unknown:0']],
+  });
+});
+
+test('a language stream is stopped when it goes quiet, not for being long', async () => {
+  const { generate, finished, watches, hear, settle } = streamedGeneration();
+  const opening = generate();
+  await settle();
+  hear('One. ');
+  const opened = await opening;
+  hear('Two. ');
+  assert({
+    given: 'a stream that keeps writing',
+    should: 'keep one stall watch armed, re-armed by each piece of text',
+    actual: watches.map((watch) => watch.ms),
+    expected: [9000],
+  });
+  watches[0]?.run();
+  for (let i = 0; i < 3; i++) await settle();
+  assert({
+    given: 'no text for the stall time',
+    should: 'stop the stream, keep its whole sentences and settle it unknown',
+    actual: [
+      opened.value.phrases.ended(),
+      opened.value.phrases.ready(1),
+      finished,
+    ],
+    expected: [true, 'Two.', ['unknown:0']],
+  });
+});
+
+test('a stream that stalls before its first phrase is a provider failure, not a cancellation', async () => {
+  const { generate, finished, watches, settle } = streamedGeneration();
+  const opening = generate().then(
+    () => 'opened',
+    (error: unknown) => (error as { code?: string }).code,
+  );
+  await settle();
+  watches[0]?.run();
+  assert({
+    given: 'a response that begins and then writes nothing for the stall time',
+    should:
+      'fail the call as INFRASTRUCTURE, so the speaker spends an attempt, and settle it unknown',
+    actual: [await opening, finished],
+    expected: ['INFRASTRUCTURE', ['unknown:0']],
   });
 });

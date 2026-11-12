@@ -110,3 +110,34 @@ test('shared constructive and final speech prompts preserve canonical speech goa
     expected: [true, true],
   });
 });
+
+test('an asking seat whose question met silence is told to press it', () => {
+  const prompt = (side: 'affirmative' | 'negative', unanswered: boolean) =>
+    roundDebaterMessages({
+      resolution: 'Resolved: libraries matter',
+      side: 'affirmative',
+      slot: 0,
+      persona: 'Speak clearly.',
+      segment: {
+        name: 'CX1',
+        label: 'Cross-examination',
+        type: 'cross_ex',
+        side,
+        durationMs: 30000,
+      },
+      unanswered,
+      transcript: [],
+    })[1]!.content;
+  assert({
+    given:
+      'the asking seat with an unanswered question, with an answered one, and a respondent',
+    should:
+      'say the question went unanswered only to the asking seat it happened to',
+    actual: [
+      prompt('affirmative', true).includes('went unanswered'),
+      prompt('affirmative', false).includes('went unanswered'),
+      prompt('negative', true).includes('went unanswered'),
+    ],
+    expected: [true, false, false],
+  });
+});

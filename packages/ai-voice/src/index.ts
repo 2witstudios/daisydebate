@@ -18,7 +18,7 @@ export {
   type TranscriptEvidenceInput,
 } from './transcript-evidence';
 export { roundDebaterMessages } from './round-debater';
-export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';
+export { createTurnTaking, turnTakingSettings } from './turn-taking';
 
 export { caseMapAnswer, judgeAnswer } from './judge';
 export {
@@ -26,4 +26,4 @@ export {
   caseMapWireSchema,
   judgeContractVersion,
 } from './judge-contract';
-export { phrasesOf } from './speech';
+export { createPhraseStream } from './speech';

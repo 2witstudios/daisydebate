@@ -90,7 +90,9 @@ const streamed = (text: string) =>
         (delta) =>
           `data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`,
       )
-      .join('') + 'data: [DONE]\n\n',
+      .join('') +
+      `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 10, completion_tokens: 5 } })}\n\n` +
+      'data: [DONE]\n\n',
   );
 
 /** A schema-constrained request's answer: the case map, or the ballot. */

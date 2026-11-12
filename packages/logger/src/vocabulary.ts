@@ -57,6 +57,7 @@ export const eventRegistry = {
   'round.control.failed': 'error',
   'round.speaking.failed': 'error',
   'round.hearing.failed': 'error',
+  'round.hearing.observed': 'info',
   'round.maintenance.failed': 'error',
   'billing.usage_recovery.failed': 'error',
   'billing.webhook.failed': 'error',

@@ -16,7 +16,10 @@ test('native opt-in survives reload and sign-in; Settings withdrawal stops every
   ).toBeVisible();
   expect(requests).toEqual([]);
   await page.getByRole('button', { name: 'Accept optional' }).click();
-  await expect(page).toHaveURL(/\/analytics\?saved=1$/);
+  await expect(
+    page.getByRole('complementary', { name: 'Analytics preferences' }),
+  ).toHaveCount(0);
+  await expect(page).toHaveURL(/\/\?secret=private@example\.test$/);
   await page.goto('/');
   const home = () =>
     captures.filter(
@@ -61,7 +64,8 @@ test('native opt-in survives reload and sign-in; Settings withdrawal stops every
     .toBeGreaterThanOrEqual(2);
   await page.getByLabel('Product analytics').uncheck();
   await page.getByRole('button', { name: 'Save choices' }).click();
-  await expect(page).toHaveURL(/\/analytics\?saved=1$/);
+  await expect(page.getByText('Choices saved.')).toBeVisible();
+  await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByLabel('Product analytics')).not.toBeChecked();
   await expect(other.getByLabel('Product analytics')).not.toBeChecked();
   const before = captures.length;
@@ -91,7 +95,11 @@ test('consent acceptance and withdrawal work with JavaScript disabled', async ({
     const page = await openPage(context, 'analytics preferences');
     await page.goto('/');
     await page.getByRole('button', { name: 'Accept optional' }).click();
-    await expect(page).toHaveURL(/\/analytics\?saved=1$/);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(
+      page.getByRole('complementary', { name: 'Analytics preferences' }),
+    ).toHaveCount(0);
+    await page.goto('/analytics');
     await expect(page.getByLabel('Product analytics')).toBeChecked();
     await page.getByRole('button', { name: 'Reject optional' }).click();
     await expect(page.getByLabel('Product analytics')).not.toBeChecked();
@@ -116,7 +124,7 @@ test('the stage that Egress records carries no consent banner and no analytics (
   await expect(banner).toHaveCount(0);
   await page.goto('/');
   await page.getByRole('button', { name: 'Accept optional' }).click();
-  await expect(page).toHaveURL(/\/analytics\?saved=1$/);
+  await expect(banner).toHaveCount(0);
   const before = requests.length;
   // The stage polls its own read each second: three answers mean the page
   // has run for seconds, long enough for any analytics client to have sent.

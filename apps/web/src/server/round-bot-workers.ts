@@ -7,7 +7,10 @@ import { startBotControlService } from '../features/round-bots/control-service';
 import { endingDeadline } from '../features/round-bots/ending-deadline';
 import { createSpeakingBotControl } from '../features/round-bots/speaking';
 import type { App } from './app';
-import type { createProviderBudget } from './provider-budget';
+import {
+  isProviderBudgetRefusal,
+  type createProviderBudget,
+} from './provider-budget';
 import { workerFailures } from './recoverable-failure';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 
@@ -27,7 +30,10 @@ export function startRoundBotWorkers(input: {
     'botToken' | 'listenToken' | 'readPeers'
   > | null;
   readonly timers: WorkerTimers;
-  /** Bounds each seat's ending below its lease (ISSUE-789). */
+  /**
+   * One-shot deadlines: bounds each seat's ending below its lease
+   * (ISSUE-789), and wakes a speaker again after a refusal.
+   */
   readonly deadlineTimer: OneShotTimer;
   readonly reporter?: ErrorReporter;
 }) {
@@ -49,8 +55,10 @@ export function startRoundBotWorkers(input: {
         store: app.database,
         voice: app.aiVoice,
         withProvider: input.budget,
+        providerBusy: isProviderBudgetRefusal,
         ...input.botMedia,
         timers: input.timers,
+        oneShot: input.deadlineTimer,
         nextId: () => app.ids.next(),
         nowMs: () => Date.parse(app.clock.now()),
         callTimeoutMs: policy.callTimeoutMs,
@@ -62,6 +70,12 @@ export function startRoundBotWorkers(input: {
           publicationStopOf,
         ),
         hearingFailed: (error) => hearing(error, 'join'),
+        hearingObserved: (operation, fields) =>
+          app.logger.log(
+            'round.hearing.observed',
+            { operation: `round.hearing.${operation}`, ...fields },
+            'Bot hearing observed',
+          ),
       })
     : null;
   return startBotControlService({

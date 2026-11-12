@@ -32,7 +32,9 @@ and privacy proof; setting a remote project toggle cannot enable it.
 
 `necessary`, `analytics` and `replay` always exist in the versioned contract.
 Unanswered means denied. `/analytics` exposes native form POSTs for acceptance,
-refusal and withdrawal, and every viewer reaches it from the phone's More
+refusal and withdrawal. A choice never moves the viewer: with scripts the
+form saves in place and the banner closes, and without them the POST returns
+to the page it was sent from. Every viewer reaches it from the phone's More
 sheet or the privacy policy, a member also from their account menu; the
 banner offers equally styled acceptance and refusal. A later enabled
 category asks only if unanswered, preserving earlier choices. Cookie consent
