@@ -23,6 +23,25 @@ function seatName(
   return seats[role] === 1 ? label.replace(/ 1$/, '') : label;
 }
 
+/**
+ * The seat a Room chat author holds, as this viewer may know it: "Negative 1 ·
+ * host". Null for anyone the view does not name in a seat, so a visitor and an
+ * anonymous judge (DEC-174) read the same.
+ */
+export function chatAuthorSeat(
+  view: Pick<RoomView, 'participants' | 'hostActorId'>,
+  actorId: string,
+): string | null {
+  const seat = view.participants
+    .filter(isNamedSeat)
+    .find((member) => member.actorId === actorId);
+  const parts = [
+    ...(seat ? [seatLabel(seat.role, seat.slot)] : []),
+    ...(view.hostActorId === actorId ? ['host'] : []),
+  ];
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 /** Who and what Launch still waits on, in seat order; empty once nothing does. */
 export function waitingOn(
   view: Pick<RoomView, 'participants'> & {

@@ -50,6 +50,7 @@ test('seat rows render actual readiness without treating empty seats as ready', 
   const html = renderToStaticMarkup(
     <AssemblySeats
       ready={null}
+      ready={null}
       view={occupied}
       viewer={viewer}
       bots={[]}
@@ -76,6 +77,7 @@ test('seat rows render actual readiness without treating empty seats as ready', 
 test('a casual host without the entitlement is offered a person, not the AI judge (WATCH-16)', () => {
   const html = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={{ ...assemblySnapshot, aiJudgeSeating: 'premium' }}
       viewer={viewer}
       bots={[bot]}
@@ -99,6 +101,7 @@ test('a casual host without the entitlement is offered a person, not the AI judg
 test('open judge seat offers invite and, to the host, an AI judge', () => {
   const host = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={{ ...assemblySnapshot, aiJudgeSeating: 'included' }}
       viewer={viewer}
       bots={[bot]}
@@ -107,6 +110,7 @@ test('open judge seat offers invite and, to the host, an AI judge', () => {
   );
   const guest = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={{
         ...assemblySnapshot,
         capabilities: { ...assemblySnapshot.capabilities, host: false },
@@ -139,6 +143,7 @@ test('open judge seat offers invite and, to the host, an AI judge', () => {
 test('an anonymous human judge (DEC-174)', () => {
   const html = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={{
         ...occupied,
         participants: [
@@ -174,6 +179,7 @@ test('an anonymous human judge (DEC-174)', () => {
 test('a bot debater is never offered as the AI judge', () => {
   const host = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={assemblySnapshot}
       viewer={viewer}
       bots={[{ ...bot, seatRole: 'debater' }]}
@@ -193,6 +199,7 @@ test("the viewer's own seat row carries their Ready control (RCHAT-11)", () => {
     html.split('<li ').find((item) => item.includes(`>${name}<`)) ?? '';
   const withControl = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       ready={<button type="submit">Not ready</button>}
       view={occupied}
       viewer={viewer}
@@ -202,6 +209,7 @@ test("the viewer's own seat row carries their Ready control (RCHAT-11)", () => {
   );
   const without = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       ready={null}
       view={occupied}
       viewer={viewer}
