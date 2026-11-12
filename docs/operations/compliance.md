@@ -92,7 +92,9 @@ a sign-up and never finished, newsletter subscribers, and operators.
 
 Live audio and video run through Daisy's self-hosted LiveKit
 ([ADR 0053](../decisions/0053-live-video-self-hosted-livekit.md)). Transcription
-keeps no audio. Broadcast and Recording are the only captures that store video,
+keeps no audio. A post-round call ([ADR 0126](../decisions/0126-post-round-call.md))
+is the same live audio and video in a room no capture agent, Egress or bot can
+join: nothing of it is transcribed or stored, and it adds no processor. Broadcast and Recording are the only captures that store video,
 always on a ranked Round and by host opt-in elsewhere, and the Ranked content and
 Casual recordings rows above declare them. A seated human's microphone stays
 captured but unpublished between turns (ISSUE-575), except that the next speaker's microphone
