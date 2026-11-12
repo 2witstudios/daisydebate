@@ -173,7 +173,6 @@ export {
   ballotRubricVersion,
   ballotRubricVersions,
   ballotCategories,
-  rubricCategories,
   speakerTotal,
   storedBallotSchema,
   storedBallotScoresSchema,

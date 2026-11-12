@@ -2,9 +2,8 @@
  * Runs on a deployed web machine (piped over `fly ssh console`, never
  * imported): reads one Round's frozen transcript and its ballots inside a
  * READ ONLY transaction and prints them as one marked JSON line. With
- * JB_FIND it instead lists Rounds whose ballot reasons contain that text,
- * and with JB_PASSES every coherency-judged Round's first pass and final
- * ballot (ADR 0125).
+ * JB_PASSES it instead reads every coherency-judged Round's first pass and
+ * final ballot (ADR 0125).
  */
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
@@ -21,17 +20,6 @@ const rows = async <T>(tx: typeof db, query: ReturnType<typeof sql>) =>
 try {
   const result = await db.transaction(async (tx) => {
     await tx.execute(sql`set transaction read only`);
-    if (process.env['JB_LIST'])
-      return rows(
-        tx as unknown as typeof db,
-        sql`select r.id, r.resolution, r.completed_at,
-                   count(b.id)::int as ballots,
-                   string_agg(b.winner, ',') as winners,
-                   string_agg(left(b.reason, 140), ' || ') as reasons,
-                   (select count(*) from utterances u where u.round_id = r.id)::int as lines
-            from rounds r join ballots b on b.round_id = r.id
-            group by r.id order by r.completed_at desc nulls last limit 40`,
-      );
     if (process.env['JB_PASSES'])
       return rows(
         tx as unknown as typeof db,
@@ -43,15 +31,6 @@ try {
             join ballots b on b.id = j.result_ballot_id
             where j.first_ballot is not null or j.first_ballot_failed
             order by b.submitted_at desc limit 100`,
-      );
-    const find = process.env['JB_FIND'];
-    if (find)
-      return rows(
-        tx as unknown as typeof db,
-        sql`select r.id, r.resolution, r.completed_at, left(b.reason, 160) as reason
-            from ballots b join rounds r on r.id = b.round_id
-            where b.reason ilike ${`%${find}%`}
-            order by r.completed_at desc nulls last limit 10`,
       );
     const roundId = process.env['JB_ROUND']!;
     const reader = tx as unknown as typeof db;
