@@ -27,8 +27,13 @@ import { CameraPreview, DeviceChoice } from './device-check';
 import { RoomSyncContext } from './room-sync-context';
 
 type Props = {
-  /** Seats and the round setup summary: the right-hand column below Start. */
-  readonly side: ReactNode;
+  /**
+   * Seats and the round setup summary: the right-hand column below Start. It
+   * is given the viewer's Ready control, which belongs in their own seat row.
+   */
+  readonly side: (ready: ReactNode) => ReactNode;
+  /** The Room chat, which fills the left column under any devices; null when the viewer has none. */
+  readonly chat: ReactNode;
   readonly view: RoomView;
   readonly actorId: string;
   readonly action: FormAction<RoomFormState>;
@@ -54,23 +59,32 @@ function GatheringLayout({
   readonly devices: ReactNode;
 }) {
   const controls = { ...props, view, action, local };
-  const ready = ReadyControl(controls);
   const side = (
     <div className="room-side flex min-w-0 flex-col gap-4">
       {StartControl(controls)}
-      {props.side}
+      {props.side(ReadyControl(controls))}
     </div>
   );
-  if (!devices && !ready) return side;
+  if (!devices && !props.chat) return side;
   return (
-    <div className="grid room-gathering items-start gap-6">
-      <section
-        aria-label="Your devices"
-        className="room-devices flex min-w-0 flex-col gap-3"
-      >
-        {devices}
-        {ready}
-      </section>
+    <div className="grid room-gathering gap-6">
+      <div className="room-main flex min-w-0 flex-col gap-4">
+        {devices ? (
+          <section
+            aria-label="Your devices"
+            className="flex min-w-0 flex-col gap-3"
+          >
+            {devices}
+          </section>
+        ) : null}
+        {props.chat ? (
+          // The thread scrolls inside this box: it takes the column's spare
+          // height and never stretches the page by its own length.
+          <div className="relative min-h-room-chat flex-1">
+            <div className="absolute inset-0 flex flex-col">{props.chat}</div>
+          </div>
+        ) : null}
+      </div>
       {side}
     </div>
   );

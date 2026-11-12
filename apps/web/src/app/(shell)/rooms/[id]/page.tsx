@@ -85,6 +85,7 @@ export default async function RoomRoute({
         read={roomAssembly.bind(null, id)}
         send={roomConsentIntent.bind(null, id)}
         invitationAction={roomInvitationAction.bind(null, id)}
+        chat={null}
       />
     </div>
   );

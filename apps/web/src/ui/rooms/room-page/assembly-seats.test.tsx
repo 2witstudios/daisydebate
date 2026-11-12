@@ -48,7 +48,13 @@ const occupied = {
 
 test('seat rows render actual readiness without treating empty seats as ready', () => {
   const html = renderToStaticMarkup(
-    <AssemblySeats view={occupied} viewer={viewer} bots={[]} {...intents} />,
+    <AssemblySeats
+      ready={null}
+      view={occupied}
+      viewer={viewer}
+      bots={[]}
+      {...intents}
+    />,
   );
   assert({
     given:
@@ -179,5 +185,40 @@ test('a bot debater is never offered as the AI judge', () => {
     should: 'offer no AI judge assignment (ISSUE-750)',
     actual: host.includes('>AI judge</button>'),
     expected: false,
+  });
+});
+
+test("the viewer's own seat row carries their Ready control (RCHAT-11)", () => {
+  const row = (html: string, name: string) =>
+    html.split('<li ').find((item) => item.includes(`>${name}<`)) ?? '';
+  const withControl = renderToStaticMarkup(
+    <AssemblySeats
+      ready={<button type="submit">Not ready</button>}
+      view={occupied}
+      viewer={viewer}
+      bots={[]}
+      {...intents}
+    />,
+  );
+  const without = renderToStaticMarkup(
+    <AssemblySeats
+      ready={null}
+      view={occupied}
+      viewer={viewer}
+      bots={[]}
+      {...intents}
+    />,
+  );
+  assert({
+    given: 'a seated viewer with a Ready control, then with none',
+    should:
+      'put the control in their own row only, in place of the status pill, and keep the pill when there is no control',
+    actual: [
+      row(withControl, 'You').includes('>Not ready</button>'),
+      row(withControl, 'You').includes('>Ready</span>'),
+      (withControl.match(/>Not ready<\/button>/g) ?? []).length,
+      row(without, 'You').includes('>Ready</span>'),
+    ],
+    expected: [true, false, 1, true],
   });
 });

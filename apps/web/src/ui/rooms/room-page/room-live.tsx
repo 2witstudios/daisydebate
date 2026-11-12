@@ -4,7 +4,13 @@ import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 import { roundLinkOf } from '../../../features/room-runtime/round-link';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { browserDocument } from '../../round-media/browser-document';
@@ -59,6 +65,8 @@ type Props = {
   readonly read: () => Promise<RoomRead>;
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
   readonly invitationAction: FormAction<InvitationFormState>;
+  /** The Room chat for this viewer, or null when they may not read it. */
+  readonly chat: ReactNode;
 };
 
 /**
@@ -138,9 +146,11 @@ export function RoomLive(props: Props) {
       <FreshnessNotice freshness={sync.freshness} noun="room" />
       {props.notice ? <p role="alert">{roomNoticeText(props.notice)}</p> : null}
       <AssemblyDeviceReadiness
-        side={
+        chat={props.chat}
+        side={(ready) => (
           <>
             <AssemblySeats
+              ready={ready}
               view={view}
               viewer={{ actorId: props.actorId, label: props.viewerLabel }}
               bots={props.bots}
@@ -149,7 +159,7 @@ export function RoomLive(props: Props) {
             />
             <RoomSettings view={view} />
           </>
-        }
+        )}
         view={view}
         actorId={props.actorId}
         read={read}

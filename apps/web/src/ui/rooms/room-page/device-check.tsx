@@ -53,13 +53,12 @@ const statusLabel: Readonly<
   unavailable: 'can’t be used',
 };
 
-/** "Camera: in use": the reason when there is one, else the state in words. */
+/** The state beside the device's name: the reason when there is one, else the state in words. */
 function statusText(kind: DeviceKind, state: Snapshot[DeviceKind]) {
-  if (state.status === 'passed')
-    return { line: `✓ ${kindLabel[kind]}`, help: null };
+  if (state.status === 'passed') return { words: '✓ checked', help: null };
   const reason = state.reason;
   return {
-    line: `${kindLabel[kind]}: ${reason ? reasonLabel[reason](kind) : statusLabel[state.status]}`,
+    words: reason ? reasonLabel[reason](kind) : statusLabel[state.status],
     help: (reason && remedy[reason]?.(kind)) ?? null,
   };
 }
@@ -126,53 +125,60 @@ export function DeviceChoice({
 }) {
   const state = snapshot[kind];
   const id = `device-${kind}`;
-  const { line, help } = statusText(kind, state);
+  const { words, help } = statusText(kind, state);
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <label htmlFor={id} className="text-sm text-ink-muted">
-        {kindLabel[kind]}
-      </label>
-      <select
-        id={id}
-        className={controlClass}
-        value={state.selectedDeviceId ?? ''}
-        onChange={(event) => devices.select(kind, event.target.value || null)}
-      >
-        <option value="">System default</option>
-        {inputs
-          .filter(
-            (input) =>
-              input.kind === (kind === 'camera' ? 'videoinput' : 'audioinput'),
-          )
-          .map((input, index) => (
-            <option key={input.deviceId} value={input.deviceId}>
-              {input.label || `Input ${index + 1}`}
-            </option>
-          ))}
-      </select>
-      <div className="flex flex-col items-start gap-2">
+      <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
+        <label htmlFor={id} className="font-semibold">
+          {kindLabel[kind]}
+        </label>
         <p
           role="status"
-          className={`text-sm ${state.status === 'passed' ? 'text-online' : 'text-ink-muted'}`}
+          className={
+            state.status === 'passed' ? 'text-online' : 'text-ink-muted'
+          }
         >
-          {line}
+          <span className="sr-only">{kindLabel[kind]}: </span>
+          {words}
         </p>
-        {help ? (
-          <p role="note" className="text-sm text-ink-muted">
-            {help}
-          </p>
-        ) : null}
+      </div>
+      <div className="flex min-w-0 items-center gap-2">
+        <select
+          id={id}
+          className={`${controlClass} min-w-0 flex-1`}
+          value={state.selectedDeviceId ?? ''}
+          onChange={(event) => devices.select(kind, event.target.value || null)}
+        >
+          <option value="">System default</option>
+          {inputs
+            .filter(
+              (input) =>
+                input.kind ===
+                (kind === 'camera' ? 'videoinput' : 'audioinput'),
+            )
+            .map((input, index) => (
+              <option key={input.deviceId} value={input.deviceId}>
+                {input.label || `Input ${index + 1}`}
+              </option>
+            ))}
+        </select>
         {state.status === 'passed' ? null : (
           <button
             type="button"
-            className={buttonClass('secondary')}
+            aria-label={`Check ${kind}`}
+            className={`${buttonClass('secondary')} shrink-0`}
             onClick={() => check(kind)}
             disabled={state.status === 'checking'}
           >
-            Check {kind}
+            Check
           </button>
         )}
       </div>
+      {help ? (
+        <p role="note" className="text-sm text-ink-muted">
+          {help}
+        </p>
+      ) : null}
     </div>
   );
 }
