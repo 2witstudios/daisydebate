@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { createAppError } from '@daisy/errors';
+import type { JudgingStage } from '@daisy/protocol';
 import type { JudgingScope } from './round-judging-context';
 import type { agentRuns } from './schema/agent-runs';
 import type {
@@ -71,6 +72,31 @@ export function requireCurrentRun(
 }
 
 type Attempt = typeof roundJudgingAttempts.$inferSelect;
+
+/**
+ * The coherency stage a job needs next (ADR 0125): the first pass until it
+ * is stored or its one try failed, then the case map, then the final ballot.
+ * Null once a final ballot is held: nothing more is bought.
+ */
+export function nextJudgingStage(
+  job: Pick<
+    Job,
+    'pendingBallot' | 'firstBallot' | 'firstBallotFailed' | 'caseMap'
+  >,
+): JudgingStage | null {
+  if (job.pendingBallot) return null;
+  if (!job.firstBallot && !job.firstBallotFailed) return 'first';
+  return job.caseMap ? 'final' : 'map';
+}
+
+/** A dispatch buys exactly the stage the job needs, never another. */
+export function requireNextStage(
+  job: Parameters<typeof nextJudgingStage>[0],
+  stage: JudgingStage,
+): void {
+  if (nextJudgingStage(job) !== stage)
+    throw createAppError('CONFLICT', 'Judging stage not due');
+}
 
 /** One provider dispatch per run, and none once a response is held. */
 export function requireUndispatched(

@@ -11,8 +11,11 @@ export type CallOptions = {
   readonly reasoning?: 'none' | 'low' | 'medium' | 'high';
   readonly maxTokens?: number;
   readonly temperature?: number;
-  /** ballot: the production wire schema and ballot check; json: any JSON object; none: free text. */
-  readonly schema?: 'ballot' | 'json' | 'none';
+  /**
+   * ballot: the production ballot schema and check; case_map: the
+   * production case-map schema and check; json: any JSON object; none: free text.
+   */
+  readonly schema?: 'ballot' | 'case_map' | 'json' | 'none';
 };
 
 export type PromptCall = {
@@ -43,7 +46,7 @@ Judge bench prompt. Edit anything below, then: bun judge:bench run
   Placeholders: {{evidence}} the exact production evidence JSON,
   {{transcript}} the same lines, readable; {{resolution}};
   {{callN}} the output of call N in this run.
-  schema: ballot (production schema + ballot check), json, or none.
+  schema: ballot or case_map (production schema + check), json, or none.
   Anything in an HTML comment is dropped before sending.
 -->`;
 
@@ -140,18 +143,37 @@ export function expand(
   });
 }
 
-/** The production messages as a prompt file, the evidence JSON swapped for its placeholder. */
-export function renderPromptFile(input: {
-  readonly messages: readonly ChatMessage[];
-  readonly evidence: string;
-  readonly options: CallOptions;
-}): string {
-  const front = Object.entries(input.options)
+const optionLines = (options: CallOptions) =>
+  Object.entries(options)
     .map(([key, value]) => `${key}: ${value}`)
     .join('\n');
-  const sections = input.messages.map((message) => {
-    const content = message.content.split(input.evidence).join('{{evidence}}');
-    return `=== call 1: ${message.role} ===\n${content}\n`;
-  });
-  return `---\n${front}\n---\n${help}\n${sections.join('\n')}`;
+
+/**
+ * Production's calls as a prompt file: every exact text the placeholders
+ * stand for (the evidence JSON, the numbered transcript, an earlier call's
+ * output) is swapped back for its placeholder.
+ */
+export function renderPromptFile(input: {
+  readonly calls: readonly {
+    readonly messages: readonly ChatMessage[];
+    readonly options?: CallOptions;
+  }[];
+  readonly swaps: readonly (readonly [text: string, placeholder: string])[];
+  readonly options: CallOptions;
+}): string {
+  const swap = (content: string) =>
+    input.swaps.reduce(
+      (text, [exact, placeholder]) => text.split(exact).join(placeholder),
+      content,
+    );
+  const sections = input.calls.flatMap((call, index) => [
+    ...(call.options
+      ? [`=== call ${index + 1}: options ===\n${optionLines(call.options)}\n`]
+      : []),
+    ...call.messages.map(
+      (message) =>
+        `=== call ${index + 1}: ${message.role} ===\n${swap(message.content)}\n`,
+    ),
+  ]);
+  return `---\n${optionLines(input.options)}\n---\n${help}\n${sections.join('\n')}`;
 }

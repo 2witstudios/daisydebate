@@ -1,4 +1,9 @@
-import { ballotCategories, ballotLimits, debateSides } from '@daisy/protocol';
+import {
+  ballotCategories,
+  ballotLimits,
+  ballotRubricVersion,
+  debateSides,
+} from '@daisy/protocol';
 import { feedbackField, scoreField } from './ballot';
 
 /**
@@ -28,9 +33,12 @@ const draftFields: ReadonlySet<string> = new Set([
 /** Generous for line-break encoding; a value longer than this is not the judge's. */
 const maxValueLength = Math.max(ballotLimits.reason, ballotLimits.feedback) * 2;
 
-/** One draft per judge seat in one Round. */
+/**
+ * One draft per judge seat in one Round, on one rubric version: a draft
+ * written on an earlier rubric is never read back into the current one.
+ */
 export const ballotDraftKey = (roundId: string, participantId: string) =>
-  `daisy:ballot-draft:${roundId}:${participantId}`;
+  `daisy:ballot-draft:${ballotRubricVersion}:${roundId}:${participantId}`;
 
 /** The ballot's own fields from a form's values; everything else is dropped. */
 export function ballotDraftOf(

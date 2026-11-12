@@ -1,5 +1,7 @@
 import {
   ballotSchema,
+  caseMapSchema,
+  type CaseMap,
   judgingBallotFields,
   judgingRecordedIssueLimit,
   type Ballot,
@@ -14,6 +16,10 @@ export type JudgedAnswer =
   | { readonly ok: true; readonly ballot: Ballot }
   | { readonly ok: false; readonly diagnostic: JudgingAttemptDiagnostic };
 
+type Rejected = {
+  readonly ok: false;
+  readonly diagnostic: JudgingAttemptDiagnostic;
+};
 type IssueRecord = JudgingAttemptDiagnostic['issues'][number];
 const knownFields: ReadonlySet<string> = new Set(judgingBallotFields);
 const knownCodes: ReadonlySet<string> = new Set<JudgingIssueCode>([
@@ -57,7 +63,7 @@ const rejected = (
   category: JudgingAttemptDiagnostic['category'],
   finish: JudgingFinish,
   issues: readonly z.core.$ZodIssue[] = [],
-): JudgedAnswer => ({
+): Rejected => ({
   ok: false,
   diagnostic: {
     category,
@@ -93,4 +99,44 @@ export function judgeAnswer(answer: {
     finish,
     result.error.issues,
   );
+}
+
+export type CaseMapAnswer =
+  | { readonly ok: true; readonly caseMap: CaseMap }
+  | { readonly ok: false; readonly diagnostic: JudgingAttemptDiagnostic };
+
+/**
+ * A case-map answer as the case-map contract (ADR 0125), or the safe reason
+ * it is not. Validation is exact, and a rejection names only `case_map`:
+ * no path, key or value from the answer is recorded.
+ */
+export function caseMapAnswer(answer: {
+  readonly text: string;
+  readonly finish: JudgingFinish;
+  readonly refused: boolean;
+}): CaseMapAnswer {
+  const { finish } = answer;
+  if (answer.refused || finish === 'content_filter')
+    return rejected('refused', finish);
+  let value: unknown;
+  try {
+    value = modelJson(answer.text, 'The case map answered malformed JSON');
+  } catch {
+    return rejected(finish === 'length' ? 'truncated' : 'invalid_json', finish);
+  }
+  const result = caseMapSchema.safeParse(value);
+  if (result.success) return { ok: true, caseMap: result.data };
+  const issues = result.error.issues;
+  return {
+    ok: false,
+    diagnostic: {
+      category: finish === 'length' ? 'truncated' : 'schema_rejected',
+      finish,
+      issueCount: issues.length,
+      issues: issues.slice(0, judgingRecordedIssueLimit).map((issue) => {
+        const record = issueRecord(issue);
+        return { ...record, field: 'case_map' as const };
+      }),
+    },
+  };
 }

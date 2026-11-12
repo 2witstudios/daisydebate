@@ -1,4 +1,5 @@
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '@daisy/db/testing';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
@@ -408,8 +409,9 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
 test('a held ballot past the cutoff still decides the Round once attendance settles', async () => {
   await withRoomRuntime(async (f) => {
     const { roundId, target } = await freezeBotJudge(f);
+    await atFinalJudgingStage(f.sql, target);
     const claim = await f.store.claimRoundJudgingJob(target);
-    await f.store.beginRoundJudgingModelCall(claim.scope, claim.token);
+    await f.store.beginRoundJudgingModelCall(claim.scope, claim.token, 'final');
     await f.store.saveRoundJudgingResult(
       claim.scope,
       claim.token,

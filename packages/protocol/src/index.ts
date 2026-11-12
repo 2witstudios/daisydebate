@@ -144,6 +144,8 @@ export {
   judgingAttemptOutcomes,
   judgingAttemptDiagnosticSchema,
   judgingBallotFields,
+  judgingStages,
+  type JudgingStage,
   judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
@@ -166,11 +168,25 @@ export {
   ballotFeedbackSchema,
   ballotCitationsSchema,
   ballotRubric,
+  ballotRubrics,
   ballotRubricVersion,
+  ballotRubricVersions,
   ballotCategories,
+  rubricCategories,
   speakerTotal,
+  storedBallotSchema,
+  storedBallotScoresSchema,
+  storedBallotCitationsSchema,
 } from './ballot';
-export type { Ballot, BallotCategory } from './ballot';
+export { caseMapSchema, caseMapVersion } from './case-map';
+export type { CaseMap } from './case-map';
+export type {
+  AnyBallotCategory,
+  Ballot,
+  BallotCategory,
+  BallotRubricVersion,
+  StoredBallot,
+} from './ballot';
 export type {
   DebaterStanding,
   PlannedRatingChange,

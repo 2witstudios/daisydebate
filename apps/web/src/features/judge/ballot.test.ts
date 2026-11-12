@@ -37,7 +37,7 @@ describe('parseBallot', () => {
         ok: true,
         value: {
           ballot: {
-            rubricVersion: 'speaker-10@1',
+            rubricVersion: 'speaker-10@2',
             winner: 'affirmative',
             scores: { affirmative: allAt(4), negative: allAt(3) },
             reason: 'The affirmative answered the main objection.',
@@ -54,9 +54,9 @@ describe('parseBallot', () => {
       { winner: '' },
       { 'negative-thesis': '6' },
       { 'affirmative-delivery': '' },
-      { 'negative-impact': '4.0' },
-      { 'negative-impact': '0x4' },
-      { 'negative-impact': '4e0' },
+      { 'negative-coherence': '4.0' },
+      { 'negative-coherence': '0x4' },
+      { 'negative-coherence': '4e0' },
       { reason: '   ' },
       { reason: 'x'.repeat(601) },
       { 'feedback-affirmative': 'x'.repeat(281) },

@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { atFinalJudgingStage } from '../src/testing-judging';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { withJudgingJob } from './round-judging.test-support';
@@ -37,14 +38,14 @@ test('casual judge counts once at first model dispatch, not claim, and retains a
     const claim = await jobs.claim(target);
     const [claimed] =
       await f.sql`select state from usage_reservations where id=${original.id}`;
-    await jobs.beginModelCall(claim.scope, claim.token);
+    await jobs.beginModelCall(claim.scope, claim.token, 'final');
     const [counted] =
       await f.sql`select source,state from usage_reservations where id=${original.id}`;
     await assertRejects({
       given: 'the same dispatched judge attempt retried',
       should: 'refuse another model call',
       code: 'CONFLICT',
-      actual: () => jobs.beginModelCall(claim.scope, claim.token),
+      actual: () => jobs.beginModelCall(claim.scope, claim.token, 'final'),
     });
     const [after] =
       await f.sql`select source,state from usage_reservations where id=${original.id}`;
@@ -69,7 +70,7 @@ test('revoked casual judge sponsor cannot dispatch an old reservation', async ()
         'a valid judge lease and reservation after current participant revocation',
       should: 'refuse first model dispatch',
       code: 'AUTHORIZATION',
-      actual: () => jobs.beginModelCall(claim.scope, claim.token),
+      actual: () => jobs.beginModelCall(claim.scope, claim.token, 'final'),
     });
     const [after] =
       await f.sql`select u.state,(select count(*)::int from round_judging_attempts where round_id=${roundId}) as attempts
@@ -87,7 +88,7 @@ for (const outcome of ['provider_refused', 'timeout'] as const) {
   test(`casual judge pending ${outcome} retains its debit until genuine terminal settlement and late evidence`, async () => {
     await withJudgingJob(async ({ fixture: f, roundId, target, jobs, run }) => {
       const claim = await jobs.claim(target);
-      await jobs.beginModelCall(claim.scope, claim.token);
+      await jobs.beginModelCall(claim.scope, claim.token, 'final');
       const [original] =
         await f.sql`select id,source,state from usage_reservations where round_id=${roundId}`;
       const failure = await jobs.recordAttemptFailure(
@@ -203,7 +204,7 @@ test('casual judge allowance waits for every frozen AI judge before terminal set
   await withJudgingJob(async ({ fixture: f, roundId, target, jobs, run }) => {
     const next = await createBotSeat(f, roundId, 'judge', 1);
     const first = await jobs.claim(target);
-    await jobs.beginModelCall(first.scope, first.token);
+    await jobs.beginModelCall(first.scope, first.token, 'final');
     await jobs.recordAttemptFailure(first.scope, first.token, {
       diagnostic: {
         category: 'provider_refused',
@@ -225,8 +226,12 @@ test('casual judge allowance waits for every frozen AI judge before terminal set
     });
     await f.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at)
       values(${roundId},${next.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+    await atFinalJudgingStage(f.sql, {
+      roundId: roundId,
+      judgeParticipantId: next.id,
+    });
     const second = await jobs.claim({ roundId, judgeParticipantId: next.id });
-    await jobs.beginModelCall(second.scope, second.token);
+    await jobs.beginModelCall(second.scope, second.token, 'final');
     await jobs.recordAttemptFailure(second.scope, second.token, {
       diagnostic: {
         category: 'timeout',
@@ -265,7 +270,7 @@ test('ranked AI judge dispatch remains free with no Premium grant or usage reser
     await f.sql`delete from account_entitlement_grants where user_id=(select a.user_id from rounds r join actors a on a.id=r.created_by_actor_id where r.id=${roundId})`;
     await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle' where id=${roundId}`;
     const claim = await jobs.claim(target);
-    const begun = await jobs.beginModelCall(claim.scope, claim.token);
+    const begun = await jobs.beginModelCall(claim.scope, claim.token, 'final');
     const [facts] =
       await f.sql`select (select count(*)::int from usage_reservations where round_id=${roundId}) as usage,
       (select count(*)::int from round_judging_attempts where round_id=${roundId}) as attempts`;

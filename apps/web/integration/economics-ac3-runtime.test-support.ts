@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { syntheticCaseMap } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { systemClock, systemId } from '@daisy/clock';
@@ -34,6 +35,12 @@ const analysis = {
   callTimeoutMs: 5000,
   model: 'fixture/ac3-analysis',
 };
+
+/** A controlled judging answer: coherency judging's case map, or its ballot (ADR 0125). */
+const judgingAnswer = (schemaName: string | undefined) =>
+  schemaName === 'case_map'
+    ? syntheticCaseMap
+    : fixtureBallot('Controlled TEST economics workload, not vendor quality.');
 
 export function manualWorkerTimers() {
   let next = 0;
@@ -108,7 +115,10 @@ export async function withAc3Runtime(
     fetch: async (_url, init) => {
       const body =
         typeof init?.body === 'string'
-          ? (JSON.parse(init.body) as { model?: unknown })
+          ? (JSON.parse(init.body) as {
+              model?: unknown;
+              response_format?: { json_schema?: { name?: string } };
+            })
           : null;
       if (body?.model !== judging.model && body?.model !== analysis.model)
         throw Error('Unexpected controlled model');
@@ -118,9 +128,7 @@ export async function withAc3Runtime(
             message: {
               content: JSON.stringify(
                 body.model === judging.model
-                  ? fixtureBallot(
-                      'Controlled TEST economics workload, not vendor quality.',
-                    )
+                  ? judgingAnswer(body.response_format?.json_schema?.name)
                   : sampleRoundAnalysisReport,
               ),
             },

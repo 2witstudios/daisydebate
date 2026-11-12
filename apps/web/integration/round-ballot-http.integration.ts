@@ -54,7 +54,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
       );
       const seat = own.own!.participantId;
       const ballot: Ballot = {
-        rubricVersion: 'speaker-10@1',
+        rubricVersion: 'speaker-10@2',
         winner: 'affirmative',
         reason: 'The affirmative answered the decisive clash.',
         feedback: {},

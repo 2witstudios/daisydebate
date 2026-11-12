@@ -82,6 +82,7 @@ export function retentionTargets({
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
     readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;
     readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
+    readonly clearExpiredJudgingStages: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundAnalyses: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialDeclines: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
@@ -224,7 +225,8 @@ export function retentionTargets({
     },
     /**
      * DEC-101 and DEC-89 (ISSUE-498): private transcript lines and cached AI
-     * judging responses are kept 180 days; a ranked Round's transcript is kept, as its
+     * judging responses and judging stage records (ADR 0125) are kept 180
+     * days; a ranked Round's transcript is kept, as its
      * waiver says. A cleared response fails its job
      * (DEC-223). Round analyses keep the same window as the transcript they
      * read, under their own target.
@@ -233,6 +235,7 @@ export function retentionTargets({
       [
         ['utterances', database.purgeExpiredUtterances],
         ['pending_ballots', database.clearExpiredPendingBallots],
+        ['judging_stages', database.clearExpiredJudgingStages],
         ['round_analyses', database.purgeExpiredRoundAnalyses],
       ] as const
     ).map(([name, purge]) => ({

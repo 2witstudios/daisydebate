@@ -2,7 +2,9 @@
  * Runs on a deployed web machine (piped over `fly ssh console`, never
  * imported): reads one Round's frozen transcript and its ballots inside a
  * READ ONLY transaction and prints them as one marked JSON line. With
- * JB_FIND it instead lists Rounds whose ballot reasons contain that text.
+ * JB_FIND it instead lists Rounds whose ballot reasons contain that text,
+ * and with JB_PASSES every coherency-judged Round's first pass and final
+ * ballot (ADR 0125).
  */
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
@@ -29,6 +31,18 @@ try {
                    (select count(*) from utterances u where u.round_id = r.id)::int as lines
             from rounds r join ballots b on b.round_id = r.id
             group by r.id order by r.completed_at desc nulls last limit 40`,
+      );
+    if (process.env['JB_PASSES'])
+      return rows(
+        tx as unknown as typeof db,
+        sql`select r.id as "roundId", r.resolution, j.first_ballot as first,
+                   j.first_ballot_failed as "firstFailed",
+                   json_build_object('winner', b.winner, 'scores', b.scores) as final
+            from round_judging_jobs j
+            join rounds r on r.id = j.round_id
+            join ballots b on b.id = j.result_ballot_id
+            where j.first_ballot is not null or j.first_ballot_failed
+            order by b.submitted_at desc limit 100`,
       );
     const find = process.env['JB_FIND'];
     if (find)

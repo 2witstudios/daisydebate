@@ -27,7 +27,7 @@ test('a spent attempt window recovers after backoff without losing the obligatio
       if (attempt)
         await fixture.sql`update round_judging_jobs set retry_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
       const claim = await jobs.claim(target);
-      await jobs.beginModelCall(claim.scope, claim.token);
+      await jobs.beginModelCall(claim.scope, claim.token, 'final');
       await jobs.recordAttemptFailure(claim.scope, claim.token, failure);
     }
     const [paused] =
@@ -59,7 +59,7 @@ test('a spent attempt window recovers after backoff without losing the obligatio
       given: 'the due durable recovery after two paid failures',
       should: 'admit a bounded new window under the same freeze',
       actual: {
-        call: await jobs.beginModelCall(next.scope, next.token),
+        call: await jobs.beginModelCall(next.scope, next.token, 'final'),
         revision: next.scope.freezeRevision,
       },
       expected: { call: { kind: 'dispatched' }, revision: 1 },
@@ -87,7 +87,7 @@ test('a spent attempt window recovers after backoff without losing the obligatio
 test('a current validated reply survives its old generation deadline and a process takeover', async () => {
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const first = await jobs.claim(target);
-    await jobs.beginModelCall(first.scope, first.token);
+    await jobs.beginModelCall(first.scope, first.token, 'final');
     await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
     assert({
       given: 'a still-authorized provider answer past the generation window',
@@ -141,7 +141,7 @@ test('finite lifetime spending blocks automatic calls without erasing recoverabi
     ) {
       await fixture.sql`update round_judging_jobs set retry_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
       const claim = await jobs.claim(target);
-      const call = await jobs.beginModelCall(claim.scope, claim.token);
+      const call = await jobs.beginModelCall(claim.scope, claim.token, 'final');
       if (call.kind !== 'dispatched')
         throw new Error('Expected one admitted bounded provider call');
       await jobs.recordAttemptFailure(claim.scope, claim.token, failure);
@@ -173,7 +173,7 @@ test('finite lifetime spending blocks automatic calls without erasing recoverabi
 test('a late failure callback cannot strand an already validated ballot', async () => {
   await withJudgingJob(async ({ fixture, roundId, target, jobs }) => {
     const claim = await jobs.claim(target);
-    await jobs.beginModelCall(claim.scope, claim.token);
+    await jobs.beginModelCall(claim.scope, claim.token, 'final');
     await jobs.saveResult(
       claim.scope,
       claim.token,

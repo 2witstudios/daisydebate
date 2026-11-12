@@ -1,11 +1,12 @@
 import {
-  ballotWireSchema,
+  caseMapAnswer,
   isDefiniteProviderFailure,
   isUnhealableProviderRefusal,
   judgeAnswer,
   type OpenRouter,
 } from '@daisy/ai-voice';
 import type {
+  JudgingStage,
   JudgingAttemptCategory,
   JudgingAttemptDiagnostic,
   JudgingRecoveryReason,
@@ -13,7 +14,7 @@ import type {
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { prepareRoundBallotSubmission } from '../round-ballots/operations';
-import { frozenJudgingMessages } from './prompt';
+import { frozenStageRequest } from './prompt';
 import type { ProviderCall } from '../../server/provider-budget';
 
 type Store = Pick<
@@ -23,6 +24,7 @@ type Store = Pick<
   | 'recordRoundJudgingAttemptFailure'
   | 'recordRoundJudgingUsage'
   | 'saveRoundJudgingResult'
+  | 'saveRoundJudgingStage'
   | 'submitRoundJudgingResult'
 >;
 type Claim = Awaited<ReturnType<Database['claimRoundJudgingJob']>>;
@@ -69,15 +71,60 @@ export function createRoundJudgingOperations(input: {
         if (deferred.kind !== 'retry') input.recoveryPending?.(deferred.reason);
         return 'concluded';
       };
-      /** One provider attempt: a ballot is held for submission, or this attempt has nothing further to do. */
+      type Usage = { inputTokens: number; outputTokens: number };
+      type Answer = Parameters<typeof judgeAnswer>[0];
+      /** A validated answer is stored as its stage's record; anything else is a durable failure. */
+      const keepAnswer = async (
+        stage: JudgingStage,
+        answer: Answer,
+        usage: Usage,
+      ): Promise<AttemptOutcome> => {
+        if (stage === 'map') {
+          const mapped = caseMapAnswer(answer);
+          if (!mapped.ok) return attemptFailed(mapped.diagnostic, false);
+          await input.store.saveRoundJudgingStage(
+            scope,
+            token,
+            { stage, caseMap: mapped.caseMap },
+            usage,
+          );
+          return 'concluded';
+        }
+        const judged = judgeAnswer(answer);
+        if (!judged.ok) return attemptFailed(judged.diagnostic, false);
+        if (stage === 'first') {
+          await input.store.saveRoundJudgingStage(
+            scope,
+            token,
+            { stage, ballot: judged.ballot },
+            usage,
+          );
+          return 'concluded';
+        }
+        const saved = await input.store.saveRoundJudgingResult(
+          scope,
+          token,
+          judged.ballot,
+          usage,
+        );
+        return saved.kind === 'held' ? 'ballot_held' : 'concluded';
+      };
+      /**
+       * One provider attempt buys the one stage the job needs (ADR 0125): a
+       * final ballot is then held for submission, or an earlier stage's
+       * output is stored and the job is due again for the next stage.
+       */
       const attempt = async (): Promise<AttemptOutcome> => {
         requireNotCancelled(signal);
-        if ((await verify()).pendingBallot) return 'ballot_held';
-        const messages = frozenJudgingMessages(claim);
+        const state = await verify();
+        if (state.pendingBallot || !state.stage) return 'ballot_held';
+        const { stage } = state;
+        const request = frozenStageRequest(claim, stage, state.caseMap);
         const voice = input.voice();
         const begun = await input.store.beginRoundJudgingModelCall(
           scope,
           token,
+          stage,
         );
         // This finite window may buy no more calls; durable recovery remains pending.
         if (begun.kind === 'deferred') {
@@ -88,9 +135,7 @@ export function createRoundJudgingOperations(input: {
         try {
           answer = await voice.complete({
             model: claim.model,
-            messages,
-            maxTokens: 6000,
-            outputSchema: { name: 'ballot', schema: ballotWireSchema },
+            ...request,
             reasoning: 'medium',
             signal,
           });
@@ -105,15 +150,7 @@ export function createRoundJudgingOperations(input: {
           outputTokens: answer.completionTokens,
         };
         await input.store.recordRoundJudgingUsage(scope, token, usage);
-        const judged = judgeAnswer(answer);
-        if (!judged.ok) return attemptFailed(judged.diagnostic, false);
-        const saved = await input.store.saveRoundJudgingResult(
-          scope,
-          token,
-          judged.ballot,
-          usage,
-        );
-        return saved.kind === 'held' ? 'ballot_held' : 'concluded';
+        return keepAnswer(stage, answer, usage);
       };
       requireNotCancelled(signal);
       const outcome = (await verify()).pendingBallot

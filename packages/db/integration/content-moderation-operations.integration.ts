@@ -804,7 +804,7 @@ test('only the debater who received feedback can report it, and the operator rea
     const ballotId = createId();
     await client`insert into ballots (id, judge_participant_id, round_id, freeze_revision,
         rubric_version, winner, scores, reason, feedback, submitted_at)
-      values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'speaker-10@1',
+      values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'speaker-10@2',
         'affirmative', ${JSON.stringify({})}::text::jsonb, 'Reason',
         ${JSON.stringify({ affirmative: 'For aff', negative: 'For neg' })}::text::jsonb,
         now())`;

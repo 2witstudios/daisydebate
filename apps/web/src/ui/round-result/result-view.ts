@@ -1,7 +1,7 @@
 import {
   isNamedSeat,
   partialReasonsStateLoss,
-  type Ballot,
+  type StoredBallot,
   type RoundBallotRead,
   type LiveTranscriptRead,
 } from '@daisy/protocol';
@@ -16,7 +16,7 @@ export type ResultBallot = {
   readonly author: string;
   /** The heading over this ballot's feedback for the reader. */
   readonly feedbackTitle: string;
-  readonly ballot: Ballot;
+  readonly ballot: StoredBallot;
   /** Set when this reader may report this ballot's feedback (WATCH-7). */
   readonly reportableFeedbackId: string | null;
 };

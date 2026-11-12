@@ -1,52 +1,65 @@
 import {
-  roundJudgeMessages,
+  judgingStageMessages,
+  transcriptLines,
   type TranscriptEvidenceInput,
 } from '@daisy/ai-voice';
-import type { Placeholders } from './prompt-file';
+import { stubCaseMap } from '@daisy/ai-voice/testing';
+import type { CallOptions, Placeholders } from './prompt-file';
 
 const EVIDENCE = /Frozen evidence:\n(\{.*\})\n/;
 
-/** Production's own messages for this Round, and the exact evidence JSON inside them. */
-export function productionPrompt(input: TranscriptEvidenceInput) {
-  const messages = roundJudgeMessages(input);
-  const user = messages.find((message) => message.role === 'user');
+/** The exact evidence JSON inside production's first-pass prompt. */
+const evidenceJson = (input: TranscriptEvidenceInput) => {
+  const user = judgingStageMessages(input, { stage: 'first' }).find(
+    (message) => message.role === 'user',
+  );
   const evidence = user && EVIDENCE.exec(user.content)?.[1];
   if (!evidence)
     throw new Error(
       'the production prompt no longer carries "Frozen evidence:"',
     );
-  return { messages, evidence };
-}
+  return evidence;
+};
 
-/** The same lines as the evidence, one per line, for a human-readable prompt. */
-export function readableTranscript(input: TranscriptEvidenceInput): string {
-  const lines = [...input.utterances]
-    .sort(
-      (a, b) =>
-        a.segmentSequence - b.segmentSequence || a.sequence - b.sequence,
-    )
-    .map((line) => {
-      const marks = [
-        line.interrupted ? 'interrupted' : '',
-        line.complete ? '' : 'incomplete',
-      ].filter(Boolean);
-      const mark = marks.length ? ` (${marks.join(', ')})` : '';
-      return `[${line.segmentSequence}.${line.sequence}] ${line.side} ${line.slot}${mark}: ${line.text}`;
-    });
-  const gaps = input.gaps.map(
-    (gap) =>
-      `[${gap.sequence}] ${gap.side} ${gap.slot}: no audio captured from ${(gap.fromOffsetMs / 1000).toFixed(1)}s to ${(gap.untilOffsetMs / 1000).toFixed(1)}s (${gap.cause})`,
-  );
-  return [
-    ...lines,
-    ...(gaps.length ? ['', 'Capture gaps:', ...gaps] : []),
-  ].join('\n');
+/**
+ * Production's three coherency stages for this Round (ADR 0125), as the
+ * bench's calls: the first pass, the case map, and the final judge, whose
+ * case map is call 2's output. `swaps` names each exact text a placeholder
+ * stands for, so an unedited prompt file expands to production's messages.
+ */
+export function productionPipeline(input: TranscriptEvidenceInput) {
+  const calls: {
+    readonly messages: ReturnType<typeof judgingStageMessages>;
+    readonly options: CallOptions;
+  }[] = [
+    {
+      messages: judgingStageMessages(input, { stage: 'first' }),
+      options: { schema: 'ballot', maxTokens: 6000 },
+    },
+    {
+      messages: judgingStageMessages(input, { stage: 'map' }),
+      options: { schema: 'case_map', maxTokens: 16000 },
+    },
+    {
+      messages: judgingStageMessages(input, {
+        stage: 'final',
+        caseMap: stubCaseMap,
+      }),
+      options: { schema: 'ballot', maxTokens: 6000 },
+    },
+  ];
+  const swaps = [
+    [evidenceJson(input), '{{evidence}}'],
+    [transcriptLines(input), '{{transcript}}'],
+    [JSON.stringify(stubCaseMap), '{{call2}}'],
+  ] as const;
+  return { calls, swaps };
 }
 
 export const placeholdersFor = (
   input: TranscriptEvidenceInput,
 ): Placeholders => ({
-  evidence: productionPrompt(input).evidence,
-  transcript: readableTranscript(input),
+  evidence: evidenceJson(input),
+  transcript: transcriptLines(input),
   resolution: input.resolution,
 });

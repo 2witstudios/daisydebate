@@ -33,11 +33,10 @@ await withRunDatabase({
     await withRoomRuntime(
       async (f) => {
         const { roundId, target } = await freezeBotJudge(f);
-        const claim = await f.store.claimRoundJudgingJob(target);
         let calls = 0;
         const provider = createOpenRouter({
           apiKey: key,
-          timeoutMs: 55000,
+          timeoutMs: 115000,
           fetch: (url, init) => {
             calls++;
             return globalThis.fetch(url, init);
@@ -51,7 +50,7 @@ await withRunDatabase({
         });
         const blocked = async (current: typeof claim) => {
           try {
-            await operations.executeClaim(current, AbortSignal.timeout(55000));
+            await operations.executeClaim(current, AbortSignal.timeout(115000));
           } catch (error) {
             if (isAppError(error) && error.reason === 'attendance-unsettled')
               return;
@@ -59,6 +58,16 @@ await withRunDatabase({
           }
           throw Error('Actual unresolved attendance must prevent completion');
         };
+        // Coherency judging (ADR 0125): the first pass and the case map are
+        // stored, each by its own claim, before the final ballot's claim.
+        const due = () =>
+          f.sql`update round_judging_jobs set retry_at=null where round_id=${roundId}`;
+        for (let stage = 0; stage < 2; stage++) {
+          const earlier = await f.store.claimRoundJudgingJob(target);
+          await operations.executeClaim(earlier, AbortSignal.timeout(115000));
+          await due();
+        }
+        const claim = await f.store.claimRoundJudgingJob(target);
         await blocked(claim);
         const [origin] =
           await f.sql`select requests,input_tokens,output_tokens from agent_runs where id=${claim.scope.agentRunId}`;
@@ -67,15 +76,24 @@ await withRunDatabase({
         await blocked(takeover);
         await blocked(takeover);
         const [job] =
-          await f.sql`select pending_ballot is not null as cached,pending_ballot_epoch,attempts from round_judging_jobs where round_id=${roundId}`;
+          await f.sql`select pending_ballot is not null as cached,pending_ballot_epoch,attempts,case_map is not null as mapped,
+            first_ballot is not null or first_ballot_failed as first_pass from round_judging_jobs where round_id=${roundId}`;
+        const stages = (
+          (await f.sql`select stage from round_judging_attempts where round_id=${roundId} order by job_epoch`) as {
+            stage: string;
+          }[]
+        ).map((row) => row.stage);
         const [ballots] =
           await f.sql`select count(*)::int as count from ballots where judge_participant_id=${target.judgeParticipantId}`;
         if (
-          calls !== 1 ||
+          calls !== 3 ||
+          stages.join() !== 'first,map,final' ||
+          !job.first_pass ||
+          !job.mapped ||
           origin.requests !== 1 ||
           !job.cached ||
-          job.pending_ballot_epoch !== 1 ||
-          job.attempts !== 2 ||
+          job.pending_ballot_epoch !== 3 ||
+          job.attempts !== 4 ||
           ballots.count !== 0
         )
           throw Error('Actual provider cached recovery proof failed');
@@ -84,6 +102,7 @@ await withRunDatabase({
             proof: 'actual-provider-frozen-judging-cache-recovery',
             model,
             providerCalls: calls,
+            stages,
             inputTokens: origin.input_tokens,
             outputTokens: origin.output_tokens,
             frozenCoverage: 'incomplete',

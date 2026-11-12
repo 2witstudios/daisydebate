@@ -11,11 +11,29 @@ export {
   type OpenRouter,
 } from './openrouter';
 export { roundJudgeMessages } from './round-judge';
+export {
+  caseMapMessages,
+  finalJudgeMessages,
+  judgingStageMessages,
+  type StageInput,
+} from './staged-judge';
 export { parseRoundAnalysis, roundAnalysisMessages } from './round-analysis';
-export type { TranscriptEvidenceInput } from './transcript-evidence';
+export {
+  transcriptLines,
+  type TranscriptEvidenceInput,
+} from './transcript-evidence';
 export { roundDebaterMessages } from './round-debater';
 export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';
 
-export { judgeAnswer, type JudgedAnswer } from './judge';
-export { ballotWireSchema, judgeContractVersion } from './judge-contract';
+export {
+  caseMapAnswer,
+  judgeAnswer,
+  type CaseMapAnswer,
+  type JudgedAnswer,
+} from './judge';
+export {
+  ballotWireSchema,
+  caseMapWireSchema,
+  judgeContractVersion,
+} from './judge-contract';
 export { phrasesOf } from './speech';

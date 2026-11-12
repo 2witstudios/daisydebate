@@ -9,6 +9,11 @@
  *   bun judge:bench init [roundId] [--force]
  *   bun judge:bench run  [roundId] [-n 3] [--prompt <file>] [--label <name>]
  *   bun judge:bench diff <runA> <runB> [--round <roundId>]
+ *   bun judge:bench passes [--app daisy-debate-staging]
+ *
+ * `init` writes production's three coherency stages (ADR 0125) as calls 1–3;
+ * `passes` reads every coherency-judged Round's first pass against its final
+ * ballot from the deployed environment.
  *
  * roundId defaults to the most recently pulled Round.
  */
@@ -17,6 +22,8 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
   ballotWireSchema,
+  caseMapAnswer,
+  caseMapWireSchema,
   createOpenRouter,
   judgeAnswer,
   type TranscriptEvidenceInput,
@@ -28,10 +35,11 @@ import {
   renderPromptFile,
   type CallOptions,
 } from './judge-bench/prompt-file';
-import { placeholdersFor, productionPrompt } from './judge-bench/evidence';
+import { placeholdersFor, productionPipeline } from './judge-bench/evidence';
+import { passesReport, type PassRow } from './judge-bench/passes';
+import { remoteRead } from './judge-bench/remote';
 
 const ROOT = '.evals/judging';
-const MARK = 'JUDGE_BENCH_JSON:';
 
 type Stored = {
   readonly roundId: string;
@@ -64,12 +72,25 @@ const latestRound = () => {
 const readRound = async (id: string): Promise<Stored> =>
   Bun.file(join(roundDir(id), 'round.json')).json();
 
+const schemaRequests = {
+  ballot: { outputSchema: { name: 'ballot', schema: ballotWireSchema } },
+  case_map: { outputSchema: { name: 'case_map', schema: caseMapWireSchema } },
+  json: { json: true },
+  none: {},
+} as const;
 const schemaRequest = (schema: CallOptions['schema']) =>
+  schemaRequests[schema ?? 'none'];
+
+/** Production's own check of an answer under this schema, if it has one. */
+const productionCheck = (
+  schema: CallOptions['schema'],
+  answer: Parameters<typeof judgeAnswer>[0],
+) =>
   schema === 'ballot'
-    ? { outputSchema: { name: 'ballot', schema: ballotWireSchema } }
-    : schema === 'json'
-      ? { json: true }
-      : {};
+    ? judgeAnswer(answer)
+    : schema === 'case_map'
+      ? caseMapAnswer(answer)
+      : null;
 
 const total = (scores: Record<string, number> | undefined) =>
   scores ? Object.values(scores).reduce((sum, value) => sum + value, 0) : NaN;
@@ -172,22 +193,11 @@ function renderOutput(text: string): string {
 }
 
 async function pull(roundId: string, app: string) {
-  const script = await Bun.file('scripts/judge-bench/remote-read.ts').text();
-  const encoded = Buffer.from(script).toString('base64');
-  // The machine resolves @daisy/db and drizzle-orm from packages/db; the file is removed after.
-  const remote = `cd /app/packages/db && echo ${encoded} | base64 -d > .jb-read.ts && JB_ROUND=${roundId} bun .jb-read.ts; status=$?; rm -f .jb-read.ts; exit $status`;
-  const proc = Bun.spawn(
-    ['fly', 'ssh', 'console', '-a', app, '-C', `sh -c '${remote}'`],
-    {
-      stdout: 'pipe',
-      stderr: 'inherit',
-    },
-  );
-  const out = await new Response(proc.stdout).text();
-  if ((await proc.exited) !== 0) throw new Error('the remote read failed');
-  const line = out.split('\n').find((row) => row.startsWith(MARK));
-  if (!line) throw new Error('the remote read printed no result');
-  const raw = JSON.parse(line.slice(MARK.length));
+  const raw = (await remoteRead({ JB_ROUND: roundId }, app)) as {
+    round: Parameters<typeof transcriptEvidenceInput>[0]['round'];
+    frozen: Parameters<typeof transcriptEvidenceInput>[0]['frozen'] | null;
+    ballots: unknown[];
+  };
   if (!raw.frozen) throw new Error('this Round has no transcript freeze');
   const evidence = transcriptEvidenceInput({
     round: raw.round,
@@ -229,14 +239,9 @@ async function init(roundId: string, force: boolean) {
       `${target} exists; pass --force to rebuild it from production code`,
     );
   const stored = await readRound(roundId);
-  const { messages, evidence } = productionPrompt(stored.evidence);
-  const options: CallOptions = {
-    model: stored.model,
-    reasoning: 'medium',
-    maxTokens: 6000,
-    schema: 'ballot',
-  };
-  await Bun.write(target, renderPromptFile({ messages, evidence, options }));
+  const { calls, swaps } = productionPipeline(stored.evidence);
+  const options: CallOptions = { model: stored.model, reasoning: 'medium' };
+  await Bun.write(target, renderPromptFile({ calls, swaps, options }));
   console.log(`wrote ${target}`);
 }
 
@@ -283,7 +288,7 @@ async function run(
         : { temperature: options.temperature }),
       ...schemaRequest(options.schema),
     });
-    const check = options.schema === 'ballot' ? judgeAnswer(answer) : null;
+    const check = productionCheck(options.schema, answer);
     return {
       call: call.number,
       model,
@@ -291,6 +296,10 @@ async function run(
       tokens: { input: answer.promptTokens, output: answer.completionTokens },
       text: answer.text,
       ...(check ? { productionAccepts: check.ok } : {}),
+      // The map production would store, as the final judge reads it.
+      ...(check?.ok && 'caseMap' in check
+        ? { caseMap: JSON.stringify(check.caseMap) }
+        : {}),
       ...(check && !check.ok ? { diagnostic: check.diagnostic } : {}),
     };
   };
@@ -300,7 +309,7 @@ async function run(
     const calls = [];
     for (const call of file.calls) {
       const result = await callOnce(call, outputs);
-      outputs.set(call.number, result.text);
+      outputs.set(call.number, result.caseMap ?? result.text);
       calls.push(result);
     }
     const last = calls.at(-1)!;
@@ -391,9 +400,15 @@ try {
     );
   else if (command === 'diff' && rest[0] && rest[1])
     await diff(values.round ?? latestRound(), rest[0], rest[1]);
+  else if (command === 'passes')
+    console.log(
+      passesReport(
+        (await remoteRead({ JB_PASSES: '1' }, values.app!)) as PassRow[],
+      ),
+    );
   else {
     console.log(
-      'usage:\n  bun judge:bench pull <roundId> [--app daisy-debate-staging]\n  bun judge:bench init [roundId] [--force]\n  bun judge:bench run [roundId] [-n 3] [--prompt <file>]\n  bun judge:bench diff <runA> <runB> [--round <roundId>]',
+      'usage:\n  bun judge:bench pull <roundId> [--app daisy-debate-staging]\n  bun judge:bench init [roundId] [--force]\n  bun judge:bench run [roundId] [-n 3] [--prompt <file>]\n  bun judge:bench diff <runA> <runB> [--round <roundId>]\n  bun judge:bench passes [--app daisy-debate-staging]',
     );
     process.exitCode = command ? 1 : 0;
   }

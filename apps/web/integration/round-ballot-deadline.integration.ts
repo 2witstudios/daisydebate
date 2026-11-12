@@ -1,4 +1,5 @@
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '@daisy/db/testing';
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import {
@@ -435,8 +436,9 @@ const judgingOptions = {
 async function jobPastBudget(f: Fixture, holds: boolean) {
   const { roundId, target } = await freezeBotJudge(f);
   if (holds) {
+    await atFinalJudgingStage(f.sql, target);
     const claim = await f.store.claimRoundJudgingJob(target);
-    await f.store.beginRoundJudgingModelCall(claim.scope, claim.token);
+    await f.store.beginRoundJudgingModelCall(claim.scope, claim.token, 'final');
     await f.store.saveRoundJudgingResult(
       claim.scope,
       claim.token,

@@ -1,4 +1,5 @@
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '@daisy/db/testing';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { judgingJobRules } from '@daisy/debate-engine';
@@ -218,8 +219,13 @@ test('a ballot that exists reads the same after the host loses the casual AI jud
     async (f) => {
       const { roundId, target } = await freezeBotJudge(f);
       await seedSettledAttendanceLedger(f, roundId);
+      await atFinalJudgingStage(f.sql, target);
       const claim = await f.store.claimRoundJudgingJob(target);
-      await f.store.beginRoundJudgingModelCall(claim.scope, claim.token);
+      await f.store.beginRoundJudgingModelCall(
+        claim.scope,
+        claim.token,
+        'final',
+      );
       await f.store.saveRoundJudgingResult(
         claim.scope,
         claim.token,

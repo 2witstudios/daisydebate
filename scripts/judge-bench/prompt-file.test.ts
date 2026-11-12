@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { TranscriptEvidenceInput } from '@daisy/ai-voice';
-import { placeholdersFor, productionPrompt } from './evidence';
+import { stubCaseMap } from '@daisy/ai-voice/testing';
+import { placeholdersFor, productionPipeline } from './evidence';
 import { expand, parsePromptFile, renderPromptFile } from './prompt-file';
 
 setupRitewayBun();
@@ -42,41 +43,51 @@ const evidence: TranscriptEvidenceInput = {
   ],
 };
 
-const options = {
-  model: 'm',
-  reasoning: 'medium',
-  maxTokens: 6000,
-  schema: 'ballot',
-} as const;
+const options = { model: 'm', reasoning: 'medium' } as const;
 const placeholders = placeholdersFor(evidence);
+/** Call 2's output is the case map production would store. */
+const outputs = new Map([[2, JSON.stringify(stubCaseMap)]]);
 const expanded = (source: string) =>
   parsePromptFile(source).calls.map((call) =>
     call.messages.map((message) => ({
       role: message.role,
-      content: expand(message.content, placeholders, new Map()),
+      content: expand(message.content, placeholders, outputs),
     })),
   );
 
 describe('renderPromptFile', () => {
-  test('an unedited prompt file is the production prompt', () => {
-    const { messages, evidence: json } = productionPrompt(evidence);
-    const source = renderPromptFile({ messages, evidence: json, options });
+  test('an unedited prompt file is the production pipeline', () => {
+    const { calls, swaps } = productionPipeline(evidence);
+    const source = renderPromptFile({ calls, swaps, options });
+    const file = parsePromptFile(source);
 
     assert({
-      given: 'the production messages rendered and parsed back',
-      should: 'expand to exactly the messages production sends, in one call',
+      given: 'production’s three coherency stages rendered and parsed back',
+      should:
+        'expand to exactly the messages production sends at each stage, the final judge reading call 2’s map',
       actual: expanded(source),
-      expected: [messages],
+      expected: calls.map((call) => call.messages),
     });
     assert({
       given: 'the rendered file',
       should:
-        'carry the evidence as a placeholder and the options as frontmatter',
+        'carry the evidence, transcript and map as placeholders, the model as frontmatter and each stage’s contract as its options',
       actual: [
-        source.includes('{{evidence}}'),
-        parsePromptFile(source).options,
+        ['{{evidence}}', '{{transcript}}', '{{call2}}'].map((placeholder) =>
+          source.includes(placeholder),
+        ),
+        file.options,
+        file.calls.map((call) => call.options),
       ],
-      expected: [true, options],
+      expected: [
+        [true, true, true],
+        options,
+        [
+          { schema: 'ballot', maxTokens: 6000 },
+          { schema: 'case_map', maxTokens: 16000 },
+          { schema: 'ballot', maxTokens: 6000 },
+        ],
+      ],
     });
   });
 });
@@ -128,10 +139,14 @@ describe('parsePromptFile', () => {
     });
     assert({
       given: '{{transcript}}',
-      should: 'expand to one readable line per utterance',
+      should:
+        'expand to production’s numbered transcript, one line per utterance',
       actual: expand('{{transcript}}', placeholders, new Map()),
-      expected:
-        '[0.0] affirmative 0: Worth it means better than not.\n[1.0] negative 0 (interrupted): Opportunity cost: the oceans.',
+      expected: [
+        'Transcript (complete), one line per utterance as [segment.line] side slot: text:',
+        '[0.0] affirmative 0: Worth it means better than not.',
+        '[1.0] negative 0 (interrupted): Opportunity cost: the oceans.',
+      ].join('\n'),
     });
   });
 

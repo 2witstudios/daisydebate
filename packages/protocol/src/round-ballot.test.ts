@@ -12,7 +12,7 @@ const envelope = {
   judgeParticipantId: 'j'.repeat(24),
   freezeRevision: 1,
   ballot: {
-    rubricVersion: 'speaker-10@1',
+    rubricVersion: 'speaker-10@2',
     winner: 'affirmative',
     scores: { affirmative: scores, negative: scores },
     reason: 'The affirmative established the decisive comparison.',

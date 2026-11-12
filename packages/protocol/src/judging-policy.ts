@@ -7,10 +7,14 @@ export const judgingPolicy = {
   humanBallotWindowMs: 30 * 60_000,
   /** How long after the freeze an AI judging job may buy provider work (DEC-275). */
   aiBudgetMs: 5 * 60_000,
-  /** Paid calls in one bounded generation window; recovery opens a later window. */
-  maxPaidCalls: 2,
+  /**
+   * Paid calls in one bounded generation window; recovery opens a later
+   * window. Coherency judging buys three stages, one call each, so a window
+   * holds them and one retry (ADR 0125, DEC-390).
+   */
+  maxPaidCalls: 4,
   /** Finite automatic lifetime spending; exhaustion preserves blocked recovery. */
-  maxAutomaticPaidCalls: 16,
+  maxAutomaticPaidCalls: 24,
   /** A spent generation window releases capacity before a later recovery window. */
   recoveryMs: 30_000,
   /** Cached submissions have bounded local capacity independent of paid calls. */
