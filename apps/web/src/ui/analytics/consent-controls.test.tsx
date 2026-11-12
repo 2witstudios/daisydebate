@@ -1,9 +1,24 @@
+import type { ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Consent } from '../../features/analytics/consent';
 import { ConsentControls } from './consent-controls';
 
 setupRitewayBun();
+
+const noop = () => {};
+const router = {
+  bfcacheId: 'test',
+  back: noop,
+  forward: noop,
+  refresh: noop,
+  push: noop,
+  replace: noop,
+  prefetch: noop,
+};
+const render = (node: ReactNode) =>
+  renderToString(<AppRouterContext value={router}>{node}</AppRouterContext>);
 
 test('an unreadable stored choice offers no form to overwrite it', () => {
   const available = { analytics: true, replay: false };
@@ -13,13 +28,13 @@ test('an unreadable stored choice offers no form to overwrite it', () => {
     analytics: 'granted',
     replay: 'unanswered',
   } as Consent;
-  const readable = renderToString(
+  const readable = render(
     <ConsentControls
       choice={{ kind: 'known', consent }}
       available={available}
     />,
   );
-  const unreadable = renderToString(
+  const unreadable = render(
     <ConsentControls choice={{ kind: 'unreadable' }} available={available} />,
   );
   assert({
