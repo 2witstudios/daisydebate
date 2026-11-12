@@ -17,6 +17,7 @@ import {
 } from '@daisy/protocol';
 import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
+import { roundLifecycleOfRow, segmentRows } from './round-hydration';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
@@ -39,7 +40,6 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
-import { segmentRows } from './round-hydration';
 import { recordedPanelRuling } from './round-panel-decisions';
 import { roundCommands } from './schema/round-commands';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
@@ -93,11 +93,12 @@ export async function launchedRoundRows(
       };
     }),
   );
+  const lifecycle = roundLifecycleOfRow(row);
   const round: LaunchedRound = {
+    ...lifecycle,
     id: row.id,
     roomId: row.roomId,
     version: row.version,
-    status: row.status,
     competitionType: row.competitionType,
     ladderId: row.ladderId,
     topic: row.resolution,
@@ -107,21 +108,22 @@ export async function launchedRoundRows(
     config: row.roomConfigSnapshot,
     rules: row.rulesSnapshot,
     participants,
-    startedAt: row.startedAt?.toISOString() ?? null,
-    completedAt: row.completedAt?.toISOString() ?? null,
-    outcome: row.outcome,
     platformEnding: row.platformEnding,
-    panelRuling: recordedPanelRuling(
-      await tx
-        .select()
-        .from(roundCommands)
-        .where(
-          and(
-            eq(roundCommands.roundId, roundId),
-            eq(roundCommands.type, 'complete'),
+    // A ruling belongs to a panel completion: a Round that is not completed carries none.
+    panelRuling:
+      lifecycle.status !== 'completed'
+        ? null
+        : recordedPanelRuling(
+            await tx
+              .select()
+              .from(roundCommands)
+              .where(
+                and(
+                  eq(roundCommands.roundId, roundId),
+                  eq(roundCommands.type, 'complete'),
+                ),
+              ),
           ),
-        ),
-    ),
     transcriptCompleteness:
       (
         await tx

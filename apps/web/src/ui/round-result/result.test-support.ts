@@ -1,6 +1,13 @@
 import type { RoundBallotRead } from '@daisy/protocol';
 import { sampleJudgeBallot } from '../mock/judge.test-support';
-import { aff, neg, ran, rules } from '../debate-room/live-round.test-support';
+import {
+  aff,
+  at,
+  neg,
+  ran,
+  rules,
+  startOf,
+} from '../debate-room/live-round.test-support';
 
 const played = ran(2, true);
 
@@ -10,7 +17,7 @@ export const completed: RoundBallotRead = {
     ...played,
     status: 'completed',
     outcome: 'affirmative',
-    completedAt: played.segments[1]!.endedAt,
+    completedAt: at(startOf(2)),
   },
   own: null,
   freeze: null,

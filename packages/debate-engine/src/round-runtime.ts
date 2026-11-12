@@ -37,7 +37,7 @@ import {
   type CommandContext,
 } from './round-commands';
 import {
-  lifecycleStampsOf,
+  lifecycleColumnsOf,
   positionAtState,
   stageOf,
 } from './round-position-projection';
@@ -76,6 +76,21 @@ const queues = (): Queues => ({
  * that disagrees with `rules`: a segment row whose key or duration does not
  * match the rules it claims to execute is corruption, not position.
  */
+/** The clock a Round's rows hydrate to. The stored stage is its projection; one that disagrees is corruption. */
+const hydratedClock = (
+  input: Parameters<typeof normalizeRoundClock>[0] & {
+    readonly round: Pick<HydratedRound, 'currentStage'>;
+  },
+) => {
+  const clock = normalizeRoundClock(input);
+  if (input.round.currentStage !== stageOf(clock, input.rules.segments.length))
+    throw createInvariantError(
+      debateInvariantIds.stageMatchesClock,
+      'The stored stage is not the one the Round clock derives',
+    );
+  return clock;
+};
+
 export function createRoundRuntime(input: {
   readonly round: HydratedRound;
   readonly rules: RoundRules;
@@ -87,7 +102,7 @@ export function createRoundRuntime(input: {
 }): RoundRuntime {
   const rules = input.rules;
   assertAttendanceRules(rules);
-  let store: RoundStore = createRoundStore(normalizeRoundClock(input));
+  let store: RoundStore = createRoundStore(hydratedClock(input));
   const segmentIds = new Map(
     input.segments.map((row) => [row.sequence, row.id]),
   );
@@ -277,9 +292,8 @@ export function createRoundRuntime(input: {
   const roundBlockOf = (on: RoundStore): RoundProjection['round'] => {
     const lifecycle = on.lifecycle();
     return {
-      status: lifecycle.status,
+      ...lifecycleColumnsOf(lifecycle),
       currentStage: stageOf(capture(on), rules.segments.length),
-      ...lifecycleStampsOf(lifecycle),
       checkpoint: on.checkpoint(),
     };
   };

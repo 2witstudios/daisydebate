@@ -223,6 +223,43 @@ type RoomRoundRef = {
   readonly id: string;
   readonly status: RoundStatus;
 };
+/**
+ * A Room and the Round it launched, as one state: an open Room has launched
+ * none, a started Room always names its Round, and a closed Room may have
+ * closed either way. The stored and sent shape is unchanged.
+ */
+export type RoomRoundLink =
+  | { readonly status: OpenRoomStatus; readonly roundRef: null }
+  | { readonly status: 'started'; readonly roundRef: RoomRoundRef }
+  | { readonly status: 'closed'; readonly roundRef: RoomRoundRef | null };
+/**
+ * A stored Room status and the Round row found for it, as the one state they
+ * mean. Start round writes both in one transaction, so they always agree; the
+ * Round row is the fact if they ever do not. A Room with a Round has started,
+ * and a started Room with no Round can launch nothing and reads as closed. So
+ * no read fails on a row, and no reader is offered a seat or a Round that is
+ * not there.
+ */
+export const roomRoundLinkOf = (
+  status: RoomStatus,
+  roundRef: RoomRoundRef | null,
+): RoomRoundLink => {
+  if (status === 'closed') return { status, roundRef };
+  return roundRef === null
+    ? { status: status === 'started' ? 'closed' : status, roundRef }
+    : { status: 'started', roundRef };
+};
+/** Whether a Room's status and its Round reference are a pair a Room can hold. */
+export const isRoomRoundLink = <
+  T extends {
+    readonly status: RoomStatus;
+    readonly roundRef: RoomRoundRef | null;
+  },
+>(
+  room: T,
+): room is T & RoomRoundLink =>
+  room.status === 'closed' ||
+  (room.status === 'started') === (room.roundRef !== null);
 export type RoomRefusal = z.infer<typeof roomRefusalSchema>;
 /** Receipts acknowledge an accepted command; effective consent always comes from a fresh view. */
 export type RoomCommandReceipt = {
@@ -260,6 +297,11 @@ export const isOpenRoomStatus = (
   status: RoomStatus,
 ): status is OpenRoomStatus =>
   (openRoomStatuses as readonly RoomStatus[]).includes(status);
+/** Whether a Room is still open, narrowing it to what an open Room holds. */
+export const isOpenRoom = <T extends { readonly status: RoomStatus }>(
+  room: T,
+): room is T & { readonly status: OpenRoomStatus } =>
+  isOpenRoomStatus(room.status);
 /** The kind of seat a role is: the judge's, or a debater's on either side. */
 export const seatKindOf = (role: RoomParticipant['role']): RoomSeatKind =>
   role === 'judge' ? 'judge' : 'debater';
@@ -305,7 +347,7 @@ export type RoomSeatHold = {
 };
 
 /** Portable assembly facts supplied by the durable adapter to pure operations. */
-export type RoomAssemblyState = {
+export type RoomAssemblyState = RoomRoundLink & {
   readonly id: string;
   readonly version: number;
   readonly changeVersion: number;
@@ -318,7 +360,6 @@ export type RoomAssemblyState = {
   /** The host took over from a restricted one, and names no human judge (DEC-331). */
   readonly hostInherited: boolean;
   readonly hostLabel: string;
-  readonly status: RoomStatus;
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
@@ -350,7 +391,6 @@ export type RoomAssemblyState = {
   readonly capture: RoomCapture | null;
   readonly executionPlan: RoomExecutionPlan;
   readonly rules: RoundRules;
-  readonly roundRef: RoomRoundRef | null;
   readonly participants: readonly (RoomParticipant & {
     readonly label: string;
     readonly eligible: boolean;
@@ -412,7 +452,7 @@ export const roomListQuerySchema = z.strictObject({
   mode: z.enum(competitionTypes).optional(),
 });
 /** Active discovery carries the catalog label, not cast, full rules/configuration or consent. */
-const roomListEntrySchema = z.strictObject({
+const roomListEntryFields = z.strictObject({
   id: idSchema,
   version: z.int().positive(),
   title: z.string().min(1),
@@ -445,6 +485,22 @@ const roomListEntrySchema = z.strictObject({
   /** A ranked host's current-season Ranked rating; null otherwise or hidden. */
   hostRating: z.int().nullable(),
 });
+/** A listed Room is open and waiting, or started with its Round and that Round's live facts. */
+const roomListEntrySchema = roomListEntryFields.refine(
+  (entry) =>
+    entry.status === 'started'
+      ? entry.roundRef !== null &&
+        entry.live !== null &&
+        entry.waitingSince === null
+      : entry.roundRef === null &&
+        entry.live === null &&
+        entry.waitingSince !== null,
+  {
+    message:
+      'A listed Room names its Round and live facts exactly once it has started',
+    path: ['roundRef'],
+  },
+);
 export const roomListPageSchema = z.strictObject({
   rooms: z.array(roomListEntrySchema).max(50).readonly(),
   nextCursor: idSchema.nullable(),

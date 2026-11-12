@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
 import { leaveIntent } from './leave-intent';
 import {
   view,
@@ -14,7 +14,7 @@ setupRitewayBun();
 
 test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
   const speaking = ran(1);
-  const forfeit = (round: typeof view) => ({
+  const forfeit = (round: RoundView) => ({
     kind: 'forfeit',
     participantId: aff.id,
     expectedVersion: round.version,
@@ -25,11 +25,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
     should:
       'forfeit while the Round is live, then leave freed: the debate is over and nothing is forfeited (ISSUE-590)',
     actual: [
-      leaveIntent(
-        { ...view, status: 'opening' },
-        aff.actorId,
-        Date.parse(at(0)),
-      ),
+      leaveIntent(view, aff.actorId, Date.parse(at(0))),
       leaveIntent(speaking, aff.actorId, Date.parse(at(startOf(0) + 1000))),
       leaveIntent(
         ran(rules.length, true),
@@ -37,11 +33,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
         Date.parse(at(startOf(rules.length) + 1000)),
       ),
     ],
-    expected: [
-      forfeit({ ...view, status: 'opening' }),
-      forfeit(speaking),
-      { kind: 'freed' },
-    ],
+    expected: [forfeit(view), forfeit(speaking), { kind: 'freed' }],
   });
   assert({
     given: 'the judge and a viewer with no seat in a speaking Round',
@@ -78,7 +70,7 @@ test('a seated debater whose forfeit is unavailable is held, never free to leave
 });
 
 test('Leave in the opening follows the engine’s forfeit rule', () => {
-  const opening = { ...view, status: 'opening' as const, startedAt: null };
+  const opening = view;
   const held = {
     ...opening,
     checkpoint: {

@@ -1,5 +1,10 @@
 import { createInvariantError } from '@daisy/errors';
-import type { DebateSide, HydratedSegment, RoundRules } from '@daisy/protocol';
+import type {
+  AttendanceAdjudicationFact,
+  DebateSide,
+  HydratedSegment,
+  RoundRules,
+} from '@daisy/protocol';
 import {
   effectiveAttendanceDeadline,
   type SettledAvailability,
@@ -52,30 +57,30 @@ export function requireAttendanceWindow(
     );
 }
 
+/** What settled evidence proved a window on: its deadline and how far health was known. */
+type SettledOn = {
+  readonly evidence: 'settled_availability';
+  readonly effectiveDeadlineMs: number;
+  /** The horizon the evidence was settled through, which the stored fact keeps. */
+  readonly settledHorizonMs: number;
+};
+
 /** Why a decision holds. Positive evidence needs no health history; absence always does. */
 export type AttendanceDecision =
   | {
       readonly evidence: 'on_time_receipt';
       readonly decision: 'attended';
       readonly participantId: string;
+      /** The receipt's own instant: the stored fact names the receipt, which holds it. */
       readonly receivedAtMs: number;
     }
-  | {
-      readonly evidence: 'settled_availability';
-      readonly decision: 'attended' | 'none';
-      readonly effectiveDeadlineMs: number;
-    }
-  | {
-      readonly evidence: 'settled_availability';
-      readonly decision: 'abandoned';
-      readonly effectiveDeadlineMs: number;
-    }
-  | {
-      readonly evidence: 'settled_availability';
+  | (SettledOn & { readonly decision: 'attended' | 'none' })
+  | (SettledOn & { readonly decision: 'abandoned' })
+  | (SettledOn & {
       readonly decision: 'forfeit';
+      /** The Round's outcome: the projection stores it, the adjudication row does not. */
       readonly winner: DebateSide;
-      readonly effectiveDeadlineMs: number;
-    }
+    })
   /** Settled evidence never came and the cutoff passed (DEC-276). */
   | {
       readonly evidence: 'resolution_cutoff';
@@ -181,13 +186,52 @@ export function adjudicateAttendance(
           decision: 'abandoned',
         }
       : null;
-  const decision = decisionForStamps(
-    window,
-    input.checkIns,
+  const settled: SettledOn = {
+    evidence: 'settled_availability',
     effectiveDeadlineMs,
+    settledHorizonMs: availability.settledHorizonMs,
+  };
+  return controlledDecision(
+    input,
+    decisionForStamps(window, input.checkIns, settled),
+    settled,
   );
-  return controlledDecision(input, decision, effectiveDeadlineMs);
 }
+
+/**
+ * The stored fact a decision is recorded as: one total mapping, so the adapter
+ * never assembles a row the evidence constraint refuses. Instants are written
+ * by `instant`, which keeps the database's microseconds.
+ */
+export const adjudicationFactOf = (
+  segmentId: string,
+  decision: AttendanceDecision,
+  instant: (atMs: number) => string,
+): AttendanceAdjudicationFact => {
+  switch (decision.evidence) {
+    case 'on_time_receipt':
+      return {
+        segmentId,
+        evidence: decision.evidence,
+        decision: decision.decision,
+        receiptParticipantId: decision.participantId,
+      };
+    case 'resolution_cutoff':
+      return {
+        segmentId,
+        evidence: decision.evidence,
+        decision: decision.decision,
+      };
+    case 'settled_availability':
+      return {
+        segmentId,
+        evidence: decision.evidence,
+        decision: decision.decision,
+        effectiveDeadline: instant(decision.effectiveDeadlineMs),
+        settledHorizon: instant(decision.settledHorizonMs),
+      };
+  }
+};
 
 /** A bot's missing receipt is worker loss, never absence: a decision it would change abandons. */
 function controlledDecision(
@@ -197,12 +241,12 @@ function controlledDecision(
     readonly botSeatIds: readonly string[];
   },
   decision: SettledDecision,
-  effectiveDeadlineMs: number,
+  settled: SettledOn,
 ): SettledDecision {
   const present = presentSeats(
     input.window,
     input.checkIns,
-    effectiveDeadlineMs,
+    settled.effectiveDeadlineMs,
   );
   const absentBots = input.botSeatIds.filter(
     (id) =>
@@ -218,17 +262,13 @@ function controlledDecision(
         receivedAtMs: input.window.openedAtMs,
       })),
     ],
-    effectiveDeadlineMs,
+    settled,
   );
   return ifPresent.decision === decision.decision &&
     (ifPresent.decision !== 'forfeit' ||
       (decision.decision === 'forfeit' && ifPresent.winner === decision.winner))
     ? decision
-    : {
-        evidence: 'settled_availability',
-        decision: 'abandoned',
-        effectiveDeadlineMs,
-      };
+    : { ...settled, decision: 'abandoned' };
 }
 
 function presentSeats(
@@ -250,12 +290,9 @@ function presentSeats(
 function decisionForStamps(
   window: AttendanceWindow,
   checkIns: readonly AttendanceStamp[],
-  effectiveDeadlineMs: number,
+  settled: SettledOn,
 ): SettledDecision {
-  const settled = {
-    evidence: 'settled_availability',
-    effectiveDeadlineMs,
-  } as const;
+  const { effectiveDeadlineMs } = settled;
   if (!window.eligibleSeats.some((seat) => seat.id === window.speakerId))
     return { ...settled, decision: 'none' };
   const present = presentSeats(window, checkIns, effectiveDeadlineMs);

@@ -48,6 +48,7 @@ test('actual required speaker and all opposing seats determine absence', () => {
       decision: 'forfeit',
       winner: 'negative',
       effectiveDeadlineMs: 50000,
+      settledHorizonMs: 60000,
       evidence: 'settled_availability',
     },
   });
@@ -59,6 +60,7 @@ test('actual required speaker and all opposing seats determine absence', () => {
       evidence: 'settled_availability',
       decision: 'abandoned',
       effectiveDeadlineMs: 50000,
+      settledHorizonMs: 60000,
     },
   });
   assert({
@@ -69,6 +71,7 @@ test('actual required speaker and all opposing seats determine absence', () => {
       evidence: 'settled_availability',
       decision: 'none',
       effectiveDeadlineMs: 50000,
+      settledHorizonMs: 60000,
     },
   });
   assert({
@@ -233,6 +236,7 @@ test('ineligible scheduled speaker never creates a competitive attendance loss',
         evidence: 'settled_availability',
         decision: 'none',
         effectiveDeadlineMs: 50000,
+        settledHorizonMs: 60000,
       },
     });
 });
@@ -260,6 +264,7 @@ test('bot worker loss never produces a forfeit: decisions a missing bot receipt 
       evidence: 'settled_availability',
       decision: 'abandoned',
       effectiveDeadlineMs: 50000,
+      settledHorizonMs: 60000,
     },
   });
   assert({
@@ -271,6 +276,7 @@ test('bot worker loss never produces a forfeit: decisions a missing bot receipt 
       evidence: 'settled_availability',
       decision: 'abandoned',
       effectiveDeadlineMs: 50000,
+      settledHorizonMs: 60000,
     },
   });
   assert({
@@ -303,6 +309,7 @@ test('bot worker loss never produces a forfeit: decisions a missing bot receipt 
       decision: 'forfeit',
       winner: 'negative',
       effectiveDeadlineMs: 50000,
+      settledHorizonMs: 60000,
       evidence: 'settled_availability',
     },
   });
@@ -314,6 +321,7 @@ test('bot worker loss never produces a forfeit: decisions a missing bot receipt 
       decision: 'forfeit',
       winner: 'negative',
       effectiveDeadlineMs: 50000,
+      settledHorizonMs: 60000,
       evidence: 'settled_availability',
     },
   });

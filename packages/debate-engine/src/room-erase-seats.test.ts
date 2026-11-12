@@ -6,7 +6,7 @@ import {
   releaseRestrictedMember,
 } from './room-assembly';
 import type { RoomAssemblyState } from '@daisy/protocol';
-import { consent, edges, state } from './room-assembly.test-support';
+import { consent, edges, started, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 
@@ -27,7 +27,7 @@ test('erasing a seated player leaves the Room as if they had left', () => {
 });
 
 test('erasing someone without a seat changes only the version', () => {
-  const room = { ...state(), status: 'started' as const };
+  const room = started(state());
   assert({
     given: 'a started Room and an actor who never sat in it',
     should: 'keep every seat and the status',

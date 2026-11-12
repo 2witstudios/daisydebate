@@ -69,6 +69,57 @@ describe('round persistence', () => {
     ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
+  test('a Round is read as one revision, even when a write lands between its rows', async () => {
+    const at = (version: number) =>
+      roundRow({
+        id: 'c8d4e2f6a1b3k5m7n9p2r4t6',
+        roomId: null,
+        createdByActorId: null,
+        resolution: 'A representative resolution',
+        competitionType: 'casual',
+        formatId: 'foundation',
+        formatVersion: 1,
+        presetVersion: null,
+        rules,
+        status: 'active',
+        currentStage: 'countdown',
+        outcome: null,
+        ladderId: null,
+        startedAt: '2026-01-01T00:00:00.000Z',
+        completedAt: null,
+        checkpoint,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        version,
+      });
+    const moved = createTestDatabase([
+      [],
+      [at(2)],
+      [],
+      [],
+      [[3]],
+      [at(3)],
+      [],
+      [],
+      [[3]],
+    ]);
+    assert({
+      given:
+        'a projection committed between the Round row and the version read after its child rows',
+      should: 'take the read again and return the revision that held still',
+      actual: (await moved.database.getRound('c8d4e2f6a1b3k5m7n9p2r4t6'))
+        ?.version,
+      expected: 3,
+    });
+    const restless = createTestDatabase([
+      [],
+      ...[2, 3, 4, 5].flatMap((v) => [[at(v)], [], [], [[v + 1]]]),
+    ]);
+    await expect(
+      restless.database.getRound('c8d4e2f6a1b3k5m7n9p2r4t6'),
+    ).rejects.toMatchObject({ code: 'INFRASTRUCTURE' });
+  });
+
   test('getRound hydrates the durable truth: rules, checkpoint, seats, rows', async () => {
     const row = roundRow({
       id: 'c8d4e2f6a1b3k5m7n9p2r4t6',
@@ -91,7 +142,14 @@ describe('round persistence', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
       version: 2,
     });
-    const { database, queries } = createTestDatabase([[], [row], [], []]);
+    const { database, queries } = createTestDatabase([
+      [],
+      [row],
+      [],
+      [],
+      // The version read again after the rows: unchanged, so the read is one revision.
+      [[2]],
+    ]);
     const round = await database.getRound('c8d4e2f6a1b3k5m7n9p2r4t6');
     assert({
       given: 'an active round row with no participants or segments',

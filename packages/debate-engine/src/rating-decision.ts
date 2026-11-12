@@ -42,8 +42,7 @@ export function ratingEligibility(
   if (input.alreadyRated) return { kind: 'already-rated' };
   if (input.ladderId === null)
     return { kind: 'unrated', reason: 'competition' };
-  if (input.outcome === null || input.completedAt === null)
-    return { kind: 'unrated', reason: 'no-result' };
+  if (input.outcome === null) return { kind: 'unrated', reason: 'no-result' };
   if (input.ending === 'unrecorded')
     return { kind: 'unrated', reason: 'ending-unrecorded' };
   if (input.attendance.pendingWriter)

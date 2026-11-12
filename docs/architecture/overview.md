@@ -93,21 +93,29 @@ package; this map lists only packages that exist today.
   that module, `proxy.ts`, `instrumentation.ts` and `server/start.ts` may
   import the edge. ESLint enforces all of this (ISSUE-7), and tests build
   their own apps.
-- **UI shell store** (`apps/web/src/ui/store/store.ts`) keeps its snapshot in
-  a module-level `let state`. The module is `'use client'`, but client
-  modules also execute during server rendering, so on the server that
-  variable is one process-wide value shared by every request, not per-user
-  state. It is safe today only because it holds static mock content seeded
-  deterministically by `createInitialState()`. Constraints: call `setUiState`
-  only from client event handlers and effects, never during render or from
-  server code; never seed or mutate it on the server with per-user or
-  per-request data, because that would bleed one request's state into
-  another's HTML. Real per-request state must first move behind a
-  request-scoped provider (ADR 0024, constraint 4).
+- **UI shell store** (`apps/web/src/ui/store/store.tsx`, with its state in
+  `state.ts`) is request-scoped. `UiStoreProvider` creates one store per
+  provider instance, and each store closes over its own snapshot, so a server
+  render and every concurrent request get their own state; no module-level
+  variable holds any. It starts from `createInitialState()`, which knows
+  nothing until the shell reads it. Constraints: reach it only through
+  `useUiState` and `useUiUpdate` inside the provider, and update it only
+  from client event handlers and effects, never during render (ADR 0024).
 - **Round runtime state** is in-memory execution scratch. Durable operations
   hydrate authoritative Round, participant and segment rows plus frozen rules
   from PostgreSQL, run a domain operation at database time, and persist its
   projection under the expected Round version.
+- **Lifecycle contracts** say what the engine already knows, so no reader
+  re-checks it. A Round's status with its start, end and outcome is one
+  `RoundLifecycle` (`@daisy/protocol`): the pairs `rounds_lifecycle_check`
+  stores. The Round view and record schemas refine on it, and the hydrated
+  round, the projection, the position and the rating facts are typed by it. A
+  Room's status with its Round is one `RoomRoundLink`: Start round names the
+  Round it launches, and a read joins the stored status to the Round row
+  through `roomRoundLinkOf`. The stored `current_stage` is a projection of the
+  clock; hydration refuses one the clock does not derive
+  (`round.stage.matches-clock`). A constant list that a CHECK is built from is
+  tied to its union with `everyMemberOf`.
 
 ## Database public API
 

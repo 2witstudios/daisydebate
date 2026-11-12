@@ -1,8 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
+  isRoundEndState,
   type AttendanceLedgerFacts,
   type RatingEligibilityFacts,
+  type RoundEndState,
+  type RoundOutcome,
+  type RoundStatus,
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -28,8 +32,14 @@ export type RatingCandidate =
       readonly unreadable: unknown;
     };
 
-type FactsRow = Omit<RatingEligibilityFacts, 'attendance'> &
-  Record<keyof AttendanceLedgerFacts, unknown> & { readonly roundId: string };
+type FactsRow = Omit<
+  RatingEligibilityFacts,
+  'attendance' | keyof RoundEndState
+> & {
+  readonly status: RoundStatus;
+  readonly outcome: RoundOutcome | null;
+  readonly completedAt: string | null;
+} & Record<keyof AttendanceLedgerFacts, unknown> & { readonly roundId: string };
 
 const readCandidates = async (
   db: Execute,
@@ -55,6 +65,12 @@ const readCandidates = async (
       ...facts
     }) => {
       try {
+        // `rounds_lifecycle_check` holds this; a row that breaks it is unreadable, never rated.
+        if (!isRoundEndState(facts))
+          throw createAppError(
+            'INVARIANT',
+            'Round ending is not one its status holds',
+          );
         return {
           roundId,
           facts: {

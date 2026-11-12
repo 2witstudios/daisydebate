@@ -1,6 +1,11 @@
 import { seatsHeldFrom } from './room-edit-transitions';
 import { formatStanding } from './format-standing';
-import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
+import type {
+  RoomAssemblyState,
+  RoomConsent,
+  RoomRoundLink,
+  RoomView,
+} from '@daisy/protocol';
 import {
   freezeRoomConfig,
   freezeRoomExecutionPlan,
@@ -47,14 +52,19 @@ export const hostIdentityHidden = (
   viewerActorId: string,
 ) => room.hostIsHumanJudge && room.hostActorId !== viewerActorId;
 
+/** Whether the Room is this viewer's own: they host it or hold a seat in it. */
+const ownRoom = (
+  room: Pick<RoomAssemblyState, 'hostActorId' | 'participants'>,
+  actorId: string,
+): boolean =>
+  room.hostActorId === actorId ||
+  room.participants.some((p) => p.actorId === actorId);
+
 /** Whether this viewer is outside a Room that has started, and so reads it closed. */
 export const startHiddenFrom = (
   room: Pick<RoomAssemblyState, 'status' | 'hostActorId' | 'participants'>,
   actorId: string,
-): boolean =>
-  room.status === 'started' &&
-  room.hostActorId !== actorId &&
-  !room.participants.some((p) => p.actorId === actorId);
+): boolean => room.status === 'started' && !ownRoom(room, actorId);
 
 /**
  * A started Room as someone outside it may know it: closed, as an expired or
@@ -76,6 +86,30 @@ const roomKnownTo = (
         roundRef: null,
         topic: room.config.resolutionDraw.enabled ? null : room.topic,
       };
+
+/**
+ * The status and Round one viewer reads of the Room as they may know it
+ * (`roomKnownTo`), as the one state the contract holds. A Room still started
+ * there is the viewer's own. Only its own people learn a closed Room's Round:
+ * anyone else learns of a Round from the spectator timeline alone.
+ */
+const roundLinkFor = (
+  known: RoomAssemblyState,
+  actorId: string,
+): RoomRoundLink => {
+  switch (known.status) {
+    case 'assembling':
+    case 'ready':
+      return { status: known.status, roundRef: null };
+    case 'started':
+      return { status: known.status, roundRef: known.roundRef };
+    case 'closed':
+      return {
+        status: known.status,
+        roundRef: ownRoom(known, actorId) ? known.roundRef : null,
+      };
+  }
+};
 
 /**
  * Server projection: consumers never infer startability or consent from
@@ -107,6 +141,7 @@ export function projectRoom(
     ? room.config.resolutionDraw.source
     : null;
   return {
+    ...roundLinkFor(room, actorId),
     id: room.id,
     version: room.version,
     changeVersion: room.changeVersion,
@@ -124,7 +159,6 @@ export function projectRoom(
     watchRoundId: null,
     // The Room read fills these in for its viewer (ADR 0124).
     invitations: [],
-    status: room.status,
     formatId: room.formatId,
     formatVersion: room.formatVersion,
     presetVersion: room.presetVersion,
@@ -196,12 +230,6 @@ export function projectRoom(
       : { debater: 0, judge: 0 },
     capabilities: roomCapabilities(room, actorId, blocker),
     startRefusal: blocker,
-    // A non-participant learns of a live Round only from the spectator timeline.
-    roundRef:
-      room.hostActorId === actorId ||
-      room.participants.some((p) => p.actorId === actorId)
-        ? room.roundRef
-        : null,
   };
 }
 

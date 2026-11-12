@@ -110,6 +110,7 @@ const withBotRoom = (
           state: {
             ...state,
             status: 'started',
+            roundRef: { id: roundId, status: 'active' },
             version: state.version + 1,
             changeVersion: state.changeVersion + 1,
           },
@@ -215,6 +216,34 @@ test('an included casual AI judge reserves its own use without bot admission or 
         { id: roundId, status: 'active' },
         [{ kind: 'casual_ai_judge', state: { kind: 'reserved' } }],
       ],
+    });
+  });
+});
+
+test('a Room whose stored status disagrees with its Round row is refused by a command, and stays as stored', async () => {
+  await withBotRoom('judge', async ({ fixture, roomId, common, input }) => {
+    // No writer produces this: Start round stores the status and the Round together.
+    await fixture.sql`update rooms set status='started' where id=${roomId}`;
+    await assertRejects({
+      given: 'a started Room with no Round row, and a command on it',
+      should:
+        'refuse it as corruption rather than act on the status the read reconciled',
+      actual: () =>
+        roomCommandOperations(common).executeRoomCommand({
+          ...input,
+          commandId: createId(),
+        }),
+      code: 'INVARIANT',
+    });
+    const [stored] =
+      (await fixture.sql`select status from rooms where id=${roomId}`) as {
+        status: string;
+      }[];
+    assert({
+      given: 'that refusal',
+      should: 'leave the stored status as it was',
+      actual: stored?.status,
+      expected: 'started',
     });
   });
 });

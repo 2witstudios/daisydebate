@@ -140,7 +140,8 @@ export function createMediaWorld(
         opening: null,
         id: roundId,
         status,
-        currentStage: null,
+        // No segment has opened: an active Round here is in its countdown.
+        currentStage: status === 'active' ? 'countdown' : null,
         startedAt: status === 'opening' ? null : now,
         completedAt: null,
         outcome: null,

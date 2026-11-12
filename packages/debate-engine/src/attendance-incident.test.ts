@@ -50,7 +50,7 @@ test('an incident never forfeits an absent speaker', () => {
     string,
     readonly (typeof stop | { from: string; to: null })[],
     number,
-    unknown,
+    Record<string, unknown> | null,
   ][] = [
     [
       'no incident, just inside the settled grace',
@@ -115,8 +115,9 @@ test('an incident never forfeits an absent speaker', () => {
       given,
       should:
         expected === null ? 'keep waiting' : 'decide on healthy time only',
-      actual: decide(stops, nowMs),
-      expected,
+      actual: decide(stops, nowMs) as unknown,
+      // Health was known to the instant of the decision: that is its horizon.
+      expected: expected && { ...expected, settledHorizonMs: nowMs },
     });
 });
 
@@ -138,6 +139,8 @@ test('a seat that returned during the incident attended', () => {
       evidence: 'settled_availability',
       decision: 'attended',
       effectiveDeadlineMs: OPENED + 60_000 + graceMs,
+      settledHorizonMs:
+        OPENED + 60_000 + graceMs + finalizationBufferMs + 1_000,
     },
   });
   assert({

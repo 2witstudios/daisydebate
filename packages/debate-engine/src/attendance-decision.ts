@@ -51,10 +51,18 @@ function sameDecision(
   if (
     actual.evidence !== 'settled_availability' ||
     expected.decision !== actual.decision ||
-    expected.effectiveDeadlineMs !== actual.effectiveDeadlineMs
+    !sameSettlement(expected, actual)
   )
     return false;
   if (expected.decision === 'forfeit')
     return actual.decision === 'forfeit' && actual.winner === expected.winner;
   return true;
 }
+type Settled = Extract<
+  AttendanceDecision,
+  { evidence: 'settled_availability' }
+>;
+/** Decided on the same deadline, with health known to the same horizon. */
+const sameSettlement = (expected: Settled, actual: Settled): boolean =>
+  expected.effectiveDeadlineMs === actual.effectiveDeadlineMs &&
+  expected.settledHorizonMs === actual.settledHorizonMs;

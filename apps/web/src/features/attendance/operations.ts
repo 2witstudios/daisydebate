@@ -2,6 +2,7 @@ import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import {
   createRoundRuntime,
   adjudicateAttendance,
+  adjudicationFactOf,
   nextAttendanceSegment,
   type RoundEndingDecision,
   onTimeSpeakerReceipt,
@@ -60,10 +61,7 @@ function resolveOnTimeReceipt(
   const credited = next && onTimeSpeakerReceipt(next);
   return credited
     ? {
-        segmentId: next.target.id,
-        evidence: 'on_time_receipt',
-        decision: 'attended',
-        receiptParticipantId: credited.participantId,
+        ...adjudicationFactOf(next.target.id, credited, attendanceTimestamp),
         projection: null,
       }
     : null;
@@ -104,29 +102,9 @@ function resolveAttendanceWindow(
       segments: facts.round.segments,
       nextSegmentId,
     }).adjudicate({ segmentId: target.id, decision: ending, now: facts.now });
-  if (decision.evidence === 'on_time_receipt')
-    return {
-      segmentId: target.id,
-      evidence: 'on_time_receipt',
-      decision: 'attended',
-      receiptParticipantId: decision.participantId,
-      projection: null,
-    };
-  if (decision.evidence === 'resolution_cutoff')
-    return {
-      segmentId: target.id,
-      evidence: 'resolution_cutoff',
-      decision: 'abandoned',
-      projection: projectionOf(decision),
-    };
-  const { effectiveDeadlineMs } = decision;
   return {
-    segmentId: target.id,
-    evidence: 'settled_availability',
-    decision: decision.decision,
-    effectiveDeadline: attendanceTimestamp(effectiveDeadlineMs),
-    // Non-null: the engine decided on settled evidence.
-    settledHorizon: attendanceTimestamp(availability.settledHorizonMs!),
+    ...adjudicationFactOf(target.id, decision, attendanceTimestamp),
+    // Only a forfeit or an abandonment changes the Round.
     projection:
       decision.decision === 'forfeit' || decision.decision === 'abandoned'
         ? projectionOf(decision)

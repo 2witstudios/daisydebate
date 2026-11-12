@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundBallotRead, RoundBallotReceipt } from '@daisy/protocol';
 import {
+  asActive,
   view,
   judge,
   aff,
@@ -15,8 +16,7 @@ setupRitewayBun();
 
 const open: RoundBallotRead = {
   round: {
-    ...view,
-    status: 'active',
+    ...asActive(view),
     participants: [
       { ...aff, label: 'Maya Singh' },
       { ...neg, label: 'Daniel Kim' },

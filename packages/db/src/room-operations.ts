@@ -27,10 +27,8 @@ export type NewRoom = {
   readonly rules: RoundRules;
 };
 
-export const newRoomValues = (
-  room: NewRoom,
-  status: 'assembling' | 'started',
-) => ({
+/** A new Room's row: it assembles first, so no Room is ever stored started without its Round. */
+export const newRoomValues = (room: NewRoom) => ({
   id: room.id,
   hostActorId: room.hostActorId,
   title: room.title,
@@ -46,5 +44,5 @@ export const newRoomValues = (
   config: room.config,
   executionPlan: room.executionPlan,
   rulesSnapshot: room.rules,
-  status,
+  status: 'assembling' as const,
 });

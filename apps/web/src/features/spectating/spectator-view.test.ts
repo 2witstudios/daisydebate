@@ -1,6 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundView } from '@daisy/protocol';
-import { ran, view } from '../../ui/debate-room/live-round.test-support';
+import {
+  asAbandoned,
+  asCompleted,
+  ran,
+  view,
+} from '../../ui/debate-room/live-round.test-support';
 import { spectatorKindOf, watchingRoomOf } from './spectator-view';
 
 setupRitewayBun();
@@ -19,9 +24,9 @@ describe('spectatorKindOf', () => {
       should: 'admit only the seatless host of a Round that has not ended',
       actual: [
         spectatorKindOf(hosted(ran(1))),
-        spectatorKindOf(hosted({ ...view, status: 'opening' })),
-        spectatorKindOf(hosted({ ...view, status: 'completed' })),
-        spectatorKindOf(hosted({ ...view, status: 'abandoned' })),
+        spectatorKindOf(hosted(view)),
+        spectatorKindOf(hosted(asCompleted(view))),
+        spectatorKindOf(hosted(asAbandoned(view))),
         spectatorKindOf({
           ...hosted(ran(1)),
           viewerIsUndelayedObserver: false,

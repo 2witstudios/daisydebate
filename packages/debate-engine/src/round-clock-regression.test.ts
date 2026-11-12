@@ -2,6 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundRuntime } from './round-runtime';
 import {
   emptyCheckpoint,
+  hydratedRound,
+  lifecycleIn,
   oneOnOneRules,
   oneOnOneSeats,
   roundAt,
@@ -13,14 +15,11 @@ const clockWorld = (
 ) => {
   let calls = 0;
   const runtime = createRoundRuntime({
-    round: {
-      id: 'round',
-      status: 'active',
-      currentStage: 'countdown',
-      startedAt: roundAt(0),
-      completedAt: null,
-      outcome: null,
-    },
+    round: hydratedRound(lifecycleIn('active'), {
+      rules,
+      checkpoint,
+      segments: [],
+    }),
     rules,
     participants: oneOnOneSeats,
     checkpoint,

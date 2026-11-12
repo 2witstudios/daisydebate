@@ -3,6 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundView } from '@daisy/protocol';
 import { mockNextRouter } from '../../lib/testing/mock-router';
 import {
+  asCompleted,
   neg,
   origin,
   ran,
@@ -71,7 +72,7 @@ test('a seatless host watches the live Round without controls', () => {
 });
 
 test('the Round ends while the host watches', () => {
-  const html = render({ ...ran(1), status: 'completed' }, origin);
+  const html = render(asCompleted(ran(1)), origin);
   assert({
     given: 'a completed Round',
     should: 'say it is over and link its result',

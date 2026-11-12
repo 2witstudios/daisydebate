@@ -90,6 +90,14 @@
       }
     },
     {
+      "id": "round.stage.matches-clock",
+      "check": "stage-matches-clock",
+      "testReference": {
+        "path": "packages/debate-engine/src/round-contract.test.ts",
+        "name": "refuse the stage the clock does not derive"
+      }
+    },
+    {
       "id": "round.status.completed.terminal",
       "check": "completed-is-terminal",
       "testReference": {

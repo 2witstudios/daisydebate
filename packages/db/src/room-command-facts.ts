@@ -8,7 +8,7 @@ import type {
 } from '@daisy/protocol';
 import { buildRoomTopic } from '@daisy/protocol';
 import { botDifficulties } from '@daisy/protocol';
-import { idSchema, roomSeatKindSchema } from '@daisy/protocol';
+import { idSchema, roomRoundLinkOf, roomSeatKindSchema } from '@daisy/protocol';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { authorizationAccountFact } from './authorization-account';
 import {
@@ -152,6 +152,26 @@ export const roomFacts = async (
   state: await hydrateRoom(tx, row),
 });
 
+/**
+ * The Room's state for a command or an expiry, which may write it back. A read
+ * joins the stored status to the Round row and never fails on one that
+ * disagrees (`roomRoundLinkOf`); a participant's command and the expiry sweep
+ * refuse such a Room instead, loudly, so a status the read reconciled is never
+ * stored as if it had been decided. Erasure and a restriction still act on it.
+ */
+export const roomFactsForWrite = async (
+  tx: Tx,
+  row: typeof rooms.$inferSelect,
+): Promise<{ readonly state: RoomAssemblyState }> => {
+  const facts = await roomFacts(tx, row);
+  if (facts.state.status !== row.status)
+    throw createAppError(
+      'INVARIANT',
+      'A Room status disagrees with its Round row',
+    );
+  return facts;
+};
+
 const hydrateRoom = async (
   tx: Tx,
   row: typeof rooms.$inferSelect,
@@ -230,7 +250,6 @@ const hydrateRoom = async (
     hostActorId: row.hostActorId,
     hostInherited: row.hostInherited,
     hostLabel: host?.label ?? '',
-    status: row.status,
     formatId: row.formatId,
     formatVersion: row.formatVersion,
     presetVersion: row.presetVersion,
@@ -247,7 +266,10 @@ const hydrateRoom = async (
     executionPlan: row.executionPlan,
     rules: row.rulesSnapshot,
     participants,
-    roundRef: round ? { id: round.id, status: round.status } : null,
+    ...roomRoundLinkOf(
+      row.status,
+      round ? { id: round.id, status: round.status } : null,
+    ),
   };
 };
 export const lockCommand = (tx: Tx, commandId: string) =>

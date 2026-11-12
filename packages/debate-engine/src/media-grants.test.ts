@@ -186,10 +186,9 @@ test('cross-examination opens every debater microphone across legal custom seats
 });
 
 test('judging conversation uses actual final end and never the initial timetable', () => {
-  const world = runtimeWorld();
+  const world = runtimeWorld({ status: 'active' });
   const position = {
     ...world.position(roundAt(0)),
-    status: 'active' as const,
     stage: 'awaiting_ballot' as const,
     nextSegment: null,
   };
@@ -275,10 +274,9 @@ test('competitive bot rights remain publish-only through reconciliation', () => 
 });
 
 test('conversation microphones wait for the audience observer to be revoked', () => {
-  const world = runtimeWorld();
+  const world = runtimeWorld({ status: 'active' });
   const position = {
     ...world.position(roundAt(0)),
-    status: 'active' as const,
     stage: 'awaiting_ballot' as const,
     nextSegment: null,
   };

@@ -50,6 +50,7 @@ import {
   type Actor,
   actorFact,
   roomFacts,
+  roomFactsForWrite,
   lockCommand,
   replayReceipt,
   acceptCommand,
@@ -173,7 +174,7 @@ async function executeOnce(
     .where(eq(rooms.id, input.roomId))
     .for('update');
   if (!row) throw createAppError('NOT_FOUND');
-  const { state } = await roomFacts(tx, row);
+  const { state } = await roomFactsForWrite(tx, row);
   if (!input.authorizeRead(state, account)) throw createAppError('NOT_FOUND');
   if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
     throw new RoomMoved('Cast changed while acquiring authority');
@@ -238,13 +239,13 @@ async function executeOnce(
   if (!outcome.ok)
     throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);
   const next = outcome.mutation.state;
-  const roundRef = await persistRoomMutation(
-    tx,
-    outcome.mutation,
-    input.roundId,
-    now,
-    true,
-  );
+  // Admission, allowance and capture below all name the Round by this id.
+  if (outcome.mutation.freeze && next.roundRef?.id !== input.roundId)
+    throw createAppError(
+      'INVARIANT',
+      'A Start round names the Round its command carries',
+    );
+  const roundRef = await persistRoomMutation(tx, outcome.mutation, now, true);
   await reserveBotFreeze(
     tx,
     outcome.mutation,

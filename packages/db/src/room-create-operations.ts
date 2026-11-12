@@ -178,7 +178,7 @@ export const roomCreateOperations = ({
           throw createRefusal('CONFLICT', 'illegal-config');
         const now = await transactionNow(tx);
         await tx.insert(rooms).values({
-          ...newRoomValues(input.room, 'assembling'),
+          ...newRoomValues(input.room),
           capture: input.recording
             ? { broadcast: null, recording: true }
             : null,

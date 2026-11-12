@@ -6,16 +6,48 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { createMediaSessionStore } from '../src/media-session';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import type { LockedRoundTickInput } from '../src/round-clock-transaction';
+import type { RoundLifecycle } from '@daisy/protocol';
+
+/** The Round's own lifecycle columns, one status at a time so each keeps its instants. */
+const lifecycleOf = (round: RoundLifecycle): RoundLifecycle => {
+  switch (round.status) {
+    case 'opening':
+      return {
+        status: round.status,
+        startedAt: round.startedAt,
+        completedAt: round.completedAt,
+        outcome: round.outcome,
+      };
+    case 'active':
+      return {
+        status: round.status,
+        startedAt: round.startedAt,
+        completedAt: round.completedAt,
+        outcome: round.outcome,
+      };
+    case 'completed':
+      return {
+        status: round.status,
+        startedAt: round.startedAt,
+        completedAt: round.completedAt,
+        outcome: round.outcome,
+      };
+    case 'abandoned':
+      return {
+        status: round.status,
+        startedAt: round.startedAt,
+        completedAt: round.completedAt,
+        outcome: round.outcome,
+      };
+  }
+};
 
 export const mediaTestTick: LockedRoundTickInput['buildProjection'] = ({
   round,
 }) => ({
   round: {
-    status: round.status,
+    ...lifecycleOf(round),
     currentStage: round.currentStage,
-    startedAt: round.startedAt,
-    completedAt: round.completedAt,
-    outcome: round.outcome,
     checkpoint: round.checkpoint,
   },
   segmentInserts: [],

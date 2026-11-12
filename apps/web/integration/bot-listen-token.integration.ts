@@ -93,6 +93,8 @@ test('a bot claim without the floor is refused publication but still hears (ISSU
       actual: () => media.botToken(claim.scope, claim.token),
     });
     await f.sql`update round_segments set ended_at=clock_timestamp() where id=${claim.scope.segmentId}`;
+    // The row is closed by hand here, so the stage is too: between speeches is the countdown.
+    await f.sql`update rounds set current_stage='countdown' where id=(select round_id from round_segments where id=${claim.scope.segmentId})`;
     await assertRejects({
       given: "the claim's segment ended",
       should:

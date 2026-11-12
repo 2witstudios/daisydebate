@@ -57,6 +57,7 @@ test('Round and interval stamps persist the injected PostgreSQL instant exactly 
         expected: [firstInstant, firstInstant],
       });
       if (!started) throw new Error('Round missing');
+      if (started.status !== 'active') throw new Error('Round not active');
       const active = {
         status: started.status,
         currentStage: started.currentStage,

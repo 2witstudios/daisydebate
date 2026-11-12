@@ -121,42 +121,53 @@ export type RoundStartGate = z.infer<typeof startGateSchema>;
  * reconstruct. Keys are the stored jsonb shape, matching the column's
  * database default verbatim. The equivalence: `current_stage = 'prep'` iff
  * `active_prep` is not null; effective prep consumption while prep is live
- * is `prep_consumed_ms[side] + (now - active_prep.started_at)`.
+ * is `prep_consumed_ms[side] + (now - active_prep.started_at)`. The lead after
+ * prep and prep itself never hold at once; what relates the checkpoint to the
+ * segment rows is the clock's to hold (`normalizeRoundClock`).
  */
-export const runtimeCheckpointSchema = z.strictObject({
-  version: z.literal(1),
-  prep_consumed_ms: z.strictObject({
-    affirmative: z.int().min(0),
-    negative: z.int().min(0),
-  }),
-  active_prep: z
-    .strictObject({ side: debateSideSchema, started_at: z.iso.datetime() })
-    .nullable(),
-  /**
-   * Who holds the floor. Null whenever the answer is derivable from the
-   * open segment plus the rules — i.e. the segment's own scheduled side
-   * holds it. Set only by an accepted interruption; deliberately not the
-   * legal-next participant, which would duplicate the rules and go stale.
-   */
-  floor: z
-    .strictObject({
-      holder_participant_id: idSchema,
-      granted_at: z.iso.datetime(),
-    })
-    .nullable(),
-  incident: incidentSchema,
-  /**
-   * When in-round prep ended. The next clock starts the microphone lead after this, so no
-   * microphone opens during prep. Null outside that lead; never set while prep runs.
-   */
-  prep_ended_at: z.iso.datetime().nullable(),
-  /** Whether capture is ready for the coming speech, which it may briefly hold. */
-  start_gate: startGateSchema,
-  /** Finished incidents' spans, so a countdown, a strike window or prep owes them back. */
-  clock_stops: z
-    .array(z.strictObject({ from: z.iso.datetime(), to: z.iso.datetime() }))
-    .readonly(),
-});
+export const runtimeCheckpointSchema = z
+  .strictObject({
+    version: z.literal(1),
+    prep_consumed_ms: z.strictObject({
+      affirmative: z.int().min(0),
+      negative: z.int().min(0),
+    }),
+    active_prep: z
+      .strictObject({ side: debateSideSchema, started_at: z.iso.datetime() })
+      .nullable(),
+    /**
+     * Who holds the floor. Null whenever the answer is derivable from the
+     * open segment plus the rules — i.e. the segment's own scheduled side
+     * holds it. Set only by an accepted interruption; deliberately not the
+     * legal-next participant, which would duplicate the rules and go stale.
+     */
+    floor: z
+      .strictObject({
+        holder_participant_id: idSchema,
+        granted_at: z.iso.datetime(),
+      })
+      .nullable(),
+    incident: incidentSchema,
+    /**
+     * When in-round prep ended. The next clock starts the microphone lead after this, so no
+     * microphone opens during prep. Null outside that lead; never set while prep runs.
+     */
+    prep_ended_at: z.iso.datetime().nullable(),
+    /** Whether capture is ready for the coming speech, which it may briefly hold. */
+    start_gate: startGateSchema,
+    /** Finished incidents' spans, so a countdown, a strike window or prep owes them back. */
+    clock_stops: z
+      .array(z.strictObject({ from: z.iso.datetime(), to: z.iso.datetime() }))
+      .readonly(),
+  })
+  .refine(
+    (checkpoint) =>
+      checkpoint.prep_ended_at === null || checkpoint.active_prep === null,
+    {
+      message: 'The lead after prep never runs while prep does',
+      path: ['prep_ended_at'],
+    },
+  );
 export type RuntimeCheckpoint = z.infer<typeof runtimeCheckpointSchema>;
 
 /** The checkpoint a fresh round hydrates with, equal to the column default. */

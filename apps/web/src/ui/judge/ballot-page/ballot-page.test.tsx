@@ -5,6 +5,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundBallotRead } from '@daisy/protocol';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
 import {
+  asActive,
   view,
   judge,
   aff,
@@ -19,8 +20,7 @@ await mockNextRouter();
 const { BallotPage } = await import('./ballot-page');
 const input: RoundBallotRead = {
   round: {
-    ...view,
-    status: 'active',
+    ...asActive(view),
     participants: [
       { ...aff, label: 'Maya Singh' },
       { ...neg, label: 'Daniel Kim' },

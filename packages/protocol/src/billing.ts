@@ -216,7 +216,7 @@ export const usageHoldingStates = [
   'unknown',
   'delivered',
   'definite_failure',
-] as const;
+] as const satisfies readonly UsageState['kind'][];
 
 type UsageCountBasis = 'dispatch_record' | 'historical_observation';
 /** A historical recognition instant never asserts the vendor's exact dispatch time. */

@@ -4,13 +4,17 @@ import { readRatingCandidates, readRatingFacts } from './rating-discovery';
 
 setupRitewayBun();
 
-const row = (roundId: string, adjudications: readonly unknown[]) => ({
+const row = (
+  roundId: string,
+  adjudications: readonly unknown[],
+  completedAt: string | null = '2026-10-05T12:00:00.000Z',
+) => ({
   roundId,
   competitionType: 'ranked',
   ladderId: 'freestyle',
   status: 'completed',
   outcome: 'affirmative',
-  completedAt: null,
+  completedAt,
   alreadyRated: false,
   ending: null,
   ruleSegments: [],
@@ -45,5 +49,21 @@ test('one corrupt ledger row fails alone', async () => {
     actual: () =>
       readRatingFacts(database([row('bad', [corrupt])]), 'b'.repeat(24)),
     code: 'INVARIANT',
+  });
+});
+
+test('a Round whose ending its status cannot hold is never rated', async () => {
+  const page = await readRatingCandidates(
+    database([row('unended', [], null), row('good', [])]),
+    { limit: 2 },
+  );
+  assert({
+    given: 'a completed row with no instant it ended, beside a sound one',
+    should: 'read the sound Round and name the other unreadable, alone',
+    actual: page.map(({ roundId, facts }) => [roundId, facts !== null]),
+    expected: [
+      ['unended', false],
+      ['good', true],
+    ],
   });
 });

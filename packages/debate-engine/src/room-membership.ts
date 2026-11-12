@@ -1,17 +1,14 @@
-import {
-  activeRoomHref,
-  isOpenRoomStatus,
-  isRoundRunning,
-} from '@daisy/protocol';
+import { activeRoomHref, isRoundRunning } from '@daisy/protocol';
 import type {
   ActiveRoom,
   ActiveRoomFacts,
-  ActiveRoomPhase,
+  OpenRoomStatus,
   RoomAssemblyState,
+  RoomRoundLink,
   RoundStatus,
 } from '@daisy/protocol';
 
-type Holding = Pick<RoomAssemblyState, 'status' | 'roundRef'> & {
+type Holding = RoomRoundLink & {
   /** Whether the launched Round's last speech has ended; false before Launch. */
   readonly debateEnded?: boolean;
 };
@@ -26,18 +23,27 @@ export const roundHoldsMembers = (round: {
   readonly debateEnded: boolean;
 }) => isRoundRunning(round.status) && !round.debateEnded;
 
-const phaseOf = (room: Holding): ActiveRoomPhase | null => {
-  if (isOpenRoomStatus(room.status)) return room.status;
-  // A started Room with no Round yet is the Start round being frozen: the
-  // Round its adapter inserts in the same transaction holds, so it is live.
-  return room.status === 'started' &&
-    (room.roundRef === null ||
-      roundHoldsMembers({
+/** Where a Room holds its members, with the Round a live one is held by; null once it holds no one. */
+const holdOf = (
+  room: Holding,
+):
+  | { readonly phase: OpenRoomStatus; readonly roundId: null }
+  | { readonly phase: 'live'; readonly roundId: string }
+  | null => {
+  switch (room.status) {
+    case 'assembling':
+    case 'ready':
+      return { phase: room.status, roundId: null };
+    case 'started':
+      return roundHoldsMembers({
         status: room.roundRef.status,
         debateEnded: room.debateEnded ?? false,
-      }))
-    ? 'live'
-    : null;
+      })
+        ? { phase: 'live', roundId: room.roundRef.id }
+        : null;
+    case 'closed':
+      return null;
+  }
 };
 
 /**
@@ -49,7 +55,7 @@ const phaseOf = (room: Holding): ActiveRoomPhase | null => {
 export const activeRoomMembers = (
   room: Holding & Pick<RoomAssemblyState, 'hostActorId' | 'participants'>,
 ): readonly string[] =>
-  phaseOf(room) === null
+  holdOf(room) === null
     ? []
     : [
         ...new Set([
@@ -65,7 +71,7 @@ export function projectActiveRoom(
   facts: ActiveRoomFacts,
   actorId: string,
 ): ActiveRoom | null {
-  const phase = phaseOf(facts);
+  const hold = holdOf(facts);
   const role =
     facts.room.hostActorId === actorId
       ? 'host'
@@ -74,19 +80,14 @@ export function projectActiveRoom(
         : facts.seatRole === 'judge'
           ? 'judge'
           : 'debater';
-  if (phase === null || role === null) return null;
-  if (phase === 'live' && facts.roundRef === null) return null;
+  if (hold === null || role === null) return null;
   return {
     version: 1,
     id: facts.room.id,
     title: facts.room.title,
-    phase,
+    phase: hold.phase,
     role,
     seated: facts.seatRole !== null,
-    href: activeRoomHref({
-      phase,
-      roomId: facts.room.id,
-      roundId: facts.roundRef?.id ?? null,
-    }),
+    href: activeRoomHref({ ...hold, roomId: facts.room.id }),
   };
 }

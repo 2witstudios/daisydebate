@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { view, aff, neg } from '../../ui/debate-room/live-round.test-support';
+import {
+  asCompleted,
+  view,
+  aff,
+  neg,
+} from '../../ui/debate-room/live-round.test-support';
 import { readRoundRatings } from './read-round';
 setupRitewayBun();
 
@@ -47,10 +52,8 @@ test('a historical Round badge uses its posting rather than later established st
     },
     {
       round: {
-        ...view,
+        ...asCompleted(view, 'affirmative'),
         ladderId: 'freestyle',
-        status: 'completed',
-        outcome: 'affirmative',
       },
       now: at,
       viewerActorId: null,
@@ -116,10 +119,8 @@ test('a blinded debater hides the posting, and only both blinded hide that it ra
       },
       {
         round: {
-          ...view,
+          ...asCompleted(view, 'affirmative'),
           ladderId: 'freestyle',
-          status: 'completed',
-          outcome: 'affirmative',
         },
         now: at,
         viewerActorId: 'judge-viewer',
@@ -181,10 +182,8 @@ test('a decided Round is pending exactly when the rating writer would still rate
       } as never,
       {
         round: {
-          ...view,
+          ...asCompleted(view, 'affirmative'),
           ladderId: 'freestyle',
-          status: 'completed',
-          outcome: 'affirmative',
         },
         now: at,
         viewerActorId: null,

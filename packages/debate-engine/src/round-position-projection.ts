@@ -7,6 +7,7 @@ import {
 } from '@daisy/protocol';
 import type {
   DebateSide,
+  RoundLifecycle,
   RoundPosition,
   RoundRules,
   RoundStage,
@@ -15,22 +16,47 @@ import type {
 import { advanceRoundClock } from './round-clock';
 import {
   debateHasEnded,
-  lifecycleOver,
-  startedAtOf,
   type ClockState,
   type ClockSegment as StoreRow,
   type Lifecycle,
 } from './round-clock-state';
 export type { RoundPosition };
 const iso = (ms: number): string => new Date(ms).toISOString();
-const isoOrNull = (ms: number | null) => (ms === null ? null : iso(ms));
 
 /** The lifecycle columns a position and a projection both carry, as ISO. */
-export const lifecycleStampsOf = (lifecycle: Lifecycle) => ({
-  startedAt: isoOrNull(startedAtOf(lifecycle)),
-  completedAt: lifecycleOver(lifecycle) ? iso(lifecycle.completedAtMs) : null,
-  outcome: lifecycle.status === 'completed' ? lifecycle.outcome : null,
-});
+export const lifecycleColumnsOf = (lifecycle: Lifecycle): RoundLifecycle => {
+  switch (lifecycle.status) {
+    case 'opening':
+      return {
+        status: lifecycle.status,
+        startedAt: null,
+        completedAt: null,
+        outcome: null,
+      };
+    case 'active':
+      return {
+        status: lifecycle.status,
+        startedAt: iso(lifecycle.startedAtMs),
+        completedAt: null,
+        outcome: null,
+      };
+    case 'completed':
+      return {
+        status: lifecycle.status,
+        startedAt: iso(lifecycle.startedAtMs),
+        completedAt: iso(lifecycle.completedAtMs),
+        outcome: lifecycle.outcome,
+      };
+    case 'abandoned':
+      return {
+        status: lifecycle.status,
+        startedAt:
+          lifecycle.startedAtMs === null ? null : iso(lifecycle.startedAtMs),
+        completedAt: iso(lifecycle.completedAtMs),
+        outcome: null,
+      };
+  }
+};
 
 /** The stage the round is in, derived from its store; null when not active. */
 export const stageOf = (
@@ -193,9 +219,8 @@ export const roundPositionOf = (
   const inRoundPrep = rules.inRoundPrep;
   const upcoming = nextSegmentOf(open, startable, spoken, rules);
   return {
-    status: lifecycle.status,
+    ...lifecycleColumnsOf(lifecycle),
     stage: stageOf(on, rules.segments.length),
-    ...lifecycleStampsOf(lifecycle),
     openSegment: openSegmentOf(
       open,
       rules,

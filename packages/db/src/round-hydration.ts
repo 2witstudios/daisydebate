@@ -1,9 +1,9 @@
-import { type RoundStatus } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import { isRoundLifecycle, type RoundLifecycle } from '@daisy/protocol';
 import { loadRoundOpening, type StoredOpening } from './round-opening-read';
 import type {
   CompetitionType,
   DebateRole,
-  RoundOutcome,
   RoundRules,
   RoundStage,
   RuntimeCheckpoint,
@@ -19,7 +19,7 @@ import { rounds } from './schema/rounds';
  * A round hydrated for the runtime (ADR 0058 §4): the durable rows plus the
  * frozen rules and the checkpoint, everything `createRoundRuntime` needs.
  */
-export type RoundHydration = {
+export type RoundHydration = RoundLifecycle & {
   readonly id: string;
   readonly competitionType: CompetitionType;
   readonly formatId: string;
@@ -28,13 +28,9 @@ export type RoundHydration = {
   readonly resolution: string | null;
   /** The opening and its secret seed, only while the Round is in it. */
   readonly opening: StoredOpening | null;
-  readonly status: RoundStatus;
   readonly currentStage: RoundStage | null;
   /** When the Round was launched (its row's creation), on the database clock. */
   readonly launchedAt: string;
-  readonly startedAt: string | null;
-  readonly completedAt: string | null;
-  readonly outcome: RoundOutcome | null;
   readonly rules: RoundRules;
   readonly checkpoint: RuntimeCheckpoint;
   readonly version: number;
@@ -84,8 +80,62 @@ export async function segmentRows(
   }));
 }
 
-/** One consistent PostgreSQL snapshot for the Round and its child rows. */
+/**
+ * A Round row's lifecycle columns as the one lifecycle its status holds.
+ * `rounds_lifecycle_check` holds this for every stored row, so a row that
+ * breaks it is corruption.
+ */
+export const roundLifecycleOfRow = (
+  row: Pick<
+    typeof rounds.$inferSelect,
+    'status' | 'startedAt' | 'completedAt' | 'outcome'
+  >,
+): RoundLifecycle => {
+  const lifecycle = {
+    status: row.status,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    outcome: row.outcome,
+  };
+  if (!isRoundLifecycle(lifecycle))
+    throw createAppError(
+      'INVARIANT',
+      'Round lifecycle is not one its status holds',
+    );
+  return lifecycle;
+};
+
+/** How often a read is taken again when a write lands between its statements. */
+const HYDRATION_ATTEMPTS = 4;
+
+/**
+ * The Round and its child rows as one revision. The rows are read by separate
+ * statements, and outside a snapshot or the Round's lock a projection can
+ * commit between them, which would pair one revision's stage and checkpoint
+ * with the next one's segments. Every such write advances the Round's version,
+ * so a read whose version moved is taken again.
+ */
 export async function hydrateRoundRows(
+  tx: Reader,
+  id: string,
+): Promise<RoundHydration | null> {
+  for (let attempt = 0; attempt < HYDRATION_ATTEMPTS; attempt += 1) {
+    const read = await readRoundRows(tx, id);
+    if (read === null) return null;
+    const [after] = await tx
+      .select({ version: rounds.version })
+      .from(rounds)
+      .where(eq(rounds.id, id))
+      .limit(1);
+    if (after?.version === read.version) return read;
+  }
+  throw createAppError(
+    'INFRASTRUCTURE',
+    'The Round kept changing while it was read',
+  );
+}
+
+async function readRoundRows(
   tx: Reader,
   id: string,
 ): Promise<RoundHydration | null> {
@@ -107,18 +157,15 @@ export async function hydrateRoundRows(
     .orderBy(asc(roundParticipants.role), asc(roundParticipants.slot));
   const segments = await segmentRows(tx, id);
   return {
+    ...roundLifecycleOfRow(row),
     opening: await loadRoundOpening(tx, row),
     id: row.id,
     competitionType: row.competitionType,
     formatId: row.formatId,
     formatVersion: row.formatVersion,
     resolution: row.resolution,
-    status: row.status,
     currentStage: row.currentStage,
     launchedAt: row.createdAt.toISOString(),
-    startedAt: row.startedAt?.toISOString() ?? null,
-    completedAt: row.completedAt?.toISOString() ?? null,
-    outcome: row.outcome,
     rules: row.rulesSnapshot as RoundHydration['rules'],
     checkpoint: row.runtimeState as RoundHydration['checkpoint'],
     version: row.version,

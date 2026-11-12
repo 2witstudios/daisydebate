@@ -53,6 +53,8 @@ export function roomCommandOperation({
     roomId: string,
     command: RoomCommand,
   ): Promise<RoomCommandResponse> {
+    // One id for the Round a Start round launches: the engine names it and the store inserts it.
+    const roundId = ids.next();
     const receipt = await store.executeRoomCommand({
       caller,
       roomId,
@@ -74,7 +76,7 @@ export function roomCommandOperation({
               presetVersion: command.presetVersion,
             }
           : null,
-      roundId: ids.next(),
+      roundId,
       seatsBotDebater: castSeatsBotDebater,
       readyAgreements: (state) => {
         const notice = roomCaptureNotice(state);
@@ -106,6 +108,7 @@ export function roomCommandOperation({
             {
               now: preparedAt,
               participantId: ids.next(),
+              roundId: null,
               formatId: ids.next(),
               // Ready seats nobody; only seating and Launch read this.
               hostMaySeatCasualAiJudge: false,
@@ -156,6 +159,7 @@ export function roomCommandOperation({
             {
               now,
               participantId: ids.next(),
+              roundId: command.type === 'start-round' ? roundId : null,
               formatId: ids.next(),
               hostMaySeatCasualAiJudge:
                 state.hostActorId === caller.actorId && maySeatCasualAiJudge,

@@ -1,5 +1,7 @@
 import {
-  isRoundOver,
+  type HydratedRound,
+  type HydratedSegment,
+  type RoundLifecycle,
   type RoundParticipantSeat,
   type RoundRules,
   type RoundStatus,
@@ -9,6 +11,8 @@ import {
   oneOnOneSettingsFixture,
 } from '@daisy/protocol/testing';
 import { createRoundRuntime } from './round-runtime';
+import { normalizeRoundClock } from './round-clock-state';
+import { stageOf } from './round-position-projection';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 /** The canonical protocol fixture keeps parser and resolver tests aligned. */
@@ -97,6 +101,42 @@ export type RuntimeWorldOptions = {
   readonly participants?: readonly RoundParticipantSeat[];
 };
 
+/** The lifecycle a Round in `status` holds, started and ended at the round's first instant. */
+export const lifecycleIn = (status: RoundStatus): RoundLifecycle => {
+  const none = { completedAt: null, outcome: null } as const;
+  switch (status) {
+    case 'opening':
+      return { status, startedAt: null, ...none };
+    case 'active':
+      return { status, startedAt: roundAt(0), ...none };
+    case 'completed':
+    case 'abandoned':
+      return {
+        status,
+        startedAt: roundAt(0),
+        completedAt: roundAt(0),
+        outcome: null,
+      };
+  }
+};
+
+/** The Round row a clock hydrates from: its lifecycle with the stage its clock derives. */
+export const hydratedRound = (
+  lifecycle: RoundLifecycle,
+  clock: {
+    readonly rules: RoundRules;
+    readonly checkpoint: unknown;
+    readonly segments: readonly HydratedSegment[];
+  },
+): HydratedRound => ({
+  id: 'round-1',
+  ...lifecycle,
+  currentStage: stageOf(
+    normalizeRoundClock({ round: lifecycle, ...clock }),
+    clock.rules.segments.length,
+  ),
+});
+
 /** A runtime over the one-on-one format, as the runtime tests execute it. */
 export const runtimeWorld = ({
   status = 'opening',
@@ -106,14 +146,7 @@ export const runtimeWorld = ({
   participants = oneOnOneSeats,
 }: RuntimeWorldOptions = {}) =>
   createRoundRuntime({
-    round: {
-      id: 'round-1',
-      status,
-      currentStage: null,
-      startedAt: status === 'opening' ? null : roundAt(0),
-      completedAt: isRoundOver(status) ? roundAt(0) : null,
-      outcome: null,
-    },
+    round: hydratedRound(lifecycleIn(status), { rules, checkpoint, segments }),
     rules,
     participants: [...participants],
     checkpoint,

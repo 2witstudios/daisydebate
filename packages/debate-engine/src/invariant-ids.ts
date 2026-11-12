@@ -19,6 +19,7 @@ export const debateInvariantIds = {
   attendanceFinalizedIrreversible: 'debate.adjudication.finalized-irreversible',
   completedIsTerminal: 'round.status.completed.terminal',
   lifecycleMatchesStatus: 'round.lifecycle.matches-status',
+  stageMatchesClock: 'round.stage.matches-clock',
   segmentMatchesRules: 'round.segment.matches-rules',
   liveOpenSegmentCount: 'round.live.open-segment-count',
   seatCompleteness: 'round.seats.complete',

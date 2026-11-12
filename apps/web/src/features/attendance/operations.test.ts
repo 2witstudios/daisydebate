@@ -52,6 +52,7 @@ const facts = (
     round: {
       id: 'round',
       status: 'active',
+      currentStage: 'live',
       version: 1,
       startedAt: iso(openedAtMs - rules.countdownMs),
       completedAt: null,
@@ -219,6 +220,8 @@ test('unknown health forfeits nobody, and the persisted cutoff ends the Round wi
     ...absent,
     round: {
       ...facts().round,
+      // Every speech has closed: the Round awaits its ballot.
+      currentStage: 'awaiting_ballot',
       segments: rules.segments.map((rule, sequence) => ({
         id: sequence === 0 ? segment.id : `played-${sequence}`,
         sequence,

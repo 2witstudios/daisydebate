@@ -35,6 +35,7 @@ const decision = {
   decision: 'forfeit' as const,
   winner: 'negative' as const,
   effectiveDeadlineMs: Date.parse(roundAt(50_000)),
+  settledHorizonMs: Date.parse(roundAt(55_000)),
 };
 
 test('verified attendance forfeit uses actual speech authority and closes the actual played interval', () => {
@@ -70,6 +71,7 @@ test('both absent abandons without inventing a winner', () => {
       evidence: 'settled_availability',
       decision: 'abandoned',
       effectiveDeadlineMs: decision.effectiveDeadlineMs,
+      settledHorizonMs: decision.settledHorizonMs,
     },
     now: roundAt(55_000),
   });

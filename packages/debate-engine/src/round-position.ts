@@ -1,6 +1,6 @@
 import type {
-  HydratedRound,
   HydratedSegment,
+  RoundLifecycleColumns,
   RoundRules,
   RoundParticipantSeat,
   RoundPosition,
@@ -16,10 +16,7 @@ export type { RoundPosition, RoundCommandOption };
 
 /** One authorized durable snapshot and explicit time; safe in the browser CSP. */
 export const roundPositionAt = (input: {
-  readonly round: Pick<
-    HydratedRound,
-    'status' | 'startedAt' | 'completedAt' | 'outcome'
-  >;
+  readonly round: RoundLifecycleColumns;
   readonly segments: readonly HydratedSegment[];
   readonly checkpoint: unknown;
   readonly rules: RoundRules;
@@ -32,10 +29,7 @@ export const roundPositionAt = (input: {
  * offered, both from one advance of the clock, by the rule the engine enforces.
  */
 export const roundControlsAt = (input: {
-  readonly round: Pick<
-    HydratedRound,
-    'status' | 'startedAt' | 'completedAt' | 'outcome'
-  >;
+  readonly round: RoundLifecycleColumns;
   readonly segments: readonly HydratedSegment[];
   readonly checkpoint: unknown;
   readonly rules: RoundRules;

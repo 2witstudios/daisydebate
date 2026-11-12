@@ -8,6 +8,8 @@ import { roundCommandRefusal } from './round-command-legality';
 import { normalizeRoundClock } from './round-clock-state';
 import {
   emptyCheckpoint,
+  hydratedRound,
+  lifecycleIn,
   oneOnOneRules,
   oneOnOneSeats,
   roundAt,
@@ -36,14 +38,7 @@ const runtimeOf = (
   status: 'active' | 'opening' = 'active',
 ) =>
   createRoundRuntime({
-    round: {
-      id: 'round',
-      status,
-      currentStage: null,
-      startedAt: status === 'active' ? roundAt(0) : null,
-      completedAt: null,
-      outcome: null,
-    },
+    round: hydratedRound(lifecycleIn(status), { rules, checkpoint, segments }),
     rules,
     participants: oneOnOneSeats,
     checkpoint,
