@@ -2,8 +2,7 @@ import type { ContentWaiverStanding } from '@daisy/db';
 import type { RoomAssemblyState, RoomRefusal } from '@daisy/protocol';
 import {
   CONTENT_WAIVER_VERSION,
-  roundCaptureNotice,
-  type RoundCapture,
+  casualCaptureNotice,
   type RoundCaptureNotice,
 } from '../legal/agreements';
 
@@ -11,17 +10,16 @@ type CompetitionFact = Pick<RoomAssemblyState, 'competitionType'>;
 type CaptureFacts = CompetitionFact & Pick<RoomAssemblyState, 'capture'>;
 
 /**
- * What this Room captures for its audience: ranked always; a casual Room when
- * its host chose a broadcast or a recording (WATCH-8).
+ * The notice this Room shows before Ready: a casual Room whose host chose a
+ * broadcast or a recording (WATCH-8). A ranked Room has none; its Ready is
+ * fenced by the signed content waiver.
  */
-const roomCapture = (room: CaptureFacts): RoundCapture => {
-  if (room.competitionType === 'ranked') return 'ranked';
-  return room.capture ? 'opted-in' : 'none';
-};
-
-/** The exact notice this Room shows before Ready (WATCH-5, WATCH-9). */
-export const roomCaptureNotice = (room: CaptureFacts) =>
-  roundCaptureNotice(roomCapture(room));
+export const roomCaptureNotice = (
+  room: CaptureFacts,
+): RoundCaptureNotice | null =>
+  room.competitionType !== 'ranked' && room.capture
+    ? casualCaptureNotice
+    : null;
 
 /**
  * Ready states the notice its form showed, so a stale form cannot be recorded
@@ -36,25 +34,19 @@ export const captureNoticeRefusal = (
     : 'capture-notice-changed';
 
 /**
- * What a create must have shown. A ranked host may never take a seat, so no Ready
- * would ever record the notice for them (WATCH-5): a ranked create states the
- * notice its form showed, unless the host holds a seat, whose Ready will. Nobody
- * is recorded as reading words their form did not show, so a stale form is refused.
+ * The notice a create records. A form that showed none records none; one that
+ * states a notice must state the Room's own, so nobody is recorded as reading
+ * words their form did not show. A ranked Room has no notice to state.
  */
 export const createNoticeOf = (
-  competitionType: RoomAssemblyState['competitionType'],
+  room: CaptureFacts,
   noticeVersion: string | undefined,
-  hostHoldsSeat: boolean,
-  capture: RoomAssemblyState['capture'] = null,
 ):
   | { readonly kind: 'none' }
   | { readonly kind: 'refused' }
   | { readonly kind: 'shown'; readonly notice: RoundCaptureNotice } => {
-  if (noticeVersion === undefined)
-    return competitionType === 'ranked' && !hostHoldsSeat
-      ? { kind: 'refused' }
-      : { kind: 'none' };
-  const notice = roomCaptureNotice({ competitionType, capture });
+  if (noticeVersion === undefined) return { kind: 'none' };
+  const notice = roomCaptureNotice(room);
   return notice?.version === noticeVersion
     ? { kind: 'shown', notice }
     : { kind: 'refused' };

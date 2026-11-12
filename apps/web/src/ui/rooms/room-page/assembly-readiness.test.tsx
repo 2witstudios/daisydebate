@@ -64,7 +64,7 @@ describe('native room readiness and Start round controls', () => {
   });
 
   test('a captured Round shows its notice and Ready states it', () => {
-    const notice = { version: 'ranked-draft-2', text: 'Exact notice words.' };
+    const notice = { version: 'casual-draft-1', text: 'Exact notice words.' };
     const ready = ReadyControl({
       ...props,
       view: { ...base, captureNotice: notice },

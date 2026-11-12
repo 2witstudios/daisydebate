@@ -158,7 +158,7 @@ test('creation never substitutes a publication that changed after the form was r
   });
 });
 
-test('a ranked submission is always public', () => {
+test('a ranked submission is always public and needs no notice', () => {
   const value = {
     ...unequalTemplate,
     formatId: 'value',
@@ -171,7 +171,6 @@ test('a ranked submission is always public', () => {
     title: 'A ranked room',
     visibility: 'unlisted',
     ranked: 'on',
-    noticeVersion: 'ranked-draft-2',
     valueResolutionId: 'published',
     intent: 'create',
   }).forEach(([key, text]) => form.set(key, text));
@@ -191,41 +190,18 @@ test('a ranked submission is always public', () => {
     ],
   );
   assert({
-    given: 'a ranked submission still carrying an unlisted choice',
-    should: 'submit it as public',
+    given:
+      'a ranked submission still carrying an unlisted choice and stating no notice',
+    should: 'submit it as public, with no notice asked for or claimed',
     actual:
       result.kind === 'submit'
-        ? [result.form.get('competition'), result.form.get('visibility')]
+        ? [
+            result.form.get('competition'),
+            result.form.get('visibility'),
+            result.form.get('noticeVersion'),
+          ]
         : result,
-    expected: ['ranked', 'public'],
-  });
-});
-
-test('a ranked form that never showed the notice shows it before creating', () => {
-  const template = {
-    ...unequalTemplate,
-    formatId: 'value',
-    role: 'standard' as const,
-    preset: { ...unequalTemplate.preset, rankedEligible: true },
-  };
-  const form = new FormData();
-  for (const [key, value] of Object.entries({
-    ...draftFormValues(createRoomDraft(template)),
-    title: 'A ranked room',
-    visibility: 'unlisted',
-    ranked: 'on',
-    intent: 'create',
-  }))
-    form.set(key, value);
-  const prepared = prepareRoomDraft(form, [template], []);
-  assert({
-    given: 'Ranked ticked with no script, so no notice was on the page',
-    should: 'answer the form again rather than create',
-    actual: [
-      prepared.kind,
-      prepared.kind === 'preview' && prepared.values.ranked,
-    ],
-    expected: ['preview', 'on'],
+    expected: ['ranked', 'public', null],
   });
 });
 
@@ -249,43 +225,19 @@ test('a native casual recording selection never claims an unseen capture notice'
   });
 });
 
-test('native switching from a casual recording notice to Ranked previews its different notice', () => {
-  const template = {
-    ...unequalTemplate,
-    formatId: 'value',
-    role: 'standard' as const,
-    preset: { ...unequalTemplate.preset, rankedEligible: true },
-  };
-  const form = new FormData();
-  Object.entries(draftFormValues(createRoomDraft(template))).forEach(
-    ([key, value]) => form.set(key, value),
-  );
-  form.set('ranked', 'on');
-  form.set('noticeVersion', 'casual-draft-1');
-  form.set('customResolution', 'A host resolution');
-  assert({
-    given:
-      'Ranked selected on native HTML that showed the casual recording notice',
-    should: 'render the ranked notice before creation',
-    actual: prepareRoomDraft(form, [template], []).kind,
-    expected: 'preview',
-  });
-});
-
-test('native switching from Ranked to retained casual recording previews the casual notice', () => {
+test('a casual recording form stating a superseded notice previews the current one', () => {
   const form = new FormData();
   Object.entries(draftFormValues(createRoomDraft(unequalTemplate))).forEach(
     ([key, value]) => form.set(key, value),
   );
   form.set('recording', 'on');
-  form.set('noticeVersion', 'ranked-draft-2');
+  form.set('noticeVersion', 'casual-draft-0');
   form.set('customResolution', 'A host resolution');
   const result = prepareRoomDraft(form, [unequalTemplate], []);
   assert({
-    given:
-      'Ranked unchecked on native HTML retaining its casual recording choice and ranked notice',
+    given: 'a casual recording form that showed an older notice',
     should:
-      'preview the effective casual notice with recording kept rather than falsely refuse stale words',
+      'preview the current notice with recording kept rather than refuse stale words',
     actual: result.kind === 'preview' && result.values.recording,
     expected: 'on',
   });

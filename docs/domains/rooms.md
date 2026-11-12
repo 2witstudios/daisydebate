@@ -264,12 +264,16 @@ the grant captures nothing. Beta approval writes the grant until billing exists.
 It is separate from `casual_ai_judge`. A private Room can record but not
 broadcast. A change asks every seat to Ready again, and each seat is told the
 opted-in notice and the exact choice before Ready. Launch freezes the choice on
-the Round. Ranked needs no grant and holds no choice: it is always captured. The
-create form shows a ranked host the same notice and records it with the Room,
-because a host may never take a seat and so may never reach a Ready. A ranked create
-that states no notice is refused, unless the host holds a seat (a cast seat or a held
-one, as a challenge has), whose Ready records it. A signature
-keeps the exact words, so a superseded notice stays readable.
+the Round. A casual create that chose a recording shows its host the same notice
+and records it with the Room. A Ready or a create that states a notice the Room
+does not show is refused with `capture-notice-changed`. A signature keeps the
+exact words, so a superseded notice stays readable.
+
+Ranked needs no grant and holds no choice: it is always captured. A ranked Room
+has no capture notice, at create or before Ready, and records none: the ranked
+content waiver, signed once per season, is the ranked agreement, and it alone
+fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
+no season open).
 
 A seated human judge reads their own ballot, and once the Round has completed,
 every ballot of it. Only the Round's seats and its seatless host read a Round at

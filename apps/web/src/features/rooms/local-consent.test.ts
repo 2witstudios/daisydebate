@@ -198,7 +198,7 @@ test('device invalidation fences Launch synchronously and withdraws current cons
 test('Ready states the capture notice the view showed', async () => {
   const noticed = {
     ...consentView(false),
-    captureNotice: { version: 'ranked-draft-2', text: 'Exact words.' },
+    captureNotice: { version: 'casual-draft-1', text: 'Exact words.' },
   };
   const h = harness(noticed as unknown as ReturnType<typeof consentView>);
   await h.controller.devices(true);
@@ -207,7 +207,7 @@ test('Ready states the capture notice the view showed', async () => {
     given: 'a view with a capture notice',
     should: 'send its version with Ready',
     actual: (h.sent[0] as { noticeVersion?: string }).noticeVersion,
-    expected: 'ranked-draft-2',
+    expected: 'casual-draft-1',
   });
 });
 

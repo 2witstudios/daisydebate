@@ -57,9 +57,9 @@ test('create forwards the selected immutable revision and verifies the returned 
   });
 });
 
-test('the notice a ranked form showed travels with its create', async () => {
+test('a ranked create states no notice', async () => {
   const fields = rankedCreateForm('public');
-  fields.set('noticeVersion', 'ranked-draft-2');
+  fields.set('noticeVersion', 'casual-draft-1');
   let sent: unknown;
   await createAssembly(async (_url, init) => {
     sent = JSON.parse(String(init.body));
@@ -69,10 +69,10 @@ test('the notice a ranked form showed travels with its create', async () => {
     );
   }, fields);
   assert({
-    given: 'a form carrying the notice version it rendered',
-    should: 'state it to the server',
-    actual: (sent as { noticeVersion?: string }).noticeVersion,
-    expected: 'ranked-draft-2',
+    given: 'a ranked form still carrying a casual recording notice version',
+    should: 'send no notice, because a ranked Room has none',
+    actual: 'noticeVersion' in (sent as object),
+    expected: false,
   });
 });
 

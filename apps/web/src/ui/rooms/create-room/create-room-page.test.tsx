@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
 import { idle } from '../../../features/forms/form-state';
-import { roundCaptureNotice } from '../../../features/legal/agreements';
+import { casualCaptureNotice } from '../../../features/legal/agreements';
 import { unequalTemplate } from '../../../features/rooms/assembly.test-support';
 
 setupRitewayBun();
@@ -36,8 +36,7 @@ test('create page renders durable-create fields without a placeholder judge', ()
   });
 });
 
-test('the ranked create form explains why it is public and states the notice it shows', () => {
-  const notice = roundCaptureNotice('ranked')!;
+test('the ranked create form explains why it is public and states no notice', () => {
   const template = {
     ...unequalTemplate,
     formatId: 'value',
@@ -60,13 +59,13 @@ test('the ranked create form explains why it is public and states the notice it 
   const casual = render(false);
   assert({
     given: 'the form with Ranked on',
-    should: 'say why it is public, show the exact notice and post its version',
+    should: 'say why it is public, and show and post no capture notice',
     actual: [
       ranked.includes('Ranked Rounds are always public, and are broadcast'),
-      ranked.includes(notice.text),
-      /name="noticeVersion"[^>]*value="ranked-draft-2"/.test(ranked),
+      ranked.includes(casualCaptureNotice.text),
+      ranked.includes('name="noticeVersion"'),
     ],
-    expected: [true, true, true],
+    expected: [true, false, false],
   });
   assert({
     given: 'the form with Ranked off',
@@ -106,9 +105,7 @@ test('recording is a visible casual choice and automatically on for Ranked', () 
       'offer Record match, retain its selection, and show automatic ranked recording',
     actual: [
       casual.includes('Record match'),
-      chosen.includes(
-        roundCaptureNotice('opted-in')!.text.replaceAll("'", '&#x27;'),
-      ),
+      chosen.includes(casualCaptureNotice.text.replaceAll("'", '&#x27;')),
       /name="noticeVersion"[^>]*value="casual-draft-1"/.test(chosen),
       casual.includes('name="noticeVersion"'),
       /name="recording"[^>]*checked=""/.test(casual),
