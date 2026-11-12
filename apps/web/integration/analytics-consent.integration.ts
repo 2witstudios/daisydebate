@@ -2,7 +2,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createTestApp, cookieHeader, type TestApp } from './fixtures';
 import { createFlows } from './auth-mounted-flows';
-import { cookieConsent } from '../src/features/analytics/handlers';
+import {
+  consentReturnPath,
+  cookieConsent,
+} from '../src/features/analytics/handlers';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -32,11 +35,16 @@ const post = (
 test('native consent POST records only offered choices and supports withdrawal', async () => {
   const fixture = configured();
   const accepted = await fixture.routes.analyticsConsent.POST(
-    post(fixture, { choice: 'accept' }),
+    post(
+      fixture,
+      { choice: 'accept' },
+      { referer: `${fixture.origin}/rooms?tab=open` },
+    ),
   );
   assert({
     given: 'an anonymous native form acceptance',
-    should: 'redirect without JavaScript and store only the offered category',
+    should:
+      'return to the page it was sent from and store only the offered category',
     actual: [
       accepted.status,
       accepted.headers.get('location'),
@@ -44,7 +52,7 @@ test('native consent POST records only offered choices and supports withdrawal',
     ],
     expected: [
       303,
-      '/analytics?saved=1',
+      '/rooms?tab=open',
       {
         version: 1,
         necessary: 'granted',
@@ -66,6 +74,29 @@ test('native consent POST records only offered choices and supports withdrawal',
       analytics: 'denied',
       replay: 'unanswered',
     },
+  });
+  const scripted = await fixture.routes.analyticsConsent.POST(
+    post(fixture, { choice: 'accept' }, { 'sec-fetch-mode': 'cors' }),
+  );
+  assert({
+    given: 'an acceptance sent by the page script',
+    should: 'store the choice without redirecting',
+    actual: [
+      scripted.status,
+      scripted.headers.get('location'),
+      cookieConsent(cookieHeader(scripted)).analytics,
+    ],
+    expected: [204, null, 'granted'],
+  });
+  assert({
+    given: 'a missing, foreign or unparsable referer',
+    should: 'fall back to the preferences page, never another origin',
+    actual: [
+      consentReturnPath(null, fixture.origin),
+      consentReturnPath('https://attacker.invalid/x', fixture.origin),
+      consentReturnPath('not a url', fixture.origin),
+    ],
+    expected: ['/analytics', '/analytics', '/analytics'],
   });
   const crossSite = await fixture.routes.analyticsConsent.POST(
     post(fixture, { choice: 'accept' }, { origin: 'https://attacker.invalid' }),

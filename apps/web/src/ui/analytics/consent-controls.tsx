@@ -1,4 +1,8 @@
+'use client';
+
+import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   consentNeeded,
   type AnalyticsAvailability,
@@ -35,6 +39,30 @@ export function ConsentForm({
   readonly available: AnalyticsAvailability;
   readonly banner?: boolean;
 }) {
+  const router = useRouter();
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>(
+    'idle',
+  );
+  // Saves in place when scripts run; without them the form posts natively.
+  const save = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const fields = new FormData(event.currentTarget, submitter);
+    const body = new URLSearchParams();
+    for (const [name, value] of fields)
+      if (typeof value === 'string') body.append(name, value);
+    setState('saving');
+    fetch('/api/analytics/consent', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body,
+    })
+      .then((response) => {
+        setState(response.ok ? 'saved' : 'failed');
+        if (response.ok) router.refresh();
+      })
+      .catch(() => setState('failed'));
+  };
   if (banner && consentNeeded(consent, available).length === 0) return null;
   return (
     <aside
@@ -51,6 +79,7 @@ export function ConsentForm({
         key={`${consent.analytics}:${consent.replay}`}
         action="/api/analytics/consent"
         method="post"
+        onSubmit={save}
         className="flex flex-col gap-4"
       >
         {banner && <input type="hidden" name="scope" value="unanswered" />}
@@ -83,6 +112,7 @@ export function ConsentForm({
             <button
               name="choice"
               value="accept"
+              disabled={state === 'saving'}
               className={buttonClass('secondary')}
             >
               Accept optional
@@ -91,6 +121,7 @@ export function ConsentForm({
             <button
               name="choice"
               value="save"
+              disabled={state === 'saving'}
               className={buttonClass('secondary')}
             >
               Save choices
@@ -99,6 +130,7 @@ export function ConsentForm({
           <button
             name="choice"
             value="deny"
+            disabled={state === 'saving'}
             className={buttonClass('secondary')}
           >
             Reject optional
@@ -109,6 +141,10 @@ export function ConsentForm({
             </Link>
           )}
         </div>
+        {state === 'failed' && (
+          <p role="status">We couldn&apos;t save your choice. Try again.</p>
+        )}
+        {state === 'saved' && !banner && <p role="status">Choices saved.</p>}
       </form>
       <Link href="/privacy" className="text-sm underline">
         Privacy policy
