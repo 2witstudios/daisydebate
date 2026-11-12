@@ -16,6 +16,7 @@ setupRitewayBun();
 const render = (
   notice: RoomNotice | null,
   view: RoomView = assemblySnapshot,
+  viewerLabel = 'Viewer',
 ) => {
   const ids = sequentialId('seed');
   return renderToStaticMarkup(
@@ -26,7 +27,7 @@ const render = (
         view,
         ids: roomCommandIds(view, () => ids.next()),
         actorId: 'v'.repeat(24),
-        viewerLabel: 'Viewer',
+        viewerLabel,
         bots: [],
         choices: [],
         socketUrl: null,
@@ -78,6 +79,71 @@ describe('RoomLive', () => {
         ),
       ],
       expected: [true, true, true],
+    });
+  });
+
+  test('Invite people is the host’s header dialog, and an invitation is the invitee’s inline notice', () => {
+    const invited: RoomView = {
+      ...assemblySnapshot,
+      invitations: [
+        {
+          id: 'i'.repeat(24),
+          seat: 'judge',
+          invitee: 'coach',
+          inviter: 'host',
+          expiresAt: '2026-11-11T12:00:00.000Z',
+        },
+      ],
+    };
+    const host = render(null, invited, 'host');
+    const invitee = render(
+      null,
+      {
+        ...invited,
+        capabilities: { ...invited.capabilities, host: false },
+      },
+      'coach',
+    );
+    const inviteDialog = (html: string) =>
+      html.match(
+        /<dialog[^>]*aria-labelledby="invite-people-title".*?<\/dialog>/s,
+      )?.[0] ?? '';
+    assert({
+      given: 'the host of a room with one pending invitation',
+      should:
+        'keep the invite form and the pending invitation inside the header dialog, with no invite card on the page',
+      actual: {
+        inHeader:
+          /<header.*aria-labelledby="invite-people-title".*<\/header>/s.test(
+            host,
+          ),
+        form: inviteDialog(host).includes('Send invitation'),
+        pending: inviteDialog(host).includes('@coach · invited to judge'),
+        outsideDialog: host
+          .replace(inviteDialog(host), '')
+          .includes('Send invitation'),
+        invitedNotice: host.includes('You’re invited'),
+      },
+      expected: {
+        inHeader: true,
+        form: true,
+        pending: true,
+        outsideDialog: false,
+        invitedNotice: false,
+      },
+    });
+    assert({
+      given: 'the invited member',
+      should:
+        'show who invited them and Decline on the page, outside any dialog, and no Invite people',
+      actual: {
+        notice: invitee
+          .replace(/<dialog.*?<\/dialog>/gs, '')
+          .includes('@host invited you to judge.'),
+        decline: invitee.includes('>Decline</button>'),
+        invitePeople: invitee.includes('Invite people'),
+      },
+      expected: { notice: true, decline: true, invitePeople: false },
     });
   });
 });

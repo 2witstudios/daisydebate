@@ -1,5 +1,6 @@
 import { isNamedSeat, isOpenRoomStatus, type RoomView } from '@daisy/protocol';
 import Link from 'next/link';
+import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { buttonClass } from '../../components/button/button-class';
@@ -7,6 +8,7 @@ import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { ROOM_SETUP_HREF, roomMeta, roomStatus } from './room-labels';
 import { CloseRoom } from './close-room';
+import { InvitePeople } from './invite-people';
 import { RoomInvite } from './room-invite';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import { ROOM_SETUP_HOME, ROOM_TITLE } from './room-setup-modal';
@@ -74,13 +76,17 @@ export function AssemblyHeader({
   roomNumber,
   commandIds,
   commandAction,
+  invitationAction,
 }: {
   readonly view: RoomView;
   readonly actorId: string;
   readonly roomNumber?: number;
   readonly commandIds: { readonly leave: string; readonly close: string };
   readonly commandAction: FormAction<RoomFormState>;
+  readonly invitationAction: FormAction<InvitationFormState>;
 }) {
+  const hostOfOpenRoom =
+    view.capabilities.host && isOpenRoomStatus(view.status);
   const seated = view.participants
     .filter(isNamedSeat)
     .some((seat) => seat.actorId === actorId);
@@ -120,6 +126,12 @@ export function AssemblyHeader({
             visibility={view.visibility}
             label="Copy invite link"
           />
+          {hostOfOpenRoom ? (
+            <InvitePeople
+              invitations={view.invitations}
+              action={invitationAction}
+            />
+          ) : null}
           {view.capabilities.canEdit ? (
             <a
               href={ROOM_SETUP_HREF}
@@ -129,7 +141,7 @@ export function AssemblyHeader({
               Room setup
             </a>
           ) : null}
-          {view.capabilities.host && isOpenRoomStatus(view.status) ? (
+          {hostOfOpenRoom ? (
             <CloseRoom
               version={view.version}
               commandId={commandIds.close}

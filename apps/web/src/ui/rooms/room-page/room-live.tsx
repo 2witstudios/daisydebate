@@ -32,7 +32,7 @@ import { FreshnessNotice } from '../../resource-sync/freshness-notice';
 import { useResourceSync } from '../../resource-sync/use-resource-sync';
 import { AssemblyHeader, RoomResolution } from './assembly-header';
 import { RoomSetup } from './room-setup';
-import { RoomInvitations } from './room-invitations';
+import { InvitedNotice } from './invited-notice';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
@@ -112,8 +112,9 @@ export function RoomLive(props: Props) {
         actorId={props.actorId}
         commandIds={ids.header}
         commandAction={props.commandAction}
+        invitationAction={props.invitationAction}
       />
-      <RoomInvitations
+      <InvitedNotice
         view={view}
         viewerLabel={props.viewerLabel}
         action={props.invitationAction}
