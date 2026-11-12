@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { phraseSourceOf, type PhraseSource } from './phrase-source';
 import { createBotSpeaker, type PeerActivity } from './speaker';
 
@@ -72,6 +73,15 @@ export function testTimer() {
     elapse: () => run(replies),
   };
 }
+const budgetRefusals = new WeakSet<Error>();
+/** The provider budget's own refusal, as the speaker is told to recognise it. */
+export const budgetFull = () => {
+  const refusal = createAppError('CONFLICT', 'Provider capacity unavailable');
+  budgetRefusals.add(refusal);
+  return refusal;
+};
+export const isBudgetFull = (error: unknown) =>
+  error instanceof Error && budgetRefusals.has(error);
 export const job = (phraseId: string, text: string, samples = 240) => ({
   scope,
   token: 'memory-only',
@@ -159,7 +169,7 @@ export function harness(
       }),
     nextId: () => `phrase-${++ids}`,
     maxAttempts: 2,
-    busy: (error) => error instanceof Error && error.message === 'budget full',
+    busy: isBudgetFull,
     failed: (_error, stage) => {
       failures.push(stage);
     },

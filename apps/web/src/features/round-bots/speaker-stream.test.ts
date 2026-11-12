@@ -142,7 +142,8 @@ test('after a refusal the speaker wakes itself, and starts nothing until then', 
   const pending: { run: () => void; ms: number }[] = [];
   let bought = 0;
   const { createBotSpeaker } = await import('./speaker');
-  const { generated, scope } = await import('./speaker.test-support');
+  const { generated, isBudgetFull, scope } =
+    await import('./speaker.test-support');
   const speaker = createBotSpeaker({
     claim: {
       scope,
@@ -172,7 +173,7 @@ test('after a refusal the speaker wakes itself, and starts nothing until then', 
     publish: async () => ({ complete: true, segmentEnded: false }),
     nextId: () => 'phrase',
     maxAttempts: 2,
-    busy: (error) => error instanceof Error && error.message === 'budget full',
+    busy: isBudgetFull,
     failed: () => undefined,
   });
   const settle = async () => {

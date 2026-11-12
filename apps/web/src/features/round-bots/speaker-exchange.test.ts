@@ -1,6 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { answered, harness, job, peerSaid } from './speaker.test-support';
+import {
+  answered,
+  budgetFull,
+  harness,
+  job,
+  peerSaid,
+} from './speaker.test-support';
 
 setupRitewayBun();
 
@@ -207,7 +213,7 @@ test('a full provider budget keeps a cross-examination answer already bought', a
   const { speaker, log, settle, stages } = harness('cross_ex', {
     generate: answering(calls),
     synthesize: async (phraseId, text) => {
-      if (++voiced === 1) throw createAppError('CONFLICT', 'budget full');
+      if (++voiced === 1) throw budgetFull();
       return answered(job(phraseId, text));
     },
     publish: async (job) => {
