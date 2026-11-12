@@ -1,0 +1,161 @@
+'use client';
+import { contextChatPagedHistory } from './paged-history';
+import { createContextChatDriver } from './chat-driver';
+import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { channelMessages } from '../../features/messaging/channel-messages';
+import { useRealtime } from '../../features/realtime/use-realtime';
+import { contextChatUnread } from '../../features/messaging/context-chat/history';
+import {
+  contextChatIdle,
+  type ContextChatFormState,
+} from '../../features/messaging/context-chat/form-state';
+
+/** What a page hands a context chat: no authority and no content, only who is asking and how to post. */
+export type ContextChatProps = {
+  /** The Round or Room the chat belongs to. */
+  readonly ownerId: string;
+  readonly actorId: string;
+  readonly socketUrl: string | null;
+  readonly requestId: string;
+  readonly readOnlyHint: boolean;
+  readonly sendAction: (
+    channelId: string,
+    previous: ContextChatFormState,
+    form: FormData,
+  ) => Promise<ContextChatFormState>;
+  readonly mutateAction: (
+    channelId: string,
+    previous: ContextChatFormState,
+    form: FormData,
+  ) => Promise<ContextChatFormState>;
+  readonly reportAction: (
+    channelId: string,
+    previous: ContextChatFormState,
+    form: FormData,
+  ) => Promise<ContextChatFormState>;
+};
+const NO_AUTHORS: readonly { actorId: string; label: string }[] = [];
+const DEFAULT_MESSAGE_UNITS = 4000;
+
+/** One durable chat thread; its forms stay mounted while access or the selected tab changes. */
+export function useContextChat({
+  context,
+  active = true,
+  onUnread,
+  ...props
+}: ContextChatProps & {
+  readonly context: ChatContext;
+  readonly active?: boolean;
+  readonly onUnread?: ((count: number) => void) | undefined;
+}) {
+  const [driver] = useState(() =>
+    createContextChatDriver(context, props.ownerId),
+  );
+  const { standing: state } = useSyncExternalStore(
+    driver.subscribe,
+    driver.state,
+    driver.state,
+  );
+  const { send } = driver;
+  useEffect(() => {
+    driver.start();
+    return driver.stop;
+  }, [driver]);
+  const chat = state.kind === 'ready' ? state : null;
+  const thread = chat?.thread ?? null;
+  const kept =
+    state.kind === 'idle' || state.kind === 'ready' ? null : state.kept;
+  const channelId = chat?.metadata.channelId ?? kept?.channelId;
+  const live = useRealtime(
+    channelMessages(channelId ?? props.ownerId),
+    thread?.history ?? null,
+    channelId ? props.socketUrl : null,
+  );
+  const withdrawn = live.status === 'hidden';
+  const hidden = withdrawn || !chat || chat.hidden;
+  const mayOpen = !props.readOnlyHint;
+  const enter = useCallback(
+    () => send({ type: 'enter-requested', mayOpen }),
+    [send, mayOpen],
+  );
+  const refresh = useCallback(
+    () => send({ type: 'refresh-requested' }),
+    [send],
+  );
+  const loadOlder = useCallback(
+    (before: number) => send({ type: 'older-requested', before }),
+    [send],
+  );
+  useEffect(() => {
+    if (active && state.kind === 'idle') enter();
+  }, [active, state.kind, enter]);
+  const held = chat?.hidden ?? null;
+  useEffect(() => {
+    // A chat entered again starts shown, whatever the live channel still says.
+    if (held !== null && held !== withdrawn)
+      send({ type: withdrawn ? 'chat-hidden' : 'chat-shown' });
+  }, [held, withdrawn, send]);
+  const history = hidden ? null : live.body;
+  const { messages, before } = history
+    ? contextChatPagedHistory(history, thread?.older ?? null)
+    : { messages: [], before: null };
+  const readSequence = chat?.readSequence ?? 0;
+  const unread = contextChatUnread(messages, readSequence, props.actorId);
+  useEffect(() => {
+    onUnread?.(unread);
+  }, [onUnread, unread]);
+  const latestSequence = history?.messages[0]?.sequence ?? 0;
+  useEffect(() => {
+    if (active && !hidden && latestSequence > readSequence)
+      send({ type: 'messages-shown', sequence: latestSequence });
+  }, [active, hidden, channelId, latestSequence, readSequence, send]);
+  const authors = thread?.authors ?? NO_AUTHORS;
+  const unknownAuthor = history?.messages.some(
+    (message) =>
+      !('unavailable' in message) &&
+      !authors.some((author) => author.actorId === message.authorActorId),
+  );
+  useEffect(() => {
+    if (unknownAuthor && !hidden) send({ type: 'refresh-requested' });
+  }, [unknownAuthor, channelId, hidden, history?.changeVersion, send]);
+  const expired = chat?.expired ?? false;
+  const notice =
+    chat?.notice === 'read-failed'
+      ? 'Messages could not be loaded. Try again.'
+      : null;
+  const locked =
+    hidden || props.readOnlyHint || !chat || chat.metadata.readOnly || expired;
+  const [initial] = useState(() => contextChatIdle(props.requestId));
+  const pending =
+    state.kind === 'idle' ||
+    state.kind === 'loading' ||
+    (chat !== null &&
+      chat.reads.latest.length > 0 &&
+      !history &&
+      !notice &&
+      !hidden);
+  return {
+    state,
+    authors,
+    messageUnits:
+      thread?.bounds.messageUnits ??
+      kept?.messageUnits ??
+      DEFAULT_MESSAGE_UNITS,
+    before,
+    paging: thread !== null && thread.paging !== null,
+    notice,
+    channelId,
+    live,
+    hidden,
+    history,
+    messages,
+    expired,
+    locked,
+    initial,
+    pending,
+    enter,
+    loadOlder,
+    refresh,
+  };
+}

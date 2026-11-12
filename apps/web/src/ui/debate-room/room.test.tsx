@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { floorIdle } from '../../features/messaging/round-floor/form-state';
+import { contextChatIdle } from '../../features/messaging/context-chat/form-state';
 import { sampleRound } from '../mock/debate-room.test-support';
 import { DebateRoom } from './room';
 import type { RoundSnapshot } from './round';
@@ -248,7 +248,7 @@ describe('DebateRoom', () => {
 });
 
 test('an opening Round binds its durable floor beside the opening controls', () => {
-  const action = async () => floorIdle('r'.repeat(24));
+  const action = async () => contextChatIdle('r'.repeat(24));
   const html = renderToString(
     h(DebateRoom, {
       round: { ...sampleRound('prep', 'casual'), phase: 'waiting' },

@@ -18,6 +18,9 @@ const resource = (
     roundFloorChannelCohortAuthority: async () => {
       throw createAppError('NOT_FOUND');
     },
+    roomCommunityChannelCohortAuthority: async () => {
+      throw createAppError('NOT_FOUND');
+    },
   } as unknown as RealtimeAuthorityReads;
   return channelMessagesResource({
     owner: null,

@@ -23,6 +23,37 @@ then read state; ordinary Messaging erasure/export and durable observation purge
 apply. Own-message withdrawal remains available without posting admission.
 `/rounds/:id/floor` is the retained-history entry. See ADR 0120.
 
+Room chat storage uses kind `room_community` and policy `room.community`, with
+`room_id` as its one owner and a unique `(room_id, kind)` pair: a Room channel
+names no Round, and a Round or social channel names no Room. The Room chat
+authority producer (`daisy_room_community_fact`) and `decideRoomCommunity`
+evaluate the caller's standing and current account under account → Room →
+channel locks. The standing is `seated` for the host and any seat, `visitor`
+for a member who may read a public or unlisted Room without a seat, and none
+otherwise; it never leaves the fact, so a judge is not told apart. Both
+standings read and post while the Room is open; a host control over visitor
+posting is not built. The explicit open POST creates the channel once;
+discovery and rendering never create one. Room commands hold the Room row
+exclusively, so Start and close serialize with every chat write.
+
+Room chat ends when its Room starts or closes: reads, posts and observation are
+denied to everyone from that write, answered as not found, and there is no
+retained-history entry. Own-message withdrawal stays available without posting
+admission or standing. Rows are purged 180 days after the Room's end by the
+same bounded sweep shape as the floor; a filed report stays reviewable for that
+window. Routes are `/api/rooms/:id/chat` (`GET` discover, `POST` open) with
+`/messages`, `/read`, `/edit`, `/remove` and `/report`. See ADR 0126.
+
+The Round floor and Room chat are both a context chat: a Messaging channel bound
+to one owning resource. The shared mechanism lives in
+`packages/db/src/messaging/context-channel-*.ts` (store, observation,
+moderation, retention), `apps/web/src/features/messaging/context-chat/` (state
+model, forms, HTTP handlers, operations) and `apps/web/src/ui/context-chat/`
+(driver, thread, composer, controls). Each context supplies its authority, its
+address and its words, and nothing else: `round-floor` and `room-community`
+hold only that. Realtime asks each contextual owner in turn for a channel no
+social authority answers for.
+
 `@daisy/db/messaging` supplies a transaction frame over the application's existing
 pool. It discovers authority identities, locks current users in sorted order,
 then locks the canonical DM pair and channel. Membership is reread after waits;
