@@ -24,10 +24,13 @@ const pending = [
 ];
 type Pending = (typeof pending)[number][];
 
-/** The dialog open in a real React tree, with answers the test releases by hand. */
 type Close = () => Promise<void>;
 
-/** `opened` hears how to close the window as soon as there is one to close. */
+/**
+ * The dialog open in a real React tree, with answers the test releases by
+ * hand. `opened` hears how to close the window as soon as there is one to
+ * close.
+ */
 async function mountDialog(
   invitations: Pending,
   opened: (close: Close) => void,
