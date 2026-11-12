@@ -2,7 +2,11 @@ import { idle } from '../../../features/forms/form-state';
 import type { RoomView } from '@daisy/protocol';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import {
+  assemblySnapshot,
+  pendingInvitation,
+} from '../../../features/rooms/assembly.test-support';
+import { initialInvitationForm } from '../../../features/room-invitations/submit';
 import { byText, findElements } from '../../test-support/find-elements';
 import { AssemblyHeader, RoomResolution } from './assembly-header';
 import { RoomInvite } from './room-invite';
@@ -17,6 +21,7 @@ const header = (view: RoomView, actorId: string, roomNumber?: number) =>
     ...(roomNumber === undefined ? {} : { roomNumber }),
     commandIds: { leave: 'leave-id', close: 'close-id' },
     commandAction: action,
+    invitationAction: async () => initialInvitationForm,
   });
 const seated = {
   ...assemblySnapshot,
@@ -109,6 +114,38 @@ test('Close room is a dialog, not a dropdown', () => {
       html.includes('<details'),
     ],
     expected: [true, true, false],
+  });
+});
+
+test('only the host of an open room is offered Invite people, as a dialog in the button row', () => {
+  const html = (view: RoomView) =>
+    renderToStaticMarkup(header(view, assemblySnapshot.hostActorId));
+  const invited = {
+    ...assemblySnapshot,
+    invitations: [pendingInvitation],
+  };
+  const guest = {
+    ...invited,
+    capabilities: { ...invited.capabilities, host: false },
+  };
+  const buttons = html(invited);
+  assert({
+    given:
+      'the host of a room being set up with one pending invitation, then of a ready room, a started room and a closed room, then a guest',
+    should:
+      'offer Invite people with the count between Copy invite link and Room setup, opening a dialog that holds the pending invitation, only to the host while the room is open',
+    actual: [
+      buttons.includes('aria-labelledby="invite-people-title"'),
+      buttons.includes('Invite people (1'),
+      buttons.includes('@coach · invited to judge'),
+      buttons.indexOf('Copy invite link') < buttons.indexOf('Invite people') &&
+        buttons.indexOf('Invite people') < buttons.indexOf('Room setup'),
+      html({ ...invited, status: 'ready' }).includes('Invite people'),
+      html({ ...invited, status: 'started' }).includes('Invite people'),
+      html({ ...invited, status: 'closed' }).includes('Invite people'),
+      html(guest).includes('Invite people'),
+    ],
+    expected: [true, true, true, true, true, false, false, false],
   });
 });
 

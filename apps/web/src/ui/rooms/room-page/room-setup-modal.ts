@@ -5,6 +5,8 @@ export const ROOM_SETUP_HOME = 'data-room-setup-home';
 
 /** Marks the Room title, where focus goes when the sheet is taken away while open. */
 export const ROOM_TITLE = 'data-room-title';
+/** The Room title's id, for a form that hands focus to it by id. */
+export const ROOM_TITLE_ID = 'room-heading';
 
 const openerSelector = `a[href="${ROOM_SETUP_HREF}"]`;
 
