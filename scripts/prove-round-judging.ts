@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { requireTestSlotServices } from '@daisy/config';
-import { createOpenRouter } from '@daisy/ai-voice';
+import { createOpenRouter, judgeContractVersion } from '@daisy/ai-voice';
+import { judgingJobRules } from '@daisy/debate-engine';
+import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { isAppError } from '@daisy/errors';
 import { TEST_RUN_MAX_MS } from '@daisy/redis/testing';
 import { systemId } from '@daisy/clock';
@@ -97,6 +99,10 @@ await withRunDatabase({
           leaseMs: 60000,
           model,
           nextToken: () => randomBytes(32).toString('base64url'),
+          // The production worker's judging options (round-worker-policy.ts).
+          contractVersion: judgeContractVersion,
+          rules: judgingJobRules,
+          accountEligible: canUseAiAllowance,
         },
       },
     );
