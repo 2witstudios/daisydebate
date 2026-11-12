@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { answered, harness, peerSaid } from './speaker.test-support';
+import { answered, harness, job, peerSaid } from './speaker.test-support';
 
 setupRitewayBun();
 
@@ -199,4 +199,32 @@ test('a reply, or a seat that does not ask, is never pressed', async () => {
   });
   await asker.speaker.stop();
   await respondent.speaker.stop();
+});
+
+test('a full provider budget keeps a cross-examination answer already bought', async () => {
+  let voiced = 0;
+  const calls: string[] = [];
+  const { speaker, log, settle, stages } = harness('cross_ex', {
+    generate: answering(calls),
+    synthesize: async (phraseId, text) => {
+      if (++voiced === 1) throw createAppError('CONFLICT', 'budget full');
+      return answered(job(phraseId, text));
+    },
+    publish: async (job) => {
+      log.push(`publish:${job.text}`);
+      return { complete: true, segmentEnded: false };
+    },
+  });
+  speaker.wake();
+  await settle();
+  speaker.wake();
+  await settle();
+  assert({
+    given: 'an opening question whose first voice is refused by a full budget',
+    should:
+      'keep the one answer, voice it on the next wake and report no failure',
+    actual: [calls, published(log), stages()],
+    expected: [['generate:opening'], ['publish:To opening.'], []],
+  });
+  await speaker.stop();
 });

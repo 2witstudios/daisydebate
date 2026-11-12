@@ -7,7 +7,10 @@ import { startBotControlService } from '../features/round-bots/control-service';
 import { endingDeadline } from '../features/round-bots/ending-deadline';
 import { createSpeakingBotControl } from '../features/round-bots/speaking';
 import type { App } from './app';
-import type { createProviderBudget } from './provider-budget';
+import {
+  isProviderBudgetRefusal,
+  type createProviderBudget,
+} from './provider-budget';
 import { workerFailures } from './recoverable-failure';
 import type { OneShotTimer, WorkerTimers } from '../lib/worker-timers';
 
@@ -52,6 +55,7 @@ export function startRoundBotWorkers(input: {
         store: app.database,
         voice: app.aiVoice,
         withProvider: input.budget,
+        providerBusy: isProviderBudgetRefusal,
         ...input.botMedia,
         timers: input.timers,
         oneShot: input.deadlineTimer,

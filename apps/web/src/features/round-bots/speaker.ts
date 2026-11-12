@@ -183,6 +183,11 @@ export function createBotSpeaker(input: {
   ) => Promise<PhraseOutcome>;
   readonly nextId: () => string;
   readonly maxAttempts: number;
+  /**
+   * Whether a refusal is the provider budget being full: backpressure that
+   * clears by itself, so what was bought is kept, in cross-examination too.
+   */
+  readonly busy: (error: unknown) => boolean;
   /** `stage` names the work that failed: generate, synthesize or publish. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
@@ -373,6 +378,7 @@ export function createBotSpeaker(input: {
   /** Rejects once `signal` aborts; resolves with `work` otherwise. */
   const unlessStopped = async <T>(work: Promise<T>, signal: AbortSignal) => {
     const stop = Promise.withResolvers<never>();
+    stop.promise.catch(() => undefined);
     const abort = () => stop.reject(createAppError('CONFLICT', STOPPED));
     if (signal.aborted) abort();
     signal.addEventListener('abort', abort, { once: true });
@@ -380,7 +386,6 @@ export function createBotSpeaker(input: {
       return await Promise.race([work, stop.promise]);
     } finally {
       signal.removeEventListener('abort', abort);
-      stop.promise.catch(() => undefined);
     }
   };
   /**
@@ -583,9 +588,10 @@ export function createBotSpeaker(input: {
       input.failed(error, stage);
       return apply({ type: 'deferred', authorityChanged: false });
     }
-    // A platform incident is a wait: the same answer resumes where it stopped,
-    // in cross-examination too, with nothing new bought and no attempt spent.
-    if (isPlatformIncidentRefusal(error))
+    // A platform incident and a full provider budget are waits: the same
+    // answer resumes where it stopped, in cross-examination too, with nothing
+    // new bought and no attempt spent.
+    if (isPlatformIncidentRefusal(error) || input.busy(error))
       return apply({ type: 'deferred', authorityChanged: false });
     // One paid answer per speech: every other failure keeps it, and the
     // next attempt resumes at the failed step. A cross-examination answer

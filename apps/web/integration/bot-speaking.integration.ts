@@ -3,7 +3,10 @@ import { requireTestServices } from '@daisy/config';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBotControl } from '../src/features/round-bots/control';
-import { createProviderBudget } from '../src/server/provider-budget';
+import {
+  createProviderBudget,
+  isProviderBudgetRefusal,
+} from '../src/server/provider-budget';
 import { createSpeakingBotControl } from '../src/features/round-bots/speaking';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
@@ -75,6 +78,7 @@ for (const mode of ['valid', 'provider-error'] as const)
         store: f.store,
         voice: () => provider.voice,
         withProvider: createProviderBudget(1),
+        providerBusy: isProviderBudgetRefusal,
         botToken: media.botToken,
         listenToken: media.botListenToken,
         readPeers: media.botPeers,

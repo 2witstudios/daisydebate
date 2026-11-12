@@ -93,6 +93,7 @@ test('a deferred turn resumes at its refused step without buying or speaking any
     },
     nextId: () => `phrase-${++ids}`,
     maxAttempts: 2,
+    busy: (error) => error instanceof Error && error.message === 'budget full',
     failed: (_error, stage) => {
       stages.push(stage);
     },

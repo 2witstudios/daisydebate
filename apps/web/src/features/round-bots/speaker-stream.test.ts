@@ -172,6 +172,7 @@ test('after a refusal the speaker wakes itself, and starts nothing until then', 
     publish: async () => ({ complete: true, segmentEnded: false }),
     nextId: () => 'phrase',
     maxAttempts: 2,
+    busy: (error) => error instanceof Error && error.message === 'budget full',
     failed: () => undefined,
   });
   const settle = async () => {

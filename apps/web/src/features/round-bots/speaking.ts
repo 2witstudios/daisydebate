@@ -44,6 +44,8 @@ export function createSpeakingBotControl(input: {
   >;
   readonly voice: () => Pick<OpenRouter, 'completeStreamed' | 'speakPcm'>;
   readonly withProvider: ProviderCall;
+  /** Whether a refusal is `withProvider`'s own budget being full. */
+  readonly providerBusy: (error: unknown) => boolean;
   readonly botToken: (
     scope: BotPublicationScope,
     token: string,
@@ -121,6 +123,7 @@ export function createSpeakingBotControl(input: {
       publish: publication.publish,
       nextId: input.nextId,
       maxAttempts: MAX_ATTEMPTS,
+      busy: input.providerBusy,
       failed: input.failed,
     });
     const feed = crossEx

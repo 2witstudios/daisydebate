@@ -6,6 +6,14 @@ export type ProviderCall = <T>(
   work: () => Promise<T>,
 ) => Promise<T>;
 
+const refusals = new WeakSet<Error>();
+/**
+ * The budget was full: backpressure that clears as calls finish, not a
+ * change of authority. A caller holding paid work keeps it and asks again.
+ */
+export const isProviderBudgetRefusal = (error: unknown): boolean =>
+  error instanceof Error && refusals.has(error);
+
 /**
  * A process-local bounded count of concurrent provider calls; no waiting
  * queue and no early release on cancellation. It knows nothing of what the
@@ -29,8 +37,15 @@ export function createProviderBudget(limit: number) {
   };
   const withProvider: ProviderCall = async (signal, work) => {
     const release = signal.aborted ? null : reserve();
-    if (!release)
-      throw createAppError('CONFLICT', 'Provider capacity unavailable');
+    if (!release) {
+      const refusal = createAppError(
+        'CONFLICT',
+        'Provider capacity unavailable',
+      );
+      // A call cancelled before it began was not refused for want of room.
+      if (!signal.aborted) refusals.add(refusal);
+      throw refusal;
+    }
     try {
       return await work();
     } finally {
