@@ -32,6 +32,8 @@ export type CompletionRequest = {
    * returned. Some models require reasoning and refuse 'none'.
    */
   readonly reasoning?: 'none' | 'low' | 'medium' | 'high';
+  /** This call's own time bound, in place of the client's default (a judging stage's). */
+  readonly timeoutMs?: number;
 };
 
 const BASE = 'https://openrouter.ai/api/v1';
@@ -131,7 +133,12 @@ export function createOpenRouter({
     'X-Title': 'Daisy',
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
-  const post = async (path: string, body: unknown, signal?: AbortSignal) => {
+  const post = async (
+    path: string,
+    body: unknown,
+    signal?: AbortSignal,
+    bound = timeoutMs,
+  ) => {
     if (signal?.aborted)
       throw definite(
         createAppError('CONFLICT', 'Provider operation cancelled'),
@@ -143,8 +150,8 @@ export function createOpenRouter({
         headers,
         body: JSON.stringify(body),
         signal: signal
-          ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
-          : AbortSignal.timeout(timeoutMs),
+          ? AbortSignal.any([signal, AbortSignal.timeout(bound)])
+          : AbortSignal.timeout(bound),
       });
     } catch (cause) {
       requireProviderNotCancelled(signal);
@@ -229,6 +236,7 @@ export function createOpenRouter({
         '/chat/completions',
         chatBody(request),
         request.signal,
+        request.timeoutMs,
       );
       const body = parse(
         completionSchema,

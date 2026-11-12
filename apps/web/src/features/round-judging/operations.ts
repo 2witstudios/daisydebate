@@ -52,6 +52,8 @@ export function createRoundJudgingOperations(input: {
   readonly nextId: () => string;
   readonly voice: () => Pick<OpenRouter, 'complete'>;
   readonly withProvider: ProviderCall;
+  /** Each stage call's own bound (ADR 0125: up to 120 s), past the voice client's default. */
+  readonly callTimeoutMs?: number;
   readonly recoveryPending?: (reason: JudgingRecoveryReason) => void;
 }) {
   return {
@@ -137,6 +139,7 @@ export function createRoundJudgingOperations(input: {
             model: claim.model,
             ...request,
             reasoning: 'medium',
+            ...(input.callTimeoutMs ? { timeoutMs: input.callTimeoutMs } : {}),
             signal,
           });
         } catch (error) {

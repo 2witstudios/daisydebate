@@ -103,3 +103,25 @@ test('a rejected first pass is recorded and never blocks the final ballot', asyn
     },
   });
 });
+
+test('each stage call carries the judging call bound, not the voice client default (CJ-11)', async () => {
+  const bounds: unknown[] = [];
+  const { operations } = harness(
+    async (request) => {
+      bounds.push((request as { timeoutMs?: number }).timeoutMs);
+      return byContract(request);
+    },
+    'first',
+    120_000,
+  );
+  for (let claims = 0; claims < 3; claims++)
+    await operations
+      .executeClaim(claim, new AbortController().signal)
+      .catch(() => null);
+  assert({
+    given: 'a judging worker configured for 120-second stage calls',
+    should: 'send each of the three stage calls with that bound',
+    actual: bounds,
+    expected: [120_000, 120_000, 120_000],
+  });
+});

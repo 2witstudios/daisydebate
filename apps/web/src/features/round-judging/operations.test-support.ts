@@ -31,6 +31,7 @@ const dueOf = (job: {
 export function harness(
   complete: (request: unknown) => Promise<unknown>,
   start: Stage = 'final',
+  callTimeoutMs?: number,
 ) {
   const log = {
     provider: 0,
@@ -111,6 +112,7 @@ export function harness(
         },
       }) as never,
     withProvider: (_signal, work) => work(),
+    ...(callTimeoutMs ? { callTimeoutMs } : {}),
   });
   return { log, job, operations };
 }
