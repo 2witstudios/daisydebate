@@ -2,19 +2,16 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomView } from '@daisy/protocol';
-import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import {
+  assemblySnapshot,
+  pendingInvitation,
+} from '../../../features/rooms/assembly.test-support';
 import { initialInvitationForm } from '../../../features/room-invitations/submit';
 import { InvitedNotice } from './invited-notice';
 
 setupRitewayBun();
 
-const invitation = {
-  id: 'i'.repeat(24),
-  seat: 'judge' as const,
-  invitee: 'coach',
-  inviter: 'host',
-  expiresAt: '2026-11-11T12:00:00.000Z',
-};
+const invitation = pendingInvitation;
 const render = (view: RoomView, viewerLabel: string) =>
   renderToStaticMarkup(
     h(InvitedNotice, {

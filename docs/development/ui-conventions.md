@@ -101,6 +101,11 @@ The rule that remains is that a click before hydration never leaks what was type
   inbox heading is when a resend is refused. The browser suite asserts
   `document.activeElement` after each answer, resends included
   (`e2e/answer-focus.e2e.ts`).
+  A form whose neighbours stay usable while its answer is pending (one row's
+  button among several, as in the Invite people dialog) passes
+  `onlyWhenLost`: focus moves only if it is on nothing usable, and a form
+  that live sync removes before its answer arrives pays the same debt as it
+  leaves.
 - JavaScript may add a local check before posting (`onSubmit` calling
   `preventDefault()` for a value that cannot be valid), pending states and
   focus handling. React runs the action only when `onSubmit` did not
@@ -271,14 +276,18 @@ An acknowledged assignment follows the canonical Room view; a refused enhanced
 submission retains its selected participant and shows the refusal.
 
 Invite people is a host tool, so it takes no page space: it is a button in the
-header's button row that opens a modal dialog, built like Close room, and it
-shows only to the host while the Room is open. The button carries the number of
-pending invitations. The dialog holds the invite form and the pending
-invitations with Withdraw, and stays open after each answer, so the notice is
-read in place and the next name can follow; each answer hands focus back to the
-username field. Esc and Done close it. An invited member's "You're invited"
-notice with Decline is a prompt they must see, so it stays inline on the page
-(`e2e/room-invite-dialog.e2e.ts`).
+header's button row that opens a modal dialog, and it shows only to the host
+while the Room is open. Close room and Invite people share one dialog shell
+(`RoomDialog`). The button carries the number of pending invitations. The
+dialog holds the invite form and the pending invitations with Withdraw, and
+stays open after each answer, so the notice is read in place and the next name
+can follow. A refused invite keeps the name and the seat kind chosen. An answer
+hands focus back to the username field only when focus is lost, never away from
+a control the host has moved to. Esc and Done close it, and its forms start
+again each time it closes, so an old notice is not what the host finds on the
+next open. An invited member's "You're invited" notice with Decline is a prompt
+they must see, so it stays inline on the page; Decline hands focus to the Room
+title (`e2e/room-invite-dialog.e2e.ts`).
 
 ## Round room
 

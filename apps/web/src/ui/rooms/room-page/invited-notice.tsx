@@ -5,12 +5,14 @@ import { invitedTo } from '../../../features/notifications/notification-words';
 import type { InvitationFormState } from '../../../features/room-invitations/submit';
 import type { FormAction } from '../../form-action/form-action';
 import { EndInvitationForm } from './end-invitation-form';
+import { ROOM_TITLE_ID } from './room-setup-modal';
 
 /**
  * What an invited member sees on the Room page (ADR 0124): who asked them
  * and as what, and Decline. The seat is held for them, so they take it from
  * the seats below. It is a prompt they must see, so it stays on the page;
  * the host's own tool is `InvitePeople`, behind a button in the header.
+ * Declining takes the notice away, so focus goes to the Room title.
  */
 export function InvitedNotice({
   view,
@@ -50,6 +52,7 @@ export function InvitedNotice({
             intent="decline"
             invitationId={invitation.id}
             label="Decline"
+            focusAfterAnswer={ROOM_TITLE_ID}
           />
         </div>
       ))}

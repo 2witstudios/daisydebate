@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import {
   initialInvitationForm,
   invitationFields,
@@ -15,27 +14,12 @@ import {
 } from '../../form-action/form-action';
 
 /**
- * Focus for a form that has just left the page. An invitation's row goes
- * when room sync says it ended, which may be before its own answer arrives;
- * the button that had focus goes with it and focus falls to `<body>`. It
- * moves to `targetId` only then, never away from wherever the member has
- * since put it.
- */
-function useFocusWhenRemoved(targetId: string | undefined) {
-  useEffect(
-    () => () => {
-      if (targetId !== undefined && document.activeElement === document.body)
-        document.getElementById(targetId)?.focus();
-    },
-    [targetId],
-  );
-}
-
-/**
  * Ends one invitation (ADR 0124): the host's Withdraw or the invitee's
- * Decline. `focusAfterAnswer` names where keyboard focus goes once the
- * answer is in, for a form inside a dialog, where the disabled button
- * would otherwise leave focus on `<body>`.
+ * Decline. The button is disabled while its answer is on the way, which
+ * drops focus to `<body>`; `focusAfterAnswer` names where focus goes then.
+ * It moves only if it is still lost, since the controls around this form
+ * stay usable meanwhile, and also when room sync removes the form before
+ * its own answer arrives.
  */
 export function EndInvitationForm({
   action,
@@ -48,15 +32,16 @@ export function EndInvitationForm({
   readonly intent: 'withdraw' | 'decline';
   readonly invitationId: string;
   readonly label: string;
-  readonly focusAfterAnswer?: string;
+  readonly focusAfterAnswer: string;
 }) {
   const [answer, post, pending] = useFormAction(
     action,
     initialInvitationForm,
     invitationFormUnavailable,
   );
-  useFocusAfterAnswer(answer, focusAfterAnswer, !pending);
-  useFocusWhenRemoved(focusAfterAnswer);
+  useFocusAfterAnswer(answer, focusAfterAnswer, !pending, {
+    onlyWhenLost: true,
+  });
   const fields = invitationFields(answer);
   return (
     <form action={post} className="flex items-center gap-2">

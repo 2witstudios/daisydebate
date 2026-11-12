@@ -1,6 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { initialInvitationForm } from '../../../features/room-invitations/submit';
+import {
+  FormData as BrowserFormData,
+  type HTMLButtonElement as BrowserButton,
+  type HTMLDialogElement as BrowserDialog,
+} from 'happy-dom';
+import {
+  initialInvitationForm,
+  type InvitationFormState,
+} from '../../../features/room-invitations/submit';
+import { pendingInvitation } from '../../../features/rooms/assembly.test-support';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import { InvitePeople } from './invite-people';
 import type * as Client from './invite-people.test-support';
@@ -8,22 +17,17 @@ import type * as Client from './invite-people.test-support';
 setupRitewayBun();
 
 const action = async () => initialInvitationForm;
-const invitation = (
-  id: string,
-  invitee: string,
-  seat: 'debater' | 'judge',
-) => ({
-  id: id.repeat(24),
-  seat,
-  invitee,
-  inviter: 'host',
-  expiresAt: '2026-11-11T12:00:00.000Z',
-});
 const pending = [
-  invitation('i', 'coach', 'judge'),
-  invitation('j', 'rival', 'debater'),
+  pendingInvitation,
+  {
+    ...pendingInvitation,
+    id: 'j'.repeat(24),
+    invitee: 'rival',
+    seat: 'debater' as const,
+  },
 ];
-const render = (invitations: typeof pending) =>
+type Pending = (typeof pending)[number][];
+const render = (invitations: Pending) =>
   renderToStaticMarkup(
     <InvitePeople invitations={invitations} action={action} />,
   );
@@ -105,62 +109,167 @@ describe('InvitePeople', () => {
       expected: [true, true, true, 2, true, false, false],
     });
   });
-
-  test('an answer hands focus to the username field', () => {
-    assert({
-      given: 'the dialog markup',
-      should: 'give the username field the id focus returns to',
-      actual:
-        /<input(?=[^>]*id="invite-people-username")(?=[^>]*name="username")/.test(
-          html,
-        ),
-      expected: true,
-    });
-  });
 });
 
-test('a withdrawn invitation that leaves before its answer hands focus to the username field', async () => {
-  const mount = async () => {
-    const client = await mountBrowserClient<typeof Client>(
-      Bun.resolveSync('./invite-people.test-support', import.meta.dir),
+/** The dialog open in a real React tree, with answers the test releases by hand. */
+async function openDialog(invitations: Pending) {
+  const client = await mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./invite-people.test-support', import.meta.dir),
+    // What React's form posting reads from the realm.
+    { FormData: BrowserFormData, performance },
+  );
+  const answers: ((answer: InvitationFormState) => void)[] = [];
+  const held = () =>
+    new Promise<InvitationFormState>((resolve) => answers.push(resolve));
+  const show = (next: Pending) =>
+    client.act(async () =>
+      client.root.render(
+        client.createElement(client.InvitePeople, {
+          invitations: next,
+          action: held,
+        }),
+      ),
     );
-    const show = (invitations: typeof pending) =>
-      client.act(() =>
-        client.root.render(
-          client.createElement(client.InvitePeople, { invitations, action }),
-        ),
-      );
-    const focused = () => {
-      const active = client.browser.document.activeElement;
-      return active?.id || active?.textContent || active?.tagName;
-    };
-    const button = (label: string) =>
-      [...client.container.querySelectorAll('button')].find(
-        (candidate) => candidate.textContent === label,
-      );
-    return { ...client, show, focused, button };
+  await show(invitations);
+  const dialog = client.container.querySelector(
+    'dialog',
+  ) as unknown as BrowserDialog;
+  dialog.showModal();
+  const buttons = (label: string) =>
+    [...client.container.querySelectorAll('button')].filter(
+      (candidate) => candidate.textContent === label,
+    ) as unknown as BrowserButton[];
+  const press = (button: BrowserButton | undefined) =>
+    client.act(async () => {
+      button?.focus();
+      button?.click();
+    });
+  const answer = (index: number, state: InvitationFormState) =>
+    client.act(async () => answers[index]?.(state));
+  const focus = () => {
+    const active = client.browser.document.activeElement;
+    return active?.id || active?.tagName;
   };
+  /** Focus on `<body>`; happy-dom will not blur a disabled button itself. */
+  const dropFocus = () => {
+    buttons('Done')[0]?.focus();
+    buttons('Done')[0]?.blur();
+  };
+  const close = () => client.act(async () => client.root.unmount());
+  return {
+    ...client,
+    dialog,
+    show,
+    buttons,
+    press,
+    answer,
+    focus,
+    dropFocus,
+    close,
+  };
+}
+const withdrawn: InvitationFormState = {
+  kind: 'accepted',
+  notice: 'Invitation withdrawn.',
+};
 
-  const onWithdraw = await mount();
-  await onWithdraw.show([pending[0]!]);
-  onWithdraw.button('Withdraw')?.focus();
-  const before = onWithdraw.focused();
-  // Room sync says the invitation ended: its row, and the focused button, go.
-  await onWithdraw.show([]);
+test('a Withdraw whose row room sync removes before its answer hands focus to the username field', async () => {
+  const page = await openDialog([pending[0]!]);
+  await page.press(page.buttons('Withdraw')[0]);
+  const disabled = page.buttons('Withdraw')[0]?.disabled;
+  await page.show([]);
+  assert({
+    given:
+      'the open dialog, a Withdraw pressed by keyboard and still unanswered, then its row removed',
+    should:
+      'disable the button while it waits, then put focus on the username field',
+    actual: [page.dialog.open, disabled, page.focus()],
+    expected: [true, true, 'invite-people-username'],
+  });
+  await page.close();
+});
 
-  const elsewhere = await mount();
-  await elsewhere.show([pending[0]!]);
-  elsewhere.button('Done')?.focus();
-  await elsewhere.show([]);
+test('a Withdraw answer hands focus to the username field only when focus is lost', async () => {
+  const lost = await openDialog(pending);
+  await lost.press(lost.buttons('Withdraw')[0]);
+  // A browser drops focus from a control as it is disabled; happy-dom does not.
+  lost.dropFocus();
+  await lost.answer(0, withdrawn);
+
+  const movedOn = await openDialog(pending);
+  await movedOn.press(movedOn.buttons('Withdraw')[0]);
+  movedOn.buttons('Done')[0]?.focus();
+  await movedOn.answer(0, withdrawn);
+  const onDone =
+    movedOn.browser.document.activeElement ===
+    (movedOn.buttons('Done')[0] as unknown);
 
   assert({
     given:
-      'focus on a Withdraw button whose row room sync removes, then focus on Done when a row is removed',
+      'a Withdraw answered after its disabled button dropped focus, then one answered after the host moved to Done',
     should:
-      'move focus to the username field only when it fell off the page, never away from where the host put it',
-    actual: [before, onWithdraw.focused(), elsewhere.focused()],
-    expected: ['Withdraw', 'invite-people-username', 'Done'],
+      'move focus to the username field the first time, and leave it on Done the second',
+    actual: [lost.focus(), onDone],
+    expected: ['invite-people-username', true],
   });
-  await onWithdraw.act(() => onWithdraw.root.unmount());
-  await elsewhere.act(() => elsewhere.root.unmount());
+  await lost.close();
+  await movedOn.close();
+});
+
+test('an invitation that ends elsewhere moves no focus', async () => {
+  const page = await openDialog(pending);
+  page.dropFocus();
+  const before = page.focus();
+  await page.show([pending[1]!]);
+  assert({
+    given:
+      'the open dialog with focus on the page body and nothing pending, then a row removed by room sync',
+    should: 'leave focus where it was',
+    actual: [before, page.focus()],
+    expected: ['BODY', 'BODY'],
+  });
+  await page.close();
+});
+
+test('the dialog starts again each time it closes', async () => {
+  const page = await openDialog([]);
+  const field = () =>
+    page.container.querySelector('input[name="username"]') as unknown as {
+      value: string;
+    };
+  field().value = 'nobody';
+  await page.press(page.buttons('Send invitation')[0]);
+  await page.answer(0, {
+    kind: 'refused',
+    values: { username: 'nobody', seat: 'judge' },
+    error: 'No member has that username.',
+  });
+  const refused = {
+    notice: page.container.querySelector('[role="status"]')?.textContent,
+    username: field().value,
+    judge: page.container
+      .querySelector('input[value="judge"]')
+      ?.hasAttribute('checked'),
+  };
+  await page.act(async () => page.dialog.close());
+  assert({
+    given: 'a refused invite to judge, then the dialog closed',
+    should:
+      'keep the refusal, the name and the Judge choice while open, and reopen with an empty form and no notice',
+    actual: [
+      refused,
+      page.container.querySelector('[role="status"]'),
+      field().value,
+    ],
+    expected: [
+      {
+        notice: 'No member has that username.',
+        username: 'nobody',
+        judge: true,
+      },
+      null,
+      '',
+    ],
+  });
+  await page.close();
 });

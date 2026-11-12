@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { Fragment, useState } from 'react';
 import type { RoomView } from '@daisy/protocol';
 import { invitedTo } from '../../../features/notifications/notification-words';
 import {
@@ -16,6 +16,7 @@ import {
   type FormAction,
 } from '../../form-action/form-action';
 import { EndInvitationForm } from './end-invitation-form';
+import { RoomDialog, RoomDialogClose } from './room-dialog';
 
 /** Where focus returns after each answer: the next name is typed here. */
 const USERNAME_FIELD = 'invite-people-username';
@@ -30,7 +31,9 @@ function InviteForm({
     initialInvitationForm,
     invitationFormUnavailable,
   );
-  useFocusAfterAnswer(answer, USERNAME_FIELD, !pending);
+  useFocusAfterAnswer(answer, USERNAME_FIELD, !pending, {
+    onlyWhenLost: true,
+  });
   const fields = invitationFields(answer);
   return (
     <form action={post} className="flex flex-col gap-3">
@@ -51,11 +54,21 @@ function InviteForm({
       <fieldset className="flex items-center gap-3 text-sm text-ink">
         <legend className="sr-only">Invite as</legend>
         <label className="flex items-center gap-1">
-          <input type="radio" name="seat" value="debater" defaultChecked />
+          <input
+            type="radio"
+            name="seat"
+            value="debater"
+            defaultChecked={fields.seat === 'debater'}
+          />
           Debater
         </label>
         <label className="flex items-center gap-1">
-          <input type="radio" name="seat" value="judge" />
+          <input
+            type="radio"
+            name="seat"
+            value="judge"
+            defaultChecked={fields.seat === 'judge'}
+          />
           Judge
         </label>
       </fieldset>
@@ -80,7 +93,9 @@ function InviteForm({
  * withdraws a pending invitation (ADR 0124), in a dialog behind a header
  * button. The button carries the number pending, so held seats show without
  * opening it. The dialog stays open after each answer: the notice is read
- * in place and the next name can follow.
+ * in place and the next name can follow. Each time it closes, its forms
+ * start again, so a notice about an earlier invitation is not what the
+ * host finds on the next open.
  */
 export function InvitePeople({
   invitations,
@@ -89,16 +104,11 @@ export function InvitePeople({
   readonly invitations: RoomView['invitations'];
   readonly action: FormAction<InvitationFormState>;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [opening, setOpening] = useState(0);
   return (
-    <>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        onClick={() => dialog.current?.showModal()}
-        className={buttonClass('secondary')}
-      >
-        {/* One element: the button's gap would otherwise part the count from its bracket. */}
+    <RoomDialog
+      label={
+        // One element: the button's gap would otherwise part the count from its bracket.
         <span>
           Invite people
           {invitations.length > 0 ? (
@@ -109,19 +119,16 @@ export function InvitePeople({
             </>
           ) : null}
         </span>
-      </button>
-      <dialog
-        ref={dialog}
-        aria-labelledby="invite-people-title"
-        className="m-auto w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex"
-      >
-        <h2 id="invite-people-title" className="font-display text-lg">
-          Invite people
-        </h2>
-        <p className="text-sm text-ink-muted">
-          An invited member is told in Daisy and by email, and their seat is
-          held for 24 hours or until the round starts.
-        </p>
+      }
+      titleId="invite-people-title"
+      title="Invite people"
+      onClose={() => setOpening((count) => count + 1)}
+    >
+      <p className="text-sm text-ink-muted">
+        An invited member is told in Daisy and by email, and their seat is held
+        for 24 hours or until the round starts.
+      </p>
+      <Fragment key={opening}>
         <InviteForm action={action} />
         {invitations.length > 0 ? (
           <ul className="flex flex-col gap-2" aria-label="Pending invitations">
@@ -144,16 +151,10 @@ export function InvitePeople({
             ))}
           </ul>
         ) : null}
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => dialog.current?.close()}
-            className={buttonClass('secondary')}
-          >
-            Done
-          </button>
-        </div>
-      </dialog>
-    </>
+      </Fragment>
+      <div className="flex justify-end">
+        <RoomDialogClose>Done</RoomDialogClose>
+      </div>
+    </RoomDialog>
   );
 }

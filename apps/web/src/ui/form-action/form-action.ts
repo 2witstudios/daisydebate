@@ -45,6 +45,17 @@ export function useFormAction<S>(
   );
 }
 
+/** Focus is on nothing a member can use: `<body>`, or a control since disabled or removed. */
+const focusLost = () => {
+  const active = document.activeElement;
+  return (
+    active === null ||
+    active === document.body ||
+    !active.isConnected ||
+    active.matches(':disabled')
+  );
+};
+
 /**
  * Hands keyboard focus to the element `targetId` names once each new
  * answer has settled (ISSUE-107). A form disables its controls while its
@@ -54,22 +65,43 @@ export function useFormAction<S>(
  * target is still the pre-answer screen's, which may be about to unmount,
  * so nothing is focused. Once settled, the target takes focus and the debt
  * is paid. With no target, nothing is owed.
+ *
+ * `onlyWhenLost` is for a form whose neighbours stay usable while its answer
+ * is on the way (one row's button among several, inside a dialog). Focus
+ * then moves only if it is lost, never away from where the member has since
+ * put it. Such a form may also leave the page before its answer arrives,
+ * when live sync removes its row first; a debt still unpaid at that moment
+ * is paid on the way out, on the same condition.
  */
 export function useFocusAfterAnswer(
   answered: unknown,
   targetId: string | undefined,
   settled: boolean,
+  { onlyWhenLost = false }: { readonly onlyWhenLost?: boolean } = {},
 ) {
   const seen = useRef(answered);
   const owed = useRef(false);
+  const waiting = useRef(false);
+  const pay = useRef(() => {});
   useEffect(() => {
     if (answered === seen.current) return;
     seen.current = answered;
     owed.current = true;
   }, [answered]);
   useEffect(() => {
+    waiting.current = !settled;
+    pay.current = () => {
+      if (targetId === undefined || (onlyWhenLost && !focusLost())) return;
+      document.getElementById(targetId)?.focus();
+    };
     if (!owed.current || !settled) return;
     owed.current = false;
-    if (targetId !== undefined) document.getElementById(targetId)?.focus();
+    pay.current();
   });
+  useEffect(
+    () => () => {
+      if (onlyWhenLost && (owed.current || waiting.current)) pay.current();
+    },
+    [onlyWhenLost],
+  );
 }

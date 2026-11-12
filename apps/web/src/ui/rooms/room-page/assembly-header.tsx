@@ -11,7 +11,7 @@ import { CloseRoom } from './close-room';
 import { InvitePeople } from './invite-people';
 import { RoomInvite } from './room-invite';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
-import { ROOM_SETUP_HOME, ROOM_TITLE } from './room-setup-modal';
+import { ROOM_SETUP_HOME, ROOM_TITLE, ROOM_TITLE_ID } from './room-setup-modal';
 
 /** The resolution, labelled as such: the statement the two sides debate. */
 export function RoomResolution({
@@ -104,6 +104,7 @@ export function AssemblyHeader({
             {roomStatus(view)}
           </p>
           <h1
+            id={ROOM_TITLE_ID}
             {...{ [ROOM_TITLE]: '' }}
             tabIndex={-1}
             className="font-display text-3xl leading-tight font-semibold tracking-tight wrap-anywhere"

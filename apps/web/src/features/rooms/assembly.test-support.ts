@@ -145,6 +145,15 @@ export const assemblySnapshot = {
 } satisfies RoomView;
 
 /** A native create submission naming a stored ranked preset. */
+/** One pending invitation: the host asked @coach to judge. */
+export const pendingInvitation = {
+  id: 'i'.repeat(24),
+  seat: 'judge',
+  invitee: 'coach',
+  inviter: 'host',
+  expiresAt: '2026-11-11T12:00:00.000Z',
+} as const satisfies RoomView['invitations'][number];
+
 export const rankedCreateForm = (visibility = 'public') => {
   const fields = new FormData();
   fields.set('commandId', 'h'.repeat(24));

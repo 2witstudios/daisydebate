@@ -3,7 +3,10 @@ import { idle } from '../../../features/forms/form-state';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sequentialId } from '@daisy/clock';
-import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import {
+  assemblySnapshot,
+  pendingInvitation,
+} from '../../../features/rooms/assembly.test-support';
 import { roomCommandIds } from '../../../features/rooms/room-command-ids';
 import { WithAppRouter } from '../../test-support/app-router';
 import type { RoomView } from '@daisy/protocol';
@@ -85,15 +88,7 @@ describe('RoomLive', () => {
   test('Invite people is the host’s header dialog, and an invitation is the invitee’s inline notice', () => {
     const invited: RoomView = {
       ...assemblySnapshot,
-      invitations: [
-        {
-          id: 'i'.repeat(24),
-          seat: 'judge',
-          invitee: 'coach',
-          inviter: 'host',
-          expiresAt: '2026-11-11T12:00:00.000Z',
-        },
-      ],
+      invitations: [pendingInvitation],
     };
     const host = render(null, invited, 'host');
     const invitee = render(

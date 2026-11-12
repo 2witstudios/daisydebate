@@ -51,7 +51,7 @@ test('submitInvitationForm', async () => {
       { kind: 'accepted', notice: 'Invitation withdrawn.' },
       {
         kind: 'refused',
-        values: { username: 'coach' },
+        values: { username: 'coach', seat: 'judge' },
         error: 'There is no free seat of that kind left to hold.',
       },
       [
@@ -117,13 +117,18 @@ test('an invitation answer is exactly one kind for each way a post can end', asy
       'room1',
       formOf({ intent: 'promote' }),
     ),
-    neverArrived: invitationFormUnavailable(),
+    neverArrived: invitationFormUnavailable(
+      formOf({ intent: 'invite', username: '@coach', seat: 'judge' }),
+    ),
+    endNeverArrived: invitationFormUnavailable(
+      formOf({ intent: 'withdraw', invitationId: 'inv1' }),
+    ),
   };
   assert({
     given:
       'an invite and a decline that worked, an invite and a withdrawal the Room refused, a rate limit, a route that threw, an unknown intent and a call that never arrived',
     should:
-      'answer accepted with its words, or refused with its words and the username only where an invite has one to keep',
+      'answer accepted with its words, or refused with its words and the username and seat only where an invite has them to keep, a lost call included',
     actual: outcomes,
     expected: {
       invited: {
@@ -133,7 +138,7 @@ test('an invitation answer is exactly one kind for each way a post can end', asy
       declined: { kind: 'accepted', notice: 'Invitation declined.' },
       inviteRefused: {
         kind: 'refused',
-        values: { username: 'coach' },
+        values: { username: 'coach', seat: 'debater' },
         error: 'That member is already in a seat.',
       },
       withdrawRefused: {
@@ -143,12 +148,12 @@ test('an invitation answer is exactly one kind for each way a post can end', asy
       },
       limited: {
         kind: 'refused',
-        values: { username: 'coach' },
+        values: { username: 'coach', seat: 'debater' },
         error: 'Too many invitations. Try again later.',
       },
       unreachable: {
         kind: 'refused',
-        values: {},
+        values: { username: 'coach', seat: 'debater' },
         error: 'That did not work. Try again.',
       },
       unknownIntent: {
@@ -157,6 +162,11 @@ test('an invitation answer is exactly one kind for each way a post can end', asy
         error: 'That did not work. Try again.',
       },
       neverArrived: {
+        kind: 'refused',
+        values: { username: 'coach', seat: 'judge' },
+        error: 'That did not work. Try again.',
+      },
+      endNeverArrived: {
         kind: 'refused',
         values: {},
         error: 'That did not work. Try again.',
@@ -169,25 +179,27 @@ test('what the invite form shows follows from the one kind it was answered with'
   assert({
     given: 'no post yet, a refused invite and an accepted one',
     should:
-      'start empty, keep the refused username beside its reason, and empty the field under a new key once accepted',
+      'start empty as a debater, keep the refused username and seat beside the reason, and empty the field under a new key once accepted',
     actual: [
       invitationFields(initialInvitationForm),
       invitationFields({
         kind: 'refused',
-        values: { username: 'coach' },
+        values: { username: 'coach', seat: 'judge' },
         error: 'That member cannot be invited.',
       }),
       invitationFields({ kind: 'accepted', notice: 'Invitation withdrawn.' }),
     ],
     expected: [
-      { username: '', notice: undefined, fieldKey: 'draft' },
+      { username: '', seat: 'debater', notice: undefined, fieldKey: 'draft' },
       {
         username: 'coach',
+        seat: 'judge',
         notice: 'That member cannot be invited.',
         fieldKey: 'draft',
       },
       {
         username: '',
+        seat: 'debater',
         notice: 'Invitation withdrawn.',
         fieldKey: 'Invitation withdrawn.',
       },

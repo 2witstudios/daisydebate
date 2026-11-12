@@ -2,7 +2,10 @@ import { idle } from '../../../features/forms/form-state';
 import type { RoomView } from '@daisy/protocol';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import {
+  assemblySnapshot,
+  pendingInvitation,
+} from '../../../features/rooms/assembly.test-support';
 import { initialInvitationForm } from '../../../features/room-invitations/submit';
 import { byText, findElements } from '../../test-support/find-elements';
 import { AssemblyHeader, RoomResolution } from './assembly-header';
@@ -119,15 +122,7 @@ test('only the host of an open room is offered Invite people, as a dialog in the
     renderToStaticMarkup(header(view, assemblySnapshot.hostActorId));
   const invited = {
     ...assemblySnapshot,
-    invitations: [
-      {
-        id: 'i'.repeat(24),
-        seat: 'judge' as const,
-        invitee: 'coach',
-        inviter: 'host',
-        expiresAt: '2026-11-11T12:00:00.000Z',
-      },
-    ],
+    invitations: [pendingInvitation],
   };
   const guest = {
     ...invited,

@@ -1,4 +1,4 @@
-import type { RoomInvitationRefusal } from '@daisy/protocol';
+import type { RoomInvitationRefusal, RoomSeatKind } from '@daisy/protocol';
 import {
   idle,
   refusedWith,
@@ -13,8 +13,9 @@ type InvitationAccepted = {
 };
 
 /**
- * What an invitation form answers with. A refused invite keeps the username
- * it named in `values.username`; withdraw and decline have nothing to keep.
+ * What an invitation form answers with. A refused invite keeps what the host
+ * chose in `values.username` and `values.seat`; withdraw and decline have
+ * nothing to keep.
  */
 export type InvitationFormState = Idle | Refused | InvitationAccepted;
 
@@ -27,17 +28,42 @@ const accepted = (notice: string): InvitationAccepted => ({
 
 const failed = 'That did not work. Try again.';
 
-/** The answer when the call never arrived or the form named no known intent. */
-export const invitationFormUnavailable = (): InvitationFormState =>
-  refusedWith({}, failed);
+const text = (form: FormData, key: string) => {
+  const value = form.get(key);
+  return typeof value === 'string' ? value.trim() : '';
+};
+
+type InviteChoice = {
+  readonly username: string;
+  readonly seat: RoomSeatKind;
+};
+
+/** The member and seat kind an invite form names. */
+const inviteChoice = (form: FormData): InviteChoice => ({
+  username: text(form, 'username').replace(/^@/, ''),
+  seat: text(form, 'seat') === 'judge' ? 'judge' : 'debater',
+});
+
+/** What a refusal hands back to be shown again: an invite's choice, else nothing. */
+const kept = (form: FormData): Partial<InviteChoice> =>
+  text(form, 'intent') === 'invite' ? inviteChoice(form) : {};
+
+/**
+ * The answer when the call never arrived or the form named no known intent.
+ * An invite keeps the username and seat the host chose.
+ */
+export const invitationFormUnavailable = (
+  form: FormData,
+): InvitationFormState => refusedWith(kept(form), failed);
 
 /**
  * What an invitation form renders: the username to keep in the field, the
- * notice beside it, and a key that changes when an accepted invite should
- * empty the field.
+ * seat kind to keep chosen, the notice beside them, and a key that changes
+ * when an accepted invite should empty the field.
  */
 export type InvitationFields = {
   readonly username: string;
+  readonly seat: RoomSeatKind;
   readonly notice: string | undefined;
   readonly fieldKey: string;
 };
@@ -47,15 +73,26 @@ export function invitationFields(
 ): InvitationFields {
   switch (answer.kind) {
     case 'idle':
-      return { username: '', notice: undefined, fieldKey: 'draft' };
+      return {
+        username: '',
+        seat: 'debater',
+        notice: undefined,
+        fieldKey: 'draft',
+      };
     case 'refused':
       return {
         username: answer.values['username'] ?? '',
+        seat: answer.values['seat'] === 'judge' ? 'judge' : 'debater',
         notice: answer.error,
         fieldKey: 'draft',
       };
     case 'accepted':
-      return { username: '', notice: answer.notice, fieldKey: answer.notice };
+      return {
+        username: '',
+        seat: 'debater',
+        notice: answer.notice,
+        fieldKey: answer.notice,
+      };
   }
 }
 
@@ -68,11 +105,6 @@ const refusalWords: Record<RoomInvitationRefusal, string> = {
   'already-invited': 'That member is already invited to the other seat.',
   'no-free-seat': 'There is no free seat of that kind left to hold.',
   'invitation-ended': 'That invitation has already ended.',
-};
-
-const text = (form: FormData, key: string) => {
-  const value = form.get(key);
-  return typeof value === 'string' ? value.trim() : '';
 };
 
 type Post = (path: string, body: unknown) => Promise<Response>;
@@ -88,13 +120,13 @@ export async function submitInvitationForm(
   form: FormData,
 ): Promise<InvitationFormState> {
   const intent = text(form, 'intent');
-  const username = text(form, 'username').replace(/^@/, '');
+  const { username, seat } = inviteChoice(form);
   const request =
     intent === 'invite'
       ? post(`/api/rooms/${encodeURIComponent(roomId)}/invitations`, {
           version: 1,
           username,
-          seat: text(form, 'seat') === 'judge' ? 'judge' : 'debater',
+          seat,
         })
       : intent === 'withdraw' || intent === 'decline'
         ? post(`/api/room-invitations/${intent}`, {
@@ -102,7 +134,7 @@ export async function submitInvitationForm(
             invitationId: text(form, 'invitationId'),
           })
         : null;
-  if (!request) return invitationFormUnavailable();
+  if (!request) return invitationFormUnavailable(form);
   try {
     const response = await request;
     if (response.ok)
@@ -125,8 +157,8 @@ export async function submitInvitationForm(
           : response.status === 400
             ? 'Enter a username.'
             : failed;
-    return refusedWith(intent === 'invite' ? { username } : {}, words);
+    return refusedWith(kept(form), words);
   } catch {
-    return invitationFormUnavailable();
+    return invitationFormUnavailable(form);
   }
 }
