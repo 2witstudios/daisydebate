@@ -90,15 +90,35 @@ test('a cross-examination answer waits for the peer’s line, up to a cap', asyn
   });
 });
 
-test('a wait that cannot read, or whose turn was dropped, ends without failing the turn', async () => {
-  const unread = waiting(0, 'fails');
+test('a failing read is asked again; a dropped turn or a failing trace fails nothing', async () => {
+  const unread = waiting(Infinity, 'fails');
   await unread.wait();
   const dropped = waiting(Infinity);
   await dropped.wait(AbortSignal.abort());
   assert({
-    given: 'a refused read, and a turn already aborted',
-    should: 'resolve both, reading once and not at all',
-    actual: [unread.outcomes, unread.reads.length, dropped.reads.length],
-    expected: [['line.unread:0:round'], 1, 0],
+    given: 'reads that are always refused, and a turn already aborted',
+    should:
+      'keep reading to the cap for the first, and read nothing for the second',
+    actual: [unread.outcomes, unread.reads.length > 20, dropped.reads.length],
+    expected: [['line.cap:3900:round'], true, 0],
+  });
+  const clock = testClock();
+  const wait = createPeerLineWait({
+    claim: { scope, token: 'memory-only' },
+    readPeerLine: async () => true,
+    sleep: clock.sleep,
+    monotonicNowMs: clock.now,
+    observed: () => {
+      throw new Error('logger down');
+    },
+  });
+  assert({
+    given: 'a trace that throws',
+    should: 'still resolve the wait',
+    actual: await wait('peer', 1, new AbortController().signal).then(
+      () => 'resolved',
+      () => 'rejected',
+    ),
+    expected: 'resolved',
   });
 });

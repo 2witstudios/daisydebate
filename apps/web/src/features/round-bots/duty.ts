@@ -75,6 +75,8 @@ export type DutyEvent =
       readonly type: 'peer-spoke';
       readonly peer: string;
       readonly audible: boolean;
+      /** Whether the running turn has bought anything yet. */
+      readonly bought: boolean;
     }
   | {
       readonly type: 'peer-turn-ended';
@@ -145,9 +147,14 @@ function peerSpoke(
   switch (duty.status) {
     case 'speaking':
       // Talked over: the bot stops and waits for that peer's turn to end.
-      return event.audible
-        ? { state: { duty: WAITING, midTurn }, effects: ['cut', 'drop'] }
-        : { state: { duty, midTurn }, effects: [] };
+      if (event.audible)
+        return { state: { duty: WAITING, midTurn }, effects: ['cut', 'drop'] };
+      // The peer has more to say and nothing was bought for what they said
+      // so far: the turn stands down, and their turn ending owes the answer.
+      // A turn that has bought its answer keeps it and holds its audio.
+      return event.bought
+        ? { state: { duty, midTurn }, effects: [] }
+        : { state: { duty: WAITING, midTurn }, effects: ['restart'] };
     case 'waiting':
       // The peer replied (or spoke at all): the question is not unanswered.
       return {

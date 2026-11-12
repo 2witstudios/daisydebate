@@ -34,6 +34,8 @@ async function settlementOf(
     withProvider: (_signal, work) => work(),
     nowMs: () => 0,
     pause: async () => undefined,
+    timer: { setTimeout: () => null, clearTimeout: () => undefined },
+    stallMs: 1000,
     maxTokens: 100,
   });
   await generation

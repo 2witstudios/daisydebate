@@ -30,10 +30,11 @@ const turnEnded = (spokeUntilMs: number): DutyEvent => ({
   peer: 'p',
   spokeUntilMs,
 });
-const spoke = (audible: boolean): DutyEvent => ({
+const spoke = (audible: boolean, bought = true): DutyEvent => ({
   type: 'peer-spoke',
   peer: 'p',
   audible,
+  bought,
 });
 const failed: DutyEvent = { type: 'failed', unusable: false };
 const resumed: DutyEvent = { type: 'pause-ended' };
@@ -202,6 +203,20 @@ describe('a cross-examination', () => {
         },
         midTurn: ['p'],
         effects: ['drop', 'start'],
+      },
+    });
+  });
+  test('a peer who resumes before anything was bought stands the turn down', () => {
+    assert({
+      given:
+        'a peer starting to speak again while the turn still waits for their line',
+      should:
+        'stop the turn with nothing bought and wait for their turn to end',
+      actual: after(respondent, turnEnded(1), woke, spoke(false, false)),
+      expected: {
+        duty: { status: 'waiting', unanswered: false },
+        midTurn: ['p'],
+        effects: ['drop', 'start', 'restart'],
       },
     });
   });

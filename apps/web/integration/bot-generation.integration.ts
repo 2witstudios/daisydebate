@@ -25,6 +25,8 @@ test('actual generation caller refuses opponent speech without dispatch or trans
       withProvider: createProviderBudget(1),
       nowMs: () => Date.now(),
       pause: async () => undefined,
+      timer: { setTimeout: () => null, clearTimeout: () => undefined },
+      stallMs: 1000,
       maxTokens: 1000,
     });
     await assertRejects({

@@ -18,7 +18,7 @@ const WAIT_AT_MOST_MS = 4000;
  * seconds after its speaker stops, so an answer made at once would answer
  * the line before. Capture stays the one source of those words: this only
  * reads, at most for `WAIT_AT_MOST_MS`, and then lets the answer go ahead.
- * It never rejects: a read that fails is a wait that ended.
+ * It never rejects: a read that fails is asked again until the wait is over.
  */
 export function createPeerLineWait(input: {
   readonly claim: {
@@ -35,8 +35,8 @@ export function createPeerLineWait(input: {
   readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
   readonly monotonicNowMs: () => number;
   /**
-   * The hearing's trace: how each wait ended (`line`, `cap` or `unread`),
-   * how long it took, and the Round it was in.
+   * The hearing's trace: how each wait ended (`line` or `cap`), how long it
+   * took, and the Round it was in.
    */
   readonly observed: (
     operation: string,
@@ -52,11 +52,16 @@ export function createPeerLineWait(input: {
     const since = new Date(spokeUntilMs - SLACK_MS).toISOString();
     const startedAt = input.monotonicNowMs();
     const elapsed = () => Math.round(input.monotonicNowMs() - startedAt);
-    const waited = (outcome: 'line' | 'cap' | 'unread') =>
-      input.observed(`line.${outcome}`, {
-        durationMs: elapsed(),
-        roundId: scope.roundId,
-      });
+    const waited = (outcome: 'line' | 'cap') => {
+      try {
+        input.observed(`line.${outcome}`, {
+          durationMs: elapsed(),
+          roundId: scope.roundId,
+        });
+      } catch {
+        /* A trace is best effort: its fault never fails the turn. */
+      }
+    };
     // One deadline for the whole wait: a slow read never stretches it.
     const capped = input
       .sleep(WAIT_AT_MOST_MS, signal)
@@ -65,12 +70,8 @@ export function createPeerLineWait(input: {
     const read = () =>
       Promise.race([input.readPeerLine(scope, token, [peer], since), capped]);
     while (!signal.aborted) {
-      let landed: boolean | 'cap';
-      try {
-        landed = await read();
-      } catch {
-        return waited('unread');
-      }
+      // A read that fails (a full pool) is asked again at the next interval.
+      const landed = await read().catch(() => false as const);
       if (landed === true) return waited('line');
       if (landed === 'cap' || elapsed() + READ_EVERY_MS > WAIT_AT_MOST_MS)
         break;

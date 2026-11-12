@@ -9,6 +9,7 @@ import type {
 } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
+import type { OneShotTimer } from '../../lib/worker-timers';
 import type { ProviderCall } from '../../server/provider-budget';
 import type { Owed } from './duty';
 import { debaterPrompt } from './debater-prompt';
@@ -40,6 +41,10 @@ export function createBotGeneration(input: {
   readonly nowMs: () => number;
   /** Resolves after `ms`: the wait between two tries at recording usage. */
   readonly pause: (ms: number) => Promise<void>;
+  /** Stops a language stream that has gone quiet. */
+  readonly timer: OneShotTimer;
+  /** How long a language stream may go without a word before it is stopped. */
+  readonly stallMs: number;
   readonly maxTokens: number;
 }) {
   if (
@@ -48,6 +53,62 @@ export function createBotGeneration(input: {
     input.maxTokens > 16000
   )
     throw createAppError('VALIDATION');
+  /**
+   * One admitted provider call: the claim's authority and a durable request
+   * intent first, then the vendor, inside the provider budget. It never
+   * throws for the call itself: the outcome says whether the vendor certainly
+   * did not serve it (`failed`) or may have (`unknown`), and `finish` records
+   * whichever usage is then known.
+   */
+  const send = <P, R>(
+    scope: BotPublicationScope,
+    token: string,
+    request: Parameters<Producer['beginGeneration']>[2],
+    signal: AbortSignal,
+    step: {
+      /** Builds the provider request; a refusal here never reaches the vendor. */
+      readonly buildProviderInput: (context: Context) => P;
+      readonly call: (
+        voice: ReturnType<typeof input.voice>,
+        providerInput: P,
+      ) => Promise<R>;
+    },
+  ) =>
+    input.withProvider(signal, async () => {
+      requireActive(signal);
+      const voice = input.voice();
+      const context = await input.store.beginRoundBotGeneration(
+        scope,
+        token,
+        request,
+      );
+      const finish = (
+        outcome: 'received' | 'failed' | 'unknown',
+        usage: Usage,
+      ) =>
+        input.store.finishRoundBotGeneration(
+          scope,
+          context.execution,
+          outcome,
+          usage,
+        );
+      let sent = false;
+      try {
+        requireActive(signal);
+        const providerInput = step.buildProviderInput(context);
+        requireActive(signal);
+        sent = true;
+        const value = await step.call(voice, providerInput);
+        return { finish, answer: { ok: true as const, value } };
+      } catch (error) {
+        // Certainly unserved only when never sent, or refused by the vendor.
+        const outcome =
+          !sent || isDefiniteProviderFailure(error)
+            ? ('failed' as const)
+            : ('unknown' as const);
+        return { finish, answer: { ok: false as const, error, outcome } };
+      }
+    });
   const dispatch = <T, P>(
     scope: BotPublicationScope,
     token: string,
@@ -62,44 +123,20 @@ export function createBotGeneration(input: {
       ) => Promise<{ value: T; usage: Usage }>;
     },
   ) =>
-    input.withProvider(signal, async () => {
-      requireActive(signal);
-      const voice = input.voice();
-      const context = await input.store.beginRoundBotGeneration(
-        scope,
-        token,
-        request,
-      );
-      const finish = (
-        outcome: 'received' | 'failed' | 'unknown',
-        usage: Parameters<Store['finishRoundBotGeneration']>[3],
-      ) =>
-        input.store.finishRoundBotGeneration(
-          scope,
-          context.execution,
-          outcome,
-          usage,
-        );
-      let result: { value: T; usage: Usage };
-      let sent = false;
-      try {
-        requireActive(signal);
-        const providerInput = step.buildProviderInput(context);
-        requireActive(signal);
-        sent = true;
-        result = await step.call(voice, providerInput);
-      } catch (error) {
-        // Certainly unserved: settled failed with no usage, which gives the
-        // voice characters back. Anything else may have been served.
-        if (!sent || isDefiniteProviderFailure(error))
-          await finish('failed', NO_USAGE);
-        else
-          await finish('unknown', {
-            ...NO_USAGE,
-            characters: request.kind === 'tts' ? request.characters : 0,
-          });
-        throw error;
-      }
+    send(scope, token, request, signal, step).then(({ finish, answer }) => {
+      if (!answer.ok)
+        // Settled failed with no usage, which gives the voice characters
+        // back; an uncertain call keeps the characters it reserved.
+        return finish(answer.outcome, {
+          ...NO_USAGE,
+          characters:
+            answer.outcome === 'unknown' && request.kind === 'tts'
+              ? request.characters
+              : 0,
+        }).then(() => {
+          throw answer.error;
+        });
+      const result = answer.value;
       let finished = false;
       return {
         value: result.value,
@@ -135,8 +172,16 @@ export function createBotGeneration(input: {
     // The answer outlives the turn that opened it (a deferred turn resumes
     // it), so it has its own stop for when it is dropped instead.
     const abandoned = new AbortController();
+    // A stream is as long as its answer, so no bound on its whole length is
+    // right: it is stopped when nothing has arrived for `stallMs`.
+    const stalled = new AbortController();
+    let watch: unknown = null;
+    const stillWriting = () => {
+      input.timer.clearTimeout(watch);
+      watch = input.timer.setTimeout(() => stalled.abort(), input.stallMs);
+    };
     const turn = signal;
-    signal = AbortSignal.any([turn, abandoned.signal]);
+    signal = AbortSignal.any([turn, abandoned.signal, stalled.signal]);
     /** Settles once the answer was dispatched and its first text could arrive. */
     const opened = Promise.withResolvers<void>();
     let record: (() => Promise<void>) | null = null;
@@ -151,64 +196,47 @@ export function createBotGeneration(input: {
       });
       await recorded;
     };
-    const ended = input
-      .withProvider(signal, async () => {
-        requireActive(signal);
-        const voice = input.voice();
-        const context = await input.store.beginRoundBotGeneration(
-          scope,
-          token,
-          { kind: 'language' },
-        );
-        const finish = (
-          outcome: 'received' | 'failed' | 'unknown',
-          usage: Usage,
-        ) =>
-          input.store.finishRoundBotGeneration(
-            scope,
-            context.execution,
-            outcome,
-            usage,
-          );
-        let sent = false;
-        try {
-          requireActive(signal);
-          const request = {
-            model: context.model,
-            messages: debaterPrompt(context, scope, input.nowMs(), to),
-            maxTokens: input.maxTokens,
-            temperature: 0.6,
-            // Thinking comes before the first word: a speaker must start.
-            reasoning: 'none' as const,
-            signal,
-          };
-          requireActive(signal);
-          sent = true;
-          const answer = await voice.completeStreamed(request, (text) =>
-            producer.push(stream.push(text)),
-          );
+    const ended = send(scope, token, { kind: 'language' }, signal, {
+      buildProviderInput: (context) => ({
+        model: context.model,
+        messages: debaterPrompt(context, scope, input.nowMs(), to),
+        maxTokens: input.maxTokens,
+        temperature: 0.6,
+        // Thinking comes before the first word: a speaker must start.
+        reasoning: 'none' as const,
+        signal,
+      }),
+      call: (voice, request) => {
+        stillWriting();
+        return voice.completeStreamed(request, (text) => {
+          stillWriting();
+          producer.push(stream.push(text));
+        });
+      },
+    })
+      .then(({ finish, answer }) => {
+        if (answer.ok) {
+          const { promptTokens, completionTokens } = answer.value;
           producer.push(stream.end());
           record = () =>
             finish('received', {
-              inputTokens: answer.promptTokens,
-              outputTokens: answer.completionTokens,
+              inputTokens: promptTokens,
+              outputTokens: completionTokens,
               characters: 0,
             });
-          producer.end();
-        } catch (error) {
-          // Certainly unserved: settled failed with no usage. Anything else
-          // may have been served.
-          const outcome =
-            !sent || isDefiniteProviderFailure(error) ? 'failed' : 'unknown';
-          record = () => finish(outcome, NO_USAGE);
-          // The whole sentences already written are still said.
-          producer.push(stream.cut());
-          producer.cut(error);
+          return producer.end();
         }
+        record = () => finish(answer.outcome, NO_USAGE);
+        // The whole sentences already written are still said.
+        producer.push(stream.cut());
+        producer.cut(answer.error);
       })
       // Refused before dispatch (a full budget, a cancelled call): nothing was bought.
       .catch((error: unknown) => producer.cut(error))
-      .finally(() => opened.resolve());
+      .finally(() => {
+        input.timer.clearTimeout(watch);
+        opened.resolve();
+      });
     // Recorded as soon as the stream ends, while the speech still plays, and
     // asked again by itself while it is refused: a turn that is cut never
     // reaches its own `close`, and a paid call must not stay unsettled.

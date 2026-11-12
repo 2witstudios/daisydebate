@@ -22,6 +22,8 @@ const synthesizeOne = (
     withProvider: (_signal, work) => work(),
     nowMs: () => 0,
     pause: async () => undefined,
+    timer: { setTimeout: () => null, clearTimeout: () => undefined },
+    stallMs: 1000,
     maxTokens: 100,
   }).synthesize(
     scope,
@@ -77,6 +79,8 @@ function streamedGeneration(
   let refusals = options.refuseRecord ?? 0;
   const pauses: number[] = [];
   const signals: AbortSignal[] = [];
+  /** The stall watches now armed. */
+  const watches: { run: () => void; ms: number }[] = [];
   const finished: string[] = [];
   const requests: Record<string, unknown>[] = [];
   let hear: (text: string) => void = () => undefined;
@@ -142,6 +146,17 @@ function streamedGeneration(
     pause: async (ms) => {
       pauses.push(ms);
     },
+    timer: {
+      setTimeout: (run, ms) => {
+        watches.push({ run, ms });
+        return run;
+      },
+      clearTimeout: (handle) => {
+        const at = watches.findIndex((watch) => watch.run === handle);
+        if (at >= 0) watches.splice(at, 1);
+      },
+    },
+    stallMs: 9000,
     maxTokens: 100,
   });
   const generate = () =>
@@ -157,6 +172,7 @@ function streamedGeneration(
     requests,
     pauses,
     signals,
+    watches,
     settle,
     hear: (text: string) => hear(text),
     answer,
@@ -301,5 +317,32 @@ test('an abandoned answer stops its stream and still settles what it cost', asyn
       finished,
     ],
     expected: [false, true, true, null, ['unknown:0']],
+  });
+});
+
+test('a language stream is stopped when it goes quiet, not for being long', async () => {
+  const { generate, finished, watches, hear, settle } = streamedGeneration();
+  const opening = generate();
+  await settle();
+  hear('One. ');
+  const opened = await opening;
+  hear('Two. ');
+  assert({
+    given: 'a stream that keeps writing',
+    should: 'keep one stall watch armed, re-armed by each piece of text',
+    actual: watches.map((watch) => watch.ms),
+    expected: [9000],
+  });
+  watches[0]?.run();
+  for (let i = 0; i < 3; i++) await settle();
+  assert({
+    given: 'no text for the stall time',
+    should: 'stop the stream, keep its whole sentences and settle it unknown',
+    actual: [
+      opened.value.phrases.ended(),
+      opened.value.phrases.ready(1),
+      finished,
+    ],
+    expected: [true, 'Two.', ['unknown:0']],
   });
 });

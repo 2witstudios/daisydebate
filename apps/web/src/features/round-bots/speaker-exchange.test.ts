@@ -367,3 +367,35 @@ test('a claim that stops abandons the answer it was still holding', async () => 
     expected: ['abandoned'],
   });
 });
+
+test('a peer who goes on speaking before the answer is bought costs nothing', async () => {
+  const line = Promise.withResolvers<void>();
+  const calls: string[] = [];
+  const { speaker, settle } = harness('cross_ex', {
+    opensExchange: false,
+    heard: () => line.promise,
+    generate: answering(calls),
+    publish: async () => ({ complete: true, segmentEnded: false }),
+  });
+  speaker.peer(peerSaid('end-of-turn'));
+  speaker.wake();
+  await settle();
+  // Still waiting for their line: they were only pausing mid-question.
+  speaker.peer(peerSaid('speech-start'));
+  line.resolve();
+  await settle();
+  speaker.wake();
+  await settle();
+  const whileTheySpeak = [...calls];
+  speaker.peer(peerSaid('end-of-turn'));
+  speaker.wake();
+  await settle();
+  assert({
+    given:
+      'a person who pauses mid-question and resumes before the bot has bought an answer, then finishes',
+    should: 'buy nothing for the pause and one answer for the whole question',
+    actual: [whileTheySpeak, calls],
+    expected: [[], ['generate:peer-turn']],
+  });
+  await speaker.stop();
+});

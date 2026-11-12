@@ -77,6 +77,8 @@ export function createSpeakingBotControl(input: {
     withProvider: input.withProvider,
     nowMs: input.nowMs,
     pause: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    timer: input.oneShot,
+    stallMs: input.callTimeoutMs,
     maxTokens: MAX_TOKENS,
   });
   const publisher = createBotPublisher({
@@ -98,7 +100,9 @@ export function createSpeakingBotControl(input: {
     const speaker = createBotSpeaker({
       claim,
       generate: (scope, token, signal, to) =>
-        generation.generate(scope, token, bounded(signal), to),
+        // A streamed answer is bounded by its own stall watch, not by one
+        // deadline for its whole length.
+        generation.generate(scope, token, signal, to),
       // Only a cross-examination answer has a peer's words to wait for.
       heard: crossEx
         ? createPeerLineWait({

@@ -14,12 +14,8 @@ export { roundJudgeMessages } from './round-judge';
 export { parseRoundAnalysis, roundAnalysisMessages } from './round-analysis';
 export type { TranscriptEvidenceInput } from './transcript-evidence';
 export { roundDebaterMessages } from './round-debater';
-export {
-  createTurnTaking,
-  turnTakingSettings,
-  type TurnTakingEvent,
-} from './turn-taking';
+export { createTurnTaking, turnTakingSettings } from './turn-taking';
 
 export { judgeAnswer, type JudgedAnswer } from './judge';
 export { ballotWireSchema, judgeContractVersion } from './judge-contract';
-export { createPhraseStream, phrasesOf } from './speech';
+export { createPhraseStream } from './speech';

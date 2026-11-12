@@ -62,6 +62,8 @@ type Upcoming = {
 type Progress = {
   generated: Generated | null;
   settled: boolean;
+  /** A language answer was asked for: from here on the turn holds paid work. */
+  bought: boolean;
   /** The answer stopped short and that was reported, once. */
   cutReported: boolean;
   /** The phrase not yet produced whose arrival resumes the voicing ahead. */
@@ -89,6 +91,7 @@ type Progress = {
 const freshProgress = (): Progress => ({
   generated: null,
   settled: false,
+  bought: false,
   cutReported: false,
   awaiting: null,
   spoken: 0,
@@ -403,6 +406,7 @@ export function createBotSpeaker(input: {
           input.heard(to.peer, to.spokeUntilMs, signal),
           signal,
         );
+      progress.bought = true;
       progress.generated = await input.generate(scope, token, signal, to);
     }
     if (!progress.settled) {
@@ -627,6 +631,7 @@ export function createBotSpeaker(input: {
             type: 'peer-spoke',
             peer: activity.peer,
             audible: playing || input.audible(),
+            bought: progress.bought,
           });
         case 'end-of-turn':
           return apply({
