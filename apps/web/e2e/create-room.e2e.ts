@@ -105,26 +105,36 @@ test('native format, resolution and speech editing create a room without JavaScr
     await form
       .getByRole('button', { name: 'Create room', exact: true })
       .click();
+    // RCHAT-13: a ranked Create owes no capture notice, so it is the create
+    // itself. No season is open here, so it is refused and the draft is kept.
+    await expect(page).toHaveURL(/\/play\/room\?draft=/);
+    await expect(
+      form.getByText(
+        'Ranked rooms are unavailable right now. Turn Ranked off or try again later.',
+        { exact: true },
+      ),
+    ).toBeVisible();
     await expect(
       form.getByText('Recording is on for ranked matches.', { exact: true }),
     ).toBeVisible();
+    await expect(form.getByText(casualCaptureNotice.text)).toHaveCount(0);
+    await expect(form.locator('[name="noticeVersion"]')).toHaveCount(0);
+    // Back to casual with the recording choice kept: the next native render
+    // shows the casual notice before any create can claim it. Settings render
+    // only for Custom, so the native editor applies Custom first; the
+    // submission posts no settings and starts at the preset.
     await ranked.uncheck();
+    await form.locator('[name="format"][value="custom"]').check();
     await form
-      .getByRole('button', { name: 'Create room', exact: true })
+      .getByRole('button', { name: 'Apply format', exact: true })
       .click();
+    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
     await expect(
       form.getByRole('checkbox', { name: 'Record match', exact: true }),
     ).toBeChecked();
     await expect(
       form.getByText(casualCaptureNotice.text, { exact: true }),
     ).toBeVisible();
-    // Settings render only for Custom, so the native editor applies Custom
-    // first; the submission posts no settings and starts at the preset.
-    await form.locator('[name="format"][value="custom"]').check();
-    await form
-      .getByRole('button', { name: 'Apply format', exact: true })
-      .click();
-    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
     const prep = form.locator('[name="duration.inRound"]');
     await form.getByText('Preparation and timing', { exact: true }).click();
     await prep.fill('1:23');

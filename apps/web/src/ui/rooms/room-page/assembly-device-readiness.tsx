@@ -81,7 +81,9 @@ function GatheringLayout({
           // The thread scrolls inside this box: it takes the column's spare
           // height and never stretches the page by its own length.
           <div className="relative min-h-room-chat flex-1">
-            <div className="absolute inset-0 flex flex-col">{props.chat}</div>
+            <div className="absolute inset-0 flex flex-col overflow-hidden rounded-xl border border-border bg-surface">
+              {props.chat}
+            </div>
           </div>
         ) : null}
       </div>
