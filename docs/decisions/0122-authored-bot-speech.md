@@ -134,3 +134,51 @@ its delivery instead of fitting it into the human capture pipeline.
   false, so the transcript read contract keeps version 1.
 - Product intent "speak only through heard, captured audio" (DEC-226) now
   reads "speak with authored transcripts and guaranteed delivery".
+
+## Amendment (2026-11-12): a bot answer is a phrase stream
+
+Slice bot-voice-turns, owner-authorized. A bot took 10 to 20 s to start a
+speech, because the speaker waited for the whole answer before voicing its
+first phrase; and cross-examination was not a back-and-forth.
+
+1. **An answer is a phrase source.** The speaker consumes phrases in order
+   from a source (`round-bots/phrase-source.ts`), each available once it was
+   produced, then an end. It does not know when or how they were produced.
+   Today's producer is the provider's streamed answer, read through a phrase
+   stream that closes exactly the phrases `phrasesOf` gives for the finished
+   text, so the opening sentence is voiced as soon as it is written. Phrases
+   are voiced ahead only once they exist, and a short-opening hold (§6) ends
+   at a phrase not yet produced. Speeches ask for no model reasoning, which
+   would come before the first word.
+2. **Authority and settlement are unchanged in kind.** Every phrase is still
+   authorized ahead and revealed by its own transactions (§2). The answer's
+   usage is recorded once, when its stream ends, since the vendor reports it
+   only then.
+3. **One answer per speech, once a line is said.** A streamed answer is
+   spoken before its usage is recorded, so "one received answer per speech"
+   (DEC-210) no longer covers a worker lost mid-speech. The database
+   therefore also refuses a second language answer for a speech segment in
+   which the seat has authored any line (DEC-395).
+4. **An answer cut short ends at its last whole phrase.** A stream that
+   breaks after producing phrases leaves them standing: they are said, the
+   unfinished sentence is dropped, the failure is reported once, the call
+   settles `unknown` (or `failed` when certainly unserved), and nothing is
+   bought in its place. A stream that fails before its first phrase is a
+   failed call under the existing attempt rule.
+5. **Cross-examination answers the words in the transcript.** Capture stays
+   the one source of a person's words; the bot never transcribes what it
+   hears. Its hearing only times turns. An answer to a peer turn is made once
+   that peer's captured line reaching the instant they last spoke is in the
+   transcript, or after 4 s.
+
+Not built, on purpose, and each a later phrase source or optimization that
+needs no change to the speaker:
+
+- **Pre-generation** during the opponent's speech or prep. It would cost
+  responsiveness (a rebuttal must hear the opponent's last words) and needs
+  changed speaking-window and one-answer rules. It would be a second
+  producer of a phrase source.
+- **Streaming TTS.** It conflicts with §2: a phrase's length is known from
+  its samples before it is authorized.
+- **Keeping the publication across segment rotations.** The publication is
+  already joined ahead of generation; it would save no time to first audio.

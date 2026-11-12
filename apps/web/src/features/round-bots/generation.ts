@@ -1,6 +1,6 @@
 import {
+  createPhraseStream,
   isDefiniteProviderFailure,
-  phrasesOf,
   roundDebaterMessages,
   type OpenRouter,
 } from '@daisy/ai-voice';
@@ -11,6 +11,8 @@ import type {
 import { createAppError } from '@daisy/errors';
 import { idSchema, segmentDueAtMs } from '@daisy/protocol';
 import type { ProviderCall } from '../../server/provider-budget';
+import type { Owed } from './duty';
+import { createPhraseSource } from './phrase-source';
 
 type Producer = ReturnType<typeof createBotPublicationOperations>;
 type Context = Awaited<ReturnType<Producer['beginGeneration']>>;
@@ -32,6 +34,7 @@ function messagesFor(
   context: Context,
   scope: BotPublicationScope,
   nowMs: number,
+  to: Owed,
 ) {
   const { round, seat, profile } = context;
   const segment = round.segments.find((row) => row.id === scope.segmentId);
@@ -60,6 +63,7 @@ function messagesFor(
       side: rule.side,
       durationMs,
     },
+    unanswered: to.kind === 'unanswered',
     transcript: context.utterances.flatMap((line) => {
       const speaker = round.participants.find(
         (row) => row.id === line.roundParticipantId,
@@ -89,7 +93,7 @@ const NO_USAGE: Usage = { inputTokens: 0, outputTokens: 0, characters: 0 };
 /** Only memory phrases/PCM leave this operation; capture owns durable transcript evidence. */
 export function createBotGeneration(input: {
   readonly store: Store;
-  readonly voice: () => Pick<OpenRouter, 'complete' | 'speakPcm'>;
+  readonly voice: () => Pick<OpenRouter, 'completeStreamed' | 'speakPcm'>;
   readonly withProvider: ProviderCall;
   readonly nowMs: () => number;
   readonly maxTokens: number;
@@ -170,45 +174,126 @@ export function createBotGeneration(input: {
         },
       };
     });
-  return {
-    generate: (
-      scope: BotPublicationScope,
-      token: string,
-      signal: AbortSignal,
-    ) =>
-      dispatch(scope, token, { kind: 'language' }, signal, {
-        buildProviderInput: (context) => ({
-          model: context.model,
-          messages: messagesFor(context, scope, input.nowMs()),
-          maxTokens: input.maxTokens,
-          temperature: 0.6,
-          reasoning:
-            context.round.segments.find((row) => row.id === scope.segmentId)
-              ?.type === 'cross_ex'
-              ? ('none' as const)
-              : ('low' as const),
-          signal,
-        }),
-        call: async (voice, providerInput) => {
-          const answer = await voice.complete(providerInput);
-          return {
-            value: answer.text,
-            usage: {
+  /**
+   * Opens one language answer and streams it into a phrase source. The
+   * provider slot is held until the stream ends. Usage is recorded once, when
+   * it ends: received with the tokens the vendor reported, or failed or
+   * unknown as for any call, with what was already produced left standing.
+   */
+  const generate = async (
+    scope: BotPublicationScope,
+    token: string,
+    signal: AbortSignal,
+    to: Owed,
+  ) => {
+    const producer = createPhraseSource();
+    const stream = createPhraseStream();
+    /** Settles once the answer was dispatched and its first text could arrive. */
+    const opened = Promise.withResolvers<void>();
+    let record: (() => Promise<void>) | null = null;
+    let recorded: Promise<void> | null = null;
+    /** Records the usage once; a refused record is asked again, alone. */
+    const close = async () => {
+      await ended;
+      if (!record) return;
+      recorded ??= record().catch((error: unknown) => {
+        recorded = null;
+        throw error;
+      });
+      await recorded;
+    };
+    const ended = input
+      .withProvider(signal, async () => {
+        requireActive(signal);
+        const voice = input.voice();
+        const context = await input.store.beginRoundBotGeneration(
+          scope,
+          token,
+          { kind: 'language' },
+        );
+        const finish = (
+          outcome: 'received' | 'failed' | 'unknown',
+          usage: Usage,
+        ) =>
+          input.store.finishRoundBotGeneration(
+            scope,
+            context.execution,
+            outcome,
+            usage,
+          );
+        let sent = false;
+        try {
+          requireActive(signal);
+          const request = {
+            model: context.model,
+            messages: messagesFor(context, scope, input.nowMs(), to),
+            maxTokens: input.maxTokens,
+            temperature: 0.6,
+            // Thinking comes before the first word: a speaker must start.
+            reasoning: 'none' as const,
+            signal,
+          };
+          requireActive(signal);
+          sent = true;
+          const answer = await voice.completeStreamed(request, (text) =>
+            producer.push(stream.push(text)),
+          );
+          producer.push(stream.end());
+          record = () =>
+            finish('received', {
               inputTokens: answer.promptTokens,
               outputTokens: answer.completionTokens,
               characters: 0,
-            },
-          };
-        },
-      }).then(({ value: text, settle }) => ({
-        value: { text, phrases: phrasesOf(text) },
-        // An empty answer is still paid for: its usage settles before it fails the attempt.
-        settle: async () => {
-          await settle();
-          if (!text.trim())
-            throw createAppError('INFRASTRUCTURE', 'Empty bot phrase');
-        },
-      })),
+            });
+          producer.end();
+        } catch (error) {
+          // Certainly unserved: settled failed with no usage. Anything else
+          // may have been served.
+          const outcome =
+            !sent || isDefiniteProviderFailure(error) ? 'failed' : 'unknown';
+          record = () => finish(outcome, NO_USAGE);
+          // The whole sentences already written are still said.
+          producer.push(stream.cut());
+          producer.cut(error);
+        }
+      })
+      // Refused before dispatch (a full budget, a cancelled call): nothing was bought.
+      .catch((error: unknown) => producer.cut(error))
+      .finally(() => opened.resolve());
+    // Recorded as soon as the stream ends, while the speech still plays; a
+    // refusal here is left for `close`, which the speaker asks at its end.
+    void ended.then(close).catch(() => undefined);
+    void producer.source.at(0).then(() => opened.resolve());
+    await opened.promise;
+    const cut = producer.source.cutBy();
+    // An answer that failed before its first phrase is a failed call, as ever.
+    if (cut && producer.source.ready(0) === undefined) {
+      await close();
+      throw cut.error;
+    }
+    let verified = false;
+    return {
+      value: { phrases: producer.source },
+      /**
+       * Re-verifies authority before the first phrase. An answer that ended
+       * with nothing to say is still paid for: its usage settles before it
+       * fails the attempt.
+       */
+      settle: async () => {
+        if (producer.source.ended() && producer.source.ready(0) === undefined) {
+          await close();
+          throw createAppError('INFRASTRUCTURE', 'Empty bot phrase');
+        }
+        if (verified) return;
+        requireActive(signal);
+        await input.store.verifyRoundBotPublication(scope, token);
+        verified = true;
+      },
+      close,
+    };
+  };
+  return {
+    generate,
     synthesize: (
       scope: BotPublicationScope,
       token: string,

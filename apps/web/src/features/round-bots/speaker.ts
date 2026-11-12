@@ -2,6 +2,15 @@ import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { isCapacityRefusal } from '@daisy/db/capacity';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
 import { createAppError, isAppError } from '@daisy/errors';
+import type { OneShotTimer } from '../../lib/worker-timers';
+import {
+  initialSpeakerState,
+  nextSpeakerState,
+  type DutyEffect,
+  type DutyEvent,
+  type Owed,
+} from './duty';
+import type { PhraseSource } from './phrase-source';
 import type { BotSpeechJob, PhraseOutcome } from './publication';
 
 /** A provider answer held in memory until its usage and authority settle. */
@@ -9,6 +18,14 @@ type Answer<T> = {
   readonly value: T;
   /** Idempotent: safe to call again after a refusal. */
   readonly settle: () => Promise<void>;
+};
+/** One language answer: its phrases as they are produced, and its usage. */
+type Generated = Answer<{ readonly phrases: PhraseSource }> & {
+  /**
+   * Records the answer's usage once it has ended. Idempotent: safe to call
+   * again after a refusal, and it never asks the provider again.
+   */
+  readonly close: () => Promise<void>;
 };
 /**
  * How many phrases are voiced ahead of the one playing. One is not enough:
@@ -35,8 +52,12 @@ type Upcoming = {
 };
 /** How far one turn got; kept across deferrals so no step is bought twice. */
 type Progress = {
-  generated: Answer<{ readonly phrases: readonly string[] }> | null;
+  generated: Generated | null;
   settled: boolean;
+  /** The answer stopped short and that was reported, once. */
+  cutReported: boolean;
+  /** The phrase not yet produced whose arrival resumes the voicing ahead. */
+  awaiting: number | null;
   spoken: number;
   /** The phrase being spoken, and whether its usage and authority settled. */
   synthesized: Answer<BotSpeechJob> | null;
@@ -60,6 +81,8 @@ type Progress = {
 const freshProgress = (): Progress => ({
   generated: null,
   settled: false,
+  cutReported: false,
+  awaiting: null,
   spoken: 0,
   synthesized: null,
   ready: false,
@@ -71,18 +94,40 @@ const freshProgress = (): Progress => ({
 const STOPPED = 'Bot publication stopped before the phrase was sent';
 const isPlatformIncidentRefusal = (error: unknown) =>
   isAppError(error) && error.reason === 'platform-incident';
+/** After a refusal that can clear, the speaker wakes itself this soon... */
+const RETRY_FIRST_MS = 200;
+/** ...doubling while the refusal repeats, up to the control pulse's own pace. */
+const RETRY_MAX_MS = 3000;
+/** An asking seat presses its question after this much silence from its peers. */
+export const UNANSWERED_AFTER_MS = 8000;
+/** What the seat's hearing reports about one peer. */
 export type PeerActivity =
-  'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
+  | {
+      readonly kind: 'speech-start' | 'barge-in' | 'unknown';
+      readonly peer: string;
+    }
+  | {
+      readonly kind: 'end-of-turn';
+      readonly peer: string;
+      /** The server instant that peer last spoke. */
+      readonly spokeUntilMs: number;
+    };
 /**
- * One speaking turn at a time per owned claim. Each phrase is authored into
- * the transcript as it plays (ADR 0122), and the next phrase is voiced while
- * the current one plays, so there is no gap between them. A speech buys one
- * provider answer and keeps it through every failure until it is delivered,
- * so a retry resumes at the failed phrase and no answer is bought twice; a
- * phrase cut by a failure is said again whole, as a new line. Refused authority and
- * refused pool admission wait without spending an attempt; a final refusal
- * ends the speech. The speaker never issues floor commands or touches control
- * receipts.
+ * One speaking turn at a time per owned claim. What the seat owes is one
+ * value moved by pure transitions (`duty.ts`); this runs their effects.
+ *
+ * An answer is a phrase source: its phrases are voiced and played as they are
+ * produced, so a speech starts with its first sentence, not its last. Each
+ * phrase is authored into the transcript as it plays (ADR 0122), and the next
+ * phrases are voiced while the current one plays, so there is no gap between
+ * them. A speech buys one provider answer and keeps it through every failure
+ * until it is delivered, so a retry resumes at the failed phrase and no answer
+ * is bought twice; a phrase cut by a failure is said again whole, as a new
+ * line. An answer that stops short is spoken to its last whole phrase and
+ * ends there. Refused authority and refused pool admission wait without
+ * spending an attempt, and the speaker wakes itself again shortly; a final
+ * refusal ends the speech. The speaker never issues floor commands or touches
+ * control receipts.
  */
 export function createBotSpeaker(input: {
   readonly claim: {
@@ -92,13 +137,20 @@ export function createBotSpeaker(input: {
     /** The scheduled seat asks first; every other cross-examination seat waits. */
     readonly opensExchange: boolean;
   };
+  /** Opens the answer to `to`; resolves once its first phrase exists, or it ended. */
   readonly generate: (
     scope: BotPublicationScope,
     token: string,
     signal: AbortSignal,
-  ) => Promise<
-    Answer<{ readonly text: string; readonly phrases: readonly string[] }>
-  >;
+    to: Owed,
+  ) => Promise<Generated>;
+  /**
+   * Resolves once the peer's own words up to `spokeUntilMs` are in the
+   * transcript, or it has waited long enough; it never rejects.
+   */
+  readonly heard: (spokeUntilMs: number, signal: AbortSignal) => Promise<void>;
+  /** Wakes the speaker again after a refusal, and after an unanswered question. */
+  readonly timer: OneShotTimer;
   readonly synthesize: (
     scope: BotPublicationScope,
     token: string,
@@ -136,16 +188,22 @@ export function createBotSpeaker(input: {
 }) {
   const { scope, token, segmentType, opensExchange } = input.claim;
   const crossEx = segmentType === 'cross_ex';
+  const rules = {
+    crossEx,
+    asks: opensExchange,
+    maxAttempts: input.maxAttempts,
+  };
+  let state = initialSpeakerState(rules);
   let running: { abort: AbortController; done: Promise<void> } | null = null,
     playing = false,
-    stopped = false,
-    /** The speech is over: delivered, or refused for good. */
-    finished = false,
-    attempts = 0,
-    /** The asker opens once; every seat then answers each ended peer turn once. */
-    owed = !crossEx || opensExchange,
-    /** A new peer turn makes a held cross-examination answer stale. */
-    stale = false;
+    stopped = false;
+  /** Between a refusal and the wake that follows it, nothing starts. */
+  let pausing = false,
+    pauseTimer: unknown = null,
+    pauseMs = RETRY_FIRST_MS,
+    replyTimer: unknown = null;
+  /** Turns held back while a peer is mid-turn. */
+  let held: (() => void)[] = [];
   let stage = 'generate';
   let progress = freshProgress();
   /** Plays one phrase under its line id, a new one once its line closed. */
@@ -169,7 +227,8 @@ export function createBotSpeaker(input: {
   };
   /** Voices phrase `index` ahead of its turn, holding the answer once bought. */
   const prefetch = (
-    phrases: readonly string[],
+    phrases: PhraseSource,
+    text: string,
     index: number,
     signal: AbortSignal,
   ): Upcoming => {
@@ -188,7 +247,7 @@ export function createBotSpeaker(input: {
           scope,
           token,
           input.nextId(),
-          phrases[index]!,
+          text,
           AbortSignal.any([signal, voicing]),
         );
       } catch (error) {
@@ -249,18 +308,44 @@ export function createBotSpeaker(input: {
       signal.removeEventListener('abort', stop);
     }
   };
-  /** Keeps the phrases after the one now due voiced ahead, each once. */
-  const voiceAhead = (phrases: readonly string[], signal: AbortSignal) => {
+  /**
+   * Keeps the phrases after the one now due voiced ahead, each once, as far
+   * as the answer has been produced; the next one resumes it as it arrives.
+   */
+  const voiceAhead = (phrases: PhraseSource, signal: AbortSignal) => {
     // A voice-ahead that bought nothing is asked again now, a phrase early,
     // never left to be bought only when its own turn comes.
     progress.ahead = progress.ahead.filter((held) => !held.failed);
-    const last = Math.min(phrases.length - 1, progress.spoken + VOICED_AHEAD);
-    for (let index = progress.spoken + 1; index <= last; index += 1)
-      if (!progress.ahead.some((held) => held.index === index))
-        progress.ahead.push(prefetch(phrases, index, signal));
+    const last = progress.spoken + VOICED_AHEAD;
+    for (let index = progress.spoken + 1; index <= last; index += 1) {
+      if (progress.ahead.some((held) => held.index === index)) continue;
+      const text = phrases.ready(index);
+      if (text === undefined) return voiceWhenProduced(phrases, index, signal);
+      progress.ahead.push(prefetch(phrases, text, index, signal));
+    }
+  };
+  /** Resumes the voicing ahead once phrase `index` exists, asked once. */
+  const voiceWhenProduced = (
+    phrases: PhraseSource,
+    index: number,
+    signal: AbortSignal,
+  ) => {
+    if (phrases.ended() || progress.awaiting === index) return;
+    const current = progress;
+    current.awaiting = index;
+    void phrases.at(index).then((text) => {
+      if (progress !== current || current.awaiting !== index) return;
+      current.awaiting = null;
+      if (text !== null && !signal.aborted && !current.voicing.signal.aborted)
+        voiceAhead(phrases, signal);
+    });
   };
   /** The phrase now due: the voiced-ahead one, or bought now. */
-  const take = async (phrases: readonly string[], signal: AbortSignal) => {
+  const take = async (
+    phrases: PhraseSource,
+    text: string,
+    signal: AbortSignal,
+  ) => {
     const upcoming = progress.ahead.find(
       (held) => held.index === progress.spoken,
     );
@@ -276,13 +361,7 @@ export function createBotSpeaker(input: {
         return { answer: upcoming.answer, ready: upcoming.settled };
       }
     }
-    const buying = input.synthesize(
-      scope,
-      token,
-      input.nextId(),
-      phrases[progress.spoken]!,
-      signal,
-    );
+    const buying = input.synthesize(scope, token, input.nextId(), text, signal);
     // Later phrases are voiced alongside this one, so even a short phrase
     // never leaves the next waiting for its voice.
     voiceAhead(phrases, signal);
@@ -291,10 +370,43 @@ export function createBotSpeaker(input: {
     voiceAhead(phrases, signal);
     return { answer, ready: false };
   };
+  /** Rejects once `signal` aborts; resolves with `work` otherwise. */
+  const unlessStopped = async <T>(work: Promise<T>, signal: AbortSignal) => {
+    const stop = Promise.withResolvers<never>();
+    const abort = () => stop.reject(createAppError('CONFLICT', STOPPED));
+    if (signal.aborted) abort();
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      return await Promise.race([work, stop.promise]);
+    } finally {
+      signal.removeEventListener('abort', abort);
+      stop.promise.catch(() => undefined);
+    }
+  };
+  /**
+   * A turn never starts its audio over a peer who is mid-turn: it keeps what
+   * it prepared and waits. That peer's turn ending owes a newer answer, which
+   * replaces this one.
+   */
+  const floorClear = async (signal: AbortSignal) => {
+    while (state.midTurn.length > 0)
+      await unlessStopped(
+        new Promise<void>((resolve) => held.push(resolve)),
+        signal,
+      );
+    // The turn that ended may be the one that replaced this answer.
+    if (signal.aborted) throw createAppError('CONFLICT', STOPPED);
+  };
   /** Resumes the turn at its first unfinished step. */
-  const deliver = async (signal: AbortSignal) => {
+  const deliver = async (signal: AbortSignal, to: Owed) => {
     stage = 'generate';
-    progress.generated ??= await input.generate(scope, token, signal);
+    if (!progress.generated) {
+      // The peer's words reach the transcript after their turn ends: the
+      // answer is made from them, never from the line before.
+      if (to.kind === 'peer-turn')
+        await unlessStopped(input.heard(to.spokeUntilMs, signal), signal);
+      progress.generated = await input.generate(scope, token, signal, to);
+    }
     if (!progress.settled) {
       await progress.generated.settle();
       progress.settled = true;
@@ -303,10 +415,15 @@ export function createBotSpeaker(input: {
     stage = 'publish';
     // Once per speech, off the audio path: no phrase plays past the cutoff.
     const stopAtMs = await input.deadline();
-    while (progress.spoken < phrases.length) {
+    let started = false;
+    for (;;) {
+      const text =
+        phrases.ready(progress.spoken) ??
+        (await unlessStopped(phrases.at(progress.spoken), signal));
+      if (text === null) break;
       stage = 'synthesize';
       if (!progress.synthesized) {
-        const next = await take(phrases, signal);
+        const next = await take(phrases, text, signal);
         progress.synthesized = next.answer;
         progress.ready = next.ready;
       }
@@ -315,6 +432,8 @@ export function createBotSpeaker(input: {
         progress.ready = true;
       }
       if (progress.spoken === 0) await holdShortOpening(signal);
+      if (!started && crossEx) await floorClear(signal);
+      started = true;
       stage = 'publish';
       const speaking = speak(progress.synthesized.value, signal, stopAtMs);
       // The next phrase, if already voiced, has its line written as this plays.
@@ -338,8 +457,19 @@ export function createBotSpeaker(input: {
       progress.synthesized = null;
       progress.ready = false;
       progress.lineId = null;
+      // Something was said: a later refusal starts its pauses short again.
+      pauseMs = RETRY_FIRST_MS;
     }
     dropAhead();
+    // An answer that stopped short was spoken to its last whole phrase; it
+    // ends there, and nothing is bought in its place.
+    const cut = phrases.cutBy();
+    if (cut && !progress.cutReported) {
+      progress.cutReported = true;
+      input.failed(cut.error, 'generate');
+    }
+    stage = 'generate';
+    await progress.generated.close();
   };
   /**
    * A phrase that failed may have cut the queued tail of the one before it,
@@ -380,94 +510,151 @@ export function createBotSpeaker(input: {
     dropAhead();
     progress = freshProgress();
   };
-  /** A failed attempt keeps a usable answer for the next one. */
-  const spendAttempt = (error: unknown) => {
-    // An answer with nothing to say is unusable: the next attempt buys another.
-    if (progress.generated?.value.phrases.length === 0) resetProgress();
-    attempts += 1;
-    if (crossEx) owed = attempts < input.maxAttempts;
-    // The last attempt is spent: nothing more is bought for this speech.
-    if (attempts >= input.maxAttempts) dropAhead();
-    input.failed(error, stage);
+  /** Wakes the speaker by itself after a pause that doubles while refusals repeat. */
+  const retrySoon = () => {
+    if (stopped || pausing) return;
+    pausing = true;
+    const wait = pauseMs;
+    pauseMs = Math.min(pauseMs * 2, RETRY_MAX_MS);
+    pauseTimer = input.timer.setTimeout(() => {
+      pausing = false;
+      pauseTimer = null;
+      wake();
+    }, wait);
   };
-  /** Settles one failed turn by the rule above; never rethrows. */
-  const recover = (error: unknown, aborted: boolean) => {
-    if (aborted) return void resetProgress();
-    // A spent voice budget or an answered segment cannot clear: stop.
-    if (isFinalBotSpeechRefusal(error)) {
-      finished = true;
-      return dropAhead();
+  const stopAwaitingReply = () => {
+    if (replyTimer !== null) input.timer.clearTimeout(replyTimer);
+    replyTimer = null;
+  };
+  /** Counts the silence after the asking seat's question. */
+  const awaitReply = () => {
+    stopAwaitingReply();
+    replyTimer = input.timer.setTimeout(() => {
+      replyTimer = null;
+      apply({ type: 'silence-elapsed' });
+      wake();
+    }, UNANSWERED_AFTER_MS);
+  };
+  const cancel = () => running?.abort.abort();
+  const effect = (kind: DutyEffect) => {
+    switch (kind) {
+      case 'start':
+        return start();
+      case 'cut': {
+        // A phrase being written stops itself, counting only what played; a
+        // tail left after its publish returned is silenced here.
+        const writing = playing;
+        cancel();
+        if (!writing) input.silence();
+        return;
+      }
+      case 'restart':
+        return cancel();
+      case 'drop':
+        // A running turn drops its own goods as it ends; they are still in use.
+        return running ? undefined : resetProgress();
+      case 'silence':
+        return input.silence();
+      case 'retry-soon':
+        return retrySoon();
+      case 'await-reply':
+        return awaitReply();
     }
+  };
+  const apply = (event: DutyEvent) => {
+    const next = nextSpeakerState(state, event, rules);
+    state = next.state;
+    if (state.duty.status !== 'waiting' || !state.duty.unanswered)
+      stopAwaitingReply();
+    if (state.midTurn.length === 0) {
+      const waiting = held;
+      held = [];
+      for (const release of waiting) release();
+    }
+    for (const kind of next.effects) effect(kind);
+  };
+  /** How one failed turn moves the duty; a refusal that can clear spends nothing. */
+  const recover = (error: unknown) => {
+    // A spent voice budget or an answered segment cannot clear: stop.
+    if (isFinalBotSpeechRefusal(error))
+      return apply({ type: 'refused-for-good' });
     // Pool backpressure is a deferral: the next wake resumes at the refused step.
     if (isCapacityRefusal(error)) {
-      if (crossEx) owed = true;
-      return input.failed(error, stage);
+      input.failed(error, stage);
+      return apply({ type: 'deferred', authorityChanged: false });
     }
     // A platform incident is a wait: the same answer resumes where it stopped,
     // in cross-examination too, with nothing new bought and no attempt spent.
-    if (isPlatformIncidentRefusal(error)) {
-      if (crossEx) owed = true;
-      return;
-    }
+    if (isPlatformIncidentRefusal(error))
+      return apply({ type: 'deferred', authorityChanged: false });
     // One paid answer per speech: every other failure keeps it, and the
     // next attempt resumes at the failed step. A cross-examination answer
     // belongs to its peer turn, so changed authority drops it.
-    if (isAppError(error) && error.code === 'CONFLICT') {
-      if (crossEx) {
-        owed = true;
-        resetProgress();
-      }
-      return;
-    }
-    spendAttempt(error);
+    if (isAppError(error) && error.code === 'CONFLICT')
+      return apply({ type: 'deferred', authorityChanged: true });
+    // An answer with nothing to say is unusable: the next attempt buys another.
+    const unusable =
+      progress.generated !== null &&
+      progress.generated.value.phrases.ended() &&
+      progress.generated.value.phrases.ready(0) === undefined;
+    input.failed(error, stage);
+    apply({ type: 'failed', unusable });
   };
-  const turn = async (abort: AbortController) => {
+  const turn = async (abort: AbortController, to: Owed) => {
+    let failure: { readonly error: unknown } | null = null;
     try {
-      await deliver(abort.signal);
-      resetProgress();
-      if (!crossEx) finished = true;
+      await deliver(abort.signal, to);
     } catch (error) {
-      recover(error, abort.signal.aborted);
-    } finally {
-      running = null;
+      failure = { error };
     }
+    running = null;
+    // A turn cut or replaced was already settled by what stopped it.
+    if (abort.signal.aborted) return resetProgress();
+    if (failure) recover(failure.error);
+    else apply({ type: 'delivered' });
+    // The last attempt is spent, or the speech is over: nothing more is bought.
+    if (state.duty.status === 'over' || state.duty.status === 'waiting')
+      dropAhead();
   };
-  const cancel = () => running?.abort.abort();
+  const start = () => {
+    if (state.duty.status !== 'speaking') return;
+    const abort = new AbortController();
+    running = { abort, done: Promise.resolve() };
+    running.done = turn(abort, state.duty.to);
+  };
+  const wake = () => {
+    if (stopped || running || pausing) return;
+    apply({ type: 'woke' });
+  };
   return {
-    wake() {
-      if (stopped || running || finished || attempts >= input.maxAttempts)
-        return;
-      if (crossEx && !owed) return;
-      owed = false;
-      if (stale) {
-        stale = false;
-        resetProgress();
+    wake,
+    peer(activity: PeerActivity) {
+      switch (activity.kind) {
+        // No fresh audio says nothing about the peer: nothing changes.
+        case 'unknown':
+          return;
+        case 'speech-start':
+        case 'barge-in':
+          return apply({
+            type: 'peer-spoke',
+            peer: activity.peer,
+            audible: playing || input.audible(),
+          });
+        case 'end-of-turn':
+          return apply({
+            type: 'peer-turn-ended',
+            peer: activity.peer,
+            spokeUntilMs: activity.spokeUntilMs,
+          });
       }
-      const abort = new AbortController();
-      running = { abort, done: Promise.resolve() };
-      running.done = turn(abort);
-    },
-    peer(kind: PeerActivity) {
-      if (!crossEx) return;
-      if (kind === 'end-of-turn') {
-        owed = true;
-        stale = true;
-        return;
-      }
-      // A tail still queued is the bot speaking too: a peer cuts it at once.
-      if (kind === 'speech-start' && !playing && !running && !input.audible())
-        return;
-      // A phrase being written stops itself, counting only what played; a
-      // tail left after its publish returned is silenced here.
-      const writing = playing;
-      cancel();
-      if (!writing) input.silence();
     },
     playing: () => playing || input.audible(),
     async stop() {
       stopped = true;
       const current = running;
-      cancel();
+      if (pauseTimer !== null) input.timer.clearTimeout(pauseTimer);
+      pauseTimer = null;
+      apply({ type: 'stopped' });
       await current?.done;
       dropAhead();
     },

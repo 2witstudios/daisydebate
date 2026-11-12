@@ -1,4 +1,5 @@
-import { createBotSpeaker } from './speaker';
+import { phraseSourceOf, type PhraseSource } from './phrase-source';
+import { createBotSpeaker, type PeerActivity } from './speaker';
 
 export const scope = {
   roundId: 'round',
@@ -13,6 +14,64 @@ export const answered = <T>(value: T) => ({
   value,
   settle: async (): Promise<void> => undefined,
 });
+type SpeakerInput = Parameters<typeof createBotSpeaker>[0];
+type Generated = Awaited<ReturnType<SpeakerInput['generate']>>;
+/** A language answer as a test writes it: a finished phrase list, or a source. */
+type TestAnswer = {
+  readonly value: { readonly phrases: readonly string[] | PhraseSource };
+  readonly settle: () => Promise<void>;
+  readonly close?: () => Promise<void>;
+};
+/** The speaker's view of a test's answer: a finished list becomes its phrase source. */
+export const generated = (answer: TestAnswer): Generated => ({
+  value: {
+    phrases: Array.isArray(answer.value.phrases)
+      ? phraseSourceOf(answer.value.phrases as readonly string[])
+      : (answer.value.phrases as PhraseSource),
+  },
+  settle: answer.settle,
+  close: answer.close ?? (async () => undefined),
+});
+/** What the hearing reports of the one peer; each ended turn is a later instant. */
+let spokeUntilMs = 0;
+export const peerSaid = (
+  kind: PeerActivity['kind'],
+  peer = 'peer',
+): PeerActivity =>
+  kind === 'end-of-turn'
+    ? { kind, peer, spokeUntilMs: (spokeUntilMs += 1000) }
+    : { kind, peer };
+/**
+ * One-shot timers for a speaker under test. The short pause after a refusal
+ * ends when the test next wakes the speaker (`resume`), as the next pulse
+ * would find it; the wait for a reply to a question ends only when the test
+ * lets it elapse.
+ */
+export function testTimer() {
+  const pauses: (() => void)[] = [];
+  const replies: (() => void)[] = [];
+  const run = (pending: (() => void)[]) => {
+    for (const due of pending.splice(0)) due();
+  };
+  return {
+    timer: {
+      setTimeout: (due: () => void, ms: number) => {
+        (ms <= 3000 ? pauses : replies).push(due);
+        return due;
+      },
+      clearTimeout: (handle: unknown) => {
+        for (const pending of [pauses, replies]) {
+          const at = pending.indexOf(handle as () => void);
+          if (at >= 0) pending.splice(at, 1);
+        }
+      },
+    },
+    /** The pause after a refusal is over. */
+    resume: () => run(pauses),
+    /** The question has met silence for long enough. */
+    elapse: () => run(replies),
+  };
+}
 export const job = (phraseId: string, text: string, samples = 240) => ({
   scope,
   token: 'memory-only',
@@ -22,15 +81,15 @@ export const job = (phraseId: string, text: string, samples = 240) => ({
   sampleRate: 24000 as const,
   channels: 1 as const,
 });
-type SpeakerInput = Parameters<typeof createBotSpeaker>[0];
 /** A speaker over in-memory stubs; publication waits on `release` unless overridden. */
 export function harness(
   segmentType: 'speech' | 'cross_ex',
   options: {
     readonly opensExchange?: boolean;
-    readonly generate?: () => Promise<
-      ReturnType<typeof answered<{ text: string; phrases: string[] }>>
-    >;
+    readonly generate?: (
+      to: Parameters<SpeakerInput['generate']>[3],
+    ) => Promise<TestAnswer>;
+    readonly heard?: SpeakerInput['heard'];
     readonly synthesize?: (
       phraseId: string,
       text: string,
@@ -49,6 +108,7 @@ export function harness(
   const failures: unknown[] = [];
   let ids = 0;
   const gates: ReturnType<typeof Promise.withResolvers<void>>[] = [];
+  const timers = testTimer();
   const speaker = createBotSpeaker({
     claim: {
       scope,
@@ -56,12 +116,15 @@ export function harness(
       segmentType,
       opensExchange: options.opensExchange ?? true,
     },
-    generate:
-      options.generate ??
-      (async () => {
-        log.push('generate');
-        return answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] });
-      }),
+    generate: async (_scope, _token, _signal, to) =>
+      generated(
+        options.generate
+          ? await options.generate(to)
+          : (log.push('generate'),
+            answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] })),
+      ),
+    heard: options.heard ?? (async () => undefined),
+    timer: timers.timer,
     synthesize: async (_scope, _token, phraseId, text, signal) => {
       log.push(`tts:${text}`);
       return options.synthesize
@@ -109,12 +172,20 @@ export function harness(
     await settle();
   };
   return {
-    speaker,
+    // A test's wake is the pulse after any pause: the pause is over by then.
+    speaker: {
+      ...speaker,
+      wake: () => {
+        timers.resume();
+        speaker.wake();
+      },
+    },
     log,
     release,
     settle,
     failures: () => failures.length,
     prepared,
     stages: () => failures,
+    elapse: timers.elapse,
   };
 }

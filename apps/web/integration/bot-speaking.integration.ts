@@ -37,16 +37,22 @@ function loopbackProvider(mode: 'valid' | 'provider-error') {
         return new Response(new Uint8Array(2400), {
           headers: { 'content-type': 'audio/pcm;rate=24000;channels=1' },
         });
-      return Response.json({
-        choices: [
-          {
-            message: {
-              content: 'My first point stands. My second point follows it.',
-            },
-          },
-        ],
-        usage: { prompt_tokens: 13, completion_tokens: 9 },
-      });
+      // The answer streams, as the speaker asks for it: its text in pieces,
+      // then the usage, then the end marker.
+      const event = (value: unknown) => `data: ${JSON.stringify(value)}\n\n`;
+      return new Response(
+        [
+          ...['My first point stands. ', 'My second point ', 'follows it.'].map(
+            (content) => event({ choices: [{ delta: { content } }] }),
+          ),
+          event({
+            choices: [],
+            usage: { prompt_tokens: 13, completion_tokens: 9 },
+          }),
+          'data: [DONE]\n\n',
+        ].join(''),
+        { headers: { 'content-type': 'text/event-stream' } },
+      );
     },
   });
   const voice = createOpenRouter({
@@ -91,6 +97,12 @@ for (const mode of ['valid', 'provider-error'] as const)
         },
         hearingFailed: () => {
           failures++;
+        },
+        hearingObserved: () => undefined,
+        oneShot: {
+          setTimeout: (run, ms) => setTimeout(run, ms),
+          clearTimeout: (handle) =>
+            clearTimeout(handle as ReturnType<typeof setTimeout>),
         },
       });
       const receipts = createBotControl({

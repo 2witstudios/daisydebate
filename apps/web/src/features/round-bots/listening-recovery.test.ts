@@ -236,3 +236,36 @@ test('a calibrated listener re-reads PostgreSQL time once a second, however slow
     expected: 3,
   });
 });
+
+test('the hearing leaves a trace of what it heard, discarded and was refused', async () => {
+  const refused = session({
+    refuse: () => createAppError('AUTHORIZATION', 'Bot claim changed'),
+  });
+  refused.listening.start();
+  await refused.listening.poll();
+  await Promise.resolve();
+  const { s } = await timedReads(150);
+  const heard = session();
+  heard.listening.start();
+  await heard.joined();
+  await heard.listening.poll();
+  heard.speak(['peer-identity']);
+  assert({
+    given:
+      'a refused join, a calibration read with a 150 ms round trip, and a peer starting to speak',
+    should:
+      'trace each once by name, with the error code or the round trip and nothing else',
+    actual: [refused.observed, s.observed, heard.observed],
+    expected: [
+      ['join.refused AUTHORIZATION'],
+      ['calibration.discarded 150'],
+      ['activity.speech-start'],
+    ],
+  });
+  assert({
+    given: 'one refused join',
+    should: 'still report nothing as a failure before the refusal persists',
+    actual: refused.failures,
+    expected: [],
+  });
+});

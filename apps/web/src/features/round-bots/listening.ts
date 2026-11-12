@@ -1,5 +1,5 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { isRefusal } from '@daisy/errors';
+import { errorCodeOf, isRefusal } from '@daisy/errors';
 import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import { createBotAudioActivity } from './activity';
@@ -75,16 +75,36 @@ export function createBotListening(
     readonly monotonicNowMs: () => number;
     /** An unexpected join failure; routine admission refusals go unreported. */
     readonly failed: (error: unknown) => void;
+    /**
+     * A trace of what the hearing did: each activity event by kind, each
+     * discarded calibration with its round trip, each refused join with its
+     * code. Names and numbers only: never audio, text or an identity.
+     */
+    readonly observed: (
+      operation: string,
+      fields?: { readonly durationMs?: number; readonly errorCode?: string },
+    ) => void;
   } & Pick<Observer, 'playing' | 'onEvent'>,
 ) {
   const { scope } = input.claim;
+  /** The trace's own fault never stops the hearing. */
+  const observed: typeof input.observed = (operation, fields) => {
+    try {
+      input.observed(operation, fields);
+    } catch {
+      /* A trace is best effort. */
+    }
+  };
   const observer = createBotAudioActivity({
     roundId: scope.roundId,
     participantId: scope.roundParticipantId,
     peerParticipantIds: input.claim.peerParticipantIds,
     staleAfterMs: STALE_AFTER_MS,
     playing: input.playing,
-    onEvent: input.onEvent,
+    onEvent: (event) => {
+      observed(`activity.${event.kind}`);
+      input.onEvent(event);
+    },
   });
   const peers = new Set(input.claim.peerParticipantIds);
   const seats = new Map<string, string>();
@@ -211,6 +231,10 @@ export function createBotListening(
         // join on every poll, nor into an unhandled rejection.
         scheduleRejoin();
         // Only refusals in a row count: an unexpected failure breaks the run.
+        if (isRefusal(error))
+          observed('join.refused', {
+            errorCode: errorCodeOf(error, 'INTERNAL'),
+          });
         if (!isRefusal(error)) refusals = 0;
         else if (++refusals % REPORT_REFUSALS_EVERY !== 0) return;
         try {
@@ -233,7 +257,10 @@ export function createBotListening(
     const server = Date.parse(await input.databaseNow());
     const receivedAtMs = input.monotonicNowMs();
     // A slow read keeps the previous calibration; the next period retries.
-    if (receivedAtMs - sentAtMs > MAX_CALIBRATION_RTT_MS) return;
+    if (receivedAtMs - sentAtMs > MAX_CALIBRATION_RTT_MS)
+      return observed('calibration.discarded', {
+        durationMs: Math.round(receivedAtMs - sentAtMs),
+      });
     calibration = {
       sentAtMs,
       receivedAtMs,

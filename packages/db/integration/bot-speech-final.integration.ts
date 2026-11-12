@@ -53,3 +53,37 @@ test('a bot speech seat buys one received answer per segment, and a spent voice 
     });
   });
 });
+
+test('a speech that has said a line is never bought again, even with no answer recorded', async () => {
+  await withGeneration(async ({ fixture, target, operations }) => {
+    const claim = await operations.claimWorker(target);
+    // A streamed answer is spoken before its usage is known: the worker was
+    // lost with one line said and its call still recorded as unknown.
+    const before = await refusal(() =>
+      operations.beginGeneration(claim.scope, claim.token, {
+        kind: 'language',
+      }),
+    );
+    await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete,bot_phrase_id,bot_duration_ms)
+      values(${'u'.repeat(24)},${target.roundId},${target.segmentId},${target.roundParticipantId},0,'My first point stands.',true,${'p'.repeat(24)},2000)`;
+    const second = await refusal(() =>
+      operations.beginGeneration(claim.scope, claim.token, {
+        kind: 'language',
+      }),
+    );
+    const voice = await refusal(() =>
+      operations.beginGeneration(claim.scope, claim.token, {
+        kind: 'tts',
+        characters: 2,
+      }),
+    );
+    assert({
+      given:
+        'a speech segment in which the seat authored a line while its one answer is still recorded unknown',
+      should:
+        'refuse a second language answer as final and still voice the phrases of the first',
+      actual: { before, second, voice },
+      expected: { before: 'allowed', second: 'final', voice: 'allowed' },
+    });
+  });
+});

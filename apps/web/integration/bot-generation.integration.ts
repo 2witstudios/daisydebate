@@ -34,6 +34,7 @@ test('actual generation caller refuses opponent speech without dispatch or trans
           claim.scope,
           claim.token,
           AbortSignal.timeout(5000),
+          { kind: 'opening' },
         ),
       code: 'CONFLICT',
     });

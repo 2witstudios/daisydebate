@@ -73,13 +73,7 @@ describe('createTurnTaking', () => {
     assert({
       given: 'speech with syllable dips while the bot plays',
       should: 'report one barge-in within 300 ms',
-      actual: run(
-        machine,
-        1000,
-        1600,
-        (at) => syllables(0.1)(at - 1000),
-        true,
-      ),
+      actual: run(machine, 1000, 1600, (at) => syllables(0.1)(at - 1000), true),
       expected: ['barge-in@1200'],
     });
     assert({

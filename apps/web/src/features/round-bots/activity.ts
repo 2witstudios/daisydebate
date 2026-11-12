@@ -1,4 +1,4 @@
-import { createTurnTaking, defaultTurnTakingSettings } from '@daisy/ai-voice';
+import { createTurnTaking, turnTakingSettings } from '@daisy/ai-voice';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 
@@ -15,13 +15,27 @@ export type BotAudioActivityFrame = {
   /** Fresh PG receipt supplied by the authenticated internal relay, never its public body. */
   readonly receivedAt: string;
 };
+/** The last frame heard from a peer: what the next one must follow. */
 type PeerState = {
   trackId: string;
   sequence: number;
   afterMs: number;
   oldestServerMs: number;
-  turns: ReturnType<typeof createTurnTaking>;
 };
+/**
+ * The bot's voice can come back through a peer's microphone a moment after
+ * it stops playing: for this long after, only a barge-in level counts as
+ * that peer speaking.
+ */
+const ECHO_TAIL_MS = 400;
+/** What the hearing reports about one peer; instants are server milliseconds. */
+export type BotAudioActivityEvent = {
+  readonly roundParticipantId: string;
+} & (
+  | { readonly kind: 'speech-start' | 'barge-in' | 'unknown' }
+  /** `spokeUntilMs` is when that peer last spoke. */
+  | { readonly kind: 'end-of-turn'; readonly spokeUntilMs: number }
+);
 function freshFrame(frame: BotAudioActivityFrame, staleAfterMs: number) {
   const oldest = Date.parse(frame.serverWindow.before),
     latest = Date.parse(frame.serverWindow.after),
@@ -45,12 +59,9 @@ function rms(pcm: Int16Array) {
   for (const sample of pcm) sum += (sample / 32768) ** 2;
   return Math.sqrt(sum / pcm.length);
 }
-function follows(
-  previous: PeerState | undefined,
-  frame: BotAudioActivityFrame,
-): previous is PeerState {
+function follows(previous: PeerState, frame: BotAudioActivityFrame) {
   return (
-    previous?.trackId === frame.trackId &&
+    previous.trackId === frame.trackId &&
     frame.sequence === previous.sequence + 1 &&
     frame.beforeMs >= previous.afterMs
   );
@@ -66,17 +77,22 @@ function duplicate(
     Date.parse(frame.serverWindow.before) === previous.oldestServerMs
   );
 }
-/** Ephemeral heuristic only. Its events may cancel a phrase, never alter attendance/floor/credit or the control lease. */
+/**
+ * Ephemeral heuristic only. Its events move the bot's own turn-taking, never
+ * attendance, floor, credit or the control lease.
+ *
+ * Each peer has one turn machine for the whole claim, timed on the frames'
+ * server windows. A stale, gapped or missing frame makes that peer unheard:
+ * reported once as `unknown`, and fed to the machine as unheard, which keeps
+ * a turn in progress and ends it only after a full pause.
+ */
 export function createBotAudioActivity(input: {
   readonly roundId: string;
   readonly participantId: string;
   readonly peerParticipantIds: readonly string[];
   readonly staleAfterMs: number;
   readonly playing: () => boolean;
-  readonly onEvent: (event: {
-    readonly kind: 'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
-    readonly roundParticipantId: string;
-  }) => void;
+  readonly onEvent: (event: BotAudioActivityEvent) => void;
 }) {
   const peers = new Set(input.peerParticipantIds);
   if (
@@ -89,40 +105,59 @@ export function createBotAudioActivity(input: {
     )
   )
     throw createAppError('VALIDATION');
-  const states = new Map<string, PeerState>();
+  const heard = new Map<string, PeerState>();
+  const turns = new Map(
+    [...peers].map((peer) => [peer, createTurnTaking(turnTakingSettings)]),
+  );
+  /** The server instant the bot was last playing, as the frames saw it. */
+  let playedAt = -Infinity;
+  const botPlaying = (at: number) => {
+    if (input.playing()) playedAt = at;
+    return at - playedAt < ECHO_TAIL_MS;
+  };
+  const feed = (participantId: string, at: number, level: number | null) => {
+    const event = turns
+      .get(participantId)
+      ?.feed({ at, level, aiPlaying: botPlaying(at) });
+    if (!event) return;
+    input.onEvent(
+      event.kind === 'end-of-turn'
+        ? {
+            kind: event.kind,
+            roundParticipantId: participantId,
+            spokeUntilMs: event.spokeUntil,
+          }
+        : { kind: event.kind, roundParticipantId: participantId },
+    );
+  };
+  /** A peer heard until now is unheard: said once, until it is heard again. */
   const unknown = (participantId: string) => {
-    states.delete(participantId);
-    input.onEvent({ kind: 'unknown', roundParticipantId: participantId });
+    if (heard.delete(participantId))
+      input.onEvent({ kind: 'unknown', roundParticipantId: participantId });
   };
   const observeKnownPeer = (frame: BotAudioActivityFrame) => {
     if (!freshFrame(frame, input.staleAfterMs)) {
       unknown(frame.roundParticipantId);
       return;
     }
-    const previous = states.get(frame.roundParticipantId);
+    const previous = heard.get(frame.roundParticipantId);
     if (duplicate(previous, frame)) return;
-    const continuous = follows(previous, frame);
-    if (previous && !continuous) unknown(frame.roundParticipantId);
-    const state = continuous
-      ? previous
-      : {
-          trackId: frame.trackId,
-          turns: createTurnTaking(defaultTurnTakingSettings),
-          sequence: frame.sequence,
-          afterMs: frame.afterMs,
-          oldestServerMs: Date.parse(frame.serverWindow.before),
-        };
-    state.sequence = frame.sequence;
-    state.afterMs = frame.afterMs;
-    state.oldestServerMs = Date.parse(frame.serverWindow.before);
-    states.set(frame.roundParticipantId, state);
-    const kind = state.turns.feed({
-      at: frame.afterMs,
-      level: rms(frame.pcm),
-      aiPlaying: input.playing(),
+    if (previous && !follows(previous, frame))
+      input.onEvent({
+        kind: 'unknown',
+        roundParticipantId: frame.roundParticipantId,
+      });
+    heard.set(frame.roundParticipantId, {
+      trackId: frame.trackId,
+      sequence: frame.sequence,
+      afterMs: frame.afterMs,
+      oldestServerMs: Date.parse(frame.serverWindow.before),
     });
-    if (kind)
-      input.onEvent({ kind, roundParticipantId: frame.roundParticipantId });
+    feed(
+      frame.roundParticipantId,
+      Date.parse(frame.serverWindow.after),
+      rms(frame.pcm),
+    );
   };
   return {
     observe: (frame: BotAudioActivityFrame) => {
@@ -142,20 +177,24 @@ export function createBotAudioActivity(input: {
         !peers.has(scope.roundParticipantId)
       )
         return;
-      const state = states.get(scope.roundParticipantId);
-      if (!state || state.trackId === scope.trackId)
-        unknown(scope.roundParticipantId);
+      const state = heard.get(scope.roundParticipantId);
+      if (state?.trackId === scope.trackId) unknown(scope.roundParticipantId);
     },
     /** Actual PG time or a conservatively calibrated server bound; never local monotonic ingress time. */
     expire: (serverNow: string) => {
       const at = Date.parse(serverNow);
       if (!Number.isFinite(at)) throw createAppError('VALIDATION');
-      for (const [participantId, state] of states)
+      for (const participantId of peers) {
+        const state = heard.get(participantId);
         if (
-          at < state.oldestServerMs ||
-          at - state.oldestServerMs > input.staleAfterMs
+          state &&
+          (at < state.oldestServerMs ||
+            at - state.oldestServerMs > input.staleAfterMs)
         )
           unknown(participantId);
+        // No fresh audio: a turn in progress is kept, and ends after a full pause.
+        if (!heard.has(participantId)) feed(participantId, at, null);
+      }
     },
   };
 }

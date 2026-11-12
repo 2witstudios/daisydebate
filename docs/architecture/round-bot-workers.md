@@ -190,8 +190,8 @@ raw exception enters the batch, logs or exports. Native callback brackets,
 calibrated server bounds and the authentic PostgreSQL receipt remain unchanged.
 The authenticated media lease and actual non-judge seat binding precede relay
 admission; Redis conveys no publication or competitive authority. Missing,
-gapped, stale or unavailable activity becomes unknown and cancels only the
-active phrase. It cannot stop control receipts or adjudicate absence, floor,
+gapped, stale or unavailable activity becomes unknown, which cancels
+nothing. It cannot stop control receipts or adjudicate absence, floor,
 transcript credit or outcomes. Cross-peer Redis and actual cancellation proof
 remain required before this transport is accepted.
 
@@ -200,12 +200,20 @@ remain required before this transport is accepted.
 When media is configured, each owned control claim also gets one speaker
 (`round-bots/speaking.ts`). The control pulse wakes the speaker but never awaits
 it, so receipts continue through model, voice or media failure. One turn runs
-at a time per claim. A turn generates text, reads its segment's due time once
-(calibrated against the database clock, off the audio path), then voices and
-plays its phrases in order. The next two phrases are voiced while the
-current one plays, so sentences follow each other with no gap even when a
-long phrase follows a short one; each is bought and settled once and kept
-across retries, so nothing is bought twice ([ADR 0122](../decisions/0122-authored-bot-speech.md)).
+at a time per claim. A turn opens one language answer as a **phrase source**
+(`round-bots/phrase-source.ts`): the provider's answer is streamed, and each
+phrase is available to the speaker as soon as its sentences are written
+([ADR 0122](../decisions/0122-authored-bot-speech.md), amendment of
+2026-11-12). The turn reads its segment's due time once (calibrated against
+the database clock, off the audio path), then voices and plays the phrases in
+order as they are produced, so a speech starts with its first sentence. The
+next two phrases that exist are voiced while the current one plays, so
+sentences follow each other with no gap even when a long phrase follows a
+short one; each is bought and settled once and kept across retries, so
+nothing is bought twice. The answer's usage is recorded once, when its stream
+ends. An answer that stops short is spoken to its last whole phrase and ends
+there; nothing is bought in its place, and the database refuses a second
+answer for a speech segment in which the seat has already said a line.
 
 Each phrase is authorized before any of its audio (`beginRoundBotPhrase`):
 for every phrase after the first, while the phrase before it still plays,
@@ -232,22 +240,38 @@ open to the words that could have played.
 
 Each claim joins one native publication when its seat starts, ahead of
 generation and synthesis, and every attempt reuses it (DEC-225). A refused
-phrase start or a lost floor (`CONFLICT`) waits for the next wake and consumes
-no attempt; a changed vendor room rejoins the session's fresh room. Other
+phrase start, a lost floor (`CONFLICT`), a full pool or provider budget and a
+platform incident consume no attempt: the speaker wakes itself again after
+200 ms, doubling to 3 s while the refusal repeats, and starts nothing in
+between. A changed vendor room rejoins the session's fresh room. Other
 failures (a provider call, a connect or a native handoff) count toward a
-bound of two attempts per claim and log `round.speaking.failed`; a phrase cut
-by one is said again whole, as a new line. A speech claim delivers its speech
-once. Bots issue no floor commands; the runtime clock opens and closes
-segments.
+bound of two attempts and log `round.speaking.failed`; a phrase cut by one is
+said again whole, as a new line. A speech claim delivers its speech once.
+Bots issue no floor commands; the runtime clock opens and closes segments.
 
-In cross-examination the scheduled seat opens the exchange once, and every
-other seat stays silent until a question ends. After that each answers once per
-ended peer turn, and repeated end-of-turn reports for the same
-turn start nothing. It reads its peers' activity from the seat's own hearing
-(below), polled every 50 ms in memory; audio older than 250 ms, an unbound
-peer, a closed track and a dropped connection read as unknown. A barge-in or
-unknown aborts only the active turn. A changed, invalid or shut-down claim
-stops its speaker before the lease is revoked or abandoned.
+What a seat owes is one value, its **duty** (`round-bots/duty.ts`): waiting,
+an owed turn, a turn being spoken, or over. Pure transitions move it and
+name the effects the speaker runs. In cross-examination:
+
+- The scheduled seat opens the exchange once. Every other seat waits until a
+  peer's turn ends, and then each ended peer turn is owed one answer. A newer
+  peer turn replaces one still being prepared. Attempts are counted per owed
+  turn, so errors in one turn never mute a later one.
+- An answer to a peer turn is generated only once that peer's captured line
+  reaching the instant they last spoke is in the transcript
+  (`round-bots/peer-line.ts`, reading `readRoundBotPeerLine` every 150 ms), or
+  after 4 s. Capture is the one source of those words; the opening question
+  waits for nothing.
+- The bot never starts its audio over a peer who is mid-turn: it keeps what
+  it prepared and waits for that turn to end. Once audible, a peer who talks
+  over it (a barge-in) stops it within about 300 ms, and it waits for their
+  turn to end. Unheard audio (`unknown`) changes nothing.
+- The asking seat presses a question that met about 8 s of silence, once per
+  question (DEC-397); a respondent never does.
+
+It reads its peers' activity from the seat's own hearing (below), polled
+every 50 ms in memory. A changed, invalid or shut-down claim stops its
+speaker before the lease is revoked or abandoned.
 
 The claim returns its segment type and the other non-judge seats. These are
 activity peers only and grant no authority over those seats.
@@ -291,5 +315,15 @@ refusal nor a full capture fleet deafens a bot Round.
   PostgreSQL time once a second. A read whose round trip exceeds 100 ms is
   discarded: retried within 200 ms until a first calibration lands, then
   the next second. It feeds the bot's turn-taking (`round-bots/activity.ts`)
-  in memory. Stale, missing or dropped audio is unknown, never silence.
+  in memory: one turn machine per peer for the whole claim, timed on the
+  frames' server windows, comparing levels held through syllable dips
+  (`@daisy/ai-voice` `turnTakingSettings`). Stale, missing or dropped audio
+  is unheard, never silence: it is reported once as `unknown`, keeps a turn
+  in progress, and ends that turn only after the full end-of-turn pause
+  (DEC-396). For 400 ms after the bot stops playing, only a barge-in level
+  counts as a peer speaking, so the bot's own voice coming back is no turn.
+- **Trace.** Each activity event (by kind), each discarded calibration (its
+  round trip), each refused join (its error code) and each peer-line wait
+  (its outcome and length) logs `round.hearing.observed` with an operation
+  name and those numbers only: no audio, text or identity.
 - **No storage.** PCM stays in that process's memory, frame by frame.

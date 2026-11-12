@@ -88,6 +88,8 @@ export function roundWorkerEntrypoints(input: {
       configured(workers).endBotPhrase(...args),
     revealRoundBotPhrase: (...args: Parameters<Workers['revealBotPhrase']>) =>
       configured(workers).revealBotPhrase(...args),
+    readRoundBotPeerLine: (...args: Parameters<Workers['readPeerLine']>) =>
+      configured(workers).readPeerLine(...args),
     watchRoundBotFloor: (...args: Parameters<Workers['watchBotFloor']>) =>
       configured(workers).watchBotFloor(...args),
   };

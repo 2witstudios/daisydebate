@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { refuseFinalSpeech } from '@daisy/db/testing';
-import { answered, harness } from './speaker.test-support';
+import { answered, harness, peerSaid } from './speaker.test-support';
 setupRitewayBun();
 
 /** A language answer whose settlement fails once with `error`, then settles. */
@@ -96,7 +96,7 @@ test('a cross-examination answer kept after a failure is dropped once the peer t
   });
   speaker.wake();
   await settle();
-  speaker.peer('end-of-turn');
+  speaker.peer(peerSaid('end-of-turn'));
   speaker.wake();
   await settle();
   assert({

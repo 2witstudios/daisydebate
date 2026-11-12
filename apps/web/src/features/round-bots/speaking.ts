@@ -6,10 +6,11 @@ import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import type { ProviderCall } from '../../server/provider-budget';
 import { createBotGeneration } from './generation';
 import { createBotListening } from './listening';
+import { createPeerLineWait } from './peer-line';
 import { createBotPublisher } from './publication';
 import { createBotSeat } from './seat';
 import { createBotSpeaker } from './speaker';
-import type { WorkerTimers } from '../../lib/worker-timers';
+import type { OneShotTimer, WorkerTimers } from '../../lib/worker-timers';
 
 /** Resolves at a `performance.now()` instant, or at once when `signal` aborts. */
 const waitUntilMonotonic = (due: number, signal: AbortSignal) =>
@@ -38,9 +39,10 @@ export function createSpeakingBotControl(input: {
     | 'endRoundBotPhrase'
     | 'revealRoundBotPhrase'
     | 'watchRoundBotFloor'
+    | 'readRoundBotPeerLine'
     | 'databaseNow'
   >;
-  readonly voice: () => Pick<OpenRouter, 'complete' | 'speakPcm'>;
+  readonly voice: () => Pick<OpenRouter, 'completeStreamed' | 'speakPcm'>;
   readonly withProvider: ProviderCall;
   readonly botToken: (
     scope: BotPublicationScope,
@@ -54,12 +56,18 @@ export function createSpeakingBotControl(input: {
   readonly listenToken: Parameters<typeof createBotListening>[0]['listenToken'];
   readonly readPeers: Parameters<typeof createBotListening>[0]['readPeers'];
   readonly timers: WorkerTimers;
+  /** Wakes a speaker again after a refusal, and after an unanswered question. */
+  readonly oneShot: OneShotTimer;
   readonly nextId: () => string;
   readonly nowMs: () => number;
   readonly callTimeoutMs: number;
   readonly failed: (error: unknown, stage: string) => void;
   /** The seat's own hearing's unexpected join failures (ISSUE-764). */
   readonly hearingFailed: (error: unknown) => void;
+  /** The hearing's trace: operation names, durations and error codes only. */
+  readonly hearingObserved: Parameters<
+    typeof createBotListening
+  >[0]['observed'];
 }) {
   const generation = createBotGeneration({
     store: input.store,
@@ -83,10 +91,24 @@ export function createSpeakingBotControl(input: {
     receipts: { readonly pulse: () => Promise<unknown> },
   ) => {
     const publication = publisher(claim);
+    const crossEx = claim.segmentType === 'cross_ex';
     const speaker = createBotSpeaker({
       claim,
-      generate: (scope, token, signal) =>
-        generation.generate(scope, token, bounded(signal)),
+      generate: (scope, token, signal, to) =>
+        generation.generate(scope, token, bounded(signal), to),
+      // Only a cross-examination answer has a peer's words to wait for.
+      heard: crossEx
+        ? createPeerLineWait({
+            claim,
+            readPeerLine: input.store.readRoundBotPeerLine,
+            sleep: (ms, signal) =>
+              waitUntilMonotonic(performance.now() + ms, signal),
+            monotonicNowMs: () => performance.now(),
+            waited: (outcome, durationMs) =>
+              input.hearingObserved(`line.${outcome}`, { durationMs }),
+          })
+        : async () => undefined,
+      timer: input.oneShot,
       synthesize: (scope, token, phraseId, text, signal) =>
         generation.synthesize(scope, token, phraseId, text, bounded(signal)),
       deadline: publication.deadline,
@@ -101,20 +123,29 @@ export function createSpeakingBotControl(input: {
       maxAttempts: MAX_ATTEMPTS,
       failed: input.failed,
     });
-    const feed =
-      claim.segmentType === 'cross_ex'
-        ? createBotListening({
-            claim,
-            listenToken: input.listenToken,
-            readPeers: input.readPeers,
-            subscribe: createAudioSubscription,
-            databaseNow: input.store.databaseNow,
-            monotonicNowMs: () => performance.now(),
-            playing: speaker.playing,
-            onEvent: ({ kind }) => speaker.peer(kind),
-            failed: input.hearingFailed,
-          })
-        : null;
+    const feed = crossEx
+      ? createBotListening({
+          claim,
+          listenToken: input.listenToken,
+          readPeers: input.readPeers,
+          subscribe: createAudioSubscription,
+          databaseNow: input.store.databaseNow,
+          monotonicNowMs: () => performance.now(),
+          playing: speaker.playing,
+          onEvent: (event) =>
+            speaker.peer(
+              event.kind === 'end-of-turn'
+                ? {
+                    kind: event.kind,
+                    peer: event.roundParticipantId,
+                    spokeUntilMs: event.spokeUntilMs,
+                  }
+                : { kind: event.kind, peer: event.roundParticipantId },
+            ),
+          failed: input.hearingFailed,
+          observed: input.hearingObserved,
+        })
+      : null;
     return createBotSeat({
       control: receipts,
       speaker,
