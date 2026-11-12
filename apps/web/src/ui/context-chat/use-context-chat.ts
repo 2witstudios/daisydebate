@@ -35,6 +35,22 @@ export type ContextChatProps = {
     form: FormData,
   ) => Promise<ContextChatFormState>;
 };
+/** How an empty chat that may yet be opened by someone else is asked about again. */
+export type OpeningCheck = {
+  readonly everyMs: number;
+  /** Runs `work` every `ms` until the returned stop is called. */
+  readonly every: (work: () => void, ms: number) => () => void;
+  /** Whether the reader can see the page now; a hidden page asks nothing. */
+  readonly visible: () => boolean;
+};
+const pageOpeningCheck: OpeningCheck = {
+  everyMs: 15_000,
+  every: (work, ms) => {
+    const timer = setInterval(work, ms);
+    return () => clearInterval(timer);
+  },
+  visible: () => document.visibilityState === 'visible',
+};
 const NO_AUTHORS: readonly { actorId: string; label: string }[] = [];
 const DEFAULT_MESSAGE_UNITS = 4000;
 
@@ -43,11 +59,13 @@ export function useContextChat({
   context,
   active = true,
   onUnread,
+  openingCheck = pageOpeningCheck,
   ...props
 }: ContextChatProps & {
   readonly context: ChatContext;
   readonly active?: boolean;
   readonly onUnread?: ((count: number) => void) | undefined;
+  readonly openingCheck?: OpeningCheck | undefined;
 }) {
   const [driver] = useState(() =>
     createContextChatDriver(context, props.ownerId),
@@ -90,6 +108,17 @@ export function useContextChat({
   useEffect(() => {
     if (active && state.kind === 'idle') enter();
   }, [active, state.kind, enter]);
+  // A reader who may not open the chat (a judge) still sees it once someone
+  // else does: while it is empty and the page is in view, ask again now and
+  // then. A found chat, a refusal or leaving the page ends the asking.
+  const awaitingOpening =
+    active && state.kind === 'empty' && context.awaitsOpening;
+  useEffect(() => {
+    if (!awaitingOpening) return;
+    return openingCheck.every(() => {
+      if (openingCheck.visible()) send({ type: 'opening-check-requested' });
+    }, openingCheck.everyMs);
+  }, [awaitingOpening, openingCheck, send]);
   const held = chat?.hidden ?? null;
   useEffect(() => {
     // A chat entered again starts shown, whatever the live channel still says.

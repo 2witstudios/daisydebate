@@ -177,6 +177,16 @@ export const everyState = (): readonly Built[] => [
       channel: null,
     });
   }),
+  build('empty, checking', (chat) => {
+    chat.send({ type: 'enter-requested', mayOpen: false });
+    chat.send({
+      type: 'discovered',
+      request: chat.requestOf('discover'),
+      channel: null,
+    });
+    chat.send({ type: 'opening-check-requested' });
+    return { entry: chat.requestOf('discover') };
+  }),
   build('unavailable', (chat) => {
     chat.send({ type: 'enter-requested', mayOpen: true });
     chat.send({
@@ -278,6 +288,7 @@ export const everyEvent = (
     'entry-refused failed',
     { type: 'entry-refused', request: inFlight.entry, denied: false },
   ],
+  ['opening-check-requested', { type: 'opening-check-requested' }],
   ['refresh-requested', { type: 'refresh-requested' }],
   ['older-requested', { type: 'older-requested', before: 5 }],
   [
@@ -350,6 +361,11 @@ const standingShape = (standing: ContextChatStanding): string => {
       ].join(', ');
     }
     case 'empty':
+      return [
+        'empty',
+        ...(standing.checking === null ? [] : ['checking']),
+        ...(standing.kept ? ['forms kept'] : []),
+      ].join(', ');
     case 'unavailable':
     case 'denied':
       return standing.kept ? `${standing.kind}, forms kept` : standing.kind;

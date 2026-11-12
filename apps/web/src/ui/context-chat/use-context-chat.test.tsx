@@ -411,3 +411,148 @@ test('a chat hidden with its thread shown reads it afresh when shown again', asy
     await chat.unmount();
   }
 });
+
+/** A reader who may not open the chat, with the test holding the check's timer and the page's visibility. */
+const mountReader = async () => {
+  const world = {
+    discovery: () => Response.json({ version: 1, roundId, channel: null }),
+    visible: true,
+    discoveries: 0,
+    timers: [] as { readonly ms: number; readonly work: () => void }[],
+    stopped: 0,
+  };
+  const client = await mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./use-context-chat.test-support', import.meta.dir),
+    {
+      fetch: (url: string) => {
+        if (url.includes('/messages')) return Promise.resolve(page(true));
+        world.discoveries += 1;
+        return Promise.resolve(world.discovery());
+      },
+      Response,
+      Headers,
+      URL,
+      TextEncoder,
+      TextDecoder,
+    },
+  );
+  const act = (work: () => unknown) =>
+    client.act(async () => {
+      work();
+      for (let turn = 0; turn < 5; turn += 1)
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  await act(() =>
+    client.root.render(
+      client.createElement(client.ContextChatProbe, {
+        ownerId: roundId,
+        actorId: 'a'.repeat(24),
+        socketUrl: null,
+        requestId: 'q'.repeat(24),
+        readOnlyHint: true,
+        sendAction: refuse,
+        mutateAction: refuse,
+        reportAction: refuse,
+        hold: () => undefined,
+        openingCheck: {
+          everyMs: 15_000,
+          every: (work, ms) => {
+            const timer = { ms, work };
+            world.timers.push(timer);
+            return () => {
+              world.stopped += 1;
+              world.timers = world.timers.filter((other) => other !== timer);
+            };
+          },
+          visible: () => world.visible,
+        },
+      }),
+    ),
+  );
+  await act(() => undefined);
+  return {
+    world,
+    act,
+    /** The interval elapses once. */
+    tick: () => act(() => world.timers.forEach((timer) => timer.work())),
+    state: () =>
+      (
+        JSON.parse(client.container.querySelector('output')!.textContent!) as {
+          state: string;
+        }
+      ).state,
+    unmount: () => client.act(async () => client.root.unmount()),
+  };
+};
+
+test('a reader who may not open the chat sees it once someone else opens it', async () => {
+  const chat = await mountReader();
+  try {
+    const atFirst = {
+      state: chat.state(),
+      timers: chat.world.timers.map((timer) => timer.ms),
+      discoveries: chat.world.discoveries,
+    };
+    chat.world.visible = false;
+    await chat.tick();
+    const whileHidden = chat.world.discoveries;
+    chat.world.visible = true;
+    await chat.tick();
+    const stillEmpty = [chat.state(), chat.world.discoveries];
+    chat.world.discovery = () => new Response(null, { status: 500 });
+    await chat.tick();
+    const afterFailure = [chat.state(), chat.world.timers.length];
+    chat.world.discovery = () =>
+      Response.json({ version: 1, roundId, channel: metadata(true) });
+    await chat.tick();
+    assert({
+      given:
+        'an empty chat its reader may not open, with the page hidden, then in view with no chat yet, a failed check and a check that finds the chat',
+      should:
+        'ask every 15 seconds only while in view, stay empty through none and a failure, then show the found chat and stop asking',
+      actual: {
+        atFirst,
+        whileHidden,
+        stillEmpty,
+        afterFailure,
+        found: chat.state(),
+        timers: chat.world.timers.length,
+        discoveries: chat.world.discoveries,
+      },
+      expected: {
+        atFirst: { state: 'empty', timers: [15_000], discoveries: 1 },
+        whileHidden: 1,
+        stillEmpty: ['empty', 2],
+        afterFailure: ['empty', 1],
+        found: 'ready',
+        timers: 0,
+        discoveries: 4,
+      },
+    });
+  } finally {
+    await chat.unmount();
+  }
+});
+
+test('the check for a chat opened by someone else ends when access is refused or the page leaves', async () => {
+  const refused = await mountReader();
+  const left = await mountReader();
+  try {
+    refused.world.discovery = () => new Response(null, { status: 404 });
+    await refused.tick();
+    const armed = left.world.timers.length;
+    await left.unmount();
+    assert({
+      given:
+        'an empty chat whose check is answered not found, and another whose page unmounts',
+      should: 'end denied with no timer left, and stop the timer on unmount',
+      actual: {
+        refused: [refused.state(), refused.world.timers.length],
+        left: [armed, left.world.timers.length],
+      },
+      expected: { refused: ['denied', 0], left: [1, 0] },
+    });
+  } finally {
+    await refused.unmount();
+  }
+});

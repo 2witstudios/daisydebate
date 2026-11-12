@@ -41,7 +41,9 @@ judge. A host control over visitor posting is not built. The explicit open POST
 creates the channel once; server render and `GET` discovery never create one.
 The page of a member who may post sends that POST on entering an open Room that
 has no chat yet, as the floor does; a judge's page never does, and a judge's
-open is refused. Room commands hold the Room row
+open is refused. While a judge's thread has no chat yet and the page is in
+view, it repeats the `GET` discovery about every 15 seconds and shows the chat
+once someone else has opened it; a 403 or 404 ends the asking. Room commands hold the Room row
 exclusively, so Start and close serialize with every chat write.
 
 Room chat ends when its Room starts or closes: reads, posts and observation are

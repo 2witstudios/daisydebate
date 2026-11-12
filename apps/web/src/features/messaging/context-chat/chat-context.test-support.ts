@@ -4,5 +4,6 @@ import type { ChatContext } from './chat-context';
 export const testChatContext: ChatContext = {
   ownerKey: 'roundId',
   address: (ownerId) => `/api/rounds/${ownerId}/floor`,
+  awaitsOpening: true,
   name: 'Round chat',
 };

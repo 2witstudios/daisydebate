@@ -534,9 +534,83 @@ test('a reader who may not open a chat finds it empty', () => {
       unasked: unasked.effects.length === 0 && unasked.state === early.state(),
     },
     expected: {
-      empty: { kind: 'empty', kept: null },
+      empty: { kind: 'empty', kept: null, checking: null },
       opening: [{ type: 'open', request }],
       unasked: true,
+    },
+  });
+});
+
+test('an empty chat checks whether someone else has opened it', () => {
+  const emptied = () => {
+    const chat = contextChatDriver();
+    chat.send({ type: 'enter-requested', mayOpen: false });
+    chat.send({
+      type: 'discovered',
+      request: chat.requestOf('discover'),
+      channel: null,
+    });
+    return chat;
+  };
+  const check = (chat: ReturnType<typeof contextChatDriver>) => {
+    chat.send({ type: 'opening-check-requested' });
+    return chat.requestOf('discover');
+  };
+  const twice = emptied();
+  const first = check(twice);
+  const checkingState = twice.state();
+  const again = twice.send({ type: 'opening-check-requested' });
+  const none = emptied();
+  none.send({ type: 'discovered', request: check(none), channel: null });
+  const found = emptied();
+  const foundSteps = found.send({
+    type: 'discovered',
+    request: check(found),
+    channel: pageRead().metadata,
+  });
+  const failed = emptied();
+  failed.send({ type: 'entry-refused', request: check(failed), denied: false });
+  const refused = emptied();
+  refused.send({
+    type: 'entry-refused',
+    request: check(refused),
+    denied: true,
+  });
+  const stale = emptied();
+  const old = check(stale);
+  stale.send({ type: 'discovered', request: old, channel: null });
+  const late = stale.send({
+    type: 'discovered',
+    request: old,
+    channel: pageRead().metadata,
+  });
+  assert({
+    given:
+      'a chat that is empty for a reader who may not open it, checked while a check waits, and checks answered with none, a channel, a failure, a refusal and a second time',
+    should:
+      'stay empty and ask one discovery at a time, stay empty for none or a failure, open and read the found channel, end denied on a refusal, and reject an answer already used',
+    actual: {
+      checking: checkingState.standing,
+      oneAtATime: again.state === checkingState && again.effects.length === 0,
+      none: none.state().standing,
+      found: [
+        found.state().standing.kind,
+        foundSteps.effects.map((effect) => effect.type),
+      ],
+      failed: failed.state().standing,
+      refused: refused.state().standing,
+      lateRejected: late.effects.length === 0 && late.state === stale.state(),
+      stale: stale.state().standing.kind,
+    },
+    expected: {
+      checking: { kind: 'empty', kept: null, checking: first },
+      oneAtATime: true,
+      none: { kind: 'empty', kept: null, checking: null },
+      found: ['ready', ['watch-expiry', 'read-latest']],
+      failed: { kind: 'empty', kept: null, checking: null },
+      refused: { kind: 'denied', kept: null },
+      lateRejected: true,
+      stale: 'empty',
     },
   });
 });

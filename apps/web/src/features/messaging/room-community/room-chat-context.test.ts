@@ -158,3 +158,14 @@ test('Room chat forms post to the Room’s chat address', async () => {
     ],
   });
 });
+
+test('which context keeps asking for a chat someone else may open', () => {
+  assert({
+    given:
+      'Room chat, where a judge reads and never opens, and the Round floor',
+    should:
+      'keep asking for Room chat alone: nobody opens a floor once it is read-only',
+    actual: [roomChatContext.awaitsOpening, roundFloorContext.awaitsOpening],
+    expected: [true, false],
+  });
+});

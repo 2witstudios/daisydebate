@@ -76,7 +76,14 @@ export type ContextChatStanding =
       readonly kept: KeptForms | null;
     }
   | {
-      readonly kind: 'empty' | 'unavailable' | 'denied';
+      /** No channel, and this reader may not open one: someone else may yet. */
+      readonly kind: 'empty';
+      readonly kept: KeptForms | null;
+      /** The discovery now asking whether someone has opened it, if any. */
+      readonly checking: number | null;
+    }
+  | {
+      readonly kind: 'unavailable' | 'denied';
       readonly kept: KeptForms | null;
     }
   | OpenContextChat;

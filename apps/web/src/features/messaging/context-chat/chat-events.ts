@@ -19,6 +19,8 @@ export type ContextChatEvent =
       readonly request: number;
       readonly denied: boolean;
     }
+  /** Time to ask again whether someone else has opened a chat this reader may not. */
+  | { readonly type: 'opening-check-requested' }
   | { readonly type: 'refresh-requested' }
   | { readonly type: 'older-requested'; readonly before: number }
   | {

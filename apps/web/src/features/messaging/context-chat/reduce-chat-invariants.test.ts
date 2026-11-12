@@ -17,6 +17,12 @@ const violations = (state: ContextChatState): readonly string[] => {
   const bad: string[] = [];
   if (standing.kind === 'loading' && standing.request > requests)
     bad.push('an entry waits on a request never handed out');
+  if (
+    standing.kind === 'empty' &&
+    standing.checking !== null &&
+    (standing.checking < 1 || standing.checking > requests)
+  )
+    bad.push('an empty chat waits on a check never asked');
   if (standing.kind !== 'ready') return bad;
   const { reads, marking, thread, readSequence, hidden, notice } = standing;
   const awaited = [
@@ -83,9 +89,11 @@ const stepViolations = (
   if (
     after.standing.kind === 'ready' &&
     before.standing.kind !== 'ready' &&
-    before.standing.kind !== 'loading'
+    before.standing.kind !== 'loading' &&
+    // An empty chat may open when its own check finds that someone opened it.
+    !(before.standing.kind === 'empty' && before.standing.checking !== null)
   )
-    bad.push('a chat opened without being entered');
+    bad.push('a chat opened without being entered or found by its check');
   return bad;
 };
 
@@ -135,7 +143,12 @@ const awaits = (
     case 'discovered':
     case 'opened':
     case 'entry-refused':
-      return standing.kind === 'loading' && standing.request === event.request;
+      return (
+        (standing.kind === 'loading' && standing.request === event.request) ||
+        (event.type !== 'opened' &&
+          standing.kind === 'empty' &&
+          standing.checking === event.request)
+      );
     case 'latest-read':
       return (
         standing.kind === 'ready' &&

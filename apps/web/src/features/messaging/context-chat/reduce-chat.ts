@@ -1,7 +1,13 @@
 import type { ContextChatEvent } from './chat-events';
 import type { ContextChatState } from './chat-state';
 import { rejected, stand, type Event, type ContextChatStep } from './chat-step';
-import { discovered, enter, entryRefused, opened } from './reduce-chat-entry';
+import {
+  checkOpening,
+  discovered,
+  enter,
+  entryRefused,
+  opened,
+} from './reduce-chat-entry';
 import {
   askLatest,
   askOlder,
@@ -113,6 +119,8 @@ export function reduceContextChat(
       return opened(state, event);
     case 'entry-refused':
       return entryRefused(state, event);
+    case 'opening-check-requested':
+      return checkOpening(state);
     case 'refresh-requested':
       return refresh(state);
     case 'older-requested':

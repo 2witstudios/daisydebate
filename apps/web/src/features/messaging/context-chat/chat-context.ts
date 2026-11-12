@@ -9,6 +9,13 @@ export type ChatContext = {
   readonly ownerKey: string;
   /** The context's HTTP address for one owner, with no trailing slash. */
   readonly address: (ownerId: string) => string;
+  /**
+   * Whether a reader who may not open this chat may still see someone else
+   * open it, and so keeps asking while it is empty. True where some readers
+   * only read (a Room's judge); false where nobody can open it once it is
+   * read-only (a Round that is over).
+   */
+  readonly awaitsOpening: boolean;
   /** What the product calls this chat in a sentence. */
   readonly name: string;
 };

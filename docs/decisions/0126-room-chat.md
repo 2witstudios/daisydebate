@@ -57,7 +57,9 @@ opens converge on the unique Room/kind channel. That POST is sent without a
 gesture: when the page of a member who may post enters an open Room and finds
 no chat yet, it opens one, as the Round floor does. A Room therefore has a
 channel from the first such page view, not from the first message. A judge's
-page never asks to open one, and a judge's open is refused. Every content
+page never asks to open one, and a judge's open is refused; while it has no
+chat yet and is in view it repeats the discovery read about every 15 seconds,
+so the judge sees the chat once someone else opens it. Every content
 operation rechecks the current account and
 standing under the lock order account, Room, channel, stream. Room commands hold
 the Room exclusively, so Start and close serialize with every chat write.

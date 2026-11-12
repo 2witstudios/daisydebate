@@ -29,7 +29,17 @@ export const TRANSITIONS: Readonly<
     'entry-refused denied': 'denied',
     'entry-refused failed': 'unavailable',
   },
-  empty: { 'enter-requested': ENTER },
+  empty: {
+    'enter-requested': ENTER,
+    'opening-check-requested': 'empty, checking | discover',
+  },
+  'empty, checking': {
+    'enter-requested': ENTER,
+    'discovered a channel': OPEN,
+    'discovered none': 'empty',
+    'entry-refused denied': 'denied',
+    'entry-refused failed': 'empty',
+  },
   unavailable: { 'enter-requested': ENTER },
   denied: { 'enter-requested': ENTER },
   'denied after reading': { 'enter-requested': ENTER },

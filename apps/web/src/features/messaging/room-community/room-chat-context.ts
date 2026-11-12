@@ -4,5 +4,6 @@ import type { ChatContext } from '../context-chat/chat-context';
 export const roomChatContext: ChatContext = {
   ownerKey: 'roomId',
   address: (roomId) => `/api/rooms/${roomId}/chat`,
+  awaitsOpening: true,
   name: 'Room chat',
 };
