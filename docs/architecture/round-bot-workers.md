@@ -257,11 +257,12 @@ name the effects the speaker runs. In cross-examination:
   peer's turn ends, and then each ended peer turn is owed one answer. A newer
   peer turn replaces one still being prepared. Attempts are counted per owed
   turn, so errors in one turn never mute a later one.
-- An answer to a peer turn is generated only once that peer's captured line
-  reaching the instant they last spoke is in the transcript
-  (`round-bots/peer-line.ts`, reading `readRoundBotPeerLine` every 150 ms), or
-  after 4 s. Capture is the one source of those words; the opening question
-  waits for nothing.
+- An answer to a peer turn is generated only once that peer's line reaching
+  the instant they last spoke is in the transcript (a person's captured
+  line, or a bot peer's authored line once closed), or after 4 s
+  (`round-bots/peer-line.ts`, reading `readRoundBotPeerLine` every 150 ms).
+  The bot never transcribes what it hears; the opening question waits for
+  nothing.
 - The bot never starts its audio over a peer who is mid-turn: it keeps what
   it prepared and waits for that turn to end. Once audible, a peer who talks
   over it (a barge-in) stops it within about 300 ms, and it waits for their
