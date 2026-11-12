@@ -1,25 +1,48 @@
-import { and, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  inArray,
+  isNotNull,
+  or,
+  sql,
+  type AnyColumn,
+  type SQL,
+} from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BotPublicationScope } from './bot-publication-context';
 import { roundSegments } from './schema/round-segments';
 import { utterances } from './schema/utterances';
 
 /**
- * Whether what a peer said up to `since` is in the transcript, as a line a
- * bot's answer may build on (`readOrderedRoundUtterances` 'spoken'): a
- * person's captured line whose clip ends at or after that instant (the
- * segment's start, plus the clip's offset and length), or a bot peer's
- * authored line, closed, whose audio does. A bot answers a peer's words only
+ * The hearing and capture each time audio against PostgreSQL on their own
+ * calibration: a line may sit this far from the instant and still hold it.
+ */
+const CLOCK_SKEW_MS = 100;
+
+/**
+ * Whether the line holding what a peer said at `at` is in the transcript, as
+ * a line a bot's answer may build on (`readOrderedRoundUtterances` 'spoken').
+ * That line covers the instant: a person's captured clip (the segment's
+ * start plus the clip's offset, for its length), or a bot peer's authored
+ * line, closed (its audio start, for its length). Covering, not merely
+ * ending after: a clip's length includes the pause that ended it, so the
+ * clip before a peer's last words can end after an instant inside them, but
+ * it cannot start before and end after it. A bot answers a peer's words only
  * once they are in the transcript; it reads them, and never writes or
  * transcribes them.
  */
-export async function peerLineReaches(
+export async function peerLineCovers(
   tx: BoundedTransactionContext,
   scope: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
   peers: readonly string[],
-  since: Date,
+  at: Date,
 ): Promise<boolean> {
   if (peers.length === 0) return false;
+  const instant = sql`${at.toISOString()}::timestamptz`;
+  const skew = sql`${CLOCK_SKEW_MS} * interval '1 millisecond'`;
+  /** A stretch from `start` lasting `durationMs` that holds the instant. */
+  const covers = (start: SQL, durationMs: AnyColumn) =>
+    sql`${start} <= ${instant} + ${skew} and ${start} + ${durationMs} * interval '1 millisecond' >= ${instant} - ${skew}`;
   const [line] = await tx
     .select({ id: utterances.id })
     .from(utterances)
@@ -38,13 +61,16 @@ export async function peerLineReaches(
         or(
           and(
             isNotNull(utterances.captureTrackId),
-            sql`${roundSegments.startedAt} + (${utterances.captureStartOffsetMs} + ${utterances.captureDurationMs}) * interval '1 millisecond' >= ${since.toISOString()}::timestamptz`,
+            covers(
+              sql`${roundSegments.startedAt} + ${utterances.captureStartOffsetMs} * interval '1 millisecond'`,
+              utterances.captureDurationMs,
+            ),
           ),
           // An authored line is dated at its audio start, and is history once closed.
           and(
             isNotNull(utterances.botPhraseId),
             eq(utterances.complete, true),
-            sql`${utterances.createdAt} + ${utterances.botDurationMs} * interval '1 millisecond' >= ${since.toISOString()}::timestamptz`,
+            covers(sql`${utterances.createdAt}`, utterances.botDurationMs),
           ),
         ),
       ),

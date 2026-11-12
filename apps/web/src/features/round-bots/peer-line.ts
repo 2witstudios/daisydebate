@@ -1,12 +1,5 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 
-/**
- * How far before the instant a peer last spoke their line may end. It covers
- * the hearing naming that instant early (at most its 400 ms echo tail), and
- * stays under capture's 500 ms clip pause, so the line found is the one that
- * holds the peer's last words, never the clip before it.
- */
-const SLACK_MS = 450;
 /** How often the transcript is read while waiting. */
 const READ_EVERY_MS = 150;
 /** Past this the answer is made from what the transcript holds. */
@@ -29,7 +22,7 @@ export function createPeerLineWait(input: {
     scope: BotPublicationScope,
     token: string,
     peers: readonly string[],
-    since: string,
+    at: string,
   ) => Promise<boolean>;
   /** Resolves after `ms`, or at once when `signal` aborts. */
   readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
@@ -49,7 +42,8 @@ export function createPeerLineWait(input: {
     spokeUntilMs: number,
     signal: AbortSignal,
   ): Promise<void> => {
-    const since = new Date(spokeUntilMs - SLACK_MS).toISOString();
+    // The line that holds that instant, by capture's own account of its clips.
+    const at = new Date(spokeUntilMs).toISOString();
     const startedAt = input.monotonicNowMs();
     const elapsed = () => Math.round(input.monotonicNowMs() - startedAt);
     const waited = (outcome: 'line' | 'cap') => {
@@ -68,7 +62,7 @@ export function createPeerLineWait(input: {
       .then(() => 'cap' as const);
     // Only the peer whose turn ended: another peer's line is not their words.
     const read = () =>
-      Promise.race([input.readPeerLine(scope, token, [peer], since), capped]);
+      Promise.race([input.readPeerLine(scope, token, [peer], at), capped]);
     while (!signal.aborted) {
       // A read that fails (a full pool) is asked again at the next interval.
       const landed = await read().catch(() => false as const);

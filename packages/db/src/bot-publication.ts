@@ -28,7 +28,7 @@ import {
   type BotPhrase,
   type BotPhraseEnd,
 } from './bot-phrases';
-import { peerLineReaches } from './bot-peer-line';
+import { peerLineCovers } from './bot-peer-line';
 import { agentRuns } from './schema/agent-runs';
 import { scanBotWorkers } from './bot-worker-discovery';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -191,7 +191,7 @@ export function createBotPublicationOperations(input: {
         await requireBotSpeakingWindow(tx, scope);
       }),
     /**
-     * Whether a peer's captured words up to `since` are in the transcript,
+     * Whether the line holding what a peer said at `at` is in the transcript,
      * read without a lock under the claim's own token and live lease. It
      * grants nothing: a cross-examination answer waits on it, briefly.
      */
@@ -199,11 +199,11 @@ export function createBotPublicationOperations(input: {
       scope: BotPublicationScope,
       token: string,
       peers: readonly string[],
-      since: string,
+      at: string,
     ) =>
       input.run(async (tx) => {
-        const at = new Date(since);
-        if (!Number.isFinite(at.getTime()) || peers.length > 255)
+        const instant = new Date(at);
+        if (!Number.isFinite(instant.getTime()) || peers.length > 255)
           throw createAppError('VALIDATION');
         const [claim] = await tx
           .select()
@@ -214,7 +214,7 @@ export function createBotPublicationOperations(input: {
         const now = await readDatabaseTime(tx);
         if (claim.leaseExpiresAt.getTime() <= now.getTime())
           throw createAppError('CONFLICT', 'Publication lease expired');
-        return peerLineReaches(tx, scope, peers, at);
+        return peerLineCovers(tx, scope, peers, instant);
       }),
     /** Writes a phrase's line as its audio starts, and rings the doorbell. */
     revealBotPhrase: (

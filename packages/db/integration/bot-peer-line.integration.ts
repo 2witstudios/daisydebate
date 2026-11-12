@@ -6,7 +6,7 @@ import { withGeneration } from './bot-generation.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('a bot reads whether a peer’s captured words reach an instant, under its own live claim only', async () => {
+test('a bot reads whether the line holding a peer’s words at an instant is written, under its own live claim only', async () => {
   await withGeneration(async ({ fixture, target, operations }) => {
     const claim = await operations.claimWorker(target);
     const peer = await createBotSeat(fixture, target.roundId, 'negative');
@@ -16,30 +16,45 @@ test('a bot reads whether a peer’s captured words reach an instant, under its 
     const at = (ms: number) => new Date(startedMs + ms).toISOString();
     const reads = (peers: readonly string[], ms: number) =>
       operations.readPeerLine(claim.scope, claim.token, peers, at(ms));
-    const none = await reads([peer.id], 0);
-    // The peer's clip covers 1000 to 3000 ms of the segment.
+    const none = await reads([peer.id], 2000);
+    // The peer's first clip covers 1000 to 3000 ms of the segment, its
+    // closing pause included.
     await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,clip_key,capture_track_id,capture_start_offset_ms,capture_duration_ms,capture_worker_epoch,capture_body_digest)
       values(${'u'.repeat(24)},${target.roundId},${target.segmentId},${peer.id},0,'What is your strongest example?',${'a'.repeat(64)},'TR_peer',1000,2000,1,${'b'.repeat(64)})`;
-    // The bot's own line, still on air past that instant, is not the peer's words.
-    await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete,bot_phrase_id,bot_duration_ms)
-      values(${'v'.repeat(24)},${target.roundId},${target.segmentId},${target.roundParticipantId},1,'Why?',true,${'p'.repeat(24)},9000)`;
+    // The bot's own line, on air across the whole stretch, is not the peer's words.
+    await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete,bot_phrase_id,bot_duration_ms,created_at)
+      values(${'v'.repeat(24)},${target.roundId},${target.segmentId},${target.roundParticipantId},1,'Why?',true,${'p'.repeat(24)},9000,${at(0)}::timestamptz)`;
     assert({
       given:
-        'a peer clip ending 3000 ms into the claim’s segment, read before it exists, up to its end and past its end, beside a longer line of the bot’s own',
-      should:
-        'answer true only for that peer and only up to the instant the clip ends',
+        'a peer clip from 1000 to 3000 ms of the claim’s segment, read before it exists, inside it, and just outside the clocks’ 100 ms allowance at either end',
+      should: 'answer true only for an instant that clip holds',
       actual: {
         none,
-        reached: await reads([peer.id], 3000),
-        past: await reads([peer.id], 3001),
-        nobody: await reads([], 0),
+        inside: await reads([peer.id], 2000),
+        before: await reads([peer.id], 899),
+        after: await reads([peer.id], 3101),
+        nobody: await reads([], 2000),
       },
       expected: {
         none: false,
-        reached: true,
-        past: false,
+        inside: true,
+        before: false,
+        after: false,
         nobody: false,
       },
+    });
+    // The peer spoke again from 3200 ms: their last words are in a second
+    // clip that capture has not written yet. The first clip, which ended
+    // after its 500 ms pause, must not stand in for it.
+    const secondPending = await reads([peer.id], 3600);
+    await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,clip_key,capture_track_id,capture_start_offset_ms,capture_duration_ms,capture_worker_epoch,capture_body_digest)
+      values(${'x'.repeat(24)},${target.roundId},${target.segmentId},${peer.id},3,'Or have you none?',${'c'.repeat(64)},'TR_peer',3150,1000,1,${'d'.repeat(64)})`;
+    assert({
+      given:
+        'a peer who spoke again after their first clip closed, read while the second clip is pending and once it is written',
+      should: 'wait for the clip that holds their last words',
+      actual: { secondPending, written: await reads([peer.id], 3600) },
+      expected: { secondPending: false, written: true },
     });
     // A bot peer's words are authored, not captured: one more seat, speaking
     // a 2000 ms phrase from 5000 ms into the segment, still open and then closed.
@@ -51,11 +66,11 @@ test('a bot reads whether a peer’s captured words reach an instant, under its 
     assert({
       given:
         'a bot peer’s authored line from 5000 to 7000 ms, read while it plays, once closed, and past its end',
-      should: 'count only once closed, up to the end of its audio',
+      should: 'count only once closed, for an instant its audio holds',
       actual: {
         stillPlaying,
-        closed: await reads([bot.id], 7000),
-        past: await reads([bot.id], 7001),
+        closed: await reads([bot.id], 6000),
+        past: await reads([bot.id], 7101),
       },
       expected: { stillPlaying: false, closed: true, past: false },
     });

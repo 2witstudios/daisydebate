@@ -190,8 +190,8 @@ test('quiet speech in the echo tail puts the instant a peer last spoke at most t
     given:
       'a barge-in, then 400 ms of quiet speech inside the echo tail, then silence',
     should:
-      'end the turn, naming an instant no more than the 400 ms tail before the peer stopped (the peer-line read allows 500 ms)',
-    actual: [events[0], 700 - spokeUntil <= 400, 700 - spokeUntil < 500],
-    expected: ['barge-in', true, true],
+      'end the turn, naming an instant no more than the 400 ms tail before the peer stopped: still inside their last stretch of speech',
+    actual: [events[0], 700 - spokeUntil <= 400],
+    expected: ['barge-in', true],
   });
 });

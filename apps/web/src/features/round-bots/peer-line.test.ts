@@ -73,9 +73,9 @@ test('a cross-examination answer waits for the peer’s line, up to a cap', asyn
     given:
       'a peer line that reaches the transcript 600 ms after the turn ended',
     should:
-      'read for that peer from 450 ms before the instant they last spoke, every 150 ms, until it is there, and trace the wait with its Round',
+      'read for that peer at the instant they last spoke, every 150 ms, until its line is there, and trace the wait with its Round',
     actual: [landed.reads[0], landed.reads.length, landed.outcomes],
-    expected: ['peer@99550', 5, ['line.line:600:round']],
+    expected: ['peer@100000', 5, ['line.line:600:round']],
   });
   const never = waiting(Infinity);
   await never.wait();
