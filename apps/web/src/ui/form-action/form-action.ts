@@ -70,10 +70,11 @@ const focusLost = () => {
  * is on the way (one row's button among several, inside a dialog). Focus
  * then moves only if it is lost, never away from where the member has since
  * put it. Such a form may also leave the page, when live sync removes its
- * row: before its answer arrives, or after an answer that found focus still
- * on the form's own control (an engine that keeps focus on a control while
- * it is disabled). A debt unpaid at that moment is paid on the way out, on
- * the same condition.
+ * row: before its answer arrives, or after an answer that moved nothing. An
+ * answer moves nothing whenever focus is not lost: the member moved on, or
+ * the engine kept focus on the form's own control while it was disabled,
+ * and the hook cannot tell the two apart. So the debt of any answer that
+ * moved nothing is kept, and paid on the way out if focus is lost then.
  */
 export function useFocusAfterAnswer(
   answered: unknown,
@@ -83,7 +84,7 @@ export function useFocusAfterAnswer(
 ) {
   const seen = useRef(answered);
   const owed = useRef(false);
-  /** What unmounting still has to pay: an answer on its way, or one that moved nothing. */
+  /** What leaving still has to pay: an answer on its way, or any that moved nothing. */
   const owedOnLeaving = useRef(false);
   const pay = useRef<() => boolean>(() => false);
   useEffect(() => {
