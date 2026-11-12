@@ -68,7 +68,7 @@ People who run Daisy can see the beta access list (username, request and decisio
 
 ## Ranked rounds and recordings
 
-Ranked rounds are always public, and are broadcast with a delay and recorded when capture has capacity. Before you can be Ready for one you sign the ranked content waiver once per season, and each ranked round shows you a notice first. We keep a record of each: your account, the version and the time. Lawful basis: our contract with you, and our legitimate interest in being able to show what you agreed to. [COUNSEL: confirm.]
+Ranked rounds are always public, and are broadcast with a delay and recorded when capture has capacity. Before you can be Ready for one you sign the ranked content waiver once per season; that waiver is the whole ranked agreement, so a ranked round shows no further notice. When the host of a casual round chooses to broadcast or record it, the round shows you a notice before you can be Ready. We keep a record of each: your account, the version, the exact words and the time. Lawful basis: our contract with you, and our legitimate interest in being able to show what you agreed to. [COUNSEL: confirm.]
 
 We keep ranked video, with the results and ballots, as Daisy’s content for as long as Daisy runs ranked seasons, including after you close your account, because ranked season rounds are qualifying artifacts for tournaments: the results and the video stand as the evidence behind qualification, disputes and integrity review. Lawful basis: our contract with you, and our legitimate interest in the integrity of qualification. Moderation can still take a recording down. [COUNSEL: this purpose, basis and period are proposed and not yet reviewed (COMP-4, docs/operations/compliance.md).]
 

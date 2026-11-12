@@ -42,6 +42,7 @@ const render = (
         read: async () => ({ kind: 'unavailable' }) as const,
         send: async () => ({ kind: 'unavailable' }) as const,
         invitationAction: async () => initialInvitationForm,
+        chat: null,
       }),
     ),
   );

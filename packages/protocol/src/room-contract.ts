@@ -109,7 +109,7 @@ export const roomCreateSchema = z
         message: 'A hold names an actor at most once',
       })
       .optional(),
-    /** The capture notice the create form showed its host, to be recorded; a ranked host with no seat must state it. */
+    /** The capture notice the create form showed its host, to be recorded; only a casual create with capture states one. */
     noticeVersion: z.string().min(1).max(64).optional(),
   })
   .refine(

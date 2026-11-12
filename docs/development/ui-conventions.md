@@ -262,14 +262,36 @@ and facts on the left and its status and one action on the right.
 The gathering view uses the saved topic, authoritative team/judge lineup and
 resolved ordered schedule. Settings are an acknowledged summary with explicit
 native Edit disclosures; a refused save opens its disclosure and retains the
-submitted draft and version. The main readiness/start bar follows the schedule,
-with personal device setup beside the saved settings.
+submitted draft and version.
+
+The page is two columns once there is room. The right column is the Start card,
+Seats and the Round setup summary. The left column is the viewer's own: a seated
+debater's camera preview and device rows, then the Room chat, which takes the
+column's spare height and scrolls inside it. A viewer with no devices (a
+visitor, a judge, a seatless host) has the Room chat alone there, with no
+banner explaining why. A device is one row: its name and state on one line, its
+select beside a short Check button on the next, and remedy text only when a
+check is refused.
+
+Ready belongs to a seat, so the viewer's Ready or Not ready sits in their own
+seat row in place of the status pill, with its reason line, and the ranked
+waiver form while it is unsigned, beneath it. The Start card says what the
+Round waits on and holds only the host's Start round.
+
+Room chat is the Room's own conversation for everyone who may read the Room,
+seat or no seat (ADR 0126). A message shows its author's username and, where
+the viewer may name that seat, the seat and the host mark; a visitor gets no
+label. A judge reads the chat and does not post in it, so no message can name
+an anonymous judge: a judge's thread has no composer and says "Judges read this
+chat but don’t post in it." The read-only state follows the live Room view: a
+viewer who leaves the judge seat gets the composer back, and one who takes it
+loses it, without a reload. An author the viewer is given no name for, such as
+one who posted and then took the judge seat, is shown as "A member". It ends when the Round starts or the Room closes.
 
 Duration forms use integer minutes and decimal seconds (0–59.999). The form
 boundary converts their strings to exact integer milliseconds and checks the
 combined duration against the room's pinned format bounds. Speech order, seat
 identity and structural schedule authority remain with the pinned definition.
-The pre-round Room has no chat composer; Messages stays in the rail.
 
 Seat assignment pickers show the saved occupant, or an explicit empty choice.
 An acknowledged assignment follows the canonical Room view; a refused enhanced

@@ -1,4 +1,5 @@
 import { createRoundFloorChannelCohortAuthority } from './messaging/round-floor-observation';
+import { createRoomCommunityChannelCohortAuthority } from './messaging/room-community-observation';
 import type { SQL } from 'bun';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { authorizationSessionOperations } from './authorization-session';
@@ -35,6 +36,8 @@ import {
 const authorityReads = (database: BunSQLDatabase) => ({
   roundFloorChannelCohortAuthority:
     createRoundFloorChannelCohortAuthority(database),
+  roomCommunityChannelCohortAuthority:
+    createRoomCommunityChannelCohortAuthority(database),
   ...authorizationSessionOperations({ database }),
   ...roomAuthorizationRead({ database }),
   messagingChannelAuthority: createMessagingChannelAuthority(database),

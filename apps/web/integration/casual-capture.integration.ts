@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { isNamedSeat } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundCaptureNotice } from '../src/features/legal/agreements';
+import { casualCaptureNotice } from '../src/features/legal/agreements';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { assembleJudgedRoom } from './round-judging.test-support';
 
@@ -42,7 +42,7 @@ test('a beta host’s capture choice is stored and every seat is told before Rea
         reread.capture,
         reread.captureNotice,
       ],
-      expected: ['included', both, both, roundCaptureNotice('opted-in')],
+      expected: ['included', both, both, casualCaptureNotice],
     });
   });
 });
@@ -164,7 +164,7 @@ test('a ready that read no notice is refused once the host opts in', async () =>
 
 test('creation saves recording atomically, replays it, and refuses a host without the capture grant', async () => {
   await withRoomRuntime(async (f) => {
-    const notice = roundCaptureNotice('opted-in')!;
+    const notice = casualCaptureNotice;
     const commandId = createId();
     const open = await f.create({
       commandId,
@@ -195,7 +195,7 @@ test('creation saves recording atomically, replays it, and refuses a host withou
       expected: [
         { broadcast: null, recording: true },
         { broadcast: null, recording: true },
-        roundCaptureNotice('opted-in'),
+        casualCaptureNotice,
         true,
         before,
       ],

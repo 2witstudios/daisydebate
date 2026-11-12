@@ -18,7 +18,8 @@
     "./flags": "./src/flags.ts",
     "./content-moderation": "./src/content-moderation.ts",
     "./round-analysis-testing": "./src/round-analysis.test-support.ts",
-    "./round-floor": "./src/round-floor.ts"
+    "./round-floor": "./src/round-floor.ts",
+    "./room-community": "./src/room-community.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

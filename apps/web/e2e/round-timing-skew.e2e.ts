@@ -68,12 +68,14 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
       await page
         .getByRole('button', { name: 'Check camera', exact: true })
         .click();
-      await expect(page.getByText('✓ Camera', { exact: true })).toBeVisible();
+      await expect(
+        page.getByText('Camera: ✓ checked', { exact: true }),
+      ).toBeVisible();
       await page
         .getByRole('button', { name: 'Check microphone', exact: true })
         .click();
       await expect(
-        page.getByText('✓ Microphone', { exact: true }),
+        page.getByText('Microphone: ✓ checked', { exact: true }),
       ).toBeVisible();
       await page
         .getByRole('button', { name: 'I’m ready', exact: true })

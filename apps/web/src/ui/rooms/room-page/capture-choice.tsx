@@ -117,7 +117,7 @@ export function CaptureSummary({
   readonly capture: RoomView['capture'];
 }) {
   return capture ? (
-    <p role="note" className="w-full text-sm font-strong">
+    <p role="note" className="basis-full text-sm font-strong">
       {captureLine(capture)}
     </p>
   ) : null;

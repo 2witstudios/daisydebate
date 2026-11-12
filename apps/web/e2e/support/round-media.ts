@@ -215,9 +215,12 @@ export async function openCheckedMediaRound(
         .getByRole('button', { name: `Check ${kind}`, exact: true })
         .click();
       await expect(
-        page.getByText(`✓ ${kind === 'camera' ? 'Camera' : 'Microphone'}`, {
-          exact: true,
-        }),
+        page.getByText(
+          `${kind === 'camera' ? 'Camera' : 'Microphone'}: ✓ checked`,
+          {
+            exact: true,
+          },
+        ),
       ).toBeVisible(MEDIA_POLL);
     }
     await page.getByRole('button', { name: 'I’m ready', exact: true }).click();

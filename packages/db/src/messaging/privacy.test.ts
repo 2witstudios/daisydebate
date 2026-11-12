@@ -14,6 +14,7 @@ test('subject export removes other-direction private state and serializes dates/
   const { client, queries } = fakeSql([
     [],
     [], // Floor Round fence precedes channel fences.
+    [], // Room chat's Room fence does too.
     [],
     [{ id: 'm'.repeat(24), author_actor_id: actorId, created_at: date }],
     [],
@@ -106,8 +107,8 @@ test('subject export removes other-direction private state and serializes dates/
     actual: [
       queries.every((query) => query.params.includes(actorId)),
       fileQuery?.query.includes('object_key'),
-      queries[2]?.query.includes('messaging_files'),
-      queries[2]?.query.includes('messaging_social_command_subjects'),
+      queries[3]?.query.includes('messaging_files'),
+      queries[3]?.query.includes('messaging_social_command_subjects'),
     ],
     expected: [true, false, true, true],
   });
@@ -116,6 +117,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
   const { client, queries } = fakeSql([
     [],
     [], // Floor Round fence precedes channel fences.
+    [], // Room chat's Room fence does too.
     [],
     [], // the subject's DMs and their survivors
     [
@@ -184,8 +186,8 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     should:
       'hold complete channel union first, transfer opaque charge before deleting files, delete receipt identity outright, and leave Friends’, Presence’s and Contacts’ tables to their own adopters (B5)',
     actual: [
-      fileIntent > 2,
-      queries[2]?.query.includes('order by id for update'),
+      fileIntent > 3,
+      queries[3]?.query.includes('order by id for update'),
       queries[fileIntent + 1]?.query.includes('delete from messaging_files'),
       receiptDelete?.params,
       queries.some((query) =>
@@ -201,6 +203,7 @@ test('exhausted erase version refuses before association or file deletion', asyn
   const { client, queries } = fakeSql([
     [],
     [], // Floor Round fence precedes channel fences.
+    [], // Room chat's Room fence does too.
     [],
     [],
     [{ id: 'm'.repeat(24), channelId, authorActorId: actorId }],
