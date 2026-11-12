@@ -19,17 +19,43 @@ consumes this validated cache, never an unvalidated provider envelope or a usage
 counter. Direct job deletion or deletion through its freeze is refused while a validated response remains and its owning Round exists. Owning Round erasure cascades the job and its cache; the scoped origin
 run FK is deferred NO ACTION so whole-aggregate erasure remains possible.
 
+## Coherency stages
+
+[ADR 0125](../decisions/0125-coherency-judging.md) splits AI judging into three
+stages, one provider call each:
+
+- the first-pass ballot, an internal record;
+- the case map, read from the transcript alone;
+- the final ballot, decided from the transcript and the map.
+
+The job's stored stage outputs say which stage a claim may buy (`first`, then
+`map`, then `final`). Dispatching any other stage is refused. A stored first pass
+or case map is written once by its own stage's attempt, which also records the
+stage. The job is then released as immediately due, so the next claim buys the
+next stage, and a takeover never buys a stored stage again. A failed first pass
+sets `first_ballot_failed` and the job continues; only the final stage produces
+the held response described above.
+
+The stage records stay after success as the first-pass-against-final
+comparison. They are private derived judging data, like the held response:
+
+- the retention sweep (`retention.judging_stages`) clears them 180 days after
+  receipt;
+- subject erasure clears them for every non-ranked Round the subject sat in;
+- owning Round erasure cascades them.
+
 ## Attempt windows and durable recovery
 
 DEC-370 and [ADR 0119](../decisions/0119-recoverable-round-evidence-and-result.md)
 separate the result obligation from a provider attempt window. A job buys at most
-two potentially paid calls in one generation window, identified by its first
+four potentially paid calls in one generation window (the three coherency stages
+and one retry; ADR 0125, DEC-390), identified by its first
 lease epoch rather than timestamp coincidence. A spent window releases its lease
 and enters `recovering`, with exponential backoff from 30 seconds to five minutes.
 Claiming due recovery starts a new bounded window under the same freeze, command
 and pinned model. Uncertain dispatched calls remain counted after a crash.
 
-Automatic lifetime spending is finite: sixteen potentially paid calls. Exhaustion
+Automatic lifetime spending is finite: twenty-four potentially paid calls. Exhaustion
 enters `blocked` with `automatic_spend`; a refusal that requires intervention also
 blocks automatic work. Neither state is a no-result ruling. The room distinguishes
 recovering work from work needing attention. This supports automatic recovery

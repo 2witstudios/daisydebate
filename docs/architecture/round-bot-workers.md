@@ -98,7 +98,8 @@ bun --env-file=.env run proof:round-judging openai/gpt-6.1-terra
 
 The model argument is explicit. The script creates and drops a migrated per-run
 test database, creates a real shared Room and assigned bot judge, and freezes
-its silent transcript honestly incomplete. It calls the real provider once,
+its silent transcript honestly incomplete. It buys the three coherency stages
+(first pass, case map, final; ADR 0125) from the real provider, one call each,
 then proves cached-response takeover and repeated actual attendance refusal
 without redispatch. Its output contains model/request/token counts and proof
 labels only. This is provider/cache recovery evidence; the script does not
