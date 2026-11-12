@@ -1,4 +1,6 @@
 import { createAppError } from '@daisy/errors';
+import { eq } from 'drizzle-orm';
+import { mediaSessions } from './schema/media-sessions';
 import type { BoundedTransaction } from './bounded-transaction';
 import {
   lockedMediaSnapshot,
@@ -90,7 +92,16 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
           snapshot.session.reconcileOwner !== input.reconcileOwner)
       )
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
-      return input.sign({ ...snapshot, participantId, binding });
+      const signed = await input.sign({ ...snapshot, participantId, binding });
+      // Someone is on their way into the call's room: an emptiness measured
+      // before them must not close it on them. Only a later read of an empty
+      // room starts the grace again (ADR 0126).
+      if (phase === 'post-round-call' && snapshot.session.roomVacantSince)
+        await tx
+          .update(mediaSessions)
+          .set({ roomVacantSince: null })
+          .where(eq(mediaSessions.id, snapshot.session.id));
+      return signed;
     });
   },
 });

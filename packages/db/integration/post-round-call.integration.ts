@@ -39,7 +39,10 @@ async function completedRound(fixture: Fixture, postRoundCall: boolean) {
     [roundId, postRoundCall],
   );
   /** One reconcile pass that did, or did not, prove the session's room absent. */
-  const pass = async (proven: boolean) => {
+  const pass = async (
+    proven: boolean,
+    seen: Parameters<typeof nextRoomVacancy>[1] = null,
+  ) => {
     // Past the minimum interval between passes.
     await fixture.sql.unsafe(
       "update media_sessions set reconcile_started_at=clock_timestamp()-interval '2 seconds' where id=$1",
@@ -54,7 +57,7 @@ async function completedRound(fixture: Fixture, postRoundCall: boolean) {
       mediaPhase,
       roomFate: mediaRoomFate(6_000),
       roomVacancy: nextRoomVacancy,
-      seen: null,
+      seen,
       ...claim.fence,
       absenceProof: proven
         ? await store.prepareMediaAbsenceProof(claim.fence)
@@ -79,7 +82,17 @@ async function completedRound(fixture: Fixture, postRoundCall: boolean) {
     fixture.sql.unsafe('delete from media_sessions where id=$1', [
       binding.sessionId,
     ]);
-  return { store, binding, bind, pass, session, cleanup };
+  /** Signs nothing: only the store's own admission rule and its writes run. */
+  const admit = () =>
+    store.issueMediaToken({
+      mediaPhase,
+      roundId,
+      principal: { kind: 'human', actorId: seat.actorId },
+      admits: admitsPrincipalAccess,
+      buildProjection: mediaTestTick,
+      sign: async () => 'signed',
+    });
+  return { store, binding, bind, pass, session, cleanup, admit, roundId };
 }
 
 test('the call’s room exists only once the Round’s room is proven gone', async () => {
@@ -183,6 +196,94 @@ test('a completed Round whose host did not choose the call ends at once', async 
           after.room_name === round.binding.roomName,
         ],
         expected: ['end', null, true],
+      });
+    } finally {
+      await round.cleanup();
+    }
+  });
+});
+
+const occupied = {
+  kind: 'read',
+  sid: 'RM_call',
+  empty: false,
+  captureListed: false,
+  answered: null,
+} as const;
+
+test('the call’s vacancy follows what each pass reads of its room', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const round = await completedRound(fixture, true);
+    try {
+      await round.pass(true);
+      const atOpen = (await round.session()).vacant_since;
+      await round.pass(false, occupied);
+      const joined = (await round.session()).vacant_since;
+      await round.pass(false, { ...occupied, empty: true });
+      const left = (await round.session()).vacant_since;
+      await round.pass(false, { kind: 'absent' });
+      const gone = (await round.session()).vacant_since;
+      await round.pass(false);
+      const unread = (await round.session()).vacant_since;
+      assert({
+        given:
+          'an open call read occupied, then empty, then absent, then not read at all',
+        should:
+          'clear the vacancy while occupied, start it when empty, and keep when it began after that',
+        actual: [
+          atOpen !== null,
+          joined,
+          left !== null,
+          gone?.getTime() === left?.getTime(),
+          unread?.getTime() === left?.getTime(),
+        ],
+        expected: [true, null, true, true, true],
+      });
+    } finally {
+      await round.cleanup();
+    }
+  });
+});
+
+test('an admission to the call clears a vacancy measured before it', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const round = await completedRound(fixture, true);
+    try {
+      await round.pass(true);
+      await fixture.sql.unsafe(
+        "update media_sessions set room_vacant_since=clock_timestamp()-interval '59 seconds' where id=$1",
+        [round.binding.sessionId],
+      );
+      const signed = await round.admit();
+      const after = await round.session();
+      assert({
+        given:
+          'a seat admitted a second before the empty call would have ended',
+        should:
+          'sign it and forget the old emptiness, so the call is not closed on them',
+        actual: [signed, after.vacant_since, after.ended_at],
+        expected: ['signed', null, null],
+      });
+    } finally {
+      await round.cleanup();
+    }
+  });
+});
+
+test('a session that ended before its Round completed carries no call', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const round = await completedRound(fixture, true);
+    try {
+      await fixture.sql.unsafe(
+        'update media_sessions set ended_at=clock_timestamp() where id=$1',
+        [round.binding.sessionId],
+      );
+      await assertRejects({
+        given:
+          'a completed Round with the call chosen whose media session had already ended',
+        should: 'refuse admission for good, not ask the caller to keep trying',
+        actual: () => round.bind(),
+        code: 'CONFLICT',
       });
     } finally {
       await round.cleanup();

@@ -1,6 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
-import { isLiveDebater, liveRoundOf } from './live-round';
+import { postRoundCallPolicy } from '@daisy/protocol';
+import {
+  isCallDebater,
+  isLiveDebater,
+  liveRoundOf,
+  postRoundCallRoundOf,
+} from './live-round';
 import {
   aff,
   at,
@@ -452,6 +458,70 @@ describe('liveRoundOf during the round', () => {
         'still open the room, waiting with nothing lit, no clock and no prep, rather than guess',
       actual: [room?.phase, room?.liveIndex, room?.clock, room?.prepMs],
       expected: ['waiting', -1, null, null],
+    });
+  });
+});
+
+describe('the post-round call', () => {
+  const chosen = { ...asCompleted(view), postRoundCall: true };
+  const cap = origin + postRoundCallPolicy.maxMs;
+
+  test('who keeps the round room for the call', () => {
+    assert({
+      given:
+        'a debater and the judge of a completed Round with the call, at its end and at its cap, and Rounds without one',
+      should: 'keep the room for the debater alone, until the cap',
+      actual: [
+        isCallDebater(chosen, aff.actorId, origin),
+        isCallDebater(chosen, aff.actorId, cap - 1),
+        isCallDebater(chosen, aff.actorId, cap),
+        isCallDebater(chosen, judge.actorId, origin),
+        isCallDebater(asCompleted(view), aff.actorId, origin),
+        isCallDebater(
+          { ...asAbandoned(view), postRoundCall: true },
+          aff.actorId,
+          origin,
+        ),
+      ],
+      expected: [true, true, false, false, false, false],
+    });
+  });
+
+  test('the room during the call', () => {
+    const room = postRoundCallRoundOf(chosen, aff.actorId, origin + 60_000);
+    assert({
+      given: 'a debater a minute into the call',
+      should:
+        'show every speech done, the call’s own clock, an open microphone and no ballots',
+      actual: [
+        room?.phase,
+        room?.liveIndex,
+        room?.clock,
+        room?.micLive,
+        room?.ballots,
+        room?.self.id,
+      ],
+      expected: [
+        'judging',
+        rules.length,
+        {
+          label: 'Call ends',
+          remainingMs: postRoundCallPolicy.maxMs - 60_000,
+          note: 'Round over · Not recorded',
+        },
+        true,
+        null,
+        aff.actorId,
+      ],
+    });
+    assert({
+      given: 'the call’s cap, and a Round with no call',
+      should: 'have no room',
+      actual: [
+        postRoundCallRoundOf(chosen, aff.actorId, cap),
+        postRoundCallRoundOf(asCompleted(view), aff.actorId, origin),
+      ],
+      expected: [null, null],
     });
   });
 });

@@ -101,8 +101,8 @@ describe('stage route', () => {
   test('a Round that is over gets no observer token', async () => {
     const running = route();
     const over = route({}, null, {
-      status: 'abandoned',
-      startedAt: null,
+      status: 'completed',
+      startedAt: '2026-11-11T23:00:00.000Z',
       completedAt: '2026-11-12T00:00:00.000Z',
       outcome: null,
     });

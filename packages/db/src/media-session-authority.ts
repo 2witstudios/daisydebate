@@ -130,6 +130,8 @@ export async function readMediaWindowFacts(
       finalSegmentEndedAt: rounds.finalSegmentEndedAt,
       completedAt: rounds.completedAt,
       postRoundCall: rounds.postRoundCall,
+      sessionId: mediaSessions.id,
+      sessionEndedAt: mediaSessions.endedAt,
       openedAt: mediaSessions.postRoundCallOpenedAt,
       vacantSince: mediaSessions.roomVacantSince,
     })
@@ -147,6 +149,7 @@ export async function readMediaWindowFacts(
     postRoundCall: {
       optedIn: row.postRoundCall,
       status: row.status,
+      sessionOpen: row.sessionId !== null && row.sessionEndedAt === null,
       roundEndedAt: row.completedAt?.toISOString() ?? null,
       openedAt: row.openedAt?.toISOString() ?? null,
       vacantSince: row.vacantSince?.toISOString() ?? null,

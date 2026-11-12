@@ -25,6 +25,7 @@ const facts = (
 const chosen: PostRoundCallFacts = {
   optedIn: true,
   status: 'completed',
+  sessionOpen: true,
   roundEndedAt: end,
   openedAt: null,
   vacantSince: null,
@@ -72,6 +73,13 @@ test('mediaPhase()', () => {
       'abandoned',
       1,
       { ...chosen, status: 'abandoned' },
+      'closed',
+    ],
+    [
+      'a completed Round whose media session ended earlier, or never began',
+      'completed',
+      1,
+      { ...chosen, sessionOpen: false },
       'closed',
     ],
     [

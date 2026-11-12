@@ -1,7 +1,7 @@
 'use client';
 import '../../lib/zod-jitless';
 import Link from 'next/link';
-import { useCallback, useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import type { RoundRead } from '../../features/round-runtime/read-round';
@@ -73,6 +73,8 @@ export function LiveJudgeRoom({
   const view = synced.value;
   const now = useSecond(renderedAtMs, roundTime);
   const tab = useRoundMediaTab(actorId, view);
+  const [callEnded, setCallEnded] = useState(false);
+  const endCall = useCallback(() => setCallEnded(true), []);
   const media = useMemo(
     () =>
       roundMediaSlot({
@@ -81,11 +83,12 @@ export function LiveJudgeRoom({
         actorId,
         tab,
         onAccountChanged: clearAccountResumeRecords,
+        onCallEnded: endCall,
       }),
-    [refresh, roundTime, actorId, tab],
+    [refresh, roundTime, actorId, tab, endCall],
   );
   const callEndsAtMs = postRoundCallEndsAtMs(view);
-  const onCall = callEndsAtMs !== null && now < callEndsAtMs;
+  const onCall = !callEnded && callEndsAtMs !== null && now < callEndsAtMs;
   const ended = useRoundEndedRoute(view, onCall);
   if (ended)
     return (

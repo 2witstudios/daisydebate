@@ -19,6 +19,7 @@ export const postRoundCallState = (
 ): PostRoundCallState => {
   if (
     !facts.optedIn ||
+    !facts.sessionOpen ||
     !isRoundCompleted(facts.status) ||
     facts.roundEndedAt === null
   )

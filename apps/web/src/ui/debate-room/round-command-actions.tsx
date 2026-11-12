@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useId, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { isCallDebater, isLiveDebater } from './live-round';
+import { isLiveDebater } from './live-round';
 import { UnacknowledgedCommand } from './unacknowledged-command';
 import type { RoundView } from '@daisy/protocol';
 import {
@@ -117,6 +117,7 @@ export function RoundCommandActions({
   view,
   actorId,
   nowMs,
+  onCall = false,
   ids,
   action,
   onAnswer,
@@ -134,6 +135,8 @@ export function RoundCommandActions({
   readonly view: RoundView;
   readonly actorId: string;
   readonly nowMs: number;
+  /** This debater is on the Round's post-round call, so the room stays. */
+  readonly onCall?: boolean;
   readonly ids: RoundCommandIds;
   readonly action: FormAction<RoundFormState>;
   readonly onAnswer: (answer: RoundFormState) => void;
@@ -147,14 +150,9 @@ export function RoundCommandActions({
   const lost = answer.kind === 'unacknowledged';
   useEffect(() => {
     // A debater on the post-round call stays in the room until it ends (ADR 0126).
-    if (
-      !pending &&
-      !lost &&
-      !isLiveDebater(view, actorId) &&
-      !isCallDebater(view, actorId, nowMs)
-    )
+    if (!pending && !lost && !isLiveDebater(view, actorId) && !onCall)
       replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
-  }, [pending, lost, view, actorId, nowMs, router]);
+  }, [pending, lost, view, actorId, onCall, router]);
   const feedback = useId(),
     control = useId();
   useEffect(() => {

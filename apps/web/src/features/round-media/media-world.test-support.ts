@@ -115,6 +115,7 @@ export function createMediaWorld(
     postRoundCall: {
       optedIn: options.postRoundCall === true,
       status,
+      sessionOpen: endedAt === null,
       roundEndedAt: isRoundOver(status) ? now : null,
       openedAt: callOpenedAt,
       vacantSince: null,

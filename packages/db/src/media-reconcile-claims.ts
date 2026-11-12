@@ -59,6 +59,8 @@ const activeSession = (row: ActiveSessionRow) => {
     postRoundCall: {
       optedIn: row.post_round_call,
       status: row.status,
+      // The read lists only sessions that have not ended.
+      sessionOpen: true,
       roundEndedAt: row.completed_at?.toISOString() ?? null,
       openedAt: row.post_round_call_opened_at?.toISOString() ?? null,
       vacantSince: row.room_vacant_since?.toISOString() ?? null,

@@ -26,7 +26,11 @@ import type {
   MediaOperationInput,
 } from './operation-context';
 import { OperationTimedOut } from '@daisy/observability';
-import { roundStartPolicy, type MediaRoomRead } from '@daisy/protocol';
+import {
+  isRoundRunning,
+  roundStartPolicy,
+  type MediaRoomRead,
+} from '@daisy/protocol';
 import { createMediaMutations } from './mutation';
 
 /** What a vendor mutation's authorization reads, under its locks. */
@@ -210,11 +214,10 @@ export function createMediaReconcileRun(
         claim,
         { kind: 'create', identity: null, payload: {} },
         (context) => {
-          if (
-            mediaEnded(context) ||
-            callOpening(context) ||
-            admissionRevoked(context)
-          )
+          // The Round ended under this admission and its call is not open
+          // yet: the caller comes back, as every other opening path says.
+          if (callOpening(context)) throw createAppError('INFRASTRUCTURE');
+          if (mediaEnded(context) || admissionRevoked(context))
             throw refuse(createAppError('CONFLICT'));
           if (!admitsCreator(context, admission))
             throw refuse(createAppError('AUTHORIZATION'));
@@ -554,7 +557,7 @@ export function createMediaReconcileRun(
           'The session left its room for a fresh one',
         );
       // The incident hook is the Round's: a post-round call has no Round to pause.
-      if (known && mediaPhaseOf(known) === 'round')
+      if (known && isRoundRunning(known.round.status))
         await reportToIncident(
           known,
           // Only a real failure before any read means the vendor was not reached.

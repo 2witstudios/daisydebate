@@ -81,6 +81,8 @@ type SessionInput = {
   readonly onPublication?: (value: LocalPublication) => void;
   /** Another account was here before: its owner clears what it kept. */
   readonly onAccountChanged: () => void;
+  /** The server ended a post-round call: its room gives way to the result. */
+  readonly onCallEnded?: () => void;
 };
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
@@ -92,6 +94,7 @@ function RoundMediaSession({
   tab,
   onPublication,
   onAccountChanged,
+  onCallEnded,
 }: SessionInput & { readonly view: RoundView }) {
   const { owns, onStepDown } = tab;
   const questioning = view.ladderId === null && hasOpenQuestioning(view.rules);
@@ -194,6 +197,15 @@ function RoundMediaSession({
     });
     return follower.current(view);
   }, [view, clock, dispatch]);
+  /** Only the server knows a call ended early: everyone left, or it never opened. */
+  const callEnded = useRef(onCallEnded);
+  useEffect(() => {
+    callEnded.current = onCallEnded;
+  }, [onCallEnded]);
+  const endedCall = postRoundCallChosen(view) && state.link.phase === 'ended';
+  useEffect(() => {
+    if (endedCall) callEnded.current?.();
+  }, [endedCall]);
   /** The controls read this device's own capture truth as a named input. */
   const report = useRef(onPublication);
   useEffect(() => {

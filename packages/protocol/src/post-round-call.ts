@@ -19,6 +19,12 @@ export type PostRoundCallFacts = {
   /** The host's choice, frozen onto the Round at Start round. */
   readonly optedIn: boolean;
   readonly status: RoundStatus;
+  /**
+   * The Round's media session exists and has not ended. Only a live session
+   * can carry a call: one that ended before the Round did, or never began,
+   * has no room to hand over and nobody in it.
+   */
+  readonly sessionOpen: boolean;
   /** When the Round reached its terminal status, or null while it runs. */
   readonly roundEndedAt: string | null;
   /** When the session took the call's own room, or null before it has. */
@@ -38,6 +44,7 @@ export type PostRoundCallState =
 export const noPostRoundCall = (status: RoundStatus): PostRoundCallFacts => ({
   optedIn: false,
   status,
+  sessionOpen: false,
   roundEndedAt: null,
   openedAt: null,
   vacantSince: null,

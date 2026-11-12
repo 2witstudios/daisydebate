@@ -29,6 +29,7 @@ import { BallotOpensNotice, useBallotOpensIn } from './ballot-opens';
 import { BallotRules } from './ballot-rules';
 import { useBallotDraft } from './use-ballot-draft';
 import { useBallotRefresh } from './use-ballot-refresh';
+import { postRoundCallOffered } from '../../../features/post-round-call/offered';
 const unanswered: RoundBallotFormState = idle();
 /** Mounted above every canonical state, so an unknown acknowledgement always keeps its original retry. */
 export function BallotPage({
@@ -129,6 +130,14 @@ export function BallotPage({
         <p role="status">
           Round outcome: {view.round.outcome ?? 'No competitive outcome'}
         </p>
+      ) : null}
+      {postRoundCallOffered(view.round, renderedAtMs) ? (
+        <MediaPageLink
+          href={`/rounds/${view.round.id}/room`}
+          className="inline-flex min-h-10 items-center text-base font-strong"
+        >
+          Join the post-round call
+        </MediaPageLink>
       ) : null}
       <Link
         href={`/judge/ballot/${view.round.id}`}

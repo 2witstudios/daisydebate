@@ -103,12 +103,14 @@ export function LiveRoundRoom({
   const refresh = useCallback(() => driver?.signal(), [driver]);
   const now = useSecond(renderedAtMs, roundTime);
   // The post-round call keeps this same room on screen (ADR 0126).
-  const onCall = isCallDebater(view, actorId, now);
+  const [callEnded, setCallEnded] = useState(false);
+  const endCall = useCallback(() => setCallEnded(true), []);
+  const onCall = !callEnded && isCallDebater(view, actorId, now);
   const round = useMemo(
     () =>
       liveRoundOf(view, actorId, now) ??
-      postRoundCallRoundOf(view, actorId, now),
-    [view, actorId, now],
+      (callEnded ? null : postRoundCallRoundOf(view, actorId, now)),
+    [view, actorId, now, callEnded],
   );
   const [publication, setPublication] = useState<LocalPublication>(null);
   const tab = useRoundMediaTab(actorId, view);
@@ -121,8 +123,9 @@ export function LiveRoundRoom({
         tab,
         onPublication: setPublication,
         onAccountChanged: clearAccountResumeRecords,
+        onCallEnded: endCall,
       }),
-    [refresh, roundTime, actorId, tab],
+    [refresh, roundTime, actorId, tab, endCall],
   );
   useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
@@ -156,7 +159,7 @@ export function LiveRoundRoom({
   const intent = leaveIntent(view, actorId, now);
   const leaving: LeaveLinks = onCall
     ? // The Round is over: leaving the call forfeits nothing and holds no one.
-      { ...leave, freed: true, held: false }
+      { ...leave, freed: true, held: false, call: true }
     : intent.kind === 'forfeit'
       ? {
           ...leave,
@@ -194,6 +197,7 @@ export function LiveRoundRoom({
       view={view}
       actorId={actorId}
       nowMs={now}
+      onCall={onCall}
       ids={ids}
       action={commandAction}
       onAnswer={onAnswer}
