@@ -158,3 +158,17 @@ test('the bot’s own voice coming back just after it stops is not a peer turn',
     expected: [],
   });
 });
+
+test('loud frames either side of a short gap do not add up to a barge-in', () => {
+  const { events, frames } = hearing(() => true);
+  frames(0, 100, LOUD);
+  // 200 ms of frames lost: shorter than the stale bound, so no poll saw it.
+  frames(300, 400, LOUD);
+  assert({
+    given:
+      'the bot playing, 100 ms of loud peer audio, a 200 ms gap in the frames, then 100 ms more',
+    should: 'report the gap and no barge-in',
+    actual: events,
+    expected: ['unknown'],
+  });
+});

@@ -23,14 +23,33 @@ export type Duty =
    * asking seat's last question has met no peer speech, and may be pressed once.
    */
   | { readonly status: 'waiting'; readonly unanswered: boolean }
-  | { readonly status: 'owed'; readonly to: Owed; readonly attempts: number }
-  | {
-      readonly status: 'speaking';
-      readonly to: Owed;
-      readonly attempts: number;
-    }
+  /**
+   * A turn is owed. `paused` after a refusal or a failure: it starts only
+   * once the pause is over. A turn that replaces it starts with no pause.
+   */
+  | ({ readonly status: 'owed'; readonly paused: boolean } & Turn)
+  | ({ readonly status: 'speaking' } & Turn)
   /** Nothing more is ever said under this claim. */
   | { readonly status: 'over' };
+
+/** One owed turn and what it has cost so far. */
+type Turn = {
+  readonly to: Owed;
+  /** Attempts spent on failures. */
+  readonly attempts: number;
+  /** Refusals and failures in a row with nothing said between: each lengthens the pause. */
+  readonly setbacks: number;
+};
+
+/** After a setback the turn waits this long... */
+const RETRY_FIRST_MS = 200;
+/** ...doubling with each one in a row, up to the control pulse's own pace. */
+const RETRY_MAX_MS = 3000;
+/** How long a paused turn waits before it may start again. */
+export const retryPauseMs = (duty: Duty): number =>
+  duty.status === 'owed' && duty.paused
+    ? Math.min(RETRY_FIRST_MS * 2 ** (duty.setbacks - 1), RETRY_MAX_MS)
+    : 0;
 
 export type SpeakerState = {
   readonly duty: Duty;
@@ -47,6 +66,10 @@ export type DutyRules = {
 
 export type DutyEvent =
   | { readonly type: 'woke' }
+  /** The pause after a setback is over. */
+  | { readonly type: 'pause-ended' }
+  /** A phrase was said: the turn is moving again. */
+  | { readonly type: 'phrase-said' }
   /** A peer began speaking, or talked over the bot; `audible` is the bot's own audio. */
   | {
       readonly type: 'peer-spoke';
@@ -80,7 +103,7 @@ export type DutyEffect =
   | 'drop'
   /** Clear audio still queued from a turn already delivered. */
   | 'silence'
-  /** Wake again shortly, without waiting for the next pulse. */
+  /** Wake again after `retryPauseMs`, without waiting for the next pulse. */
   | 'retry-soon'
   /** Start counting the silence after the asking seat's question. */
   | 'await-reply';
@@ -93,12 +116,20 @@ type Step = {
 export const initialSpeakerState = (rules: DutyRules): SpeakerState => ({
   duty:
     !rules.crossEx || rules.asks
-      ? { status: 'owed', to: { kind: 'opening' }, attempts: 0 }
+      ? owe({ kind: 'opening' })
       : { status: 'waiting', unanswered: false },
   midTurn: [],
 });
 
 const WAITING: Duty = { status: 'waiting', unanswered: false };
+/** A turn newly owed: nothing spent, nothing to wait for. */
+const owe = (to: Owed): Duty => ({
+  status: 'owed',
+  to,
+  attempts: 0,
+  setbacks: 0,
+  paused: false,
+});
 
 /** A peer speaking over audible bot audio cuts it; otherwise nothing is thrown away. */
 function peerSpoke(
@@ -152,15 +183,11 @@ function peerTurnEnded(
     duty.to.spokeUntilMs >= event.spokeUntilMs
   )
     return { state: { duty, midTurn }, effects: [] };
-  const owed: Duty = {
-    status: 'owed',
-    to: {
-      kind: 'peer-turn',
-      peer: event.peer,
-      spokeUntilMs: event.spokeUntilMs,
-    },
-    attempts: 0,
-  };
+  const owed = owe({
+    kind: 'peer-turn',
+    peer: event.peer,
+    spokeUntilMs: event.spokeUntilMs,
+  });
   return {
     state: { duty: owed, midTurn },
     effects: duty.status === 'speaking' ? ['restart'] : ['drop'],
@@ -189,7 +216,13 @@ function turnEnded(
     }
     case 'deferred':
       return {
-        duty: { status: 'owed', to: duty.to, attempts: duty.attempts },
+        duty: {
+          status: 'owed',
+          to: duty.to,
+          attempts: duty.attempts,
+          setbacks: duty.setbacks + 1,
+          paused: true,
+        },
         effects:
           // A cross-examination answer belongs to the authority it was made under.
           event.authorityChanged && rules.crossEx
@@ -205,7 +238,13 @@ function turnEnded(
           effects: ['drop'],
         };
       return {
-        duty: { status: 'owed', to: duty.to, attempts },
+        duty: {
+          status: 'owed',
+          to: duty.to,
+          attempts,
+          setbacks: duty.setbacks + 1,
+          paused: true,
+        },
         effects: event.unusable ? ['drop', 'retry-soon'] : ['retry-soon'],
       };
     }
@@ -225,11 +264,28 @@ export function nextSpeakerState(
   const { duty, midTurn } = state;
   switch (event.type) {
     case 'woke':
-      return duty.status === 'owed'
+      // A paused turn starts nothing until its pause is over.
+      return duty.status === 'owed' && !duty.paused
         ? {
-            state: { duty: { ...duty, status: 'speaking' }, midTurn },
+            state: {
+              duty: {
+                status: 'speaking',
+                to: duty.to,
+                attempts: duty.attempts,
+                setbacks: duty.setbacks,
+              },
+              midTurn,
+            },
             effects: ['start'],
           }
+        : { state, effects: [] };
+    case 'pause-ended':
+      return duty.status === 'owed' && duty.paused
+        ? { state: { duty: { ...duty, paused: false }, midTurn }, effects: [] }
+        : { state, effects: [] };
+    case 'phrase-said':
+      return duty.status === 'speaking' && duty.setbacks > 0
+        ? { state: { duty: { ...duty, setbacks: 0 }, midTurn }, effects: [] }
         : { state, effects: [] };
     case 'peer-spoke':
       return peerSpoke(state, event, rules);
@@ -241,7 +297,7 @@ export function nextSpeakerState(
         midTurn.length === 0
         ? {
             state: {
-              duty: { status: 'owed', to: { kind: 'unanswered' }, attempts: 0 },
+              duty: owe({ kind: 'unanswered' }),
               midTurn,
             },
             effects: [],

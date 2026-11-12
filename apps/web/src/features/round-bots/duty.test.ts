@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   initialSpeakerState,
   nextSpeakerState,
+  retryPauseMs,
   type DutyEvent,
   type DutyRules,
   type SpeakerState,
@@ -35,6 +36,7 @@ const spoke = (audible: boolean): DutyEvent => ({
   audible,
 });
 const failed: DutyEvent = { type: 'failed', unusable: false };
+const resumed: DutyEvent = { type: 'pause-ended' };
 
 describe('a speech', () => {
   test('is owed once and over when delivered', () => {
@@ -58,7 +60,13 @@ describe('a speech', () => {
         authorityChanged: true,
       }),
       expected: {
-        duty: { status: 'owed', to: { kind: 'opening' }, attempts: 0 },
+        duty: {
+          status: 'owed',
+          to: { kind: 'opening' },
+          attempts: 0,
+          setbacks: 1,
+          paused: true,
+        },
         midTurn: [],
         effects: ['start', 'retry-soon'],
       },
@@ -68,7 +76,7 @@ describe('a speech', () => {
     assert({
       given: 'two failed attempts',
       should: 'retry once, then be over',
-      actual: after(speech, woke, failed, woke, failed).duty,
+      actual: after(speech, woke, failed, resumed, woke, failed).duty,
       expected: { status: 'over' },
     });
     assert({
@@ -84,9 +92,76 @@ describe('a speech', () => {
       should: 'change nothing',
       actual: after(speech, woke, spoke(true), turnEnded(5)),
       expected: {
-        duty: { status: 'speaking', to: { kind: 'opening' }, attempts: 0 },
+        duty: {
+          status: 'speaking',
+          to: { kind: 'opening' },
+          attempts: 0,
+          setbacks: 0,
+        },
         midTurn: [],
         effects: ['start'],
+      },
+    });
+  });
+});
+
+describe('a pause after a setback', () => {
+  const deferred: DutyEvent = { type: 'deferred', authorityChanged: false };
+  const pauseOf = (...events: DutyEvent[]) =>
+    retryPauseMs(after(speech, ...events).duty);
+  test('holds its own turn back, for longer each time in a row', () => {
+    assert({
+      given: 'a paused turn woken by a pulse before its pause is over',
+      should: 'start nothing',
+      actual: after(speech, woke, deferred, woke).effects,
+      expected: ['start', 'retry-soon'],
+    });
+    assert({
+      given: 'one, two and six setbacks in a row, each after its pause ended',
+      should: 'pause 200 ms, then 400 ms, and never more than 3 s',
+      actual: [
+        pauseOf(woke, deferred),
+        pauseOf(woke, deferred, { type: 'pause-ended' }, woke, deferred),
+        pauseOf(
+          ...Array.from({ length: 6 }, () => [
+            { type: 'pause-ended' } as const,
+            woke,
+            deferred,
+          ]).flat(),
+        ),
+      ],
+      expected: [200, 400, 3000],
+    });
+    assert({
+      given: 'a setback, a phrase said, then another setback',
+      should: 'start its pauses short again',
+      actual: pauseOf(
+        woke,
+        deferred,
+        { type: 'pause-ended' },
+        woke,
+        { type: 'phrase-said' },
+        deferred,
+      ),
+      expected: 200,
+    });
+  });
+  test('never holds back the turn that replaces it', () => {
+    assert({
+      given:
+        'the asking seat’s opening paused by a refusal, then a peer turn ending, then a pulse',
+      should:
+        'start the answer to that peer at once, with nothing carried over',
+      actual: after(asker, woke, deferred, turnEnded(7), woke),
+      expected: {
+        duty: {
+          status: 'speaking',
+          to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 7 },
+          attempts: 0,
+          setbacks: 0,
+        },
+        midTurn: [],
+        effects: ['start', 'retry-soon', 'drop', 'start'],
       },
     });
   });
@@ -102,7 +177,13 @@ describe('a cross-examination', () => {
         initialSpeakerState(respondent).duty,
       ],
       expected: [
-        { status: 'owed', to: { kind: 'opening' }, attempts: 0 },
+        {
+          status: 'owed',
+          to: { kind: 'opening' },
+          attempts: 0,
+          setbacks: 0,
+          paused: false,
+        },
         { status: 'waiting', unanswered: false },
       ],
     });
@@ -117,6 +198,7 @@ describe('a cross-examination', () => {
           status: 'speaking',
           to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 1 },
           attempts: 0,
+          setbacks: 0,
         },
         midTurn: ['p'],
         effects: ['drop', 'start'],
@@ -144,6 +226,8 @@ describe('a cross-examination', () => {
           status: 'owed',
           to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 9 },
           attempts: 0,
+          setbacks: 0,
+          paused: false,
         },
         midTurn: [],
         effects: ['start', 'cut', 'drop', 'drop'],
@@ -160,6 +244,8 @@ describe('a cross-examination', () => {
           status: 'owed',
           to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 2 },
           attempts: 0,
+          setbacks: 0,
+          paused: false,
         },
         midTurn: [],
         effects: ['drop', 'start', 'restart'],
@@ -182,6 +268,8 @@ describe('a cross-examination', () => {
           status: 'owed',
           to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 5 },
           attempts: 1,
+          setbacks: 1,
+          paused: true,
         },
         midTurn: [],
         effects: ['drop', 'start', 'retry-soon'],
@@ -189,7 +277,15 @@ describe('a cross-examination', () => {
     });
   });
   test('attempts are counted per owed turn', () => {
-    const spent = after(respondent, turnEnded(1), woke, failed, woke, failed);
+    const spent = after(
+      respondent,
+      turnEnded(1),
+      woke,
+      failed,
+      resumed,
+      woke,
+      failed,
+    );
     assert({
       given: 'two failed attempts at one peer turn',
       should: 'give that turn up and wait',
@@ -204,6 +300,7 @@ describe('a cross-examination', () => {
         turnEnded(1),
         woke,
         failed,
+        resumed,
         woke,
         failed,
         turnEnded(2),
@@ -212,6 +309,8 @@ describe('a cross-examination', () => {
         status: 'owed',
         to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 2 },
         attempts: 0,
+        setbacks: 0,
+        paused: false,
       },
     });
   });

@@ -142,22 +142,23 @@ export function createBotAudioActivity(input: {
     }
     const previous = heard.get(frame.roundParticipantId);
     if (duplicate(previous, frame)) return;
-    if (previous && !follows(previous, frame))
+    const at = Date.parse(frame.serverWindow.after);
+    if (previous && !follows(previous, frame)) {
       input.onEvent({
         kind: 'unknown',
         roundParticipantId: frame.roundParticipantId,
       });
+      // The frames lost in the gap are unheard: what was heard before it
+      // sustains no speech or barge-in after it.
+      feed(frame.roundParticipantId, at, null);
+    }
     heard.set(frame.roundParticipantId, {
       trackId: frame.trackId,
       sequence: frame.sequence,
       afterMs: frame.afterMs,
       oldestServerMs: Date.parse(frame.serverWindow.before),
     });
-    feed(
-      frame.roundParticipantId,
-      Date.parse(frame.serverWindow.after),
-      rms(frame.pcm),
-    );
+    feed(frame.roundParticipantId, at, rms(frame.pcm));
   };
   return {
     observe: (frame: BotAudioActivityFrame) => {

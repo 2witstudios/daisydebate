@@ -22,6 +22,7 @@ type TestAnswer = {
   readonly value: { readonly phrases: readonly string[] | PhraseSource };
   readonly settle: () => Promise<void>;
   readonly close?: () => Promise<void>;
+  readonly abandon?: () => void;
 };
 /** The speaker's view of a test's answer: a finished list becomes its phrase source. */
 export const generated = (answer: TestAnswer): Generated => ({
@@ -32,6 +33,7 @@ export const generated = (answer: TestAnswer): Generated => ({
   },
   settle: answer.settle,
   close: answer.close ?? (async () => undefined),
+  abandon: answer.abandon ?? (() => undefined),
 });
 /** What the hearing reports of the one peer; each ended turn is a later instant. */
 let spokeUntilMs = 0;

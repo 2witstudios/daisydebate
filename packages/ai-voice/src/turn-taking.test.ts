@@ -144,3 +144,20 @@ test('sound under the barge-in level while the bot plays does not move when the 
     expected: ['990'],
   });
 });
+
+test('two clicks either side of lost frames are neither speech nor a barge-in', () => {
+  const clicks = (aiPlaying: boolean) => {
+    const machine = createTurnTaking(turnTakingSettings);
+    return [0, 400].map((at) => machine.feed({ at, level: 0.5, aiPlaying }));
+  };
+  assert({
+    given:
+      'one loud frame, 400 ms with no frame at all, then another loud frame',
+    should: 'report nothing, listening or while the bot plays',
+    actual: [clicks(false), clicks(true)],
+    expected: [
+      [null, null],
+      [null, null],
+    ],
+  });
+});

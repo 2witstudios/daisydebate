@@ -326,5 +326,6 @@ refusal nor a full capture fleet deafens a bot Round.
 - **Trace.** Each activity event (by kind), each discarded calibration (its
   round trip), each refused join (its error code) and each peer-line wait
   (its outcome and length) logs `round.hearing.observed` with an operation
-  name and those numbers only: no audio, text or identity.
+  name, those numbers and the Round's id only: no audio, text or person's
+  identity.
 - **No storage.** PCM stays in that process's memory, frame by frame.

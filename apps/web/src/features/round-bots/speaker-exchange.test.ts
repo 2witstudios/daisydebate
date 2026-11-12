@@ -276,3 +276,94 @@ test('the pressing of an unanswered question voices its later phrases ahead', as
   });
   void speaker.stop();
 });
+
+test('a pause earned by one turn never holds back the turn that replaces it', async () => {
+  let voiced = 0;
+  const calls: string[] = [];
+  const { createBotSpeaker } = await import('./speaker');
+  const { generated, isBudgetFull, scope } =
+    await import('./speaker.test-support');
+  const pending: number[] = [];
+  const stopped: string[] = [];
+  const speaker = createBotSpeaker({
+    claim: {
+      scope,
+      token: 'memory-only',
+      segmentType: 'cross_ex',
+      opensExchange: true,
+    },
+    generate: async (_scope, _token, _signal, to) => {
+      calls.push(to.kind);
+      return generated({
+        ...answered({ phrases: [`To ${to.kind}.`] }),
+        abandon: () => stopped.push(to.kind),
+      });
+    },
+    heard: async () => undefined,
+    // The pause never ends by itself in this test.
+    timer: {
+      setTimeout: (_run, ms) => pending.push(ms),
+      clearTimeout: () => undefined,
+    },
+    synthesize: async (_scope, _token, phraseId, text) => {
+      if (++voiced === 1) throw budgetFull();
+      return answered(job(phraseId, text));
+    },
+    deadline: async () => 1e12,
+    lineClosed: () => false,
+    tailCut: () => false,
+    writeAhead: () => undefined,
+    discard: () => undefined,
+    audible: () => false,
+    silence: () => undefined,
+    publish: async () => ({ complete: true, segmentEnded: false }),
+    nextId: () => 'phrase',
+    maxAttempts: 2,
+    busy: isBudgetFull,
+    failed: () => undefined,
+  });
+  const settle = async () => {
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+  };
+  speaker.wake();
+  await settle();
+  speaker.wake();
+  await settle();
+  const whilePaused = [...calls];
+  speaker.peer(peerSaid('end-of-turn'));
+  speaker.wake();
+  await settle();
+  assert({
+    given:
+      'an opening paused by a full budget, a pulse during the pause, then a peer turn ending and a pulse',
+    should:
+      'start nothing during the pause, then answer the peer at once and stop the dropped answer',
+    actual: [whilePaused, calls, stopped[0], pending[0]],
+    expected: [['opening'], ['opening', 'peer-turn'], 'opening', 200],
+  });
+  await speaker.stop();
+});
+
+test('a claim that stops abandons the answer it was still holding', async () => {
+  const stopped: string[] = [];
+  let voiced = 0;
+  const { speaker, settle } = harness('speech', {
+    generate: async () => ({
+      ...answered({ phrases: ['One.'] }),
+      abandon: () => stopped.push('abandoned'),
+    }),
+    synthesize: async (phraseId, text) => {
+      if (++voiced === 1) throw budgetFull();
+      return answered(job(phraseId, text));
+    },
+  });
+  speaker.wake();
+  await settle();
+  await speaker.stop();
+  assert({
+    given: 'a speech deferred with its answer held, then the claim stopping',
+    should: 'stop the answer',
+    actual: stopped,
+    expected: ['abandoned'],
+  });
+});

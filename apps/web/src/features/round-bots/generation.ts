@@ -192,6 +192,11 @@ export function createBotGeneration(input: {
   ) => {
     const producer = createPhraseSource();
     const stream = createPhraseStream();
+    // The answer outlives the turn that opened it (a deferred turn resumes
+    // it), so it has its own stop for when it is dropped instead.
+    const abandoned = new AbortController();
+    const turn = signal;
+    signal = AbortSignal.any([turn, abandoned.signal]);
     /** Settles once the answer was dispatched and its first text could arrive. */
     const opened = Promise.withResolvers<void>();
     let record: (() => Promise<void>) | null = null;
@@ -306,6 +311,7 @@ export function createBotGeneration(input: {
         verified = true;
       },
       close,
+      abandon: () => abandoned.abort(),
     };
   };
   return {

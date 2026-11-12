@@ -78,11 +78,16 @@ export function createBotListening(
     /**
      * A trace of what the hearing did: each activity event by kind, each
      * discarded calibration with its round trip, each refused join with its
-     * code. Names and numbers only: never audio, text or an identity.
+     * code. Names and numbers only, and the Round's id: never audio, text or a
+     * person's identity.
      */
     readonly observed: (
       operation: string,
-      fields?: { readonly durationMs?: number; readonly errorCode?: string },
+      fields?: {
+        readonly durationMs?: number;
+        readonly errorCode?: string;
+        readonly roundId?: string;
+      },
     ) => void;
   } & Pick<Observer, 'playing' | 'onEvent'>,
 ) {

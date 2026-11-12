@@ -54,6 +54,8 @@ export function createTurnTaking(settings: TurnTakingSettings) {
   /** The last frames at each level; a level holds for `dipMs` past them. */
   let speechAt = -Infinity;
   let bargeAt = -Infinity;
+  /** The last frame heard, at any level. */
+  let heardAt = -Infinity;
   let aboveSince: number | null = null;
   let quietSince: number | null = null;
   let bargeSince: number | null = null;
@@ -126,6 +128,13 @@ export function createTurnTaking(settings: TurnTakingSettings) {
       readonly aiPlaying: boolean;
     }): TurnTakingEvent | null {
       if (level === null) return unheard(at);
+      // Frames further apart than a dip are not one stretch of sound: what
+      // came before the gap sustains nothing after it.
+      if (at - heardAt > settings.dipMs) {
+        aboveSince = null;
+        bargeSince = null;
+      }
+      heardAt = at;
       if (level >= settings.speechLevel) speechAt = at;
       if (level >= settings.bargeLevel) bargeAt = at;
       // Only a frame counted as the peer's own speech moves the instant they

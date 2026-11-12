@@ -95,6 +95,12 @@ export function createSpeakingBotControl(input: {
   ) => {
     const publication = publisher(claim);
     const crossEx = claim.segmentType === 'cross_ex';
+    /** The hearing's trace, named by its Round so two at once can be told apart. */
+    const observed: typeof input.hearingObserved = (operation, fields) =>
+      input.hearingObserved(operation, {
+        ...fields,
+        roundId: claim.scope.roundId,
+      });
     const speaker = createBotSpeaker({
       claim,
       generate: (scope, token, signal, to) =>
@@ -108,7 +114,7 @@ export function createSpeakingBotControl(input: {
               waitUntilMonotonic(performance.now() + ms, signal),
             monotonicNowMs: () => performance.now(),
             waited: (outcome, durationMs) =>
-              input.hearingObserved(`line.${outcome}`, { durationMs }),
+              observed(`line.${outcome}`, { durationMs }),
           })
         : async () => undefined,
       timer: input.oneShot,

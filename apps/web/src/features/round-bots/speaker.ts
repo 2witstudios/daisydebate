@@ -6,6 +6,7 @@ import type { OneShotTimer } from '../../lib/worker-timers';
 import {
   initialSpeakerState,
   nextSpeakerState,
+  retryPauseMs,
   type DutyEffect,
   type DutyEvent,
   type Owed,
@@ -28,6 +29,11 @@ type Generated = Answer<{ readonly phrases: PhraseSource }> & {
    * again after a refusal, and it never asks the provider again.
    */
   readonly close: () => Promise<void>;
+  /**
+   * The answer will not be said any further: an answer still being written
+   * stops, freeing its provider slot. What it already cost still settles.
+   */
+  readonly abandon: () => void;
 };
 /**
  * How many phrases are voiced ahead of the one playing. One is not enough:
@@ -449,7 +455,7 @@ export function createBotSpeaker(input: {
       progress.synthesized = null;
       progress.ready = false;
       progress.lineId = null;
-      selfWake.progressed();
+      apply({ type: 'phrase-said' });
     }
     dropAhead();
     // An answer that stopped short was spoken to its last whole phrase; it
@@ -499,6 +505,8 @@ export function createBotSpeaker(input: {
   /** A fresh start, with nothing left voicing ahead of the last one. */
   const resetProgress = () => {
     dropAhead();
+    // An answer still being written is stopped: nobody will say the rest.
+    progress.generated?.abandon();
     progress = freshProgress();
   };
   const cancel = () => running?.abort.abort();
@@ -522,7 +530,9 @@ export function createBotSpeaker(input: {
       case 'silence':
         return input.silence();
       case 'retry-soon':
-        return stopped ? undefined : selfWake.retrySoon();
+        return stopped
+          ? undefined
+          : selfWake.pauseFor(retryPauseMs(state.duty));
       case 'await-reply':
         return selfWake.awaitReply();
     }
@@ -532,6 +542,9 @@ export function createBotSpeaker(input: {
     state = next.state;
     if (state.duty.status !== 'waiting' || !state.duty.unanswered)
       selfWake.stopAwaitingReply();
+    // A pause belongs to the turn that earned it: gone with that turn.
+    if (state.duty.status !== 'owed' || !state.duty.paused)
+      selfWake.stopPause();
     if (state.midTurn.length === 0) {
       const waiting = held;
       held = [];
@@ -587,12 +600,15 @@ export function createBotSpeaker(input: {
     running.done = turn(abort, state.duty.to);
   };
   const wake = () => {
-    if (stopped || running || selfWake.pausing()) return;
+    if (stopped || running) return;
     apply({ type: 'woke' });
   };
   const selfWake = createSelfWake({
     timer: input.timer,
-    resume: wake,
+    resume: () => {
+      apply({ type: 'pause-ended' });
+      wake();
+    },
     unanswered: () => {
       apply({ type: 'silence-elapsed' });
       wake();
