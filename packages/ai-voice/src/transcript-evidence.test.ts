@@ -40,3 +40,40 @@ test('an utterance cannot forge a transcript line (ADR 0125)', () => {
     ],
   });
 });
+
+test('a speech captured only in part is stated with the numbered lines (ADR 0125)', () => {
+  const coverage = (state: string, sequence: number) => ({
+    sequence,
+    side: 'negative' as const,
+    slot: 1,
+    state,
+    chunkCount: 3,
+    sealedChunkCount: 3,
+  });
+  const whole = transcriptLines({
+    ...spoken('Costs displace other services.'),
+    coverage: [coverage('complete', 2)],
+  });
+  const part = transcriptLines({
+    ...spoken('Costs displace other services.'),
+    completeness: 'incomplete',
+    coverage: [coverage('complete', 1), coverage('partial', 2)],
+  });
+  assert({
+    given:
+      'one fully captured speech, then a Round with one speech captured in part',
+    should:
+      'add nothing for whole capture, and name the partly captured speech so its brevity is not held against its speaker',
+    actual: [
+      whole.includes('captured only in part'),
+      part.split('\n').slice(-2),
+    ],
+    expected: [
+      false,
+      [
+        'Speeches captured only in part (judge what was captured; never count the missing part against the speaker):',
+        '[2] negative 1: partial',
+      ],
+    ],
+  });
+});

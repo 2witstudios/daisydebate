@@ -15,7 +15,7 @@ const evidence: TranscriptEvidenceInput = {
       sequence: 0,
       side: 'affirmative',
       slot: 0,
-      state: 'sealed',
+      state: 'complete',
       chunkCount: 2,
       sealedChunkCount: 2,
     },

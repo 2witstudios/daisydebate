@@ -114,7 +114,8 @@ const oneLine = (text: string) => text.replace(/\s+/g, ' ').trim();
  * prompts whose answers cite lines (ADR 0125): the case map and the final
  * judge. Each utterance's whitespace runs collapse to one space, so a line
  * is always exactly one utterance. Capture gaps follow, each stated as the
- * JSON evidence states it.
+ * JSON evidence states it, then every speech captured only in part,
+ * so the per-speech coverage the JSON carries is never lost here.
  */
 export function transcriptLines(input: TranscriptEvidenceInput): string {
   const evidence = transcriptEvidence(input);
@@ -129,9 +130,22 @@ export function transcriptLines(input: TranscriptEvidenceInput): string {
   const gaps = evidence.captureGaps.map(
     (gap) => `[${gap.sequence}] ${gap.side} ${gap.slot}: ${gap.statement}`,
   );
+  const partial = evidence.coverage
+    .filter((speech) => speech.state === 'partial')
+    .map(
+      (speech) =>
+        `[${speech.sequence}] ${speech.side} ${speech.slot}: ${speech.state}`,
+    );
   return [
     `Transcript (${evidence.completeness}), one line per utterance as [segment.line] side slot: text:`,
     ...lines,
     ...(gaps.length ? ['', 'Capture gaps:', ...gaps] : []),
+    ...(partial.length
+      ? [
+          '',
+          'Speeches captured only in part (judge what was captured; never count the missing part against the speaker):',
+          ...partial,
+        ]
+      : []),
   ].join('\n');
 }
