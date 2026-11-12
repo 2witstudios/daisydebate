@@ -283,7 +283,10 @@ seat or no seat (ADR 0126). A message shows its author's username and, where
 the viewer may name that seat, the seat and the host mark; a visitor gets no
 label. A judge reads the chat and does not post in it, so no message can name
 an anonymous judge: a judge's thread has no composer and says "Judges read this
-chat but don’t post in it." It ends when the Round starts or the Room closes.
+chat but don’t post in it." The read-only state follows the live Room view: a
+viewer who leaves the judge seat gets the composer back, and one who takes it
+loses it, without a reload. An author the viewer is given no name for, such as
+one who posted and then took the judge seat, is shown as "A member". It ends when the Round starts or the Room closes.
 
 Duration forms use integer minutes and decimal seconds (0–59.999). The form
 boundary converts their strings to exact integer milliseconds and checks the

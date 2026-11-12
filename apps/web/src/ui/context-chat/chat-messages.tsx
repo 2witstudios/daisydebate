@@ -14,6 +14,8 @@ export function ContextChatMessages(props: {
   readonly actorId: string;
   /** The accessible name of the list. */
   readonly label: string;
+  /** What stands for an author this reader is given no name for. */
+  readonly unnamedAuthor: string;
   readonly idPrefix: string;
   /** Where focus goes when a message's own controls go away. */
   readonly returnFocusId: string;
@@ -87,7 +89,7 @@ export function ContextChatMessages(props: {
                       : (props.authors.find(
                           (author) =>
                             author.actorId === available?.authorActorId,
-                        )?.label ?? 'Member')}
+                        )?.label ?? props.unnamedAuthor)}
                     {seatOf(row.body.authorActorId) ? (
                       <span className="font-book text-ink-muted">
                         {' · '}

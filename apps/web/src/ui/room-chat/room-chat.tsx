@@ -18,6 +18,7 @@ const labels: ContextChatLabels = {
     notice: 'Judges read this chat but don’t post in it.',
     composer: 'none',
   },
+  unnamedAuthor: 'A member',
   messages: 'Room chat messages',
   idPrefix: 'room-chat',
 };

@@ -103,6 +103,7 @@ function BoundContextChat({
             channelId={channelId}
             actorId={props.actorId}
             label={labels.messages}
+            unnamedAuthor={labels.unnamedAuthor}
             idPrefix={labels.idPrefix}
             returnFocusId={composerId}
             messages={messages}

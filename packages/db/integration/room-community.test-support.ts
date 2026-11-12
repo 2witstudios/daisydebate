@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { decideRoomCommunity } from '@daisy/auth/room-community';
+import { namesHumanJudge } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Fixture } from './constraint-helpers';
 import { admitParticipants } from '../src/beta-access-testing';
@@ -57,7 +58,7 @@ export const prepared = async (
   const roomId = await f.room(host.actorId, await f.format(), room);
   const scope = { roomId, ...host };
   const db = drizzle({ client: f.sql });
-  const store = createRoomCommunityStore(db, authorize);
+  const store = createRoomCommunityStore(db, authorize, namesHumanJudge);
   const opened = await store.open({ ...scope, newChannelId: createId() });
   return { db, store, scope: { ...scope, channelId: opened.channelId } };
 };

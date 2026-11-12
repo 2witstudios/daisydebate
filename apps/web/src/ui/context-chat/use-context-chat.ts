@@ -2,7 +2,13 @@
 import { contextChatPagedHistory } from './paged-history';
 import { createContextChatDriver } from './chat-driver';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { channelMessages } from '../../features/messaging/channel-messages';
 import { useRealtime } from '../../features/realtime/use-realtime';
 import { contextChatUnread } from '../../features/messaging/context-chat/history';
@@ -18,7 +24,17 @@ export type ContextChatProps = {
   readonly actorId: string;
   readonly socketUrl: string | null;
   readonly requestId: string;
+  /**
+   * Whether this reader may only read, as the page knows it now. It may change
+   * while the page is open (a Room's seat change); the thread then enters again.
+   */
   readonly readOnlyHint: boolean;
+  /**
+   * The owner's revision as the page knows it, where the page follows one. A
+   * change re-reads the latest page: what this reader may be told about its
+   * authors may have changed with the owner.
+   */
+  readonly ownerRevision?: number | undefined;
   readonly sendAction: (
     channelId: string,
     previous: ContextChatFormState,
@@ -93,10 +109,12 @@ export function useContextChat({
   const withdrawn = live.status === 'hidden';
   const hidden = withdrawn || !chat || chat.hidden;
   const mayOpen = !props.readOnlyHint;
-  const enter = useCallback(
-    () => send({ type: 'enter-requested', mayOpen }),
-    [send, mayOpen],
-  );
+  /** What the reader could do when the thread was last entered. */
+  const enteredAs = useRef<boolean | null>(null);
+  const enter = useCallback(() => {
+    enteredAs.current = mayOpen;
+    send({ type: 'enter-requested', mayOpen });
+  }, [send, mayOpen]);
   const refresh = useCallback(
     () => send({ type: 'refresh-requested' }),
     [send],
@@ -108,6 +126,27 @@ export function useContextChat({
   useEffect(() => {
     if (active && state.kind === 'idle') enter();
   }, [active, state.kind, enter]);
+  // The hint is not latched: when the page learns the reader may now post, or
+  // may no longer, the thread enters again under it (finding or opening the
+  // chat, or giving up its composer). An entry already on its way finishes
+  // first.
+  useEffect(() => {
+    if (
+      active &&
+      state.kind !== 'idle' &&
+      state.kind !== 'loading' &&
+      enteredAs.current !== null &&
+      enteredAs.current !== mayOpen
+    )
+      enter();
+  }, [active, state.kind, mayOpen, enter]);
+  const { ownerRevision } = props;
+  const readAt = useRef(ownerRevision);
+  useEffect(() => {
+    if (readAt.current === ownerRevision) return;
+    readAt.current = ownerRevision;
+    send({ type: 'refresh-requested' });
+  }, [ownerRevision, send]);
   // A reader who may not open the chat (a judge) still sees it once someone
   // else does: while it is empty and the page is in view, ask again now and
   // then. A found chat, a refusal or leaving the page ends the asking.

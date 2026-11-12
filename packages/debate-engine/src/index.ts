@@ -50,6 +50,7 @@ export {
   ratingAwaited,
   ratingEligibility,
 } from './rating-decision';
+export { namesHumanJudge, type JudgeNamingFacts } from './room-assembly-facts';
 export {
   eraseSeats,
   executeRoomCommand,

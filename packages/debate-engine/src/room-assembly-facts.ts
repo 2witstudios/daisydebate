@@ -121,11 +121,26 @@ export const acceptedRoomMutation = (
  * did not inherit the Room. A seat gains nothing from hosting (WATCH-6), and an
  * heir did not seat them (DEC-331).
  */
-export const hostNamesJudges = (
-  room: Pick<
-    RoomAssemblyState,
-    'hostActorId' | 'hostInherited' | 'participants'
-  >,
-): boolean =>
+export const hostNamesJudges = (room: JudgeNamingFacts): boolean =>
   !room.hostInherited &&
   !room.participants.some((p) => p.actorId === room.hostActorId);
+
+/** What naming a Room's human judges is decided from. */
+export type JudgeNamingFacts = {
+  readonly hostActorId: string;
+  readonly hostInherited: boolean;
+  readonly participants: readonly { readonly actorId: string }[];
+};
+
+/**
+ * Whether this viewer may name one human judge of the Room (DEC-98, DEC-174):
+ * only that judge themselves and a host who names judges. The Room view and
+ * Room chat's author labels both apply this one rule.
+ */
+export const namesHumanJudge = (
+  room: JudgeNamingFacts,
+  viewerActorId: string,
+  judgeActorId: string,
+): boolean =>
+  judgeActorId === viewerActorId ||
+  (room.hostActorId === viewerActorId && hostNamesJudges(room));

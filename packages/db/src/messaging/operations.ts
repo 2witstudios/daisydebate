@@ -41,7 +41,8 @@ export function messagingOperations(
     ...roomCommunityRetention(database),
     roomCommunityStore: (
       authorize: Parameters<typeof createRoomCommunityStore>[1],
-    ) => createRoomCommunityStore(database, authorize),
+      namesJudge: Parameters<typeof createRoomCommunityStore>[2],
+    ) => createRoomCommunityStore(database, authorize, namesJudge),
     messagingInboxPage: createMessagingInboxPage(database),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],

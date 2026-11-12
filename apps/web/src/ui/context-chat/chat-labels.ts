@@ -16,6 +16,8 @@ export type ContextChatLabels = {
     readonly notice: string;
     readonly composer: 'locked' | 'none';
   };
+  /** What stands for an author this reader is given no name for. */
+  readonly unnamedAuthor: string;
   /** The accessible name of the message list. */
   readonly messages: string;
   /** Begins every element id the thread mints, so two chats never share one. */

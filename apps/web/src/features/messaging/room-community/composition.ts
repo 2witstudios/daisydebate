@@ -1,6 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { decideRoomCommunity } from '@daisy/auth/room-community';
 import { roomCommunityMetadataOf } from '@daisy/db/messaging';
+import { namesHumanJudge } from '@daisy/debate-engine';
 import {
   createRoomCommunitySchemas,
   type RoomCommunityFact,
@@ -40,6 +41,7 @@ export function composeRoomCommunityRoutes(app: App) {
             now: app.clock.now(),
           }).allow,
       ),
+      namesHumanJudge,
     );
     return {
       discover: (scope) => chat.discover({ roomId, ...scope }),

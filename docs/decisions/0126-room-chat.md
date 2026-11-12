@@ -48,8 +48,9 @@ derives the standing from it with the one `room.read` rule that Room pages use
 (`roomReadable` in `@daisy/auth`), so the chat's audience cannot drift from
 "everyone who may read the Room". The fact is about the caller alone and never
 reaches a client. A caller is told only whether their own chat is read-only; a
-thread shows usernames only; and a page that may name a seat adds that from the
-Room it already reads.
+thread shows usernames only, less that of an author who now sits as a judge the
+reader may not name; and a page that may name a seat adds that from the Room it
+already reads.
 
 Rendering and `GET` discovery are reads and never create a channel. A protected
 explicit POST creates the channel once under the Room's lock, and concurrent
@@ -105,5 +106,26 @@ A viewer's observation permit is the standard short permit: a tab outlives the
 end of its authority by at most that permit, and receives nothing new in that
 time because no post is accepted. Visitor posting cannot yet be turned off by a
 host. A human judge can read the Room's conversation and cannot take part in
-it. An unlabelled author in a private Room is someone who has since left their
-seat, never a sitting judge.
+it.
+
+A member may post as a debater or a visitor and then take the judge's seat.
+Their earlier messages stay. From that write the server gives their username to
+no reader who may not name that judge: the author-label read applies the Room
+view's own rule (`namesHumanJudge` in `@daisy/debate-engine`), so only the judge
+themselves and a seatless host who did not inherit the Room still get it.
+Everyone else sees such a message under "A member", the same words as for an
+author whose account is gone. The Room page re-reads the thread's latest page
+whenever the Room's version moves, so an open tab drops a username it had
+already been given.
+
+What this does not close, and is accepted:
+
+- The message keeps its author's actor id on the wire, as it had while they
+  held a named seat. It is not a name, and Room chat gives no reader a way to
+  turn it into one.
+- A reader who saw the username before the move has seen it. A tab that has
+  lost its Room sync keeps showing it until its next read. Anyone watching the
+  seats saw the same member leave a debater's seat as a judge's seat filled.
+- In a private Room every other author carries a seat, so a message under "A
+  member" can be read as written earlier by whoever now judges, or by someone
+  who has left. It says which message, not who.

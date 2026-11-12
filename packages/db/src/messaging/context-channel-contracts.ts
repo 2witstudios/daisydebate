@@ -68,6 +68,8 @@ export type ContextChannelOwner<Fact extends ContextChannelFact> = {
     input: {
       readonly ownerId: string;
       readonly channelId: string;
+      /** The reader the labels are for. */
+      readonly viewerActorId: string;
       readonly authorActorIds: readonly string[];
     },
   ) => Promise<readonly ContextChannelAuthor[]>;

@@ -551,6 +551,58 @@ describe('Room chat Messaging producer', () => {
         await cleanupRoomChat(f, scope.roomId);
       }
     }));
+  test('an author who takes the judge seat is named only to themselves and a host who names judges', async () =>
+    withFixture(databaseUrl, async (f) => {
+      const { store, scope } = await prepared(f, { visibility: 'private' });
+      try {
+        const mover = await member(f);
+        const debater = await member(f);
+        await seat(f, scope.roomId, mover.actorId, 'affirmative');
+        await seat(f, scope.roomId, debater.actorId, 'negative');
+        await send(store, { ...scope, ...mover });
+        await send(store, scope);
+        const labelled = async (who: { userId: string; actorId: string }) =>
+          (
+            await store.readChat({ ...scope, ...who }, (frame) =>
+              frame.readAuthors([mover.actorId, scope.actorId]),
+            )
+          )
+            .map((author) => author.actorId)
+            .sort();
+        const all = [mover.actorId, scope.actorId].sort();
+        const whileDebater = await labelled(debater);
+        await f.sql`update room_participants set role='judge' where room_id=${scope.roomId} and actor_id=${mover.actorId}`;
+        const asJudge = {
+          debater: await labelled(debater),
+          self: await labelled(mover),
+          seatlessHost: await labelled(scope),
+        };
+        await f.sql`update rooms set host_inherited=true where id=${scope.roomId}`;
+        const heir = await labelled(scope);
+        await f.sql`update rooms set host_inherited=false where id=${scope.roomId}`;
+        await seat(f, scope.roomId, scope.actorId, 'affirmative');
+        const seatedHost = await labelled(scope);
+        assert({
+          given:
+            'a debater of a private Room who posted and then took the judge seat, read by the other debater, by themselves, by a seatless host, by a host who inherited the Room and by a host who holds a seat',
+          should:
+            'label them for everyone while they debate, then only for themselves and the seatless host who seated them, and keep every other author labelled',
+          actual: { whileDebater, asJudge, heir, seatedHost },
+          expected: {
+            whileDebater: all,
+            asJudge: {
+              debater: [scope.actorId],
+              self: all,
+              seatlessHost: all,
+            },
+            heir: [scope.actorId],
+            seatedHost: [scope.actorId],
+          },
+        });
+      } finally {
+        await cleanupRoomChat(f, scope.roomId);
+      }
+    }));
   test('realtime-role cohort shares current Room authority (RCHAT-7)', async () =>
     withFixture(databaseUrl, async (f) => {
       const { scope, store } = await prepared(f);

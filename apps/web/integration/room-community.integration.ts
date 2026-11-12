@@ -676,3 +676,113 @@ for (const hostSeat of ['affirmative', 'judge'] as const)
       if (roomId) await removeRoom(roomId);
     }
   });
+
+test('a debater who posts and then takes the judge seat is not named by their earlier message', async () => {
+  const host = await h.member(),
+    mover = await h.member(),
+    reader = await h.member();
+  let roomId: string | null = null;
+  try {
+    const created = await h.routes.rooms.create(
+      h.f.jsonPost(
+        '/api/rooms',
+        {
+          commandId: createId(),
+          title: 'Debater becomes judge',
+          resolution: { kind: 'custom', text: 'Cities should fund transit' },
+          visibility: 'unlisted',
+          selection: judgedSelection,
+        },
+        { cookie: host },
+      ),
+    );
+    let view: RoomView = roomViewSchema.parse((await created.json()).view);
+    const room = (roomId = view.id);
+    for (const [cookie, role] of [
+      [mover, 'affirmative'],
+      [reader, 'negative'],
+    ] as const)
+      view = await h.command(cookie, view, {
+        type: 'claim-seat',
+        role,
+        slot: 0,
+      });
+    await withSql(
+      (sql) =>
+        sql`update rooms set visibility='private',version=version+1 where id=${room}`,
+    );
+    const path = `/api/rooms/${room}/chat`;
+    const opened = await (
+      await h.routes.roomCommunity.open(
+        h.f.jsonPost(path, { version: 1, roomId: room }, { cookie: mover }),
+        room,
+      )
+    ).json();
+    const channelId = opened.channelId as string;
+    await h.routes.roomCommunity.send(
+      h.f.jsonPost(
+        `${path}/messages`,
+        {
+          version: 1,
+          channelId,
+          requestId: createId(),
+          text: 'Before judging',
+        },
+        { cookie: mover },
+      ),
+      room,
+    );
+    const identity = await createAccountFlows(h.f).identifyAs(mover);
+    if (identity.state !== 'member') throw Error('Expected a member');
+    const page = async (cookie: string) => {
+      const response = await h.routes.roomCommunity.history(
+        new Request(`${h.f.origin}${path}/messages?channelId=${channelId}`, {
+          headers: h.headers(cookie),
+        }),
+        room,
+      );
+      const body = await response.json();
+      return {
+        texts: body.history.messages.map((m: { text: string }) => m.text),
+        named: JSON.stringify(body).includes(identity.username),
+        readOnly: body.metadata.readOnly as boolean,
+      };
+    };
+    const before = await page(reader);
+    const current = roomViewSchema.parse(
+      await (
+        await h.routes.rooms.read(
+          new Request(`${h.f.origin}/api/rooms/${room}`, {
+            headers: h.headers(mover),
+          }),
+          room,
+        )
+      ).json(),
+    );
+    await h.command(mover, current, {
+      type: 'claim-seat',
+      role: 'judge',
+      slot: 0,
+    });
+    assert({
+      given:
+        'a debater of a private Room who posted, then took the judge seat, read by the other debater, by themselves and by the seatless host',
+      should:
+        'keep the message for all three, name its author to the other debater only while they debated, and still name them to themselves and the host',
+      actual: {
+        before,
+        reader: await page(reader),
+        self: await page(mover),
+        host: await page(host),
+      },
+      expected: {
+        before: { texts: ['Before judging'], named: true, readOnly: false },
+        reader: { texts: ['Before judging'], named: false, readOnly: false },
+        self: { texts: ['Before judging'], named: true, readOnly: true },
+        host: { texts: ['Before judging'], named: true, readOnly: false },
+      },
+    });
+  } finally {
+    if (roomId) await removeRoom(roomId);
+  }
+});

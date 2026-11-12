@@ -40,6 +40,7 @@ import { AssemblySeats } from './assembly-seats';
 import { RoomSettings } from './room-settings';
 import { RoomChat, type RoomChatProps } from '../../room-chat/room-chat';
 import { chatAuthorSeat } from './room-labels';
+import { readsRoomChatOnly } from '../../../features/messaging/room-community/room-chat-reader';
 import { RoomSyncContext } from './room-sync-context';
 import { MediaPageLink } from '../../round-media/media-page-link';
 
@@ -148,6 +149,9 @@ export function RoomLive(props: Props) {
           props.chat && isOpenRoomStatus(view.status) ? (
             <RoomChat
               {...props.chat}
+              // The server's hint is the first paint; the synced view decides after.
+              readOnlyHint={readsRoomChatOnly(view, props.actorId)}
+              ownerRevision={view.version}
               authorLabel={(actorId) => chatAuthorSeat(view, actorId)}
             />
           ) : null

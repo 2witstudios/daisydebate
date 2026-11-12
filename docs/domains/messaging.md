@@ -37,7 +37,10 @@ human in a judge's seat (the host included), and none otherwise. Seated members
 and visitors read and post while the Room is open. A judge reads and does not
 post, and is told their chat is read-only: a judge is anonymous to the debaters
 (DEC-174) and a message carries its author's username, so no message can name a
-judge. A host control over visitor posting is not built. The explicit open POST
+judge. An author who posted and then took a judge's seat keeps their messages, and
+their username is withheld from every reader who may not name that judge
+(`namesHumanJudge`, the Room view's rule): the thread shows "A member". A host
+control over visitor posting is not built. The explicit open POST
 creates the channel once; server render and `GET` discovery never create one.
 The page of a member who may post sends that POST on entering an open Room that
 has no chat yet, as the floor does; a judge's page never does, and a judge's

@@ -556,3 +556,142 @@ test('the check for a chat opened by someone else ends when access is refused or
     await refused.unmount();
   }
 });
+
+/** A thread whose page changes what it says of the reader while it is open. */
+const mountChanging = async (readOnlyHint: boolean) => {
+  const world = {
+    channel: null as ReturnType<typeof metadata> | null,
+    asked: [] as string[],
+  };
+  const client = await mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./use-context-chat.test-support', import.meta.dir),
+    {
+      fetch: (url: string, init?: RequestInit) => {
+        if (url.includes('/messages')) {
+          world.asked.push('read');
+          return Promise.resolve(page(world.channel?.readOnly ?? false));
+        }
+        if (init?.method === 'POST') {
+          world.asked.push('open');
+          world.channel = metadata(false);
+          return Promise.resolve(Response.json(world.channel));
+        }
+        world.asked.push('discover');
+        return Promise.resolve(
+          Response.json({ version: 1, roundId, channel: world.channel }),
+        );
+      },
+      Response,
+      Headers,
+      URL,
+      TextEncoder,
+      TextDecoder,
+    },
+  );
+  const act = (work: () => unknown) =>
+    client.act(async () => {
+      work();
+      for (let turn = 0; turn < 8; turn += 1)
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  const never = {
+    everyMs: 15_000,
+    every: () => () => undefined,
+    visible: () => true,
+  };
+  const render = (hint: boolean, ownerRevision = 1) =>
+    act(() =>
+      client.root.render(
+        client.createElement(client.ContextChatProbe, {
+          ownerId: roundId,
+          actorId: 'a'.repeat(24),
+          socketUrl: null,
+          requestId: 'q'.repeat(24),
+          readOnlyHint: hint,
+          ownerRevision,
+          sendAction: refuse,
+          mutateAction: refuse,
+          reportAction: refuse,
+          hold: () => undefined,
+          openingCheck: never,
+        }),
+      ),
+    );
+  await render(readOnlyHint);
+  await act(() => undefined);
+  return {
+    world,
+    render,
+    shown: () => {
+      const { state, readOnly } = JSON.parse(
+        client.container.querySelector('output')!.textContent!,
+      ) as { state: string; readOnly: boolean | null };
+      return { state, readOnly };
+    },
+    unmount: () => client.act(async () => client.root.unmount()),
+  };
+};
+
+test('a reader who may now post opens the chat they could only wait for', async () => {
+  const chat = await mountChanging(true);
+  try {
+    const before = [chat.shown().state, [...chat.world.asked]];
+    await chat.render(false);
+    assert({
+      given:
+        'an empty chat whose reader may not open it, then the page learning that they may post',
+      should:
+        'have asked only to discover at first, then enter again and open the chat',
+      actual: {
+        before,
+        after: chat.shown(),
+        asked: chat.world.asked,
+      },
+      expected: {
+        before: ['empty', ['discover']],
+        after: { state: 'ready', readOnly: false },
+        asked: ['discover', 'discover', 'open', 'read'],
+      },
+    });
+  } finally {
+    await chat.unmount();
+  }
+});
+
+test('a reader who may no longer post has the chat read again as read-only', async () => {
+  const chat = await mountChanging(false);
+  try {
+    const before = chat.shown();
+    // The server now says this reader's chat is read-only.
+    chat.world.channel = metadata(true);
+    const asked = chat.world.asked.length;
+    await chat.render(true);
+    const flipped = chat.world.asked.slice(asked);
+    const seen = chat.world.asked.length;
+    await chat.render(true);
+    const unchanged = chat.world.asked.length === seen;
+    await chat.render(true, 2);
+    assert({
+      given:
+        'an open writable chat, then the page learning its reader may only read, the same again, and the owner’s revision moving',
+      should:
+        'enter again once and hold the read-only chat, ask nothing for an unchanged hint, and re-read the latest page when the owner changes',
+      actual: {
+        before,
+        flipped,
+        after: chat.shown(),
+        unchanged,
+        onRevision: chat.world.asked.slice(seen),
+      },
+      expected: {
+        before: { state: 'ready', readOnly: false },
+        flipped: ['discover', 'read'],
+        after: { state: 'ready', readOnly: true },
+        unchanged: true,
+        onRevision: ['read'],
+      },
+    });
+  } finally {
+    await chat.unmount();
+  }
+});

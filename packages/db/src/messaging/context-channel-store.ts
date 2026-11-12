@@ -152,6 +152,7 @@ export function createContextChannelStore<Fact extends ContextChannelFact>(
             return owner.readAuthors(tx, {
               ownerId: scope.ownerId,
               channelId: scope.channelId,
+              viewerActorId: scope.actorId,
               authorActorIds,
             });
           },

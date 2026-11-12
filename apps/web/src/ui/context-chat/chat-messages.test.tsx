@@ -25,6 +25,7 @@ const props = {
   channelId,
   actorId,
   label: 'Room chat messages',
+  unnamedAuthor: 'A member',
   idPrefix: 'room-chat',
   returnFocusId: 'room-chat-message',
   messages: [
@@ -52,7 +53,7 @@ test('a thread names each author and nothing more by default', () => {
     should:
       'show You, the username and Member, in order, under the list’s name',
     actual: [names(html), html.includes('aria-label="Room chat messages"')],
-    expected: [['You', 'grace', 'Member'], true],
+    expected: [['You', 'grace', 'A member'], true],
   });
 });
 
@@ -73,7 +74,7 @@ test('a thread shows what the page says about an author beside their name', () =
     should:
       'add the seat to those two and leave the third exactly as a member with none',
     actual: names(html),
-    expected: ['You · Affirmative 1 · host', 'grace · Judge', 'Member'],
+    expected: ['You · Affirmative 1 · host', 'grace · Judge', 'A member'],
   });
 });
 
