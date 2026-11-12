@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "b07d36ea-2cb9-4935-a85b-16824ec1c9ad",
+  "id": "3cda3864-2a69-48ae-bc64-a14b760dc3c1",
   "prevIds": [
-    "876d02b8-7b06-4cb5-95ac-1ce49d252944"
+    "33189daa-642a-4e41-839a-fbc040336647"
   ],
   "ddl": [
     {
@@ -6246,6 +6246,19 @@
       "generated": null,
       "identity": null,
       "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "room_id",
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_channels"
@@ -17965,6 +17978,34 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "room_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_channels_room_kind_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "owner_actor_id",
           "isExpression": false,
           "asc": true,
@@ -24024,6 +24065,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "room_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rooms",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "messaging_channels_room_id_rooms_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "channel_id"
       ],
       "schemaTo": "public",
@@ -29538,7 +29596,7 @@
       "table": "messaging_channel_streams"
     },
     {
-      "value": "\"kind\" in ('dm', 'private_group', 'round_floor', 'round_spectator')",
+      "value": "\"kind\" in ('dm', 'private_group', 'round_floor', 'round_spectator', 'room_community')",
       "name": "messaging_channels_kind",
       "entityType": "checks",
       "schema": "public",
@@ -29552,6 +29610,13 @@
       "table": "messaging_channels"
     },
     {
+      "value": "(\"kind\" = 'room_community') = (\"room_id\" is not null)",
+      "name": "messaging_channels_room",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
       "value": "\"lifecycle\" in ('active', 'archived', 'retained')",
       "name": "messaging_channels_lifecycle",
       "entityType": "checks",
@@ -29559,7 +29624,7 @@
       "table": "messaging_channels"
     },
     {
-      "value": "\"policy_revision\" > 0 and ((\"kind\" = 'dm' and \"policy_key\" = 'social.dm') or (\"kind\" = 'private_group' and \"policy_key\" = 'social.private_group') or (\"kind\" = 'round_floor' and \"policy_key\" = 'round.floor') or (\"kind\" = 'round_spectator' and \"policy_key\" = 'round.spectator'))",
+      "value": "\"policy_revision\" > 0 and ((\"kind\" = 'dm' and \"policy_key\" = 'social.dm') or (\"kind\" = 'private_group' and \"policy_key\" = 'social.private_group') or (\"kind\" = 'round_floor' and \"policy_key\" = 'round.floor') or (\"kind\" = 'round_spectator' and \"policy_key\" = 'round.spectator') or (\"kind\" = 'room_community' and \"policy_key\" = 'room.community'))",
       "name": "messaging_channels_policy",
       "entityType": "checks",
       "schema": "public",
