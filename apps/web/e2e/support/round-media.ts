@@ -147,16 +147,25 @@ export const expectConnected = (page: Page) =>
     }),
   ).toBeVisible(MEDIA_POLL);
 
-/** Actual decoded frames from a remote participant, not a grant or a track object. */
+/** A refusal is reported only once the browser tries to play; give it this long to show. */
+const SOUND_BLOCK_GRACE_MS = 2_000;
+
 /** The Round offers Enable sound only while the browser blocks sound; press it then. */
 export const enableSound = async (page: Page) => {
   const button = page.getByRole('button', {
     name: 'Enable sound',
     exact: true,
   });
-  if (await button.isVisible()) await button.click();
+  const offered = await button
+    .waitFor({ state: 'visible', timeout: SOUND_BLOCK_GRACE_MS })
+    .then(
+      () => true,
+      () => false,
+    );
+  if (offered) await button.click();
 };
 
+/** Actual decoded frames from a remote participant, not a grant or a track object. */
 export const expectPeerCamera = (page: Page) =>
   expect
     .poll(
