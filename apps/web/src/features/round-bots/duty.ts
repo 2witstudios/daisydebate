@@ -43,8 +43,11 @@ export type Duty =
 export type Yielded =
   /** Its audio: `peer` talked over it, and it answers what they said. */
   | { readonly kind: 'audio'; readonly peer: string }
-  /** A turn it had started but bought nothing for: still owed if the peer said nothing more. */
-  | { readonly kind: 'turn'; readonly to: Owed };
+  /**
+   * A turn it had started but bought nothing for, with what it had cost:
+   * still owed, at that cost, if the peer said nothing more.
+   */
+  | ({ readonly kind: 'turn' } & Turn);
 
 /** One owed turn and what it has cost so far. */
 type Turn = {
@@ -191,7 +194,12 @@ function peerSpoke(
         ? { state: { duty, midTurn }, effects: [] }
         : {
             state: {
-              duty: yieldedTo({ kind: 'turn', to: duty.to }),
+              duty: yieldedTo({
+                kind: 'turn',
+                to: duty.to,
+                attempts: duty.attempts,
+                setbacks: duty.setbacks,
+              }),
               midTurn,
             },
             effects: ['restart'],
@@ -231,9 +239,22 @@ function peerTurnEnded(
   // exception: giving way must never lose an answer.
   if (event.spokeForMs < BRIEF_TURN_MS) {
     const yielded = duty.status === 'waiting' ? duty.yielded : null;
-    // The turn it stood down from is owed again: the peer added nothing.
+    // The turn it stood down from is owed again, at what it had already
+    // cost: the peer added nothing.
     if (yielded?.kind === 'turn')
-      return { state: { duty: owe(yielded.to), midTurn }, effects: [] };
+      return {
+        state: {
+          duty: {
+            status: 'owed',
+            to: yielded.to,
+            attempts: yielded.attempts,
+            setbacks: yielded.setbacks,
+            paused: false,
+          },
+          midTurn,
+        },
+        effects: [],
+      };
     // Another peer's brief sound is not what cut the bot off.
     if (yielded?.kind !== 'audio' || yielded.peer !== event.peer)
       return { state: { duty, midTurn }, effects: [] };

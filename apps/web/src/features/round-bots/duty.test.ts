@@ -221,6 +221,8 @@ describe('a cross-examination', () => {
           yielded: {
             kind: 'turn',
             to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 1 },
+            attempts: 0,
+            setbacks: 0,
           },
         },
         midTurn: ['p'],
@@ -371,6 +373,22 @@ describe('a cross-examination', () => {
         stoodDown(asker, woke, { type: 'delivered' }),
       ],
       expected: [owedAgain, owedAgain],
+    });
+    assert({
+      given:
+        'a turn that had already spent an attempt, stood down for a sound that proves brief',
+      should: 'be owed again with that attempt still counted',
+      actual: after(
+        respondent,
+        turnEnded(4),
+        woke,
+        { type: 'failed', unusable: true },
+        resumed,
+        woke,
+        spoke(false, false),
+        turnEnded(5, 350),
+      ).duty,
+      expected: { ...owedAgain, attempts: 1, setbacks: 1 },
     });
     assert({
       given: 'the same, but the peer goes on for 450 ms',
