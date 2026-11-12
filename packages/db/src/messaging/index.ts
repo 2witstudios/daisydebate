@@ -74,4 +74,11 @@ export type {
   RoundFloorWriteFrame,
   RoundFloorAuthority,
 } from './round-floor-contracts';
+export type {
+  ContextChannelFact,
+  ContextChannelMetadata,
+  ContextChannelReadFrame,
+  ContextChannelWriteFrame,
+} from './context-channel-contracts';
 export { roundFloorModeration } from './round-floor-moderation';
+export { roomCommunityMetadataOf } from './room-community-store';

@@ -56,7 +56,7 @@ export async function createAssembly(
     ...(form.getAll('holdSeatFor').length
       ? { holdSeatsFor: form.getAll('holdSeatFor') }
       : {}),
-    ...((ranked || recording) && field(form, 'noticeVersion')
+    ...(recording && field(form, 'noticeVersion')
       ? { noticeVersion: field(form, 'noticeVersion') }
       : {}),
   });

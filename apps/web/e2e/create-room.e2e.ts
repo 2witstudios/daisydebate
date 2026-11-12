@@ -2,7 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { roundCaptureNotice } from '../src/features/legal/agreements';
+import { casualCaptureNotice } from '../src/features/legal/agreements';
 import { expect, openPage, test } from './support/fixtures';
 import { signUpMember, origin } from './support/accounts';
 import { closeRoom, createConfiguredRoom } from './support/room-launch-flow';
@@ -105,26 +105,36 @@ test('native format, resolution and speech editing create a room without JavaScr
     await form
       .getByRole('button', { name: 'Create room', exact: true })
       .click();
+    // RCHAT-13: a ranked Create owes no capture notice, so it is the create
+    // itself. No season is open here, so it is refused and the draft is kept.
+    await expect(page).toHaveURL(/\/play\/room\?draft=/);
+    await expect(
+      form.getByText(
+        'Ranked rooms are unavailable right now. Turn Ranked off or try again later.',
+        { exact: true },
+      ),
+    ).toBeVisible();
     await expect(
       form.getByText('Recording is on for ranked matches.', { exact: true }),
     ).toBeVisible();
+    await expect(form.getByText(casualCaptureNotice.text)).toHaveCount(0);
+    await expect(form.locator('[name="noticeVersion"]')).toHaveCount(0);
+    // Back to casual with the recording choice kept: the next native render
+    // shows the casual notice before any create can claim it. Settings render
+    // only for Custom, so the native editor applies Custom first; the
+    // submission posts no settings and starts at the preset.
     await ranked.uncheck();
-    await form
-      .getByRole('button', { name: 'Create room', exact: true })
-      .click();
-    await expect(
-      form.getByRole('checkbox', { name: 'Record match', exact: true }),
-    ).toBeChecked();
-    await expect(
-      form.getByText(roundCaptureNotice('opted-in')!.text, { exact: true }),
-    ).toBeVisible();
-    // Settings render only for Custom, so the native editor applies Custom
-    // first; the submission posts no settings and starts at the preset.
     await form.locator('[name="format"][value="custom"]').check();
     await form
       .getByRole('button', { name: 'Apply format', exact: true })
       .click();
     await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
+    await expect(
+      form.getByRole('checkbox', { name: 'Record match', exact: true }),
+    ).toBeChecked();
+    await expect(
+      form.getByText(casualCaptureNotice.text, { exact: true }),
+    ).toBeVisible();
     const prep = form.locator('[name="duration.inRound"]');
     await form.getByText('Preparation and timing', { exact: true }).click();
     await prep.fill('1:23');
@@ -319,6 +329,9 @@ test('Record match stays visible and Ranked shows automatic recording without lo
   await expect(recording).toBeChecked();
   await expect(recording).toBeDisabled();
   await expect(notice).toBeVisible();
+  // RCHAT-13: the waiver is the ranked agreement, so Ranked shows and posts no capture notice.
+  await expect(form.getByText(casualCaptureNotice.text)).toHaveCount(0);
+  await expect(form.locator('[name="noticeVersion"]')).toHaveCount(0);
   await ranked.uncheck();
   await expect(recording).not.toBeChecked();
   await expect(recording).toBeEnabled();
@@ -369,7 +382,7 @@ test('a recording subscription refusal keeps the draft and notice, and turning i
     .fill('Retained recording draft');
   await recording.check();
   await expect(
-    form.getByText(roundCaptureNotice('opted-in')!.text, { exact: true }),
+    form.getByText(casualCaptureNotice.text, { exact: true }),
   ).toBeVisible();
   await form.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(
@@ -390,7 +403,7 @@ test('a recording subscription refusal keeps the draft and notice, and turning i
   ).not.toBeChecked();
   await recording.uncheck();
   await expect(
-    form.getByText(roundCaptureNotice('opted-in')!.text, { exact: true }),
+    form.getByText(casualCaptureNotice.text, { exact: true }),
   ).toHaveCount(0);
   await expect(form.locator('[name="noticeVersion"]')).toHaveCount(0);
   const view = await createConfiguredRoom(page);

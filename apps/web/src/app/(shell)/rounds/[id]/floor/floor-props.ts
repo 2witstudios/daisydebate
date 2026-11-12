@@ -1,6 +1,7 @@
 import { systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { parseFloorDiscovery } from '../../../../../features/messaging/round-floor/view';
+import { parseContextChatDiscovery } from '../../../../../features/messaging/context-chat/view';
+import { roundFloorContext } from '../../../../../features/messaging/round-floor/floor-context';
 import type { FloorChatProps } from '../../../../../ui/round-floor/floor-chat';
 import {
   discoverFloor,
@@ -38,7 +39,11 @@ export async function floorProps(
     const response = await discoverFloor(roundId);
     if (response.status === 403 || response.status === 404) return null;
     if (!response.ok) throw createAppError('INFRASTRUCTURE');
-    const value = parseFloorDiscovery(await response.json(), roundId);
+    const value = parseContextChatDiscovery(
+      roundFloorContext,
+      await response.json(),
+      roundId,
+    );
     if (!value) throw createAppError('INFRASTRUCTURE');
     return liveFloorProps(
       roundId,

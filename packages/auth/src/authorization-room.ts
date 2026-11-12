@@ -3,6 +3,16 @@ import type {
   RoomAuthorizationFact,
   RoundAuthorizationFact,
 } from './authorization-facts';
+/**
+ * `room.read`, stated once: a public or unlisted Room is any member's to read;
+ * a private Room is its host's and its seats' alone.
+ */
+export const roomReadable = (room: {
+  readonly visibility: RoomAuthorizationFact['visibility'];
+  readonly host: boolean;
+  readonly seated: boolean;
+}): boolean =>
+  ['public', 'unlisted'].includes(room.visibility) || room.host || room.seated;
 export function roomAllowed(
   actorId: string,
   capability: AuthorizationCapability,
@@ -11,9 +21,7 @@ export function roomAllowed(
   const host = resource.hostActorId === actorId;
   const seated = resource.participants.some((p) => p.actorId === actorId);
   if (['room.read', 'room.join'].includes(capability))
-    return (
-      ['public', 'unlisted'].includes(resource.visibility) || host || seated
-    );
+    return roomReadable({ visibility: resource.visibility, host, seated });
   return capability === 'room.manage' ? host : seated;
 }
 const seatedOn = (actorId: string, resource: RoundAuthorizationFact) =>

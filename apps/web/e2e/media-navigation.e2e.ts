@@ -25,7 +25,7 @@ async function checkDevices(page: Page) {
       .getByRole('button', { name: `Check ${kind}`, exact: true })
       .click();
     await expect(
-      page.getByRole('status').filter({ hasText: `✓ ${label}` }),
+      page.getByRole('status').filter({ hasText: `${label}: ✓ checked` }),
     ).toBeVisible();
   }
 }

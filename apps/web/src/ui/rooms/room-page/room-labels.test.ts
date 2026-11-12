@@ -2,6 +2,7 @@ import type { RoomView } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import {
+  chatAuthorSeat,
   formatLine,
   roomMeta,
   roomStatus,
@@ -287,6 +288,43 @@ describe('room lobby labels', () => {
           '5 from the host’s list · Negative strikes first · 1:00 per strike',
         ],
       ],
+    });
+  });
+});
+
+describe('chatAuthorSeat', () => {
+  test('names only the seats this viewer may know (RCHAT-10)', () => {
+    const host = 'h'.repeat(24);
+    const debater = 'd'.repeat(24);
+    const view = {
+      hostActorId: host,
+      participants: [
+        seated({ actorId: debater, role: 'negative', slot: 0 }),
+        seated({ actorId: host, role: 'affirmative', slot: 1 }),
+        // A judge this viewer may not name carries no actor (DEC-174).
+        {
+          role: 'judge' as const,
+          kind: 'human' as const,
+          slot: 0,
+          anonymous: true as const,
+          needsReady: true,
+          eligible: true,
+          ready: 'not-ready' as const,
+        },
+      ],
+    };
+    assert({
+      given:
+        'a named debater, a seated host, a seatless host, a visitor and an anonymous judge',
+      should:
+        'label the seat and the host mark, and say nothing for anyone the view does not name',
+      actual: [
+        chatAuthorSeat(view, debater),
+        chatAuthorSeat(view, host),
+        chatAuthorSeat({ ...view, participants: [] }, host),
+        chatAuthorSeat(view, 'v'.repeat(24)),
+      ],
+      expected: ['Negative 1', 'Affirmative 2 · host', 'host', null],
     });
   });
 });

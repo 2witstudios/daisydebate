@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { freeSeatsOf, isNamedSeat, seatKindOf } from '@daisy/protocol';
 import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCast, type CastProps, type IntentIds } from './assembly-cast';
@@ -10,7 +11,10 @@ import { seatStatus } from './room-labels';
 import { RoomInvite } from './room-invite';
 
 type Seat = ReturnType<typeof declaredSeats>[number];
-type Props = CastProps;
+type Props = CastProps & {
+  /** The viewer's own Ready control, shown in their seat row; null without one. */
+  readonly ready: ReactNode;
+};
 
 const avatarTone = {
   affirmative: 'bg-hue-sky-soft text-hue-sky',
@@ -130,6 +134,29 @@ function seatText(
   };
 }
 
+/** What a row says about its seat: the occupant's readiness, or what an open seat offers. */
+function SeatStanding({
+  props,
+  seat,
+  ids,
+  occupant,
+}: {
+  readonly props: Props;
+  readonly seat: Seat;
+  readonly ids: IntentIds;
+  readonly occupant: Occupant | undefined;
+}) {
+  if (!occupant) return <OpenSeatActions props={props} seat={seat} ids={ids} />;
+  const status = seatStatus(occupant);
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-semibold ${status === 'Ready' ? 'bg-hue-teal-soft text-hue-teal' : 'bg-surface-sunken text-ink-muted'}`}
+    >
+      {status}
+    </span>
+  );
+}
+
 function SeatRow({
   props,
   seat,
@@ -143,7 +170,6 @@ function SeatRow({
   const occupant = view.participants.find(
     (member) => member.role === seat.role && member.slot === seat.slot,
   );
-  const status = seatStatus(occupant);
   const named = occupant && isNamedSeat(occupant) ? occupant : null;
   const { name, detail } = seatText(seat, occupant, named, {
     viewerActorId: props.viewer.actorId,
@@ -170,14 +196,10 @@ function SeatRow({
         <h3 className="font-semibold wrap-anywhere">{name}</h3>
         <p className="text-sm text-ink-muted">{detail}</p>
       </div>
-      {occupant ? (
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${status === 'Ready' ? 'bg-hue-teal-soft text-hue-teal' : 'bg-surface-sunken text-ink-muted'}`}
-        >
-          {status}
-        </span>
+      {named?.actorId === props.viewer.actorId && props.ready ? (
+        props.ready
       ) : (
-        <OpenSeatActions props={props} seat={seat} ids={ids} />
+        <SeatStanding props={props} seat={seat} ids={ids} occupant={occupant} />
       )}
     </li>
   );
@@ -215,7 +237,13 @@ export function AssemblySeats(props: Props) {
             Manage seats
           </summary>
           <div className="mt-3">
-            <AssemblyCast {...props} />
+            <AssemblyCast
+              view={props.view}
+              viewer={props.viewer}
+              bots={props.bots}
+              action={props.action}
+              commandIds={props.commandIds}
+            />
           </div>
         </details>
       ) : null}

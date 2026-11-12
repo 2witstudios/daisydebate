@@ -125,28 +125,17 @@ export const agreementWords = (document: LegalDocument): string =>
     ]),
   ].join('\n\n');
 
-/** What a Round captures for its audience, which is what its notice must say. */
-export type RoundCapture = 'ranked' | 'opted-in' | 'none';
-
 export type RoundCaptureNotice = {
   readonly version: string;
   readonly text: string;
 };
 
-const notices: Readonly<
-  Record<Exclude<RoundCapture, 'none'>, RoundCaptureNotice>
-> = {
-  ranked: {
-    version: 'ranked-draft-2',
-    text: 'This ranked round is public, broadcast with a delay and recorded. If every capture machine is busy it can run without a broadcast or recording; the debate and its result are not affected. Its video stays after you close your account, and you cannot remove it; moderation can still take it down. A subscriber can download a recording, and a copy outside Daisy is beyond erasure and takedown.',
-  },
-  'opted-in': {
-    version: 'casual-draft-1',
-    text: 'The host chose to broadcast or record this round. A casual recording ends when any participant removes it, and the whole recording goes. A subscriber can download a recording, and a copy outside Daisy is beyond erasure and takedown.',
-  },
+/**
+ * The one capture notice: what a seat reads before Ready when a casual host
+ * chose a broadcast or a recording. A ranked Round has none, because the ranked
+ * content waiver is its agreement.
+ */
+export const casualCaptureNotice: RoundCaptureNotice = {
+  version: 'casual-draft-1',
+  text: 'The host chose to broadcast or record this round. A casual recording ends when any participant removes it, and the whole recording goes. A subscriber can download a recording, and a copy outside Daisy is beyond erasure and takedown.',
 };
-
-/** The exact notice shown before Ready, or null when nothing is captured. */
-export const roundCaptureNotice = (
-  capture: RoundCapture,
-): RoundCaptureNotice | null => (capture === 'none' ? null : notices[capture]);

@@ -28,8 +28,11 @@ import {
   nativeRealtimeRefusals,
   nativeTicketReuse,
 } from './support/realtime-native-refusals';
+import { testRoomChatLive } from './support/room-chat-live';
 
 requireLaunchSlot(resolve(import.meta.dirname, '../../..'), process.env);
+
+testRoomChatLive();
 
 /**
  * Suite-owned accounts on the canonical web and realtime processes, retained

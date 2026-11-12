@@ -6,8 +6,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   agreementWords,
   contentWaiverDocument,
+  casualCaptureNotice,
   CONTENT_WAIVER_VERSION,
-  roundCaptureNotice,
 } from '../src/features/legal/agreements';
 import { withRoomRuntime } from './room-runtime.test-support';
 
@@ -19,7 +19,6 @@ type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const rankedRoom = async (f: Fixture) => {
   const [preset] =
     await f.sql`select format_version,version from format_presets where format_id='freestyle' and superseded_at is null`;
-  // Cast in at creation: a host with a seat states no notice until their Ready.
   const created = await f.create({
     resolution: { kind: 'strike' },
     selection: {
@@ -50,7 +49,7 @@ const refusalOf = (attempt: Promise<unknown>) =>
     (error: unknown) => (isAppError(error) ? error.message : 'threw'),
   );
 
-test('Ready on a ranked Round waits for the signed waiver, and records the notice', async () => {
+test('Ready on a ranked Round waits for the signed waiver alone, and records no notice', async () => {
   await withRoomRuntime(async (f) =>
     withSeason(f, async () => {
       const room = await rankedRoom(f);
@@ -65,10 +64,10 @@ test('Ready on a ranked Round waits for the signed waiver, and records the notic
         words: agreementWords(contentWaiverDocument),
       });
       const signed = await f.operations.view(f.host, room.id);
-      const stale = await refusalOf(
+      const claimed = await refusalOf(
         f.command(f.host, signed, {
           type: 'ready',
-          noticeVersion: 'ranked-draft-0',
+          noticeVersion: casualCaptureNotice.version,
           expectedConsentVersion: signed.participants
             .filter(isNamedSeat)
             .find((p) => p.actorId === f.host.actorId)!.consentVersion,
@@ -78,15 +77,17 @@ test('Ready on a ranked Round waits for the signed waiver, and records the notic
       const notices =
         await f.sql`select version, room_id from agreement_signatures where user_id=${f.host.userId} and agreement='round-capture-notice'`;
       assert({
-        given: 'an unsigned member, then a signed one, then a stale form',
+        given:
+          'an unsigned member, then a signed one whose Ready claims a notice, then states none',
         should:
-          'refuse Ready until signed, refuse the stale form, then record the exact notice',
+          'refuse Ready until signed, show no notice, refuse the claimed one, then accept with no notice recorded',
         actual: {
           standing: standing.contentWaiver,
           unsigned,
           refusedRows: refusedRows[0]!.c,
           signed: signed.contentWaiver,
-          stale,
+          shown: signed.captureNotice,
+          claimed,
           isReady: ready.view.participants
             .filter(isNamedSeat)
             .find((p) => p.actorId === f.host.actorId)!.ready,
@@ -97,9 +98,10 @@ test('Ready on a ranked Round waits for the signed waiver, and records the notic
           unsigned: 'content-waiver-required',
           refusedRows: 0,
           signed: 'signed',
-          stale: 'capture-notice-changed',
+          shown: null,
+          claimed: 'capture-notice-changed',
           isReady: 'ready',
-          notices: [{ version: 'ranked-draft-2', room_id: room.id }],
+          notices: [],
         },
       });
     }),
@@ -177,16 +179,12 @@ test('a signature keeps the exact words, whatever the source says later', async 
         await f.sql`select agreement, words from agreement_signatures where user_id=${f.host.userId} order by agreement`;
       assert({
         given: 'a signed waiver and a Ready on a ranked Round',
-        should: 'store the words of each, not only their versions',
+        should: 'store the waiver with its words, and nothing else',
         actual: [...rows],
         expected: [
           {
             agreement: 'ranked-content-waiver',
             words: agreementWords(contentWaiverDocument),
-          },
-          {
-            agreement: 'round-capture-notice',
-            words: roundCaptureNotice('ranked')!.text,
           },
         ],
       });
@@ -194,10 +192,9 @@ test('a signature keeps the exact words, whatever the source says later', async 
   );
 });
 
-test('the create form records the notice for a host who never takes a seat', async () => {
+test('a ranked create needs no notice and records none', async () => {
   await withRoomRuntime(async (f) =>
     withSeason(f, async () => {
-      const notice = roundCaptureNotice('ranked')!;
       const [preset] =
         await f.sql`select format_version,version from format_presets where format_id='freestyle' and superseded_at is null`;
       const selection = {
@@ -207,52 +204,47 @@ test('the create form records the notice for a host who never takes a seat', asy
         presetVersion: preset!.version,
       };
       const notices = (userId: string) =>
-        f.sql`select version, words, room_id from agreement_signatures where user_id=${userId} and agreement='round-capture-notice'`;
-      const created = await f.create({
-        selection,
-        noticeVersion: notice.version,
-      });
-      const stated = await notices(f.host.userId);
-      const stale = await refusalOf(
-        f.create({ selection, noticeVersion: 'ranked-draft-0' }, f.guest),
+        f.sql`select version from agreement_signatures where user_id=${userId} and agreement='round-capture-notice'`;
+      const created = await f.create({ selection });
+      const claimed = await refusalOf(
+        f.create(
+          { selection, noticeVersion: casualCaptureNotice.version },
+          f.guest,
+        ),
       );
-      const staleRows = await notices(f.guest.userId);
-      const seatless = await refusalOf(f.create({ selection }, f.guest));
       const challenge = await f.create(
         { selection, holdSeatsFor: [f.outsider.actorId] },
         f.outsider,
       );
-      const unstated = await notices(f.outsider.userId);
       assert({
         given:
-          'a seatless host whose form showed the notice, a stale form, a seatless create with no notice, and a host holding a seat',
+          'a seatless ranked host stating no notice, a create claiming a notice, and a host holding a seat',
         should:
-          'record the words for the first, refuse the next two with nothing kept, and claim nothing for the last until its Ready',
+          'create the first and the last with no notice shown or recorded, and refuse the claim with nothing kept',
         actual: {
-          stated: [...stated],
-          stale,
-          staleRows: staleRows.length,
-          seatless,
+          created: [created.view.competitionType, created.view.captureNotice],
           seated: created.view.participants
             .filter(isNamedSeat)
             .some((p) => p.actorId === f.host.actorId),
-          unstated: unstated.length,
-          challengeCreated: challenge.view.competitionType,
+          claimed,
+          challenge: [
+            challenge.view.competitionType,
+            challenge.view.captureNotice,
+          ],
+          recorded: (
+            await Promise.all(
+              [f.host, f.guest, f.outsider].map((member) =>
+                notices(member.userId),
+              ),
+            )
+          ).map((rows) => rows.length),
         },
         expected: {
-          stated: [
-            {
-              version: notice.version,
-              words: notice.text,
-              room_id: created.view.id,
-            },
-          ],
-          stale: 'capture-notice-changed',
-          staleRows: 0,
-          seatless: 'capture-notice-changed',
+          created: ['ranked', null],
           seated: false,
-          unstated: 0,
-          challengeCreated: 'ranked',
+          claimed: 'capture-notice-changed',
+          challenge: ['ranked', null],
+          recorded: [0, 0, 0],
         },
       });
     }),
