@@ -32,6 +32,12 @@ export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
     await tx.execute(sql`update round_judging_jobs set ${discardPendingJudgment}
       where pending_ballot is not null
         and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`);
+    // Open work whose stage records go ends as a held response does, so no
+    // later claim re-buys them from what is left of the transcript (ADR 0125).
+    await tx.execute(sql`update round_judging_jobs set ${discardPendingJudgment},${clearJudgingStages}
+      where (first_ballot is not null or case_map is not null)
+        and status not in ('succeeded','failed')
+        and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`);
     await tx.execute(sql`update round_judging_jobs set ${clearJudgingStages}
       where (first_ballot is not null or case_map is not null)
         and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`);

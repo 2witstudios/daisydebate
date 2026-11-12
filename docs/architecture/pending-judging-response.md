@@ -33,15 +33,18 @@ The job's stored stage outputs say which stage a claim may buy (`first`, then
 or case map is written once by its own stage's attempt, which also records the
 stage. The job is then released as immediately due, so the next claim buys the
 next stage, and a takeover never buys a stored stage again. A failed first pass
-sets `first_ballot_failed` and the job continues; only the final stage produces
-the held response described above.
+sets `first_ballot_failed` and the job continues. So does a first pass lost with
+its lease: the takeover finds its attempt still dispatched and counts it as the
+one try. Only the final stage produces the held response described above.
 
 The stage records stay after success as the first-pass-against-final
 comparison. They are private derived judging data, like the held response:
 
 - the retention sweep (`retention.judging_stages`) clears them 180 days after
   receipt;
-- subject erasure clears them for every non-ranked Round the subject sat in;
+- subject erasure clears them for every non-ranked Round the subject sat in,
+  and ends a job still open on them as `ballot_discarded`, as it does a held
+  response;
 - owning Round erasure cascades them.
 
 ## Attempt windows and durable recovery

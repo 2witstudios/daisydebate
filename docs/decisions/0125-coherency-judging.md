@@ -87,7 +87,9 @@ based around that.
    derived judging data with the ballot purpose and lawful basis. The
    retention sweep (`retention.judging_stages`) clears them 180 days after
    receipt, and subject erasure clears them for the Rounds the subject sat in,
-   ranked Rounds excepted, as for held responses (DEC-393).
+   ranked Rounds excepted, as for held responses (DEC-393). As with a held
+   response, erasure also ends judging work still open on those records
+   (`ballot_discarded`), so no later claim buys them again.
 6. **Contract.** `judge-contract@2` covers the three prompts and the
    ballot and case-map wire schemas, both derived from their contracts. The
    judge model is `openai/gpt-6.1-terra`, which benched correctly at a third

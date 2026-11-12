@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
 import { transcriptRetention } from '../src/transcript-retention';
 import type { Fixture } from './constraint-helpers';
+import { syntheticCaseMap } from '../src/testing-judging';
 import { validRules } from './round-fixtures';
 import {
   syntheticPendingBallot as pending,
@@ -223,6 +224,40 @@ test('subject erasure removes their transcript lines and every pending judgment 
       });
     },
   ));
+
+test('subject erasure ends open judging work whose stage records it clears, so nothing is bought again (ADR 0125)', () => {
+  let spoken: Awaited<ReturnType<typeof spokenRound>> | undefined;
+  return withJudgingJob(
+    async ({ fixture, roundId }) => {
+      if (!spoken) throw new Error('Expected pre-freeze transcript setup');
+      // Mid-pipeline: the case map is stored and the final ballot not yet bought.
+      await fixture.sql`update round_judging_jobs set case_map=${JSON.stringify(syntheticCaseMap)}::text::jsonb,
+        case_map_received_at=clock_timestamp(),first_ballot_failed=true where round_id=${roundId}`;
+      const now = new Date().toISOString();
+      await drizzle({ client: fixture.sql }).transaction((tx) =>
+        roundTranscriptPrivacyAdopter.erase(tx, spoken!.subject, { now }),
+      );
+      const [job] =
+        await fixture.sql`select status,terminal_reason,case_map is null as cleared from round_judging_jobs where round_id=${roundId}`;
+      assert({
+        given:
+          'an erased debater in a Round whose judging holds a case map but no ballot yet',
+        should:
+          'clear the stage records and end the job as discarded, as for a held response, so no claim buys them again',
+        actual: { ...job },
+        expected: {
+          status: 'failed',
+          terminal_reason: 'ballot_discarded',
+          cleared: true,
+        },
+      });
+    },
+    'complete',
+    async (fixture, target) => {
+      spoken = await spokenRound(fixture, target.roundId, recordedAt);
+    },
+  );
+});
 
 test("erasure keeps a ranked Round's transcript lines and its pending judgment", () =>
   withSpokenRound(
