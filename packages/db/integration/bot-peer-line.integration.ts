@@ -81,6 +81,19 @@ test('a bot reads whether the line holding a peer’s words at an instant is wri
         heardLate: true,
       },
     });
+    // The bot peer's next phrase starts 100 ms after the first ended and is
+    // still on air: the first, closed, must not stand in for its words.
+    await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete,bot_phrase_id,bot_duration_ms,created_at)
+      values(${'y'.repeat(24)},${target.roundId},${target.segmentId},${bot.id},4,'Tell me.',false,${'s'.repeat(24)},1000,${at(7100)}::timestamptz)`;
+    const nextOnAir = await reads([bot.id], 7300);
+    await fixture.sql`update utterances set complete=true where id=${'y'.repeat(24)}`;
+    assert({
+      given:
+        'a bot peer heard at 7300 ms, inside a phrase that began at 7100 ms, 100 ms after their earlier line ended',
+      should: 'wait until that phrase is closed, then find it',
+      actual: { nextOnAir, closed: await reads([bot.id], 7300) },
+      expected: { nextOnAir: false, closed: true },
+    });
     await assertRejects({
       given: 'a wrong claim token',
       should: 'refuse the read',

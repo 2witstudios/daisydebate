@@ -1,8 +1,17 @@
+import { createAppError } from '@daisy/errors';
+
 /**
  * The `data` payloads of a server-sent event stream, in order, each as soon
  * as its event is complete. Comments and other fields are skipped; an event
  * left open when the body ends is dropped, since it was never finished.
  */
+/**
+ * The most text one line or one event may hold. A completion chunk is a few
+ * hundred bytes; a body that sends this much with no line or event end is
+ * not an event stream, and reading on would only fill memory.
+ */
+const MAX_BUFFERED_CHARS = 1_048_576;
+
 export async function* sseData(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<string, void, void> {
@@ -10,6 +19,8 @@ export async function* sseData(
   const decoder = new TextDecoder();
   let pending = '';
   let data: string[] = [];
+  /** The size of the event being gathered. */
+  let buffered = 0;
   /** The payloads of the events these whole lines complete. */
   const completed = (lines: readonly string[]) => {
     const payloads: string[] = [];
@@ -17,8 +28,13 @@ export async function* sseData(
       if (line === '') {
         if (data.length > 0) payloads.push(data.join('\n'));
         data = [];
-      } else if (line.startsWith('data:'))
+      } else if (line.startsWith('data:')) {
         data.push(line.slice(line[5] === ' ' ? 6 : 5));
+        buffered += line.length;
+        if (buffered > MAX_BUFFERED_CHARS)
+          throw createAppError('INFRASTRUCTURE', 'Event stream event too long');
+      }
+      if (line === '') buffered = 0;
     }
     return payloads;
   };
@@ -38,6 +54,8 @@ export async function* sseData(
         .split(/\r\n|\n|\r/);
       // The last piece may still be growing: a line ends only at its break.
       pending = (lines.pop() ?? '') + held;
+      if (pending.length > MAX_BUFFERED_CHARS)
+        throw createAppError('INFRASTRUCTURE', 'Event stream line too long');
       yield* completed(lines);
     }
   } finally {

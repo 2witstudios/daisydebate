@@ -49,6 +49,23 @@ export async function peerLineCovers(
   /** A stretch from `start` lasting `durationMs` that holds the instant. */
   const covers = (start: SQL, durationMs: AnyColumn, endAllowanceMs: number) =>
     sql`${start} <= ${instant} + ${skew} and ${start} + (${durationMs} + ${endAllowanceMs}) * interval '1 millisecond' >= ${instant}`;
+  // A bot peer's phrase still on air at the instant has not been written as
+  // said yet: the line before it, closed, must not stand in for its words.
+  const [onAir] = await tx
+    .select({ id: utterances.id })
+    .from(utterances)
+    .where(
+      and(
+        eq(utterances.roundId, scope.roundId),
+        eq(utterances.segmentId, scope.segmentId),
+        inArray(utterances.roundParticipantId, [...peers]),
+        isNotNull(utterances.botPhraseId),
+        eq(utterances.complete, false),
+        sql`${utterances.createdAt} <= ${instant} + ${skew}`,
+      ),
+    )
+    .limit(1);
+  if (onAir) return false;
   const [line] = await tx
     .select({ id: utterances.id })
     .from(utterances)

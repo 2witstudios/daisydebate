@@ -66,3 +66,30 @@ test('a CRLF split across two network chunks is one line break', async () => {
     expected: ['{"a":\n1}', 'end'],
   });
 });
+
+test('a body that never ends a line or an event is refused, not buffered without end', async () => {
+  const flood = (chunk: string) =>
+    new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(new TextEncoder().encode(chunk));
+      },
+    });
+  const read = async (body: ReadableStream<Uint8Array>) => {
+    try {
+      for await (const payload of sseData(body)) void payload;
+      return 'ended';
+    } catch (error) {
+      return (error as { code?: string }).code;
+    }
+  };
+  assert({
+    given:
+      'a body with no line break, and one with data lines but no blank line',
+    should: 'fail both as INFRASTRUCTURE once past the bound',
+    actual: [
+      await read(flood('x'.repeat(65536))),
+      await read(flood(`data: ${'x'.repeat(65536)}\n`)),
+    ],
+    expected: ['INFRASTRUCTURE', 'INFRASTRUCTURE'],
+  });
+});

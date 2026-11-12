@@ -217,3 +217,43 @@ test('the hearing says how long a peer spoke, so a cough can be told from a word
     ],
   });
 });
+
+test('sound before a peer went unheard does not carry into the first frame heard again', () => {
+  const T0 = 3_000_000;
+  const events: string[] = [];
+  const observer = createBotAudioActivity({
+    roundId,
+    participantId,
+    peerParticipantIds: [peer],
+    staleAfterMs: 250,
+    playing: () => false,
+    onEvent: (event) => events.push(event.kind),
+  });
+  const frame = (trackId: string, sequence: number, at: number) =>
+    observer.observe({
+      roundId,
+      roundParticipantId: peer,
+      trackId,
+      sequence,
+      beforeMs: at,
+      afterMs: at + 10,
+      serverWindow: {
+        before: new Date(T0 + at).toISOString(),
+        after: new Date(T0 + at + 10).toISOString(),
+      },
+      receivedAt: new Date(T0 + at + 20).toISOString(),
+      pcm: new Int16Array(160).fill(LOUD),
+    });
+  // 100 ms of sound, the track closes, and a new track starts at once.
+  for (let i = 0; i < 10; i++) frame('old', i, i * 10);
+  observer.unknown({ roundId, roundParticipantId: peer, trackId: 'old' });
+  for (let i = 0; i < 10; i++) frame('new', i, 100 + i * 10);
+  assert({
+    given:
+      '100 ms of sound on a track that closes, then 100 ms on a new track straight after',
+    should:
+      'report the peer unheard and count the new track from its own first frame: no speech yet',
+    actual: events,
+    expected: ['unknown'],
+  });
+});

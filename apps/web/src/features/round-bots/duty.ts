@@ -348,8 +348,12 @@ export function nextSpeakerState(
   const { duty, midTurn } = state;
   switch (event.type) {
     case 'woke':
-      // A paused turn starts nothing until its pause is over.
-      return duty.status === 'owed' && !duty.paused
+      // A paused turn starts nothing until its pause is over; and in
+      // cross-examination nothing starts, or is bought, while a peer is
+      // mid-turn: their turn ending may owe a different answer.
+      return duty.status === 'owed' &&
+        !duty.paused &&
+        !(rules.crossEx && midTurn.length > 0)
         ? {
             state: {
               duty: {

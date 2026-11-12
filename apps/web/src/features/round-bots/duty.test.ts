@@ -418,6 +418,34 @@ describe('a cross-examination', () => {
       expected: 'waiting',
     });
   });
+  test('nothing starts, or is bought, while a peer is mid-turn', () => {
+    const held = after(respondent, turnEnded(1), spoke(false), woke);
+    assert({
+      given:
+        'a peer who speaks again after their turn ended and before the next wake',
+      should: 'keep the answer owed and start nothing',
+      actual: [held.duty.status, held.effects],
+      expected: ['owed', ['drop']],
+    });
+    assert({
+      given: 'that peer’s further speech proving brief, then a wake',
+      should: 'start the answer to the turn that was owed',
+      actual: after(
+        respondent,
+        turnEnded(1),
+        spoke(false),
+        woke,
+        turnEnded(2, 350),
+        woke,
+      ).duty,
+      expected: {
+        status: 'speaking',
+        to: { kind: 'peer-turn', peer: 'p', spokeUntilMs: 1 },
+        attempts: 0,
+        setbacks: 0,
+      },
+    });
+  });
   test('attempts are counted per owed turn', () => {
     const spent = after(
       respondent,

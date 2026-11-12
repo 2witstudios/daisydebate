@@ -151,15 +151,16 @@ export function createBotAudioActivity(input: {
     const previous = heard.get(frame.roundParticipantId);
     if (duplicate(previous, frame)) return;
     const at = Date.parse(frame.serverWindow.after);
-    if (previous && !follows(previous, frame)) {
+    const gapped = previous !== undefined && !follows(previous, frame);
+    if (gapped)
       input.onEvent({
         kind: 'unknown',
         roundParticipantId: frame.roundParticipantId,
       });
-      // The frames lost in the gap are unheard: what was heard before it
-      // sustains no speech or barge-in after it.
-      feed(frame.roundParticipantId, at, null);
-    }
+    // Whatever came before a frame that does not follow the last one (lost
+    // frames, a new track, a peer heard again) is unheard: it sustains no
+    // speech or barge-in into this frame.
+    if (gapped || !previous) feed(frame.roundParticipantId, at, null);
     heard.set(frame.roundParticipantId, {
       trackId: frame.trackId,
       sequence: frame.sequence,
