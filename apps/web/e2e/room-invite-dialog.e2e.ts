@@ -171,38 +171,53 @@ test('the host invites from a header dialog that stays open, and the invited mem
     // Focus, lost with the button, is on the field in the still-open dialog.
     await inviteByKeyboard(page, guest.username);
     await expect(pending.getByRole('listitem')).toHaveCount(1, SYNCED);
-    const held = { armed: false, taken: false, release: () => {} };
-    const readHeld = new Promise<void>((taken) => {
-      void page.route(`**/rooms/${roomId}`, async (route) => {
-        const read =
-          route.request().method() === 'POST' &&
-          !route.request().postData()?.includes('withdraw');
-        if (!read || !held.armed || held.taken) return route.fallback();
-        held.taken = true;
-        const response = await route.fetch();
-        await new Promise<void>((release) => {
-          held.release = release;
-          taken();
-        });
-        await route.fulfill({ response });
+    // Each step waits on the one before, whatever order the page sends in.
+    const gate = () => {
+      let open = () => {};
+      const opened = new Promise<void>((resolve) => {
+        open = resolve;
       });
+      return { open, opened };
+    };
+    const declined = gate();
+    const readTaken = gate();
+    const withdrawPressed = gate();
+    const rowGone = gate();
+    const held = { armed: false, taken: false };
+    await page.route(`**/rooms/${roomId}`, async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      if (route.request().postData()?.includes('withdraw')) {
+        // The answer waits until the read has taken the row away.
+        await rowGone.opened;
+        return route.fallback();
+      }
+      if (!held.armed || held.taken) return route.fallback();
+      held.taken = true;
+      readTaken.open();
+      // Read only once the member has declined, so it says the row is gone.
+      await declined.opened;
+      const response = await route.fetch();
+      await withdrawPressed.opened;
+      await route.fulfill({ response });
     });
     const invited = roomViewSchema.parse(
       await (await guest.context.request.get(`/api/rooms/${roomId}`)).json(),
     ).invitations[0];
     held.armed = true;
-    const declined = await guest.context.request.post(
+    await readTaken.opened;
+    const declineAnswer = await guest.context.request.post(
       '/api/room-invitations/decline',
       { headers: { origin }, data: { version: 1, invitationId: invited?.id } },
     );
-    expect(declined.ok()).toBe(true);
-    await readHeld;
+    expect(declineAnswer.ok()).toBe(true);
+    declined.open();
     await withdraw.focus();
     await page.keyboard.press('Enter');
     await expect(withdraw).toBeDisabled();
-    held.release();
+    withdrawPressed.open();
     await expect(pending).toHaveCount(0);
     await expectFocusOn(page, 'input', USERNAME_FIELD);
+    rowGone.open();
     await page.unroute(`**/rooms/${roomId}`);
 
     // Done closes it, and a notice from this opening is gone on the next.
