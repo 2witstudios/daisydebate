@@ -4,18 +4,13 @@ import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 import { roundLinkOf } from '../../../features/room-runtime/round-link';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { browserDocument } from '../../round-media/browser-document';
 import { replaceRoute } from '../../round-media/replace-route';
 import { systemId } from '@daisy/clock';
+import { isOpenRoomStatus } from '@daisy/protocol';
 import type {
   RoomCastChoice,
   RoomCatalogChoice,
@@ -43,6 +38,8 @@ import type { InvitationFormState } from '../../../features/room-invitations/sub
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
 import { RoomSettings } from './room-settings';
+import { RoomChat, type RoomChatProps } from '../../room-chat/room-chat';
+import { chatAuthorSeat } from './room-labels';
 import { RoomSyncContext } from './room-sync-context';
 import { MediaPageLink } from '../../round-media/media-page-link';
 
@@ -66,7 +63,7 @@ type Props = {
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
   readonly invitationAction: FormAction<InvitationFormState>;
   /** The Room chat for this viewer, or null when they may not read it. */
-  readonly chat: ReactNode;
+  readonly chat: RoomChatProps | null;
 };
 
 /**
@@ -146,7 +143,15 @@ export function RoomLive(props: Props) {
       <FreshnessNotice freshness={sync.freshness} noun="room" />
       {props.notice ? <p role="alert">{roomNoticeText(props.notice)}</p> : null}
       <AssemblyDeviceReadiness
-        chat={props.chat}
+        chat={
+          // The chat ends with the gathering: an open tab drops it at Start.
+          props.chat && isOpenRoomStatus(view.status) ? (
+            <RoomChat
+              {...props.chat}
+              authorLabel={(actorId) => chatAuthorSeat(view, actorId)}
+            />
+          ) : null
+        }
         side={(ready) => (
           <>
             <AssemblySeats
