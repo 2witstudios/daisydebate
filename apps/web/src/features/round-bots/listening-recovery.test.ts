@@ -254,12 +254,12 @@ test('the hearing leaves a trace of what it heard, discarded and was refused', a
     given:
       'a refused join, a calibration read with a 150 ms round trip, and a peer starting to speak',
     should:
-      'trace each once by name, with the error code or the round trip and nothing else',
+      'trace each once by name, with the error code or the round trip, and the Round it happened in',
     actual: [refused.observed, s.observed, heard.observed],
     expected: [
-      ['join.refused AUTHORIZATION'],
-      ['calibration.discarded 150'],
-      ['activity.speech-start'],
+      [`join.refused AUTHORIZATION ${'r'.repeat(24)}`],
+      [`calibration.discarded 150 ${'r'.repeat(24)}`],
+      [`activity.speech-start ${'r'.repeat(24)}`],
     ],
   });
   assert({

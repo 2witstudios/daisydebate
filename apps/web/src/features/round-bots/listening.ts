@@ -95,7 +95,7 @@ export function createBotListening(
   /** The trace's own fault never stops the hearing. */
   const observed: typeof input.observed = (operation, fields) => {
     try {
-      input.observed(operation, fields);
+      input.observed(operation, { ...fields, roundId: scope.roundId });
     } catch {
       /* A trace is best effort. */
     }

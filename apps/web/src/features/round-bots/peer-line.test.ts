@@ -55,7 +55,8 @@ function waiting(
     sleep: (ms, signal) =>
       signal.aborted ? Promise.resolve() : clock.sleep(ms),
     monotonicNowMs: clock.now,
-    waited: (outcome, ms) => outcomes.push(`${outcome}:${ms}`),
+    observed: (operation, fields) =>
+      outcomes.push(`${operation}:${fields.durationMs}:${fields.roundId}`),
   });
   return {
     wait: (signal = new AbortController().signal) =>
@@ -72,9 +73,9 @@ test('a cross-examination answer waits for the peer’s line, up to a cap', asyn
     given:
       'a peer line that reaches the transcript 600 ms after the turn ended',
     should:
-      'read for that peer from just before the instant they last spoke, every 150 ms, until it is there',
+      'read for that peer from 450 ms before the instant they last spoke, every 150 ms, until it is there, and trace the wait with its Round',
     actual: [landed.reads[0], landed.reads.length, landed.outcomes],
-    expected: ['peer@99500', 5, ['line:600']],
+    expected: ['peer@99550', 5, ['line.line:600:round']],
   });
   const never = waiting(Infinity);
   await never.wait();
@@ -85,7 +86,7 @@ test('a cross-examination answer waits for the peer’s line, up to a cap', asyn
     should:
       'end both waits within four seconds (the last read that fits, then the deadline) and let the answer go ahead',
     actual: [never.outcomes, hung.outcomes, hung.reads.length],
-    expected: [['cap:3900'], ['cap:4000'], 1],
+    expected: [['line.cap:3900:round'], ['line.cap:4000:round'], 1],
   });
 });
 
@@ -98,6 +99,6 @@ test('a wait that cannot read, or whose turn was dropped, ends without failing t
     given: 'a refused read, and a turn already aborted',
     should: 'resolve both, reading once and not at all',
     actual: [unread.outcomes, unread.reads.length, dropped.reads.length],
-    expected: [['unread:0'], 1, 0],
+    expected: [['line.unread:0:round'], 1, 0],
   });
 });

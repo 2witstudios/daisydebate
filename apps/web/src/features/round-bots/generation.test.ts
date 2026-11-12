@@ -67,7 +67,16 @@ test('a refused settlement retried records the received usage once', async () =>
 });
 
 /** A language generation over a voice the test streams by hand. */
-function streamedGeneration(options: { readonly budget?: () => void } = {}) {
+function streamedGeneration(
+  options: {
+    readonly budget?: () => void;
+    /** How many times the usage record is refused before it lands. */
+    readonly refuseRecord?: number;
+  } = {},
+) {
+  let refusals = options.refuseRecord ?? 0;
+  const pauses: number[] = [];
+  const signals: AbortSignal[] = [];
   const finished: string[] = [];
   const requests: Record<string, unknown>[] = [];
   let hear: (text: string) => void = () => undefined;
@@ -103,6 +112,7 @@ function streamedGeneration(options: { readonly budget?: () => void } = {}) {
         },
       })) as never,
       finishRoundBotGeneration: async (_scope, _execution, outcome, usage) => {
+        if (refusals-- > 0) throw refuseCapacity();
         finished.push(`${outcome}:${usage.outputTokens}`);
       },
       verifyRoundBotPublication: (async () => undefined) as never,
@@ -115,6 +125,12 @@ function streamedGeneration(options: { readonly budget?: () => void } = {}) {
         ) => {
           requests.push(request);
           hear = onText;
+          const signal = request['signal'] as AbortSignal;
+          signals.push(signal);
+          // As the real adapter does: a call aborted mid-stream rejects.
+          signal.addEventListener('abort', () =>
+            answer.reject(new Error('aborted')),
+          );
           return answer.promise;
         },
       }) as never,
@@ -123,7 +139,9 @@ function streamedGeneration(options: { readonly budget?: () => void } = {}) {
       return work();
     },
     nowMs: () => 1000,
-    pause: async () => undefined,
+    pause: async (ms) => {
+      pauses.push(ms);
+    },
     maxTokens: 100,
   });
   const generate = () =>
@@ -137,6 +155,8 @@ function streamedGeneration(options: { readonly budget?: () => void } = {}) {
     generate,
     finished,
     requests,
+    pauses,
+    signals,
     settle,
     hear: (text: string) => hear(text),
     answer,
@@ -233,5 +253,53 @@ test('a stream that breaks leaves its whole sentences standing; one that never s
       refused.finished,
     ],
     expected: ['failed', ['unknown:0'], 'refused', []],
+  });
+});
+
+test('a refused usage record settles by itself, with no close asked', async () => {
+  const { generate, finished, pauses, hear, answer, settle } =
+    streamedGeneration({ refuseRecord: 2 });
+  const opening = generate();
+  await settle();
+  hear('One. ');
+  await opening;
+  answer.resolve({
+    text: 'One.',
+    finish: 'stop',
+    refused: false,
+    promptTokens: 3,
+    completionTokens: 2,
+  });
+  for (let i = 0; i < 5; i++) await settle();
+  assert({
+    given:
+      'a stream that ends while the pool refuses its usage record twice, and a speaker that never closes the answer',
+    should: 'ask again after 200 and 400 ms and record the usage once',
+    actual: [pauses, finished],
+    expected: [[200, 400], ['received:2']],
+  });
+});
+
+test('an abandoned answer stops its stream and still settles what it cost', async () => {
+  const { generate, finished, signals, hear, settle } = streamedGeneration();
+  const opening = generate();
+  await settle();
+  hear('One. Two is unfini');
+  const opened = await opening;
+  const before = signals[0]?.aborted;
+  opened.abandon();
+  for (let i = 0; i < 3; i++) await settle();
+  assert({
+    given: 'an answer still being written when it is abandoned',
+    should:
+      'abort the provider call, end the source at its last whole sentence and settle the call unknown',
+    actual: [
+      before,
+      signals[0]?.aborted,
+      opened.value.phrases.ended(),
+      await opened.value.phrases.at(1),
+      finished,
+    ],
+    expected: [false, true, true, null, ['unknown:0']],
   });
 });

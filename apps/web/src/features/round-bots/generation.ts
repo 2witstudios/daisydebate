@@ -1,7 +1,6 @@
 import {
   createPhraseStream,
   isDefiniteProviderFailure,
-  roundDebaterMessages,
   type OpenRouter,
 } from '@daisy/ai-voice';
 import type {
@@ -9,9 +8,10 @@ import type {
   BotPublicationScope,
 } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
-import { idSchema, segmentDueAtMs } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 import type { ProviderCall } from '../../server/provider-budget';
 import type { Owed } from './duty';
+import { debaterPrompt } from './debater-prompt';
 import { createPhraseSource } from './phrase-source';
 
 type Producer = ReturnType<typeof createBotPublicationOperations>;
@@ -23,66 +23,6 @@ type Store = {
 };
 function requireActive(signal: AbortSignal) {
   if (signal.aborted) throw createAppError('CONFLICT', 'Generation cancelled');
-}
-const dueAtOf = (segment: Context['round']['segments'][number]) =>
-  segmentDueAtMs({
-    startedAtMs: Date.parse(segment.startedAt),
-    durationMs: segment.durationMs,
-    returnedMs: segment.returnedMs,
-  });
-function messagesFor(
-  context: Context,
-  scope: BotPublicationScope,
-  nowMs: number,
-  to: Owed,
-) {
-  const { round, seat, profile } = context;
-  const segment = round.segments.find((row) => row.id === scope.segmentId);
-  const rule = round.rules.segments.find(
-    (row) => row.key === segment?.rulesSegmentKey,
-  );
-  if (
-    !segment ||
-    !rule ||
-    seat.role === 'judge' ||
-    !Number.isFinite(nowMs) ||
-    round.resolution === null
-  )
-    throw createAppError('CONFLICT');
-  const durationMs = dueAtOf(segment) - nowMs;
-  if (durationMs <= 0) throw createAppError('CONFLICT');
-  return roundDebaterMessages({
-    resolution: round.resolution,
-    side: seat.role,
-    slot: seat.slot,
-    persona: `${profile.name}. ${profile.persona} Debate difficulty: ${profile.difficulty}.`,
-    segment: {
-      name: rule.key,
-      label: rule.label,
-      type: segment.type,
-      side: rule.side,
-      durationMs,
-    },
-    unanswered: to.kind === 'unanswered',
-    transcript: context.utterances.flatMap((line) => {
-      const speaker = round.participants.find(
-        (row) => row.id === line.roundParticipantId,
-      );
-      const spoken = round.segments.find((row) => row.id === line.segmentId);
-      return speaker && speaker.role !== 'judge' && spoken
-        ? [
-            {
-              side: speaker.role,
-              slot: speaker.slot,
-              segment: spoken.rulesSegmentKey,
-              text: line.text,
-              complete: line.complete,
-              interrupted: line.interrupted,
-            },
-          ]
-        : [];
-    }),
-  });
 }
 type Usage = {
   readonly inputTokens: number;
@@ -235,7 +175,7 @@ export function createBotGeneration(input: {
           requireActive(signal);
           const request = {
             model: context.model,
-            messages: messagesFor(context, scope, input.nowMs(), to),
+            messages: debaterPrompt(context, scope, input.nowMs(), to),
             maxTokens: input.maxTokens,
             temperature: 0.6,
             // Thinking comes before the first word: a speaker must start.

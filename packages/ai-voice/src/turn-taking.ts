@@ -46,7 +46,7 @@ export const turnTakingSettings: TurnTakingSettings = {
 export type TurnTakingEvent =
   | { readonly kind: 'speech-start' }
   | { readonly kind: 'barge-in' }
-  /** `spokeUntil` is the instant of the last frame at speech level. */
+  /** `spokeUntil` is the instant of the last frame counted as the peer's own speech. */
   | { readonly kind: 'end-of-turn'; readonly spokeUntil: number };
 
 export function createTurnTaking(settings: TurnTakingSettings) {

@@ -1,7 +1,12 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 
-/** Capture closes a clip a little after the words end; the line may end just short of the instant heard. */
-const SLACK_MS = 500;
+/**
+ * How far before the instant a peer last spoke their line may end. It covers
+ * the hearing naming that instant early (at most its 400 ms echo tail), and
+ * stays under capture's 500 ms clip pause, so the line found is the one that
+ * holds the peer's last words, never the clip before it.
+ */
+const SLACK_MS = 450;
 /** How often the transcript is read while waiting. */
 const READ_EVERY_MS = 150;
 /** Past this the answer is made from what the transcript holds. */
@@ -29,8 +34,14 @@ export function createPeerLineWait(input: {
   /** Resolves after `ms`, or at once when `signal` aborts. */
   readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
   readonly monotonicNowMs: () => number;
-  /** How a wait ended, for the hearing's trace. */
-  readonly waited: (outcome: 'line' | 'cap' | 'unread', ms: number) => void;
+  /**
+   * The hearing's trace: how each wait ended (`line`, `cap` or `unread`),
+   * how long it took, and the Round it was in.
+   */
+  readonly observed: (
+    operation: string,
+    fields: { readonly durationMs: number; readonly roundId: string },
+  ) => void;
 }) {
   const { scope, token } = input.claim;
   return async (
@@ -41,6 +52,11 @@ export function createPeerLineWait(input: {
     const since = new Date(spokeUntilMs - SLACK_MS).toISOString();
     const startedAt = input.monotonicNowMs();
     const elapsed = () => Math.round(input.monotonicNowMs() - startedAt);
+    const waited = (outcome: 'line' | 'cap' | 'unread') =>
+      input.observed(`line.${outcome}`, {
+        durationMs: elapsed(),
+        roundId: scope.roundId,
+      });
     // One deadline for the whole wait: a slow read never stretches it.
     const capped = input
       .sleep(WAIT_AT_MOST_MS, signal)
@@ -53,13 +69,13 @@ export function createPeerLineWait(input: {
       try {
         landed = await read();
       } catch {
-        return input.waited('unread', elapsed());
+        return waited('unread');
       }
-      if (landed === true) return input.waited('line', elapsed());
+      if (landed === true) return waited('line');
       if (landed === 'cap' || elapsed() + READ_EVERY_MS > WAIT_AT_MOST_MS)
         break;
       await input.sleep(READ_EVERY_MS, signal);
     }
-    if (!signal.aborted) input.waited('cap', elapsed());
+    if (!signal.aborted) waited('cap');
   };
 }
