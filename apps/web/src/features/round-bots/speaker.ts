@@ -11,6 +11,8 @@ import {
   type Owed,
 } from './duty';
 import type { PhraseSource } from './phrase-source';
+import { createSelfWake } from './self-wake';
+import { unlessAborted } from './abortable';
 import type { BotSpeechJob, PhraseOutcome } from './publication';
 
 /** A provider answer held in memory until its usage and authority settle. */
@@ -94,12 +96,6 @@ const freshProgress = (): Progress => ({
 const STOPPED = 'Bot publication stopped before the phrase was sent';
 const isPlatformIncidentRefusal = (error: unknown) =>
   isAppError(error) && error.reason === 'platform-incident';
-/** After a refusal that can clear, the speaker wakes itself this soon... */
-const RETRY_FIRST_MS = 200;
-/** ...doubling while the refusal repeats, up to the control pulse's own pace. */
-const RETRY_MAX_MS = 3000;
-/** An asking seat presses its question after this much silence from its peers. */
-export const UNANSWERED_AFTER_MS = 8000;
 /** What the seat's hearing reports about one peer. */
 export type PeerActivity =
   | {
@@ -202,11 +198,6 @@ export function createBotSpeaker(input: {
   let running: { abort: AbortController; done: Promise<void> } | null = null,
     playing = false,
     stopped = false;
-  /** Between a refusal and the wake that follows it, nothing starts. */
-  let pausing = false,
-    pauseTimer: unknown = null,
-    pauseMs = RETRY_FIRST_MS,
-    replyTimer: unknown = null;
   /** Turns held back while a peer is mid-turn. */
   let held: (() => void)[] = [];
   let stage = 'generate';
@@ -375,19 +366,8 @@ export function createBotSpeaker(input: {
     voiceAhead(phrases, signal);
     return { answer, ready: false };
   };
-  /** Rejects once `signal` aborts; resolves with `work` otherwise. */
-  const unlessStopped = async <T>(work: Promise<T>, signal: AbortSignal) => {
-    const stop = Promise.withResolvers<never>();
-    stop.promise.catch(() => undefined);
-    const abort = () => stop.reject(createAppError('CONFLICT', STOPPED));
-    if (signal.aborted) abort();
-    signal.addEventListener('abort', abort, { once: true });
-    try {
-      return await Promise.race([work, stop.promise]);
-    } finally {
-      signal.removeEventListener('abort', abort);
-    }
-  };
+  const unlessStopped = <T>(work: Promise<T>, signal: AbortSignal) =>
+    unlessAborted(work, signal, STOPPED);
   /**
    * A turn never starts its audio over a peer who is mid-turn: it keeps what
    * it prepared and waits. That peer's turn ending owes a newer answer, which
@@ -462,8 +442,7 @@ export function createBotSpeaker(input: {
       progress.synthesized = null;
       progress.ready = false;
       progress.lineId = null;
-      // Something was said: a later refusal starts its pauses short again.
-      pauseMs = RETRY_FIRST_MS;
+      selfWake.progressed();
     }
     dropAhead();
     // An answer that stopped short was spoken to its last whole phrase; it
@@ -515,31 +494,6 @@ export function createBotSpeaker(input: {
     dropAhead();
     progress = freshProgress();
   };
-  /** Wakes the speaker by itself after a pause that doubles while refusals repeat. */
-  const retrySoon = () => {
-    if (stopped || pausing) return;
-    pausing = true;
-    const wait = pauseMs;
-    pauseMs = Math.min(pauseMs * 2, RETRY_MAX_MS);
-    pauseTimer = input.timer.setTimeout(() => {
-      pausing = false;
-      pauseTimer = null;
-      wake();
-    }, wait);
-  };
-  const stopAwaitingReply = () => {
-    if (replyTimer !== null) input.timer.clearTimeout(replyTimer);
-    replyTimer = null;
-  };
-  /** Counts the silence after the asking seat's question. */
-  const awaitReply = () => {
-    stopAwaitingReply();
-    replyTimer = input.timer.setTimeout(() => {
-      replyTimer = null;
-      apply({ type: 'silence-elapsed' });
-      wake();
-    }, UNANSWERED_AFTER_MS);
-  };
   const cancel = () => running?.abort.abort();
   const effect = (kind: DutyEffect) => {
     switch (kind) {
@@ -561,16 +515,16 @@ export function createBotSpeaker(input: {
       case 'silence':
         return input.silence();
       case 'retry-soon':
-        return retrySoon();
+        return stopped ? undefined : selfWake.retrySoon();
       case 'await-reply':
-        return awaitReply();
+        return selfWake.awaitReply();
     }
   };
   const apply = (event: DutyEvent) => {
     const next = nextSpeakerState(state, event, rules);
     state = next.state;
     if (state.duty.status !== 'waiting' || !state.duty.unanswered)
-      stopAwaitingReply();
+      selfWake.stopAwaitingReply();
     if (state.midTurn.length === 0) {
       const waiting = held;
       held = [];
@@ -629,9 +583,17 @@ export function createBotSpeaker(input: {
     running.done = turn(abort, state.duty.to);
   };
   const wake = () => {
-    if (stopped || running || pausing) return;
+    if (stopped || running || selfWake.pausing()) return;
     apply({ type: 'woke' });
   };
+  const selfWake = createSelfWake({
+    timer: input.timer,
+    resume: wake,
+    unanswered: () => {
+      apply({ type: 'silence-elapsed' });
+      wake();
+    },
+  });
   return {
     wake,
     peer(activity: PeerActivity) {
@@ -658,8 +620,7 @@ export function createBotSpeaker(input: {
     async stop() {
       stopped = true;
       const current = running;
-      if (pauseTimer !== null) input.timer.clearTimeout(pauseTimer);
-      pauseTimer = null;
+      selfWake.stop();
       apply({ type: 'stopped' });
       await current?.done;
       dropAhead();
