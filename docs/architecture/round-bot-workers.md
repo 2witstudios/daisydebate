@@ -93,7 +93,7 @@ With this checkout's isolated test services and an authorized configured
 OpenRouter capability, run from the repository root:
 
 ```sh
-bun --env-file=.env run proof:round-judging anthropic/claude-sonnet-5.5
+bun --env-file=.env run proof:round-judging openai/gpt-6.1-terra
 ```
 
 The model argument is explicit. The script creates and drops a migrated per-run
