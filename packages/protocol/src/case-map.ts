@@ -7,9 +7,9 @@ import { debateSideSchema } from './primitives';
  * case is a thesis, the burdens that follow from it and the warrants for each
  * burden; an attack matters by the level it reaches, and a defeated premise
  * removes every argument that depends on it. It is evidence for the final
- * judge, never a ballot, and debaters never see it.
+ * judge, never a ballot, and debaters never see it. A stored map carries no
+ * version of its own: the attempt row's judge contract version names it.
  */
-export const caseMapVersion = 'case-map@1';
 
 /**
  * Bounded text. It may be empty: a side that said nothing, or an

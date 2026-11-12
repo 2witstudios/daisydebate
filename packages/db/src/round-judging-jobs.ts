@@ -4,8 +4,6 @@ import {
   ballotSchema,
   caseMapSchema,
   judgingAttemptDiagnosticSchema,
-  type Ballot,
-  type CaseMap,
   type JudgingStage,
   type JudgingAttemptDiagnostic,
   type JudgingTerminalReason,
@@ -40,7 +38,7 @@ import {
 } from './casual-judge-usage';
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import {
-  nextJudgingStage,
+  judgingProgress,
   pendingBallotAction,
   requireNextStage,
   requireUndispatched,
@@ -60,6 +58,20 @@ export type AnswerSaved = { readonly kind: 'held' };
 export type StageRecord =
   | { readonly stage: 'first'; readonly ballot: unknown }
   | { readonly stage: 'map'; readonly caseMap: unknown };
+/** A stage record validated by its own contract, as the job's columns it fills. */
+function storedStage(record: StageRecord) {
+  if (record.stage === 'first') {
+    const ballot = ballotSchema.safeParse(record.ballot);
+    if (!ballot.success) throw createAppError('VALIDATION');
+    return (now: Date) => ({
+      firstBallot: ballot.data,
+      firstBallotReceivedAt: now,
+    });
+  }
+  const caseMap = caseMapSchema.safeParse(record.caseMap);
+  if (!caseMap.success) throw createAppError('VALIDATION');
+  return (now: Date) => ({ caseMap: caseMap.data, caseMapReceivedAt: now });
+}
 export type AttemptDeferred =
   | { readonly kind: 'retry' }
   | {
@@ -206,10 +218,8 @@ export function createRoundJudgingJobs(input: {
     verify: (scope: JudgingScope, token: string) =>
       withLease(scope, token, (_tx, { round, job }) => ({
         expectedVersion: round.version,
-        pendingBallot: job.pendingBallot,
-        /** The stage this claim may buy, or null once a final ballot is held. */
-        stage: nextJudgingStage(job),
-        caseMap: job.caseMap,
+        /** The held final ballot, or the one stage this claim may buy. */
+        progress: judgingProgress(job),
       })),
     /** Ranked judging stays free; casual judging counts its admitted use before model I/O. */
     beginModelCall: (
@@ -304,11 +314,7 @@ export function createRoundJudgingJobs(input: {
       usage: { readonly inputTokens: number; readonly outputTokens: number },
     ): Promise<void> => {
       await recordJudgingUsage(input.run, scope, token, usage);
-      const value =
-        record.stage === 'first'
-          ? ballotSchema.safeParse(record.ballot)
-          : caseMapSchema.safeParse(record.caseMap);
-      if (!value.success) throw createAppError('VALIDATION');
+      const stored = storedStage(record);
       await withLease(scope, token, async (tx, { run, job, now }) => {
         const attempt = await attemptOfRun(tx, run.id);
         if (!attempt || attempt.stage !== record.stage)
@@ -320,14 +326,7 @@ export function createRoundJudgingJobs(input: {
           .where(eq(roundJudgingAttempts.agentRunId, run.id));
         await tx
           .update(roundJudgingJobs)
-          .set(
-            record.stage === 'first'
-              ? {
-                  firstBallot: value.data as Ballot,
-                  firstBallotReceivedAt: now,
-                }
-              : { caseMap: value.data as CaseMap, caseMapReceivedAt: now },
-          )
+          .set(stored(now))
           .where(judgingJobWhere(scope));
         await deferLockedJudgingJob(tx, scope, run.id, {
           status: 'queued',

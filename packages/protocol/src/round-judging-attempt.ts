@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ballotCategories } from './ballot';
+import type { CaseMap } from './case-map';
 
 const sides = ['affirmative', 'negative'] as const;
 const UNKNOWN_FIELD = 'unknown_field';
@@ -10,6 +11,14 @@ const UNKNOWN_FIELD = 'unknown_field';
  */
 export const judgingStages = ['first', 'map', 'final'] as const;
 export type JudgingStage = (typeof judgingStages)[number];
+/**
+ * The one stage a job needs next with what its call reads: the final ballot
+ * is always decided from the stored case map, so it cannot be due without one.
+ */
+export type JudgingStageInput =
+  | { readonly stage: 'first' }
+  | { readonly stage: 'map' }
+  | { readonly stage: 'final'; readonly caseMap: CaseMap };
 
 /**
  * Every ballot field a rejection may name, plus `case_map` for any rejected

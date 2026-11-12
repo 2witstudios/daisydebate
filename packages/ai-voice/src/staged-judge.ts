@@ -1,4 +1,4 @@
-import type { CaseMap } from '@daisy/protocol';
+import type { CaseMap, JudgingStageInput } from '@daisy/protocol';
 import type { ChatMessage } from './openrouter';
 import { ballotInstructions, rubricAnchors } from './judge-instructions';
 import { roundJudgeMessages } from './round-judge';
@@ -56,7 +56,7 @@ const resolutionLine = (input: TranscriptEvidenceInput) =>
   `Resolution: ${JSON.stringify(input.resolution)}`;
 
 /** The case map's messages: the transcript alone, never a ballot. */
-export function caseMapMessages(input: TranscriptEvidenceInput): ChatMessage[] {
+function caseMapMessages(input: TranscriptEvidenceInput): ChatMessage[] {
   return [
     { role: 'system', content: caseMapSystem },
     {
@@ -71,7 +71,7 @@ export function caseMapMessages(input: TranscriptEvidenceInput): ChatMessage[] {
 }
 
 /** The final judge's messages: the transcript and the map, never the first pass. */
-export function finalJudgeMessages(
+function finalJudgeMessages(
   input: TranscriptEvidenceInput,
   caseMap: CaseMap,
 ): ChatMessage[] {
@@ -90,16 +90,10 @@ export function finalJudgeMessages(
   ];
 }
 
-/** What each stage reads before its call. */
-export type StageInput =
-  | { readonly stage: 'first' }
-  | { readonly stage: 'map' }
-  | { readonly stage: 'final'; readonly caseMap: CaseMap };
-
 /** One stage's messages, from the one frozen evidence and the one rubric. */
 export function judgingStageMessages(
   evidence: TranscriptEvidenceInput,
-  input: StageInput,
+  input: JudgingStageInput,
 ): ChatMessage[] {
   if (input.stage === 'final')
     return finalJudgeMessages(evidence, input.caseMap);

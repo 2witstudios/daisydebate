@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { createAppError } from '@daisy/errors';
-import type { JudgingStage } from '@daisy/protocol';
+import type { Ballot, JudgingStage, JudgingStageInput } from '@daisy/protocol';
 import type { JudgingScope } from './round-judging-context';
 import type { agentRuns } from './schema/agent-runs';
 import type {
@@ -74,28 +74,60 @@ export function requireCurrentRun(
 type Attempt = typeof roundJudgingAttempts.$inferSelect;
 
 /**
- * The coherency stage a job needs next (ADR 0125): the first pass until it
- * is stored or its one try failed, then the case map, then the final ballot.
- * Null once a final ballot is held: nothing more is bought.
+ * Where a judging job stands (ADR 0125): a final ballot held for submission,
+ * or the one coherency stage its next call buys, with what that call reads.
  */
-export function nextJudgingStage(
+export type JudgingProgress =
+  | { readonly kind: 'ballot_held'; readonly ballot: Ballot }
+  | { readonly kind: 'stage_due'; readonly due: JudgingStageInput };
+
+/**
+ * The first pass until it is stored or its one try is spent, then the case
+ * map, then the final ballot read from that map; nothing once a final ballot
+ * is held.
+ */
+export function judgingProgress(
   job: Pick<
     Job,
     'pendingBallot' | 'firstBallot' | 'firstBallotFailed' | 'caseMap'
   >,
-): JudgingStage | null {
-  if (job.pendingBallot) return null;
-  if (!job.firstBallot && !job.firstBallotFailed) return 'first';
-  return job.caseMap ? 'final' : 'map';
+): JudgingProgress {
+  if (job.pendingBallot)
+    return { kind: 'ballot_held', ballot: job.pendingBallot };
+  if (!job.firstBallot && !job.firstBallotFailed)
+    return { kind: 'stage_due', due: { stage: 'first' } };
+  return {
+    kind: 'stage_due',
+    due: job.caseMap
+      ? { stage: 'final', caseMap: job.caseMap }
+      : { stage: 'map' },
+  };
 }
 
 /** A dispatch buys exactly the stage the job needs, never another. */
 export function requireNextStage(
-  job: Parameters<typeof nextJudgingStage>[0],
+  job: Parameters<typeof judgingProgress>[0],
   stage: JudgingStage,
 ): void {
-  if (nextJudgingStage(job) !== stage)
+  const progress = judgingProgress(job);
+  if (progress.kind !== 'stage_due' || progress.due.stage !== stage)
     throw createAppError('CONFLICT', 'Judging stage not due');
+}
+
+/**
+ * A takeover finds the first pass still dispatched by an earlier run that
+ * lost its lease (a deploy or a crash mid-call): that lost call was its one
+ * try, so the takeover never buys it again (ADR 0125).
+ */
+export function firstPassLost(
+  job: Pick<Job, 'firstBallot' | 'firstBallotFailed'>,
+  priorFirstAttempt: Pick<Attempt, 'outcome'> | undefined,
+): boolean {
+  return (
+    !job.firstBallot &&
+    !job.firstBallotFailed &&
+    priorFirstAttempt?.outcome === 'dispatched'
+  );
 }
 
 /** One provider dispatch per run, and none once a response is held. */

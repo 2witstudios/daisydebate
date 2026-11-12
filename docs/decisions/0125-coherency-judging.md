@@ -47,8 +47,9 @@ based around that.
 2. **Three stages.** AI judging buys three provider calls, one per stage:
    - **First pass:** today's single-call judge, on the current rubric. It is
      an internal record and is never shown to the final judge or to debaters.
-   - **Case map:** a strict `case-map@1` contract read from the transcript
-     alone. It records each side's thesis, burdens and warrants; the framework
+   - **Case map:** a strict case-map contract read from the transcript
+     alone. A stored map carries no version of its own; the attempt row's
+     `judge-contract@2` names it. It records each side's thesis, burdens and warrants; the framework
      dispute and its ruling; attacks with the level they reach and the nodes
      they remove; concessions with the limits the speaker attached; coherence;
      and what still stands.
@@ -68,7 +69,12 @@ based around that.
    its own attempt row, now with `stage`. A stored stage output is never bought
    again, including after a takeover. The first pass has one try: a failure is
    recorded and the job moves on, so it never blocks the official ballot
-   (DEC-391).
+   (DEC-391). A first-pass call lost without a recorded outcome (its lease
+   expired in a deploy or a crash) is that try too: the takeover finds its
+   attempt still dispatched, marks the first pass failed and buys the case
+   map. The store hands each claim one value, the held final ballot or the
+   one stage due with what it reads, so a final stage is never due without
+   its case map.
 
 4. **Bounds.** A generation window holds 4 potentially paid calls (three
    stages and one retry), and a job's lifetime 24 (DEC-390). A stage's call may

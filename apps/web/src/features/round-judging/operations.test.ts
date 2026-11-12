@@ -15,9 +15,10 @@ test('a judging job that may buy no more calls never reaches the provider', asyn
     store: {
       verifyRoundJudgingJob: async () => ({
         expectedVersion: 1,
-        pendingBallot: null,
-        stage: 'final',
-        caseMap: stubCaseMap,
+        progress: {
+          kind: 'stage_due' as const,
+          due: { stage: 'final' as const, caseMap: stubCaseMap },
+        },
       }),
       beginRoundJudgingModelCall: async () => ({
         kind: 'deferred' as const,

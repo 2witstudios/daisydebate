@@ -116,10 +116,10 @@ export function createRoundJudgingOperations(input: {
        */
       const attempt = async (): Promise<AttemptOutcome> => {
         requireNotCancelled(signal);
-        const state = await verify();
-        if (state.pendingBallot || !state.stage) return 'ballot_held';
-        const { stage } = state;
-        const request = frozenStageRequest(claim, stage, state.caseMap);
+        const { progress } = await verify();
+        if (progress.kind === 'ballot_held') return 'ballot_held';
+        const { stage } = progress.due;
+        const request = frozenStageRequest(claim, progress.due);
         const voice = input.voice();
         const begun = await input.store.beginRoundJudgingModelCall(
           scope,
@@ -153,13 +153,14 @@ export function createRoundJudgingOperations(input: {
         return keepAnswer(stage, answer, usage);
       };
       requireNotCancelled(signal);
-      const outcome = (await verify()).pendingBallot
-        ? 'ballot_held'
-        : await input.withProvider(signal, attempt);
+      const outcome =
+        (await verify()).progress.kind === 'ballot_held'
+          ? 'ballot_held'
+          : await input.withProvider(signal, attempt);
       if (outcome === 'concluded') return null;
       requireNotCancelled(signal);
       const fresh = await verify();
-      if (!fresh.pendingBallot)
+      if (fresh.progress.kind !== 'ballot_held')
         throw createAppError('CONFLICT', 'Judging response unavailable');
       const prepared = prepareRoundBallotSubmission({
         principal: {
@@ -176,7 +177,7 @@ export function createRoundJudgingOperations(input: {
           expectedVersion: fresh.expectedVersion,
           judgeParticipantId: scope.judgeParticipantId,
           freezeRevision: scope.freezeRevision,
-          ballot: fresh.pendingBallot,
+          ballot: fresh.progress.ballot,
         },
         nextBallotId: input.nextId,
         nextSegmentId: input.nextId,

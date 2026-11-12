@@ -316,9 +316,9 @@ test('a held ballot outlives the budget, and a retry takes no new call', async (
         'keep the lease and the ballot: the budget bounds generation only',
       actual: {
         renewed: renewed.kind,
-        held: verified.pendingBallot !== null,
+        held: verified.progress.kind,
       },
-      expected: { renewed: 'renewed', held: true },
+      expected: { renewed: 'renewed', held: 'ballot_held' },
     });
   });
 });

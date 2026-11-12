@@ -1,4 +1,3 @@
-import { isDeepStrictEqual } from 'node:util';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -48,7 +47,7 @@ test('coherency judging buys each stage once, in order, and keeps the stage reco
     async (value) => {
       const { jobs, target } = value;
       const first = await jobs.claim(target);
-      const due = (await jobs.verify(first.scope, first.token)).stage;
+      const due = (await jobs.verify(first.scope, first.token)).progress;
       await assertRejects({
         given: 'a new job',
         should: 'refuse to buy any stage but the first pass',
@@ -65,7 +64,7 @@ test('coherency judging buys each stage once, in order, and keeps the stage reco
       const afterFirst = await jobRow(value);
 
       const map = await jobs.claim(target);
-      const mapDue = (await jobs.verify(map.scope, map.token)).stage;
+      const mapDue = (await jobs.verify(map.scope, map.token)).progress;
       await jobs.beginModelCall(map.scope, map.token, 'map');
       await jobs.saveStage(
         map.scope,
@@ -90,15 +89,20 @@ test('coherency judging buys each stage once, in order, and keeps the stage reco
         should:
           'buy the first pass, the case map and the final ballot, release the job due at once after each earlier stage, and keep every stage record',
         actual: {
-          due: [due, mapDue, verified.stage],
-          mapForFinal: isDeepStrictEqual(verified.caseMap, syntheticCaseMap),
+          due: [due, mapDue, verified.progress],
           afterFirst,
           end: await jobRow(value),
           attempts: await attemptRows(value),
         },
         expected: {
-          due: ['first', 'map', 'final'],
-          mapForFinal: true,
+          due: [
+            { kind: 'stage_due', due: { stage: 'first' } },
+            { kind: 'stage_due', due: { stage: 'map' } },
+            {
+              kind: 'stage_due',
+              due: { stage: 'final', caseMap: syntheticCaseMap },
+            },
+          ],
           afterFirst: {
             status: 'queued',
             released: true,
@@ -153,13 +157,13 @@ test('a failed first pass is recorded once and the job moves on to the case map'
           'record the failure on its attempt, mark the first pass tried, and make the case map due next',
         actual: {
           deferred,
-          stage: (await jobs.verify(next.scope, next.token)).stage,
+          stage: (await jobs.verify(next.scope, next.token)).progress,
           job: await jobRow(value),
           attempts: await attemptRows(value),
         },
         expected: {
           deferred: { kind: 'retry' },
-          stage: 'map',
+          stage: { kind: 'stage_due', due: { stage: 'map' } },
           job: {
             status: 'leased',
             released: false,
@@ -172,6 +176,50 @@ test('a failed first pass is recorded once and the job moves on to the case map'
           attempts: [
             { stage: 'first', outcome: 'failed', category: 'schema_rejected' },
           ],
+        },
+      });
+    },
+    'complete',
+    undefined,
+    'first',
+  ));
+
+test('a first pass lost with its lease is its one try: the takeover buys the case map', () =>
+  withJudgingJob(
+    async (value) => {
+      const { jobs, target, fixture, roundId } = value;
+      const first = await jobs.claim(target);
+      await jobs.beginModelCall(first.scope, first.token, 'first');
+      // The worker is gone mid-call (a deploy or a crash): nothing is recorded.
+      await fixture.sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
+      const next = await jobs.claim(target);
+      await assertRejects({
+        given: 'a takeover after the first pass was dispatched and lost',
+        should: 'refuse to buy the first pass again',
+        actual: () => jobs.beginModelCall(next.scope, next.token, 'first'),
+        code: 'CONFLICT',
+      });
+      assert({
+        given: 'a first-pass call whose lease expired before any answer',
+        should:
+          'count the lost call as the first pass’s one try and make the case map due next',
+        actual: {
+          due: (await jobs.verify(next.scope, next.token)).progress,
+          job: await jobRow(value),
+          attempts: await attemptRows(value),
+        },
+        expected: {
+          due: { kind: 'stage_due', due: { stage: 'map' } },
+          job: {
+            status: 'leased',
+            released: false,
+            due: null,
+            first: false,
+            first_failed: true,
+            map: false,
+            held: false,
+          },
+          attempts: [{ stage: 'first', outcome: 'dispatched', category: null }],
         },
       });
     },

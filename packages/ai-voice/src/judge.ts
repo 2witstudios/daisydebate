@@ -12,7 +12,7 @@ import {
 import type { z } from 'zod';
 import { modelJson } from './model-json';
 
-export type JudgedAnswer =
+type JudgedAnswer =
   | { readonly ok: true; readonly ballot: Ballot }
   | { readonly ok: false; readonly diagnostic: JudgingAttemptDiagnostic };
 
@@ -101,7 +101,7 @@ export function judgeAnswer(answer: {
   );
 }
 
-export type CaseMapAnswer =
+type CaseMapAnswer =
   | { readonly ok: true; readonly caseMap: CaseMap }
   | { readonly ok: false; readonly diagnostic: JudgingAttemptDiagnostic };
 

@@ -146,6 +146,7 @@ export {
   judgingBallotFields,
   judgingStages,
   type JudgingStage,
+  type JudgingStageInput,
   judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
@@ -178,10 +179,9 @@ export {
   storedBallotScoresSchema,
   storedBallotCitationsSchema,
 } from './ballot';
-export { caseMapSchema, caseMapVersion } from './case-map';
+export { caseMapSchema } from './case-map';
 export type { CaseMap } from './case-map';
 export type {
-  AnyBallotCategory,
   Ballot,
   BallotCategory,
   BallotRubricVersion,

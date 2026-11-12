@@ -18,6 +18,15 @@ const nextStage: Record<Stage, Stage> = {
   map: 'final',
   final: 'final',
 };
+/** The fake job's next stage, as the store derives it: the final one reads the stored map. */
+const dueOf = (job: {
+  readonly stage: Stage;
+  readonly caseMap: typeof stubCaseMap | null;
+}) => {
+  if (job.stage !== 'final') return { stage: job.stage };
+  if (!job.caseMap) throw new Error('A final stage is due only with its map');
+  return { stage: job.stage, caseMap: job.caseMap };
+};
 /** A fake store holding one job's stage, at the final stage unless told otherwise. */
 export function harness(
   complete: (request: unknown) => Promise<unknown>,
@@ -30,7 +39,12 @@ export function harness(
     failures: [] as { category: string; final: boolean }[],
     usage: 0,
   };
-  const job = {
+  const job: {
+    stage: Stage;
+    caseMap: typeof stubCaseMap | null;
+    begun: Stage[];
+    stored: Stage[];
+  } = {
     stage: start,
     caseMap: start === 'final' ? stubCaseMap : null,
     begun: [] as Stage[],
@@ -40,9 +54,10 @@ export function harness(
     store: {
       verifyRoundJudgingJob: async () => ({
         expectedVersion: 1,
-        pendingBallot: null,
-        stage: job.stage,
-        caseMap: job.caseMap,
+        progress: {
+          kind: 'stage_due' as const,
+          due: dueOf(job),
+        },
       }),
       beginRoundJudgingModelCall: async (
         _scope: unknown,

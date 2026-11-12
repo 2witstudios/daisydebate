@@ -43,8 +43,6 @@ export const ballotCategories = [
   'delivery',
 ] as const satisfies readonly CategoryOf<typeof ballotRubricVersion>[];
 export type BallotCategory = (typeof ballotCategories)[number];
-/** A category id of any rubric version. */
-export type AnyBallotCategory = CategoryOf<BallotRubricVersion>;
 
 /** The score every category starts at on a new ballot. */
 export const ballotDefaultScore = 3;

@@ -41,7 +41,9 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly verifyRoundJudgingJob: (
       scope: C['scope'],
       token: string,
-    ) => Promise<{ readonly pendingBallot: unknown | null }>;
+    ) => Promise<{
+      readonly progress: { readonly kind: 'ballot_held' | 'stage_due' };
+    }>;
   };
   /** Reserve before the durable claim; refusal must not leave a lease behind. */
   readonly reserveCapacity: () => (() => void) | null;
@@ -91,7 +93,10 @@ export function startRoundJudgingService<C extends Claim>(input: {
           );
           // A saved ballot is retried on the next scan, a bounded number of
           // times in a row; then it is reported and the slot released.
-          if (state.pendingBallot && ++entry.refusals < MAX_SUBMISSION_REFUSALS)
+          if (
+            state.progress.kind === 'ballot_held' &&
+            ++entry.refusals < MAX_SUBMISSION_REFUSALS
+          )
             return;
         } catch {
           /* A lost authority never becomes a retry permission. */
