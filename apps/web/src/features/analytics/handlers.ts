@@ -24,7 +24,25 @@ export const cookieConsent = (header: string | null) => {
   }
 };
 
-/** Native POST: no consent action depends on hydration or JavaScript. */
+/**
+ * Where a native consent POST returns the browser: the page it was sent from,
+ * as a path on this origin only, so a choice never moves the visitor.
+ */
+export const consentReturnPath = (referer: string | null, appUrl: string) => {
+  try {
+    const from = new URL(referer ?? '');
+    if (from.origin !== new URL(appUrl).origin) return '/analytics';
+    return `${from.pathname}${from.search}`;
+  } catch {
+    return '/analytics';
+  }
+};
+
+/**
+ * Native POST: no consent action depends on hydration or JavaScript. A
+ * navigation is redirected back to its page; a script's request gets 204 and
+ * stays where it is.
+ */
 export const createConsentHandler = (app: App) => (request: Request) =>
   handleOperation(app.logger, request, 'analytics.consent', async () => {
     requireSameOrigin(request, app.config.PUBLIC_APP_URL);
@@ -99,9 +117,22 @@ export const createConsentHandler = (app: App) => (request: Request) =>
           properties: { replay: consent.replay === 'granted' },
         },
       });
+    const fetchMode = request.headers.get('sec-fetch-mode');
+    const scripted =
+      mode === 'adopt' || (fetchMode !== null && fetchMode !== 'navigate');
     const response = new Response(null, {
-      status: mode === 'adopt' ? 204 : 303,
-      headers: { location: '/analytics?saved=1', 'cache-control': 'no-store' },
+      status: scripted ? 204 : 303,
+      headers: {
+        ...(scripted
+          ? {}
+          : {
+              location: consentReturnPath(
+                request.headers.get('referer'),
+                app.config.PUBLIC_APP_URL,
+              ),
+            }),
+        'cache-control': 'no-store',
+      },
     });
     response.headers.append(
       'set-cookie',
