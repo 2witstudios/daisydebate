@@ -14,6 +14,7 @@ import {
   grantedDebaters,
   readMediaState,
   grantMedia,
+  enableSound,
   installMediaCapture,
   expectConnected,
   expectPeerAudio,
@@ -41,9 +42,7 @@ test('direct tabs take over without duplicate capture and reload recovers throug
         page.getByRole('status').filter({ hasText: /^Connected/ }),
       ).toBeVisible(MEDIA_POLL);
     await Promise.all([connected(first), connected(peer)]);
-    await peer
-      .getByRole('button', { name: 'Enable sound', exact: true })
-      .click();
+    await enableSound(peer);
     await expectPeerCamera(peer);
     const heldTrack = await first
       .getByLabel('Your camera', { exact: true })
@@ -225,9 +224,7 @@ test('network loss during a live speech restores peer sound and video without Re
       peer.goto(`/rounds/${round.id}/room`),
     ]);
     await Promise.all([expectConnected(source), expectConnected(peer)]);
-    await peer
-      .getByRole('button', { name: 'Enable sound', exact: true })
-      .click();
+    await enableSound(peer);
     await expectPeerCamera(peer);
     await expectPeerAudio(peer);
     const speakerTile = peer.getByRole('figure').first();
@@ -314,9 +311,7 @@ test('a signal blip resumes the same connection with its tracks, says so, and ne
       peer.goto(`/rounds/${round.id}/room`),
     ]);
     await Promise.all([expectConnected(source), expectConnected(peer)]);
-    await peer
-      .getByRole('button', { name: 'Enable sound', exact: true })
-      .click();
+    await enableSound(peer);
     await expectPeerCamera(peer);
     const camera = await source
       .getByLabel('Your camera', { exact: true })

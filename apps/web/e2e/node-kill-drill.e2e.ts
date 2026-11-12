@@ -51,6 +51,7 @@ import {
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import {
+  enableSound,
   expectConnected,
   grantedDebaters,
   installMediaCapture,
@@ -185,15 +186,6 @@ const countAdmissions = (page: Page) => {
     if (isSession(response.url())) admissionStatuses.push(response.status());
   });
   return () => ({ admissionsAfterKill, admissionStatuses });
-};
-
-/** A seat's sound is enabled once, by a person's press, as in the Round. */
-const enableSound = async (page: Page) => {
-  const button = page.getByRole('button', {
-    name: 'Enable sound',
-    exact: true,
-  });
-  if (await button.isVisible()) await button.click();
 };
 
 /** The open speech's speaker yields; false while no speech is open to yield. */

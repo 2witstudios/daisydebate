@@ -148,6 +148,15 @@ export const expectConnected = (page: Page) =>
   ).toBeVisible(MEDIA_POLL);
 
 /** Actual decoded frames from a remote participant, not a grant or a track object. */
+/** The Round offers Enable sound only while the browser blocks sound; press it then. */
+export const enableSound = async (page: Page) => {
+  const button = page.getByRole('button', {
+    name: 'Enable sound',
+    exact: true,
+  });
+  if (await button.isVisible()) await button.click();
+};
+
 export const expectPeerCamera = (page: Page) =>
   expect
     .poll(

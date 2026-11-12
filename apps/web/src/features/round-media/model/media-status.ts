@@ -197,7 +197,8 @@ export function controlsOf(state: MediaState) {
   const live = established(state);
   const grants = live?.establishment.media.grants.publish ?? [];
   return {
-    enableSound: live !== null,
+    /** Pressing it only unblocks refused playback, so it is offered only then. */
+    enableSound: live !== null && live.sound === 'blocked',
     /** Offered only to a seat that may publish; muting needs a microphone grant. */
     muteOffered: grants.includes('camera'),
     muteEnabled:
