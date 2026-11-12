@@ -4,11 +4,17 @@
  * `mode` is the environment that selects what it reads (JB_ROUND, JB_PASSES…).
  */
 const MARK = 'JUDGE_BENCH_JSON:';
+/** The one environment the bench reads; production user data needs human sign-off. */
+export const STAGING_APP = 'daisy-debate-staging';
 
 export async function remoteRead(
   mode: Readonly<Record<string, string>>,
   app: string,
 ): Promise<unknown> {
+  if (app !== STAGING_APP)
+    throw new Error(
+      `judge:bench reads ${STAGING_APP} only; production data needs human sign-off`,
+    );
   const script = await Bun.file('scripts/judge-bench/remote-read.ts').text();
   const encoded = Buffer.from(script).toString('base64');
   const env = Object.entries(mode)

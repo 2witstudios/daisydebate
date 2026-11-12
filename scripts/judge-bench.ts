@@ -37,7 +37,7 @@ import {
 } from './judge-bench/prompt-file';
 import { placeholdersFor, productionPipeline } from './judge-bench/evidence';
 import { passesReport, type PassRow } from './judge-bench/passes';
-import { remoteRead } from './judge-bench/remote';
+import { remoteRead, STAGING_APP } from './judge-bench/remote';
 
 const ROOT = '.evals/judging';
 
@@ -378,7 +378,7 @@ const { values, positionals } = parseArgs({
   args: Bun.argv.slice(2),
   allowPositionals: true,
   options: {
-    app: { type: 'string', default: 'daisy-debate-staging' },
+    app: { type: 'string', default: STAGING_APP },
     force: { type: 'boolean', default: false },
     n: { type: 'string', short: 'n', default: '1' },
     prompt: { type: 'string' },
