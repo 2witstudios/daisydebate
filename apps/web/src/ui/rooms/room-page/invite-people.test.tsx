@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { initialInvitationForm } from '../../../features/room-invitations/submit';
+import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import { InvitePeople } from './invite-people';
+import type * as Client from './invite-people.test-support';
 
 setupRitewayBun();
 
@@ -115,4 +117,50 @@ describe('InvitePeople', () => {
       expected: true,
     });
   });
+});
+
+test('a withdrawn invitation that leaves before its answer hands focus to the username field', async () => {
+  const mount = async () => {
+    const client = await mountBrowserClient<typeof Client>(
+      Bun.resolveSync('./invite-people.test-support', import.meta.dir),
+    );
+    const show = (invitations: typeof pending) =>
+      client.act(() =>
+        client.root.render(
+          client.createElement(client.InvitePeople, { invitations, action }),
+        ),
+      );
+    const focused = () => {
+      const active = client.browser.document.activeElement;
+      return active?.id || active?.textContent || active?.tagName;
+    };
+    const button = (label: string) =>
+      [...client.container.querySelectorAll('button')].find(
+        (candidate) => candidate.textContent === label,
+      );
+    return { ...client, show, focused, button };
+  };
+
+  const onWithdraw = await mount();
+  await onWithdraw.show([pending[0]!]);
+  onWithdraw.button('Withdraw')?.focus();
+  const before = onWithdraw.focused();
+  // Room sync says the invitation ended: its row, and the focused button, go.
+  await onWithdraw.show([]);
+
+  const elsewhere = await mount();
+  await elsewhere.show([pending[0]!]);
+  elsewhere.button('Done')?.focus();
+  await elsewhere.show([]);
+
+  assert({
+    given:
+      'focus on a Withdraw button whose row room sync removes, then focus on Done when a row is removed',
+    should:
+      'move focus to the username field only when it fell off the page, never away from where the host put it',
+    actual: [before, onWithdraw.focused(), elsewhere.focused()],
+    expected: ['Withdraw', 'invite-people-username', 'Done'],
+  });
+  await onWithdraw.act(() => onWithdraw.root.unmount());
+  await elsewhere.act(() => elsewhere.root.unmount());
 });

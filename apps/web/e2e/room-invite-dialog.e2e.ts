@@ -15,6 +15,11 @@ import { closeRoom } from './support/room-launch-flow';
 // modal dialog on the pre-round Room, and the invited member's notice stays
 // on the page. A dialog and its focus only exist in a browser.
 const USERNAME_FIELD = 'invite-people-username';
+/**
+ * A changed invitation reaches a page through room sync. This suite runs
+ * without realtime, so that is the next poll (5 s) and its read.
+ */
+const SYNCED = { timeout: 15_000 };
 
 const member = async (browser: Browser, purpose: string) => {
   const context = await browser.newContext({ baseURL: origin });
@@ -99,9 +104,10 @@ test('the host invites from a header dialog that stays open, and the invited mem
         `Invited @${guest.username}. Their seat is held for them.`,
       ),
     ).toBeVisible();
-    await expect(pending.getByRole('listitem')).toHaveText([
-      new RegExp(`@${guest.username} · invited to debate`),
-    ]);
+    await expect(pending.getByRole('listitem')).toHaveText(
+      [new RegExp(`@${guest.username} · invited to debate`)],
+      SYNCED,
+    );
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('textbox', { name: 'Username' })).toHaveValue(
       '',
@@ -111,7 +117,7 @@ test('the host invites from a header dialog that stays open, and the invited mem
     // Esc closes it; the count is on the button without opening it.
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
-    await expect(opener).toHaveText('Invite people (1 pending)');
+    await expect(opener).toHaveText('Invite people (1 pending)', SYNCED);
     await expect(opener).toBeFocused();
 
     // RID-4: the invited member is told on the page itself, with Decline
@@ -126,20 +132,32 @@ test('the host invites from a header dialog that stays open, and the invited mem
       guest.page.getByRole('button', { name: /^Invite people/ }),
     ).toHaveCount(0);
 
-    // RID-2, RID-5: Withdraw from the reopened dialog; the entry and the
-    // count go, focus returns to the field, and Done closes it.
+    // Decline still works from the page: the notice goes, and so does the
+    // host's count.
+    await hydrated(notice.getByRole('button', { name: 'Decline' }));
+    await notice.getByRole('button', { name: 'Decline' }).click();
+    await expect(notice).toHaveCount(0, SYNCED);
+    await page.reload();
+    await hydrated(opener);
+    await expect(opener).toHaveText('Invite people');
+
+    // RID-2, RID-5: invited again, then Withdraw in the same open dialog;
+    // the entry and the count go, focus returns to the field, and Done
+    // closes it.
     await opener.click();
+    await inviteByKeyboard(page, guest.username);
+    await expect(pending.getByRole('listitem')).toHaveCount(1, SYNCED);
     const withdraw = pending.getByRole('button', { name: 'Withdraw' });
     await withdraw.focus();
     await page.keyboard.press('Enter');
-    await expect(pending).toHaveCount(0);
-    await expect(dialog).toBeVisible();
     await expectFocusOn(page, 'input', USERNAME_FIELD);
+    await expect(pending).toHaveCount(0, SYNCED);
+    await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: 'Done' }).click();
     await expect(dialog).toBeHidden();
     await expect(opener).toHaveText('Invite people');
 
-    // The withdrawn invitation leaves the invited member's page.
+    // The withdrawn invitation is not on the invited member's page.
     await guest.page.reload();
     await expect(notice).toHaveCount(0);
   } finally {
