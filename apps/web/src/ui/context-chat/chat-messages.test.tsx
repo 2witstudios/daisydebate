@@ -51,7 +51,7 @@ test('a thread names each author and nothing more by default', () => {
   assert({
     given: 'own, labelled and unlabelled authors with no page label',
     should:
-      'show You, the username and Member, in order, under the list’s name',
+      'show You, the username and the context’s words for an unnamed author, in order, under the list’s name',
     actual: [names(html), html.includes('aria-label="Room chat messages"')],
     expected: [['You', 'grace', 'A member'], true],
   });

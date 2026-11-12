@@ -118,11 +118,17 @@ author whose account is gone. The Room page re-reads the thread's latest page
 whenever the Room's version moves, so an open tab drops a username it had
 already been given.
 
-What this does not close, and is accepted:
+What this does not close. The builder recorded these; the owner's acceptance
+of the first is asked for with the plan's open questions and is not yet given:
 
 - The message keeps its author's actor id on the wire, as it had while they
-  held a named seat. It is not a name, and Room chat gives no reader a way to
-  turn it into one.
+  held a named seat. Room chat itself pairs it with no name, but the id is the
+  same one a Room view shows beside a username wherever that member holds a
+  named seat (another Room, or this one before the move). A reader who inspects
+  the wire and makes that second read can name the author of a withheld
+  message. This is the one place a judge's actor id reaches a reader the Room
+  view hides it from. Closing it means giving a withheld author an id that is
+  not their actor id.
 - A reader who saw the username before the move has seen it. A tab that has
   lost its Room sync keeps showing it until its next read. Anyone watching the
   seats saw the same member leave a debater's seat as a judge's seat filled.
