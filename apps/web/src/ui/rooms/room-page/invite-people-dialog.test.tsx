@@ -25,12 +25,25 @@ const pending = [
 type Pending = (typeof pending)[number][];
 
 /** The dialog open in a real React tree, with answers the test releases by hand. */
-async function mountDialog(invitations: Pending) {
+type Close = () => Promise<void>;
+
+/** `opened` hears how to close the window as soon as there is one to close. */
+async function mountDialog(
+  invitations: Pending,
+  opened: (close: Close) => void,
+) {
   const client = await mountBrowserClient<typeof Client>(
     Bun.resolveSync('./invite-people.test-support', import.meta.dir),
     // What React's form posting reads from the realm.
     { FormData: BrowserFormData, performance },
   );
+  opened(async () => {
+    try {
+      await client.act(async () => client.root.unmount());
+    } finally {
+      await client.browser.happyDOM.close();
+    }
+  });
   const answers: ((answer: InvitationFormState) => void)[] = [];
   const held = () =>
     new Promise<InvitationFormState>((resolve) => answers.push(resolve));
@@ -68,10 +81,6 @@ async function mountDialog(invitations: Pending) {
     buttons('Done')[0]?.focus();
     buttons('Done')[0]?.blur();
   };
-  const close = async () => {
-    await client.act(async () => client.root.unmount());
-    await client.browser.happyDOM.close();
-  };
   return {
     ...client,
     dialog,
@@ -81,25 +90,30 @@ async function mountDialog(invitations: Pending) {
     answer,
     focus,
     dropFocus,
-    close,
   };
 }
-/** A test over open dialogs, each unmounted and its window closed however the test ends. */
+/**
+ * A test over open dialogs. Every window it opened is unmounted and closed
+ * however the test ends, one failing to close never sparing the next.
+ */
 const dialogTest = (
   name: string,
-  proof: (openDialog: typeof mountDialog) => Promise<void>,
+  proof: (
+    openDialog: (invitations: Pending) => ReturnType<typeof mountDialog>,
+  ) => Promise<void>,
 ) =>
   test(name, async () => {
-    const opened: Awaited<ReturnType<typeof mountDialog>>[] = [];
-    try {
-      await proof(async (invitations) => {
-        const page = await mountDialog(invitations);
-        opened.push(page);
-        return page;
-      });
-    } finally {
-      for (const page of opened) await page.close();
-    }
+    const closers: Close[] = [];
+    const proved = await Promise.allSettled([
+      proof((invitations) =>
+        mountDialog(invitations, (close) => closers.push(close)),
+      ),
+    ]);
+    const closed = await Promise.allSettled(closers.map((close) => close()));
+    const failed = [...proved, ...closed].find(
+      (outcome) => outcome.status === 'rejected',
+    );
+    if (failed) throw failed.reason;
   });
 const withdrawn: InvitationFormState = {
   kind: 'accepted',
