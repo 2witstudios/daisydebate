@@ -152,16 +152,16 @@ test('a judge seat with a submitted ballot is RESTRICTed from deletion', async (
         round_id: roundId,
         freeze_revision: freezeRevision,
         judge_participant_id: seat.id,
-        rubric_version: 'speaker-10@1',
+        rubric_version: 'speaker-10@2',
         winner: 'affirmative',
         scores: {
           affirmative: Object.fromEntries(
             [
               'thesis',
-              'framework',
-              'analysis',
+              'burdens',
+              'warrants',
+              'coherence',
               'refutation',
-              'impact',
               'weighing',
               'questioning',
               'answering',
@@ -172,10 +172,10 @@ test('a judge seat with a submitted ballot is RESTRICTed from deletion', async (
           negative: Object.fromEntries(
             [
               'thesis',
-              'framework',
-              'analysis',
+              'burdens',
+              'warrants',
+              'coherence',
               'refutation',
-              'impact',
               'weighing',
               'questioning',
               'answering',

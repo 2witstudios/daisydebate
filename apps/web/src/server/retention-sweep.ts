@@ -2,6 +2,7 @@ import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { ProvisionalLinkPurposes } from '@daisy/db';
 import { roundFloorRetentionMs } from '@daisy/protocol/round-floor';
+import { roomCommunityRetentionMs } from '@daisy/protocol/room-community';
 import { MODERATION_RECORD_RETENTION_MS } from '../features/moderation/retention';
 
 const DAY_MS = 86_400_000;
@@ -82,6 +83,7 @@ export function retentionTargets({
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
     readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;
     readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
+    readonly clearExpiredJudgingStages: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundAnalyses: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialDeclines: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSocialRequests: (batch: Batch) => Promise<number>;
@@ -93,6 +95,15 @@ export function retentionTargets({
     readonly purgeExpiredRoundFloorReceipts: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundFloorMessages: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundFloorReadStates: (
+      batch: Batch,
+    ) => Promise<number>;
+    readonly purgeExpiredRoomCommunityReceipts: (
+      batch: Batch,
+    ) => Promise<number>;
+    readonly purgeExpiredRoomCommunityMessages: (
+      batch: Batch,
+    ) => Promise<number>;
+    readonly purgeExpiredRoomCommunityReadStates: (
       batch: Batch,
     ) => Promise<number>;
     readonly purgeExpiredAudienceReactions: (batch: Batch) => Promise<number>;
@@ -224,7 +235,8 @@ export function retentionTargets({
     },
     /**
      * DEC-101 and DEC-89 (ISSUE-498): private transcript lines and cached AI
-     * judging responses are kept 180 days; a ranked Round's transcript is kept, as its
+     * judging responses and judging stage records (ADR 0125) are kept 180
+     * days; a ranked Round's transcript is kept, as its
      * waiver says. A cleared response fails its job
      * (DEC-223). Round analyses keep the same window as the transcript they
      * read, under their own target.
@@ -233,6 +245,7 @@ export function retentionTargets({
       [
         ['utterances', database.purgeExpiredUtterances],
         ['pending_ballots', database.clearExpiredPendingBallots],
+        ['judging_stages', database.clearExpiredJudgingStages],
         ['round_analyses', database.purgeExpiredRoundAnalyses],
       ] as const
     ).map(([name, purge]) => ({
@@ -341,6 +354,20 @@ export function retentionTargets({
       maxBatches: 20,
       purge: ({ now, limit }: { now: string; limit: number }) =>
         purge({ before: cutoff(now, roundFloorRetentionMs), limit }),
+    })),
+    /** Room chat expiry is measured from the Room's end (ADR 0126); receipts drain before their referenced messages. */
+    ...(
+      [
+        ['room_chat_receipts', database.purgeExpiredRoomCommunityReceipts],
+        ['room_chat_messages', database.purgeExpiredRoomCommunityMessages],
+        ['room_chat_read_states', database.purgeExpiredRoomCommunityReadStates],
+      ] as const
+    ).map(([name, purge]) => ({
+      name: `retention.${name}`,
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }: { now: string; limit: number }) =>
+        purge({ before: cutoff(now, roomCommunityRetentionMs), limit }),
     })),
     /** Offers past their time; the list already ignores them (ADR 0103). */
     {

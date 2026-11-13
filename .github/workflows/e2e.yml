@@ -321,10 +321,12 @@ jobs:
   room-launch:
     name: Isolated native browser (${{ matrix.cohort }})
     runs-on: ubuntu-24.04
-    # Launch alone measured 57.9min before setup/reporting. Each full cohort
-    # owns its worker/slot and retains sanitized evidence before another
-    # cohort can exhaust its budget. No cases or execution counts are reduced.
-    timeout-minutes: 70
+    # Launch alone measured 57.9min before setup/reporting, then passed 60
+    # with every case passing once bot voice turns and staged judging landed.
+    # Each full cohort owns its worker/slot and retains sanitized evidence
+    # before another cohort can exhaust its budget. No cases or execution
+    # counts are reduced.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -475,8 +477,9 @@ jobs:
         env:
           CI: true
           ROOM_LAUNCH_NODE: node
-          # The default 45 ended within seconds of cutting off a passing suite.
-          DAISY_HEAVY_TIMEOUT_MINUTES: '60'
+          # The default 45, then 60, each cut off a suite whose every case
+          # had passed. The job's own timeout stays above this one.
+          DAISY_HEAVY_TIMEOUT_MINUTES: '75'
       - name: Run authenticated generic realtime browser proof
         id: realtime_room
         if: ${{ matrix.cohort == 'realtime' && !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}

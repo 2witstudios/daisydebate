@@ -40,6 +40,7 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
+import { mediaSessions } from './schema/media-sessions';
 import { recordedPanelRuling } from './round-panel-decisions';
 import { roundCommands } from './schema/round-commands';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
@@ -63,6 +64,24 @@ import {
   replayReceipt,
 } from './room-command-facts';
 import { roundResolutionAudit } from './room-draw-persistence';
+/**
+ * Whether the Round's post-round call still stands (ADR 0127): chosen, and
+ * not on a Round whose media session has ended. A completed Round's session
+ * ends when its call does, so a view of it stops offering the call then.
+ */
+async function postRoundCallStands(
+  tx: Pick<BunSQLDatabase, 'select'>,
+  round: Pick<typeof rounds.$inferSelect, 'id' | 'status' | 'postRoundCall'>,
+) {
+  if (!round.postRoundCall || round.status !== 'completed')
+    return round.postRoundCall;
+  const [session] = await tx
+    .select({ endedAt: mediaSessions.endedAt })
+    .from(mediaSessions)
+    .where(eq(mediaSessions.roundId, round.id));
+  return session !== undefined && session.endedAt === null;
+}
+
 export async function launchedRoundRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
@@ -108,6 +127,7 @@ export async function launchedRoundRows(
     config: row.roomConfigSnapshot,
     rules: row.rulesSnapshot,
     participants,
+    postRoundCall: await postRoundCallStands(tx, row),
     platformEnding: row.platformEnding,
     // A ruling belongs to a panel completion: a Round that is not completed carries none.
     panelRuling:

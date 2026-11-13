@@ -48,7 +48,13 @@ const occupied = {
 
 test('seat rows render actual readiness without treating empty seats as ready', () => {
   const html = renderToStaticMarkup(
-    <AssemblySeats view={occupied} viewer={viewer} bots={[]} {...intents} />,
+    <AssemblySeats
+      ready={null}
+      view={occupied}
+      viewer={viewer}
+      bots={[]}
+      {...intents}
+    />,
   );
   assert({
     given:
@@ -70,6 +76,7 @@ test('seat rows render actual readiness without treating empty seats as ready', 
 test('a casual host without the entitlement is offered a person, not the AI judge (WATCH-16)', () => {
   const html = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={{ ...assemblySnapshot, aiJudgeSeating: 'premium' }}
       viewer={viewer}
       bots={[bot]}
@@ -93,6 +100,7 @@ test('a casual host without the entitlement is offered a person, not the AI judg
 test('open judge seat offers invite and, to the host, an AI judge', () => {
   const host = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={{ ...assemblySnapshot, aiJudgeSeating: 'included' }}
       viewer={viewer}
       bots={[bot]}
@@ -101,6 +109,7 @@ test('open judge seat offers invite and, to the host, an AI judge', () => {
   );
   const guest = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={{
         ...assemblySnapshot,
         capabilities: { ...assemblySnapshot.capabilities, host: false },
@@ -133,6 +142,7 @@ test('open judge seat offers invite and, to the host, an AI judge', () => {
 test('an anonymous human judge (DEC-174)', () => {
   const html = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={{
         ...occupied,
         participants: [
@@ -168,6 +178,7 @@ test('an anonymous human judge (DEC-174)', () => {
 test('a bot debater is never offered as the AI judge', () => {
   const host = renderToStaticMarkup(
     <AssemblySeats
+      ready={null}
       view={assemblySnapshot}
       viewer={viewer}
       bots={[{ ...bot, seatRole: 'debater' }]}
@@ -179,5 +190,40 @@ test('a bot debater is never offered as the AI judge', () => {
     should: 'offer no AI judge assignment (ISSUE-750)',
     actual: host.includes('>AI judge</button>'),
     expected: false,
+  });
+});
+
+test("the viewer's own seat row carries their Ready control (RCHAT-11)", () => {
+  const row = (html: string, name: string) =>
+    html.split('<li ').find((item) => item.includes(`>${name}<`)) ?? '';
+  const withControl = renderToStaticMarkup(
+    <AssemblySeats
+      ready={<button type="submit">Not ready</button>}
+      view={occupied}
+      viewer={viewer}
+      bots={[]}
+      {...intents}
+    />,
+  );
+  const without = renderToStaticMarkup(
+    <AssemblySeats
+      ready={null}
+      view={occupied}
+      viewer={viewer}
+      bots={[]}
+      {...intents}
+    />,
+  );
+  assert({
+    given: 'a seated viewer with a Ready control, then with none',
+    should:
+      'put the control in their own row only, in place of the status pill, and keep the pill when there is no control',
+    actual: [
+      row(withControl, 'You').includes('>Not ready</button>'),
+      row(withControl, 'You').includes('>Ready</span>'),
+      (withControl.match(/>Not ready<\/button>/g) ?? []).length,
+      row(without, 'You').includes('>Ready</span>'),
+    ],
+    expected: [true, false, 1, true],
   });
 });

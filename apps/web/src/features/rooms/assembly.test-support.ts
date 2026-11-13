@@ -100,6 +100,7 @@ export const assemblySnapshot = {
   captureOffer: null,
   capture: null,
   captureNotice: null,
+  postRoundCall: false,
   botAdmission: null,
   watchRoundId: null,
   status: 'assembling',

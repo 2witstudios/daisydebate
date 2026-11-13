@@ -1,5 +1,4 @@
 import { createId } from '@paralleldrive/cuid2';
-import { roundCaptureNotice } from '../src/features/legal/agreements';
 import { withSeasons } from '@daisy/db/seasons';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -23,7 +22,6 @@ test('only canonical ranked formats are creatable and generic One-on-one refuses
         actual: () =>
           f.create({
             selection: { kind: 'ranked', formatId: 'one-on-one', ...current },
-            noticeVersion: roundCaptureNotice('ranked')!.version,
           }),
         code: 'VALIDATION',
       });
@@ -37,7 +35,6 @@ test('only canonical ranked formats are creatable and generic One-on-one refuses
             formatVersion: value.formatVersion,
             presetVersion: value.preset.version,
           },
-          noticeVersion: roundCaptureNotice('ranked')!.version,
         })
       ).view;
       assert({

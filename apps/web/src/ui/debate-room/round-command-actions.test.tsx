@@ -114,6 +114,20 @@ test('a refused strike says so only while the strike is open; a lost answer alwa
     ],
     expected: ['feedback', 'control-strike_resolution'],
   });
+  assert({
+    given:
+      'an answer settling once the post-round call has replaced the controls',
+    should:
+      'focus the result link that took their place, never a control that is gone',
+    actual: answerFocusTarget(
+      refused,
+      opening('prep'),
+      'feedback',
+      'control',
+      true,
+    ),
+    expected: 'round-call-result',
+  });
 });
 
 const confirming = (asked: string) =>

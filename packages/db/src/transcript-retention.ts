@@ -13,6 +13,12 @@ export const discardPendingJudgment = sql`status='failed',terminal_reason='ballo
   pending_ballot=null,pending_ballot_agent_run_id=null,pending_ballot_epoch=null,pending_ballot_received_at=null`;
 
 /**
+ * Clears coherency judging's stage records (ADR 0125): the first-pass ballot
+ * and the case map, which quote the debaters like any ballot.
+ */
+export const clearJudgingStages = sql`first_ballot=null,first_ballot_received_at=null,case_map=null,case_map_received_at=null`;
+
+/**
  * DEC-101 casual transcripts and DEC-89 judging data are kept 180 days; the sweep
  * applies the window. Each call is one bounded autocommitted statement, as in
  * `deleteExpiredBatch`.
@@ -48,6 +54,21 @@ export const transcriptRetention = ({
           select round_id,judge_participant_id from round_judging_jobs
           where pending_ballot_received_at < ${before}::timestamptz
           order by pending_ballot_received_at
+          limit ${limit}
+          for update skip locked
+        ) returning round_id`);
+      return (cleared as unknown as unknown[]).length;
+    }),
+  /** Stage records follow ballot retention: 180 days from their receipt (DEC-393). */
+  clearExpiredJudgingStages: ({ before, limit }: RetentionBatch) =>
+    instrumented(eventSink, 'clearExpiredJudgingStages', async () => {
+      requireRetentionBounds({ before, limit });
+      const cleared = await database.execute(sql`
+        update round_judging_jobs set ${clearJudgingStages}
+        where (round_id,judge_participant_id) in (
+          select round_id,judge_participant_id from round_judging_jobs
+          where least(first_ballot_received_at,case_map_received_at) < ${before}::timestamptz
+          order by least(first_ballot_received_at,case_map_received_at)
           limit ${limit}
           for update skip locked
         ) returning round_id`);

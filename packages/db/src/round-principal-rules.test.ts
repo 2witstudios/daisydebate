@@ -10,6 +10,12 @@ import {
   requireHumanRoundPrincipal,
   roundPrincipalColumns,
 } from './round-write-authority';
+import {
+  noPostRoundCall,
+  type MediaPhase,
+  type MediaWindowFacts,
+  type RoundStatus,
+} from '@daisy/protocol';
 
 setupRitewayBun();
 
@@ -175,14 +181,33 @@ test('a human Round principal needs its own live member account', async () => {
     });
 });
 
-test('a media operation answers the window decision it is handed', async () => {
+test('a media operation answers the phase it is handed', async () => {
   const end = '2026-10-22T12:00:00.000Z';
-  const mediaWindowClosed = (status: string) => status === 'completed';
+  const facts = (status: RoundStatus): MediaWindowFacts => ({
+    status,
+    now: end,
+    finalSegmentEndedAt: null,
+    postRoundCall: noPostRoundCall(status),
+  });
+  const phaseOf =
+    (phase: MediaPhase) =>
+    (given: MediaWindowFacts): MediaPhase =>
+      given.status === 'completed' ? phase : 'round';
   await assertRejects({
-    given: 'a closed media window',
+    given: 'closed media',
     should: 'refuse the media operation',
-    actual: () => requireMediaWindow(mediaWindowClosed, 'completed', end, null),
+    actual: () => requireMediaWindow(phaseOf('closed'), facts('completed')),
     code: 'CONFLICT',
+  });
+  await assertRejects({
+    given: 'a post-round call still opening',
+    should: 'ask the caller to try again',
+    actual: () =>
+      requireMediaWindow(
+        phaseOf('post-round-call-opening'),
+        facts('completed'),
+      ),
+    code: 'INFRASTRUCTURE',
   });
   await assertRejects({
     given: 'a media identifier that is not a cuid2',
@@ -191,12 +216,13 @@ test('a media operation answers the window decision it is handed', async () => {
     code: 'VALIDATION',
   });
   assert({
-    given: 'an open window and a cuid2 identifier',
-    should: 'admit both',
+    given: 'open media and a cuid2 identifier',
+    should: 'admit both, naming the phase',
     actual: [
-      requireMediaWindow(mediaWindowClosed, 'active', end, null),
+      requireMediaWindow(phaseOf('closed'), facts('active')),
+      requireMediaWindow(phaseOf('post-round-call'), facts('completed')),
       mediaId(scope.roundId),
     ],
-    expected: [undefined, scope.roundId],
+    expected: ['round', 'post-round-call', scope.roundId],
   });
 });

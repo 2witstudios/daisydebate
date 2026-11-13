@@ -219,7 +219,7 @@ test('pending judging response survives takeover with immutable origin until ato
         judge_participant_id: judge.id,
         round_id: roundId,
         freeze_revision: 1,
-        rubric_version: 'speaker-10@1',
+        rubric_version: 'speaker-10@2',
         winner: 'affirmative',
         scores: {},
         reason: 'Synthetic result',

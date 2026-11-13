@@ -12,7 +12,7 @@ setupRitewayBun();
 
 const scores = Object.fromEntries(ballotCategories.map((c) => [c, 3]));
 const ballot = {
-  rubricVersion: 'speaker-10@1',
+  rubricVersion: 'speaker-10@2',
   winner: 'negative',
   scores: { affirmative: scores, negative: scores },
   reason: 'The negative extended its contention.',

@@ -159,7 +159,7 @@ test('a takedown takes the ballots from a finished Round, and its result stands'
     const ballotId = createId();
     await client`insert into ballots (id, judge_participant_id, round_id, freeze_revision,
         rubric_version, winner, scores, reason, feedback, submitted_at)
-      values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'speaker-10@1',
+      values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'speaker-10@2',
         'affirmative', ${JSON.stringify({})}::text::jsonb, 'A reason',
         ${JSON.stringify({})}::text::jsonb, now())`;
     await client`update rounds set status='completed', current_stage=null, outcome='affirmative',

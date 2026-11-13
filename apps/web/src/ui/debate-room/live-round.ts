@@ -3,6 +3,10 @@ import {
   roundPositionAt,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
+import {
+  postRoundCallEndsAtMs,
+  postRoundCallOffered,
+} from '../../features/post-round-call/offered';
 import { microphoneOpensForClock } from '@daisy/debate-engine/media-grants';
 import type { DebateSide, RoundView } from '@daisy/protocol';
 import {
@@ -200,6 +204,63 @@ function liveParts(
         ? clockOf(view, position, side, seatId)
         : judgingClockOf(view.waitingOn, nowMs),
     prepMs: prepOf(position),
+  };
+}
+
+/** A debater of a Round whose post-round call may still be on (ADR 0127). */
+export function isCallDebater(
+  view: RoundView,
+  actorId: string,
+  nowMs: number,
+): boolean {
+  return (
+    postRoundCallOffered(view, nowMs) &&
+    debaterSeat(view, actorId) !== undefined
+  );
+}
+
+/**
+ * The same room during the post-round call: every speech done, the clock the
+ * call's own, and nothing left to command. Null once the call's cap passes.
+ */
+export function postRoundCallRoundOf(
+  view: RoundView,
+  actorId: string,
+  nowMs: number,
+): RoundSnapshot | null {
+  const seat = debaterSeat(view, actorId);
+  const endsAtMs = postRoundCallEndsAtMs(view);
+  if (!seat || endsAtMs === null || nowMs >= endsAtMs) return null;
+  const opponent = view.participants
+    .filter(isSeat)
+    .find((p) => p.role !== seat.role);
+  if (!opponent) return null;
+  return {
+    id: view.id,
+    resolution: view.topic ?? drawnTopicLabel,
+    competition: view.competitionType,
+    phase: 'judging',
+    self: debater(seat),
+    opponent: debater(opponent),
+    people: view.participants.map(person),
+    judge: judgeKindOf(view),
+    ballots: null,
+    judgingState: null,
+    stakes: null,
+    speeches: speechesOf(view),
+    liveIndex: view.rules.segments.length,
+    clock: {
+      label: 'Call ends',
+      remainingMs: endsAtMs - nowMs,
+      note: 'Round over · Not recorded',
+    },
+    prepMs: null,
+    micLive: true,
+    channels: [],
+    messages: [],
+    agents: [{ id: 'assistant', title: 'Assistant' }],
+    agentThreads: {},
+    agentPrompts: {},
   };
 }
 

@@ -3,15 +3,18 @@ import { MEDIA_CALL_TIMEOUT_MS, type MediaVendor } from '@daisy/media';
 import {
   changedMediaGrants,
   mediaRoomFate,
+  mediaPhase,
   mediaRoomLost,
-  mediaWindowClosed,
+  nextRoomVacancy,
   type MediaObservation,
   type RoundMediaGrants,
 } from '@daisy/debate-engine';
 import {
   admissionRevoked,
+  callOpening,
   conversationHeldOverdue,
   mediaEnded,
+  mediaPhaseOf,
   mediaRuntime,
   seatGrants,
   type MediaSnapshot,
@@ -23,7 +26,11 @@ import type {
   MediaOperationInput,
 } from './operation-context';
 import { OperationTimedOut } from '@daisy/observability';
-import { roundStartPolicy, type MediaRoomRead } from '@daisy/protocol';
+import {
+  isRoundRunning,
+  roundStartPolicy,
+  type MediaRoomRead,
+} from '@daisy/protocol';
 import { createMediaMutations } from './mutation';
 
 /** What a vendor mutation's authorization reads, under its locks. */
@@ -68,8 +75,28 @@ const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
     state.session.unsafeAt ||
     state.unresolved ||
     admissionRevoked(state) ||
-    mediaEnded(state),
+    mediaEnded(state) ||
+    // The Round's room goes before the post-round call gets its own (ADR 0127).
+    callOpening(state),
   );
+/**
+ * A post-round call that looks over only because its room was stored empty
+ * for the grace, with nothing else calling for teardown. Someone may have
+ * come back since without a new token, so the room is read before it is
+ * deleted (ADR 0127).
+ */
+const vacancyDue = (state: MediaSnapshot, claim: Claim) =>
+  mediaEnded(state) &&
+  !(
+    claim.unsafe ||
+    state.session.unsafeAt ||
+    state.unresolved ||
+    admissionRevoked(state)
+  ) &&
+  mediaPhase({
+    ...state.mediaWindow,
+    postRoundCall: { ...state.mediaWindow.postRoundCall, vacantSince: null },
+  }) === 'post-round-call';
 const uncertain = (state: MediaSnapshot) =>
   Boolean(state.session.unsafeAt || state.unresolved);
 /** The room as this pass read it, for the platform-incident hook. */
@@ -189,7 +216,7 @@ export function createMediaReconcileRun(
         await input.store.ensureBotBinding({
           principal: admission,
           buildProjection,
-          mediaWindowClosed,
+          mediaPhase,
         });
       } catch (error) {
         if (isRefusal(error)) return { refused: error };
@@ -205,6 +232,9 @@ export function createMediaReconcileRun(
         claim,
         { kind: 'create', identity: null, payload: {} },
         (context) => {
+          // The Round ended under this admission and its call is not open
+          // yet: the caller comes back, as every other opening path says.
+          if (callOpening(context)) throw createAppError('INFRASTRUCTURE');
           if (mediaEnded(context) || admissionRevoked(context))
             throw refuse(createAppError('CONFLICT'));
           if (!admitsCreator(context, admission))
@@ -439,6 +469,7 @@ export function createMediaReconcileRun(
         lastOccupiedSid: before.session.roomOccupiedSid,
         sawCapture: before.session.roomSawCapture,
         seen: read.vendor,
+        call: mediaPhaseOf(before) === 'post-round-call' ? 'open' : 'none',
       })
     )
       return { lost: true };
@@ -450,7 +481,8 @@ export function createMediaReconcileRun(
     }
     const { known, state, current } =
       read.publishers ?? (await knownPublishers(claim));
-    await awaitCapture(current, state);
+    // Capture is the Round's: a post-round call has none to wait for.
+    if (mediaPhaseOf(state) === 'round') await awaitCapture(current, state);
     return {
       settled:
         (await closeStale(claim, known, state)) &&
@@ -497,7 +529,16 @@ export function createMediaReconcileRun(
     try {
       const state = await snapshot(claim.roundId);
       known = state;
-      if (needsCleanup(state, claim)) {
+      if (vacancyDue(state, claim)) {
+        // Only this pass's own look at the room may end a call for emptiness.
+        read = await readRoom(claim, state);
+        if (read.vendor.kind === 'read' && !read.vendor.empty) clean = true;
+        else {
+          cleanupAttempted = true;
+          absenceProof = await removeRoom(claim);
+          clean = absenceProof !== null;
+        }
+      } else if (needsCleanup(state, claim)) {
         cleanupAttempted = true;
         absenceProof = await removeRoom(claim);
         clean = absenceProof !== null;
@@ -524,11 +565,12 @@ export function createMediaReconcileRun(
         failure ??= { error };
       }
       const finished = await input.store.finishMediaReconcile({
-        mediaWindowClosed,
+        mediaPhase,
         ...claim.fence,
         absenceProof,
         clean,
         roomFate,
+        roomVacancy: nextRoomVacancy,
         seen: read?.vendor ?? null,
       });
       // Best effort, outside the journal: no token names this room any more, and a create
@@ -541,7 +583,8 @@ export function createMediaReconcileRun(
           { roundId: claim.roundId, cause: finished.fate.cause },
           'The session left its room for a fresh one',
         );
-      if (known)
+      // The incident hook is the Round's: a post-round call has no Round to pause.
+      if (known && isRoundRunning(known.round.status))
         await reportToIncident(
           known,
           // Only a real failure before any read means the vendor was not reached.

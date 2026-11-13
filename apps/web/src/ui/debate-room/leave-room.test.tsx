@@ -36,6 +36,26 @@ test('a debater leaving while the ballot is pending is told they are freed (ISSU
   });
 });
 
+test('on a post-round call the control leaves the call, forfeiting nothing', () => {
+  const call = renderToString(
+    h(LeaveRoom, { links: { ...links, freed: true, call: true } }),
+  );
+  const round = renderToString(h(LeaveRoom, { links }));
+  assert({
+    given: 'the Leave confirm during a post-round call, and during a Round',
+    should: 'name the call, promise no forfeit, and never say Leave round',
+    actual: [
+      call.includes('Leave call'),
+      call.includes('Leave the call?'),
+      call.includes('The round is over, so leaving forfeits nothing.'),
+      call.includes('Leave round'),
+      round.includes('Leave round'),
+      round.includes('Leave call'),
+    ],
+    expected: [true, true, true, false, true, false],
+  });
+});
+
 test('a held Round cannot trap a debater: the seat is kept and the lobby stays reachable', () => {
   const held = renderToString(
     h(LeaveRoom, {

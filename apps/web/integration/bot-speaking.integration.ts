@@ -104,7 +104,13 @@ for (const mode of ['valid', 'provider-error'] as const)
         },
         hearingObserved: () => undefined,
         oneShot: {
-          setTimeout: (run, ms) => setTimeout(run, ms),
+          // A failed turn retries after a short pause. The provider-error
+          // case proves one failure, so no wake fires after it: the retry
+          // cannot race the stop below.
+          setTimeout: (run, ms) =>
+            setTimeout(() => {
+              if (mode === 'valid' || failures === 0) run();
+            }, ms),
           clearTimeout: (handle) =>
             clearTimeout(handle as ReturnType<typeof setTimeout>),
         },

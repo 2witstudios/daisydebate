@@ -110,6 +110,7 @@ export {
   runningRoundStatuses,
   isRoundRunning,
   isRoundOver,
+  isRoundCompleted,
   roundStageSchema,
   runtimeCheckpointSchema,
   emptyRuntimeCheckpoint,
@@ -144,6 +145,9 @@ export {
   judgingAttemptOutcomes,
   judgingAttemptDiagnosticSchema,
   judgingBallotFields,
+  judgingStages,
+  type JudgingStage,
+  type JudgingStageInput,
   judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
@@ -166,11 +170,23 @@ export {
   ballotFeedbackSchema,
   ballotCitationsSchema,
   ballotRubric,
+  ballotRubrics,
   ballotRubricVersion,
+  ballotRubricVersions,
   ballotCategories,
   speakerTotal,
+  storedBallotSchema,
+  storedBallotScoresSchema,
+  storedBallotCitationsSchema,
 } from './ballot';
-export type { Ballot, BallotCategory } from './ballot';
+export { caseMapSchema } from './case-map';
+export type { CaseMap } from './case-map';
+export type {
+  Ballot,
+  BallotCategory,
+  BallotRubricVersion,
+  StoredBallot,
+} from './ballot';
 export type {
   DebaterStanding,
   PlannedRatingChange,
@@ -569,6 +585,17 @@ export { roundRecordSchema, type RoundRecord } from './round-view';
 export { frozenCaptureGapsSchema } from './capture-gap';
 export type { FrozenCaptureGaps } from './capture-gap';
 export { roundMediaPolicy } from './round-media-policy';
+export {
+  freezePostRoundCall,
+  noPostRoundCall,
+  postRoundCallPolicy,
+} from './post-round-call';
+export type {
+  MediaPhase,
+  MediaWindowFacts,
+  PostRoundCallFacts,
+  PostRoundCallState,
+} from './post-round-call';
 export { broadcastLivePrefix, officialFeedPath } from './official-feed';
 export {
   broadcastFeedEndReasons,

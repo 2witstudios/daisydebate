@@ -1,6 +1,6 @@
 import { sourceFailureOf } from '../source-failure';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { mediaStatus } from './media-state.test-support';
+import { mediaControls, mediaStatus } from './media-state.test-support';
 import type { Source } from './media-state';
 import type { SourceFailureKind } from '../source-failure';
 type SourceIllHealth = readonly [Source, SourceFailureKind | 'waiting'];
@@ -236,5 +236,19 @@ test('two sources with the same failure read as one sentence, in plural', () => 
       ],
     }).message,
     expected: 'Connected Your camera and microphone are unavailable.',
+  });
+});
+
+test('Enable sound is offered only while the browser blocks sound', () => {
+  assert({
+    given:
+      'a live call with sound blocked, a live call with sound playing, and a call still connecting',
+    should: 'offer Enable sound only where pressing it can change something',
+    actual: [
+      mediaControls('live', { sound: { blocked: true } }).enableSound,
+      mediaControls('live', { sound: { blocked: false } }).enableSound,
+      mediaControls('connecting').enableSound,
+    ],
+    expected: [true, false, false],
   });
 });

@@ -28,6 +28,8 @@ export type LeaveLinks = {
    * Room no longer holds them, and leaving forfeits nothing (ISSUE-590).
    */
   readonly freed?: boolean;
+  /** The Round is over and this is its post-round call (ADR 0127): leaving leaves the call. */
+  readonly call?: boolean;
   /**
    * A debater still seated while forfeit is briefly unavailable: nothing can
    * confirm a departure yet, so the only exit keeps the seat (ISSUE-879).
@@ -164,6 +166,7 @@ function StepAway({
 
 export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
   const [open, setOpen] = useState(links.confirming);
+  const leaveLabel = links.call ? 'Leave call' : 'Leave round';
   const stay = useRef<HTMLAnchorElement>(null);
   const trigger = useRef<HTMLAnchorElement>(null);
   useEffect(() => {
@@ -191,7 +194,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
         className="ml-2 flex h-room-target shrink-0 items-center justify-center gap-2 rounded-round border border-live px-4 text-sm font-strong text-live"
       >
         <Icon name="leave" size={16} />
-        <span className="max-narrow:sr-only">Leave round</span>
+        <span className="max-narrow:sr-only">{leaveLabel}</span>
       </a>
       <dialog
         open={open}
@@ -200,7 +203,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
         className="fixed inset-0 z-50 m-auto flex w-room-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface p-6 text-ink shadow-3 not-open:hidden"
       >
         <h2 id="leave-room-title" className="font-display text-lg">
-          Leave the round?
+          {links.call ? 'Leave the call?' : 'Leave the round?'}
         </h2>
         {links.forfeit ? (
           <p className="text-sm text-ink-muted">
@@ -208,7 +211,9 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
           </p>
         ) : links.freed ? (
           <p className="text-sm text-ink-muted">
-            The debate is over, so leaving forfeits nothing.
+            {links.call
+              ? 'The round is over, so leaving forfeits nothing.'
+              : 'The debate is over, so leaving forfeits nothing.'}
           </p>
         ) : links.held ? (
           <p role="status" className="text-sm text-ink-muted">
@@ -242,14 +247,14 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
               }
               className={`${action} bg-live text-background`}
             >
-              Leave round
+              {leaveLabel}
             </LeavePermanent>
           ) : (
             <a
               href={links.leaveHref}
               className={`${action} bg-live text-background`}
             >
-              Leave round
+              {leaveLabel}
             </a>
           )}
         </div>

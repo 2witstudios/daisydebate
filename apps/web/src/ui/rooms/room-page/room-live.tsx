@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { browserDocument } from '../../round-media/browser-document';
 import { replaceRoute } from '../../round-media/replace-route';
 import { systemId } from '@daisy/clock';
+import { isOpenRoomStatus } from '@daisy/protocol';
 import type {
   RoomCastChoice,
   RoomCatalogChoice,
@@ -37,6 +38,9 @@ import type { InvitationFormState } from '../../../features/room-invitations/sub
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
 import { RoomSettings } from './room-settings';
+import { RoomChat, type RoomChatProps } from '../../room-chat/room-chat';
+import { chatAuthorSeat } from './room-labels';
+import { readsRoomChatOnly } from '../../../features/messaging/room-community/room-chat-reader';
 import { RoomSyncContext } from './room-sync-context';
 import { MediaPageLink } from '../../round-media/media-page-link';
 
@@ -59,6 +63,8 @@ type Props = {
   readonly read: () => Promise<RoomRead>;
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
   readonly invitationAction: FormAction<InvitationFormState>;
+  /** The Room chat for this viewer, or null when they may not read it. */
+  readonly chat: RoomChatProps | null;
 };
 
 /**
@@ -138,9 +144,22 @@ export function RoomLive(props: Props) {
       <FreshnessNotice freshness={sync.freshness} noun="room" />
       {props.notice ? <p role="alert">{roomNoticeText(props.notice)}</p> : null}
       <AssemblyDeviceReadiness
-        side={
+        chat={
+          // The chat ends with the gathering: an open tab drops it at Start.
+          props.chat && isOpenRoomStatus(view.status) ? (
+            <RoomChat
+              {...props.chat}
+              // The server's hint is the first paint; the synced view decides after.
+              readOnlyHint={readsRoomChatOnly(view, props.actorId)}
+              ownerRevision={view.version}
+              authorLabel={(actorId) => chatAuthorSeat(view, actorId)}
+            />
+          ) : null
+        }
+        side={(ready) => (
           <>
             <AssemblySeats
+              ready={ready}
               view={view}
               viewer={{ actorId: props.actorId, label: props.viewerLabel }}
               bots={props.bots}
@@ -149,7 +168,7 @@ export function RoomLive(props: Props) {
             />
             <RoomSettings view={view} />
           </>
-        }
+        )}
         view={view}
         actorId={props.actorId}
         read={read}

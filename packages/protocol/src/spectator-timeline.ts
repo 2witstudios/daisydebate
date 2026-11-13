@@ -1,6 +1,6 @@
 import { recordingPreparationSchema } from './recording-processing';
 import { z } from 'zod';
-import { ballotScoresSchema } from './ballot';
+import { storedBallotScoresSchema } from './ballot';
 import { debateSideSchema, idSchema } from './primitives';
 
 const spectatorStageSchema = z.discriminatedUnion('kind', [
@@ -85,7 +85,7 @@ export const spectatorTimelineSchema = z.strictObject({
       ballots: z.array(
         z.strictObject({
           winner: debateSideSchema,
-          scores: ballotScoresSchema,
+          scores: storedBallotScoresSchema,
           reason: z.string(),
         }),
       ),

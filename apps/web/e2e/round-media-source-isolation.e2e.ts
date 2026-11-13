@@ -11,6 +11,7 @@ import {
   grantedDebaters,
   readMediaState,
   grantMedia,
+  enableSound,
   installMediaCapture,
   openCheckedMediaRound,
   expectConnected,
@@ -44,9 +45,7 @@ test('a camera capture failure after Ready keeps permitted microphone audio reac
     await expect(source.getByLabel('Your camera', { exact: true })).toHaveCount(
       0,
     );
-    await peer
-      .getByRole('button', { name: 'Enable sound', exact: true })
-      .click();
+    await enableSound(peer);
     await expectPeerAudio(peer);
     const audibleSignal = await peer
       .getByLabel('Participant audio', { exact: true })
@@ -118,9 +117,7 @@ test('a camera prompt nobody answers leaves the microphone publishing and the ba
     await expect(source.getByText('Mic live', { exact: true })).toBeVisible(
       MEDIA_POLL,
     );
-    await peer
-      .getByRole('button', { name: 'Enable sound', exact: true })
-      .click();
+    await enableSound(peer);
     await expectPeerAudio(peer);
   } finally {
     await closeSettledLaunchContexts(accounts);
@@ -163,9 +160,7 @@ test('a microphone that dies mid-speech is named, and Retry brings it back to th
     );
     const [source, peer] = pages;
     if (!source || !peer) throw new Error('Actual media pages required');
-    await peer
-      .getByRole('button', { name: 'Enable sound', exact: true })
-      .click();
+    await enableSound(peer);
     await expect(source.getByText('Mic live', { exact: true })).toBeVisible(
       MEDIA_POLL,
     );

@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import { rules } from '../round-media/media-world-seats.test-support';
 import { credentialHash } from './stage-access';
 import { createStageRoute } from './stage-route';
 
@@ -7,7 +8,11 @@ setupRitewayBun();
 
 const secret = 'stage-secret';
 type Deps = Parameters<typeof createStageRoute>[0];
-const route = (over: object = {}, revokedAt: Date | null = null) => {
+const route = (
+  over: object = {},
+  revokedAt: Date | null = null,
+  round: object = {},
+) => {
   const minted: unknown[] = [];
   return {
     minted,
@@ -25,10 +30,15 @@ const route = (over: object = {}, revokedAt: Date | null = null) => {
           round: {
             id: 'r',
             status: 'opening',
-            rules: { segments: [], seats: {} },
+            startedAt: null,
+            completedAt: null,
+            outcome: null,
+            currentStage: null,
+            rules,
             participants: [],
             checkpoint: emptyRuntimeCheckpoint,
             segments: [],
+            ...round,
           },
           roomName: 'room',
           seats: [],
@@ -86,6 +96,33 @@ describe('stage route', () => {
       should: 'refuse',
       actual: answers.map((a) => a.status),
       expected: [404, 404],
+    });
+  });
+  test('a Round that is over gets no observer token', async () => {
+    const running = route();
+    const over = route({}, null, {
+      status: 'completed',
+      startedAt: '2026-11-11T23:00:00.000Z',
+      completedAt: '2026-11-12T00:00:00.000Z',
+      outcome: null,
+    });
+    const [live, ended] = await Promise.all([
+      running.run(ask(secret), 'b'),
+      over.run(ask(secret), 'b'),
+    ]);
+    assert({
+      given:
+        'the right credential for a running Round and for one that is over',
+      should:
+        'name the room for the running Round alone, so nothing observes a post-round call',
+      actual: [
+        live.status,
+        running.minted.length,
+        ended.status,
+        ((await ended.json()) as { room: unknown }).room,
+        over.minted,
+      ],
+      expected: [200, 1, 200, null, []],
     });
   });
 });

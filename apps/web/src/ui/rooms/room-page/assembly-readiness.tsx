@@ -4,11 +4,22 @@ import { CaptureSummary } from './capture-choice';
 import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import {
+  freezePostRoundCall,
+  isNamedSeat,
+  type RoomView,
+} from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
 import { startRefusalText, waitingOn } from './room-labels';
+
+/**
+ * What every seat is told before Ready when the host chose the call and the
+ * cast as it stands would get one: Start round freezes by the same rule (ADR 0127).
+ */
+export const postRoundCallText =
+  'The call stays open after the round for feedback. Judges can be seen and heard. Not recorded.';
 
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
@@ -21,6 +32,7 @@ type View = Pick<
   | 'contentWaiver'
   | 'captureNotice'
   | 'capture'
+  | 'postRoundCall'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly capabilities: Pick<
@@ -91,7 +103,10 @@ function CommandForm({
   );
 }
 
-/** The viewer's own Ready or Not ready; null for bots, spectators and unseated members. */
+/**
+ * The viewer's own Ready or Not ready, laid out as items of their seat row;
+ * null for bots, spectators and unseated members.
+ */
 export function ReadyControl({
   view,
   actorId,
@@ -107,43 +122,55 @@ export function ReadyControl({
     .find((seat) => seat.actorId === actorId);
   const isReady = ready.type === 'unready' && !local.unreadyPending;
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3">
+    <>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {isReady ? (
+          <span className="rounded-full bg-hue-teal-soft px-3 py-1 text-xs font-semibold text-hue-teal">
+            ✓ Ready
+          </span>
+        ) : null}
+        {CommandForm({
+          type: ready.type,
+          label: ready.type === 'ready' ? 'I’m ready' : 'Not ready',
+          enabled: ready.enabled,
+          version: view.version,
+          commandId: commandIds[ready.type],
+          action,
+          expectedConsentVersion: own?.consentVersion ?? null,
+          noticeVersion:
+            ready.type === 'ready'
+              ? (view.captureNotice?.version ?? null)
+              : null,
+          className: buttonClass(
+            ready.type === 'ready' ? 'primary' : 'secondary',
+          ),
+        })}
+      </div>
+      {ready.reason ? (
+        <p role="status" className="basis-full text-sm text-ink-muted">
+          {ready.reason}
+        </p>
+      ) : null}
       {ready.type === 'ready' && view.contentWaiver === 'unsigned' ? (
-        <ContentWaiverForm action={waiverAction} />
+        <div className="basis-full">
+          <ContentWaiverForm action={waiverAction} />
+        </div>
       ) : null}
       {ready.type === 'ready' && view.captureNotice ? (
-        <p role="note" className="w-full text-sm text-ink-muted">
+        <p role="note" className="basis-full text-sm text-ink-muted">
           {view.captureNotice.text}
         </p>
       ) : null}
       {ready.type === 'ready' ? (
         <CaptureSummary capture={view.capture} />
       ) : null}
-      {ready.reason ? (
-        <p role="status" className="mr-auto text-sm text-ink-muted">
-          {ready.reason}
+      {ready.type === 'ready' &&
+      freezePostRoundCall(view.postRoundCall, view.participants) ? (
+        <p role="note" className="basis-full text-sm font-strong">
+          {postRoundCallText}
         </p>
       ) : null}
-      {isReady ? (
-        <span className="rounded-full bg-hue-teal-soft px-3 py-1 text-sm font-semibold text-hue-teal">
-          ✓ Ready
-        </span>
-      ) : null}
-      {CommandForm({
-        type: ready.type,
-        label: ready.type === 'ready' ? 'I’m ready' : 'Not ready',
-        enabled: ready.enabled,
-        version: view.version,
-        commandId: commandIds[ready.type],
-        action,
-        expectedConsentVersion: own?.consentVersion ?? null,
-        noticeVersion:
-          ready.type === 'ready' ? (view.captureNotice?.version ?? null) : null,
-        className: buttonClass(
-          ready.type === 'ready' ? 'primary' : 'secondary',
-        ),
-      })}
-    </div>
+    </>
   );
 }
 

@@ -11,7 +11,7 @@ const roundMediaGrantsSchema = z.strictObject({
   capture: z.literal(false),
 });
 
-/** Private to the authenticated viewer. Hidden judge identities never enter peers. */
+/** Private to the authenticated viewer. A judge's identity never enters peers. */
 export const roundMediaStateSchema = z.strictObject({
   version: z.literal(1),
   roundId: idSchema,
@@ -26,6 +26,19 @@ export const roundMediaStateSchema = z.strictObject({
       microphone: z.boolean(),
     }),
   ),
+  /**
+   * The human judges on a post-round call (ADR 0127), by seat and never by
+   * name. Absent at any other time: a judge is hidden throughout the Round.
+   */
+  callJudges: z
+    .array(
+      z.strictObject({
+        slot: z.int().nonnegative(),
+        identity: idSchema,
+        microphone: z.boolean(),
+      }),
+    )
+    .optional(),
 });
 export const roundMediaAdmissionSchema = roundMediaStateSchema.safeExtend({
   state: z.literal('ready'),

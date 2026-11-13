@@ -15,7 +15,9 @@ import type { RoundRead } from '../../features/round-runtime/read-round';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
 import type { LeaveLinks } from './leave-room';
-import { liveRoundOf } from './live-round';
+import { isCallDebater, liveRoundOf, postRoundCallRoundOf } from './live-round';
+import { MediaPageLink } from '../round-media/media-page-link';
+import { buttonClass } from '../components/button/button-class';
 import { DebateRoom } from './room';
 import { useDocumentSaving } from '../documents/use-document-saving';
 import { BoundedDocuments } from '../documents/bounded-documents';
@@ -27,7 +29,10 @@ import {
 import type { RoundFormState } from '../../features/round-runtime/command-form';
 import type { FormAction } from '../form-action/form-action';
 import { OpeningChosen, OpeningStrike } from './opening-strike';
-import { RoundCommandActions } from './round-command-actions';
+import {
+  CALL_RESULT_LINK_ID,
+  RoundCommandActions,
+} from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
 import { useSecond } from './use-second';
@@ -100,9 +105,15 @@ export function LiveRoundRoom({
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);
   const now = useSecond(renderedAtMs, roundTime);
+  // The post-round call keeps this same room on screen (ADR 0127).
+  const [callEnded, setCallEnded] = useState(false);
+  const endCall = useCallback(() => setCallEnded(true), []);
+  const onCall = !callEnded && isCallDebater(view, actorId, now);
   const round = useMemo(
-    () => liveRoundOf(view, actorId, now),
-    [view, actorId, now],
+    () =>
+      liveRoundOf(view, actorId, now) ??
+      (callEnded ? null : postRoundCallRoundOf(view, actorId, now)),
+    [view, actorId, now, callEnded],
   );
   const [publication, setPublication] = useState<LocalPublication>(null);
   const tab = useRoundMediaTab(actorId, view);
@@ -115,8 +126,9 @@ export function LiveRoundRoom({
         tab,
         onPublication: setPublication,
         onAccountChanged: clearAccountResumeRecords,
+        onCallEnded: endCall,
       }),
-    [refresh, roundTime, actorId, tab],
+    [refresh, roundTime, actorId, tab, endCall],
   );
   useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
@@ -148,8 +160,10 @@ export function LiveRoundRoom({
   );
   const { sync, notice, save } = useDocumentSaving(principalId, socketUrl);
   const intent = leaveIntent(view, actorId, now);
-  const leaving: LeaveLinks =
-    intent.kind === 'forfeit'
+  const leaving: LeaveLinks = onCall
+    ? // The Round is over: leaving the call forfeits nothing and holds no one.
+      { ...leave, freed: true, held: false, call: true }
+    : intent.kind === 'forfeit'
       ? {
           ...leave,
           forfeit: {
@@ -186,6 +200,7 @@ export function LiveRoundRoom({
       view={view}
       actorId={actorId}
       nowMs={now}
+      onCall={onCall}
       ids={ids}
       action={commandAction}
       onAnswer={onAnswer}
@@ -217,7 +232,19 @@ export function LiveRoundRoom({
             }
             media={(mediaSlot ?? defaultMedia)(view)}
             publication={publication}
-            actions={actions}
+            actions={
+              onCall ? (
+                <MediaPageLink
+                  id={CALL_RESULT_LINK_ID}
+                  href={`/rounds/${view.id}`}
+                  className={buttonClass('primary')}
+                >
+                  See the result
+                </MediaPageLink>
+              ) : (
+                actions
+              )
+            }
             round={round}
             sync={sync}
             notice={notice}

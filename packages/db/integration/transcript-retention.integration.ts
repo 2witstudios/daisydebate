@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
 import { transcriptRetention } from '../src/transcript-retention';
 import type { Fixture } from './constraint-helpers';
+import { syntheticCaseMap } from '../src/testing-judging';
 import { validRules } from './round-fixtures';
 import {
   syntheticPendingBallot as pending,
@@ -69,11 +70,11 @@ async function pendingJudgment(
   );
   const state = async () => {
     const [job] =
-      await fixture.sql`select status,pending_ballot is null as cleared from round_judging_jobs where round_id=${roundId}`;
+      await fixture.sql`select status,pending_ballot is null as cleared,case_map is not null as stages from round_judging_jobs where round_id=${roundId}`;
     const left: { id: string }[] =
       await fixture.sql`select id from utterances where round_id=${roundId} order by sequence`;
     return {
-      job: { status: job.status, cleared: job.cleared },
+      job: { status: job.status, cleared: job.cleared, stages: job.stages },
       utterances: left.map((row) => row.id),
     };
   };
@@ -124,11 +125,49 @@ test('transcript retention removes utterances and pending judging responses 180 
       expected: {
         early: [0, 0],
         kept: {
-          job: { status: 'queued', cleared: false },
+          job: { status: 'queued', cleared: false, stages: true },
           utterances: [lines.subject, lines.other],
         },
         due: [2, 1],
-        after: { job: { status: 'failed', cleared: true }, utterances: [] },
+        after: {
+          job: { status: 'failed', cleared: true, stages: true },
+          utterances: [],
+        },
+      },
+    });
+  }));
+
+test('judging stage records are cleared 180 days after receipt, not before (DEC-393)', () =>
+  withJudgingJob(async ({ fixture, roundId }) => {
+    await fixture.sql`update round_judging_jobs set first_ballot_failed=false,
+      first_ballot=${JSON.stringify(pending)}::text::jsonb,first_ballot_received_at=${recordedAt}::timestamptz,
+      case_map_received_at=${recordedAt}::timestamptz where round_id=${roundId}`;
+    const retention = transcriptRetention({
+      database: drizzle({ client: fixture.sql }),
+    });
+    const stages = async () => {
+      const [job] =
+        await fixture.sql`select first_ballot is not null as first,case_map is not null as map from round_judging_jobs where round_id=${roundId}`;
+      return { first: job.first, map: job.map };
+    };
+    const early = await retention.clearExpiredJudgingStages({
+      before: recordedAt,
+      limit: 10,
+    });
+    const kept = await stages();
+    const due = await retention.clearExpiredJudgingStages({
+      before: '2026-01-01T00:00:00.001Z',
+      limit: 10,
+    });
+    assert({
+      given: 'a first pass and a case map received at the recording instant',
+      should: 'keep both at the boundary, then clear both just after it',
+      actual: { early, kept, due, after: await stages() },
+      expected: {
+        early: 0,
+        kept: { first: true, map: true },
+        due: 1,
+        after: { first: false, map: false },
       },
     });
   }));
@@ -168,9 +207,9 @@ test('subject erasure removes their transcript lines and every pending judgment 
       );
       assert({
         given:
-          "an erased debater's line, the other debater's line and the AI judge's cached response",
+          "an erased debater's line, the other debater's line, the AI judge's cached response and its stage records",
         should:
-          "export only the subject's own line, then delete it, keep the other debater's, and discard the response by failing its job",
+          "export only the subject's own line, then delete it, keep the other debater's, discard the response by failing its job and clear its first pass and case map",
         actual: {
           exported: exported.utterances?.map((row) => row.id),
           after: await state(),
@@ -178,13 +217,47 @@ test('subject erasure removes their transcript lines and every pending judgment 
         expected: {
           exported: [lines.subject],
           after: {
-            job: { status: 'failed', cleared: true },
+            job: { status: 'failed', cleared: true, stages: false },
             utterances: [lines.other],
           },
         },
       });
     },
   ));
+
+test('subject erasure ends open judging work whose stage records it clears, so nothing is bought again (ADR 0125)', () => {
+  let spoken: Awaited<ReturnType<typeof spokenRound>> | undefined;
+  return withJudgingJob(
+    async ({ fixture, roundId }) => {
+      if (!spoken) throw new Error('Expected pre-freeze transcript setup');
+      // Mid-pipeline: the case map is stored and the final ballot not yet bought.
+      await fixture.sql`update round_judging_jobs set case_map=${JSON.stringify(syntheticCaseMap)}::text::jsonb,
+        case_map_received_at=clock_timestamp(),first_ballot_failed=true where round_id=${roundId}`;
+      const now = new Date().toISOString();
+      await drizzle({ client: fixture.sql }).transaction((tx) =>
+        roundTranscriptPrivacyAdopter.erase(tx, spoken!.subject, { now }),
+      );
+      const [job] =
+        await fixture.sql`select status,terminal_reason,case_map is null as cleared from round_judging_jobs where round_id=${roundId}`;
+      assert({
+        given:
+          'an erased debater in a Round whose judging holds a case map but no ballot yet',
+        should:
+          'clear the stage records and end the job as discarded, as for a held response, so no claim buys them again',
+        actual: { ...job },
+        expected: {
+          status: 'failed',
+          terminal_reason: 'ballot_discarded',
+          cleared: true,
+        },
+      });
+    },
+    'complete',
+    async (fixture, target) => {
+      spoken = await spokenRound(fixture, target.roundId, recordedAt);
+    },
+  );
+});
 
 test("erasure keeps a ranked Round's transcript lines and its pending judgment", () =>
   withSpokenRound(

@@ -1,4 +1,4 @@
-import { evaluateRoundFloorPermits } from './round-floor-permits';
+import { evaluateContextChannelPermits } from './context-channel-permits';
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSessions } from '@daisy/db/authorization';
@@ -144,7 +144,7 @@ export function channelMessagesResource({
         );
       } catch (error) {
         if (isAppError(error) && error.code === 'NOT_FOUND')
-          return evaluateRoundFloorPermits({
+          return evaluateContextChannelPermits({
             reads,
             id,
             principals,

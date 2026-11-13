@@ -1,6 +1,7 @@
 import { TranscriptionRecovery } from './transcription-recovery/transcription-recovery';
 import { NecessaryEvidenceRetirement } from './necessary-evidence-retirement/necessary-evidence-retirement';
 import { roundFloorModeration } from './messaging/round-floor-moderation';
+import { roomCommunityModeration } from './messaging/room-community-moderation';
 import { createRoundIncidentStore } from './round-incident-store';
 import { createRoundStartGateStore } from './round-start-gate-store';
 export type { RoundHydration } from './round-hydration';
@@ -361,6 +362,7 @@ export function createDatabase({
       eventSink,
       chat: spectatorChatModeration,
       floor: roundFloorModeration,
+      roomChat: roomCommunityModeration,
       recordings: recordingModeration,
     }),
     ...actorOperations({ database: control, eventSink }),

@@ -26,7 +26,9 @@ test('judging renewal and discovery do not wait for a provider operation', async
         renewals++;
         return { kind: 'renewed' };
       },
-      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'stage_due' as const },
+      }),
     },
     execute: async (_claim, signal) => {
       entered.resolve();
@@ -90,7 +92,9 @@ test('a failed judging scan reports its stage', async () => {
         throw new Error('no claim expected');
       },
       renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
-      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'stage_due' as const },
+      }),
     },
     execute: async () => {},
     limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
@@ -124,7 +128,9 @@ test('a judging lease lost at completion releases without a failure', async () =
       renewRoundJudgingJob: async () => {
         throw createAppError('CONFLICT', 'Judging lease lost');
       },
-      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'stage_due' as const },
+      }),
     },
     execute: (_claim, signal) =>
       new Promise((resolve) =>
@@ -171,7 +177,9 @@ test('capacity refusal never consumes a judging lease and retry needs no lease e
         return { scope, token: 'reserved' };
       },
       renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
-      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'stage_due' as const },
+      }),
     },
     execute: async () => {
       executed.resolve();
@@ -227,7 +235,9 @@ test('claim failure and shutdown while claiming return the reserved provider slo
           return claimDone.promise;
         },
         renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
-        verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+        verifyRoundJudgingJob: async () => ({
+          progress: { kind: 'stage_due' as const },
+        }),
       },
       execute: async () => {
         throw Error('claim must not execute');
@@ -276,7 +286,9 @@ test('a ballot waiting on attendance is no failure, whatever its message says (I
         token: 'memory-only',
       }),
       renewRoundJudgingJob: async () => ({ kind: 'renewed' }),
-      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      verifyRoundJudgingJob: async () => ({
+        progress: { kind: 'stage_due' as const },
+      }),
     },
     execute: async () => {
       executed.resolve();

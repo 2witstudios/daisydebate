@@ -27,6 +27,8 @@ import {
   saveRoomSettingsAction,
   roomInvitationAction,
 } from './actions';
+import { readsRoomChatOnly } from '../../../../features/messaging/room-community/room-chat-reader';
+import { roomChatProps } from './chat/chat-props';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
 
 export const metadata: Metadata = { title: 'Room' };
@@ -85,6 +87,12 @@ export default async function RoomRoute({
         read={roomAssembly.bind(null, id)}
         send={roomConsentIntent.bind(null, id)}
         invitationAction={roomInvitationAction.bind(null, id)}
+        chat={await roomChatProps(
+          id,
+          identity.principal.actorId,
+          result.socketUrl,
+          readsRoomChatOnly(view, identity.principal.actorId),
+        )}
       />
     </div>
   );

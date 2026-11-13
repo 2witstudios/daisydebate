@@ -1,4 +1,6 @@
 import { createAppError } from '@daisy/errors';
+import { eq } from 'drizzle-orm';
+import { mediaSessions } from './schema/media-sessions';
 import type { BoundedTransaction } from './bounded-transaction';
 import {
   lockedMediaSnapshot,
@@ -42,7 +44,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
     /** ADR 0075: participant access, for the human caller and every human seat. */
     readonly admits: ParticipantAdmission;
     readonly buildProjection: LockedRoundTickInput['buildProjection'];
-    readonly mediaWindowClosed: MediaWindowRule;
+    readonly mediaPhase: MediaWindowRule;
     /**
      * The reconcile lease owner the caller holds, if any. A live lease
      * refuses the token unless it is the caller's own (ISSUE-534).
@@ -78,12 +80,10 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         (binding) => binding.roundParticipantId === participantId,
       );
       if (!binding) throw createAppError('AUTHORIZATION');
-      requireMediaWindow(
-        input.mediaWindowClosed,
-        snapshot.round.status,
-        snapshot.now,
-        snapshot.finalSegmentEndedAt,
-      );
+      const phase = requireMediaWindow(input.mediaPhase, snapshot.mediaWindow);
+      // A bot speaks only in its Round: it is never on a post-round call.
+      if (input.principal.kind === 'bot' && phase !== 'round')
+        throw createAppError('CONFLICT', 'Round media has ended');
       if (
         snapshot.session.endedAt ||
         snapshot.session.unsafeAt ||
@@ -92,7 +92,16 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
           snapshot.session.reconcileOwner !== input.reconcileOwner)
       )
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
-      return input.sign({ ...snapshot, participantId, binding });
+      const signed = await input.sign({ ...snapshot, participantId, binding });
+      // Someone is on their way into the call's room: an emptiness measured
+      // before them must not close it on them. Only a later read of an empty
+      // room starts the grace again (ADR 0127).
+      if (phase === 'post-round-call' && snapshot.session.roomVacantSince)
+        await tx
+          .update(mediaSessions)
+          .set({ roomVacantSince: null })
+          .where(eq(mediaSessions.id, snapshot.session.id));
+      return signed;
     });
   },
 });

@@ -3,7 +3,10 @@ import { createAppError } from '@daisy/errors';
 import { judgingPolicy } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { agentRuns } from './schema/agent-runs';
-import { roundJudgingJobs } from './schema/round-judging-jobs';
+import {
+  roundJudgingAttempts,
+  roundJudgingJobs,
+} from './schema/round-judging-jobs';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { agentLeaseDigest } from './round-agent-lease';
 import {
@@ -14,7 +17,7 @@ import {
 import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
 import { nextEpoch } from './lease-policy';
-import { requireClaimableJob } from './round-judging-decisions';
+import { firstPassLost, requireClaimableJob } from './round-judging-decisions';
 
 export async function claimLockedJudgingJob(
   tx: BoundedTransactionContext,
@@ -103,6 +106,19 @@ export async function claimLockedJudgingJob(
       executionTokenDigest: agentLeaseDigest(token),
     },
   });
+  // Every attempt here is a prior run's: one still dispatched lost its answer.
+  const [priorFirstAttempt] = await tx
+    .select({ outcome: roundJudgingAttempts.outcome })
+    .from(roundJudgingAttempts)
+    .where(
+      and(
+        eq(roundJudgingAttempts.roundId, target.roundId),
+        eq(roundJudgingAttempts.judgeParticipantId, target.judgeParticipantId),
+        eq(roundJudgingAttempts.stage, 'first'),
+        eq(roundJudgingAttempts.outcome, 'dispatched'),
+      ),
+    )
+    .limit(1);
   const claimedAt = await readDatabaseTime(tx);
   const leaseExpiresAt = new Date(claimedAt.getTime() + input.leaseMs);
   await tx
@@ -115,6 +131,9 @@ export async function claimLockedJudgingJob(
       retryAt: null,
       lastClaimedAt: claimedAt,
       recoveryReason: null,
+      ...(firstPassLost(job, priorFirstAttempt)
+        ? { firstBallotFailed: true }
+        : {}),
       ...(job.status === 'recovering' && !job.pendingBallot
         ? {
             generationDeadlineAt: new Date(

@@ -24,7 +24,7 @@ const ballot = (
   judge_participant_id: judgeSeatId,
   round_id: roundId,
   freeze_revision: 1,
-  rubric_version: 'speaker-10@1',
+  rubric_version: 'speaker-10@2',
   winner: 'affirmative',
   scores: { affirmative: allAt(3), negative: allAt(2) },
   reason: 'Stronger evidence',

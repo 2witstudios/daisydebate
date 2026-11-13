@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { noPostRoundCall } from '@daisy/protocol';
 import { seatGrants } from './projection';
 import { rules } from './media-world-seats.test-support';
 
@@ -29,6 +30,12 @@ const snapshot = (prepMs: number | null, now: string) =>
   ({
     now,
     finalSegmentEndedAt: null,
+    mediaWindow: {
+      status: 'opening',
+      now,
+      finalSegmentEndedAt: null,
+      postRoundCall: noPostRoundCall('opening'),
+    },
     participants: seats,
     withdrawn: [],
     round: {

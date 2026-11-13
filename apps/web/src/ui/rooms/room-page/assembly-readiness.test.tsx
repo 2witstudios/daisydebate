@@ -2,13 +2,18 @@ import { AssemblyCommandForm } from './assembly-command-form';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { findElements, byText } from '../../test-support/find-elements';
-import { StartControl, ReadyControl } from './assembly-readiness';
+import {
+  StartControl,
+  ReadyControl,
+  postRoundCallText,
+} from './assembly-readiness';
 import { ContentWaiverForm } from './content-waiver-form';
 
 setupRitewayBun();
 const base = {
   contentWaiver: null,
   captureNotice: null,
+  postRoundCall: false,
   capture: null,
   resolutionDraw: null,
   botAdmission: null,
@@ -64,7 +69,7 @@ describe('native room readiness and Start round controls', () => {
   });
 
   test('a captured Round shows its notice and Ready states it', () => {
-    const notice = { version: 'ranked-draft-2', text: 'Exact notice words.' };
+    const notice = { version: 'casual-draft-1', text: 'Exact notice words.' };
     const ready = ReadyControl({
       ...props,
       view: { ...base, captureNotice: notice },
@@ -86,6 +91,35 @@ describe('native room readiness and Start round controls', () => {
         ).length,
       ],
       expected: [1, 1],
+    });
+  });
+
+  test('a Room with the post-round call says so before Ready, once two people are in it', () => {
+    const one = base.participants[0]!;
+    const other = { ...one, id: 'second-seat', actorId: 'second-actor' };
+    const bot = { ...other, kind: 'bot' as const };
+    const told = (
+      postRoundCall: boolean,
+      participants: (typeof one | typeof bot)[],
+    ) =>
+      findElements(
+        ReadyControl({
+          ...props,
+          view: { ...base, postRoundCall, participants },
+        }),
+        (element) => element.props.children === postRoundCallText,
+      ).length;
+    assert({
+      given:
+        'the call chosen with two people, with one person and a bot, and not chosen with two people',
+      should:
+        'tell the seat only when it was chosen and the cast would get a call',
+      actual: [
+        told(true, [one, other]),
+        told(true, [one, bot]),
+        told(false, [one, other]),
+      ],
+      expected: [1, 0, 0],
     });
   });
 

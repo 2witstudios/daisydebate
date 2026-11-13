@@ -1,4 +1,8 @@
-import { mediaRoomFate, mediaWindowClosed } from '@daisy/debate-engine';
+import {
+  mediaPhase,
+  mediaRoomFate,
+  nextRoomVacancy,
+} from '@daisy/debate-engine';
 import type { MediaReconcileFence } from '../src/media-reconcile-contracts';
 import { mediaTestHuman } from './media-session.test-support';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
@@ -29,7 +33,7 @@ async function reconcileFixture(fixture: Parameters<typeof mediaTestHuman>[0]) {
   const store = mediaTestStore(fixture.sql);
   const caller = { actorId: seat.actorId, admits: admitsPrincipalAccess };
   const binding = await store.ensureBinding({
-    mediaWindowClosed,
+    mediaPhase,
     roundId,
     caller,
     buildProjection: mediaTestTick,
@@ -59,8 +63,9 @@ test('durable reconcile claims serve only the request horizon they actually star
       });
       await store.finishMediaReconcile({
         roomFate: mediaRoomFate(6_000),
+        roomVacancy: nextRoomVacancy,
         seen: null,
-        mediaWindowClosed,
+        mediaPhase,
         ...claim.fence,
         absenceProof: await store.prepareMediaAbsenceProof(claim.fence),
         clean: true,
@@ -134,7 +139,7 @@ test('a verified absence retires the room, and a late acknowledgement cannot rew
         should: 'refuse before signing a token',
         actual: () =>
           restarted.issueMediaToken({
-            mediaWindowClosed,
+            mediaPhase,
             roundId,
             principal: {
               kind: 'human',
@@ -151,8 +156,9 @@ test('a verified absence retires the room, and a late acknowledgement cannot rew
       });
       const result = await restarted.finishMediaReconcile({
         roomFate: mediaRoomFate(6_000),
+        roomVacancy: nextRoomVacancy,
         seen: null,
-        mediaWindowClosed,
+        mediaPhase,
         ...recovery.fence,
         absenceProof: await restarted.prepareMediaAbsenceProof(recovery.fence),
         clean: true,
@@ -223,8 +229,9 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       await store.settleMediaMutation(intent, 'succeeded');
       const result = await store.finishMediaReconcile({
         roomFate: mediaRoomFate(6_000),
+        roomVacancy: nextRoomVacancy,
         seen: null,
-        mediaWindowClosed,
+        mediaPhase,
         ...claim.fence,
         absenceProof: proof,
         clean: true,
@@ -247,8 +254,9 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       if (!current) throw new Error('Mutation horizon missing');
       const refused = await store.finishMediaReconcile({
         roomFate: mediaRoomFate(6_000),
+        roomVacancy: nextRoomVacancy,
         seen: null,
-        mediaWindowClosed,
+        mediaPhase,
         ...next.fence,
         absenceProof: { ...current, owner: claim.fence.owner },
         clean: true,
@@ -270,7 +278,7 @@ test('an aborted reconcile past its lease never holds media admission', async ()
     const { roundId, seat, store, binding } = await reconcileFixture(fixture);
     const admit = () =>
       store.issueMediaToken({
-        mediaWindowClosed,
+        mediaPhase,
         roundId,
         principal: {
           kind: 'human',

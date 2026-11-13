@@ -261,6 +261,7 @@ const hydrateRoom = async (
     basis,
     competitionType: row.competitionType,
     capture: row.capture,
+    postRoundCall: row.postRoundCall,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

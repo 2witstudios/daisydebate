@@ -1,4 +1,5 @@
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '@daisy/db/testing';
 import { judgingJobRules, ratingAwaited } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
@@ -7,7 +8,6 @@ import {
   agreementWords,
   contentWaiverDocument,
   CONTENT_WAIVER_VERSION,
-  roundCaptureNotice,
 } from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
@@ -36,7 +36,6 @@ export async function readyRankedRoom(
       words: agreementWords(contentWaiverDocument),
     });
   let room = await f.assemble({
-    noticeVersion: roundCaptureNotice('ranked')!.version,
     resolution:
       ladder === 'freestyle'
         ? { kind: 'strike' }
@@ -153,8 +152,9 @@ export async function judgeWithCachedAi(
   const target = (await f.store.scanRoundJudgingJobs(64, 'generation')).find(
     (j) => j.roundId === roundId,
   )!;
+  await atFinalJudgingStage(f.sql, target);
   const claim = await f.store.claimRoundJudgingJob(target);
-  await f.store.beginRoundJudgingModelCall(claim.scope, claim.token);
+  await f.store.beginRoundJudgingModelCall(claim.scope, claim.token, 'final');
   await f.store.saveRoundJudgingResult(claim.scope, claim.token, ballot, {
     inputTokens: 1,
     outputTokens: 1,

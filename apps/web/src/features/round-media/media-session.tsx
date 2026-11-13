@@ -2,6 +2,7 @@
 import '../../lib/zod-jitless';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver, type RoundView } from '@daisy/protocol';
+import { postRoundCallChosen } from '../post-round-call/offered';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
 import { selectMediaAccount } from './account-signout-cleanup';
 import { subscribeBrowserPageEvents } from './adapters/browser-page-events';
@@ -80,6 +81,8 @@ type SessionInput = {
   readonly onPublication?: (value: LocalPublication) => void;
   /** Another account was here before: its owner clears what it kept. */
   readonly onAccountChanged: () => void;
+  /** The server ended a post-round call: its room gives way to the result. */
+  readonly onCallEnded?: () => void;
 };
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
@@ -91,9 +94,11 @@ function RoundMediaSession({
   tab,
   onPublication,
   onAccountChanged,
+  onCallEnded,
 }: SessionInput & { readonly view: RoundView }) {
   const { owns, onStepDown } = tab;
   const questioning = view.ladderId === null && hasOpenQuestioning(view.rules);
+  const muteOffered = questioning || postRoundCallChosen(view);
   const refresh = useRef(onRefresh);
   useEffect(() => {
     refresh.current = onRefresh;
@@ -152,10 +157,11 @@ function RoundMediaSession({
   /** The restore must precede the first claim so one truth reaches the transport. */
   useEffect(() => {
     if (selectMediaAccount(actorId)) onAccountChanged();
-    if (!questioning) return;
+    // A post-round call offers mute to everyone, so it restores the choice too.
+    if (!muteOffered) return;
     const prior = readMutePreference(actorId, view.id);
     if (prior !== null) dispatch({ type: 'mute-restored', muted: prior });
-  }, [view.id, actorId, questioning, onAccountChanged, dispatch]);
+  }, [view.id, actorId, muteOffered, onAccountChanged, dispatch]);
   useEffect(() => {
     dispatch({ type: 'tab-changed', owns });
     return () => dispatch({ type: 'tab-changed', owns: null });
@@ -181,7 +187,8 @@ function RoundMediaSession({
     null,
   );
   useEffect(() => {
-    if (isRoundOver(view.status)) {
+    // A post-round call outlives its Round: the server's own answer ends it.
+    if (isRoundOver(view.status) && !postRoundCallChosen(view)) {
       dispatch({ type: 'round-ended' });
       return;
     }
@@ -192,6 +199,15 @@ function RoundMediaSession({
     });
     return follower.current(view);
   }, [view, clock, dispatch]);
+  /** Only the server knows a call ended early: everyone left, or it never opened. */
+  const callEnded = useRef(onCallEnded);
+  useEffect(() => {
+    callEnded.current = onCallEnded;
+  }, [onCallEnded]);
+  const endedCall = postRoundCallChosen(view) && state.link.phase === 'ended';
+  useEffect(() => {
+    if (endedCall) callEnded.current?.();
+  }, [endedCall]);
   /** The controls read this device's own capture truth as a named input. */
   const report = useRef(onPublication);
   useEffect(() => {
@@ -226,7 +242,12 @@ function RoundMediaSession({
         ownMuted={stage.ownMuted}
         remotePeers={stage.remotePeers}
       />
-      <MediaBar state={state} dispatch={dispatch} questioning={questioning} />
+      <MediaBar
+        state={state}
+        dispatch={dispatch}
+        // Anyone on a post-round call may mute themselves.
+        questioning={muteOffered}
+      />
       {nativeMediaNotice}
     </section>
   );

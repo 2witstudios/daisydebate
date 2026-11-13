@@ -38,6 +38,8 @@ export async function createAssembly(
     'kind' in selection &&
     selection.kind === 'ranked';
   const recording = !ranked && field(form, 'recording') === 'on';
+  // A ranked Round has no post-round call: its box is disabled, and a stale tick is dropped.
+  const postRoundCall = !ranked && field(form, 'postRoundCall') === 'on';
   const parsed = roomCreateSchema.safeParse({
     commandId: field(form, 'commandId'),
     title: field(form, 'title'),
@@ -53,10 +55,11 @@ export async function createAssembly(
     visibility: field(form, 'visibility'),
     selection,
     ...(recording ? { recording: true } : {}),
+    ...(postRoundCall ? { postRoundCall: true } : {}),
     ...(form.getAll('holdSeatFor').length
       ? { holdSeatsFor: form.getAll('holdSeatFor') }
       : {}),
-    ...((ranked || recording) && field(form, 'noticeVersion')
+    ...(recording && field(form, 'noticeVersion')
       ? { noticeVersion: field(form, 'noticeVersion') }
       : {}),
   });

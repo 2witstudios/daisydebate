@@ -10,10 +10,11 @@ import { admissionSponsor, betaAllowance } from './bot-admission.test-support';
 import { createCasualJudgeAdmission } from '../src/casual-judge-admission';
 import type { BoundedTransaction } from '../src/bounded-transaction';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '../src/testing-judging';
 
 /** A validated rubric response, as cached on a pending judging job. */
 export const syntheticPendingBallot = ballotSchema.parse({
-  rubricVersion: 'speaker-10@1',
+  rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
   scores: Object.fromEntries(
     ['affirmative', 'negative'].map((side) => [
@@ -53,6 +54,7 @@ export async function seedJudgingIntent(
     fixture: Fixture,
     target: { roundId: string; judgeParticipantId: string },
   ) => Promise<void>,
+  stage: 'first' | 'final' = 'final',
 ) {
   const seat = await createBotSeat(fixture, roundId, 'judge');
   await judgingSponsor(fixture, roundId, run);
@@ -61,6 +63,8 @@ export async function seedJudgingIntent(
   await beforeFreeze?.(fixture, target);
   await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,${completeness})`;
   await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+  // Most suites are about the final ballot; stage suites start at the first pass.
+  if (stage === 'final') await atFinalJudgingStage(fixture.sql, target);
   return target;
 }
 
@@ -78,6 +82,7 @@ export const withJudgingJob = (
     fixture: Fixture,
     target: { roundId: string; judgeParticipantId: string },
   ) => Promise<void>,
+  stage: 'first' | 'final' = 'final',
 ) =>
   withBoundedRound(async (fixture, run, roundId) => {
     const target = await seedJudgingIntent(
@@ -86,6 +91,7 @@ export const withJudgingJob = (
       run,
       completeness,
       beforeFreeze,
+      stage,
     );
     try {
       await work({

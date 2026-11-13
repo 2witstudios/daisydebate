@@ -1,5 +1,6 @@
 import { aiCast } from './ai-cast';
 import type { Browser } from '@playwright/test';
+import { judgingStages } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
@@ -156,7 +157,8 @@ export async function proveHumanBotJourney(browser: Browser) {
     expect(
       voiced.slice(voiced.length - unmatched.length).sort(byLength),
     ).toEqual([...unmatched].sort(byLength));
-    expect(received('judge', 'judging')).toHaveLength(1);
+    // Coherency judging buys one call per stage (ADR 0125).
+    expect(received('judge', 'judging')).toHaveLength(judgingStages.length);
     expect(runs.filter((run) => run.role === 'affirmative')).toEqual([]);
     const receipt = await openPage(host.context, 'human/bot receipt');
     await receipt.goto(`/rounds/${view.id}`);

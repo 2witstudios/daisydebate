@@ -5,7 +5,6 @@ import { requireProviderNotCancelled } from './cancellation';
 import { readTranscription } from './transcription-response';
 import { readCompletionStream } from './completion-stream';
 import { finishOf } from './completion-finish';
-export type { CompletionFinish } from './completion-finish';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -35,6 +34,8 @@ export type CompletionRequest = {
    * returned. Some models require reasoning and refuse 'none'.
    */
   readonly reasoning?: 'none' | 'low' | 'medium' | 'high';
+  /** This call's own time bound, in place of the client's default (a judging stage's). */
+  readonly timeoutMs?: number;
 };
 
 const BASE = 'https://openrouter.ai/api/v1';
@@ -124,15 +125,22 @@ export function createOpenRouter({
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
   /**
-   * `timeoutMs` bounds the whole call, body included. A streamed answer is
-   * as long as it is, so for `streamed` it bounds only the wait for the
-   * response to begin; the caller watches the stream itself.
+   * `timeoutMs`, or the call's own `limitMs`, bounds the whole call, body
+   * included. A streamed answer is as long as it is, so for `streamed` it
+   * bounds only the wait for the response to begin; the caller watches the
+   * stream itself.
    */
   const post = async (
     path: string,
     body: unknown,
     signal?: AbortSignal,
-    streamed = false,
+    {
+      streamed = false,
+      limitMs = timeoutMs,
+    }: {
+      readonly streamed?: boolean;
+      readonly limitMs?: number | undefined;
+    } = {},
   ) => {
     if (signal?.aborted)
       throw definite(
@@ -140,9 +148,9 @@ export function createOpenRouter({
       );
     const late = new AbortController();
     const waiting = streamed
-      ? setTimeout(() => late.abort(), timeoutMs)
+      ? setTimeout(() => late.abort(), limitMs)
       : undefined;
-    const bound = streamed ? late.signal : AbortSignal.timeout(timeoutMs);
+    const bound = streamed ? late.signal : AbortSignal.timeout(limitMs);
     let response: Response;
     try {
       response = await fetch(`${BASE}${path}`, {
@@ -234,6 +242,7 @@ export function createOpenRouter({
         '/chat/completions',
         chatBody(request),
         request.signal,
+        { limitMs: request.timeoutMs },
       );
       const body = parse(
         completionSchema,
@@ -268,7 +277,7 @@ export function createOpenRouter({
         path,
         { ...chatBody(request), stream: true, usage: { include: true } },
         request.signal,
-        true,
+        { streamed: true, limitMs: request.timeoutMs },
       );
       return reading(
         path,

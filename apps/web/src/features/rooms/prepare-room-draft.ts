@@ -8,7 +8,7 @@ import { formValues } from '../forms/form-state';
 import { draftFormValues, readRoomDraft } from './create-room-fields';
 import { editRoomDraft, type CreateRoomDraft } from './create-room-draft';
 import { customRoomDefinition } from './custom-room-definition';
-import { roundCaptureNotice } from '../legal/agreements';
+import { casualCaptureNotice } from '../legal/agreements';
 
 /** Shared by native editing actions and the enhanced editor. */
 export function changeDraftSchedule(
@@ -117,15 +117,13 @@ export function prepareRoomDraft(
       kind: 'preview',
       values: { ...values, ...draftFormValues(draft), intent: '' },
     };
-  // Native mode switches may carry the other mode's notice. Show the effective
-  // notice before claiming it; a casual form that showed none still owes none.
-  const notice = roundCaptureNotice(
-    draft.ranked ? 'ranked' : values.recording === 'on' ? 'opted-in' : 'none',
-  );
+  // A casual recording form that states a notice must state the current one, so
+  // show it again before claiming it; a form that showed none owes none.
   if (
-    notice &&
-    (draft.ranked || values.noticeVersion) &&
-    values.noticeVersion !== notice.version
+    !draft.ranked &&
+    values.recording === 'on' &&
+    values.noticeVersion &&
+    values.noticeVersion !== casualCaptureNotice.version
   )
     return {
       kind: 'preview',

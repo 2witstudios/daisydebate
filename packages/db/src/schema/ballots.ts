@@ -1,9 +1,9 @@
 import {
-  ballotCitationsSchema,
   ballotFeedbackSchema,
-  ballotRubricVersion,
-  ballotScoresSchema,
+  ballotRubricVersions,
   debateSides,
+  storedBallotCitationsSchema,
+  storedBallotScoresSchema,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
@@ -45,10 +45,10 @@ export const ballots = pgTable(
     rubricVersion: text('rubric_version').notNull(),
     /** The winner: a side. There are no draws (ADR 0058 §6, DEC-116). */
     winner: text('winner').notNull(),
-    scores: jsonbColumn('scores', ballotScoresSchema).notNull(),
+    scores: jsonbColumn('scores', storedBallotScoresSchema).notNull(),
     reason: text('reason').notNull(),
     feedback: jsonbColumnNullable('feedback', ballotFeedbackSchema),
-    citations: jsonbColumnNullable('citations', ballotCitationsSchema),
+    citations: jsonbColumnNullable('citations', storedBallotCitationsSchema),
     submittedAt: timestampColumn('submitted_at').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -100,7 +100,8 @@ export const ballots = pgTable(
     check('ballots_winner_check', oneOf(table.winner, debateSides)),
     check(
       'ballots_rubric_version_check',
-      sql`${table.rubricVersion} = ${ballotRubricVersion}`,
+      // Every version stays readable; writes validate the current one (ADR 0125).
+      oneOf(table.rubricVersion, ballotRubricVersions),
     ),
     jsonbIsObject('ballots', table.scores),
     jsonbIsObject('ballots', table.feedback),

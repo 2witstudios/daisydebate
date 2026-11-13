@@ -262,14 +262,17 @@ export function createRoomRuntimeOperations({
       resolved,
       recheck,
     } = await resolveRoomSelection(body, store, ids);
-    if (competitionType === 'ranked' && body.recording !== undefined)
+    if (
+      competitionType === 'ranked' &&
+      (body.recording !== undefined || body.postRoundCall === true)
+    )
       throw createRefusal('CONFLICT', 'illegal-config');
     const createNotice = createNoticeOf(
-      competitionType,
+      {
+        competitionType,
+        capture: body.recording ? { broadcast: null, recording: true } : null,
+      },
       body.noticeVersion,
-      (body.holdSeatsFor ?? []).includes(caller.actorId) ||
-        (body.cast ?? []).some((seat) => seat.actorId === caller.actorId),
-      body.recording ? { broadcast: null, recording: true } : null,
     );
     if (createNotice.kind === 'refused')
       throw createRefusal('CONFLICT', 'capture-notice-changed');
@@ -324,6 +327,7 @@ export function createRoomRuntimeOperations({
           }
         : {}),
       ...(body.holdSeatsFor ? { holdSeatsFor: body.holdSeatsFor } : {}),
+      ...(body.postRoundCall ? { postRoundCall: true } : {}),
       notice:
         createNotice.kind === 'shown'
           ? {

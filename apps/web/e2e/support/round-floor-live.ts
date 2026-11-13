@@ -40,9 +40,12 @@ async function readyFloorDebater(page: Page) {
       .click({ timeout: 15_000 });
     try {
       await expect(
-        page.getByText(kind === 'camera' ? '✓ Camera' : '✓ Microphone', {
-          exact: true,
-        }),
+        page.getByText(
+          kind === 'camera' ? 'Camera: ✓ checked' : 'Microphone: ✓ checked',
+          {
+            exact: true,
+          },
+        ),
       ).toBeVisible({ timeout: 15_000 });
     } catch (cause) {
       const diagnostic = await page.evaluate(async (kind) => {

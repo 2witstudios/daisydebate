@@ -52,6 +52,7 @@ describe('retention targets', () => {
         purgeExpiredAvailabilitySamples: record('availability_samples'),
         purgeExpiredUtterances: record('utterances'),
         clearExpiredPendingBallots: record('pending_ballots'),
+        clearExpiredJudgingStages: record('judging_stages'),
         purgeExpiredRoundAnalyses: record('round_analyses'),
         purgeExpiredSocialDeclines: record('social_declines'),
         purgeExpiredSocialRequests: record('social_requests'),
@@ -63,6 +64,9 @@ describe('retention targets', () => {
         purgeExpiredRoundFloorReceipts: record('round_floor_receipts'),
         purgeExpiredRoundFloorMessages: record('round_floor_messages'),
         purgeExpiredRoundFloorReadStates: record('round_floor_read_states'),
+        purgeExpiredRoomCommunityReceipts: record('room_chat_receipts'),
+        purgeExpiredRoomCommunityMessages: record('room_chat_messages'),
+        purgeExpiredRoomCommunityReadStates: record('room_chat_read_states'),
         purgeExpiredAudienceReactions: record('audience_reactions'),
       },
       redis: {
@@ -73,6 +77,41 @@ describe('retention targets', () => {
       },
     };
   };
+
+  test('Room chat retention drains receipts before reply leaves with the Room-end window', async () => {
+    const { calls, database, redis } = purges();
+    const targets = retentionTargets({
+      database,
+      redis,
+      provisionalLinks: provisionalLinkPurposes,
+    }).filter((target) => target.name.startsWith('retention.room_chat_'));
+    for (const target of targets)
+      await target.purge({ now, limit: target.batchSize });
+    assert({
+      given: 'the scheduled production retention targets',
+      should:
+        'drain Room chat receipts, messages and reader state in order, each bounded and cut off 180 days before now',
+      actual: [targets.map((target) => [target.name, target.batchSize]), calls],
+      expected: [
+        [
+          ['retention.room_chat_receipts', 500],
+          ['retention.room_chat_messages', 500],
+          ['retention.room_chat_read_states', 500],
+        ],
+        {
+          room_chat_receipts: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          room_chat_messages: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          room_chat_read_states: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+        },
+      ],
+    });
+  });
 
   test('floor retention drains receipts before reply leaves with the Round-end window', async () => {
     const { calls, database, redis } = purges();
@@ -169,6 +208,7 @@ describe('retention targets', () => {
           { name: 'retention.mail_intents', batchSize: 500, maxBatches: 20 },
           { name: 'retention.utterances', batchSize: 500, maxBatches: 20 },
           { name: 'retention.pending_ballots', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.judging_stages', batchSize: 500, maxBatches: 20 },
           { name: 'retention.round_analyses', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_declines', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_requests', batchSize: 500, maxBatches: 20 },
@@ -202,6 +242,21 @@ describe('retention targets', () => {
           },
           {
             name: 'retention.round_floor_read_states',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
+            name: 'retention.room_chat_receipts',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
+            name: 'retention.room_chat_messages',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
+            name: 'retention.room_chat_read_states',
             batchSize: 500,
             maxBatches: 20,
           },
@@ -242,6 +297,7 @@ describe('retention targets', () => {
           mail_intents: [{ before: '2026-08-21T12:00:00.000Z', limit: 500 }],
           utterances: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           pending_ballots: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
+          judging_stages: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           round_analyses: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           social_declines: [{ before: now, limit: 500 }],
           social_requests: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
@@ -264,6 +320,15 @@ describe('retention targets', () => {
             { before: '2026-03-24T12:00:00.000Z', limit: 500 },
           ],
           round_floor_read_states: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          room_chat_receipts: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          room_chat_messages: [
+            { before: '2026-03-24T12:00:00.000Z', limit: 500 },
+          ],
+          room_chat_read_states: [
             { before: '2026-03-24T12:00:00.000Z', limit: 500 },
           ],
         },
@@ -313,6 +378,7 @@ describe('retention targets', () => {
           ['retention.mail_intents', false],
           ['retention.utterances', false],
           ['retention.pending_ballots', false],
+          ['retention.judging_stages', false],
           ['retention.round_analyses', false],
           ['retention.social_declines', false],
           ['retention.social_requests', false],
@@ -325,6 +391,9 @@ describe('retention targets', () => {
           ['retention.round_floor_receipts', false],
           ['retention.round_floor_messages', false],
           ['retention.round_floor_read_states', false],
+          ['retention.room_chat_receipts', false],
+          ['retention.room_chat_messages', false],
+          ['retention.room_chat_read_states', false],
           ['retention.challenges', false],
           ['retention.reports', false],
           ['retention.moderation', false],
@@ -332,7 +401,7 @@ describe('retention targets', () => {
         ],
         calls: {},
         sweeps: [1000],
-        failed: 31,
+        failed: 35,
       },
     });
   });

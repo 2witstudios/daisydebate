@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { roundCaptureNotice } from '../../../features/legal/agreements';
+import { casualCaptureNotice } from '../../../features/legal/agreements';
 import type { PublishedResolution, RoomCatalogChoice } from '@daisy/protocol';
 import {
   changeRoomValue,
@@ -26,10 +26,6 @@ const formats = [
   ['value', 'Value', 'Value res'],
   ['custom', 'Custom', 'Your rules'],
 ] as const;
-
-/** Ranked always has this notice: creating records that its host was shown it. */
-const rankedNotice = roundCaptureNotice('ranked')!;
-const casualNotice = roundCaptureNotice('opted-in')!;
 
 export function CreateRoomEditor({
   choices,
@@ -224,14 +220,32 @@ export function CreateRoomEditor({
           </p>
           {!isRanked && values.recording === 'on' ? (
             <>
-              <p>{casualNotice.text}</p>
+              <p>{casualCaptureNotice.text}</p>
               <input
                 type="hidden"
                 name="noticeVersion"
-                value={casualNotice.version}
+                value={casualCaptureNotice.version}
               />
             </>
           ) : null}
+          <div className="create-room-ranked">
+            <label>
+              <input
+                type="checkbox"
+                name="postRoundCall"
+                value="on"
+                disabled={isRanked}
+                checked={!isRanked && values.postRoundCall === 'on'}
+                onChange={(event) =>
+                  metadata('postRoundCall', event.target.checked ? 'on' : '')
+                }
+              />
+              Post-round feedback
+            </label>
+            <span>
+              {isRanked ? 'Unranked only' : 'Call stays open after the round'}
+            </span>
+          </div>
           {isCustom ? (
             <details className="create-room-library">
               <summary>Start from a league template</summary>
@@ -359,17 +373,11 @@ export function CreateRoomEditor({
             <div className="create-room-field">
               <span>Who can join</span>
               <input type="hidden" name="visibility" value="public" />
-              <input
-                type="hidden"
-                name="noticeVersion"
-                value={rankedNotice.version}
-              />
               <p>
                 Listed in the lobby. Ranked Rounds are always public, and are
                 broadcast with a delay and recorded when capture has capacity.
                 Play casual to choose who can join.
               </p>
-              <p>{rankedNotice.text}</p>
             </div>
           ) : (
             <label className="create-room-field">

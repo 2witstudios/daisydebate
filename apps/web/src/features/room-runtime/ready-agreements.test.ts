@@ -1,6 +1,6 @@
 import {
   CONTENT_WAIVER_VERSION,
-  roundCaptureNotice,
+  casualCaptureNotice,
 } from '../legal/agreements';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -19,7 +19,7 @@ const optedIn = {
   competitionType: 'casual' as const,
   capture: { broadcast: null, recording: true },
 };
-const version = roomCaptureNotice(ranked)!.version;
+const version = casualCaptureNotice.version;
 
 describe('Ready agreements', () => {
   test('only ranked needs the waiver', () => {
@@ -54,33 +54,34 @@ describe('Ready agreements', () => {
         captureNoticeRefusal(optedIn, undefined),
         captureNoticeRefusal(optedIn, roomCaptureNotice(optedIn)!.version),
       ],
-      expected: [
-        roundCaptureNotice('opted-in'),
-        'capture-notice-changed',
-        null,
-      ],
+      expected: [casualCaptureNotice, 'capture-notice-changed', null],
     });
   });
 
   test('the notice a Room shows', () => {
     assert({
-      given: 'a ranked and a casual Room with no opt-in',
-      should: 'show the ranked notice and nothing on the casual Room',
-      actual: [roomCaptureNotice(ranked)?.version, roomCaptureNotice(casual)],
-      expected: ['ranked-draft-2', null],
+      given:
+        'a ranked Room, a ranked Room carrying a capture choice, and a casual Room with no opt-in',
+      should: 'show no notice on any of them',
+      actual: [
+        roomCaptureNotice(ranked),
+        roomCaptureNotice({ ...ranked, capture: optedIn.capture }),
+        roomCaptureNotice(casual),
+      ],
+      expected: [null, null, null],
     });
   });
 
   test('Ready must state the notice its form showed', () => {
     assert({
-      given: 'a ranked Ready stating the current, a stale and no notice',
-      should: 'accept only the current one',
+      given: 'a ranked Ready stating no notice, and one stating a notice',
+      should:
+        'accept the first on the waiver alone, and refuse words no ranked form shows',
       actual: [
-        captureNoticeRefusal(ranked, version),
-        captureNoticeRefusal(ranked, 'ranked-draft-0'),
         captureNoticeRefusal(ranked, undefined),
+        captureNoticeRefusal(ranked, version),
       ],
-      expected: [null, 'capture-notice-changed', 'capture-notice-changed'],
+      expected: [null, 'capture-notice-changed'],
     });
     assert({
       given: 'a casual Ready with no notice to state',
@@ -95,56 +96,44 @@ describe('Ready agreements', () => {
 });
 
 describe('the notice a create form showed', () => {
-  test('is recorded only when it is the one served now', () => {
-    const notice = roundCaptureNotice('ranked')!;
+  test('a ranked create needs and records none', () => {
     assert({
-      given:
-        'a ranked create stating the current notice, a stale one, none from a seatless host, and none from a seated host',
-      should:
-        'show the first, refuse the next two, and leave the last to its Ready',
+      given: 'a ranked create stating no notice, and one stating a notice',
+      should: 'record nothing for the first and refuse the second',
       actual: [
-        createNoticeOf('ranked', notice.version, false),
-        createNoticeOf('ranked', 'ranked-draft-0', false),
-        createNoticeOf('ranked', undefined, false),
-        createNoticeOf('ranked', undefined, true),
+        createNoticeOf(ranked, undefined),
+        createNoticeOf(ranked, version),
+      ],
+      expected: [{ kind: 'none' }, { kind: 'refused' }],
+    });
+  });
+
+  test('a casual create with no capture has none to state', () => {
+    assert({
+      given: 'a casual create stating no notice, and one stating a notice',
+      should: 'ask for nothing, and refuse a notice no such form shows',
+      actual: [
+        createNoticeOf(casual, undefined),
+        createNoticeOf(casual, version),
+      ],
+      expected: [{ kind: 'none' }, { kind: 'refused' }],
+    });
+  });
+
+  test('a casual recording create records only the exact notice shown to its host', () => {
+    assert({
+      given: 'a casual recording create with current, stale and absent notice',
+      should: 'record only the current shown words',
+      actual: [
+        createNoticeOf(optedIn, version),
+        createNoticeOf(optedIn, 'casual-draft-0'),
+        createNoticeOf(optedIn, undefined),
       ],
       expected: [
-        { kind: 'shown', notice },
-        { kind: 'refused' },
+        { kind: 'shown', notice: casualCaptureNotice },
         { kind: 'refused' },
         { kind: 'none' },
       ],
     });
-    assert({
-      given: 'a casual create stating a notice no casual form shows',
-      should: 'refuse it',
-      actual: createNoticeOf('casual', notice.version, false),
-      expected: { kind: 'refused' },
-    });
-    assert({
-      given: 'a casual create with no notice and no seat',
-      should: 'ask for nothing',
-      actual: createNoticeOf('casual', undefined, false),
-      expected: { kind: 'none' },
-    });
-  });
-});
-
-test('initial casual recording records only the exact notice shown to its host', () => {
-  const notice = roundCaptureNotice('opted-in')!;
-  assert({
-    given:
-      'a seatless casual recording create with current, stale and absent notice',
-    should: 'record only the current shown words',
-    actual: [
-      createNoticeOf('casual', notice.version, false, optedIn.capture),
-      createNoticeOf('casual', 'casual-draft-0', false, optedIn.capture),
-      createNoticeOf('casual', undefined, false, optedIn.capture),
-    ],
-    expected: [
-      { kind: 'shown', notice },
-      { kind: 'refused' },
-      { kind: 'none' },
-    ],
   });
 });

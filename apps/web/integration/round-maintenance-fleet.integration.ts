@@ -1,4 +1,4 @@
-import { mediaWindowClosed } from '@daisy/debate-engine';
+import { mediaPhase } from '@daisy/debate-engine';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -54,7 +54,7 @@ test('five actual Rounds leave shared bounded capacity for media and first-recei
       const began = performance.now();
       const [binding, receipt] = await Promise.all([
         f.store.mediaSessions.ensureBinding({
-          mediaWindowClosed,
+          mediaPhase,
           roundId,
           caller: { actorId: f.host.actorId, admits: admitsPrincipalAccess },
           buildProjection: roundTickProjection(createId),

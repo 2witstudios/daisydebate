@@ -5,6 +5,8 @@ import {
   waitingFloors,
   type RecoverySession,
 } from './recovery-due';
+import { noPostRoundCall } from '@daisy/protocol';
+
 setupRitewayBun();
 
 const at = (seconds: number) =>
@@ -18,6 +20,7 @@ const idle = (over: Partial<RecoverySession> = {}): RecoverySession => ({
   roundChangedAt: at(5),
   roundStatus: 'active',
   finalSegmentEndedAt: null,
+  postRoundCall: noPostRoundCall('active'),
   unsafe: false,
   claimWait: null,
   lastPassClean: true,

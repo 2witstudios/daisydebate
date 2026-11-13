@@ -46,10 +46,15 @@ test('retained private copies coalesce focus checks and cancel stale identity an
     if (!cancelled) await route.fulfill({ response: actual });
   });
   try {
-    await page.evaluate(() => {
-      for (let i = 0; i < 5; i++) window.dispatchEvent(new Event('focus'));
-    });
-    await expect.poll(() => calls).toBe(1);
+    // The watch listens once the page has hydrated, so the burst repeats
+    // until it is heard. The answer is held, so every burst coalesces into
+    // the one check in flight.
+    await expect(async () => {
+      await page.evaluate(() => {
+        for (let i = 0; i < 5; i++) window.dispatchEvent(new Event('focus'));
+      });
+      expect(calls).toBe(1);
+    }).toPass({ timeout: 10_000 });
     // A cross-tab marker only withdraws private data; it grants no identity.
     await page.evaluate(() =>
       window.dispatchEvent(

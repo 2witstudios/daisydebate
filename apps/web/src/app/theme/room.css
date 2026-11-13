@@ -63,6 +63,17 @@
     padding: 4px 0 0;
   }
 
+  /* A post-round call seats the judge too: three tiles leave the controls their room. */
+  @media (width >= 901px) {
+    & [data-room-media='grid']:has(> :nth-child(3)) [data-room-media='tile'] {
+      width: min(
+        calc(var(--room-tile-height, 200px) * 16 / 9),
+        18vw,
+        calc(30dvh * 16 / 9)
+      );
+    }
+  }
+
   @media (width < 1101px) {
     & [data-room-media='tile'] {
       width: min(
@@ -354,6 +365,7 @@ img.ProseMirror-separator {
 @theme {
   --spacing-room-avatar: 6rem;
   --aspect-room-preview: 16 / 9;
+  --spacing-room-chat: 26rem;
 }
 
 @utility room-page {
@@ -367,7 +379,7 @@ img.ProseMirror-separator {
   }
 }
 
-@utility room-devices {
+@utility room-main {
   @container (min-width: 780px) {
     grid-column: 1;
     grid-row: 1;

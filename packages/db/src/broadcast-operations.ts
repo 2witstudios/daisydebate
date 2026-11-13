@@ -549,12 +549,22 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
     )
     .limit(limit);
 
-/** The room the observer currently belongs in; rotation moves it (ADR 0099). */
+/**
+ * The room the observer currently belongs in; rotation moves it (ADR 0099).
+ * Once the session holds a post-round call's room the observer belongs
+ * nowhere: one statement, so no reader pairs that room with an older fact
+ * (ADR 0127).
+ */
 export const readBroadcastRoom = async (tx: Tx, roundId: string) => {
   const [session] = await tx
     .select({ roomName: mediaSessions.roomName })
     .from(mediaSessions)
-    .where(eq(mediaSessions.roundId, roundId));
+    .where(
+      and(
+        eq(mediaSessions.roundId, roundId),
+        isNull(mediaSessions.postRoundCallOpenedAt),
+      ),
+    );
   return session?.roomName ?? null;
 };
 

@@ -2,9 +2,13 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   ballotCategories,
   ballotRubric,
+  ballotRubrics,
+  ballotRubricVersion,
   ballotSchema,
   isLowPointWin,
+  rubricCategories,
   speakerTotal,
+  storedBallotSchema,
   type BallotCategory,
 } from './ballot';
 
@@ -17,7 +21,7 @@ const allAt = (score: number): Record<BallotCategory, number> =>
   >;
 
 const valid = {
-  rubricVersion: 'speaker-10@1',
+  rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
   scores: { affirmative: allAt(4), negative: allAt(3) },
   reason: 'The affirmative weighed exclusion against a fine.',
@@ -48,6 +52,70 @@ describe('ballotRubric', () => {
   });
 });
 
+describe('ballotRubrics', () => {
+  test('the current rubric', () => {
+    assert({
+      given: 'the current rubric version',
+      should:
+        'be the coherency rubric, grouped as Case, Clash, Cross-ex and Presentation',
+      actual: [
+        ballotRubricVersion,
+        ballotRubric.map((group) => group.name),
+        rubricCategories(ballotRubricVersion),
+      ],
+      expected: [
+        'speaker-10@2',
+        ['Case', 'Clash', 'Cross-ex', 'Presentation'],
+        [
+          'thesis',
+          'burdens',
+          'warrants',
+          'coherence',
+          'refutation',
+          'weighing',
+          'questioning',
+          'answering',
+          'organization',
+          'delivery',
+        ],
+      ],
+    });
+  });
+
+  test('history', () => {
+    assert({
+      given: 'the first rubric',
+      should: 'stay readable with its own ten categories',
+      actual: rubricCategories('speaker-10@1'),
+      expected: [
+        'thesis',
+        'framework',
+        'analysis',
+        'refutation',
+        'impact',
+        'weighing',
+        'questioning',
+        'answering',
+        'organization',
+        'delivery',
+      ],
+    });
+  });
+
+  test('anchors everywhere', () => {
+    assert({
+      given: 'every category of every version',
+      should: 'carry three anchors',
+      actual: Object.values(ballotRubrics).every((rubric) =>
+        rubric.every((group) =>
+          group.categories.every((category) => category.anchors.length === 3),
+        ),
+      ),
+      expected: true,
+    });
+  });
+});
+
 describe('ballotSchema', () => {
   test('a valid ballot', () => {
     assert({
@@ -69,11 +137,12 @@ describe('ballotSchema', () => {
       { reason: 'x'.repeat(601) },
       { feedback: { affirmative: 'x'.repeat(281) } },
       { rubricVersion: 'speaker-9@1' },
+      { rubricVersion: 'speaker-10@1' },
       { extra: true },
     ].map((change) => ballotSchema.safeParse({ ...valid, ...change }).success);
     assert({
       given:
-        'a draw, a score of 6, a missing category, an empty or long reason, long feedback, another rubric and an unknown field',
+        'a draw, a score of 6, a missing category, an empty or long reason, long feedback, an unknown rubric, the previous rubric and an unknown field',
       should: 'refuse each',
       actual: refused,
       expected: refused.map(() => false),
@@ -91,6 +160,54 @@ describe('ballotSchema', () => {
         },
       }).success,
       expected: true,
+    });
+  });
+});
+
+describe('storedBallotSchema', () => {
+  const v1Scores = (score: number) =>
+    Object.fromEntries(rubricCategories('speaker-10@1').map((c) => [c, score]));
+  const old = {
+    ...valid,
+    rubricVersion: 'speaker-10@1',
+    scores: { affirmative: v1Scores(4), negative: v1Scores(3) },
+  };
+
+  test('both versions', () => {
+    assert({
+      given: 'a current ballot and a ballot written on speaker-10@1',
+      should: 'read each on its own categories',
+      actual: [
+        storedBallotSchema.safeParse(valid).success,
+        storedBallotSchema.safeParse(old).success,
+      ],
+      expected: [true, true],
+    });
+  });
+
+  test('mixed versions', () => {
+    assert({
+      given:
+        'speaker-10@1 scores labelled as the current version, and the reverse',
+      should: 'refuse both',
+      actual: [
+        storedBallotSchema.safeParse({ ...old, rubricVersion: 'speaker-10@2' })
+          .success,
+        storedBallotSchema.safeParse({
+          ...valid,
+          rubricVersion: 'speaker-10@1',
+        }).success,
+      ],
+      expected: [false, false],
+    });
+  });
+
+  test('old totals', () => {
+    assert({
+      given: 'a speaker-10@1 side scored 4 everywhere',
+      should: 'total 40',
+      actual: speakerTotal(v1Scores(4)),
+      expected: 40,
     });
   });
 });

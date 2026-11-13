@@ -33,7 +33,8 @@ export {
 } from './round-incident-decision';
 export type { MediaObservation } from './round-incident-decision';
 export { mediaGrants, changedMediaGrants } from './media-grants';
-export { mediaWindowClosed } from './media-window';
+export { mediaPhase, mediaWindowClosed } from './media-window';
+export { nextRoomVacancy, postRoundCallGrants } from './post-round-call';
 export { mediaRoomFate, mediaRoomLost } from './media-room-fate';
 export type { RoundMediaGrants } from './media-grants';
 export type { RoundCommand, RoundPosition } from '@daisy/protocol';
@@ -50,6 +51,7 @@ export {
   ratingAwaited,
   ratingEligibility,
 } from './rating-decision';
+export { namesHumanJudge, type JudgeNamingFacts } from './room-assembly-facts';
 export {
   eraseSeats,
   executeRoomCommand,

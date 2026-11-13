@@ -151,6 +151,15 @@ test('judging names why a Round’s end ended a job', () => {
   });
 });
 
+test('a window holds the three coherency stages and one retry, within finite lifetime spending', () => {
+  assert({
+    given: 'the judging policy (ADR 0125)',
+    should: 'allow 4 paid calls per window and 24 over a job’s lifetime',
+    actual: [judgingPolicy.maxPaidCalls, judgingPolicy.maxAutomaticPaidCalls],
+    expected: [4, 24],
+  });
+});
+
 test('recovery releases attempt capacity and bounds automatic lifetime spending', () => {
   const input = {
     totalPaidCalls: 0,
@@ -165,11 +174,19 @@ test('recovery releases attempt capacity and bounds automatic lifetime spending'
     actual: [
       planJudgingRecovery(input, 1_000),
       planJudgingRecovery(
-        { ...input, totalPaidCalls: 2, windowPaidCalls: 2 },
+        {
+          ...input,
+          totalPaidCalls: judgingPolicy.maxPaidCalls,
+          windowPaidCalls: judgingPolicy.maxPaidCalls,
+        },
         1_000,
       ),
       planJudgingRecovery(
-        { ...input, totalPaidCalls: 12, windowPaidCalls: 2 },
+        {
+          ...input,
+          totalPaidCalls: judgingPolicy.maxPaidCalls * 5,
+          windowPaidCalls: judgingPolicy.maxPaidCalls,
+        },
         1_000,
       ),
       planJudgingRecovery(

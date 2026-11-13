@@ -39,7 +39,7 @@ export const fixtureBallot = (
   reason: string,
   winner: Ballot['winner'] = 'affirmative',
 ): Ballot => ({
-  rubricVersion: 'speaker-10@1',
+  rubricVersion: 'speaker-10@2',
   winner,
   reason,
   feedback: {},

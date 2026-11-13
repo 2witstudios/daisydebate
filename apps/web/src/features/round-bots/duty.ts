@@ -40,7 +40,7 @@ export type Duty =
   | { readonly status: 'over' };
 
 /** What a waiting bot gave way to a peer's speech. */
-export type Yielded =
+type Yielded =
   /** Its audio: `peer` talked over it, and it answers what they said. */
   | { readonly kind: 'audio'; readonly peer: string }
   /**
@@ -155,7 +155,7 @@ const yieldedTo = (yielded: Yielded): Duty => ({
  * frame to last, so the bound sits inside that range on purpose: the
  * shortest of them are let go rather than every cough answered (DEC-398).
  */
-export const BRIEF_TURN_MS = 400;
+const BRIEF_TURN_MS = 400;
 /** A turn newly owed: nothing spent, nothing to wait for. */
 const owe = (to: Owed): Duty => ({
   status: 'owed',

@@ -14,15 +14,15 @@ export const sampleBallotDebaters: BallotDebaters = {
 
 /** A person's sample ballot for a round the affirmative won. */
 export const sampleJudgeBallot: Ballot = {
-  rubricVersion: 'speaker-10@1',
+  rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
   scores: {
     affirmative: {
       thesis: 4,
-      framework: 4,
-      analysis: 3,
+      burdens: 4,
+      warrants: 3,
+      coherence: 4,
       refutation: 3,
-      impact: 4,
       weighing: 3,
       questioning: 4,
       answering: 3,
@@ -31,10 +31,10 @@ export const sampleJudgeBallot: Ballot = {
     },
     negative: {
       thesis: 3,
-      framework: 4,
-      analysis: 4,
+      burdens: 4,
+      warrants: 4,
+      coherence: 3,
       refutation: 4,
-      impact: 3,
       weighing: 2,
       questioning: 3,
       answering: 4,

@@ -3,9 +3,10 @@ import { headers } from 'next/headers';
 import { systemId } from '@daisy/clock';
 import { processRoute } from '../../../../../server/process-app';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
-import { submitFloorMessage } from '../../../../../features/messaging/round-floor/form';
-import type { FloorFormState } from '../../../../../features/messaging/round-floor/form-state';
-import { submitFloorChange } from '../../../../../features/messaging/round-floor/change-form';
+import { submitContextChatMessage } from '../../../../../features/messaging/context-chat/form';
+import type { ContextChatFormState } from '../../../../../features/messaging/context-chat/form-state';
+import { submitContextChatChange } from '../../../../../features/messaging/context-chat/change-form';
+import { roundFloorContext } from '../../../../../features/messaging/round-floor/floor-context';
 const send = processRoute(
   (routes) => (request) =>
     routes.roundFloor.send(
@@ -37,12 +38,13 @@ const report = processRoute(
 export async function sendFloorMessageAction(
   roundId: string,
   channelId: string,
-  previous: FloorFormState,
+  previous: ContextChatFormState,
   form: FormData,
-): Promise<FloorFormState> {
-  return submitFloorMessage(
+): Promise<ContextChatFormState> {
+  return submitContextChatMessage(
+    roundFloorContext,
     inProcessFetch(send, new Headers(await headers())),
-    { roundId, channelId },
+    { ownerId: roundId, channelId },
     previous,
     form,
     () => systemId.next(),
@@ -51,14 +53,15 @@ export async function sendFloorMessageAction(
 export async function mutateFloorMessageAction(
   roundId: string,
   channelId: string,
-  previous: FloorFormState,
+  previous: ContextChatFormState,
   form: FormData,
-): Promise<FloorFormState> {
+): Promise<ContextChatFormState> {
   const incoming = new Headers(await headers());
-  return submitFloorChange(
+  return submitContextChatChange(
+    roundFloorContext,
     (kind, url, init) =>
       inProcessFetch(kind === 'edit' ? edit : remove, incoming)(url, init),
-    { roundId, channelId },
+    { ownerId: roundId, channelId },
     previous,
     form,
     () => systemId.next(),
@@ -67,13 +70,14 @@ export async function mutateFloorMessageAction(
 export async function reportFloorMessageAction(
   roundId: string,
   channelId: string,
-  previous: FloorFormState,
+  previous: ContextChatFormState,
   form: FormData,
-): Promise<FloorFormState> {
+): Promise<ContextChatFormState> {
   const incoming = new Headers(await headers());
-  return submitFloorChange(
+  return submitContextChatChange(
+    roundFloorContext,
     (_kind, url, init) => inProcessFetch(report, incoming)(url, init),
-    { roundId, channelId },
+    { ownerId: roundId, channelId },
     previous,
     form,
     () => systemId.next(),
@@ -90,7 +94,7 @@ const discover = processRoute(
 );
 export async function discoverFloor(roundId: string): Promise<Response> {
   return inProcessFetch(discover, new Headers(await headers()))(
-    `/api/rounds/${roundId}/floor`,
+    roundFloorContext.address(roundId),
     { method: 'GET' },
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 import '../../lib/zod-jitless';
 import Link from 'next/link';
-import { useCallback, useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import type { RoundRead } from '../../features/round-runtime/read-round';
@@ -29,6 +29,8 @@ import { MediaPageLink } from '../round-media/media-page-link';
 import { ObservedSpeechOrder } from '../round-observed/speech-order';
 import { buttonClass } from '../components/button/button-class';
 import { JudgeNow } from './judge-now';
+import { RoundClock } from '../debate-room/round-clock';
+import { postRoundCallEndsAtMs } from '../../features/post-round-call/offered';
 
 const eyebrowClass = 'text-xs font-bold tracking-wide text-ink-muted uppercase';
 const cardClass = 'rounded-xl border border-border bg-surface-raised';
@@ -71,6 +73,8 @@ export function LiveJudgeRoom({
   const view = synced.value;
   const now = useSecond(renderedAtMs, roundTime);
   const tab = useRoundMediaTab(actorId, view);
+  const [callEnded, setCallEnded] = useState(false);
+  const endCall = useCallback(() => setCallEnded(true), []);
   const media = useMemo(
     () =>
       roundMediaSlot({
@@ -79,10 +83,13 @@ export function LiveJudgeRoom({
         actorId,
         tab,
         onAccountChanged: clearAccountResumeRecords,
+        onCallEnded: endCall,
       }),
-    [refresh, roundTime, actorId, tab],
+    [refresh, roundTime, actorId, tab, endCall],
   );
-  const ended = useRoundEndedRoute(view);
+  const callEndsAtMs = postRoundCallEndsAtMs(view);
+  const onCall = !callEnded && callEndsAtMs !== null && now < callEndsAtMs;
+  const ended = useRoundEndedRoute(view, onCall);
   if (ended)
     return (
       <RoundEndedNotice
@@ -94,6 +101,74 @@ export function LiveJudgeRoom({
         }
       />
     );
+  const header = (
+    <div className="flex flex-wrap items-center gap-2">
+      <h1 className="font-display text-2xl font-semibold">
+        You’re judging this round
+      </h1>
+      <Link
+        href="/lobby"
+        prefetch={false}
+        onClick={() => leaveRound(actorId, view.id)}
+        className="ml-auto inline-flex min-h-room-target items-center font-strong"
+      >
+        Back to the lobby
+      </Link>
+    </div>
+  );
+  const resolution = (
+    <section aria-labelledby="judge-resolution" className={`${cardClass} p-5`}>
+      <h2 id="judge-resolution" className={eyebrowClass}>
+        Resolution
+      </h2>
+      <p className="font-display text-xl wrap-anywhere">
+        {view.topic ?? drawnTopicLabel}
+      </p>
+      <p className="text-sm text-ink-muted">
+        The Affirmative argues for it; the Negative argues against it.
+      </p>
+    </section>
+  );
+  // The post-round call: the same room, with the Round's own steps behind it.
+  if (onCall)
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-dash-column flex-col gap-4 p-4">
+        {header}
+        {resolution}
+        <FreshnessNotice freshness={synced.freshness} noun="round" />
+        <section
+          aria-labelledby="judge-call"
+          className={`${cardClass} flex flex-wrap items-start justify-between gap-4 p-5`}
+        >
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <p className={eyebrowClass}>Now</p>
+            <h2
+              id="judge-call"
+              className="font-display text-2xl font-semibold wrap-anywhere"
+            >
+              The round is over
+            </h2>
+            <p className="text-base">
+              The call is open. The debaters can see and hear you. Not recorded.
+            </p>
+          </div>
+          <RoundClock
+            label="Call ends"
+            remainingMs={callEndsAtMs - now}
+            className="flex flex-col items-end leading-tight"
+          />
+        </section>
+        {media(view)}
+        <nav aria-label="Ballot and result" className="flex flex-wrap gap-4">
+          <MediaPageLink
+            href={`/rounds/${view.id}`}
+            className="inline-flex min-h-room-target items-center font-strong"
+          >
+            View the round result
+          </MediaPageLink>
+        </nav>
+      </div>
+    );
   const observed = observedRoundOf(view, now);
   const stage = judgeRoomStageOf(observed, {
     drawSize: view.opening?.draw?.drawSize ?? null,
@@ -104,33 +179,8 @@ export function LiveJudgeRoom({
   const ballotFirst = judging && judgeBallotDue(view.waitingOn?.state ?? null);
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-dash-column flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="font-display text-2xl font-semibold">
-          You’re judging this round
-        </h1>
-        <Link
-          href="/lobby"
-          prefetch={false}
-          onClick={() => leaveRound(actorId, view.id)}
-          className="ml-auto inline-flex min-h-room-target items-center font-strong"
-        >
-          Back to the lobby
-        </Link>
-      </div>
-      <section
-        aria-labelledby="judge-resolution"
-        className={`${cardClass} p-5`}
-      >
-        <h2 id="judge-resolution" className={eyebrowClass}>
-          Resolution
-        </h2>
-        <p className="font-display text-xl wrap-anywhere">
-          {view.topic ?? drawnTopicLabel}
-        </p>
-        <p className="text-sm text-ink-muted">
-          The Affirmative argues for it; the Negative argues against it.
-        </p>
-      </section>
+      {header}
+      {resolution}
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <RoundTimeNotice roundTime={roundTime} />
       <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />

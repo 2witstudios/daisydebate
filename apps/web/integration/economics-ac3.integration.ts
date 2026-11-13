@@ -138,20 +138,26 @@ test('actual composed AI workers observe increasing beta workload separately fro
             failures.length,
           ],
           expected: [
+            // Coherency judging buys three stages per judged Round, one
+            // reservation each Round (ADR 0125); analysis buys one call.
             (['casual_ai_judge', 'round_analysis'] as const).flatMap(
               (feature) =>
-                [1, 2].map((calls) => ({
-                  feature,
-                  calls,
-                  complete: calls,
-                  observed: {
+                [1, 2].map((rounds) => {
+                  const calls =
+                    feature === 'casual_ai_judge' ? rounds * 3 : rounds;
+                  return {
+                    feature,
                     calls,
-                    known: calls,
-                    unknown: 0,
-                    peak: 1,
-                    active: 0,
-                  },
-                })),
+                    complete: rounds,
+                    observed: {
+                      calls,
+                      known: calls,
+                      unknown: 0,
+                      peak: 1,
+                      active: 0,
+                    },
+                  };
+                }),
             ),
             beforeReread,
             0,
@@ -258,7 +264,8 @@ test('actual composed AI workers observe increasing beta workload separately fro
             ai: capacity.map((row) => ({
               ...row,
               completed: 2,
-              possibleCalls: 2,
+              // Two judged Rounds of three coherency stages each (ADR 0125).
+              possibleCalls: row.feature === 'casual_ai_judge' ? 6 : 2,
             })),
             attemptSources: ['beta'],
             usageSources: ['beta'],

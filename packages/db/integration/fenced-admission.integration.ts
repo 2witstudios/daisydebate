@@ -1,4 +1,4 @@
-import { mediaWindowClosed } from '@daisy/debate-engine';
+import { mediaPhase } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -44,7 +44,7 @@ async function liveRound(fixture: Fixture) {
   const media = mediaTestStore(fixture.sql);
   const bind = (actorId: string) =>
     media.ensureBinding({
-      mediaWindowClosed,
+      mediaPhase,
       roundId,
       caller: { actorId, admits: admitsPrincipalAccess },
       buildProjection,
