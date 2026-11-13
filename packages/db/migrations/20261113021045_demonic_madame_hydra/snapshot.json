@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ec038e25-5d90-4b3d-a61d-4797caac7de6",
+  "id": "5d9b2236-0dde-4f7f-a84f-98c8d15869f5",
   "prevIds": [
-    "876d02b8-7b06-4cb5-95ac-1ce49d252944"
+    "3cda3864-2a69-48ae-bc64-a14b760dc3c1"
   ],
   "ddl": [
     {
@@ -6279,6 +6279,19 @@
     {
       "type": "text",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "room_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -12261,6 +12274,19 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
+      "default": "'final'",
+      "generated": null,
+      "identity": null,
+      "name": "stage",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
@@ -12486,6 +12512,71 @@
       "generated": null,
       "identity": null,
       "name": "pending_ballot_received_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "first_ballot",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "first_ballot_received_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "first_ballot_failed",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "case_map",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "case_map_received_at",
       "entityType": "columns",
       "schema": "public",
       "table": "round_judging_jobs"
@@ -17931,6 +18022,34 @@
       "method": "btree",
       "concurrently": false,
       "name": "messaging_channels_round_kind_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "room_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "messaging_channels_room_kind_unique",
       "entityType": "indexes",
       "schema": "public",
       "table": "messaging_channels"
@@ -23998,6 +24117,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "room_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rooms",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "messaging_channels_room_id_rooms_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "channel_id"
       ],
       "schemaTo": "public",
@@ -28567,7 +28703,7 @@
       "table": "ballots"
     },
     {
-      "value": "\"rubric_version\" = 'speaker-10@1'",
+      "value": "\"rubric_version\" in ('speaker-10@1', 'speaker-10@2')",
       "name": "ballots_rubric_version_check",
       "entityType": "checks",
       "schema": "public",
@@ -29512,7 +29648,7 @@
       "table": "messaging_channel_streams"
     },
     {
-      "value": "\"kind\" in ('dm', 'private_group', 'round_floor', 'round_spectator')",
+      "value": "\"kind\" in ('dm', 'private_group', 'round_floor', 'round_spectator', 'room_community')",
       "name": "messaging_channels_kind",
       "entityType": "checks",
       "schema": "public",
@@ -29526,6 +29662,13 @@
       "table": "messaging_channels"
     },
     {
+      "value": "(\"kind\" = 'room_community') = (\"room_id\" is not null)",
+      "name": "messaging_channels_room",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_channels"
+    },
+    {
       "value": "\"lifecycle\" in ('active', 'archived', 'retained')",
       "name": "messaging_channels_lifecycle",
       "entityType": "checks",
@@ -29533,7 +29676,7 @@
       "table": "messaging_channels"
     },
     {
-      "value": "\"policy_revision\" > 0 and ((\"kind\" = 'dm' and \"policy_key\" = 'social.dm') or (\"kind\" = 'private_group' and \"policy_key\" = 'social.private_group') or (\"kind\" = 'round_floor' and \"policy_key\" = 'round.floor') or (\"kind\" = 'round_spectator' and \"policy_key\" = 'round.spectator'))",
+      "value": "\"policy_revision\" > 0 and ((\"kind\" = 'dm' and \"policy_key\" = 'social.dm') or (\"kind\" = 'private_group' and \"policy_key\" = 'social.private_group') or (\"kind\" = 'round_floor' and \"policy_key\" = 'round.floor') or (\"kind\" = 'round_spectator' and \"policy_key\" = 'round.spectator') or (\"kind\" = 'room_community' and \"policy_key\" = 'room.community'))",
       "name": "messaging_channels_policy",
       "entityType": "checks",
       "schema": "public",
@@ -30940,6 +31083,13 @@
       "table": "round_judging_attempts"
     },
     {
+      "value": "\"stage\" in ('first', 'map', 'final')",
+      "name": "round_judging_attempts_stage_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_attempts"
+    },
+    {
       "value": "\"category\" is null or \"category\" in ('invalid_json', 'schema_rejected', 'truncated', 'refused', 'provider_refused', 'provider_error', 'timeout')",
       "name": "round_judging_attempts_category_check",
       "entityType": "checks",
@@ -30956,6 +31106,34 @@
     {
       "value": "jsonb_typeof(\"pending_ballot\") = 'object'",
       "name": "round_judging_jobs_pending_ballot_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "jsonb_typeof(\"first_ballot\") = 'object'",
+      "name": "round_judging_jobs_first_ballot_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "jsonb_typeof(\"case_map\") = 'object'",
+      "name": "round_judging_jobs_case_map_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "(\"first_ballot\" is null) = (\"first_ballot_received_at\" is null) and not (\"first_ballot\" is not null and \"first_ballot_failed\")",
+      "name": "round_judging_jobs_first_ballot_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "(\"case_map\" is null) = (\"case_map_received_at\" is null)",
+      "name": "round_judging_jobs_case_map_check",
       "entityType": "checks",
       "schema": "public",
       "table": "round_judging_jobs"
