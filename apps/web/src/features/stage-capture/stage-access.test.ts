@@ -43,7 +43,6 @@ test('observerAccess follows revocation, so a reconnect cannot bypass it', () =>
 });
 
 describe('stageSnapshot', () => {
-  const nowMs = Date.parse('2026-11-02T00:00:00.000Z');
   const seats = [
     {
       role: 'negative',
@@ -68,7 +67,7 @@ describe('stageSnapshot', () => {
     },
   ];
   const position = {
-    status: 'active',
+    status: 'active' as const,
     stage: null,
     prep: null,
     nextSegment: { type: 'speech', label: 'Rebuttal' },
@@ -82,7 +81,7 @@ describe('stageSnapshot', () => {
     },
   };
   test('a speech shows clock, phase, names and floor, and never a judge', () => {
-    const snapshot = stageSnapshot({ position, seats, nowMs });
+    const snapshot = stageSnapshot({ position, seats });
     assert({
       given: 'an open speech with a seated human judge',
       should:
@@ -126,41 +125,45 @@ describe('stageSnapshot', () => {
       const snapshot = stageSnapshot({
         position: { ...waiting, ...changed },
         seats,
-        nowMs,
       });
       return {
         phase: snapshot.phase,
-        endsAt: 'endsAt' in snapshot ? snapshot.endsAt : undefined,
+        remainingMs:
+          'remainingMs' in snapshot ? snapshot.remainingMs : undefined,
         next: 'next' in snapshot ? snapshot.next : undefined,
       };
     };
     const prep = { side: 'negative', remainingMs: 90_000 };
-    const none = { endsAt: undefined, next: undefined };
+    const none = { remainingMs: undefined, next: undefined };
     const next = { label: 'Rebuttal' };
     assert({
       given:
-        'prep, a countdown, a ballot awaited and no round; then prep spent, prep and a countdown under an incident, and a start held at zero',
+        'prep, a countdown, a ballot awaited, no round yet and a round that is over; then prep spent, prep and a countdown under an incident, and a start held at zero',
       should:
-        'end a running wait at the answer’s instant plus what is left, name the next speech, and give a stopped or spent wait no end',
+        'carry what is left of a running wait, name the next speech, tell a round that is over from one not begun, and give a stopped or spent wait nothing to count',
       actual: [
         view({ prep }),
         view({ countdownRemainingMs: 5_000 }),
         view({ stage: 'awaiting_ballot' }),
-        view({ nextSegment: null }),
+        view({ status: 'opening' }),
+        view({ status: 'completed', nextSegment: null }),
+        view({ status: 'abandoned' }),
         view({ prep: { ...prep, remainingMs: 0 } }),
         view({ prep, incident: { phase: 'paused' } }),
         view({ countdownRemainingMs: 5_000, incident: { phase: 'resuming' } }),
         view({ countdownRemainingMs: 0 }),
       ],
       expected: [
-        { phase: 'prep', endsAt: '2026-11-02T00:01:30.000Z', next: undefined },
-        { phase: 'between', endsAt: '2026-11-02T00:00:05.000Z', next },
+        { phase: 'prep', remainingMs: 90_000, next: undefined },
+        { phase: 'between', remainingMs: 5_000, next },
         { phase: 'judging', ...none },
         { phase: 'slate', ...none },
-        { phase: 'prep', endsAt: null, next: undefined },
-        { phase: 'prep', endsAt: null, next: undefined },
-        { phase: 'between', endsAt: null, next },
-        { phase: 'between', endsAt: null, next },
+        { phase: 'ended', ...none },
+        { phase: 'ended', ...none },
+        { phase: 'prep', remainingMs: null, next: undefined },
+        { phase: 'prep', remainingMs: null, next: undefined },
+        { phase: 'between', remainingMs: null, next },
+        { phase: 'between', remainingMs: null, next },
       ],
     });
   });
@@ -171,7 +174,6 @@ describe('stageSnapshot', () => {
       actual: stageSnapshot({
         position: { ...position, openSegment: null, nextSegment: null },
         seats,
-        nowMs,
       }).seats.some((s) => s.floor),
       expected: false,
     });

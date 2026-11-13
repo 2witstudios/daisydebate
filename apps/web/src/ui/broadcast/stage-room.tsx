@@ -179,17 +179,23 @@ export function StageRoom(props: {
   }, [props.captureId, props.credential]);
   const shown = stage !== null;
   useEffect(() => {
-    if (!shown || started.current) return;
+    if (!shown || started.current) return undefined;
     started.current = true;
+    let mounted = true;
     void whenFontsSettle({
       load: loadFrameFaces,
       wait: (ms) => new Promise((done) => setTimeout(done, ms)),
       limitMs: FONT_WAIT_MS,
     }).then(() => {
+      // A stage that ended while its faces loaded never asks Egress to start.
+      if (!mounted || watch.current.ended) return;
       // Egress waits for exactly this line before it records (awaitStartSignal).
       // eslint-disable-next-line no-console
       console.log('START_RECORDING');
     });
+    return () => {
+      mounted = false;
+    };
   }, [shown]);
   if (!stage) return null;
   return (

@@ -116,13 +116,14 @@ describe('applyStageSubscriptions', () => {
         log,
       ),
     ];
-    for (const phase of ['prep', 'judging', 'slate'] as const)
+    for (const phase of ['prep', 'judging', 'slate', 'ended'] as const)
       applyStageSubscriptions(held, ['aff'], phase);
     assert({
-      given: 'prep, judging and a slate, with a live subscription',
+      given:
+        'prep, judging, a slate and an ended round, with a live subscription',
       should: 'unsubscribe in each',
       actual: log.length,
-      expected: 6,
+      expected: 8,
     });
   });
 });

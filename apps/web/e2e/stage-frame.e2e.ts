@@ -38,7 +38,7 @@ test('the recorded frame is the brand’s slate, and recording starts once its f
 }) => {
   let phase: Readonly<Record<string, unknown>> = {
     phase: 'prep',
-    endsAt: soon(90_000),
+    remainingMs: 90_000,
   };
   await page.route('**/api/stage/e2e-frame', (route) =>
     route.fulfill({ json: answerWith(phase) }),
@@ -109,7 +109,7 @@ test('the recorded frame is the brand’s slate, and recording starts once its f
 
   phase = {
     phase: 'between',
-    endsAt: null,
+    remainingMs: null,
     next: { label: 'First negative rebuttal' },
   };
   await expect(

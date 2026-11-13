@@ -13,7 +13,8 @@
     "tsconfig.json",
     "bunfig.toml",
     ".env*",
-    ".bun-version"
+    ".bun-version",
+    "apps/web/src/app/globals.css"
   ],
   "globalEnv": ["NODE_ENV"],
   "globalPassThroughEnv": [

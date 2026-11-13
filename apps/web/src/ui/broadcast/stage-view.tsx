@@ -2,8 +2,8 @@ import type {
   StageSeatView,
   StageSnapshot,
 } from '../../features/stage-capture/stage-access';
+import { formatCountdown } from '../../lib/clock-display';
 import { Icon } from '../components/icon/icon';
-import { remaining } from './stage-clock';
 import { StageFooter } from './stage-footer';
 import { StageSeat } from './stage-seat';
 import { StageSlate } from './stage-slate';
@@ -36,7 +36,9 @@ export function StageView(props: {
         {speech ? (
           <>
             <span>{speech.clock.label}</span>
-            <strong>{remaining(speech.clock.endsAt, props.nowMs)}</strong>
+            <strong>
+              {formatCountdown(Date.parse(speech.clock.endsAt) - props.nowMs)}
+            </strong>
           </>
         ) : null}
       </header>
@@ -59,9 +61,7 @@ export function StageView(props: {
           </span>
         </p>
       ) : null}
-      {snapshot.phase === 'speech' ? null : (
-        <StageSlate snapshot={snapshot} nowMs={props.nowMs} />
-      )}
+      {snapshot.phase === 'speech' ? null : <StageSlate snapshot={snapshot} />}
       <StageFooter siteLink={props.siteLink} />
     </div>
   );

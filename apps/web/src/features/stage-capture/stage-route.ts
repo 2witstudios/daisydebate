@@ -77,7 +77,7 @@ export const createStageRoute =
     }).position(new Date(nowMs).toISOString());
     return Response.json(
       {
-        ...stageSnapshot({ position, seats: read.seats, nowMs }),
+        ...stageSnapshot({ position, seats: read.seats }),
         nowMs,
         // A Round that is over has no stage: its session's room may by now be a
         // post-round call's, which nothing ever observes (ADR 0127).

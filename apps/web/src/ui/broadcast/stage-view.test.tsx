@@ -30,7 +30,7 @@ const speech: StageSnapshot = {
 };
 const prep: StageSnapshot = {
   phase: 'prep',
-  endsAt: '2026-11-02T00:01:30.000Z',
+  remainingMs: 90_000,
   seats,
 };
 const render = (
@@ -136,7 +136,7 @@ test('a slate hides the tiles', () => {
 test('a slate counts down only to a deadline it has', () => {
   const between = {
     phase: 'between',
-    endsAt: '2026-11-02T00:00:07.000Z',
+    remainingMs: 6_400,
     next: { label: 'Rebuttal' },
     seats,
   } as const;
@@ -149,15 +149,30 @@ test('a slate counts down only to a deadline it has', () => {
       clockOf(render(prep)),
       clockOf(render(between)),
       render(between).includes('Next: Rebuttal'),
-      clockOf(render({ ...between, endsAt: null })),
+      clockOf(render({ ...between, remainingMs: null })),
       clockOf(render({ phase: 'judging', seats })),
       render({ phase: 'judging', seats }).includes('Judges are deciding'),
       clockOf(render({ phase: 'slate', seats })),
+      render({ phase: 'slate', seats }).includes('Starting soon'),
+      render({ phase: 'ended', seats }).includes('This debate has ended'),
+      render({ phase: 'ended', seats }).includes('Starting soon'),
       ['Affirmative', 'Ann', 'Negative', 'Ned'].every((fact) =>
         render({ phase: 'slate', seats }).includes(fact),
       ),
     ],
-    expected: ['1:30', '0:07', true, null, null, true, null, true],
+    expected: [
+      '1:30',
+      '0:07',
+      true,
+      null,
+      null,
+      true,
+      null,
+      true,
+      true,
+      false,
+      true,
+    ],
   });
 });
 

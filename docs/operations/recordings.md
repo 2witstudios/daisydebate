@@ -34,8 +34,10 @@ recording, never a media failure.
 The frame is one look across everything a viewer sees. The stage page draws speeches
 and slates from the stage tokens in `globals.css` (`--stage-frame`, `--surface-stage`
 and their neighbours), which read the same in both schemes because the frame never
-follows a theme. A slate shows a countdown only where the Round has a deadline:
-preparation and the wait between speeches, which also names the next speech. The stage
+follows a theme. A slate counts down only while a wait's clock is running: preparation
+and the wait between speeches, which also names the next speech. A start held for
+capture, spent preparation and a clock stopped by an incident show no clock, and a
+Round that is over reads "This debate has ended", not "Starting soon". The stage
 signals Egress to start once its faces have loaded, or after two seconds without them.
 Two frames are drawn outside the page and must match its slate's ground:
 

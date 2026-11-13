@@ -141,6 +141,12 @@ const durationOf = async (path: string) => {
   return parseFloat(text);
 };
 
+/**
+ * Between the gap slate's ground (green near 59) and an attempt's picture (pure green,
+ * 128), so neither an encoder's rounding nor a redrawn slate sits on the line.
+ */
+const SLATE_BELOW_PICTURE_ABOVE = 95;
+
 /** The mean green level of the frame at this second: 0 to 255. */
 const greenAt = async (path: string, seconds: number) => {
   const frame = join(root, `frame-${Bun.randomUUIDv7()}.rgb`);
@@ -190,9 +196,9 @@ test('what is not public is cut from a whole attempt, stated, and never built', 
       media.gaps.map((one) => one.reason),
       Math.abs(gap!.startMs - 10_000) < 200,
       Math.abs(gap!.endMs - 14_000) < 200,
-      (await greenAt(video, 12)) < 60,
-      (await greenAt(video, 9)) > 60,
-      (await greenAt(video, 15)) > 60,
+      (await greenAt(video, 12)) < SLATE_BELOW_PICTURE_ABOVE,
+      (await greenAt(video, 9)) > SLATE_BELOW_PICTURE_ABOVE,
+      (await greenAt(video, 15)) > SLATE_BELOW_PICTURE_ABOVE,
     ],
     expected: [['not_public'], true, true, true, true, true],
   });
@@ -257,9 +263,9 @@ test('a crashed attempt, a gap and a clean attempt become one honest video', asy
     given: 'the whole video a subscriber downloads',
     should: 'show the attempts and, between them, not their picture',
     actual: [
-      (await greenAt(video, 4)) > 60,
-      (await greenAt(video, 14)) < 60,
-      (await greenAt(video, 24)) > 60,
+      (await greenAt(video, 4)) > SLATE_BELOW_PICTURE_ABOVE,
+      (await greenAt(video, 14)) < SLATE_BELOW_PICTURE_ABOVE,
+      (await greenAt(video, 24)) > SLATE_BELOW_PICTURE_ABOVE,
       Math.abs((await durationOf(video)) - 28) < 1,
     ],
     expected: [true, true, true, true],

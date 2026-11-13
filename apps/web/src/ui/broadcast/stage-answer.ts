@@ -14,8 +14,9 @@ const fieldsOf = (value: unknown): Readonly<Record<string, unknown>> | null =>
     : null;
 
 const isText = (value: unknown) => typeof value === 'string';
-/** A wait's end, or null for a wait that is not counting down; never absent. */
-const isWaitEnd = (value: unknown) => value === null || isText(value);
+/** What is left of a wait, or null for a wait that is not counting down; never absent. */
+const isWaitLeft = (value: unknown) =>
+  value === null || typeof value === 'number';
 
 /** Whether an answer carries what its own phase shows. */
 const showsItsPhase = (answer: Readonly<Record<string, unknown>>) => {
@@ -25,11 +26,14 @@ const showsItsPhase = (answer: Readonly<Record<string, unknown>>) => {
       return isText(clock?.label) && isText(clock?.endsAt);
     }
     case 'prep':
-      return isWaitEnd(answer.endsAt);
+      return isWaitLeft(answer.remainingMs);
     case 'between':
-      return isWaitEnd(answer.endsAt) && isText(fieldsOf(answer.next)?.label);
+      return (
+        isWaitLeft(answer.remainingMs) && isText(fieldsOf(answer.next)?.label)
+      );
     case 'judging':
     case 'slate':
+    case 'ended':
       return true;
     default:
       return false;

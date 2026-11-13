@@ -1,4 +1,5 @@
 import { CryptoHasher } from 'bun';
+import { isRoundOver, type RoundStatus } from '@daisy/protocol';
 
 /** A CSPRNG secret for one Egress's stage page; only its hash is ever stored. */
 export const credentialHash = (secret: string) =>
@@ -27,7 +28,7 @@ export const observerAccess = (capture: {
 }) => ({ canSubscribe: capture.observerRevokedAt === null });
 
 type StagePosition = {
-  readonly status: string;
+  readonly status: RoundStatus;
   readonly stage: string | null;
   readonly prep: { readonly side: string; readonly remainingMs: number } | null;
   readonly nextSegment: {
@@ -73,50 +74,44 @@ export type StageSeatView = {
 
 /**
  * What one phase of the stage can show, and nothing it cannot: only a speech has a
- * labelled clock, only a wait whose clock is running down has an end, and only the
- * wait between speeches knows what comes next.
+ * labelled clock, only a wait has time left, and only the wait between speeches knows
+ * what comes next. A Round that is over is `ended`, never the `slate` before it began.
  */
 export type StagePhaseView =
   | {
       readonly phase: 'speech';
       readonly clock: { readonly label: string; readonly endsAt: string };
     }
-  | { readonly phase: 'prep'; readonly endsAt: string | null }
+  | { readonly phase: 'prep'; readonly remainingMs: number | null }
   | {
       readonly phase: 'between';
-      readonly endsAt: string | null;
+      readonly remainingMs: number | null;
       readonly next: { readonly label: string };
     }
   | { readonly phase: 'judging' }
-  | { readonly phase: 'slate' };
+  | { readonly phase: 'slate' }
+  | { readonly phase: 'ended' };
 
 export type StageSnapshot = StagePhaseView & {
   readonly seats: readonly StageSeatView[];
 };
 
 /**
- * When a wait ends, or null when nothing on the frame should count down: an incident
- * has stopped the clock, or the time is spent and the Round is held (a speech's start
- * waits for capture at zero), where a burned-in 0:00 would only look stuck. The end is
- * the answer's own instant plus what is left.
+ * What is left of a wait, or null when nothing on the frame should count down: an
+ * incident has stopped the clock, or the time is spent and the Round is held (a
+ * speech's start waits for capture at zero), where a burned-in 0:00 would only look
+ * stuck.
  */
-const waitEnd = (
-  position: StagePosition,
-  remainingMs: number | null,
-  nowMs: number,
-) =>
+const waitLeft = (position: StagePosition, remainingMs: number | null) =>
   position.incident.phase !== 'none' || remainingMs === null || remainingMs <= 0
     ? null
-    : new Date(nowMs + remainingMs).toISOString();
+    : remainingMs;
 
-const phaseViewOf = (
-  position: StagePosition,
-  nowMs: number,
-): StagePhaseView => {
+const phaseViewOf = (position: StagePosition): StagePhaseView => {
   if (position.prep)
     return {
       phase: 'prep',
-      endsAt: waitEnd(position, position.prep.remainingMs, nowMs),
+      remainingMs: waitLeft(position, position.prep.remainingMs),
     };
   if (position.stage === 'awaiting_ballot') return { phase: 'judging' };
   if (position.openSegment)
@@ -127,11 +122,12 @@ const phaseViewOf = (
         endsAt: position.openSegment.endsAt,
       },
     };
+  if (isRoundOver(position.status)) return { phase: 'ended' };
   if (position.status !== 'active' || !position.nextSegment)
     return { phase: 'slate' };
   return {
     phase: 'between',
-    endsAt: waitEnd(position, position.countdownRemainingMs, nowMs),
+    remainingMs: waitLeft(position, position.countdownRemainingMs),
     next: { label: position.nextSegment.label },
   };
 };
@@ -140,15 +136,13 @@ const phaseViewOf = (
 export const stageSnapshot = (input: {
   readonly position: StagePosition;
   readonly seats: readonly StageSeat[];
-  /** The instant the position was read at. */
-  readonly nowMs: number;
 }): StageSnapshot & { readonly debaterIdentities: readonly string[] } => {
   const open = input.position.openSegment;
   const debaters = input.seats
     .filter((seat) => seat.role === 'affirmative' || seat.role === 'negative')
     .sort(stageOrder);
   return {
-    ...phaseViewOf(input.position, input.nowMs),
+    ...phaseViewOf(input.position),
     seats: debaters.map((seat) => ({
       side: seat.role as 'affirmative' | 'negative',
       label: seat.label,
