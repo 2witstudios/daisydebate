@@ -117,7 +117,10 @@ const roundViewFields = z.strictObject({
   participants: z.array(z.union([seatSchema, anonymousJudgeSchema])).readonly(),
   startedAt: instant.nullable(),
   completedAt: instant.nullable(),
-  /** The call stays open after this Round completes (ADR 0127), frozen at Start round. */
+  /**
+   * The post-round call (ADR 0127): frozen at Start round, and false again once
+   * a completed Round's media session has ended, since the call ended with it.
+   */
   postRoundCall: z.boolean(),
   outcome: roundOutcomeSchema.nullable(),
   /** The panel completion's ruling, from its durable receipt; null for any other completion. */

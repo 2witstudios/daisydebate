@@ -29,7 +29,10 @@ import {
 import type { RoundFormState } from '../../features/round-runtime/command-form';
 import type { FormAction } from '../form-action/form-action';
 import { OpeningChosen, OpeningStrike } from './opening-strike';
-import { RoundCommandActions } from './round-command-actions';
+import {
+  CALL_RESULT_LINK_ID,
+  RoundCommandActions,
+} from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
 import { RoundEndedNotice } from './round-ended';
 import { useSecond } from './use-second';
@@ -232,6 +235,7 @@ export function LiveRoundRoom({
             actions={
               onCall ? (
                 <MediaPageLink
+                  id={CALL_RESULT_LINK_ID}
                   href={`/rounds/${view.id}`}
                   className={buttonClass('primary')}
                 >

@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 
@@ -37,6 +38,31 @@ test('a casual host’s post-round call choice is kept on the Room and frozen on
         read.postRoundCall,
       ],
       expected: [true, false, true, true, true],
+    });
+  });
+});
+
+test('a completed Round offers its call only while its media session lasts', async () => {
+  await withRoomRuntime(async (f) => {
+    let view = await f.assemble({ postRoundCall: true });
+    for (const seat of [f.host, f.guest])
+      view = (await f.consent(seat, view, 'ready')).view;
+    const launched = await f.command(f.host, view, { type: 'start-round' });
+    const roundId = launched.view.roundRef!.id;
+    await f.sql`update rounds set status='completed', current_stage=null, started_at=coalesce(started_at, created_at), completed_at=clock_timestamp() where id=${roundId}`;
+    const read = async () =>
+      (await f.roundView(f.guest, roundId)).postRoundCall;
+    const neverConnected = await read();
+    await f.sql`insert into media_sessions (id, round_id, room_name) values (${createId()}, ${roundId}, ${createId()})`;
+    const onCall = await read();
+    await f.sql`update media_sessions set ended_at=clock_timestamp() where round_id=${roundId}`;
+    const ended = await read();
+    assert({
+      given:
+        'a completed Round with the call chosen: nobody ever connected, then a live media session, then that session ended',
+      should: 'offer the call only while the session lasts',
+      actual: [neverConnected, onCall, ended],
+      expected: [false, true, false],
     });
   });
 });

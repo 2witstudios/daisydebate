@@ -101,16 +101,25 @@ export const shownError = (
     ? undefined
     : roundFormFields(answer).error;
 
-/** Where focus goes after an answer: what the answer shows, else its control. */
+/** The result link that takes the commands' place on a post-round call. */
+export const CALL_RESULT_LINK_ID = 'round-call-result';
+
+/**
+ * Where focus goes after an answer: what the answer shows, else its control.
+ * On a post-round call the controls are gone, so it goes to what replaced them.
+ */
 export const answerFocusTarget = (
   answer: RoundFormState,
   view: Pick<RoundView, 'opening'>,
   feedback: string,
   control: string,
-) =>
-  shownError(answer, view)
-    ? feedback
+  onCall = false,
+) => {
+  if (shownError(answer, view)) return feedback;
+  return onCall
+    ? CALL_RESULT_LINK_ID
     : `${control}-${roundFormFields(answer).values.type}`;
+};
 
 /** Feedback survives a canonical revision that removes the submitted action. */
 export function RoundCommandActions({
@@ -164,7 +173,7 @@ export function RoundCommandActions({
   const answered = useMemo(() => ({ answer, live }), [answer, live]);
   useFocusAfterAnswer(
     answered,
-    answerFocusTarget(answer, view, feedback, control),
+    answerFocusTarget(answer, view, feedback, control, onCall),
     !pending,
   );
   const actions = !lost ? (
