@@ -102,6 +102,7 @@ for (const stage of ['after-claim', 'after-revoke', 'after-complete'] as const)
     );
   });
 
+// Its own wait for the retirement is 6 s, past the runner's default 5 s.
 test('actual custody lock outage keeps retiring debt and a fresh scheduled worker makes progress after recovery', async () => {
   await withEvidenceIngress(
     async ({ f, dir, capture, custody, body, authority }) => {
@@ -192,4 +193,4 @@ test('actual custody lock outage keeps retiring debt and a fresh scheduled worke
       }
     },
   );
-});
+}, 30000);
