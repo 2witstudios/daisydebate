@@ -31,6 +31,20 @@ answers in order and drops a late, older one. Until a room is joined, a speech s
 "Reconnecting to the debate" with its tiles hidden. Only the stage watch ends the
 recording, never a media failure.
 
+The frame is one look across everything a viewer sees. The stage page draws speeches
+and slates from the stage tokens in `globals.css` (`--stage-frame`, `--surface-stage`
+and their neighbours), which read the same in both schemes because the frame never
+follows a theme. A slate shows a countdown only where the Round has a deadline:
+preparation and the wait between speeches, which also names the next speech. The stage
+signals Egress to start once its faces have loaded, or after two seconds without them.
+Two frames are drawn outside the page and must match its slate's ground:
+
+- The broadcast worker's private span is a flat frame of `STAGE_SLATE_COLOUR`
+  (`apps/broadcast-worker/src/encoder.ts`), which a test pins to `--surface-stage`.
+- The Recording's gap slate, `apps/recording-worker/assets/gap-slate.png`, is drawn by
+  `bun apps/web/scripts/gap-slate.ts` from the same tokens, faces and mark. Run it and
+  commit the PNG after the slate's look changes.
+
 Every Egress attempt writes under its own number in the private hold bucket:
 `hold/<broadcastId>/<attempt>/`, or `recording-hold/<recordingId>/<attempt>/` for an own
 capture. A crash starts the next attempt. The web's sweep (one pass a second) records

@@ -49,6 +49,7 @@
     flex: 1;
     grid-template-rows: 1fr 52px;
     min-width: 0;
+    container-type: inline-size;
   }
 }
 /* The speaker's ring is an outline, drawn outside the tile, so it covers no video. */
@@ -110,6 +111,12 @@
   }
   & > span {
     color: var(--stage-accent);
+  }
+  /* Four seats leave no room for the word: the ring, the weight and the mark still say it. */
+  @container (max-width: 400px) {
+    & em {
+      display: none;
+    }
   }
   &[data-floor='true'] p {
     color: var(--stage-text);
