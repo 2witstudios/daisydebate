@@ -35,6 +35,7 @@ export default defineConfig({
     '**/attendance.e2e.ts',
     '**/round-media.e2e.ts',
     '**/round-media-recovery.e2e.ts',
+    '**/post-round-call.e2e.ts',
     '**/round-media-source-isolation.e2e.ts',
     '**/round-media-lifecycle.e2e.ts',
     '**/media-stage.e2e.ts',

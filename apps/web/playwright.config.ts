@@ -176,6 +176,7 @@ export default defineConfig({
         '**/round-media.e2e.ts',
         '**/round-timing-skew.e2e.ts',
         '**/round-media-recovery.e2e.ts',
+        '**/post-round-call.e2e.ts',
         '**/round-media-source-isolation.e2e.ts',
         '**/round-media-lifecycle.e2e.ts',
         '**/node-kill-drill.e2e.ts',
