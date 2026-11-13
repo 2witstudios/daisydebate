@@ -68,15 +68,16 @@ export const createStageRoute =
         status: STAGE_ENDS_STATUS,
         headers: { 'cache-control': 'no-store' },
       });
+    const nowMs = deps.now();
     const position = createRoundRuntime({
       ...read.round,
       round: read.round,
       nextSegmentId: deps.nextId,
-    }).position(new Date(deps.now()).toISOString());
+    }).position(new Date(nowMs).toISOString());
     return Response.json(
       {
-        ...stageSnapshot({ position, seats: read.seats }),
-        nowMs: deps.now(),
+        ...stageSnapshot({ position, seats: read.seats, nowMs }),
+        nowMs,
         room: read.roomName
           ? {
               url: deps.livekitUrlFor(read.roomName),

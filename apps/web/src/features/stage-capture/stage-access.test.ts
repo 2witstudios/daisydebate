@@ -43,6 +43,7 @@ test('observerAccess follows revocation, so a reconnect cannot bypass it', () =>
 });
 
 describe('stageSnapshot', () => {
+  const nowMs = Date.parse('2026-11-02T00:00:00.000Z');
   const seats = [
     {
       role: 'negative',
@@ -70,7 +71,8 @@ describe('stageSnapshot', () => {
     status: 'active',
     stage: null,
     prep: null,
-    nextSegment: { type: 'speech' },
+    nextSegment: { type: 'speech', label: 'Rebuttal' },
+    countdownRemainingMs: null,
     openSegment: {
       label: 'Constructive',
       endsAt: '2026-11-02T00:01:00.000Z',
@@ -79,14 +81,14 @@ describe('stageSnapshot', () => {
     },
   };
   test('a speech shows clock, phase, names and floor, and never a judge', () => {
-    const snapshot = stageSnapshot({ position, seats });
+    const snapshot = stageSnapshot({ position, seats, nowMs });
     assert({
       given: 'an open speech with a seated human judge',
       should:
         'carry the clock, the phase and both debaters with the floor marked, and no judge anywhere',
       actual: [
         snapshot.phase,
-        snapshot.clock,
+        snapshot.phase === 'speech' && snapshot.clock,
         snapshot.seats,
         snapshot.debaterIdentities,
         JSON.stringify(snapshot).includes('Secret Judge'),
@@ -115,33 +117,61 @@ describe('stageSnapshot', () => {
       ],
     });
   });
-  test('private phases show a slate with no clock from the private media', () => {
+  test('each wait carries only what it can show', () => {
+    const waiting = { ...position, openSegment: null };
+    const view = (
+      changed: Partial<Parameters<typeof stageSnapshot>[0]['position']>,
+    ) => {
+      const snapshot = stageSnapshot({
+        position: { ...waiting, ...changed },
+        seats,
+        nowMs,
+      });
+      return {
+        phase: snapshot.phase,
+        endsAt: 'endsAt' in snapshot ? snapshot.endsAt : undefined,
+        next: 'next' in snapshot ? snapshot.next : undefined,
+      };
+    };
     assert({
-      given: 'prep, awaiting a ballot, and an unplaced state',
-      should: 'report a slate kind and no floor',
+      given:
+        'prep, a ballot awaited, a countdown, a held floor change and no round',
+      should:
+        'end prep and the countdown at the answer’s instant plus what is left, name the next speech, and give judging and the slate nothing',
       actual: [
-        stageSnapshot({
-          position: {
-            ...position,
-            openSegment: null,
-            prep: { side: 'negative' },
-          },
-          seats,
-        }).phase,
-        stageSnapshot({
-          position: {
-            ...position,
-            openSegment: null,
-            stage: 'awaiting_ballot',
-          },
-          seats,
-        }).phase,
-        stageSnapshot({
-          position: { ...position, openSegment: null, nextSegment: null },
-          seats,
-        }).seats.some((s) => s.floor),
+        view({ prep: { side: 'negative', remainingMs: 90_000 } }),
+        view({ stage: 'awaiting_ballot' }),
+        view({ countdownRemainingMs: 5_000 }),
+        view({}),
+        view({ nextSegment: null }),
       ],
-      expected: ['prep', 'judging', false],
+      expected: [
+        {
+          phase: 'prep',
+          endsAt: '2026-11-02T00:01:30.000Z',
+          next: undefined,
+        },
+        { phase: 'judging', endsAt: undefined, next: undefined },
+        {
+          phase: 'between',
+          endsAt: '2026-11-02T00:00:05.000Z',
+          next: { label: 'Rebuttal' },
+        },
+        { phase: 'between', endsAt: null, next: { label: 'Rebuttal' } },
+        { phase: 'slate', endsAt: undefined, next: undefined },
+      ],
+    });
+  });
+  test('no wait gives anyone the floor', () => {
+    assert({
+      given: 'no open speech',
+      should: 'mark no seat as speaking',
+      actual: stageSnapshot({
+        position: { ...position, openSegment: null, nextSegment: null },
+        seats,
+        nowMs,
+      }).seats.some((s) => s.floor),
+      expected: false,
     });
   });
 });

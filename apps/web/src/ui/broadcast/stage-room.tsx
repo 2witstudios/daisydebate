@@ -9,6 +9,7 @@ import {
 } from './stage-subscriptions';
 import type { StageRoomHandle } from './stage-connection';
 import { createStageConnection } from './stage-connector';
+import { whenFontsSettle } from './stage-fonts';
 import { startStagePoll } from './stage-poll';
 import { stageWatchStart, watchedStage } from './stage-watch';
 import { StageView, type StageLink, type StageSnapshot } from './stage-view';
@@ -16,7 +17,10 @@ import { StageView, type StageLink, type StageSnapshot } from './stage-view';
 const POLL_MS = 1000;
 const READ_TIMEOUT_MS = 3000;
 const SITE_LINK = 'daisydebate.com';
+/** Long enough for self-hosted faces; short enough that a lost one costs no speech. */
+const FONT_WAIT_MS = 2000;
 
+/** The stage route's answer: the snapshot, the server's instant and the room to join. */
 type StageAnswer = StageSnapshot & {
   /** The server's clock, so the burned-in countdown never reads the browser's. */
   readonly nowMs: number;
@@ -150,12 +154,6 @@ export function StageRoom(props: {
           next.debaterIdentities,
           next.phase,
         );
-      if (!started.current) {
-        started.current = true;
-        // Egress waits for exactly this line before it records (awaitStartSignal).
-        // eslint-disable-next-line no-console
-        console.log('START_RECORDING');
-      }
       // Not awaited: a connect may take seconds, and the watch must keep reading.
       if (next.room) void connection.offer(next.room);
     };
@@ -173,6 +171,21 @@ export function StageRoom(props: {
       connection.close();
     };
   }, [props.captureId, props.credential]);
+  const shown = stage !== null;
+  useEffect(() => {
+    if (!shown || started.current) return;
+    started.current = true;
+    void whenFontsSettle({
+      ready: () => document.fonts.ready,
+      frame: (run) => requestAnimationFrame(run),
+      wait: (ms) => new Promise((done) => setTimeout(done, ms)),
+      limitMs: FONT_WAIT_MS,
+    }).then(() => {
+      // Egress waits for exactly this line before it records (awaitStartSignal).
+      // eslint-disable-next-line no-console
+      console.log('START_RECORDING');
+    });
+  }, [shown]);
   if (!stage) return null;
   return (
     <StageView

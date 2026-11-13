@@ -273,6 +273,9 @@ export const iconPaths: Record<string, ReactNode> = {
     <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l-5-5 5-5M5 12h11" />
   ),
   wave: <path d="M3 10v4M7 6v12M11 9v6M15 4v16M19 8v8" />,
+  'camera-off': (
+    <path d="M3 3l18 18M7 7H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 1.7-1M11 7h4a2 2 0 0 1 2 2v2.5l4-2.5v8" />
+  ),
   bold: <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" />,
   italic: <path d="M19 4h-9M14 20H5M15 4 9 20" />,
   heading: <path d="M6 4v16M18 4v16M6 12h12" />,

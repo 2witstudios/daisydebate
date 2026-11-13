@@ -185,6 +185,20 @@ const declaredPairs: readonly Pair[] = [
   { fg: '--accent', bg: '--border-strong', min: UI },
   // The stage is forest in both schemes and carries its own ink.
   ...on(['--stage-text', '--stage-text-muted'], ['--surface-stage'], TEXT),
+  // The broadcast frame: names, side labels and the speaking mark around the tiles,
+  // seat states inside an idle tile, the branding bar, and the slate's labels.
+  ...on(
+    ['--stage-text', '--stage-text-muted', '--stage-accent', '--yolk'],
+    ['--stage-frame'],
+    TEXT,
+  ),
+  ...on(
+    ['--stage-text-muted', '--yolk'],
+    ['--stage-tile', '--stage-tile-idle'],
+    TEXT,
+  ),
+  ...on(['--stage-text', '--stage-text-muted'], ['--stage-footer'], TEXT),
+  { fg: '--stage-accent-strong', bg: '--surface-stage', min: TEXT },
   { fg: '--stage-accent-text', bg: '--stage-accent', min: TEXT },
   { fg: '--stage-accent-text', bg: '--stage-accent-strong', min: TEXT },
   { fg: '--text-on-media', bg: '--scrim', min: TEXT },

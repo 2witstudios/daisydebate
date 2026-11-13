@@ -29,8 +29,13 @@ export const observerAccess = (capture: {
 type StagePosition = {
   readonly status: string;
   readonly stage: string | null;
-  readonly prep: { readonly side: string } | null;
-  readonly nextSegment: { readonly type: string } | null;
+  readonly prep: { readonly side: string; readonly remainingMs: number } | null;
+  readonly nextSegment: {
+    readonly type: string;
+    readonly label: string;
+  } | null;
+  /** Time left before the next speech opens; null when no countdown runs. */
+  readonly countdownRemainingMs: number | null;
   readonly openSegment: {
     readonly label: string;
     readonly endsAt: string;
@@ -56,27 +61,84 @@ const stageOrder = (a: StageSeat, b: StageSeat) =>
       ? -1
       : 1;
 
-const phaseOf = (position: StagePosition) => {
-  if (position.prep) return 'prep' as const;
-  if (position.stage === 'awaiting_ballot') return 'judging' as const;
-  if (position.openSegment) return 'speech' as const;
-  return position.status === 'active' && position.nextSegment
-    ? ('between' as const)
-    : ('slate' as const);
+export type StageSeatView = {
+  readonly side: 'affirmative' | 'negative';
+  readonly label: string;
+  readonly kind: 'human' | 'bot';
+  readonly identity: string | null;
+  readonly floor: boolean;
+};
+
+/**
+ * What one phase of the stage can show, and nothing it cannot: only a speech has a
+ * labelled clock, only a wait with a deadline has an end, and only the wait between
+ * speeches knows what comes next.
+ */
+export type StagePhaseView =
+  | {
+      readonly phase: 'speech';
+      readonly clock: { readonly label: string; readonly endsAt: string };
+    }
+  | { readonly phase: 'prep'; readonly endsAt: string }
+  | {
+      readonly phase: 'between';
+      readonly endsAt: string | null;
+      readonly next: { readonly label: string };
+    }
+  | { readonly phase: 'judging' }
+  | { readonly phase: 'slate' };
+
+export type StageSnapshot = StagePhaseView & {
+  readonly seats: readonly StageSeatView[];
+};
+
+const endsIn = (nowMs: number, remainingMs: number) =>
+  new Date(nowMs + remainingMs).toISOString();
+
+/**
+ * A wait's end is the answer's own instant plus what is left, so a stopped clock reads
+ * the same time on every answer instead of running down.
+ */
+const phaseViewOf = (
+  position: StagePosition,
+  nowMs: number,
+): StagePhaseView => {
+  if (position.prep)
+    return { phase: 'prep', endsAt: endsIn(nowMs, position.prep.remainingMs) };
+  if (position.stage === 'awaiting_ballot') return { phase: 'judging' };
+  if (position.openSegment)
+    return {
+      phase: 'speech',
+      clock: {
+        label: position.openSegment.label,
+        endsAt: position.openSegment.endsAt,
+      },
+    };
+  if (position.status !== 'active' || !position.nextSegment)
+    return { phase: 'slate' };
+  return {
+    phase: 'between',
+    endsAt:
+      position.countdownRemainingMs === null
+        ? null
+        : endsIn(nowMs, position.countdownRemainingMs),
+    next: { label: position.nextSegment.label },
+  };
 };
 
 /** Everything the stage burns into the video; built field by field, judges excluded. */
 export const stageSnapshot = (input: {
   readonly position: StagePosition;
   readonly seats: readonly StageSeat[];
-}) => {
+  /** The instant the position was read at. */
+  readonly nowMs: number;
+}): StageSnapshot & { readonly debaterIdentities: readonly string[] } => {
   const open = input.position.openSegment;
   const debaters = input.seats
     .filter((seat) => seat.role === 'affirmative' || seat.role === 'negative')
     .sort(stageOrder);
   return {
-    phase: phaseOf(input.position),
-    clock: open ? { label: open.label, endsAt: open.endsAt } : null,
+    ...phaseViewOf(input.position, input.nowMs),
     seats: debaters.map((seat) => ({
       side: seat.role as 'affirmative' | 'negative',
       label: seat.label,
