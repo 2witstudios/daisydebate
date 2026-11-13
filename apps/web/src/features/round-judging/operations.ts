@@ -1,11 +1,12 @@
 import {
-  ballotWireSchema,
+  caseMapAnswer,
   isDefiniteProviderFailure,
   isUnhealableProviderRefusal,
   judgeAnswer,
   type OpenRouter,
 } from '@daisy/ai-voice';
 import type {
+  JudgingStage,
   JudgingAttemptCategory,
   JudgingAttemptDiagnostic,
   JudgingRecoveryReason,
@@ -13,7 +14,7 @@ import type {
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { prepareRoundBallotSubmission } from '../round-ballots/operations';
-import { frozenJudgingMessages } from './prompt';
+import { frozenStageRequest } from './prompt';
 import type { ProviderCall } from '../../server/provider-budget';
 
 type Store = Pick<
@@ -23,6 +24,7 @@ type Store = Pick<
   | 'recordRoundJudgingAttemptFailure'
   | 'recordRoundJudgingUsage'
   | 'saveRoundJudgingResult'
+  | 'saveRoundJudgingStage'
   | 'submitRoundJudgingResult'
 >;
 type Claim = Awaited<ReturnType<Database['claimRoundJudgingJob']>>;
@@ -50,6 +52,8 @@ export function createRoundJudgingOperations(input: {
   readonly nextId: () => string;
   readonly voice: () => Pick<OpenRouter, 'complete'>;
   readonly withProvider: ProviderCall;
+  /** Each stage call's own bound (ADR 0125: up to 120 s), past the voice client's default. */
+  readonly callTimeoutMs?: number;
   readonly recoveryPending?: (reason: JudgingRecoveryReason) => void;
 }) {
   return {
@@ -69,15 +73,60 @@ export function createRoundJudgingOperations(input: {
         if (deferred.kind !== 'retry') input.recoveryPending?.(deferred.reason);
         return 'concluded';
       };
-      /** One provider attempt: a ballot is held for submission, or this attempt has nothing further to do. */
+      type Usage = { inputTokens: number; outputTokens: number };
+      type Answer = Parameters<typeof judgeAnswer>[0];
+      /** A validated answer is stored as its stage's record; anything else is a durable failure. */
+      const keepAnswer = async (
+        stage: JudgingStage,
+        answer: Answer,
+        usage: Usage,
+      ): Promise<AttemptOutcome> => {
+        if (stage === 'map') {
+          const mapped = caseMapAnswer(answer);
+          if (!mapped.ok) return attemptFailed(mapped.diagnostic, false);
+          await input.store.saveRoundJudgingStage(
+            scope,
+            token,
+            { stage, caseMap: mapped.caseMap },
+            usage,
+          );
+          return 'concluded';
+        }
+        const judged = judgeAnswer(answer);
+        if (!judged.ok) return attemptFailed(judged.diagnostic, false);
+        if (stage === 'first') {
+          await input.store.saveRoundJudgingStage(
+            scope,
+            token,
+            { stage, ballot: judged.ballot },
+            usage,
+          );
+          return 'concluded';
+        }
+        const saved = await input.store.saveRoundJudgingResult(
+          scope,
+          token,
+          judged.ballot,
+          usage,
+        );
+        return saved.kind === 'held' ? 'ballot_held' : 'concluded';
+      };
+      /**
+       * One provider attempt buys the one stage the job needs (ADR 0125): a
+       * final ballot is then held for submission, or an earlier stage's
+       * output is stored and the job is due again for the next stage.
+       */
       const attempt = async (): Promise<AttemptOutcome> => {
         requireNotCancelled(signal);
-        if ((await verify()).pendingBallot) return 'ballot_held';
-        const messages = frozenJudgingMessages(claim);
+        const { progress } = await verify();
+        if (progress.kind === 'ballot_held') return 'ballot_held';
+        const { stage } = progress.due;
+        const request = frozenStageRequest(claim, progress.due);
         const voice = input.voice();
         const begun = await input.store.beginRoundJudgingModelCall(
           scope,
           token,
+          stage,
         );
         // This finite window may buy no more calls; durable recovery remains pending.
         if (begun.kind === 'deferred') {
@@ -88,10 +137,9 @@ export function createRoundJudgingOperations(input: {
         try {
           answer = await voice.complete({
             model: claim.model,
-            messages,
-            maxTokens: 6000,
-            outputSchema: { name: 'ballot', schema: ballotWireSchema },
+            ...request,
             reasoning: 'medium',
+            ...(input.callTimeoutMs ? { timeoutMs: input.callTimeoutMs } : {}),
             signal,
           });
         } catch (error) {
@@ -105,24 +153,17 @@ export function createRoundJudgingOperations(input: {
           outputTokens: answer.completionTokens,
         };
         await input.store.recordRoundJudgingUsage(scope, token, usage);
-        const judged = judgeAnswer(answer);
-        if (!judged.ok) return attemptFailed(judged.diagnostic, false);
-        const saved = await input.store.saveRoundJudgingResult(
-          scope,
-          token,
-          judged.ballot,
-          usage,
-        );
-        return saved.kind === 'held' ? 'ballot_held' : 'concluded';
+        return keepAnswer(stage, answer, usage);
       };
       requireNotCancelled(signal);
-      const outcome = (await verify()).pendingBallot
-        ? 'ballot_held'
-        : await input.withProvider(signal, attempt);
+      const outcome =
+        (await verify()).progress.kind === 'ballot_held'
+          ? 'ballot_held'
+          : await input.withProvider(signal, attempt);
       if (outcome === 'concluded') return null;
       requireNotCancelled(signal);
       const fresh = await verify();
-      if (!fresh.pendingBallot)
+      if (fresh.progress.kind !== 'ballot_held')
         throw createAppError('CONFLICT', 'Judging response unavailable');
       const prepared = prepareRoundBallotSubmission({
         principal: {
@@ -139,7 +180,7 @@ export function createRoundJudgingOperations(input: {
           expectedVersion: fresh.expectedVersion,
           judgeParticipantId: scope.judgeParticipantId,
           freezeRevision: scope.freezeRevision,
-          ballot: fresh.pendingBallot,
+          ballot: fresh.progress.ballot,
         },
         nextBallotId: input.nextId,
         nextSegmentId: input.nextId,

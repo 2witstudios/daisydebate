@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { capturePartialReasonSchema } from './capture-verdict';
-import { ballotSchema } from './ballot';
+import { storedBallotSchema } from './ballot';
 import { idSchema } from './primitives';
 import { roundViewSchema } from './round-view';
 import { roundUtteranceSchema } from './round-transcript';
@@ -15,7 +15,7 @@ export const roundBallotReadSchema = z.strictObject({
   own: z
     .strictObject({
       participantId: idSchema,
-      ballot: ballotSchema.nullable(),
+      ballot: storedBallotSchema.nullable(),
       freezeRevision: z.int().positive().nullable(),
     })
     .nullable(),
@@ -31,7 +31,7 @@ export const roundBallotReadSchema = z.strictObject({
   ballots: z.array(
     z.strictObject({
       judge: z.enum(['human', 'ai']),
-      ballot: ballotSchema,
+      ballot: storedBallotSchema,
       /**
        * This ballot's id when it carries feedback for the reader, who alone
        * may report that feedback (WATCH-7). It names no judge. Null otherwise.

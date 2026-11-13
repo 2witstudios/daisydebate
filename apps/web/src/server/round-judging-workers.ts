@@ -37,6 +37,9 @@ export function startRoundJudgingWorkers(input: {
     voice: app.aiVoice,
     // The service reserves before claiming and holds admission through retries.
     withProvider: (_signal, work) => work(),
+    // The claim's signal below carries the same bound; it starts first, so a
+    // slow stage ends as a timeout, never at the client's shorter default.
+    callTimeoutMs: policy.callTimeoutMs,
     recoveryPending: (reason) => reportJudgingRecovery(app.logger, reason),
   });
   return startRoundJudgingService({

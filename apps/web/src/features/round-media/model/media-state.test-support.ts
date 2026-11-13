@@ -10,7 +10,11 @@ import {
   type Source,
   type SourceState,
 } from './media-state';
-import { statusOf, type MediaConnectionLabel } from './media-status';
+import {
+  controlsOf,
+  statusOf,
+  type MediaConnectionLabel,
+} from './media-status';
 import { publicationOf } from './media-publication';
 import type { SourceFailureKind } from '../source-failure';
 
@@ -150,6 +154,12 @@ export const mediaStatus = (
       microphoneMuted: evidence.microphone?.muted ?? false,
     }),
   );
+
+/** The bar's controls for a state holding this evidence. */
+export const mediaControls = (
+  connection: MediaConnectionLabel,
+  evidence: Evidence = {},
+) => controlsOf(stateWith(linkFor(connection, [], evidence)));
 
 export const localPublicationOf = (input: {
   readonly connection: MediaConnectionLabel;

@@ -17,6 +17,7 @@
     "dev": "bun scripts/heavy.ts bun --env-file=.env run turbo run dev",
     "dev:agent": "bun scripts/heavy.ts bun scripts/dev-agent.ts",
     "dev:login": "bun --env-file=.env scripts/dev-login.ts",
+    "judge:bench": "bun --env-file=.env scripts/judge-bench.ts",
     "demo": "bun --env-file=.env apps/web/e2e/support/demo.ts",
     "demo:link": "bun --env-file=.env apps/web/e2e/support/demo-link.ts",
     "build": "bun scripts/heavy.ts sh -c 'NODE_ENV=production turbo run build && bun run check:build-isolation'",

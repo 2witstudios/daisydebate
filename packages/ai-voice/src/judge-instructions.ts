@@ -9,11 +9,9 @@ import {
  * The default judging instructions: the speaker rubric the ballot contract
  * scores against (DEC-116), rendered from the protocol's own table.
  */
-export const DEFAULT_RUBRIC = [
-  'You are an experienced, fair debate judge who judges like a thoughtful lay person.',
-  'Decide who did the better job of persuading you the resolution is true or false, based only on what was said.',
-  'Do not reward invented evidence. Ignore transcription glitches. Do not intervene with your own arguments.',
-  'Score every category for both sides, 1 to 5, against these anchors:',
+/** The current rubric's anchors, as every judging prompt states them. */
+export const rubricAnchors = [
+  'Score every category for both sides, 1 to 5, against these anchors (2 and 4 sit between them):',
   ...ballotRubric.flatMap((group) => [
     `${group.name}:`,
     ...group.categories.map(
@@ -21,6 +19,13 @@ export const DEFAULT_RUBRIC = [
         `- ${category.name}: 1 = ${category.anchors[0]}; 3 = ${category.anchors[1]}; 5 = ${category.anchors[2]}`,
     ),
   ]),
+].join('\n');
+
+export const DEFAULT_RUBRIC = [
+  'You are an experienced, fair debate judge who judges like a thoughtful lay person.',
+  'Decide who did the better job of persuading you the resolution is true or false, based only on what was said.',
+  'Do not reward invented evidence. Ignore transcription glitches. Do not intervene with your own arguments.',
+  rubricAnchors,
 ].join('\n');
 
 export const ballotInstructions = [

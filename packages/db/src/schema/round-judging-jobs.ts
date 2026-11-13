@@ -1,17 +1,22 @@
 import {
   ballotSchema,
+  caseMapSchema,
   judgingAttemptCategories,
   judgingAttemptDiagnosticSchema,
   judgingAttemptOutcomes,
   judgingTerminalReasons,
   judgingRecoveryReasons,
+  judgingStages,
+  storedBallotSchema,
   type JudgingRecoveryReason,
+  type JudgingStage,
   type JudgingAttemptCategory,
   type JudgingAttemptOutcome,
   type JudgingTerminalReason,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -54,6 +59,18 @@ export const roundJudgingJobs = pgTable(
     pendingBallotAgentRunId: text('pending_ballot_agent_run_id'),
     pendingBallotEpoch: integer('pending_ballot_epoch'),
     pendingBallotReceivedAt: timestampColumn('pending_ballot_received_at'),
+    /**
+     * Coherency judging's stage records (ADR 0125), kept after success as the
+     * first-pass-against-final comparison: the first-pass ballot (or that its
+     * one try failed) and the case map the final ballot was decided from.
+     * Each is written once by its stage; retention and subject erasure clear
+     * them. Their provenance is the stage's attempt row.
+     */
+    firstBallot: jsonbColumnNullable('first_ballot', storedBallotSchema),
+    firstBallotReceivedAt: timestampColumn('first_ballot_received_at'),
+    firstBallotFailed: boolean('first_ballot_failed').notNull().default(false),
+    caseMap: jsonbColumnNullable('case_map', caseMapSchema),
+    caseMapReceivedAt: timestampColumn('case_map_received_at'),
     /** The AI judging budget, persisted at the freeze (DEC-275). Bounds provider work only. */
     generationDeadlineAt: timestampColumn('generation_deadline_at').notNull(),
     /** The first lease epoch whose dispatch belongs to this bounded window. */
@@ -73,6 +90,16 @@ export const roundJudgingJobs = pgTable(
   },
   (table) => [
     jsonbIsObject('round_judging_jobs', table.pendingBallot),
+    jsonbIsObject('round_judging_jobs', table.firstBallot),
+    jsonbIsObject('round_judging_jobs', table.caseMap),
+    check(
+      'round_judging_jobs_first_ballot_check',
+      sql`(${table.firstBallot} is null) = (${table.firstBallotReceivedAt} is null) and not (${table.firstBallot} is not null and ${table.firstBallotFailed})`,
+    ),
+    check(
+      'round_judging_jobs_case_map_check',
+      sql`(${table.caseMap} is null) = (${table.caseMapReceivedAt} is null)`,
+    ),
     check(
       'round_judging_jobs_terminal_reason_check',
       sql`(${table.status} = 'failed') = (${table.terminalReason} is not null) and (${table.terminalReason} is null or ${oneOf(table.terminalReason, judgingTerminalReasons)})`,
@@ -183,6 +210,8 @@ export const roundJudgingAttempts = pgTable(
     jobEpoch: integer('job_epoch').notNull(),
     model: text('model').notNull(),
     contractVersion: text('contract_version').notNull(),
+    /** The coherency stage this call bought; every call before ADR 0125 was the final one. */
+    stage: text('stage').$type<JudgingStage>().notNull().default('final'),
     outcome: text('outcome').$type<JudgingAttemptOutcome>().notNull(),
     /** When the provider's answer and usage were accounted. */
     answeredAt: timestampColumn('answered_at'),
@@ -215,6 +244,10 @@ export const roundJudgingAttempts = pgTable(
     index('round_judging_attempts_run_judge_idx').on(
       table.agentRunId,
       table.judgeParticipantId,
+    ),
+    check(
+      'round_judging_attempts_stage_check',
+      oneOf(table.stage, judgingStages),
     ),
     check(
       'round_judging_attempts_category_check',

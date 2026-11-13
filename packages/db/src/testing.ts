@@ -9,6 +9,7 @@ import {
 export { validRules } from './testing-rules';
 export { completeControlledStripeCleanup } from './testing-billing';
 export { completeControlledBillingPurchase } from './testing-billing-purchase';
+export { atFinalJudgingStage, syntheticCaseMap } from './testing-judging';
 
 const POLL_INTERVAL_MS = 10;
 

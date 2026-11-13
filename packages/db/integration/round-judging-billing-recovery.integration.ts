@@ -11,12 +11,20 @@ test('an undispatched expired window retains its uncounted identity until bounde
       await fixture.sql`select id,state from usage_reservations where round_id=${roundId} and kind='casual_ai_judge'`;
     await fixture.sql`update round_judging_jobs set generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
     const first = await jobs.claim(target);
-    const deferred = await jobs.beginModelCall(first.scope, first.token);
+    const deferred = await jobs.beginModelCall(
+      first.scope,
+      first.token,
+      'final',
+    );
     const [paused] =
       await fixture.sql`select id,state from usage_reservations where round_id=${roundId} and kind='casual_ai_judge'`;
     await fixture.sql`update round_judging_jobs set retry_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
     const next = await jobs.claim(target);
-    const dispatched = await jobs.beginModelCall(next.scope, next.token);
+    const dispatched = await jobs.beginModelCall(
+      next.scope,
+      next.token,
+      'final',
+    );
     const [counted] =
       await fixture.sql`select id,state->>'kind' as kind,state->>'countBasis' as basis from usage_reservations where round_id=${roundId} and kind='casual_ai_judge'`;
     assert({
@@ -51,7 +59,7 @@ test('unknown historical request counters still consume finite automatic judge f
       ended_at: stamp,
     });
     const claim = await jobs.claim(target);
-    const result = await jobs.beginModelCall(claim.scope, claim.token);
+    const result = await jobs.beginModelCall(claim.scope, claim.token, 'final');
     const [row] =
       await fixture.sql`select status,recovery_reason from round_judging_jobs where round_id=${roundId}`;
     const [requests] =

@@ -20,7 +20,7 @@ const row = (
     judgeParticipantId,
     roundId: 'round',
     freezeRevision: 1,
-    rubricVersion: 'speaker-10@1',
+    rubricVersion: 'speaker-10@2',
     winner: 'affirmative',
     scores,
     reason: 'Clearer weighing.',
@@ -28,7 +28,7 @@ const row = (
     citations,
   }) as unknown as Row;
 const body = {
-  rubricVersion: 'speaker-10@1',
+  rubricVersion: 'speaker-10@2',
   winner: 'affirmative',
   scores,
   reason: 'Clearer weighing.',

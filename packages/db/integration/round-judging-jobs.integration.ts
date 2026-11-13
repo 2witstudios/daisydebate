@@ -1,4 +1,5 @@
 import { attendanceSettled } from '@daisy/debate-engine';
+import { atFinalJudgingStage } from '../src/testing-judging';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -22,6 +23,10 @@ test('durable judging claims fence epochs and preserve one command across recove
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp(),final_segment_ended_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute',transcript_admission_cutoff=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '120 seconds',attendance_resolution_cutoff_at=date_trunc('milliseconds',statement_timestamp())-interval '1 minute'+interval '60 minutes' where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'complete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status,generation_deadline_at) values(${roundId},${seat.id},1,'queued',clock_timestamp()+interval '5 minutes')`;
+    await atFinalJudgingStage(fixture.sql, {
+      roundId: roundId,
+      judgeParticipantId: seat.id,
+    });
     try {
       const jobs = createRoundJudgingJobs({
         run,
@@ -56,8 +61,8 @@ test('durable judging claims fence epochs and preserve one command across recove
         await holder`begin`;
         await holder`select pg_advisory_xact_lock(59003, 1)`;
         dispatched =
-          (await jobs.beginModelCall(first.scope, first.token)).kind ===
-          'dispatched';
+          (await jobs.beginModelCall(first.scope, first.token, 'final'))
+            .kind === 'dispatched';
       } finally {
         await holder`rollback`;
         holder.release();
@@ -74,11 +79,11 @@ test('durable judging claims fence epochs and preserve one command across recove
       await assertRejects({
         given: 'a duplicate dispatch in the same attempt',
         should: 'refuse a second provider call',
-        actual: () => jobs.beginModelCall(first.scope, first.token),
+        actual: () => jobs.beginModelCall(first.scope, first.token, 'final'),
         code: 'CONFLICT',
       });
       const ballot = ballotSchema.parse({
-        rubricVersion: 'speaker-10@1',
+        rubricVersion: 'speaker-10@2',
         winner: 'affirmative',
         reason: 'Affirmative answered the decisive comparison.',
         feedback: {},
@@ -153,7 +158,7 @@ test('durable judging claims fence epochs and preserve one command across recove
       await assertRejects({
         given: 'a takeover with a durable response waiting for submission',
         should: 'refuse another provider call',
-        actual: () => jobs.beginModelCall(second.scope, second.token),
+        actual: () => jobs.beginModelCall(second.scope, second.token, 'final'),
         code: 'CONFLICT',
       });
       await createBotSeat(fixture, roundId, 'judge', 1);

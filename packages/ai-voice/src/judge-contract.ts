@@ -1,4 +1,4 @@
-import { ballotSchema } from '@daisy/protocol';
+import { ballotSchema, caseMapSchema } from '@daisy/protocol';
 import { z } from 'zod';
 
 type JsonSchema = { [key: string]: unknown };
@@ -20,17 +20,26 @@ function explicitProperties(schema: JsonSchema): JsonSchema {
 }
 
 /**
- * Length and numeric-range keywords are refused by some schema-enforcing
- * endpoints. A range becomes an enum, which all accept; a length moves to the
- * description the model reads. Local validation still enforces the exact
- * contract, so nothing here widens what is accepted.
+ * Length, size and numeric-range keywords are refused by some
+ * schema-enforcing endpoints. A range becomes an enum, which all accept; a
+ * length or an array size moves to the description the model reads. Local
+ * validation still enforces the exact contract, so nothing here widens what
+ * is accepted.
  */
 function endpointSubset(input: JsonSchema): JsonSchema {
   const schema = explicitProperties(input);
-  const { minimum, maximum, maxLength, const: constant, ...rest } = schema;
+  const {
+    minimum,
+    maximum,
+    maxLength,
+    maxItems,
+    const: constant,
+    ...rest
+  } = schema;
   const subset: JsonSchema = { ...rest };
   delete subset['$schema'];
   delete subset['minLength'];
+  delete subset['minItems'];
   if (constant !== undefined) subset['enum'] = [constant];
   if (typeof minimum === 'number' && typeof maximum === 'number') {
     subset['enum'] = Array.from(
@@ -40,6 +49,10 @@ function endpointSubset(input: JsonSchema): JsonSchema {
   }
   if (typeof maxLength === 'number')
     subset['description'] = `At most ${maxLength} characters.`;
+  if (typeof maxItems === 'number')
+    subset['description'] = `At most ${maxItems} items.`;
+  if (schema['items'] && typeof schema['items'] === 'object')
+    subset['items'] = endpointSubset(schema['items'] as JsonSchema);
   if (schema['properties'])
     subset['properties'] = Object.fromEntries(
       Object.entries(schema['properties'] as Record<string, JsonSchema>).map(
@@ -57,5 +70,10 @@ export const ballotWireSchema: JsonSchema = endpointSubset(
   z.toJSONSchema(ballotSchema.omit({ citations: true }), { io: 'input' }),
 );
 
-/** Recorded on every attempt: bump when the prompt or wire schema changes. */
-export const judgeContractVersion = 'judge-contract@1';
+/** The case map's request schema, derived from its contract the same way. */
+export const caseMapWireSchema: JsonSchema = endpointSubset(
+  z.toJSONSchema(caseMapSchema, { io: 'input' }),
+);
+
+/** Recorded on every attempt: bump when a prompt or wire schema changes. */
+export const judgeContractVersion = 'judge-contract@2';

@@ -1,4 +1,5 @@
 import { canUseAiAllowance } from '@daisy/auth/authorization';
+import { atFinalJudgingStage } from '@daisy/db/testing';
 import {
   judgingJobRules,
   RANKED_DELAY_SECONDS,
@@ -75,10 +76,12 @@ for (const ladder of ratingLadders)
                 const target = (
                   await f.store.scanRoundJudgingJobs(64, 'generation')
                 ).find((j) => j.roundId === roundId)!;
+                await atFinalJudgingStage(f.sql, target);
                 const claim = await f.store.claimRoundJudgingJob(target);
                 await f.store.beginRoundJudgingModelCall(
                   claim.scope,
                   claim.token,
+                  'final',
                 );
                 await f.store.saveRoundJudgingResult(
                   claim.scope,

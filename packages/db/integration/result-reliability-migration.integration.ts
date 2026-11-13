@@ -35,8 +35,23 @@ test(
         });
         const queuedId = await f.round(),
           failedId = await f.round();
-        await seedJudgingIntent(f, queuedId, run);
-        await seedJudgingIntent(f, failedId, run);
+        // Seeded on the schema before ADR 0125's stage columns: no stage records.
+        await seedJudgingIntent(
+          f,
+          queuedId,
+          run,
+          'complete',
+          undefined,
+          'first',
+        );
+        await seedJudgingIntent(
+          f,
+          failedId,
+          run,
+          'complete',
+          undefined,
+          'first',
+        );
         await f.sql`update round_judging_jobs set status='failed',terminal_reason='round_ended',generation_deadline_at=clock_timestamp()-interval '1 second' where round_id=${failedId}`;
         const held = await seedHistoricalJudge(f, 'live_received');
         try {
