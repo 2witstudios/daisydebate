@@ -8,25 +8,18 @@ import {
   type StageParticipant,
 } from './stage-subscriptions';
 import type { StageRoomHandle } from './stage-connection';
+import { drawableStageAnswer, type StageAnswer } from './stage-answer';
 import { createStageConnection } from './stage-connector';
 import { whenFontsSettle } from './stage-fonts';
 import { startStagePoll } from './stage-poll';
 import { stageWatchStart, watchedStage } from './stage-watch';
-import { StageView, type StageLink, type StageSnapshot } from './stage-view';
+import { StageView, type StageLink } from './stage-view';
 
 const POLL_MS = 1000;
 const READ_TIMEOUT_MS = 3000;
 const SITE_LINK = 'daisydebate.com';
 /** Long enough for self-hosted faces; short enough that a lost one costs no speech. */
 const FONT_WAIT_MS = 2000;
-
-/** The stage route's answer: the snapshot, the server's instant and the room to join. */
-type StageAnswer = StageSnapshot & {
-  /** The server's clock, so the burned-in countdown never reads the browser's. */
-  readonly nowMs: number;
-  readonly debaterIdentities: readonly string[];
-  readonly room: { readonly url: string; readonly token: string } | null;
-};
 
 /** The LiveKit room the stage joins, under the observer token and without retries of its own. */
 type StageMediaRoom = StageRoomHandle & { readonly room: Room };
@@ -127,7 +120,7 @@ export function StageRoom(props: {
       }).catch(() => null);
       // A body cut off mid-read is no new answer; the next read tries again.
       const next = answer?.ok
-        ? ((await answer.json().catch(() => null)) as StageAnswer | null)
+        ? drawableStageAnswer(await answer.json().catch(() => null))
         : null;
       return { status: answer?.status ?? null, next };
     };
