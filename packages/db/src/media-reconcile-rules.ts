@@ -130,7 +130,9 @@ export function reconcileCompletion(
       reconcileServedVersion: session.reconcileRunningVersion,
       ...(settled ? { unsafeAt: null } : {}),
       ...(fate.kind === 'end' ? { endedAt: session.endedAt ?? now } : {}),
-      ...(fate.kind === 'rotate' || fate.kind === 'clear'
+      ...(fate.kind === 'rotate' ||
+      fate.kind === 'clear' ||
+      fate.kind === 'open-post-round-call'
         ? { deletionRequestedAt: null }
         : {}),
       ...(terminal

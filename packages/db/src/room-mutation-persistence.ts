@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
-import { freezeRoomConfig } from '@daisy/protocol';
+import { freezePostRoundCall, freezeRoomConfig } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
@@ -40,6 +40,7 @@ const roomRow = (
   basisPresetVersion: next.basis?.presetVersion ?? null,
   config: next.config,
   capture: next.capture,
+  postRoundCall: next.postRoundCall,
   executionPlan: next.executionPlan,
   rulesSnapshot: next.rules,
   status: next.status,
@@ -113,6 +114,7 @@ export const persistRoomMutation = async (
       presetVersion: next.presetVersion,
       roomConfigSnapshot: freezeRoomConfig(next.config),
       capture: next.capture,
+      postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
       rulesSnapshot: next.rules,
       status: opens ? 'opening' : 'active',

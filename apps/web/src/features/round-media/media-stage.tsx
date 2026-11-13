@@ -38,7 +38,7 @@ function TrackElement({
   );
 }
 
-/** Only named debaters become tiles; a hidden judge never enters the identity map. */
+/** Named debaters become tiles; a judge has one only on a post-round call, unnamed. */
 export function MediaStage({
   view,
   connection,
@@ -145,6 +145,58 @@ export function MediaStage({
             </figure>
           );
         })}
+      {/* A judge joins only a post-round call, by seat and never by name (ADR 0127). */}
+      {(media?.callJudges ?? []).map((judge) => {
+        const mediaTracks = tracks.filter(
+          (track) => track.identity === judge.identity,
+        );
+        const camera = mediaTracks.find(
+          (track) => track.source === 'camera' && !track.muted,
+        );
+        const mine = judge.identity === ownIdentity;
+        return (
+          <figure
+            key={judge.identity}
+            data-room-media="tile"
+            className="relative m-0 flex aspect-video min-w-0 items-center justify-center overflow-hidden rounded-xl bg-surface-stage text-stage-ink"
+          >
+            {(camera && attached(camera)) || (
+              <span
+                aria-hidden="true"
+                className="flex size-12 items-center justify-center rounded-round bg-butter text-lg font-strong text-forest"
+              >
+                J
+              </span>
+            )}
+            <figcaption className="absolute right-2 bottom-1 left-2 truncate bg-scrim/60 px-1 text-sm">
+              {mine ? 'You · Judge' : 'Judge'}
+              <span className="block text-xs">
+                {seatMicrophoneCaption({
+                  connection,
+                  confirmed: microphoneConfirmed,
+                  track: mediaTracks.find(
+                    (track) => track.source === 'microphone',
+                  ),
+                  mine,
+                  ownMuted,
+                  granted: judge.microphone,
+                  remote: remotePeers.find(
+                    (remote) => remote.identity === judge.identity,
+                  ),
+                })}
+              </span>
+            </figcaption>
+            {mediaTracks
+              .filter(
+                (track) =>
+                  track.source === 'microphone' && !track.local && !track.muted,
+              )
+              .map((track) => (
+                <Fragment key={track.identity}>{attached(track)}</Fragment>
+              ))}
+          </figure>
+        );
+      })}
     </div>
   );
 }

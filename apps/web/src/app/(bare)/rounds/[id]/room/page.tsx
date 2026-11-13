@@ -31,9 +31,13 @@ import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-un
 import { drawReconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
+import { postRoundCallOffered } from '../../../../../features/post-round-call/offered';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../../lib/access';
-import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
+import {
+  isCallDebater,
+  isLiveDebater,
+} from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
 import { temporarilyRefused } from '../../../../../server/temporary-read';
 import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
@@ -90,6 +94,9 @@ async function watchingRoom(
   }
   const room = watchingRoomOf({
     judgeRound: assigned.kind === 'found' ? assigned.round : null,
+    judgeOnCall:
+      assigned.kind === 'found' &&
+      postRoundCallOffered(assigned.round, Date.parse(systemClock.now())),
     spectatorKind: spectatorKindOf(round),
   });
   if (room.kind === 'receipt') redirect(`/rounds/${id}`);
@@ -151,7 +158,11 @@ export default async function RoundRoomPage({
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const transcriptIn = (placement: TranscriptPlacement) =>
     transcriptOf(id, text, result.socketUrl, placement);
-  if (!isLiveDebater(result.round, actorId))
+  if (
+    !isLiveDebater(result.round, actorId) &&
+    // A debater on the post-round call keeps the room (ADR 0127).
+    !isCallDebater(result.round, actorId, Date.parse(systemClock.now()))
+  )
     return watchingRoom(
       id,
       result.round,

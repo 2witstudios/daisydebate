@@ -117,6 +117,8 @@ export const roomCreateOperations = ({
         now: string,
       ) => boolean;
     };
+    /** The casual host keeps the call open after the Round (ADR 0127). */
+    readonly postRoundCall?: boolean;
     /** The notice the create form showed its host, recorded with the Room. */
     readonly notice?: {
       readonly id: string;
@@ -174,7 +176,10 @@ export const roomCreateOperations = ({
           if (active.length !== 1)
             throw createRefusal('CONFLICT', 'ranked-unavailable');
         }
-        if (input.recording && input.room.competitionType === 'ranked')
+        if (
+          (input.recording || input.postRoundCall) &&
+          input.room.competitionType === 'ranked'
+        )
           throw createRefusal('CONFLICT', 'illegal-config');
         const now = await transactionNow(tx);
         await tx.insert(rooms).values({
@@ -182,6 +187,7 @@ export const roomCreateOperations = ({
           capture: input.recording
             ? { broadcast: null, recording: true }
             : null,
+          postRoundCall: input.postRoundCall === true,
           createdAt: new Date(now),
           updatedAt: new Date(now),
         });

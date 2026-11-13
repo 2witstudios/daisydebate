@@ -60,6 +60,7 @@ export const room = {
   competitionType: 'casual' as const,
   config: oneOnOneSettings,
   capture: null,
+  postRoundCall: false,
   executionPlan: {
     preRoundPrep: { enabled: false as const },
     resolutionDraw: { enabled: false as const },

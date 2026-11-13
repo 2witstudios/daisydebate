@@ -101,22 +101,32 @@ export const shownError = (
     ? undefined
     : roundFormFields(answer).error;
 
-/** Where focus goes after an answer: what the answer shows, else its control. */
+/** The result link that takes the commands' place on a post-round call. */
+export const CALL_RESULT_LINK_ID = 'round-call-result';
+
+/**
+ * Where focus goes after an answer: what the answer shows, else its control.
+ * On a post-round call the controls are gone, so it goes to what replaced them.
+ */
 export const answerFocusTarget = (
   answer: RoundFormState,
   view: Pick<RoundView, 'opening'>,
   feedback: string,
   control: string,
-) =>
-  shownError(answer, view)
-    ? feedback
+  onCall = false,
+) => {
+  if (shownError(answer, view)) return feedback;
+  return onCall
+    ? CALL_RESULT_LINK_ID
     : `${control}-${roundFormFields(answer).values.type}`;
+};
 
 /** Feedback survives a canonical revision that removes the submitted action. */
 export function RoundCommandActions({
   view,
   actorId,
   nowMs,
+  onCall = false,
   ids,
   action,
   onAnswer,
@@ -134,6 +144,8 @@ export function RoundCommandActions({
   readonly view: RoundView;
   readonly actorId: string;
   readonly nowMs: number;
+  /** This debater is on the Round's post-round call, so the room stays. */
+  readonly onCall?: boolean;
   readonly ids: RoundCommandIds;
   readonly action: FormAction<RoundFormState>;
   readonly onAnswer: (answer: RoundFormState) => void;
@@ -146,9 +158,10 @@ export function RoundCommandActions({
   const router = useRouter();
   const lost = answer.kind === 'unacknowledged';
   useEffect(() => {
-    if (!pending && !lost && !isLiveDebater(view, actorId))
+    // A debater on the post-round call stays in the room until it ends (ADR 0127).
+    if (!pending && !lost && !isLiveDebater(view, actorId) && !onCall)
       replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
-  }, [pending, lost, view, actorId, router]);
+  }, [pending, lost, view, actorId, onCall, router]);
   const feedback = useId(),
     control = useId();
   useEffect(() => {
@@ -160,7 +173,7 @@ export function RoundCommandActions({
   const answered = useMemo(() => ({ answer, live }), [answer, live]);
   useFocusAfterAnswer(
     answered,
-    answerFocusTarget(answer, view, feedback, control),
+    answerFocusTarget(answer, view, feedback, control, onCall),
     !pending,
   );
   const actions = !lost ? (

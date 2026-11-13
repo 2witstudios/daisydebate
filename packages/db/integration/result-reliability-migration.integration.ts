@@ -25,6 +25,10 @@ test(
     try {
       await scratch.migrate((tag) => tag <= '20261107080513_fair_midnight');
       await withFixture(scratch.url, async (f) => {
+        // The seeding below runs today's store code, which reads every `rounds`
+        // column. A column a later folder adds is lent to the baseline for the
+        // seeding alone and taken back before that folder applies.
+        await f.sql`alter table rounds add column post_round_call boolean not null default false`;
         const run = createBoundedTransaction({
           lane: testLane(f.sql, 4),
           now: performance.now,
@@ -58,6 +62,7 @@ test(
             await f.sql`select id,actor_id,round_id,kind,source,state,reserved_at from usage_reservations order by id`;
           const freezes =
             await f.sql`select round_id,revision,frontier,completeness from round_transcript_freezes order by round_id`;
+          await f.sql`alter table rounds drop column post_round_call`;
           await scratch.migrate(() => true);
           const after =
             await f.sql`select round_id,judge_participant_id,freeze_revision,status,attempts,generation_deadline_at,pending_ballot,pending_ballot_agent_run_id,pending_ballot_epoch,pending_ballot_received_at,terminal_reason from round_judging_jobs order by round_id,judge_participant_id`;

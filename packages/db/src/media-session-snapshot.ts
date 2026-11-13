@@ -7,7 +7,11 @@ import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
-import { lockMediaRound, mediaId } from './media-session-authority';
+import {
+  lockMediaRound,
+  mediaId,
+  readMediaWindowFacts,
+} from './media-session-authority';
 import {
   withdrawnSeats,
   type ParticipantAdmission,
@@ -106,6 +110,8 @@ export async function lockedMediaSnapshot(
     bindings,
     now: tick.now,
     finalSegmentEndedAt: tick.finalSegmentEndedAt,
+    /** What the media phase is decided from, at this snapshot's instant. */
+    mediaWindow: await readMediaWindowFacts(tx, roundId, tick),
     unresolved: pending.length > 0,
     reconciling: reconcileLive(session, new Date(tick.now)),
   };

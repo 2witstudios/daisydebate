@@ -90,6 +90,7 @@ export const state = (): OpenRoom => ({
   },
   config: plainRoomConfig,
   capture: null,
+  postRoundCall: false,
   executionPlan: {
     preRoundPrep: { enabled: false },
     resolutionDraw: { enabled: false },

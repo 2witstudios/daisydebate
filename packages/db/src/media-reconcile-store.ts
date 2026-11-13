@@ -3,7 +3,11 @@ import {
   readConversationHeld,
 } from './broadcast-operations';
 import { revokedBoundSeats, rotateMediaRoom } from './media-session-rotation';
-import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
+import type {
+  MediaRoomFacts,
+  MediaRoomFate,
+  MediaWindowFacts,
+} from '@daisy/protocol';
 import {
   readMediaBotLeases,
   mediaHearingSeats,
@@ -17,6 +21,7 @@ import type { BoundedTransactionContext } from './transaction-context';
 import {
   lockMediaRound,
   mediaId,
+  readMediaWindowFacts,
   type MediaWindowRule,
 } from './media-session-authority';
 import {
@@ -33,7 +38,6 @@ import { mediaParticipants } from './schema/media-sessions';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaSessions, mediaRoomRotations } from './schema/media-sessions';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
-import { rounds } from './schema/rounds';
 
 import {
   proofMatches,
@@ -136,6 +140,7 @@ export function createMediaReconcileStore(input: {
           readonly withdrawn: readonly string[];
           readonly now: string;
           readonly finalSegmentEndedAt: string | null;
+          readonly mediaWindow: MediaWindowFacts;
           readonly participantId: string | null;
         }) => void;
       },
@@ -195,6 +200,7 @@ export function createMediaReconcileStore(input: {
             tick.now,
           ),
           hearing: mediaHearingSeats(session.seats, botLeases, round, tick.now),
+          mediaWindow: await readMediaWindowFacts(tx, session.roundId, tick),
           withdrawn: withdrawnSeats(
             session.seats,
             session.accounts,
@@ -268,26 +274,41 @@ export function createMediaReconcileStore(input: {
       request: MediaReconcileFence & {
         readonly absenceProof: MediaAbsenceProof | null;
         readonly clean: boolean;
-        readonly mediaWindowClosed: MediaWindowRule;
+        readonly mediaPhase: MediaWindowRule;
         readonly roomFate: (facts: MediaRoomFacts) => MediaRoomFate;
+        /** Since when a post-round call's room has stood empty, after this pass's read. */
+        readonly roomVacancy: (
+          current: string | null,
+          seen: MediaRoomFacts['seen'],
+          now: string,
+        ) => string | null;
         /** What this pass read of the room; null if it read nothing. */
         readonly seen: MediaRoomFacts['seen'];
       },
     ) {
       return withFence(request, async (tx, session, now) => {
-        const [round] = await tx
-          .select({
-            status: rounds.status,
-            finalSegmentEndedAt: rounds.finalSegmentEndedAt,
-          })
-          .from(rounds)
-          .where(eq(rounds.id, session.roundId));
-        if (!round) throw createAppError('NOT_FOUND');
-        const terminal = request.mediaWindowClosed(
-          round.status,
-          now.toISOString(),
-          round.finalSegmentEndedAt?.toISOString() ?? null,
-        );
+        const stored = await readMediaWindowFacts(tx, session.roundId, {
+          now: now.toISOString(),
+        });
+        // The phase is decided on what this pass saw of the call's room, never on
+        // an emptiness stored before it: someone may have come back without a
+        // new token, and an occupied call is not closed on them.
+        const vacantSince = stored.postRoundCall.vacantSince;
+        const nextVacancy =
+          stored.postRoundCall.openedAt === null
+            ? vacantSince
+            : request.roomVacancy(vacantSince, request.seen, now.toISOString());
+        const phase = request.mediaPhase({
+          ...stored,
+          postRoundCall: { ...stored.postRoundCall, vacantSince: nextVacancy },
+        });
+        const terminal = phase === 'closed';
+        const call =
+          phase === 'post-round-call-opening'
+            ? 'opening'
+            : phase === 'post-round-call'
+              ? 'open'
+              : 'none';
         const outstanding = await pending(tx, session.id);
         const dispatched = outstanding.map((row) => row.dispatchedAt.getTime());
         const known = session.unsafeAt ? [session.unsafeAt.getTime()] : [];
@@ -309,6 +330,7 @@ export function createMediaReconcileStore(input: {
           lastOccupiedSid: session.roomOccupiedSid,
           sawCapture: session.roomSawCapture,
           seen: request.seen,
+          call,
         });
         if (fate.kind !== 'keep' && outstanding.length)
           await tx
@@ -320,8 +342,9 @@ export function createMediaReconcileStore(input: {
                 isNull(mediaVendorMutations.settledAt),
               ),
             );
+        // The call's room is a fresh one too: the worker lease is fenced with it.
         const roomName =
-          fate.kind === 'rotate'
+          fate.kind === 'rotate' || fate.kind === 'open-post-round-call'
             ? await rotateMediaRoom(tx, session.id, revoked, now, input.nextId)
             : undefined;
         const { fields, result } = reconcileCompletion(session, now, {
@@ -334,6 +357,19 @@ export function createMediaReconcileStore(input: {
           .update(mediaSessions)
           .set({
             ...fields,
+            ...(fate.kind === 'open-post-round-call'
+              ? { postRoundCallOpenedAt: now, roomVacantSince: now }
+              : call !== 'open'
+                ? {}
+                : roomName
+                  ? // A fresh room has been seen by nobody: its vacancy starts now.
+                    { roomVacantSince: now }
+                  : nextVacancy !== vacantSince
+                    ? {
+                        roomVacantSince:
+                          nextVacancy === null ? null : new Date(nextVacancy),
+                      }
+                    : {}),
             // The one writer of the room watch. A fresh room has been seen by nobody.
             ...(roomName
               ? { roomName, roomOccupiedSid: null, roomSawCapture: false }

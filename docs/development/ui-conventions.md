@@ -335,6 +335,13 @@ ballot completes the round (DEC-80), so round sync hands the
 debaters to the receipt at `/rounds/[id]`, which shows the result and keeps
 a human judge's seat unnamed.
 
+With a post-round call ([ADR 0127](../decisions/0127-post-round-call.md)) the
+debater's room stays on screen after the result instead: the clock reads
+`Call ends` with `Round over · Not recorded`, See the result takes the place
+of the phase action, a `Judge` tile joins the two debaters, and the media bar
+offers mute. Leaving forfeits nothing. The room moves to the receipt when the
+call's time is up.
+
 ## Judge's room
 
 An assigned human judge's live round (`/rounds/[id]/room`, `ui/judging-room`)
@@ -360,6 +367,11 @@ time left). Each rubric category has a visible disclosure of what a 1, 3 and
 5 look like. What the judge has entered is kept in this tab's sessionStorage
 until the ballot is recorded, so a reload never loses it; a refusal's posted
 values win over it.
+
+With a post-round call the judge's room also stays: a Now panel says
+`The round is over`, that the debaters can see and hear the judge, and that
+nothing is recorded, beside the `Call ends` clock; the judge has their own
+tile and may mute.
 
 ## Document manager
 

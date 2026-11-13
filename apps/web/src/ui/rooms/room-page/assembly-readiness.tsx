@@ -4,11 +4,22 @@ import { CaptureSummary } from './capture-choice';
 import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import {
+  freezePostRoundCall,
+  isNamedSeat,
+  type RoomView,
+} from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
 import { startRefusalText, waitingOn } from './room-labels';
+
+/**
+ * What every seat is told before Ready when the host chose the call and the
+ * cast as it stands would get one: Start round freezes by the same rule (ADR 0127).
+ */
+export const postRoundCallText =
+  'The call stays open after the round for feedback. Judges can be seen and heard. Not recorded.';
 
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
@@ -21,6 +32,7 @@ type View = Pick<
   | 'contentWaiver'
   | 'captureNotice'
   | 'capture'
+  | 'postRoundCall'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly capabilities: Pick<
@@ -151,6 +163,12 @@ export function ReadyControl({
       ) : null}
       {ready.type === 'ready' ? (
         <CaptureSummary capture={view.capture} />
+      ) : null}
+      {ready.type === 'ready' &&
+      freezePostRoundCall(view.postRoundCall, view.participants) ? (
+        <p role="note" className="basis-full text-sm font-strong">
+          {postRoundCallText}
+        </p>
       ) : null}
     </>
   );

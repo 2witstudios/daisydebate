@@ -165,6 +165,34 @@ test("a terminal Round's capture token is refused for good, whoever holds the se
   });
 });
 
+test('a post-round call is never captured: its worker is refused while it opens and once it is open', async () => {
+  const world = createMediaWorld({ postRoundCall: true });
+  const operations = createRoundMediaOperations(world.input);
+  await operations.session(world.roundId, world.seats[0].actorId);
+  world.end();
+  const { tokens } = broker(world);
+  const ask = () =>
+    tokens.captureToken(scope(world), authenticated(world)).then(
+      () => null,
+      (error: AppError) => [error.code, error.reason],
+    );
+  const opening = await ask();
+  await operations.recoverActiveSessions();
+  await operations.session(world.roundId, world.seats[0].actorId);
+  const open = await ask();
+  assert({
+    given:
+      'a completed Round with the call chosen, before and after the call has its room',
+    should: 'refuse the capture worker for good both times',
+    actual: [opening, open, world.rooms.has(world.currentRoom())],
+    expected: [
+      ['CONFLICT', 'capture-closed'],
+      ['CONFLICT', 'capture-closed'],
+      true,
+    ],
+  });
+});
+
 test('a capture token whose own reconcile only cleans up is refused for now', async () => {
   const world = createMediaWorld();
   const operations = createRoundMediaOperations(world.input);

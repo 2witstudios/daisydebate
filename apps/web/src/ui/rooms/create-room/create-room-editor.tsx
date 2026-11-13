@@ -228,6 +228,24 @@ export function CreateRoomEditor({
               />
             </>
           ) : null}
+          <div className="create-room-ranked">
+            <label>
+              <input
+                type="checkbox"
+                name="postRoundCall"
+                value="on"
+                disabled={isRanked}
+                checked={!isRanked && values.postRoundCall === 'on'}
+                onChange={(event) =>
+                  metadata('postRoundCall', event.target.checked ? 'on' : '')
+                }
+              />
+              Post-round feedback
+            </label>
+            <span>
+              {isRanked ? 'Unranked only' : 'Call stays open after the round'}
+            </span>
+          </div>
           {isCustom ? (
             <details className="create-room-library">
               <summary>Start from a league template</summary>

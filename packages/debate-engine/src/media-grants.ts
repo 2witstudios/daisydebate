@@ -7,6 +7,7 @@ import type {
 import {
   conversational,
   isRoundRunning,
+  noPostRoundCall,
   roundStartPolicy,
 } from '@daisy/protocol';
 import { broadcastPhase } from './broadcast-phase';
@@ -53,11 +54,12 @@ const withinMediaWindow = (input: MediaGrantInput) => {
   return (
     Number.isFinite(finalEnd) &&
     Date.parse(input.now) >= finalEnd &&
-    !mediaWindowClosed(
-      input.position.status,
-      input.now,
-      input.finalSegmentEndedAt,
-    )
+    !mediaWindowClosed({
+      status: input.position.status,
+      now: input.now,
+      finalSegmentEndedAt: input.finalSegmentEndedAt,
+      postRoundCall: noPostRoundCall(input.position.status),
+    })
   );
 };
 const speakingNow = (input: MediaGrantInput) => {

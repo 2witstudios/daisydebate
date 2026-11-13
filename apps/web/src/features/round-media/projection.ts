@@ -2,7 +2,8 @@ import {
   createRoundRuntime,
   inPreRoundPrep,
   mediaGrants,
-  mediaWindowClosed,
+  mediaPhase,
+  postRoundCallGrants,
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 import { conversational, type RoundMediaState } from '@daisy/protocol';
@@ -20,14 +21,16 @@ export const mediaRuntime = (
     round: context.round,
     nextSegmentId: nextId,
   });
-export const mediaEnded = (
-  snapshot: Pick<MediaSnapshot, 'round' | 'now' | 'finalSegmentEndedAt'>,
-) =>
-  mediaWindowClosed(
-    snapshot.round.status,
-    snapshot.now,
-    snapshot.finalSegmentEndedAt,
-  );
+/** Where this snapshot's media stands, by the engine's one rule. */
+export const mediaPhaseOf = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
+  mediaPhase(snapshot.mediaWindow);
+export const mediaEnded = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
+  mediaPhaseOf(snapshot) === 'closed';
+/** A post-round call waits for the Round's room to be proven gone (ADR 0127). */
+export const callOpening = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
+  mediaPhaseOf(snapshot) === 'post-round-call-opening';
+const onCall = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
+  mediaPhaseOf(snapshot) === 'post-round-call';
 /** This seat itself has lost its place, as opposed to another's revocation rotating the room. */
 export const ownSeatRevoked = (
   snapshot: Pick<MediaSnapshot, 'participants'>,
@@ -67,11 +70,22 @@ export const seatGrants = (
     | 'withdrawn'
     | 'conversationHeld'
     | 'cameraHeld'
+    | 'mediaWindow'
   >,
   participantId: string,
   nextId: () => string,
-) =>
-  mediaGrants({
+) => {
+  if (onCall(snapshot)) {
+    const seat = snapshot.participants.find(
+      (candidate) => candidate.id === participantId,
+    );
+    return postRoundCallGrants(
+      seat && snapshot.withdrawn.includes(participantId)
+        ? { ...seat, eligible: false }
+        : seat,
+    );
+  }
+  return mediaGrants({
     participants: snapshot.withdrawn.includes(participantId)
       ? snapshot.participants.map((seat) =>
           seat.id === participantId ? { ...seat, eligible: false } : seat,
@@ -92,6 +106,7 @@ export const seatGrants = (
     conversationHeld: snapshot.conversationHeld,
     cameraHeld: snapshot.cameraHeld,
   });
+};
 
 const HELD_ALERT_MS = 30_000;
 
@@ -99,11 +114,13 @@ const HELD_ALERT_MS = 30_000;
 export const conversationHeldOverdue = (
   snapshot: Pick<
     MediaSnapshot,
-    'round' | 'now' | 'finalSegmentEndedAt' | 'conversationHeld'
+    'round' | 'now' | 'finalSegmentEndedAt' | 'conversationHeld' | 'mediaWindow'
   >,
   nextId: () => string,
 ): boolean => {
-  if (!snapshot.conversationHeld || mediaEnded(snapshot)) return false;
+  // Only the Round's own conversation waits on an observer.
+  if (!snapshot.conversationHeld || mediaPhaseOf(snapshot) !== 'round')
+    return false;
   if (!conversational(mediaRuntime(snapshot, nextId).position(snapshot.now)))
     return false;
   const since = snapshot.finalSegmentEndedAt ?? snapshot.round.launchedAt;
@@ -119,6 +136,7 @@ export function projectMedia(
   const state = ended
     ? 'ended'
     : ready &&
+        !callOpening(snapshot) &&
         !snapshot.session.unsafeAt &&
         !snapshot.unresolved &&
         !admissionRevoked(snapshot)
@@ -150,7 +168,10 @@ export function projectMedia(
           const seat = snapshot.participants.find(
             (seat) => seat.id === binding.roundParticipantId,
           );
-          return seat && seat.role !== 'judge'
+          // A bot is never on a post-round call.
+          return seat &&
+            seat.role !== 'judge' &&
+            (seat.kind === 'human' || !onCall(snapshot))
             ? [
                 {
                   participantId: seat.id,
@@ -163,6 +184,28 @@ export function projectMedia(
                 },
               ]
             : [];
+        }),
+    ...(ended || !onCall(snapshot)
+      ? {}
+      : {
+          callJudges: snapshot.bindings.flatMap((binding) => {
+            const seat = snapshot.participants.find(
+              (seat) => seat.id === binding.roundParticipantId,
+            );
+            return seat?.role === 'judge' && seat.kind === 'human'
+              ? [
+                  {
+                    slot: seat.slot,
+                    identity: binding.identity,
+                    microphone:
+                      state === 'ready' &&
+                      seatGrants(snapshot, seat.id, nextId).publish.includes(
+                        'microphone',
+                      ),
+                  },
+                ]
+              : [];
+          }),
         }),
   };
 }

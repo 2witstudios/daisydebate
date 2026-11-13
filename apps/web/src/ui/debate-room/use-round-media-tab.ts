@@ -1,5 +1,6 @@
 'use client';
 import { isRoundOver } from '@daisy/protocol';
+import { postRoundCallChosen } from '../../features/post-round-call/offered';
 import { useEffect, useMemo, useState } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import { clearDeparture } from '../../features/rooms/resume-departure';
@@ -33,7 +34,8 @@ export function useRoundMediaTab(
   }, [actorId, view.id]);
   const ownership = useResumeLifetime(
     actorId,
-    isRoundOver(view.status) ? null : view.id,
+    // A post-round call still holds this seat's one connection.
+    isRoundOver(view.status) && !postRoundCallChosen(view) ? null : view.id,
     // The member left: this waiting room captures nothing and checks in nothing.
     () => window.location.replace('/lobby'),
     stepDown.fire,

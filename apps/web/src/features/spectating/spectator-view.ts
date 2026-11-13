@@ -29,9 +29,11 @@ export type WatchingRoom<R> =
 export function watchingRoomOf<R extends Pick<RoundView, 'status'>>(input: {
   readonly judgeRound: R | null;
   readonly spectatorKind: SpectatorKind | null;
+  /** The judge's Round is over and its post-round call may still be on (ADR 0127). */
+  readonly judgeOnCall?: boolean;
 }): WatchingRoom<R> {
   if (input.judgeRound !== null)
-    return isLiveRound(input.judgeRound)
+    return isLiveRound(input.judgeRound) || input.judgeOnCall === true
       ? { kind: 'judge', round: input.judgeRound }
       : { kind: 'receipt' };
   return input.spectatorKind === null

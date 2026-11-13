@@ -10,6 +10,9 @@ import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[roundId]/actions';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { systemClock } from '@daisy/clock';
+import { postRoundCallOffered } from '../../../../features/post-round-call/offered';
+import { MediaPageLink } from '../../../../ui/round-media/media-page-link';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
@@ -126,10 +129,28 @@ export default async function RoundPage({
       ? await floorProps(id, identity.principal.actorId, null, true)
       : null;
   const hostedLink = await requestHostedAudienceLink(id, identity);
+  // A seated human may go back to the Round's post-round call (ADR 0127).
+  const onCall =
+    identity.state === 'member' &&
+    postRoundCallOffered(result.round, Date.parse(systemClock.now())) &&
+    result.round.participants.some(
+      (p) =>
+        !('anonymous' in p) &&
+        p.kind === 'human' &&
+        p.actorId === identity.principal.actorId,
+    );
   return (
     <>
       <MediaDocument />
       <RoundReceipt round={result.round}>
+        {onCall ? (
+          <MediaPageLink
+            href={`/rounds/${id}/room`}
+            className="text-sm font-strong underline"
+          >
+            Join the post-round call
+          </MediaPageLink>
+        ) : null}
         <RoundRatings view={ratings} />
         {floor ? (
           <Link href={`/rounds/${id}/floor`} className="text-sm underline">

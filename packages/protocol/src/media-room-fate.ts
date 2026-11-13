@@ -17,6 +17,11 @@ export type MediaRoomFacts = {
   readonly sawCapture: boolean;
   /** What this pass read of the room; null if it read nothing. */
   readonly seen: MediaRoomRead | null;
+  /**
+   * The post-round call (ADR 0127): `opening` while the Round's own room must
+   * first be proven gone, `open` once the session holds the call's room.
+   */
+  readonly call: 'none' | 'opening' | 'open';
 };
 
 /** One pass's read of the room: it was absent, or it stood like this. */
@@ -56,5 +61,10 @@ export type MediaRoomFate =
       readonly kind: 'rotate';
       readonly cause: MediaRoomRotationCause;
     }
+  /**
+   * The Round's room is proven gone: the session takes a fresh room for the
+   * post-round call. Not a rotation: nothing was lost and no seat was revoked.
+   */
+  | { readonly kind: 'open-post-round-call' }
   /** The room is proven gone and nothing requires a new one yet. */
   | { readonly kind: 'clear' };

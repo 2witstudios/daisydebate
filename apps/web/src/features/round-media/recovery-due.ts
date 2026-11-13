@@ -1,5 +1,5 @@
-import { mediaWindowClosed } from '@daisy/debate-engine/media-window';
-import type { RoundStatus } from '@daisy/protocol';
+import { mediaPhase } from '@daisy/debate-engine/media-window';
+import type { PostRoundCallFacts, RoundStatus } from '@daisy/protocol';
 import { dueAt, floorBoundaries, type FloorClock } from './floor-clock';
 
 /**
@@ -28,6 +28,7 @@ export type RecoverySession = {
   readonly roundChangedAt: string;
   readonly roundStatus: RoundStatus;
   readonly finalSegmentEndedAt: string | null;
+  readonly postRoundCall: PostRoundCallFacts;
   readonly unsafe: boolean;
   /** The last pass finished its work; a failed one leaves the Round due. */
   readonly lastPassClean: boolean;
@@ -71,10 +72,15 @@ export const recoveryNeed = (
   if (
     session.unsafe ||
     !session.lastPassClean ||
-    mediaWindowClosed(
-      session.roundStatus,
-      session.now,
-      session.finalSegmentEndedAt,
+    // Closed media is torn down at once, and so is a Round's room in the way of
+    // its post-round call: everyone on it is waiting.
+    ['closed', 'post-round-call-opening'].includes(
+      mediaPhase({
+        status: session.roundStatus,
+        now: session.now,
+        finalSegmentEndedAt: session.finalSegmentEndedAt,
+        postRoundCall: session.postRoundCall,
+      }),
     )
   )
     return 'repair';

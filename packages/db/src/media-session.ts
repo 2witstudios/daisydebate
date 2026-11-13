@@ -8,6 +8,7 @@ import {
   type BotMediaPrincipal,
 } from './bot-publication-context';
 import { and, eq } from 'drizzle-orm';
+import { noPostRoundCall } from '@daisy/protocol';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import {
@@ -17,13 +18,13 @@ import {
 import {
   lockMediaRound,
   mediaId as parseId,
+  readMediaWindowFacts,
   requireMediaWindow,
   type MediaCaller,
   type MediaWindowRule,
 } from './media-session-authority';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
-import { rounds } from './schema/rounds';
 import { createMediaReconcileStore } from './media-reconcile-store';
 import {
   lockedMediaSnapshot,
@@ -50,24 +51,17 @@ export function createMediaSessionStore({
       readonly roundId: string;
       readonly caller: MediaCaller;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
-      readonly mediaWindowClosed: MediaWindowRule;
+      readonly mediaPhase: MediaWindowRule;
     }) {
       const roundId = parseId(input.roundId);
       return run(async (tx) => {
         const authority = await lockMediaRound(tx, roundId, input.caller);
         const roundParticipantId = authority.caller!.id;
-        const [current] = await tx
-          .select({
-            status: rounds.status,
-            finalSegmentEndedAt: rounds.finalSegmentEndedAt,
-          })
-          .from(rounds)
-          .where(eq(rounds.id, roundId));
         requireMediaWindow(
-          input.mediaWindowClosed,
-          current!.status,
-          await sampleRoundExecutionTime(tx),
-          current!.finalSegmentEndedAt?.toISOString() ?? null,
+          input.mediaPhase,
+          await readMediaWindowFacts(tx, roundId, {
+            now: await sampleRoundExecutionTime(tx),
+          }),
         );
         const binding = await bindMediaParticipant(tx, {
           roundId,
@@ -79,10 +73,8 @@ export function createMediaSessionStore({
           buildProjection: input.buildProjection,
         });
         requireMediaWindow(
-          input.mediaWindowClosed,
-          current!.status,
-          tick.now,
-          tick.finalSegmentEndedAt,
+          input.mediaPhase,
+          await readMediaWindowFacts(tx, roundId, tick),
         );
         return binding;
       });
@@ -90,7 +82,7 @@ export function createMediaSessionStore({
     async ensureBotBinding(input: {
       readonly principal: BotMediaPrincipal;
       readonly buildProjection: LockedRoundTickInput['buildProjection'];
-      readonly mediaWindowClosed: MediaWindowRule;
+      readonly mediaPhase: MediaWindowRule;
     }) {
       const { scope, token } = input.principal;
       return run(async (tx) => {
@@ -110,12 +102,13 @@ export function createMediaSessionStore({
         // with this transaction. The claim check before it only spares a
         // dead claim the tick.
         await verifyBotMediaPrincipal(tx, input.principal);
-        requireMediaWindow(
-          input.mediaWindowClosed,
-          'active',
-          tick.now,
-          tick.finalSegmentEndedAt,
-        );
+        // A bot speaks only in its Round: it is never on a post-round call.
+        requireMediaWindow(input.mediaPhase, {
+          status: 'active',
+          now: tick.now,
+          finalSegmentEndedAt: tick.finalSegmentEndedAt,
+          postRoundCall: noPostRoundCall('active'),
+        });
         return binding;
       });
     },

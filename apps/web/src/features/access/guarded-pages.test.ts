@@ -86,6 +86,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
     },
     available: { analytics: false, replay: false },
     capture: null,
+    postRoundCall: false,
   }),
 }));
 // The settings screen's client component is not under test here; loading it
