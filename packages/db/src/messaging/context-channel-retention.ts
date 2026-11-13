@@ -29,18 +29,24 @@ export function contextChannelRetention(
     },
     async purgeReceipts(input: RetentionBatch) {
       requireRetentionBounds(input);
-      const rows =
-        await database.execute(sql`delete from messaging_receipts x where (x.channel_id,x.actor_id,x.request_id) in (
-    select q.channel_id,q.actor_id,q.request_id from messaging_receipts q join messaging_channels c on c.id=q.channel_id and c.kind=${kind} ${ended(input.before)} order by q.channel_id,q.actor_id,q.request_id limit ${input.limit} for update of q skip locked
-   ) returning x.channel_id`);
+      // The batch is a CTE, as in purgeMessages: a locking LIMIT inside an IN
+      // subquery may run again per row and delete past the limit.
+      const rows = await database.execute(sql`with due as (
+        select q.channel_id,q.actor_id,q.request_id from messaging_receipts q
+        join messaging_channels c on c.id=q.channel_id and c.kind=${kind}
+        ${ended(input.before)}
+        order by q.channel_id,q.actor_id,q.request_id limit ${input.limit} for update of q skip locked
+      ) delete from messaging_receipts x using due where x.channel_id=due.channel_id and x.actor_id=due.actor_id and x.request_id=due.request_id returning x.channel_id`);
       return rows.length;
     },
     async purgeReadStates(input: RetentionBatch) {
       requireRetentionBounds(input);
-      const rows =
-        await database.execute(sql`delete from messaging_actor_states s where (s.channel_id,s.actor_id) in (
-    select x.channel_id,x.actor_id from messaging_actor_states x join messaging_channels c on c.id=x.channel_id and c.kind=${kind} ${ended(input.before)} order by x.channel_id,x.actor_id limit ${input.limit} for update of x skip locked
-   ) returning s.channel_id`);
+      const rows = await database.execute(sql`with due as (
+        select x.channel_id,x.actor_id from messaging_actor_states x
+        join messaging_channels c on c.id=x.channel_id and c.kind=${kind}
+        ${ended(input.before)}
+        order by x.channel_id,x.actor_id limit ${input.limit} for update of x skip locked
+      ) delete from messaging_actor_states s using due where s.channel_id=due.channel_id and s.actor_id=due.actor_id returning s.channel_id`);
       return rows.length;
     },
   };
