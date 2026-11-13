@@ -1,24 +1,20 @@
 /**
  * Settles once the frame's faces have loaded, or after a limit: the first recorded
- * frame should be in the brand's type, and a font that never arrives must not keep
- * a Round from being recorded. The faces start loading when the frame first lays
- * out, so the wait begins a frame after it is shown.
+ * frame should be in the brand's type, and a font that never arrives or cannot be
+ * asked for must not keep a Round from being recorded.
  */
 export const whenFontsSettle = (deps: {
-  readonly ready: () => Promise<unknown>;
-  readonly frame: (run: () => void) => void;
+  /** Asks for the faces by name, so nothing depends on when the frame first lays out. */
+  readonly load: () => Promise<unknown>;
   readonly wait: (ms: number) => Promise<void>;
   readonly limitMs: number;
 }): Promise<void> =>
   Promise.race([
-    new Promise<void>((settle) =>
-      deps.frame(
-        () =>
-          void deps.ready().then(
-            () => settle(),
-            () => settle(),
-          ),
+    Promise.resolve()
+      .then(deps.load)
+      .then(
+        () => undefined,
+        () => undefined,
       ),
-    ),
     deps.wait(deps.limitMs),
   ]);

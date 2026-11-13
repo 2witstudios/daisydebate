@@ -34,8 +34,10 @@ type StagePosition = {
     readonly type: string;
     readonly label: string;
   } | null;
-  /** Time left before the next speech opens; null when no countdown runs. */
+  /** Time left before the next speech opens: zero while its start is held. */
   readonly countdownRemainingMs: number | null;
+  /** A platform incident stops every clock until its phase is `none`. */
+  readonly incident: { readonly phase: string };
   readonly openSegment: {
     readonly label: string;
     readonly endsAt: string;
@@ -71,15 +73,15 @@ export type StageSeatView = {
 
 /**
  * What one phase of the stage can show, and nothing it cannot: only a speech has a
- * labelled clock, only a wait with a deadline has an end, and only the wait between
- * speeches knows what comes next.
+ * labelled clock, only a wait whose clock is running down has an end, and only the
+ * wait between speeches knows what comes next.
  */
 export type StagePhaseView =
   | {
       readonly phase: 'speech';
       readonly clock: { readonly label: string; readonly endsAt: string };
     }
-  | { readonly phase: 'prep'; readonly endsAt: string }
+  | { readonly phase: 'prep'; readonly endsAt: string | null }
   | {
       readonly phase: 'between';
       readonly endsAt: string | null;
@@ -92,19 +94,30 @@ export type StageSnapshot = StagePhaseView & {
   readonly seats: readonly StageSeatView[];
 };
 
-const endsIn = (nowMs: number, remainingMs: number) =>
-  new Date(nowMs + remainingMs).toISOString();
-
 /**
- * A wait's end is the answer's own instant plus what is left, so a stopped clock reads
- * the same time on every answer instead of running down.
+ * When a wait ends, or null when nothing on the frame should count down: an incident
+ * has stopped the clock, or the time is spent and the Round is held (a speech's start
+ * waits for capture at zero), where a burned-in 0:00 would only look stuck. The end is
+ * the answer's own instant plus what is left.
  */
+const waitEnd = (
+  position: StagePosition,
+  remainingMs: number | null,
+  nowMs: number,
+) =>
+  position.incident.phase !== 'none' || remainingMs === null || remainingMs <= 0
+    ? null
+    : new Date(nowMs + remainingMs).toISOString();
+
 const phaseViewOf = (
   position: StagePosition,
   nowMs: number,
 ): StagePhaseView => {
   if (position.prep)
-    return { phase: 'prep', endsAt: endsIn(nowMs, position.prep.remainingMs) };
+    return {
+      phase: 'prep',
+      endsAt: waitEnd(position, position.prep.remainingMs, nowMs),
+    };
   if (position.stage === 'awaiting_ballot') return { phase: 'judging' };
   if (position.openSegment)
     return {
@@ -118,10 +131,7 @@ const phaseViewOf = (
     return { phase: 'slate' };
   return {
     phase: 'between',
-    endsAt:
-      position.countdownRemainingMs === null
-        ? null
-        : endsIn(nowMs, position.countdownRemainingMs),
+    endsAt: waitEnd(position, position.countdownRemainingMs, nowMs),
     next: { label: position.nextSegment.label },
   };
 };

@@ -9,7 +9,6 @@ import { StageSeat } from './stage-seat';
 import { StageSlate } from './stage-slate';
 import type { SeatMedia } from './stage-subscriptions';
 
-export type { StageSnapshot };
 /** Whether the page holds the room; a rotation or a drop shows as a gap, not a freeze. */
 export type StageLink = 'connected' | 'reconnecting';
 

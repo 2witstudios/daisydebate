@@ -3,35 +3,37 @@ import { whenFontsSettle } from './stage-fonts';
 
 setupRitewayBun();
 
-const settled = async (deps: {
-  readonly ready: () => Promise<unknown>;
-  readonly wait: () => Promise<void>;
-}) => {
+const never = () => new Promise<never>(() => {});
+const settledBy = async (
+  load: () => Promise<unknown>,
+  wait: () => Promise<void>,
+) => {
   const order: string[] = [];
   await whenFontsSettle({
-    ready: () => deps.ready().then(() => order.push('fonts')),
-    frame: (run) => run(),
-    wait: () => deps.wait().then(() => void order.push('limit')),
+    load: () => load().finally(() => order.push('faces')),
+    wait: () => wait().then(() => void order.push('limit')),
     limitMs: 2000,
   });
   return order;
 };
 
 test('the start signal waits for the frame’s faces, but not for ever', async () => {
-  const never = () => new Promise<never>(() => {});
   assert({
-    given: 'faces that load, faces that never do, and faces that fail',
-    should: 'settle on the faces, then on the limit, then on the failure',
+    given:
+      'faces that load, faces that never do, faces that fail, and a browser that cannot be asked',
+    should: 'settle on the faces, on the limit, and on either failure',
     actual: [
-      await settled({ ready: () => Promise.resolve(), wait: never }),
-      await settled({ ready: never, wait: () => Promise.resolve() }),
+      await settledBy(() => Promise.resolve(), never),
+      await settledBy(never, () => Promise.resolve()),
+      await settledBy(() => Promise.reject(new Error('no font')), never),
       await whenFontsSettle({
-        ready: () => Promise.reject(new Error('no font')),
-        frame: (run) => run(),
+        load: () => {
+          throw new Error('no font API');
+        },
         wait: never,
         limitMs: 2000,
       }).then(() => 'settled'),
     ],
-    expected: [['fonts'], ['limit'], 'settled'],
+    expected: [['faces'], ['limit'], ['faces'], 'settled'],
   });
 });

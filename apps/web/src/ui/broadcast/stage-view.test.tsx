@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { pageColourClasses } from '../test-support/stage-palette';
 import type { SeatMedia } from './stage-subscriptions';
-import { StageView, type StageLink, type StageSnapshot } from './stage-view';
+import type { StageSnapshot } from '../../features/stage-capture/stage-access';
+import { StageView, type StageLink } from './stage-view';
 
 setupRitewayBun();
 
@@ -141,7 +142,7 @@ test('a slate counts down only to a deadline it has', () => {
   } as const;
   const clockOf = (html: string) => /<strong>([^<]*)</.exec(html)?.[1] ?? null;
   assert({
-    given: 'prep, a countdown, a held floor change, judging and no round yet',
+    given: 'prep, a countdown, a held start, judging and no round yet',
     should:
       'show the time left where there is a deadline, the next speech between speeches, and both sides on every slate',
     actual: [

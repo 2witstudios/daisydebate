@@ -73,6 +73,7 @@ describe('stageSnapshot', () => {
     prep: null,
     nextSegment: { type: 'speech', label: 'Rebuttal' },
     countdownRemainingMs: null,
+    incident: { phase: 'none' },
     openSegment: {
       label: 'Constructive',
       endsAt: '2026-11-02T00:01:00.000Z',
@@ -133,32 +134,33 @@ describe('stageSnapshot', () => {
         next: 'next' in snapshot ? snapshot.next : undefined,
       };
     };
+    const prep = { side: 'negative', remainingMs: 90_000 };
+    const none = { endsAt: undefined, next: undefined };
+    const next = { label: 'Rebuttal' };
     assert({
       given:
-        'prep, a ballot awaited, a countdown, a held floor change and no round',
+        'prep, a countdown, a ballot awaited and no round; then prep spent, prep and a countdown under an incident, and a start held at zero',
       should:
-        'end prep and the countdown at the answer’s instant plus what is left, name the next speech, and give judging and the slate nothing',
+        'end a running wait at the answer’s instant plus what is left, name the next speech, and give a stopped or spent wait no end',
       actual: [
-        view({ prep: { side: 'negative', remainingMs: 90_000 } }),
-        view({ stage: 'awaiting_ballot' }),
+        view({ prep }),
         view({ countdownRemainingMs: 5_000 }),
-        view({}),
+        view({ stage: 'awaiting_ballot' }),
         view({ nextSegment: null }),
+        view({ prep: { ...prep, remainingMs: 0 } }),
+        view({ prep, incident: { phase: 'paused' } }),
+        view({ countdownRemainingMs: 5_000, incident: { phase: 'resuming' } }),
+        view({ countdownRemainingMs: 0 }),
       ],
       expected: [
-        {
-          phase: 'prep',
-          endsAt: '2026-11-02T00:01:30.000Z',
-          next: undefined,
-        },
-        { phase: 'judging', endsAt: undefined, next: undefined },
-        {
-          phase: 'between',
-          endsAt: '2026-11-02T00:00:05.000Z',
-          next: { label: 'Rebuttal' },
-        },
-        { phase: 'between', endsAt: null, next: { label: 'Rebuttal' } },
-        { phase: 'slate', endsAt: undefined, next: undefined },
+        { phase: 'prep', endsAt: '2026-11-02T00:01:30.000Z', next: undefined },
+        { phase: 'between', endsAt: '2026-11-02T00:00:05.000Z', next },
+        { phase: 'judging', ...none },
+        { phase: 'slate', ...none },
+        { phase: 'prep', endsAt: null, next: undefined },
+        { phase: 'prep', endsAt: null, next: undefined },
+        { phase: 'between', endsAt: null, next },
+        { phase: 'between', endsAt: null, next },
       ],
     });
   });

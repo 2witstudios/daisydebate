@@ -21,6 +21,19 @@ const SITE_LINK = 'daisydebate.com';
 /** Long enough for self-hosted faces; short enough that a lost one costs no speech. */
 const FONT_WAIT_MS = 2000;
 
+/**
+ * The display and body faces by the names the root layout gives them, with the frame's
+ * own characters so the subset that holds them is the one fetched.
+ */
+const loadFrameFaces = () => {
+  const theme = getComputedStyle(document.documentElement);
+  return Promise.all(
+    ['--font-face-display', '--font-face-sans'].map((face) =>
+      document.fonts.load(`1em ${theme.getPropertyValue(face)}`, 'Daisy 0:00'),
+    ),
+  );
+};
+
 /** The LiveKit room the stage joins, under the observer token and without retries of its own. */
 type StageMediaRoom = StageRoomHandle & { readonly room: Room };
 
@@ -169,8 +182,7 @@ export function StageRoom(props: {
     if (!shown || started.current) return;
     started.current = true;
     void whenFontsSettle({
-      ready: () => document.fonts.ready,
-      frame: (run) => requestAnimationFrame(run),
+      load: loadFrameFaces,
       wait: (ms) => new Promise((done) => setTimeout(done, ms)),
       limitMs: FONT_WAIT_MS,
     }).then(() => {
