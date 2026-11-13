@@ -102,18 +102,16 @@ test('native format, resolution and speech editing create a room without JavaScr
       .check();
     const ranked = form.getByRole('checkbox', { name: 'Ranked', exact: true });
     await ranked.check();
+    // RCHAT-13: a ranked draft owes no capture notice. A native render shows
+    // it; Create is not pressed, since whether a ranked create is accepted
+    // depends on a season being open, which other specs in this run decide.
+    // Apply resolution re-renders the draft as posted; Apply format would
+    // reset it to the preset and clear Ranked.
     await form
-      .getByRole('button', { name: 'Create room', exact: true })
+      .getByRole('button', { name: 'Apply resolution', exact: true })
       .click();
-    // RCHAT-13: a ranked Create owes no capture notice, so it is the create
-    // itself. No season is open here, so it is refused and the draft is kept.
     await expect(page).toHaveURL(/\/play\/room\?draft=/);
-    await expect(
-      form.getByText(
-        'Ranked rooms are unavailable right now. Turn Ranked off or try again later.',
-        { exact: true },
-      ),
-    ).toBeVisible();
+    await expect(ranked).toBeChecked();
     await expect(
       form.getByText('Recording is on for ranked matches.', { exact: true }),
     ).toBeVisible();
