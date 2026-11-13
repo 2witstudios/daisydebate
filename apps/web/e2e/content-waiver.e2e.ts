@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createId } from '@paralleldrive/cuid2';
+import { casualCaptureNotice } from '../src/features/legal/agreements';
 import { test, expect, openPage } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
 import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
@@ -51,9 +52,11 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
         .check();
       await page.getByRole('button', { name: 'Sign waiver' }).click();
       await expect(waiver).toHaveCount(0);
+      // RCHAT-13: the signed waiver is the ranked agreement; no capture notice.
+      await expect(page.getByText(casualCaptureNotice.text)).toHaveCount(0);
       await expect(
-        page.getByRole('note').getByText('stays after you close your account'),
-      ).toBeVisible();
+        page.getByText('stays after you close your account'),
+      ).toHaveCount(0);
     } finally {
       await closeRoom(page.request, room.id);
     }

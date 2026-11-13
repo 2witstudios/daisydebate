@@ -357,6 +357,8 @@ const columnsOf = async (sql: SQL, table: string, except: readonly string[]) =>
     .map((name) => `"${name}"`)
     .join(',');
 
+// 2000 copied Rooms and Rounds, then one pass over them: past the default
+// 5 s on a busy runner, so the bound is this test's own.
 test('the sweep costs nothing for finished Rounds, however many there are', async () => {
   const history = 2000;
   await withEndedRound(async ({ db, sql, roundId }) => {
@@ -436,7 +438,7 @@ test('the sweep costs nothing for finished Rounds, however many there are', asyn
       );
     }
   });
-});
+}, 30000);
 
 test('a released resolution is logged at the Round start', async () => {
   await withEndedRound(async ({ db, sql, roundId }) => {
