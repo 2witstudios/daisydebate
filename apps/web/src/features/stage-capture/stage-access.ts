@@ -108,6 +108,8 @@ const waitLeft = (position: StagePosition, remainingMs: number | null) =>
     : remainingMs;
 
 const phaseViewOf = (position: StagePosition): StagePhaseView => {
+  // Asked first, so a Round that is over reads as ended whatever else its position holds.
+  if (isRoundOver(position.status)) return { phase: 'ended' };
   if (position.prep)
     return {
       phase: 'prep',
@@ -122,7 +124,6 @@ const phaseViewOf = (position: StagePosition): StagePhaseView => {
         endsAt: position.openSegment.endsAt,
       },
     };
-  if (isRoundOver(position.status)) return { phase: 'ended' };
   if (position.status !== 'active' || !position.nextSegment)
     return { phase: 'slate' };
   return {

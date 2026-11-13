@@ -18,3 +18,13 @@ export const whenFontsSettle = (deps: {
       ),
     deps.wait(deps.limitMs),
   ]);
+
+/**
+ * Whether the start signal may still go out once the faces have settled. A stage that
+ * ended, or whose page is gone, while they loaded must not ask Egress to start: the
+ * end signal has already been given, and a start after it would record a dead stage.
+ */
+export const mayStartRecording = (stage: {
+  readonly mounted: boolean;
+  readonly ended: boolean;
+}) => stage.mounted && !stage.ended;

@@ -2,8 +2,11 @@
  * Draws the Recording's gap slate: the still the recording worker holds where capture
  * stopped and restarted. It is the stage's own slate, drawn with the stage's own
  * stylesheet, tokens, branding bar and mark, so a gap joins the frames either side of
- * it and nothing here is a second copy of their look. Only the two lines of copy and
- * the committed font files (the same faces the app serves) are this script's.
+ * it and nothing here is a second copy of their look. This script's own are the two
+ * lines of copy, the committed font files (the same faces the app serves), and the
+ * three Tailwind utilities the mark and the bar use (`fill-cream`, `fill-yolk`,
+ * `shrink-0`), written out below because no Tailwind build runs here. A class added
+ * to either must be added there too; only the ground pixel is pinned by a test.
  *
  *   bun apps/web/scripts/gap-slate.ts
  *

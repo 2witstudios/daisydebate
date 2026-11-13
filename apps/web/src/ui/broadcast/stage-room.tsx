@@ -10,7 +10,7 @@ import {
 import type { StageRoomHandle } from './stage-connection';
 import { drawableStageAnswer, type StageAnswer } from './stage-answer';
 import { createStageConnection } from './stage-connector';
-import { whenFontsSettle } from './stage-fonts';
+import { mayStartRecording, whenFontsSettle } from './stage-fonts';
 import { startStagePoll } from './stage-poll';
 import { stageWatchStart, watchedStage } from './stage-watch';
 import { StageView, type StageLink } from './stage-view';
@@ -187,8 +187,7 @@ export function StageRoom(props: {
       wait: (ms) => new Promise((done) => setTimeout(done, ms)),
       limitMs: FONT_WAIT_MS,
     }).then(() => {
-      // A stage that ended while its faces loaded never asks Egress to start.
-      if (!mounted || watch.current.ended) return;
+      if (!mayStartRecording({ mounted, ended: watch.current.ended })) return;
       // Egress waits for exactly this line before it records (awaitStartSignal).
       // eslint-disable-next-line no-console
       console.log('START_RECORDING');

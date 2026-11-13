@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { whenFontsSettle } from './stage-fonts';
+import { mayStartRecording, whenFontsSettle } from './stage-fonts';
 
 setupRitewayBun();
 
@@ -35,5 +35,18 @@ test('the start signal waits for the frame’s faces, but not for ever', async (
       }).then(() => 'settled'),
     ],
     expected: [['faces'], ['limit'], ['faces'], 'settled'],
+  });
+});
+
+test('a stage that ended while its faces loaded never asks Egress to start', () => {
+  assert({
+    given: 'a live stage, a stage that has ended, and a page that is gone',
+    should: 'start recording only for the live one',
+    actual: [
+      mayStartRecording({ mounted: true, ended: false }),
+      mayStartRecording({ mounted: true, ended: true }),
+      mayStartRecording({ mounted: false, ended: false }),
+    ],
+    expected: [true, false, false],
   });
 });

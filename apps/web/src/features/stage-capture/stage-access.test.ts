@@ -147,7 +147,7 @@ describe('stageSnapshot', () => {
         view({ stage: 'awaiting_ballot' }),
         view({ status: 'opening' }),
         view({ status: 'completed', nextSegment: null }),
-        view({ status: 'abandoned' }),
+        view({ status: 'abandoned', prep }),
         view({ prep: { ...prep, remainingMs: 0 } }),
         view({ prep, incident: { phase: 'paused' } }),
         view({ countdownRemainingMs: 5_000, incident: { phase: 'resuming' } }),
