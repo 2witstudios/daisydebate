@@ -8,20 +8,30 @@ import {
   type StageParticipant,
 } from './stage-subscriptions';
 import type { StageRoomHandle } from './stage-connection';
+import { drawableStageAnswer, type StageAnswer } from './stage-answer';
 import { createStageConnection } from './stage-connector';
+import { mayStartRecording, whenFontsSettle } from './stage-fonts';
 import { startStagePoll } from './stage-poll';
 import { stageWatchStart, watchedStage } from './stage-watch';
-import { StageView, type StageLink, type StageSnapshot } from './stage-view';
+import { StageView, type StageLink } from './stage-view';
 
 const POLL_MS = 1000;
 const READ_TIMEOUT_MS = 3000;
 const SITE_LINK = 'daisydebate.com';
+/** Long enough for self-hosted faces; short enough that a lost one costs no speech. */
+const FONT_WAIT_MS = 2000;
 
-type StageAnswer = StageSnapshot & {
-  /** The server's clock, so the burned-in countdown never reads the browser's. */
-  readonly nowMs: number;
-  readonly debaterIdentities: readonly string[];
-  readonly room: { readonly url: string; readonly token: string } | null;
+/**
+ * The display and body faces by the names the root layout gives them, with the frame's
+ * own characters so the subset that holds them is the one fetched.
+ */
+const loadFrameFaces = () => {
+  const theme = getComputedStyle(document.documentElement);
+  return Promise.all(
+    ['--font-face-display', '--font-face-sans'].map((face) =>
+      document.fonts.load(`1em ${theme.getPropertyValue(face)}`, 'Daisy 0:00'),
+    ),
+  );
 };
 
 /** The LiveKit room the stage joins, under the observer token and without retries of its own. */
@@ -123,7 +133,7 @@ export function StageRoom(props: {
       }).catch(() => null);
       // A body cut off mid-read is no new answer; the next read tries again.
       const next = answer?.ok
-        ? ((await answer.json().catch(() => null)) as StageAnswer | null)
+        ? drawableStageAnswer(await answer.json().catch(() => null))
         : null;
       return { status: answer?.status ?? null, next };
     };
@@ -150,12 +160,6 @@ export function StageRoom(props: {
           next.debaterIdentities,
           next.phase,
         );
-      if (!started.current) {
-        started.current = true;
-        // Egress waits for exactly this line before it records (awaitStartSignal).
-        // eslint-disable-next-line no-console
-        console.log('START_RECORDING');
-      }
       // Not awaited: a connect may take seconds, and the watch must keep reading.
       if (next.room) void connection.offer(next.room);
     };
@@ -173,6 +177,25 @@ export function StageRoom(props: {
       connection.close();
     };
   }, [props.captureId, props.credential]);
+  const shown = stage !== null;
+  useEffect(() => {
+    if (!shown || started.current) return undefined;
+    started.current = true;
+    let mounted = true;
+    void whenFontsSettle({
+      load: loadFrameFaces,
+      wait: (ms) => new Promise((done) => setTimeout(done, ms)),
+      limitMs: FONT_WAIT_MS,
+    }).then(() => {
+      if (!mayStartRecording({ mounted, ended: watch.current.ended })) return;
+      // Egress waits for exactly this line before it records (awaitStartSignal).
+      // eslint-disable-next-line no-console
+      console.log('START_RECORDING');
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [shown]);
   if (!stage) return null;
   return (
     <StageView

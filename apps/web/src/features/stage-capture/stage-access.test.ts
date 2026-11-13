@@ -67,10 +67,12 @@ describe('stageSnapshot', () => {
     },
   ];
   const position = {
-    status: 'active',
+    status: 'active' as const,
     stage: null,
     prep: null,
-    nextSegment: { type: 'speech' },
+    nextSegment: { type: 'speech', label: 'Rebuttal' },
+    countdownRemainingMs: null,
+    incident: { phase: 'none' },
     openSegment: {
       label: 'Constructive',
       endsAt: '2026-11-02T00:01:00.000Z',
@@ -86,7 +88,7 @@ describe('stageSnapshot', () => {
         'carry the clock, the phase and both debaters with the floor marked, and no judge anywhere',
       actual: [
         snapshot.phase,
-        snapshot.clock,
+        snapshot.phase === 'speech' && snapshot.clock,
         snapshot.seats,
         snapshot.debaterIdentities,
         JSON.stringify(snapshot).includes('Secret Judge'),
@@ -115,33 +117,65 @@ describe('stageSnapshot', () => {
       ],
     });
   });
-  test('private phases show a slate with no clock from the private media', () => {
+  test('each wait carries only what it can show', () => {
+    const waiting = { ...position, openSegment: null };
+    const view = (
+      changed: Partial<Parameters<typeof stageSnapshot>[0]['position']>,
+    ) => {
+      const snapshot = stageSnapshot({
+        position: { ...waiting, ...changed },
+        seats,
+      });
+      return {
+        phase: snapshot.phase,
+        remainingMs:
+          'remainingMs' in snapshot ? snapshot.remainingMs : undefined,
+        next: 'next' in snapshot ? snapshot.next : undefined,
+      };
+    };
+    const prep = { side: 'negative', remainingMs: 90_000 };
+    const none = { remainingMs: undefined, next: undefined };
+    const next = { label: 'Rebuttal' };
     assert({
-      given: 'prep, awaiting a ballot, and an unplaced state',
-      should: 'report a slate kind and no floor',
+      given:
+        'prep, a countdown, a ballot awaited, no round yet and a round that is over; then prep spent, prep and a countdown under an incident, and a start held at zero',
+      should:
+        'carry what is left of a running wait, name the next speech, tell a round that is over from one not begun, and give a stopped or spent wait nothing to count',
       actual: [
-        stageSnapshot({
-          position: {
-            ...position,
-            openSegment: null,
-            prep: { side: 'negative' },
-          },
-          seats,
-        }).phase,
-        stageSnapshot({
-          position: {
-            ...position,
-            openSegment: null,
-            stage: 'awaiting_ballot',
-          },
-          seats,
-        }).phase,
-        stageSnapshot({
-          position: { ...position, openSegment: null, nextSegment: null },
-          seats,
-        }).seats.some((s) => s.floor),
+        view({ prep }),
+        view({ countdownRemainingMs: 5_000 }),
+        view({ stage: 'awaiting_ballot' }),
+        view({ status: 'opening' }),
+        view({ status: 'completed', nextSegment: null }),
+        view({ status: 'abandoned', prep }),
+        view({ prep: { ...prep, remainingMs: 0 } }),
+        view({ prep, incident: { phase: 'paused' } }),
+        view({ countdownRemainingMs: 5_000, incident: { phase: 'resuming' } }),
+        view({ countdownRemainingMs: 0 }),
       ],
-      expected: ['prep', 'judging', false],
+      expected: [
+        { phase: 'prep', remainingMs: 90_000, next: undefined },
+        { phase: 'between', remainingMs: 5_000, next },
+        { phase: 'judging', ...none },
+        { phase: 'slate', ...none },
+        { phase: 'ended', ...none },
+        { phase: 'ended', ...none },
+        { phase: 'prep', remainingMs: null, next: undefined },
+        { phase: 'prep', remainingMs: null, next: undefined },
+        { phase: 'between', remainingMs: null, next },
+        { phase: 'between', remainingMs: null, next },
+      ],
+    });
+  });
+  test('no wait gives anyone the floor', () => {
+    assert({
+      given: 'no open speech',
+      should: 'mark no seat as speaking',
+      actual: stageSnapshot({
+        position: { ...position, openSegment: null, nextSegment: null },
+        seats,
+      }).seats.some((s) => s.floor),
+      expected: false,
     });
   });
 });

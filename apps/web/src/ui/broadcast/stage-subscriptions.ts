@@ -1,6 +1,7 @@
 import { VideoQuality } from 'livekit-client';
+import type { StageSnapshot } from '../../features/stage-capture/stage-access';
 
-type StagePhase = 'speech' | 'prep' | 'judging' | 'between' | 'slate';
+type StagePhase = StageSnapshot['phase'];
 
 type Publication = {
   readonly kind: string;
@@ -21,9 +22,12 @@ export const subscribesTo = (
   identity: string,
 ) => debaterIdentities.includes(identity);
 
-/** Nothing on the audience's stage is wanted here: `speech` and `between` are public. */
+/**
+ * Only `speech` and `between` are public. Every other phase is private, and so is any
+ * phase added later until it is named here: the stage lets go by default.
+ */
 const privatePhase = (phase: StagePhase) =>
-  phase === 'prep' || phase === 'judging' || phase === 'slate';
+  phase !== 'speech' && phase !== 'between';
 
 /**
  * A voice reaches the stage only while a speech's segment is open. A next speaker's

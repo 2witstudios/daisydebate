@@ -69,15 +69,16 @@ export const createStageRoute =
         status: STAGE_ENDS_STATUS,
         headers: { 'cache-control': 'no-store' },
       });
+    const nowMs = deps.now();
     const position = createRoundRuntime({
       ...read.round,
       round: read.round,
       nextSegmentId: deps.nextId,
-    }).position(new Date(deps.now()).toISOString());
+    }).position(new Date(nowMs).toISOString());
     return Response.json(
       {
         ...stageSnapshot({ position, seats: read.seats }),
-        nowMs: deps.now(),
+        nowMs,
         // A Round that is over has no stage: its session's room may by now be a
         // post-round call's, which nothing ever observes (ADR 0127).
         room:

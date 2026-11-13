@@ -4,9 +4,14 @@ import { RENDITIONS } from './hold-manifest';
 const TS_WRAP_SECONDS = 2 ** 33 / 90_000;
 
 const SILENCE = 'anullsrc=channel_layout=stereo:sample_rate=48000';
-/** The stage's own background: a slate that was never in the hold. */
+/**
+ * The ground of the stage's own slate, `--surface-stage` in the web app's theme: a
+ * private span is a frame of it, so it joins the slates either side without a seam.
+ */
+export const STAGE_SLATE_COLOUR = '173b2a';
+/** A slate that was never in the hold. */
 const SLATE = (width: number, height: number) =>
-  `color=c=0x14130f:s=${width}x${height}:r=30`;
+  `color=c=0x${STAGE_SLATE_COLOUR}:s=${width}x${height}:r=30`;
 const seconds = (ms: number) => (ms / 1000).toFixed(3);
 const tsOffset = (capturedAtMs: number) =>
   ((capturedAtMs / 1000) % TS_WRAP_SECONDS).toFixed(3);

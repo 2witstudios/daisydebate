@@ -88,6 +88,15 @@
   --stage-accent-strong: light-dark(#bdd2b2, #bdd2b2);
   --stage-accent-text: light-dark(#173b2a, #173b2a);
 
+  /* The broadcast frame (ADR 0099): the captured video's own ground, tiles, hairline
+     and branding bar. The same in both schemes, because the frame is the broadcast
+     and never follows a viewer's theme. */
+  --stage-frame: light-dark(#0d1812, #0d1812);
+  --stage-tile: light-dark(#1f3328, #1f3328);
+  --stage-tile-idle: light-dark(#122019, #122019);
+  --stage-rule: light-dark(#3e5a48, #3e5a48);
+  --stage-footer: light-dark(#08110c, #08110c);
+
   /* Borders — warm sage-grey. */
   --border: light-dark(#ddd6c4, #24382c);
   --border-strong: light-dark(#bfbfa9, #3e5a48);

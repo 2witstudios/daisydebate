@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { pageColourClasses } from '../test-support/stage-palette';
 import type { SeatMedia } from './stage-subscriptions';
-import { StageView, type StageLink, type StageSnapshot } from './stage-view';
+import type { StageSnapshot } from '../../features/stage-capture/stage-access';
+import { StageView, type StageLink } from './stage-view';
 
 setupRitewayBun();
 
@@ -24,6 +26,11 @@ const seats: StageSnapshot['seats'] = [
 const speech: StageSnapshot = {
   phase: 'speech',
   clock: { label: 'Constructive', endsAt: '2026-11-02T00:01:05.000Z' },
+  seats,
+};
+const prep: StageSnapshot = {
+  phase: 'prep',
+  remainingMs: 90_000,
   seats,
 };
 const render = (
@@ -51,7 +58,7 @@ test('a speech burns in clock, phase, names, floor, branding and link', () => {
       'Constructive',
       '1:05',
       'Ann',
-      'speaking',
+      'Speaking',
       'Ned',
       'Daisy Debate',
       'daisydebate.com',
@@ -110,20 +117,73 @@ test('a dropped room during a speech says so', () => {
       render(speech).includes('Reconnecting'),
       render(speech, {}, 'reconnecting').includes('Reconnecting'),
       render(speech, {}, 'reconnecting').includes('invisible'),
-      render({ ...speech, phase: 'prep' }, {}, 'reconnecting').includes(
-        'Reconnecting',
-      ),
+      render(prep, {}, 'reconnecting').includes('Reconnecting'),
     ],
     expected: [false, true, true, false],
   });
 });
 
 test('a slate hides the tiles', () => {
-  const html = render({ phase: 'prep', clock: null, seats });
+  const html = render(prep);
   assert({
     given: 'prep',
     should: 'name the phase and hide the tiles, as appearance only',
     actual: [html.includes('Preparation'), html.includes('invisible')],
     expected: [true, true],
+  });
+});
+
+test('a slate counts down only to a deadline it has', () => {
+  const between = {
+    phase: 'between',
+    remainingMs: 6_400,
+    next: { label: 'Rebuttal' },
+    seats,
+  } as const;
+  const clockOf = (html: string) => /<strong>([^<]*)</.exec(html)?.[1] ?? null;
+  assert({
+    given: 'prep, a countdown, a held start, judging and no round yet',
+    should:
+      'show the time left where there is a deadline, the next speech between speeches, and both sides on every slate',
+    actual: [
+      clockOf(render(prep)),
+      clockOf(render(between)),
+      render(between).includes('Next: Rebuttal'),
+      clockOf(render({ ...between, remainingMs: null })),
+      clockOf(render({ phase: 'judging', seats })),
+      render({ phase: 'judging', seats }).includes('Judges are deciding'),
+      clockOf(render({ phase: 'slate', seats })),
+      render({ phase: 'slate', seats }).includes('Starting soon'),
+      render({ phase: 'ended', seats }).includes('This debate has ended'),
+      render({ phase: 'ended', seats }).includes('Starting soon'),
+      ['Affirmative', 'Ann', 'Negative', 'Ned'].every((fact) =>
+        render({ phase: 'slate', seats }).includes(fact),
+      ),
+    ],
+    expected: [
+      '1:30',
+      '0:07',
+      true,
+      null,
+      null,
+      true,
+      null,
+      true,
+      true,
+      false,
+      true,
+    ],
+  });
+});
+
+test('the frame draws in the stage’s own colours', () => {
+  assert({
+    given: 'a speech and a slate',
+    should: 'use no page colour, which would vanish on the frame',
+    actual: [
+      ...pageColourClasses(render(speech)),
+      ...pageColourClasses(render(prep)),
+    ],
+    expected: [],
   });
 });

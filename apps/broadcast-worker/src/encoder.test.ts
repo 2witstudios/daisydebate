@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { encoderArgs, silentEncoderArgs, slateEncoderArgs } from './encoder';
+import {
+  encoderArgs,
+  silentEncoderArgs,
+  slateEncoderArgs,
+  STAGE_SLATE_COLOUR,
+} from './encoder';
 
 setupRitewayBun();
 
@@ -87,5 +92,21 @@ test('a private clip reads nothing from the hold', () => {
       copies,
     ],
     expected: [[], false],
+  });
+});
+
+test('a private span is a frame of the stage slate’s own ground', async () => {
+  const theme = await Bun.file(
+    new URL('../../web/src/app/globals.css', import.meta.url),
+  ).text();
+  const ground =
+    /--surface-stage:\s*light-dark\(#([0-9a-f]{6}),\s*#([0-9a-f]{6})\)/.exec(
+      theme,
+    );
+  assert({
+    given: 'the web theme’s stage surface, the same in both schemes',
+    should: 'be the colour the worker generates, so slate and span join unseen',
+    actual: [ground?.[1], ground?.[2]],
+    expected: [STAGE_SLATE_COLOUR, STAGE_SLATE_COLOUR],
   });
 });
