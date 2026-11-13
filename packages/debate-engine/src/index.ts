@@ -34,11 +34,7 @@ export {
 export type { MediaObservation } from './round-incident-decision';
 export { mediaGrants, changedMediaGrants } from './media-grants';
 export { mediaPhase, mediaWindowClosed } from './media-window';
-export {
-  nextRoomVacancy,
-  postRoundCallGrants,
-  postRoundCallState,
-} from './post-round-call';
+export { nextRoomVacancy, postRoundCallGrants } from './post-round-call';
 export { mediaRoomFate, mediaRoomLost } from './media-room-fate';
 export type { RoundMediaGrants } from './media-grants';
 export type { RoundCommand, RoundPosition } from '@daisy/protocol';
