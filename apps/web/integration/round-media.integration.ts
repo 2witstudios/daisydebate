@@ -9,6 +9,7 @@ import {
   tokenClaims,
   delayedMediaCreation,
   mediaDependencies,
+  waitForMediaFact,
 } from './round-media.test-support';
 import { signedCaptureBroker } from './capture-token.test-support';
 setupRitewayBun();
@@ -219,3 +220,91 @@ test('an unknown real vendor outcome is fenced by retirement, and its late settl
     }
   });
 });
+
+test('a completed Round with the call chosen moves to a real fresh room only its people can join, then ends once empty', async () => {
+  await withMediaRound(async (f) => {
+    await f.sql`update rounds set post_round_call=true where id=${f.roundId}`;
+    await f.mediaOperations.session(f.roundId, f.host.actorId);
+    const [before] =
+      await f.sql`select room_name from media_sessions where round_id=${f.roundId}`;
+    await f.sql`update rounds set status='completed',current_stage=null,started_at=coalesce(started_at,created_at),completed_at=clock_timestamp() where id=${f.roundId}`;
+    const session = async () =>
+      (
+        await f.sql`select room_name, ended_at, post_round_call_opened_at as opened_at from media_sessions where round_id=${f.roundId}`
+      )[0]!;
+    // A pass may wait out the minimum interval since the admission's own.
+    await waitForMediaFact(async () => {
+      await f.mediaOperations.recoverActiveSessions();
+      return (await session()).opened_at !== null;
+    });
+    const opened = await session();
+    assert({
+      given: 'the Round completing with its host in the room',
+      should:
+        'delete the Round’s real room and name a new one, with the session still open',
+      actual: [
+        await f.media.exists(before!.room_name),
+        opened.room_name === before!.room_name,
+        opened.ended_at,
+      ],
+      expected: [false, false, null],
+    });
+    const joined = await waitForAdmission(() =>
+      f.mediaOperations.session(f.roundId, f.host.actorId),
+    );
+    const claims = tokenClaims(joined.token);
+    assert({
+      given: 'the host joining the call',
+      should:
+        'create the call’s real room and sign a visible camera-and-microphone token for it alone',
+      actual: [
+        await f.media.exists(opened.room_name),
+        claims.video.room,
+        claims.video.hidden,
+        claims.video.canPublishSources,
+        joined.mediaRoomName,
+      ],
+      expected: [
+        true,
+        opened.room_name,
+        false,
+        ['camera', 'microphone'],
+        opened.room_name,
+      ],
+    });
+    await f.sql`update media_sessions set room_vacant_since=clock_timestamp()-interval '61 seconds' where round_id=${f.roundId}`;
+    await waitForMediaFact(async () => {
+      await f.mediaOperations.recoverActiveSessions();
+      return (await session()).ended_at !== null;
+    });
+    assert({
+      given: 'the call’s room read empty past the grace',
+      should: 'delete the real room and end the session',
+      actual: [
+        await f.media.exists(opened.room_name),
+        (await session()).ended_at !== null,
+      ],
+      expected: [false, true],
+    });
+    await assertRejects({
+      given: 'an admission after the call ended',
+      should: 'refuse it for good',
+      code: 'CONFLICT',
+      actual: () => f.mediaOperations.session(f.roundId, f.host.actorId),
+    });
+  });
+});
+
+/** An admission retried while a pass still holds the session. */
+async function waitForAdmission<T>(admit: () => Promise<T>): Promise<T> {
+  let admitted: T | undefined;
+  await waitForMediaFact(async () => {
+    try {
+      admitted = await admit();
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  return admitted as T;
+}
