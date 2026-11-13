@@ -28,7 +28,7 @@ export type LeaveLinks = {
    * Room no longer holds them, and leaving forfeits nothing (ISSUE-590).
    */
   readonly freed?: boolean;
-  /** The Round is over and this is its post-round call (ADR 0126): leaving leaves the call. */
+  /** The Round is over and this is its post-round call (ADR 0127): leaving leaves the call. */
   readonly call?: boolean;
   /**
    * A debater still seated while forfeit is briefly unavailable: nothing can

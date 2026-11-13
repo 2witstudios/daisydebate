@@ -149,7 +149,7 @@ export function RoundCommandActions({
   const router = useRouter();
   const lost = answer.kind === 'unacknowledged';
   useEffect(() => {
-    // A debater on the post-round call stays in the room until it ends (ADR 0126).
+    // A debater on the post-round call stays in the room until it ends (ADR 0127).
     if (!pending && !lost && !isLiveDebater(view, actorId) && !onCall)
       replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
   }, [pending, lost, view, actorId, onCall, router]);

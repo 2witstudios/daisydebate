@@ -159,7 +159,7 @@ export async function readMediaWindowFacts(
 
 /**
  * Admission needs open media. While a post-round call is opening, the Round's
- * room is still being proven gone, so the answer is to ask again (ADR 0126).
+ * room is still being proven gone, so the answer is to ask again (ADR 0127).
  */
 export function requireMediaWindow(
   phaseOf: MediaWindowRule,

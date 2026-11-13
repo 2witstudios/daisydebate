@@ -1,4 +1,4 @@
-import { evaluateRoundFloorPermits } from './observation/round-floor-permits';
+import { evaluateContextChannelPermits } from './observation/context-channel-permits';
 import { isAppError } from '@daisy/errors';
 import { createHash } from 'node:crypto';
 import {
@@ -213,7 +213,7 @@ export function createRealtimeAuthorization({
       );
     } catch (error) {
       if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
-      const [permit] = await evaluateRoundFloorPermits({
+      const [permit] = await evaluateContextChannelPermits({
         reads: resources.database,
         id: channelId,
         principals: [principal],

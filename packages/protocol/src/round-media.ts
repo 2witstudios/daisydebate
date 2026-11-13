@@ -27,7 +27,7 @@ export const roundMediaStateSchema = z.strictObject({
     }),
   ),
   /**
-   * The human judges on a post-round call (ADR 0126), by seat and never by
+   * The human judges on a post-round call (ADR 0127), by seat and never by
    * name. Absent at any other time: a judge is hidden throughout the Round.
    */
   callJudges: z

@@ -46,6 +46,14 @@ async function lockSubjectMessaging(
       or exists(select 1 from messaging_receipts x where x.channel_id=c.id and x.actor_id=${actorId})
     )
   ) order by r.id for share`);
+  // Room chat keeps the same order: the Room before its channel.
+  await tx.execute(sql`select r.id from rooms r where exists (
+    select 1 from messaging_channels c where c.room_id=r.id and c.kind='room_community' and (
+      exists(select 1 from messaging_messages m where m.channel_id=c.id and m.author_actor_id=${actorId})
+      or exists(select 1 from messaging_actor_states s where s.channel_id=c.id and s.actor_id=${actorId})
+      or exists(select 1 from messaging_receipts x where x.channel_id=c.id and x.actor_id=${actorId})
+    )
+  ) order by r.id for share`);
   await tx.execute(sql`
     select id from messaging_channels where id in (
       select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}

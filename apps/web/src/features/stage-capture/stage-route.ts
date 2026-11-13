@@ -79,7 +79,7 @@ export const createStageRoute =
         ...stageSnapshot({ position, seats: read.seats }),
         nowMs: deps.now(),
         // A Round that is over has no stage: its session's room may by now be a
-        // post-round call's, which nothing ever observes (ADR 0126).
+        // post-round call's, which nothing ever observes (ADR 0127).
         room:
           read.roomName && isRoundRunning(read.round.status)
             ? {

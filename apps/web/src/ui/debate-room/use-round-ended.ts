@@ -14,7 +14,7 @@ export function useRoundEndedRoute(
     readonly id: string;
     readonly status: RoundStatus;
   },
-  /** The post-round call keeps this view in its room until it ends (ADR 0126). */
+  /** The post-round call keeps this view in its room until it ends (ADR 0127). */
   onCall = false,
 ): boolean {
   const router = useRouter();

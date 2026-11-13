@@ -365,6 +365,7 @@ img.ProseMirror-separator {
 @theme {
   --spacing-room-avatar: 6rem;
   --aspect-room-preview: 16 / 9;
+  --spacing-room-chat: 26rem;
 }
 
 @utility room-page {
@@ -378,7 +379,7 @@ img.ProseMirror-separator {
   }
 }
 
-@utility room-devices {
+@utility room-main {
   @container (min-width: 780px) {
     grid-column: 1;
     grid-row: 1;

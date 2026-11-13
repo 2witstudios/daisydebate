@@ -207,7 +207,7 @@ function liveParts(
   };
 }
 
-/** A debater of a Round whose post-round call may still be on (ADR 0126). */
+/** A debater of a Round whose post-round call may still be on (ADR 0127). */
 export function isCallDebater(
   view: RoundView,
   actorId: string,

@@ -8,7 +8,7 @@ import {
 import type { RoundMediaGrants } from './media-grants';
 
 /**
- * The one decision (ADR 0126). Only a completed Round whose host chose the
+ * The one decision (ADR 0127). Only a completed Round whose host chose the
  * call has one; it ends at its cap from the Round's end, or once its room has
  * stood empty for the grace. Before the session holds the call's room the
  * call is opening: the Round's room must first be proven gone.

@@ -129,7 +129,7 @@ export default async function RoundPage({
       ? await floorProps(id, identity.principal.actorId, null, true)
       : null;
   const hostedLink = await requestHostedAudienceLink(id, identity);
-  // A seated human may go back to the Round's post-round call (ADR 0126).
+  // A seated human may go back to the Round's post-round call (ADR 0127).
   const onCall =
     identity.state === 'member' &&
     postRoundCallOffered(result.round, Date.parse(systemClock.now())) &&

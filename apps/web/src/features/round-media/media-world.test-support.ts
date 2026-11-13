@@ -41,7 +41,7 @@ export function createMediaWorld(
     readonly busyClaims?: number;
     /** Another worker claims the reconcile lease the instant each of ours finishes, as recovery does on a busy deployment. */
     readonly reclaimedAfterFinish?: boolean;
-    /** The Round's host chose the post-round call (ADR 0126). */
+    /** The Round's host chose the post-round call (ADR 0127). */
     readonly postRoundCall?: boolean;
     /** Runs as the first vendor mutation begins (it may change state or throw). */
     readonly beforeFirstMutation?: () => void;

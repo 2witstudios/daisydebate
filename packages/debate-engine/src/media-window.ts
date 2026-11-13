@@ -19,7 +19,7 @@ const callPhase = {
 
 /**
  * The one decision. A running Round has media until the window past its final
- * segment; a finished one has it only as a post-round call (ADR 0126).
+ * segment; a finished one has it only as a post-round call (ADR 0127).
  */
 export const mediaPhase = (facts: MediaWindowFacts): MediaPhase => {
   if (isRoundRunning(facts.status))

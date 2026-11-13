@@ -56,7 +56,7 @@ export function createMediaWorkerTokenBroker(input: {
         // A terminal session has ended for good, whoever holds it: the worker
         // stops and is never relaunched (ISSUE-494, ISSUE-495). Its own
         // message, apart from a write refused during a temporary unsafe window.
-        // Capture is the Round's: a post-round call is never captured (ADR 0126).
+        // Capture is the Round's: a post-round call is never captured (ADR 0127).
         if (state.session.endedAt || mediaPhaseOf(state) !== 'round')
           throw createRefusal(
             'CONFLICT',

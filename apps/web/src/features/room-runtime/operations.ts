@@ -268,11 +268,11 @@ export function createRoomRuntimeOperations({
     )
       throw createRefusal('CONFLICT', 'illegal-config');
     const createNotice = createNoticeOf(
-      competitionType,
+      {
+        competitionType,
+        capture: body.recording ? { broadcast: null, recording: true } : null,
+      },
       body.noticeVersion,
-      (body.holdSeatsFor ?? []).includes(caller.actorId) ||
-        (body.cast ?? []).some((seat) => seat.actorId === caller.actorId),
-      body.recording ? { broadcast: null, recording: true } : null,
     );
     if (createNotice.kind === 'refused')
       throw createRefusal('CONFLICT', 'capture-notice-changed');

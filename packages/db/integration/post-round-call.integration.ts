@@ -245,6 +245,35 @@ test('the call’s vacancy follows what each pass reads of its room', async () =
   });
 });
 
+test('a call stored empty past the grace stays open when the pass finds someone in it', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const round = await completedRound(fixture, true);
+    try {
+      await round.pass(true);
+      await fixture.sql.unsafe(
+        "update media_sessions set room_vacant_since=clock_timestamp()-interval '61 seconds' where id=$1",
+        [round.binding.sessionId],
+      );
+      const pass = await round.pass(false, occupied);
+      const after = await round.session();
+      assert({
+        given:
+          'a seat that came back with no new token, read in the room after the stored grace ran out',
+        should: 'keep the call and forget the old emptiness',
+        actual: [
+          pass.fate.kind,
+          pass.ended,
+          after.vacant_since,
+          after.ended_at,
+        ],
+        expected: ['keep', false, null, null],
+      });
+    } finally {
+      await round.cleanup();
+    }
+  });
+});
+
 test('an admission to the call clears a vacancy measured before it', async () => {
   await withFixture(databaseUrl, async (fixture) => {
     const round = await completedRound(fixture, true);

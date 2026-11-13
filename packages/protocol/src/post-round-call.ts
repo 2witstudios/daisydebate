@@ -2,7 +2,7 @@ import type { RoundStatus } from './round';
 
 /**
  * The post-round call: after a completed casual Round whose host chose it, the
- * call stays open so the people in it can talk. Never captured (ADR 0126).
+ * call stays open so the people in it can talk. Never captured (ADR 0127).
  * Its bound is its own: equal to the media window's today, a different concept.
  */
 export const postRoundCallPolicy = {

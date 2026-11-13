@@ -53,7 +53,7 @@ export const mediaSessions = pgTable(
     roomSawCapture: boolean('room_saw_capture').notNull().default(false),
     /** LiveKit's id for the room when last occupied: a new id means the node was lost. */
     roomOccupiedSid: text('room_occupied_sid'),
-    /** When the session took the post-round call's own room (ADR 0126). */
+    /** When the session took the post-round call's own room (ADR 0127). */
     postRoundCallOpenedAt: timestampColumn('post_round_call_opened_at'),
     /** Since when a pass has read the post-round call's room empty; null while occupied. */
     roomVacantSince: timestampColumn('room_vacant_since'),

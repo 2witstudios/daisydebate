@@ -18,11 +18,13 @@ import {
 import { createdAtColumn, oneOf } from './columns';
 import { actors } from './actors';
 import { rounds } from './rounds';
+import { rooms } from './rooms';
 import { messagingChannelLifecycles } from '@daisy/protocol';
 
 /**
- * Social channels and separate Round floor/spectator conversations. Each
- * contextual kind is constrained to its exact Round and its own policy.
+ * Social channels and separate contextual conversations: a Round's floor and
+ * spectator chat, and a Room's chat. Each contextual kind is constrained to
+ * exactly its one owner and its own policy.
  */
 export const messagingChannels = pgTable(
   'messaging_channels',
@@ -45,12 +47,20 @@ export const messagingChannels = pgTable(
       .notNull()
       .default(1),
     createdAt: createdAtColumn(),
+    /** The exact Room of a Room chat; every other kind has none. */
+    roomId: text('room_id').references(() => rooms.id, {
+      onDelete: 'cascade',
+    }),
   },
   (table) => [
     index('messaging_channels_title_author_idx').on(table.titleAuthorActorId),
     unique('messaging_channels_id_kind_unique').on(table.id, table.kind),
     uniqueIndex('messaging_channels_round_kind_unique').on(
       table.roundId,
+      table.kind,
+    ),
+    uniqueIndex('messaging_channels_room_kind_unique').on(
+      table.roomId,
       table.kind,
     ),
     check(
@@ -60,6 +70,7 @@ export const messagingChannels = pgTable(
         'private_group',
         'round_floor',
         'round_spectator',
+        'room_community',
       ]),
     ),
     check(
@@ -67,12 +78,16 @@ export const messagingChannels = pgTable(
       sql`(${table.kind} in ('round_floor', 'round_spectator')) = (${table.roundId} is not null)`,
     ),
     check(
+      'messaging_channels_room',
+      sql`(${table.kind} = 'room_community') = (${table.roomId} is not null)`,
+    ),
+    check(
       'messaging_channels_lifecycle',
       oneOf(table.lifecycle, messagingChannelLifecycles),
     ),
     check(
       'messaging_channels_policy',
-      sql`${table.policyRevision} > 0 and ((${table.kind} = 'dm' and ${table.policyKey} = 'social.dm') or (${table.kind} = 'private_group' and ${table.policyKey} = 'social.private_group') or (${table.kind} = 'round_floor' and ${table.policyKey} = 'round.floor') or (${table.kind} = 'round_spectator' and ${table.policyKey} = 'round.spectator'))`,
+      sql`${table.policyRevision} > 0 and ((${table.kind} = 'dm' and ${table.policyKey} = 'social.dm') or (${table.kind} = 'private_group' and ${table.policyKey} = 'social.private_group') or (${table.kind} = 'round_floor' and ${table.policyKey} = 'round.floor') or (${table.kind} = 'round_spectator' and ${table.policyKey} = 'round.spectator') or (${table.kind} = 'room_community' and ${table.policyKey} = 'room.community'))`,
     ),
     check(
       'messaging_channels_authority_revision',

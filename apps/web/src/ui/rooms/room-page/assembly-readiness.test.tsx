@@ -69,7 +69,7 @@ describe('native room readiness and Start round controls', () => {
   });
 
   test('a captured Round shows its notice and Ready states it', () => {
-    const notice = { version: 'ranked-draft-2', text: 'Exact notice words.' };
+    const notice = { version: 'casual-draft-1', text: 'Exact notice words.' };
     const ready = ReadyControl({
       ...props,
       view: { ...base, captureNotice: notice },
@@ -94,17 +94,32 @@ describe('native room readiness and Start round controls', () => {
     });
   });
 
-  test('a Room with the post-round call says so before Ready', () => {
-    const told = (postRoundCall: boolean) =>
+  test('a Room with the post-round call says so before Ready, once two people are in it', () => {
+    const one = base.participants[0]!;
+    const other = { ...one, id: 'second-seat', actorId: 'second-actor' };
+    const bot = { ...other, kind: 'bot' as const };
+    const told = (
+      postRoundCall: boolean,
+      participants: (typeof one | typeof bot)[],
+    ) =>
       findElements(
-        ReadyControl({ ...props, view: { ...base, postRoundCall } }),
+        ReadyControl({
+          ...props,
+          view: { ...base, postRoundCall, participants },
+        }),
         (element) => element.props.children === postRoundCallText,
       ).length;
     assert({
-      given: 'a Room whose host chose the call, and one whose host did not',
-      should: 'tell the seat only when it was chosen',
-      actual: [told(true), told(false)],
-      expected: [1, 0],
+      given:
+        'the call chosen with two people, with one person and a bot, and not chosen with two people',
+      should:
+        'tell the seat only when it was chosen and the cast would get a call',
+      actual: [
+        told(true, [one, other]),
+        told(true, [one, bot]),
+        told(false, [one, other]),
+      ],
+      expected: [1, 0, 0],
     });
   });
 

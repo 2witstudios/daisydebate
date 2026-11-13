@@ -553,7 +553,7 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
  * The room the observer currently belongs in; rotation moves it (ADR 0099).
  * Once the session holds a post-round call's room the observer belongs
  * nowhere: one statement, so no reader pairs that room with an older fact
- * (ADR 0126).
+ * (ADR 0127).
  */
 export const readBroadcastRoom = async (tx: Tx, roundId: string) => {
   const [session] = await tx

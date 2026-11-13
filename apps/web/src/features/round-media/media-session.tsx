@@ -98,6 +98,7 @@ function RoundMediaSession({
 }: SessionInput & { readonly view: RoundView }) {
   const { owns, onStepDown } = tab;
   const questioning = view.ladderId === null && hasOpenQuestioning(view.rules);
+  const muteOffered = questioning || postRoundCallChosen(view);
   const refresh = useRef(onRefresh);
   useEffect(() => {
     refresh.current = onRefresh;
@@ -156,10 +157,11 @@ function RoundMediaSession({
   /** The restore must precede the first claim so one truth reaches the transport. */
   useEffect(() => {
     if (selectMediaAccount(actorId)) onAccountChanged();
-    if (!questioning) return;
+    // A post-round call offers mute to everyone, so it restores the choice too.
+    if (!muteOffered) return;
     const prior = readMutePreference(actorId, view.id);
     if (prior !== null) dispatch({ type: 'mute-restored', muted: prior });
-  }, [view.id, actorId, questioning, onAccountChanged, dispatch]);
+  }, [view.id, actorId, muteOffered, onAccountChanged, dispatch]);
   useEffect(() => {
     dispatch({ type: 'tab-changed', owns });
     return () => dispatch({ type: 'tab-changed', owns: null });
@@ -244,7 +246,7 @@ function RoundMediaSession({
         state={state}
         dispatch={dispatch}
         // Anyone on a post-round call may mute themselves.
-        questioning={questioning || postRoundCallChosen(view)}
+        questioning={muteOffered}
       />
       {nativeMediaNotice}
     </section>

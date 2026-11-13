@@ -63,7 +63,9 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       await page
         .getByRole('button', { name: 'Check camera', exact: true })
         .click();
-      await expect(page.getByText('✓ Camera', { exact: true })).toBeVisible();
+      await expect(
+        page.getByText('Camera: ✓ checked', { exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByRole('button', { name: 'I’m ready', exact: true }),
       ).toBeDisabled();
@@ -71,7 +73,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
         .getByRole('button', { name: 'Check microphone', exact: true })
         .click();
       await expect(
-        page.getByText('✓ Microphone', { exact: true }),
+        page.getByText('Microphone: ✓ checked', { exact: true }),
       ).toBeVisible();
       await expect(page.getByLabel('Your local camera preview')).toBeVisible();
       await expect(

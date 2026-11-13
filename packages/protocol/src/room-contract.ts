@@ -91,7 +91,7 @@ export const roomCreateSchema = z
     selection: roomSelectionSchema,
     /** Casual hosts may opt into recording; ranked capture is automatic. */
     recording: z.boolean().optional(),
-    /** A casual host may keep the call open after the Round (ADR 0126). */
+    /** A casual host may keep the call open after the Round (ADR 0127). */
     postRoundCall: z.boolean().optional(),
     /** Each actor at most once: assign-seat would move, not reject, a repeat. */
     cast: z
@@ -111,7 +111,7 @@ export const roomCreateSchema = z
         message: 'A hold names an actor at most once',
       })
       .optional(),
-    /** The capture notice the create form showed its host, to be recorded; a ranked host with no seat must state it. */
+    /** The capture notice the create form showed its host, to be recorded; only a casual create with capture states one. */
     noticeVersion: z.string().min(1).max(64).optional(),
   })
   .refine(
@@ -399,7 +399,7 @@ export type RoomAssemblyState = RoomRoundLink & {
   readonly config: RoomConfig;
   /** The casual host's capture choice; null when nothing is chosen, and always on ranked. */
   readonly capture: RoomCapture | null;
-  /** The casual host keeps the call open after the Round (ADR 0126); never on ranked. */
+  /** The casual host keeps the call open after the Round (ADR 0127); never on ranked. */
   readonly postRoundCall: boolean;
   readonly executionPlan: RoomExecutionPlan;
   readonly rules: RoundRules;

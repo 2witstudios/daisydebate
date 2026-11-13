@@ -160,7 +160,7 @@ export default async function RoundRoomPage({
     transcriptOf(id, text, result.socketUrl, placement);
   if (
     !isLiveDebater(result.round, actorId) &&
-    // A debater on the post-round call keeps the room (ADR 0126).
+    // A debater on the post-round call keeps the room (ADR 0127).
     !isCallDebater(result.round, actorId, Date.parse(systemClock.now()))
   )
     return watchingRoom(

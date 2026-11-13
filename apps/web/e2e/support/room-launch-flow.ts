@@ -95,17 +95,6 @@ export async function submitCreateRoom(
     await expect(
       form.getByText('Ranked Rounds are always public'),
     ).toBeVisible();
-    if (!scripted) {
-      // The first Create only shows the capture notice; nothing exists until the second.
-      await form
-        .getByRole('button', { name: 'Create room', exact: true })
-        .click();
-      await expect(page).toHaveURL(/\/play\/room\?draft=/);
-      await expect(form.getByLabel('Who can join')).toHaveCount(0);
-      await expect(
-        form.getByText('Ranked Rounds are always public, and are broadcast'),
-      ).toBeVisible();
-    }
   } else await form.getByLabel('Who can join').selectOption('public');
   return createConfiguredRoom(page);
 }

@@ -11,7 +11,7 @@ import {
   freezeRoomExecutionPlan,
   isOpenRoomStatus,
 } from '@daisy/protocol';
-import { hostNamesJudges, startBlocker } from './room-assembly-facts';
+import { namesHumanJudge, startBlocker } from './room-assembly-facts';
 const participantReady = (
   p: Pick<
     RoomAssemblyState['participants'][number],
@@ -32,14 +32,14 @@ const participantReady = (
  */
 const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
   new Set(
-    room.hostActorId === actorId && hostNamesJudges(room)
-      ? []
-      : room.participants
-          .filter(
-            (p) =>
-              p.role === 'judge' && p.kind === 'human' && p.actorId !== actorId,
-          )
-          .map((p) => p.actorId),
+    room.participants
+      .filter(
+        (p) =>
+          p.role === 'judge' &&
+          p.kind === 'human' &&
+          !namesHumanJudge(room, actorId, p.actorId),
+      )
+      .map((p) => p.actorId),
   );
 
 /**

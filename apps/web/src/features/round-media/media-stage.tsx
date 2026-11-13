@@ -145,7 +145,7 @@ export function MediaStage({
             </figure>
           );
         })}
-      {/* A judge joins only a post-round call, by seat and never by name (ADR 0126). */}
+      {/* A judge joins only a post-round call, by seat and never by name (ADR 0127). */}
       {(media?.callJudges ?? []).map((judge) => {
         const mediaTracks = tracks.filter(
           (track) => track.identity === judge.identity,

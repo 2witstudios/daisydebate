@@ -18,7 +18,7 @@ export type MediaRoomFacts = {
   /** What this pass read of the room; null if it read nothing. */
   readonly seen: MediaRoomRead | null;
   /**
-   * The post-round call (ADR 0126): `opening` while the Round's own room must
+   * The post-round call (ADR 0127): `opening` while the Round's own room must
    * first be proven gone, `open` once the session holds the call's room.
    */
   readonly call: 'none' | 'opening' | 'open';

@@ -287,11 +287,21 @@ export function createMediaReconcileStore(input: {
       },
     ) {
       return withFence(request, async (tx, session, now) => {
-        const phase = request.mediaPhase(
-          await readMediaWindowFacts(tx, session.roundId, {
-            now: now.toISOString(),
-          }),
-        );
+        const stored = await readMediaWindowFacts(tx, session.roundId, {
+          now: now.toISOString(),
+        });
+        // The phase is decided on what this pass saw of the call's room, never on
+        // an emptiness stored before it: someone may have come back without a
+        // new token, and an occupied call is not closed on them.
+        const vacantSince = stored.postRoundCall.vacantSince;
+        const nextVacancy =
+          stored.postRoundCall.openedAt === null
+            ? vacantSince
+            : request.roomVacancy(vacantSince, request.seen, now.toISOString());
+        const phase = request.mediaPhase({
+          ...stored,
+          postRoundCall: { ...stored.postRoundCall, vacantSince: nextVacancy },
+        });
         const terminal = phase === 'closed';
         const call =
           phase === 'post-round-call-opening'
@@ -337,12 +347,6 @@ export function createMediaReconcileStore(input: {
           fate.kind === 'rotate' || fate.kind === 'open-post-round-call'
             ? await rotateMediaRoom(tx, session.id, revoked, now, input.nextId)
             : undefined;
-        const vacantSince = session.roomVacantSince?.toISOString() ?? null;
-        const nextVacancy = request.roomVacancy(
-          vacantSince,
-          request.seen,
-          now.toISOString(),
-        );
         const { fields, result } = reconcileCompletion(session, now, {
           terminal,
           unresolved: outstanding.length > 0 && fate.kind === 'keep',

@@ -32,7 +32,7 @@ export const mediaRoomLost = (
  * older than the bound moves an open Round to a fresh room with the node still silent,
  * because a late outcome can then reach only the old room. A terminal session waits for
  * proof, since ending it stops every later delete attempt. A post-round call opens only
- * on that same proof (ADR 0126).
+ * on that same proof (ADR 0127).
  */
 export const mediaRoomFate =
   (retireAfterMs: number) =>

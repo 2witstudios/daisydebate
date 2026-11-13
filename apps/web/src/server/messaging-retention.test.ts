@@ -20,7 +20,7 @@ test('social messaging remains outside contextual retention (DEC-126, DEC-251)',
   assert({
     given: 'the production retention targets',
     should:
-      'touch no DM or group: social content lives until its author deletes it or is erased. Contextual spectator content expires after posting, and floor content after Round end, under their separate 180-day policies',
+      'touch no DM or group: social content lives until its author deletes it or is erased. Contextual spectator content expires after posting, floor content after Round end and Room chat after Room end, under their separate 180-day policies',
     actual: targets
       .filter(({ name }) =>
         /messag|channel|reaction|social|chat|floor/i.test(name),
@@ -34,6 +34,9 @@ test('social messaging remains outside contextual retention (DEC-126, DEC-251)',
       'retention.round_floor_receipts',
       'retention.round_floor_messages',
       'retention.round_floor_read_states',
+      'retention.room_chat_receipts',
+      'retention.room_chat_messages',
+      'retention.room_chat_read_states',
     ],
   });
 });

@@ -165,6 +165,7 @@ type Ports = {
   readonly recordings: RecordingModeration;
   readonly chat: SpectatorChatModeration;
   readonly floor: ChatMessageModeration;
+  readonly roomChat: ChatMessageModeration;
 };
 
 const dbNow = async (tx: Tx) => {
@@ -357,6 +358,11 @@ const applyChange = (
           result === null
             ? ports.floor.remove(tx, { messageId: change.messageId, now })
             : result,
+        )
+        .then((result) =>
+          result === null
+            ? ports.roomChat.remove(tx, { messageId: change.messageId, now })
+            : result,
         );
     case 'account.audience_ban.update':
       return setAudienceBan(tx, change, operatorRef);
@@ -409,7 +415,8 @@ const subjectOf = async (
     case 'chat_message': {
       const message =
         (await ports.chat.readSubject(tx, report.targetId)) ??
-        (await ports.floor.readSubject(tx, report.targetId));
+        (await ports.floor.readSubject(tx, report.targetId)) ??
+        (await ports.roomChat.readSubject(tx, report.targetId));
       return (
         message && {
           kind: 'chat_message',
@@ -447,14 +454,16 @@ export function contentModerationOperations({
   recordings = noRecordings,
   chat = noSpectatorChat,
   floor = noSpectatorChat,
+  roomChat = noSpectatorChat,
 }: {
   readonly database: Database;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly recordings?: RecordingModeration;
   readonly chat?: SpectatorChatModeration;
   readonly floor?: ChatMessageModeration;
+  readonly roomChat?: ChatMessageModeration;
 }) {
-  const ports = { recordings, chat, floor };
+  const ports = { recordings, chat, floor, roomChat };
   return {
     readReportTargetFacts: (input: {
       readonly reporterUserId: string;

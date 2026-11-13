@@ -117,7 +117,7 @@ export const roomCreateOperations = ({
         now: string,
       ) => boolean;
     };
-    /** The casual host keeps the call open after the Round (ADR 0126). */
+    /** The casual host keeps the call open after the Round (ADR 0127). */
     readonly postRoundCall?: boolean;
     /** The notice the create form showed its host, recorded with the Room. */
     readonly notice?: {

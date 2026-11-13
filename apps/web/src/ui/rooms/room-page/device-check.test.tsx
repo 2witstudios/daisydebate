@@ -43,6 +43,8 @@ const choice = (kind: Props['kind'], state: DeviceCheckSnapshot) =>
       check={() => undefined}
     />,
   );
+/** The words a reader hears: markup removed, entities kept. */
+const text = (html: string) => html.replace(/<[^>]+>/g, '');
 const options = (html: string) =>
   [...html.matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((m) => m[1]);
 
@@ -74,12 +76,14 @@ test('device choice reports its state and offers a retry only when unpassed', ()
     should:
       'name the reason in words, disable the retry while checking, and hide it once passed',
     actual: [
-      failed.includes('Camera: blocked by this site&#x27;s settings'),
+      text(failed).includes('Camera: blocked by this site&#x27;s settings'),
       failed.includes('Check camera'),
       /<option value="cam-1" selected="">/.test(failed),
-      checking.includes('Microphone: checking…'),
-      /<button[^>]*disabled=""[^>]*>Check microphone<\/button>/.test(checking),
-      passed.includes('✓ Camera'),
+      text(checking).includes('Microphone: checking…'),
+      /<button[^>]*aria-label="Check microphone"[^>]*disabled=""[^>]*>Check<\/button>/.test(
+        checking,
+      ),
+      text(passed).includes('Camera: ✓ checked'),
       passed.includes('Check camera'),
     ],
     expected: [true, true, true, true, true, true, false],
@@ -113,24 +117,24 @@ test('a refused device check names who blocked it and the remedy', () => {
     should:
       'blame the operating system and name its privacy setting, point to site settings and a reload, ask to close the other app, connect a device or use Continuity Camera, say an opened device sent nothing, and say nothing once passed',
     actual: [
-      system.includes('Camera: blocked by your system'),
+      text(system).includes('Camera: blocked by your system'),
       system.includes(
         'System Settings › Privacy &amp; Security › Camera and allow your browser',
       ),
       systemMic.includes('Privacy &amp; Security › Microphone'),
-      site.includes('Camera: blocked by this site&#x27;s settings'),
+      text(site).includes('Camera: blocked by this site&#x27;s settings'),
       site.includes(
         'Allow the camera in your browser&#x27;s site settings, then reload the page.',
       ),
-      busy.includes('Microphone: in use'),
+      text(busy).includes('Microphone: in use'),
       busy.includes('Close the other app using your microphone'),
-      missing.includes('Camera: no camera found'),
+      text(missing).includes('Camera: no camera found'),
       missing.includes(
         'Connect a camera or use Continuity Camera, then check again.',
       ),
-      missingMic.includes('Microphone: no microphone found'),
-      silent.includes('Camera: opened but sent no video'),
-      silentMic.includes('Microphone: opened but picked up no sound'),
+      text(missingMic).includes('Microphone: no microphone found'),
+      text(silent).includes('Camera: opened but sent no video'),
+      text(silentMic).includes('Microphone: opened but picked up no sound'),
       silent.includes('role="note"'),
       passed.includes('role="note"'),
     ],

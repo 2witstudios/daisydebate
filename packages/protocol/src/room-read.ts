@@ -114,7 +114,7 @@ const roomViewFields = z.strictObject({
       text: z.string().min(1),
     })
     .nullable(),
-  /** The casual host chose to keep the call open after the Round (ADR 0126). */
+  /** The casual host chose to keep the call open after the Round (ADR 0127). */
   postRoundCall: z.boolean(),
   /**
    * For someone outside a started public Room: the Round to watch, once the

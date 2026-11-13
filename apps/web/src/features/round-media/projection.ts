@@ -26,7 +26,7 @@ export const mediaPhaseOf = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
   mediaPhase(snapshot.mediaWindow);
 export const mediaEnded = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
   mediaPhaseOf(snapshot) === 'closed';
-/** A post-round call waits for the Round's room to be proven gone (ADR 0126). */
+/** A post-round call waits for the Round's room to be proven gone (ADR 0127). */
 export const callOpening = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>
   mediaPhaseOf(snapshot) === 'post-round-call-opening';
 const onCall = (snapshot: Pick<MediaSnapshot, 'mediaWindow'>) =>

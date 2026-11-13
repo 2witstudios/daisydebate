@@ -1,5 +1,7 @@
 import { createRoundFloorStore } from './round-floor-store';
 import { roundFloorRetention } from './round-floor-retention';
+import { createRoomCommunityStore } from './room-community-store';
+import { roomCommunityRetention } from './room-community-retention';
 import { createMessagingTypingPrivacyPort } from '../privacy/typing-rights';
 import { createMessagingTypingStore } from './typing-store';
 import { createMessagingPreferenceStore } from './preference-store';
@@ -36,6 +38,11 @@ export function messagingOperations(
     ...roundFloorRetention(database),
     roundFloorStore: (authorize: Parameters<typeof createRoundFloorStore>[1]) =>
       createRoundFloorStore(database, authorize),
+    ...roomCommunityRetention(database),
+    roomCommunityStore: (
+      authorize: Parameters<typeof createRoomCommunityStore>[1],
+      namesJudge: Parameters<typeof createRoomCommunityStore>[2],
+    ) => createRoomCommunityStore(database, authorize, namesJudge),
     messagingInboxPage: createMessagingInboxPage(database),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],

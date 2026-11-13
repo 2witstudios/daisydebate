@@ -102,7 +102,7 @@ export function LiveRoundRoom({
   const view = synced.value;
   const refresh = useCallback(() => driver?.signal(), [driver]);
   const now = useSecond(renderedAtMs, roundTime);
-  // The post-round call keeps this same room on screen (ADR 0126).
+  // The post-round call keeps this same room on screen (ADR 0127).
   const [callEnded, setCallEnded] = useState(false);
   const endCall = useCallback(() => setCallEnded(true), []);
   const onCall = !callEnded && isCallDebater(view, actorId, now);

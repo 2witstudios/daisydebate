@@ -95,7 +95,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
       const signed = await input.sign({ ...snapshot, participantId, binding });
       // Someone is on their way into the call's room: an emptiness measured
       // before them must not close it on them. Only a later read of an empty
-      // room starts the grace again (ADR 0126).
+      // room starts the grace again (ADR 0127).
       if (phase === 'post-round-call' && snapshot.session.roomVacantSince)
         await tx
           .update(mediaSessions)

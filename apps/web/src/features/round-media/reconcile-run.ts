@@ -76,9 +76,27 @@ const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
     state.unresolved ||
     admissionRevoked(state) ||
     mediaEnded(state) ||
-    // The Round's room goes before the post-round call gets its own (ADR 0126).
+    // The Round's room goes before the post-round call gets its own (ADR 0127).
     callOpening(state),
   );
+/**
+ * A post-round call that looks over only because its room was stored empty
+ * for the grace, with nothing else calling for teardown. Someone may have
+ * come back since without a new token, so the room is read before it is
+ * deleted (ADR 0127).
+ */
+const vacancyDue = (state: MediaSnapshot, claim: Claim) =>
+  mediaEnded(state) &&
+  !(
+    claim.unsafe ||
+    state.session.unsafeAt ||
+    state.unresolved ||
+    admissionRevoked(state)
+  ) &&
+  mediaPhase({
+    ...state.mediaWindow,
+    postRoundCall: { ...state.mediaWindow.postRoundCall, vacantSince: null },
+  }) === 'post-round-call';
 const uncertain = (state: MediaSnapshot) =>
   Boolean(state.session.unsafeAt || state.unresolved);
 /** The room as this pass read it, for the platform-incident hook. */
@@ -511,7 +529,16 @@ export function createMediaReconcileRun(
     try {
       const state = await snapshot(claim.roundId);
       known = state;
-      if (needsCleanup(state, claim)) {
+      if (vacancyDue(state, claim)) {
+        // Only this pass's own look at the room may end a call for emptiness.
+        read = await readRoom(claim, state);
+        if (read.vendor.kind === 'read' && !read.vendor.empty) clean = true;
+        else {
+          cleanupAttempted = true;
+          absenceProof = await removeRoom(claim);
+          clean = absenceProof !== null;
+        }
+      } else if (needsCleanup(state, claim)) {
         cleanupAttempted = true;
         absenceProof = await removeRoom(claim);
         clean = absenceProof !== null;

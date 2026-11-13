@@ -6,7 +6,7 @@ import {
 
 type CallView = Pick<RoundView, 'status' | 'postRoundCall' | 'completedAt'>;
 
-/** A completed Round whose host chose the post-round call (ADR 0126). */
+/** A completed Round whose host chose the post-round call (ADR 0127). */
 export const postRoundCallChosen = (view: CallView): boolean =>
   isRoundCompleted(view.status) && view.postRoundCall;
 
