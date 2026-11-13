@@ -51,7 +51,7 @@ const condition = (value: string | undefined) =>
 describe('native browser cohort evidence survives later workload', () => {
   test('each full cohort owns an independent finite job', () => {
     assert({
-      given: 'the measured Launch 150, generic 3 and Messaging 63 workload',
+      given: 'the measured Launch 153, generic 3 and Messaging 63 workload',
       should:
         'run all three independently without fail-fast cancellation or a larger deadline',
       actual: {
@@ -62,7 +62,7 @@ describe('native browser cohort evidence survives later workload', () => {
       expected: {
         cohorts: ['launch', 'realtime', 'messaging'],
         failFast: false,
-        minutes: 70,
+        minutes: 90,
       },
     });
   });

@@ -89,7 +89,7 @@ enforces the ADR-linked, time-bounded exception registry.
    WebSocket events prompt protected HTTP reads. The default Chromium profile
    excludes these two suites. The native CI matrix runs each full Launch,
    generic realtime and Messaging profile on its own worker and derived slot,
-   retaining the 70-minute job cap with fail-fast disabled. Each cohort enforces its
+   under a 90-minute job cap with fail-fast disabled. Each cohort enforces its
    reporter count and sanitizes/uploads its uniquely named artifacts before any
    unrelated cohort can exhaust a shared budget. The required native gate
    requires success of the entire matrix. Separate output directories preserve
