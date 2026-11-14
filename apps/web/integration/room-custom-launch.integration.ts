@@ -151,7 +151,7 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
         })
       ).view;
     const judge = (await f.operations.castChoices(f.host)).find(
-      (p) => p.eligible && p.seatKind === 'judge',
+      (p) => p.eligible && p.aiRole === 'judge',
     )!;
     view = (
       await f.command(f.host, view, {

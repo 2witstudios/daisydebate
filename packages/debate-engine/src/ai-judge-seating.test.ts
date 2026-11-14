@@ -25,14 +25,14 @@ const aiJudge = {
   actorId: 'ai-judge',
   kind: 'bot' as const,
   eligible: true,
-  seatKind: 'judge' as const,
+  aiRole: 'judge' as const,
 };
 const humanJudge = {
   ...seat,
   actorId: 'host',
   kind: 'human' as const,
   eligible: true,
-  seatKind: null,
+  aiRole: null,
 };
 const assign = (
   actorId: string,

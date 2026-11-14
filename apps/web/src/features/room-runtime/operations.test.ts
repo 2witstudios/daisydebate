@@ -11,7 +11,6 @@ import {
   state,
 } from './operations.test-support';
 import { valueFacts } from './catalog-sources.test-support';
-import { aiSeatOf } from './ai-seat';
 
 setupRitewayBun();
 
@@ -205,7 +204,7 @@ test('Room creation hands the initial cast to the create transaction through the
     kind: 'bot' as const,
     label: 'Practice bot',
     eligible: true,
-    seatKind: 'side' as const,
+    aiRole: 'debater' as const,
   };
   const create = async (
     cast: RoomCreate['cast'],
@@ -256,7 +255,7 @@ test('Room creation hands the initial cast to the create transaction through the
       seat,
       {
         ...botTarget,
-        seatKind: 'judge',
+        aiRole: 'judge',
       },
       now,
       false,
@@ -474,7 +473,7 @@ test('a create seating the AI judge consumes its fresh allowance decision (BILL-
     kind: 'bot' as const,
     label: 'AI judge',
     eligible: true,
-    seatKind: 'judge' as const,
+    aiRole: 'judge' as const,
   };
   const run = makeOperations({}, true);
   await run.operations
@@ -531,16 +530,5 @@ test('each AI seat answers its own availability', async () => {
     should: 'offer it',
     actual: await eligibleCast({ debater: true, judge: false }),
     expected: [true],
-  });
-  assert({
-    given: 'a kind of Room seat',
-    should: 'name the AI seat that fills it, and none for a moderator',
-    actual: [
-      aiSeatOf('judge'),
-      aiSeatOf('side'),
-      aiSeatOf('speaker'),
-      aiSeatOf('moderator'),
-    ],
-    expected: ['judge', 'debater', 'debater', null],
   });
 });

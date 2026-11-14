@@ -348,7 +348,7 @@ const applyInitialCast = async (
   const targets: (Actor | null)[] = [];
   for (const seat of seats) targets.push(await actorFact(tx, seat.actorId));
   const judgeQuote =
-    judgeAdmission && targets.some((target) => target?.seatKind === 'judge')
+    judgeAdmission && targets.some((target) => target?.aiRole === 'judge')
       ? await judgeAdmission.quoteLocked(tx, {
           account:
             accounts.find((account) => account?.actorId === caller.actorId) ??
@@ -356,7 +356,7 @@ const applyInitialCast = async (
           roundId: null,
           withBot: targets.some(
             (target, index) =>
-              target?.seatKind === 'side' &&
+              target?.aiRole === 'debater' &&
               seats[index]?.seat.kind !== 'judge',
           ),
         })

@@ -2,6 +2,7 @@ import { launchEvidence } from './room-launch-evidence';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
   affirmativeSide,
+  aiRoleFits,
   isNamedSeat,
   judgeSeat,
   negativeSide,
@@ -230,9 +231,8 @@ export async function prepareRoomAs(
   expect(eligible.length).toBeGreaterThanOrEqual(2);
   // Each seat takes an AI actor of its own kind: bot debaters for sides, the AI judge for the judge seat (ISSUE-750).
   const ofRole = (seat: (typeof seats)[number]) =>
-    eligible.filter(
-      (bot: ReturnType<typeof roomCastChoiceSchema.parse>) =>
-        bot.seatKind === seatOf[seat].kind,
+    eligible.filter((bot: ReturnType<typeof roomCastChoiceSchema.parse>) =>
+      aiRoleFits(bot.aiRole, seatOf[seat]),
     );
   await page.getByText('Manage seats', { exact: true }).click();
   for (const [index, seat] of seats.filter((s) => s !== own).entries()) {

@@ -30,8 +30,8 @@ test('locked features keep native withdrawal and lead by keyboard to honest memb
   const { username } = await signUpMember(page.request);
   await withdraw('ai-judge', username);
   const roster = await readRoomBotRoster(page.request),
-    opponent = roster.find((b) => b.label === 'Wren' && b.seatKind === 'side'),
-    judge = roster.find((b) => b.seatKind === 'judge');
+    opponent = roster.find((b) => b.label === 'Wren' && b.aiRole === 'debater'),
+    judge = roster.find((b) => b.aiRole === 'judge');
   expect(opponent?.eligible).toBe(true);
   expect(judge).toBeDefined();
   await page.goto('/train?bot=' + opponent!.actorId);

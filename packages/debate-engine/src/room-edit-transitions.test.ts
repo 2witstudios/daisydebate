@@ -19,7 +19,7 @@ test('claim and leave operate on the caller seat while removal targets the seat 
     kind: 'human' as const,
     seat: judgeSeat(),
     eligible: true,
-    seatKind: null,
+    aiRole: null,
     consentVersion: 0,
     consentCommandId: null,
   };
@@ -92,7 +92,7 @@ test('seat and configuration refusals leave the room intact', () => {
         kind: 'human',
         seat: sideSeat('negative'),
         eligible: true,
-        seatKind: null,
+        aiRole: null,
         consentVersion: 0,
       },
     },
@@ -117,7 +117,7 @@ test('seat and configuration refusals leave the room intact', () => {
         kind: 'human',
         seat: sideSeat('affirmative'),
         eligible: true,
-        seatKind: null,
+        aiRole: null,
         consentVersion: 0,
       },
     },
@@ -160,7 +160,7 @@ test('a host assign replaces the occupant in one command (ADR 0121)', () => {
     kind: 'bot' as const,
     seat: sideSeat('negative'),
     eligible: true,
-    seatKind: 'side' as const,
+    aiRole: 'debater' as const,
     consentVersion: 0,
   };
   const replaced = executeRoomCommand(
@@ -261,7 +261,7 @@ test("one assign moves the target and displaces the target seat's occupant", () 
         ...other!,
         id: 'p2',
         kind: 'human' as const,
-        seatKind: null,
+        aiRole: null,
       },
     },
   );
@@ -301,7 +301,7 @@ test('replacing a judge follows the naming rule (DEC-331, ADR 0121)', () => {
     kind: 'bot' as const,
     seat: judgeSeat(),
     eligible: true,
-    seatKind: 'judge' as const,
+    aiRole: 'judge' as const,
     consentVersion: 0,
   };
   const assign = (room: typeof withJudge) =>
@@ -423,7 +423,7 @@ test('seat admission refuses missing targets, bot claims and absent memberships'
       kind: 'bot',
       seat: judgeSeat(),
       eligible: true,
-      seatKind: 'judge',
+      aiRole: 'judge',
       consentVersion: 0,
     },
   });
@@ -494,7 +494,7 @@ test('choosing a standard keeps the seated cast, bots included (FMT-1)', () => {
         kind: 'bot' as const,
         seat: sideSeat('negative'),
         eligible: true,
-        seatKind: 'side' as const,
+        aiRole: 'debater' as const,
         consentVersion: 0,
         consentCommandId: null,
       },
@@ -572,7 +572,7 @@ test('a seated host swaps one AI judge for another (ADR 0121, DEC-331)', () => {
     kind: 'bot' as const,
     seat: judgeSeat(),
     eligible: true,
-    seatKind: 'judge' as const,
+    aiRole: 'judge' as const,
     consentVersion: 0,
     consentCommandId: null,
   };

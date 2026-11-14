@@ -246,7 +246,7 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
     const page = await openPage(context, 'Train scheduled-round host');
     const bots = await readRoomBotRoster(page.request);
     const opponent = bots.find(
-      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
+      (bot) => bot.label === 'Wren' && bot.aiRole === 'debater',
     );
     expect(opponent?.eligible).toBe(true);
     const roomId = await startTrainPractice(page, opponent!.actorId, 'Wren');
@@ -256,7 +256,7 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
       seat: sideSeat(negativeSide),
     });
     expect(
-      seated(view, bots.find((bot) => bot.seatKind === 'judge')!.actorId),
+      seated(view, bots.find((bot) => bot.aiRole === 'judge')!.actorId),
     ).toMatchObject({ seat: judgeSeat(), kind: 'bot' });
     expect(view.status).toBe('assembling');
 
@@ -396,7 +396,7 @@ test('a Ready made in one tab survives a mounted tab and a reload that never che
     const readyTab = await openPage(context, 'Checked Ready tab');
     const uncheckedTab = await openPage(context, 'Unchecked tab');
     const opponent = (await readRoomBotRoster(readyTab.request)).find(
-      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
+      (bot) => bot.label === 'Wren' && bot.aiRole === 'debater',
     );
     const roomId = await startTrainPractice(
       readyTab,

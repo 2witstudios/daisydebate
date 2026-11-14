@@ -18,6 +18,7 @@ export {
   type TranscriptEvidenceInput,
 } from './transcript-evidence';
 export { roundDebaterMessages } from './round-debater';
+export { roundSpeakerMessages } from './round-speaker';
 export { createTurnTaking, turnTakingSettings } from './turn-taking';
 
 export { caseMapAnswer } from './judge';

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
-import { AssemblyCast } from './assembly-cast';
+import { AssemblyCast, botsForSeat } from './assembly-cast';
 
 import { seatIntents } from './seat-intents.test-support';
 
@@ -22,7 +22,7 @@ test('host cast controls carry actual bot actors and asymmetric declared seats',
           actorId: 't'.repeat(24),
           kind: 'bot',
           label: 'Stored judge bot',
-          seatKind: 'judge',
+          aiRole: 'judge',
           eligible: true,
         },
       ]}
@@ -83,7 +83,7 @@ test('Manage seats shows the AI judge as premium and unselectable for a host wit
           actorId: 'j'.repeat(24),
           kind: 'bot',
           label: 'AI judge',
-          seatKind: 'judge',
+          aiRole: 'judge',
           eligible: true,
         },
       ]}
@@ -113,14 +113,14 @@ test('each seat offers only the AI actors that may hold it', () => {
           actorId: 'd'.repeat(24),
           kind: 'bot',
           label: 'Debater bot',
-          seatKind: 'side',
+          aiRole: 'debater',
           eligible: true,
         },
         {
           actorId: 'j'.repeat(24),
           kind: 'bot',
           label: 'AI judge',
-          seatKind: 'judge',
+          aiRole: 'judge',
           eligible: true,
         },
       ]}
@@ -171,7 +171,7 @@ test('seat pickers show the saved occupant and leave empty seats unselected', ()
           actorId,
           label: 'Saved bot',
           kind: 'bot',
-          seatKind: 'side',
+          aiRole: 'debater',
           eligible: true,
         },
       ]}
@@ -210,7 +210,7 @@ test('ranked rooms show their debater bots but mark them unseatable', () => {
           actorId: 'w'.repeat(24),
           kind: 'bot',
           label: 'Ranked bot',
-          seatKind: 'side',
+          aiRole: 'debater',
           eligible: true,
         },
       ]}
@@ -226,5 +226,30 @@ test('ranked rooms show their debater bots but mark them unseatable', () => {
       /<option[^>]*value="w{24}"[^>]*disabled=""/.test(html),
     ],
     expected: [true, true],
+  });
+});
+
+test('a speaker seat offers the bot debaters, a moderator seat no AI (TAB-6.18)', () => {
+  const bot = (actorId: string, aiRole: 'debater' | 'judge') => ({
+    actorId: actorId.repeat(24),
+    kind: 'bot' as const,
+    label: actorId,
+    aiRole,
+    eligible: true,
+  });
+  const bots = [bot('w', 'debater'), bot('j', 'judge')];
+  const offered = (seat: Parameters<typeof botsForSeat>[1]) =>
+    botsForSeat(bots, seat).map((choice) => choice.label);
+  assert({
+    given: 'a bot debater and the AI judge, for each kind of seat',
+    should:
+      'offer the bot debater for side and speaker seats, the AI judge for a judge seat, and nobody for a moderator seat',
+    actual: [
+      offered({ kind: 'side', side: 'negative', slot: 0 }),
+      offered({ kind: 'speaker', slot: 2 }),
+      offered({ kind: 'judge', slot: 0 }),
+      offered({ kind: 'moderator', slot: 0 }),
+    ],
+    expected: [['w'], ['w'], ['j'], []],
   });
 });

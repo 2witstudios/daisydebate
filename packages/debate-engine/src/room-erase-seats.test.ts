@@ -287,7 +287,7 @@ describe('assign-seat from a host who inherited the Room', () => {
           ...target,
           kind: 'human',
           eligible: true,
-          seatKind: null,
+          aiRole: null,
         },
       },
     );

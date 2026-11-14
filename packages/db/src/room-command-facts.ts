@@ -5,6 +5,7 @@ import type {
   RoomCommandReceipt,
   RoomParticipant,
   FormatDefinition,
+  AiRole,
 } from '@daisy/protocol';
 import { buildRoomTopic } from '@daisy/protocol';
 import { botDifficulties } from '@daisy/protocol';
@@ -22,7 +23,7 @@ import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
-import { aiSeatFits, type AiSeatKind } from './seat-eligibility';
+import { aiSeatFits } from './seat-eligibility';
 import { seatOfColumns, seatRowOrder } from './seat-columns';
 import { roomCommands } from './schema/room-commands';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
@@ -78,19 +79,19 @@ export type Actor = {
   readonly kind: RoomParticipant['kind'];
   readonly label: string;
   readonly eligible: boolean;
-  /** Which seat kind an AI actor may hold (ISSUE-750); null for a human. */
-  readonly seatKind: AiSeatKind | null;
+  /** Which AI the actor is (ISSUE-750); null for a human. */
+  readonly aiRole: AiRole | null;
   /** The roster card's display facts; present for bot debaters only. */
   readonly persona?: string;
   readonly difficulty?: (typeof botDifficulties)[number];
 };
 /** An AI actor is a bot debater or the AI judge by its profile, never both (ISSUE-750). */
-const aiSeatKind = (
+const aiRoleOf = (
   botName: string | null,
   judgeName: string | null,
-): AiSeatKind | null => {
-  if (botName !== null && judgeName === null) return 'side' as const;
-  if (judgeName !== null && botName === null) return 'judge' as const;
+): AiRole | null => {
+  if (botName !== null && judgeName === null) return 'debater';
+  if (judgeName !== null && botName === null) return 'judge';
   return null;
 };
 export const actorFact = async (
@@ -122,15 +123,15 @@ export const actorFact = async (
         row.verified === true &&
         row.username !== null &&
         row.deletedAt === null,
-      seatKind: null,
+      aiRole: null,
     };
-  const seatKind = aiSeatKind(row.botName, row.judgeName);
+  const aiRole = aiRoleOf(row.botName, row.judgeName);
   return {
     actorId: row.actorId,
     kind: row.kind,
     label: row.botName ?? row.judgeName ?? '',
-    eligible: seatKind !== null,
-    seatKind,
+    eligible: aiRole !== null,
+    aiRole,
   };
 };
 export const publishDefinition = async (
@@ -213,7 +214,7 @@ const hydrateRoom = async (
         // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
         eligible:
           actor.eligible &&
-          (actor.kind === 'human' || aiSeatFits(actor.seatKind, seat)),
+          (actor.kind === 'human' || aiSeatFits(actor.aiRole, seat)),
         id: row.id,
         seat,
         consentCommandId: row.readinessCommandId,

@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { usageSourceSchema } from './billing';
 import { idSchema } from './primitives';
-import { seatKindSchema, seatRefSchema } from './seats';
+import { aiRoleSchema } from './ai-roles';
+import { seatRefSchema } from './seats';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { formatSettingsSchema } from './format-settings';
 import { frozenRoomConfigSchema, frozenRoomExecutionPlanSchema } from './room';
@@ -259,7 +260,8 @@ export const roomCastChoiceSchema = z.strictObject({
   actorId: idSchema,
   label: z.string(),
   kind: z.literal('bot'),
-  seatKind: seatKindSchema.extract(['side', 'judge']),
+  /** Which AI it is, and so which seats it may hold (ISSUE-750). */
+  aiRole: aiRoleSchema,
   eligible: z.boolean(),
   /** The roster card's display facts; the AI judge carries none. */
   persona: z.string().optional(),

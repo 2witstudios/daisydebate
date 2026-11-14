@@ -13,7 +13,7 @@ const bot = {
   actorId: 't'.repeat(24),
   kind: 'bot' as const,
   label: 'Penny',
-  seatKind: 'judge' as const,
+  aiRole: 'judge' as const,
   eligible: true,
 };
 const occupied = {
@@ -180,7 +180,7 @@ test('a bot debater is never offered as the AI judge', () => {
       ready={null}
       view={assemblySnapshot}
       viewer={viewer}
-      bots={[{ ...bot, seatKind: 'side' }]}
+      bots={[{ ...bot, aiRole: 'debater' }]}
       {...intents}
     />,
   );

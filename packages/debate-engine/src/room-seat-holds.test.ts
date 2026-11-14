@@ -14,7 +14,7 @@ const human = (actorId: string) => ({
   kind: 'human' as const,
   seat: sideSeat('negative'),
   eligible: true,
-  seatKind: null,
+  aiRole: null,
   consentVersion: 0,
   consentCommandId: null,
 });

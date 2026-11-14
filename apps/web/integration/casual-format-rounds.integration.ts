@@ -36,9 +36,9 @@ requireTestServices(process.env);
 /**
  * TAB-6.18's exit proofs: each of Daisy's casual templates runs as an
  * ordinary Room, from create to a completed Round, through the real Room,
- * Round, finalizer and ballot commands. Bots fill the side seats no person
- * takes (a bot debater argues a side, so a speaker's seat is a person's);
- * a human judge submits through the judge's own command.
+ * Round, finalizer and ballot commands. Bots fill the competitor seats no
+ * person takes, a side's or an unsided speaker's (TAB-6.18); a human judge
+ * submits through the judge's own command.
  */
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 type Caller = Fixture['host'];
@@ -241,19 +241,15 @@ test('a four-team Round completes with the four sides ranked by rank sum (TAB-6.
 test('a six-speaker section completes with its six speaker seats ranked (TAB-6.18)', async () => {
   await withRoomRuntime(async (f) => {
     const speaker = (slot: number): SeatRef => ({ kind: 'speaker', slot });
-    const others = [
-      f.guest,
-      ...(await Promise.all([1, 2, 3, 4].map(() => f.member()))),
-    ];
+    // One person speaks first; bot debaters hold the other five speaker seats.
     const room = await seatedRoom(
       f,
       'speech-section',
       [
         [f.host, speaker(0)],
-        ...others.map((who, index) => [who, speaker(index + 1)] as const),
         [f.outsider, judgeSeat()],
       ],
-      [],
+      [1, 2, 3, 4, 5].map(speaker),
     );
     const { roundId } = await launchRuntimeRound(f, room);
     const freezeRevision = await playedAndFrozen(f, roundId);
@@ -272,16 +268,22 @@ test('a six-speaker section completes with its six speaker seats ranked (TAB-6.1
     );
     assert({
       given:
-        'the six-speaker section launched, played and frozen, then its judge ranking the speakers last seat first',
+        'the six-speaker section with a person and five bot debaters in its speaker seats, launched, played and frozen, then its judge ranking the speakers last seat first',
       should:
-        'freeze the speaker ranking and complete with the six speaker seats in that order',
+        'seat the bots as speakers, freeze the speaker ranking and complete with the six speaker seats in that order',
       actual: {
         speakers: speakers.length,
+        bots: await f.sql<{ bots: number }[]>`select count(*)::int as bots
+          from round_participants p join actors a on a.id=p.actor_id
+          where p.round_id=${roundId} and p.seat_kind='speaker' and a.kind='bot'`.then(
+          ([row]) => row!.bots,
+        ),
         judging: await judgingOf(f, roundId),
         result: await resultOf(f, roundId),
       },
       expected: {
         speakers: 6,
+        bots: 5,
         judging: { ballot: 'rank-speakers@1', panel: 'rank_sum' },
         result: {
           status: 'completed',

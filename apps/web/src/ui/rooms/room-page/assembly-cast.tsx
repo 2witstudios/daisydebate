@@ -2,6 +2,7 @@ import { AssemblyCommandForm } from './assembly-command-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import {
+  aiRoleFits,
   isJudgeSeat,
   isNamedSeat,
   sameSeat,
@@ -18,20 +19,15 @@ import { controlClass } from '../../components/form-field/form-field-class';
 
 type Seat = SeatRef;
 
-/** The AI actors a seat may hold: a bot debater for a side's seat, the AI judge for a judge's. */
+/**
+ * The AI actors a seat may hold: a bot debater for a side's or a speaker's
+ * seat, the AI judge for a judge's, and none for a moderator's.
+ */
 export const botsForSeat = (
   bots: readonly RoomCastChoice[],
   seat: SeatRef,
-): readonly RoomCastChoice[] => {
-  switch (seat.kind) {
-    case 'side':
-    case 'judge':
-      return bots.filter((bot) => bot.seatKind === seat.kind);
-    case 'speaker':
-    case 'moderator':
-      return [];
-  }
-};
+): readonly RoomCastChoice[] =>
+  bots.filter((bot) => aiRoleFits(bot.aiRole, seat));
 export type IntentIds = {
   readonly claim: string;
   readonly assign: string;

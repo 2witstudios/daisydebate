@@ -138,7 +138,7 @@ describe('Room command boundary', () => {
         actorId: 'c6a4e2f8h1j3k5m7n9p2r4t6',
         label: 'Wren',
         kind: 'bot',
-        seatKind: 'side',
+        aiRole: 'debater',
         eligible: true,
         ...fields,
       });

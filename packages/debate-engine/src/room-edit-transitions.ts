@@ -8,6 +8,7 @@ import type {
   SeatRef,
 } from '@daisy/protocol';
 import {
+  aiRoleFits,
   freeSeatsOf,
   isJudgeSeat,
   sameSeat,
@@ -195,9 +196,12 @@ const selectedTopic = (
   if (leavingDraw) return topic;
   return drawAfter ? null : room.topic;
 };
-/** A bot debater never judges and the AI judge never debates (ISSUE-750). */
+/**
+ * A bot debater never judges and the AI judge never debates (ISSUE-750); a
+ * bot debater holds a side's seat or an unsided speaker's, and no AI moderates.
+ */
 const wrongSeatForAi = (target: NonNullable<Edges['target']>, seat: SeatRef) =>
-  target.kind === 'bot' && target.seatKind !== seat.kind;
+  target.kind === 'bot' && !aiRoleFits(target.aiRole, seat);
 /**
  * How many free seats of `seat` kind `actorId` may not take at `now`: one for
  * each live hold of that kind for a named member who has not yet taken a seat

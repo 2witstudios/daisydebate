@@ -27,12 +27,12 @@ test('bot seats follow the canonical profile, never an account', () => {
     should: 'take eligibility from the profile alone',
     actual: [
       seatEligibility(
-        { kind: 'bot', eligible: true, seatKind: 'side' },
+        { kind: 'bot', eligible: true, aiRole: 'debater' },
         [],
         botSide,
       ),
       seatEligibility(
-        { kind: 'bot', eligible: false, seatKind: null },
+        { kind: 'bot', eligible: false, aiRole: null },
         [account('bot', true)],
         botSide,
       ),
@@ -55,22 +55,22 @@ test('an AI actor is eligible only in its own kind of seat (ISSUE-750)', () => {
     should: 'refuse the mismatched seatings and admit the matching ones',
     actual: [
       seatEligibility(
-        { kind: 'bot', eligible: true, seatKind: 'side' },
+        { kind: 'bot', eligible: true, aiRole: 'debater' },
         [],
         judgeSeat,
       ).eligible,
       seatEligibility(
-        { kind: 'bot', eligible: true, seatKind: 'judge' },
+        { kind: 'bot', eligible: true, aiRole: 'judge' },
         [],
         botSide,
       ).eligible,
       seatEligibility(
-        { kind: 'bot', eligible: true, seatKind: 'judge' },
+        { kind: 'bot', eligible: true, aiRole: 'judge' },
         [],
         judgeSeat,
       ).eligible,
       seatEligibility(
-        { kind: 'bot', eligible: true, seatKind: 'side' },
+        { kind: 'bot', eligible: true, aiRole: 'debater' },
         [],
         botSide,
       ).eligible,
@@ -79,8 +79,38 @@ test('an AI actor is eligible only in its own kind of seat (ISSUE-750)', () => {
   });
 });
 
+test('a bot debater fits an unsided speaker seat, never a moderator seat (TAB-6.18)', () => {
+  const at = (seat: { kind: 'speaker' | 'moderator'; slot: number }) => ({
+    actorId: 'bot',
+    seat,
+  });
+  assert({
+    given:
+      'a bot debater in a speaker seat, a bot debater in the moderator seat, and the AI judge in a speaker seat',
+    should: 'admit only the bot debater as a speaker',
+    actual: [
+      seatEligibility(
+        { kind: 'bot', eligible: true, aiRole: 'debater' },
+        [],
+        at({ kind: 'speaker', slot: 2 }),
+      ).eligible,
+      seatEligibility(
+        { kind: 'bot', eligible: true, aiRole: 'debater' },
+        [],
+        at({ kind: 'moderator', slot: 0 }),
+      ).eligible,
+      seatEligibility(
+        { kind: 'bot', eligible: true, aiRole: 'judge' },
+        [],
+        at({ kind: 'speaker', slot: 0 }),
+      ).eligible,
+    ],
+    expected: [true, false, false],
+  });
+});
+
 test('human seats need their own live member account', () => {
-  const human = { kind: 'human', eligible: true, seatKind: null } as const;
+  const human = { kind: 'human', eligible: true, aiRole: null } as const;
   const seat = {
     actorId: 'a',
     seat: { kind: 'side', side: 'affirmative', slot: 0 },

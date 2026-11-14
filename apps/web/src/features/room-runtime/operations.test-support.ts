@@ -107,7 +107,7 @@ export function makeOperations(
           kind: 'bot' as const,
           label: 'Practice bot',
           eligible: true,
-          seatKind: 'side' as const,
+          aiRole: 'debater' as const,
           persona: 'A practice opponent',
           voice: 'neutral',
           difficulty: 'beginner' as const,

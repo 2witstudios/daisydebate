@@ -41,9 +41,9 @@ test('without JavaScript, a member without the casual AI judge practises with a 
     const page = await openPage(context, 'Casual host without the AI judge');
     const roster = await readRoomBotRoster(page.request);
     const opponent = roster.find(
-      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
+      (bot) => bot.label === 'Wren' && bot.aiRole === 'debater',
     );
-    const judge = roster.find((bot) => bot.seatKind === 'judge');
+    const judge = roster.find((bot) => bot.aiRole === 'judge');
     expect(opponent?.eligible).toBe(true);
 
     await page.goto(`/train?bot=${opponent!.actorId}`);

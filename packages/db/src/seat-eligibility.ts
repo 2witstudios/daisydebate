@@ -1,21 +1,24 @@
-import { isDebatingSeat, type SeatRef } from '@daisy/protocol';
-
-/** The seat kind an AI actor may hold (ISSUE-750): a bot debater's, or the AI judge's. */
-export type AiSeatKind = 'side' | 'judge';
+import {
+  aiRoleFits,
+  isDebatingSeat,
+  type AiRole,
+  type SeatRef,
+} from '@daisy/protocol';
 
 type ActorFact = {
   readonly kind: 'human' | 'bot';
   readonly eligible: boolean;
-  /** Which seat kind an AI actor may hold (ISSUE-750); null for a human. */
-  readonly seatKind: AiSeatKind | null;
+  /** Which AI the actor is (ISSUE-750); null for a human. */
+  readonly aiRole: AiRole | null;
 } | null;
 
 /**
- * ISSUE-750: a bot debater fits only a side's seat and the AI judge only a
- * judge seat, whenever and however it was seated.
+ * ISSUE-750: a bot debater fits only a competitor's seat (a side's or an
+ * unsided speaker's) and the AI judge only a judge seat, whenever and however
+ * it was seated.
  */
-export const aiSeatFits = (seatKind: AiSeatKind | null, seat: SeatRef) =>
-  seatKind !== null && seatKind === seat.kind;
+export const aiSeatFits = (aiRole: AiRole | null, seat: SeatRef) =>
+  aiRoleFits(aiRole, seat);
 type AccountFact = {
   readonly actorId: string | null;
   readonly member: boolean;
@@ -46,7 +49,7 @@ export function seatEligibility(
   if (actor.kind === 'bot')
     return {
       kind: 'bot',
-      eligible: actor.eligible && aiSeatFits(actor.seatKind, seat.seat),
+      eligible: actor.eligible && aiSeatFits(actor.aiRole, seat.seat),
     };
   return {
     kind: 'human',

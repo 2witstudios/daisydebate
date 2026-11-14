@@ -225,7 +225,7 @@ async function executeOnce(
   const judgeQuote =
     judgeAdmission &&
     state.hostActorId === input.caller.actorId &&
-    (target?.seatKind === 'judge' ||
+    (target?.aiRole === 'judge' ||
       (input.type === 'start-round' &&
         state.participants.some(
           (p) => p.kind === 'bot' && isJudgeSeat(p.seat),

@@ -435,14 +435,14 @@ export function createRoomRuntimeOperations({
           can(caller, 'room.list', account),
         )
       ).flatMap((p) =>
-        p.kind === 'bot' && p.seatKind
+        p.kind === 'bot' && p.aiRole
           ? [
               {
                 actorId: p.actorId,
                 kind: 'bot' as const,
                 label: p.label,
-                seatKind: p.seatKind,
-                eligible: p.eligible && aiServesSeat(aiSeats(), p.seatKind),
+                aiRole: p.aiRole,
+                eligible: p.eligible && aiSeats()[p.aiRole],
                 ...(p.persona ? { persona: p.persona } : {}),
                 ...(p.difficulty ? { difficulty: p.difficulty } : {}),
               },

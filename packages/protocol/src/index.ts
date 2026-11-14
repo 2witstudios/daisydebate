@@ -30,6 +30,8 @@ export {
   errorSchema,
 } from './primitives';
 export type { ProtocolError, RatingLadder } from './primitives';
+export { aiRoleFits, aiRoleOfSeat, aiRoleSchema, aiRoles } from './ai-roles';
+export type { AiRole } from './ai-roles';
 export {
   affirmativeSide,
   fourTeams,

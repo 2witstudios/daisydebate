@@ -45,7 +45,7 @@ test('Train seats the chosen bot in a durable, editable Room', async ({
     const page = await openPage(context, 'Train host');
     const roster = await readRoomBotRoster(page.request);
     const wren = roster.find(
-      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
+      (bot) => bot.label === 'Wren' && bot.aiRole === 'debater',
     );
     expect(wren?.eligible).toBe(true);
     await page.goto('/train');
@@ -104,7 +104,7 @@ test('native Train Start practice creates a Room and recovers an active Room wit
     const page = await openPage(context, 'Native Train host');
     const roster = await readRoomBotRoster(page.request);
     const opponent = roster.find(
-      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
+      (bot) => bot.label === 'Wren' && bot.aiRole === 'debater',
     );
     expect(opponent?.eligible).toBe(true);
     const nativePosts: Response[] = [];
@@ -166,8 +166,8 @@ for (const javaScriptEnabled of [true, false]) {
       const host = await openPage(hostContext, 'Manage host');
       const outsider = await openPage(outsiderContext, 'Manage outsider');
       const roster = await readRoomBotRoster(host.request);
-      const debater = roster.find((bot) => bot.seatKind === 'side');
-      const judge = roster.find((bot) => bot.seatKind === 'judge');
+      const debater = roster.find((bot) => bot.aiRole === 'debater');
+      const judge = roster.find((bot) => bot.aiRole === 'judge');
       let view = await createFromPlay(
         host,
         `Manage bots ${createId().slice(0, 8)}`,
@@ -206,7 +206,7 @@ for (const javaScriptEnabled of [true, false]) {
       // cast, then the first takes it back the same way.
       const understudy = roster.find(
         (bot) =>
-          bot.seatKind === 'side' &&
+          bot.aiRole === 'debater' &&
           bot.eligible &&
           bot.actorId !== debater!.actorId,
       );

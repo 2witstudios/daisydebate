@@ -1,10 +1,17 @@
-import { roundDebaterMessages } from '@daisy/ai-voice';
+import { roundDebaterMessages, roundSpeakerMessages } from '@daisy/ai-voice';
 import type {
   createBotPublicationOperations,
   BotPublicationScope,
 } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
-import { leadSeatOf, segmentDueAtMs, sideOfSeat } from '@daisy/protocol';
+import {
+  leadSeatOf,
+  sameSeat,
+  seatLabel,
+  seatsOfKind,
+  segmentDueAtMs,
+  sideOfSeat,
+} from '@daisy/protocol';
 import type { Owed } from './duty';
 
 type Context = Awaited<
@@ -12,7 +19,9 @@ type Context = Awaited<
     ReturnType<typeof createBotPublicationOperations>['beginGeneration']
   >
 >;
-const dueAtOf = (segment: Context['round']['segments'][number]) =>
+type Segment = Context['round']['segments'][number];
+type Rule = Context['round']['rules']['segments'][number];
+const dueAtOf = (segment: Segment) =>
   segmentDueAtMs({
     startedAtMs: Date.parse(segment.startedAt),
     durationMs: segment.durationMs,
@@ -29,28 +38,60 @@ export function debaterPrompt(
   nowMs: number,
   to: Owed,
 ) {
-  const { round, seat, profile } = context;
+  const { round, seat } = context;
   const segment = round.segments.find((row) => row.id === scope.segmentId);
   const rule = round.rules.segments.find(
     (row) => row.key === segment?.rulesSegmentKey,
   );
-  // A bot debates for a side, in a speech or a cross-examination a side leads.
-  const lead = rule ? leadSeatOf(rule.speak) : null;
-  const ruleSide = lead && sideOfSeat(lead);
   if (
     !segment ||
     !rule ||
-    seat.seat.kind !== 'side' ||
-    ruleSide === null ||
     segment.type === 'open' ||
     !Number.isFinite(nowMs) ||
     round.resolution === null
   )
     throw createAppError('CONFLICT');
-  const durationMs = dueAtOf(segment) - nowMs;
-  if (durationMs <= 0) throw createAppError('CONFLICT');
-  return roundDebaterMessages({
+  const turn: Turn = {
+    segment: { ...segment, type: segment.type },
+    rule,
     resolution: round.resolution,
+    nowMs,
+  };
+  switch (seat.seat.kind) {
+    case 'side':
+      return sidePrompt(context, turn, to);
+    case 'speaker':
+      return speakerPrompt(context, turn);
+    case 'judge':
+    case 'moderator':
+      throw createAppError('CONFLICT');
+  }
+}
+
+type Turn = {
+  readonly segment: Segment & { readonly type: 'speech' | 'cross_ex' };
+  readonly rule: Rule;
+  readonly resolution: string;
+  readonly nowMs: number;
+};
+
+const remainingMs = (turn: Turn) => {
+  const durationMs = dueAtOf(turn.segment) - turn.nowMs;
+  if (durationMs <= 0) throw createAppError('CONFLICT');
+  return durationMs;
+};
+
+/** A side's debater, in a speech or a cross-examination a side leads. */
+function sidePrompt(context: Context, turn: Turn, to: Owed) {
+  const { round, seat, profile } = context;
+  const { segment, rule } = turn;
+  const lead = leadSeatOf(rule.speak);
+  const ruleSide = lead && sideOfSeat(lead);
+  if (seat.seat.kind !== 'side' || ruleSide === null)
+    throw createAppError('CONFLICT');
+  const durationMs = remainingMs(turn);
+  return roundDebaterMessages({
+    resolution: turn.resolution,
     side: seat.seat.side,
     slot: seat.seat.slot,
     persona: `${profile.name}. ${profile.persona} Debate difficulty: ${profile.difficulty}.`,
@@ -72,6 +113,52 @@ export function debaterPrompt(
             {
               side: speaker.seat.side,
               slot: speaker.seat.slot,
+              segment: spoken.rulesSegmentKey,
+              text: line.text,
+              complete: line.complete,
+              interrupted: line.interrupted,
+            },
+          ]
+        : [];
+    }),
+  });
+}
+
+/**
+ * An unsided speaker (TAB-6.18), in its own speech: one of the section's
+ * speakers on the resolution, with no opponent side.
+ */
+function speakerPrompt(context: Context, turn: Turn) {
+  const { round, seat, profile } = context;
+  const { segment, rule } = turn;
+  // A speaker speaks only its own speech: a section has no cross-examination.
+  const lead = leadSeatOf(rule.speak);
+  if (
+    seat.seat.kind !== 'speaker' ||
+    segment.type !== 'speech' ||
+    lead === null ||
+    !sameSeat(lead, seat.seat)
+  )
+    throw createAppError('CONFLICT');
+  const durationMs = remainingMs(turn);
+  const speakers = seatsOfKind(round.rules, 'speaker');
+  const labelOf = (of: typeof seat.seat) =>
+    seatLabel(round.rules.sides, of, speakers);
+  return roundSpeakerMessages({
+    resolution: turn.resolution,
+    seatLabel: labelOf(seat.seat),
+    speakers,
+    persona: `${profile.name}. ${profile.persona} Debate difficulty: ${profile.difficulty}.`,
+    segment: { name: rule.key, label: rule.label, durationMs },
+    transcript: context.utterances.flatMap((line) => {
+      const speaker = round.participants.find(
+        (row) => row.id === line.roundParticipantId,
+      );
+      const spoken = round.segments.find((row) => row.id === line.segmentId);
+      return speaker && speaker.seat.kind === 'speaker' && spoken
+        ? [
+            {
+              seatLabel: labelOf(speaker.seat),
               segment: spoken.rulesSegmentKey,
               text: line.text,
               complete: line.complete,

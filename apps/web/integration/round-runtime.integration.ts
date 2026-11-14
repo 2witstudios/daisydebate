@@ -78,7 +78,7 @@ for (const revoke of ['lease', 'run'] as const)
     await withRoomRuntime(async (f) => {
       let room = (await f.create()).view;
       const bot = (await f.operations.castChoices(f.host)).find(
-        (p) => p.kind === 'bot' && p.seatKind === 'side',
+        (p) => p.kind === 'bot' && p.aiRole === 'debater',
       )!;
       room = await f.seatBotOpponent(room, bot.actorId);
       const { roundId, operations, principal } = await launchRuntimeRound(

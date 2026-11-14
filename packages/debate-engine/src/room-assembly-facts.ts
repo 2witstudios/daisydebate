@@ -6,7 +6,7 @@ import type {
   RoomParticipant,
   RoomRefusal,
   PublishedResolution,
-  SeatKind,
+  AiRole,
 } from '@daisy/protocol';
 import {
   formatDefinitionSchema,
@@ -22,10 +22,10 @@ import type { DrawStartFacts } from './room-draw-start';
 type Target = RoomParticipant & {
   readonly eligible: boolean;
   /**
-   * Which kind of seat an AI actor may hold (ISSUE-750): a bot debater only a
-   * side's, the AI judge only a judge's. Null for a human.
+   * Which AI the actor is (ISSUE-750), and so which seats it may hold: a bot
+   * debater a competitor's, the AI judge a judge's. Null for a human.
    */
-  readonly seatKind: SeatKind | null;
+  readonly aiRole: AiRole | null;
 };
 export type Edges = {
   readonly now: string;
