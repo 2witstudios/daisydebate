@@ -34,7 +34,9 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 - **Inherited work.** A builder carries the commits of inherited PRs and
   branches into its slice branch, then closes those PRs in favor of the
   slice PR.
-- **Merging.** Only main receives merged PRs. GitHub deletes the branch when
+- **Merging.** Only main receives merged PRs, except a slice of a feature
+  with a parent branch, which merges into that parent
+  ([ADR 0128](../decisions/0128-feature-parent-branch.md)). GitHub deletes the branch when
   the PR merges (`delete_branch_on_merge`, applied by `bun github:rules`).
 - **Worktrees.** Worktrees (`git worktree`, or `pu` slots) are the supported
   way to run multiple sessions on one machine. Run `bun slot:up` in each so
@@ -96,6 +98,8 @@ into its own worktree and asks the architecture reviewer for a pass. No
 review is a required status.
 
 Builders never merge. The point guard's flow sweep merges a PR into main
+(or, for a feature parent slice, the feature's point guard merges it into
+the parent, [ADR 0128](../decisions/0128-feature-parent-branch.md))
 once its builder has emitted `PR_READY` and the required checks are green
 at the exact head. The owner may merge any PR at any time.
 `bun board:stale` lists tasks whose status disagrees with git.

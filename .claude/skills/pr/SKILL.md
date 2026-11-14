@@ -18,7 +18,7 @@ what was asked (the task list), how it was planned (the slice plan) and what the
 (the mission prompt). Those live in PageSpace; the PR description carries the links.
 
 Constraints {
-One PR per slice. It targets the repository's default branch; only main receives merged PRs.
+One PR per slice. It targets the repository's default branch; only main receives merged PRs. Exception: a slice of a feature with a parent branch (ADR 0128; Daisy Tab, branches named `pu/daisy-tab-<slice>`) targets the parent, so use `--base pu/daisy-tab` wherever this skill says the default branch.
 PageSpace is the record. Never use local files, /tmp or agent-native todo/plan/memory tools as the only home of a plan or prompt.
 Never invent a page id. Every linked id must come from PageSpace and be verified with `pagespace pages read-details <id>` before it goes in the PR.
 GitHub cannot render PageSpace mentions: in PR text use URLs `https://pagespace.ai/dashboard/<driveId>/<pageId>`. Inside PageSpace use mentions, never pasted URLs.

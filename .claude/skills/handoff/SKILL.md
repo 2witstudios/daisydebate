@@ -15,7 +15,7 @@ the same run, in this order, and the run is not done until each part is verified
 review, and the PR loop that follows converges it.
 
 Constraints {
-Never merge and never mark Done. Only main receives merged PRs; the point guard's flow sweep merges after you emit PR_READY.
+Never merge and never mark Done. Only main receives merged PRs; the point guard's flow sweep merges after you emit PR_READY. A feature parent slice (ADR 0128) is merged into its parent by the feature's point guard instead.
 Never edit the criteria of a task delegated to you.
 Report checks honestly: exact SHA, commands run, NOT RUN with the reason. Never an inferred pass.
 Scratch files carry the branch name (`<scratchpad>/handoff-<branch with / replaced by ->.md`), never a shared name.

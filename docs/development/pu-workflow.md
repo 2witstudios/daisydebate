@@ -61,16 +61,23 @@ pu kill --agent <agent> && pu clean
 - **Converging.** The builder runs its harness's PR loop verbatim until it
   emits `PR_READY`: PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for
   Claude Code, PR Loop (Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and
-  opencode, both in Resources › Universal prompts.
+  opencode, both in Resources › Universal prompts. A feature parent
+  slice runs PR Loop (Feature slice) instead (ADR 0128).
 - **Merging.** Builders never merge. Only main receives merged PRs, and no
-  PR is ever merged into another branch.
+  PR is ever merged into another branch. The one exception is a slice of a
+  feature the owner has given a parent branch
+  ([ADR 0128](../decisions/0128-feature-parent-branch.md)): its PR targets
+  the parent, one point guard merges into the parent one PR at a time, and
+  it runs PR Loop (Feature slice), which stops at the first review with no
+  blocker and no major.
   - The point guard's flow sweep merges a PR when its builder has emitted
     `PR_READY` and the required check (CI gate) is green at the exact head.
     Browser E2E runs on main after merge
     ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)).
   - A red Browser E2E run on main belongs to the merging point guard at once,
     who fixes forward or reverts.
-  - The sweep merges at most two PRs per cycle.
+  - The sweep merges at most two PRs per cycle into main. A feature parent
+    takes one PR at a time (ADR 0128).
   - After a batch, the point guard runs a local typecheck and knip on main.
 - **After a merge.** The tasks the PR names move to Done when its latest
   review verdict approves ([reviews](reviews.md)); otherwise they move to

@@ -15,7 +15,9 @@ document (CLAUDE.md and friends).
 - An owner instruction to implement an outcome authorizes discovery, planning,
   task administration, delegation, building, reviews and fixes within it. A
   planning-only request stays planning-only.
-- Builders never merge, and only main receives merged PRs.
+- Builders never merge, and only main receives merged PRs (one exception: a
+  slice of a feature the owner has given a parent branch,
+  [ADR 0128](docs/decisions/0128-feature-parent-branch.md)).
 - Production identity, secrets, deployment and data actions keep human sign-off.
 - Never commit `.env`, `.env.agent`, secrets, generated build output, or `.pu/`
   runtime state (only `.pu/config.yaml` and `.pu/agent-context.md` are

@@ -54,6 +54,10 @@ The owner steers product intent; agents own routine execution
    After 50 iterations without convergence the loop emits `BLOCKED` with
    what it needs.
 
+   A slice of a feature with a parent branch runs PR Loop (Feature slice)
+   instead, which has no three-clean-scans condition
+   ([ADR 0128](../decisions/0128-feature-parent-branch.md)).
+
 6. **Async reviews.** `/review`, `/code-review` and the architecture
    reviewer post PR comments during the loop, and the loop consumes them
    ([reviews](reviews.md)).
@@ -71,7 +75,9 @@ its next plan, on the Delivery channel.
 - Commits from inherited PRs and branches are carried into your slice branch
   (merge or cherry-pick them). Close each inherited PR in favor of the slice
   PR once the slice branch carries its content. Only main receives merged
-  PRs, and no PR is ever merged into another branch.
+  PRs, and no PR is ever merged into another branch. A slice of a feature
+  with a parent branch is the exception
+  ([ADR 0128](../decisions/0128-feature-parent-branch.md)).
 - Shared surfaces resolve at merge. Whoever merges second regenerates or
   rebases, and the loop's conflict step handles it. Shared surfaces include:
   - migrations: the first ready merges first, and the other regenerates on
@@ -119,7 +125,8 @@ an expensive command while its known blocking condition is unchanged.
 - **Scope.** Do not silently cut scope or weaken criteria. A changed product
   outcome goes to the point guard. An in-scope finding is remaining work in
   the same PR. A finding outside the slice is filed in `Issues` in the same
-  session.
+  session (a feature parent slice puts it on the feature's findings list,
+  [ADR 0128](../decisions/0128-feature-parent-branch.md)).
 - **Reporting.** Report meaningful milestones, final delivery and real
   blockers on the Delivery channel or to the spawning parent. Never wait on the
   owner: the point guard answers product, architecture and scope questions.
