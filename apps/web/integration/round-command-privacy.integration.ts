@@ -1,7 +1,12 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { isNamedSeat, roundViewSchema } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  isNamedSeat,
+  roundViewSchema,
+  sideOfSeat,
+} from '@daisy/protocol';
 import { submitRoundForm } from '../src/features/round-runtime/command-form';
 import {
   createRoomHttpFixture,
@@ -32,7 +37,7 @@ test('real authenticated Round responses and JSON and server-action form replays
       );
       const named = asJudge.participants
         .filter(isNamedSeat)
-        .find((p) => p.role === 'judge')!;
+        .find((p) => isJudgeSeat(p.seat))!;
       const hidden = [named.id, named.actorId, named.label];
       assert({
         given: 'the seated host reading the Round',
@@ -52,7 +57,7 @@ test('real authenticated Round responses and JSON and server-action form replays
       );
       const seat = own.participants
         .filter(isNamedSeat)
-        .find((p) => p.role === 'negative')!;
+        .find((p) => sideOfSeat(p.seat) === 'negative')!;
       const envelope = {
         version: 1,
         commandId: createId(),

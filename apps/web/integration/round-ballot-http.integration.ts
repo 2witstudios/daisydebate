@@ -1,6 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import {
   ballotCategories,
+  isJudgeSeat,
   roundBallotReadSchema,
   roundBallotReceiptSchema,
   roundJudgeAssignmentsSchema,
@@ -106,8 +107,8 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
         expectedVersion: String(envelope.expectedVersion),
         judgeParticipantId: seat,
         freezeRevision: String(envelope.freezeRevision),
-        winner: ballot.winner,
-        reason: ballot.reason,
+        winner: ballot.winner!,
+        reason: ballot.reason!,
       });
       for (const side of ['affirmative', 'negative'])
         for (const category of ballotCategories)
@@ -146,7 +147,7 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
         await (await get(firstJudge)).json(),
       );
       const hidden = view.participants
-        .filter((p) => p.role === 'judge' && 'actorId' in p)
+        .filter((p) => isJudgeSeat(p.seat) && 'actorId' in p)
         .flatMap((p) => ('actorId' in p ? [p.id, p.actorId, p.label] : []));
       assert({
         given:

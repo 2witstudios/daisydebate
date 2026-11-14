@@ -1,7 +1,7 @@
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
-import type { Ballot } from '@daisy/protocol';
+import { sideOfSeat, winnerOutcome, type Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
@@ -173,9 +173,9 @@ test('all actual human judges submit one shared ballot against actual frozen inp
         await operation.submit(principal, roundId, first),
       ],
       expected: [
-        'affirmative',
+        winnerOutcome('affirmative'),
         fresh.version + 1,
-        'affirmative',
+        winnerOutcome('affirmative'),
         'completed',
         receipt,
       ],
@@ -185,7 +185,7 @@ test('all actual human judges submit one shared ballot against actual frozen inp
     const readAs = (caller: { userId: string; actorId: string }) =>
       readBallotAs(f, caller, roundId);
     const sideOf = (actorId: string) =>
-      done.participants.find((p) => p.actorId === actorId)!.role as
+      sideOfSeat(done.participants.find((p) => p.actorId === actorId)!.seat) as
         'affirmative' | 'negative';
     const released = await Promise.all(
       [f.host, f.guest, judges[1]!].map(async (caller) => {

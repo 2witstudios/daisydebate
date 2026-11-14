@@ -44,7 +44,7 @@ test('the platform ending is written when the Round ends, not at the freeze', as
       await f.sql`select platform_ending, status from rounds where id=${roundId}`;
     const reservation = createId();
     const [seat] =
-      await f.sql`select actor_id from round_participants where round_id=${roundId} and role<>'judge' limit 1`;
+      await f.sql`select actor_id from round_participants where round_id=${roundId} and seat_kind<>'judge' limit 1`;
     const countedAt = new Date().toISOString();
     await f.sql`insert into usage_reservations(id, actor_id, round_id, kind, reserved_at, source, state)
       values (${reservation}, ${seat!.actor_id}, ${roundId}, 'ai_round', ${countedAt}::timestamptz,
@@ -56,7 +56,7 @@ test('the platform ending is written when the Round ends, not at the freeze', as
     const [refund] =
       await f.sql`select state from usage_reservations where id=${reservation}`;
     const [ended] =
-      await f.sql`select platform_ending, status, outcome from rounds where id=${roundId}`;
+      await f.sql`select platform_ending, status, winning_side as outcome from rounds where id=${roundId}`;
     assert({
       given: 'a freeze with platform loss past the limit, then completion',
       should:
@@ -89,7 +89,7 @@ test('a silent seat past the limit is not ended on the platform', async () => {
     await seedSettledAttendanceLedger(f, roundId);
     await finalizeByMaintenance(f, roundId);
     const [ended] =
-      await f.sql`select platform_ending, status, outcome from rounds where id=${roundId}`;
+      await f.sql`select platform_ending, status, winning_side as outcome from rounds where id=${roundId}`;
     assert({
       given: 'an AI-only Round whose seat said nothing',
       should: 'complete with no outcome, and blame nothing on the platform',
@@ -162,15 +162,13 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge' as const, slot: 0 },
       })
     ).view;
     room = (
       await f.command(f.host, room, {
         type: 'assign-seat',
-        role: 'judge',
-        slot: 1,
+        seat: { kind: 'judge' as const, slot: 1 },
         actorId: bot.actorId,
       })
     ).view;
@@ -254,7 +252,7 @@ test('a failed AI judge ends a ranked Round honestly: no human countdown, no win
     const view = await seen();
     const [facts] =
       await f.sql`select (select count(*)::int from rating_changes where round_id=${roundId}) as ratings,
-        (select count(*)::int from room_active_memberships m join rounds r on r.room_id=m.room_id where r.id=${roundId}) as held`;
+        (select count(*)::int from active_seats m join rounds r on r.room_id=m.room_id where r.id=${roundId}) as held`;
     assert({
       given:
         'a ranked Round whose only judge is an AI with a job that ran out of calls',
@@ -291,15 +289,13 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge' as const, slot: 0 },
       })
     ).view;
     room = (
       await f.command(f.host, room, {
         type: 'assign-seat',
-        role: 'judge',
-        slot: 1,
+        seat: { kind: 'judge' as const, slot: 1 },
         actorId: bot.actorId,
       })
     ).view;
@@ -372,8 +368,7 @@ test('the freeze gives the room a new version and a ring, so the window reaches 
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
+        seat: { kind: 'judge' as const, slot: 0 },
       })
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);

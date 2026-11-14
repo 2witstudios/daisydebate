@@ -12,7 +12,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ratingLadders } from '@daisy/protocol';
+import { ratingLadders, seatKey, seatOrder, twoSides } from '@daisy/protocol';
 import {
   withRoomRuntime,
   launchRuntimeRound,
@@ -136,7 +136,7 @@ for (const ladder of ratingLadders)
                 username: `u-${f.host.userId}`,
                 now,
               });
-              const seatRoles = roundView.participants.map((p) => p.role);
+              const seats = roundView.participants.map((p) => p.seat);
               const hostPost = ledger.find(
                 (r: { actor_id: string }) => r.actor_id === f.host.actorId,
               )!;
@@ -179,7 +179,8 @@ for (const ladder of ratingLadders)
                   posting: display?.posting,
                   deltas: display?.rows.every((r) => r.delta !== null),
                   seatsInOrder:
-                    seatRoles.join() === [...seatRoles].sort().join(),
+                    seats.map(seatKey).join() ===
+                    [...seats].sort(seatOrder(twoSides)).map(seatKey).join(),
                   resolution:
                     roundView.topic !== null &&
                     (room.topic === null || roundView.topic === room.topic),
