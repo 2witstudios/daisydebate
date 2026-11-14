@@ -59,16 +59,12 @@ export function Setup({
               >
                 <h2 className="font-display text-xl font-bold">Pairing</h2>
                 <ChoiceField id="pairing-preset" choice={pairing.preset} />
-                <ChoiceField
-                  id="pairing-first-round"
-                  choice={pairing.firstRound}
-                />
-                <ChoiceField
-                  id="pairing-later-rounds"
-                  choice={pairing.laterRounds}
-                />
-                <div className="flex flex-col gap-2">
-                  <h3 className={eyebrowClass}>How strict is each one?</h3>
+                <section
+                  aria-label={`What ${pairing.preset.value} does`}
+                  className="flex flex-col gap-2"
+                >
+                  <h3 className={eyebrowClass}>{pairing.preset.value}</h3>
+                  <p className="text-sm">{pairing.summary}</p>
                   <dl className="flex flex-col gap-2">
                     {pairing.policies.map((policy) => (
                       <div
@@ -80,12 +76,13 @@ export function Setup({
                       </div>
                     ))}
                   </dl>
-                </div>
+                </section>
                 <p className="text-sm text-ink-muted">
                   A rule is never broken by the draw. If the rules can&rsquo;t
                   all hold, you&rsquo;re told which ones clash. Preferences give
                   way in order. Warnings are only reported.
                 </p>
+                <p className="text-sm text-ink-muted">{pairing.forceNote}</p>
                 <Button type="submit" className="self-start">
                   {pairing.save.label}
                 </Button>

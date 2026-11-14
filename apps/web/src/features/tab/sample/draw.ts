@@ -6,7 +6,8 @@ import type {
   FixtureFlag,
 } from '../draw';
 import { hostRoutes } from '../routes';
-import { AUTUMN, reached, VARSITY, varsitySwitch } from './moment';
+import { AUTUMN, reached, VARSITY } from './moment';
+import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
 
 type Draft = {
@@ -115,7 +116,7 @@ export function sampleDrawBoard(
     selected: draft.id === chosen?.id,
   });
   return {
-    event: varsitySwitch,
+    event: varsitySwitch(scene),
     title: 'Round 4 draw',
     version: 3,
     basis: 'from results through round 3',

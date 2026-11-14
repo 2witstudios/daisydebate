@@ -17,16 +17,19 @@ export type PairingPolicy = {
 /** A host picks a preset; only an organization sets force key by key. */
 export type PairingPanel = {
   readonly preset: Choice;
-  readonly firstRound: Choice;
-  readonly laterRounds: Choice;
+  /** What the chosen preset does, before the policies it comes with. */
+  readonly summary: string;
   readonly policies: readonly PairingPolicy[];
+  /** Who may set a policy's force one by one. */
+  readonly forceNote: string;
   readonly save: TabAction;
 };
 
+/** Which event a host screen shows, and the way to each of the others. */
 export type EventSwitch = {
   readonly current: string;
   readonly position: string;
-  readonly others: readonly string[];
+  readonly others: readonly TabAction[];
 };
 
 export type TournamentSetup = {

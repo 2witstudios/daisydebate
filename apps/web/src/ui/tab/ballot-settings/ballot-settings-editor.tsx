@@ -14,19 +14,19 @@ import { inlineSelectClass } from '../choice-field/choice-field';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 import { SampleForm, type SampleSubmit } from '../sample-form/sample-form';
 
-type Chosen = Readonly<Record<BallotOption['id'], string>>;
+type Chosen = Readonly<Partial<Record<BallotOption['id'], string>>>;
 
 const chosenOf = (settings: BallotSettings): Chosen =>
   Object.fromEntries(
     settings.sections.flatMap((section) =>
       section.options.map((option) => [option.id, option.value]),
     ),
-  ) as Chosen;
+  );
 
 /** The definition the chosen options make, from the event's saved one. */
 export const definitionOf = (settings: BallotSettings, chosen: Chosen) =>
-  (Object.keys(chosen) as BallotOption['id'][]).reduce(
-    (definition, id) => applyBallotOption(definition, id, chosen[id]),
+  (Object.entries(chosen) as [BallotOption['id'], string][]).reduce(
+    (definition, [id, value]) => applyBallotOption(definition, id, value),
     settings.definition,
   );
 
@@ -60,22 +60,18 @@ export function BallotSettingsEditor({
           actions={<Button type="submit">{settings.saveLabel}</Button>}
         />
         <ListCard>
-          {settings.sections.map((section, index) => (
+          {settings.sections.map((section) => (
             <section key={section.heading}>
               <ListHeading>{section.heading}</ListHeading>
               <ul>
-                {index === 0
-                  ? settings.locked.map((setting) => (
-                      <ListRow
-                        key={setting.label}
-                        title={setting.label}
-                        detail={`${sourceLabel(setting)} · locked`}
-                        trailing={
-                          <span className="text-sm">{setting.value}</span>
-                        }
-                      />
-                    ))
-                  : null}
+                {section.locked.map((setting) => (
+                  <ListRow
+                    key={setting.label}
+                    title={setting.label}
+                    detail={`${sourceLabel(setting)} · locked`}
+                    trailing={<span className="text-sm">{setting.value}</span>}
+                  />
+                ))}
                 {section.options.map((option) => (
                   <ListRow
                     key={option.id}
@@ -89,7 +85,7 @@ export function BallotSettingsEditor({
                       <select
                         id={`ballot-setting-${option.id}`}
                         name={option.id}
-                        value={chosen[option.id]}
+                        value={chosen[option.id] ?? option.value}
                         onChange={(event) =>
                           setChosen({
                             ...chosen,

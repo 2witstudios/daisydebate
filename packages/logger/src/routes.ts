@@ -246,6 +246,7 @@ const appRoutes = [
   '/terms',
   '/tournaments',
   // Daisy Tab, behind its closed release flag.
+  '/family',
   '/family/[minor]',
   '/family/[minor]/allow/[slug]',
   '/host',

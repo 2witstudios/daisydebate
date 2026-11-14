@@ -28,8 +28,7 @@
     "./round-analysis-testing": "./src/round-analysis.test-support.ts",
     "./round-floor": "./src/round-floor.ts",
     "./room-community": "./src/room-community.ts",
-    "./lobby": "./src/lobby/vocabulary.ts",
-    "./settings": "./src/settings/keys.ts"
+    "./lobby": "./src/lobby/vocabulary.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

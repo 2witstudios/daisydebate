@@ -82,10 +82,14 @@ export type BallotSettings = {
   readonly setup: TabAction;
   readonly lede: string;
   readonly saveLabel: string;
-  /** The parts a scope above enforces. */
-  readonly locked: readonly ResolvedSetting[];
+  /**
+   * The ballot part by part. An event that follows a template has its whole
+   * definition pinned, so every part is locked and only what is not in the
+   * definition (text screening) is the host's to choose.
+   */
   readonly sections: readonly {
     readonly heading: string;
+    readonly locked: readonly ResolvedSetting[];
     readonly options: readonly BallotOption[];
   }[];
   readonly definition: BallotDefinition;

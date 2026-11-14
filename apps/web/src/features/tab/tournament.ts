@@ -1,7 +1,10 @@
 import type { TabAction } from './action';
 import type { Bracket } from './results';
 import { sampleTimelineRail } from './sample/rail';
-import { sampleTournamentPage, sampleTournaments } from './sample/tournament';
+import {
+  sampleTournamentPage,
+  sampleTournamentsIndex,
+} from './sample/tournament';
 import type { SampleScene } from './sample/scene';
 import type { StandingsTable } from './standings';
 
@@ -96,10 +99,18 @@ export type AdultEntry = {
   readonly action: TabAction;
 };
 
+/** Something of a round this viewer may open: a ballot, a recording. */
 export type ReadableBallot = {
   readonly title: string;
   readonly detail: string;
   readonly action: TabAction;
+};
+
+/** What a finished tournament keeps for someone who took part. */
+export type Keepsakes = {
+  readonly rows: readonly ReadableBallot[];
+  /** The earlier rounds, behind one link. */
+  readonly more: TabAction;
 };
 
 /** The participant side's tournament page, by who is looking and when. */
@@ -139,6 +150,16 @@ export type TournamentPage =
       readonly ballotsNote: string;
       readonly judging: PinnedRoom | null;
       readonly manage: TabAction;
+    }
+  | {
+      /** A finished tournament, for someone who took part in it. */
+      readonly kind: 'after';
+      readonly name: string;
+      readonly lede: string;
+      readonly result: PinnedRoom;
+      readonly ballots: Keepsakes;
+      readonly recordings: Keepsakes;
+      readonly recordingsNote: string;
     };
 
 export type TournamentView =
@@ -147,11 +168,25 @@ export type TournamentView =
   | { readonly kind: 'standings'; readonly event: string | null }
   | { readonly kind: 'bracket'; readonly event: string | null };
 
-/** A tournament in a list: the index, a league's tournaments, host home. */
-export type TournamentSummary = {
-  readonly slug: string;
+/** A tournament in a list: the index, a league's tournaments. */
+export type TournamentRow = {
   readonly name: string;
   readonly detail: string;
+  readonly action: TabAction;
+};
+
+export type TournamentGroup = {
+  readonly heading: string;
+  readonly rows: readonly TournamentRow[];
+  /** The rest of the group, behind one link. */
+  readonly more: TabAction | null;
+};
+
+/** The tournaments index: this viewer's own first, then what is open. */
+export type TournamentsIndex = {
+  readonly groups: readonly TournamentGroup[];
+  /** Null for a signed-out reader. */
+  readonly host: TabAction | null;
 };
 
 export const readTimelineRail = (
@@ -165,10 +200,8 @@ export const readTournamentPage = (
   scene: SampleScene,
 ): TournamentPage | null => sampleTournamentPage(slug, view, scene);
 
-/** The tournaments this viewer may see, soonest first. */
-export const readTournaments = (
-  _scene: SampleScene,
-): readonly TournamentSummary[] => sampleTournaments;
+export const readTournamentsIndex = (scene: SampleScene): TournamentsIndex =>
+  sampleTournamentsIndex(scene);
 
 /** A stop's standing in the words the rail shows. */
 export const standingLabel = (standing: RailStanding): string => {

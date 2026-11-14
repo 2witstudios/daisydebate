@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type {
+  Keepsakes,
   TournamentPage as Read,
   TournamentPanel,
 } from '../../../features/tab/tournament';
@@ -15,6 +16,7 @@ import { PinnedRoom } from './pinned-room';
 type Before = Extract<Read, { kind: 'before' }>;
 type Rounds = Extract<Read, { kind: 'rounds' }>;
 type Adult = Extract<Read, { kind: 'adult' }>;
+type After = Extract<Read, { kind: 'after' }>;
 
 const backToTournaments = (
   <Link
@@ -205,21 +207,65 @@ function AdultTournament({ page }: { readonly page: Adult }) {
   );
 }
 
+function Kept({
+  heading,
+  kept,
+}: {
+  readonly heading: string;
+  readonly kept: Keepsakes;
+}) {
+  return (
+    <section className="border-b border-border last:border-b-0">
+      <ListHeading>{heading}</ListHeading>
+      <ul>
+        {kept.rows.map((row) => (
+          <ListRow
+            key={row.title}
+            title={row.title}
+            detail={row.detail}
+            trailing={<ActionLink action={row.action} about={row.title} />}
+          />
+        ))}
+        <li className="px-4 py-3">
+          <ActionLink action={kept.more} about={heading} />
+        </li>
+      </ul>
+    </section>
+  );
+}
+
+function AfterTournament({ page }: { readonly page: After }) {
+  return (
+    <>
+      <PageHeader title={page.name} lede={page.lede} />
+      <PinnedRoom room={page.result} label="Your result" />
+      <ListCard>
+        <Kept heading="Your ballots" kept={page.ballots} />
+        <Kept heading="Recordings you can watch" kept={page.recordings} />
+      </ListCard>
+      <p className="text-sm text-ink-muted">{page.recordingsNote}</p>
+    </>
+  );
+}
+
+function screenOf(page: Read) {
+  switch (page.kind) {
+    case 'before':
+      return <BeforeTournament page={page} />;
+    case 'rounds':
+      return <RoundsTournament page={page} />;
+    case 'adult':
+      return <AdultTournament page={page} />;
+    case 'after':
+      return <AfterTournament page={page} />;
+  }
+}
+
 /**
  * The participant side's tournament page: before entries close, while rounds
- * run and after, with the viewer's own Room pinned; and a responsible adult's
- * view of their entries.
+ * run and after it has finished, with the viewer's own Room or result pinned;
+ * and a responsible adult's view of their entries.
  */
 export function TournamentPage({ page }: { readonly page: Read }) {
-  return (
-    <ReadingPage>
-      {page.kind === 'before' ? (
-        <BeforeTournament page={page} />
-      ) : page.kind === 'rounds' ? (
-        <RoundsTournament page={page} />
-      ) : (
-        <AdultTournament page={page} />
-      )}
-    </ReadingPage>
-  );
+  return <ReadingPage>{screenOf(page)}</ReadingPage>;
 }

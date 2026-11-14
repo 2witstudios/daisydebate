@@ -420,6 +420,13 @@ information page.
   create-room form of a standing lobby and an event Room's "set by" lines all
   render `ResolvedSetting`: value, the scope it comes from, and a lock where a
   scope above enforces it. No screen builds a second one.
+- **A template pins the whole ballot.** An event that follows a league's
+  template has its ballot definition pinned, so ballot settings there are every
+  part locked, with only text screening (which is not in the definition) to
+  choose; setup's locked Ballot row carries a View link to that page. Format
+  and Recording are locked the same way.
+- **The event picker leads to screens.** `EventSwitch.others` are `TabAction`s:
+  an event with a screen is a link, one without answers as a sample action.
 - **Controls.** A read carries each control as a `TabAction`: with an address
   it is a link, with none it is a sample action. A form posts to the one
   sample server action (`app/(tab)/sample-form-action.ts`) through

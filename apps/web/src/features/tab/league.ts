@@ -1,19 +1,19 @@
 import type { Choice, TabAction } from './action';
-import {
-  sampleCreateRoom,
-  sampleHostLeague,
-  sampleLeagueLobby,
-  sampleLeagueRail,
-} from './sample/league';
+import { sampleHostLeague, sampleLeagueRail } from './sample/league';
+import { sampleCreateRoom } from './sample/create-room';
+import { sampleLeagueLobby } from './sample/league-lobby';
 import type { SampleScene } from './sample/scene';
 import type { ResolvedSetting } from './settings';
-import type { TimelineRail, TournamentSummary } from './tournament';
+import type { TimelineRail, TournamentGroup } from './tournament';
 import type { LeagueTab } from './routes';
 
 export type SeasonRow = {
   readonly place: number;
-  readonly entry: string;
+  readonly name: string;
+  readonly school: string;
   readonly points: number;
+  /** The viewer's own line, pinned first and marked. */
+  readonly you: boolean;
 };
 
 /** An event asking a league to count its certified results for the season. */
@@ -57,9 +57,27 @@ export type LadderRow = {
   readonly place: number;
   readonly name: string;
   readonly school: string;
+  /** Wins and losses on this ladder, e.g. `14–9`. */
+  readonly record: string;
   readonly rating: number;
+  /** The rating's change over the last rated Room. */
+  readonly change: number;
   readonly you: boolean;
+  readonly profile: TabAction;
 };
+
+export type LadderScope = 'top' | 'around';
+
+/** One tab of a league's lobby, with what its address chose on it. */
+export type LeagueView =
+  | { readonly tab: 'rooms' }
+  | {
+      readonly tab: 'ladder';
+      readonly scope: LadderScope;
+      readonly search: string;
+    }
+  | { readonly tab: 'season'; readonly event: string | null }
+  | { readonly tab: 'tournaments' };
 
 export type LeaguePanel =
   | {
@@ -71,16 +89,40 @@ export type LeaguePanel =
       }[];
       readonly note: string;
     }
-  | { readonly kind: 'ladder'; readonly rows: readonly LadderRow[] }
+  | {
+      readonly kind: 'ladder';
+      /** Where the scope and search are sent: this tab's own address. */
+      readonly address: string;
+      readonly scope: LadderScope;
+      readonly search: string;
+      readonly rows: readonly LadderRow[];
+      readonly count: string;
+      readonly next: TabAction | null;
+      readonly note: string;
+      readonly rules: TabAction;
+    }
   | {
       readonly kind: 'season';
-      readonly heading: string;
+      readonly address: string;
+      readonly season: string;
+      readonly events: readonly {
+        readonly slug: string;
+        readonly name: string;
+      }[];
+      readonly event: string;
       readonly rows: readonly SeasonRow[];
+      readonly all: TabAction;
+      readonly points: readonly {
+        readonly label: string;
+        readonly points: number;
+      }[];
       readonly note: string;
+      readonly tournaments: TabAction;
     }
   | {
       readonly kind: 'tournaments';
-      readonly tournaments: readonly TournamentSummary[];
+      readonly groups: readonly TournamentGroup[];
+      readonly note: string;
     };
 
 /** A league's standing lobby, as one of its members sees it. */
@@ -105,9 +147,21 @@ export type LeagueLobby = {
  */
 export type CreateRoom = {
   readonly lobby: { readonly name: string; readonly href: string };
-  readonly template: Choice;
+  readonly name: string;
+  readonly templates: readonly {
+    readonly name: string;
+    readonly detail: string;
+  }[];
+  readonly template: string;
+  /** Who enforces the locked values: the organization that owns the template. */
+  readonly lockedBy: string;
   readonly locked: readonly ResolvedSetting[];
   readonly defaults: readonly Choice[];
+  readonly ranked: {
+    readonly label: string;
+    readonly detail: string;
+    readonly checked: boolean;
+  };
   readonly open: TabAction;
 };
 
@@ -123,9 +177,34 @@ export const readHostLeague = (
 
 export const readLeagueLobby = (
   slug: string,
-  tab: LeagueTab,
+  view: LeagueView,
   scene: SampleScene,
-): LeagueLobby | null => sampleLeagueLobby(slug, tab, scene);
+): LeagueLobby | null => sampleLeagueLobby(slug, view, scene);
+
+/** The view an address asks for; anything unknown reads as the Rooms tab. */
+export function leagueViewOf(query: {
+  readonly tab: string | null;
+  readonly scope: string | null;
+  readonly search: string | null;
+  readonly event: string | null;
+}): LeagueView {
+  switch (query.tab) {
+    case 'ladder':
+      return {
+        tab: 'ladder',
+        scope: query.scope === 'around' ? 'around' : 'top',
+        search: (query.search ?? '').trim().slice(0, 40),
+      };
+    case 'season':
+      return { tab: 'season', event: query.event };
+    case 'tournaments':
+      return { tab: 'tournaments' };
+    case 'rooms':
+    case null:
+    default:
+      return { tab: 'rooms' };
+  }
+}
 
 export const readCreateRoom = (
   slug: string,
