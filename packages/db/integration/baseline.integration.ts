@@ -246,16 +246,25 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           ) from pg_attribute a
             where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped)
         -- ADR 0075 / ADR 0090 / ADR 0118: audit and terminal provenance are append-only.
-        when c.relname in ('account_access_events', 'operator_command_receipts', 'round_finalizations', 'round_finalization_ballots', 'flag_change_events') then
+        -- The action history and the tab record's facts are append-only too.
+        when c.relname in ('account_access_events', 'operator_command_receipts', 'round_finalizations', 'round_finalization_ballots', 'flag_change_events',
+          'action_history', 'results', 'result_entries', 'result_speakers', 'certifications', 'certification_results', 'releases', 'conflicts', 'ballot_definition_versions') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
         -- Flag, analysis-request and original refund-action identities cannot be reset by runtime DELETE.
-        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations') then
+        -- A grant is revoked and a held command settled, never deleted.
+        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations', 'grants', 'pending_commands') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')
+          and not has_table_privilege('daisy_web', c.oid, 'DELETE')
+        -- Closed until counsel answers on minors: read only.
+        when c.relname in ('guardian_links', 'restrictions', 'restriction_lobbies') then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT')
+          and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
         else
           has_table_privilege('daisy_web', c.oid, 'SELECT')
