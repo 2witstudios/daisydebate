@@ -24,7 +24,12 @@ export const adobeIsolationIssue = (
 
 /** Workspace suffixes (after `@daisy/`) each workspace may depend on. */
 export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
-  'debate-engine': ['errors', 'protocol'],
+  'debate-engine': ['errors', 'protocol', 'seeded-random'],
+  // Seeded randomness is topic-agnostic: it knows a seed and nothing else.
+  'seeded-random': [],
+  // The tab engine is plain data in and out: no app, database, protocol or
+  // Room engine, only seeded randomness (slice G).
+  'tab-engine': ['seeded-random'],
   // AIDB: the OpenRouter voice layer reads the engine's turn table and the
   // protocol's ballot contract only.
   'ai-voice': ['debate-engine', 'errors', 'protocol'],

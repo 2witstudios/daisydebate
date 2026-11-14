@@ -17,6 +17,7 @@
     "@adobe/data": "0.10.19",
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
+    "@daisy/seeded-random": "workspace:*",
     "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
