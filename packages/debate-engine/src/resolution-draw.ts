@@ -5,7 +5,8 @@ import {
   type DebateSide,
   type RoomAssemblyState,
 } from '@daisy/protocol';
-import { automaticChoice, canonicalOrder, shuffle } from './draw-random';
+import { canonicalOrder } from '@daisy/seeded-random';
+import { automaticChoice, shuffle } from './draw-random';
 import type {
   ResolutionCategory,
   ResolutionDrawItem,

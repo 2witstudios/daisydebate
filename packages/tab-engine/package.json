@@ -1,0 +1,22 @@
+{
+  "name": "@daisy/tab-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./check": "./src/checker/index.ts",
+    "./simulate": "./src/simulate/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",
+    "test": "bun test src",
+    "simulate:long": "bun src/simulate/long-run.ts"
+  },
+  "dependencies": {
+    "@daisy/seeded-random": "workspace:*"
+  },
+  "devDependencies": {
+    "riteway": "9.3.0"
+  }
+}
