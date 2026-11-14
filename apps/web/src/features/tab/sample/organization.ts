@@ -1,218 +1,262 @@
-import { linkTo, sampleAction } from '../action';
-import type { HostHome, People } from '../organization';
-import type { TimelineRail } from '../tournament';
+import type {
+  HostHomeView,
+  HostLobby,
+  OrganizationPeopleView,
+  OrganizationRole,
+} from '@daisy/protocol/lobby/organization-read';
+import type { Permission } from '@daisy/protocol/lobby';
 import { hostRoutes } from '../routes';
-import { AUTUMN, LEAGUE, LEAGUE_NAME, reached, WINTER } from './moment';
-import { done, said } from './rail';
+import {
+  AUTUMN,
+  LEAGUE,
+  LEAGUE_NAME,
+  reached,
+  SCRIMMAGE,
+  WINTER,
+} from './moment';
 import type { SampleScene } from './scene';
 
-export function sampleHostHome(scene: SampleScene): HostHome {
-  const before = !reached(scene, 'prelims');
-  const finished = reached(scene, 'finished');
-  const autumn = {
-    name: 'Autumn Open',
-    owner: LEAGUE_NAME,
-    detail: before
-      ? '14 Nov · setup has 2 to finish · 31 entered · you are Director'
-      : finished
-        ? 'Certified today · results sent to the league'
-        : 'Round 3 of 4 · 2 things need you · you are Director',
-    action: linkTo(
-      finished ? 'Results' : 'Open',
-      hostRoutes.tournament(AUTUMN),
-      !finished,
-    ),
-  };
-  const coming = [
-    {
-      name: 'Friday scrimmage',
-      owner: 'hosted by you',
-      detail:
-        '20 Nov · open entry, 16 places, single elimination seeded by Daisy rating · 9 entered',
-      action: sampleAction('Open'),
-    },
-    {
-      name: 'Winter Classic',
-      owner: LEAGUE_NAME,
-      detail:
-        '12 Dec · setup not finished · entries not open · you are Tab staff',
-      action: linkTo('Open', hostRoutes.tournament(WINTER)),
-    },
-  ];
-  const opener = {
-    name: 'September Opener',
-    owner: LEAGUE_NAME,
-    detail: 'Certified 19 Sept · results sent to the league',
-    action: sampleAction('Results'),
-  };
+/** A sample's stable identifier, shaped as a real one: 24 of `[a-z0-9]`. */
+export const sampleId = (name: string): string =>
+  name
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]/g, '')
+    .padEnd(24, '0')
+    .slice(0, 24);
+
+/** The instant every host sample reads as now: the day of Autumn Open. */
+export const sampleNow = '2026-11-14T21:00:00.000Z';
+export const sampleViewerId = sampleId('viewer');
+
+export const sampleIds = {
+  league: sampleId('league'),
+  leagueLobby: sampleId('leaguelobby'),
+  autumn: sampleId('autumnopen'),
+  winter: sampleId('winterclassic'),
+  scrimmage: sampleId('fridayscrimmage'),
+  opener: sampleId('septemberopener'),
+  ridgeview: sampleId('ridgeviewinvitational'),
+  championship: sampleId('championship'),
+  ridgeviewSchool: sampleId('ridgeviewschool'),
+  hartwell: sampleId('hartwellschool'),
+  varsityTemplate: sampleId('varsitytemplate'),
+} as const;
+
+/** Host pages exist for the tournaments the sample draws in depth. */
+export const sampleHostAddress = (lobby: {
+  readonly handle: string;
+}): string | null =>
+  lobby.handle === AUTUMN || lobby.handle === WINTER
+    ? hostRoutes.tournament(lobby.handle)
+    : null;
+
+const league = { organizationId: sampleIds.league, name: LEAGUE_NAME };
+
+function autumnLobby(scene: SampleScene): HostLobby {
+  const progress: HostLobby['progress'] = reached(scene, 'finished')
+    ? {
+        status: 'completed',
+        certifiedAt: '2026-11-14T20:30:00.000Z',
+        countedByLeague: true,
+      }
+    : reached(scene, 'prelims')
+      ? { status: 'running', round: { current: 3, of: 4 }, attention: 2 }
+      : { status: 'open', setupOpen: 2, entryCount: 31 };
   return {
-    create: sampleAction('New tournament', true),
-    groups: [
-      ...(before || finished
-        ? []
-        : [{ heading: 'Running now', tournaments: [autumn] }]),
-      {
-        heading: 'Coming up',
-        tournaments: before ? [autumn, ...coming] : coming,
-      },
-      {
-        heading: 'Finished',
-        tournaments: finished ? [autumn, opener] : [opener],
-      },
-    ],
-    cards: [
-      {
-        title: LEAGUE_NAME,
-        detail:
-          'You own it. 14 schools, 212 members. 1 sanction request is waiting.',
-        action: linkTo('Open the league', hostRoutes.league(LEAGUE)),
-      },
-      {
-        title: 'Hosting plan',
-        detail: `League plan, paid by ${LEAGUE_NAME}. Covers the league's tournaments and the ones you host yourself.`,
-        action: sampleAction('Manage plan'),
-      },
-    ],
+    lobbyId: sampleIds.autumn,
+    handle: AUTUMN,
+    name: 'Autumn Open',
+    kind: 'tournament',
+    owner: league,
+    position: { kind: 'grant', roleName: 'Director' },
+    startsAt: '2026-11-14T15:00:00.000Z',
+    progress,
+    shape: null,
   };
 }
 
-const permissions = [
-  'Change a draft draw',
-  'Run rooms: reseat, replace a judge, restart, forfeit',
-  'Enter and correct results',
-  'See ballots before release',
-  'Manage entries and judges',
-  'Message participants',
-  'Publish a draw',
-  'Release and certify results',
-  'See resolutions before release',
-  'Change tournament setup',
-  'Manage roles and people',
-  'Manage the league',
-] as const;
-
-/** Daisy's preset roles, highest first, with the permissions each allows. */
-const presets = [
-  { id: 'director', name: 'Director', allows: permissions.slice(0, 11) },
-  { id: 'tab-staff', name: 'Tab staff', allows: permissions.slice(0, 6) },
-  { id: 'topic-committee', name: 'Topic committee', allows: [permissions[8]] },
-  {
-    id: 'room-helper',
-    name: 'Room helper',
-    allows: [permissions[1], permissions[5]],
-  },
-] as const;
-
-export function samplePeople(
-  role: string | null,
-  basePath: string,
-  _scene: SampleScene,
-): People {
-  const chosen = presets.find((preset) => preset.id === role) ?? presets[1];
-  const allowed: readonly string[] = chosen.allows;
-  const change = sampleAction('Change');
+export function sampleHostHomeView(scene: SampleScene): HostHomeView {
   return {
-    give: sampleAction('Give someone a role', true),
+    organizations: [
+      {
+        organizationId: sampleIds.league,
+        handle: LEAGUE,
+        name: LEAGUE_NAME,
+        kind: 'league',
+        position: { kind: 'owner' },
+        schoolCount: 14,
+        memberCount: 212,
+        sanctionRequestsWaiting: 1,
+      },
+    ],
+    lobbies: [
+      autumnLobby(scene),
+      {
+        lobbyId: sampleIds.scrimmage,
+        handle: SCRIMMAGE,
+        name: 'Friday scrimmage',
+        kind: 'tournament',
+        owner: null,
+        position: { kind: 'owner' },
+        startsAt: '2026-11-20T23:00:00.000Z',
+        progress: { status: 'open', setupOpen: 0, entryCount: 9 },
+        shape: {
+          approval: 'automatic',
+          cap: 16,
+          stages: ['elimination'],
+          seeding: 'rating',
+        },
+      },
+      {
+        lobbyId: sampleIds.winter,
+        handle: WINTER,
+        name: 'Winter Classic',
+        kind: 'tournament',
+        owner: league,
+        position: { kind: 'grant', roleName: 'Tab staff' },
+        startsAt: '2026-12-12T14:00:00.000Z',
+        progress: { status: 'draft' },
+        shape: null,
+      },
+      {
+        lobbyId: sampleIds.opener,
+        handle: 'september-opener',
+        name: 'September Opener',
+        kind: 'tournament',
+        owner: league,
+        position: { kind: 'grant', roleName: 'Director' },
+        startsAt: '2026-09-19T14:00:00.000Z',
+        progress: {
+          status: 'completed',
+          certifiedAt: '2026-09-19T21:00:00.000Z',
+          countedByLeague: true,
+        },
+        shape: null,
+      },
+    ],
+    capabilities: { createLobby: true },
+  };
+}
+
+const role = (
+  name: string,
+  rank: number,
+  permissions: readonly Permission[],
+): OrganizationRole => ({
+  roleId: sampleId(`role${name}`),
+  name,
+  rank,
+  preset: true,
+  permissions: [...permissions],
+});
+
+/** Tab staff's permissions; a Director adds the rest of running a tournament. */
+const tabStaff: readonly Permission[] = [
+  'tournament.draw.edit',
+  'tournament.rooms.officiate',
+  'tournament.results.enter',
+  'tournament.ballots.read_unreleased',
+  'tournament.entries.manage',
+  'lobby.announce',
+];
+const roles = {
+  director: role('Director', 0, [
+    ...tabStaff,
+    'tournament.draw.publish',
+    'tournament.results.release',
+    'tournament.resolutions.read_unreleased',
+    'lobby.setup.manage',
+    'organization.roles.manage',
+  ]),
+  tabStaff: role('Tab staff', 1, tabStaff),
+  topicCommittee: role('Topic committee', 2, [
+    'tournament.resolutions.read_unreleased',
+  ]),
+  roomHelper: role('Room helper', 3, [
+    'tournament.rooms.officiate',
+    'lobby.announce',
+  ]),
+} as const;
+
+const autumnScope = {
+  kind: 'lobby',
+  lobbyId: sampleIds.autumn,
+  name: 'Autumn Open',
+} as const;
+/** Tournament staff grants end the day after the tournament. */
+const endsSunday = '2026-11-15T23:59:00.000Z';
+
+export function samplePeopleView(_scene: SampleScene): OrganizationPeopleView {
+  const grant = (
+    who: string,
+    held: OrganizationRole,
+    scope: OrganizationPeopleView['people'][number]['grants'][number]['scope'],
+    expiresAt: string | null = null,
+  ) => ({
+    grantId: sampleId(`grant${who}`),
+    roleId: held.roleId,
+    scope,
+    expiresAt,
+  });
+  const member = (
+    name: string,
+    grants: OrganizationPeopleView['people'][number]['grants'],
+    membership: 'active' | 'invited' = 'active',
+  ) => ({
+    userId: sampleId(name),
+    name,
+    owner: false,
+    membership,
+    grants,
+    conflicts: [],
+    removable: membership === 'active',
+  });
+  return {
+    organizationId: sampleIds.league,
+    name: LEAGUE_NAME,
     people: [
       {
-        name: 'You',
-        detail: `Owner of ${LEAGUE_NAME} · can't be removed by anyone else`,
-        conflict: null,
+        userId: sampleViewerId,
+        name: 'Jordan Hale',
         owner: true,
-        action: null,
+        membership: 'active',
+        grants: [],
+        conflicts: [],
+        removable: false,
       },
+      member('Priya Lindqvist', [
+        grant('priya', roles.director, { kind: 'organization' }),
+      ]),
       {
-        name: 'Priya Lindqvist',
-        detail: 'Director · whole league',
-        conflict: null,
-        owner: false,
-        action: change,
+        ...member('Dana Abara', [
+          grant('dana', roles.tabStaff, autumnScope, endsSunday),
+        ]),
+        conflicts: [
+          {
+            basis: 'school_entry',
+            school: { organizationId: sampleIds.hartwell, name: 'Hartwell' },
+            entryCount: 7,
+          },
+        ],
       },
-      {
-        name: 'Dana Abara',
-        detail: 'Tab staff · Autumn Open only · ends Sunday',
-        conflict: 'Coaches at Hartwell, which has 7 entries here',
-        owner: false,
-        action: change,
-      },
-      {
-        name: 'Sam Reyes',
-        detail: 'Tab staff · Autumn Open only · ends Sunday',
-        conflict: null,
-        owner: false,
-        action: change,
-      },
-      {
-        name: 'Lena Cho',
-        detail: 'Topic committee · whole league',
-        conflict: null,
-        owner: false,
-        action: change,
-      },
-      {
-        name: 'Marcus Bello',
-        detail: 'Invited as Room helper · Autumn Open only · not yet accepted',
-        conflict: null,
-        owner: false,
-        action: sampleAction('Cancel invite'),
-      },
+      member('Sam Reyes', [
+        grant('sam', roles.tabStaff, autumnScope, endsSunday),
+      ]),
+      member('Lena Cho', [
+        grant('lena', roles.topicCommittee, { kind: 'organization' }),
+      ]),
+      member(
+        'Marcus Bello',
+        [grant('marcus', roles.roomHelper, autumnScope)],
+        'invited',
+      ),
     ],
-    roles: presets.map((preset) => ({
-      id: preset.id,
-      name: preset.name,
-      href: `${basePath}?role=${preset.id}`,
-      selected: preset.id === chosen.id,
-    })),
-    role: {
-      name: chosen.name,
-      permissions: permissions.map((label) => ({
-        label,
-        allowed: allowed.includes(label),
-      })),
-      conflictRule:
-        "Whatever a role allows, anyone connected to a room is handled by that tournament's setting. At Autumn Open a second person confirms.",
+    roles: Object.values(roles),
+    conflictHandling: {
+      lobbyId: sampleIds.autumn,
+      name: 'Autumn Open',
+      value: 'second_confirms',
     },
-  };
-}
-
-/** Host home's rail: what is coming up, then the leagues the viewer runs. */
-export function sampleHostRail(scene: SampleScene): TimelineRail {
-  return {
-    title: 'Host',
-    subtitle: null,
-    heading: 'Coming up',
-    items: [
-      {
-        id: AUTUMN,
-        label: 'Autumn Open',
-        time: null,
-        standing: reached(scene, 'finished') ? done : said('today'),
-        action: linkTo('Autumn Open', hostRoutes.tournament(AUTUMN)),
-      },
-      {
-        id: 'friday-scrimmage',
-        label: 'Friday scrimmage',
-        time: null,
-        standing: said('20 Nov'),
-        action: sampleAction('Friday scrimmage'),
-      },
-      {
-        id: WINTER,
-        label: 'Winter Classic',
-        time: null,
-        standing: said('12 Dec'),
-        action: linkTo('Winter Classic', hostRoutes.tournament(WINTER)),
-      },
-    ],
-    footHeading: 'Leagues',
-    foot: [
-      {
-        id: LEAGUE,
-        label: LEAGUE_NAME,
-        time: null,
-        standing: null,
-        action: linkTo(LEAGUE_NAME, hostRoutes.league(LEAGUE)),
-      },
-    ],
+    capabilities: { give: true },
   };
 }

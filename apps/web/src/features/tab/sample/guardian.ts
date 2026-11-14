@@ -1,67 +1,119 @@
-import { linkTo, sampleAction } from '../action';
-import type { Family, MinorAccount, TournamentRequest } from '../guardian';
-import { tabRoutes } from '../routes';
+import type {
+  GuardianView,
+  WardAccountView,
+  WardEntryRequestView,
+} from '@daisy/protocol/lobby/guardian-read';
+import type { WardPronouns } from '../guardian';
 import { AUTUMN, WINTER } from './moment';
 import type { SampleScene } from './scene';
 
-const family = { label: 'Your family', href: tabRoutes.family };
+/** A sample record's id: its name, as a 24-character cuid2-shaped id. */
+const sampleId = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .padEnd(24, '0')
+    .slice(0, 24);
 
 const CAPITAL = 'capital-city-classic';
 
+/** The sample's wards are referred to as she and her. */
+export const samplePronouns: WardPronouns = {
+  subject: 'she',
+  object: 'her',
+  possessive: 'her',
+};
+
+const ada = { id: sampleId('userada'), handle: 'ada', name: 'Ada', age: 13 };
+const chidi = {
+  id: sampleId('userchidi'),
+  handle: 'chidi',
+  name: 'Chidi',
+  age: 16,
+};
+const lobby = (handle: string, name: string) => ({
+  id: sampleId(`lobby${handle}`),
+  handle,
+  name,
+});
+const autumn = lobby(AUTUMN, 'Autumn Open');
+const winter = lobby(WINTER, 'Winter Classic');
+const capital = lobby(CAPITAL, 'Capital City Classic');
+
+const capitalStarts = '2026-12-05T09:00:00.000Z';
+const winterStarts = '2026-12-12T09:00:00.000Z';
+
 /** Only a guardian has a family page. */
-export function sampleFamily(scene: SampleScene): Family | null {
+export function sampleGuardianView(scene: SampleScene): GuardianView | null {
   if (scene.viewer !== 'parent') return null;
-  const open = (slug: string) => linkTo('Open', tabRoutes.tournament(slug));
   return {
-    waiting: [
+    requests: [
       {
-        title: 'Allow Capital City Classic for Ada?',
-        detail:
-          'Entered by her coach, Marta Silva · Sat 5 Dec · her entry waits for you',
-        review: linkTo(
-          'Review',
-          tabRoutes.allowTournament('ada', CAPITAL),
-          true,
-        ),
+        entryId: sampleId('entryadacapital'),
+        ward: { id: ada.id, handle: ada.handle, name: ada.name },
+        lobby: capital,
+        startsAt: capitalStarts,
+        enteredBy: { name: 'Marta Silva', relation: 'coach' },
       },
     ],
-    minors: [
+    wards: [
       {
-        name: 'Ada',
-        detail: 'Age 13 · account active · 2 lobbies allowed',
-        account: linkTo('Account', tabRoutes.minor('ada')),
+        ward: ada,
+        linkStatus: 'active',
+        allowedLobbyCount: 2,
+        capabilities: { manageAccount: true },
         entries: [
           {
-            tournament: 'Autumn Open',
-            detail: 'Impromptu · Round 3, Section B opens 17:10',
-            open: open(AUTUMN),
+            id: sampleId('entryadaautumn'),
+            lobby: autumn,
+            eventName: 'Impromptu',
+            partnerNames: [],
+            awaitingGuardian: false,
+            timing: { kind: 'today', now: 'Round 3, Section B opens 17:10' },
           },
           {
-            tournament: 'Winter Classic',
-            detail: 'Sat 12 Dec · Impromptu',
-            open: open(WINTER),
+            id: sampleId('entryadawinter'),
+            lobby: winter,
+            eventName: 'Impromptu',
+            partnerNames: [],
+            awaitingGuardian: false,
+            timing: { kind: 'upcoming', startsAt: winterStarts },
           },
           {
-            tournament: 'Capital City Classic',
-            detail: 'Sat 5 Dec · Impromptu',
-            open: null,
+            id: sampleId('entryadacapital'),
+            lobby: capital,
+            eventName: 'Impromptu',
+            partnerNames: [],
+            awaitingGuardian: true,
+            timing: { kind: 'upcoming', startsAt: capitalStarts },
           },
         ],
       },
       {
-        name: 'Chidi',
-        detail: 'Age 16 · account active · 3 lobbies allowed',
-        account: sampleAction('Account'),
+        ward: chidi,
+        linkStatus: 'active',
+        allowedLobbyCount: 3,
+        // Chidi's account page is not drawn in the sample.
+        capabilities: { manageAccount: false },
         entries: [
           {
-            tournament: 'Autumn Open',
-            detail: 'Varsity debate · quarterfinal v Haddad, speaking now',
-            open: open(AUTUMN),
+            id: sampleId('entrychidiautumn'),
+            lobby: autumn,
+            eventName: 'Varsity debate',
+            partnerNames: [],
+            awaitingGuardian: false,
+            timing: {
+              kind: 'today',
+              now: 'quarterfinal v Haddad, speaking now',
+            },
           },
           {
-            tournament: 'Winter Classic',
-            detail: 'Sat 12 Dec · Parli with Leo Brandt',
-            open: open(WINTER),
+            id: sampleId('entrychidiwinter'),
+            lobby: winter,
+            eventName: 'Parli',
+            partnerNames: ['Leo Brandt'],
+            awaitingGuardian: false,
+            timing: { kind: 'upcoming', startsAt: winterStarts },
           },
         ],
       },
@@ -70,78 +122,66 @@ export function sampleFamily(scene: SampleScene): Family | null {
 }
 
 /** Only a guardian manages a minor's account. */
-export function sampleMinorAccount(
+export function sampleWardAccount(
   minor: string,
   scene: SampleScene,
-): MinorAccount | null {
-  if (minor !== 'ada' || scene.viewer !== 'parent') return null;
+): WardAccountView | null {
+  if (minor !== ada.handle || scene.viewer !== 'parent') return null;
   return {
-    back: family,
-    name: "Ada's account",
-    lede: 'Age 13 · you gave consent on 2 Sept 2026',
-    lobbiesLegend: 'Lobbies Ada can see and join',
+    ward: ada,
+    consentedAt: '2026-09-02T10:00:00.000Z',
     lobbies: [
-      { name: 'Southeast League', detail: null, allowed: true },
-      { name: 'Homeschool Forensics Circle', detail: null, allowed: true },
       {
+        id: sampleId('lobbysoutheast'),
+        name: 'Southeast League',
+        description: null,
+        allowed: true,
+      },
+      {
+        id: sampleId('lobbyhomeschool'),
+        name: 'Homeschool Forensics Circle',
+        description: null,
+        allowed: true,
+      },
+      {
+        id: sampleId('lobbydaisypublic'),
         name: "Daisy's public lobby",
-        detail: 'Anyone on Daisy, 13 and over',
+        description: 'Anyone on Daisy, 13 and over',
         allowed: false,
       },
     ],
-    recordings: {
-      legend: 'Recordings of Ada',
-      options: [
-        'Only you, Ada and her judges can watch',
-        'Others in the room can watch too',
-      ],
-      chosen: 0,
-    },
-    boundary:
-      'Ada can see, join, watch and message only inside these lobbies, and in tournaments she is entered in. That holds for search and for links people send her. Her profile is never public. If a coach enters her somewhere outside these lobbies, it waits for you to allow it.',
-    save: sampleAction('Save', true),
-    withdraw: sampleAction("Withdraw consent and close Ada's account"),
+    videoAudienceCap: 'officials',
+    capabilities: { manage: true },
   };
 }
 
-export function sampleTournamentRequest(
+export function sampleWardEntryRequest(
   minor: string,
   slug: string,
   scene: SampleScene,
-): TournamentRequest | null {
-  if (minor !== 'ada' || slug !== CAPITAL) return null;
+): WardEntryRequestView | null {
+  if (minor !== ada.handle || slug !== CAPITAL) return null;
   if (scene.viewer !== 'parent') return null;
   return {
-    back: family,
-    title: 'Allow Capital City Classic for Ada?',
-    lede: 'It is outside the lobbies you allow, so her entry waits for you.',
-    facts: [
-      {
-        title: 'Capital City Classic',
-        detail: 'Sat 5 Dec · online · run by Capital Debate League',
-      },
-      {
-        title: 'Entered by Marta Silva',
-        detail: 'Her coach at Homeschool Forensics Circle',
-      },
-      {
-        title: 'Impromptu',
-        detail: 'Three rounds and a final, in rooms of six with two judges',
-      },
-      {
-        title: 'Recorded for officials',
-        detail:
-          'Your choice still holds: only you, Ada and her judges can watch',
-      },
-    ],
-    consequence: {
-      allows:
-        'Ada can see this tournament, join her rooms, watch its rounds and message people in it until it ends.',
-      keeps:
-        "Capital Debate League's lobby and its other tournaments stay closed to her.",
+    entryId: sampleId('entryadacapital'),
+    ward: { id: ada.id, handle: ada.handle, name: ada.name },
+    tournament: {
+      ...capital,
+      startsAt: capitalStarts,
+      place: 'online',
+      organizerName: 'Capital Debate League',
+      recordedFor: 'officials',
     },
-    allow: sampleAction('Allow this tournament', true),
-    decline: sampleAction('Decline'),
-    declineNote: 'Declining withdraws the entry and tells her coach.',
+    enteredBy: {
+      name: 'Marta Silva',
+      relation: 'coach',
+      organizationName: 'Homeschool Forensics Circle',
+    },
+    event: {
+      name: 'Impromptu',
+      summary: 'Three rounds and a final, in rooms of six with two judges',
+    },
+    videoAudienceCap: 'officials',
+    capabilities: { decide: true },
   };
 }

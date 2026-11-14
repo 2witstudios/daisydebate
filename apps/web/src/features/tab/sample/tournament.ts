@@ -1,32 +1,120 @@
-import { linkTo, sampleAction, type TabAction } from '../action';
+import type {
+  ListedLobby,
+  LobbyListPage,
+  TournamentLobbyView,
+} from '@daisy/protocol/lobby/lobby-read';
 import { hostRoutes, tabRoutes } from '../routes';
 import type {
-  TournamentGroup,
-  TournamentPage,
-  TournamentRow,
-  TournamentsIndex,
+  AddressOf,
+  TabPlace,
+  TournamentReads,
   TournamentView,
 } from '../tournament';
 import {
   AUTUMN,
   CHAMPIONSHIP,
+  LEAGUE,
   LEAGUE_NAME,
   reached,
   SCRIMMAGE,
+  VARSITY,
   WINTER,
 } from './moment';
-import { closed, posting } from './posting';
+import {
+  at,
+  dayFixture,
+  dayOf,
+  dayRow,
+  daySlot,
+  judge,
+  postedFixture,
+  postingOf,
+  sampleId,
+  tabRound,
+  versus,
+} from './posting';
+import { sampleRoomIds } from './rooms';
 import type { SampleScene } from './scene';
-import { autumnPage } from './tournament-autumn';
-import { winterPage } from './tournament-winter';
+import { autumnAsOf, autumnReads } from './tournament-autumn';
+import { winterReads } from './tournament-winter';
 
-const scrimmage: TournamentPage = {
-  kind: 'before',
+const league = {
+  kind: 'organization',
+  organizationId: sampleId(LEAGUE),
+  organizationKind: 'league',
+  name: LEAGUE_NAME,
+} as const;
+
+/** The parts of a tournament lobby read that a sample does not vary. */
+const quiet: Pick<
+  TournamentLobbyView,
+  | 'certifiedAt'
+  | 'entered'
+  | 'terms'
+  | 'break'
+  | 'viewerEntries'
+  | 'wards'
+  | 'school'
+  | 'results'
+  | 'host'
+  | 'capabilities'
+  | 'events'
+  | 'timeSlots'
+> = {
+  certifiedAt: null,
+  entered: null,
+  terms: [],
+  break: null,
+  viewerEntries: [],
+  wards: [],
+  school: null,
+  results: { standings: false, bracket: 'closed', scoresOpenAt: null },
+  host: null,
+  capabilities: { enter: true, manageEntries: false },
+  events: [],
+  timeSlots: [],
+};
+
+const viewerRolesOf = (
+  scene: SampleScene,
+): TournamentLobbyView['viewerRoles'] =>
+  scene.viewer === 'visitor'
+    ? []
+    : scene.viewer === 'coach' || scene.viewer === 'parent'
+      ? ['responsible_adult']
+      : [scene.viewer];
+
+const scrimmage = (scene: SampleScene): TournamentLobbyView => ({
+  ...quiet,
+  kind: 'tournament',
+  lobbyId: sampleId(SCRIMMAGE),
+  handle: SCRIMMAGE,
   name: 'Friday scrimmage',
-  lede: 'Friday 20 Nov, 18:00 · online · hosted by jono',
-  places: '9 of 16 places taken',
-  closes: 'Entry closes Friday 17:00 · open to anyone',
-  enter: sampleAction('Enter', true),
+  owner: { kind: 'person', actorId: sampleId('jono'), username: 'jono' },
+  signedIn: scene.viewer !== 'visitor',
+  viewerRoles: [],
+  asOf: autumnAsOf(scene),
+  status: 'open',
+  startsAt: at('2026-11-20', '18:00'),
+  place: 'online',
+  entry: {
+    opensAt: null,
+    closesAt: at('2026-11-20', '17:00'),
+    capacity: 16,
+    taken: 9,
+    eligibility: 'anyone',
+    limit: null,
+  },
+  entered: {
+    kind: 'people',
+    people: [
+      { username: 'mira_k', rating: 1688 },
+      { username: 'tobias', rating: 1640 },
+      { username: 'devon.w', rating: 1611 },
+      { username: 'r_haddad', rating: 1570 },
+    ],
+    more: 5,
+  },
   terms: [
     {
       title: 'Single elimination',
@@ -53,226 +141,468 @@ const scrimmage: TournamentPage = {
       detail: 'Tournament results stay in the tournament.',
     },
   ],
-  entered:
-    'mira_k · 1688, tobias · 1640, devon.w · 1611, r_haddad · 1570 and 5 more',
-};
+});
 
-function championshipPage(
-  view: TournamentView,
-  scene: SampleScene,
-): TournamentPage {
-  const selected = view.kind === 'standings' ? 'standings' : 'round';
-  return {
-    kind: 'rounds',
+const BP = { key: 'british-parliamentary', name: 'British Parliamentary' };
+const CHAMPIONSHIP_DAY = '2027-03-13';
+
+function championship(scene: SampleScene): TournamentReads {
+  const roundTwo = tabRound(CHAMPIONSHIP, BP.key, 2, 'Round 2');
+  const lobby: TournamentLobbyView = {
+    ...quiet,
+    kind: 'tournament',
+    lobbyId: sampleId(CHAMPIONSHIP),
+    handle: CHAMPIONSHIP,
     name: 'Championship',
-    lede: 'British Parliamentary',
-    headerAction: null,
-    yourRoom:
-      scene.viewer === 'competitor'
-        ? {
-            eyebrow: 'Your room · Round 2 · opens in 6 minutes',
-            title: 'Opening Opposition with Okoye',
-            detail: 'Room 4 · three judges · Malik chairs',
-            action: linkTo(
-              'Go to room',
-              tabRoutes.room('championship-round-2-room-4'),
-              true,
-            ),
-          }
-        : null,
-    tabs: [
+    owner: league,
+    signedIn: scene.viewer !== 'visitor',
+    viewerRoles: viewerRolesOf(scene),
+    asOf: at(CHAMPIONSHIP_DAY, '14:44'),
+    status: 'running',
+    startsAt: at(CHAMPIONSHIP_DAY, '13:00'),
+    place: 'online',
+    entry: {
+      opensAt: null,
+      closesAt: at('2027-03-10', '17:00'),
+      capacity: null,
+      taken: 24,
+      eligibility: 'organization_added',
+      limit: null,
+    },
+    events: [{ eventId: sampleId(`${CHAMPIONSHIP}/${BP.key}`), name: BP.name }],
+    timeSlots: [
       {
-        id: 'round',
-        label: 'Round 2',
-        href: tabRoutes.round(CHAMPIONSHIP, 'british-parliamentary', '2'),
-        selected: selected === 'round',
+        timeSlotId: sampleId(`${CHAMPIONSHIP}/slot/1`),
+        name: 'Round 1',
+        startsAt: at(CHAMPIONSHIP_DAY, '13:00'),
+        tabRounds: [
+          { ...tabRound(CHAMPIONSHIP, BP.key, 1, 'Round 1'), posting: false },
+        ],
       },
       {
-        id: 'standings',
-        label: 'Standings',
-        href: tabRoutes.standings(CHAMPIONSHIP),
-        selected: selected === 'standings',
+        timeSlotId: sampleId(`${CHAMPIONSHIP}/slot/2`),
+        name: 'Round 2',
+        startsAt: at(CHAMPIONSHIP_DAY, '14:50'),
+        tabRounds: [{ ...roundTwo, posting: true }],
       },
     ],
-    panel:
-      view.kind === 'standings' || view.kind === 'bracket'
-        ? closed('Results appear here when the break is announced.')
-        : {
-            kind: 'posting',
-            heading: 'Round 2 · opens 14:50 · 6 rooms',
-            rows: [
-              posting(
-                'Hartwell A, Ridgeview B, Lakeside A, Ridgeview C',
-                'Room 4 · Malik chairs · Nguyen, Costa',
-                linkTo('Room', tabRoutes.room('championship-round-2-room-4')),
+    break: { at: at(CHAMPIONSHIP_DAY, '18:00'), announced: false },
+    viewerEntries:
+      scene.viewer === 'competitor'
+        ? [
+            {
+              entryId: sampleId('entry/Ridgeview B'),
+              eventId: sampleId(`${CHAMPIONSHIP}/${BP.key}`),
+              name: 'Ridgeview B',
+              partners: ['Okoye'],
+              record: null,
+              finish: null,
+            },
+          ]
+        : [],
+  };
+  const room4 = 'championship-round-2-room-4';
+  const chair = [judge('Malik', true), judge('Nguyen'), judge('Costa')];
+  return {
+    lobby,
+    posting: postingOf(
+      CHAMPIONSHIP,
+      BP,
+      roundTwo,
+      { opensAt: at(CHAMPIONSHIP_DAY, '14:50'), startedAt: null },
+      6,
+      [
+        postedFixture(
+          room4,
+          'Room 4',
+          versus('Hartwell A, Ridgeview B, Lakeside A, Ridgeview C'),
+          chair,
+        ),
+        postedFixture(
+          `${CHAMPIONSHIP}/round-2/room-5`,
+          'Room 5',
+          versus('Lakeside B, Hartwell B, Ridgeview A, Okafor family'),
+          [judge('Abara', true), judge('Keane'), judge('Shah')],
+        ),
+      ],
+      4,
+    ),
+    day:
+      scene.viewer === 'competitor'
+        ? dayOf(CHAMPIONSHIP, lobby.asOf, [
+            daySlot(CHAMPIONSHIP, 'Round 2', at(CHAMPIONSHIP_DAY, '14:50'), [
+              dayRow(
+                CHAMPIONSHIP,
+                BP,
+                { number: 2, name: 'Round 2' },
+                {
+                  role: 'competitor',
+                  entry: {
+                    entryId: sampleId('entry/Ridgeview B'),
+                    name: 'Ridgeview B',
+                    record: null,
+                  },
+                  fixture: dayFixture(
+                    room4,
+                    'Room 4',
+                    [
+                      { name: 'Hartwell A', side: 'Opening Government' },
+                      {
+                        name: 'Ridgeview B',
+                        side: 'Opening Opposition',
+                        own: true,
+                      },
+                      { name: 'Lakeside A', side: 'Closing Government' },
+                      { name: 'Ridgeview C', side: 'Closing Opposition' },
+                    ],
+                    chair,
+                  ),
+                  state: {
+                    kind: 'posted',
+                    opensAt: at(CHAMPIONSHIP_DAY, '14:50'),
+                  },
+                },
               ),
-              posting(
-                'Lakeside B, Hartwell B, Ridgeview A, Okafor family',
-                'Room 5 · Abara chairs · Keane, Shah',
-              ),
-            ],
-            more: 4,
-          },
-    note: null,
-    noteAction: null,
-    signIn: null,
+            ]),
+          ])
+        : null,
+    standings: null,
+    bracket: null,
   };
 }
 
-export function sampleTournamentPage(
+/** Everything a sample tournament's participant page reads for one view. */
+export function sampleTournamentReads(
   slug: string,
   view: TournamentView,
   scene: SampleScene,
-): TournamentPage | null {
-  if (slug === AUTUMN) return autumnPage(view, scene);
-  if (slug === WINTER) return winterPage(view, scene);
-  if (slug === CHAMPIONSHIP) return championshipPage(view, scene);
-  if (slug === SCRIMMAGE && view.kind === 'home') return scrimmage;
+): TournamentReads | null {
+  if (slug === AUTUMN) return autumnReads(view, scene);
+  if (slug === WINTER) return winterReads(view, scene);
+  if (slug === CHAMPIONSHIP) return championship(scene);
+  if (slug === SCRIMMAGE && view.kind === 'home')
+    return {
+      lobby: scrimmage(scene),
+      posting: null,
+      day: null,
+      standings: null,
+      bracket: null,
+    };
   return null;
 }
 
-const row = (
+// The lobby list.
+
+type ListedTournament = Extract<ListedLobby, { kind: 'tournament' }>;
+
+const listed = (
+  handle: string,
   name: string,
-  detail: string,
-  action: TabAction,
-): TournamentRow => ({
+  rest: Omit<ListedTournament, 'kind' | 'lobbyId' | 'handle' | 'name'>,
+): ListedTournament => ({
+  kind: 'tournament',
+  lobbyId: sampleId(handle),
+  handle,
   name,
-  detail,
-  action,
+  ...rest,
 });
 
-/** Where Autumn Open stands in a list, and the one fact that says so. */
-export function autumnStanding(scene: SampleScene): {
-  readonly when: 'coming' | 'today' | 'finished';
-  readonly fact: string;
-} {
-  if (!reached(scene, 'prelims'))
-    return { when: 'coming', fact: 'entry closes Thursday 17:00' };
-  if (reached(scene, 'finished'))
-    return {
-      when: 'finished',
-      fact:
-        scene.viewer === 'competitor'
-          ? 'you finished 3rd of 48'
-          : 'won by Jensen',
-    };
-  return {
-    when: 'today',
-    fact: reached(scene, 'elims')
-      ? 'semifinals live'
-      : reached(scene, 'break')
-        ? 'the break is announced at 16:45'
-        : 'Round 4 opens 15:20',
-  };
-}
+const autumnEvents = ['Varsity debate', 'Novice debate', 'Impromptu'];
+const winterEvents = [
+  'Varsity LD',
+  'Novice LD',
+  'Varsity PF',
+  'Parli',
+  'Impromptu',
+  'Oratory',
+  'Extemp',
+  'Interp',
+];
 
 /** What ties each sample viewer to the tournaments they are in. */
-const part: Readonly<
-  Record<Exclude<SampleScene['viewer'], 'visitor'>, readonly [string, string]>
-> = {
-  competitor: ['Varsity debate', 'Parli and Impromptu'],
-  judge: ['judging Varsity debate', 'judging Parli'],
-  coach: ["Hartwell's entries", "Hartwell's entries"],
-  parent: ['Chidi and Ada', 'Chidi and Ada'],
-  host: ['you are the host', 'you are the host'],
-};
+function partOf(
+  scene: SampleScene,
+  events: [string, ...string[]],
+  judging: [string, ...string[]],
+): ListedTournament['part'] {
+  switch (scene.viewer) {
+    case 'competitor':
+      return { kind: 'competitor', events };
+    case 'judge':
+      return { kind: 'judge', events: judging };
+    case 'coach':
+      return { kind: 'school', school: 'Hartwell' };
+    case 'parent':
+      return { kind: 'guardian', wards: ['Chidi', 'Ada'] };
+    case 'host':
+      return { kind: 'host' };
+    case 'visitor':
+      return null;
+  }
+}
 
-export function sampleTournamentsIndex(scene: SampleScene): TournamentsIndex {
-  const autumn = autumnStanding(scene);
-  const open = (slug: string, primary = false) =>
-    linkTo('Open', tabRoutes.tournament(slug), primary);
-  const view = (slug: string) => linkTo('View', tabRoutes.tournament(slug));
-  const when = autumn.when === 'today' ? 'Today' : 'Sat 14 Nov';
-  const yours =
-    scene.viewer === 'visitor'
-      ? []
-      : [
-          ...(autumn.when === 'finished'
-            ? []
-            : [
-                row(
-                  'Autumn Open',
-                  `${when} · ${part[scene.viewer][0]} · ${autumn.fact}`,
-                  open(AUTUMN, true),
-                ),
-              ]),
-          row(
-            'Winter Classic',
-            `Sat 12 Dec · ${LEAGUE_NAME} · ${part[scene.viewer][1]}`,
-            open(WINTER),
-          ),
-        ];
-  const today =
-    scene.viewer === 'visitor' && autumn.when === 'today'
-      ? [
-          row(
-            'Autumn Open',
-            `${when} · ${LEAGUE_NAME} · ${autumn.fact}`,
-            view(AUTUMN),
-          ),
-        ]
-      : [];
-  const enter = [
-    ...(scene.viewer === 'visitor' && autumn.when === 'coming'
-      ? [
-          row(
-            'Autumn Open',
-            `${when} · ${LEAGUE_NAME} · ${autumn.fact}`,
-            view(AUTUMN),
-          ),
-        ]
-      : []),
-    row(
-      'Friday scrimmage',
-      'Fri 20 Nov, 18:00 · hosted by jono · 9 of 16 places taken',
-      view(SCRIMMAGE),
-    ),
-    ...(scene.viewer === 'visitor'
-      ? []
-      : [
-          row(
-            'Ridgeview Invitational',
-            `Sat 28 Nov · ${LEAGUE_NAME} members · entry closes 25 Nov`,
-            sampleAction('View'),
-          ),
-        ]),
-  ];
-  const recent = [
-    ...(autumn.when === 'finished'
-      ? [
-          row(
-            'Autumn Open',
-            `14 Nov · ${LEAGUE_NAME} · ${autumn.fact}`,
-            linkTo('Results', tabRoutes.tournament(AUTUMN)),
-          ),
-        ]
-      : []),
-    row(
-      'September Opener',
-      `12 Sept · ${LEAGUE_NAME} · ${scene.viewer === 'competitor' ? 'you finished 9th of 40' : 'won by Castillo'}`,
-      sampleAction('Results'),
-    ),
-    row(
-      'Public Beta Open',
-      '3 Oct · Daisy · won by mira_k',
-      sampleAction('Results'),
-    ),
-  ];
-  const group = (
-    heading: string,
-    rows: readonly TournamentRow[],
-    more: TabAction | null = null,
-  ): TournamentGroup[] => (rows.length === 0 ? [] : [{ heading, rows, more }]);
-  return {
-    groups: [
-      ...group("You're in", yours),
-      ...group('On now', today),
-      ...group('Open to enter', enter),
-      ...group('Recent', recent, sampleAction('All past tournaments')),
-    ],
-    host:
-      scene.viewer === 'visitor'
+const closedEntry = (closesAt: string) => ({
+  opensAt: null,
+  closesAt,
+  capacity: null,
+  taken: 0,
+  eligibility: 'organization_added' as const,
+  limit: null,
+});
+
+/** Autumn Open in a list, where the sample day has got to. */
+export function listedAutumn(scene: SampleScene): ListedTournament {
+  const finished = reached(scene, 'finished');
+  return listed(AUTUMN, 'Autumn Open', {
+    owner: league,
+    hostedBy: null,
+    status: finished
+      ? 'completed'
+      : reached(scene, 'prelims')
+        ? 'running'
+        : 'open',
+    startsAt: at('2026-11-14', '10:00'),
+    events: autumnEvents,
+    concurrentEvents: false,
+    entry: {
+      ...closedEntry(at('2026-11-12', '17:00')),
+      capacity: 48,
+      taken: 31,
+    },
+    part: partOf(scene, ['Varsity debate'], ['Varsity debate']),
+    now:
+      finished || !reached(scene, 'prelims')
         ? null
-        : linkTo('Host a tournament', hostRoutes.home),
+        : reached(scene, 'elims')
+          ? { kind: 'live', tabRoundName: 'semifinals' }
+          : reached(scene, 'break')
+            ? { kind: 'break_at', at: at('2026-11-14', '16:45') }
+            : {
+                kind: 'round_opens',
+                tabRoundName: 'Round 4',
+                at: at('2026-11-14', '15:20'),
+              },
+    finish: finished
+      ? {
+          winner: 'Jensen',
+          viewer: scene.viewer === 'competitor' ? { place: 3, of: 48 } : null,
+        }
+      : null,
+  });
+}
+
+export const listedWinter = (scene: SampleScene): ListedTournament =>
+  listed(WINTER, 'Winter Classic', {
+    owner: league,
+    hostedBy: null,
+    status: 'open',
+    startsAt: at('2026-12-12', '09:00'),
+    events: winterEvents,
+    concurrentEvents: true,
+    entry: {
+      ...closedEntry(at('2026-12-09', '17:00')),
+      opensAt: at('2026-12-01', '09:00'),
+      limit: 'one debate event, one Speech A and one Speech B each',
+    },
+    part: partOf(scene, ['Parli', 'Impromptu'], ['Parli']),
+    now: null,
+    finish: null,
+  });
+
+export const listedRidgeview = listed(
+  'ridgeview-invitational',
+  'Ridgeview Invitational',
+  {
+    owner: league,
+    hostedBy: 'Ridgeview',
+    status: 'open',
+    startsAt: at('2026-11-28', '09:00'),
+    events: [],
+    concurrentEvents: false,
+    entry: {
+      ...closedEntry(at('2026-11-25', '17:00')),
+      eligibility: 'organization_members',
+    },
+    part: null,
+    now: null,
+    finish: null,
+  },
+);
+
+export const listedChampionship = listed(CHAMPIONSHIP, 'Championship', {
+  owner: league,
+  hostedBy: null,
+  status: 'draft',
+  startsAt: at(CHAMPIONSHIP_DAY, '09:00'),
+  events: [BP.name],
+  concurrentEvents: false,
+  entry: {
+    ...closedEntry(at('2027-03-10', '17:00')),
+    opensAt: at('2027-02-01', '09:00'),
+  },
+  part: null,
+  now: null,
+  finish: null,
+});
+
+export const listedOpener = (scene: SampleScene): ListedTournament =>
+  listed('september-opener', 'September Opener', {
+    owner: league,
+    hostedBy: null,
+    status: 'completed',
+    startsAt: at('2026-09-12', '10:00'),
+    events: ['Varsity debate'],
+    concurrentEvents: false,
+    entry: closedEntry(at('2026-09-10', '17:00')),
+    part: null,
+    now: null,
+    finish: {
+      winner: 'Castillo',
+      viewer: scene.viewer === 'competitor' ? { place: 9, of: 40 } : null,
+    },
+  });
+
+/** The tournaments a viewer may see, theirs first, as the index lists them. */
+export function sampleTournamentListRead(scene: SampleScene): LobbyListPage {
+  const visitor = scene.viewer === 'visitor';
+  const scrimmageRead = scrimmage(scene);
+  return {
+    asOf: autumnAsOf(scene),
+    lobbies: [
+      listedAutumn(scene),
+      ...(visitor ? [] : [listedWinter(scene)]),
+      listed(SCRIMMAGE, scrimmageRead.name, {
+        owner: scrimmageRead.owner,
+        hostedBy: null,
+        status: 'open',
+        startsAt: scrimmageRead.startsAt,
+        events: ['Single elimination'],
+        concurrentEvents: false,
+        entry: scrimmageRead.entry,
+        part: null,
+        now: null,
+        finish: null,
+      }),
+      ...(visitor ? [] : [listedRidgeview]),
+      listedOpener(scene),
+      listed('public-beta-open', 'Public Beta Open', {
+        owner: {
+          kind: 'organization',
+          organizationId: sampleId('daisy'),
+          organizationKind: 'league',
+          name: 'Daisy',
+        },
+        hostedBy: null,
+        status: 'completed',
+        startsAt: at('2026-10-03', '10:00'),
+        events: ['Open'],
+        concurrentEvents: false,
+        entry: closedEntry(at('2026-10-01', '17:00')),
+        part: null,
+        now: null,
+        finish: { winner: 'mira_k', viewer: null },
+      }),
+    ],
+    more: 0,
+    capabilities: visitor ? null : { createLobby: true },
   };
 }
+
+// Where the sample's places live.
+
+/** The sample's events, by the key its addresses use. */
+const eventKeys = new Map(
+  [
+    [AUTUMN, [VARSITY, 'novice-debate', 'impromptu']],
+    [
+      WINTER,
+      [
+        'varsity-ld',
+        'novice-ld',
+        'varsity-pf',
+        'parli',
+        'impromptu',
+        'oratory',
+        'extemp',
+        'interp',
+      ],
+    ],
+    [CHAMPIONSHIP, [BP.key]],
+  ].flatMap(([lobby, keys]) =>
+    (keys as readonly string[]).map((key) => [
+      sampleId(`${String(lobby)}/${key}`),
+      key,
+    ]),
+  ),
+);
+const roomKeys = new Map(sampleRoomIds.map((key) => [sampleId(key), key]));
+/** The sample's pages: which tournaments and host pages it has. */
+const tournamentPages = new Set([AUTUMN, WINTER, SCRIMMAGE, CHAMPIONSHIP]);
+const hostPages: Readonly<Record<string, readonly string[]>> = {
+  [AUTUMN]: ['setup', 'events', 'entries', 'people', 'standings', 'results'],
+  [WINTER]: ['events', 'people'],
+};
+const winterSlot = sampleId(`${WINTER}/slot/${at('2026-12-12', '12:00')}`);
+
+/** Where each place the sample has a page for lives; null where it has none. */
+export const sampleAddressOf: AddressOf = (place: TabPlace) => {
+  switch (place.kind) {
+    case 'tournament':
+      return tournamentPages.has(place.handle)
+        ? tabRoutes.tournament(place.handle)
+        : null;
+    case 'round': {
+      const event = eventKeys.get(place.eventId);
+      return event === undefined
+        ? null
+        : tabRoutes.round(place.handle, event, String(place.number));
+    }
+    case 'standings':
+      return tabRoutes.standings(place.handle);
+    case 'bracket':
+      return tabRoutes.bracket(place.handle);
+    case 'entries':
+      return tabRoutes.entries(place.handle);
+    case 'room': {
+      const room = roomKeys.get(place.roomId);
+      return room === undefined ? null : tabRoutes.room(room);
+    }
+    case 'live_room': {
+      const room = roomKeys.get(place.roomId);
+      return room === 'impromptu-section-c' ? tabRoutes.liveRoom(room) : null;
+    }
+    case 'ballot': {
+      const room = roomKeys.get(place.roomId);
+      return room === undefined ? null : tabRoutes.ballot(room);
+    }
+    case 'host':
+      if (!(hostPages[place.handle] ?? []).includes(place.page)) return null;
+      switch (place.page) {
+        case 'setup':
+          return hostRoutes.setup(place.handle);
+        case 'events':
+          return hostRoutes.events(place.handle);
+        case 'entries':
+          return hostRoutes.entries(place.handle);
+        case 'people':
+          return hostRoutes.people(place.handle);
+        case 'standings':
+          return hostRoutes.standings(place.handle);
+        case 'results':
+          return hostRoutes.results(place.handle);
+      }
+      return null;
+    case 'host_round': {
+      const event = eventKeys.get(place.eventId);
+      return event === undefined || place.handle !== AUTUMN
+        ? null
+        : hostRoutes.round(place.handle, event, String(place.number));
+    }
+    case 'host_slot':
+      return place.timeSlotId === winterSlot
+        ? hostRoutes.slot(place.handle, '1200')
+        : null;
+    case 'past_tournaments':
+      return null;
+  }
+};

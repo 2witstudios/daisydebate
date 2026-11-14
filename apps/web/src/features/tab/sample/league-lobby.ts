@@ -1,132 +1,175 @@
-import { linkTo, sampleAction, type TabAction } from '../action';
 import type {
-  LadderRow,
-  LadderScope,
-  LeagueLobby,
-  LeaguePanel,
-  LeagueView,
-  SeasonRow,
-} from '../league';
-import { tabRoutes, type LeagueTab } from '../routes';
+  LobbyLadder,
+  LobbyListPage,
+  LobbyRoomList,
+  StandingLobbyView,
+} from '@daisy/protocol/lobby/lobby-read';
+import { linkTo, sampleAction } from '../action';
+import type { LadderScope, LeaguePanel, SeasonRow } from '../league';
+import { tabRoutes } from '../routes';
 import { seasonRow, topOfSeason } from './league';
-import {
-  AUTUMN,
-  IMPROMPTU,
-  LEAGUE,
-  LEAGUE_NAME,
-  VARSITY,
-  WINTER,
-} from './moment';
+import { IMPROMPTU, LEAGUE, LEAGUE_NAME, VARSITY } from './moment';
 import { own } from './own';
+import { at, sampleId } from './posting';
 import type { SampleScene } from './scene';
-import { autumnStanding } from './tournament';
+import { autumnAsOf } from './tournament-autumn';
+import {
+  listedAutumn,
+  listedChampionship,
+  listedOpener,
+  listedRidgeview,
+  listedWinter,
+} from './tournament';
 
-const tabs: readonly (readonly [LeagueTab, string])[] = [
-  ['rooms', 'Rooms'],
-  ['ladder', 'Ladder'],
-  ['season', 'Season'],
-  ['tournaments', 'Tournaments'],
-];
+/** Everyone signed in is a member of the sample league; a visitor is not. */
+export const isMember = (scene: SampleScene): boolean =>
+  scene.viewer !== 'visitor';
 
-const rooms: LeaguePanel = {
-  kind: 'rooms',
-  pool: {
-    title: "November's pool:",
-    detail:
-      '30 resolutions on cities and transport. Every room strikes from five of them.',
+const league = {
+  kind: 'organization',
+  organizationId: sampleId(LEAGUE),
+  organizationKind: 'league',
+  name: LEAGUE_NAME,
+} as const;
+
+/** The league's standing lobby, as one viewer reads it. */
+export const sampleStandingLobby = (scene: SampleScene): StandingLobbyView => ({
+  kind: 'standing',
+  lobbyId: sampleId(`${LEAGUE}/lobby`),
+  handle: LEAGUE,
+  name: LEAGUE_NAME,
+  owner: league,
+  signedIn: scene.viewer !== 'visitor',
+  viewerRoles: isMember(scene) ? ['member'] : [],
+  asOf: autumnAsOf(scene),
+  resolutionPool: {
+    name: 'November',
+    resolutions: 30,
+    theme: 'cities and transport',
+    perRoom: 5,
   },
-  groups: [
-    {
-      heading: 'Open',
-      rooms: [
-        {
-          title: "Castillo's room",
-          detail: 'Ridgeview · 1655 · needs an opponent and a judge',
-          action: sampleAction('Join', true),
-        },
-        {
-          title: 'Practice before Winter Classic',
-          detail: 'Hartwell · needs a judge · waiting 4 min',
-          action: sampleAction('Judge', true),
-        },
-      ],
-    },
-    {
-      heading: 'Live now',
-      rooms: [
-        {
-          title: 'Jensen v Wu',
-          detail: 'Third speech · judged by Okoye',
-          action: sampleAction('Watch'),
-        },
-        {
-          title: 'Amari v Petrov',
-          detail: 'Preparing · judged by Brooks',
-          action: sampleAction('Watch'),
-        },
-      ],
-    },
+  season: '2026 to 27',
+  offeredTemplates: [
+    { templateId: sampleId('varsity-template'), name: 'Varsity debate' },
   ],
-  note: "Rooms here use the league's format and count for the league ladder. Only members can see them.",
-};
-
-const rated = (
-  place: number,
-  name: string,
-  school: string,
-  record: string,
-  rating: number,
-  change: number,
-): LadderRow => ({
-  place,
-  name,
-  school,
-  record,
-  rating,
-  change,
-  you: name === 'You',
-  profile: sampleAction(name),
+  ladder: { rating: 1548, place: 31, of: 148 },
+  capabilities: { createRoom: isMember(scene) },
 });
 
-const you = rated(31, 'You', 'Lakeside', '14–9', 1548, 12);
-const top: readonly LadderRow[] = [
-  rated(1, 'Jensen', 'Hartwell', '22–3', 1702, 8),
-  rated(2, 'Castillo', 'Ridgeview', '19–5', 1655, 21),
-  rated(3, 'Amari', 'Lakeside', '17–6', 1649, -4),
-  rated(4, 'Haddad', 'Ridgeview', '18–8', 1640, 3),
-  rated(5, 'Wu', 'Hartwell', '15–7', 1631, 0),
-  rated(6, 'Okafor', 'Okafor family', '12–5', 1622, 15),
+/** The lobby's Rooms: asked of the lobby, never of a Room collection. */
+export const sampleLobbyRooms = (scene: SampleScene): LobbyRoomList => {
+  const asOf = autumnAsOf(scene);
+  return {
+    lobbyId: sampleId(`${LEAGUE}/lobby`),
+    asOf,
+    rooms: [
+      {
+        status: 'open',
+        roomId: sampleId(`${LEAGUE}/castillo`),
+        name: "Castillo's room",
+        host: { username: 'Castillo', rating: 1655 },
+        school: 'Ridgeview',
+        open: { debaters: 1, judges: 1 },
+        openedAt: asOf,
+        capabilities: { join: true, judge: true },
+      },
+      {
+        status: 'open',
+        roomId: sampleId(`${LEAGUE}/practice`),
+        name: 'Practice before Winter Classic',
+        host: { username: 'Brooks', rating: null },
+        school: 'Hartwell',
+        open: { debaters: 0, judges: 1 },
+        openedAt: new Date(Date.parse(asOf) - 4 * 60_000).toISOString(),
+        capabilities: { join: false, judge: true },
+      },
+      {
+        status: 'live',
+        roomId: sampleId(`${LEAGUE}/jensen-wu`),
+        debaters: ['Jensen', 'Wu'],
+        judges: ['Okoye'],
+        segment: 'Third speech',
+        capabilities: { watch: true },
+      },
+      {
+        status: 'live',
+        roomId: sampleId(`${LEAGUE}/amari-petrov`),
+        debaters: ['Amari', 'Petrov'],
+        judges: ['Brooks'],
+        segment: 'Preparing',
+        capabilities: { watch: true },
+      },
+    ],
+  };
+};
+
+const line = (
+  place: number,
+  username: string,
+  school: string,
+  wins: number,
+  losses: number,
+  rating: number,
+  change: number,
+) => ({
+  actorId: sampleId(`ladder/${username}`),
+  place,
+  username,
+  school,
+  wins,
+  losses,
+  rating,
+  change,
+});
+
+const you = line(31, 'doyle', 'Lakeside', 14, 9, 1548, 12);
+const top = [
+  line(1, 'Jensen', 'Hartwell', 22, 3, 1702, 8),
+  line(2, 'Castillo', 'Ridgeview', 19, 5, 1655, 21),
+  line(3, 'Amari', 'Lakeside', 17, 6, 1649, -4),
+  line(4, 'Haddad', 'Ridgeview', 18, 8, 1640, 3),
+  line(5, 'Wu', 'Hartwell', 15, 7, 1631, 0),
+  line(6, 'Okafor', 'Okafor family', 12, 5, 1622, 15),
 ];
-const around: readonly LadderRow[] = [
-  rated(29, 'Petrov', 'Ridgeview', '13–8', 1553, -6),
-  rated(30, 'Brooks', 'Hartwell', '12–9', 1550, 4),
+const around = [
+  line(29, 'Petrov', 'Ridgeview', 13, 8, 1553, -6),
+  line(30, 'Brooks', 'Hartwell', 12, 9, 1550, 4),
   you,
-  rated(32, 'Nakata', 'Lakeside', '11–8', 1544, 9),
-  rated(33, 'Reid', 'Lakeside', '12–10', 1541, -2),
+  line(32, 'Nakata', 'Lakeside', 11, 8, 1544, 9),
+  line(33, 'Reid', 'Lakeside', 12, 10, 1541, -2),
 ];
 
-function ladder(scope: LadderScope, search: string): LeaguePanel {
-  const found = [...top, ...around].filter((row) =>
-    row.name.toLowerCase().includes(search.toLowerCase()),
-  );
-  return {
-    kind: 'ladder',
-    address: tabRoutes.league(LEAGUE),
-    scope,
-    search,
-    // Your own line leads the top of the ladder, wherever you stand on it.
-    rows: search !== '' ? found : scope === 'top' ? [you, ...top] : around,
-    count:
-      search !== ''
-        ? `${found.length} of 148 debaters`
-        : scope === 'top'
-          ? '148 debaters · Page 1 of 25'
-          : '148 debaters',
-    next: search === '' && scope === 'top' ? sampleAction('Next') : null,
-    note: "Rates this lobby's rooms and the league's tournaments. Separate from Daisy's ladders.",
-    rules: sampleAction('How ratings work'),
-  };
+/** One page of the lobby's ladder: the top, around the viewer, or a search. */
+export function sampleLadder(scope: LadderScope, search: string): LobbyLadder {
+  const base = { lobbyId: sampleId(`${LEAGUE}/lobby`), entrants: 148 };
+  if (search !== '')
+    return {
+      ...base,
+      page: 1,
+      pages: 1,
+      viewer: you,
+      lines: [...top, ...around].filter((one) =>
+        one.username.toLowerCase().includes(search.toLowerCase()),
+      ),
+    };
+  return scope === 'top'
+    ? { ...base, page: 1, pages: 25, viewer: you, lines: top }
+    : { ...base, page: 1, pages: 1, viewer: you, lines: around };
 }
+
+/** The league's tournaments, in the order its calendar runs. */
+export const sampleLeagueTournaments = (scene: SampleScene): LobbyListPage => ({
+  asOf: autumnAsOf(scene),
+  lobbies: [
+    listedAutumn(scene),
+    listedRidgeview,
+    { ...listedWinter(scene), startsAt: at('2026-12-12', '09:00') },
+    listedChampionship,
+    listedOpener(scene),
+  ],
+  more: 0,
+  capabilities: scene.viewer === 'visitor' ? null : { createLobby: true },
+});
 
 const debatePoints = [
   { label: 'Each prelim win', points: 2 },
@@ -197,7 +240,11 @@ const seasons: Readonly<
   },
 };
 
-function seasonPanel(event: string | null): LeaguePanel | null {
+/**
+ * The season tab, still drawn from the sample: the season read covers one
+ * series and does not yet carry each event's points rules.
+ */
+export function sampleSeasonPanel(event: string | null): LeaguePanel | null {
   // An unknown event reads as the default one, as an unknown tab does.
   const slug = event !== null && own(seasons, event) !== null ? event : VARSITY;
   const chosen = own(seasons, slug);
@@ -216,109 +263,5 @@ function seasonPanel(event: string | null): LeaguePanel | null {
     points: chosen.points,
     note: 'From 1 certified tournament, September Opener. Autumn Open is added when its results are certified. Only tournaments the league has sanctioned count; lobby rooms do not.',
     tournaments: linkTo('Tournaments', tabRoutes.league(LEAGUE, 'tournaments')),
-  };
-}
-
-function tournamentsPanel(scene: SampleScene): LeaguePanel {
-  const autumn = autumnStanding(scene);
-  const entered = scene.viewer === 'competitor';
-  const row = (name: string, detail: string, action: TabAction) => ({
-    name,
-    detail,
-    action,
-  });
-  const open = (slug: string) => linkTo('Open', tabRoutes.tournament(slug));
-  const autumnRow = row(
-    'Autumn Open',
-    autumn.when === 'finished'
-      ? `14 Nov · certified · ${autumn.fact}`
-      : [
-          ...(autumn.when === 'coming' ? ['Sat 14 Nov'] : []),
-          ...(entered ? ['You are entered'] : []),
-          'Varsity debate',
-          autumn.fact,
-        ].join(' · '),
-    autumn.when === 'finished'
-      ? linkTo('Results', tabRoutes.tournament(AUTUMN))
-      : open(AUTUMN),
-  );
-  const groups = [
-    { heading: 'Today', rows: autumn.when === 'today' ? [autumnRow] : [] },
-    {
-      heading: 'Coming up',
-      rows: [
-        ...(autumn.when === 'coming' ? [autumnRow] : []),
-        row(
-          'Ridgeview Invitational',
-          'Sat 28 Nov · hosted by Ridgeview · entry closes 25 Nov',
-          sampleAction('View'),
-        ),
-        row(
-          'Winter Classic',
-          `Sat 12 Dec · 8 events${entered ? ' · you are entered' : ''}`,
-          open(WINTER),
-        ),
-        row('Championship', 'March · entry not open yet', sampleAction('View')),
-      ],
-    },
-    {
-      heading: 'Finished',
-      rows: [
-        ...(autumn.when === 'finished' ? [autumnRow] : []),
-        row(
-          'September Opener',
-          `12 Sept · certified · ${entered ? 'you finished 9th of 40' : 'won by Castillo'}`,
-          sampleAction('Results'),
-        ),
-      ],
-    },
-  ];
-  return {
-    kind: 'tournaments',
-    groups: groups
-      .filter((group) => group.rows.length > 0)
-      .map((group) => ({ ...group, more: null })),
-    note: 'All five count toward the 2026 to 27 season once their results are certified.',
-  };
-}
-
-function panelOf(view: LeagueView, scene: SampleScene): LeaguePanel | null {
-  switch (view.tab) {
-    case 'rooms':
-      return rooms;
-    case 'ladder':
-      return ladder(view.scope, view.search);
-    case 'season':
-      return seasonPanel(view.event);
-    case 'tournaments':
-      return tournamentsPanel(scene);
-  }
-}
-
-/** Everyone signed in is a member of the sample league; a visitor is not. */
-export const isMember = (scene: SampleScene): boolean =>
-  scene.viewer !== 'visitor';
-
-export function sampleLeagueLobby(
-  slug: string,
-  view: LeagueView,
-  scene: SampleScene,
-): LeagueLobby | null {
-  if (slug !== LEAGUE) return null;
-  const panel = panelOf(view, scene);
-  if (panel === null) return null;
-  return {
-    name: LEAGUE_NAME,
-    lede: 'League rating 1548 · 31st of 148',
-    create: isMember(scene)
-      ? linkTo('New room', tabRoutes.newLeagueRoom(LEAGUE), true)
-      : null,
-    tabs: tabs.map(([id, label]) => ({
-      id,
-      label,
-      href: tabRoutes.league(LEAGUE, id),
-      selected: id === view.tab,
-    })),
-    panel,
   };
 }

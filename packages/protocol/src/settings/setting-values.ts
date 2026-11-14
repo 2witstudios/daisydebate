@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { settingKeys } from './keys';
+import { settingKeys, type SettingKey } from './keys';
 import { conflictHandlingSchema } from '../authorization';
 import { MAX_PRE_ROUND_PREP_MS } from '../format';
 import { formatSettingsFields } from '../format-settings';
@@ -232,7 +232,7 @@ export const settingValueSchemas = {
 } satisfies Record<keyof typeof forceKeys, z.ZodType> &
   Record<(typeof settingKeys)[number], z.ZodType>;
 
-export type SettingKey = keyof typeof settingValueSchemas;
+export type { SettingKey };
 export type SettingValues = {
   [Key in SettingKey]: z.infer<(typeof settingValueSchemas)[Key]>;
 };

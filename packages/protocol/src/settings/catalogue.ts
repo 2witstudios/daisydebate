@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { forceKeys, type Force, type ForceKey } from './force';
-import { settingHolds, settingScopeKinds } from './keys';
+import {
+  settingHolds,
+  settingScopeKinds,
+  type SettingHold,
+  type SettingScopeKind,
+} from './keys';
 import {
   settingKeySchema,
   settingValueSchemas,
@@ -11,11 +16,10 @@ import {
 export { settingHolds, settingKeys, settingScopeKinds } from './keys';
 
 export const settingScopeKindSchema = z.enum(settingScopeKinds);
-export type SettingScopeKind = z.infer<typeof settingScopeKindSchema>;
+export type { SettingHold, SettingScopeKind };
 
 /** Who may change a value below: `default` lets them, `enforced` does not. */
 export const settingHoldSchema = z.enum(settingHolds);
-export type SettingHold = z.infer<typeof settingHoldSchema>;
 
 /**
  * Where a key's value comes from when no row in the chain sets it: Daisy's

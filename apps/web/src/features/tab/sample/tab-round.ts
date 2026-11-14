@@ -1,10 +1,13 @@
-import { linkTo, sampleAction, type TabAction } from '../action';
-import { hostRoutes, tabRoutes } from '../routes';
 import type {
-  AttentionGroup,
-  AttentionRoom,
-  RunningRound,
-  TimeSlot,
+  TabRoundFixture,
+  TabRoundHostView,
+  TimeSlotHostView,
+} from '@daisy/protocol/lobby/tab-round-read';
+import { hostRoutes, tabRoutes } from '../routes';
+import {
+  type RunningRoundContext,
+  type TimeSlotContext,
+  type WallClock,
 } from '../tab-round';
 import {
   AUTUMN,
@@ -17,276 +20,379 @@ import {
 import { own } from './own';
 import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
-import { speechRound } from './speech-round';
+import { speechRoundView } from './speech-round';
 
-const room = (
+/** A sample's stand-in for a cuid2 id: the seed's letters, padded to 24. */
+export const sampleId = (seed: string): string =>
+  seed
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]/g, '')
+    .padEnd(24, '0')
+    .slice(0, 24);
+
+/** A sample instant on the tournament's day, given as its wall-clock time. */
+export const sampleInstant = (time: string): string =>
+  `2026-10-17T${time}:00.000Z`;
+
+/** The samples keep their instants in the tournament's own wall-clock time. */
+export const sampleWallClock: WallClock = (instant) => instant.slice(11, 16);
+
+const minutes = (n: number) => n * 60_000;
+
+/** The samples' parts of a fixture that every state shares. */
+export const sampleFixture = (
   title: string,
-  detail: string,
-  action: TabAction,
-): AttentionRoom => ({ title, detail, action });
+  room: string | null,
+  judges: readonly string[],
+  state: TabRoundFixture['state'],
+  kind: TabRoundFixture['kind'] = 'pairing',
+): TabRoundFixture => ({
+  fixtureId: sampleId(`fixture${title}${room ?? ''}`),
+  kind,
+  label: null,
+  entries: title
+    .split(' v ')
+    .map((name) => ({ entryId: sampleId(`entry${name}`), name })),
+  room: room === null ? null : { roomId: sampleId(`room${room}`), name: room },
+  judges: judges.map((name) => ({
+    tournamentJudgeId: sampleId(`judge${name}`),
+    name,
+  })),
+  conflict: false,
+  state,
+});
 
-const result = sampleAction('Result');
+/** A debate decided by its panel: the winner's points, then the loser's. */
+const decided = (
+  title: string,
+  room: string,
+  judge: string,
+  winner: string,
+  points: readonly [number, number],
+  corrected = false,
+): TabRoundFixture => {
+  const fixture = sampleFixture(title, room, [judge], {
+    kind: 'finished',
+    result: { kind: 'administrative', corrected, reason: 'bye' },
+  });
+  return {
+    ...fixture,
+    state: {
+      kind: 'finished',
+      result: {
+        kind: 'decided',
+        corrected,
+        entries: fixture.entries.map((entry) => ({
+          entryId: entry.entryId,
+          won: entry.name === winner,
+          rank: null,
+          points: entry.name === winner ? points[0] : points[1],
+        })),
+      },
+    },
+  };
+};
 
-const finished: Readonly<Record<string, readonly AttentionRoom[]>> = {
+const bye = (name: string): TabRoundFixture => ({
+  ...sampleFixture(name, null, [], {
+    kind: 'finished',
+    result: { kind: 'administrative', corrected: false, reason: 'bye' },
+  }),
+  kind: 'bye',
+});
+
+const finished: Readonly<Record<string, readonly TabRoundFixture[]>> = {
   '1': [
-    room(
-      'Jensen v Brooks',
-      'Room 1 · Judge L. Malik · Jensen won 28.5 to 27.5',
-      result,
-    ),
-    room(
-      'Castillo v Petrov',
-      'Room 2 · Judge P. Nguyen · Castillo won 28 to 27',
-      result,
-    ),
-    room(
-      'Okafor v Ellis',
-      'Room 3 · Judge T. Abara · Okafor won 29 to 26.5',
-      result,
-    ),
+    decided('Jensen v Brooks', 'Room 1', 'L. Malik', 'Jensen', [28.5, 27.5]),
+    decided('Castillo v Petrov', 'Room 2', 'P. Nguyen', 'Castillo', [28, 27]),
+    decided('Okafor v Ellis', 'Room 3', 'T. Abara', 'Okafor', [29, 26.5]),
   ],
   '2': [
-    room(
-      'Jensen v Wu',
-      'Room 1 · Judge A. Costa · Jensen won 29 to 28',
-      result,
-    ),
-    room(
-      'Reid v Nakata',
-      'Room 7 · Judge S. Cho · Nakata won 28 to 27.5 · corrected',
-      result,
-    ),
-    room(
-      'Castillo v Doyle',
-      'Room 2 · Judge R. Keane · Castillo won 28.5 to 28',
-      result,
-    ),
+    decided('Jensen v Wu', 'Room 1', 'A. Costa', 'Jensen', [29, 28]),
+    decided('Reid v Nakata', 'Room 7', 'S. Cho', 'Nakata', [28, 27.5], true),
+    decided('Castillo v Doyle', 'Room 2', 'R. Keane', 'Castillo', [28.5, 28]),
   ],
   '3': [
-    room(
-      'Jensen v Amari',
-      'Room 1 · Judge L. Malik · Jensen won 28.5 to 27',
-      result,
-    ),
-    room(
-      'Haddad v Castillo',
-      'Room 2 · Judge P. Nguyen · Castillo won 29 to 28',
-      result,
-    ),
-    room(
-      'Ellis',
-      "Bye · counted as a win under the tournament's bye rule",
-      result,
-    ),
+    decided('Jensen v Amari', 'Room 1', 'L. Malik', 'Jensen', [28.5, 27]),
+    decided('Haddad v Castillo', 'Room 2', 'P. Nguyen', 'Castillo', [29, 28]),
+    bye('Ellis'),
   ],
   '4': [
-    room(
-      'Jensen v Amari',
-      'Room 1 · Judge L. Malik · Jensen won 29 to 27.5',
-      result,
-    ),
-    room(
-      'Haddad v Castillo',
-      'Room 2 · Judge P. Nguyen · Castillo won 28.5 to 28',
-      result,
-    ),
-    room(
-      'Doyle v Sato',
-      'Room 5 · Judge R. Keane · Doyle won 28 to 27.5',
-      result,
-    ),
+    decided('Jensen v Amari', 'Room 1', 'L. Malik', 'Jensen', [29, 27.5]),
+    decided('Haddad v Castillo', 'Room 2', 'P. Nguyen', 'Castillo', [28.5, 28]),
+    decided('Doyle v Sato', 'Room 5', 'R. Keane', 'Doyle', [28, 27.5]),
   ],
 };
 
-const finishedGroup = (round: string, count: number): AttentionGroup => ({
-  attention: 'finished',
-  count,
-  rooms: own(finished, round) ?? [],
-  more: sampleAction(`Show ${count - 3} more`),
-});
+const starts: Readonly<Record<string, string>> = {
+  '1': '10:00',
+  '2': '11:50',
+  '3': '13:40',
+  '4': '15:20',
+};
 
-export function sampleRunningRound(
+const roundThreeOpen: readonly TabRoundFixture[] = [
+  sampleFixture('Farrow v Okoye', 'Room 6', ['M. Reyes'], {
+    kind: 'ballot_overdue',
+    judge: { tournamentJudgeId: sampleId('judgeM. Reyes'), name: 'M. Reyes' },
+    overdueByMs: minutes(18),
+    speechesGiven: 6,
+  }),
+  sampleFixture('Brooks v Petrov', 'Room 8', ['S. Cho'], {
+    kind: 'confirmation_requested',
+    pendingCommandId: sampleId('pendingbrooksforfeit'),
+    summary:
+      'Dana Abara asked to record a forfeit. Brooks is from her school, so a second person confirms.',
+    canConfirm: true,
+  }),
+  sampleFixture('Reid v Nakata', 'Room 10', ['A. Shah'], {
+    kind: 'speaking',
+    segment: 5,
+    segmentCount: 6,
+    speaker: null,
+  }),
+  sampleFixture('Okafor v Wu', 'Room 3', ['T. Abara'], {
+    kind: 'judging',
+    ballotsIn: 0,
+    ballotsDue: 1,
+    openForMs: minutes(6),
+  }),
+];
+
+/** Varsity debate's tab round as the host reads it. */
+function varsityRoundView(
+  round: string,
+  scene: SampleScene,
+): TabRoundHostView | null {
+  const recent = own(finished, round);
+  if (recent === null || !reached(scene, 'prelims')) return null;
+  const running = round === '3' && !reached(scene, 'break');
+  const drafting = !reached(scene, 'break');
+  if (round === '4' && drafting) return null;
+  return {
+    lobbyId: sampleId('autumnopen'),
+    eventId: sampleId('eventvarsity'),
+    tabRound: {
+      tabRoundId: sampleId(`tabroundvarsity${round}`),
+      number: Number(round),
+      name: null,
+    },
+    fixtureKind: 'pairing',
+    fixtureCount: 24,
+    entryCount: 48,
+    sectionSize: null,
+    byeCountsAs: 'win',
+    startedAt: sampleInstant(own(starts, round) ?? '10:00'),
+    progress: running
+      ? { kind: 'running', behindByMs: minutes(20) }
+      : { kind: 'complete' },
+    // Participants have a posting for the round running and the one after.
+    postedToParticipants: postedRounds.includes(round),
+    next:
+      round === '3' && drafting
+        ? { tabRoundId: sampleId('tabroundvarsity4'), number: 4, name: null }
+        : null,
+    open: running ? [...roundThreeOpen] : [],
+    finished: { total: running ? 20 : 24, recent: [...recent] },
+    capabilities: { officiate: true },
+  };
+}
+
+/** A tab round's host read, with what the running round needs beside it. */
+export function sampleTabRoundView(
   slug: string,
   event: string,
   round: string,
   scene: SampleScene,
-): RunningRound | null {
-  if (slug === AUTUMN && event === IMPROMPTU) return speechRound(round, scene);
-  if (slug !== AUTUMN || event !== VARSITY || own(finished, round) === null)
-    return null;
-  if (!reached(scene, 'prelims')) return null;
-  const running = round === '3' && !reached(scene, 'break');
-  const drafting = !reached(scene, 'break');
-  if (round === '4' && drafting) return null;
-  const starts: Readonly<Record<string, string>> = {
-    '1': '10:00',
-    '2': '11:50',
-    '3': '13:40',
-    '4': '15:20',
-  };
-  return {
-    event: varsitySwitch(scene),
-    title: `Round ${round}`,
-    lede: running
-      ? '24 rooms · started 13:40 · running 20 minutes late'
-      : `24 rooms · started ${own(starts, round) ?? ''} · every ballot is in`,
-    // Participants have a posting for the round running and the one after.
-    participantView: linkTo(
-      'View as participant',
-      postedRounds.includes(round)
-        ? tabRoutes.round(AUTUMN, VARSITY, round)
-        : tabRoutes.tournament(AUTUMN),
-    ),
-    next:
-      round === '3' && drafting
-        ? linkTo(
-            'Open round 4 draw',
-            hostRoutes.round(AUTUMN, VARSITY, '4'),
-            true,
-          )
-        : null,
-    groups: running
-      ? [
-          {
-            attention: 'needs_you',
-            count: null,
-            rooms: [
-              room(
-                'Farrow v Okoye',
-                'Judge M. Reyes has not opened the ballot · 18 minutes overdue',
-                sampleAction('Replace judge', true),
-              ),
-              room(
-                'Brooks v Petrov',
-                'Dana Abara asked to record a forfeit. Brooks is from her school, so a second person confirms.',
-                sampleAction('Review and confirm', true),
-              ),
-            ],
-            more: null,
+): {
+  readonly read: TabRoundHostView;
+  readonly context: RunningRoundContext;
+} | null {
+  if (slug !== AUTUMN) return null;
+  if (event === IMPROMPTU) return speechRoundView(round, scene);
+  if (event !== VARSITY) return null;
+  const read = varsityRoundView(round, scene);
+  return read === null
+    ? null
+    : {
+        read,
+        context: {
+          event: varsitySwitch(scene),
+          address: {
+            posting: tabRoutes.round(AUTUMN, VARSITY, round),
+            tournament: tabRoutes.tournament(AUTUMN),
+            nextDraw: hostRoutes.round(AUTUMN, VARSITY, '4'),
           },
-          {
-            attention: 'live',
-            count: null,
-            rooms: [
-              room(
-                'Reid v Nakata',
-                'Room 10 · Judge A. Shah · fifth speech',
-                sampleAction('Watch'),
-              ),
-            ],
-            more: null,
-          },
-          {
-            attention: 'judging',
-            count: null,
-            rooms: [
-              room(
-                'Okafor v Wu',
-                'Room 3 · Judge T. Abara · ballot open 6 minutes',
-                sampleAction('Open room'),
-              ),
-            ],
-            more: null,
-          },
-          finishedGroup('3', 20),
-        ]
-      : [finishedGroup(round, 24)],
-  };
+          wallClock: sampleWallClock,
+        },
+      };
 }
 
-const slotEvents = [
-  ['varsity-ld', 'Varsity LD', null, '16 rooms · 14 ballots in, 2 judging'],
-  ['novice-ld', 'Novice LD', null, '12 rooms · all ballots in'],
-  [
-    'varsity-pf',
-    'Varsity PF',
-    null,
-    '14 rooms · 8 live, 5 judging, 1 waiting for a judge',
-  ],
-  [
-    'parli',
-    'Parli',
-    'one pool, novices break separately',
-    '19 rooms · resolution struck at 12:04 · 18 preparing, speeches begin 12:24 · 1 waiting for a judge',
-  ],
-] as const;
+type SlotEvent = TimeSlotHostView['events'][number];
 
-const slotNeeds = [
+const slotEvent = (
+  slug: string,
+  name: string,
+  formatName: string,
+  roomCount: number,
+  fixtures: Partial<SlotEvent['fixtures']>,
+  more: Partial<Pick<SlotEvent, 'separateBreaks' | 'resolution'>> = {},
+): SlotEvent => ({
+  eventId: sampleId(`event${slug}`),
+  name,
+  formatName,
+  fixtureKind: 'pairing',
+  separateBreaks: [],
+  tabRound: {
+    tabRoundId: sampleId(`tabround${slug}2`),
+    number: 2,
+    drawStatus: 'published',
+  },
+  roomCount,
+  fixtures: {
+    waitingForJudge: 0,
+    preparing: 0,
+    live: 0,
+    judging: 0,
+    ballotsIn: 0,
+    ...fixtures,
+  },
+  resolution: null,
+  ...more,
+});
+
+const slotEvents: readonly (readonly [string, SlotEvent])[] = [
   [
-    'parli',
-    'Parli · Hartwell A v Ridgeview C',
-    "Judge S. Cho hasn't finished ranking Impromptu section C from the 10:30 slot, so this room can't start.",
-    'Swap judge',
-  ],
-  [
-    'varsity-pf',
-    'Varsity PF · Room 9',
-    'Judge E. Fontaine dropped out. P. Nguyen is free in this slot, has no conflict here and is cleared for PF.',
-    'Assign Nguyen',
+    'varsity-ld',
+    slotEvent('varsity-ld', 'Varsity LD', 'LD', 16, {
+      ballotsIn: 14,
+      judging: 2,
+    }),
   ],
   [
     'novice-ld',
-    'Novice LD · round 3 draft is ready',
-    'All 12 ballots are in. Round 3 can be published now or held until 15:00 with the other events.',
-    'Review draw',
+    slotEvent('novice-ld', 'Novice LD', 'LD', 12, { ballotsIn: 12 }),
   ],
-] as const;
+  [
+    'varsity-pf',
+    slotEvent('varsity-pf', 'Varsity PF', 'PF', 14, {
+      live: 8,
+      judging: 5,
+      waitingForJudge: 1,
+    }),
+  ],
+  [
+    'parli',
+    slotEvent(
+      'parli',
+      'Parli',
+      'Parli',
+      19,
+      { preparing: 18, waitingForJudge: 1 },
+      {
+        separateBreaks: ['Novices'],
+        resolution: {
+          releasedAt: sampleInstant('12:04'),
+          speechesBeginAt: sampleInstant('12:24'),
+        },
+      },
+    ),
+  ],
+];
 
-export function sampleTimeSlot(
+const judge = (name: string) => ({
+  tournamentJudgeId: sampleId(`judge${name}`),
+  name,
+});
+
+const slotView: TimeSlotHostView = {
+  lobbyId: sampleId('winterclassic'),
+  timeSlot: {
+    timeSlotId: sampleId('slotwinter1200'),
+    name: 'Debate round 2',
+    startsAt: sampleInstant('12:00'),
+  },
+  behindByMs: minutes(10),
+  events: slotEvents.map(([, event]) => event),
+  concerns: [
+    {
+      kind: 'judge_held_elsewhere',
+      eventId: sampleId('eventparli'),
+      fixtureId: sampleId('fixtureparlihartwellridgeview'),
+      entries: ['Hartwell A', 'Ridgeview C'].map((name) => ({
+        entryId: sampleId(`entry${name}`),
+        name,
+      })),
+      judge: judge('S. Cho'),
+      elsewhere: {
+        eventName: 'Impromptu',
+        fixtureKind: 'section',
+        fixtureLabel: 'C',
+        timeSlotStartsAt: sampleInstant('10:30'),
+      },
+    },
+    {
+      kind: 'judge_withdrawn',
+      eventId: sampleId('eventvarsity-pf'),
+      fixtureId: sampleId('fixturepfroom9'),
+      room: { roomId: sampleId('roompf9'), name: 'Room 9' },
+      judge: judge('E. Fontaine'),
+      replacement: judge('P. Nguyen'),
+    },
+    {
+      kind: 'draw_ready',
+      eventId: sampleId('eventnovice-ld'),
+      tabRoundId: sampleId('tabroundnovice-ld3'),
+      tabRoundNumber: 3,
+      ballotsIn: 12,
+      publishWithOthersAt: sampleInstant('15:00'),
+    },
+  ],
+  next: {
+    timeSlotId: sampleId('slotwinter1330'),
+    name: 'Speech B round 1',
+    startsAt: sampleInstant('13:30'),
+    drawnEvents: ['Extemp', 'Interp'].map((name) => ({
+      eventId: sampleId(`event${name}`),
+      name,
+      fixtureKind: 'section' as const,
+    })),
+    fixtureCount: 7,
+    judgesSeatedHere: 4,
+    judgesRunningLate: 0,
+  },
+  capabilities: { officiate: true, editDraw: true },
+};
+
+/** Winter Classic's noon slot as the host reads it, with its addresses. */
+export function sampleTimeSlotView(
   slug: string,
   slot: string,
-  event: string | null,
   scene: SampleScene,
-): TimeSlot | null {
+): {
+  readonly read: TimeSlotHostView;
+  readonly context: Omit<TimeSlotContext, 'selectedEventId'>;
+  readonly eventIdOf: (eventSlug: string | null) => string | null;
+} | null {
   if (slug !== WINTER || slot !== '1200' || !reached(scene, 'prelims'))
     return null;
-  if (event !== null && !slotEvents.some(([id]) => id === event)) return null;
-  const shown = <T extends readonly [string, ...unknown[]]>(
-    rows: readonly T[],
-  ) => rows.filter(([id]) => event === null || id === event);
+  const slugOf = (eventId: string) =>
+    slotEvents.find(([, event]) => event.eventId === eventId)?.[0] ?? eventId;
   return {
-    title: 'Debate round 2',
-    lede: '12:00 · four events · 61 rooms · running 10 minutes late',
-    participantView: linkTo(
-      'View as participant',
-      tabRoutes.tournament(WINTER),
-    ),
-    tabs: [
-      {
-        id: 'all',
-        label: 'All events',
-        href: hostRoutes.slot(WINTER, slot),
-        selected: event === null,
+    read: slotView,
+    context: {
+      address: {
+        slot: (eventId) =>
+          hostRoutes.slot(
+            WINTER,
+            slot,
+            eventId === null ? null : slugOf(eventId),
+          ),
+        tournament: tabRoutes.tournament(WINTER),
       },
-      ...slotEvents.map(([id, label]) => ({
-        id,
-        label,
-        href: hostRoutes.slot(WINTER, slot, id),
-        selected: event === id,
-      })),
-    ],
-    needsYou: shown(slotNeeds).map(([, title, detail, label]) =>
-      room(title, detail, sampleAction(label, true)),
-    ),
-    events: shown(slotEvents).map(([id, name, note, detail]) => ({
-      slug: id,
-      name,
-      note,
-      detail,
-      rooms: sampleAction('Rooms'),
-    })),
-    next:
-      event === null
-        ? {
-            heading: 'Next · Speech B round 1 at 13:30',
-            items: [
-              room(
-                'Extemp and Interp sections are drawn',
-                '7 sections. Four of their judges are in debate rooms now; all four are on time so far.',
-                sampleAction('See judges'),
-              ),
-            ],
-          }
-        : null,
+      wallClock: sampleWallClock,
+    },
+    eventIdOf: (eventSlug) =>
+      slotEvents.find(([known]) => known === eventSlug)?.[1].eventId ?? null,
   };
 }
