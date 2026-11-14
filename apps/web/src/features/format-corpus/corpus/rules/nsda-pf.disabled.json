@@ -1,0 +1,155 @@
+{
+  "formatId": "nsda-pf",
+  "mode": "disabled",
+  "outcome": {
+    "ok": true,
+    "roomPlan": {
+      "preRoundPrep": {
+        "enabled": false
+      },
+      "resolutionDraw": {
+        "enabled": false
+      }
+    },
+    "rules": {
+      "countdownMs": 10000,
+      "inRoundPrep": {
+        "budgetMsPerSide": 180000,
+        "expiresAtSegment": null,
+        "spendableBefore": [
+          "speech",
+          "cross_ex"
+        ]
+      },
+      "interaction": {
+        "interruptions": {
+          "allowed": "disabled"
+        },
+        "yield": {
+          "allowed": true,
+          "returnsTime": true
+        }
+      },
+      "seats": {
+        "affirmative": 2,
+        "judge": 1,
+        "negative": 2
+      },
+      "segments": [
+        {
+          "durationMs": 240000,
+          "key": "AC1",
+          "label": "First affirmative constructive",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 240000,
+          "key": "NC1",
+          "label": "First negative constructive",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "CF1",
+          "label": "Crossfire",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 240000,
+          "key": "AR",
+          "label": "Affirmative rebuttal",
+          "side": "affirmative",
+          "slot": 1,
+          "type": "speech"
+        },
+        {
+          "durationMs": 240000,
+          "key": "NR",
+          "label": "Negative rebuttal",
+          "side": "negative",
+          "slot": 1,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "CF2",
+          "label": "Crossfire",
+          "side": "affirmative",
+          "slot": 1,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 180000,
+          "key": "AS",
+          "label": "Affirmative summary",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "NS",
+          "label": "Negative summary",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "GCF",
+          "label": "Grand crossfire",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 120000,
+          "key": "AFF",
+          "label": "Affirmative final focus",
+          "side": "affirmative",
+          "slot": 1,
+          "type": "speech"
+        },
+        {
+          "durationMs": 120000,
+          "key": "NFF",
+          "label": "Negative final focus",
+          "side": "negative",
+          "slot": 1,
+          "type": "speech"
+        }
+      ],
+      "version": 2
+    }
+  },
+  "settings": {
+    "inRoundPrep": {
+      "budgetMsPerSide": 180000,
+      "enabled": true
+    },
+    "interruptions": {
+      "minRemainingMs": 30000,
+      "mode": "disabled"
+    },
+    "preRoundPrep": {
+      "enabled": false
+    },
+    "resolutionDraw": {
+      "enabled": false
+    },
+    "speechTiming": {
+      "countdownMs": 10000,
+      "segmentDurationOverrides": {}
+    },
+    "yielding": {
+      "allowed": true,
+      "returnsTime": true
+    }
+  }
+}

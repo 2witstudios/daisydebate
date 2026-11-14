@@ -1,0 +1,139 @@
+{
+  "formatId": "ipda",
+  "mode": "disabled",
+  "outcome": {
+    "ok": true,
+    "roomPlan": {
+      "preRoundPrep": {
+        "durationMs": 1800000,
+        "enabled": true
+      },
+      "resolutionDraw": {
+        "drawSize": 5,
+        "enabled": true,
+        "firstStriker": "negative",
+        "source": {
+          "categories": [
+            "policy",
+            "value",
+            "fact"
+          ],
+          "kind": "bank"
+        },
+        "strikeWindowMs": 60000
+      }
+    },
+    "rules": {
+      "countdownMs": 10000,
+      "inRoundPrep": null,
+      "interaction": {
+        "interruptions": {
+          "allowed": "disabled"
+        },
+        "yield": {
+          "allowed": true,
+          "returnsTime": true
+        }
+      },
+      "seats": {
+        "affirmative": 1,
+        "judge": 1,
+        "negative": 1
+      },
+      "segments": [
+        {
+          "durationMs": 300000,
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 120000,
+          "key": "CX1",
+          "label": "Cross-examination of the affirmative",
+          "side": "negative",
+          "slot": 0,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 360000,
+          "key": "NC",
+          "label": "Negative constructive",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 120000,
+          "key": "CX2",
+          "label": "Cross-examination of the negative",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 180000,
+          "key": "AR",
+          "label": "Affirmative rebuttal",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 300000,
+          "key": "NR",
+          "label": "Negative rebuttal",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "AS",
+          "label": "Affirmative summary",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        }
+      ],
+      "version": 2
+    }
+  },
+  "settings": {
+    "inRoundPrep": {
+      "enabled": false
+    },
+    "interruptions": {
+      "minRemainingMs": 30000,
+      "mode": "disabled"
+    },
+    "preRoundPrep": {
+      "durationMs": 1800000,
+      "enabled": true
+    },
+    "resolutionDraw": {
+      "drawSize": 5,
+      "enabled": true,
+      "firstStriker": "negative",
+      "source": {
+        "categories": [
+          "policy",
+          "value",
+          "fact"
+        ],
+        "kind": "bank"
+      },
+      "strikeWindowMs": 60000
+    },
+    "speechTiming": {
+      "countdownMs": 10000,
+      "segmentDurationOverrides": {}
+    },
+    "yielding": {
+      "allowed": true,
+      "returnsTime": true
+    }
+  }
+}

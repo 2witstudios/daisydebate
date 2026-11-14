@@ -1,0 +1,225 @@
+[
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "negative"
+      }
+    ],
+    "name": "single",
+    "outcome": {
+      "ok": true,
+      "value": "negative"
+    },
+    "participating": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "negative"
+      }
+    ],
+    "seats": [
+      {
+        "id": "j1",
+        "role": "judge"
+      }
+    ]
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "j2",
+        "winner": "negative"
+      },
+      {
+        "judgeParticipantId": "j3",
+        "winner": "affirmative"
+      }
+    ],
+    "name": "majority",
+    "outcome": {
+      "ok": true,
+      "value": "affirmative"
+    },
+    "participating": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "j2",
+        "winner": "negative"
+      },
+      {
+        "judgeParticipantId": "j3",
+        "winner": "affirmative"
+      }
+    ],
+    "seats": [
+      {
+        "id": "j1",
+        "role": "judge"
+      },
+      {
+        "id": "j2",
+        "role": "judge"
+      },
+      {
+        "id": "j3",
+        "role": "judge"
+      }
+    ]
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "j2",
+        "winner": "negative"
+      }
+    ],
+    "name": "tie",
+    "outcome": {
+      "ok": true,
+      "value": null
+    },
+    "participating": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "j2",
+        "winner": "negative"
+      }
+    ],
+    "seats": [
+      {
+        "id": "j1",
+        "role": "judge"
+      },
+      {
+        "id": "j2",
+        "role": "judge"
+      }
+    ]
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      }
+    ],
+    "name": "missing",
+    "outcome": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": null
+      }
+    },
+    "participating": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      }
+    ],
+    "seats": [
+      {
+        "id": "j1",
+        "role": "judge"
+      },
+      {
+        "id": "j2",
+        "role": "judge"
+      },
+      {
+        "id": "j3",
+        "role": "judge"
+      }
+    ]
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      }
+    ],
+    "name": "duplicate",
+    "outcome": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": null
+      }
+    },
+    "participating": [
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      },
+      {
+        "judgeParticipantId": "j1",
+        "winner": "affirmative"
+      }
+    ],
+    "seats": [
+      {
+        "id": "j1",
+        "role": "judge"
+      },
+      {
+        "id": "j2",
+        "role": "judge"
+      }
+    ]
+  },
+  {
+    "ballots": [
+      {
+        "judgeParticipantId": "x9",
+        "winner": "affirmative"
+      }
+    ],
+    "name": "foreign",
+    "outcome": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": null
+      }
+    },
+    "participating": [],
+    "seats": [
+      {
+        "id": "j1",
+        "role": "judge"
+      }
+    ]
+  },
+  {
+    "ballots": [],
+    "name": "no-judges",
+    "outcome": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": null
+      }
+    },
+    "participating": [],
+    "seats": []
+  }
+]

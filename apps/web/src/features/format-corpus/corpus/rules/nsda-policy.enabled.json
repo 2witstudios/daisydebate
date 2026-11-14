@@ -1,0 +1,164 @@
+{
+  "formatId": "nsda-policy",
+  "mode": "enabled",
+  "outcome": {
+    "ok": true,
+    "roomPlan": {
+      "preRoundPrep": {
+        "enabled": false
+      },
+      "resolutionDraw": {
+        "enabled": false
+      }
+    },
+    "rules": {
+      "countdownMs": 10000,
+      "inRoundPrep": {
+        "budgetMsPerSide": 480000,
+        "expiresAtSegment": null,
+        "spendableBefore": [
+          "speech",
+          "cross_ex"
+        ]
+      },
+      "interaction": {
+        "interruptions": {
+          "allowed": "enabled",
+          "minRemainingMs": 30000
+        },
+        "yield": {
+          "allowed": true,
+          "returnsTime": true
+        }
+      },
+      "seats": {
+        "affirmative": 2,
+        "judge": 1,
+        "negative": 2
+      },
+      "segments": [
+        {
+          "durationMs": 480000,
+          "key": "1AC",
+          "label": "First affirmative constructive",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "CX1",
+          "label": "Cross-examination of the first affirmative",
+          "side": "negative",
+          "slot": 1,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 480000,
+          "key": "1NC",
+          "label": "First negative constructive",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "CX2",
+          "label": "Cross-examination of the first negative",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 480000,
+          "key": "2AC",
+          "label": "Second affirmative constructive",
+          "side": "affirmative",
+          "slot": 1,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "CX3",
+          "label": "Cross-examination of the second affirmative",
+          "side": "negative",
+          "slot": 0,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 480000,
+          "key": "2NC",
+          "label": "Second negative constructive",
+          "side": "negative",
+          "slot": 1,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "CX4",
+          "label": "Cross-examination of the second negative",
+          "side": "affirmative",
+          "slot": 1,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 300000,
+          "key": "1NR",
+          "label": "First negative rebuttal",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 300000,
+          "key": "1AR",
+          "label": "First affirmative rebuttal",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 300000,
+          "key": "2NR",
+          "label": "Second negative rebuttal",
+          "side": "negative",
+          "slot": 1,
+          "type": "speech"
+        },
+        {
+          "durationMs": 300000,
+          "key": "2AR",
+          "label": "Second affirmative rebuttal",
+          "side": "affirmative",
+          "slot": 1,
+          "type": "speech"
+        }
+      ],
+      "version": 2
+    }
+  },
+  "settings": {
+    "inRoundPrep": {
+      "budgetMsPerSide": 480000,
+      "enabled": true
+    },
+    "interruptions": {
+      "minRemainingMs": 30000,
+      "mode": "enabled"
+    },
+    "preRoundPrep": {
+      "enabled": false
+    },
+    "resolutionDraw": {
+      "enabled": false
+    },
+    "speechTiming": {
+      "countdownMs": 10000,
+      "segmentDurationOverrides": {}
+    },
+    "yielding": {
+      "allowed": true,
+      "returnsTime": true
+    }
+  }
+}

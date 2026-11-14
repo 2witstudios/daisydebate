@@ -1,0 +1,148 @@
+{
+  "formatId": "nsda-bq",
+  "mode": "enabled",
+  "outcome": {
+    "ok": true,
+    "roomPlan": {
+      "preRoundPrep": {
+        "enabled": false
+      },
+      "resolutionDraw": {
+        "enabled": false
+      }
+    },
+    "rules": {
+      "countdownMs": 10000,
+      "inRoundPrep": {
+        "budgetMsPerSide": 180000,
+        "expiresAtSegment": null,
+        "spendableBefore": [
+          "speech",
+          "cross_ex"
+        ]
+      },
+      "interaction": {
+        "interruptions": {
+          "allowed": "enabled",
+          "minRemainingMs": 30000
+        },
+        "yield": {
+          "allowed": true,
+          "returnsTime": true
+        }
+      },
+      "seats": {
+        "affirmative": 1,
+        "judge": 1,
+        "negative": 1
+      },
+      "segments": [
+        {
+          "durationMs": 300000,
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 300000,
+          "key": "NC",
+          "label": "Negative constructive",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "Q1",
+          "label": "Question segment",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 240000,
+          "key": "AR",
+          "label": "Affirmative rebuttal",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 240000,
+          "key": "NR",
+          "label": "Negative rebuttal",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "Q2",
+          "label": "Question segment",
+          "side": "negative",
+          "slot": 0,
+          "type": "cross_ex"
+        },
+        {
+          "durationMs": 180000,
+          "key": "ACS",
+          "label": "Affirmative consolidation",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "NCS",
+          "label": "Negative consolidation",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "ART",
+          "label": "Affirmative rationale",
+          "side": "affirmative",
+          "slot": 0,
+          "type": "speech"
+        },
+        {
+          "durationMs": 180000,
+          "key": "NRT",
+          "label": "Negative rationale",
+          "side": "negative",
+          "slot": 0,
+          "type": "speech"
+        }
+      ],
+      "version": 2
+    }
+  },
+  "settings": {
+    "inRoundPrep": {
+      "budgetMsPerSide": 180000,
+      "enabled": true
+    },
+    "interruptions": {
+      "minRemainingMs": 30000,
+      "mode": "enabled"
+    },
+    "preRoundPrep": {
+      "enabled": false
+    },
+    "resolutionDraw": {
+      "enabled": false
+    },
+    "speechTiming": {
+      "countdownMs": 10000,
+      "segmentDurationOverrides": {}
+    },
+    "yielding": {
+      "allowed": true,
+      "returnsTime": true
+    }
+  }
+}

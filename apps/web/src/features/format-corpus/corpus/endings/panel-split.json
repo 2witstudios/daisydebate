@@ -1,0 +1,565 @@
+{
+  "ballots": [
+    {
+      "judgeParticipantId": "seatjudge000000000000000",
+      "winner": "affirmative"
+    },
+    {
+      "judgeParticipantId": "seatjudge100000000000000",
+      "winner": "negative"
+    }
+  ],
+  "panel": {
+    "aiSeats": [],
+    "humanWindow": {
+      "deadlineAt": "2026-10-06T09:27:40.000Z",
+      "seatIds": [
+        "seatjudge000000000000000",
+        "seatjudge100000000000000"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 0,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": false,
+      "label": "activate",
+      "now": "2026-10-06T09:00:00.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "sequence": 0,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 240000,
+          "negative": 240000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "rehydrated": false,
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:00:00.000Z",
+              "kind": "round_started"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      }
+    },
+    {
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 0,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": true,
+      "label": "schedule ends",
+      "now": "2026-10-06T09:27:10.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 240000,
+          "negative": 240000
+        },
+        "stage": "awaiting_ballot",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "rehydrated": false,
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:00:10.000Z",
+              "key": "AC",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "speech"
+            },
+            {
+              "at": "2026-10-06T09:05:10.000Z",
+              "key": "AC",
+              "kind": "segment_closed"
+            },
+            {
+              "at": "2026-10-06T09:05:20.000Z",
+              "key": "CX1",
+              "kind": "segment_opened",
+              "side": "negative",
+              "type": "cross_ex"
+            },
+            {
+              "at": "2026-10-06T09:07:20.000Z",
+              "key": "CX1",
+              "kind": "segment_closed"
+            },
+            {
+              "at": "2026-10-06T09:07:30.000Z",
+              "key": "NC",
+              "kind": "segment_opened",
+              "side": "negative",
+              "type": "speech"
+            },
+            {
+              "at": "2026-10-06T09:13:30.000Z",
+              "key": "NC",
+              "kind": "segment_closed"
+            },
+            {
+              "at": "2026-10-06T09:13:40.000Z",
+              "key": "CX2",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "cross_ex"
+            },
+            {
+              "at": "2026-10-06T09:15:40.000Z",
+              "key": "CX2",
+              "kind": "segment_closed"
+            },
+            {
+              "at": "2026-10-06T09:15:50.000Z",
+              "key": "1AR",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "speech"
+            },
+            {
+              "at": "2026-10-06T09:18:50.000Z",
+              "key": "1AR",
+              "kind": "segment_closed"
+            },
+            {
+              "at": "2026-10-06T09:19:00.000Z",
+              "key": "NR",
+              "kind": "segment_opened",
+              "side": "negative",
+              "type": "speech"
+            },
+            {
+              "at": "2026-10-06T09:24:00.000Z",
+              "key": "NR",
+              "kind": "segment_closed"
+            },
+            {
+              "at": "2026-10-06T09:24:10.000Z",
+              "key": "2AR",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "speech"
+            },
+            {
+              "at": "2026-10-06T09:27:10.000Z",
+              "key": "2AR",
+              "kind": "segment_closed"
+            }
+          ],
+          "finalSegmentEndedAt": "2026-10-06T09:27:10.000Z",
+          "releasesRoomMembers": true,
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "awaiting_ballot",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:05:10.000Z",
+              "id": "segment-1"
+            },
+            {
+              "endedAt": "2026-10-06T09:07:20.000Z",
+              "id": "segment-2"
+            },
+            {
+              "endedAt": "2026-10-06T09:13:30.000Z",
+              "id": "segment-3"
+            },
+            {
+              "endedAt": "2026-10-06T09:15:40.000Z",
+              "id": "segment-4"
+            },
+            {
+              "endedAt": "2026-10-06T09:18:50.000Z",
+              "id": "segment-5"
+            },
+            {
+              "endedAt": "2026-10-06T09:24:00.000Z",
+              "id": "segment-6"
+            },
+            {
+              "endedAt": "2026-10-06T09:27:10.000Z",
+              "id": "segment-7"
+            }
+          ],
+          "segmentInserts": [
+            {
+              "durationMs": 300000,
+              "id": "segment-1",
+              "rulesSegmentKey": "AC",
+              "sequence": 0,
+              "startedAt": "2026-10-06T09:00:10.000Z",
+              "type": "speech"
+            },
+            {
+              "durationMs": 120000,
+              "id": "segment-2",
+              "rulesSegmentKey": "CX1",
+              "sequence": 1,
+              "startedAt": "2026-10-06T09:05:20.000Z",
+              "type": "cross_ex"
+            },
+            {
+              "durationMs": 360000,
+              "id": "segment-3",
+              "rulesSegmentKey": "NC",
+              "sequence": 2,
+              "startedAt": "2026-10-06T09:07:30.000Z",
+              "type": "speech"
+            },
+            {
+              "durationMs": 120000,
+              "id": "segment-4",
+              "rulesSegmentKey": "CX2",
+              "sequence": 3,
+              "startedAt": "2026-10-06T09:13:40.000Z",
+              "type": "cross_ex"
+            },
+            {
+              "durationMs": 180000,
+              "id": "segment-5",
+              "rulesSegmentKey": "1AR",
+              "sequence": 4,
+              "startedAt": "2026-10-06T09:15:50.000Z",
+              "type": "speech"
+            },
+            {
+              "durationMs": 300000,
+              "id": "segment-6",
+              "rulesSegmentKey": "NR",
+              "sequence": 5,
+              "startedAt": "2026-10-06T09:19:00.000Z",
+              "type": "speech"
+            },
+            {
+              "durationMs": 180000,
+              "id": "segment-7",
+              "rulesSegmentKey": "2AR",
+              "sequence": 6,
+              "startedAt": "2026-10-06T09:24:10.000Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:00:10.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000"
+              ],
+              "segmentId": "segment-1"
+            },
+            {
+              "at": "2026-10-06T09:05:10.000Z",
+              "kind": "close",
+              "segmentId": "segment-1"
+            },
+            {
+              "at": "2026-10-06T09:05:20.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000",
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-2"
+            },
+            {
+              "at": "2026-10-06T09:07:20.000Z",
+              "kind": "close",
+              "segmentId": "segment-2"
+            },
+            {
+              "at": "2026-10-06T09:07:30.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-3"
+            },
+            {
+              "at": "2026-10-06T09:13:30.000Z",
+              "kind": "close",
+              "segmentId": "segment-3"
+            },
+            {
+              "at": "2026-10-06T09:13:40.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000",
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-4"
+            },
+            {
+              "at": "2026-10-06T09:15:40.000Z",
+              "kind": "close",
+              "segmentId": "segment-4"
+            },
+            {
+              "at": "2026-10-06T09:15:50.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000"
+              ],
+              "segmentId": "segment-5"
+            },
+            {
+              "at": "2026-10-06T09:18:50.000Z",
+              "kind": "close",
+              "segmentId": "segment-5"
+            },
+            {
+              "at": "2026-10-06T09:19:00.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-6"
+            },
+            {
+              "at": "2026-10-06T09:24:00.000Z",
+              "kind": "close",
+              "segmentId": "segment-6"
+            },
+            {
+              "at": "2026-10-06T09:24:10.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000"
+              ],
+              "segmentId": "segment-7"
+            },
+            {
+              "at": "2026-10-06T09:27:10.000Z",
+              "kind": "close",
+              "segmentId": "segment-7"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 0,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": true,
+      "label": "inside the window",
+      "now": "2026-10-06T09:27:20.000Z",
+      "position": {
+        "completedAt": "2026-10-06T09:27:20.000Z",
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 240000,
+          "negative": 240000
+        },
+        "stage": null,
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "completed"
+      },
+      "rehydrated": true,
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:27:20.000Z",
+              "kind": "round_completed",
+              "outcome": null
+            }
+          ],
+          "releasesRoomMembers": true,
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": "2026-10-06T09:27:20.000Z",
+            "currentStage": null,
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "completed"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      }
+    },
+    {
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 0,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": true,
+      "label": "after the window",
+      "now": "2026-10-06T09:28:10.000Z",
+      "position": {
+        "completedAt": "2026-10-06T09:27:20.000Z",
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 240000,
+          "negative": 240000
+        },
+        "stage": null,
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "completed"
+      },
+      "rehydrated": true,
+      "result": {
+        "ok": false,
+        "refusal": {
+          "code": "INVARIANT",
+          "invariantId": "round.complete.panel-played-round"
+        }
+      }
+    }
+  ]
+}

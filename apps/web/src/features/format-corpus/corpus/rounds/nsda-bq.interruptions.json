@@ -1,0 +1,4039 @@
+{
+  "formatId": "nsda-bq",
+  "seats": [
+    {
+      "actorId": "useraffirmative000000000",
+      "eligible": true,
+      "id": "seataffirmative000000000",
+      "kind": "human",
+      "role": "affirmative",
+      "slot": 0
+    },
+    {
+      "actorId": "usernegative000000000000",
+      "eligible": true,
+      "id": "seatnegative000000000000",
+      "kind": "human",
+      "role": "negative",
+      "slot": 0
+    },
+    {
+      "actorId": "userjudge000000000000000",
+      "eligible": true,
+      "id": "seatjudge000000000000000",
+      "kind": "human",
+      "role": "judge",
+      "slot": 0
+    }
+  ],
+  "settings": {
+    "inRoundPrep": {
+      "budgetMsPerSide": 180000,
+      "enabled": true
+    },
+    "interruptions": {
+      "minRemainingMs": 30000,
+      "mode": "enabled"
+    },
+    "preRoundPrep": {
+      "enabled": false
+    },
+    "resolutionDraw": {
+      "enabled": false
+    },
+    "speechTiming": {
+      "countdownMs": 10000,
+      "segmentDurationOverrides": {}
+    },
+    "yielding": {
+      "allowed": true,
+      "returnsTime": true
+    }
+  },
+  "steps": [
+    {
+      "action": {
+        "kind": "activate"
+      },
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 0,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:00:00.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "sequence": 0,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:00:00.000Z",
+              "kind": "round_started"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 0
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:00:08.800Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "sequence": 0,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 1
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:00:10.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:05:10.000Z",
+          "floorParticipantId": null,
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "remainingMs": 300000,
+          "sequence": 0,
+          "side": "affirmative",
+          "startedAt": "2026-10-06T09:00:10.000Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:00:10.000Z",
+              "key": "AC",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "speech"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 300000,
+              "id": "segment-1",
+              "rulesSegmentKey": "AC",
+              "sequence": 0,
+              "startedAt": "2026-10-06T09:00:10.000Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:00:10.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000"
+              ],
+              "segmentId": "segment-1"
+            }
+          ]
+        }
+      },
+      "step": 2
+    },
+    {
+      "action": {
+        "kind": "command",
+        "seatId": "seatnegative000000000000",
+        "type": "yield"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:00:11.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:05:10.000Z",
+          "floorParticipantId": null,
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "remainingMs": 299000,
+          "sequence": 0,
+          "side": "affirmative",
+          "startedAt": "2026-10-06T09:00:10.000Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": false,
+        "refusal": {
+          "code": "INVARIANT",
+          "invariantId": "round.yield.requires-floor"
+        }
+      },
+      "step": 3
+    },
+    {
+      "action": {
+        "kind": "command",
+        "seatId": "seatnegative000000000000",
+        "type": "interrupt"
+      },
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": {
+          "granted_at": "2026-10-06T09:00:21.000Z",
+          "holder_participant_id": "seatnegative000000000000"
+        },
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 0,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:00:21.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:05:10.000Z",
+          "floorParticipantId": "seatnegative000000000000",
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "remainingMs": 289000,
+          "sequence": 0,
+          "side": "affirmative",
+          "startedAt": "2026-10-06T09:00:10.000Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": {
+                "granted_at": "2026-10-06T09:00:21.000Z",
+                "holder_participant_id": "seatnegative000000000000"
+              },
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:00:21.000Z",
+              "kind": "close",
+              "segmentId": "segment-1"
+            },
+            {
+              "at": "2026-10-06T09:00:21.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-1"
+            }
+          ]
+        }
+      },
+      "step": 4
+    },
+    {
+      "action": {
+        "kind": "command",
+        "seatId": "seatnegative000000000000",
+        "type": "yield"
+      },
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 0,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:00:26.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:05:10.000Z",
+          "floorParticipantId": null,
+          "key": "AC",
+          "label": "Affirmative constructive",
+          "remainingMs": 284000,
+          "sequence": 0,
+          "side": "affirmative",
+          "startedAt": "2026-10-06T09:00:10.000Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:00:26.000Z",
+              "kind": "close",
+              "segmentId": "segment-1"
+            },
+            {
+              "at": "2026-10-06T09:00:26.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000"
+              ],
+              "segmentId": "segment-1"
+            }
+          ]
+        }
+      },
+      "step": 5
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:05:10.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "NC",
+          "label": "Negative constructive",
+          "sequence": 1,
+          "side": "negative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:05:10.000Z",
+              "key": "AC",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:05:10.000Z",
+              "id": "segment-1"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:05:10.000Z",
+              "kind": "close",
+              "segmentId": "segment-1"
+            }
+          ]
+        }
+      },
+      "step": 6
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:05:18.800Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "NC",
+          "label": "Negative constructive",
+          "sequence": 1,
+          "side": "negative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 7
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:05:20.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:10:20.000Z",
+          "floorParticipantId": null,
+          "key": "NC",
+          "label": "Negative constructive",
+          "remainingMs": 300000,
+          "sequence": 1,
+          "side": "negative",
+          "startedAt": "2026-10-06T09:05:20.000Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:05:20.000Z",
+              "key": "NC",
+              "kind": "segment_opened",
+              "side": "negative",
+              "type": "speech"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 300000,
+              "id": "segment-2",
+              "rulesSegmentKey": "NC",
+              "sequence": 1,
+              "startedAt": "2026-10-06T09:05:20.000Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:05:20.000Z",
+              "kind": "open",
+              "participantIds": [
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-2"
+            }
+          ]
+        }
+      },
+      "step": 8
+    },
+    {
+      "action": {
+        "kind": "command",
+        "seatId": "seatnegative000000000000",
+        "type": "yield"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:07:50.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "Q1",
+          "label": "Question segment",
+          "sequence": 2,
+          "side": "affirmative",
+          "type": "cross_ex"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:07:50.000Z",
+              "key": "NC",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:07:50.000Z",
+              "id": "segment-2"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:07:50.000Z",
+              "kind": "close",
+              "segmentId": "segment-2"
+            }
+          ]
+        }
+      },
+      "step": 9
+    },
+    {
+      "action": {
+        "kind": "command",
+        "seatId": "seataffirmative000000000",
+        "type": "start_prep"
+      },
+      "checkpoint": {
+        "active_prep": {
+          "side": "affirmative",
+          "started_at": "2026-10-06T09:07:52.000Z"
+        },
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 0,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:07:52.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "start_speech"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "Q1",
+          "label": "Question segment",
+          "sequence": 2,
+          "side": "affirmative",
+          "type": "cross_ex"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": {
+          "remainingMs": 180000,
+          "side": "affirmative"
+        },
+        "prepBudgetRemainingMs": {
+          "affirmative": 180000,
+          "negative": 180000
+        },
+        "stage": "prep",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:07:52.000Z",
+              "kind": "prep_started",
+              "side": "affirmative"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": {
+                "side": "affirmative",
+                "started_at": "2026-10-06T09:07:52.000Z"
+              },
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 0,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "prep",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 10
+    },
+    {
+      "action": {
+        "kind": "command",
+        "seatId": "seataffirmative000000000",
+        "type": "start_speech"
+      },
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 30000,
+          "negative": 0
+        },
+        "prep_ended_at": "2026-10-06T09:08:22.000Z",
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:08:22.000Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "Q1",
+          "label": "Question segment",
+          "sequence": 2,
+          "side": "affirmative",
+          "type": "cross_ex"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": "2026-10-06T09:08:22.000Z",
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 11
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "checkpoint": {
+        "active_prep": null,
+        "clock_stops": [],
+        "floor": null,
+        "incident": {
+          "phase": "none"
+        },
+        "prep_consumed_ms": {
+          "affirmative": 30000,
+          "negative": 0
+        },
+        "prep_ended_at": null,
+        "start_gate": null,
+        "version": 1
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:08:23.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:11:23.200Z",
+          "floorParticipantId": null,
+          "key": "Q1",
+          "label": "Question segment",
+          "remainingMs": 180000,
+          "sequence": 2,
+          "side": "affirmative",
+          "startedAt": "2026-10-06T09:08:23.200Z",
+          "type": "cross_ex"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:08:23.200Z",
+              "key": "Q1",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "cross_ex"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 180000,
+              "id": "segment-3",
+              "rulesSegmentKey": "Q1",
+              "sequence": 2,
+              "startedAt": "2026-10-06T09:08:23.200Z",
+              "type": "cross_ex"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:08:23.200Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000",
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-3"
+            }
+          ]
+        }
+      },
+      "step": 12
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:11:23.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "AR",
+          "label": "Affirmative rebuttal",
+          "sequence": 3,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:11:23.200Z",
+              "key": "Q1",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:11:23.200Z",
+              "id": "segment-3"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:11:23.200Z",
+              "kind": "close",
+              "segmentId": "segment-3"
+            }
+          ]
+        }
+      },
+      "step": 13
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:11:32.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "AR",
+          "label": "Affirmative rebuttal",
+          "sequence": 3,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 14
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:11:33.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:15:33.200Z",
+          "floorParticipantId": null,
+          "key": "AR",
+          "label": "Affirmative rebuttal",
+          "remainingMs": 240000,
+          "sequence": 3,
+          "side": "affirmative",
+          "startedAt": "2026-10-06T09:11:33.200Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:11:33.200Z",
+              "key": "AR",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "speech"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 240000,
+              "id": "segment-4",
+              "rulesSegmentKey": "AR",
+              "sequence": 3,
+              "startedAt": "2026-10-06T09:11:33.200Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:11:33.200Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000"
+              ],
+              "segmentId": "segment-4"
+            }
+          ]
+        }
+      },
+      "step": 15
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:15:33.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "NR",
+          "label": "Negative rebuttal",
+          "sequence": 4,
+          "side": "negative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:15:33.200Z",
+              "key": "AR",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:15:33.200Z",
+              "id": "segment-4"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:15:33.200Z",
+              "kind": "close",
+              "segmentId": "segment-4"
+            }
+          ]
+        }
+      },
+      "step": 16
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:15:42.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "NR",
+          "label": "Negative rebuttal",
+          "sequence": 4,
+          "side": "negative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 17
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:15:43.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:19:43.200Z",
+          "floorParticipantId": null,
+          "key": "NR",
+          "label": "Negative rebuttal",
+          "remainingMs": 240000,
+          "sequence": 4,
+          "side": "negative",
+          "startedAt": "2026-10-06T09:15:43.200Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:15:43.200Z",
+              "key": "NR",
+              "kind": "segment_opened",
+              "side": "negative",
+              "type": "speech"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 240000,
+              "id": "segment-5",
+              "rulesSegmentKey": "NR",
+              "sequence": 4,
+              "startedAt": "2026-10-06T09:15:43.200Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:15:43.200Z",
+              "kind": "open",
+              "participantIds": [
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-5"
+            }
+          ]
+        }
+      },
+      "step": 18
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:19:43.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "Q2",
+          "label": "Question segment",
+          "sequence": 5,
+          "side": "negative",
+          "type": "cross_ex"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:19:43.200Z",
+              "key": "NR",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:19:43.200Z",
+              "id": "segment-5"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:19:43.200Z",
+              "kind": "close",
+              "segmentId": "segment-5"
+            }
+          ]
+        }
+      },
+      "step": 19
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:19:52.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "Q2",
+          "label": "Question segment",
+          "sequence": 5,
+          "side": "negative",
+          "type": "cross_ex"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 20
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:19:53.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:22:53.200Z",
+          "floorParticipantId": null,
+          "key": "Q2",
+          "label": "Question segment",
+          "remainingMs": 180000,
+          "sequence": 5,
+          "side": "negative",
+          "startedAt": "2026-10-06T09:19:53.200Z",
+          "type": "cross_ex"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:19:53.200Z",
+              "key": "Q2",
+              "kind": "segment_opened",
+              "side": "negative",
+              "type": "cross_ex"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 180000,
+              "id": "segment-6",
+              "rulesSegmentKey": "Q2",
+              "sequence": 5,
+              "startedAt": "2026-10-06T09:19:53.200Z",
+              "type": "cross_ex"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:19:53.200Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000",
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-6"
+            }
+          ]
+        }
+      },
+      "step": 21
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:22:53.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "ACS",
+          "label": "Affirmative consolidation",
+          "sequence": 6,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:22:53.200Z",
+              "key": "Q2",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:22:53.200Z",
+              "id": "segment-6"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:22:53.200Z",
+              "kind": "close",
+              "segmentId": "segment-6"
+            }
+          ]
+        }
+      },
+      "step": 22
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:23:02.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "ACS",
+          "label": "Affirmative consolidation",
+          "sequence": 6,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 23
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:23:03.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:26:03.200Z",
+          "floorParticipantId": null,
+          "key": "ACS",
+          "label": "Affirmative consolidation",
+          "remainingMs": 180000,
+          "sequence": 6,
+          "side": "affirmative",
+          "startedAt": "2026-10-06T09:23:03.200Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:23:03.200Z",
+              "key": "ACS",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "speech"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 180000,
+              "id": "segment-7",
+              "rulesSegmentKey": "ACS",
+              "sequence": 6,
+              "startedAt": "2026-10-06T09:23:03.200Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:23:03.200Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000"
+              ],
+              "segmentId": "segment-7"
+            }
+          ]
+        }
+      },
+      "step": 24
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:26:03.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "NCS",
+          "label": "Negative consolidation",
+          "sequence": 7,
+          "side": "negative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:26:03.200Z",
+              "key": "ACS",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:26:03.200Z",
+              "id": "segment-7"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:26:03.200Z",
+              "kind": "close",
+              "segmentId": "segment-7"
+            }
+          ]
+        }
+      },
+      "step": 25
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:26:12.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "NCS",
+          "label": "Negative consolidation",
+          "sequence": 7,
+          "side": "negative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 26
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:26:13.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:29:13.200Z",
+          "floorParticipantId": null,
+          "key": "NCS",
+          "label": "Negative consolidation",
+          "remainingMs": 180000,
+          "sequence": 7,
+          "side": "negative",
+          "startedAt": "2026-10-06T09:26:13.200Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:26:13.200Z",
+              "key": "NCS",
+              "kind": "segment_opened",
+              "side": "negative",
+              "type": "speech"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 180000,
+              "id": "segment-8",
+              "rulesSegmentKey": "NCS",
+              "sequence": 7,
+              "startedAt": "2026-10-06T09:26:13.200Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:26:13.200Z",
+              "kind": "open",
+              "participantIds": [
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-8"
+            }
+          ]
+        }
+      },
+      "step": 27
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:29:13.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "ART",
+          "label": "Affirmative rationale",
+          "sequence": 8,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:29:13.200Z",
+              "key": "NCS",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:29:13.200Z",
+              "id": "segment-8"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:29:13.200Z",
+              "kind": "close",
+              "segmentId": "segment-8"
+            }
+          ]
+        }
+      },
+      "step": 28
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:29:22.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "ART",
+          "label": "Affirmative rationale",
+          "sequence": 8,
+          "side": "affirmative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 29
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:29:23.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:32:23.200Z",
+          "floorParticipantId": null,
+          "key": "ART",
+          "label": "Affirmative rationale",
+          "remainingMs": 180000,
+          "sequence": 8,
+          "side": "affirmative",
+          "startedAt": "2026-10-06T09:29:23.200Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:29:23.200Z",
+              "key": "ART",
+              "kind": "segment_opened",
+              "side": "affirmative",
+              "type": "speech"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 180000,
+              "id": "segment-9",
+              "rulesSegmentKey": "ART",
+              "sequence": 8,
+              "startedAt": "2026-10-06T09:29:23.200Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:29:23.200Z",
+              "kind": "open",
+              "participantIds": [
+                "seataffirmative000000000"
+              ],
+              "segmentId": "segment-9"
+            }
+          ]
+        }
+      },
+      "step": 30
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:32:23.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "start_prep"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 10000,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "NRT",
+          "label": "Negative rationale",
+          "sequence": 9,
+          "side": "negative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:32:23.200Z",
+              "key": "ART",
+              "kind": "segment_closed"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:32:23.200Z",
+              "id": "segment-9"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:32:23.200Z",
+              "kind": "close",
+              "segmentId": "segment-9"
+            }
+          ]
+        }
+      },
+      "step": 31
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:32:32.000Z",
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": 1200,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": {
+          "key": "NRT",
+          "label": "Negative rationale",
+          "sequence": 9,
+          "side": "negative",
+          "type": "speech"
+        },
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "countdown",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "countdown",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 32
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": false,
+      "now": "2026-10-06T09:32:33.200Z",
+      "options": {
+        "seataffirmative000000000": [
+          {
+            "legal": true,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ],
+        "seatnegative000000000000": [
+          {
+            "legal": true,
+            "type": "yield"
+          },
+          {
+            "legal": false,
+            "type": "interrupt"
+          },
+          {
+            "legal": true,
+            "type": "forfeit"
+          }
+        ]
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": {
+          "endsAt": "2026-10-06T09:35:33.200Z",
+          "floorParticipantId": null,
+          "key": "NRT",
+          "label": "Negative rationale",
+          "remainingMs": 180000,
+          "sequence": 9,
+          "side": "negative",
+          "startedAt": "2026-10-06T09:32:33.200Z",
+          "type": "speech"
+        },
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "live",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:32:33.200Z",
+              "key": "NRT",
+              "kind": "segment_opened",
+              "side": "negative",
+              "type": "speech"
+            }
+          ],
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "live",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [
+            {
+              "durationMs": 180000,
+              "id": "segment-10",
+              "rulesSegmentKey": "NRT",
+              "sequence": 9,
+              "startedAt": "2026-10-06T09:32:33.200Z",
+              "type": "speech"
+            }
+          ],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:32:33.200Z",
+              "kind": "open",
+              "participantIds": [
+                "seatnegative000000000000"
+              ],
+              "segmentId": "segment-10"
+            }
+          ]
+        }
+      },
+      "step": 33
+    },
+    {
+      "action": {
+        "kind": "tick"
+      },
+      "debateOver": true,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": true
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [
+            "camera",
+            "microphone"
+          ],
+          "subscribe": true
+        }
+      },
+      "now": "2026-10-06T09:35:33.200Z",
+      "options": {
+        "seataffirmative000000000": [],
+        "seatnegative000000000000": []
+      },
+      "position": {
+        "completedAt": null,
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": null,
+        "outcome": null,
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": "awaiting_ballot",
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "active"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:35:33.200Z",
+              "key": "NRT",
+              "kind": "segment_closed"
+            }
+          ],
+          "finalSegmentEndedAt": "2026-10-06T09:35:33.200Z",
+          "releasesRoomMembers": true,
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": null,
+            "currentStage": "awaiting_ballot",
+            "outcome": null,
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "active"
+          },
+          "segmentCloses": [
+            {
+              "endedAt": "2026-10-06T09:35:33.200Z",
+              "id": "segment-10"
+            }
+          ],
+          "segmentInserts": [],
+          "speakingChanges": [
+            {
+              "at": "2026-10-06T09:35:33.200Z",
+              "kind": "close",
+              "segmentId": "segment-10"
+            }
+          ]
+        }
+      },
+      "step": 34
+    },
+    {
+      "action": {
+        "kind": "complete_panel",
+        "winner": "affirmative"
+      },
+      "debateOver": true,
+      "grants": {
+        "seataffirmative000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [],
+          "subscribe": false
+        },
+        "seatjudge000000000000000": {
+          "capture": false,
+          "hidden": true,
+          "publish": [],
+          "subscribe": false
+        },
+        "seatnegative000000000000": {
+          "capture": false,
+          "hidden": false,
+          "publish": [],
+          "subscribe": false
+        }
+      },
+      "now": "2026-10-06T09:36:33.200Z",
+      "position": {
+        "completedAt": "2026-10-06T09:36:33.200Z",
+        "countdownRemainingMs": null,
+        "incident": {
+          "phase": "none"
+        },
+        "nextSegment": null,
+        "openSegment": null,
+        "outcome": "affirmative",
+        "prep": null,
+        "prepBudgetRemainingMs": {
+          "affirmative": 150000,
+          "negative": 180000
+        },
+        "stage": null,
+        "startedAt": "2026-10-06T09:00:00.000Z",
+        "status": "completed"
+      },
+      "result": {
+        "ok": true,
+        "value": {
+          "effects": [
+            {
+              "at": "2026-10-06T09:36:33.200Z",
+              "kind": "round_completed",
+              "outcome": "affirmative"
+            }
+          ],
+          "releasesRoomMembers": true,
+          "round": {
+            "checkpoint": {
+              "active_prep": null,
+              "clock_stops": [],
+              "floor": null,
+              "incident": {
+                "phase": "none"
+              },
+              "prep_consumed_ms": {
+                "affirmative": 30000,
+                "negative": 0
+              },
+              "prep_ended_at": null,
+              "start_gate": null,
+              "version": 1
+            },
+            "completedAt": "2026-10-06T09:36:33.200Z",
+            "currentStage": null,
+            "outcome": "affirmative",
+            "startedAt": "2026-10-06T09:00:00.000Z",
+            "status": "completed"
+          },
+          "segmentCloses": [],
+          "segmentInserts": [],
+          "speakingChanges": []
+        }
+      },
+      "step": 35
+    }
+  ]
+}

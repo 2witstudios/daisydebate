@@ -1,0 +1,345 @@
+[
+  {
+    "awaited": true,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "rated",
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.000Z",
+        "outcome": "affirmative"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "judged",
+      "ladderId": "freestyle",
+      "outcome": "affirmative",
+      "status": "completed"
+    },
+    "name": "rated"
+  },
+  {
+    "awaited": true,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "rated",
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.000Z",
+        "outcome": "negative"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "judged",
+      "ladderId": "freestyle",
+      "outcome": "negative",
+      "status": "completed"
+    },
+    "name": "negative-wins"
+  },
+  {
+    "awaited": false,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "unrated",
+        "reason": "no-result"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "judged",
+      "ladderId": "freestyle",
+      "outcome": null,
+      "status": "completed"
+    },
+    "name": "null-outcome"
+  },
+  {
+    "awaited": false,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "unrated",
+        "reason": "competition"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "casual",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "judged",
+      "ladderId": null,
+      "outcome": "affirmative",
+      "status": "completed"
+    },
+    "name": "casual"
+  },
+  {
+    "awaited": false,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "unrated",
+        "reason": "abandoned"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "judged",
+      "ladderId": "freestyle",
+      "outcome": null,
+      "status": "abandoned"
+    },
+    "name": "abandoned"
+  },
+  {
+    "awaited": false,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "already-rated"
+      }
+    },
+    "facts": {
+      "alreadyRated": true,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "judged",
+      "ladderId": "freestyle",
+      "outcome": "affirmative",
+      "status": "completed"
+    },
+    "name": "already-rated"
+  },
+  {
+    "awaited": true,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "rated",
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.000Z",
+        "outcome": "affirmative"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "forfeit",
+      "ladderId": "freestyle",
+      "outcome": "affirmative",
+      "status": "completed"
+    },
+    "name": "forfeit"
+  },
+  {
+    "awaited": false,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "unrated",
+        "reason": "unjudged"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "unjudged",
+      "ladderId": "freestyle",
+      "outcome": "affirmative",
+      "status": "completed"
+    },
+    "name": "unjudged"
+  },
+  {
+    "awaited": false,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "unrated",
+        "reason": "ending-unrecorded"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "unrecorded",
+      "ladderId": "freestyle",
+      "outcome": "affirmative",
+      "status": "completed"
+    },
+    "name": "unrecorded"
+  },
+  {
+    "awaited": false,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "unrated",
+        "reason": "check-in-pending"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": true,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "judged",
+      "ladderId": "freestyle",
+      "outcome": "affirmative",
+      "status": "completed"
+    },
+    "name": "check-in-pending"
+  },
+  {
+    "awaited": true,
+    "eligibility": {
+      "ok": true,
+      "value": {
+        "kind": "attendance-unsettled"
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [
+          {
+            "key": "first",
+            "type": "speech"
+          },
+          {
+            "key": "last",
+            "type": "speech"
+          }
+        ],
+        "speeches": [
+          {
+            "id": "s1",
+            "rulesSegmentKey": "first",
+            "startedAt": "2026-10-06T10:00:00.000Z"
+          }
+        ]
+      },
+      "competitionType": "ranked",
+      "completedAt": "2026-10-06T10:00:00.000Z",
+      "ending": "judged",
+      "ladderId": "freestyle",
+      "outcome": "affirmative",
+      "status": "completed"
+    },
+    "name": "attendance-unsettled"
+  },
+  {
+    "awaited": false,
+    "eligibility": {
+      "ok": false,
+      "refusal": {
+        "code": "CONFLICT",
+        "invariantId": null
+      }
+    },
+    "facts": {
+      "alreadyRated": false,
+      "attendance": {
+        "adjudications": [],
+        "pendingWriter": false,
+        "receipts": [],
+        "ruleSegments": [],
+        "speeches": []
+      },
+      "competitionType": "ranked",
+      "completedAt": null,
+      "ending": "judged",
+      "ladderId": "freestyle",
+      "outcome": null,
+      "status": "active"
+    },
+    "name": "active"
+  }
+]

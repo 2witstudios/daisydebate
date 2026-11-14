@@ -1,0 +1,296 @@
+[
+  {
+    "outcome": "affirmative",
+    "plan": {
+      "ok": true,
+      "value": {
+        "calculationVersion": "glicko2-v1",
+        "changes": [
+          {
+            "actorId": "useraffirmative000000000",
+            "after": {
+              "deviation": 81.94021661228375,
+              "rating": 1634.4066741899135,
+              "volatility": 0.05999893429950657
+            },
+            "before": {
+              "deviation": 80,
+              "rating": 1620,
+              "volatility": 0.06
+            },
+            "changeId": "change000000000000000001",
+            "expectedVersion": 7
+          },
+          {
+            "actorId": "usernegative000000000000",
+            "after": {
+              "deviation": 100.06446452486217,
+              "rating": 1518.240068782657,
+              "volatility": 0.058998924711099916
+            },
+            "before": {
+              "deviation": 95,
+              "rating": 1540,
+              "volatility": 0.059
+            },
+            "changeId": "change000000000000000002",
+            "expectedVersion": 3
+          }
+        ],
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.000Z",
+        "seasonId": "season000000000000000001"
+      }
+    },
+    "provisionalAfter": [
+      false,
+      false
+    ],
+    "standings": "established"
+  },
+  {
+    "outcome": "negative",
+    "plan": {
+      "ok": true,
+      "value": {
+        "calculationVersion": "glicko2-v1",
+        "changes": [
+          {
+            "actorId": "useraffirmative000000000",
+            "after": {
+              "deviation": 81.9402642666933,
+              "rating": 1597.685795588169,
+              "volatility": 0.060001313197471574
+            },
+            "before": {
+              "deviation": 80,
+              "rating": 1620,
+              "volatility": 0.06
+            },
+            "changeId": "change000000000000000001",
+            "expectedVersion": 7
+          },
+          {
+            "actorId": "usernegative000000000000",
+            "after": {
+              "deviation": 100.06449892744419,
+              "rating": 1573.9633880837769,
+              "volatility": 0.05900117858041952
+            },
+            "before": {
+              "deviation": 95,
+              "rating": 1540,
+              "volatility": 0.059
+            },
+            "changeId": "change000000000000000002",
+            "expectedVersion": 3
+          }
+        ],
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.000Z",
+        "seasonId": "season000000000000000001"
+      }
+    },
+    "provisionalAfter": [
+      false,
+      false
+    ],
+    "standings": "established"
+  },
+  {
+    "outcome": "affirmative",
+    "plan": {
+      "ok": true,
+      "value": {
+        "calculationVersion": "glicko2-v1",
+        "changes": [
+          {
+            "actorId": "useraffirmative000000000",
+            "after": {
+              "deviation": 290.31896371798047,
+              "rating": 1662.3108939062977,
+              "volatility": 0.05999967537233814
+            },
+            "before": {
+              "deviation": 350,
+              "rating": 1500,
+              "volatility": 0.06
+            },
+            "changeId": "change000000000000000001",
+            "expectedVersion": null
+          },
+          {
+            "actorId": "usernegative000000000000",
+            "after": {
+              "deviation": 290.31896371798047,
+              "rating": 1337.6891060937023,
+              "volatility": 0.05999967537233814
+            },
+            "before": {
+              "deviation": 350,
+              "rating": 1500,
+              "volatility": 0.06
+            },
+            "changeId": "change000000000000000002",
+            "expectedVersion": null
+          }
+        ],
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.000Z",
+        "seasonId": "season000000000000000001"
+      }
+    },
+    "provisionalAfter": [
+      true,
+      true
+    ],
+    "standings": "provisional"
+  },
+  {
+    "outcome": "negative",
+    "plan": {
+      "ok": true,
+      "value": {
+        "calculationVersion": "glicko2-v1",
+        "changes": [
+          {
+            "actorId": "useraffirmative000000000",
+            "after": {
+              "deviation": 290.31896371798047,
+              "rating": 1337.6891060937023,
+              "volatility": 0.05999967537233814
+            },
+            "before": {
+              "deviation": 350,
+              "rating": 1500,
+              "volatility": 0.06
+            },
+            "changeId": "change000000000000000001",
+            "expectedVersion": null
+          },
+          {
+            "actorId": "usernegative000000000000",
+            "after": {
+              "deviation": 290.31896371798047,
+              "rating": 1662.3108939062977,
+              "volatility": 0.05999967537233814
+            },
+            "before": {
+              "deviation": 350,
+              "rating": 1500,
+              "volatility": 0.06
+            },
+            "changeId": "change000000000000000002",
+            "expectedVersion": null
+          }
+        ],
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.000Z",
+        "seasonId": "season000000000000000001"
+      }
+    },
+    "provisionalAfter": [
+      true,
+      true
+    ],
+    "standings": "provisional"
+  },
+  {
+    "outcome": "affirmative",
+    "plan": {
+      "ok": true,
+      "value": {
+        "calculationVersion": "glicko2-v1",
+        "changes": [
+          {
+            "actorId": "useraffirmative000000000",
+            "after": {
+              "deviation": 171.40941903116703,
+              "rating": 1836.3903283143293,
+              "volatility": 0.04999952593898316
+            },
+            "before": {
+              "deviation": 150,
+              "rating": 1810,
+              "volatility": 0.05
+            },
+            "changeId": "change000000000000000001",
+            "expectedVersion": null
+          },
+          {
+            "actorId": "usernegative000000000000",
+            "after": {
+              "deviation": 260.71693962086493,
+              "rating": 1440.5086879283313,
+              "volatility": 0.059999066966169266
+            },
+            "before": {
+              "deviation": 300,
+              "rating": 1500,
+              "volatility": 0.06
+            },
+            "changeId": "change000000000000000002",
+            "expectedVersion": 1
+          }
+        ],
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.001Z",
+        "seasonId": "season000000000000000001"
+      }
+    },
+    "provisionalAfter": [
+      true,
+      true
+    ],
+    "standings": "carriedOver"
+  },
+  {
+    "outcome": "negative",
+    "plan": {
+      "ok": true,
+      "value": {
+        "calculationVersion": "glicko2-v1",
+        "changes": [
+          {
+            "actorId": "useraffirmative000000000",
+            "after": {
+              "deviation": 171.40943333898213,
+              "rating": 1713.8991259139993,
+              "volatility": 0.05000147289057653
+            },
+            "before": {
+              "deviation": 150,
+              "rating": 1810,
+              "volatility": 0.05
+            },
+            "changeId": "change000000000000000001",
+            "expectedVersion": null
+          },
+          {
+            "actorId": "usernegative000000000000",
+            "after": {
+              "deviation": 260.716954541658,
+              "rating": 1780.675351613996,
+              "volatility": 0.060002842429259844
+            },
+            "before": {
+              "deviation": 300,
+              "rating": 1500,
+              "volatility": 0.06
+            },
+            "changeId": "change000000000000000002",
+            "expectedVersion": 1
+          }
+        ],
+        "ladder": "freestyle",
+        "occurredAt": "2026-10-06T10:00:00.001Z",
+        "seasonId": "season000000000000000001"
+      }
+    },
+    "provisionalAfter": [
+      true,
+      true
+    ],
+    "standings": "carriedOver"
+  }
+]
