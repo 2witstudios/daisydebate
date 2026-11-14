@@ -5,7 +5,10 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contentModerationOperations } from '../src/content-moderation-operations';
-import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
+import {
+  CONTENT_MODERATION_DELIVERY_BOUND_MS,
+  daisyBallotDefinitions,
+} from '@daisy/protocol';
 import {
   claimFeedWithdrawal,
   openBroadcast,
@@ -848,8 +851,82 @@ test('only the debater who received feedback can report it, and the operator rea
           {
             kind: 'ballot_feedback',
             ballotId,
-            side: 'negative',
+            subject: 'negative',
             text: 'For neg',
+          },
+        ],
+      });
+    } finally {
+      await client`delete from content_reports where target_id=${ballotId}`;
+      await client`delete from ballots where id=${ballotId}`;
+    }
+  });
+});
+
+test('a ranked speaker can report the feedback written under their own participant id', async () => {
+  await withOps(async (ops, f, client, roundId) => {
+    const first = await f.seat(roundId, 'speaker', 0);
+    const second = await f.seat(roundId, 'speaker', 1);
+    const third = await f.seat(roundId, 'speaker', 2);
+    const judge = await f.seat(roundId, 'judge');
+    const judging = {
+      ballot: daisyBallotDefinitions['rank-speakers@1'],
+      panel: { decision: 'rank_sum', quorum: 1 },
+    };
+    await client`update rounds set judging = ${JSON.stringify(judging)}::text::jsonb where id = ${roundId}`;
+    const revision = await f.freeze(roundId);
+    const ballotId = createId();
+    await client`insert into ballots (id, judge_participant_id, round_id, freeze_revision,
+        rubric_version, decision, winner, ranking, reason, feedback, submitted_at)
+      values (${ballotId}, ${judge.id}, ${roundId}, ${revision}, 'rank-speakers@1',
+        'ranking', null,
+        ${JSON.stringify([[first.id], [second.id], [third.id]])}::text::jsonb,
+        'Reason',
+        ${JSON.stringify({ [first.id]: 'For first', [second.id]: 'For second' })}::text::jsonb,
+        now())`;
+    try {
+      const facts = (actorId: string) =>
+        ops.readReportTargetFacts({
+          reporterUserId: 'u'.repeat(24),
+          reporterActorId: actorId,
+          report: {
+            targetKind: 'ballot_feedback',
+            targetId: ballotId,
+            reason: 'abusive_feedback',
+          },
+        });
+      const admitted = [
+        await facts(first.actorId),
+        await facts(third.actorId),
+        await facts(judge.actorId),
+      ];
+      const id = createId();
+      await ops.fileReport({
+        id,
+        reporterUserId: await f.user(),
+        reporterActorId: second.actorId,
+        report: {
+          targetKind: 'ballot_feedback',
+          targetId: ballotId,
+          reason: 'abusive_feedback',
+        },
+      });
+      const detail = await ops.readModerationReport(id);
+      assert({
+        given:
+          'a speaker with feedback, one without, the judge, then the second speaker’s report',
+        should:
+          'admit only a speaker the ballot wrote to, and show that speaker’s feedback alone',
+        actual: [...admitted, detail?.subject],
+        expected: [
+          { kind: 'ballot_feedback', feedbackIsForReporter: true },
+          { kind: 'ballot_feedback', feedbackIsForReporter: false },
+          { kind: 'ballot_feedback', feedbackIsForReporter: false },
+          {
+            kind: 'ballot_feedback',
+            ballotId,
+            subject: second.id,
+            text: 'For second',
           },
         ],
       });

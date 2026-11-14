@@ -14,6 +14,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
+  isSideKeyOrNull,
   oneOf,
   timestampColumn,
   updatedAtColumn,
@@ -178,10 +179,7 @@ export const fixtureEntries = pgTable(
       foreignColumns: [entries.id, entries.eventId, entries.lobbyId],
     }).onDelete('restrict'),
     check('fixture_entries_position_nonnegative', sql`${table.position} >= 0`),
-    check(
-      'fixture_entries_side_nonempty',
-      sql`${table.side} is null or length(trim(${table.side})) > 0`,
-    ),
+    check('fixture_entries_side_key', isSideKeyOrNull(table.side)),
   ],
 );
 

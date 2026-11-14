@@ -5,21 +5,28 @@ import type { RoundRules } from '@daisy/protocol';
 
 const foundationToRules = (
   definition: typeof foundationDefinition | undefined,
-): RoundRules => ({
-  version: 2,
-  seats: definition?.seats ?? { affirmative: 1, negative: 1, judge: 0 },
-  segments: (definition?.segments ?? []).map((segment) => ({
-    key: segment.key,
-    label: segment.label,
-    type: segment.type,
-    side: segment.side,
-    slot: segment.slot,
-    durationMs: segment.defaultDurationMs,
-  })),
-  inRoundPrep: null,
-  countdownMs: 10_000,
-  interaction: { yield: null, interruptions: { allowed: 'disabled' as const } },
-});
+): RoundRules => {
+  const source = definition ?? foundationDefinition;
+  return {
+    version: 3,
+    sides: source.sides,
+    seats: source.seats,
+    outcome: source.outcome,
+    segments: source.segments.map((segment) => ({
+      key: segment.key,
+      label: segment.label,
+      type: segment.type,
+      speak: segment.speak,
+      durationMs: segment.defaultDurationMs,
+    })),
+    inRoundPrep: null,
+    countdownMs: 10_000,
+    interaction: {
+      yield: null,
+      interruptions: { allowed: 'disabled' as const },
+    },
+  };
+};
 import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';

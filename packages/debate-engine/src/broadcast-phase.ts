@@ -17,6 +17,7 @@ const STAGE_PUBLICITY: Readonly<Record<RoundStage, Publicity>> = {
 const SEGMENT_PUBLICITY: Readonly<Record<SegmentType, Publicity>> = {
   speech: 'public',
   cross_ex: 'public',
+  open: 'public',
 };
 const declaredPublic = (
   table: Readonly<Record<string, Publicity>>,

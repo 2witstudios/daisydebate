@@ -51,7 +51,10 @@ export async function seedHistoricalJudge(f: Fixture, mode: JudgeCase) {
   ].includes(mode);
   const roundId = await f.round({
     created_at: new Date(originalAdmission),
-    rules_snapshot: { ...validRules, seats: { ...validRules.seats, judge: 1 } },
+    rules_snapshot: {
+      ...validRules,
+      seats: { ...validRules.seats, judges: 1 },
+    },
     status: terminal ? 'abandoned' : 'active',
     current_stage: terminal ? null : 'live',
     started_at: new Date(originalAdmission),

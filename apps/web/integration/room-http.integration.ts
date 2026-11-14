@@ -92,13 +92,11 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     });
     view = await command(host, view, {
       type: 'claim-seat',
-      role: 'affirmative',
-      slot: 0,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
     });
     view = await command(guest, view, {
       type: 'claim-seat',
-      role: 'negative',
-      slot: 0,
+      seat: { kind: 'side', side: 'negative', slot: 0 },
     });
     const hostActor = view.hostActorId,
       guestActor = view.participants

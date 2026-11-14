@@ -1,4 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { seatOfColumns } from './seat-columns';
 import { eq, getTableColumns } from 'drizzle-orm';
 import type { BroadcastReleasePolicy } from '@daisy/protocol';
 import {
@@ -60,7 +61,9 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
     const seats = await database
       .select({
         participantId: roundParticipants.id,
-        role: roundParticipants.role,
+        seatKind: roundParticipants.seatKind,
+        side: roundParticipants.side,
+        slot: roundParticipants.slot,
         identity: mediaParticipants.identity,
       })
       .from(roundParticipants)
@@ -75,11 +78,19 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
       capture: broadcast,
       round,
       roomName: await readBroadcastRoom(database, broadcast.roundId),
-      seats: seats.flatMap((seat) => {
-        const person = seen.get(seat.participantId);
+      seats: seats.flatMap(({ participantId, identity, ...columns }) => {
+        const person = seen.get(participantId);
         return person === undefined
           ? []
-          : [{ ...seat, label: person.label, kind: person.kind }];
+          : [
+              {
+                participantId,
+                seat: seatOfColumns(columns),
+                identity,
+                label: person.label,
+                kind: person.kind,
+              },
+            ];
       }),
     };
   },

@@ -19,6 +19,7 @@ import {
   launchRuntimeRound,
   type withRoomRuntime,
 } from './round-runtime.test-support';
+import { isJudgeSeat } from '@daisy/protocol';
 
 const { databaseUrl } = requireTestServices(process.env);
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
@@ -131,7 +132,7 @@ const seatOf = async (f: Fixture, roundId: string, actorId: string) => {
   return {
     version: round.version,
     seat: round.participants.find(
-      (p) => p.actorId === actorId && p.role === 'judge',
+      (p) => p.actorId === actorId && isJudgeSeat(p.seat),
     )!.id,
   };
 };

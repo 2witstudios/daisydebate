@@ -1,14 +1,14 @@
 import {
   competitionTypes,
-  debateRoles,
   roomCaptureSchema,
   roomConfigSchema,
-  roomSeatKinds,
+  seatKinds,
   roomStatuses,
   type RoomView,
   roomExecutionPlanSchema,
   roundRulesSchema,
   type CompetitionType,
+  type SeatKind,
 } from '@daisy/protocol';
 import type { lobbyKinds } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
@@ -39,7 +39,13 @@ import { daisyReferenceLobby } from './lobby-defaults';
 import { ballotDefinitionVersions } from './ballot-definitions';
 import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
-import { seatActorId, seatRole, seatSlot, seatSlotCheck } from './seats';
+import {
+  seatActorId,
+  seatChecks,
+  seatKindColumn,
+  seatSideColumn,
+  seatSlot,
+} from './seats';
 import { formats } from './formats';
 import { actors } from './actors';
 import { lobbies } from './lobbies';
@@ -168,6 +174,11 @@ export const rooms = pgTable(
       sql`(${table.hostActorId} is null) = (${table.lobbyKind} = 'tournament')`,
     ),
     // With rounds_ranked_ladder_check, an event Room can never post to a ladder.
+    // An event Room's Recording is never released as Daisy releases one (TAB-6).
+    check(
+      'rooms_event_recording',
+      sql`${table.lobbyKind} <> 'tournament' or (${table.capture} is not null and ${table.capture}->>'recordingPolicy' in ('off', 'officials'))`,
+    ),
     check(
       'rooms_event_is_casual',
       sql`${table.lobbyKind} <> 'tournament' or ${table.competitionType} = 'casual'`,
@@ -264,7 +275,8 @@ export const rooms = pgTable(
 
 /**
  * A seat during Room assembly, before any Round exists (ADR 0058 §5a).
- * The same terms as a Round's seat: an id, an actor, a role and a slot.
+ * The same terms as a Round's seat: an id, an actor, a seat kind, a side
+ * for a side's seat, and a slot.
  */
 export const roomParticipants = pgTable(
   'room_participants',
@@ -274,7 +286,8 @@ export const roomParticipants = pgTable(
       .notNull()
       .references(() => rooms.id, { onDelete: 'cascade' }),
     actorId: seatActorId(),
-    role: seatRole(),
+    seatKind: seatKindColumn(),
+    side: seatSideColumn(),
     slot: seatSlot(),
     /** Latest accepted readiness command; Redis consent must match this fence. */
     readinessCommandId: text('readiness_command_id'),
@@ -285,14 +298,12 @@ export const roomParticipants = pgTable(
       table.roomId,
       table.actorId,
     ),
-    uniqueIndex('room_participants_seat_unique').on(
-      table.roomId,
-      table.role,
-      table.slot,
-    ),
+    /** One occupant per seat; an unsided seat's null side is one value. */
+    unique('room_participants_seat_unique')
+      .on(table.roomId, table.seatKind, table.side, table.slot)
+      .nullsNotDistinct(),
     index('room_participants_actor_idx').on(table.actorId),
-    check('room_participants_role_check', oneOf(table.role, debateRoles)),
-    check('room_participants_slot_check', seatSlotCheck(table.slot)),
+    ...seatChecks('room_participants', table),
     check(
       'room_participants_readiness_version_nonnegative',
       sql`${table.readinessVersion} >= 0`,
@@ -315,26 +326,26 @@ export const roomSeatHolds = pgTable(
     actorId: text('actor_id')
       .notNull()
       .references(() => actors.id, { onDelete: 'cascade' }),
-    seat: text('seat').notNull(),
+    seat: text('seat').$type<SeatKind>().notNull(),
     until: timestampColumn('until').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.roomId, table.actorId] }),
     index('room_seat_holds_actor_idx').on(table.actorId),
-    check('room_seat_holds_seat_check', oneOf(table.seat, roomSeatKinds)),
+    check('room_seat_holds_seat_check', oneOf(table.seat, seatKinds)),
   ],
 );
 
 /**
- * One active Room per user, enforced here (ADR 0070). A row names the one
- * Room that holds a human actor — as its host or in a seat — while it
- * assembles or its Round is live; the primary key on `actor_id` is the
- * invariant, so a second Room's create or join cannot commit. The Room
- * writer keeps the rows equal to the engine's `activeRoomMembers`, and a
- * Round's end releases them. Bots hold no row.
+ * One active Room per user, enforced here (ADR 0070, TAB-6): a row names the
+ * one Room that seats a human actor while it assembles or its Round is live;
+ * the primary key on `actor_id` is the invariant, so a second Room's seat
+ * cannot commit. A host who holds no seat is not held. The Room writer keeps
+ * the rows equal to the engine's `activeRoomMembers`, and a Round's end
+ * releases them. Bots hold no row.
  */
-export const roomActiveMemberships = pgTable(
-  'room_active_memberships',
+export const activeSeats = pgTable(
+  'active_seats',
   {
     actorId: text('actor_id')
       .primaryKey()
@@ -344,5 +355,5 @@ export const roomActiveMemberships = pgTable(
       .references(() => rooms.id, { onDelete: 'cascade' }),
     createdAt: createdAtColumn(),
   },
-  (table) => [index('room_active_memberships_room_idx').on(table.roomId)],
+  (table) => [index('active_seats_room_idx').on(table.roomId)],
 );

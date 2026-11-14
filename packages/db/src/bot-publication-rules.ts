@@ -1,3 +1,4 @@
+import { isSpeakingSeat, type SeatRef } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { BotPublicationScope } from './bot-publication-context';
 import { nextEpoch } from './lease-policy';
@@ -7,12 +8,12 @@ type Target = Pick<
   'roundId' | 'roundParticipantId' | 'segmentId'
 >;
 
-/** Bots publish only for a debating seat of an active Round. */
+/** Bots publish only for a speaking seat of an active Round. */
 export function requirePublishingSeat(
   round: { readonly status: string },
-  seat: { readonly role: string },
+  seat: { readonly seat: SeatRef },
 ): void {
-  if (round.status !== 'active' || seat.role === 'judge')
+  if (round.status !== 'active' || !isSpeakingSeat(seat.seat))
     throw createAppError('AUTHORIZATION');
 }
 

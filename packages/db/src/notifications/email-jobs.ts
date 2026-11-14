@@ -1,10 +1,11 @@
 import { createAppError } from '@daisy/errors';
 import {
   emailedNotificationKinds,
+  seatKinds,
   type CompetitionType,
   type EmailedNotificationKind,
   type RatingLadder,
-  type RoomSeatKind,
+  type SeatKind,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -49,7 +50,7 @@ export type NotificationEmailDelivery =
       readonly host: string;
       readonly roomId: string;
       readonly roomTitle: string;
-      readonly seat: RoomSeatKind;
+      readonly seat: SeatKind;
     }
   | {
       readonly kind: 'challenge_received';
@@ -90,7 +91,7 @@ const factsRow = z.object({
   invitation_open: z.boolean().nullable(),
   room_id: z.string().nullable(),
   room_title: z.string().nullable(),
-  seat: z.enum(['debater', 'judge']).nullable(),
+  seat: z.enum(seatKinds).nullable(),
   challenge_open: z.boolean().nullable(),
   mode: z.enum(['casual', 'ranked']).nullable(),
   format: z.string().nullable(),

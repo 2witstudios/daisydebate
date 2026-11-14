@@ -1,3 +1,4 @@
+import { affirmativeSide, sideSeat } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { authorize, type ChannelAuthorizationFact } from './authorization';
 import { input, resource, accounts } from './channel.test-support';
@@ -95,7 +96,7 @@ test('beta access gates participant capabilities but keeps the safety exits (ADR
     visibility: 'public' as const,
     status: 'assembling',
     revision: 1,
-    participants: [{ actorId: 'a', role: 'debater', slot: 0 }],
+    participants: [{ actorId: 'a', seat: sideSeat(affirmativeSide) }],
   };
   const evaluate = (beta: 'pending' | 'approved' | 'revoked' | null) =>
     (['room.create', 'room.read', 'room.ready', 'room.leave'] as const).map(
@@ -147,7 +148,9 @@ test('participant access needs a durable age record at the 16+ beta floor (ADR 0
                   visibility: 'public',
                   status: 'assembling',
                   revision: 1,
-                  participants: [{ actorId: 'a', role: 'debater', slot: 0 }],
+                  participants: [
+                    { actorId: 'a', seat: sideSeat(affirmativeSide) },
+                  ],
                 },
           context: {
             account: {

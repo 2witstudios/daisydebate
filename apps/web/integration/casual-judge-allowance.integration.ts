@@ -1,3 +1,9 @@
+import {
+  affirmativeSide,
+  judgeSeat,
+  negativeSide,
+  sideSeat,
+} from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
@@ -43,12 +49,12 @@ test('the first free bot debate includes its optional judge through actual Room 
           ...f.foundationSelection,
           definition: {
             ...f.foundationSelection.definition,
-            seats: { ...f.foundationSelection.definition.seats, judge: 1 },
+            seats: { ...f.foundationSelection.definition.seats, judges: 1 },
           },
         },
         cast: [
-          { actorId: bot.actorId, role: 'negative', slot: 0 },
-          { actorId: judge.actorId, role: 'judge', slot: 0 },
+          { actorId: bot.actorId, seat: sideSeat(negativeSide) },
+          { actorId: judge.actorId, seat: judgeSeat() },
         ],
       })
     ).view;
@@ -56,8 +62,7 @@ test('the first free bot debate includes its optional judge through actual Room 
     view = (
       await f.command(f.host, view, {
         type: 'claim-seat',
-        role: 'affirmative',
-        slot: 0,
+        seat: sideSeat(affirmativeSide),
       })
     ).view;
     view = (await f.consent(f.host, view, 'ready')).view;
@@ -114,8 +119,7 @@ test('the free judge cannot be seated alone on a human debate', async () => {
         f.command(f.host, room, {
           type: 'assign-seat',
           actorId: judge.actorId,
-          role: 'judge',
-          slot: 0,
+          seat: judgeSeat(),
         }),
     });
     assert({

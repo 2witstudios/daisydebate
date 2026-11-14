@@ -1,4 +1,5 @@
 import { ballotCategories } from '@daisy/protocol';
+export { sampleBallotPlan as ballotFormPlan } from '../judge/ballot-plan.test-support';
 export const ballotFormFixture = () => {
   const form = new FormData();
   for (const [key, value] of Object.entries({

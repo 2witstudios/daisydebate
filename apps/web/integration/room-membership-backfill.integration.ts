@@ -7,25 +7,47 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 
-/** The one-active-Room migration's backfill statement, exactly as committed. */
-const backfill = async () => {
-  const migration = await Bun.file(
+const migrationText = (folder: string) =>
+  Bun.file(
     new URL(
-      '../../../packages/db/migrations/20261026154930_one_active_room/migration.sql',
+      `../../../packages/db/migrations/${folder}/migration.sql`,
       import.meta.url,
     ),
   ).text();
-  const statement = migration.split('--> statement-breakpoint').at(-1)!;
+
+/**
+ * The one-active-Room migration's backfill statement, exactly as committed,
+ * on the table TAB-6 renamed, followed by TAB-6's own release of every held
+ * row without a seat: together, what a database migrated today holds.
+ */
+const backfill = async () => {
+  const statement = (await migrationText('20261026154930_one_active_room'))
+    .split('--> statement-breakpoint')
+    .at(-1)!;
   if (!statement.includes('INSERT INTO "room_active_memberships"'))
     throw new Error('The migration no longer ends with its backfill');
-  return statement;
+  const seatless = (await migrationText('20261114151541_tab_seats'))
+    .split('--> statement-breakpoint')
+    .find((part) => part.trim().startsWith('DELETE FROM "active_seats" s'));
+  if (!seatless) throw new Error('TAB-6 no longer releases seatless holds');
+  return [
+    statement.replaceAll('"room_active_memberships"', '"active_seats"'),
+    seatless,
+  ];
 };
 class RolledBack extends Error {}
 
 test('the migration backfill holds open and speaking Rooms only, as the engine rules (ADR 0070)', async () => {
   await withRoomRuntime(async (f) => {
     const open = await f.freshCast();
-    const openRoom = (await f.create({}, open.host)).view;
+    const created = (await f.create({}, open.host)).view;
+    // A seat is what holds a person (TAB-6): the open Room's host takes one.
+    const openRoom = (
+      await f.command(open.host, created, {
+        type: 'claim-seat',
+        seat: { kind: 'side', side: 'affirmative', slot: 0 },
+      })
+    ).view;
     const launched = async (state: string) => {
       const cast = await f.freshCast();
       const { roundId } = await launchRuntimeRound(
@@ -52,14 +74,14 @@ test('the migration backfill holds open and speaking Rooms only, as the engine r
       abandoned.cast,
       scheduled.cast,
     ].flatMap((cast) => [cast.host.actorId, cast.guest.actorId]);
-    const statement = await backfill();
+    const statements = await backfill();
     let held: { actor_id: string }[] = [];
     try {
       await f.sql.begin(async (tx) => {
-        await tx`delete from room_active_memberships where actor_id in ${tx(actors)}`;
-        await tx.unsafe(statement);
+        await tx`delete from active_seats where actor_id in ${tx(actors)}`;
+        for (const statement of statements) await tx.unsafe(statement);
         held =
-          await tx`select actor_id from room_active_memberships where actor_id in ${tx(actors)}`;
+          await tx`select actor_id from active_seats where actor_id in ${tx(actors)}`;
         throw new RolledBack();
       });
     } catch (error) {

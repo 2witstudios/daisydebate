@@ -1,10 +1,11 @@
 import { createAppError, createRefusal } from '@daisy/errors';
+import { isDebatingSeat, type SeatRef } from '@daisy/protocol';
 import type { AttendancePrincipal } from './attendance-facts';
 
 type Seat = {
   readonly id: string;
   readonly actorId: string;
-  readonly role: string;
+  readonly seat: SeatRef;
   readonly kind: 'human' | 'bot';
   readonly eligible: boolean;
 };
@@ -22,7 +23,7 @@ export function selectAttendanceSeat<S extends Seat>(
       ? candidate.actorId === principal.actorId
       : candidate.id === principal.participantId,
   );
-  if (!seat?.eligible || seat.role === 'judge')
+  if (!seat?.eligible || !isDebatingSeat(seat.seat))
     throw createAppError('AUTHORIZATION');
   const expected = principal.kind === 'human' ? 'human' : 'bot';
   if (

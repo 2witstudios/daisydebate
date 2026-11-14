@@ -14,7 +14,13 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import { ballotCategories, type Ballot } from '@daisy/protocol';
+import {
+  ballotCategories,
+  isJudgeSeat,
+  judgeSeat,
+  twoSideKeys,
+  type Ballot,
+} from '@daisy/protocol';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import {
   launchRuntimeRound,
@@ -44,7 +50,7 @@ export const fixtureBallot = (
   reason,
   feedback: {},
   scores: Object.fromEntries(
-    ['affirmative', 'negative'].map((side) => [
+    twoSideKeys.map((side) => [
       side,
       Object.fromEntries(ballotCategories.map((key) => [key, 3])),
     ]),
@@ -60,7 +66,7 @@ export const assembleJudgedRoom = (
       kind: 'custom',
       definition: {
         ...oneOnOneDefinition,
-        seats: { ...oneOnOneDefinition.seats, judge: judges },
+        seats: { ...oneOnOneDefinition.seats, judges },
       },
       config: oneOnOneSettings,
       competitionType: 'casual',
@@ -74,7 +80,10 @@ export async function readyTwoHumanJudgeRoom(
   let room = await assembleJudgedRoom(f, judges.length);
   for (const [slot, judge] of judges.entries())
     room = (
-      await f.command(judge, room, { type: 'claim-seat', role: 'judge', slot })
+      await f.command(judge, room, {
+        type: 'claim-seat',
+        seat: judgeSeat(slot),
+      })
     ).view;
   room = await everyoneReady(f, room, [f.host, f.guest, ...judges]);
   return { room, judges };
@@ -99,7 +108,7 @@ export async function playOut(
   await f.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,chunk_count,sealed_chunk_count,sealed_at)
     select distinct i.round_id,i.segment_id,i.round_participant_id,'complete',0,0,clock_timestamp()
     from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
-    where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
+    where i.round_id=${roundId} and p.seat_kind<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
 }
 /** Every debater's stream sealed as losing audio: no observation, and the platform's fault. */
 async function platformLoses(
@@ -113,7 +122,7 @@ async function platformLoses(
   await f.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,partial_reasons,chunk_count,sealed_chunk_count,sealed_at)
     select distinct i.round_id,i.segment_id,i.round_participant_id,'partial',array['frames-lost'],0,0,clock_timestamp()
     from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
-    where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
+    where i.round_id=${roundId} and p.seat_kind<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
 }
 /** A stored AI judge assigned to the judge seat, then the named debaters ready again. */
 export async function assignAiJudgeAndReady(
@@ -125,8 +134,7 @@ export async function assignAiJudgeAndReady(
   const assigned = (
     await f.command(f.host, room, {
       type: 'assign-seat',
-      role: 'judge',
-      slot: 0,
+      seat: judgeSeat(),
       actorId: judge.actorId,
     })
   ).view;
@@ -199,7 +207,7 @@ export async function submitHumanBallot(
 ) {
   const round = (await f.store.getRound(roundId))!;
   const judge = round.participants.find(
-    (p) => p.actorId === actorId && p.role === 'judge',
+    (p) => p.actorId === actorId && isJudgeSeat(p.seat),
   )!;
   return createRoundBallotOperations({
     store: f.store,

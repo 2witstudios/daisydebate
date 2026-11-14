@@ -32,7 +32,7 @@ test('a bot speaker missing its whole window abandons once even after a relaunch
     const facts = async () =>
       (
         await f.sql`select (select status from rounds where id=${roundId}) as status,
-        (select outcome from rounds where id=${roundId}) as outcome,
+        (select winning_side from rounds where id=${roundId}) as outcome,
         (select coalesce(string_agg(decision,','),'') from round_attendance_adjudications where round_id=${roundId}) as decisions,
         (select count(*)::int from round_commands where round_id=${roundId} and type='adjudicate') as receipts,
         (select count(*)::int from rating_changes where round_id=${roundId}) as ratings`

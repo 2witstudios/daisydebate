@@ -6,6 +6,8 @@ import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
 import { heading, type IntroStepProps } from './intro';
+import { leadSeatOf, sideOfSeat } from '@daisy/protocol';
+import { sideShortName } from '../../../features/debate-room/seat-names';
 
 const plainName: Record<string, string> = {
   AC: 'Case',
@@ -27,12 +29,11 @@ const grow: Record<number, string> = {
 const minutesOf = (ms: number) => ms / 60_000;
 
 function segmentClass(turn: IntroTurn): string {
-  const affirmative = turn.side === 'affirmative';
   if (turn.kind === 'cross-examination')
-    return affirmative
+    return turn.first
       ? 'border-2 border-dashed border-accent bg-accent-soft text-ink'
       : 'border-2 border-dashed border-hue-clay bg-hue-clay-soft text-ink';
-  return affirmative
+  return turn.first
     ? 'bg-accent text-accent-ink'
     : 'bg-hue-clay text-surface-raised';
 }
@@ -54,17 +55,23 @@ const introRules = (() => {
   if (!resolved.ok) throw new Error(resolved.refusal.message);
   return { rules: resolved.rules, preset: freestyle.preset };
 })();
-const introTurns = introRules.rules.segments.map((segment, index) => ({
-  index,
-  name: segment.key,
-  label: segment.label,
-  kind:
-    segment.type === 'cross_ex'
-      ? ('cross-examination' as const)
-      : ('speech' as const),
-  side: segment.side,
-  durationMs: segment.durationMs,
-}));
+const introTurns = introRules.rules.segments.map((segment, index) => {
+  const lead = leadSeatOf(segment.speak);
+  const side = lead ? sideOfSeat(lead) : null;
+  return {
+    index,
+    name: segment.key,
+    label: segment.label,
+    kind:
+      segment.type === 'cross_ex'
+        ? ('cross-examination' as const)
+        : ('speech' as const),
+    side,
+    /** The side that opens, drawn in the accent; the other in clay. */
+    first: side !== null && side === introRules.rules.sides[0]?.key,
+    durationMs: segment.durationMs,
+  };
+});
 type IntroTurn = (typeof introTurns)[number];
 
 /** The prep line, from the format itself: in-round budget, or strike-then-prep. */
@@ -78,7 +85,7 @@ const prepLine = (() => {
 })();
 
 const turnText = (turn: IntroTurn) =>
-  `${turn.side === 'affirmative' ? 'Aff' : 'Neg'} ${
+  `${turn.side === null ? '' : sideShortName(introRules.rules.sides, turn.side)} ${
     turn.kind === 'cross-examination'
       ? 'questions'
       : (plainName[turn.name] ?? turn.label)

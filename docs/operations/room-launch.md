@@ -23,6 +23,7 @@ The authenticated routes are:
 | ------------------------------ | ---------------------------------------------------------------------------------- |
 | `GET /api/rooms/catalog`       | `{ choices: RoomCatalogChoice[], bots: RoomCastChoice[] }`                         |
 | `GET /api/rooms`               | `RoomListQuery` → `RoomListPage` (`rooms: RoomListEntry[]`, `nextCursor`, `retry`) |
+| `GET /api/rooms/hosted`        | `{ rooms: HostedRoom[] }`: the open Rooms the caller hosts, newest first           |
 | `POST /api/rooms`              | `RoomCreate` → `{ receipt, view }`                                                 |
 | `GET /api/rooms/:id`           | `RoomView`                                                                         |
 | `POST /api/rooms/:id/commands` | `RoomCommand` → `{ receipt, view }`                                                |

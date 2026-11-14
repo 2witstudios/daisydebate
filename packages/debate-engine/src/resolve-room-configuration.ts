@@ -57,8 +57,7 @@ const resolvedSegment = (
   key: segment.key,
   label: segment.label,
   type: segment.type,
-  side: segment.side,
-  slot: segment.slot,
+  speak: segment.speak,
   durationMs,
 });
 
@@ -281,8 +280,10 @@ export function resolveRoomConfiguration(
       resolutionDraw: resolutionDraw.value,
     },
     rules: {
-      version: 2,
+      version: 3,
+      sides: definition.sides,
       seats: definition.seats,
+      outcome: definition.outcome,
       segments: schedule.value,
       inRoundPrep: inRoundPrep.value,
       countdownMs: config.speechTiming.countdownMs,

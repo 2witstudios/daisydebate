@@ -41,7 +41,12 @@ try {
     if (!round) throw new Error(`no round ${roundId}`);
     const participants = await rows(
       reader,
-      sql`select id, role, slot from round_participants where round_id = ${roundId}`,
+      sql`select id,
+                 case when seat_kind = 'side'
+                   then json_build_object('kind', seat_kind, 'side', side, 'slot', slot)
+                   else json_build_object('kind', seat_kind, 'slot', slot)
+                 end as seat
+            from round_participants where round_id = ${roundId}`,
     );
     const segments = await rows(
       reader,

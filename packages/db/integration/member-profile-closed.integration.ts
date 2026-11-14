@@ -5,6 +5,7 @@ import {
   present,
   profileOf,
   roomRound,
+  seatName,
   tally,
   withProfileFixture,
 } from './member-profile.test-support';
@@ -32,7 +33,7 @@ test('a closed member keeps a profile with only the public subset, for everyone 
     const reader = await createAuthorizationSubject(fixture);
     const lost = await roomRound(fixture, {
       status: 'completed',
-      outcome: 'negative',
+      winning_side: 'negative',
       started_at: at(3, 11),
       completed_at: at(3),
     });
@@ -76,9 +77,11 @@ test('a closed member keeps a profile with only the public subset, for everyone 
     assert({
       given: 'another member who debated the closed member',
       should: 'name the closed opponent on their history, marked closed',
-      actual: readerView.rows[0]?.seats.find((s) => s.role === 'affirmative'),
+      actual: readerView.rows[0]?.seats.find(
+        (s) => seatName(s.seat) === 'affirmative',
+      ),
       expected: {
-        role: 'affirmative',
+        seat: { kind: 'side', side: 'affirmative', slot: 0 },
         kind: 'human',
         label: username,
         closed: true,

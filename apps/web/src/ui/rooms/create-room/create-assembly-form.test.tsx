@@ -28,7 +28,7 @@ test('creation presents format first and a complete progressively enhanced edito
       html.includes('Points of information (POI)'),
       html.includes('name="duration.segment.0"'),
       html.includes('name="duration.preRound"'),
-      html.includes('value="add-affirmative"'),
+      html.includes('value="add-side:affirmative"'),
       html.includes('name="resolutionMethod"'),
       html.includes('name="topic"'),
     ],

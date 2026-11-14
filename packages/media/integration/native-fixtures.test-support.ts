@@ -35,7 +35,7 @@ export async function withHistoricalSeat(
       rules: validRules,
     });
     await fixture`insert into actors (id,kind) values (${actorId},'bot')`;
-    await fixture`insert into round_participants (id,round_id,actor_id,role,slot) values (${seatId},${roundId},${actorId},'affirmative',0)`;
+    await fixture`insert into round_participants (id,round_id,actor_id,seat_kind,side,slot) values (${seatId},${roundId},${actorId},'side',${validRules.sides[0]!.key},0)`;
     await fixture`update rounds set status='active',current_stage='live',started_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
     await fixture`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms) values (${segmentId},${roundId},0,'speech','AC',clock_timestamp()-interval '1 second',60000)`;
     await fixture`insert into round_speaking_intervals (id,round_id,segment_id,round_participant_id,started_at,started_version) values (${createId()},${roundId},${segmentId},${seatId},clock_timestamp()-interval '1 second',1)`;

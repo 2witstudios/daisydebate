@@ -3,6 +3,7 @@ import { systemClock } from '@daisy/clock';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneSettings } from '@daisy/db/reference-formats';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
+import { affirmativeSide, negativeSide, type SideKey } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 
@@ -34,13 +35,13 @@ type Advance = {
   readonly roundId: string;
 };
 
-const seat = async (tx: SQL, roundId: string, role: string, name: string) => {
+const seat = async (tx: SQL, roundId: string, side: SideKey, name: string) => {
   const userId = createId();
   const actorId = createId();
   await tx`insert into users (id,username,email_verified) values (${userId},${name},true)`;
   await tx`insert into actors (id,kind,user_id) values (${actorId},'human',${userId})`;
-  await tx`insert into round_participants (id,round_id,actor_id,role,slot)
-    values (${createId()},${roundId},${actorId},${role},0)`;
+  await tx`insert into round_participants (id,round_id,actor_id,seat_kind,side,slot)
+    values (${createId()},${roundId},${actorId},'side',${side},0)`;
   return actorId;
 };
 
@@ -82,10 +83,10 @@ const create = async (sql: SQL, input: Create) => {
     const aff = await seat(
       tx as never,
       roundId,
-      'affirmative',
+      affirmativeSide,
       `aff-${suffix}`,
     );
-    await seat(tx as never, roundId, 'negative', `neg-${suffix}`);
+    await seat(tx as never, roundId, negativeSide, `neg-${suffix}`);
     const segmentId = createId();
     await tx`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
       values (${segmentId},${roundId},0,${segment.type},${segment.key},now()-interval '4 minutes',${segment.durationMs})`;
@@ -128,7 +129,7 @@ const advance = async (sql: SQL, input: Advance) => {
       await sql`update broadcasts set stopped_at=now(),stop_reason='policy_violation',media_withheld=true where round_id=${roundId}`;
       return;
     case 'end':
-      await sql`update rounds set status='completed',current_stage=null,outcome='affirmative',completed_at=now()-interval '3 minutes' where id=${roundId}`;
+      await sql`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=now()-interval '3 minutes' where id=${roundId}`;
       await sql`update round_segments set ended_at=coalesce(ended_at,now()-interval '3 minutes') where round_id=${roundId}`;
       await sql`update broadcasts set final_media_end_at=now()-interval '3 minutes',released_through_at=now()-interval '1 minute',stream_ended_at=now(),completed_at=now() where round_id=${roundId}`;
       await sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
@@ -143,7 +144,7 @@ const advance = async (sql: SQL, input: Advance) => {
         await sql`select id from recordings where round_id=${roundId}`;
       const prefix = `recordings/${row.id}/`;
       const [speaker] =
-        await sql`select id from round_participants where round_id=${roundId} and role='affirmative'`;
+        await sql`select id from round_participants where round_id=${roundId} and seat_kind='side' and side=${affirmativeSide}`;
       await sql`update recordings set status='ready',lifecycle=${{
         status: 'ready',
         capture: {

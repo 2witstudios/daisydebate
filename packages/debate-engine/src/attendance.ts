@@ -1,9 +1,9 @@
 import { createInvariantError } from '@daisy/errors';
 import type {
   AttendanceAdjudicationFact,
-  DebateSide,
   HydratedSegment,
   RoundRules,
+  SideKey,
 } from '@daisy/protocol';
 import {
   effectiveAttendanceDeadline,
@@ -18,10 +18,17 @@ export type AttendanceWindow = {
   readonly segmentId: string;
   readonly openedAtMs: number;
   readonly speakerId: string;
-  readonly speakerSide: DebateSide;
+  /** The speaker's side; null for an unsided speaker. */
+  readonly speakerSide: SideKey | null;
+  /**
+   * The side a forfeit by this speaker hands the win to: the other side of a
+   * two-sided Round decided by a winner, else null, when an absent speaker
+   * is only absent and the Round goes on (TAB-6.2).
+   */
+  readonly forfeitsTo: SideKey | null;
   readonly eligibleSeats: readonly {
     readonly id: string;
-    readonly side: DebateSide;
+    readonly side: SideKey | null;
   }[];
   readonly lastSpeech: boolean;
 };
@@ -78,8 +85,8 @@ export type AttendanceDecision =
   | (SettledOn & { readonly decision: 'abandoned' })
   | (SettledOn & {
       readonly decision: 'forfeit';
-      /** The Round's outcome: the projection stores it, the adjudication row does not. */
-      readonly winner: DebateSide;
+      /** The Round's winning side: the projection stores it, the adjudication row does not. */
+      readonly winner: SideKey;
     })
   /** Settled evidence never came and the cutoff passed (DEC-276). */
   | {
@@ -298,15 +305,14 @@ function decisionForStamps(
   const present = presentSeats(window, checkIns, effectiveDeadlineMs);
   if (present.has(window.speakerId))
     return { ...settled, decision: 'attended' };
-  const opponentPresent = window.eligibleSeats.some(
-    (seat) => seat.side !== window.speakerSide && present.has(seat.id),
-  );
-  if (opponentPresent)
-    return {
-      ...settled,
-      decision: 'forfeit',
-      winner: window.speakerSide === 'affirmative' ? 'negative' : 'affirmative',
-    };
+  const { forfeitsTo } = window;
+  if (
+    forfeitsTo !== null &&
+    window.eligibleSeats.some(
+      (seat) => seat.side === forfeitsTo && present.has(seat.id),
+    )
+  )
+    return { ...settled, decision: 'forfeit', winner: forfeitsTo };
   const anyPresent = window.eligibleSeats.some((seat) => present.has(seat.id));
   return { ...settled, decision: anyPresent ? 'none' : 'abandoned' };
 }

@@ -90,7 +90,7 @@ test('the baseline declares the integrity CHECKs the audit listed', async () => 
   });
 });
 
-test('every jsonb column carries a database CHECK for object shape (ISSUE-24)', async () => {
+test('every jsonb column carries a database CHECK for its shape: an object, or a ranking array (ISSUE-24, TAB-6)', async () => {
   const rows = await withClient(
     (client) => client`
       select col.table_name || '.' || col.column_name as col,
@@ -100,6 +100,13 @@ test('every jsonb column carries a database CHECK for object shape (ISSUE-24)', 
             and c.contype = 'c'
             and c.conname = col.table_name || '_' || col.column_name || '_is_object'
             and pg_get_constraintdef(c.oid) like '%jsonb_typeof(' || col.column_name || ') = ''object''%'
+        ) or exists (
+          -- A ranking's places are the one jsonb array: its table's CHECK names its shape.
+          select 1 from pg_constraint c
+          where c.conrelid = (quote_ident(col.table_name))::regclass
+            and c.contype = 'c'
+            and col.column_name = 'ranking'
+            and pg_get_constraintdef(c.oid) like '%jsonb_typeof(' || col.column_name || ') = ''array''%'
         ) as guarded
       from information_schema.columns col
       where col.table_schema = 'public' and col.data_type = 'jsonb'
@@ -108,7 +115,8 @@ test('every jsonb column carries a database CHECK for object shape (ISSUE-24)', 
   );
   assert({
     given: 'every jsonb column in the public schema',
-    should: 'have a <table>_<column>_is_object CHECK on jsonb_typeof',
+    should:
+      'have a <table>_<column>_is_object CHECK on jsonb_typeof, or for a ranking a CHECK that it is an array',
     actual: rows.filter((row: { guarded: boolean }) => !row.guarded),
     expected: [],
   });
@@ -195,7 +203,12 @@ test('the baseline inserts the reference data every environment needs', async ()
     expected: {
       id: 'foundation',
       current_version: 1,
-      seats: { affirmative: 1, negative: 1, judge: 0 },
+      seats: {
+        sides: { affirmative: 1, negative: 1 },
+        speakers: 0,
+        judges: 0,
+        moderators: 0,
+      },
       first_segment: 'AC',
     },
   });

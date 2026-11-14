@@ -1,5 +1,11 @@
 import { assertRejects } from '@daisy/errors/testing';
-import { emptyRuntimeCheckpoint, type RoundRules } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  sideSeat,
+  winnerOutcome,
+  type RoundOutcome,
+  type RoundRules,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { normalizeRoundClock } from './round-clock-state';
 import {
@@ -18,6 +24,7 @@ setupRitewayBun();
 
 const { at, opponent } = oneOnOneCast();
 const [speaker, respondent, judge] = oneOnOneSeats;
+const emptyRuntimeCheckpoint = emptyRuntimeCheckpointFor(oneOnOneRules());
 
 const withInterruptions = (
   interruptions: RoundRules['interaction']['interruptions'],
@@ -136,13 +143,24 @@ test('prep takes the seat whose segment is next (ISSUE-1013)', () => {
   const rules = oneOnOneRules();
   const seats = [
     speaker,
-    { ...speaker, id: 'teammate-seat', actorId: 'teammate', slot: 1 },
+    {
+      ...speaker,
+      id: 'teammate-seat',
+      actorId: 'teammate',
+      seat: sideSeat('affirmative', 1),
+    },
     respondent,
     judge,
   ];
   const facts = (seat: (typeof seats)[number]): RoundCommandFacts =>
     speechFacts(
-      { ...rules, seats: { ...rules.seats, affirmative: 2 } },
+      {
+        ...rules,
+        seats: {
+          ...rules.seats,
+          sides: { ...rules.seats.sides, affirmative: 2 },
+        },
+      },
       {
         participants: seats,
         seat,
@@ -194,7 +212,7 @@ test('hydrating lifecycle columns (ISSUE-1014)', async () => {
     readonly status: 'opening' | 'completed' | 'abandoned';
     readonly startedAt: string | null;
     readonly completedAt: string | null;
-    readonly outcome: 'affirmative' | null;
+    readonly outcome: RoundOutcome | null;
   }) =>
     normalizeRoundClock({
       round,
@@ -210,7 +228,7 @@ test('hydrating lifecycle columns (ISSUE-1014)', async () => {
         status: 'completed',
         startedAt: at(0),
         completedAt: at(5),
-        outcome: 'affirmative',
+        outcome: winnerOutcome('affirmative'),
       }),
       hydrate({
         status: 'abandoned',
@@ -224,7 +242,7 @@ test('hydrating lifecycle columns (ISSUE-1014)', async () => {
         status: 'completed',
         startedAtMs: Date.parse(at(0)),
         completedAtMs: Date.parse(at(5)),
-        outcome: 'affirmative',
+        outcome: winnerOutcome('affirmative'),
       },
       {
         status: 'abandoned',
@@ -250,7 +268,7 @@ test('hydrating lifecycle columns (ISSUE-1014)', async () => {
       status: 'abandoned',
       startedAt: at(0),
       completedAt: at(5),
-      outcome: 'affirmative',
+      outcome: winnerOutcome('affirmative'),
     },
   ] as const)
     await assertRejects({

@@ -9,7 +9,7 @@ const rateable: RatingEligibilityFacts = {
   competitionType: 'ranked',
   ladderId: 'freestyle',
   status: 'completed',
-  outcome: 'affirmative',
+  outcome: { kind: 'winner', side: 'affirmative' },
   completedAt: '2026-10-05T12:00:00.000Z',
   alreadyRated: false,
   ending: 'forfeit',

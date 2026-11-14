@@ -6,7 +6,12 @@ import {
   requireAttendanceDecision,
   adjudicateAttendance,
 } from '@daisy/debate-engine';
-import type { RoundParticipantSeat, RoundRules } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  negativeSide,
+  type RoundParticipantSeat,
+  type RoundRules,
+} from '@daisy/protocol';
 
 /** Actual attendance refusal fixtures used by the invariant registry gate. */
 export function attendanceInvariantFixtures(
@@ -17,10 +22,11 @@ export function attendanceInvariantFixtures(
     segmentId: 'actual-speech',
     openedAtMs: 0,
     speakerId: seats[0]!.id,
-    speakerSide: 'affirmative' as const,
+    speakerSide: affirmativeSide,
+    forfeitsTo: negativeSide,
     eligibleSeats: [
-      { id: seats[0]!.id, side: 'affirmative' as const },
-      { id: seats[1]!.id, side: 'negative' as const },
+      { id: seats[0]!.id, side: affirmativeSide },
+      { id: seats[1]!.id, side: negativeSide },
     ],
     lastSpeech: false,
   };
@@ -45,7 +51,7 @@ export function attendanceInvariantFixtures(
       {
         evidence: 'settled_availability',
         decision: 'forfeit',
-        winner: 'negative',
+        winner: negativeSide,
         effectiveDeadlineMs: 40000,
       },
     );

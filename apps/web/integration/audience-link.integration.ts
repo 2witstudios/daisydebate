@@ -36,7 +36,7 @@ test('an unlisted Round, by its link, on real Postgres', async () => {
         kind: 'custom',
         definition: {
           ...oneOnOneDefinition,
-          seats: { affirmative: 1, negative: 1, judge: 0 },
+          seats: { ...oneOnOneDefinition.seats, judges: 0 },
         },
         competitionType: 'casual',
         config: oneOnOneSettings,
@@ -216,7 +216,7 @@ test('a public Round has no link to issue', async () => {
         kind: 'custom',
         definition: {
           ...oneOnOneDefinition,
-          seats: { affirmative: 1, negative: 1, judge: 0 },
+          seats: { ...oneOnOneDefinition.seats, judges: 0 },
         },
         competitionType: 'casual',
         config: oneOnOneSettings,

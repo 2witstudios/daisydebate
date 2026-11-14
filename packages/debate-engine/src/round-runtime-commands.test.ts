@@ -1,4 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
+import { daisyWinnerBallot, isJudgeSeat, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   oneOnOneSeats,
@@ -166,9 +167,13 @@ describe('round runtime lifecycle', () => {
 
     test('a decided panel closes the Round with its outcome, and it is then terminal', async () => {
       const { world, totalMs } = completedSchedule(rules);
-      const judge = oneOnOneSeats.find((seat) => seat.role === 'judge')!.id;
+      const judge = oneOnOneSeats.find((seat) => isJudgeSeat(seat.seat))!.id;
       const completed = world.completePanel({
         now: at(totalMs),
+        judging: {
+          ballot: daisyWinnerBallot,
+          panel: { decision: 'majority', quorum: 1 },
+        },
         ballots: [{ judgeParticipantId: judge, winner: 'affirmative' }],
         completeness: 'complete',
         panel: {
@@ -185,7 +190,7 @@ describe('round runtime lifecycle', () => {
           currentStage: null,
           startedAt: at(0),
           completedAt: at(totalMs),
-          outcome: 'affirmative',
+          outcome: winnerOutcome('affirmative'),
           checkpoint: {
             version: 1,
             prep_consumed_ms: { affirmative: 0, negative: 0 },
@@ -236,7 +241,7 @@ describe('round runtime lifecycle', () => {
             currentStage: null,
             startedAt: at(0),
             completedAt: at(20_000),
-            outcome: 'negative',
+            outcome: winnerOutcome('negative'),
             checkpoint: {
               version: 1,
               prep_consumed_ms: { affirmative: 0, negative: 0 },

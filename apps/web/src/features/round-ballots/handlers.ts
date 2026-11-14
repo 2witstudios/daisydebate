@@ -10,6 +10,7 @@ import {
 } from '../round-runtime/member-gate';
 import type { createRoundBallotOperations } from './operations';
 import { readRoundBallotBody } from './body';
+import { ballotPlanOf } from './presentation';
 export function createRoundBallotHandlers(
   d: RoundMemberRouteDependencies & {
     readonly maxBodyBytes: number;
@@ -43,6 +44,7 @@ export function createRoundBallotHandlers(
         const { envelope, native } = await readRoundBallotBody(
           request,
           d.maxBodyBytes,
+          async () => ballotPlanOf(await d.read(caller, id)),
         );
         const receipt = await d.operations.submit(
           { kind: 'human', actorId: caller.actorId },

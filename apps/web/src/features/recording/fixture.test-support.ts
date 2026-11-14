@@ -45,6 +45,8 @@ export const round: RecordingRound = {
   hostActorId: 'host',
   completedAtMs: nowMs,
   seatedActorIds: ['aff', 'neg'],
+  recordingPolicy: 'released',
+  officialActorIds: [],
 };
 export const account = (actorId: string): RecordingViewer => ({
   kind: 'account',

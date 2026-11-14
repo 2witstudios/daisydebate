@@ -4,6 +4,7 @@ import type {
   RatingEligibility,
   RatingEligibilityFacts,
 } from '@daisy/protocol';
+import { sideSeat, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rateDebate, ratingPolicy } from './rating';
 import {
@@ -20,7 +21,7 @@ const completed: RatingEligibilityFacts = {
   competitionType: 'ranked',
   ladderId: 'freestyle',
   status: 'completed',
-  outcome: 'affirmative',
+  outcome: winnerOutcome('affirmative'),
   completedAt: at,
   alreadyRated: false,
   ending: 'judged',
@@ -46,7 +47,7 @@ const unsettled: RatingEligibilityFacts['attendance'] = {
 const rated: RatingEligibility = {
   kind: 'rated',
   ladder: 'freestyle',
-  outcome: 'affirmative',
+  outcome: winnerOutcome('affirmative'),
   occurredAt: at,
 };
 
@@ -59,7 +60,7 @@ describe('ratingEligibility', () => {
       expected: {
         kind: 'rated',
         ladder: 'freestyle',
-        outcome: 'affirmative',
+        outcome: winnerOutcome('affirmative'),
         occurredAt: at,
       },
     });
@@ -129,8 +130,8 @@ const newcomer: DebaterStanding = {
   lastRatedAt: null,
 };
 const seats = [
-  { actorId: 'aff', role: 'affirmative' },
-  { actorId: 'neg', role: 'negative' },
+  { actorId: 'aff', seat: sideSeat('affirmative') },
+  { actorId: 'neg', seat: sideSeat('negative') },
 ] as const;
 const plan = (
   standings: Readonly<Record<string, DebaterStanding>>,
@@ -138,7 +139,7 @@ const plan = (
 ) =>
   planRating({
     ladder: 'freestyle',
-    outcome: 'affirmative',
+    outcome: winnerOutcome('affirmative'),
     occurredAt: at,
     seasonId: 'season-1',
     seats,
@@ -228,7 +229,7 @@ describe('planRating', () => {
     const expected = rateDebate({
       affirmative: { state: ratingPolicy.initial, lastRatedAt: null },
       negative: { state: ratingPolicy.initial, lastRatedAt: null },
-      outcome: 'affirmative',
+      outcome: winnerOutcome('affirmative'),
       occurredAt: at,
     });
     assert({
@@ -328,7 +329,7 @@ describe('planRating', () => {
       actual: () =>
         plan(
           { aff: newcomer },
-          { seats: [{ actorId: 'aff', role: 'affirmative' }] },
+          { seats: [{ actorId: 'aff', seat: sideSeat('affirmative') }] },
         ),
       code: 'CONFLICT',
     });

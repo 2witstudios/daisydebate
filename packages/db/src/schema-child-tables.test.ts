@@ -27,16 +27,16 @@ describe('competitive schema child tables', () => {
       expected: {
         participants: {
           checks: [
-            'round_participants_role_check',
+            'round_participants_seat_kind_check',
+            'round_participants_side_check',
             'round_participants_slot_check',
           ],
           indexes: [
             'round_participants_actor_idx',
             'unique round_participants_actor_unique',
             'unique round_participants_id_round_unique',
-            'unique round_participants_seat_unique',
           ],
-          uniques: [],
+          uniques: ['round_participants_seat_unique'],
           namedKeys: [],
         },
         segments: {
@@ -77,8 +77,11 @@ describe('competitive schema child tables', () => {
           checks: [
             'ballots_ballot_definition_complete',
             'ballots_citations_is_object',
+            'ballots_daisy_definition_check',
+            'ballots_decision_check',
             'ballots_feedback_is_object',
             'ballots_freeze_revision_positive',
+            'ballots_ranking_check',
             'ballots_rubric_version_check',
             'ballots_scores_is_object',
             'ballots_winner_check',

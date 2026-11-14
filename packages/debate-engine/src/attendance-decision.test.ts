@@ -15,6 +15,7 @@ const input = {
       { id: 'n', side: 'negative' as const },
     ],
     lastSpeech: false,
+    forfeitsTo: 'negative' as const,
   },
   availability: {
     historyStartsAtMs: 0,

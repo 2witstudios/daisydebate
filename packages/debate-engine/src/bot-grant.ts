@@ -1,4 +1,4 @@
-import type { SeatGrantFacts } from '@daisy/protocol';
+import { sameSeat, type SeatGrantFacts } from '@daisy/protocol';
 
 /**
  * True for a bot seat holding a grant it did not use: not its scheduled turn,
@@ -14,8 +14,5 @@ export function botGrantUnused({
 }: SeatGrantFacts): boolean {
   if (seat.kind !== 'bot' || hasAuthoredSpeech || turn === undefined)
     return false;
-  return (
-    (turn.side !== undefined && turn.side !== seat.role) ||
-    (turn.slot !== undefined && turn.slot !== seat.slot)
-  );
+  return turn.lead !== null && !sameSeat(turn.lead, seat.seat);
 }

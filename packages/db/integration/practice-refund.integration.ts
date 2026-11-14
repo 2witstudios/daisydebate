@@ -1,8 +1,9 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { eq } from 'drizzle-orm';
-import { writeProjectionWithPhaseSignal } from '../src/round-projection-writer';
-import { rounds } from '../src/schema/rounds';
+import {
+  lockedRoundVersion,
+  writeProjectionWithPhaseSignal,
+} from '../src/round-projection-writer';
 import { refundUnservedPracticeLocked } from '../src/round-bot-admission';
 import { createId } from '@paralleldrive/cuid2';
 import { createBotSeat } from './bot-seat.test-support';
@@ -15,16 +16,12 @@ type Generation = Parameters<Parameters<typeof withGeneration>[0]>[0];
 /** Abandons the Round through the shared terminal projection path. */
 const abandon = ({ run, target }: Generation) =>
   run(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(rounds)
-      .where(eq(rounds.id, target.roundId))
-      .for('update');
+    const current = await lockedRoundVersion(tx, target.roundId);
     const now = new Date().toISOString();
     await writeProjectionWithPhaseSignal(
       tx,
       target.roundId,
-      current!,
+      current,
       {
         round: {
           status: 'abandoned',

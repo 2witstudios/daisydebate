@@ -6,6 +6,7 @@ import { settleAttendanceFixture } from './attendance-evaluator.test-support';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { withAttendanceRound } from './attendance.test-support';
 import { rateDebate, ratingAwaited, ratingPolicy } from '@daisy/debate-engine';
+import { winnerOutcome, negativeSide } from '@daisy/protocol';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -53,7 +54,7 @@ test('existing rating feature rediscovers only committed ranked RT forfeits and 
             before: 0,
             decision: kind === 'abandoned' ? 'abandoned' : 'forfeit',
             status: kind === 'abandoned' ? 'abandoned' : 'completed',
-            outcome: kind === 'abandoned' ? null : 'negative',
+            outcome: kind === 'abandoned' ? null : winnerOutcome(negativeSide),
             ledger: kind === 'ranked' ? 2 : 0,
             rediscover: [],
           },
@@ -62,7 +63,7 @@ test('existing rating feature rediscovers only committed ranked RT forfeits and 
           const expected = rateDebate({
             affirmative: { state: ratingPolicy.initial, lastRatedAt: null },
             negative: { state: ratingPolicy.initial, lastRatedAt: null },
-            outcome: 'negative',
+            outcome: winnerOutcome(negativeSide),
             occurredAt: committed!.completedAt!,
           });
           assert({

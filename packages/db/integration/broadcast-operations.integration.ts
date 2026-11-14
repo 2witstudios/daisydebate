@@ -418,11 +418,11 @@ test('discovery finds ranked Rounds and casual Rounds whose host chose a Broadca
             release: { kind: 'delay', seconds: 300 },
             debatersReadChat: true,
           },
-          recording: false,
+          recordingPolicy: 'off',
         },
       )}::text::jsonb where id=${chosen}`;
       await client`update rounds set competition_type='casual', ladder_id=null, capture=${JSON.stringify(
-        { broadcast: null, recording: true },
+        { broadcast: null, recordingPolicy: 'released' },
       )}::text::jsonb where id=${recordedOnly}`;
       await client`update rounds set competition_type='casual', ladder_id=null, capture=null where id=${nothing}`;
       const found = (

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
 import { roundIncidentNotice } from './notice';
 setupRitewayBun();
 
@@ -13,7 +13,7 @@ const HELD =
   "Daisy's media server failed. Your time is safe. Resuming when everyone is back.";
 const until = Date.parse('2026-11-03T10:00:30.000Z');
 const resuming = {
-  ...emptyRuntimeCheckpoint,
+  ...emptyRuntimeCheckpointFor({ sides: twoSides }),
   incident: {
     ...fields,
     phase: 'resuming',
@@ -24,12 +24,16 @@ const resuming = {
 test('what a held Round says', () => {
   const table: readonly [string, unknown, unknown][] = [
     ['an unreadable checkpoint', roundIncidentNotice(null, 0), null],
-    ['no incident', roundIncidentNotice(emptyRuntimeCheckpoint, 0), null],
+    [
+      'no incident',
+      roundIncidentNotice(emptyRuntimeCheckpointFor({ sides: twoSides }), 0),
+      null,
+    ],
     [
       'a pause',
       roundIncidentNotice(
         {
-          ...emptyRuntimeCheckpoint,
+          ...emptyRuntimeCheckpointFor({ sides: twoSides }),
           incident: { ...fields, phase: 'paused' },
         },
         until,

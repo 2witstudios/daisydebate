@@ -22,7 +22,7 @@ describe('formatStandingSchema', () => {
               toMs: 360_000,
             },
             { kind: 'in-round-prep', fromMs: 480_000, toMs: null },
-            { kind: 'seats', role: 'judge', from: 1, to: 3 },
+            { kind: 'seats', of: { kind: 'judge' }, from: 1, to: 3 },
             { kind: 'segments', added: ['X'], removed: [], changed: [] },
             {
               kind: 'interruptions',

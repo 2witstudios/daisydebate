@@ -1,3 +1,4 @@
+import { isDebatingSeat } from '@daisy/protocol';
 import type {
   AuthorizationCapability,
   RoomAuthorizationFact,
@@ -53,8 +54,7 @@ export function roundAllowed(
   return (
     resource.status === 'completed' &&
     resource.participants.some(
-      (p) =>
-        p.actorId === actorId && ['affirmative', 'negative'].includes(p.role),
+      (p) => p.actorId === actorId && isDebatingSeat(p.seat),
     )
   );
 }

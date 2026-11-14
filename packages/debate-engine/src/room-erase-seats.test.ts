@@ -5,8 +5,18 @@ import {
   projectRoom,
   releaseRestrictedMember,
 } from './room-assembly';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import {
+  judgeSeat,
+  sideSeat,
+  type RoomAssemblyState,
+  type SeatRef,
+} from '@daisy/protocol';
 import { consent, edges, started, state } from './room-assembly.test-support';
+
+const seatOf = (
+  kind: 'affirmative' | 'negative' | 'judge',
+  slot: number,
+): SeatRef => (kind === 'judge' ? judgeSeat(slot) : sideSeat(kind, slot));
 
 setupRitewayBun();
 
@@ -105,8 +115,7 @@ test('the heir is the first eligible debater by side and slot, then a judge', ()
     ...other!,
     id: actorId,
     actorId,
-    role,
-    slot,
+    seat: seatOf(role, slot),
     eligible,
     kind: 'human' as const,
   });
@@ -146,8 +155,7 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
     id: 'judge-seat',
     actorId: 'judge',
     label: 'Hidden judge',
-    role: 'judge' as const,
-    slot: 0,
+    seat: judgeSeat(),
     kind: 'human' as const,
   };
   const withJudge = { ...room, participants: [hostSeat!, other!, judge] };
@@ -155,7 +163,7 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
   const judgeReady = { ...consent, readyActorIds: ['judge'] };
   const seatFor = (viewer: RoomAssemblyState, actorId: string) =>
     projectRoom(viewer, actorId, judgeReady, now).participants.find(
-      (p) => p.role === 'judge',
+      (p) => p.seat.kind === 'judge',
     );
   const anonymousTo = (viewer: RoomAssemblyState, actorId: string) => {
     const seat = seatFor(viewer, actorId);
@@ -189,9 +197,8 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
       'other',
       true,
       {
-        role: 'judge',
+        seat: judgeSeat(),
         kind: 'human',
-        slot: 0,
         anonymous: true,
         needsReady: true,
         ready: 'ready',
@@ -214,7 +221,7 @@ test('a host who inherits a Room names no human judge, in the Room or after', ()
         ...inherited,
         participants: [
           ...inherited.participants,
-          { ...judge, id: 'late-seat', actorId: 'late', slot: 1 },
+          { ...judge, id: 'late-seat', actorId: 'late', seat: judgeSeat(1) },
         ],
       },
       'other',
@@ -237,8 +244,7 @@ describe('assign-seat from a host who inherited the Room', () => {
     id: 'judge-seat',
     actorId: 'judge',
     label: 'Hidden judge',
-    role: 'judge' as const,
-    slot: 0,
+    seat: judgeSeat(),
     kind: 'human' as const,
   };
   const debater = {
@@ -246,14 +252,13 @@ describe('assign-seat from a host who inherited the Room', () => {
     id: 'debater-seat',
     actorId: 'debater',
     label: 'Second debater',
-    role: 'negative' as const,
-    slot: 1,
+    seat: sideSeat('negative', 1),
     kind: 'human' as const,
   };
   const inherited = releaseRestrictedMember(
     {
       ...room,
-      rules: { ...room.rules, seats: { ...room.rules.seats, judge: 2 } },
+      rules: { ...room.rules, seats: { ...room.rules.seats, judges: 2 } },
       participants: [hostSeat!, other!, judge, debater],
     },
     'host',
@@ -272,8 +277,7 @@ describe('assign-seat from a host who inherited the Room', () => {
         expectedVersion: from.version,
         type: 'assign-seat',
         actorId: target.actorId,
-        role,
-        slot,
+        seat: seatOf(role, slot),
       },
       consent,
       {
@@ -283,7 +287,7 @@ describe('assign-seat from a host who inherited the Room', () => {
           ...target,
           kind: 'human',
           eligible: true,
-          seatRole: null,
+          aiRole: null,
         },
       },
     );
@@ -320,7 +324,7 @@ describe('assign-seat from a host who inherited the Room', () => {
       ...room,
       hostActorId: 'other',
       hostLabel: other!.label,
-      rules: { ...room.rules, seats: { ...room.rules.seats, judge: 2 } },
+      rules: { ...room.rules, seats: { ...room.rules.seats, judges: 2 } },
       participants: [other!, judge, debater],
     };
     assert({
@@ -350,7 +354,7 @@ describe('assign-seat from a host who inherited the Room', () => {
       'other',
       consent,
       edges.now,
-    ).participants.filter((p) => p.role === 'judge');
+    ).participants.filter((p) => p.seat.kind === 'judge');
     assert({
       given: 'a seated debater the heir moves to a judge seat',
       should: 'accept it and show every judge seat only as filled',

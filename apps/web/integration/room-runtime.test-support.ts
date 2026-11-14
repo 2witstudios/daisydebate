@@ -8,7 +8,10 @@ import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
 import { deleteNamespace } from '@daisy/redis/namespaces';
 import {
+  affirmativeSide,
   isNamedSeat,
+  negativeSide,
+  sideSeat,
   type RoomCommand,
   type RoomCreate,
   type RoomView,
@@ -214,16 +217,14 @@ async function fixture(
     view = (
       await command(host, view, {
         type: 'claim-seat',
-        role: 'affirmative',
-        slot: 0,
+        seat: sideSeat(affirmativeSide),
       })
     ).view;
     view = (
       await command(host, view, {
         type: 'assign-seat',
         actorId,
-        role: 'negative',
-        slot: 0,
+        seat: sideSeat(negativeSide),
       })
     ).view;
     return (await consent(host, await operations.view(host, view.id), 'ready'))
@@ -250,15 +251,13 @@ async function fixture(
     view = (
       await command(cast.host, view, {
         type: 'claim-seat',
-        role: 'affirmative',
-        slot: 0,
+        seat: sideSeat(affirmativeSide),
       })
     ).view;
     view = (
       await command(cast.guest, view, {
         type: 'claim-seat',
-        role: 'negative',
-        slot: 0,
+        seat: sideSeat(negativeSide),
       })
     ).view;
     for (const c of [cast.host, cast.guest])

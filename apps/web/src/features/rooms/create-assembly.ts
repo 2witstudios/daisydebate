@@ -1,5 +1,6 @@
 import { roomCreateSchema } from '@daisy/protocol';
 import { field } from '../forms/form-state';
+import { recordingPolicyFromBox } from './capture-form';
 import {
   readRoomCreateAnswer,
   type RoomCreateAnswer,
@@ -54,7 +55,7 @@ export async function createAssembly(
             },
     visibility: field(form, 'visibility'),
     selection,
-    ...(recording ? { recording: true } : {}),
+    ...(recording ? { recordingPolicy: recordingPolicyFromBox('on') } : {}),
     ...(postRoundCall ? { postRoundCall: true } : {}),
     ...(form.getAll('holdSeatFor').length
       ? { holdSeatsFor: form.getAll('holdSeatFor') }

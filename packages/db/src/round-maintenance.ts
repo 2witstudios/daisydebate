@@ -6,7 +6,7 @@ import {
   roundResolutionStrikes,
 } from './schema/resolution-draws';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { affirmativeSide, idSchema, negativeSide } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import {
@@ -67,7 +67,8 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
         throw createAppError('VALIDATION');
       // The engine's openingStep in SQL. The next strike falls due when its turn
       // opens plus the side's window; prep ends after the reveal or Start round.
-      const turnSide = sql`case when st.n % 2 = 0 then d.manifest->>'firstStriker' when d.manifest->>'firstStriker' = 'affirmative' then 'negative' else 'affirmative' end`;
+      // The strike is a pair's: the turn alternates between the preset's two sides.
+      const turnSide = sql`case when st.n % 2 = 0 then d.manifest->>'firstStriker' when d.manifest->>'firstStriker' = ${affirmativeSide}::text then ${negativeSide}::text else ${affirmativeSide}::text end`;
       const turnWindowMs = sql`case when d.manifest->'controllers'->>(${turnSide}) = 'automatic' then ${AUTOMATIC_STRIKE_DELAY_MS} else (d.manifest->>'strikeWindowMs')::int end`;
       const prepEnd = (anchor: SQL) =>
         sql`${anchor} + coalesce(${rounds.preRoundPrepMs}, 0) * interval '1 millisecond' <= statement_timestamp()`;

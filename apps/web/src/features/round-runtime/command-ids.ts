@@ -10,4 +10,5 @@ export const roundCommandIds = (nextId: () => string): RoundCommandIds => ({
   yield: nextId(),
   interrupt: nextId(),
   forfeit: nextId(),
+  leave: nextId(),
 });

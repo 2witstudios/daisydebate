@@ -1,5 +1,6 @@
 import type { RoomCatalogChoice } from '@daisy/protocol';
-import { roundLength, shapeLabel } from '../debate-room/vocabulary';
+import { roundLength } from '../debate-room/vocabulary';
+import { shapeLabel } from '../debate-room/seat-names';
 
 type Family = 'policy' | 'value' | 'parli' | 'other';
 
@@ -84,11 +85,12 @@ export const presetSpeechMs = (choice: RoomCatalogChoice) =>
 export function choiceSummary(choice: RoomCatalogChoice): string {
   const { inRoundPrep, preRoundPrep, speechTiming, resolutionDraw } =
     choice.preset.config;
-  const length = `${shapeLabel(choice.definition.seats)} · ${roundLength({
+  const length = `${shapeLabel(choice.definition)} · ${roundLength({
     speechesMs: presetSpeechMs(choice),
     countdownMs: speechTiming.countdownMs,
     prepPerSideMs: inRoundPrep.enabled ? inRoundPrep.budgetMsPerSide : null,
     preRoundPrepMs: preRoundPrep.enabled ? preRoundPrep.durationMs : 0,
+    sideCount: choice.definition.sides.length,
   })}`;
   return resolutionDraw.enabled ? `${length} · resolution by strike` : length;
 }

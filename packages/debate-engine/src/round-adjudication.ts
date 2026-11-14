@@ -1,5 +1,14 @@
 import { createAppError } from '@daisy/errors';
-import type { HydratedSegment, RoundParticipantSeat } from '@daisy/protocol';
+import {
+  leadSeatOf,
+  otherSide,
+  sameSeat,
+  sideOfSeat,
+  winnerOutcome,
+  type HydratedSegment,
+  type RoundParticipantSeat,
+} from '@daisy/protocol';
+import { forfeitsToOpponent } from './round-outcome';
 import {
   attendancePolicy,
   resolutionCutoffOf,
@@ -34,15 +43,19 @@ export function applyRoundAdjudication(
     return;
   }
   requireSettledTime(c, decision.effectiveDeadlineMs, row);
-  if (
-    !participants.some((p) => p.role === target.side && p.slot === target.slot)
-  )
+  const speaker = leadSeatOf(target.speak);
+  if (speaker === null || !participants.some((p) => sameSeat(p.seat, speaker)))
     throw createAppError('INVARIANT');
   if (decision.decision === 'forfeit') {
-    const winner = target.side === 'affirmative' ? 'negative' : 'affirmative';
-    if (decision.winner !== winner) throw createAppError('INVARIANT');
+    const side = sideOfSeat(speaker);
+    if (
+      !forfeitsToOpponent(c.rules) ||
+      side === null ||
+      decision.winner !== otherSide(c.rules.sides, side)
+    )
+      throw createAppError('INVARIANT');
     closePlayedRound(c);
-    return completeWith(c, winner);
+    return completeWith(c, winnerOutcome(decision.winner));
   }
   closePlayedRound(c);
   c.on.setLifecycle(abandonedLifecycle(c.on.lifecycle(), c.now));

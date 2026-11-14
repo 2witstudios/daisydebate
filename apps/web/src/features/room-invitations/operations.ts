@@ -4,7 +4,7 @@ import {
   decideInvitationEnd,
   decideRoomInvitation,
 } from '@daisy/debate-engine';
-import type { RoomSeatKind } from '@daisy/protocol';
+import type { SeatKind } from '@daisy/protocol';
 
 type Store = Pick<Database, 'inviteToRoom' | 'endRoomInvitation'>;
 type Caller = { readonly userId: string; readonly actorId: string };
@@ -25,7 +25,7 @@ export const inviteToRoom = (
   input: {
     readonly roomId: string;
     readonly username: string;
-    readonly seat: RoomSeatKind;
+    readonly seat: SeatKind;
   },
 ) =>
   deps.store.inviteToRoom({

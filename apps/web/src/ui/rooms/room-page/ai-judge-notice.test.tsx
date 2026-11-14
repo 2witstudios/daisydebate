@@ -15,7 +15,7 @@ const render = (
         {
           aiJudgeSeating,
           competitionType,
-          definition: { seats: { affirmative: 1, negative: 1, judge } },
+          definition: { seats: { judges: judge } },
         } as never
       }
     />,

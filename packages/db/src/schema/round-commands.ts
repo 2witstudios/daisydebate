@@ -15,6 +15,8 @@ export const roundCommandTypes = [
   'yield',
   'interrupt',
   'forfeit',
+  /** A competitor leaving a Round no forfeit ends (TAB-6.8). */
+  'leave',
   'complete',
   'submit_ballot',
   'check_in',

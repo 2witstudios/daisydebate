@@ -75,8 +75,14 @@ test('Start practice asks for a casual Freestyle Room with the chosen bot and th
         competitionType: 'casual',
       },
       [
-        { actorId: 'wren-actor-id-000000', role: 'negative', slot: 0 },
-        { actorId: 'judge-actor-id-000000', role: 'judge', slot: 0 },
+        {
+          actorId: 'wren-actor-id-000000',
+          seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+        },
+        {
+          actorId: 'judge-actor-id-000000',
+          seat: { kind: 'judge', slot: 0 } as const,
+        },
       ],
     ],
   });
@@ -162,7 +168,12 @@ test('Start practice without the casual AI judge leaves the judge seat for a per
     given: 'a member without the entitlement',
     should: 'seat only the bot, so the host invites a person to judge',
     actual: ready.kind === 'ready' ? ready.body.cast : ready,
-    expected: [{ actorId: 'wren-actor-id-000000', role: 'negative', slot: 0 }],
+    expected: [
+      {
+        actorId: 'wren-actor-id-000000',
+        seat: { kind: 'side', side: 'negative', slot: 0 } as const,
+      },
+    ],
   });
   const noJudge = preparePractice(
     form('wren-actor-id-000000'),

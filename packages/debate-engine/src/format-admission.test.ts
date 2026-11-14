@@ -36,9 +36,21 @@ for (const [name, definition] of [
 test('compiler preserves bounded asymmetric sides and a cross-ex-only speaking side', () => {
   const definition = {
     ...oneOnOneFormatFixture,
-    seats: { affirmative: 255, negative: 1, judge: 0 },
+    seats: {
+      ...oneOnOneFormatFixture.seats,
+      sides: { affirmative: 255, negative: 1 },
+      judges: 0,
+    },
     segments: oneOnOneFormatFixture.segments.map((s) =>
-      s.side === 'negative' ? { ...s, type: 'cross_ex' as const } : s,
+      s.speak.rights === 'one' &&
+      s.speak.seat.kind === 'side' &&
+      s.speak.seat.side === 'negative'
+        ? {
+            ...s,
+            type: 'cross_ex' as const,
+            speak: { rights: 'all' as const, lead: s.speak.seat },
+          }
+        : s,
     ),
   };
   const result = resolveRoomConfiguration(definition, oneOnOneSettings);

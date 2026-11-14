@@ -32,8 +32,10 @@ for (const role of ['affirmative', 'judge'] as const) {
           actorId,
           kind: 'human' as const,
           label: 'Host',
-          role,
-          slot: 0,
+          seat:
+            role === 'judge'
+              ? ({ kind: 'judge', slot: 0 } as const)
+              : ({ kind: 'side', side: role, slot: 0 } as const),
           needsReady: true,
           eligible: true,
           ready: 'not-ready' as const,
@@ -101,8 +103,7 @@ test('a seated debater has the Room chat under their devices and Ready in the si
         actorId,
         kind: 'human' as const,
         label: 'Host',
-        role: 'affirmative' as const,
-        slot: 0,
+        seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
         needsReady: true,
         eligible: true,
         ready: 'not-ready' as const,

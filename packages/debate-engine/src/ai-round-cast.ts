@@ -1,4 +1,4 @@
-import { debateSides, type RoomAssemblyState } from '@daisy/protocol';
+import { isDebatingSeat, type RoomAssemblyState } from '@daisy/protocol';
 
 /**
  * A bot debates in this cast, which is the one fact Launch acts on: the host
@@ -10,7 +10,4 @@ import { debateSides, type RoomAssemblyState } from '@daisy/protocol';
 export const castSeatsBotDebater = (
   room: Pick<RoomAssemblyState, 'participants'>,
 ): boolean =>
-  room.participants.some(
-    (p) =>
-      p.kind === 'bot' && (debateSides as readonly string[]).includes(p.role),
-  );
+  room.participants.some((p) => p.kind === 'bot' && isDebatingSeat(p.seat));

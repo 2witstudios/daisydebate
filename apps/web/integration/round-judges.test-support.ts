@@ -11,7 +11,7 @@ export async function assembleJudgedRoom(
       kind: 'custom',
       definition: {
         ...choice.definition,
-        seats: { ...choice.definition.seats, judge: judges },
+        seats: { ...choice.definition.seats, judges },
       },
       config: choice.preset.config,
       competitionType: 'casual',

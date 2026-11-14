@@ -1,8 +1,9 @@
 'use server';
 import { headers } from 'next/headers';
-import { ballotDebaters } from '../../../../../features/round-ballots/presentation';
+import { ballotPlanOf } from '../../../../../features/round-ballots/presentation';
 import { readRoundBallot } from '../../../../../features/round-ballots/reads';
 import {
+  ballotUnavailable,
   submitRoundBallotForm,
   type RoundBallotFormState,
 } from '../../../../../features/round-ballots/form';
@@ -37,11 +38,14 @@ export async function submitBallotAction(
 ): Promise<RoundBallotFormState> {
   const incoming = new Headers(await headers());
   const current = await readPersistedBallot(roundId);
+  // The ballot is read against its Round's own plan; with no Round read, it
+  // is kept for a retry, as any unacknowledged ballot is.
+  if (current.kind !== 'found') return ballotUnavailable(form);
   const answer = await submitRoundBallotForm(
     inProcessFetch(post, incoming),
     roundId,
     form,
-    current.kind === 'found' ? ballotDebaters(current.view) : undefined,
+    ballotPlanOf(current.view),
   );
   if (answer.kind === 'recorded' && !hydratedPost(incoming))
     return moveOn(incoming, `/judge/ballot/${answer.receipt.roundId}`);

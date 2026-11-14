@@ -4,7 +4,10 @@ import { closedStreamGaps, streamKey } from './capture-gaps';
 import type { CaptureRule } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import {
+  ballotSubjectsFor,
   idSchema,
+  feedbackSubjectOf,
+  isJudgeSeat,
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
   type LaunchedRound,
@@ -17,6 +20,7 @@ import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 import { roundViewFor } from './round-view-projection';
+import { outcomeOfColumns } from './round-outcome-columns';
 import { readWaitingOn } from './round-waiting-read';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
@@ -72,7 +76,9 @@ export const roundBallotReads = ({
           roundId: rounds.id,
           resolution: rounds.resolution,
           status: rounds.status,
-          outcome: rounds.outcome,
+          winningSide: rounds.winningSide,
+          ranking: rounds.ranking,
+          rules: rounds.rulesSnapshot,
           ballotSubmitted: sql<boolean>`${ballots.id} is not null`,
           freezeRevision: roundTranscriptFreezes.revision,
         })
@@ -86,11 +92,16 @@ export const roundBallotReads = ({
         .where(
           and(
             eq(roundParticipants.actorId, caller.actorId),
-            eq(roundParticipants.role, 'judge'),
+            eq(roundParticipants.seatKind, 'judge'),
           ),
         )
         .orderBy(desc(rounds.createdAt));
-      return roundJudgeAssignmentsSchema.parse(assignments);
+      return roundJudgeAssignmentsSchema.parse(
+        assignments.map(({ winningSide, ranking, rules, ...assignment }) => ({
+          ...assignment,
+          outcome: outcomeOfColumns({ winningSide, ranking }, rules),
+        })),
+      );
     });
   },
   async readRoundBallot(input: {
@@ -120,6 +131,10 @@ export const roundBallotReads = ({
         },
       });
       const ownSeat = ownJudgeSeat(round.participants, input.caller.actorId);
+      const [frozenJudging] = await tx
+        .select({ judging: rounds.judging })
+        .from(rounds)
+        .where(eq(rounds.id, input.roundId));
       const rows = await tx
         .select()
         .from(ballots)
@@ -131,10 +146,13 @@ export const roundBallotReads = ({
         (p) => p.actorId === input.caller.actorId,
       );
       const completed = round.status === 'completed';
-      const viewerSide = seat && seat.role !== 'judge' ? seat.role : undefined;
+      const viewerSubject =
+        (seat &&
+          feedbackSubjectOf(frozenJudging?.judging?.ballot ?? null, seat)) ??
+        undefined;
       const aiJudgeSeatIds = new Set(
         round.participants
-          .filter((p) => p.role === 'judge' && p.kind === 'bot')
+          .filter((p) => isJudgeSeat(p.seat) && p.kind === 'bot')
           .map((p) => p.id),
       );
       const waitingOn = await readWaitingOn(tx, round, input.decideWaitingOn);
@@ -146,11 +164,14 @@ export const roundBallotReads = ({
           { actorId: input.caller.actorId, account: currentAccount },
           input.readOpening,
         ),
+        judging: frozenJudging?.judging ?? null,
         ...ballotReadView({
           status: round.status,
           ownSeatId: ownSeat?.id,
-          viewerSide,
+          viewerSubject,
           aiJudgeSeatIds,
+          definition: frozenJudging?.judging?.ballot ?? null,
+          subjects: ballotSubjectsFor(round.rules, round.participants),
           rows,
           frozen,
         }),

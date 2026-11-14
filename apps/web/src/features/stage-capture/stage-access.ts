@@ -1,5 +1,17 @@
 import { CryptoHasher } from 'bun';
-import { isRoundOver, type RoundStatus } from '@daisy/protocol';
+import {
+  isDebatingSeat,
+  isRoundOver,
+  sameSeat,
+  seatKey,
+  seatOrder,
+  sideOfSeat,
+  type FormatSeating,
+  type RoundStatus,
+  type SeatRef,
+  type Side,
+} from '@daisy/protocol';
+import { seatName, sideName } from '../debate-room/seat-names';
 
 /** A CSPRNG secret for one Egress's stage page; only its hash is ever stored. */
 export const credentialHash = (secret: string) =>
@@ -42,13 +54,14 @@ type StagePosition = {
   readonly openSegment: {
     readonly label: string;
     readonly endsAt: string;
-    readonly side: 'affirmative' | 'negative';
+    /** The seat the segment is scheduled to; null for an open floor. */
+    readonly lead: SeatRef | null;
     readonly floorParticipantId: string | null;
   } | null;
 };
 
 type StageSeat = {
-  readonly role: string;
+  readonly seat: SeatRef;
   readonly label: string;
   readonly kind: 'human' | 'bot';
   /** Null until this seat has joined media: its name still belongs on the stage. */
@@ -56,20 +69,47 @@ type StageSeat = {
   readonly participantId: string;
 };
 
-/** Affirmative on the left, whatever order the seats were read in. */
-const stageOrder = (a: StageSeat, b: StageSeat) =>
-  a.role === b.role
-    ? a.participantId.localeCompare(b.participantId)
-    : a.role === 'affirmative'
-      ? -1
-      : 1;
+/** The format's sides and seats, so the stage reads them by their own names. */
+type StageSeating = FormatSeating & { readonly sides: readonly Side[] };
 
+/**
+ * One seat on the frame, in its column: a side (in declared order) for a sided
+ * format, or the seat itself for an unsided one.
+ */
 export type StageSeatView = {
-  readonly side: 'affirmative' | 'negative';
+  /** The column's stable key: the side's, or the seat's. */
+  readonly column: string;
+  /** How the column reads: the side's name, or the seat's. */
+  readonly columnLabel: string;
   readonly label: string;
   readonly kind: 'human' | 'bot';
   readonly identity: string | null;
   readonly floor: boolean;
+};
+
+const columnOf = (seating: StageSeating, seat: SeatRef) => {
+  const side = sideOfSeat(seat);
+  return side === null
+    ? { column: seatKey(seat), columnLabel: seatName(seating, seat) }
+    : { column: side, columnLabel: sideName(seating.sides, side) };
+};
+
+/**
+ * Whether a seat holds the floor: the participant who took it, or else the
+ * segment's lead seat, every seat of its side for a sided lead.
+ */
+const onFloor = (
+  open: StagePosition['openSegment'],
+  seat: StageSeat,
+): boolean => {
+  if (open === null) return false;
+  if (open.floorParticipantId)
+    return open.floorParticipantId === seat.participantId;
+  if (open.lead === null) return false;
+  const side = sideOfSeat(open.lead);
+  return side === null
+    ? sameSeat(open.lead, seat.seat)
+    : side === sideOfSeat(seat.seat);
 };
 
 /**
@@ -136,24 +176,24 @@ const phaseViewOf = (position: StagePosition): StagePhaseView => {
 /** Everything the stage burns into the video; built field by field, judges excluded. */
 export const stageSnapshot = (input: {
   readonly position: StagePosition;
+  readonly seating: StageSeating;
   readonly seats: readonly StageSeat[];
 }): StageSnapshot & { readonly debaterIdentities: readonly string[] } => {
-  const open = input.position.openSegment;
+  const order = seatOrder(input.seating.sides);
   const debaters = input.seats
-    .filter((seat) => seat.role === 'affirmative' || seat.role === 'negative')
-    .sort(stageOrder);
+    .filter((seat) => isDebatingSeat(seat.seat))
+    .sort(
+      (a, b) =>
+        order(a.seat, b.seat) || a.participantId.localeCompare(b.participantId),
+    );
   return {
     ...phaseViewOf(input.position),
     seats: debaters.map((seat) => ({
-      side: seat.role as 'affirmative' | 'negative',
+      ...columnOf(input.seating, seat.seat),
       label: seat.label,
       kind: seat.kind,
       identity: seat.identity,
-      floor:
-        open !== null &&
-        (open.floorParticipantId
-          ? open.floorParticipantId === seat.participantId
-          : open.side === seat.role),
+      floor: onFloor(input.position.openSegment, seat),
     })),
     debaterIdentities: debaters.flatMap((seat) =>
       seat.identity === null ? [] : [seat.identity],

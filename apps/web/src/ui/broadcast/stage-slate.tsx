@@ -39,14 +39,22 @@ const slateFacts = (snapshot: Waiting): SlateFacts => {
   }
 };
 
-const namesOf = (
-  seats: readonly StageSeatView[],
-  side: StageSeatView['side'],
-) =>
-  seats
-    .filter((seat) => seat.side === side)
-    .map((seat) => seat.label)
-    .join(' · ');
+/** Each column's names, in the snapshot's order: sides as declared, or seats. */
+const columnsOf = (seats: readonly StageSeatView[]) =>
+  seats.reduce<{ key: string; label: string; names: string[] }[]>(
+    (columns, seat) => {
+      const column = columns.find((entry) => entry.key === seat.column);
+      if (column) column.names.push(seat.label);
+      else
+        columns.push({
+          key: seat.column,
+          label: seat.columnLabel,
+          names: [seat.label],
+        });
+      return columns;
+    },
+    [],
+  );
 
 /**
  * The frame outside a speech: what the Round is waiting for, how long while that
@@ -55,12 +63,7 @@ const namesOf = (
  */
 export function StageSlate({ snapshot }: { readonly snapshot: Waiting }) {
   const facts = slateFacts(snapshot);
-  const sides = (
-    [
-      ['Affirmative', namesOf(snapshot.seats, 'affirmative')],
-      ['Negative', namesOf(snapshot.seats, 'negative')],
-    ] as const
-  ).filter(([, names]) => names !== '');
+  const columns = columnsOf(snapshot.seats);
   return (
     <section
       className="broadcast-stage-slate"
@@ -73,10 +76,10 @@ export function StageSlate({ snapshot }: { readonly snapshot: Waiting }) {
       )}
       {facts.next === null ? null : <p>Next: {facts.next}</p>}
       <dl>
-        {sides.map(([side, names]) => (
-          <div key={side}>
-            <dt>{side}</dt>
-            <dd>{names}</dd>
+        {columns.map((column) => (
+          <div key={column.key}>
+            <dt>{column.label}</dt>
+            <dd>{column.names.join(' · ')}</dd>
           </div>
         ))}
       </dl>

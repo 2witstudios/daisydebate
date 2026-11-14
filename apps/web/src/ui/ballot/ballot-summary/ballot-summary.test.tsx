@@ -2,7 +2,7 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  sampleBallotDebaters,
+  sampleBallotPlan,
   sampleJudgeBallot,
 } from '../../mock/judge.test-support';
 import { BallotSummary } from './ballot-summary';
@@ -14,7 +14,7 @@ const render = (feedback: typeof sampleJudgeBallot.feedback) =>
     h(BallotSummary, {
       title: 'Judge',
       ballot: { ...sampleJudgeBallot, feedback },
-      debaters: sampleBallotDebaters,
+      plan: sampleBallotPlan,
     }),
   );
 
@@ -27,7 +27,7 @@ describe('BallotSummary', () => {
         'name who it voted for, give the reason and both pieces of feedback',
       actual: [
         html.includes('Voted Maya Singh'),
-        html.includes(sampleJudgeBallot.reason),
+        html.includes(sampleJudgeBallot.reason!),
         html.includes('>Feedback<'),
         html.includes('Answer every argument in your first rebuttal'),
         html.includes('Say why your impact outweighs theirs'),

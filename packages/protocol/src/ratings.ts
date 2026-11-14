@@ -1,7 +1,9 @@
 import type { CompetitionType } from './round';
 import type { RoundEndState } from './round-lifecycle';
 import type { AttendanceLedgerFacts } from './attendance';
-import type { DebateRole, RatingLadder, RoundOutcome } from './primitives';
+import type { RatingLadder } from './primitives';
+import type { WinnerOutcome } from './round-outcome';
+import type { SeatRef } from './seats';
 
 /**
  * The rating decision contract (ADR 0055, ADR 0058) between `@daisy/db`,
@@ -49,7 +51,8 @@ export type RatingEligibility =
   | {
       readonly kind: 'rated';
       readonly ladder: RatingLadder;
-      readonly outcome: RoundOutcome;
+      /** A rating compares two sides: only a two-sided Round's winner is rated. */
+      readonly outcome: WinnerOutcome;
       readonly occurredAt: string;
     }
   | { readonly kind: 'already-rated' }
@@ -73,12 +76,12 @@ export type DebaterStanding = {
 /** What a rating plan is computed from, as the adapter loads it. */
 export type RatingPlanFacts = {
   readonly ladder: RatingLadder;
-  readonly outcome: RoundOutcome;
+  readonly outcome: WinnerOutcome;
   readonly occurredAt: string;
   readonly seasonId: string | null;
   readonly seats: readonly {
     readonly actorId: string;
-    readonly role: DebateRole;
+    readonly seat: SeatRef;
   }[];
   readonly standings: Readonly<Record<string, DebaterStanding>>;
   /** cuid2 ids for the two ledger rows, affirmative first. */

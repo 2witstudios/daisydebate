@@ -9,7 +9,11 @@ const debater = {
   id: 'a',
   name: 'Ada',
   initials: 'A',
-  side: 'aff',
+  seat: { kind: 'side', side: 'affirmative', slot: 0 },
+  side: 'affirmative',
+  sideLabel: 'Affirmative',
+  sideShort: 'Aff',
+  tone: 'sky',
   rating: null,
 } satisfies Debater;
 

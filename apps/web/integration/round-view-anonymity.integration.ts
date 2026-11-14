@@ -1,6 +1,12 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  isNamedSeat,
+  judgeSeat,
+  sideSeat,
+  type RoomView,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 
@@ -19,7 +25,7 @@ const createThreeSeatRoom = async (f: Runtime): Promise<RoomView> => {
         kind: 'custom',
         definition: {
           ...choice.definition,
-          seats: { affirmative: 1, negative: 1, judge: 1 },
+          seats: { ...choice.definition.seats, judges: 1 },
         },
         config: choice.preset.config,
         competitionType: 'casual',
@@ -34,11 +40,16 @@ const claimSeat = async (
   who: Caller,
   role: 'affirmative' | 'negative' | 'judge',
 ): Promise<RoomView> =>
-  (await f.command(who, view, { type: 'claim-seat', role, slot: 0 })).view;
+  (
+    await f.command(who, view, {
+      type: 'claim-seat',
+      seat: role === 'judge' ? judgeSeat() : sideSeat(role),
+    })
+  ).view;
 
 const judgeSeatId = async (f: Runtime, roomId: string) => {
   const [seat] = await f.sql<{ id: string }[]>`
-    select id from room_participants where room_id=${roomId} and role='judge'`;
+    select id from room_participants where room_id=${roomId} and seat_kind='judge'`;
   return seat!.id;
 };
 
@@ -118,8 +129,8 @@ test('a launched Round names its human judge to that judge alone, and not to a d
 
     view = await readyAllThenStart(f, view);
     const seatedLobby = await ownView(f.guest);
-    const judgeSeatInLobby = seatedLobby.participants.find(
-      (p) => p.role === 'judge',
+    const judgeSeatInLobby = seatedLobby.participants.find((p) =>
+      isJudgeSeat(p.seat),
     )!;
     assert({
       given: 'the judge readied, the assembly read by a debater',
@@ -136,7 +147,7 @@ test('a launched Round names its human judge to that judge alone, and not to a d
 
     const roundId = view.roundRef!.id;
     const [roundJudgeSeat] = await f.sql<{ id: string }[]>`
-      select id from round_participants where round_id=${roundId} and role='judge'`;
+      select id from round_participants where round_id=${roundId} and seat_kind='judge'`;
     const roundSecrets = [
       ...secrets,
       roundJudgeSeat!.id,

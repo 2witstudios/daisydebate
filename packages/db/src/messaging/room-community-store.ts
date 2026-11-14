@@ -27,7 +27,7 @@ type DiscoveryScope = Omit<RoomCommunityScope, 'channelId'>;
 export const roomCommunityMetadataOf = (fact: RoomCommunityFact) => ({
   channelId: fact.channelId!,
   readOnly:
-    !isOpenRoomStatus(fact.status) || roomCommunitySeatReadsOnly(fact.seatRole),
+    !isOpenRoomStatus(fact.status) || roomCommunitySeatReadsOnly(fact.seatKind),
   expiresAt:
     fact.endedAt === null
       ? null
@@ -83,7 +83,7 @@ const roomCommunityOwner = (
     const wanted = authorActorIds.length ? requested : sql`array[]::text[]`;
     const rows = (await tx.execute(
       sql`select a.id as "actorId",u.username as label,
-          exists(select 1 from room_participants p where p.room_id=${ownerId} and p.actor_id=a.id and p.role='judge') as judge
+          exists(select 1 from room_participants p where p.room_id=${ownerId} and p.actor_id=a.id and p.seat_kind='judge') as judge
         from actors a join users u on u.id=a.user_id and u.deleted_at is null
         where a.kind='human' and a.id in (
           select recent.author_actor_id from (select m.author_actor_id from messaging_messages m where m.channel_id=${channelId} and m.text is not null and m.removed_at is null order by m.sequence desc limit ${AUTHOR_LABELS}) recent

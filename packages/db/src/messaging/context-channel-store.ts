@@ -144,7 +144,7 @@ export function createContextChannelStore<Fact extends ContextChannelFact>(
                 targetId: messageId,
                 reason,
               },
-              feedbackSide: null,
+              feedbackSubject: null,
             });
           },
           readAuthors: async (authorActorIds) => {

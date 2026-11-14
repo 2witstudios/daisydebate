@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   formatDefinitionSchema,
   formatSettingsSchema,
+  twoSides,
   type FormatDefinition,
 } from '@daisy/protocol';
 import { oneOnOneSettingsFixture } from '@daisy/protocol/testing';
@@ -37,6 +38,8 @@ const migratedDefinitions = (sql: string) => {
     backfill >= 0 && (at ?? 0) < backfill;
   // ADR 0096: every row seeded before it drops the cross-examination settings.
   const crossExBackfill = sql.indexOf('-- ADR 0096 backfill');
+  // TAB-6: every definition seeded before it is rewritten to version 2.
+  const seatsBackfill = sql.indexOf('-- TAB-6: seats, sides');
   const definitions = new Map<string, unknown>();
   for (const match of sql.matchAll(
     /'([a-z0-9-]+)', (\d+), '(\{.*?\})'::jsonb, statement_timestamp\(\)/g,
@@ -49,15 +52,60 @@ const migratedDefinitions = (sql: string) => {
           configurable: { ...definition.configurable, resolutionDraw: null },
         }
       : definition;
+    const crossed = before(crossExBackfill, match.index)
+      ? withoutCrossExDefinition(drawn)
+      : drawn;
     definitions.set(
       `${formatId}@${version}`,
-      before(crossExBackfill, match.index)
-        ? withoutCrossExDefinition(drawn)
-        : drawn,
+      before(seatsBackfill, match.index)
+        ? twoSidedDefinition(crossed as unknown as VersionOneDefinition)
+        : crossed,
     );
   }
   return { definitions, presetBackfill, crossExBackfill, before };
 };
+
+/** A version-1 definition: flat two-sided seats, each segment a side's slot. */
+type VersionOneDefinition = Omit<
+  FormatDefinition,
+  'version' | 'sides' | 'seats' | 'outcome' | 'segments'
+> & {
+  readonly version: 1;
+  readonly seats: { affirmative: number; negative: number; judge: number };
+  readonly segments: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly type: 'speech' | 'cross_ex';
+    readonly side: string;
+    readonly slot: number;
+    readonly defaultDurationMs: number;
+  }[];
+};
+
+/** TAB-6's rewrite of a version-1 definition, as its migration spells it in SQL. */
+const twoSidedDefinition = ({
+  seats,
+  segments,
+  ...rest
+}: VersionOneDefinition): FormatDefinition => ({
+  ...rest,
+  version: 2,
+  sides: [...twoSides],
+  seats: {
+    sides: { affirmative: seats.affirmative, negative: seats.negative },
+    speakers: 0,
+    judges: seats.judge,
+    moderators: 0,
+  },
+  outcome: { kind: 'winner' },
+  segments: segments.map(({ side, slot, ...segment }) => ({
+    ...segment,
+    speak:
+      segment.type === 'speech'
+        ? { rights: 'one', seat: { kind: 'side', side, slot } }
+        : { rights: 'all', lead: { kind: 'side', side, slot } },
+  })),
+});
 
 const withoutCrossExDefinition = (definition: FormatDefinition) => {
   const interaction = definition.configurable.interaction as Record<
@@ -377,7 +425,7 @@ describe('reference data', () => {
       should:
         'offer no judge seat and hold no preset, so it never reaches a ladder',
       actual: {
-        judge: foundation?.definition.seats.judge,
+        judge: foundation?.definition.seats.judges,
         presets: referencePresets.filter(
           ({ formatId }) => formatId === 'foundation',
         ).length,

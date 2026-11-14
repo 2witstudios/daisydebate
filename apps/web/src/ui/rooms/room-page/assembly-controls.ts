@@ -1,13 +1,22 @@
-import { isNamedSeat, formatSeatsSchema } from '@daisy/protocol';
-import type { RoomView } from '@daisy/protocol';
+import {
+  everySeatOf,
+  formatSeatsSchema,
+  isJudgeSeat,
+  isNamedSeat,
+  leadSeatOf,
+  seatLabel as protocolSeatLabel,
+  type FormatSeating,
+  type RoomView,
+  type SeatRef,
+  type Side,
+  type SpeakRights,
+} from '@daisy/protocol';
 
-type Role = RoomView['participants'][number]['role'];
-export function declaredSeats(seats: RoomView['definition']['seats']) {
-  if (!formatSeatsSchema.safeParse(seats).success)
+/** Every seat the format declares, in seat order: sides as declared, speakers, moderator, judges. */
+export function declaredSeats(seating: FormatSeating): readonly SeatRef[] {
+  if (!formatSeatsSchema.safeParse(seating.seats).success)
     throw new Error('Invalid room seats');
-  return (['affirmative', 'negative', 'judge'] as const).flatMap((role) =>
-    Array.from({ length: seats[role] }, (_, slot) => ({ role, slot })),
-  );
+  return everySeatOf(seating);
 }
 
 export type LocalReadiness = {
@@ -32,7 +41,7 @@ function readyRefusal(
     return 'This seat is not eligible to ready.';
   if (view.contentWaiver === 'unsigned')
     return 'Sign the ranked content waiver before readying.';
-  if (own.role !== 'judge' && !local.devicesPassed)
+  if (!isJudgeSeat(own.seat) && !local.devicesPassed)
     return 'Check your camera and microphone before readying.';
   return null;
 }
@@ -69,11 +78,16 @@ export function readinessControl(
   return { type: 'ready', enabled: reason === null, reason };
 }
 
-export function seatLabel(role: Role, slot: number): string {
-  const names = {
-    affirmative: 'Affirmative',
-    negative: 'Negative',
-    judge: 'Judge',
-  };
-  return `${names[role]} ${slot + 1}`;
+/** "Negative 1", "Judge 2": a seat by its format's name, always numbered. */
+export function seatLabel(sides: readonly Side[], seat: SeatRef): string {
+  return protocolSeatLabel(sides, seat, Number.POSITIVE_INFINITY);
+}
+
+/** The seat a segment is scheduled to, "Affirmative 1"; an open floor is everyone's. */
+export function segmentSeatLabel(
+  sides: readonly Side[],
+  speak: SpeakRights,
+): string {
+  const lead = leadSeatOf(speak);
+  return lead ? seatLabel(sides, lead) : 'Open floor';
 }

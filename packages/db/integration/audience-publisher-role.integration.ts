@@ -107,7 +107,7 @@ test('the state stays while a viewer may wait for the Recording, no longer', asy
             ? {
                 status: 'completed',
                 current_stage: null,
-                outcome: 'affirmative',
+                winning_side: 'affirmative',
                 started_at: stopped.toISOString(),
                 completed_at: stopped.toISOString(),
                 resolution: 'A resolution',

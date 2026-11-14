@@ -2,7 +2,6 @@ import {
   competitionTypes,
   canonicalRatingLadder,
   type CompetitionType,
-  emptyRuntimeCheckpoint,
   ratingLadders,
   roundRulesSchema,
   frozenRoomConfigSchema,
@@ -10,14 +9,15 @@ import {
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
-  roundOutcomeSchema,
+  roundJudgingSchema,
   type RoundPlatformEnding,
-  type RoundOutcome,
+  type SideKey,
   type RoundStage,
   type RoundStatus,
   type RatingLadder,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { publishedResolutions } from './published-resolutions';
 import {
   check,
@@ -33,8 +33,10 @@ import { actors } from './actors';
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbArrayColumnNullable,
   jsonbColumnNullable,
   jsonbIsObject,
+  isSideKeyOrNull,
   notBefore,
   oneOf,
   timestampColumn,
@@ -47,6 +49,13 @@ import { formatRevisions } from './format-revisions';
 import { formats } from './formats';
 import { rooms } from './rooms';
 import { resolutionDrawEvidenceSchema } from '@daisy/protocol/resolution-draw';
+
+/** A ranking's places as stored: best place first, a shared place as one group. */
+const rankingPlacesSchema = z
+  .array(z.array(z.string().min(1).max(64)).min(1))
+  .min(1);
+/** The frozen judging as stored: present, or the column is null. */
+const storedJudgingSchema = roundJudgingSchema.unwrap();
 
 /** Canonical mapping frozen at construction; null denotes casual play. */
 export const roundLadder = (
@@ -114,15 +123,28 @@ export const rounds = pgTable(
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
     status: text('status').$type<RoundStatus>().notNull(),
     currentStage: text('current_stage').$type<RoundStage>(),
-    outcome: text('outcome').$type<RoundOutcome>(),
+    /**
+     * What the Round decided (TAB-6.2): the side that won, or a ranking's
+     * places (side keys or round participant ids, best first); at most one,
+     * and neither is no result. A ranking's subject is the rules' outcome.
+     */
+    winningSide: text('winning_side').$type<SideKey>(),
+    ranking: jsonbArrayColumnNullable('ranking', rankingPlacesSchema),
+    /**
+     * What the Round is judged on, frozen when it launches (TAB-6.11): its
+     * ballot definition and panel rule; null when its outcome is judged by
+     * nobody.
+     */
+    judging: jsonbColumnNullable('judging', storedJudgingSchema),
     /** The one authority for ratedness: null when this round never rates. */
     ladderId: text('ladder_id').$type<RatingLadder>(),
     startedAt: timestampColumn('started_at'),
     completedAt: timestampColumn('completed_at'),
     /** The Daisy checkpoint (ADR 0058 §4); only what has no durable row. */
-    runtimeState: jsonbColumn('runtime_state', runtimeCheckpointSchema)
-      .notNull()
-      .default(emptyRuntimeCheckpoint),
+    runtimeState: jsonbColumn(
+      'runtime_state',
+      runtimeCheckpointSchema,
+    ).notNull(),
     /** The platform ended this Round: it gives no outcome, rating, penalty or charge. */
     platformEnding: text('platform_ending').$type<RoundPlatformEnding>(),
     finalSegmentEndedAt: timestampColumn('final_segment_ended_at'),
@@ -140,11 +162,12 @@ export const rounds = pgTable(
     audienceLinkHash: text('audience_link_hash'),
   },
   (table) => {
-    const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
-    const active = sql`${table.status} = 'active' and ${table.resolution} is not null and ${table.currentStage} is not null and ${table.outcome} is null and ${table.startedAt} is not null and ${table.completedAt} is null`;
+    const noOutcome = sql`${table.winningSide} is null and ${table.ranking} is null`;
+    const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${noOutcome} and ${table.startedAt} is null and ${table.completedAt} is null`;
+    const active = sql`${table.status} = 'active' and ${table.resolution} is not null and ${table.currentStage} is not null and ${noOutcome} and ${table.startedAt} is not null and ${table.completedAt} is null`;
     /** A null outcome is a real ending on any ladder and writes no rating (DEC-277). */
     const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
-    const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${table.outcome} is null and ${table.completedAt} is not null`;
+    const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${noOutcome} and ${table.completedAt} is not null`;
     return [
       index('rounds_published_resolution_idx').on(table.publishedResolutionId),
       /** Lets `rating_changes` pin a change to the round's own format. */
@@ -179,7 +202,7 @@ export const rounds = pgTable(
       versionPositive('rounds', table.version),
       check(
         'rounds_platform_ending_check',
-        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = 'abandoned') or (${table.platformEnding} = 'capture_shortfall' and ${table.status} = 'completed' and ${table.outcome} is null)`,
+        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = 'abandoned') or (${table.platformEnding} = 'capture_shortfall' and ${table.status} = 'completed' and ${noOutcome})`,
       ),
       check(
         'rounds_transcript_cutoff_check',
@@ -224,8 +247,14 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_outcome_check',
-        sql`${table.outcome} is null or ${oneOf(table.outcome, roundOutcomeSchema.options)}`,
+        sql`(${table.winningSide} is null or ${table.ranking} is null) and (${isSideKeyOrNull(table.winningSide)})`,
       ),
+      // Places: a non-empty array of non-empty arrays of strings.
+      check(
+        'rounds_ranking_shape_check',
+        sql`${table.ranking} is null or (jsonb_typeof(${table.ranking}) = 'array' and jsonb_array_length(${table.ranking}) > 0 and not jsonb_path_exists(${table.ranking}, 'strict $[*] ? (@.type() != "array" || @.size() == 0)') and not jsonb_path_exists(${table.ranking}, 'strict $[*][*] ? (@.type() != "string")'))`,
+      ),
+      jsonbIsObject('rounds', table.judging),
       check(
         'rounds_ladder_check',
         sql`${table.ladderId} is null or ${oneOf(table.ladderId, ratingLadders)}`,

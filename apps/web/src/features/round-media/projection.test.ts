@@ -11,16 +11,14 @@ const seats = [
   {
     id: 'a'.repeat(24),
     actorId: 'aff',
-    role: 'affirmative',
-    slot: 0,
+    seat: { kind: 'side', side: 'affirmative', slot: 0 },
     kind: 'human',
     eligible: true,
   },
   {
     id: 'n'.repeat(24),
     actorId: 'neg',
-    role: 'negative',
-    slot: 0,
+    seat: { kind: 'side', side: 'negative', slot: 0 },
     kind: 'human',
     eligible: true,
   },

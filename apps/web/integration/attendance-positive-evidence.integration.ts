@@ -1,7 +1,13 @@
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { requireTestServices } from '@daisy/config';
-import { attendanceTimingPolicy, buildRoundTopic } from '@daisy/protocol';
+import {
+  attendanceTimingPolicy,
+  buildRoundTopic,
+  isSideSeat,
+  sameSeat,
+  sideOfSeat,
+} from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withAttendanceRound } from './attendance.test-support';
@@ -15,12 +21,11 @@ async function seatsOf({ f, roundId, segmentId }: Input) {
   const round = (await f.store.getRound(roundId))!;
   const segment = round.segments.find((s) => s.id === segmentId)!;
   const rule = round.rules.segments[segment.sequence]!;
-  if (rule.type !== 'speech') throw new Error('Expected a speech');
-  const speaker = round.participants.find(
-    (p) => p.role === rule.side && p.slot === rule.slot,
-  )!;
+  if (rule.speak.rights !== 'one') throw new Error('Expected a speech');
+  const scheduled = rule.speak.seat;
+  const speaker = round.participants.find((p) => sameSeat(p.seat, scheduled))!;
   const opponent = round.participants.find(
-    (p) => p.role !== rule.side && p.role !== 'judge',
+    (p) => isSideSeat(p.seat) && sideOfSeat(p.seat) !== sideOfSeat(scheduled),
   )!;
   return { speaker, opponent };
 }

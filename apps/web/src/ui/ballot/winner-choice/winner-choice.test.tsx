@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sampleBallotDebaters } from '../../mock/judge.test-support';
+import { sampleBallotPlan } from '../../mock/judge.test-support';
 import { WinnerChoice } from './winner-choice';
 
 setupRitewayBun();
@@ -9,7 +9,7 @@ setupRitewayBun();
 const render = (winner: 'affirmative' | 'negative' | null) =>
   renderToString(
     h(WinnerChoice, {
-      debaters: sampleBallotDebaters,
+      sides: sampleBallotPlan.decided,
       initial: winner,
       onPick: () => undefined,
     }),

@@ -3,6 +3,7 @@ import type {
   RoundCommandPrincipal,
   RoundRefusal,
 } from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol';
 import {
   bindOwnedRoundSeat,
   roundPrincipalAdmitted,
@@ -31,7 +32,7 @@ export function bindRoundBallotPrincipal(input: {
   if (!roundPrincipalAdmitted(principal, authority.principalAccess, null))
     return { ok: false, refusal: 'not-authorized' };
   const seat = authority.participants.find((p) => p.id === judgeParticipantId);
-  if (!seat || !seat.eligible || seat.role !== 'judge')
+  if (!seat || !seat.eligible || !isJudgeSeat(seat.seat))
     return { ok: false, refusal: 'not-seated' };
   return bindOwnedRoundSeat(principal, seat);
 }

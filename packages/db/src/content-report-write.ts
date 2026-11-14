@@ -14,12 +14,12 @@ export async function insertContentReport(
     readonly id: string;
     readonly reporterUserId: string;
     readonly report: ContentReportCreate;
-    readonly feedbackSide: string | null;
+    readonly feedbackSubject: string | null;
   },
 ) {
   const report = contentReportCreateSchema.parse(input.report);
   idSchema.parse(input.id);
   idSchema.parse(input.reporterUserId);
-  await tx.execute(sql`insert into content_reports(id,reporter_user_id,target_kind,target_id,feedback_side,reason,queue)
- values(${input.id},${input.reporterUserId},${report.targetKind},${report.targetId},${input.feedbackSide},${report.reason},${queueOfReason(report.reason)}) on conflict do nothing`);
+  await tx.execute(sql`insert into content_reports(id,reporter_user_id,target_kind,target_id,feedback_subject,reason,queue)
+ values(${input.id},${input.reporterUserId},${report.targetKind},${report.targetId},${input.feedbackSubject},${report.reason},${queueOfReason(report.reason)}) on conflict do nothing`);
 }

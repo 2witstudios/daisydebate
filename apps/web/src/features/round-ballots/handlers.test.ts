@@ -1,17 +1,23 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { memberGate } from '../round-runtime/member-gate.test-support';
-import { ballotFormFixture } from './ballot-form.test-support';
+import { ballotFormFixture, ballotFormPlan } from './ballot-form.test-support';
 import { ballotFields } from './fields';
+import { sampleBallotRound } from '../judge/ballot-plan.test-support';
 import { createRoundBallotHandlers } from './handlers';
+import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
 
 setupRitewayBun();
 
 const id = 'a'.repeat(24),
   origin = 'http://localhost:3000';
-const parsed = ballotFields(ballotFormFixture());
+const parsed = ballotFields(ballotFormFixture(), ballotFormPlan);
 if (!parsed.ok) throw new Error('The ballot form fixture must parse');
 const receipt = { commandId: id, roundId: id, outcome: null };
+const judging = {
+  ballot: daisyWinnerBallot,
+  panel: panelRuleFor(daisyWinnerBallot),
+};
 
 const fixture = () => {
   const submitted: unknown[] = [];
@@ -24,7 +30,8 @@ const fixture = () => {
         return receipt as never;
       },
     },
-    read: async (_caller, roundId) => ({ roundId }) as never,
+    read: async (_caller, roundId) =>
+      ({ roundId, round: sampleBallotRound, judging }) as never,
     assignments: async (caller) => [caller.actorId] as never,
   });
   return { handlers, submitted };
@@ -118,7 +125,7 @@ test('ballot reads answer for the session caller', async () => {
     given: 'a member reading a Round ballot and their assignments',
     should: 'return the scoped read and the caller-bound list',
     actual: [await read.json(), await assignments.json()],
-    expected: [{ roundId: id }, [id]],
+    expected: [{ roundId: id, round: sampleBallotRound, judging }, [id]],
   });
 });
 

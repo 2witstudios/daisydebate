@@ -25,8 +25,9 @@ export async function completedRound(
   const [clock] = await fixture.sql`select clock_timestamp() as now`;
   const end = new Date(clock!.now.getTime() - completedAgoMs);
   const start = new Date(end.getTime() - 1000);
+  const winner = await fixture.winningSideColumn();
   await fixture.sql.unsafe(
-    "update rounds set visibility='public',status='completed',outcome='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4,attendance_resolution_cutoff_at=$3::timestamptz+interval '60 minutes' where id=$1",
+    `update rounds set visibility='public',status='completed',${winner}='affirmative',started_at=$2,completed_at=$3,final_segment_ended_at=$3,transcript_admission_cutoff=$4,attendance_resolution_cutoff_at=$3::timestamptz+interval '60 minutes' where id=$1`,
     [roundId, start, end, new Date(end.getTime() + 120000)],
   );
   const aff = await fixture.seat(roundId, 'affirmative', 0, affActorId);
@@ -50,9 +51,15 @@ export async function completedRound(
     await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values(${createId()},${roundId},${segmentId},${seat},${sequence},'a frozen line')`;
   await fixture.sql`insert into round_transcripts(round_id,revision) values(${roundId},2)`;
   if (beforeFreeze) {
-    await fixture.sql`update rounds set status='active',current_stage='live',completed_at=null,outcome=null where id=${roundId}`;
+    await fixture.sql.unsafe(
+      `update rounds set status='active',current_stage='live',completed_at=null,${winner}=null where id=$1`,
+      [roundId],
+    );
     await beforeFreeze(aff);
-    await fixture.sql`update rounds set status='completed',current_stage=null,completed_at=${end},outcome='affirmative' where id=${roundId}`;
+    await fixture.sql.unsafe(
+      `update rounds set status='completed',current_stage=null,completed_at=$2,${winner}='affirmative' where id=$1`,
+      [roundId, end],
+    );
   }
   if (frozen)
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness)

@@ -9,6 +9,7 @@ import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { identify } from '../src/lib/identity';
 import { createApp } from '../src/server/app';
 import { requireTestServices } from '@daisy/config';
+import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
 import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 
 /**
@@ -56,8 +57,8 @@ test('a migration re-application and a resource restart preserve a live session,
   await withSql(async (sql) => {
     await sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`;
     await sql`
-      INSERT INTO rounds (id, created_by_actor_id, resolution, competition_type, format_id, format_version, rules_snapshot, status)
-      VALUES (${roundId}, ${actorId}, 'Restart-survival proof', 'casual', 'foundation', 1, '{}'::jsonb, 'opening')
+      INSERT INTO rounds (id, created_by_actor_id, resolution, competition_type, format_id, format_version, rules_snapshot, runtime_state, status)
+      VALUES (${roundId}, ${actorId}, 'Restart-survival proof', 'casual', 'foundation', 1, '{}'::jsonb, ${emptyRuntimeCheckpointFor({ sides: twoSides })}, 'opening')
     `;
   });
 

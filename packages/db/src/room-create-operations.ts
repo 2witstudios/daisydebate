@@ -9,6 +9,8 @@ import type {
   FormatDefinition,
   FormatSelectionFacts,
   EntitlementGrant,
+  RecordingPolicy,
+  SeatRef,
 } from '@daisy/protocol';
 import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
 import {
@@ -21,6 +23,7 @@ import { sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { columnsOfSeat } from './seat-columns';
 
 import { rooms } from './schema/rooms';
 import { roomParticipants, roomSeatHolds } from './schema/rooms';
@@ -53,8 +56,7 @@ import {
 /** One initial seat a create applies before anyone joins. */
 export type InitialCastSeat = {
   readonly actorId: string;
-  readonly role: 'affirmative' | 'negative' | 'judge';
-  readonly slot: number;
+  readonly seat: SeatRef;
   /** The command and participant identities the applied seat persists. */
   readonly commandId: string;
   readonly participantId: string;
@@ -85,8 +87,14 @@ export const roomCreateOperations = ({
 }) => ({
   async createRoomCommand(input: {
     readonly room: NewRoom;
-    /** The engine's member set for the new Room: its host (ADR 0070). */
-    readonly members: readonly string[];
+    /**
+     * The engine's member set for the new Room's seats once its initial
+     * cast is applied (ADR 0070, TAB-6.16): the seated humans, never a
+     * host without a seat.
+     */
+    readonly membersOf: (
+      participants: RoomAssemblyState['participants'],
+    ) => readonly string[];
     readonly commandId: string;
     readonly payloadDigest: string;
     readonly definition: FormatDefinition | null;
@@ -109,10 +117,14 @@ export const roomCreateOperations = ({
       readonly seats: readonly InitialCastSeat[];
       readonly apply: InitialCastApplier;
     } | null;
-    /** Members a debater seat stays held for (ADR 0103), the host included. */
+    /** Members a side's seat stays held for (ADR 0103), the host included. */
     readonly holdSeatsFor?: readonly string[];
-    /** Evaluated against the host's grants under the create account fence. */
+    /**
+     * The Recording the casual host chose and its premium check, evaluated
+     * against the host's grants under the create account fence.
+     */
     readonly recording?: {
+      readonly policy: Exclude<RecordingPolicy, 'off'>;
       readonly authorize: (
         grants: readonly EntitlementGrant[],
         now: string,
@@ -188,7 +200,7 @@ export const roomCreateOperations = ({
           // A Daisy Round's Room sits in Daisy's public lobby.
           lobbyId: publicLobbyId,
           capture: input.recording
-            ? { broadcast: null, recording: true }
+            ? { broadcast: null, recordingPolicy: input.recording.policy }
             : null,
           postRoundCall: input.postRoundCall === true,
           createdAt: new Date(now),
@@ -215,7 +227,7 @@ export const roomCreateOperations = ({
             heldActors.map((actorId) => ({
               roomId: input.room.id,
               actorId,
-              seat: 'debater' as const,
+              seat: 'side' as const,
               until,
             })),
           );
@@ -249,13 +261,16 @@ export const roomCreateOperations = ({
               id: p.id,
               roomId: input.room.id,
               actorId: p.actorId,
-              role: p.role,
-              slot: p.slot,
+              ...columnsOfSeat(p.seat),
               readinessCommandId: p.consentCommandId,
               readinessVersion: p.consentVersion,
             })),
           );
-        await holdActiveRoomMembers(tx, input.room.id, input.members);
+        await holdActiveRoomMembers(
+          tx,
+          input.room.id,
+          input.membersOf(assembled?.participants ?? []),
+        );
         if (input.recording) {
           // Cast and membership may wait: judge the grant at commit admission,
           // after their locks and facts, while the host account fence still holds.
@@ -311,7 +326,7 @@ const applyInitialCast = async (
   const accounts = await lockAuthorizationActors(tx, fencedActors, {
     maxActors: fencedActors.length,
   });
-  // Eligibility and seatRole live on these profile rows, not the account
+  // Eligibility and seatKind live on these profile rows, not the account
   // authorization fence. Lock extant profiles in actor-id order before
   // actorFact reads them, so profile removal serializes with this create.
   const castActorIds = seats.map((seat) => seat.actorId).sort();
@@ -333,7 +348,7 @@ const applyInitialCast = async (
   const targets: (Actor | null)[] = [];
   for (const seat of seats) targets.push(await actorFact(tx, seat.actorId));
   const judgeQuote =
-    judgeAdmission && targets.some((target) => target?.seatRole === 'judge')
+    judgeAdmission && targets.some((target) => target?.aiRole === 'judge')
       ? await judgeAdmission.quoteLocked(tx, {
           account:
             accounts.find((account) => account?.actorId === caller.actorId) ??
@@ -341,7 +356,8 @@ const applyInitialCast = async (
           roundId: null,
           withBot: targets.some(
             (target, index) =>
-              target?.seatRole === 'debater' && seats[index]?.role !== 'judge',
+              target?.aiRole === 'debater' &&
+              seats[index]?.seat.kind !== 'judge',
           ),
         })
       : null;

@@ -28,7 +28,12 @@ const rankedRoom = async (f: Fixture) => {
       formatVersion: preset!.format_version,
       presetVersion: preset!.version,
     },
-    cast: [{ actorId: f.host.actorId, role: 'affirmative', slot: 0 }],
+    cast: [
+      {
+        actorId: f.host.actorId,
+        seat: { kind: 'side', side: 'affirmative', slot: 0 },
+      },
+    ],
   });
   return created.view;
 };
@@ -136,8 +141,7 @@ test('an unsigned human judge cannot Ready a ranked Round until they sign', asyn
       const seated = (
         await f.command(f.outsider, room, {
           type: 'claim-seat',
-          role: 'judge',
-          slot: 0,
+          seat: { kind: 'judge', slot: 0 },
         })
       ).view;
       const unsigned = await refusalOf(f.consent(f.outsider, seated, 'ready'));

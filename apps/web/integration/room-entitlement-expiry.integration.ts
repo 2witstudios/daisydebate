@@ -81,7 +81,12 @@ test('Room creation does not reuse creation time after an initial-cast profile l
       () =>
         f.create({
           selection,
-          cast: [{ actorId: judge.actorId, role: 'judge', slot: 0 }],
+          cast: [
+            {
+              actorId: judge.actorId,
+              seat: { kind: 'judge', slot: 0 },
+            },
+          ],
         }),
     );
     const [rows] = await f.sql`select
@@ -111,8 +116,7 @@ test('Room commands evaluate paid access after their blocked grant read', async 
         f.command(f.host, view, {
           type: 'assign-seat',
           actorId: judge.actorId,
-          role: 'judge',
-          slot: 0,
+          seat: { kind: 'judge', slot: 0 },
         }),
     );
     assert({
@@ -137,7 +141,7 @@ test('casual capture admission refuses expiry after a blocked grant read', async
       () =>
         f.command(f.host, view, {
           type: 'set-capture',
-          capture: { broadcast: null, recording: true },
+          capture: { broadcast: null, recordingPolicy: 'released' },
         }),
       'capture-premium',
     );
@@ -161,8 +165,13 @@ test('initial recording uses post-cast time after a real bot-profile wait and ro
       () =>
         f.create({
           selection,
-          recording: true,
-          cast: [{ actorId: bot.actorId, role: 'negative', slot: 0 }],
+          recordingPolicy: 'released',
+          cast: [
+            {
+              actorId: bot.actorId,
+              seat: { kind: 'side', side: 'negative', slot: 0 },
+            },
+          ],
         }),
       'capture-premium',
     );

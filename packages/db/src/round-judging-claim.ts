@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { judgingPolicy } from '@daisy/protocol';
+import { isJudgeSeat, judgingPolicy } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import { agentRuns } from './schema/agent-runs';
 import {
@@ -43,7 +43,7 @@ export async function claimLockedJudgingJob(
     target.roundId,
     target.judgeParticipantId,
   );
-  if (round.status !== 'active' || seat.role !== 'judge')
+  if (round.status !== 'active' || !isJudgeSeat(seat.seat))
     throw createAppError('AUTHORIZATION');
   const priorRuns = await tx
     .select()

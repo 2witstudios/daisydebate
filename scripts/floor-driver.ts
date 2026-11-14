@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { SQL } from 'bun';
 import { approveBetaAccess } from '@daisy/db/testing';
+import { affirmativeSide, negativeSide } from '@daisy/protocol';
 import { speechesFor } from './floor-driver/format';
 import { createHttpSession, signUpMember } from './floor-driver/http-session';
 import {
@@ -64,8 +65,8 @@ const member = async () => {
 };
 const pair = async () =>
   [
-    { session: await member(), role: 'affirmative' as const },
-    { session: await member(), role: 'negative' as const },
+    { session: await member(), side: affirmativeSide },
+    { session: await member(), side: negativeSide },
   ] as const;
 
 // Sign-up is sequential so its rate limits do not count against the cell.

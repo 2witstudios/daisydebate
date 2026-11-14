@@ -33,7 +33,7 @@ test('Room create command writes its receipt and exactly one change event', asyn
 
   const receipt = await database.createRoomCommand({
     room,
-    members: [room.hostActorId],
+    membersOf: () => [room.hostActorId],
     commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
     payloadDigest: 'a'.repeat(64),
     definition: foundationDefinition,
@@ -93,7 +93,7 @@ test('Room create rechecks its catalog selection under the create transaction (P
     actual: () =>
       database.createRoomCommand({
         room,
-        members: [room.hostActorId],
+        membersOf: () => [room.hostActorId],
         commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
         payloadDigest: 'a'.repeat(64),
         definition: null,
@@ -159,7 +159,7 @@ const startInput: Parameters<
       seatsBotDebater: false,
       publishDefinition: false,
       draw: null,
-      members: [state.hostActorId],
+      members: [caller.actorId],
     },
   }),
 };
@@ -193,6 +193,7 @@ const startRows = (changeVersion = 1) => [
       'c5a1b3d7e9f2h4j6k8m1n3p5',
       readyRoom.id,
       caller.actorId,
+      'side',
       'affirmative',
       0,
       'r1',
@@ -202,6 +203,7 @@ const startRows = (changeVersion = 1) => [
       'c6a4e2f8h1j3k5m7n9p2r4t6',
       readyRoom.id,
       secondActorId,
+      'side',
       'negative',
       0,
       'r2',

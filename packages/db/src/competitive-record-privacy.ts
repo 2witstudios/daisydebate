@@ -39,7 +39,7 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
       ),
     ),
     room_participants: await rows(
-      tx.execute(sql`select id, room_id, actor_id, role, slot
+      tx.execute(sql`select id, room_id, actor_id, seat_kind, side, slot
         from room_participants where actor_id = ${subject.actorId} order by id`),
     ),
     round_resolution_strikes: await rows(
@@ -49,12 +49,12 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
         where actor_id = ${subject.actorId} order by draw_id, ordinal`),
     ),
     round_participants: await rows(
-      tx.execute(sql`select id, round_id, actor_id, role, slot
+      tx.execute(sql`select id, round_id, actor_id, seat_kind, side, slot
         from round_participants where actor_id = ${subject.actorId} order by id`),
     ),
     rounds: await rows(
       tx.execute(sql`select r.id, r.room_id, r.visibility, r.resolution,
-          r.competition_type, r.status, r.outcome, r.ladder_id,
+          r.competition_type, r.status, r.winning_side, r.ranking, r.ladder_id,
           r.resolution_evidence,
           ${iso('r.created_at', 'created_at')}, ${iso('r.started_at', 'started_at')},
           ${iso('r.completed_at', 'completed_at')}
@@ -64,7 +64,7 @@ export const competitiveRecordPrivacyAdopter: PrivacyAdopter = {
         order by r.id`),
     ),
     ballots: await rows(
-      tx.execute(sql`select b.id, b.round_id, b.rubric_version, b.winner,
+      tx.execute(sql`select b.id, b.round_id, b.rubric_version, b.decision, b.winner, b.ranking,
           b.scores, b.reason, b.feedback, b.citations,
           ${iso('b.submitted_at', 'submitted_at')}
         from ballots b

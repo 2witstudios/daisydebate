@@ -6,6 +6,7 @@ import {
   account,
   at,
   deps,
+  nowMs,
   prefix,
   record,
   round,
@@ -20,6 +21,7 @@ describe('openDownload', () => {
       recordingId: 'rec',
       viewer,
       presentedLinkHashOf: () => null,
+      nowMs,
     });
 
   test('gives a subscriber a short-lived attachment', async () => {

@@ -27,7 +27,7 @@ test('the provider proof refuses another deployment before opening a database', 
 });
 test('COMPLETE alone cannot pass a proof with a silent seat or fake provider', () => {
   const stream = {
-    role: 'affirmative',
+    side: 'affirmative',
     state: 'complete',
     authoredLines: 3,
     realSpeech: true,
@@ -37,7 +37,7 @@ test('COMPLETE alone cannot pass a proof with a silent seat or fake provider', (
     completeness: 'complete',
     decisive: true,
     aiBallot: true,
-    streams: [stream, { ...stream, role: 'negative' }],
+    streams: [stream, { ...stream, side: 'negative' }],
   };
   assert({
     given:
@@ -50,9 +50,9 @@ test('COMPLETE alone cannot pass a proof with a silent seat or fake provider', (
     { streams: [stream] },
     { completeness: 'incomplete' },
     { aiBallot: false },
-    { streams: [stream, { ...stream, role: 'negative', realTts: false }] },
-    { streams: [stream, { ...stream, role: 'negative', authoredLines: 0 }] },
-    { streams: [stream, { ...stream, role: 'negative', state: 'partial' }] },
+    { streams: [stream, { ...stream, side: 'negative', realTts: false }] },
+    { streams: [stream, { ...stream, side: 'negative', authoredLines: 0 }] },
+    { streams: [stream, { ...stream, side: 'negative', state: 'partial' }] },
   ])
     assert({
       given: 'an incomplete or synthetic proof',

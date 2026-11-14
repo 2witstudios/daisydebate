@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import { MAX_FORMAT_SEATS } from './format';
+import { MAX_FORMAT_SEATS } from './format-seating';
 
 export const evidencePrivacyScopeSchema = z
   .strictObject({

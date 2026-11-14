@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { encodeOutboxCursor } from '@daisy/db/outbox';
 import { waitForOutboxFinality } from '@daisy/db/testing';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic, sideSeat } from '@daisy/protocol';
 import { serveRealtime } from '../src/serve';
 import { authorityResources } from './authority-resources.test-support';
 import type { SocketData } from '../src/socket';
@@ -41,7 +41,7 @@ test('two actual instances consume durable access and session revocations withou
       hostname: '127.0.0.1',
       now: () => 0,
     });
-    const round = await rounds.seed('private', 'affirmative');
+    const round = await rounds.seed('private', sideSeat('affirmative'));
     const instances = [fixture.runtime, replica];
     const peers = [];
     const acknowledgements: string[] = [];

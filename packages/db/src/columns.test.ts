@@ -62,6 +62,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballot_screenings.released_text',
         'ballots.citations',
         'ballots.feedback',
+        'ballots.ranking',
         'ballots.scores',
         'billing_customers.synchronization',
         'billing_payment_observations.source',
@@ -100,6 +101,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'round_resolution_draws.manifest',
         'round_transcript_freezes.capture_gaps',
         'rounds.capture',
+        'rounds.judging',
+        'rounds.ranking',
         'rounds.resolution_evidence',
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
@@ -123,6 +126,10 @@ describe('jsonb columns (ISSUE-24)', () => {
         refusals:
           name === 'ballot_screenings.released_text' ||
           name === 'ballots.feedback' ||
+          name === 'ballots.ranking' ||
+          name === 'ballots.scores' ||
+          name === 'rounds.ranking' ||
+          name === 'rounds.judging' ||
           name === 'ballots.citations' ||
           name === 'necessary_evidence.original_speaker' ||
           name === 'billing_refund_actions.claim' ||

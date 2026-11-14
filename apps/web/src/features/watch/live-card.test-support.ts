@@ -1,5 +1,5 @@
 import type { LiveBroadcastPage } from '@daisy/db';
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS, twoSides } from '@daisy/protocol';
 import { liveCardOf, type LiveCard } from './live-card';
 
 type LiveRow = LiveBroadcastPage['rows'][number];
@@ -14,9 +14,32 @@ export const liveRow = (over: Partial<LiveRow> = {}): LiveRow => ({
   competitionType: 'ranked',
   resolution: 'A drawn resolution',
   rules: {
+    sides: twoSides,
+    seats: {
+      sides: { affirmative: 1, negative: 1 },
+      speakers: 0,
+      judges: 1,
+      moderators: 0,
+    },
     segments: [
-      { key: '1AC', label: 'First affirmative', side: 'affirmative' },
-      { key: '1NC', label: 'First negative', side: 'negative' },
+      {
+        key: '1AC',
+        label: 'First affirmative',
+        type: 'speech',
+        speak: {
+          rights: 'one',
+          seat: { kind: 'side', side: 'affirmative', slot: 0 },
+        },
+      },
+      {
+        key: '1NC',
+        label: 'First negative',
+        type: 'speech',
+        speak: {
+          rights: 'one',
+          seat: { kind: 'side', side: 'negative', slot: 0 },
+        },
+      },
     ],
   } as never,
   startedAt: started,
@@ -25,14 +48,14 @@ export const liveRow = (over: Partial<LiveRow> = {}): LiveRow => ({
   seats: [
     {
       roundId: 'abcdefghijklmnopqrstuvwx',
-      side: 'affirmative',
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
       kind: 'user',
       username: 'ana',
       botName: null,
     },
     {
       roundId: 'abcdefghijklmnopqrstuvwx',
-      side: 'negative',
+      seat: { kind: 'side', side: 'negative', slot: 0 },
       kind: 'bot',
       username: null,
       botName: 'Socrates',

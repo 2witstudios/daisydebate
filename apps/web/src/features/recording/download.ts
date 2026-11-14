@@ -35,6 +35,7 @@ export const openDownload = async (
     readonly recordingId: string;
     readonly viewer: RecordingViewer;
     readonly presentedLinkHashOf: (roundId: string) => string | null;
+    readonly nowMs: number;
   },
 ): Promise<string> => {
   const refused = createAppError('NOT_FOUND');
@@ -48,6 +49,7 @@ export const openDownload = async (
     await deps.inputs.readBroadcastRelease(round.id),
     input.viewer,
     input.presentedLinkHashOf(round.id),
+    input.nowMs,
   );
   const allowed = mayDownload({
     viewer: input.viewer,

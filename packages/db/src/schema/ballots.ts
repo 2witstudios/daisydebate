@@ -1,10 +1,9 @@
 import {
-  ballotFeedbackSchema,
-  ballotRubricVersions,
-  debateSides,
-  storedBallotCitationsSchema,
-  storedBallotScoresSchema,
+  ballotScoresRecordSchema,
+  daisyBallotDefinitionIds,
+  type SideKey,
 } from '@daisy/protocol';
+import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -17,7 +16,8 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
-  jsonbColumn,
+  isSideKeyOrNull,
+  jsonbArrayColumnNullable,
   jsonbColumnNullable,
   jsonbIsObject,
   oneOf,
@@ -30,10 +30,31 @@ import { rounds } from './rounds';
 import { roundTranscriptFreezes } from './round-transcript-freezes';
 import { bothOrNeither } from './tenant-keys';
 
+/** What a ballot decided (TAB-6.11): a win, a tie, a double loss, or places. */
+export const ballotDecisions = [
+  'win',
+  'tie',
+  'double_loss',
+  'ranking',
+] as const;
+export type BallotDecisionColumn = (typeof ballotDecisions)[number];
+
+/** Feedback per subject (a side key or a round participant id). */
+const ballotFeedbackColumnSchema = z.record(z.string(), z.string());
+/** Citations per subject, a criterion's or the subject's own. */
+const citationSchema = z.strictObject({ turn: z.string(), note: z.string() });
+const ballotCitationsColumnSchema = z.record(
+  z.string(),
+  z.union([citationSchema, z.record(z.string(), citationSchema)]),
+);
+const ballotRankingColumnSchema = z
+  .array(z.array(z.string().min(1)).min(1))
+  .min(1);
+
 /**
  * One ballot per judge seat (ADR 0058 §6): the contract's shape, decomposed
- * into columns a write path validates with the full `ballotSchema` before
- * filling. The deferred NO ACTION judge-seat FK means a seat carrying a ballot
+ * into columns a write path validates with the Round's own `ballotSchemaFor`
+ * before filling. The deferred NO ACTION judge-seat FK means a seat carrying a ballot
  * cannot be deleted. Human and AI judges produce exactly this contract.
  */
 export const ballots = pgTable(
@@ -44,13 +65,22 @@ export const ballots = pgTable(
     /** The owning Round and the immutable transcript freeze the ballot judged. */
     roundId: text('round_id').notNull(),
     freezeRevision: integer('freeze_revision').notNull(),
-    rubricVersion: text('rubric_version').notNull(),
-    /** The winner: a side. There are no draws (ADR 0058 §6, DEC-116). */
-    winner: text('winner').notNull(),
-    scores: jsonbColumn('scores', storedBallotScoresSchema).notNull(),
+    /** The Daisy ballot definition answered (`key@revision`); null for a host's. */
+    rubricVersion: text('rubric_version'),
+    /** What the ballot decided; a win names its side in `winner`. */
+    decision: text('decision')
+      .$type<BallotDecisionColumn>()
+      .notNull()
+      .default('win'),
+    /** The winning side, exactly when the decision is a win (DEC-116). */
+    winner: text('winner').$type<SideKey>(),
+    /** A ranking ballot's places, best first, exactly when it ranks. */
+    ranking: jsonbArrayColumnNullable('ranking', ballotRankingColumnSchema),
+    /** Points per subject; null for a definition that gives none. */
+    scores: jsonbColumnNullable('scores', ballotScoresRecordSchema),
     reason: text('reason').notNull(),
-    feedback: jsonbColumnNullable('feedback', ballotFeedbackSchema),
-    citations: jsonbColumnNullable('citations', storedBallotCitationsSchema),
+    feedback: jsonbColumnNullable('feedback', ballotFeedbackColumnSchema),
+    citations: jsonbColumnNullable('citations', ballotCitationsColumnSchema),
     submittedAt: timestampColumn('submitted_at').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -119,11 +149,24 @@ export const ballots = pgTable(
       table.judgeParticipantId,
     ),
     uniqueIndex('ballots_judge_seat_unique').on(table.judgeParticipantId),
-    check('ballots_winner_check', oneOf(table.winner, debateSides)),
+    check('ballots_decision_check', oneOf(table.decision, ballotDecisions)),
+    check(
+      'ballots_winner_check',
+      sql`(${table.winner} is not null) = (${table.decision} = 'win') and (${isSideKeyOrNull(table.winner)})`,
+    ),
+    check(
+      'ballots_ranking_check',
+      sql`(${table.ranking} is not null) = (${table.decision} = 'ranking') and (${table.ranking} is null or jsonb_typeof(${table.ranking}) = 'array')`,
+    ),
+    // A Daisy ballot names its definition here; a host's pins its version above.
+    check(
+      'ballots_daisy_definition_check',
+      sql`(${table.ballotDefinitionId} is null) = (${table.rubricVersion} is not null)`,
+    ),
     check(
       'ballots_rubric_version_check',
-      // Every version stays readable; writes validate the current one (ADR 0125).
-      oneOf(table.rubricVersion, ballotRubricVersions),
+      // Every version stays readable; writes validate the Round's own (ADR 0125).
+      sql`${table.rubricVersion} is null or ${oneOf(table.rubricVersion, daisyBallotDefinitionIds)}`,
     ),
     jsonbIsObject('ballots', table.scores),
     jsonbIsObject('ballots', table.feedback),

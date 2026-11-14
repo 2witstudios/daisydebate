@@ -7,7 +7,7 @@ const seat = (
   over: Partial<Extract<LiveRoomStanding, { kind: 'seat' }>>,
 ): LiveRoomStanding => ({
   kind: 'seat',
-  role: 'affirmative',
+  seatKind: 'side',
   competitionType: 'casual' as const,
   roundEnded: false,
   debatersReadChat: true,
@@ -63,7 +63,7 @@ describe('audienceShownTo', () => {
     assert({
       given: 'a judge on a non-ranked Round with chat on',
       should: 'show nothing',
-      actual: audienceShownTo(seat({ role: 'judge' })),
+      actual: audienceShownTo(seat({ seatKind: 'judge' })),
       expected: { chat: false, reactions: false, viewers: false },
     });
   });

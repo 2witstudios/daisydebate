@@ -1,8 +1,12 @@
-import { debateRoles } from '@daisy/protocol';
-import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { oneOf } from './columns';
+import { index, pgTable, text, unique, uniqueIndex } from 'drizzle-orm/pg-core';
 import { rounds } from './rounds';
-import { seatActorId, seatRole, seatSlot, seatSlotCheck } from './seats';
+import {
+  seatActorId,
+  seatChecks,
+  seatKindColumn,
+  seatSideColumn,
+  seatSlot,
+} from './seats';
 
 /**
  * One row per seat, keyed by surrogate id (ADR 0058 §2): the authoritative
@@ -20,7 +24,8 @@ export const roundParticipants = pgTable(
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
     actorId: seatActorId(),
-    role: seatRole(),
+    seatKind: seatKindColumn(),
+    side: seatSideColumn(),
     slot: seatSlot(),
   },
   (table) => [
@@ -28,18 +33,16 @@ export const roundParticipants = pgTable(
       table.roundId,
       table.actorId,
     ),
-    uniqueIndex('round_participants_seat_unique').on(
-      table.roundId,
-      table.role,
-      table.slot,
-    ),
+    /** One occupant per seat; an unsided seat's null side is one value. */
+    unique('round_participants_seat_unique')
+      .on(table.roundId, table.seatKind, table.side, table.slot)
+      .nullsNotDistinct(),
     /** Target for utterances' consistency witness. */
     uniqueIndex('round_participants_id_round_unique').on(
       table.id,
       table.roundId,
     ),
     index('round_participants_actor_idx').on(table.actorId),
-    check('round_participants_role_check', oneOf(table.role, debateRoles)),
-    check('round_participants_slot_check', seatSlotCheck(table.slot)),
+    ...seatChecks('round_participants', table),
   ],
 );

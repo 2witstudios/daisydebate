@@ -1,4 +1,10 @@
+import { leadSeatOf, sideOfSeat } from '@daisy/protocol';
 import type { CreateRoomDraft } from '../../../features/rooms/create-room-draft';
+import {
+  segmentSeatValues,
+  speakerSeatValue,
+} from '../../../features/rooms/draft-seat-fields';
+import { SeatInput, seatInputs } from './draft-seat-inputs';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 
@@ -76,10 +82,17 @@ function SpeechRow({ index, ...props }: Props & { readonly index: number }) {
   const { draft, values, change, schedule } = props;
   const segment = draft.definition.segments[index]!;
   const field = (key: string) => `segment.${index}.${key}`;
-  const side = values[field('side')] ?? segment.side;
+  const { sides, seats } = draft.definition;
+  const side = values[field('side')] ?? segmentSeatValues(segment.speak).side;
+  const sideOf = (item: typeof segment) => {
+    const lead = leadSeatOf(item.speak);
+    return lead ? sideOfSeat(lead) : null;
+  };
   const sameSide = draft.definition.segments.filter(
-    (item) => item.side === segment.side,
+    (item) => sideOf(item) === sideOf(segment),
   ).length;
+  const seatsOnSide =
+    side === speakerSeatValue ? seats.speakers : (seats.sides[side] ?? 1);
   return (
     <div className="create-room-speech">
       <input
@@ -138,6 +151,9 @@ function SpeechRow({ index, ...props }: Props & { readonly index: number }) {
           >
             <option value="speech">Speech</option>
             <option value="cross_ex">Question period</option>
+            {segment.type === 'open' ? (
+              <option value="open">Open floor</option>
+            ) : null}
           </select>
         </label>
         <label className="create-room-field">
@@ -148,8 +164,17 @@ function SpeechRow({ index, ...props }: Props & { readonly index: number }) {
             value={side}
             onChange={(event) => change(field('side'), event.target.value)}
           >
-            <option value="affirmative">Affirmative</option>
-            <option value="negative">Negative</option>
+            {sides.map((declared) => (
+              <option key={declared.key} value={declared.key}>
+                {declared.label}
+              </option>
+            ))}
+            {sides.length === 0 ? (
+              <option value={speakerSeatValue}>Speaker</option>
+            ) : null}
+            {segment.type !== 'speech' ? (
+              <option value="">Everyone</option>
+            ) : null}
           </select>
         </label>
         <label className="create-room-field">
@@ -161,11 +186,7 @@ function SpeechRow({ index, ...props }: Props & { readonly index: number }) {
             value={values[field('slot')]}
             onChange={(event) => change(field('slot'), event.target.value)}
             min={0}
-            max={
-              draft.definition.seats[
-                side === 'affirmative' ? 'affirmative' : 'negative'
-              ] - 1
-            }
+            max={Math.max(0, seatsOnSide - 1)}
             required
           />
         </label>
@@ -189,18 +210,15 @@ export function DraftSettings(props: Props) {
             <SpeechRow key={segment.key} {...props} index={index} />
           ))}
           <div className="create-room-add">
-            <ScheduleButton
-              intent="add-affirmative"
-              label="Add affirmative speech"
-              schedule={schedule}
-              disabled={draft.definition.segments.length >= 64}
-            />
-            <ScheduleButton
-              intent="add-negative"
-              label="Add negative speech"
-              schedule={schedule}
-              disabled={draft.definition.segments.length >= 64}
-            />
+            {draft.definition.sides.map((side) => (
+              <ScheduleButton
+                key={side.key}
+                intent={`add-side:${side.key}`}
+                label={`Add ${side.label.toLocaleLowerCase()} speech`}
+                schedule={schedule}
+                disabled={draft.definition.segments.length >= 64}
+              />
+            ))}
             <ScheduleButton
               intent="add-question"
               label="Add question period"
@@ -277,29 +295,14 @@ export function DraftSettings(props: Props) {
       <details className="create-room-disclosure">
         <summary>Seats</summary>
         <div className="create-room-setting-grid create-room-disclosure-body">
-          {(['seatAffirmative', 'seatNegative', 'seatJudge'] as const).map(
-            (name, index) => (
-              <label className="create-room-field" key={name}>
-                <span>
-                  {
-                    ['Affirmative debaters', 'Negative debaters', 'Judges'][
-                      index
-                    ]
-                  }
-                </span>
-                <input
-                  className={controlClass}
-                  type="number"
-                  name={name}
-                  value={values[name]}
-                  min={name === 'seatJudge' ? 0 : 1}
-                  max={name === 'seatJudge' ? 1 : 255}
-                  onChange={(event) => change(name, event.target.value)}
-                  required
-                />
-              </label>
-            ),
-          )}
+          {seatInputs(draft).map((input) => (
+            <SeatInput
+              key={input.name}
+              {...input}
+              values={values}
+              change={change}
+            />
+          ))}
         </div>
       </details>
     </>

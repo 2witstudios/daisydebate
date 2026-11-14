@@ -1,5 +1,6 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
+  twoSides,
   freezeRoomConfig,
   freezeRoomExecutionPlan,
   type RoomListEntry,
@@ -20,23 +21,34 @@ export const unequalTemplate = {
   rulesEdition: 'Test rules',
   sourceUrl: 'https://example.test/rules',
   definition: {
-    version: 1,
-    seats: { affirmative: 2, negative: 3, judge: 1 },
+    version: 2,
+    sides: [...twoSides],
+    seats: {
+      sides: { affirmative: 2, negative: 3 },
+      speakers: 0,
+      judges: 1,
+      moderators: 0,
+    },
+    outcome: { kind: 'winner' },
     segments: [
       {
         key: 'N3',
         label: 'Third negative reply',
         type: 'speech',
-        side: 'negative',
-        slot: 2,
+        speak: {
+          rights: 'one',
+          seat: { kind: 'side', side: 'negative', slot: 2 },
+        },
         defaultDurationMs: 120000,
       },
       {
         key: 'A1',
         label: 'Affirmative opening',
         type: 'speech',
-        side: 'affirmative',
-        slot: 0,
+        speak: {
+          rights: 'one',
+          seat: { kind: 'side', side: 'affirmative', slot: 0 },
+        },
         defaultDurationMs: 60000,
       },
     ],
@@ -129,7 +141,7 @@ export const assemblySnapshot = {
   config: freezeRoomConfig(unequalTemplate.preset.config),
   executionPlan: freezeRoomExecutionPlan(compiled.roomPlan),
   authoredDrawSource: null,
-  seatsHeldFromViewer: { debater: 0, judge: 0 },
+  seatsHeldFromViewer: { side: 0, speaker: 0, judge: 0, moderator: 0 },
   invitations: [],
   rules: compiled.rules,
   participants: [],

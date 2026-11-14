@@ -1,4 +1,4 @@
-import { ballotFormFixture } from './ballot-form.test-support';
+import { ballotFormFixture, ballotFormPlan } from './ballot-form.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotFormFields, submitRoundBallotForm } from './form';
 setupRitewayBun();
@@ -9,11 +9,16 @@ test('unknown ballot acknowledgements retain the exact envelope while low-point 
     bodies.push(String(init.body));
     throw Error('lost response');
   };
-  const first = await submitRoundBallotForm(send, 'r'.repeat(24), form);
+  const first = await submitRoundBallotForm(
+    send,
+    'r'.repeat(24),
+    form,
+    ballotFormPlan,
+  );
   const kept = ballotFormFields(first).values;
   const retry = new FormData();
   for (const [key, value] of Object.entries(kept)) retry.set(key, value);
-  await submitRoundBallotForm(send, 'r'.repeat(24), retry);
+  await submitRoundBallotForm(send, 'r'.repeat(24), retry, ballotFormPlan);
   assert({
     given: 'two unknown acknowledgements',
     should:
@@ -28,7 +33,12 @@ test('unknown ballot acknowledgements retain the exact envelope while low-point 
   });
   retry.set('affirmative-thesis', '1');
   retry.set('low-point', 'affirmative:30:30');
-  const stale = await submitRoundBallotForm(send, 'r'.repeat(24), retry);
+  const stale = await submitRoundBallotForm(
+    send,
+    'r'.repeat(24),
+    retry,
+    ballotFormPlan,
+  );
   assert({
     given: 'changed scores with old low-point confirmation',
     should: 'refuse before transport and retain entered scores',
@@ -55,7 +65,7 @@ test('ballot responses keep entries on refusal and accept only the matching rece
     judgeParticipantId: 'j'.repeat(24),
     freezeRevision: 1,
     resultingVersion: 4,
-    outcome: 'affirmative',
+    outcome: { kind: 'winner', side: 'affirmative' },
   };
   const results = await Promise.all(
     [
@@ -65,7 +75,7 @@ test('ballot responses keep entries on refusal and accept only the matching rece
       reply(409, { refusal: 'stale-version' }),
       reply(200, { receipt: { ...receipt, roundId: 'x'.repeat(24) } }),
       reply(200, { receipt }),
-    ].map((send) => submitRoundBallotForm(send, roundId, form)),
+    ].map((send) => submitRoundBallotForm(send, roundId, form, ballotFormPlan)),
   );
   assert({
     given:
@@ -97,7 +107,12 @@ test('ballot responses keep entries on refusal and accept only the matching rece
       ['recorded', null, false, 'b'.repeat(24)],
     ],
   });
-  const invalid = await submitRoundBallotForm(reply(200), 'not-a-round', form);
+  const invalid = await submitRoundBallotForm(
+    reply(200),
+    'not-a-round',
+    form,
+    ballotFormPlan,
+  );
   assert({
     given: 'a malformed Round id',
     should: 'refuse before transport with the refresh guidance',

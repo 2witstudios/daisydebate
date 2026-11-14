@@ -12,6 +12,7 @@ import {
   readMediaBotLeases,
   mediaHearingSeats,
   mediaPublicationParticipants,
+  mediaWithdrawnSeats,
 } from './media-publication-authority';
 import { createAppError } from '@daisy/errors';
 import { and, count, eq, isNull } from 'drizzle-orm';
@@ -201,10 +202,9 @@ export function createMediaReconcileStore(input: {
           ),
           hearing: mediaHearingSeats(session.seats, botLeases, round, tick.now),
           mediaWindow: await readMediaWindowFacts(tx, session.roundId, tick),
-          withdrawn: withdrawnSeats(
-            session.seats,
-            session.accounts,
-            request.admits,
+          withdrawn: mediaWithdrawnSeats(
+            withdrawnSeats(session.seats, session.accounts, request.admits),
+            round,
           ),
           now: tick.now,
           finalSegmentEndedAt: tick.finalSegmentEndedAt,

@@ -1,10 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { sideSeat } from '@daisy/protocol';
 import { botGrantUnused } from './bot-grant';
 
 setupRitewayBun();
-const seat = { kind: 'bot', role: 'negative', slot: 0 } as const;
-const theirTurn = { side: 'negative', slot: 0 };
-const otherTurn = { side: 'affirmative', slot: 0 };
+const seat = { kind: 'bot', seat: sideSeat('negative', 0) } as const;
+const theirTurn = { lead: sideSeat('negative', 0) };
+const otherTurn = { lead: sideSeat('affirmative', 0) };
 
 test('whether a bot owes a stream for a grant (ISSUE-965)', () => {
   const cases = [
@@ -15,7 +16,11 @@ test('whether a bot owes a stream for a grant (ISSUE-965)', () => {
     ],
     [
       'another slot on its side',
-      { seat, turn: { side: 'negative', slot: 1 }, hasAuthoredSpeech: false },
+      {
+        seat,
+        turn: { lead: sideSeat('negative', 1) },
+        hasAuthoredSpeech: false,
+      },
       true,
     ],
     [
@@ -34,8 +39,8 @@ test('whether a bot owes a stream for a grant (ISSUE-965)', () => {
       false,
     ],
     [
-      'a rule naming neither side nor slot',
-      { seat, turn: {}, hasAuthoredSpeech: false },
+      'a rule naming no lead seat',
+      { seat, turn: { lead: null }, hasAuthoredSpeech: false },
       false,
     ],
     [

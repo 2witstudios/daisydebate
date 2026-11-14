@@ -1,4 +1,11 @@
 import { createAppError } from '@daisy/errors';
+import {
+  affirmativeSide,
+  negativeSide,
+  rateableOutcome,
+  sideOfSeat,
+  type TwoSideKey,
+} from '@daisy/protocol';
 import type {
   DebaterStanding,
   RatingEligibility,
@@ -42,7 +49,9 @@ export function ratingEligibility(
   if (input.alreadyRated) return { kind: 'already-rated' };
   if (input.ladderId === null)
     return { kind: 'unrated', reason: 'competition' };
-  if (input.outcome === null) return { kind: 'unrated', reason: 'no-result' };
+  // A rating compares two sides: only a winner rates (ADR 0055, TAB-6.2).
+  const outcome = rateableOutcome(input.outcome);
+  if (outcome === null) return { kind: 'unrated', reason: 'no-result' };
   if (input.ending === 'unrecorded')
     return { kind: 'unrated', reason: 'ending-unrecorded' };
   if (input.attendance.pendingWriter)
@@ -57,7 +66,7 @@ export function ratingEligibility(
   return {
     kind: 'rated',
     ladder: input.ladderId,
-    outcome: input.outcome,
+    outcome,
     occurredAt: input.completedAt,
   };
 }
@@ -83,8 +92,8 @@ const startingState = ({ current, previous }: DebaterStanding): RatingState =>
 export function planRating(input: RatingPlanFacts): RatingPlan {
   if (input.seasonId === null)
     throw createAppError('CONFLICT', 'No season is active');
-  const seatOf = (role: 'affirmative' | 'negative') => {
-    const held = input.seats.filter((seat) => seat.role === role);
+  const seatOf = (side: TwoSideKey) => {
+    const held = input.seats.filter((seat) => sideOfSeat(seat.seat) === side);
     if (held.length !== 1 || !held[0])
       throw createAppError(
         'CONFLICT',
@@ -92,8 +101,8 @@ export function planRating(input: RatingPlanFacts): RatingPlan {
       );
     return held[0].actorId;
   };
-  const affirmative = seatOf('affirmative');
-  const negative = seatOf('negative');
+  const affirmative = seatOf(affirmativeSide);
+  const negative = seatOf(negativeSide);
   if (affirmative === negative)
     throw createAppError('CONFLICT', 'A debater cannot hold both sides');
   const standingOf = (actorId: string): DebaterStanding => {

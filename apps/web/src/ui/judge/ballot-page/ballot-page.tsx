@@ -3,13 +3,14 @@ import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import Link from 'next/link';
 import { StoredBallotScores } from '../../ballot/stored-ballot-scores';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { idle } from '../../../features/forms/form-state';
 import type { RoundBallotRead } from '@daisy/protocol';
 import {
-  ballotDebaters,
   ballotDisplay,
+  ballotPlanOf,
 } from '../../../features/round-ballots/presentation';
+import { outcomeText } from '../../ballot/outcome-text';
 import {
   ballotFormFields,
   ballotUnavailable,
@@ -67,9 +68,9 @@ export function BallotPage({
     renderedAtMs,
     router,
   );
-  const debaters = ballotDebaters(view);
+  const plan = useMemo(() => ballotPlanOf(view), [view]);
   const display = ballotDisplay(view, answer);
-  const draft = useBallotDraft(view, display, fields.values);
+  const draft = useBallotDraft(plan, view, display, fields.values);
   const own = display === 'retry' ? null : view.own?.ballot;
   const opensInMs = useBallotOpensIn(
     view.round,
@@ -95,6 +96,7 @@ export function BallotPage({
       />
       {display === 'open' || display === 'waiting' ? (
         <BallotRules
+          plan={plan}
           waitingOn={view.round.waitingOn}
           renderedAtMs={renderedAtMs}
         />
@@ -109,26 +111,25 @@ export function BallotPage({
         post={post}
         pending={pending}
         commandId={commandId}
-        debaters={debaters}
+        plan={plan}
         opensInMs={opensInMs}
       />
       {own ? (
-        <BallotSummary
-          title="Your recorded ballot"
-          ballot={own}
-          debaters={debaters}
-        />
+        <BallotSummary title="Your recorded ballot" ballot={own} plan={plan} />
       ) : null}
       {own ? (
         <StoredBallotScores
           title="Your recorded scores"
           ballot={own}
-          debaters={debaters}
+          plan={plan}
         />
       ) : null}
       {display !== 'retry' && view.round.status === 'completed' ? (
         <p role="status">
-          Round outcome: {view.round.outcome ?? 'No competitive outcome'}
+          Round outcome:{' '}
+          {view.round.outcome
+            ? outcomeText(plan, view.round.outcome)
+            : 'No competitive outcome'}
         </p>
       ) : null}
       {postRoundCallOffered(view.round, renderedAtMs) ? (

@@ -108,7 +108,7 @@ export const readRecordingArchive = async (
     }),
     archive.countPublicArchive({ clock }),
   ]);
-  return { page, publicCount };
+  return { page, publicCount, nowMs: Date.parse(app.clock.now()) };
 };
 
 /** A finished Round's history screen for this viewer. */
