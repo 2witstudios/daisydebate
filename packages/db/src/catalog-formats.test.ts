@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { formatDefinitionSchema, formatSettingsSchema } from '@daisy/protocol';
 import { catalogFormats } from './catalog-formats';
+import { casualTemplateIds } from './catalog-casual';
 
 setupRitewayBun();
 
@@ -38,10 +39,13 @@ describe('catalogFormats', () => {
       ],
     });
     assert({
-      given: 'every template',
+      given: 'every league template',
       should: 'name a family, a league, a rules edition and a source',
       actual: catalogFormats
-        .filter((entry) => entry.role === 'template')
+        .filter(
+          (entry) =>
+            entry.role === 'template' && !casualTemplateIds.includes(entry.id),
+        )
         .every(
           (entry) =>
             entry.family !== null &&
@@ -210,6 +214,82 @@ describe('catalogFormats', () => {
         .filter((entry) => !entry.preset.resolutionDraw.enabled)
         .every((entry) => !entry.preset.preRoundPrep.enabled),
       expected: true,
+    });
+  });
+
+  test("Daisy's casual templates (TAB-6.18)", () => {
+    const shape = (id: string) => {
+      const { definition, family, leagues } = format(id);
+      return {
+        family,
+        leagues,
+        sides: definition.sides.map((side) => side.key),
+        seats: definition.seats,
+        outcome: definition.outcome,
+        speak: definition.segments.map(
+          (segment) => `${segment.type}:${segment.speak.rights}`,
+        ),
+      };
+    };
+    assert({
+      given: 'the four casual templates',
+      should:
+        'seat a three-judge panel, four teams, six speakers and an open pair, each a casual template of no league',
+      actual: casualTemplateIds.map(shape),
+      expected: [
+        {
+          family: 'other',
+          leagues: [],
+          sides: ['affirmative', 'negative'],
+          seats: {
+            sides: { affirmative: 1, negative: 1 },
+            speakers: 0,
+            judges: 3,
+            moderators: 0,
+          },
+          outcome: { kind: 'winner' },
+          speak: Array(4).fill('speech:one'),
+        },
+        {
+          family: 'other',
+          leagues: [],
+          sides: [
+            'opening_government',
+            'opening_opposition',
+            'closing_government',
+            'closing_opposition',
+          ],
+          seats: {
+            sides: {
+              opening_government: 1,
+              opening_opposition: 1,
+              closing_government: 1,
+              closing_opposition: 1,
+            },
+            speakers: 0,
+            judges: 1,
+            moderators: 0,
+          },
+          outcome: { kind: 'ranking', of: 'sides' },
+          speak: Array(4).fill('speech:one'),
+        },
+        {
+          family: 'other',
+          leagues: [],
+          sides: [],
+          seats: { sides: {}, speakers: 6, judges: 1, moderators: 0 },
+          outcome: { kind: 'ranking', of: 'speakers' },
+          speak: Array(6).fill('speech:one'),
+        },
+        {
+          family: 'other',
+          leagues: [],
+          sides: [],
+          seats: { sides: {}, speakers: 2, judges: 0, moderators: 0 },
+          outcome: { kind: 'none' },
+          speak: ['open:all'],
+        },
+      ],
     });
   });
 });

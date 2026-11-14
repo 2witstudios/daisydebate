@@ -1,4 +1,8 @@
-import { catalogFormats, type CatalogFormat } from '@daisy/db/catalog-formats';
+import {
+  casualTemplateIds,
+  catalogFormats,
+  type CatalogFormat,
+} from '@daisy/db/catalog-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import type { FormatSettings, RoundRules } from '@daisy/protocol';
 
@@ -29,9 +33,18 @@ const withMode = (
   },
 });
 
-/** Every catalog format crossed with each interruption mode it permits, in catalog order. */
+/**
+ * The catalog the two-sided corpus captured (TAB-6.1): every format but
+ * Daisy's casual templates, which came after it and whose proofs are their
+ * own integration suites (TAB-6.18).
+ */
+export const corpusFormats: readonly CatalogFormat[] = catalogFormats.filter(
+  ({ id }) => !casualTemplateIds.includes(id),
+);
+
+/** Every corpus format crossed with each interruption mode it permits, in catalog order. */
 export const formatVariants = (): readonly FormatVariant[] =>
-  catalogFormats.flatMap((format) => {
+  corpusFormats.flatMap((format) => {
     const modes =
       format.definition.configurable.interaction.interruptions?.modes;
     return modes

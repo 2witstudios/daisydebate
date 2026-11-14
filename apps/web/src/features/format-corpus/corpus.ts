@@ -1,7 +1,11 @@
-import { catalogFormats } from '@daisy/db/catalog-formats';
 import { ballotCases } from './ballots';
 import { endingCases } from './endings';
-import { formatVariants, resolvedVariant, rulesOf } from './format-variants';
+import {
+  corpusFormats,
+  formatVariants,
+  resolvedVariant,
+  rulesOf,
+} from './format-variants';
 import { judgeCases } from './judge';
 import { ratingCases } from './ratings';
 import { scriptRound } from './round-script';
@@ -31,7 +35,7 @@ const rulesCases = () =>
 
 /** A scripted Round per format on its canonical preset, plus one with interruptions where permitted. */
 const roundCases = () =>
-  catalogFormats.flatMap((format) => {
+  corpusFormats.flatMap((format) => {
     const enabled = formatVariants().find(
       (variant) =>
         variant.format.id === format.id && variant.mode === 'enabled',
