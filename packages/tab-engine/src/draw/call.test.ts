@@ -5,6 +5,7 @@ import type {
   EventRequest,
   SlotJudge,
 } from '../shapes/draw';
+import { check } from '../checker';
 import { draw } from './index';
 import { entriesOf, panelOf } from './facts';
 import {
@@ -435,14 +436,29 @@ describe('a movable fixture whose judge is busy elsewhere in the slot', () => {
 });
 
 describe('one judge seated on two movable fixtures', () => {
-  const pair = (id: string, sides: readonly [string, string]) => ({
+  const pair = (
+    id: string,
+    sides: readonly [string, string],
+    hold: 'fixed' | 'movable' = 'movable',
+    judge = 'j00',
+  ) => ({
     id,
-    fixture: { kind: 'pairing', sides, panel: ['j00'] },
-    hold: 'movable',
+    fixture: { kind: 'pairing', sides, panel: [judge] },
+    hold,
   });
-  test('in one event: the first fixture in canonical order keeps the judge, the other is withdrawn', () => {
-    const d = drawsOf(
-      draw(
+  const keptAndWithdrawn = (input: DrawInput) => {
+    const answer = draw(input);
+    return [
+      drawsOf(answer).map((d) => [d.keep.map((k) => k.id), d.withdraw]),
+      check(input, answer).ok,
+    ];
+  };
+
+  test('in one event: the first fixture in canonical order keeps the judge, and the checker agrees', () => {
+    assert({
+      given: 'j00 seated on two movable fixtures of one event',
+      should: 'keep m1, withdraw m2, and pass the checker',
+      actual: keptAndWithdrawn(
         slotCall(
           [
             request(twoSides, {
@@ -456,40 +472,132 @@ describe('one judge seated on two movable fixtures', () => {
           judges(6),
         ),
       ),
-    )[0]!;
-    assert({
-      given: 'j00 seated on two movable fixtures of one event',
-      should: 'keep m1 and withdraw m2',
-      actual: [d.keep.map((k) => k.id), d.withdraw],
-      expected: [['m1'], ['m2']],
+      expected: [[[['m1'], ['m2']]], true],
     });
   });
 
-  test('in two events of a slot: the first event keeps the judge, the other fixture is withdrawn', () => {
-    const answer = draw(
-      slotCall(
-        [
-          request(twoSides, {
-            event: 'a',
-            entries: entries(4, 4, 'a'),
-            existing: [pair('ma', ['a00', 'a01'])] as never,
-          }),
-          request(twoSides, {
-            event: 'b',
-            entries: entries(4, 4, 'b'),
-            existing: [pair('mb', ['b00', 'b01'])] as never,
-          }),
-        ],
-        judges(6),
+  test('a windowed tab round holds the same rule', () => {
+    assert({
+      given: 'j00 seated on two movable fixtures of a windowed tab round',
+      should: 'keep m1, withdraw m2, and pass the checker',
+      actual: keptAndWithdrawn({
+        call: 'windowed',
+        event: request(twoSides, {
+          entries: entries(8),
+          existing: [
+            pair('m1', ['e00', 'e01']),
+            pair('m2', ['e02', 'e03']),
+          ] as never,
+        }),
+        judges: judges(6).map(({ available: _available, ...j }) => j),
+        seed: seedOf(6),
+      }),
+      expected: [[[['m1'], ['m2']]], true],
+    });
+  });
+
+  test('a fixed fixture holds its judge before a movable one', () => {
+    assert({
+      given:
+        'j00 seated on a fixed fixture and a movable one of the same event',
+      should: 'keep the fixed f1, withdraw m2, and pass the checker',
+      actual: keptAndWithdrawn(
+        slotCall(
+          [
+            request(twoSides, {
+              entries: entries(8),
+              existing: [
+                pair('f1', ['e00', 'e01'], 'fixed'),
+                pair('m2', ['e02', 'e03']),
+              ] as never,
+            }),
+          ],
+          judges(6),
+        ),
       ),
-    );
-    const [a, b] = drawsOf(answer);
+      expected: [[[['f1'], ['m2']]], true],
+    });
+  });
+
+  test('in two events of a slot: the first event keeps the judge, and the checker agrees', () => {
     assert({
       given:
         'j00 seated on a movable fixture in each of two events in one slot',
-      should: "keep event a's fixture and withdraw event b's",
-      actual: [a!.keep.map((k) => k.id), b!.withdraw],
-      expected: [['ma'], ['mb']],
+      should:
+        "keep event a's fixture, withdraw event b's, and pass the checker",
+      actual: keptAndWithdrawn(
+        slotCall(
+          [
+            request(twoSides, {
+              event: 'a',
+              entries: entries(4, 4, 'a'),
+              existing: [pair('ma', ['a00', 'a01'])] as never,
+            }),
+            request(twoSides, {
+              event: 'b',
+              entries: entries(4, 4, 'b'),
+              existing: [pair('mb', ['b00', 'b01'])] as never,
+            }),
+          ],
+          judges(6),
+        ),
+      ),
+      expected: [
+        [
+          [['ma'], []],
+          [[], ['mb']],
+        ],
+        true,
+      ],
+    });
+  });
+
+  test('a judge freed when its section is released stays free for the next event', () => {
+    const section = (
+      id: string,
+      speakers: readonly string[],
+      judge: string,
+    ) => ({
+      id,
+      fixture: { kind: 'section', speakers, panel: [judge] },
+      hold: 'movable',
+    });
+    const speech = [
+      ...['x1', 'x2', 'x3', 'x4'].map((id) => entry(id, 'X')),
+      ...['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'].map(
+        (id) => entry(id, id),
+      ),
+    ];
+    const input = slotCall(
+      [
+        request(speakers, {
+          event: 'a',
+          entries: speech,
+          settings: withSettings({
+            'pairing.same_school': { force: 'rule' },
+            'pairing.section_size': { target: 4 },
+          }),
+          existing: [
+            section('m1', ['x1', 'a', 'b', 'c'], 'j00'),
+            section('m2', ['d', 'e', 'f', 'g'], 'j01'),
+          ] as never,
+        }),
+        request(twoSides, {
+          event: 'b',
+          entries: entries(4, 4, 'b'),
+          existing: [pair('mb', ['b00', 'b01'], 'movable', 'j01')] as never,
+        }),
+      ],
+      judges(12),
+    );
+    const answer = draw(input);
+    const [a, b] = drawsOf(answer);
+    assert({
+      given:
+        'a speech event that must release m2 (judged by j01), and another event whose movable fixture j01 also judges',
+      should: 'withdraw m2, keep mb, and pass the checker',
+      actual: [a!.withdraw, b!.keep.map((k) => k.id), check(input, answer).ok],
+      expected: [['m2'], ['mb'], true],
     });
   });
 });

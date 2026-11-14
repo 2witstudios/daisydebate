@@ -204,16 +204,33 @@ export const optimalityViolations = (
   /**
    * A movable fixture can be kept only while its seated judges are free and
    * it, with its panel, breaks no rule; otherwise it is withdrawn whatever
-   * the plan, and drawing its pairing afresh is not keeping it.
+   * the plan, and drawing its pairing afresh is not keeping it. One judge,
+   * one fixture: this event's fixed fixtures hold their judges first, then
+   * movable fixtures claim theirs in canonical order of id, and a later one
+   * whose judge is already claimed cannot be kept.
    */
-  const keepable = field.movable.filter(
-    (f) =>
-      !breaksAny(fixtureCosts(ctx, f), rules) &&
-      panelOf(f).every((id) => {
-        const person = ctx.judges?.get(id)?.person;
-        return person === undefined || !occupied.has(person);
-      }),
+  const existing = request.existing as readonly ExistingFixture<never>[];
+  const personOf = (id: Id) => ctx.judges?.get(id)?.person ?? id;
+  const claimed = new Set(
+    existing
+      .filter((e) => e.hold === 'fixed')
+      .flatMap((e) => panelOf(e.fixture as Fixture).map(personOf)),
   );
+  const keepableFixtures = new Set<Fixture>();
+  for (const e of [...existing]
+    .filter((x) => x.hold === 'movable')
+    .sort((a, b) => compareBytes(a.id, b.id))) {
+    const fixture = e.fixture as Fixture;
+    const people = panelOf(fixture).map(personOf);
+    if (
+      !breaksAny(fixtureCosts(ctx, fixture), rules) &&
+      people.every((person) => !occupied.has(person) && !claimed.has(person))
+    ) {
+      keepableFixtures.add(fixture);
+      for (const person of people) claimed.add(person);
+    }
+  }
+  const keepable = field.movable.filter((f) => keepableFixtures.has(f));
   let best: number[] | null = null;
   everyPlan(
     ctx,

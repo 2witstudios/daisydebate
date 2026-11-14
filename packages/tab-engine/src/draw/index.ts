@@ -154,8 +154,8 @@ const releasedMovable = (
   input: DrawInput,
   leastLoad: number,
   occupied: ReadonlySet<Id>,
-  /** People already seated on a kept fixture of the call; grows as fixtures are kept. */
-  taken: Set<Id>,
+  /** People seated on fixtures already kept by earlier events of the call, or on fixed fixtures. */
+  taken: ReadonlySet<Id>,
 ): Set<Id> => {
   if (input.judges === null) return new Set();
   const byId = new Map<Id, Judge | SlotJudge>(
@@ -163,6 +163,8 @@ const releasedMovable = (
   );
   const people = peopleOf([p.request]);
   const released = new Set<Id>();
+  /** This event's movable seats, claimed in canonical order: the first fixture keeps a shared judge. */
+  const local = new Set<Id>();
   for (const f of p.request.existing) {
     const fixture = f.fixture as Fixture;
     if (f.hold !== 'movable' || fixture.kind === 'bye') continue;
@@ -184,12 +186,13 @@ const releasedMovable = (
         (competitors.has(judge.person) ||
           occupied.has(judge.person) ||
           taken.has(judge.person) ||
+          local.has(judge.person) ||
           (judge.events !== null && !judge.events.includes(p.request.event)) ||
           blockingRules(task, seat, judge, leastLoad).length > 0)
       );
     });
     if (blocked) released.add(f.id);
-    else for (const id of fixture.panel) taken.add(byId.get(id)?.person ?? id);
+    else for (const id of fixture.panel) local.add(byId.get(id)?.person ?? id);
   }
   return released;
 };
@@ -258,6 +261,11 @@ export const draw = (input: DrawInput): DrawAnswer => {
     switch (answer.kind) {
       case 'placed':
         placements.push(withReleased(answer.placed));
+        // A judge is taken only once the event has settled which fixtures it keeps.
+        for (const { fixture } of answer.placed.kept)
+          if (fixture.kind !== 'bye')
+            for (const id of fixture.panel)
+              taken.add(judgePerson.get(id) ?? id);
         break;
       case 'infeasible': {
         const conflict = conflictingRules(placing, input.seed);

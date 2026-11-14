@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { StageHistory, TwoSides } from '../shapes/competition';
+import { check } from '../checker';
 import { draw } from './index';
 import { entriesOf } from './facts';
 import {
@@ -183,6 +184,56 @@ describe('bracket progression', () => {
       should: 'draw the bracket and report no pairing policy broken',
       actual: [fixturesOf(d).length, d.assessment.broken],
       expected: [2, []],
+    });
+  });
+});
+
+describe('a bracket that is over', () => {
+  test('a final lost by both sides leaves nothing to pair: no_plan, and the checker agrees', () => {
+    const two = entries(2, 2);
+    const stage = {
+      kind: 'elimination',
+      division: null,
+      bracket: { seeds: two.map((e) => e.id) },
+    } as const;
+    const final = drawsOf(
+      draw({
+        call: 'windowed',
+        event: request(twoSides, { entries: two, stage }),
+        judges: null,
+        seed: seedOf(1),
+      }),
+    )[0]!;
+    const played = playTwoSided({ fixtures: [], results: [] }, final, 1);
+    const bothLost = {
+      ...played,
+      results: played.results.map((r) => ({
+        ...r,
+        outcome: { ...r.outcome, winner: null },
+      })),
+    };
+    const input = {
+      call: 'windowed',
+      event: request(twoSides, {
+        entries: two,
+        stage,
+        tabRound: 2,
+        history: bothLost,
+      }),
+      judges: null,
+      seed: seedOf(1),
+    } as const;
+    const answer = draw(input);
+    assert({
+      given: 'a two-entry bracket whose final both sides lost',
+      should: 'answer no_plan, accepted by the checker',
+      actual: [
+        answer.kind === 'infeasible' && answer.cause === 'structure'
+          ? answer.fact
+          : answer.kind,
+        check(input, answer).ok,
+      ],
+      expected: ['no_plan', true],
     });
   });
 });
