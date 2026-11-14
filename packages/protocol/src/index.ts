@@ -208,7 +208,6 @@ export {
   buildLobbyTopic,
   buildLobbyHostTopic,
   buildOrganizationHostTopic,
-  lobbyTopicCapability,
 } from './topics';
 export {
   emailDeliveryStatuses,

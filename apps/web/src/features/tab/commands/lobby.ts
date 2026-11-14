@@ -39,7 +39,7 @@ export type LobbyFact =
       readonly admitsMinors: boolean;
     };
 
-export type SeasonFact = {
+type SeasonFact = {
   readonly id: string;
   readonly organizationId: string;
   /** The `seasons.status` values. */
@@ -48,7 +48,7 @@ export type SeasonFact = {
 };
 
 /** A template the lobby offers and has not withdrawn. */
-export type OfferedTemplateFact = {
+type OfferedTemplateFact = {
   readonly id: string;
   readonly formatId: string;
   readonly formatVersion: number;
@@ -57,7 +57,7 @@ export type OfferedTemplateFact = {
 };
 
 /** What a Room create in a standing lobby is checked against, resolved for the lobby. */
-export type LobbyRoomFacts = {
+type LobbyRoomFacts = {
   readonly offeredTemplates: readonly OfferedTemplateFact[];
   readonly ownFormat: SettingValues['room.own_format']['value'];
   readonly ownText: SettingValues['resolution.own_text']['value'];
@@ -138,7 +138,7 @@ type SeasonRow = {
 };
 
 /** The rows a lobby command writes, on the merged tables' columns. */
-export type LobbyWrite =
+type LobbyWrite =
   | Insert<'lobbies', Omit<LobbyRow, 'closedAt' | 'version'>>
   | Update<'lobbies', LobbyRow>
   | Insert<'tournaments', TournamentRow>
@@ -184,11 +184,14 @@ export type LobbyWrite =
     >
   | Delete<'ladders'>;
 
-export type LobbyRefusal = LobbySetupRefusal | SharedLobbyRefusal;
+type LobbyRefusal = LobbySetupRefusal | SharedLobbyRefusal;
 export type LobbyDecision = CommandDecision<LobbyRefusal, LobbyWrite>;
 
 const accepted = (
-  aggregate: { readonly kind: 'lobby' | 'season'; readonly id: string },
+  aggregate: {
+    readonly kind: 'lobby' | 'season' | 'room';
+    readonly id: string;
+  },
   resultingVersion: number,
   writes: readonly LobbyWrite[],
 ): LobbyDecision => ({
@@ -493,7 +496,8 @@ const createLobbyRoom = (
     return refuse('setting-enforced');
   if (command.room.resolution.kind === 'custom' && room.ownText === 'off')
     return refuse('pool-resolution-required');
-  return accepted({ kind: 'lobby', id: lobby.id }, lobby.version, [
+  // The receipt names the Room it made, at its first version.
+  return accepted({ kind: 'room', id: facts.newId }, 1, [
     {
       table: 'rooms',
       op: 'insert',

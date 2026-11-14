@@ -16,7 +16,7 @@ type ResponsibleKind = (typeof responsibleKinds)[number];
  * restriction (`restrictions`, with `limits_lobbies` set) and the lobbies it
  * allows (`restriction_lobbies`). `version` is the boundary's revision.
  */
-export type BoundaryFacts = {
+type BoundaryFacts = {
   readonly guardianLinkId: string;
   readonly guardianUserId: string;
   readonly allowedLobbyIds: readonly string[];
@@ -41,7 +41,7 @@ export type EntryPersonFacts = {
 };
 
 /** A published fixture of the entry, with its Room and its slot guard. */
-export type EntryLiveFixtureFacts = {
+type EntryLiveFixtureFacts = {
   readonly fixtureId: string;
   readonly tabRoundId: string;
   readonly roomId: string | null;
@@ -153,7 +153,7 @@ type EntryMemberRow = {
 };
 
 /** The rows an entry command writes, on the merged tables' columns. */
-export type EntryWrite =
+type EntryWrite =
   | { readonly table: 'entries'; readonly op: 'insert'; readonly row: EntryRow }
   | {
       readonly table: 'entries';
@@ -210,7 +210,7 @@ export type EntryDecision = CommandDecision<
  * lobbies they may enter, this lobby is not among them, and the entry is
  * not the guardian's own. Such an entry stays pending (TAB-5.23).
  */
-export const guardianAwaited = (
+const guardianAwaited = (
   person: EntryPersonFacts,
   lobbyId: string,
   madeByUserId: string | null,

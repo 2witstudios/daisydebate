@@ -59,7 +59,7 @@ const ownTournamentShape = z.strictObject({
   seeding: z.enum(['standings', 'rating']),
 });
 
-export const hostLobbySchema = z.strictObject({
+const hostLobbySchema = z.strictObject({
   lobbyId: idSchema,
   handle,
   name,
@@ -73,7 +73,7 @@ export const hostLobbySchema = z.strictObject({
 });
 export type HostLobby = z.infer<typeof hostLobbySchema>;
 
-export const hostOrganizationSchema = z.strictObject({
+const hostOrganizationSchema = z.strictObject({
   organizationId: idSchema,
   handle,
   name,
@@ -83,7 +83,6 @@ export const hostOrganizationSchema = z.strictObject({
   memberCount: count,
   sanctionRequestsWaiting: count,
 });
-export type HostOrganization = z.infer<typeof hostOrganizationSchema>;
 
 /**
  * Host home: every organization and lobby where a `*.host.read` allows the
@@ -128,7 +127,7 @@ const grantScope = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('lobby'), lobbyId: idSchema, name }),
 ]) satisfies z.ZodType<{ kind: (typeof grantScopeKinds)[number] }>;
 
-export const personGrantSchema = z.strictObject({
+const personGrantSchema = z.strictObject({
   grantId: idSchema,
   roleId: idSchema,
   scope: grantScope,
@@ -136,14 +135,14 @@ export const personGrantSchema = z.strictObject({
 });
 
 /** A connection the evaluator has recorded between a person and this lobby's Rooms. */
-export const personConflictSchema = z.strictObject({
+const personConflictSchema = z.strictObject({
   basis: z.enum(conflictBases),
   /** The school the connection runs through, for `school_entry`. */
   school: z.strictObject({ organizationId: idSchema, name }).nullable(),
   entryCount: count,
 });
 
-export const organizationPersonSchema = z.strictObject({
+const organizationPersonSchema = z.strictObject({
   userId: idSchema,
   name,
   owner: z.boolean(),
@@ -155,7 +154,7 @@ export const organizationPersonSchema = z.strictObject({
 });
 export type OrganizationPerson = z.infer<typeof organizationPersonSchema>;
 
-export const organizationRoleSchema = z.strictObject({
+const organizationRoleSchema = z.strictObject({
   roleId: idSchema,
   name,
   rank: z.int().min(0),

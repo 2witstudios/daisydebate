@@ -18,7 +18,7 @@ import { refuse, type CommandDecision } from './run-command';
  */
 
 /** An `organizations` row, as the commands read it. */
-export type OrganizationRow = {
+type OrganizationRow = {
   readonly id: string;
   readonly kind: OrganizationKind;
   readonly name: string;
@@ -27,7 +27,7 @@ export type OrganizationRow = {
   readonly version: number;
 };
 /** A `memberships` row. */
-export type MembershipRow = {
+type MembershipRow = {
   readonly organizationId: string;
   readonly userId: string;
   readonly status: MembershipStatus;
@@ -82,7 +82,7 @@ export type OrganizationFacts = {
   readonly staffMinimumBand: 'adult' | '16-17';
 };
 
-export type OrganizationWrite =
+type OrganizationWrite =
   | {
       readonly table: 'organizations';
       readonly op: 'insert';
@@ -155,7 +155,7 @@ export type OrganizationWrite =
     };
 
 /** A command's own refusals, and the shared `not-found` for a row it names that is not there. */
-export type OrganizationDecisionRefusal = OrganizationRefusal | 'not-found';
+type OrganizationDecisionRefusal = OrganizationRefusal | 'not-found';
 type Decision = CommandDecision<OrganizationDecisionRefusal, OrganizationWrite>;
 
 const live = (grant: GrantFact, now: string): boolean =>

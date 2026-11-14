@@ -177,7 +177,7 @@ export const decideConfirm = <RerunRefusal extends string, RerunWrite>(
 // ---- Conflict waivers ------------------------------------------------------
 
 /** A `conflicts` row the evaluator recorded for the requester on the fixture. */
-export type ConflictRow = {
+type ConflictRow = {
   readonly id: string;
   readonly lobbyId: string;
   readonly userId: string;

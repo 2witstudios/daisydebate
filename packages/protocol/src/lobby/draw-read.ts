@@ -21,7 +21,7 @@ const count = z.int().min(0);
 const instant = z.iso.datetime();
 
 /** How much a finding weighs: a broken rule is never relaxed. */
-export const drawFindingSeverities = [
+const drawFindingSeverities = [
   'note',
   'preference_bent',
   'rule_broken',
@@ -144,7 +144,6 @@ export const supersededInputListSchema = z
       path: ['items'],
     },
   );
-export type SupersededInputList = z.infer<typeof supersededInputListSchema>;
 
 export const drawReadCatalogue = {
   DrawView: { gate: ['lobby.host.read'] },

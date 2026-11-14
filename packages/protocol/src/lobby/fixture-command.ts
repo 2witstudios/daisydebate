@@ -17,7 +17,7 @@ import {
 const typedReason = z.string().max(2000);
 
 /** A broken `judging.*` rule kept anyway, named with the reason. */
-export const judgingOverrideSchema = z.strictObject({
+const judgingOverrideSchema = z.strictObject({
   key: z.enum(judgingForceKeys),
   reason: typedReason,
 });
@@ -32,7 +32,7 @@ const overridesSchema = z
     'Each rule is overridden at most once.',
   );
 
-export const assignJudgeCommandSchema = z.strictObject({
+const assignJudgeCommandSchema = z.strictObject({
   type: z.literal('assign-judge'),
   fixtureId: idSchema,
   judgeId: idSchema,
@@ -40,7 +40,7 @@ export const assignJudgeCommandSchema = z.strictObject({
   overrides: overridesSchema,
 });
 
-export const replaceJudgeCommandSchema = z
+const replaceJudgeCommandSchema = z
   .strictObject({
     type: z.literal('replace-judge'),
     fixtureId: idSchema,
@@ -53,19 +53,19 @@ export const replaceJudgeCommandSchema = z
     path: ['inJudgeId'],
   });
 
-export const unassignJudgeCommandSchema = z.strictObject({
+const unassignJudgeCommandSchema = z.strictObject({
   type: z.literal('unassign-judge'),
   fixtureId: idSchema,
   judgeId: idSchema,
 });
 
-export const restartFixtureCommandSchema = z.strictObject({
+const restartFixtureCommandSchema = z.strictObject({
   type: z.literal('restart-fixture'),
   fixtureId: idSchema,
   reason: typedReason,
 });
 
-export const recordForfeitCommandSchema = z.strictObject({
+const recordForfeitCommandSchema = z.strictObject({
   type: z.literal('record-forfeit'),
   fixtureId: idSchema,
   entryId: idSchema,
@@ -101,7 +101,6 @@ export const fixtureCommandRefusals = [
   'entry-not-in-fixture',
 ] as const;
 export type FixtureCommandRefusal = (typeof fixtureCommandRefusals)[number];
-export const fixtureCommandRefusalSchema = z.enum(fixtureCommandRefusals);
 
 const assignRefusals = [
   'fixture-withdrawn',

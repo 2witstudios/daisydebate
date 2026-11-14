@@ -40,18 +40,18 @@ export type FixtureRow = {
   readonly version: number;
 };
 /** A `fixture_entries` row with its entry's school. */
-export type FixtureEntryRow = {
+type FixtureEntryRow = {
   readonly entryId: string;
   readonly side: string | null;
   readonly schoolOrganizationId: string | null;
 };
 /** An `entry_members` row of one of the fixture's entries. */
-export type EntryMemberRow = {
+type EntryMemberRow = {
   readonly entryId: string;
   readonly actorId: string;
 };
 /** A `fixture_judges` row of this fixture. */
-export type FixtureJudgeRow = {
+type FixtureJudgeRow = {
   readonly tournamentJudgeId: string;
   readonly chair: boolean;
 };
@@ -70,20 +70,20 @@ export type TournamentJudgeRow = {
   readonly allowedEvent: boolean;
 };
 /** A `judge_strikes` row between a judge and one of the fixture's entries. */
-export type JudgeStrikeRow = {
+type JudgeStrikeRow = {
   readonly entryId: string;
   readonly tournamentJudgeId: string;
   readonly source: (typeof judgeStrikeSources)[number];
 };
 /** A `fixture_judges` row of another published fixture in the same time slot. */
-export type SlotBookingRow = {
+type SlotBookingRow = {
   readonly fixtureId: string;
   readonly tournamentJudgeId: string;
 };
 /** The `rounds` row of the fixture's current Room, once its Round has started. */
-export type RoundRow = { readonly id: string; readonly status: RoundStatus };
+type RoundRow = { readonly id: string; readonly status: RoundStatus };
 /** A `ballots` row of that Round, with its judge's actor from `round_participants`. */
-export type BallotRow = {
+type BallotRow = {
   readonly id: string;
   readonly judgeActorId: string;
   readonly winner: string;
@@ -100,14 +100,14 @@ export type ResultRow = {
 };
 
 /** The `judging.*` rules a judge assignment is checked against. */
-export const evaluatedJudgingRules = [
+const evaluatedJudgingRules = [
   'judging.availability',
   'judging.strike',
   'judging.conflict',
   'judging.same_school',
   'judging.chair',
 ] as const;
-export type EvaluatedJudgingRule = (typeof evaluatedJudgingRules)[number];
+type EvaluatedJudgingRule = (typeof evaluatedJudgingRules)[number];
 
 /** Everything about one fixture the record says, read under its lock. */
 export type FixtureRecord = {
@@ -169,7 +169,7 @@ export type ResultEntryWrite = {
   };
 };
 
-export type FixtureWrite =
+type FixtureWrite =
   | {
       readonly table: 'fixture_judges';
       readonly op: 'insert';

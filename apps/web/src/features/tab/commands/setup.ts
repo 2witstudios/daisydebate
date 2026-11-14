@@ -60,7 +60,7 @@ export type TabRoundFact = {
   readonly drawPublished: boolean;
 };
 
-export type TimeSlotFact = {
+type TimeSlotFact = {
   readonly id: string;
   readonly name: string;
   readonly startsAt: string;
@@ -68,14 +68,14 @@ export type TimeSlotFact = {
 };
 
 /** A ballot definition the lobby may pin: Daisy's, its organization's or its own. */
-export type BallotDefinitionFact = {
+type BallotDefinitionFact = {
   readonly id: string;
   readonly lobbyId: string | null;
   readonly currentVersion: number;
 };
 
 /** A template the lobby may follow; `conflictsWithChain` is its enforced keys against the chain. */
-export type TemplateFact = {
+type TemplateFact = {
   readonly id: string;
   readonly formatId: string;
   readonly formatVersion: number;
@@ -86,7 +86,7 @@ export type TemplateFact = {
 };
 
 /** A resolution pool the lobby may draw from, with its resolutions. */
-export type ResolutionPoolFact = {
+type ResolutionPoolFact = {
   readonly id: string;
   readonly lobbyId: string | null;
   readonly resolutions: readonly {
@@ -184,7 +184,7 @@ type TimeSlotRow = {
 };
 
 /** The rows a setup command writes, on the merged tables' columns. */
-export type SetupWrite =
+type SetupWrite =
   | Update<'lobbies', { readonly version: number }>
   | Insert<'events', Omit<EventRow, 'version'>>
   | Update<'events', EventRow>
@@ -232,7 +232,7 @@ export type SetupWrite =
     >
   | Update<'pool_resolutions', { readonly retiredAt: string }>;
 
-export type SetupRefusal = LobbySetupRefusal | SharedLobbyRefusal;
+type SetupRefusal = LobbySetupRefusal | SharedLobbyRefusal;
 export type SetupDecision = CommandDecision<SetupRefusal, SetupWrite>;
 
 type OpenTournament = {

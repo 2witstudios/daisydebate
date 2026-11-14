@@ -47,9 +47,7 @@ export const isTournamentCancellable = (status: TournamentStatus): boolean =>
 
 const nameSchema = z.string().trim().min(1).max(120);
 /** Lower-case letters, digits and inner hyphens; unique ignoring case. */
-export const lobbyHandleSchema = z
-  .string()
-  .regex(/^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/);
+const lobbyHandleSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/);
 const instantSchema = z.iso.datetime();
 const versionSchema = z.int().positive();
 /** A division key from the event's `entry.divisions` setting. */
@@ -68,7 +66,7 @@ const writtenRuleSchema = z.enum(['required', 'optional', 'off']);
  * The typed settings of a ballot: everything a host may choose, and the only
  * source of a judge's ballot. An illegal definition does not parse.
  */
-export const ballotDefinitionSettingsSchema = z
+const ballotDefinitionSettingsSchema = z
   .strictObject({
     points: z
       .strictObject({
@@ -210,7 +208,7 @@ const createLobbyRoom = z.strictObject({
   room: roomCreateSchema,
 });
 
-export const lobbyCommandSchema = z.discriminatedUnion('type', [
+const lobbyCommandSchema = z.discriminatedUnion('type', [
   createLobby,
   updateLobby,
   setTournamentStatus,
@@ -395,7 +393,7 @@ const retireResolution = z.strictObject({
   poolResolutionId: idSchema,
 });
 
-export const tournamentSetupCommandSchema = z.discriminatedUnion('type', [
+const tournamentSetupCommandSchema = z.discriminatedUnion('type', [
   addEvent,
   updateEvent,
   removeEvent,
@@ -467,7 +465,6 @@ export const lobbySetupRefusals = [
   'placement-unchanged',
 ] as const;
 export type LobbySetupRefusal = (typeof lobbySetupRefusals)[number];
-export const lobbySetupRefusalSchema = z.enum(lobbySetupRefusals);
 
 const setup = (
   refusals: readonly LobbySetupRefusal[],
@@ -536,7 +533,7 @@ export const lobbySetupCommandCatalogue = {
     history: 'entry',
   },
   'create-lobby-room': {
-    aggregate: 'lobby',
+    aggregate: 'room',
     gate: ['lobby.room.create'],
     versions: [],
     refusals: [

@@ -8,7 +8,7 @@ import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
  * is yes or no, so `template-mismatch` carries no comparison.
  */
 
-export const requestSanctionCommandSchema = z.strictObject({
+const requestSanctionCommandSchema = z.strictObject({
   type: z.literal('request-sanction'),
   leagueId: idSchema,
   eventId: idSchema,
@@ -16,17 +16,17 @@ export const requestSanctionCommandSchema = z.strictObject({
   seasonId: idSchema,
 });
 
-export const approveSanctionCommandSchema = z.strictObject({
+const approveSanctionCommandSchema = z.strictObject({
   type: z.literal('approve-sanction'),
   sanctionId: idSchema,
 });
 
-export const declineSanctionCommandSchema = z.strictObject({
+const declineSanctionCommandSchema = z.strictObject({
   type: z.literal('decline-sanction'),
   sanctionId: idSchema,
 });
 
-export const withdrawSanctionCommandSchema = z.strictObject({
+const withdrawSanctionCommandSchema = z.strictObject({
   type: z.literal('withdraw-sanction'),
   sanctionId: idSchema,
   reason: z.string().trim().min(1).max(2000),
@@ -52,7 +52,6 @@ export const sanctionCommandRefusals = [
   'results-certified',
 ] as const;
 export type SanctionCommandRefusal = (typeof sanctionCommandRefusals)[number];
-export const sanctionCommandRefusalSchema = z.enum(sanctionCommandRefusals);
 
 export const sanctionCommandCatalogue = {
   'request-sanction': {

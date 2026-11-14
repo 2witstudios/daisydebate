@@ -33,7 +33,7 @@ export type GuardianLinkRow = {
   readonly version: number;
 };
 /** A `restrictions` row with its `restriction_lobbies`. */
-export type RestrictionFact = {
+type RestrictionFact = {
   readonly limitsLobbies: boolean;
   readonly videoAudienceCap: VideoAudienceCap;
   readonly version: number;
@@ -72,7 +72,7 @@ type LinkPeople = {
   readonly minorUserId: string;
 };
 
-export type GuardianWrite =
+type GuardianWrite =
   | {
       readonly table: 'guardian_links';
       readonly op: 'insert';
@@ -132,7 +132,7 @@ export type GuardianWrite =
       readonly increment: 'version';
     };
 
-export type GuardianDecisionRefusal = GuardianRefusal | 'not-found';
+type GuardianDecisionRefusal = GuardianRefusal | 'not-found';
 type Decision = CommandDecision<GuardianDecisionRefusal, GuardianWrite>;
 
 const isMinor = (band: AgeBand | null): boolean =>

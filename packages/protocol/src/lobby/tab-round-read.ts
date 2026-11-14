@@ -18,7 +18,7 @@ const durationMs = z.int().min(0);
 const instant = z.iso.datetime();
 
 /** A tab round's fixtures are pairings or sections; byes ride beside either. */
-export const roomedFixtureKinds = ['pairing', 'section'] as const;
+const roomedFixtureKinds = ['pairing', 'section'] as const;
 
 const entryRef = z.strictObject({ entryId: idSchema, name });
 const judgeRef = z.strictObject({ tournamentJudgeId: idSchema, name });

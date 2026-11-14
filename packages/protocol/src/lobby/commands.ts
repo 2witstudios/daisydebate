@@ -66,7 +66,6 @@ export const lobbyCommandGroups = {
     Readonly<Record<string, LobbyCommandDefinition>>,
   ]
 >;
-export type LobbyCommandGroup = keyof typeof lobbyCommandGroups;
 
 /** Every command type with its definition, across every group. */
 export const lobbyCommandCatalogue: Readonly<

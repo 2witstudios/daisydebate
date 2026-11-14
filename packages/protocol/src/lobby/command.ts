@@ -15,6 +15,7 @@ export const lobbyAggregateKinds = [
   'guardian_link',
   'template',
   'lobby',
+  'room',
   'season',
   'event',
   'draw',
@@ -26,13 +27,13 @@ export const lobbyAggregateKinds = [
   'pending_command',
 ] as const;
 export type LobbyAggregateKind = (typeof lobbyAggregateKinds)[number];
-export const lobbyAggregateKindSchema = z.enum(lobbyAggregateKinds);
+const lobbyAggregateKindSchema = z.enum(lobbyAggregateKinds);
 
 /**
  * The versions a command may read, by name. A command names each one it
  * checks in its envelope's `expected`; a creation command names none.
  */
-export const commandVersionNames = [
+const commandVersionNames = [
   'organization',
   'guardianLink',
   'template',
@@ -51,7 +52,7 @@ export const commandVersionNames = [
 export type CommandVersionName = (typeof commandVersionNames)[number];
 
 const versionSchema = z.int().positive();
-export const commandExpectedSchema = z.strictObject(
+const commandExpectedSchema = z.strictObject(
   Object.fromEntries(
     commandVersionNames.map((name) => [name, versionSchema.optional()]),
   ) as {
@@ -121,7 +122,7 @@ export type LobbyCommandCatalogue<Command extends { readonly type: string }> = {
  * publishing refuses it without an override), a bent preference, a warning,
  * or a key it skipped.
  */
-export const commandFindingSchema = z.discriminatedUnion('kind', [
+const commandFindingSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.enum(['rule', 'preference', 'warning']),
     key: z.string().min(1),
@@ -185,7 +186,7 @@ export type LobbyCommandAnswer<Refusal extends string = string> =
     };
 
 /** Who a command was accepted under: the evaluator's authority, or a service. */
-export const historyAuthoritySchema = z.discriminatedUnion('kind', [
+const historyAuthoritySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('fixed') }),
   z.strictObject({ kind: z.literal('owner') }),
   z.strictObject({ kind: z.literal('grant'), grantId: idSchema }),

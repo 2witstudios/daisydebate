@@ -41,6 +41,7 @@ const fixture = (
   id: id(name),
   kind: 'pairing',
   status: 'published',
+  version: 1,
   roomId: id(`room${name}`),
   state: 'not_open',
   entries: entries.map((entryId, position) => ({
@@ -467,7 +468,7 @@ describe('assign-judges', () => {
     assert({
       given: 'a published draw and one available judge',
       should:
-        'seat the judge as chair, bump the slot, keep the draw version and answer one change',
+        'seat the judge as chair, move the fixture and the slot, keep the draw version and answer one change',
       actual: {
         holds:
           input?.call === 'slot'
@@ -499,6 +500,12 @@ describe('assign-judges', () => {
               tournamentJudgeId: id('judge1'),
               chair: true,
             },
+          },
+          {
+            table: 'fixtures',
+            op: 'update',
+            where: { id: id('f1') },
+            set: { version: 2 },
           },
           {
             table: 'time_slots',

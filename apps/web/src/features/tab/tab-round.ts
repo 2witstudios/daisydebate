@@ -273,7 +273,7 @@ export type RunningRoundContext = {
 };
 
 /** The host's running round: a projection of `TabRoundHostView`. */
-export const runningRoundOf = (
+const runningRoundOf = (
   read: TabRoundHostView,
   context: RunningRoundContext,
 ): RunningRound => {

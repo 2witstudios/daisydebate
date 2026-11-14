@@ -41,22 +41,21 @@ export const settingKeyFamilyOf = (key: SettingKey): SettingKeyFamily =>
 export const settingKeyFamilies = [
   ...new Set(settingKeys.map(settingKeyFamilyOf)),
 ] as [SettingKeyFamily, ...SettingKeyFamily[]];
-export const settingKeyFamilySchema = z.enum(settingKeyFamilies);
+const settingKeyFamilySchema = z.enum(settingKeyFamilies);
 
 /** The query: where, and optionally one family of keys. */
 export const resolvedSettingsQuerySchema = z.strictObject({
   at: settingsAtSchema,
   family: settingKeyFamilySchema.optional(),
 });
-export type ResolvedSettingsQuery = z.infer<typeof resolvedSettingsQuerySchema>;
 
 /**
  * Why the caller may not set a key where they asked: a scope above enforces
  * it, the key is not set at this kind of scope, or they lack the permission.
  * Null when they may.
  */
-export const settingLocks = ['enforced', 'scope', 'not-permitted'] as const;
-export const settingLockSchema = z.enum(settingLocks);
+const settingLocks = ['enforced', 'scope', 'not-permitted'] as const;
+const settingLockSchema = z.enum(settingLocks);
 export type SettingLock = z.infer<typeof settingLockSchema>;
 
 /**
@@ -95,7 +94,7 @@ const fitsKey = (
 };
 
 /** The row the scope asked about holds for a key. */
-export const ownSettingRowSchema = z.strictObject({
+const ownSettingRowSchema = z.strictObject({
   value: z.unknown(),
   hold: settingHoldSchema,
 });

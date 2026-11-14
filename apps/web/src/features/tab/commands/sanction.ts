@@ -14,7 +14,7 @@ import { refuse, type CommandDecision } from './run-command';
  */
 
 /** A `sanctions` row. */
-export type SanctionRow = {
+type SanctionRow = {
   readonly id: string;
   readonly organizationId: string;
   readonly lobbyId: string;

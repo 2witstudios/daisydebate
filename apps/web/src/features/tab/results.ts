@@ -83,10 +83,7 @@ const stageStates = {
 } as const;
 
 /** The elimination tree: a projection of `BracketView`. */
-export const bracketOf = (
-  read: BracketView,
-  wallClock: WallClock,
-): Bracket => ({
+const bracketOf = (read: BracketView, wallClock: WallClock): Bracket => ({
   stages: read.tabRounds.map((tabRound) => {
     const feeder = read.tabRounds.find(
       (candidate) => candidate.name === tabRound.waitsOn?.feederTabRoundName,

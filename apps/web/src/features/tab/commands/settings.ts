@@ -35,7 +35,7 @@ import { refuse, type CommandDecision } from './run-command';
  */
 
 /** The scope a setting command writes, with its isolation key and settings version. */
-export type SettingScopeFact =
+type SettingScopeFact =
   | {
       readonly kind: 'organization';
       readonly id: string;
@@ -60,7 +60,7 @@ export type SettingScopeFact =
     };
 
 /** The pins a sanction compares, and the chain of the template it names. */
-export type SanctionFact = {
+type SanctionFact = {
   readonly templateChain: SettingChain;
   readonly template: {
     readonly formatVersionId: string;
@@ -73,7 +73,7 @@ export type SanctionFact = {
 };
 
 /** What an event holds that a setting change may not break. */
-export type EventHoldings = {
+type EventHoldings = {
   /** The division keys its entries carry. */
   readonly divisionsInUse: readonly string[];
   /** Whether two of its breaks share a time slot. */
@@ -122,7 +122,7 @@ export type EventFact = EventHoldings & {
   readonly format: FormatSettingDefaults;
 };
 
-export type LobbyFact = {
+type LobbyFact = {
   readonly id: string;
   readonly kind: LobbyKind;
   readonly ownerOrganizationId: string | null;
@@ -170,7 +170,7 @@ type Pins = {
   readonly ballotDefinitionVersion: number | null;
 };
 
-export type SettingWrite =
+type SettingWrite =
   /** The row's id is minted where the write is applied. */
   | {
       readonly table: 'settings';
@@ -245,8 +245,7 @@ export type SettingWrite =
       };
     };
 
-export type SettingDecisionRefusal =
-  SettingRefusal | 'not-found' | 'name-taken';
+type SettingDecisionRefusal = SettingRefusal | 'not-found' | 'name-taken';
 type Decision = CommandDecision<SettingDecisionRefusal, SettingWrite>;
 
 const sameScope = (a: SettingScope, b: SettingScope): boolean =>

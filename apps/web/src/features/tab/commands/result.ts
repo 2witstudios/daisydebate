@@ -141,7 +141,7 @@ export const decideFixtureResult = (
 // ---- Certifying ------------------------------------------------------------
 
 /** A `ballot_screenings` row with the Round its ballot belongs to. */
-export type ScreeningRow = {
+type ScreeningRow = {
   readonly ballotId: string;
   readonly roundId: string;
   readonly tabRoundId: string;

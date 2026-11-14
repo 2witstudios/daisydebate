@@ -19,11 +19,7 @@ import type {
 } from '@daisy/protocol/lobby/draw-command';
 import { fixtureChangesOf, type PublishedVersion } from './fixture-changes';
 import { officiatingRefusal, type FixtureState } from './fixture';
-import {
-  refuse,
-  type CommandDecision,
-  type CommandTransaction,
-} from './run-command';
+import { refuse, type CommandDecision } from './run-command';
 import type {
   EngineAssessment,
   EngineCommitment,
@@ -54,14 +50,8 @@ type FixtureStatus = (typeof fixtureStatuses)[number];
  * draw may do to a fixture follows from it: only one whose Round has not
  * started may be re-paired, withdrawn or left out of a new version.
  */
-export const liveFixtureStates = [
-  'not_open',
-  'open',
-  'round_live',
-  'ballot_in',
-  'has_result',
-] as const;
-export type LiveFixtureState = (typeof liveFixtureStates)[number];
+export type LiveFixtureState =
+  'not_open' | 'open' | 'round_live' | 'ballot_in' | 'has_result';
 
 /** A live Round, a ballot or a result fixes a fixture's pairing. */
 export const isRepairable = (state: LiveFixtureState): boolean => {
@@ -104,7 +94,7 @@ const fixtureStateOfDraw = (fixture: DrawFixtureFacts): FixtureState => {
 };
 
 /** What a draw version records in its `inputs` beside the engine's record. */
-export type DrawInputs = {
+type DrawInputs = {
   /** The engine's inputs record; null for a typed draw never computed. */
   readonly engine: EngineInputsRecord | null;
   /** The digest of the event's resolved settings the version was made under. */
@@ -130,6 +120,8 @@ export type DrawFixtureFacts = {
   readonly id: string;
   readonly kind: FixtureKind;
   readonly status: FixtureStatus;
+  /** The fixture's own version, which officiating moves; a draw never does. */
+  readonly version: number;
   readonly roomId: string | null;
   /** Null unless published. */
   readonly state: LiveFixtureState | null;
@@ -219,7 +211,7 @@ type FixtureChild = DrawChild & {
 };
 
 /** The rows a draw command writes, on the merged tables' columns. */
-export type DrawWrite =
+type DrawWrite =
   | {
       readonly table: 'draws';
       readonly op: 'insert';
@@ -284,7 +276,9 @@ export type DrawWrite =
             readonly publishedAt: string;
             readonly roomId: string | null;
           }
-        | { readonly status: 'withdrawn'; readonly withdrawnAt: string };
+        | { readonly status: 'withdrawn'; readonly withdrawnAt: string }
+        /** Officiating a live fixture moves its own version, as one judge command does. */
+        | { readonly version: number };
     }
   | {
       readonly table: 'fixtures';
@@ -370,16 +364,6 @@ export type DrawDecision = CommandDecision<
   DrawWrite
 >;
 
-/**
- * The transaction port for the draw commands. Requirement on its Postgres
- * implementation: a writer locks the tab round's `draws` rows `FOR UPDATE`
- * in `facts()`, before it adds anything to a draft (`draw_fixtures`,
- * `fixtures`, `fixture_entries`, `fixture_judges`). The publish guard reads
- * a draft's child lists under a share lock, so a writer that adds to the
- * draft first and locks the draw after deadlocks against a publish.
- */
-export type DrawTransaction = CommandTransaction<DrawFacts, DrawWrite>;
-
 const child = (facts: DrawFacts): DrawChild => ({
   tabRoundId: facts.tabRound.id,
   eventId: facts.event.id,
@@ -436,7 +420,7 @@ const sameFixture = (a: EngineFixture, b: EngineFixture) =>
   sameList(panelOf(a), panelOf(b));
 
 /** The engine's view of a stored fixture: entries in position order, chair first. */
-export const engineFixtureOf = (fixture: DrawFixtureFacts): EngineFixture => {
+const engineFixtureOf = (fixture: DrawFixtureFacts): EngineFixture => {
   const entries = [...fixture.entries]
     .sort((a, b) => a.position - b.position)
     .map((entry) => entry.entryId);
@@ -850,10 +834,20 @@ const assignJudges = (
   const officiated = seatings.filter(
     ({ stored }) => stored.status === 'published',
   );
+  // A live fixture's panel changed: it moves its own version, as the
+  // fixture-level judge commands do, and the slot moves once.
+  const bumped = officiated.map(({ stored }): DrawWrite => ({
+    table: 'fixtures',
+    op: 'update',
+    where: { id: stored.id },
+    set: { version: stored.version + 1 },
+  }));
   return onDraw(
     draw.id,
     draw.version,
-    officiated.length === 0 ? writes : [...writes, ...slotBump(facts)],
+    officiated.length === 0
+      ? writes
+      : [...writes, ...bumped, ...slotBump(facts)],
     findingsOf(drawn.assessment),
     officiated.map(({ stored, added }) => ({
       kind: 'officiated',
@@ -1330,6 +1324,13 @@ const discardDraft = (
  * publish withdraws each live fixture it leaves out, which only a fixture
  * whose Round has not started allows, and breaks a rule only under an
  * override that gives its reason.
+ *
+ * Requirement on the Postgres transaction port (wiring's): a writer locks
+ * the tab round's `draws` rows `FOR UPDATE` in `facts()`, before it adds
+ * anything to a draft (`draw_fixtures`, `fixtures`, `fixture_entries`,
+ * `fixture_judges`). The publish guard reads a draft's child lists under a
+ * share lock, so a writer that adds to the draft first and locks the draw
+ * after deadlocks against a publish.
  */
 export const decideDraw =
   (engine: TabEngine) =>

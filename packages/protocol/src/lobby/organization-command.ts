@@ -95,7 +95,6 @@ export const organizationRefusals = [
   'grant-ended',
 ] as const;
 export type OrganizationRefusal = (typeof organizationRefusals)[number];
-export const organizationRefusalSchema = z.enum(organizationRefusals);
 
 const command = (
   definition: Omit<

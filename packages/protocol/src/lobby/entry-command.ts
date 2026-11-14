@@ -86,7 +86,6 @@ export const entryRefusals = [
   'choice-closed',
 ] as const;
 export type EntryRefusal = (typeof entryRefusals)[number];
-export const entryRefusalSchema = z.enum(entryRefusals);
 
 const onEntries = {
   aggregate: 'event',
@@ -221,7 +220,6 @@ export const judgeRefusals = [
   'strike-absent',
 ] as const;
 export type JudgeRefusal = (typeof judgeRefusals)[number];
-export const judgeRefusalSchema = z.enum(judgeRefusals);
 
 const onJudge = { aggregate: 'lobby', versions: [], history: 'entry' } as const;
 
@@ -267,6 +265,3 @@ export const judgeCommandCatalogue = {
     refusals: ['strike-exists'],
   },
 } as const satisfies LobbyCommandCatalogue<JudgeCommand>;
-
-export const judgeCommandEnvelopeSchema =
-  lobbyCommandEnvelope(judgeCommandSchema);

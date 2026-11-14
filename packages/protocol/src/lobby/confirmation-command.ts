@@ -12,28 +12,28 @@ import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
 
 const pendingCommandRef = { pendingCommandId: idSchema };
 
-export const confirmCommandCommandSchema = z.strictObject({
+const confirmCommandCommandSchema = z.strictObject({
   type: z.literal('confirm-command'),
   ...pendingCommandRef,
 });
 
-export const declineCommandCommandSchema = z.strictObject({
+const declineCommandCommandSchema = z.strictObject({
   type: z.literal('decline-command'),
   ...pendingCommandRef,
 });
 
-export const withdrawCommandCommandSchema = z.strictObject({
+const withdrawCommandCommandSchema = z.strictObject({
   type: z.literal('withdraw-command'),
   ...pendingCommandRef,
 });
 
 /** The reads a conflicted holder may ask a waiver for. */
-export const waivableCapabilities = [
+const waivableCapabilities = [
   'round.observe.undelayed',
   'tournament.ballots.read_unreleased',
 ] as const;
 
-export const requestConflictWaiverCommandSchema = z.strictObject({
+const requestConflictWaiverCommandSchema = z.strictObject({
   type: z.literal('request-conflict-waiver'),
   fixtureId: idSchema,
   capability: z.enum(waivableCapabilities),
@@ -60,9 +60,6 @@ export const confirmationCommandRefusals = [
 ] as const;
 export type ConfirmationCommandRefusal =
   (typeof confirmationCommandRefusals)[number];
-export const confirmationCommandRefusalSchema = z.enum(
-  confirmationCommandRefusals,
-);
 
 export const confirmationCommandCatalogue = {
   'confirm-command': {

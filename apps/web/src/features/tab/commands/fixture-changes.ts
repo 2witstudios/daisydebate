@@ -1,7 +1,7 @@
 import type { FixtureChange } from '@daisy/protocol/lobby/command';
 
 /** A fixture of a published version, with the people seated in it. */
-export type SeatedFixture = {
+type SeatedFixture = {
   readonly fixtureId: string;
   /** Entry members and judges seated in it, as accounts. */
   readonly people: readonly string[];

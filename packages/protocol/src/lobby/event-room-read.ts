@@ -16,7 +16,7 @@ const instant = z.iso.datetime();
 const count = z.int().nonnegative();
 
 /** The values publishing pinned on the Room, as one line each. */
-export const pinnedSettingLines = [
+const pinnedSettingLines = [
   'format',
   'resolution',
   'decision',
@@ -25,7 +25,7 @@ export const pinnedSettingLines = [
 ] as const;
 export type PinnedSettingLine = (typeof pinnedSettingLines)[number];
 
-export const eventRoomEntrySchema = z.strictObject({
+const eventRoomEntrySchema = z.strictObject({
   entryId: idSchema,
   name,
   /** The side or position as the format names it; null in a section. */
@@ -45,15 +45,13 @@ export const eventRoomEntrySchema = z.strictObject({
 });
 export type EventRoomEntry = z.infer<typeof eventRoomEntrySchema>;
 
-export const eventRoomJudgeSchema = z.strictObject({
+const eventRoomJudgeSchema = z.strictObject({
   name,
   chair: z.boolean(),
   present: z.boolean(),
   /** The viewer judges in this seat. */
   own: z.boolean(),
 });
-
-export const eventRoomQuerySchema = z.strictObject({ roomId: idSchema });
 
 export const eventRoomViewSchema = z.strictObject({
   roomId: idSchema,

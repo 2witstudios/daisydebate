@@ -13,10 +13,10 @@ import {
   type SettingValues,
 } from './setting-values';
 
-export { settingHolds, settingKeys, settingScopeKinds } from './keys';
+export { settingKeys, settingScopeKinds } from './keys';
 
 export const settingScopeKindSchema = z.enum(settingScopeKinds);
-export type { SettingHold, SettingScopeKind };
+export type { SettingHold };
 
 /** Who may change a value below: `default` lets them, `enforced` does not. */
 export const settingHoldSchema = z.enum(settingHolds);

@@ -18,7 +18,7 @@ import {
 const typedReason = z.string().max(2000);
 
 /** One entry's outcome in a result, as the `result_entries` row holds it. */
-export const resultEntryOutcomeSchema = z.strictObject({
+const resultEntryOutcomeSchema = z.strictObject({
   entryId: idSchema,
   won: z.boolean().nullable(),
   rank: z.int().positive().nullable(),
@@ -36,11 +36,11 @@ const outcomeSchema = z
   );
 
 /** Forfeit is recorded by officiating (`record-forfeit`), not here. */
-export const enteredAdministrativeReasons = administrativeResultReasons.filter(
+const enteredAdministrativeReasons = administrativeResultReasons.filter(
   (reason): reason is Exclude<typeof reason, 'forfeit'> => reason !== 'forfeit',
 );
 
-export const recordAdministrativeResultCommandSchema = z.strictObject({
+const recordAdministrativeResultCommandSchema = z.strictObject({
   type: z.literal('record-administrative-result'),
   fixtureId: idSchema,
   administrativeReason: z.enum(enteredAdministrativeReasons),
@@ -48,7 +48,7 @@ export const recordAdministrativeResultCommandSchema = z.strictObject({
   entries: outcomeSchema,
 });
 
-export const correctResultCommandSchema = z.strictObject({
+const correctResultCommandSchema = z.strictObject({
   type: z.literal('correct-result'),
   fixtureId: idSchema,
   supersedesResultId: idSchema,
@@ -56,12 +56,12 @@ export const correctResultCommandSchema = z.strictObject({
   entries: outcomeSchema,
 });
 
-export const certifyResultCommandSchema = z.strictObject({
+const certifyResultCommandSchema = z.strictObject({
   type: z.literal('certify-result'),
   resultId: idSchema,
 });
 
-export const certifyEventCommandSchema = z.strictObject({
+const certifyEventCommandSchema = z.strictObject({
   type: z.literal('certify-event'),
   eventId: idSchema,
 });
@@ -70,7 +70,7 @@ export const certifyEventCommandSchema = z.strictObject({
  * Settles a screening hold: release the ballot's own text, or a redacted
  * text in its place. The ballot itself is never rewritten.
  */
-export const resolveScreeningHoldCommandSchema = z.strictObject({
+const resolveScreeningHoldCommandSchema = z.strictObject({
   type: z.literal('resolve-screening-hold'),
   ballotId: idSchema,
   release: z.discriminatedUnion('kind', [
@@ -107,7 +107,6 @@ export const resultCommandRefusals = [
   'hold-settled',
 ] as const;
 export type ResultCommandRefusal = (typeof resultCommandRefusals)[number];
-export const resultCommandRefusalSchema = z.enum(resultCommandRefusals);
 
 export const resultCommandCatalogue = {
   'record-administrative-result': {
@@ -164,7 +163,7 @@ export const resultCommandCatalogue = {
  * release is how a result's parts open. A release is append-only: once open
  * for an audience a thing stays open.
  */
-export const openAudienceCommandSchema = z.strictObject({
+const openAudienceCommandSchema = z.strictObject({
   type: z.literal('open-audience'),
   eventId: idSchema,
   /** One tab round, or every tab round of the event. */
@@ -176,7 +175,7 @@ export const openAudienceCommandSchema = z.strictObject({
   audience: z.enum(audiences),
 });
 
-export const releaseResolutionCommandSchema = z.strictObject({
+const releaseResolutionCommandSchema = z.strictObject({
   type: z.literal('release-resolution'),
   tabRoundId: idSchema,
 });
@@ -186,8 +185,6 @@ export const releaseCommandSchema = z.discriminatedUnion('type', [
   releaseResolutionCommandSchema,
 ]);
 export type ReleaseCommand = z.infer<typeof releaseCommandSchema>;
-export const releaseCommandEnvelopeSchema =
-  lobbyCommandEnvelope(releaseCommandSchema);
 
 export const releaseCommandRefusals = [
   'not-manual',
@@ -198,7 +195,6 @@ export const releaseCommandRefusals = [
   'resolution-unset',
 ] as const;
 export type ReleaseCommandRefusal = (typeof releaseCommandRefusals)[number];
-export const releaseCommandRefusalSchema = z.enum(releaseCommandRefusals);
 
 export const releaseCommandCatalogue = {
   'open-audience': {

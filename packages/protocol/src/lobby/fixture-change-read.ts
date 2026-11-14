@@ -18,9 +18,6 @@ export const fixtureChangeListQuerySchema = z.strictObject({
   cursor: cursorSchema.nullable(),
   limit: z.int().min(1).max(100),
 });
-export type FixtureChangeListQuery = z.infer<
-  typeof fixtureChangeListQuerySchema
->;
 
 const page = {
   tabRoundId: idSchema,

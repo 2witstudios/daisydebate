@@ -588,12 +588,12 @@ describe('create-lobby-room', () => {
     assert({
       given: 'a Room following an offered template, and one in its own format',
       should:
-        "pin the template's ballot definition, or none, without moving the lobby version",
+        "pin the template's ballot definition, or none, and name the new Room in the receipt",
       actual: [writesOf(facts(), withTemplate), writesOf(facts(), ownFormat)],
       expected: [
         {
-          aggregate: { kind: 'lobby', id: id('l') },
-          version: 4,
+          aggregate: { kind: 'room', id: id('n') },
+          version: 1,
           writes: [
             {
               table: 'rooms',
@@ -611,8 +611,8 @@ describe('create-lobby-room', () => {
           ],
         },
         {
-          aggregate: { kind: 'lobby', id: id('l') },
-          version: 4,
+          aggregate: { kind: 'room', id: id('n') },
+          version: 1,
           writes: [
             {
               table: 'rooms',

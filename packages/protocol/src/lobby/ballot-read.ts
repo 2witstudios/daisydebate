@@ -17,7 +17,7 @@ const writtenRuleSchema = z.enum(['required', 'optional', 'off']);
 const writtenTextSchema = z.string().max(5000);
 
 /** The typed settings of one immutable ballot definition version. */
-export const ballotDefinitionSchema = z.strictObject({
+const ballotDefinitionSchema = z.strictObject({
   version: z.int().min(1),
   points: z
     .strictObject({
@@ -74,7 +74,6 @@ const ballotSubjectSchema = z.strictObject({
   /** A side's name, or a speaker's school. */
   role: nameSchema.nullable(),
 });
-export type BallotSubjectValue = z.infer<typeof ballotSubjectSchema>;
 
 /** One judge's own ballot for one fixture, before it is submitted. */
 export const judgeBallotViewSchema = z.strictObject({
@@ -144,7 +143,6 @@ export const ballotViewSchema = z.discriminatedUnion('viewer', [
     feedback: releasedPart(z.record(z.string(), screenedTextSchema)),
   }),
 ]);
-export type BallotView = z.infer<typeof ballotViewSchema>;
 
 export const ballotReadCatalogue = {
   EventBallotView: { gate: ['lobby.host.read'] },

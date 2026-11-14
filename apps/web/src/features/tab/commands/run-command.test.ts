@@ -57,6 +57,7 @@ type Store = {
   stored: StoredCommand | null;
   applied: { writes: readonly Write[]; history: ActionHistoryEntry }[];
   held: number;
+  lastHeld: unknown;
   conflicts: number;
 };
 
@@ -71,7 +72,13 @@ const run = async ({
   expected?: number;
   name?: string;
 } = {}) => {
-  const store: Store = { stored, applied: [], held: 0, conflicts: 0 };
+  const store: Store = {
+    stored,
+    applied: [],
+    held: 0,
+    lastHeld: null,
+    conflicts: 0,
+  };
   const tx: CommandTransaction<Facts, Write> = {
     stored: async () => store.stored,
     facts: async () => ({ version: 3, taken: ['Taken'] }),
@@ -87,8 +94,9 @@ const run = async ({
       store.conflicts += 1;
       return id('c');
     },
-    holdForConfirmation: async () => {
+    holdForConfirmation: async (held) => {
       store.held += 1;
+      store.lastHeld = held;
       return {
         pendingCommandId: id('p'),
         expiresAt: '2026-11-15T00:00:00.000Z',
@@ -303,6 +311,27 @@ describe('runLobbyCommand (TAB-5.8)', async () => {
         held: 1,
         conflicts: 1,
         writes: 0,
+      },
+    });
+    assert({
+      given: 'a held command',
+      should:
+        'store it whole: its payload, its proposer and where it runs, for a confirmer to apply',
+      actual: confirming.store.lastHeld,
+      expected: {
+        commandId: id('k'),
+        scope: { kind: 'lobby', lobbyId: id('l') },
+        proposerUserId: id('u'),
+        type: 'rename',
+        payload: { type: 'rename', name: 'Autumn Open' },
+        payloadDigest: JSON.stringify({
+          expected: { lobby: 3 },
+          command: { type: 'rename', name: 'Autumn Open' },
+        })
+          .length.toString(16)
+          .padStart(64, '0'),
+        expected: { lobby: 3 },
+        conflictId: id('c'),
       },
     });
     const flagged = await run({

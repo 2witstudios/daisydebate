@@ -14,7 +14,7 @@
  * replaced by its exported types.
  */
 
-export type EngineId = string;
+type EngineId = string;
 
 /** What a Room runs, as far as a draw needs to know. */
 export type EngineFormat =
@@ -22,7 +22,7 @@ export type EngineFormat =
   | { readonly outcome: 'ranking'; readonly of: 'sides'; readonly sides: 4 }
   | { readonly outcome: 'ranking'; readonly of: 'speakers' };
 
-export type EngineProtection = { readonly scope: string; readonly key: string };
+type EngineProtection = { readonly scope: string; readonly key: string };
 
 export type EngineEntry = {
   readonly id: EngineId;
@@ -34,7 +34,7 @@ export type EngineEntry = {
 };
 
 /** Judge ids in seat order; seat 0 is the chair. */
-export type EnginePanel = readonly EngineId[];
+type EnginePanel = readonly EngineId[];
 
 /** A fixture as the engine sees it; its kind follows from the format. */
 export type EngineFixture =
@@ -89,7 +89,7 @@ export type EngineEventRequest = {
   readonly existing: readonly EngineExistingFixture[];
 };
 
-export type EngineJudge = {
+type EngineJudge = {
   readonly id: EngineId;
   readonly person: EngineId;
   readonly protection: readonly EngineProtection[];
@@ -133,7 +133,7 @@ export type EngineFixtureRef =
   | { readonly kind: 'existing'; readonly id: EngineId }
   | { readonly kind: 'new'; readonly ordinal: number };
 
-export type EngineRuleBreak = {
+type EngineRuleBreak = {
   readonly event: EngineId;
   /** A force key of the settings catalogue. */
   readonly key: string;
@@ -141,7 +141,7 @@ export type EngineRuleBreak = {
 };
 
 /** A structural fact no override covers, by its name. */
-export type EngineInvalidFact = { readonly fact: string };
+type EngineInvalidFact = { readonly fact: string };
 
 export type EngineAssessment = {
   readonly warnings: readonly EngineRuleBreak[];
@@ -176,10 +176,7 @@ export type EngineDraw = {
 };
 
 /** A plan as a person may hand it back: the three lists, without costs. */
-export type EnginePlan = Pick<
-  EngineDraw,
-  'event' | 'keep' | 'add' | 'withdraw'
->;
+type EnginePlan = Pick<EngineDraw, 'event' | 'keep' | 'add' | 'withdraw'>;
 
 export type EngineDrawAnswer =
   | { readonly kind: 'drawn'; readonly draws: readonly EngineDraw[] }

@@ -12,7 +12,7 @@ const name = z.string().trim().min(1).max(200);
 const version = z.int().min(1);
 
 /** One row a template holds itself, with its hold. */
-export const templateSettingRowSchema = z
+const templateSettingRowSchema = z
   .strictObject({
     key: settingKeySchema,
     value: z.unknown(),

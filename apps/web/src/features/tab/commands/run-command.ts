@@ -48,7 +48,7 @@ export const refuse = <Refusal extends string>(
 });
 
 /** Where a command's history entry belongs. */
-export type CommandScope = ActionHistoryEntry['scope'];
+type CommandScope = ActionHistoryEntry['scope'];
 
 /**
  * What is stored for a command id: its history entry with the receipt it
@@ -89,9 +89,16 @@ export type CommandTransaction<Facts, Write> = {
   ) => Promise<void>;
 };
 
-export type HeldCommand = {
+/**
+ * A held command, whole: what `pending_commands` stores so a confirmer can
+ * apply it later as proposed (its payload, who proposed it, where it runs).
+ */
+type HeldCommand = {
   readonly commandId: string;
+  readonly scope: CommandScope;
+  readonly proposerUserId: string | null;
   readonly type: string;
+  readonly payload: { readonly type: string };
   readonly payloadDigest: string;
   readonly expected: CommandExpected;
   readonly conflictId: string;
@@ -222,7 +229,10 @@ export const runLobbyCommand = <
     if (gate.kind === 'confirm') {
       const held = await tx.holdForConfirmation({
         commandId: envelope.commandId,
+        scope: tx.scope(facts),
+        proposerUserId: actorUserId,
         type: envelope.command.type,
+        payload: envelope.command,
         payloadDigest,
         expected: envelope.expected,
         conflictId: conflictId ?? (await tx.recordConflict(gate.conflict)),

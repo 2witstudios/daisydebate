@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { idSchema } from '../primitives';
 import type { LobbyReadCatalogue } from './read';
 import {
-  lobbyKinds,
   organizationKinds,
   releaseCauses,
   stageKinds,
@@ -24,7 +23,7 @@ const count = z.int().nonnegative();
 const handle = z.string().regex(/^[a-z0-9-]{1,64}$/);
 
 /** A lobby belongs to a league, or to the person who opened it. */
-export const lobbyOwnerSchema = z.discriminatedUnion('kind', [
+const lobbyOwnerSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('organization'),
     organizationId: idSchema,
@@ -43,7 +42,7 @@ export const lobbyOwnerSchema = z.discriminatedUnion('kind', [
  * judges, guardian links and memberships. Empty for someone with no part,
  * which a signed-out reader always is.
  */
-export const lobbyViewerRoles = [
+const lobbyViewerRoles = [
   'host',
   'member',
   'competitor',
@@ -64,7 +63,7 @@ export const tabRoundRefSchema = z.strictObject({
 export type TabRoundRef = z.infer<typeof tabRoundRefSchema>;
 
 /** Who may enter, when the tournament says nothing narrower. */
-export const entryEligibilities = [
+const entryEligibilities = [
   'anyone',
   'organization_members',
   'organization_added',
@@ -202,7 +201,7 @@ const standingLobbyCommon = {
   capabilities: z.strictObject({ createRoom: z.boolean() }),
 };
 
-export const standingLobbyViewSchema = z.discriminatedUnion('signedIn', [
+const standingLobbyViewSchema = z.discriminatedUnion('signedIn', [
   z.strictObject({ ...standingLobbyCommon, ...signedOut, ladder: z.null() }),
   z.strictObject({
     ...standingLobbyCommon,
@@ -264,7 +263,7 @@ const tournamentLobbyCommon = {
   }),
 };
 
-export const tournamentLobbyViewSchema = z.discriminatedUnion('signedIn', [
+const tournamentLobbyViewSchema = z.discriminatedUnion('signedIn', [
   z.strictObject({
     ...tournamentLobbyCommon,
     ...signedOut,
@@ -291,15 +290,8 @@ export const lobbyViewSchema = z.discriminatedUnion('kind', [
   standingLobbyViewSchema,
   tournamentLobbyViewSchema,
 ]);
-export type LobbyView = z.infer<typeof lobbyViewSchema>;
 export type StandingLobbyView = z.infer<typeof standingLobbyViewSchema>;
 export type TournamentLobbyView = z.infer<typeof tournamentLobbyViewSchema>;
-
-/** The lobby list's query: by kind, and by owning organization. */
-export const lobbyListQuerySchema = z.strictObject({
-  kind: z.enum(lobbyKinds).nullable(),
-  ownerOrganizationId: idSchema.nullable(),
-});
 
 /** What the viewer is doing at a listed tournament. */
 const listedPartSchema = z
@@ -335,7 +327,7 @@ const listedNowSchema = z
   .nullable();
 
 /** One lobby a viewer may see. A lobby open only by link is never listed. */
-export const listedLobbySchema = z.discriminatedUnion('kind', [
+const listedLobbySchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('standing'),
     lobbyId: idSchema,
@@ -387,7 +379,7 @@ export type LobbyListPage = z.infer<typeof lobbyListPageSchema>;
 export const lobbyRoomListQuerySchema = z.strictObject({ lobbyId: idSchema });
 
 /** One Room of a standing lobby, as its list shows it. */
-export const listedRoomSchema = z.discriminatedUnion('status', [
+const listedRoomSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('open'),
     roomId: idSchema,
@@ -409,7 +401,6 @@ export const listedRoomSchema = z.discriminatedUnion('status', [
     capabilities: z.strictObject({ watch: z.boolean() }),
   }),
 ]);
-export type ListedRoom = z.infer<typeof listedRoomSchema>;
 
 export const lobbyRoomListSchema = z.strictObject({
   lobbyId: idSchema,
@@ -417,13 +408,6 @@ export const lobbyRoomListSchema = z.strictObject({
   rooms: z.array(listedRoomSchema).max(100),
 });
 export type LobbyRoomList = z.infer<typeof lobbyRoomListSchema>;
-
-/** The viewer's ladder page of a standing lobby: the top, or around them. */
-export const lobbyLadderQuerySchema = z.strictObject({
-  lobbyId: idSchema,
-  scope: z.enum(['top', 'around']),
-  search: z.string().max(40),
-});
 
 const ladderLineSchema = z.strictObject({
   actorId: idSchema,

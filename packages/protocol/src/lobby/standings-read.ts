@@ -164,7 +164,6 @@ export const bracketViewSchema = z.discriminatedUnion('visibility', [
   }),
 ]);
 export type BracketView = z.infer<typeof bracketViewSchema>;
-export type BracketTie = z.infer<typeof audienceTie>;
 
 export const standingsReadCatalogue = {
   StandingsView: { gate: ['standings.read'] },

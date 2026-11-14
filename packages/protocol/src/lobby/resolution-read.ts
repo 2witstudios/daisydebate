@@ -104,13 +104,11 @@ export const roundResolutionSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({ kind: z.literal('not_released') }),
 ]);
-export type RoundResolution = z.infer<typeof roundResolutionSchema>;
 
 export const resolutionViewSchema = z.strictObject({
   tabRoundId: idSchema,
   resolution: roundResolutionSchema,
 });
-export type ResolutionView = z.infer<typeof resolutionViewSchema>;
 
 export const resolutionReadCatalogue = {
   ResolutionPoolView: { gate: ['lobby.host.read'] },

@@ -13,17 +13,16 @@ const instant = z.iso.datetime();
  * When a season's tournament is: a day, or only the month while its day is
  * not fixed.
  */
-export const seasonDateSchema = z.discriminatedUnion('precision', [
+const seasonDateSchema = z.discriminatedUnion('precision', [
   z.strictObject({ precision: z.literal('day'), startsAt: instant }),
   z.strictObject({
     precision: z.literal('month'),
     month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
   }),
 ]);
-export type SeasonDate = z.infer<typeof seasonDateSchema>;
 
 /** A tournament on a league's season calendar and how it stands with the season. */
-export const seasonTournamentSchema = z.strictObject({
+const seasonTournamentSchema = z.strictObject({
   lobbyId: idSchema,
   handle,
   name,
@@ -34,7 +33,7 @@ export const seasonTournamentSchema = z.strictObject({
 });
 export type SeasonTournament = z.infer<typeof seasonTournamentSchema>;
 
-export const seasonStandingRowSchema = z.strictObject({
+const seasonStandingRowSchema = z.strictObject({
   place: z.int().min(1),
   entrant: name,
   school: name,
@@ -69,7 +68,7 @@ export type SeasonView = z.infer<typeof seasonViewSchema>;
  * (`follows`: the event follows the template, which always passes;
  * `mismatches`: the enforced keys whose values differ).
  */
-export const sanctionSchema = z
+const sanctionSchema = z
   .strictObject({
     sanctionId: idSchema,
     status: z.enum(sanctionStatuses),

@@ -136,7 +136,6 @@ export const settingRefusals = [
   'not-following',
 ] as const;
 export type SettingRefusal = (typeof settingRefusals)[number];
-export const settingRefusalSchema = z.enum(settingRefusals);
 
 type Definition = LobbyCommandDefinition<SettingRefusal>;
 const entry = (definition: Omit<Definition, 'history'>): Definition => ({

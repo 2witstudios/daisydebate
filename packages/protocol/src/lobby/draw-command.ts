@@ -15,7 +15,7 @@ import {
  */
 
 const forceKeyNames = Object.keys(forceKeys) as [ForceKey, ...ForceKey[]];
-export const forceKeySchema = z.enum(forceKeyNames);
+const forceKeySchema = z.enum(forceKeyNames);
 
 /** The draw's seed: 32 bytes as lowercase hex, kept in its inputs record. */
 const seedSchema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -23,7 +23,7 @@ const seedSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const distinct = (ids: readonly string[]) => new Set(ids).size === ids.length;
 
 /** One typed change to a draft; a fixture an edit changes is replaced by a new one. */
-export const drawEditSchema = z.discriminatedUnion('type', [
+const drawEditSchema = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('move-entry'),
     entryId: idSchema,
@@ -50,7 +50,7 @@ export type DrawEdit = z.infer<typeof drawEditSchema>;
  * A rule the host chose to break for this one draw. The reason is a string
  * that must be given; a blank one is refused `reason-required`.
  */
-export const drawOverrideSchema = z.strictObject({
+const drawOverrideSchema = z.strictObject({
   key: forceKeySchema,
   reason: z.string().max(500),
 });
@@ -107,7 +107,6 @@ export const drawRefusals = [
   'fresh-ids-short',
 ] as const;
 export type DrawRefusal = (typeof drawRefusals)[number];
-export const drawRefusalSchema = z.enum(drawRefusals);
 
 const onDraw = { aggregate: 'draw', history: 'entry' } as const;
 

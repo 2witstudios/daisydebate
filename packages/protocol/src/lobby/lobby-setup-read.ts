@@ -28,7 +28,7 @@ const ballotDefinitionPin = z.strictObject({
   name,
 });
 
-export const setupStageSchema = z.strictObject({
+const setupStageSchema = z.strictObject({
   stageId: idSchema,
   kind: z.enum(stageKinds),
   sequence: z.int().min(1),
@@ -38,7 +38,7 @@ export const setupStageSchema = z.strictObject({
   timing: z.enum(stageTimings),
 });
 
-export const setupTabRoundSchema = z.strictObject({
+const setupTabRoundSchema = z.strictObject({
   tabRoundId: idSchema,
   stageId: idSchema,
   number: z.int().min(1),
@@ -48,7 +48,7 @@ export const setupTabRoundSchema = z.strictObject({
 });
 
 /** An event as its tournament's setup shows it. */
-export const setupEventSchema = z
+const setupEventSchema = z
   .strictObject({
     eventId: idSchema,
     name,
@@ -88,14 +88,14 @@ export const setupEventSchema = z
   );
 export type SetupEvent = z.infer<typeof setupEventSchema>;
 
-export const setupTimeSlotSchema = z.strictObject({
+const setupTimeSlotSchema = z.strictObject({
   timeSlotId: idSchema,
   name,
   startsAt: instant,
 });
 
 /** A resolution pool's size; its text is never in setup. */
-export const setupResolutionPoolSchema = z.strictObject({
+const setupResolutionPoolSchema = z.strictObject({
   resolutionPoolId: idSchema,
   name,
   size: count,
@@ -158,12 +158,11 @@ export const lobbySetupViewSchema = z.discriminatedUnion('kind', [
       },
     ),
 ]);
-export type LobbySetupView = z.infer<typeof lobbySetupViewSchema>;
+type LobbySetupView = z.infer<typeof lobbySetupViewSchema>;
 export type TournamentSetupView = Extract<
   LobbySetupView,
   { kind: 'tournament' }
 >;
-export type StandingSetupView = Extract<LobbySetupView, { kind: 'standing' }>;
 
 export const lobbySetupReadCatalogue = {
   LobbySetupView: { gate: ['lobby.host.read'] },

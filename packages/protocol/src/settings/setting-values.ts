@@ -37,7 +37,7 @@ export const pairingPresetNames = [
 export type PairingPresetName = (typeof pairingPresetNames)[number];
 
 /** How a panel's ballots become one decision. */
-export const panelDecisionRuleSchema = z.enum(['majority', 'rank_sum']);
+const panelDecisionRuleSchema = z.enum(['majority', 'rank_sum']);
 const panel = z.strictObject({
   size: size.refine((value) => value % 2 === 1, 'A panel has an odd size.'),
   decision: panelDecisionRuleSchema,

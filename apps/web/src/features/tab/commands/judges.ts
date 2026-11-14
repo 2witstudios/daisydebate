@@ -74,7 +74,7 @@ type JudgeStrikeRow = {
 };
 
 /** The rows a judge command writes, on the merged tables' columns. */
-export type JudgeWrite =
+type JudgeWrite =
   | {
       readonly table: 'tournament_judges';
       readonly op: 'insert';

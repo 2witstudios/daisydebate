@@ -516,15 +516,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/confirmation.ts",
-      "export": "ConflictRow",
-      "task": "TAB-8.7",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/confirmation.ts",
       "export": "ConflictWaiverFacts",
       "task": "TAB-8.7",
       "owner": "tab",
@@ -633,34 +624,7 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/draw.ts",
-      "export": "DrawInputs",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/draw.ts",
-      "export": "DrawTransaction",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/draw.ts",
       "export": "DrawVersionFacts",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/draw.ts",
-      "export": "DrawWrite",
       "task": "TAB-8.6",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -687,35 +651,8 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/draw.ts",
-      "export": "engineFixtureOf",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/draw.ts",
       "export": "isRepairable",
       "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/draw.ts",
-      "export": "liveFixtureStates",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/entries.ts",
-      "export": "BoundaryFacts",
-      "task": "TAB-8.5",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
@@ -733,15 +670,6 @@
     {
       "path": "apps/web/src/features/tab/commands/entries.ts",
       "export": "EntryFacts",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/entries.ts",
-      "export": "EntryLiveFixtureFacts",
       "task": "TAB-8.5",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -768,25 +696,7 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/entries.ts",
-      "export": "EntryWrite",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/entries.ts",
       "export": "decideEntry",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/entries.ts",
-      "export": "guardianAwaited",
       "task": "TAB-8.5",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -804,15 +714,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/fixture-changes.ts",
-      "export": "SeatedFixture",
-      "task": "TAB-8.12",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture-changes.ts",
       "export": "fixtureChangesOf",
       "task": "TAB-8.12",
       "owner": "tab",
@@ -822,52 +723,7 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "BallotRow",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "EntryMemberRow",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "EvaluatedJudgingRule",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "FixtureEntryRow",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
       "export": "FixtureFacts",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "FixtureJudgeRow",
       "task": "TAB-8.17",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -903,24 +759,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "FixtureWrite",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "JudgeStrikeRow",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
       "export": "ResultEntryWrite",
       "task": "TAB-8.17",
       "owner": "tab",
@@ -948,24 +786,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "RoundRow",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "SlotBookingRow",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
       "export": "TournamentJudgeRow",
       "task": "TAB-8.17",
       "owner": "tab",
@@ -976,15 +796,6 @@
     {
       "path": "apps/web/src/features/tab/commands/fixture.ts",
       "export": "decideFixture",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "evaluatedJudgingRules",
       "task": "TAB-8.17",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1020,15 +831,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/guardian.ts",
-      "export": "GuardianDecisionRefusal",
-      "task": "TAB-8.2",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/guardian.ts",
       "export": "GuardianFacts",
       "task": "TAB-8.2",
       "owner": "tab",
@@ -1039,24 +841,6 @@
     {
       "path": "apps/web/src/features/tab/commands/guardian.ts",
       "export": "GuardianLinkRow",
-      "task": "TAB-8.2",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/guardian.ts",
-      "export": "GuardianWrite",
-      "task": "TAB-8.2",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/guardian.ts",
-      "export": "RestrictionFact",
       "task": "TAB-8.2",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1084,15 +868,6 @@
     {
       "path": "apps/web/src/features/tab/commands/judges.ts",
       "export": "JudgeFacts",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/judges.ts",
-      "export": "JudgeWrite",
       "task": "TAB-8.5",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1164,51 +939,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/lobby.ts",
-      "export": "LobbyRefusal",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/lobby.ts",
-      "export": "LobbyRoomFacts",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/lobby.ts",
-      "export": "LobbyWrite",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/lobby.ts",
-      "export": "OfferedTemplateFact",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/lobby.ts",
-      "export": "SeasonFact",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/lobby.ts",
       "export": "decideLobby",
       "task": "TAB-8.3",
       "owner": "tab",
@@ -1227,43 +957,7 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/organization.ts",
-      "export": "MembershipRow",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/organization.ts",
-      "export": "OrganizationDecisionRefusal",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/organization.ts",
       "export": "OrganizationFacts",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/organization.ts",
-      "export": "OrganizationRow",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/organization.ts",
-      "export": "OrganizationWrite",
       "task": "TAB-8.1",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1371,15 +1065,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/result.ts",
-      "export": "ScreeningRow",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/result.ts",
       "export": "decideCertification",
       "task": "TAB-8.8",
       "owner": "tab",
@@ -1452,25 +1137,7 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/run-command.ts",
-      "export": "CommandScope",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/run-command.ts",
       "export": "CommandTransaction",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/run-command.ts",
-      "export": "HeldCommand",
       "task": "TAB-8.1",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1507,15 +1174,6 @@
     {
       "path": "apps/web/src/features/tab/commands/sanction.ts",
       "export": "RequestSanctionFacts",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/sanction.ts",
-      "export": "SanctionRow",
       "task": "TAB-8.11",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1569,24 +1227,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/settings.ts",
-      "export": "EventHoldings",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/settings.ts",
-      "export": "LobbyFact",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/settings.ts",
       "export": "ReachedChain",
       "task": "TAB-8.4",
       "owner": "tab",
@@ -1596,43 +1236,7 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/settings.ts",
-      "export": "SanctionFact",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/settings.ts",
-      "export": "SettingDecisionRefusal",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/settings.ts",
       "export": "SettingFacts",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/settings.ts",
-      "export": "SettingScopeFact",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/settings.ts",
-      "export": "SettingWrite",
       "task": "TAB-8.4",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1651,24 +1255,6 @@
     {
       "path": "apps/web/src/features/tab/commands/settings.ts",
       "export": "decideSetting",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/setup.ts",
-      "export": "BallotDefinitionFact",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/setup.ts",
-      "export": "ResolutionPoolFact",
       "task": "TAB-8.4",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1704,24 +1290,6 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/setup.ts",
-      "export": "SetupRefusal",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/setup.ts",
-      "export": "SetupWrite",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/setup.ts",
       "export": "StageFact",
       "task": "TAB-8.4",
       "owner": "tab",
@@ -1732,24 +1300,6 @@
     {
       "path": "apps/web/src/features/tab/commands/setup.ts",
       "export": "TabRoundFact",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/setup.ts",
-      "export": "TemplateFact",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/setup.ts",
-      "export": "TimeSlotFact",
       "task": "TAB-8.4",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1875,61 +1425,7 @@
     },
     {
       "path": "apps/web/src/features/tab/commands/tab-engine.ts",
-      "export": "EngineId",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/tab-engine.ts",
       "export": "EngineInputsRecord",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/tab-engine.ts",
-      "export": "EngineInvalidFact",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/tab-engine.ts",
-      "export": "EngineJudge",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/tab-engine.ts",
-      "export": "EnginePanel",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/tab-engine.ts",
-      "export": "EnginePlan",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/tab-engine.ts",
-      "export": "EngineProtection",
       "task": "TAB-8.6",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -1948,15 +1444,6 @@
     {
       "path": "apps/web/src/features/tab/commands/tab-engine.ts",
       "export": "EngineResolvedSettings",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/tab-engine.ts",
-      "export": "EngineRuleBreak",
       "task": "TAB-8.6",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -2406,33 +1893,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/ballot-read.ts",
-      "export": "BallotSubjectValue",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/ballot-read.ts",
-      "export": "BallotView",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/ballot-read.ts",
-      "export": "ballotDefinitionSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/ballot-read.ts",
       "export": "ballotReadCatalogue",
       "task": "TAB-8.8",
       "owner": "tab",
@@ -2586,52 +2046,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/command.ts",
-      "export": "commandExpectedSchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/command.ts",
-      "export": "commandFindingSchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/command.ts",
       "export": "commandReplay",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/command.ts",
-      "export": "commandVersionNames",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/command.ts",
-      "export": "historyAuthoritySchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/command.ts",
-      "export": "lobbyAggregateKindSchema",
       "task": "TAB-8.1",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -2667,15 +2082,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/commands.ts",
-      "export": "LobbyCommandGroup",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/commands.ts",
       "export": "lobbyCommandCatalogue",
       "task": "TAB-8.1",
       "owner": "tab",
@@ -2703,25 +2109,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/confirmation-command.ts",
-      "export": "confirmCommandCommandSchema",
-      "task": "TAB-8.7",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/confirmation-command.ts",
       "export": "confirmationCommandEnvelopeSchema",
-      "task": "TAB-8.7",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/confirmation-command.ts",
-      "export": "confirmationCommandRefusalSchema",
       "task": "TAB-8.7",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -2738,89 +2126,8 @@
       "reviewBy": "2026-12-31"
     },
     {
-      "path": "packages/protocol/src/lobby/confirmation-command.ts",
-      "export": "declineCommandCommandSchema",
-      "task": "TAB-8.7",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/confirmation-command.ts",
-      "export": "requestConflictWaiverCommandSchema",
-      "task": "TAB-8.7",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/confirmation-command.ts",
-      "export": "waivableCapabilities",
-      "task": "TAB-8.7",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/confirmation-command.ts",
-      "export": "withdrawCommandCommandSchema",
-      "task": "TAB-8.7",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/day-read.ts",
-      "export": "dayFixtureSchema",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/day-read.ts",
-      "export": "dayPersonSchema",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/day-read.ts",
-      "export": "dayQuerySchema",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
       "path": "packages/protocol/src/lobby/day-read.ts",
       "export": "dayReadCatalogue",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/day-read.ts",
-      "export": "dayResultSchema",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/day-read.ts",
-      "export": "dayRowSchema",
       "task": "TAB-8.5",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -2883,61 +2190,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/draw-command.ts",
-      "export": "drawEditSchema",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/draw-command.ts",
-      "export": "drawOverrideSchema",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/draw-command.ts",
-      "export": "drawRefusalSchema",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/draw-command.ts",
       "export": "drawRefusals",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/draw-command.ts",
-      "export": "forceKeySchema",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/draw-read.ts",
-      "export": "SupersededInputList",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/draw-read.ts",
-      "export": "drawFindingSeverities",
       "task": "TAB-8.6",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3000,15 +2253,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/entry-command.ts",
-      "export": "entryRefusalSchema",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/entry-command.ts",
       "export": "entryRefusals",
       "task": "TAB-8.5",
       "owner": "tab",
@@ -3018,52 +2262,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/entry-command.ts",
-      "export": "judgeCommandEnvelopeSchema",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/entry-command.ts",
-      "export": "judgeRefusalSchema",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/entry-command.ts",
       "export": "judgeRefusals",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/entry-read.ts",
-      "export": "EntryGroup",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/entry-read.ts",
-      "export": "JudgeGroup",
-      "task": "TAB-8.5",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/entry-read.ts",
-      "export": "entryEventSchema",
       "task": "TAB-8.5",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3108,33 +2307,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/event-room-read.ts",
-      "export": "eventRoomEntrySchema",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/event-room-read.ts",
-      "export": "eventRoomJudgeSchema",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/event-room-read.ts",
-      "export": "eventRoomQuerySchema",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/event-room-read.ts",
       "export": "eventRoomReadCatalogue",
       "task": "TAB-8.6",
       "owner": "tab",
@@ -3152,26 +2324,8 @@
       "reviewBy": "2026-12-31"
     },
     {
-      "path": "packages/protocol/src/lobby/event-room-read.ts",
-      "export": "pinnedSettingLines",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
       "path": "packages/protocol/src/lobby/fixture-change-read.ts",
       "export": "FixtureChangeList",
-      "task": "TAB-8.12",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/fixture-change-read.ts",
-      "export": "FixtureChangeListQuery",
       "task": "TAB-8.12",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3225,15 +2379,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/fixture-command.ts",
-      "export": "assignJudgeCommandSchema",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/fixture-command.ts",
       "export": "fixtureCommandDefinition",
       "task": "TAB-8.17",
       "owner": "tab",
@@ -3252,61 +2397,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/fixture-command.ts",
-      "export": "fixtureCommandRefusalSchema",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/fixture-command.ts",
       "export": "fixtureCommandRefusals",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/fixture-command.ts",
-      "export": "judgingOverrideSchema",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/fixture-command.ts",
-      "export": "recordForfeitCommandSchema",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/fixture-command.ts",
-      "export": "replaceJudgeCommandSchema",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/fixture-command.ts",
-      "export": "restartFixtureCommandSchema",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/fixture-command.ts",
-      "export": "unassignJudgeCommandSchema",
       "task": "TAB-8.17",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3316,15 +2407,6 @@
     {
       "path": "packages/protocol/src/lobby/guardian-command.ts",
       "export": "guardianCommandEnvelopeSchema",
-      "task": "TAB-8.2",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/guardian-command.ts",
-      "export": "guardianRefusalSchema",
       "task": "TAB-8.2",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3378,61 +2460,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "ListedRoom",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "LobbyView",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
       "export": "LobbyViewerRole",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "entryEligibilities",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "listedLobbySchema",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "listedRoomSchema",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "lobbyLadderQuerySchema",
       "task": "TAB-8.3",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3451,24 +2479,6 @@
     {
       "path": "packages/protocol/src/lobby/lobby-read.ts",
       "export": "lobbyListPageSchema",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "lobbyListQuerySchema",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "lobbyOwnerSchema",
       "task": "TAB-8.3",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3505,33 +2515,6 @@
     {
       "path": "packages/protocol/src/lobby/lobby-read.ts",
       "export": "lobbyViewSchema",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "lobbyViewerRoles",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "standingLobbyViewSchema",
-      "task": "TAB-8.3",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-read.ts",
-      "export": "tournamentLobbyViewSchema",
       "task": "TAB-8.3",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3576,15 +2559,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/lobby-setup-command.ts",
-      "export": "ballotDefinitionSettingsSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-command.ts",
       "export": "isTournamentCancellable",
       "task": "TAB-8.4",
       "owner": "tab",
@@ -3603,34 +2577,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/lobby-setup-command.ts",
-      "export": "lobbyCommandSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-command.ts",
-      "export": "lobbyHandleSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-command.ts",
       "export": "lobbySetupCommandEnvelopeSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-command.ts",
-      "export": "lobbySetupRefusalSchema",
       "task": "TAB-8.4",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3648,34 +2595,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/lobby-setup-command.ts",
-      "export": "tournamentSetupCommandSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-command.ts",
       "export": "tournamentStatusMoves",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-read.ts",
-      "export": "LobbySetupView",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-read.ts",
-      "export": "StandingSetupView",
       "task": "TAB-8.4",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3701,62 +2621,8 @@
       "reviewBy": "2026-12-31"
     },
     {
-      "path": "packages/protocol/src/lobby/lobby-setup-read.ts",
-      "export": "setupEventSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-read.ts",
-      "export": "setupResolutionPoolSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-read.ts",
-      "export": "setupStageSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-read.ts",
-      "export": "setupTabRoundSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/lobby-setup-read.ts",
-      "export": "setupTimeSlotSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
       "path": "packages/protocol/src/lobby/organization-command.ts",
       "export": "organizationCommandEnvelopeSchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/organization-command.ts",
-      "export": "organizationRefusalSchema",
       "task": "TAB-8.1",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3774,34 +2640,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/organization-read.ts",
-      "export": "HostOrganization",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/organization-read.ts",
       "export": "hostHomeViewSchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/organization-read.ts",
-      "export": "hostLobbySchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/organization-read.ts",
-      "export": "hostOrganizationSchema",
       "task": "TAB-8.1",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3819,25 +2658,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/organization-read.ts",
-      "export": "organizationPersonSchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/organization-read.ts",
       "export": "organizationReadCatalogue",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/organization-read.ts",
-      "export": "organizationRoleSchema",
       "task": "TAB-8.1",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -3848,42 +2669,6 @@
       "path": "packages/protocol/src/lobby/organization-read.ts",
       "export": "organizationViewSchema",
       "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/organization-read.ts",
-      "export": "personConflictSchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/organization-read.ts",
-      "export": "personGrantSchema",
-      "task": "TAB-8.1",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/posting-read.ts",
-      "export": "postedFixtureSchema",
-      "task": "TAB-8.6",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/posting-read.ts",
-      "export": "postingQuerySchema",
-      "task": "TAB-8.6",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
@@ -3918,24 +2703,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/resolution-read.ts",
-      "export": "ResolutionView",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/resolution-read.ts",
-      "export": "RoundResolution",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/resolution-read.ts",
       "export": "resolutionPoolViewSchema",
       "task": "TAB-8.4",
       "owner": "tab",
@@ -3955,24 +2722,6 @@
     {
       "path": "packages/protocol/src/lobby/resolution-read.ts",
       "export": "resolutionViewSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/resolved-settings-read.ts",
-      "export": "ResolvedSettingsQuery",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/resolved-settings-read.ts",
-      "export": "ownSettingRowSchema",
       "task": "TAB-8.4",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -4035,33 +2784,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/resolved-settings-read.ts",
-      "export": "settingKeyFamilySchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/resolved-settings-read.ts",
-      "export": "settingLockSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/resolved-settings-read.ts",
-      "export": "settingLocks",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/resolved-settings-read.ts",
       "export": "settingsAtSchema",
       "task": "TAB-8.4",
       "owner": "tab",
@@ -4098,97 +2820,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "certifyEventCommandSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "certifyResultCommandSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "correctResultCommandSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "enteredAdministrativeReasons",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "openAudienceCommandSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "recordAdministrativeResultCommandSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "releaseCommandEnvelopeSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "releaseCommandRefusalSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
       "export": "releaseCommandRefusals",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "releaseResolutionCommandSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "resolveScreeningHoldCommandSchema",
       "task": "TAB-8.8",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -4206,25 +2838,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "resultCommandRefusalSchema",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
       "export": "resultCommandRefusals",
-      "task": "TAB-8.8",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/result-command.ts",
-      "export": "resultEntryOutcomeSchema",
       "task": "TAB-8.8",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -4260,33 +2874,6 @@
     },
     {
       "path": "packages/protocol/src/lobby/sanction-command.ts",
-      "export": "approveSanctionCommandSchema",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/sanction-command.ts",
-      "export": "declineSanctionCommandSchema",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/sanction-command.ts",
-      "export": "requestSanctionCommandSchema",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/sanction-command.ts",
       "export": "sanctionCommandEnvelopeSchema",
       "task": "TAB-8.11",
       "owner": "tab",
@@ -4296,34 +2883,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/sanction-command.ts",
-      "export": "sanctionCommandRefusalSchema",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/sanction-command.ts",
       "export": "sanctionCommandRefusals",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/sanction-command.ts",
-      "export": "withdrawSanctionCommandSchema",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/season-read.ts",
-      "export": "SeasonDate",
       "task": "TAB-8.11",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -4341,43 +2901,7 @@
     },
     {
       "path": "packages/protocol/src/lobby/season-read.ts",
-      "export": "sanctionSchema",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/season-read.ts",
-      "export": "seasonDateSchema",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/season-read.ts",
       "export": "seasonReadCatalogue",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/season-read.ts",
-      "export": "seasonStandingRowSchema",
-      "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/season-read.ts",
-      "export": "seasonTournamentSchema",
       "task": "TAB-8.11",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -4422,26 +2946,8 @@
     },
     {
       "path": "packages/protocol/src/lobby/setting-command.ts",
-      "export": "settingRefusalSchema",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/setting-command.ts",
       "export": "settingRefusals",
       "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/standings-read.ts",
-      "export": "BracketTie",
-      "task": "TAB-8.10",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
@@ -4469,15 +2975,6 @@
       "path": "packages/protocol/src/lobby/standings-read.ts",
       "export": "standingsViewSchema",
       "task": "TAB-8.10",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/tab-round-read.ts",
-      "export": "roomedFixtureKinds",
-      "task": "TAB-8.17",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
@@ -4513,15 +3010,6 @@
     {
       "path": "packages/protocol/src/lobby/template-read.ts",
       "export": "templateReadCatalogue",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/template-read.ts",
-      "export": "templateSettingRowSchema",
       "task": "TAB-8.4",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
@@ -4638,24 +3126,6 @@
     },
     {
       "path": "packages/protocol/src/settings/catalogue.ts",
-      "export": "SettingScopeKind",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/settings/catalogue.ts",
-      "export": "settingHolds",
-      "task": "TAB-8.4",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/settings/catalogue.ts",
       "export": "settingKeys",
       "task": "TAB-8.4",
       "owner": "tab",
@@ -4748,15 +3218,6 @@
       "path": "packages/protocol/src/settings/sanction-check.ts",
       "export": "sanctionCheck",
       "task": "TAB-8.11",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/settings/setting-values.ts",
-      "export": "panelDecisionRuleSchema",
-      "task": "TAB-8.4",
       "owner": "tab",
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",

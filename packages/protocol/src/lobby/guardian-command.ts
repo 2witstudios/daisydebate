@@ -89,7 +89,6 @@ export const guardianRefusals = [
   'last-guardian',
 ] as const;
 export type GuardianRefusal = (typeof guardianRefusals)[number];
-export const guardianRefusalSchema = z.enum(guardianRefusals);
 
 const command = (
   definition: Omit<

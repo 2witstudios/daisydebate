@@ -19,13 +19,13 @@ const instant = z.iso.datetime();
 const count = z.int().nonnegative();
 
 /** Whose row it is: the viewer's own, a ward's, or one of their school's entries. */
-export const dayPersonSchema = z.discriminatedUnion('kind', [
+const dayPersonSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('self') }),
   z.strictObject({ kind: z.literal('ward'), actorId: idSchema, name }),
   z.strictObject({ kind: z.literal('school_entry'), entryId: idSchema }),
 ]);
 
-export const dayFixtureSchema = z.strictObject({
+const dayFixtureSchema = z.strictObject({
   fixtureId: idSchema,
   kind: z.enum(fixtureKinds),
   room: z.strictObject({ roomId: idSchema, name }).nullable(),
@@ -67,7 +67,7 @@ export const dayStateSchema = z.discriminatedUnion('kind', [
 ]);
 
 /** A result, cut to the parts released to the viewer's audiences. */
-export const dayResultSchema = z
+const dayResultSchema = z
   .discriminatedUnion('kind', [
     z.strictObject({
       kind: z.literal('withheld'),
@@ -144,7 +144,7 @@ const dayRowCommon = {
 };
 
 /** Each role at each stage of progress; no other pairing parses. */
-export const dayRowSchema = z.union([
+const dayRowSchema = z.union([
   z.strictObject({
     ...dayRowCommon,
     ...dayRoles.competitor,
@@ -167,8 +167,6 @@ export const dayRowSchema = z.union([
   }),
 ]);
 export type DayRow = z.infer<typeof dayRowSchema>;
-
-export const dayQuerySchema = z.strictObject({ lobbyId: idSchema });
 
 export const dayViewSchema = z.strictObject({
   lobbyId: idSchema,

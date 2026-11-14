@@ -14,7 +14,7 @@ const nameSchema = z.string().trim().min(1).max(200);
 const countSchema = z.int().min(0);
 
 /** An event as the reads name it: its name, and the short label a schedule shows. */
-export const entryEventSchema = z.strictObject({
+const entryEventSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
   label: nameSchema.nullable(),
@@ -85,7 +85,6 @@ export const entryListViewSchema = z.strictObject({
 });
 export type EntryListView = z.infer<typeof entryListViewSchema>;
 export type ListedEntry = z.infer<typeof listedEntrySchema>;
-export type EntryGroup = z.infer<typeof entryGroupSchema>;
 
 /** One judge in one time slot. */
 const judgeSlotSchema = z.discriminatedUnion('state', [
@@ -138,7 +137,6 @@ const judgeGroupSchema = z.strictObject({
   judgesNamed: countSchema,
   judges: z.array(listedJudgeSchema),
 });
-export type JudgeGroup = z.infer<typeof judgeGroupSchema>;
 
 /** A tournament's judges for its host, with availability by time slot. */
 export const judgeListViewSchema = z

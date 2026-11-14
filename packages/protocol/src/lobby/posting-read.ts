@@ -31,7 +31,7 @@ export const postedJudgeSchema = z.strictObject({
 });
 export type PostedJudge = z.infer<typeof postedJudgeSchema>;
 
-export const postedFixtureSchema = z.strictObject({
+const postedFixtureSchema = z.strictObject({
   fixtureId: idSchema,
   kind: z.enum(fixtureKinds),
   /** Null for a bye. */
@@ -45,11 +45,6 @@ export const postedFixtureSchema = z.strictObject({
   video: z.boolean(),
 });
 export type PostedFixture = z.infer<typeof postedFixtureSchema>;
-
-export const postingQuerySchema = z.strictObject({
-  lobbyId: idSchema,
-  tabRoundId: idSchema,
-});
 
 export const postingViewSchema = z.strictObject({
   lobbyId: idSchema,
