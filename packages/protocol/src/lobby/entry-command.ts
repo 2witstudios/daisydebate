@@ -133,6 +133,7 @@ export const entryCommandCatalogue = {
       'fixture-started',
       'slot-clash',
       'division-ineligible',
+      'guardian-pending',
     ],
   },
   'set-entry-division': {

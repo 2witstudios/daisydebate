@@ -224,7 +224,8 @@ describe('runLobbyCommand (TAB-5.8)', async () => {
     const connections = [{ basis: 'seated' }] as never;
     const confirming = await run({
       decision: {
-        ...allow,
+        allow: false,
+        reason: 'confirmation-required',
         conflict: { connections, handling: 'second_confirms', waiverId: null },
       },
     });

@@ -417,6 +417,10 @@ const replaceEntryMember = (
   if (incoming.enteredInSharedSlot) return refuse('slot-clash');
   if (entry.division !== null && !incoming.divisions.includes(entry.division))
     return refuse('division-ineligible');
+  // The entry keeps its status, so a minor the guardian has not allowed into
+  // this lobby cannot join it this way (TAB-5.23): that waits for the guardian.
+  if (guardianAwaited(incoming, facts.event.lobbyId, facts.sender.userId))
+    return refuse('guardian-pending');
   const slots = new Map(
     entry.liveFixtures.flatMap((fixture) =>
       fixture.timeSlot === null

@@ -108,17 +108,31 @@ export class CommandDenied extends Error {
   }
 }
 
-const allowedUnder = (
+type Allowed = Extract<AuthorizationDecision, { allow: true }>;
+type HeldConflict = NonNullable<AuthorizationDecision['conflict']>;
+
+/**
+ * What the gate answers: allowed (perhaps with a flagged conflict), or held
+ * for a second person, which the evaluator answers as a denial whose reason
+ * is `confirmation-required`. Every other denial is a public error.
+ */
+type Gate =
+  | { readonly kind: 'allowed'; readonly decision: Allowed }
+  | { readonly kind: 'confirm'; readonly conflict: HeldConflict };
+
+const gateOf = (
   definition: LobbyCommandDefinition,
   authorize: (input: AuthorizationInput) => AuthorizationDecision,
   input: Omit<AuthorizationInput, 'capability'>,
-): Extract<AuthorizationDecision, { allow: true }> => {
+): Gate => {
   let denied: Extract<AuthorizationDecision, { allow: false }> | null = null;
   for (const capability of definition.gate) {
     const decision = authorize({ ...input, capability });
-    if (decision.allow) return decision;
+    if (decision.allow) return { kind: 'allowed', decision };
     denied ??= decision;
   }
+  if (denied?.reason === 'confirmation-required' && denied.conflict !== null)
+    return { kind: 'confirm', conflict: denied.conflict };
   throw new CommandDenied(denied?.reason ?? 'denied');
 };
 
@@ -186,24 +200,22 @@ export const runLobbyCommand = <
       return { kind: 'accepted', receipt: replay.receipt };
     if (replay.kind === 'conflict')
       return { kind: 'refused', refusal: 'command-conflict' };
-    const decision = allowedUnder(definition, dependencies.authorize, input);
-    const conflict = decision.conflict;
+    const gate = gateOf(definition, dependencies.authorize, input);
+    const conflict =
+      gate.kind === 'confirm' ? gate.conflict : gate.decision.conflict;
     const conflictId =
       conflict === null ? null : await tx.recordConflict(conflict);
-    if (
-      conflictId !== null &&
-      conflict?.handling === 'second_confirms' &&
-      conflict.waiverId === null
-    ) {
+    if (gate.kind === 'confirm') {
       const held = await tx.holdForConfirmation({
         commandId: envelope.commandId,
         type: envelope.command.type,
         payloadDigest,
         expected: envelope.expected,
-        conflictId,
+        conflictId: conflictId ?? (await tx.recordConflict(gate.conflict)),
       });
       return { kind: 'pending', ...held };
     }
+    const { decision } = gate;
     if (versionConflict(definition, envelope.expected, tx.versions(facts)))
       return { kind: 'refused', refusal: 'version-conflict' };
     const outcome = decide(facts, envelope.command);

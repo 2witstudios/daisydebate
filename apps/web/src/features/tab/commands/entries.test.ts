@@ -516,6 +516,23 @@ describe('replace-entry-member', () => {
       ],
     });
   });
+
+  test('a minor the guardian has not allowed cannot join an accepted entry', () => {
+    const decision = decideEntry(
+      facts({
+        people: [minor],
+        entry: entry({ status: 'accepted', liveFixtures: [] }),
+      }),
+      { ...replace, inActorId: minor.actorId },
+    );
+    assert({
+      given:
+        "a coach replacing a member with a minor outside the guardian's lobbies",
+      should: 'refuse guardian-pending',
+      actual: decision.kind === 'refused' ? decision.refusal : decision.kind,
+      expected: 'guardian-pending',
+    });
+  });
 });
 
 describe('set-entry-division and choose-break', () => {
