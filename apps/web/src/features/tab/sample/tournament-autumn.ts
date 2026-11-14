@@ -102,7 +102,7 @@ function hostOf(scene: SampleScene): NonNullable<TournamentLobbyView['host']> {
   };
 }
 
-const rolesOf = (scene: SampleScene): TournamentLobbyView['viewerRoles'] => {
+const rolesOf = (scene: SampleScene): SignedInLobby['viewerRoles'] => {
   switch (scene.viewer) {
     case 'host':
       return ['host'];
@@ -118,6 +118,35 @@ const rolesOf = (scene: SampleScene): TournamentLobbyView['viewerRoles'] => {
       return [];
   }
 };
+
+/** What a tournament lobby read says of the viewer themselves. */
+type ViewerKey =
+  'signedIn' | 'viewerRoles' | 'viewerEntries' | 'wards' | 'school' | 'host';
+type SignedInLobby = Extract<TournamentLobbyView, { readonly signedIn: true }>;
+type ViewerPart = TournamentLobbyView extends infer Lobby
+  ? Lobby extends TournamentLobbyView
+    ? Pick<Lobby, ViewerKey>
+    : never
+  : never;
+
+/**
+ * The viewer's part of a lobby read: a visitor is no one to the lobby, so
+ * theirs carries no roles, entries, wards, school or host stop.
+ */
+export const tournamentViewerOf = (
+  scene: SampleScene,
+  part: Omit<Pick<SignedInLobby, ViewerKey>, 'signedIn'>,
+): ViewerPart =>
+  scene.viewer === 'visitor'
+    ? {
+        signedIn: false,
+        viewerRoles: [],
+        viewerEntries: [],
+        wards: [],
+        school: null,
+        host: null,
+      }
+    : { signedIn: true, ...part };
 
 /** Autumn Open as one viewer's lobby read; `host` adds what waits on the host. */
 export function autumnLobby(
@@ -137,8 +166,6 @@ export function autumnLobby(
       organizationKind: 'league',
       name: LEAGUE_NAME,
     },
-    signedIn: !visitor,
-    viewerRoles: rolesOf(scene),
     asOf: autumnAsOf(scene),
     status: reached(scene, 'finished')
       ? 'completed'
@@ -220,35 +247,38 @@ export function autumnLobby(
       })),
     ],
     break: { at: at(DAY, '16:45'), announced: reached(scene, 'elims') },
-    viewerEntries:
-      scene.viewer === 'competitor'
-        ? [
-            {
-              entryId: sampleId('entry/Doyle'),
-              eventId: sampleId(`${AUTUMN}/${VARSITY}`),
-              name: 'Doyle',
-              partners: [],
-              record: reached(scene, 'break')
-                ? { wins: 3, losses: 1 }
-                : { wins: 2, losses: 1 },
-              finish: reached(scene, 'finished') ? autumnFinish : null,
-            },
-          ]
-        : [],
-    wards:
-      scene.viewer === 'parent'
-        ? ['Chidi', 'Ada'].map((name) => ({ actorId: sampleId(name), name }))
-        : [],
-    school:
-      scene.viewer === 'coach'
-        ? { organizationId: sampleId('hartwell'), name: 'Hartwell' }
-        : null,
+    ...tournamentViewerOf(scene, {
+      viewerRoles: rolesOf(scene),
+      viewerEntries:
+        scene.viewer === 'competitor'
+          ? [
+              {
+                entryId: sampleId('entry/Doyle'),
+                eventId: sampleId(`${AUTUMN}/${VARSITY}`),
+                name: 'Doyle',
+                partners: [],
+                record: reached(scene, 'break')
+                  ? { wins: 3, losses: 1 }
+                  : { wins: 2, losses: 1 },
+                finish: reached(scene, 'finished') ? autumnFinish : null,
+              },
+            ]
+          : [],
+      wards:
+        scene.viewer === 'parent'
+          ? ['Chidi', 'Ada'].map((name) => ({ actorId: sampleId(name), name }))
+          : [],
+      school:
+        scene.viewer === 'coach'
+          ? { organizationId: sampleId('hartwell'), name: 'Hartwell' }
+          : null,
+      host: host ? hostOf(scene) : null,
+    }),
     results: {
       standings: visitor ? reached(scene, 'elims') : reached(scene, 'prelims'),
       bracket: reached(scene, 'elims') ? 'open' : 'not_drawn',
       scoresOpenAt: 'prelims_end',
     },
-    host: host ? hostOf(scene) : null,
     capabilities: { enter: !adult, manageEntries: adult },
   };
 }
@@ -333,7 +363,10 @@ const slotAt = (time: string, name: string, rows: readonly DayRow[]) =>
 
 /** The sample competitor's day: Doyle, seed 5, out in the semifinal to Jensen. */
 function competitorDay(scene: SampleScene): DayView {
-  const entry = (wins: number, losses: number): DayRow['entry'] => ({
+  const entry = (
+    wins: number,
+    losses: number,
+  ): NonNullable<DayRow['entry']> => ({
     entryId: sampleId('entry/Doyle'),
     name: 'Doyle',
     record: { wins, losses },
@@ -379,20 +412,21 @@ function competitorDay(scene: SampleScene): DayView {
   const quarter = dayRow(AUTUMN, varsity, elim(5, 'Quarterfinal'), {
     role: 'competitor',
     entry: entry(3, 1),
-    fixture: reached(scene, 'elims')
-      ? dayFixture(
-          `${AUTUMN}/quarterfinal/doyle`,
-          'Room 3',
-          [
-            { name: 'Amari', side: 'Affirmative' },
-            { name: 'Doyle', side: 'Negative', own: true },
-          ],
-          [judge('L. Malik'), judge('P. Nguyen'), judge('A. Costa')],
-        )
-      : null,
     ...(reached(scene, 'elims')
-      ? { state: over, result: won(2, 1) }
-      : { state: { kind: 'not_posted' } as const }),
+      ? {
+          fixture: dayFixture(
+            `${AUTUMN}/quarterfinal/doyle`,
+            'Room 3',
+            [
+              { name: 'Amari', side: 'Affirmative' },
+              { name: 'Doyle', side: 'Negative', own: true },
+            ],
+            [judge('L. Malik'), judge('P. Nguyen'), judge('A. Costa')],
+          ),
+          state: over,
+          result: won(2, 1),
+        }
+      : { fixture: null, state: { kind: 'not_posted' } as const }),
   });
   const semifinal = dayRow(AUTUMN, varsity, elim(6, 'Semifinal'), {
     role: 'competitor',
@@ -505,7 +539,10 @@ const theirRound = (
   opponent: string,
   roomName: string,
   judgeName: string,
-  rest: Pick<DayRow, 'state'> & Partial<Pick<DayRow, 'result'>>,
+  rest: {
+    readonly state: Exclude<DayRow['state'], { kind: 'not_posted' }>;
+    readonly result?: DayRow['result'];
+  },
 ) =>
   dayRow(AUTUMN, varsity, round, {
     person,

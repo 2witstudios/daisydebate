@@ -195,6 +195,67 @@ describe('the lobby view (TAB-5.14)', async () => {
       ],
     });
   });
+
+  test('a signed-out reader is no one to the lobby', async () => {
+    const signedOut = {
+      ...tournament,
+      signedIn: false,
+      viewerRoles: [],
+      viewerEntries: [],
+    };
+    assert({
+      given:
+        'a signed-out tournament read carrying roles, entries, wards, a school or a host stop',
+      should: 'refuse each',
+      actual: [
+        verdict(lobbyViewSchema, { ...signedOut, viewerRoles: ['competitor'] }),
+        verdict(lobbyViewSchema, {
+          ...signedOut,
+          viewerEntries: tournament.viewerEntries,
+        }),
+        verdict(lobbyViewSchema, {
+          ...signedOut,
+          wards: [{ actorId: id('c'), name: 'Chidi' }],
+        }),
+        verdict(lobbyViewSchema, {
+          ...signedOut,
+          school: { organizationId: id('h'), name: 'Hartwell' },
+        }),
+        verdict(lobbyViewSchema, { ...signedOut, host: hostPart }),
+      ],
+      expected: [
+        ['viewerRoles'],
+        ['viewerEntries'],
+        ['wards'],
+        ['school'],
+        ['host'],
+      ],
+    });
+    assert({
+      given:
+        'a signed-out standing read with no part, and one carrying roles or a ladder line',
+      should: 'accept the first and refuse the others',
+      actual: [
+        verdict(lobbyViewSchema, {
+          ...standing,
+          signedIn: false,
+          viewerRoles: [],
+          ladder: null,
+        }),
+        verdict(lobbyViewSchema, {
+          ...standing,
+          signedIn: false,
+          ladder: null,
+        }),
+        verdict(lobbyViewSchema, {
+          ...standing,
+          signedIn: false,
+          viewerRoles: [],
+        }),
+      ],
+      expected: ['accepted', ['viewerRoles'], ['ladder']],
+    });
+  });
 });
 
 const listed = {

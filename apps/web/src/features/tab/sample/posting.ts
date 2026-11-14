@@ -100,11 +100,14 @@ export const postingOf = (
   resolution: null,
 });
 
-type DayRowInput = Omit<
-  DayRow,
-  'tabRound' | 'event' | 'breaking' | 'recording' | 'result' | 'person'
-> &
-  Partial<Pick<DayRow, 'breaking' | 'recording' | 'result' | 'person'>>;
+type Defaulted = 'breaking' | 'recording' | 'result' | 'person';
+/** Per row variant: a role at a stage of progress keeps its own fields. */
+type DayRowInput = DayRow extends infer Row
+  ? Row extends DayRow
+    ? Omit<Row, 'tabRound' | 'event' | Defaulted> &
+        Partial<Pick<Row, Defaulted>>
+    : never
+  : never;
 
 /** One row of a person's day, in one event's tab round. */
 export const dayRow = (

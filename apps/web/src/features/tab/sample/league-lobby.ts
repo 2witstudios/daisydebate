@@ -39,8 +39,6 @@ export const sampleStandingLobby = (scene: SampleScene): StandingLobbyView => ({
   handle: LEAGUE,
   name: LEAGUE_NAME,
   owner: league,
-  signedIn: scene.viewer !== 'visitor',
-  viewerRoles: isMember(scene) ? ['member'] : [],
   asOf: autumnAsOf(scene),
   resolutionPool: {
     name: 'November',
@@ -52,7 +50,14 @@ export const sampleStandingLobby = (scene: SampleScene): StandingLobbyView => ({
   offeredTemplates: [
     { templateId: sampleId('varsity-template'), name: 'Varsity debate' },
   ],
-  ladder: { rating: 1548, place: 31, of: 148 },
+  // A visitor is no one to the lobby: no roles and no line on its ladder.
+  ...(scene.viewer === 'visitor'
+    ? { signedIn: false, viewerRoles: [], ladder: null }
+    : {
+        signedIn: true,
+        viewerRoles: isMember(scene) ? ['member'] : [],
+        ladder: { rating: 1548, place: 31, of: 148 },
+      }),
   capabilities: { createRoom: isMember(scene) },
 });
 

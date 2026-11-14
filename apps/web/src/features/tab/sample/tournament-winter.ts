@@ -2,6 +2,7 @@ import type { DayView } from '@daisy/protocol/lobby/day-read';
 import type { TournamentLobbyView } from '@daisy/protocol/lobby/lobby-read';
 import type { TournamentReads, TournamentView } from '../tournament';
 import { LEAGUE, LEAGUE_NAME, reached, WINTER } from './moment';
+import { tournamentViewerOf } from './tournament-autumn';
 import {
   at,
   dayFixture,
@@ -76,13 +77,6 @@ export function winterLobby(
       organizationKind: 'league',
       name: LEAGUE_NAME,
     },
-    signedIn: scene.viewer !== 'visitor',
-    viewerRoles:
-      scene.viewer === 'visitor'
-        ? []
-        : scene.viewer === 'coach' || scene.viewer === 'parent'
-          ? ['responsible_adult']
-          : [scene.viewer],
     asOf: at(DAY, '12:10'),
     status: running ? 'running' : 'open',
     startsAt: at(DAY, '09:00'),
@@ -138,37 +132,45 @@ export function winterLobby(
       })),
     })),
     break: null,
-    viewerEntries:
-      scene.viewer === 'competitor'
-        ? [
-            { one: parli, name: 'Hartwell B', partners: ['Okoye'] },
-            { one: impromptu, name: 'Wu', partners: [] },
-            { one: extemp, name: 'Wu', partners: [] },
-          ].map(({ one, name, partners }) => ({
-            entryId: sampleId(`entry/${one.key}/${name}`),
-            eventId: sampleId(`${WINTER}/${one.key}`),
-            name,
-            partners,
-            record: null,
-            finish: null,
-          }))
-        : [],
-    wards: [],
-    school: null,
+    ...tournamentViewerOf(scene, {
+      viewerRoles:
+        scene.viewer === 'coach' || scene.viewer === 'parent'
+          ? ['responsible_adult']
+          : scene.viewer === 'visitor'
+            ? []
+            : [scene.viewer],
+      viewerEntries:
+        scene.viewer === 'competitor'
+          ? [
+              { one: parli, name: 'Hartwell B', partners: ['Okoye'] },
+              { one: impromptu, name: 'Wu', partners: [] },
+              { one: extemp, name: 'Wu', partners: [] },
+            ].map(({ one, name, partners }) => ({
+              entryId: sampleId(`entry/${one.key}/${name}`),
+              eventId: sampleId(`${WINTER}/${one.key}`),
+              name,
+              partners,
+              record: null,
+              finish: null,
+            }))
+          : [],
+      wards: [],
+      school: null,
+      host: host
+        ? {
+            setupUnfinished: 0,
+            entryCount: 213,
+            slots: running ? hostSlots : [],
+            breakState: 'scheduled',
+            certified: false,
+          }
+        : null,
+    }),
     results: {
       standings: false,
       bracket: 'closed',
       scoresOpenAt: 'prelims_end',
     },
-    host: host
-      ? {
-          setupUnfinished: 0,
-          entryCount: 213,
-          slots: running ? hostSlots : [],
-          breakState: 'scheduled',
-          certified: false,
-        }
-      : null,
     capabilities: { enter: !adult, manageEntries: adult },
   };
 }

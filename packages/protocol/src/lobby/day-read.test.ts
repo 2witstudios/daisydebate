@@ -179,7 +179,78 @@ describe('a person’s day by time slot (TAB-5.14)', async () => {
           feedback: 'Strong rebuttal.',
         }),
       ],
-      expected: [['slots.0.rows.0.result.opensAt'], ['slots.0.rows.0.result']],
+      // A row is one of four shapes, so a bad part is refused at the row.
+      expected: [['slots.0.rows.0'], ['slots.0.rows.0.result']],
+    });
+  });
+
+  test('impossible rows', async () => {
+    const row = (overrides: Record<string, unknown>) =>
+      verdict(
+        dayViewSchema,
+        day([slot('12:00', [{ ...parli, ...overrides }])]),
+      );
+    const unpublished = { fixture: null, state: { kind: 'not_posted' } };
+    assert({
+      given:
+        "a competitor's row with no entry, and a judge's row naming an entry",
+      should: 'refuse each: a competitor carries the entry, a judge none',
+      actual: [
+        row({ entry: null }),
+        row({ role: 'judge' }),
+        row({ ...unpublished, entry: null }),
+        row({ ...unpublished, role: 'judge' }),
+      ],
+      expected: [
+        ['slots.0.rows.0'],
+        ['slots.0.rows.0'],
+        ['slots.0.rows.0'],
+        ['slots.0.rows.0'],
+      ],
+    });
+    assert({
+      given:
+        'no fixture with a posted, live, ballots-due or over state, and a fixture with the round not posted',
+      should: 'refuse each: no fixture exactly while the round is not posted',
+      actual: [
+        row({ fixture: null, state: { kind: 'posted', opensAt: at('13:30') } }),
+        row({ fixture: null }),
+        row({ fixture: null, state: { kind: 'ballots_due' } }),
+        row({ fixture: null, state: { kind: 'over' } }),
+        row({ state: { kind: 'not_posted' } }),
+        row({ role: 'judge', entry: null, fixture: null }),
+      ],
+      expected: [
+        ['slots.0.rows.0'],
+        ['slots.0.rows.0'],
+        ['slots.0.rows.0'],
+        ['slots.0.rows.0'],
+        ['slots.0.rows.0'],
+        ['slots.0.rows.0'],
+      ],
+    });
+    assert({
+      given:
+        'a round not posted carrying a result or a recording, and a posted fixture with a break note',
+      should: 'refuse each',
+      actual: [
+        row({
+          ...unpublished,
+          result: { kind: 'withheld', opensAt: 'prelims_end' },
+        }),
+        row({ ...unpublished, recording: { durationMs: 60_000 } }),
+        row({ breaking: { size: 8, divisions: [] } }),
+      ],
+      expected: [['slots.0.rows.0'], ['slots.0.rows.0'], ['slots.0.rows.0']],
+    });
+    assert({
+      given: "a judge's row not yet posted, and a judge's posted row",
+      should: 'accept each',
+      actual: [
+        row({ ...unpublished, role: 'judge', entry: null }),
+        row({ role: 'judge', entry: null }),
+      ],
+      expected: ['accepted', 'accepted'],
     });
   });
 

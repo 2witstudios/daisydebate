@@ -35,7 +35,11 @@ import {
 } from './posting';
 import { sampleRoomIds } from './rooms';
 import type { SampleScene } from './scene';
-import { autumnAsOf, autumnReads } from './tournament-autumn';
+import {
+  autumnAsOf,
+  autumnReads,
+  tournamentViewerOf,
+} from './tournament-autumn';
 import { winterReads } from './tournament-winter';
 
 const league = {
@@ -52,11 +56,7 @@ const quiet: Pick<
   | 'entered'
   | 'terms'
   | 'break'
-  | 'viewerEntries'
-  | 'wards'
-  | 'school'
   | 'results'
-  | 'host'
   | 'capabilities'
   | 'events'
   | 'timeSlots'
@@ -65,11 +65,7 @@ const quiet: Pick<
   entered: null,
   terms: [],
   break: null,
-  viewerEntries: [],
-  wards: [],
-  school: null,
   results: { standings: false, bracket: 'closed', scoresOpenAt: null },
-  host: null,
   capabilities: { enter: true, manageEntries: false },
   events: [],
   timeSlots: [],
@@ -77,7 +73,7 @@ const quiet: Pick<
 
 const viewerRolesOf = (
   scene: SampleScene,
-): TournamentLobbyView['viewerRoles'] =>
+): Extract<TournamentLobbyView, { signedIn: true }>['viewerRoles'] =>
   scene.viewer === 'visitor'
     ? []
     : scene.viewer === 'coach' || scene.viewer === 'parent'
@@ -91,8 +87,13 @@ const scrimmage = (scene: SampleScene): TournamentLobbyView => ({
   handle: SCRIMMAGE,
   name: 'Friday scrimmage',
   owner: { kind: 'person', actorId: sampleId('jono'), username: 'jono' },
-  signedIn: scene.viewer !== 'visitor',
-  viewerRoles: [],
+  ...tournamentViewerOf(scene, {
+    viewerRoles: [],
+    viewerEntries: [],
+    wards: [],
+    school: null,
+    host: null,
+  }),
   asOf: autumnAsOf(scene),
   status: 'open',
   startsAt: at('2026-11-20', '18:00'),
@@ -155,8 +156,6 @@ function championship(scene: SampleScene): TournamentReads {
     handle: CHAMPIONSHIP,
     name: 'Championship',
     owner: league,
-    signedIn: scene.viewer !== 'visitor',
-    viewerRoles: viewerRolesOf(scene),
     asOf: at(CHAMPIONSHIP_DAY, '14:44'),
     status: 'running',
     startsAt: at(CHAMPIONSHIP_DAY, '13:00'),
@@ -187,19 +186,25 @@ function championship(scene: SampleScene): TournamentReads {
       },
     ],
     break: { at: at(CHAMPIONSHIP_DAY, '18:00'), announced: false },
-    viewerEntries:
-      scene.viewer === 'competitor'
-        ? [
-            {
-              entryId: sampleId('entry/Ridgeview B'),
-              eventId: sampleId(`${CHAMPIONSHIP}/${BP.key}`),
-              name: 'Ridgeview B',
-              partners: ['Okoye'],
-              record: null,
-              finish: null,
-            },
-          ]
-        : [],
+    ...tournamentViewerOf(scene, {
+      viewerRoles: viewerRolesOf(scene),
+      viewerEntries:
+        scene.viewer === 'competitor'
+          ? [
+              {
+                entryId: sampleId('entry/Ridgeview B'),
+                eventId: sampleId(`${CHAMPIONSHIP}/${BP.key}`),
+                name: 'Ridgeview B',
+                partners: ['Okoye'],
+                record: null,
+                finish: null,
+              },
+            ]
+          : [],
+      wards: [],
+      school: null,
+      host: null,
+    }),
   };
   const room4 = 'championship-round-2-room-4';
   const chair = [judge('Malik', true), judge('Nguyen'), judge('Costa')];

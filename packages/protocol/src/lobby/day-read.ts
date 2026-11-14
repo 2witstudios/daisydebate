@@ -50,10 +50,11 @@ export const dayFixtureSchema = z.strictObject({
   topicAt: instant.nullable(),
 });
 
-/** Where a fixture stands, as its Room and Round say. */
+/**
+ * Where a published fixture stands, as its Room and Round say. A round not
+ * drawn yet has no fixture and no state of its own: see `unpublished` below.
+ */
 export const dayStateSchema = z.discriminatedUnion('kind', [
-  /** The round is not drawn yet. */
-  z.strictObject({ kind: z.literal('not_posted') }),
   z.strictObject({ kind: z.literal('posted'), opensAt: instant }),
   z.strictObject({
     kind: z.literal('live'),
@@ -95,33 +96,76 @@ export const dayResultSchema = z
   ])
   .nullable();
 
-export const dayRowSchema = z.strictObject({
-  person: dayPersonSchema,
-  role: z.enum(['competitor', 'judge']),
-  event: z.strictObject({ eventId: idSchema, name }),
-  /** The entry competing; null on a judge's row. */
-  entry: z
-    .strictObject({
-      entryId: idSchema,
-      name,
-      record: z.strictObject({ wins: count, losses: count }).nullable(),
-    })
-    .nullable(),
-  tabRound: tabRoundRefSchema,
-  /** For an elimination round not yet drawn: the break that fills it. */
-  breaking: z
-    .strictObject({
-      size: z.int().positive().nullable(),
-      divisions: z.array(name).max(8),
-    })
-    .nullable(),
-  /** Null until the fixture is published. */
-  fixture: dayFixtureSchema.nullable(),
-  state: dayStateSchema,
-  result: dayResultSchema,
-  /** Null unless the viewer's audiences may watch it. */
-  recording: z.strictObject({ durationMs: z.int().positive() }).nullable(),
+const dayEntrySchema = z.strictObject({
+  entryId: idSchema,
+  name,
+  record: z.strictObject({ wins: count, losses: count }).nullable(),
 });
+
+/** The row's part: a competitor's row names the entry competing; a judge's none. */
+const dayRoles = {
+  competitor: { role: z.literal('competitor'), entry: dayEntrySchema },
+  judge: { role: z.literal('judge'), entry: z.null() },
+};
+
+/**
+ * How far the tab round has come. Until the fixture is published the row has
+ * no fixture, no result and no recording, and the state is `not_posted`;
+ * once published it has a fixture and a published state, and no break note.
+ */
+const dayProgress = {
+  unpublished: {
+    /** For an elimination round not yet drawn: the break that fills it. */
+    breaking: z
+      .strictObject({
+        size: z.int().positive().nullable(),
+        divisions: z.array(name).max(8),
+      })
+      .nullable(),
+    fixture: z.null(),
+    state: z.strictObject({ kind: z.literal('not_posted') }),
+    result: z.null(),
+    recording: z.null(),
+  },
+  published: {
+    breaking: z.null(),
+    fixture: dayFixtureSchema,
+    state: dayStateSchema,
+    result: dayResultSchema,
+    /** Null unless the viewer's audiences may watch it. */
+    recording: z.strictObject({ durationMs: z.int().positive() }).nullable(),
+  },
+};
+
+const dayRowCommon = {
+  person: dayPersonSchema,
+  event: z.strictObject({ eventId: idSchema, name }),
+  tabRound: tabRoundRefSchema,
+};
+
+/** Each role at each stage of progress; no other pairing parses. */
+export const dayRowSchema = z.union([
+  z.strictObject({
+    ...dayRowCommon,
+    ...dayRoles.competitor,
+    ...dayProgress.unpublished,
+  }),
+  z.strictObject({
+    ...dayRowCommon,
+    ...dayRoles.competitor,
+    ...dayProgress.published,
+  }),
+  z.strictObject({
+    ...dayRowCommon,
+    ...dayRoles.judge,
+    ...dayProgress.unpublished,
+  }),
+  z.strictObject({
+    ...dayRowCommon,
+    ...dayRoles.judge,
+    ...dayProgress.published,
+  }),
+]);
 export type DayRow = z.infer<typeof dayRowSchema>;
 
 export const dayQuerySchema = z.strictObject({ lobbyId: idSchema });

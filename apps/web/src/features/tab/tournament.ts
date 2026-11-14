@@ -5,15 +5,16 @@ import type {
 import type {
   ListedLobby,
   LobbyListPage,
+  LobbyViewerRole,
   TabRoundRef,
   TournamentLobbyView,
 } from '@daisy/protocol/lobby/lobby-read';
 import type {
   PostedJudge,
   PostingView,
-  ShownEntrant,
 } from '@daisy/protocol/lobby/posting-read';
 import { linkTo, sampleAction, type TabAction } from './action';
+import { shownName } from './shown-entrant';
 import type { Bracket } from './results';
 import { hostRoutes, tabRoutes } from './routes';
 import { sampleTimelineRead } from './sample/rail';
@@ -355,8 +356,6 @@ export const listed = (names: readonly string[]): string =>
   names.length <= 1
     ? (names[0] ?? '')
     : `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`;
-const shownName = (shown: ShownEntrant): string =>
-  shown.kind === 'name' ? shown.name : shown.initials;
 
 /** Whether the tournament's events share time slots. */
 const isShared = (lobby: TournamentLobbyView): boolean =>
@@ -1124,6 +1123,11 @@ const resultsClosed = (title: string): TournamentPanel => ({
   title,
 });
 
+/** The viewer's roles; a signed-out reader's are always none. */
+const viewerRolesOf = (
+  lobby: TournamentLobbyView,
+): readonly LobbyViewerRole[] => lobby.viewerRoles;
+
 /** The posted rounds a page shows tabs for, in schedule order. */
 const postedRounds = (lobby: TournamentLobbyView) =>
   lobby.timeSlots.flatMap((slot) =>
@@ -1332,7 +1336,7 @@ function roundsPage(
         ? linkTo('Standings', standingsHref)
         : null,
     // A responsible adult's own judging is pinned on their entries page.
-    yourRoom: lobby.viewerRoles.includes('responsible_adult')
+    yourRoom: viewerRolesOf(lobby).includes('responsible_adult')
       ? null
       : pinnedRoom(lobby, lines, addressOf),
     tabs,
@@ -1375,7 +1379,7 @@ function tournamentPageOf(
     return null;
   if (lobby.status === 'draft' || lobby.status === 'open')
     return beforePage(lobby, addressOf);
-  const roles = lobby.viewerRoles;
+  const roles = viewerRolesOf(lobby);
   if (view.kind === 'home') {
     if (
       roles.includes('responsible_adult') &&

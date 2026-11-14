@@ -169,14 +169,19 @@ const common = {
   handle,
   name,
   owner: lobbyOwnerSchema,
-  /** Whether the viewer is signed in; a signed-out reader has no roles. */
-  signedIn: z.boolean(),
-  viewerRoles: viewerRolesSchema,
   /** The instant the read was answered, for anything shown relative to now. */
   asOf: instant,
 };
 
-export const standingLobbyViewSchema = z.strictObject({
+/**
+ * What a read says of the viewer themselves. A signed-out reader is no one to
+ * the lobby: their variant carries no roles, entries, wards, school, ladder
+ * line or host stop, so none can parse.
+ */
+const signedOut = { signedIn: z.literal(false), viewerRoles: z.tuple([]) };
+const signedIn = { signedIn: z.literal(true), viewerRoles: viewerRolesSchema };
+
+const standingLobbyCommon = {
   kind: z.literal('standing'),
   ...common,
   /** The resolution pool this month's Rooms strike from. */
@@ -194,18 +199,26 @@ export const standingLobbyViewSchema = z.strictObject({
   offeredTemplates: z
     .array(z.strictObject({ templateId: idSchema, name }))
     .max(32),
-  /** The viewer's line on this lobby's ladder; null when they are not on it. */
-  ladder: z
-    .strictObject({
-      rating: z.int(),
-      place: z.int().positive(),
-      of: z.int().positive(),
-    })
-    .nullable(),
   capabilities: z.strictObject({ createRoom: z.boolean() }),
-});
+};
 
-export const tournamentLobbyViewSchema = z.strictObject({
+export const standingLobbyViewSchema = z.discriminatedUnion('signedIn', [
+  z.strictObject({ ...standingLobbyCommon, ...signedOut, ladder: z.null() }),
+  z.strictObject({
+    ...standingLobbyCommon,
+    ...signedIn,
+    /** The viewer's line on this lobby's ladder; null when they are not on it. */
+    ladder: z
+      .strictObject({
+        rating: z.int(),
+        place: z.int().positive(),
+        of: z.int().positive(),
+      })
+      .nullable(),
+  }),
+]);
+
+const tournamentLobbyCommon = {
   kind: z.literal('tournament'),
   ...common,
   status: z.enum(tournamentStatuses),
@@ -244,19 +257,34 @@ export const tournamentLobbyViewSchema = z.strictObject({
     .max(64),
   /** When the break is announced; null for a tournament without one. */
   break: z.strictObject({ at: instant, announced: z.boolean() }).nullable(),
-  viewerEntries: z.array(viewerEntrySchema).max(16),
-  /** The viewer's wards, for a guardian. */
-  wards: z.array(z.strictObject({ actorId: idSchema, name })).max(16),
-  /** The school whose entries the viewer answers for, for a coach. */
-  school: z.strictObject({ organizationId: idSchema, name }).nullable(),
   results: resultsOpenSchema,
-  /** Null for anyone the gate `lobby.host.read` does not allow. */
-  host: tournamentHostSchema.nullable(),
   capabilities: z.strictObject({
     enter: z.boolean(),
     manageEntries: z.boolean(),
   }),
-});
+};
+
+export const tournamentLobbyViewSchema = z.discriminatedUnion('signedIn', [
+  z.strictObject({
+    ...tournamentLobbyCommon,
+    ...signedOut,
+    viewerEntries: z.tuple([]),
+    wards: z.tuple([]),
+    school: z.null(),
+    host: z.null(),
+  }),
+  z.strictObject({
+    ...tournamentLobbyCommon,
+    ...signedIn,
+    viewerEntries: z.array(viewerEntrySchema).max(16),
+    /** The viewer's wards, for a guardian. */
+    wards: z.array(z.strictObject({ actorId: idSchema, name })).max(16),
+    /** The school whose entries the viewer answers for, for a coach. */
+    school: z.strictObject({ organizationId: idSchema, name }).nullable(),
+    /** Null for anyone the gate `lobby.host.read` does not allow. */
+    host: tournamentHostSchema.nullable(),
+  }),
+]);
 
 /** One lobby, as one viewer may see it. */
 export const lobbyViewSchema = z.discriminatedUnion('kind', [
