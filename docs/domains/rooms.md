@@ -60,7 +60,11 @@ and a Back to standard action that restores the exact preset it started from.
 Custom can also start from a league template (NSDA Lincoln-Douglas, NDT
 policy, Public Forum and others) whose rules Daisy runs faithfully; a template
 always reads as Custom. IPDA and Team IPDA templates strike their
-resolution the way the IPDA bylaws do. Choosing a format that strikes its
+resolution the way the IPDA bylaws do. Daisy's own casual templates
+(TAB-6.18) seat what one debater a side cannot: a three-judge panel decided
+by majority, four teams ranked by the judge, a six-speaker section ranked by
+speaker, and an open conversation of two with both microphones open and
+nothing judged. None is ever rankable. Choosing a format that strikes its
 resolution clears the topic; choosing Policy or Value loads its current
 published resolution. League-template and Custom rooms may author a
 resolution. Standing is derived from the Room and its basis, never
