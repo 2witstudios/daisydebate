@@ -1,364 +1,397 @@
-import { sampleAction } from '../action';
 import type {
-  HostEntries,
-  HostEntryRow,
-  HostJudges,
-  JudgeSlotState,
-  SchoolEntries,
-  TournamentJudgeRow,
-} from '../entries';
-import { tabRoutes } from '../routes';
+  EntryListView,
+  JudgeListView,
+  JudgeSlot,
+  ListedEntry,
+  ListedJudge,
+  SchoolEntriesView,
+  SchoolStudent,
+} from '@daisy/protocol/lobby/entry-read';
 import { AUTUMN, reached, WINTER } from './moment';
-import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
+
+/** A sample record's id: its name, as a 24-character cuid2-shaped id. */
+const sampleId = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .padEnd(24, '0')
+    .slice(0, 24);
+
+const autumnId = sampleId('autumnopen');
+const varsity = {
+  id: sampleId('eventvarsity'),
+  name: 'Varsity debate',
+  label: 'Varsity',
+};
+const impromptu = {
+  id: sampleId('eventimpromptu'),
+  name: 'Impromptu',
+  label: null,
+};
+const novice = {
+  id: sampleId('eventnovice'),
+  name: 'Novice debate',
+  label: 'Novice',
+};
 
 const entry = (
   name: string,
-  facts: string,
-  status: HostEntryRow['status'] = 'accepted',
-): HostEntryRow => ({ name, facts, status });
+  facts: Partial<ListedEntry> = {},
+): ListedEntry => ({
+  id: sampleId(`entry${name}`),
+  name,
+  status: 'accepted',
+  rating: null,
+  events: [varsity],
+  minor: null,
+  invitation: null,
+  ...facts,
+});
 
-export function sampleHostEntries(
+const ridgeview = sampleId('orgridgeview');
+const hartwell = sampleId('orghartwell');
+
+export function sampleEntryList(
   slug: string,
   scene: SampleScene,
-): HostEntries | null {
+): EntryListView | null {
   if (slug !== AUTUMN) return null;
   const before = !reached(scene, 'prelims');
   return {
-    event: varsitySwitch(scene),
-    lede: before
-      ? '24 debaters accepted, 7 still to answer. 11 judges; 12 rooms need 12.'
-      : '48 debaters accepted. 12 judges; 12 rooms need 12.',
-    actions: before
-      ? [
-          sampleAction('Remind the 7'),
-          sampleAction('Invite a school or parent', true),
-        ]
-      : [sampleAction('Invite a school or parent', true)],
-    tabs: before ? { debaters: 31, judges: 11 } : { debaters: 48, judges: 12 },
+    lobbyId: autumnId,
+    eventId: varsity.id,
+    asOf: '2026-11-14T12:00:00.000Z',
+    counts: before
+      ? { accepted: 24, pending: 7, judges: 11, rooms: 12, judgesNeeded: 12 }
+      : { accepted: 48, pending: 0, judges: 12, rooms: 12, judgesNeeded: 12 },
     groups: [
       {
-        name: 'Ridgeview',
-        enteredBy: 'coach A. Doyle',
-        summary: '9 debaters · owes 3 judges, has 3',
-        short: false,
+        responsible: {
+          kind: 'school',
+          organizationId: ridgeview,
+          name: 'Ridgeview',
+          adultName: 'A. Doyle',
+        },
+        entryCount: 9,
+        judgesOwed: 3,
+        judgesNamed: 3,
         entries: [
-          entry('M. Castillo', 'rating 1655'),
-          entry('K. Sato', 'rating 1548'),
+          entry('M. Castillo', { rating: 1655 }),
+          entry('K. Sato', { rating: 1548 }),
           before
-            ? entry(
-                'J. Farrow',
-                'no Daisy account yet · invited 3 days ago',
-                'not_answered',
-              )
-            : entry('J. Farrow', 'unrated'),
+            ? entry('J. Farrow', {
+                status: 'pending',
+                invitation: { invitedAt: '2026-11-11T09:00:00.000Z' },
+              })
+            : entry('J. Farrow'),
         ],
-        more: sampleAction('6 more from Ridgeview'),
       },
       {
-        name: 'Okafor family',
-        enteredBy: 'parent N. Okafor',
-        summary: '2 debaters · owes 1 judge, has 1',
-        short: false,
+        responsible: {
+          kind: 'guardian',
+          name: 'Okafor family',
+          adultName: 'N. Okafor',
+        },
+        entryCount: 2,
+        judgesOwed: 1,
+        judgesNamed: 1,
         entries: [
-          entry(
-            'C. Okafor',
-            'rating 1590 · age 15, account managed by N. Okafor',
-          ),
-          entry('A. Okafor', 'Impromptu only · age 13'),
+          entry('C. Okafor', {
+            rating: 1590,
+            minor: { age: 15, managedBy: 'N. Okafor' },
+          }),
+          entry('A. Okafor', {
+            events: [impromptu],
+            minor: { age: 13, managedBy: null },
+          }),
         ],
-        more: null,
       },
       {
-        name: 'Hartwell',
-        enteredBy: 'coach P. Lindqvist',
-        summary: '7 debaters · owes 3 judges, has 2',
-        short: true,
-        entries: [entry('R. Jensen', 'rating 1712')],
-        more: sampleAction('6 more from Hartwell'),
+        responsible: {
+          kind: 'school',
+          organizationId: hartwell,
+          name: 'Hartwell',
+          adultName: 'P. Lindqvist',
+        },
+        entryCount: 7,
+        judgesOwed: 3,
+        judgesNamed: 2,
+        entries: [entry('R. Jensen', { rating: 1712 })],
       },
       {
-        name: 'Entered alone',
-        enteredBy: null,
-        summary: '3 debaters · no judges owed',
-        short: false,
-        entries: [entry('T. Ellis', 'unrated')],
-        more: null,
+        responsible: { kind: 'self' },
+        entryCount: 3,
+        judgesOwed: 0,
+        judgesNamed: 0,
+        entries: [entry('T. Ellis')],
       },
     ],
-    note: '5 more schools. Coaches and parents add and withdraw their own entries; you see every change here.',
+    groupsNotShown: 5,
+    capabilities: { manageEntries: true },
   };
 }
 
-const labels: Readonly<
-  Record<Exclude<JudgeSlotState, 'room' | 'late'>, string>
-> = {
-  judged: 'judged',
-  away: 'away',
-  free: 'free',
-  in_draft: 'in draft',
+/** A slot is a state, or a Room the judge is in now (`Room 6 · late`). */
+const slot = (cell: string): JudgeSlot => {
+  switch (cell) {
+    case 'judged':
+    case 'away':
+    case 'free':
+    case 'in_draft':
+      return { state: cell };
+    default:
+      return cell.endsWith(' · late')
+        ? {
+            state: 'judging',
+            place: cell.slice(0, -' · late'.length),
+            late: true,
+          }
+        : { state: 'judging', place: cell, late: false };
+  }
 };
 
-/** A slot is a state, or a Room the judge is in now (`Room 6 · late`). */
 const judge = (
   name: string,
-  slots: readonly (Exclude<JudgeSlotState, 'room' | 'late'> | string)[],
-  clearedFor: string,
-  judged: number,
-  neverJudges: string,
-  conflict = false,
-): TournamentJudgeRow => ({
+  slots: readonly string[],
+  clearedFor: readonly { readonly id: string }[],
+  judgedCount: number,
+  facts: Partial<ListedJudge> = {},
+): ListedJudge => ({
+  id: sampleId(`judge${name}`),
   name,
-  slots: slots.map((slot) =>
-    slot in labels
-      ? {
-          state: slot as JudgeSlotState,
-          label: labels[slot as keyof typeof labels],
-        }
-      : { state: slot.endsWith('late') ? 'late' : 'room', label: slot },
-  ),
-  clearedFor,
-  judged,
-  neverJudges,
-  conflict,
+  slots: slots.map(slot),
+  clearedFor: clearedFor.map((event) => event.id),
+  judgedCount,
+  strikes: [],
+  declaredConflict: null,
+  ...facts,
 });
 
-export function sampleHostJudges(
+export function sampleJudgeList(
   slug: string,
   scene: SampleScene,
-): HostJudges | null {
+): JudgeListView | null {
   if (slug !== AUTUMN) return null;
   const before = !reached(scene, 'prelims');
   return {
-    lede: before
-      ? 'Round 1 needs 12 judges in Varsity debate and 11 have been named. Hartwell still owes one.'
-      : 'Round 4 needs 12 judges in Varsity debate and 11 are free then. Hartwell still owes one.',
-    add: sampleAction('Add a judge', true),
-    tabs: before ? { debaters: 31, judges: 11 } : { debaters: 48, judges: 12 },
-    slots: ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Break'],
+    lobbyId: autumnId,
+    events: [varsity, impromptu, novice],
+    timeSlots: ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Break'].map(
+      (name) => ({ id: sampleId(`slot${name}`), name }),
+    ),
+    counts: before
+      ? { debaters: 31, judges: 11 }
+      : { debaters: 48, judges: 12 },
+    need: {
+      tabRoundName: before ? 'Round 1' : 'Round 4',
+      eventName: varsity.name,
+      judgesNeeded: 12,
+      judgesCounted: 11,
+      counting: before ? 'named' : 'free',
+    },
     groups: [
       {
-        name: 'Ridgeview',
-        summary: 'owes 3 judges, has 3',
-        remind: null,
+        responsible: {
+          kind: 'school',
+          organizationId: ridgeview,
+          name: 'Ridgeview',
+        },
+        judgesOwed: 3,
+        judgesNamed: 3,
         judges: [
           judge(
             'L. Malik',
             ['judged', 'judged', 'judged', 'in_draft', 'free'],
-            'Varsity, Novice',
+            [varsity, novice],
             3,
-            "Ridgeview's entries",
           ),
           judge(
             'E. Fontaine',
             ['away', 'judged', 'judged', 'in_draft', 'free'],
-            'Varsity',
+            [varsity],
             2,
-            "Ridgeview's entries",
           ),
           judge(
             'A. Shah',
             ['judged', 'judged', 'Room 10', 'free', 'away'],
-            'Varsity, Impromptu',
+            [varsity, impromptu],
             2,
-            "Ridgeview's entries",
           ),
         ],
       },
       {
-        name: 'Hartwell',
-        summary: 'owes 3 judges, has 2',
-        remind: sampleAction('Remind the coach'),
+        responsible: {
+          kind: 'school',
+          organizationId: hartwell,
+          name: 'Hartwell',
+        },
+        judgesOwed: 3,
+        judgesNamed: 2,
         judges: [
           judge(
             'T. Abara',
             ['judged', 'judged', 'Room 3', 'in_draft', 'free'],
-            'Varsity, Novice',
+            [varsity, novice],
             2,
-            "Hartwell's entries",
           ),
           judge(
             'R. Keane',
             ['judged', 'away', 'judged', 'in_draft', 'free'],
-            'Varsity',
+            [varsity],
             2,
-            "Hartwell's entries · Wu, who struck him",
+            {
+              strikes: [{ source: 'entry', entryName: 'Wu' }],
+            },
           ),
         ],
       },
       {
-        name: 'Okafor family',
-        summary: 'owes 1 judge, has 1',
-        remind: null,
+        responsible: { kind: 'guardian', name: 'Okafor family' },
+        judgesOwed: 1,
+        judgesNamed: 1,
         judges: [
           judge(
             'N. Okafor',
             ['Impromptu', 'Novice', 'Novice', 'free', 'Novice'],
-            'Novice, Impromptu',
+            [novice, impromptu],
             3,
-            'C. Okafor and A. Okafor are her children. She is never in a room with either, in any event.',
-            true,
+            {
+              declaredConflict: {
+                note: 'C. Okafor and A. Okafor are her children. She is never in a room with either, in any event.',
+              },
+            },
           ),
         ],
       },
       {
-        name: 'Not from a school',
-        summary: 'no one owes them',
-        remind: null,
+        responsible: { kind: 'unaffiliated' },
+        judgesOwed: 0,
+        judgesNamed: 0,
         judges: [
           judge(
             'A. Costa',
             ['judged', 'judged', 'judged', 'in_draft', 'free'],
-            'All three events',
+            [varsity, impromptu, novice],
             3,
-            'No one',
           ),
           judge(
             'M. Reyes',
             ['judged', 'judged', 'Room 6 · late', 'free', 'free'],
-            'Varsity',
+            [varsity],
             2,
-            'No one',
           ),
         ],
       },
     ],
-    more: sampleAction('Show 4 more from Lakeside'),
+    notShown: { schoolName: 'Lakeside', count: 4 },
+    capabilities: { manageJudges: true },
   };
 }
+
+const student = (
+  name: string,
+  note: string | null,
+  events: readonly (string | readonly [string, string])[],
+  clash: readonly [string, string] | null = null,
+): SchoolStudent => ({
+  id: sampleId(`student${name}`),
+  name,
+  note,
+  entries: events.map((event) => {
+    const [eventName, partner] =
+      typeof event === 'string' ? [event, null] : event;
+    return {
+      id: sampleId(`entry${name}${eventName}`),
+      eventName,
+      partnerNames: partner === null ? [] : [partner],
+    };
+  }),
+  clash: clash === null ? null : { eventNames: [clash[0], clash[1]] },
+});
+
+const capabilities = { manageRoster: true, submit: true };
 
 export function sampleSchoolEntries(
   slug: string,
   scene: SampleScene,
-): SchoolEntries | null {
+): SchoolEntriesView | null {
   if (scene.viewer !== 'coach' && scene.viewer !== 'parent') return null;
-  const edit = sampleAction('Edit');
   if (slug === WINTER && scene.viewer === 'coach')
     return {
-      tournament: {
-        name: 'Winter Classic',
-        href: tabRoutes.tournament(WINTER),
+      lobbyId: sampleId('winterclassic'),
+      tournamentName: 'Winter Classic',
+      responsible: {
+        kind: 'school',
+        organizationId: hartwell,
+        name: 'Hartwell',
       },
-      title: "Hartwell's entries",
-      lede: 'Entries close Wed 9 Dec · one debate event, one Speech A and one Speech B each',
+      terms:
+        'Entries close Wed 9 Dec · one debate event, one Speech A and one Speech B each',
       students: [
-        {
-          name: 'Wu',
-          note: 'novice, second season',
-          events: 'Parli with Okoye · Impromptu · Extemp',
-          problem: null,
-          edit,
-        },
-        {
-          name: 'Okoye',
-          note: 'novice, first season',
-          events: 'Parli with Wu · Oratory',
-          problem: null,
-          edit,
-        },
-        {
-          name: 'Jensen',
-          note: null,
-          events: 'Varsity LD · Impromptu',
-          problem: null,
-          edit,
-        },
-        {
-          name: 'Amari',
-          note: 'novice, first season',
-          events: 'Novice LD · Impromptu · Oratory',
-          problem: 'Impromptu and Oratory run at the same time. Keep one.',
-          edit,
-        },
-        {
-          name: 'Reid',
-          note: 'third season',
-          events: 'Varsity LD',
-          problem: null,
-          edit,
-        },
+        student('Wu', 'novice, second season', [
+          ['Parli', 'Okoye'],
+          'Impromptu',
+          'Extemp',
+        ]),
+        student('Okoye', 'novice, first season', [['Parli', 'Wu'], 'Oratory']),
+        student('Jensen', null, ['Varsity LD', 'Impromptu']),
+        student(
+          'Amari',
+          'novice, first season',
+          ['Novice LD', 'Impromptu', 'Oratory'],
+          ['Impromptu', 'Oratory'],
+        ),
+        student('Reid', 'third season', ['Varsity LD']),
       ],
-      add: sampleAction('Add a student'),
       judges: {
-        title: 'You owe 3 judges, and have named 2',
-        detail:
+        owed: 3,
+        named: 2,
+        dueAt: '2026-12-11T17:00:00.000Z',
+        terms:
           'Two for your four debate entries, one for your six speech entries. One judge can cover both if cleared for both.',
-        add: sampleAction('Add'),
       },
-      submit: {
-        label: 'Submit entries',
-        blocked: true,
-        note: "Fix Amari's entry to submit. You can add the third judge until Fri 11 Dec.",
-      },
+      capabilities,
     };
   if (slug !== AUTUMN && slug !== WINTER) return null;
   const autumn = slug === AUTUMN;
-  const name = autumn ? 'Autumn Open' : 'Winter Classic';
   const parent = scene.viewer === 'parent';
   return {
-    tournament: { name, href: tabRoutes.tournament(slug) },
-    title: parent ? "Okafor family's entries" : "Hartwell's entries",
-    lede: autumn
+    lobbyId: sampleId(autumn ? 'autumnopen' : 'winterclassic'),
+    tournamentName: autumn ? 'Autumn Open' : 'Winter Classic',
+    responsible: parent
+      ? { kind: 'guardian', name: 'Okafor family' }
+      : { kind: 'school', organizationId: hartwell, name: 'Hartwell' },
+    terms: autumn
       ? 'Entries close Thursday 17:00 · one debate event and one speech event each'
       : 'Entries close Wed 9 Dec · one debate event, one Speech A and one Speech B each',
     students: parent
       ? [
-          {
-            name: 'Chidi',
-            note: 'age 15',
-            events: autumn ? 'Varsity debate' : 'Varsity LD',
-            problem: null,
-            edit,
-          },
-          {
-            name: 'Ada',
-            note: 'age 13',
-            events: 'Impromptu',
-            problem: null,
-            edit,
-          },
+          student('Chidi', 'age 15', [
+            autumn ? 'Varsity debate' : 'Varsity LD',
+          ]),
+          student('Ada', 'age 13', ['Impromptu']),
         ]
       : [
-          {
-            name: 'Jensen',
-            note: null,
-            events: 'Varsity debate',
-            problem: null,
-            edit,
-          },
-          {
-            name: 'Haddad',
-            note: null,
-            events: 'Varsity debate',
-            problem: null,
-            edit,
-          },
-          {
-            name: 'Brooks',
-            note: 'second season',
-            events: 'Varsity debate · Impromptu',
-            problem: null,
-            edit,
-          },
+          student('Jensen', null, ['Varsity debate']),
+          student('Haddad', null, ['Varsity debate']),
+          student('Brooks', 'second season', ['Varsity debate', 'Impromptu']),
         ],
-    add: sampleAction(parent ? 'Add a child' : 'Add a student'),
     judges: parent
       ? {
-          title: 'You owe 1 judge, and have named 1',
-          detail:
+          owed: 1,
+          named: 1,
+          dueAt: null,
+          terms:
             'You are cleared for Novice debate and Impromptu, and are never in a room with Chidi or Ada.',
-          add: sampleAction('Add'),
         }
       : {
-          title: 'You owe 3 judges, and have named 2',
-          detail:
+          owed: 3,
+          named: 2,
+          dueAt: null,
+          terms:
             'One for every three debate entries. You can add the third judge until Friday.',
-          add: sampleAction('Add'),
         },
-    submit: {
-      label: 'Submit entries',
-      blocked: false,
-      note: 'You can change entries until they close.',
-    },
+    capabilities,
   };
 }
