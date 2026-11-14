@@ -30,7 +30,7 @@ test('unjudged receipts describe only the original frozen completion and its rul
       {
         ...receipt,
         ruling: 'partial',
-        outcome: 'affirmative',
+        outcome: { kind: 'winner', side: 'affirmative' },
         noRuling: ['j'.repeat(24)],
       },
       true,

@@ -1,5 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ballotCategories } from './ballot';
+import { daisyWinnerBallot } from './ballot-definition';
+import { ballotSchemaFor } from './ballot-schema';
 import { roundBallotEnvelopeSchema } from './round-ballot';
 setupRitewayBun();
 const scores = Object.fromEntries(
@@ -28,16 +30,32 @@ test('shared ballots require the frozen rubric input and reject authority or res
     { ...envelope, freezeRevision: 0 },
     { ...envelope, expectedVersion: 0 },
     { ...envelope, version: 2 },
-    { ...envelope, ballot: { ...envelope.ballot, winner: 'draw' } },
-    { ...envelope, ballot: { ...envelope.ballot, scores: {} } },
+    { ...envelope, ballot: { ...envelope.ballot, rubricVersion: 'v2' } },
   ];
   assert({
     given:
-      'valid rubric and invalid authority, revision, lifecycle and score inputs',
+      'valid rubric and invalid authority, revision, lifecycle and rubric inputs',
     should: 'accept only the strict versioned ballot envelope',
     actual: cases.map(
       (input) => roundBallotEnvelopeSchema.safeParse(input).success,
     ),
-    expected: [true, false, false, false, false, false, false, false, false],
+    expected: [true, false, false, false, false, false, false, false],
+  });
+});
+test("the Round's own schema judges the ballot an envelope carries", () => {
+  const schema = ballotSchemaFor(daisyWinnerBallot, {
+    sides: ['affirmative', 'negative'],
+    speakers: [],
+    segments: [],
+  });
+  assert({
+    given: 'the valid ballot, then an unknown winner and missing scores',
+    should: 'accept the first and refuse the others',
+    actual: [
+      envelope.ballot,
+      { ...envelope.ballot, winner: 'draw' },
+      { ...envelope.ballot, scores: {} },
+    ].map((ballot) => schema.safeParse(ballot).success),
+    expected: [true, false, false],
   });
 });

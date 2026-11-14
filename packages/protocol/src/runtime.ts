@@ -1,5 +1,7 @@
 import type { ResolutionDrawState } from './resolution-draw';
-import type { DebateRole, DebateSide, RoundOutcome } from './primitives';
+import type { RoundOutcome } from './round-outcome';
+import type { SeatRef, SideKey } from './seats';
+import type { SpeakRights } from './format-seating';
 import type { RoundLifecycle } from './round-lifecycle';
 import type { SegmentType } from './format';
 import type {
@@ -39,8 +41,7 @@ export type HydratedSegment = {
 export type RoundParticipantSeat = {
   readonly id: string;
   readonly actorId: string;
-  readonly role: DebateRole;
-  readonly slot: number;
+  readonly seat: SeatRef;
 };
 
 export type RoundCommand =
@@ -78,7 +79,8 @@ export type RoundEffect =
   | {
       readonly kind: 'segment_opened';
       readonly key: string;
-      readonly side: DebateSide;
+      /** The seat the segment is scheduled to; null for an open floor. */
+      readonly lead: SeatRef | null;
       readonly type: SegmentType;
       readonly at: string;
     }
@@ -89,7 +91,7 @@ export type RoundEffect =
     }
   | {
       readonly kind: 'prep_started';
-      readonly side: DebateSide;
+      readonly side: SideKey;
       readonly at: string;
     }
   | {
@@ -161,28 +163,31 @@ export type RoundPosition = RoundLifecycle & {
     readonly key: string;
     readonly label: string;
     readonly type: SegmentType;
-    readonly side: DebateSide;
+    /** The seat the segment is scheduled to; null for an open floor. */
+    readonly lead: SeatRef | null;
+    readonly speak: SpeakRights;
     readonly sequence: number;
     readonly startedAt: string;
     readonly endsAt: string;
     readonly remainingMs: number;
-    /** The participant holding the floor; null when the scheduled side does. */
+    /** The participant holding the floor; null when the scheduled seat does. */
     readonly floorParticipantId: string | null;
   } | null;
   readonly nextSegment: {
     readonly key: string;
     readonly label: string;
     readonly type: SegmentType;
-    readonly side: DebateSide;
+    readonly lead: SeatRef | null;
+    readonly speak: SpeakRights;
     readonly sequence: number;
   } | null;
   readonly countdownRemainingMs: number | null;
   readonly prep: {
-    readonly side: DebateSide;
+    readonly side: SideKey;
     readonly remainingMs: number;
   } | null;
-  /** Remaining budget per side; null when the format has no in-round prep. */
-  readonly prepBudgetRemainingMs: Readonly<Record<DebateSide, number>> | null;
+  /** Remaining budget per side key; null when the format has no in-round prep. */
+  readonly prepBudgetRemainingMs: Readonly<Record<SideKey, number>> | null;
   /** A platform incident's hold on the clock, for every viewer alike. */
   readonly incident: RoundIncident;
 };

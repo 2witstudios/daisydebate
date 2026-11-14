@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sideKeySchema } from './seats';
 import { idSchema } from './primitives';
 import {
   recordingLegalRemovalReasons,
@@ -179,7 +180,7 @@ export const contentModerationSubjectSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('ballot_feedback'),
     ballotId: idSchema,
-    side: z.enum(['affirmative', 'negative']),
+    side: sideKeySchema,
     text: z.string().nullable(),
   }),
 ]);

@@ -4,15 +4,26 @@ import {
   ballotRubric,
   ballotRubrics,
   ballotRubricVersion,
-  ballotSchema,
-  isLowPointWin,
   rubricCategories,
   speakerTotal,
-  storedBallotSchema,
   type BallotCategory,
 } from './ballot';
+import { daisyWinnerBallot } from './ballot-definition';
+import {
+  ballotSchemaFor,
+  isLowPointWin,
+  storedBallotSchemaFor,
+} from './ballot-schema';
 
 setupRitewayBun();
+
+const twoSided = {
+  sides: ['affirmative', 'negative'],
+  speakers: [],
+  segments: [],
+};
+const ballotSchema = ballotSchemaFor(daisyWinnerBallot, twoSided);
+const storedBallotSchema = storedBallotSchemaFor(daisyWinnerBallot, twoSided);
 
 const allAt = (score: number): Record<BallotCategory, number> =>
   Object.fromEntries(ballotCategories.map((c) => [c, score])) as Record<

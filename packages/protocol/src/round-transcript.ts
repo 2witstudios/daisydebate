@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { capturePartialReasonSchema } from './capture-verdict';
-import { debateSides, idSchema } from './primitives';
+import { idSchema } from './primitives';
+import { speakRightsSchema } from './format';
 import { roundRecordSchema } from './round-view';
 
 /** Shared ordered evidence line; text is returned only by protected reads. */
@@ -75,8 +76,7 @@ export const liveTranscriptReadSchema = z.looseObject({
           z.looseObject({
             key: z.string(),
             label: z.string(),
-            side: z.enum(debateSides),
-            slot: z.int().nonnegative(),
+            speak: speakRightsSchema,
           }),
         )
         .readonly(),

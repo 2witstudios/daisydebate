@@ -2,7 +2,9 @@ import type { FormatSettings } from './format-settings';
 import type { RoomView, roomRefusalSchema } from './room-read';
 export type { RoomView, RoomCatalogChoice, RoomCastChoice } from './room-read';
 import { z } from 'zod';
-import { debateRoleSchema, idSchema } from './primitives';
+import { idSchema } from './primitives';
+import { seatRefSchema, type SeatKind, type SeatRef } from './seats';
+import { seatsOfKind, type FormatSeating } from './format-seating';
 import {
   formatDefinitionSchema,
   type FormatDefinition,
@@ -14,7 +16,11 @@ import {
   type RoomExecutionPlan,
 } from './room';
 import type { DrawPrivateInputs, ResolutionDrawState } from './resolution-draw';
-import { roomCaptureSchema, type RoomCapture } from './room-capture';
+import {
+  recordingPolicySchema,
+  roomCaptureSchema,
+  type RoomCapture,
+} from './room-capture';
 import { roomResolutionSelectionSchema } from './room-resolution';
 import {
   competitionTypes,
@@ -38,7 +44,7 @@ export type RoomStatus = (typeof roomStatuses)[number];
 const roomVisibilitySchema = z.enum(['public', 'unlisted']);
 const versionSchema = z.int().positive();
 const textSchema = z.string().trim().min(1);
-const seat = { role: debateRoleSchema, slot: z.int().min(0) };
+const seat = { seat: seatRefSchema };
 
 /** Custom schedules are compiler inputs, persisted as immutable format revisions. */
 const roomSelectionSchema = z.discriminatedUnion('kind', [
@@ -89,8 +95,8 @@ export const roomCreateSchema = z
     resolution: roomResolutionSelectionSchema,
     visibility: roomVisibilitySchema,
     selection: roomSelectionSchema,
-    /** Casual hosts may opt into recording; ranked capture is automatic. */
-    recording: z.boolean().optional(),
+    /** Casual hosts may choose who sees the Recording; ranked capture is automatic. */
+    recordingPolicy: recordingPolicySchema.optional(),
     /** A casual host may keep the call open after the Round (ADR 0127). */
     postRoundCall: z.boolean().optional(),
     /** Each actor at most once: assign-seat would move, not reject, a repeat. */
@@ -131,8 +137,9 @@ export const roomCreateSchema = z
   )
   .refine(
     (create) =>
-      create.selection.kind !== 'ranked' || create.recording === undefined,
-    { message: 'Ranked recording is automatic', path: ['recording'] },
+      create.selection.kind !== 'ranked' ||
+      create.recordingPolicy === undefined,
+    { message: 'Ranked recording is automatic', path: ['recordingPolicy'] },
   )
   .refine(
     (create) =>
@@ -226,8 +233,7 @@ export type RoomParticipant = {
   readonly kind: 'human' | 'bot';
   readonly label: string;
   readonly consentVersion: number;
-  readonly role: 'affirmative' | 'negative' | 'judge';
-  readonly slot: number;
+  readonly seat: SeatRef;
 };
 type RoomRoundRef = {
   readonly id: string;
@@ -287,13 +293,6 @@ export type RoomCommandResponse = {
 export const ROOM_SEAT_HOLD_MS = 120_000;
 
 /**
- * The two kinds of seat a hold or an invitation names: a debater seat on
- * either side, or a judge seat (ADR 0124).
- */
-export const roomSeatKinds = ['debater', 'judge'] as const;
-export type RoomSeatKind = (typeof roomSeatKinds)[number];
-export const roomSeatKindSchema = z.enum(roomSeatKinds);
-/**
  * A Room still gathering its players (ADR 0070): the only Rooms a challenge
  * or an invitation may point at.
  */
@@ -312,37 +311,27 @@ export const isOpenRoom = <T extends { readonly status: RoomStatus }>(
   room: T,
 ): room is T & { readonly status: OpenRoomStatus } =>
   isOpenRoomStatus(room.status);
-/** The kind of seat a role is: the judge's, or a debater's on either side. */
-export const seatKindOf = (role: RoomParticipant['role']): RoomSeatKind =>
-  role === 'judge' ? 'judge' : 'debater';
 /**
- * How many seats of a kind are free: the judge seats, or both sides' debater
- * seats, less those taken (other than `exceptActorId`'s own). The engine and
- * the Room page count the same way (ADR 0124).
+ * How many seats of a kind are free: the kind's seats the rules declare
+ * (every side's, for a side seat), less those taken (other than
+ * `exceptActorId`'s own). The engine and the Room page count the same way
+ * (ADR 0124).
  */
 export const freeSeatsOf = (
   room: {
-    readonly rules: {
-      readonly seats: {
-        readonly affirmative: number;
-        readonly negative: number;
-        readonly judge: number;
-      };
-    };
+    readonly rules: FormatSeating;
     readonly participants: readonly {
-      readonly role: RoomParticipant['role'];
+      readonly seat: SeatRef;
       readonly actorId?: string;
     }[];
   },
-  seat: RoomSeatKind,
+  kind: SeatKind,
   exceptActorId?: string,
 ): number =>
-  (seat === 'judge'
-    ? room.rules.seats.judge
-    : room.rules.seats.affirmative + room.rules.seats.negative) -
+  seatsOfKind(room.rules, kind) -
   room.participants.filter(
     (p) =>
-      seatKindOf(p.role) === seat &&
+      p.seat.kind === kind &&
       (exceptActorId === undefined || p.actorId !== exceptActorId),
   ).length;
 
@@ -352,7 +341,7 @@ export const freeSeatsOf = (
  */
 export type RoomSeatHold = {
   readonly actorId: string;
-  readonly seat: RoomSeatKind;
+  readonly seat: SeatKind;
   readonly until: string;
 };
 
@@ -366,7 +355,8 @@ export type RoomAssemblyState = RoomRoundLink & {
   readonly topic: string | null;
   readonly publishedResolutionId: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
-  readonly hostActorId: string;
+  /** Null for a Room no person hosts: host-only commands are refused for it. */
+  readonly hostActorId: string | null;
   /** The host took over from a restricted one, and names no human judge (DEC-331). */
   readonly hostInherited: boolean;
   readonly hostLabel: string;

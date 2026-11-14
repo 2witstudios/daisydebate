@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { debateRoleSchema, debateSideSchema } from './primitives';
+import { seatRefSchema, sideKeySchema, sideSchema } from './seats';
+import { MAX_FORMAT_SEATS, sideKeysOf } from './format-seating';
+import { validateSeating } from './format-seating-refusals';
 import {
   drawSources,
   MAX_DRAW_SIZE,
@@ -11,9 +13,6 @@ import {
 /** The longest prep before a round: two hours, so its end is always a real date. */
 export const MAX_PRE_ROUND_PREP_MS = 7_200_000;
 
-/** Provisional resource budget: bounds expanded seat records and per-seat command work,
- * independent of any league roster policy. Judges consume the same budget. */
-export const MAX_FORMAT_SEATS = 256;
 /**
  * The most segments a format or its resolved rules admit (DEC-131): real
  * formats use 6-12, and a finite bound keeps every Room and Round body
@@ -30,60 +29,72 @@ const optionSet = <T extends z.ZodType>(option: T, vocabulary: number) =>
     .refine((values) => new Set(values).size === values.length, {
       message: 'Options must not repeat',
     });
+/**
+ * Who sits in a format (TAB-6.2): each declared side's seats, the unsided
+ * speakers, the judges and at most one moderator. A format is sided or
+ * unsided, never both, which the definition and rules refine.
+ */
 export const formatSeatsSchema = z
-  .record(debateRoleSchema, z.int().min(0).max(MAX_FORMAT_SEATS))
+  .strictObject({
+    sides: z.record(sideKeySchema, z.int().min(1).max(MAX_FORMAT_SEATS)),
+    speakers: z.int().min(0).max(MAX_FORMAT_SEATS),
+    judges: z.int().min(0).max(MAX_FORMAT_SEATS),
+    moderators: z.union([z.literal(0), z.literal(1)]),
+  })
   .superRefine((seats, ctx) => {
-    if (seats.affirmative + seats.negative + seats.judge > MAX_FORMAT_SEATS)
+    const sided = Object.values(seats.sides).reduce((sum, n) => sum + n, 0);
+    if (
+      sided + seats.speakers + seats.judges + seats.moderators >
+      MAX_FORMAT_SEATS
+    )
       ctx.addIssue({
         code: 'custom',
         message: 'Total seats exceed the format resource budget',
       });
-    for (const side of ['affirmative', 'negative'] as const)
-      if (seats[side] === 0)
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Both debate sides require seats',
-          path: [side],
-        });
   });
-
-/** Speech and cross-ex both give the declared side a legal speaking floor. */
-function validateSpeakingOpportunities(
-  schedule: {
-    seats: z.infer<typeof formatSeatsSchema>;
-    segments: Array<{ side: 'affirmative' | 'negative'; slot: number }>;
-  },
-  ctx: z.RefinementCtx,
-) {
-  for (const [index, segment] of schedule.segments.entries())
-    if (segment.slot >= schedule.seats[segment.side])
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Segment requires a declared speaker seat',
-        path: ['segments', index, 'slot'],
-      });
-  for (const side of ['affirmative', 'negative'] as const)
-    if (
-      !schedule.segments.some(
-        (segment) =>
-          segment.side === side && segment.slot < schedule.seats[side],
-      )
-    )
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Both debate sides require a legal speaking opportunity',
-        path: ['segments'],
-      });
-}
+export type FormatSeats = z.infer<typeof formatSeatsSchema>;
 
 /**
  * The segment types a format's grammar is built from. Prep is deliberately
  * absent: neither kind of prep is a competitive interval with a transcript,
- * so it is policy in the rules, never a segment (ADR 0058).
+ * so it is policy in the rules, never a segment (ADR 0058). A speech has one
+ * speaker; cross-examination and an open floor have several (TAB-6.2).
  */
-export const segmentTypes = ['speech', 'cross_ex'] as const;
+export const segmentTypes = ['speech', 'cross_ex', 'open'] as const;
 const segmentTypeSchema = z.enum(segmentTypes);
 export type SegmentType = (typeof segmentTypes)[number];
+
+/**
+ * Who may hold the floor in a segment (TAB-6.2): one seat, several, or every
+ * seat but a judge's. `lead` is the seat the segment is scheduled to (the
+ * asker in cross-examination): prep and the clock read it.
+ */
+export const speakRightsSchema = z.discriminatedUnion('rights', [
+  z.strictObject({ rights: z.literal('one'), seat: seatRefSchema }),
+  z.strictObject({
+    rights: z.literal('several'),
+    seats: z.array(seatRefSchema).min(2).max(MAX_FORMAT_SEATS),
+    lead: seatRefSchema.nullable(),
+  }),
+  z.strictObject({ rights: z.literal('all'), lead: seatRefSchema.nullable() }),
+]);
+
+/**
+ * What a Round decides (TAB-6.2): a winning side, a ranking of the sides or
+ * of the speakers, or nothing at all.
+ */
+export const formatOutcomeSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('winner') }),
+  z.strictObject({
+    kind: z.literal('ranking'),
+    of: z.enum(['sides', 'speakers']),
+  }),
+  z.strictObject({ kind: z.literal('none') }),
+]);
+export type FormatOutcome = z.infer<typeof formatOutcomeSchema>;
+
+/** A format's sides: none (unsided), or two to four with unique keys. */
+const formatSidesSchema = z.array(sideSchema).max(4);
 
 /**
  * What another debater may do during a speech (ADR 0096). Cross-examination
@@ -121,9 +132,8 @@ const segmentIdentity = {
   /** The displayed name: 'Affirmative constructive'. */
   label: z.string().trim().min(1).max(80),
   type: segmentTypeSchema,
-  /** The speaking side; for cross-examination, the asking side. */
-  side: debateSideSchema,
-  slot: z.int().min(0),
+  /** Who may hold the floor, and the seat the segment is scheduled to. */
+  speak: speakRightsSchema,
 };
 
 const segmentSchema = z.strictObject({
@@ -133,7 +143,8 @@ const segmentSchema = z.strictObject({
 });
 
 /**
- * What a format permits, version 1 (ADR 0058): the grammar and default
+ * What a format permits, version 2 (ADR 0058, TAB-6.2): its sides, seats and
+ * outcome kind, the grammar and default
  * schedule, plus nullable capabilities. `null` means the format forbids a
  * capability outright, so a room has nothing to configure — forbidden is
  * never spelled `enabled: false` here. Interaction capabilities are
@@ -141,9 +152,10 @@ const segmentSchema = z.strictObject({
  * choose?", never "what did this room choose?".
  */
 const formatDefinitionShape = z.strictObject({
-  version: z.literal(1),
-  /** Exhaustive over the role vocabulary: every role declares its seats. */
+  version: z.literal(2),
+  sides: formatSidesSchema,
   seats: formatSeatsSchema,
+  outcome: formatOutcomeSchema,
   segments: z.array(segmentSchema).min(1).max(MAX_FORMAT_SEGMENTS),
   configurable: z.strictObject({
     timing: z.strictObject({
@@ -167,7 +179,7 @@ const formatDefinitionShape = z.strictObject({
       .strictObject({
         drawSize: boundSchema,
         strikeWindowMs: boundSchema,
-        firstStrikers: optionSet(debateSideSchema, 2),
+        firstStrikers: optionSet(sideKeySchema, 2),
         sources: optionSet(z.enum(drawSources), drawSources.length),
       })
       .nullable(),
@@ -188,6 +200,35 @@ const formatDefinitionShape = z.strictObject({
     }),
   }),
 });
+
+/** In-round prep is a side's, and the resolution strike is a pair's. */
+function validateSideCapabilities(
+  definition: z.infer<typeof formatDefinitionShape>,
+  ctx: z.RefinementCtx,
+) {
+  const keys = sideKeysOf(definition);
+  const { inRoundPrep, resolutionDraw } = definition.configurable;
+  if (inRoundPrep && keys.length === 0)
+    ctx.addIssue({
+      code: 'custom',
+      message: 'In-round prep is spent by a side',
+      path: ['configurable', 'inRoundPrep'],
+    });
+  if (!resolutionDraw) return;
+  if (keys.length !== 2)
+    ctx.addIssue({
+      code: 'custom',
+      message: 'The resolution strike needs exactly two sides',
+      path: ['configurable', 'resolutionDraw'],
+    });
+  for (const [index, striker] of resolutionDraw.firstStrikers.entries())
+    if (!keys.includes(striker))
+      ctx.addIssue({
+        code: 'custom',
+        message: 'A first striker is a declared side',
+        path: ['configurable', 'resolutionDraw', 'firstStrikers', index],
+      });
+}
 
 /** Room-only bounds every due instant depends on: draw size, strike window, prep. */
 function validateRoomOnlyBounds(
@@ -267,7 +308,8 @@ export const formatDefinitionSchema = formatDefinitionShape.superRefine(
         message: 'Segment keys must be unique',
         path: ['segments'],
       });
-    validateSpeakingOpportunities(definition, ctx);
+    validateSeating(definition, ctx);
+    validateSideCapabilities(definition, ctx);
     validateSegmentReferences(definition, ctx);
     validateRoomOnlyBounds(definition, ctx);
     const timingKeys = Object.keys(
@@ -295,15 +337,17 @@ const rulesSegmentSchema = z.strictObject({
 });
 
 /**
- * The executable ruleset, version 2 (ADR 0058): fully resolved, immutable on
+ * The executable ruleset, version 3 (ADR 0058, TAB-6.2): fully resolved, immutable on
  * `rounds.rules_snapshot`, the only rules shape ECS ever reads. No field
  * originates in the compiler — every value traces to the definition or the
  * config. Carries in-round prep (nullable), never pre-round prep.
  */
 export const roundRulesSchema = z
   .strictObject({
-    version: z.literal(2),
+    version: z.literal(3),
+    sides: formatSidesSchema,
     seats: formatSeatsSchema,
+    outcome: formatOutcomeSchema,
     segments: z.array(rulesSegmentSchema).min(1).max(MAX_FORMAT_SEGMENTS),
     inRoundPrep: z
       .strictObject({
@@ -322,5 +366,13 @@ export const roundRulesSchema = z
       interruptions: interruptionRuleSchema,
     }),
   })
-  .superRefine(validateSpeakingOpportunities);
+  .superRefine((rules, ctx) => {
+    validateSeating(rules, ctx);
+    if (rules.inRoundPrep && rules.sides.length === 0)
+      ctx.addIssue({
+        code: 'custom',
+        message: 'In-round prep is spent by a side',
+        path: ['inRoundPrep'],
+      });
+  });
 export type RoundRules = z.infer<typeof roundRulesSchema>;

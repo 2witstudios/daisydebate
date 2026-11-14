@@ -43,7 +43,7 @@ test('the active room read is a versioned, closed grammar', () => {
         activeRoom: {
           ...entry,
           phase: 'live',
-          role: 'debater',
+          role: 'side',
           seated: true,
           href: `/rounds/${roundId}/room`,
         },

@@ -1,3 +1,4 @@
+import type { SeatRef } from './seats';
 import { z } from 'zod';
 
 /** Why a stream's transcript is not complete. A gap is only one of these. */
@@ -69,13 +70,13 @@ export type CaptureFacts = StreamCoverage & {
 export type SeatGrantFacts = {
   readonly seat: {
     readonly kind: 'human' | 'bot';
-    readonly role: string;
-    readonly slot: number;
+    readonly seat: SeatRef;
   };
-  /** The frozen rules' entry for the grant's segment, when they can name one. */
-  readonly turn:
-    | { readonly side?: string | undefined; readonly slot?: number | undefined }
-    | undefined;
+  /**
+   * The frozen rules' entry for the grant's segment, when they can name one:
+   * the seat it was scheduled to, null for an open floor.
+   */
+  readonly turn: { readonly lead: SeatRef | null } | undefined;
   /** The seat authored speech in the grant's segment (ADR 0122). */
   readonly hasAuthoredSpeech: boolean;
 };
