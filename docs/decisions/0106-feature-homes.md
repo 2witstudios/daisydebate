@@ -8,7 +8,7 @@ ISSUE-1017). Supersedes the `role_grants` clauses of
 [ADR 0048](0048-authorization-core.md), [ADR 0057](0057-planned-readers.md) and
 [ADR 0058](0058-one-round-model.md), and the "ranked or not" clause of ADR 0058's
 bot-debater capacity. Builds on
-[ADR 0023](0023-greenfield-baseline.md).
+[ADR 0023](0023-greenfield-baseline.md). Item 7 is superseded for the authority tables by [ADR 0130](0130-organizations-grants-and-action-history.md).
 
 ## Context
 
