@@ -9,6 +9,7 @@
     "./capability-metadata": "./src/capability-metadata.ts",
     "./release-audience": "./src/release-audience.ts",
     "./settings": "./src/settings/catalogue.ts",
+    "./setting-keys": "./src/settings/keys.ts",
     "./setting-values": "./src/settings/setting-values.ts",
     "./setting-forces": "./src/settings/force.ts",
     "./setting-resolution": "./src/settings/resolve-setting.ts",
