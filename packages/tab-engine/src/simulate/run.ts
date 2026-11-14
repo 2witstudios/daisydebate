@@ -205,7 +205,7 @@ const drawSlot = (
   );
   const groups = scenario.together ? [slotEvents] : slotEvents.map((e) => [e]);
   let commitments: Commitment[] = [];
-  for (const group of groups) {
+  for (const [g, group] of groups.entries()) {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       const input: DrawInput = {
         call: 'slot',
@@ -244,8 +244,8 @@ const drawSlot = (
           judges.push(
             ...Array.from({ length: answer.short.length + 2 }, (_, i) => ({
               ...judges[0]!,
-              id: `extra-${label}-${attempt}-${i}`,
-              person: `extra-person-${label}-${attempt}-${i}`,
+              id: `extra-${label}-${g}-${attempt}-${i}`,
+              person: `extra-person-${label}-${g}-${attempt}-${i}`,
               protection: [],
               events: null,
               conflicts: [],
@@ -324,11 +324,29 @@ const redraw = (
   }));
   const input: DrawInput = {
     call: 'windowed',
-    event: requestFor(plan, state, tabRound, cutoff, existing as never),
+    event: requestFor(
+      { ...plan, settings: d.inputs.settings as ResolvedSettings },
+      state,
+      tabRound,
+      cutoff,
+      existing as never,
+    ),
     judges: null,
     seed,
   };
-  const answer = drawChecked(log, `${label}-redraw-${plan.id}`, input);
+  /** A break the host overrode when the draw was published stays overridden on the same fixture. */
+  const carried: RuleBreak[] = d.assessment.broken.map((b) =>
+    b.fixture.kind === 'new'
+      ? {
+          ...b,
+          fixture: {
+            kind: 'existing',
+            id: `${label}-${plan.id}-${b.fixture.ordinal}`,
+          },
+        }
+      : b,
+  );
+  const answer = drawChecked(log, `${label}-redraw-${plan.id}`, input, carried);
   return answer.kind === 'drawn'
     ? answer.draws[0]!
     : answer.kind === 'unresolved'
