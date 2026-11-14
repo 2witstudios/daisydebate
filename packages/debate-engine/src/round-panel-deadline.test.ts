@@ -88,7 +88,8 @@ test('recoverable AI work cannot complete a played Round without its ruling', ()
 
 test('a Round with nothing to judge completes at once as unjudged (TAB-6.18)', () => {
   assert({
-    given: 'a frozen Round whose outcome nobody decides, so it froze no judging',
+    given:
+      'a frozen Round whose outcome nobody decides, so it froze no judging',
     should: 'complete at once as unjudged with no outcome',
     actual: decidePanelCompletion({
       judging: null,
