@@ -11,6 +11,7 @@ import type { ResolvedSetting } from './settings';
 import { shownName } from './shown-entrant';
 
 type StandingRow = {
+  readonly entryId: string;
   readonly seed: number;
   readonly entry: string;
   readonly school: string;
@@ -70,6 +71,7 @@ export const standingsTableOf = (
 ): StandingsTable => {
   const official = read.visibility === 'official' ? read.capabilities : null;
   const rows: StandingRow[] = read.rows.map((row) => ({
+    entryId: row.entry.entryId,
     seed: row.seed,
     entry: shownName(row.entry.shown),
     school: row.responsible.name ?? '',
@@ -134,7 +136,7 @@ export function withDivisionBreak(
   division: StandingsTable,
 ): StandingsTable {
   const taken = new Set(
-    table.rows.slice(0, table.breakAfter ?? 0).map((row) => row.entry),
+    table.rows.slice(0, table.breakAfter ?? 0).map((row) => row.entryId),
   );
   return {
     ...table,
@@ -143,7 +145,7 @@ export function withDivisionBreak(
         ...division,
         title: 'Novice break',
         rows: division.rows
-          .filter((row) => !taken.has(row.entry))
+          .filter((row) => !taken.has(row.entryId))
           .map((row, index) => ({
             ...row,
             seed: index + 1,

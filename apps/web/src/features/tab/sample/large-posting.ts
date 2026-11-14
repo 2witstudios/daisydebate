@@ -23,6 +23,7 @@ export function largePosting(
           : named(largeSurname(n * 2 + side)),
       ),
       [judge(largeJudge(n))],
+      !visitor,
     );
     return {
       ...fixture,

@@ -321,6 +321,7 @@ describe('the sample tournament', () => {
       rows: [
         {
           seed: 1,
+          entryId: 'a'.repeat(24),
           entry: 'Another source',
           school: 'Elsewhere',
           wins: 2,

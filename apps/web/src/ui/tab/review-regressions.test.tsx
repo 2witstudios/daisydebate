@@ -1,3 +1,5 @@
+import { sampleTournamentReads } from '../../features/tab/sample/tournament';
+import { readStandings, withDivisionBreak } from '../../features/tab/standings';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readRunningRound } from '../../features/tab/tab-round';
 import { sampleTabRoundView } from '../../features/tab/sample/tab-round';
@@ -132,6 +134,49 @@ describe('interface-3 review regressions', () => {
         html.includes('Independent A v Independent B'),
       ],
       expected: [true, true],
+    });
+  });
+  test('public large postings never offer the participants video', () => {
+    const reads = sampleTournamentReads(
+      'autumn-open',
+      { kind: 'round', event: 'varsity-debate', round: '4' },
+      { viewer: 'visitor', moment: 'prelims', scale: 'large' },
+    );
+    assert({
+      given: 'the public large posting with entrants shown by initials',
+      should:
+        'keep video closed to the public while retaining public school facets',
+      actual: [
+        reads?.posting?.fixtures.every((fixture) => !fixture.video),
+        reads?.posting?.fixtures.every((fixture) =>
+          fixture.entries.every(
+            (entry) => entry.shown.kind === 'initials' && entry.school !== null,
+          ),
+        ),
+      ],
+      expected: [true, true],
+    });
+  });
+  test('redacted display names never determine who already made another break', () => {
+    const table = readStandings('autumn-open', null, {
+      ...large,
+      moment: 'break',
+    })!;
+    const division = table.divisions[0]!;
+    const redact = (row: (typeof table.rows)[number]) => ({
+      ...row,
+      entry: 'A.',
+    });
+    const composed = withDivisionBreak(
+      { ...table, rows: table.rows.map(redact) },
+      { ...division, rows: division.rows.map(redact) },
+    );
+    assert({
+      given:
+        'different entrants whose public display names are the same initials',
+      should: 'exclude higher-break entrants by stable identity only',
+      actual: composed.divisions[0]?.rows.length,
+      expected: division.rows.length,
     });
   });
 });
