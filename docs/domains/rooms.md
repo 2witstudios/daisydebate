@@ -122,12 +122,12 @@ on its own (ADR 0104).
 
 ## One active Room
 
-A user is in at most one active Room at a time, as its host or in a seat
-(ADR 0070). A Room is active while it assembles or its Round is opening or
-active; the database holds one `room_active_memberships` row per human
-member, keyed by actor, so a second create or join is refused as
-`active-room` and the UI returns the user to their current Room. Bots hold no
-membership. Every terminal state frees its members:
+A user holds a seat in at most one active Room at a time (ADR 0070,
+TAB-6). A Room is active while it assembles or its Round is opening or
+active; the database holds one `active_seats` row per seated human, keyed by
+actor, so a second seat is refused as `active-room` and the UI returns the
+user to their current Room. A host who holds no seat is not held, and bots
+hold no row. Every terminal state frees its members:
 
 - **Close.** The host's explicit Close closes an open Room. Hosting is
   independent of seating: a host who leaves their seat (or never took one)
