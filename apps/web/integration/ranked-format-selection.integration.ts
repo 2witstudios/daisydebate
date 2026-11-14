@@ -53,3 +53,48 @@ test('only canonical ranked formats are creatable and generic One-on-one refuses
     }
   });
 });
+
+test('a ranked Room is refused on each casual template: only one seat a side, one judge and a winner rank (TAB-6.14)', async () => {
+  await withRoomRuntime(async (f) => {
+    const seasonId = createId();
+    try {
+      await withSeasons(databaseUrl, (s) =>
+        s.activateBetaSeason({ id: seasonId }),
+      );
+      const templates = [
+        'panel-debate',
+        'four-team',
+        'speech-section',
+        'open-conversation',
+      ];
+      const refusals = await Promise.all(
+        templates.map((formatId) =>
+          f
+            .create({
+              selection: {
+                kind: 'ranked',
+                formatId,
+                formatVersion: 1,
+                presetVersion: 1,
+              },
+            })
+            .then(
+              () => 'created',
+              (error: { readonly code?: string }) => error.code,
+            ),
+        ),
+      );
+      const [rooms] =
+        await f.sql`select count(*)::int as n from rooms where format_id in ${f.sql(templates)}`;
+      assert({
+        given:
+          'an active season and a ranked create on the three-judge, four-team, speech-section and open-conversation templates',
+        should: 'refuse every one and create no Room',
+        actual: { refusals, rooms: rooms.n },
+        expected: { refusals: Array(4).fill('VALIDATION'), rooms: 0 },
+      });
+    } finally {
+      await f.sql`delete from seasons where id=${seasonId}`;
+    }
+  });
+});
