@@ -9,6 +9,7 @@ import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
 import { messagingOperations } from './messaging/operations';
+import { createTabStore } from './tab/store';
 import {
   challengeReadOperations,
   createChallengeStore,
@@ -368,6 +369,8 @@ export function createDatabase({
     }),
     ...actorOperations({ database: control, eventSink }),
     ...messagingOperations(social, contactReactions),
+    /** Daisy Tab's commands and reads, each in one transaction fenced to its tenant. */
+    tabCommands: createTabStore(database),
     ...friendshipReadOperations({ database: social, eventSink }),
     ...presenceSettingOperations({ database: social, eventSink }),
     ...peopleListOperations({ database: social, eventSink }),

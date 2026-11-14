@@ -24,6 +24,7 @@
     "./flags": "./src/flags.ts",
     "./privacy": "./src/privacy/index.ts",
     "./messaging": "./src/messaging/index.ts",
+    "./tab": "./src/tab/store.ts",
     "./contacts": "./src/contacts/index.ts",
     "./friends": "./src/friends/index.ts",
     "./presence-people-list": "./src/presence/people-list.ts",

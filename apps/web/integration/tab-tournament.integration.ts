@@ -1,5 +1,5 @@
-import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
+import { withRolledBackDatabase } from '@daisy/db/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   StageNotWired,
@@ -7,10 +7,10 @@ import {
   reportLines,
   runStages,
   scriptClock,
-  type Bot,
-  type ScriptClock,
   type Stage,
+  type World,
 } from './tab-tournament.test-support';
+import { organizationStage } from './tab-tournament-organization.test-support';
 
 /**
  * The scripted tournament (TAB-8.18), the parent branch's gate: bots take a
@@ -23,12 +23,6 @@ import {
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-type World = {
-  readonly sql: SQL;
-  readonly clock: ScriptClock;
-  readonly bots: Readonly<Record<string, Bot>>;
-};
-
 const unwired =
   (stage: string) =>
   async (_world: World): Promise<void> => {
@@ -39,7 +33,7 @@ const unwired =
 const stages: readonly Stage<World>[] = [
   {
     name: 'organizations, memberships and preset-role grants',
-    run: unwired('organization'),
+    run: organizationStage,
   },
   {
     name: 'league lobby, templates, resolution pool and ladder',
@@ -92,28 +86,24 @@ const names = [
 
 test('the scripted tournament', async () => {
   // The tab record is append-only by trigger, so the run is one transaction
-  // that is rolled back: the suite leaves no rows behind.
-  const sql = new SQL(databaseUrl, { max: 1 });
-  try {
-    await sql.unsafe('begin');
-    const bots = await createBots(sql, names);
-    const world: World = {
-      sql,
-      clock: scriptClock(),
-      bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
-    };
-    const reports = await runStages(stages, world);
-    assert({
-      given: 'a tournament scripted from an empty database',
-      should: 'run every stage to certified results',
-      actual: reportLines(reports).replace(/ \(\d+ ms\)/g, ''),
-      expected: stages.map((stage) => `  ✓ ${stage.name}`).join('\n'),
-    });
-  } finally {
-    try {
-      await sql.unsafe('rollback');
-    } finally {
-      await sql.close();
-    }
-  }
+  // that is rolled back: the suite leaves no rows behind. The bots are made
+  // as the migration owner; every stage runs as the web runtime role, so
+  // the tenant fences bind.
+  const reports = await withRolledBackDatabase(databaseUrl, {
+    seed: (sql) => createBots(sql, names),
+    work: (database, bots, sql) =>
+      runStages(stages, {
+        database,
+        sql,
+        clock: scriptClock(),
+        bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
+        made: new Map(),
+      }),
+  });
+  assert({
+    given: 'a tournament scripted from an empty database',
+    should: 'run every stage to certified results',
+    actual: reportLines(reports).replace(/ \(\d+ ms\)/g, ''),
+    expected: stages.map((stage) => `  ✓ ${stage.name}`).join('\n'),
+  });
 });

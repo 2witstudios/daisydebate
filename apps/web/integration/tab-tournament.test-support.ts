@@ -1,6 +1,6 @@
-import type { SQL } from 'bun';
+import type { SQL, TransactionSQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { admitParticipants } from '@daisy/db/testing';
+import { admitParticipants, type RolledBackDatabase } from '@daisy/db/testing';
 
 /**
  * The scripted tournament's frame (TAB-8.18): bots on a real database, an
@@ -15,6 +15,20 @@ export type Bot = {
   readonly name: string;
   readonly userId: string;
   readonly actorId: string;
+};
+
+/**
+ * What every stage acts on: the store's database (each transaction a
+ * savepoint of the one rolled-back run, under the web runtime role), the
+ * raw transaction for assertions, the clock and the bots, and what earlier
+ * stages made.
+ */
+export type World = {
+  readonly database: RolledBackDatabase;
+  readonly sql: TransactionSQL;
+  readonly clock: ScriptClock;
+  readonly bots: Readonly<Record<string, Bot>>;
+  readonly made: Map<string, string>;
 };
 
 export class StageNotWired extends Error {

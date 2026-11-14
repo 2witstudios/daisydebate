@@ -126,6 +126,10 @@ export {
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
 export {
+  withRolledBackDatabase,
+  type RolledBackDatabase,
+} from './testing-rolled-back';
+export {
   admitParticipants,
   approveBetaAccess,
   removeUnowedBetaDigests,
