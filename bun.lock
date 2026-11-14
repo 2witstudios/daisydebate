@@ -284,6 +284,7 @@
         "@adobe/data": "0.10.19",
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
+        "@daisy/seeded-random": "workspace:*",
         "@noble/hashes": "2.4.0",
       },
       "devDependencies": {
@@ -367,6 +368,26 @@
       "devDependencies": {
         "@daisy/config": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
+        "riteway": "9.3.0",
+      },
+    },
+    "packages/seeded-random": {
+      "name": "@daisy/seeded-random",
+      "version": "0.0.0",
+      "dependencies": {
+        "@noble/hashes": "2.4.0",
+      },
+      "devDependencies": {
+        "riteway": "9.3.0",
+      },
+    },
+    "packages/tab-engine": {
+      "name": "@daisy/tab-engine",
+      "version": "0.0.0",
+      "dependencies": {
+        "@daisy/seeded-random": "workspace:*",
+      },
+      "devDependencies": {
         "riteway": "9.3.0",
       },
     },
@@ -485,6 +506,10 @@
     "@daisy/recording-worker": ["@daisy/recording-worker@workspace:apps/recording-worker"],
 
     "@daisy/redis": ["@daisy/redis@workspace:packages/redis"],
+
+    "@daisy/seeded-random": ["@daisy/seeded-random@workspace:packages/seeded-random"],
+
+    "@daisy/tab-engine": ["@daisy/tab-engine@workspace:packages/tab-engine"],
 
     "@daisy/typescript-config": ["@daisy/typescript-config@workspace:packages/typescript-config"],
 

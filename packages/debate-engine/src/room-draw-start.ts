@@ -1,12 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import type { RoomAssemblyState } from '@daisy/protocol';
-import {
-  bytesOf,
-  canonicalJson,
-  digestOf,
-  drawCommitment,
-  inputCommitment,
-} from './draw-random';
+import { canonicalJson, digestOf } from '@daisy/seeded-random';
+import { bytesOf, drawCommitment, inputCommitment } from './draw-random';
 import { drawResolutions, sideControllers } from './resolution-draw';
 import type {
   DrawBankSnapshot,

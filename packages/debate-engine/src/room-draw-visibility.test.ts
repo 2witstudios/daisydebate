@@ -3,13 +3,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { executeRoomCommand, projectRoom } from './room-assembly';
 import { projectOpening } from './round-opening';
 import { consent, edges } from './room-assembly.test-support';
-import {
-  bytesOf,
-  canonicalJson,
-  digestOf,
-  drawCommitment,
-  inputCommitment,
-} from './draw-random';
+import { canonicalJson, digestOf } from '@daisy/seeded-random';
+import { bytesOf, drawCommitment, inputCommitment } from './draw-random';
 import {
   SALT,
   SEED,
