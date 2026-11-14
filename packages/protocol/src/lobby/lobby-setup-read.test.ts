@@ -1,6 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseOutcome } from '../parse-outcome.test-support';
-import { lobbySetupReadCatalogue, lobbySetupViewSchema } from './lobby-setup-read';
+import {
+  lobbySetupReadCatalogue,
+  lobbySetupViewSchema,
+} from './lobby-setup-read';
 
 setupRitewayBun();
 
@@ -24,9 +27,17 @@ const event = {
   name: 'Varsity debate',
   label: 'VD',
   entryKind: 'person',
-  format: { formatId: id('format'), formatVersion: 1, name: 'League one-on-one' },
+  format: {
+    formatId: id('format'),
+    formatVersion: 1,
+    name: 'League one-on-one',
+  },
   ballotDefinition: null,
-  template: { templateId: id('template'), name: 'Varsity debate', organization: league },
+  template: {
+    templateId: id('template'),
+    name: 'Varsity debate',
+    organization: league,
+  },
   stages: [
     {
       stageId: id('prelim'),
@@ -38,7 +49,11 @@ const event = {
     },
   ],
   tabRounds: [round],
-  sanction: { organization: league, status: 'requested', requestedAt: '2026-11-12T16:00:00.000Z' },
+  sanction: {
+    organization: league,
+    status: 'requested',
+    requestedAt: '2026-11-12T16:00:00.000Z',
+  },
 } as const;
 const tournament = {
   kind: 'tournament',
@@ -48,8 +63,16 @@ const tournament = {
   owner: league,
   status: 'open',
   events: [event],
-  timeSlots: [{ timeSlotId: id('slot'), name: 'Debate', startsAt: '2026-11-14T10:00:00.000Z' }],
-  resolutionPools: [{ resolutionPoolId: id('pool'), name: 'Autumn Open', size: 18 }],
+  timeSlots: [
+    {
+      timeSlotId: id('slot'),
+      name: 'Debate',
+      startsAt: '2026-11-14T10:00:00.000Z',
+    },
+  ],
+  resolutionPools: [
+    { resolutionPoolId: id('pool'), name: 'Autumn Open', size: 18 },
+  ],
   capabilities: { manage: true },
 } as const;
 const standing = {
@@ -58,7 +81,13 @@ const standing = {
   handle: 'southeast',
   name: 'Southeast League',
   owner: league,
-  templates: [{ templateId: id('template'), name: 'Varsity', format: { formatId: id('format'), name: 'One-on-one' } }],
+  templates: [
+    {
+      templateId: id('template'),
+      name: 'Varsity',
+      format: { formatId: id('format'), name: 'One-on-one' },
+    },
+  ],
   seasons: [{ seasonId: id('season'), name: '2026 to 27 season' }],
   ladder: { ladderId: id('ladder'), name: 'Southeast League' },
   capabilities: { manage: true, createRoom: true },
@@ -76,21 +105,31 @@ describe('lobby setup read', async () => {
 
   test('what it refuses', () => {
     assert({
-      given: 'a round in a slot the tournament lacks, a round of another stage, offered templates on a tournament, resolution text',
+      given:
+        'a round in a slot the tournament lacks, a round of another stage, offered templates on a tournament, resolution text',
       should: 'refuse each where it is wrong',
       actual: [
         outcome({ ...tournament, timeSlots: [] }),
         outcome({
           ...tournament,
-          events: [{ ...event, tabRounds: [{ ...round, stageId: id('elim') }] }],
+          events: [
+            { ...event, tabRounds: [{ ...round, stageId: id('elim') }] },
+          ],
         }),
         outcome({ ...tournament, templates: standing.templates }),
         outcome({
           ...tournament,
-          resolutionPools: [{ ...tournament.resolutionPools[0], texts: ['This house…'] }],
+          resolutionPools: [
+            { ...tournament.resolutionPools[0], texts: ['This house…'] },
+          ],
         }),
       ],
-      expected: [['events'], ['events.0.tabRounds'], ['(root)'], ['resolutionPools.0']],
+      expected: [
+        ['events'],
+        ['events.0.tabRounds'],
+        ['(root)'],
+        ['resolutionPools.0'],
+      ],
     });
     assert({
       given: 'the catalogue',

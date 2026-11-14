@@ -97,14 +97,15 @@ export type TournamentSetupContext = {
 /** Resolutions an event's prelims need from its pool: one per round, or a draw's worth. */
 function resolutionsNeeded(event: SetupEvent, settings: ResolvedSettingsView) {
   const rule = resolvedEntry(settings, 'resolution.rule')?.value as
-    | { readonly method: string; readonly drawSize?: number }
-    | undefined;
+    { readonly method: string; readonly drawSize?: number } | undefined;
   const preliminary = new Set(
     event.stages
       .filter((stage) => stage.kind === 'preliminary')
       .map((stage) => stage.stageId),
   );
-  const rounds = event.tabRounds.filter((round) => preliminary.has(round.stageId));
+  const rounds = event.tabRounds.filter((round) =>
+    preliminary.has(round.stageId),
+  );
   return rounds.length * (rule?.method === 'strike' ? (rule.drawSize ?? 1) : 1);
 }
 

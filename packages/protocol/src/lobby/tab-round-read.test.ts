@@ -1,6 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorizationCapabilitySchema } from '../authorization';
-import { parseEach, parseOutcome, parsedUnchanged } from '../parse-outcome.test-support';
+import {
+  parseEach,
+  parseOutcome,
+  parsedUnchanged,
+} from '../parse-outcome.test-support';
 import {
   tabRoundHostViewSchema,
   tabRoundReadCatalogue,
@@ -90,15 +94,29 @@ const slotEvent = (seed: string, name: string) => ({
   formatName: 'LD',
   fixtureKind: 'pairing',
   separateBreaks: [],
-  tabRound: { tabRoundId: id(`tabround${seed}`), number: 2, drawStatus: 'published' },
+  tabRound: {
+    tabRoundId: id(`tabround${seed}`),
+    number: 2,
+    drawStatus: 'published',
+  },
   roomCount: 16,
-  fixtures: { waitingForJudge: 0, preparing: 0, live: 0, judging: 2, ballotsIn: 14 },
+  fixtures: {
+    waitingForJudge: 0,
+    preparing: 0,
+    live: 0,
+    judging: 2,
+    ballotsIn: 14,
+  },
   resolution: null,
 });
 
 const slotView = {
   lobbyId: id('lobby'),
-  timeSlot: { timeSlotId: id('slot'), name: 'Debate round 2', startsAt: at('12:00') },
+  timeSlot: {
+    timeSlotId: id('slot'),
+    name: 'Debate round 2',
+    startsAt: at('12:00'),
+  },
   behindByMs: 600_000,
   events: [
     slotEvent('ld', 'Varsity LD'),
@@ -150,23 +168,37 @@ describe('the running tab round read', () => {
       should: 'parse each as it is',
       actual: parseEach(tabRoundHostViewSchema, [
         tabRoundView,
-        { ...tabRoundView, progress: { kind: 'complete' }, next: null, open: [] },
+        {
+          ...tabRoundView,
+          progress: { kind: 'complete' },
+          next: null,
+          open: [],
+        },
       ]),
       expected: parsedUnchanged([
         tabRoundView,
-        { ...tabRoundView, progress: { kind: 'complete' }, next: null, open: [] },
+        {
+          ...tabRoundView,
+          progress: { kind: 'complete' },
+          next: null,
+          open: [],
+        },
       ]),
     });
   });
 
   test('what a tab round read refuses', () => {
     assert({
-      given: 'an address, a fixture state outside the list and a fixture status word',
+      given:
+        'an address, a fixture state outside the list and a fixture status word',
       should: 'refuse each at the field',
       actual: parseEach(tabRoundHostViewSchema, [
         { ...tabRoundView, participantHref: '/tournaments/x' },
         { ...tabRoundView, open: [fixtureOf('x', { kind: 'paused' })] },
-        { ...tabRoundView, open: [{ ...fixtureOf('x', states[2]), kind: 'heat' }] },
+        {
+          ...tabRoundView,
+          open: [{ ...fixtureOf('x', states[2]), kind: 'heat' }],
+        },
       ]),
       expected: [
         { issues: ['(root)'] },
@@ -180,7 +212,8 @@ describe('the running tab round read', () => {
 describe('the time slot read', () => {
   test('one time slot across every event in it', () => {
     assert({
-      given: 'a slot with two events and each kind of concern, and one with a next slot',
+      given:
+        'a slot with two events and each kind of concern, and one with a next slot',
       should: 'parse each as it is',
       actual: [
         slotView,
@@ -190,14 +223,21 @@ describe('the time slot read', () => {
             timeSlotId: id('slotnext'),
             name: 'Speech B round 1',
             startsAt: at('13:30'),
-            drawnEvents: [{ eventId: id('eventextemp'), name: 'Extemp', fixtureKind: 'section' }],
+            drawnEvents: [
+              {
+                eventId: id('eventextemp'),
+                name: 'Extemp',
+                fixtureKind: 'section',
+              },
+            ],
             fixtureCount: 7,
             judgesSeatedHere: 4,
             judgesRunningLate: 0,
           },
         },
       ].map(
-        (view) => timeSlotHostViewSchema.safeParse(view).data?.events.length ?? null,
+        (view) =>
+          timeSlotHostViewSchema.safeParse(view).data?.events.length ?? null,
       ),
       expected: [2, 2],
     });
@@ -220,7 +260,9 @@ describe('the time slot read', () => {
       given: 'the tab round read catalogue',
       should: 'name lobby.host.read, a real capability, for each read',
       actual: Object.values(tabRoundReadCatalogue).map((read) =>
-        read.gate.map((gate) => parseOutcome(authorizationCapabilitySchema, gate)),
+        read.gate.map((gate) =>
+          parseOutcome(authorizationCapabilitySchema, gate),
+        ),
       ),
       expected: [[{ data: 'lobby.host.read' }], [{ data: 'lobby.host.read' }]],
     });

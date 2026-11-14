@@ -1,6 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorizationCapabilitySchema } from '../authorization';
-import { parseEach, parseOutcome, parsedUnchanged } from '../parse-outcome.test-support';
+import {
+  parseEach,
+  parseOutcome,
+  parsedUnchanged,
+} from '../parse-outcome.test-support';
 import {
   drawReadCatalogue,
   drawViewSchema,
@@ -20,8 +24,12 @@ const fixture = {
     { entryId: id('entrydoyle'), name: 'Doyle', side: 'negative' },
     { entryId: id('entrysato'), name: 'Sato', side: 'affirmative' },
   ],
-  judges: [{ tournamentJudgeId: id('judgekeane'), name: 'R. Keane', chair: true }],
-  findings: [{ severity: 'preference_bent', text: 'same school, preference bent' }],
+  judges: [
+    { tournamentJudgeId: id('judgekeane'), name: 'R. Keane', chair: true },
+  ],
+  findings: [
+    { severity: 'preference_bent', text: 'same school, preference bent' },
+  ],
   reasons: ['Both have 2 wins and have not met.'],
   alternative: {
     change: 'If you split them',
@@ -83,7 +91,11 @@ const item = {
     recordedAt: at,
   },
 };
-const supersededList = { lobbyId: id('lobby'), eventId: id('event'), items: [item] };
+const supersededList = {
+  lobbyId: id('lobby'),
+  eventId: id('event'),
+  items: [item],
+};
 
 describe('the draw reads', () => {
   test('a draft draw version with its fixtures, findings and the engine’s reasons', () => {
@@ -92,7 +104,11 @@ describe('the draw reads', () => {
       should: 'parse each as it is',
       actual: parseEach(drawViewSchema, [
         drawView,
-        { ...drawView, draw: { ...drawView.draw, version: 1, basedOn: null }, resultsThroughRound: null },
+        {
+          ...drawView,
+          draw: { ...drawView.draw, version: 1, basedOn: null },
+          resultsThroughRound: null,
+        },
         {
           ...drawView,
           draw: { ...drawView.draw, status: 'published', publishedAt: at },
@@ -100,7 +116,11 @@ describe('the draw reads', () => {
       ]),
       expected: parsedUnchanged([
         drawView,
-        { ...drawView, draw: { ...drawView.draw, version: 1, basedOn: null }, resultsThroughRound: null },
+        {
+          ...drawView,
+          draw: { ...drawView.draw, version: 1, basedOn: null },
+          resultsThroughRound: null,
+        },
         {
           ...drawView,
           draw: { ...drawView.draw, status: 'published', publishedAt: at },
@@ -119,11 +139,22 @@ describe('the draw reads', () => {
         {
           ...drawView,
           recordGroups: [
-            { wins: 2, fixtures: [{ ...fixture, findings: [{ severity: 'relaxed', text: 'x' }] }] },
+            {
+              wins: 2,
+              fixtures: [
+                { ...fixture, findings: [{ severity: 'relaxed', text: 'x' }] },
+              ],
+            },
           ],
         },
-        { ...drawView, recordGroups: [{ wins: 2, fixtures: [{ ...fixture, entries: [] }] }] },
-        { ...drawView, capabilities: { ...drawView.capabilities, recompute: true } },
+        {
+          ...drawView,
+          recordGroups: [{ wins: 2, fixtures: [{ ...fixture, entries: [] }] }],
+        },
+        {
+          ...drawView,
+          capabilities: { ...drawView.capabilities, recompute: true },
+        },
       ]),
       expected: [
         { issues: ['(root)'] },
@@ -136,13 +167,17 @@ describe('the draw reads', () => {
 
   test('the published draws that used a result since superseded', () => {
     assert({
-      given: 'a draw that used a result a correction superseded, and an empty list',
+      given:
+        'a draw that used a result a correction superseded, and an empty list',
       should: 'parse each as it is',
       actual: parseEach(supersededInputListSchema, [
         supersededList,
         { ...supersededList, items: [] },
       ]),
-      expected: parsedUnchanged([supersededList, { ...supersededList, items: [] }]),
+      expected: parsedUnchanged([
+        supersededList,
+        { ...supersededList, items: [] },
+      ]),
     });
   });
 
@@ -158,7 +193,10 @@ describe('the draw reads', () => {
           items: [
             {
               ...item,
-              correction: { ...item.correction, supersedesResultId: id('resultother') },
+              correction: {
+                ...item.correction,
+                supersedesResultId: id('resultother'),
+              },
             },
           ],
         },
@@ -172,7 +210,9 @@ describe('the draw reads', () => {
       given: 'the draw read catalogue',
       should: 'name lobby.host.read, a real capability, for each read',
       actual: Object.values(drawReadCatalogue).map((read) =>
-        read.gate.map((gate) => parseOutcome(authorizationCapabilitySchema, gate)),
+        read.gate.map((gate) =>
+          parseOutcome(authorizationCapabilitySchema, gate),
+        ),
       ),
       expected: [[{ data: 'lobby.host.read' }], [{ data: 'lobby.host.read' }]],
     });

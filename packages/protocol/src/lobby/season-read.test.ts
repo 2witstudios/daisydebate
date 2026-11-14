@@ -9,7 +9,10 @@ import {
 setupRitewayBun();
 
 const id = (name: string) => name.padEnd(24, '0');
-const outcome = (schema: Parameters<typeof parseOutcome>[0], input: unknown) => {
+const outcome = (
+  schema: Parameters<typeof parseOutcome>[0],
+  input: unknown,
+) => {
   const parsed = parseOutcome(schema, input);
   return 'data' in parsed ? 'ok' : parsed.issues;
 };
@@ -29,13 +32,25 @@ const season = {
   counting: 'sanction',
   calendar: [
     tournament,
-    { ...tournament, lobbyId: id('final'), when: { precision: 'month', month: '2027-03' } },
+    {
+      ...tournament,
+      lobbyId: id('final'),
+      when: { precision: 'month', month: '2027-03' },
+    },
   ],
   standings: {
     series: { templateId: id('template'), name: 'Varsity' },
     certifiedCount: 1,
     awaitingCertification: [{ lobbyId: id('autumn'), name: 'Autumn Open' }],
-    rows: [{ place: 1, entrant: 'Jensen', school: 'Hartwell', points: 18, viewer: false }],
+    rows: [
+      {
+        place: 1,
+        entrant: 'Jensen',
+        school: 'Hartwell',
+        points: 18,
+        viewer: false,
+      },
+    ],
   },
 } as const;
 
@@ -43,25 +58,36 @@ const sanction = {
   sanctionId: id('sanction'),
   status: 'requested',
   event: { eventId: id('event'), name: 'Varsity debate' },
-  lobby: { lobbyId: id('ridgeview'), name: 'Ridgeview Invitational', startsAt: '2026-11-28T15:00:00.000Z' },
+  lobby: {
+    lobbyId: id('ridgeview'),
+    name: 'Ridgeview Invitational',
+    startsAt: '2026-11-28T15:00:00.000Z',
+  },
   host: { organizationId: id('school'), name: 'Ridgeview' },
   season: { seasonId: id('season'), name: '2026 to 27 season' },
   template: { templateId: id('template'), name: 'Varsity debate' },
   follows: true,
   mismatches: [],
 } as const;
-const list = { organizationId: id('league'), sanctions: [sanction], capabilities: { decide: true } };
+const list = {
+  organizationId: id('league'),
+  sanctions: [sanction],
+  capabilities: { decide: true },
+};
 
 describe('season reads', async () => {
   test('a season', () => {
     assert({
-      given: 'a season, a month that is not one, a counting the vocabulary lacks, an extra field',
+      given:
+        'a season, a month that is not one, a counting the vocabulary lacks, an extra field',
       should: 'accept only the first',
       actual: [
         outcome(seasonViewSchema, season),
         outcome(seasonViewSchema, {
           ...season,
-          calendar: [{ ...tournament, when: { precision: 'month', month: '2027-13' } }],
+          calendar: [
+            { ...tournament, when: { precision: 'month', month: '2027-13' } },
+          ],
         }),
         outcome(seasonViewSchema, { ...season, counting: 'all' }),
         outcome(seasonViewSchema, { ...season, stored: true }),
@@ -72,13 +98,20 @@ describe('season reads', async () => {
 
   test('sanctions', () => {
     assert({
-      given: 'a request that follows the template, one that differs on a key, a follower said to differ',
+      given:
+        'a request that follows the template, one that differs on a key, a follower said to differ',
       should: 'accept the first two and refuse the third',
       actual: [
         outcome(sanctionListSchema, list),
         outcome(sanctionListSchema, {
           ...list,
-          sanctions: [{ ...sanction, follows: false, mismatches: ['standings.tiebreaks'] }],
+          sanctions: [
+            {
+              ...sanction,
+              follows: false,
+              mismatches: ['standings.tiebreaks'],
+            },
+          ],
         }),
         outcome(sanctionListSchema, {
           ...list,
@@ -89,7 +122,8 @@ describe('season reads', async () => {
     });
     assert({
       given: 'the catalogue',
-      should: 'gate the season on standings.read and sanctions on sanction.read',
+      should:
+        'gate the season on standings.read and sanctions on sanction.read',
       actual: seasonReadCatalogue,
       expected: {
         SeasonView: { gate: ['standings.read'] },

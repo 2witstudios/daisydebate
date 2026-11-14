@@ -1,6 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorizationCapabilitySchema } from '../authorization';
-import { parseEach, parseOutcome, parsedUnchanged } from '../parse-outcome.test-support';
+import {
+  parseEach,
+  parseOutcome,
+  parsedUnchanged,
+} from '../parse-outcome.test-support';
 import {
   bracketViewSchema,
   standingsReadCatalogue,
@@ -43,7 +47,11 @@ const withScores = {
   visibility: 'released_with_scores',
   rows: [{ ...row, points: 114.5 }],
 };
-const decisionsOnly = { ...shape, visibility: 'released_decisions', rows: [row] };
+const decisionsOnly = {
+  ...shape,
+  visibility: 'released_decisions',
+  rows: [row],
+};
 
 const side = (seed: number, name: string) => ({
   entryId: id(`entry${name}`),
@@ -81,9 +89,14 @@ const withheld = { kind: 'withheld' };
 describe('the standings read', () => {
   test('a variant for each audience that sees less', () => {
     assert({
-      given: 'an official, an audience with scores released and one with decisions only',
+      given:
+        'an official, an audience with scores released and one with decisions only',
       should: 'parse each as it is',
-      actual: parseEach(standingsViewSchema, [official, withScores, decisionsOnly]),
+      actual: parseEach(standingsViewSchema, [
+        official,
+        withScores,
+        decisionsOnly,
+      ]),
       expected: parsedUnchanged([official, withScores, decisionsOnly]),
     });
   });
@@ -126,7 +139,8 @@ describe('the bracket read', () => {
       tabRounds: [tabRound([tie(decided), tie(live)])],
     };
     assert({
-      given: 'an audience with a withheld decision, an official, and an official told it is withheld',
+      given:
+        'an audience with a withheld decision, an official, and an official told it is withheld',
       should: 'parse the first two and refuse the third',
       actual: parseEach(bracketViewSchema, [
         audience,
@@ -145,7 +159,9 @@ describe('the bracket read', () => {
       given: 'the standings read catalogue',
       should: 'name standings.read, a real capability, for each read',
       actual: Object.values(standingsReadCatalogue).map((read) =>
-        read.gate.map((gate) => parseOutcome(authorizationCapabilitySchema, gate)),
+        read.gate.map((gate) =>
+          parseOutcome(authorizationCapabilitySchema, gate),
+        ),
       ),
       expected: [[{ data: 'standings.read' }], [{ data: 'standings.read' }]],
     });

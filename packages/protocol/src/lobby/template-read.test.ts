@@ -26,7 +26,8 @@ const outcome = (input: unknown) => {
 describe('template read', async () => {
   test('a template view', () => {
     assert({
-      given: 'a template with its pins and rows, and one with a pinned ballot retired',
+      given:
+        'a template with its pins and rows, and one with a pinned ballot retired',
       should: 'parse',
       actual: [
         outcome(view),
@@ -46,11 +47,30 @@ describe('template read', async () => {
 
   test('what it refuses', () => {
     assert({
-      given: 'a value the key refuses, a key never set on a template, a key twice, an unknown field',
+      given:
+        'a value the key refuses, a key never set on a template, a key twice, an unknown field',
       should: 'refuse each where it is wrong',
       actual: [
-        outcome({ ...view, settings: [{ key: 'recording.capture', value: { value: 'x' }, hold: 'default' }] }),
-        outcome({ ...view, settings: [{ key: 'entry.registration', value: { state: 'open' }, hold: 'default' }] }),
+        outcome({
+          ...view,
+          settings: [
+            {
+              key: 'recording.capture',
+              value: { value: 'x' },
+              hold: 'default',
+            },
+          ],
+        }),
+        outcome({
+          ...view,
+          settings: [
+            {
+              key: 'entry.registration',
+              value: { state: 'open' },
+              hold: 'default',
+            },
+          ],
+        }),
         outcome({ ...view, settings: [view.settings[0], view.settings[0]] }),
         outcome({ ...view, owner: 'someone' }),
       ],

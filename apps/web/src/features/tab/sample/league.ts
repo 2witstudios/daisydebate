@@ -1,6 +1,9 @@
 import type { OrganizationView } from '@daisy/protocol/lobby/organization-read';
 import type { ResolvedSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
-import type { SanctionList, SeasonView } from '@daisy/protocol/lobby/season-read';
+import type {
+  SanctionList,
+  SeasonView,
+} from '@daisy/protocol/lobby/season-read';
 import type { TemplateView } from '@daisy/protocol/lobby/template-read';
 import type { SettingRow, SettingScope } from '@daisy/protocol/settings';
 import type { FormatSettingDefaults } from '@daisy/protocol/setting-resolution';
@@ -139,23 +142,24 @@ export const sampleVarsityTemplate: TemplateView = {
 };
 
 /** The league as its owner reads it. */
-export const sampleLeagueView: Extract<OrganizationView, { audience: 'host' }> = {
-  audience: 'host',
-  organizationId: sampleIds.league,
-  handle: LEAGUE,
-  name: LEAGUE_NAME,
-  kind: 'league',
-  standingLobby: {
-    lobbyId: sampleIds.leagueLobby,
+export const sampleLeagueView: Extract<OrganizationView, { audience: 'host' }> =
+  {
+    audience: 'host',
+    organizationId: sampleIds.league,
     handle: LEAGUE,
     name: LEAGUE_NAME,
-  },
-  schoolCount: 14,
-  memberCount: 212,
-  openRoomCount: 9,
-  ratedCount: 148,
-  capabilities: { manage: true },
-};
+    kind: 'league',
+    standingLobby: {
+      lobbyId: sampleIds.leagueLobby,
+      handle: LEAGUE,
+      name: LEAGUE_NAME,
+    },
+    schoolCount: 14,
+    memberCount: 212,
+    openRoomCount: 9,
+    ratedCount: 148,
+    capabilities: { manage: true },
+  };
 
 /** The league's standing lobby's settings, asked at the lobby by its owner. */
 export const sampleLeagueLobbySettings = (): ResolvedSettingsView =>
@@ -240,7 +244,9 @@ export function sampleSeasonView(scene: SampleScene): SeasonView {
     standings: {
       series: { templateId: sampleIds.varsityTemplate, name: 'Varsity' },
       certifiedCount: 1,
-      awaitingCertification: [{ lobbyId: sampleIds.autumn, name: 'Autumn Open' }],
+      awaitingCertification: [
+        { lobbyId: sampleIds.autumn, name: 'Autumn Open' },
+      ],
       rows: topOfSeason.map((row) => ({
         place: row.place,
         entrant: row.name,
@@ -266,7 +272,10 @@ export const sampleSanctionList: SanctionList = {
       },
       host: { organizationId: sampleIds.ridgeviewSchool, name: 'Ridgeview' },
       season: { seasonId: sampleId('season2026'), name: '2026 to 27 season' },
-      template: { templateId: sampleIds.varsityTemplate, name: 'Varsity debate' },
+      template: {
+        templateId: sampleIds.varsityTemplate,
+        name: 'Varsity debate',
+      },
       follows: true,
       mismatches: [],
     },
@@ -282,7 +291,11 @@ export const sampleHostLeagueCopy: HostLeagueCopy = {
         label: 'Tiebreaks',
         value: "Wins, speaker points, opponents' wins, rating",
       },
-      { keys: ['pairing.preset'], label: 'Pairing', value: 'By record, no rematch' },
+      {
+        keys: ['pairing.preset'],
+        label: 'Pairing',
+        value: 'By record, no rematch',
+      },
       {
         keys: ['recording.capture', 'audience.video'],
         label: 'Recording',
@@ -310,4 +323,3 @@ export const sampleHostLeagueCopy: HostLeagueCopy = {
     },
   ],
 };
-

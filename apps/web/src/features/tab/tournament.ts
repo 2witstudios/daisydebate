@@ -1,4 +1,7 @@
-import type { DayRow as DayRead, DayView } from '@daisy/protocol/lobby/day-read';
+import type {
+  DayRow as DayRead,
+  DayView,
+} from '@daisy/protocol/lobby/day-read';
 import type {
   ListedLobby,
   LobbyListPage,
@@ -226,12 +229,7 @@ export type TabPlace =
       readonly kind: 'host';
       readonly handle: string;
       readonly page:
-        | 'setup'
-        | 'events'
-        | 'entries'
-        | 'people'
-        | 'standings'
-        | 'results';
+        'setup' | 'events' | 'entries' | 'people' | 'standings' | 'results';
     }
   | {
       readonly kind: 'host_round';
@@ -342,8 +340,7 @@ const numberWords = [
   'eleven',
   'twelve',
 ] as const;
-export const numberWord = (n: number): string =>
-  numberWords[n] ?? String(n);
+export const numberWord = (n: number): string => numberWords[n] ?? String(n);
 export const capitalized = (text: string): string =>
   text.charAt(0).toUpperCase() + text.slice(1);
 export const ordinalOf = (n: number): string => {
@@ -458,7 +455,12 @@ export function timelineRailOf(
     host.slots.find((slot) => slot.timeSlotId === timeSlotId)?.state ?? {
       kind: 'scheduled' as const,
     };
-  const people = railStop('people', 'People', null, hostPage('People', 'people'));
+  const people = railStop(
+    'people',
+    'People',
+    null,
+    hostPage('People', 'people'),
+  );
   const head = [
     railStop(
       'setup',
@@ -645,7 +647,10 @@ const opponentsOf = (row: DayRead): readonly string[] =>
 const ownSide = (row: DayRead): string =>
   row.fixture?.entries.find((entry) => entry.own)?.side ?? '';
 
-function beforePage(lobby: TournamentLobbyView, addressOf: AddressOf): TournamentPage {
+function beforePage(
+  lobby: TournamentLobbyView,
+  addressOf: AddressOf,
+): TournamentPage {
   const { entry, owner } = lobby;
   const ownerName =
     owner.kind === 'organization' ? owner.name : `hosted by ${owner.username}`;
@@ -725,7 +730,9 @@ function afterPage(
   );
   const out = finish.out;
   const owner =
-    lobby.owner.kind === 'organization' ? lobby.owner.name : lobby.owner.username;
+    lobby.owner.kind === 'organization'
+      ? lobby.owner.name
+      : lobby.owner.username;
   return {
     kind: 'after',
     name: lobby.name,
@@ -802,8 +809,7 @@ function adultPage(
   const theirs = lines.filter(
     (row) => row.role === 'competitor' && row.person.kind !== 'self',
   );
-  const people =
-    wards.length > 0 ? wards : [...new Set(theirs.map(personOf))];
+  const people = wards.length > 0 ? wards : [...new Set(theirs.map(personOf))];
   const label = (row: DayRead) =>
     tabRoundLabel(row.tabRound, row.event.name, shared);
   const now = people.flatMap((person) => {
@@ -956,7 +962,9 @@ function pinnedRoom(
       : partners.length > 0
         ? [
             `${ownSide(row)} v ${listed(opponentsOf(row))}`,
-            [roomName, judges, live].filter((part) => part !== null).join(' · '),
+            [roomName, judges, live]
+              .filter((part) => part !== null)
+              .join(' · '),
           ]
         : [
             fixture.entries
@@ -965,7 +973,9 @@ function pinnedRoom(
             `${roomName} · you are ${ownSide(row)} · ${judges}`,
           ];
   return {
-    eyebrow: ['Your room', label, opens].filter((part) => part !== null).join(' · '),
+    eyebrow: ['Your room', label, opens]
+      .filter((part) => part !== null)
+      .join(' · '),
     title,
     detail,
     action:
@@ -1024,7 +1034,9 @@ function dayPanel(
                 fixture.topicAt === null || isOver(row)
                   ? null
                   : `topic at ${clockOf(fixture.topicAt)}`,
-                row.result?.kind === 'withheld' ? 'ranks come after prelims' : null,
+                row.result?.kind === 'withheld'
+                  ? 'ranks come after prelims'
+                  : null,
               ]
                 .filter((part) => part !== null)
                 .join(' · ')
@@ -1128,7 +1140,9 @@ function roundsPage(
   const { handle } = lobby;
   const shared = isShared(lobby);
   const owner =
-    lobby.owner.kind === 'organization' ? lobby.owner.name : lobby.owner.username;
+    lobby.owner.kind === 'organization'
+      ? lobby.owner.name
+      : lobby.owner.username;
   const participant = lobby.viewerRoles.length > 0;
   const announced = lobby.break?.announced ?? false;
   const entries = lobby.viewerEntries;
@@ -1157,7 +1171,12 @@ function roundsPage(
             ? (lobby.events[0]?.name ?? '')
             : `${owner} · ${longDateOf(lobby.startsAt)} · ${lobby.events[0]?.name ?? ''}`;
   const rounds = postedRounds(lobby);
-  const roundTab = (round: (typeof rounds)[number], id: string, label: string, selected: string) => ({
+  const roundTab = (
+    round: (typeof rounds)[number],
+    id: string,
+    label: string,
+    selected: string,
+  ) => ({
     id,
     label,
     href:
@@ -1188,15 +1207,28 @@ function roundsPage(
                 {
                   id: 'day',
                   label: 'Your day',
-                  href: addressOf({ kind: 'tournament', handle }) ??
+                  href:
+                    addressOf({ kind: 'tournament', handle }) ??
                     tabRoutes.tournament(handle),
                   selected: selected === 'day',
                 },
               ]
             : []),
-          ...(first === undefined ? [] : [roundTab(first, 'round', 'Rooms', selected)]),
-          { id: 'standings', label: 'Standings', href: standingsHref, selected: selected === 'standings' },
-          { id: 'bracket', label: 'Brackets', href: bracketHref, selected: selected === 'bracket' },
+          ...(first === undefined
+            ? []
+            : [roundTab(first, 'round', 'Rooms', selected)]),
+          {
+            id: 'standings',
+            label: 'Standings',
+            href: standingsHref,
+            selected: selected === 'standings',
+          },
+          {
+            id: 'bracket',
+            label: 'Brackets',
+            href: bracketHref,
+            selected: selected === 'bracket',
+          },
         ];
       })()
     : (() => {
@@ -1216,13 +1248,36 @@ function roundsPage(
         return [
           ...(several
             ? rounds.map((round) =>
-                roundTab(round, String(round.number), tabRoundLabel(round, eventName(lobby, round.eventId), false), selected),
+                roundTab(
+                  round,
+                  String(round.number),
+                  tabRoundLabel(round, eventName(lobby, round.eventId), false),
+                  selected,
+                ),
               )
             : first === undefined
               ? []
-              : [roundTab(first, 'round', tabRoundLabel(first, eventName(lobby, first.eventId), false), selected)]),
+              : [
+                  roundTab(
+                    first,
+                    'round',
+                    tabRoundLabel(
+                      first,
+                      eventName(lobby, first.eventId),
+                      false,
+                    ),
+                    selected,
+                  ),
+                ]),
           ...(lobby.results.bracket !== 'closed' && (!participant || announced)
-            ? [{ id: 'bracket', label: 'Bracket', href: bracketHref, selected: selected === 'bracket' }]
+            ? [
+                {
+                  id: 'bracket',
+                  label: 'Bracket',
+                  href: bracketHref,
+                  selected: selected === 'bracket',
+                },
+              ]
             : []),
           {
             id: 'standings',
@@ -1458,7 +1513,10 @@ export function tournamentsIndexOf(
       ...group(
         'Recent',
         tournaments.filter((lobby) => lobby.status === 'completed'),
-        actionTo('All past tournaments', addressOf({ kind: 'past_tournaments' })),
+        actionTo(
+          'All past tournaments',
+          addressOf({ kind: 'past_tournaments' }),
+        ),
       ),
     ],
     host:

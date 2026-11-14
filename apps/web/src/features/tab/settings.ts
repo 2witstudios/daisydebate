@@ -128,7 +128,8 @@ export function settingLineOf(
   entry: ResolvedSettingEntry,
   copy: SettingLineCopy,
 ): SettingLine {
-  const locked = entry.locked === 'enforced' || entry.locked === 'not-permitted';
+  const locked =
+    entry.locked === 'enforced' || entry.locked === 'not-permitted';
   const view = copy.view ?? null;
   return {
     keys: copy.keys,

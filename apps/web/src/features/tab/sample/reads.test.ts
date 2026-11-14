@@ -35,8 +35,8 @@ describe('the sample reads', () => {
 
   test('a round or an event the tournament does not have', () => {
     const page = (event: string, round: string) =>
-      readTournamentPage(AUTUMN, { kind: 'round', event, round }, host)
-        ?.kind ?? null;
+      readTournamentPage(AUTUMN, { kind: 'round', event, round }, host)?.kind ??
+      null;
     assert({
       given: 'the posting of round 3, of round 99 and of another event',
       should: 'answer for the round that is posted and for nothing else',
@@ -94,8 +94,8 @@ describe('the sample reads', () => {
 
   test("the speech round offers the final's draw only between rounds and elims", () => {
     const next = (moment: SampleScene['moment']) =>
-      readRunningRound(AUTUMN, IMPROMPTU, '3', { viewer: 'host', moment })
-        ?.next?.label ?? null;
+      readRunningRound(AUTUMN, IMPROMPTU, '3', { viewer: 'host', moment })?.next
+        ?.label ?? null;
     assert({
       given:
         'Impromptu round 3 while running, at the break, in elims and finished',

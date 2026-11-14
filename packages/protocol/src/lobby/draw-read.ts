@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import type { LobbyReadCatalogue } from './read';
-import { drawMethods, drawStatuses, fixtureKinds, fixtureStatuses } from './vocabulary';
+import {
+  drawMethods,
+  drawStatuses,
+  fixtureKinds,
+  fixtureStatuses,
+} from './vocabulary';
 
 /**
  * The host's reads of a draw (TAB-5.13): one version of a tab round's
@@ -134,7 +139,10 @@ export const supersededInputListSchema = z
       list.items.every(
         (item) => item.correction.supersedesResultId === item.result.resultId,
       ),
-    { message: 'A correction supersedes the result the draw used.', path: ['items'] },
+    {
+      message: 'A correction supersedes the result the draw used.',
+      path: ['items'],
+    },
   );
 export type SupersededInputList = z.infer<typeof supersededInputListSchema>;
 

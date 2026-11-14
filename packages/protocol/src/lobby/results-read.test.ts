@@ -1,6 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorizationCapabilitySchema } from '../authorization';
-import { parseEach, parseOutcome, parsedUnchanged } from '../parse-outcome.test-support';
+import {
+  parseEach,
+  parseOutcome,
+  parsedUnchanged,
+} from '../parse-outcome.test-support';
 import { eventResultsViewSchema, resultsReadCatalogue } from './results-read';
 
 setupRitewayBun();
@@ -39,7 +43,11 @@ const shape = {
       },
       changed: 'winner',
       recordedBy: { actorId: id('actorabara'), name: 'D. Abara' },
-      confirmedBy: { actorId: id('actorhost'), name: 'Sam Rivera', viewer: true },
+      confirmedBy: {
+        actorId: id('actorhost'),
+        name: 'Sam Rivera',
+        viewer: true,
+      },
       recordedAt: at('17:20'),
       usedByPublishedDraws: [{ drawId: id('draw3'), tabRoundNumber: 3 }],
     },
@@ -67,7 +75,8 @@ describe('the event results read', () => {
 
   test('screening holds are absent for a viewer who may not read unreleased ballots', () => {
     assert({
-      given: 'the released variant carrying screening holds, and the unreleased one without them',
+      given:
+        'the released variant carrying screening holds, and the unreleased one without them',
       should: 'refuse both',
       actual: parseEach(eventResultsViewSchema, [
         { ...released, screeningHolds: official.screeningHolds },
@@ -79,19 +88,26 @@ describe('the event results read', () => {
 
   test('what an event results read refuses', () => {
     assert({
-      given: 'an opening of the posting, an audience outside the list and an unknown key',
+      given:
+        'an opening of the posting, an audience outside the list and an unknown key',
       should: 'refuse each at the field',
       actual: parseEach(eventResultsViewSchema, [
         {
           ...released,
           audiences: [
-            { audience: 'public', openings: [{ part: 'posting', state: { kind: 'openable' } }] },
+            {
+              audience: 'public',
+              openings: [{ part: 'posting', state: { kind: 'openable' } }],
+            },
           ],
         },
         {
           ...released,
           audiences: [
-            { audience: 'officials', openings: [{ part: 'decision', state: { kind: 'openable' } }] },
+            {
+              audience: 'officials',
+              openings: [{ part: 'decision', state: { kind: 'openable' } }],
+            },
           ],
         },
         { ...released, recompute: true },

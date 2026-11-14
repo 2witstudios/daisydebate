@@ -68,12 +68,32 @@ export type TimeSlot = {
 export type WallClock = (instant: string) => string;
 
 const numberWords = [
-  'no', 'one', 'two', 'three', 'four', 'five', 'six',
-  'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'no',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+  'eleven',
+  'twelve',
 ] as const;
 const ordinalWords = [
-  '', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth',
-  'seventh', 'eighth', 'ninth', 'tenth',
+  '',
+  'first',
+  'second',
+  'third',
+  'fourth',
+  'fifth',
+  'sixth',
+  'seventh',
+  'eighth',
+  'ninth',
+  'tenth',
 ] as const;
 
 /** A small count in words, such as "six"; a larger one in figures. */
@@ -113,7 +133,11 @@ const attentionRoom = (
   action: TabAction,
 ): AttentionRoom => ({ title, detail, action });
 
-const resultLine = (read: TabRoundHostView, fixture: TabRoundFixture, result: Extract<TabRoundFixture['state'], { kind: 'finished' }>['result']) => {
+const resultLine = (
+  read: TabRoundHostView,
+  fixture: TabRoundFixture,
+  result: Extract<TabRoundFixture['state'], { kind: 'finished' }>['result'],
+) => {
   switch (result.kind) {
     case 'administrative':
       return result.reason === 'bye'
@@ -124,7 +148,8 @@ const resultLine = (read: TabRoundHostView, fixture: TabRoundFixture, result: Ex
         fixture.entries.find((entry) => entry.entryId === entryId)?.name ?? '';
       if (fixture.kind === 'section') {
         const short =
-          read.sectionSize !== null && fixture.entries.length !== read.sectionSize
+          read.sectionSize !== null &&
+          fixture.entries.length !== read.sectionSize
             ? [`${countWord(fixture.entries.length)} speakers`]
             : [];
         const placed = [...result.entries]
@@ -132,7 +157,12 @@ const resultLine = (read: TabRoundHostView, fixture: TabRoundFixture, result: Ex
           .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
           .slice(0, 3)
           .map((entry) => `${ordinal(entry.rank ?? 0)} ${name(entry.entryId)}`);
-        return [roomOf(fixture), ...short, judgesOf(fixture.judges), ...placed].join(' · ');
+        return [
+          roomOf(fixture),
+          ...short,
+          judgesOf(fixture.judges),
+          ...placed,
+        ].join(' · ');
       }
       const winner = result.entries.find((entry) => entry.won === true);
       const loser = result.entries.find((entry) => entry.won === false);
@@ -336,7 +366,9 @@ const concernRoom = (
       return attentionRoom(
         `${event} · ${concern.entries.map((entry) => entry.name).join(' v ')}`,
         `Judge ${concern.judge.name} hasn't finished ${section ? 'ranking' : 'judging'} ${elsewhere.eventName} ${section ? `section ${elsewhere.fixtureLabel}` : elsewhere.fixtureLabel} from the ${wallClock(elsewhere.timeSlotStartsAt)} slot, so this room can't start.`,
-        officiate ? sampleAction('Swap judge', true) : sampleAction('Open room'),
+        officiate
+          ? sampleAction('Swap judge', true)
+          : sampleAction('Open room'),
       );
     }
     case 'judge_withdrawn': {
@@ -351,7 +383,9 @@ const concernRoom = (
           : `Judge ${concern.judge.name} dropped out. ${replacement.name} is free in this slot, has no conflict here and is cleared for ${format}.`,
         officiate
           ? sampleAction(
-              replacement === null ? 'Swap judge' : `Assign ${surname(replacement.name)}`,
+              replacement === null
+                ? 'Swap judge'
+                : `Assign ${surname(replacement.name)}`,
               true,
             )
           : sampleAction('Open room'),
@@ -375,7 +409,8 @@ const eventDetail = (
   wallClock: WallClock,
 ): string => {
   const { fixtures, resolution } = event;
-  const preparing = fixtures.preparing === 0 ? [] : [`${fixtures.preparing} preparing`];
+  const preparing =
+    fixtures.preparing === 0 ? [] : [`${fixtures.preparing} preparing`];
   const counts = [
     ...(resolution === null ? preparing : []),
     ...(fixtures.ballotsIn === 0 ? [] : [`${fixtures.ballotsIn} ballots in`]),
@@ -392,7 +427,8 @@ const eventDetail = (
       : [
           `resolution struck at ${wallClock(resolution.releasedAt)}`,
           ...preparing.map(
-            (line) => `${line}, speeches begin ${wallClock(resolution.speechesBeginAt)}`,
+            (line) =>
+              `${line}, speeches begin ${wallClock(resolution.speechesBeginAt)}`,
           ),
         ]),
     ...(fixtures.ballotsIn === event.roomCount
@@ -414,7 +450,11 @@ export const timeSlotOf = (
   const rooms = read.events.reduce((sum, event) => sum + event.roomCount, 0);
   const kinds = new Set(read.events.map((event) => event.fixtureKind));
   const roomsHere =
-    kinds.size === 1 ? (kinds.has('section') ? 'speech rooms' : 'debate rooms') : 'rooms';
+    kinds.size === 1
+      ? kinds.has('section')
+        ? 'speech rooms'
+        : 'debate rooms'
+      : 'rooms';
   const { next } = read;
   return {
     title: read.timeSlot.name,
@@ -465,12 +505,16 @@ export const timeSlotOf = (
                 : [
                     attentionRoom(
                       `${listed(next.drawnEvents.map((event) => event.name))} ${
-                        next.drawnEvents.every((event) => event.fixtureKind === 'section')
+                        next.drawnEvents.every(
+                          (event) => event.fixtureKind === 'section',
+                        )
                           ? 'sections are'
                           : 'draws are'
                       } drawn`,
                       `${next.fixtureCount} ${
-                        next.drawnEvents.every((event) => event.fixtureKind === 'section')
+                        next.drawnEvents.every(
+                          (event) => event.fixtureKind === 'section',
+                        )
                           ? 'sections'
                           : 'rooms'
                       }. ${capitalized(countWord(next.judgesSeatedHere))} of their judges are in ${roomsHere} now; ${

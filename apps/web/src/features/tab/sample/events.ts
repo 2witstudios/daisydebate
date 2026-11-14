@@ -40,7 +40,12 @@ const parliForm: EventFormCopy = {
   novice,
   prelimRounds: choice('Prelim rounds', ['3', '4', '5']),
   ...breaks,
-  runsWith: choice('Runs with', ['Debate', 'Speech A', 'Speech B', 'A new group']),
+  runsWith: choice('Runs with', [
+    'Debate',
+    'Speech A',
+    'Speech B',
+    'A new group',
+  ]),
   settings: sampleAction('Parli settings'),
   remove: sampleAction('Remove event'),
 };
@@ -81,14 +86,24 @@ const finalB = winterSlot('bfinal', 'final', '16:30');
 const ids = (slots: readonly { readonly timeSlotId: string }[]) =>
   slots.map((one) => one.timeSlotId);
 
-const winterDebate = (key: string, name: string, formatName: string, rounds: number) =>
+const winterDebate = (
+  key: string,
+  name: string,
+  formatName: string,
+  rounds: number,
+) =>
   sampleEvent(`w${key}`, name, {
     formatName,
     prelims: ids(debate),
     elimination: [debateBreaks.timeSlotId, rounds],
     template,
   });
-const winterSpeech = (key: string, name: string, prelim: string, final: string) =>
+const winterSpeech = (
+  key: string,
+  name: string,
+  prelim: string,
+  final: string,
+) =>
   sampleEvent(`w${key}`, name, {
     formatName: 'Sections of six, ranked',
     prelims: [prelim],
@@ -108,7 +123,12 @@ const winterSetup: TournamentSetupView = {
     winterDebate('noviceld', 'Novice LD', 'League one-on-one', 2),
     winterDebate('varsitypf', 'Varsity PF', 'League teams', 3),
     winterDebate('parli', 'Parli', 'League parli', 3),
-    winterSpeech('impromptu', 'Impromptu', speechA.timeSlotId, finalA.timeSlotId),
+    winterSpeech(
+      'impromptu',
+      'Impromptu',
+      speechA.timeSlotId,
+      finalA.timeSlotId,
+    ),
     winterSpeech('oratory', 'Oratory', speechA.timeSlotId, finalA.timeSlotId),
     winterSpeech('extemp', 'Extemp', speechB.timeSlotId, finalB.timeSlotId),
     winterSpeech('interp', 'Interp', speechB.timeSlotId, finalB.timeSlotId),
@@ -164,6 +184,7 @@ export function sampleEventsSchedule(
   readonly copy: EventsCopy;
 } | null {
   if (slug === WINTER) return { setup: winterSetup, copy: winterCopy };
-  if (slug === AUTUMN) return { setup: sampleAutumnSetup(scene), copy: autumnCopy };
+  if (slug === AUTUMN)
+    return { setup: sampleAutumnSetup(scene), copy: autumnCopy };
   return null;
 }

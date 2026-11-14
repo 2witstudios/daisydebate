@@ -81,7 +81,9 @@ export const standingsTableOf = (
     lede: [
       ...(breakLine === null
         ? []
-        : [`Top ${breakLine.seeds} break to ${breakLine.tabRoundName.toLowerCase()}.`]),
+        : [
+            `Top ${breakLine.seeds} break to ${breakLine.tabRoundName.toLowerCase()}.`,
+          ]),
       progress.kind === 'complete'
         ? `All ${progress.ballots} ballots are in.`
         : `Round ${progress.tabRoundNumber} is still running.`,

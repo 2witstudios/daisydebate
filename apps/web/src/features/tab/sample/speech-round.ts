@@ -120,7 +120,10 @@ const sectionsOpen = (): readonly TabRoundFixture[] => [
 export function speechRoundView(
   round: string,
   scene: SampleScene,
-): { readonly read: TabRoundHostView; readonly context: RunningRoundContext } | null {
+): {
+  readonly read: TabRoundHostView;
+  readonly context: RunningRoundContext;
+} | null {
   if (round !== '3' || !reached(scene, 'prelims')) return null;
   const running = !reached(scene, 'break');
   return {

@@ -185,7 +185,8 @@ export const organizationPeopleViewSchema = z
     capabilities: z.strictObject({ give: z.boolean() }),
   })
   .refine(
-    (view) => view.people.every((person) => !(person.owner && person.removable)),
+    (view) =>
+      view.people.every((person) => !(person.owner && person.removable)),
     { message: 'The owner is never removable.', path: ['people'] },
   );
 export type OrganizationPeopleView = z.infer<

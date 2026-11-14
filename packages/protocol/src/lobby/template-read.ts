@@ -47,7 +47,11 @@ export const templateViewSchema = z
     templateId: idSchema,
     name,
     organization: z.strictObject({ organizationId: idSchema, name }),
-    format: z.strictObject({ formatId: idSchema, formatVersion: version, name }),
+    format: z.strictObject({
+      formatId: idSchema,
+      formatVersion: version,
+      name,
+    }),
     ballotDefinition: z
       .strictObject({
         ballotDefinitionId: idSchema,

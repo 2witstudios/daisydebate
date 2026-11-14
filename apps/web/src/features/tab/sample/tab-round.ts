@@ -206,7 +206,10 @@ export function sampleTabRoundView(
   event: string,
   round: string,
   scene: SampleScene,
-): { readonly read: TabRoundHostView; readonly context: RunningRoundContext } | null {
+): {
+  readonly read: TabRoundHostView;
+  readonly context: RunningRoundContext;
+} | null {
   if (slug !== AUTUMN) return null;
   if (event === IMPROMPTU) return speechRoundView(round, scene);
   if (event !== VARSITY) return null;
@@ -271,8 +274,17 @@ const slotEvent = (
 });
 
 const slotEvents: readonly (readonly [string, SlotEvent])[] = [
-  ['varsity-ld', slotEvent('varsity-ld', 'Varsity LD', 'LD', 16, { ballotsIn: 14, judging: 2 })],
-  ['novice-ld', slotEvent('novice-ld', 'Novice LD', 'LD', 12, { ballotsIn: 12 })],
+  [
+    'varsity-ld',
+    slotEvent('varsity-ld', 'Varsity LD', 'LD', 16, {
+      ballotsIn: 14,
+      judging: 2,
+    }),
+  ],
+  [
+    'novice-ld',
+    slotEvent('novice-ld', 'Novice LD', 'LD', 12, { ballotsIn: 12 }),
+  ],
   [
     'varsity-pf',
     slotEvent('varsity-pf', 'Varsity PF', 'PF', 14, {
@@ -383,7 +395,11 @@ export function sampleTimeSlotView(
     context: {
       address: {
         slot: (eventId) =>
-          hostRoutes.slot(WINTER, slot, eventId === null ? null : slugOf(eventId)),
+          hostRoutes.slot(
+            WINTER,
+            slot,
+            eventId === null ? null : slugOf(eventId),
+          ),
         tournament: tabRoutes.tournament(WINTER),
       },
       wallClock: sampleWallClock,

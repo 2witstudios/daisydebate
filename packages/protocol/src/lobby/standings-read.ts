@@ -53,9 +53,7 @@ const standingsShape = {
   /** The resolved `standings.tiebreaks` order. */
   tiebreaks: z.array(standingsMetricSchema).min(1),
   /** The break line and the tab round it breaks to; null before one is set. */
-  breakLine: z
-    .strictObject({ seeds: position, tabRoundName: name })
-    .nullable(),
+  breakLine: z.strictObject({ seeds: position, tabRoundName: name }).nullable(),
   breakAnnouncedAt: instant.nullable(),
   /** Every entry on the table; `rows` are its top lines. */
   entryCount: count,

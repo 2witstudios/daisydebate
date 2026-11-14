@@ -204,7 +204,8 @@ describe('settingCommandSchema', () => {
 
     assert({
       given: 'every command type',
-      should: 'carry a format or ballot definition only when creating a template',
+      should:
+        'carry a format or ballot definition only when creating a template',
       actual: settingCommandSchema.options
         .filter((option) => {
           const shape = shapeOf(option);

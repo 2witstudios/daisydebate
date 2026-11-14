@@ -7,7 +7,10 @@ import {
   type SettingDefinition,
 } from '../settings/catalogue';
 import { settingKeys, type SettingKey } from '../settings/keys';
-import { pairingPresetNames, settingKeySchema } from '../settings/setting-values';
+import {
+  pairingPresetNames,
+  settingKeySchema,
+} from '../settings/setting-values';
 import type { LobbyReadCatalogue } from './read';
 
 /**
@@ -114,7 +117,8 @@ export const resolvedSettingEntrySchema = z
   })
   .superRefine((entry, context) => {
     fitsKey(entry.key, entry.value, ['value'], context);
-    if (entry.own) fitsKey(entry.key, entry.own.value, ['own', 'value'], context);
+    if (entry.own)
+      fitsKey(entry.key, entry.own.value, ['own', 'value'], context);
     const fromRow = 'id' in entry.source;
     if (!fromRow && entry.hold === 'enforced')
       context.addIssue({

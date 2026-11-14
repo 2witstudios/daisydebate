@@ -81,7 +81,9 @@ function groupsOf(events: readonly SetupEvent[]): readonly SetupEvent[][] {
   for (const event of events) {
     const slots = slotsOf(event);
     const group = groups.find((members) =>
-      members.some((member) => [...slotsOf(member)].some((id) => slots.has(id))),
+      members.some((member) =>
+        [...slotsOf(member)].some((id) => slots.has(id)),
+      ),
     );
     if (group) group.push(event);
     else groups.push([event]);

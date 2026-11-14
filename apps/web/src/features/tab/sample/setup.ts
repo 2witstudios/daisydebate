@@ -140,7 +140,10 @@ const debate = ['1000', '1140', '1320', '1500'].map((time) =>
   slot(`autumn${time}`, 'Debate', `${time.slice(0, 2)}:${time.slice(2)}`),
 );
 const debateBreak = slot('autumnbreak', 'break', '16:45');
-const speech = [slot('autumn1050', 'Speech', '10:50'), slot('autumn1410', 'Speech', '14:10')];
+const speech = [
+  slot('autumn1050', 'Speech', '10:50'),
+  slot('autumn1410', 'Speech', '14:10'),
+];
 const speechFinal = slot('autumnfinal', 'final', '17:10');
 const ids = (slots: readonly { readonly timeSlotId: string }[]) =>
   slots.map((one) => one.timeSlotId);
@@ -148,7 +151,10 @@ const ids = (slots: readonly { readonly timeSlotId: string }[]) =>
 /** Autumn Open's setup as its Director reads it. */
 export function sampleAutumnSetup(scene: SampleScene): TournamentSetupView {
   const before = !reached(scene, 'prelims');
-  const leagueDebate = { formatName: 'League one-on-one', poolId: autumnPoolId };
+  const leagueDebate = {
+    formatName: 'League one-on-one',
+    poolId: autumnPoolId,
+  };
   return {
     kind: 'tournament',
     lobbyId: sampleIds.autumn,
@@ -185,7 +191,11 @@ export function sampleAutumnSetup(scene: SampleScene): TournamentSetupView {
     ],
     timeSlots: [...debate, debateBreak, ...speech, speechFinal],
     resolutionPools: [
-      { resolutionPoolId: autumnPoolId, name: 'Autumn Open', size: before ? 18 : 20 },
+      {
+        resolutionPoolId: autumnPoolId,
+        name: 'Autumn Open',
+        size: before ? 18 : 20,
+      },
     ],
     capabilities: { manage: true },
   };
@@ -222,7 +232,8 @@ const setupCopy: SetupCopy = {
       subject: 'setting',
       keys: ['judging.panel'],
       label: 'Judges',
-      value: '1 per room in prelims · 3 in elims · 5 in the final · AI judge off',
+      value:
+        '1 per room in prelims · 3 in elims · 5 in the final · AI judge off',
       edit: change,
     },
     {
@@ -281,10 +292,19 @@ const setupCopy: SetupCopy = {
     { subject: 'sanction', label: 'Counts for' },
   ],
   pairing: {
-    preset: choice('Pairing preset', ['Power-matched', 'Random', 'Round robin']),
+    preset: choice('Pairing preset', [
+      'Power-matched',
+      'Random',
+      'Round robin',
+    ]),
     summary: `Round 1 is seeded by ${LEAGUE_NAME} rating. Later rounds pair by record through the round before.`,
     policies: [
-      { key: 'pairing.no_rematch', label: 'No rematch', force: 'rule', rank: null },
+      {
+        key: 'pairing.no_rematch',
+        label: 'No rematch',
+        force: 'rule',
+        rank: null,
+      },
       {
         key: 'pairing.one_bye',
         label: 'One bye per entry',

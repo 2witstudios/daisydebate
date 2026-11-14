@@ -33,10 +33,24 @@ const plain = (
     kind: 'pairing',
     status: 'draft',
     entries: [
-      { entryId: sampleId(`entry${affirmative}`), name: affirmative, side: 'affirmative' },
-      { entryId: sampleId(`entry${negative}`), name: negative, side: 'negative' },
+      {
+        entryId: sampleId(`entry${affirmative}`),
+        name: affirmative,
+        side: 'affirmative',
+      },
+      {
+        entryId: sampleId(`entry${negative}`),
+        name: negative,
+        side: 'negative',
+      },
     ],
-    judges: [{ tournamentJudgeId: sampleId(`judge${judge}`), name: judge, chair: true }],
+    judges: [
+      {
+        tournamentJudgeId: sampleId(`judge${judge}`),
+        name: judge,
+        chair: true,
+      },
+    ],
     findings: [...findings],
     reasons: [
       `${affirmative} and ${negative} are on the same record and have not met.`,
@@ -165,7 +179,12 @@ export function sampleDrawView(
     context: {
       event: varsitySwitch(scene),
       fixtureAddress: (fixtureId) =>
-        hostRoutes.round(AUTUMN, VARSITY, '4', slugs.get(fixtureId) ?? fixtureId),
+        hostRoutes.round(
+          AUTUMN,
+          VARSITY,
+          '4',
+          slugs.get(fixtureId) ?? fixtureId,
+        ),
     },
     fixtureIdOf: (fixtureSlug) =>
       [...slugs].find(([, known]) => known === fixtureSlug)?.[0] ?? null,

@@ -27,7 +27,9 @@ const offered = (
   format: { formatId: sampleId(format), formatVersion: 1, name: formatName },
   ballotDefinition: null,
   retiredAt: null,
-  settings: [{ key: 'recording.capture', value: { value: 'on' }, hold: 'enforced' }],
+  settings: [
+    { key: 'recording.capture', value: { value: 'on' }, hold: 'enforced' },
+  ],
   capabilities: { manage: false },
 });
 
@@ -81,7 +83,10 @@ export function sampleCreateRoom(
   // room creation: someone who is not a member is answered as missing.
   if (slug !== LEAGUE || !isMember(scene)) return null;
   const [chosen] = templates;
-  const templateScope: SettingScope = { kind: 'template', id: chosen.templateId };
+  const templateScope: SettingScope = {
+    kind: 'template',
+    id: chosen.templateId,
+  };
   const draft = resolvedSettingsViewOf(
     {
       at: {
@@ -96,7 +101,12 @@ export function sampleCreateRoom(
       }),
       rows: [
         ...leagueRows,
-        settingRow(templateScope, 'recording.capture', { value: 'on' }, 'enforced'),
+        settingRow(
+          templateScope,
+          'recording.capture',
+          { value: 'on' },
+          'enforced',
+        ),
       ],
       format: sampleFormatDefaults,
       scopeName: sampleScopeName,

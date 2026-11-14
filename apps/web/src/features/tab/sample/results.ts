@@ -7,7 +7,10 @@ import type { SampleScene } from './scene';
 import { sampleId, sampleInstant, sampleWallClock } from './tab-round';
 
 /** An official's tab round; every audience's may be no more than this. */
-type OfficialRound = Extract<BracketView, { visibility: 'official' }>['tabRounds'][number];
+type OfficialRound = Extract<
+  BracketView,
+  { visibility: 'official' }
+>['tabRounds'][number];
 type Tie = OfficialRound['ties'][number];
 type Side = Tie['top'];
 
@@ -118,7 +121,10 @@ export function sampleBracket(
   return sample === null ? null : bracketOf(sample.read, sample.wallClock);
 }
 
-const opened = (cause: 'round_close' | 'prelims_end' | 'break', time: string) => ({
+const opened = (
+  cause: 'round_close' | 'prelims_end' | 'break',
+  time: string,
+) => ({
   kind: 'open' as const,
   cause,
   openedAt: sampleInstant(time),

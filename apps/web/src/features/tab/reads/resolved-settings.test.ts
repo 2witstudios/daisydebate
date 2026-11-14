@@ -37,15 +37,30 @@ const format: ResolvedSettingsFacts['format'] = {
   },
 };
 const rows: readonly SettingRow[] = [
-  { scope: league, key: 'recording.capture', value: { value: 'on' }, hold: 'enforced' },
-  { scope: template, key: 'pairing.preset', value: { value: 'random' }, hold: 'default' },
+  {
+    scope: league,
+    key: 'recording.capture',
+    value: { value: 'on' },
+    hold: 'enforced',
+  },
+  {
+    scope: template,
+    key: 'pairing.preset',
+    value: { value: 'random' },
+    hold: 'default',
+  },
   {
     scope: lobby,
     key: 'conflict.handling',
     value: { value: 'flagged' },
     hold: 'default',
   },
-  { scope: lobby, key: 'room.visibility', value: { value: 'unlisted' }, hold: 'enforced' },
+  {
+    scope: lobby,
+    key: 'room.visibility',
+    value: { value: 'unlisted' },
+    hold: 'enforced',
+  },
 ];
 const facts = (
   at: ResolvedSettingsFacts['at'],
@@ -63,7 +78,9 @@ const facts = (
 });
 const pick = (view: ResolvedSettingsView, key: SettingKey) => {
   const entry = resolvedEntry(view, key);
-  return entry && { source: entry.source, own: entry.own, locked: entry.locked };
+  return (
+    entry && { source: entry.source, own: entry.own, locked: entry.locked }
+  );
 };
 
 const eventFacts = facts(
@@ -89,16 +106,32 @@ const draftFacts = facts(
 describe('resolvedSettingsViewOf', async () => {
   test('a view built at every kind of place', () => {
     const views = [
-      resolvedSettingsViewOf(facts({ kind: 'organization', id: league.id }, [league], 'every'), true),
-      resolvedSettingsViewOf(facts({ kind: 'template', id: template.id }, [league, template], 'every'), true),
-      resolvedSettingsViewOf(facts({ kind: 'lobby', id: lobby.id }, [league, lobby], 'room'), true),
+      resolvedSettingsViewOf(
+        facts({ kind: 'organization', id: league.id }, [league], 'every'),
+        true,
+      ),
+      resolvedSettingsViewOf(
+        facts(
+          { kind: 'template', id: template.id },
+          [league, template],
+          'every',
+        ),
+        true,
+      ),
+      resolvedSettingsViewOf(
+        facts({ kind: 'lobby', id: lobby.id }, [league, lobby], 'room'),
+        true,
+      ),
       resolvedSettingsViewOf(eventFacts, true),
       resolvedSettingsViewOf(draftFacts, true),
     ];
     assert({
-      given: 'an organization, a template, a lobby, an event and a Room being drafted',
+      given:
+        'an organization, a template, a lobby, an event and a Room being drafted',
       should: 'parse as the protocol contract',
-      actual: views.map((view) => resolvedSettingsViewSchema.safeParse(view).success),
+      actual: views.map(
+        (view) => resolvedSettingsViewSchema.safeParse(view).success,
+      ),
       expected: [true, true, true, true, true],
     });
   });
@@ -109,7 +142,12 @@ describe('resolvedSettingsViewOf', async () => {
       given: 'every key an event reads',
       should: 'carry the value and hold the resolver gives',
       actual: view.settings.every((entry) => {
-        const resolved = resolveSetting(entry.key, eventFacts.chain, rows, format);
+        const resolved = resolveSetting(
+          entry.key,
+          eventFacts.chain,
+          rows,
+          format,
+        );
         return (
           JSON.stringify(resolved.value) === JSON.stringify(entry.value) &&
           resolved.hold === entry.hold
@@ -140,14 +178,25 @@ describe('resolvedSettingsViewOf', async () => {
   });
 
   test('locks at a scope', () => {
-    const atTemplate = facts({ kind: 'template', id: template.id }, [league, template], 'every');
-    const atLobby = facts({ kind: 'lobby', id: lobby.id }, [league, lobby], 'room');
+    const atTemplate = facts(
+      { kind: 'template', id: template.id },
+      [league, template],
+      'every',
+    );
+    const atLobby = facts(
+      { kind: 'lobby', id: lobby.id },
+      [league, lobby],
+      'room',
+    );
     assert({
-      given: 'a key enforced above, a key not set at events, a key the caller holds',
+      given:
+        'a key enforced above, a key not set at events, a key the caller holds',
       should: 'answer enforced, scope, and null with its own row',
       actual: [
-        pick(resolvedSettingsViewOf(eventFacts, true), 'recording.capture')?.locked,
-        pick(resolvedSettingsViewOf(eventFacts, true), 'conflict.handling')?.locked,
+        pick(resolvedSettingsViewOf(eventFacts, true), 'recording.capture')
+          ?.locked,
+        pick(resolvedSettingsViewOf(eventFacts, true), 'conflict.handling')
+          ?.locked,
         pick(resolvedSettingsViewOf(atTemplate, true), 'pairing.preset'),
         pick(resolvedSettingsViewOf(atLobby, true), 'room.visibility'),
       ],
@@ -170,9 +219,12 @@ describe('resolvedSettingsViewOf', async () => {
       given: 'a caller the setting command does not allow at the scope',
       should: 'lock what is not otherwise locked as not permitted',
       actual: [
-        pick(resolvedSettingsViewOf(atTemplate, false), 'pairing.preset')?.locked,
-        pick(resolvedSettingsViewOf(atTemplate, false), 'recording.capture')?.locked,
-        pick(resolvedSettingsViewOf(atTemplate, true), 'entry.registration')?.locked,
+        pick(resolvedSettingsViewOf(atTemplate, false), 'pairing.preset')
+          ?.locked,
+        pick(resolvedSettingsViewOf(atTemplate, false), 'recording.capture')
+          ?.locked,
+        pick(resolvedSettingsViewOf(atTemplate, true), 'entry.registration')
+          ?.locked,
       ],
       expected: ['not-permitted', 'enforced', 'scope'],
     });
@@ -182,22 +234,35 @@ describe('resolvedSettingsViewOf', async () => {
     const view = resolvedSettingsViewOf(draftFacts, true);
     assert({
       given: 'the draft of a Room in a standing lobby',
-      should: 'carry only keys a Room reads, no own rows, enforced values locked',
+      should:
+        'carry only keys a Room reads, no own rows, enforced values locked',
       actual: {
         keysRoomsNeverRead: view.settings.filter((entry) =>
-          ['recording.capture', 'pairing.preset', 'judging.panel'].includes(entry.key),
+          ['recording.capture', 'pairing.preset', 'judging.panel'].includes(
+            entry.key,
+          ),
         ).length,
         ownRows: view.settings.filter((entry) => entry.own !== null).length,
         visibility: pick(view, 'room.visibility')?.locked,
         posting: pick(view, 'audience.posting')?.locked,
       },
-      expected: { keysRoomsNeverRead: 0, ownRows: 0, visibility: 'enforced', posting: null },
+      expected: {
+        keysRoomsNeverRead: 0,
+        ownRows: 0,
+        visibility: 'enforced',
+        posting: null,
+      },
     });
   });
 
   test('one family', () => {
     const view = resolvedSettingsViewOf(
-      facts({ kind: 'organization', id: league.id }, [league], 'every', 'audience'),
+      facts(
+        { kind: 'organization', id: league.id },
+        [league],
+        'every',
+        'audience',
+      ),
       true,
     );
     assert({

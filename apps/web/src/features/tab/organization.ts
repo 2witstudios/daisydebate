@@ -209,7 +209,9 @@ export function hostHomeOf(
   now: string,
   addressOf: HostAddress,
 ): HostHome {
-  const tournaments = view.lobbies.filter((lobby) => lobby.kind === 'tournament');
+  const tournaments = view.lobbies.filter(
+    (lobby) => lobby.kind === 'tournament',
+  );
   const row = (lobby: HostLobby): HostTournamentRow => ({
     name: lobby.name,
     owner: lobby.owner?.name ?? 'hosted by you',
@@ -286,23 +288,21 @@ export function hostRailOf(
         daysBefore(lobby.startsAt, now) <= 0,
     )
     .sort(byStart)
-    .map(
-      (lobby): RailItem => ({
-        id: lobby.handle,
-        label: lobby.name,
-        time: null,
-        standing: isFinished(lobby)
-          ? { kind: 'done' }
-          : {
-              kind: 'note',
-              text:
-                lobby.startsAt !== null && isSameDay(lobby.startsAt, now)
-                  ? 'today'
-                  : dayWords(lobby.startsAt ?? now),
-            },
-        action: open(lobby.name, addressOf(lobby)),
-      }),
-    );
+    .map((lobby): RailItem => ({
+      id: lobby.handle,
+      label: lobby.name,
+      time: null,
+      standing: isFinished(lobby)
+        ? { kind: 'done' }
+        : {
+            kind: 'note',
+            text:
+              lobby.startsAt !== null && isSameDay(lobby.startsAt, now)
+                ? 'today'
+                : dayWords(lobby.startsAt ?? now),
+          },
+      action: open(lobby.name, addressOf(lobby)),
+    }));
   return {
     title: 'Host',
     subtitle: null,
@@ -316,7 +316,10 @@ export function hostRailOf(
         label: organization.name,
         time: null,
         standing: null,
-        action: linkTo(organization.name, hostRoutes.league(organization.handle)),
+        action: linkTo(
+          organization.name,
+          hostRoutes.league(organization.handle),
+        ),
       })),
   };
 }
@@ -353,9 +356,9 @@ const roleSlug = (role: OrganizationRole) =>
 /** The role held by the most grants, the highest of those that tie. */
 const mostHeld = (view: OrganizationPeopleView) => {
   const held = (role: OrganizationRole) =>
-    view.people.flatMap((person) => person.grants).filter(
-      (grant) => grant.roleId === role.roleId,
-    ).length;
+    view.people
+      .flatMap((person) => person.grants)
+      .filter((grant) => grant.roleId === role.roleId).length;
   return [...view.roles].sort(
     (a, b) => held(b) - held(a) || a.rank - b.rank,
   )[0];
@@ -371,9 +374,9 @@ export function peopleOf(
     readonly now: string;
   },
 ): People {
-  const roles = view.roles.filter((role) => role.preset).sort(
-    (a, b) => a.rank - b.rank,
-  );
+  const roles = view.roles
+    .filter((role) => role.preset)
+    .sort((a, b) => a.rank - b.rank);
   const chosen =
     roles.find((role) => roleSlug(role) === context.role) ?? mostHeld(view);
   const roleName = (roleId: string) =>

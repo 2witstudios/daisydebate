@@ -104,10 +104,13 @@ const seatsOf = (read: DrawView, fixture: DrawViewFixture): Choice[] => {
     ? sides
     : [
         ...sides,
-        choice('Judge', options(judge.name, [
-          ...fixture.judges.map((seated) => seated.name),
-          ...spare,
-        ])),
+        choice(
+          'Judge',
+          options(judge.name, [
+            ...fixture.judges.map((seated) => seated.name),
+            ...spare,
+          ]),
+        ),
       ];
 };
 
@@ -137,7 +140,9 @@ const restOf = (groups: DrawView['recordGroups']): string | null => {
     ...(others === 0 ? [] : [plural(others, 'more fixture', 'more fixtures')]),
     ...(byes.length === 0
       ? []
-      : [`${byes.map(titleOf).join(' and ')} ${byes.length === 1 ? 'has the bye' : 'have byes'}`]),
+      : [
+          `${byes.map(titleOf).join(' and ')} ${byes.length === 1 ? 'has the bye' : 'have byes'}`,
+        ]),
   ].join(' · ');
 };
 
@@ -151,8 +156,9 @@ export const drawBoardOf = (
   const counted = (severity: DrawFindingSeverity) =>
     findings.filter((finding) => finding.severity === severity).length;
   const chosen =
-    fixtures.find((fixture) => fixture.fixtureId === context.selectedFixtureId) ??
-    null;
+    fixtures.find(
+      (fixture) => fixture.fixtureId === context.selectedFixtureId,
+    ) ?? null;
   const round = read.tabRound.number;
   return {
     event: context.event,

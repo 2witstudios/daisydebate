@@ -18,7 +18,10 @@ import {
   type SettingChain,
   type SettingSource,
 } from '@daisy/protocol/setting-resolution';
-import { settingKeySchema, type SettingKey } from '@daisy/protocol/setting-values';
+import {
+  settingKeySchema,
+  type SettingKey,
+} from '@daisy/protocol/setting-values';
 
 /**
  * What one resolved-settings view is built from: where it was asked, the
@@ -106,7 +109,12 @@ export function resolvedSettingsViewOf(
         facts.family === undefined || settingKeyFamilyOf(key) === facts.family,
     )
     .map((key): ResolvedSettingEntry => {
-      const resolved = resolveSetting(key, facts.chain, facts.rows, facts.format);
+      const resolved = resolveSetting(
+        key,
+        facts.chain,
+        facts.rows,
+        facts.format,
+      );
       const own =
         asked === null
           ? undefined

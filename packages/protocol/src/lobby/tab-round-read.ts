@@ -119,7 +119,11 @@ export const tabRoundHostViewSchema = z.strictObject({
   postedToParticipants: z.boolean(),
   /** The event's next tab round, while its draft draw waits to be published. */
   next: z
-    .strictObject({ tabRoundId: idSchema, number: position, name: name.nullable() })
+    .strictObject({
+      tabRoundId: idSchema,
+      number: position,
+      name: name.nullable(),
+    })
     .nullable(),
   /** Every fixture that is not finished, in the order the tab keeps them. */
   open: z.array(tabRoundFixture),
@@ -231,4 +235,6 @@ export type TimeSlotConcern = z.infer<typeof slotConcern>;
 export const tabRoundReadCatalogue = {
   TabRoundHostView: { gate: ['lobby.host.read'] },
   TimeSlotHostView: { gate: ['lobby.host.read'] },
-} as const satisfies LobbyReadCatalogue<'TabRoundHostView' | 'TimeSlotHostView'>;
+} as const satisfies LobbyReadCatalogue<
+  'TabRoundHostView' | 'TimeSlotHostView'
+>;

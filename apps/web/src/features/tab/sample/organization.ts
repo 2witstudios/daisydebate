@@ -6,12 +6,23 @@ import type {
 } from '@daisy/protocol/lobby/organization-read';
 import type { Permission } from '@daisy/protocol/lobby';
 import { hostRoutes } from '../routes';
-import { AUTUMN, LEAGUE, LEAGUE_NAME, reached, SCRIMMAGE, WINTER } from './moment';
+import {
+  AUTUMN,
+  LEAGUE,
+  LEAGUE_NAME,
+  reached,
+  SCRIMMAGE,
+  WINTER,
+} from './moment';
 import type { SampleScene } from './scene';
 
 /** A sample's stable identifier, shaped as a real one: 24 of `[a-z0-9]`. */
 export const sampleId = (name: string): string =>
-  name.toLowerCase().replaceAll(/[^a-z0-9]/g, '').padEnd(24, '0').slice(0, 24);
+  name
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]/g, '')
+    .padEnd(24, '0')
+    .slice(0, 24);
 
 /** The instant every host sample reads as now: the day of Autumn Open. */
 export const sampleNow = '2026-11-14T21:00:00.000Z';
@@ -181,7 +192,12 @@ export function samplePeopleView(_scene: SampleScene): OrganizationPeopleView {
     held: OrganizationRole,
     scope: OrganizationPeopleView['people'][number]['grants'][number]['scope'],
     expiresAt: string | null = null,
-  ) => ({ grantId: sampleId(`grant${who}`), roleId: held.roleId, scope, expiresAt });
+  ) => ({
+    grantId: sampleId(`grant${who}`),
+    roleId: held.roleId,
+    scope,
+    expiresAt,
+  });
   const member = (
     name: string,
     grants: OrganizationPeopleView['people'][number]['grants'],
@@ -223,7 +239,9 @@ export function samplePeopleView(_scene: SampleScene): OrganizationPeopleView {
           },
         ],
       },
-      member('Sam Reyes', [grant('sam', roles.tabStaff, autumnScope, endsSunday)]),
+      member('Sam Reyes', [
+        grant('sam', roles.tabStaff, autumnScope, endsSunday),
+      ]),
       member('Lena Cho', [
         grant('lena', roles.topicCommittee, { kind: 'organization' }),
       ]),

@@ -50,14 +50,17 @@ describe('resolved-settings read', async () => {
     assert({
       given: 'the catalogue keys',
       should: 'derive each family once',
-      actual: settingKeyFamilies.includes('pairing') && settingKeyFamilies.includes('staff'),
+      actual:
+        settingKeyFamilies.includes('pairing') &&
+        settingKeyFamilies.includes('staff'),
       expected: true,
     });
   });
 
   test('an entry', () => {
     assert({
-      given: 'an enforced entry, a default from the catalogue, a value the key refuses, an enforced default, an unknown lock',
+      given:
+        'an enforced entry, a default from the catalogue, a value the key refuses, an enforced default, an unknown lock',
       should: 'accept the first two and refuse the rest where they are wrong',
       actual: [
         parseOutcome(resolvedSettingEntrySchema, entry),
@@ -68,27 +71,50 @@ describe('resolved-settings read', async () => {
           locked: null,
           own: { value: { value: 'off' }, hold: 'default' },
         }),
-        parseOutcome(resolvedSettingEntrySchema, { ...entry, value: { value: 'maybe' } }),
-        parseOutcome(resolvedSettingEntrySchema, { ...entry, source: { kind: 'catalogue' } }),
-        parseOutcome(resolvedSettingEntrySchema, { ...entry, locked: 'frozen' }),
+        parseOutcome(resolvedSettingEntrySchema, {
+          ...entry,
+          value: { value: 'maybe' },
+        }),
+        parseOutcome(resolvedSettingEntrySchema, {
+          ...entry,
+          source: { kind: 'catalogue' },
+        }),
+        parseOutcome(resolvedSettingEntrySchema, {
+          ...entry,
+          locked: 'frozen',
+        }),
       ].map((outcome) => ('data' in outcome ? 'ok' : outcome.issues)),
       expected: ['ok', 'ok', ['value.value'], ['hold'], ['locked']],
     });
   });
 
   test('a view', () => {
-    const at = { kind: 'room_draft', lobbyId: id('lobby'), templateId: id('t') };
+    const at = {
+      kind: 'room_draft',
+      lobbyId: id('lobby'),
+      templateId: id('t'),
+    };
     assert({
-      given: 'a view, one repeating a key, a draft with an own row, and an unknown key',
+      given:
+        'a view, one repeating a key, a draft with an own row, and an unknown key',
       should: 'accept only the first',
       actual: [
         parseOutcome(resolvedSettingsViewSchema, { at, settings: [entry] }),
-        parseOutcome(resolvedSettingsViewSchema, { at, settings: [entry, entry] }),
         parseOutcome(resolvedSettingsViewSchema, {
           at,
-          settings: [{ ...entry, own: { value: { value: 'on' }, hold: 'default' } }],
+          settings: [entry, entry],
         }),
-        parseOutcome(resolvedSettingsViewSchema, { at, settings: [], extra: true }),
+        parseOutcome(resolvedSettingsViewSchema, {
+          at,
+          settings: [
+            { ...entry, own: { value: { value: 'on' }, hold: 'default' } },
+          ],
+        }),
+        parseOutcome(resolvedSettingsViewSchema, {
+          at,
+          settings: [],
+          extra: true,
+        }),
       ].map((outcome) => 'data' in outcome),
       expected: [true, false, false, false],
     });
@@ -102,7 +128,11 @@ describe('resolved-settings read', async () => {
         resolvedSettingsGateOf({ kind: 'organization', id: id('a') }),
         resolvedSettingsGateOf({ kind: 'template', id: id('a') }),
         resolvedSettingsGateOf({ kind: 'event', id: id('a') }),
-        resolvedSettingsGateOf({ kind: 'room_draft', lobbyId: id('a'), templateId: null }),
+        resolvedSettingsGateOf({
+          kind: 'room_draft',
+          lobbyId: id('a'),
+          templateId: null,
+        }),
         resolvedSettingsReadCatalogue.ResolvedSettingsView.gate,
       ],
       expected: [

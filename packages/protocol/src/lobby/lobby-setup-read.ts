@@ -60,7 +60,11 @@ export const setupEventSchema = z
     ballotDefinition: ballotDefinitionPin.nullable(),
     /** The template the event follows, with the organization that owns it. */
     template: z
-      .strictObject({ templateId: idSchema, name, organization: organizationRef })
+      .strictObject({
+        templateId: idSchema,
+        name,
+        organization: organizationRef,
+      })
       .nullable(),
     stages: z.array(setupStageSchema),
     tabRounds: z.array(setupTabRoundSchema),
@@ -77,7 +81,10 @@ export const setupEventSchema = z
       const stages = new Set(event.stages.map((stage) => stage.stageId));
       return event.tabRounds.every((round) => stages.has(round.stageId));
     },
-    { message: 'A tab round belongs to one of its event\'s stages.', path: ['tabRounds'] },
+    {
+      message: "A tab round belongs to one of its event's stages.",
+      path: ['tabRounds'],
+    },
   );
 export type SetupEvent = z.infer<typeof setupEventSchema>;
 
@@ -145,7 +152,10 @@ export const lobbySetupViewSchema = z.discriminatedUnion('kind', [
           ),
         );
       },
-      { message: 'A tab round runs in one of the tournament\'s time slots.', path: ['events'] },
+      {
+        message: "A tab round runs in one of the tournament's time slots.",
+        path: ['events'],
+      },
     ),
 ]);
 export type LobbySetupView = z.infer<typeof lobbySetupViewSchema>;

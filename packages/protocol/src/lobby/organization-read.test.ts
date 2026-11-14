@@ -10,7 +10,10 @@ import {
 setupRitewayBun();
 
 const id = (name: string) => name.padEnd(24, '0');
-const outcome = (schema: Parameters<typeof parseOutcome>[0], input: unknown) => {
+const outcome = (
+  schema: Parameters<typeof parseOutcome>[0],
+  input: unknown,
+) => {
   const parsed = parseOutcome(schema, input);
   return 'data' in parsed ? 'ok' : parsed.issues;
 };
@@ -104,24 +107,40 @@ const people = {
       permissions: ['tournament.draw.edit'],
     },
   ],
-  conflictHandling: { lobbyId: id('autumn'), name: 'Autumn Open', value: 'second_confirms' },
+  conflictHandling: {
+    lobbyId: id('autumn'),
+    name: 'Autumn Open',
+    value: 'second_confirms',
+  },
   capabilities: { give: true },
 };
 
 describe('organization reads', async () => {
   test('host home', () => {
     assert({
-      given: 'host home, a running and a completed tournament, a status the vocabulary lacks, an extra field',
+      given:
+        'host home, a running and a completed tournament, a status the vocabulary lacks, an extra field',
       should: 'accept the first three',
       actual: [
         outcome(hostHomeViewSchema, home),
         outcome(hostHomeViewSchema, {
           ...home,
           lobbies: [
-            { ...lobby, progress: { status: 'running', round: { current: 3, of: 4 }, attention: 2 } },
             {
               ...lobby,
-              progress: { status: 'completed', certifiedAt: null, countedByLeague: false },
+              progress: {
+                status: 'running',
+                round: { current: 3, of: 4 },
+                attention: 2,
+              },
+            },
+            {
+              ...lobby,
+              progress: {
+                status: 'completed',
+                certifiedAt: null,
+                countedByLeague: false,
+              },
             },
           ],
         }),
@@ -137,12 +156,21 @@ describe('organization reads', async () => {
 
   test('an organization, by audience', () => {
     assert({
-      given: 'the public profile, the host variant, and the public profile carrying a host count',
+      given:
+        'the public profile, the host variant, and the public profile carrying a host count',
       should: 'accept the variants and refuse a host field on the public one',
       actual: [
         outcome(organizationViewSchema, { audience: 'public', ...profile }),
-        outcome(organizationViewSchema, { audience: 'host', ...profile, ...hostFields }),
-        outcome(organizationViewSchema, { audience: 'public', ...profile, memberCount: 212 }),
+        outcome(organizationViewSchema, {
+          audience: 'host',
+          ...profile,
+          ...hostFields,
+        }),
+        outcome(organizationViewSchema, {
+          audience: 'public',
+          ...profile,
+          memberCount: 212,
+        }),
       ],
       expected: ['ok', 'ok', ['(root)']],
     });
@@ -150,7 +178,8 @@ describe('organization reads', async () => {
 
   test('people', () => {
     assert({
-      given: 'the people view, a removable owner, a permission no role may hold',
+      given:
+        'the people view, a removable owner, a permission no role may hold',
       should: 'accept only the first',
       actual: [
         outcome(organizationPeopleViewSchema, people),
@@ -167,7 +196,8 @@ describe('organization reads', async () => {
     });
     assert({
       given: 'the catalogue',
-      should: 'gate home on a signed-in viewer, the profile on organization.read, people on organization.host.read',
+      should:
+        'gate home on a signed-in viewer, the profile on organization.read, people on organization.host.read',
       actual: organizationReadCatalogue,
       expected: {
         HostHomeView: { gate: 'signed-in' },

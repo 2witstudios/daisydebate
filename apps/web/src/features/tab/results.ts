@@ -82,7 +82,10 @@ const stageStates = {
 } as const;
 
 /** The elimination tree: a projection of `BracketView`. */
-export const bracketOf = (read: BracketView, wallClock: WallClock): Bracket => ({
+export const bracketOf = (
+  read: BracketView,
+  wallClock: WallClock,
+): Bracket => ({
   stages: read.tabRounds.map((tabRound) => {
     const feeder = read.tabRounds.find(
       (candidate) => candidate.name === tabRound.waitsOn?.feederTabRoundName,
@@ -176,7 +179,9 @@ const openingOf = (
   row: AudienceOpenings,
 ): AudienceOpening => {
   const open = row.openings.flatMap((opening) =>
-    opening.state.kind === 'open' ? [{ part: opening.part, ...opening.state }] : [],
+    opening.state.kind === 'open'
+      ? [{ part: opening.part, ...opening.state }]
+      : [],
   );
   const openable = row.openings
     .filter((opening) => opening.state.kind === 'openable')
@@ -185,15 +190,21 @@ const openingOf = (
   const [first] = open;
   const held =
     read.ballotAccess === 'unreleased' && read.screeningHolds.count > 0
-      ? [`${read.screeningHolds.count} ${read.screeningHolds.count === 1 ? 'ballot is' : 'ballots are'} held for review.`]
+      ? [
+          `${read.screeningHolds.count} ${read.screeningHolds.count === 1 ? 'ballot is' : 'ballots are'} held for review.`,
+        ]
       : [];
-  const latest = [...open].sort((a, b) => b.openedAt.localeCompare(a.openedAt))[0];
+  const latest = [...open].sort((a, b) =>
+    b.openedAt.localeCompare(a.openedAt),
+  )[0];
   const detail =
     openable.length > 0
       ? [
           ...(open.length === 0
             ? []
-            : [`${partsOf(open.map((opening) => opening.part))} ${open.length === 1 ? 'is' : 'are'} open.`]),
+            : [
+                `${partsOf(open.map((opening) => opening.part))} ${open.length === 1 ? 'is' : 'are'} open.`,
+              ]),
           `${partsOf(openable)} ${
             read.prelimsCertifiedAt === null
               ? 'can be opened now.'
@@ -224,12 +235,16 @@ const openingOf = (
 };
 
 const correctionLine = (correction: ResultsCorrection): string => {
-  const fixture = correction.fixture.entries.map((entry) => entry.name).join(' v ');
+  const fixture = correction.fixture.entries
+    .map((entry) => entry.name)
+    .join(' v ');
   const confirmed =
     correction.confirmedBy === null
       ? ''
       : `, confirmed by ${correction.confirmedBy.viewer ? 'you' : correction.confirmedBy.name}`;
-  const draws = correction.usedByPublishedDraws.map((draw) => String(draw.tabRoundNumber));
+  const draws = correction.usedByPublishedDraws.map((draw) =>
+    String(draw.tabRoundNumber),
+  );
   return [
     `Round ${correction.tabRoundNumber}, ${fixture}: ${correction.changed} corrected by ${correction.recordedBy.name}${confirmed}.`,
     ...(draws.length === 0
@@ -255,13 +270,21 @@ const certificationOf = (
       return {
         kind: 'blocked',
         reason: `${capitalized(
-          listed(certification.running.map((round) => `the ${round.name.toLowerCase()}`)),
+          listed(
+            certification.running.map(
+              (round) => `the ${round.name.toLowerCase()}`,
+            ),
+          ),
         )} still ${certification.running.length === 1 ? 'runs' : 'run'}.`,
       };
     case 'ready':
       return read.capabilities.certify
         ? { kind: 'ready', certify: sampleAction('Certify the event', true) }
-        : { kind: 'blocked', reason: 'Every result is in; a host who may release results certifies.' };
+        : {
+            kind: 'blocked',
+            reason:
+              'Every result is in; a host who may release results certifies.',
+          };
   }
 };
 
@@ -286,7 +309,11 @@ export const eventResultsOf = (
     bracket: context.bracket,
     audiencesHeading: 'Who can see prelim ballots',
     audiences: [
-      { audience: 'Tab staff', detail: 'Everything, as ballots arrive', open: null },
+      {
+        audience: 'Tab staff',
+        detail: 'Everything, as ballots arrive',
+        open: null,
+      },
       ...read.audiences.map((row) => openingOf(read, row)),
     ],
     checks: [

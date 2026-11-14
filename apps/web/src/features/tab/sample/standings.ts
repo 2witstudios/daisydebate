@@ -144,7 +144,10 @@ export function sampleStandingsView(
   slug: string,
   event: string | null,
   scene: SampleScene,
-): { readonly read: StandingsView; readonly tiebreaks: ResolvedSetting } | null {
+): {
+  readonly read: StandingsView;
+  readonly tiebreaks: ResolvedSetting;
+} | null {
   if (slug !== AUTUMN || (event !== null && event !== VARSITY)) return null;
   if (!reached(scene, 'prelims')) return null;
   const done = reached(scene, 'break');
@@ -158,7 +161,9 @@ export function sampleStandingsView(
       : { kind: 'running' as const, tabRoundNumber: 3 },
     tiebreaks: ['wins', 'total_points', 'opponent_wins', 'rating'] as const,
     breakLine: { seeds: 8, tabRoundName: 'Quarterfinals' },
-    breakAnnouncedAt: reached(scene, 'elims') ? '2026-10-17T17:05:00.000Z' : null,
+    breakAnnouncedAt: reached(scene, 'elims')
+      ? '2026-10-17T17:05:00.000Z'
+      : null,
     entryCount: 24,
     rows,
   };
@@ -187,5 +192,7 @@ export function sampleStandings(
   scene: SampleScene,
 ): StandingsTable | null {
   const sample = sampleStandingsView(slug, event, scene);
-  return sample === null ? null : standingsTableOf(sample.read, sample.tiebreaks);
+  return sample === null
+    ? null
+    : standingsTableOf(sample.read, sample.tiebreaks);
 }
