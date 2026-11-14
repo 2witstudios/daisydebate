@@ -59,11 +59,11 @@ function hostOf(scene: SampleScene): NonNullable<TournamentLobbyView['host']> {
     reached(scene, 'break') || n <= 2
       ? ({ kind: 'done' } as const)
       : n === 3
-        ? ({ kind: 'needs_host', count: 2 } as const)
+        ? ({ kind: 'needs_host', count: atScale(scene) ? 7 : 2 } as const)
         : ({ kind: 'drafting' } as const);
   return {
     setupUnfinished: reached(scene, 'prelims') ? 0 : 2,
-    entryCount: reached(scene, 'prelims') ? 48 : 31,
+    entryCount: atScale(scene) ? 312 : reached(scene, 'prelims') ? 48 : 31,
     slots: reached(scene, 'prelims')
       ? [
           ...prelimTimes.map((time, index) => ({

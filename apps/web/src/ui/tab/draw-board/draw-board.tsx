@@ -102,22 +102,19 @@ export function DrawBoard({
           {
             heading: 'Look first',
             limit: 7,
-            rows: draw.groups
-              .flatMap((group) => group.fixtures)
-              .filter((fixture) => fixture.flags.length > 0)
-              .map((fixture) => ({
-                title: fixture.title,
-                detail: [
-                  fixture.judges,
-                  ...fixture.schools,
-                  ...fixture.flags.map((flag) => flag.text),
-                ].join(' · '),
-                action: {
-                  label: 'Open',
-                  href: fixture.href,
-                  primary: fixture.selected,
-                },
-              })),
+            rows: draw.lookFirst.map((fixture) => ({
+              title: fixture.title,
+              detail: [
+                fixture.judges,
+                ...fixture.schools,
+                ...fixture.flags.map((flag) => flag.text),
+              ].join(' · '),
+              action: {
+                label: 'Open',
+                href: fixture.href,
+                primary: fixture.selected,
+              },
+            })),
           },
           ...draw.groups.map((group) => ({
             heading: group.record,
@@ -127,7 +124,6 @@ export function DrawBoard({
               .map((fixture) => ({
                 title: fixture.title,
                 detail: [fixture.judges, ...fixture.schools].join(' · '),
-                ...fixture.schools,
                 action: {
                   label: 'Open',
                   href: fixture.href,

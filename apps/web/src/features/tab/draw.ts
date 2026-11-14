@@ -1,3 +1,4 @@
+import { drawAtScale } from './at-scale-rooms';
 import type {
   DrawFindingSeverity,
   DrawView,
@@ -48,6 +49,7 @@ type FixtureDetail = {
 
 /** A draft version of the plan for one tab round. */
 export type DrawBoard = {
+  readonly lookFirst: readonly DraftFixture[];
   readonly event: EventSwitch;
   readonly title: string;
   readonly version: number;
@@ -157,8 +159,20 @@ const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
     fixtures.find(
       (fixture) => fixture.fixtureId === context.selectedFixtureId,
     ) ?? null;
+  const fixtureOf = (fixture: DrawViewFixture): DraftFixture => ({
+    id: fixture.fixtureId,
+    title: titleOf(fixture),
+    judges: judgesOf(fixture),
+    schools: fixture.entries.flatMap((entry) =>
+      entry.school === null ? [] : [entry.school],
+    ),
+    flags: fixture.findings,
+    href: context.fixtureAddress(fixture.fixtureId),
+    selected: fixture.fixtureId === chosen?.fixtureId,
+  });
   const round = read.tabRound.number;
   return {
+    lookFirst: drawAtScale(read).lookFirst.map(fixtureOf),
     event: context.event,
     title: `Round ${round} draw`,
     version: read.draw.version,
@@ -175,17 +189,7 @@ const drawBoardOf = (read: DrawView, context: DrawBoardContext): DrawBoard => {
       : read.recordGroups.slice(0, listedGroups)
     ).map((group) => ({
       record: recordOf(group.wins),
-      fixtures: group.fixtures.map((fixture) => ({
-        id: fixture.fixtureId,
-        title: titleOf(fixture),
-        judges: judgesOf(fixture),
-        schools: fixture.entries.flatMap((entry) =>
-          entry.school === null ? [] : [entry.school],
-        ),
-        flags: fixture.findings,
-        href: context.fixtureAddress(fixture.fixtureId),
-        selected: fixture.fixtureId === chosen?.fixtureId,
-      })),
+      fixtures: group.fixtures.map(fixtureOf),
     })),
     rest:
       read.recordGroups.flatMap((group) => group.fixtures).length > 20

@@ -46,8 +46,8 @@ function Control({
 /** The compact sizes of a Tab button: `row` for row actions, list expanders and header actions, `back` for back links. */
 type CompactSize = 'row' | 'back';
 const compact: Readonly<Record<CompactSize, string>> = {
-  row: 'min-h-12 px-3.5 text-base',
-  back: 'min-h-9 px-3 text-sm',
+  row: 'min-h-12 px-3 text-base',
+  back: 'min-h-10 px-3 text-sm',
 };
 
 /**

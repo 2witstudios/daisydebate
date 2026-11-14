@@ -42,10 +42,14 @@ function Day({
 }) {
   const look = cn(
     'mx-auto flex size-12 flex-col items-center justify-center gap-1 rounded-md text-base no-underline hover:no-underline max-compact:size-12',
-    !day.inMonth || (day.past && !day.selected) ? 'text-ink-faint' : 'text-ink',
+    day.selected
+      ? 'text-accent-ink'
+      : !day.inMonth || day.past
+        ? 'text-ink-faint'
+        : 'text-ink',
     day.count > 0 && 'font-strong',
     day.today && !day.selected && 'border border-ink',
-    day.selected && 'bg-accent text-accent-ink',
+    day.selected && 'bg-accent',
   );
   const label = `${day.number} ${title}, ${tournamentsWord(day.count)}`;
   const body = (

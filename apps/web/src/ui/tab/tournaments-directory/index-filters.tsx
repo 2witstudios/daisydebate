@@ -65,7 +65,7 @@ function Select({
 
 /** The sheet's lower edge on the phone, the row's end on the desktop. */
 const sheetClass =
-  'details-content:contents max-compact:details-content:order-last max-compact:details-content:flex max-compact:details-content:basis-full max-compact:details-content:flex-col max-compact:details-content:gap-4 max-compact:details-content:rounded-lg max-compact:details-content:border max-compact:details-content:border-border max-compact:details-content:bg-surface-raised max-compact:details-content:p-4';
+  'details-content:contents max-compact:details-content:order-last max-compact:details-content:flex max-compact:details-content:basis-full max-compact:details-content:flex-col max-compact:details-content:gap-4 max-compact:details-content:rounded-lg max-compact:open:details-content:border max-compact:open:details-content:border-border max-compact:open:details-content:bg-surface-raised max-compact:open:details-content:p-4';
 
 /**
  * Search and every filter as one GET form, so the index filters on the
