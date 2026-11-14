@@ -27,9 +27,12 @@ export const effectiveResults = <Format extends FormatDescriptor>(
     byId: ReadonlyMap<Id, ResultOf<Format>>,
   ) => {
     let steps = 0;
+    const seen = new Set<Id>([result.id]);
     for (let at = result; at.supersedes !== null; steps += 1) {
       const earlier = byId.get(at.supersedes);
-      if (earlier === undefined) break;
+      // A chain that loops back on itself stops where it repeats.
+      if (earlier === undefined || seen.has(earlier.id)) break;
+      seen.add(earlier.id);
       at = earlier;
     }
     return steps;

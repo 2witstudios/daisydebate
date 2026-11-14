@@ -5,12 +5,7 @@ import {
   digestOf,
   hexOf,
 } from '@daisy/seeded-random';
-import type {
-  Commitment,
-  DrawInput,
-  InputsRecord,
-  Judge,
-} from '../shapes/draw';
+import type { DrawInput, InputsRecord, Judge } from '../shapes/draw';
 import type { ResolvedSettings, SettingKey } from '../shapes/settings';
 import type { Prepared } from './prepare';
 
@@ -45,7 +40,10 @@ const readKeys: Record<SettingKey, true> = {
   'break.seeding': true,
   'break.double_qualifier': true,
 };
-const engineSettingKeys = (Object.keys(readKeys) as SettingKey[]).sort();
+/** A draw reads every key but the break keys, which only `breaks` reads. */
+const engineSettingKeys = (Object.keys(readKeys) as SettingKey[])
+  .filter((key) => !key.startsWith('break.'))
+  .sort();
 
 /** Only the keys the engine reads, so a key it does not read changes nothing. */
 const settingsRead = (settings: ResolvedSettings) =>
@@ -64,25 +62,16 @@ export const inputsRecord = (
   const request = prepared.request;
   const settings = settingsRead(request.settings);
   const judges: readonly Judge[] = input.judges ?? [];
-  const commitments: readonly Commitment[] =
-    input.call === 'slot' ? input.commitments : [];
-  return {
+  const common = {
     engine: { engine: ENGINE_VERSION, ...versions },
     settings,
     settingsDigest: digestOf(canonicalJson(settings)),
     seed: hexOf(input.seed),
-    slot: input.call === 'slot' ? input.slot : null,
     entriesDigest: digestOf(canonicalJson(canonicalOrder(request.entries))),
     judgesDigest: digestOf(canonicalJson(canonicalOrder(judges))),
     existing: canonicalOrder(
       request.existing.map((f) => ({ id: f.id, hold: f.hold })),
     ),
-    commitments: canonicalOrder(
-      commitments.map((c) => ({ id: c.fixture })),
-    ).map((c) => c.id),
-    alongside: alongside
-      .filter((p) => p !== prepared)
-      .map((p) => ({ event: p.request.event, tabRound: p.request.tabRound })),
     ratings:
       request.ratings === null
         ? null
@@ -93,5 +82,17 @@ export const inputsRecord = (
           },
     cutoff: prepared.cutoff,
     results: [...prepared.results].sort(compareBytes),
+  };
+  if (input.call === 'windowed') return { call: 'windowed', ...common };
+  return {
+    call: 'slot',
+    ...common,
+    slot: input.slot,
+    commitments: canonicalOrder(
+      input.commitments.map((c) => ({ id: c.fixture })),
+    ).map((c) => c.id),
+    alongside: alongside
+      .filter((p) => p !== prepared)
+      .map((p) => ({ event: p.request.event, tabRound: p.request.tabRound })),
   };
 };

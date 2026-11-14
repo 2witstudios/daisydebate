@@ -3,23 +3,26 @@ import type { RequestOf } from '../shapes/draw';
 import { forceOf } from '../settings/registry';
 import { minimumCostAssignment } from '../solve/assignment';
 import { compareVectors, packLexicographic } from '../solve/lexicographic';
-import { entriesOf, type EventFacts } from './facts';
+import { entriesOf, pairKey, type EventFacts } from './facts';
 import {
   brokenRules,
   poolOf,
   wordFor,
   placedFrom,
   placedOrUnresolved,
-  ruleThenWeighed,
   type PlacementAnswer,
 } from './placement';
 
 export const SECTIONS_VERSION = 'sections@1';
 
 /** Section sizes for a field: as close to the target as possible, differing by at most one. */
+/** How many rooms of about `size` a field makes: the nearest whole number, at least one, in integers. */
+export const roomsFor = (count: number, size: number) =>
+  Math.max(1, Math.floor((2 * count + size) / (2 * size)));
+
 const sectionSizes = (count: number, target: number): number[] => {
   if (count === 0) return [];
-  const sections = Math.max(1, Math.round(count / target));
+  const sections = roomsFor(count, target);
   const base = Math.floor(count / sections);
   return Array.from(
     { length: sections },
@@ -60,46 +63,77 @@ const sectionOf = (speakers: readonly Id[]): Section => ({
   panel: [],
 });
 
-/** Rule breaks, then the weighed school and meeting costs, of one section. */
-const sectionCost = (facts: EventFacts, members: readonly Id[]) =>
-  ruleThenWeighed(facts, sectionOf(members), [
-    'pairing.same_school',
-    'pairing.section_repeat',
-  ]);
+/**
+ * What two speakers cost by sharing a section, highest field first: a
+ * same-school pair under the rule, a same-school pair where it is weighed,
+ * and their prior meetings where `pairing.section_repeat` is weighed. Every
+ * grouping cost of a section is a sum over its pairs, so a swap is costed by
+ * the pairs it changes alone.
+ */
+const pairCost = (facts: EventFacts) => {
+  const sameSchool = forceOf(facts.settings, 'pairing.same_school');
+  const repeat =
+    forceOf(facts.settings, 'pairing.section_repeat') === 'preference';
+  return (x: Id, z: Id): readonly [number, number, number] => {
+    const shared = (facts.schools.get(x) ?? []).some((school) =>
+      (facts.schools.get(z) ?? []).includes(school),
+    )
+      ? 1
+      : 0;
+    return [
+      sameSchool === 'rule' ? shared : 0,
+      sameSchool === 'preference' ? shared : 0,
+      repeat ? (facts.meetings.get(pairKey(x, z)) ?? 0) : 0,
+    ];
+  };
+};
 
 /** Steepest descent over single swaps between sections, until no swap improves. */
 const improve = (facts: EventFacts, sections: Id[][]) => {
-  const cost = (members: readonly Id[]) => sectionCost(facts, members);
+  const cost = pairCost(facts);
+  const everyone = sections.flat();
+  const index = new Map(everyone.map((id, i) => [id, i]));
+  const n = everyone.length;
+  /** The pair costs, computed once: a swap then reads only the pairs it changes. */
+  const table = everyone.flatMap((x) =>
+    everyone.map((z) => (x === z ? ([0, 0, 0] as const) : cost(x, z))),
+  );
+  const pair = (x: Id, z: Id) => table[index.get(x)! * n + index.get(z)!]!;
+  /** The change in cost when x leaves `from` (where y arrives) and joins `to`. */
+  const swapDelta = (x: Id, y: Id, from: readonly Id[], to: readonly Id[]) => {
+    const delta = [0, 0, 0];
+    for (const z of from) {
+      if (z === x) continue;
+      const [lose, gain] = [pair(x, z), pair(y, z)];
+      for (let k = 0; k < 3; k += 1) delta[k] = delta[k]! + gain[k]! - lose[k]!;
+    }
+    for (const z of to) {
+      if (z === y) continue;
+      const [lose, gain] = [pair(y, z), pair(x, z)];
+      for (let k = 0; k < 3; k += 1) delta[k] = delta[k]! + gain[k]! - lose[k]!;
+    }
+    return delta;
+  };
   for (let rounds = 0; rounds < 200; rounds += 1) {
     let best: {
       i: number;
       j: number;
       a: number;
       b: number;
-      gain: number[];
+      delta: number[];
     } | null = null;
     for (let i = 0; i < sections.length; i += 1)
-      for (let j = i + 1; j < sections.length; j += 1) {
-        const before = cost(sections[i]!).map(
-          (v, k) => v + cost(sections[j]!)[k]!,
-        );
+      for (let j = i + 1; j < sections.length; j += 1)
         sections[i]!.forEach((x, a) =>
           sections[j]!.forEach((y, b) => {
-            const left = sections[i]!.map((e, k) => (k === a ? y : e));
-            const right = sections[j]!.map((e, k) => (k === b ? x : e));
-            const after = cost(left).map((v, k) => v + cost(right)[k]!);
-            const gain = before.map((v, k) => v - after[k]!);
+            const delta = swapDelta(x, y, sections[i]!, sections[j]!);
             if (
-              compareVectors(
-                gain,
-                gain.map(() => 0),
-              ) > 0 &&
-              (best === null || compareVectors(gain, best.gain) > 0)
+              compareVectors(delta, [0, 0, 0]) < 0 &&
+              (best === null || compareVectors(delta, best.delta) < 0)
             )
-              best = { i, j, a, b, gain };
+              best = { i, j, a, b, delta };
           }),
         );
-      }
     if (best === null) break;
     const { i, j, a, b } = best;
     [sections[i]![a], sections[j]![b]] = [sections[j]![b]!, sections[i]![a]!];
@@ -157,8 +191,11 @@ export const placeSections = (
   request: RequestOf<Speakers>,
   facts: EventFacts,
   seed: Uint8Array,
+  keepMovable = true,
 ): PlacementAnswer => {
-  const movable = request.existing.filter((f) => f.hold === 'movable');
+  const movable = keepMovable
+    ? request.existing.filter((f) => f.hold === 'movable')
+    : [];
   const pool = poolOf(request, entriesOf);
   const target = request.settings['pairing.section_size'].target;
   const sizes = sectionSizes(pool.length, target);
@@ -183,7 +220,10 @@ export const placeSections = (
       (count) => count > remaining.length,
     )
   )
-    return { kind: 'infeasible' };
+    // Keeping a movable section can be what blocks the counting proof: try again with every movable section released.
+    return keptMovable.length > 0
+      ? placeSections(request, facts, seed, false)
+      : { kind: 'infeasible' };
   const sections =
     remaining.length === 0 ? [] : improve(facts, deal(facts, open, remaining));
   const added = sections.map((members) =>

@@ -51,7 +51,7 @@ export const placeWith = (
       return placeSections(request as RequestOf<Speakers>, facts, seed);
     case 'progression': {
       if (request.stage.kind !== 'elimination')
-        return { kind: 'structure', fact: 'no_plan', fixture: null };
+        return { kind: 'structure', fact: 'no_plan' };
       const next = progression(request, request.stage.bracket.seeds);
       if (next.kind === 'missing')
         return {
@@ -59,6 +59,13 @@ export const placeWith = (
           fact: 'missing_result',
           fixture: next.fixture,
         };
+      // A bracket already decided (one entry left, nothing to meet) has no next tab round.
+      if (
+        request.tabRound > 1 &&
+        next.fixtures.length === 1 &&
+        next.fixtures[0]!.kind === 'bye'
+      )
+        return { kind: 'structure', fact: 'no_plan' };
       const movable = request.existing.filter((f) => f.hold === 'movable');
       const key = (f: Parameters<typeof entriesOf>[0]) =>
         `${f.kind}:${entriesOf(f).join('|')}`;
@@ -102,7 +109,7 @@ const breaksWhenWeighed = (
     allowsPreference ? 'preference' : relaxedForce(key),
   );
   const answer = placeWith(prepared, settings, seed);
-  if (answer.kind !== 'placed' && answer.kind !== 'unresolved') return -1;
+  if (answer.kind !== 'placed' && answer.kind !== 'unresolved') return null;
   const facts = { ...prepared.facts, settings };
   return [
     ...answer.placed.added,

@@ -1,5 +1,10 @@
 import type { Id } from '../shapes/competition';
-import type { CostKey, FixtureRef } from '../shapes/draw';
+import type {
+  CostKey,
+  FixtureRef,
+  InvalidFact,
+  RuleBreak,
+} from '../shapes/draw';
 import type { ForceKey } from '../shapes/settings';
 
 /** Who holds a person in a slot: a fixture of a draw, or another event's commitment. */
@@ -54,6 +59,31 @@ export type Violation =
       readonly event: Id;
       readonly entry: Id;
       readonly fixture: FixtureRef;
+    }
+  | {
+      readonly kind: 'bye_count';
+      readonly event: Id;
+      readonly expected: number;
+      readonly actual: number;
+    }
+  | {
+      readonly kind: 'bye_recipient';
+      readonly event: Id;
+      readonly entry: Id;
+      readonly fixture: FixtureRef;
+      readonly reason: 'not_to_place' | 'repeat_bye' | 'not_fewest_wins';
+    }
+  // 2b. An elimination round follows its bracket.
+  | {
+      readonly kind: 'bracket_mismatch';
+      readonly event: Id;
+      readonly missing: readonly string[];
+      readonly extra: readonly string[];
+    }
+  | {
+      readonly kind: 'bracket_result_missing';
+      readonly event: Id;
+      readonly fixtures: readonly (Id | null)[];
     }
   // 3. Existing fixtures.
   | {
@@ -152,7 +182,7 @@ export type Violation =
       readonly event: Id;
       readonly key: CostKey;
       readonly expected: readonly number[];
-      readonly actual: readonly number[];
+      readonly actual: readonly number[] | null;
     }
   | {
       readonly kind: 'cost_term';
@@ -162,7 +192,54 @@ export type Violation =
       readonly expected: readonly number[];
       readonly actual: readonly number[] | null;
     }
+  | {
+      readonly kind: 'assessment_broken';
+      readonly event: Id;
+      readonly missing: readonly RuleBreak[];
+      readonly extra: readonly RuleBreak[];
+    }
+  | {
+      readonly kind: 'assessment_warnings';
+      readonly event: Id;
+      readonly missing: readonly RuleBreak[];
+      readonly extra: readonly RuleBreak[];
+    }
+  | {
+      readonly kind: 'assessment_invalid';
+      readonly event: Id;
+      readonly invalid: readonly InvalidFact[];
+    }
   // 9. Inputs record.
+  | {
+      readonly kind: 'inputs_call';
+      readonly event: Id;
+      readonly expected: 'slot' | 'windowed';
+      readonly actual: 'slot' | 'windowed';
+    }
+  | {
+      readonly kind: 'inputs_cutoff';
+      readonly event: Id;
+      readonly expected: number;
+      readonly actual: number;
+    }
+  | {
+      readonly kind: 'inputs_seed';
+      readonly event: Id;
+      readonly expected: string;
+      readonly actual: string;
+    }
+  | {
+      readonly kind: 'inputs_alongside';
+      readonly event: Id;
+      readonly missing: readonly string[];
+      readonly extra: readonly string[];
+    }
+  | {
+      readonly kind: 'inputs_ratings';
+      readonly event: Id;
+      readonly expected: unknown;
+      readonly actual: unknown;
+    }
   | {
       readonly kind: 'inputs_results';
       readonly event: Id;
@@ -172,8 +249,8 @@ export type Violation =
   | {
       readonly kind: 'inputs_slot';
       readonly event: Id;
-      readonly expected: Id | null;
-      readonly actual: Id | null;
+      readonly expected: Id;
+      readonly actual: Id;
     }
   | {
       readonly kind: 'inputs_existing';
@@ -206,6 +283,22 @@ export type Violation =
       readonly key: ForceKey;
     }
   | { readonly kind: 'infeasible_slot_unfounded'; readonly person: Id }
+  | {
+      readonly kind: 'infeasible_panels_unfounded';
+      readonly open: number;
+      readonly fillable: number;
+    }
+  | {
+      readonly kind: 'infeasible_structure_unfounded';
+      readonly event: Id;
+      readonly fixture: Id;
+    }
+  | {
+      readonly kind: 'unresolved_broken';
+      readonly event: Id;
+      readonly missing: readonly RuleBreak[];
+      readonly extra: readonly RuleBreak[];
+    }
   // Standings.
   | { readonly kind: 'standings_entry_unknown'; readonly entry: Id }
   | { readonly kind: 'standings_entry_twice'; readonly entry: Id }

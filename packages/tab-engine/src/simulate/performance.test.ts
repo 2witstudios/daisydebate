@@ -13,5 +13,5 @@ describe('performance', () => {
       actual: slow,
       expected: [],
     });
-  });
+  }, 60_000);
 });

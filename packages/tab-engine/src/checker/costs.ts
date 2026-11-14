@@ -1,6 +1,6 @@
 import type { Entry, Fixture, Id, ProtectionKey } from '../shapes/competition';
 import type { EventRequest, Judge, SlotJudge } from '../shapes/draw';
-import type { ForceKey } from '../shapes/settings';
+import type { ForceKey, JudgingForceKey } from '../shapes/settings';
 import type { Past, Records } from './past';
 
 /** Everything the costs of one event's fixtures are counted from. */
@@ -76,6 +76,35 @@ const positionBalance = (past: Past, held: readonly Id[]) =>
     return sum + 2 * ((counts[position] ?? 0) - fewest);
   }, 0);
 
+/** What seating one judge in one seat of a fixture holding `held` costs, per judging key. */
+export const seatCosts = (
+  ctx: CostContext,
+  held: readonly Id[],
+  judge: Judge | SlotJudge,
+  seat: number,
+): ReadonlyMap<JudgingForceKey, number> => {
+  const mine = schoolsOf(judge.protection);
+  const entrySchools = held.map((entry) =>
+    schoolsOf(ctx.entries.get(entry)?.protection ?? []),
+  );
+  return new Map<JudgingForceKey, number>([
+    [
+      'judging.availability',
+      ctx.slot && 'available' in judge && !judge.available ? 1 : 0,
+    ],
+    ['judging.strike', count(held, judge.strikes)],
+    ['judging.conflict', count(held, judge.conflicts)],
+    [
+      'judging.same_school',
+      entrySchools.filter((schools) => share(schools, mine)).length,
+    ],
+    ['judging.repeat_judge', count(held, judge.judged)],
+    ['judging.unsubmitted_ballot', judge.outstandingBallots > 0 ? 1 : 0],
+    ['judging.load_balance', judge.tabRoundsJudged - ctx.leastLoad],
+    ['judging.chair', seat === 0 && !judge.chair ? 1 : 0],
+  ]);
+};
+
 const judgingCosts = (
   ctx: CostContext,
   held: readonly Id[],
@@ -88,55 +117,31 @@ const judgingCosts = (
     const judge = judges.get(id);
     return judge === undefined ? [] : [{ judge, seat }];
   });
-  const entrySchools = held.map((entry) =>
-    schoolsOf(ctx.entries.get(entry)?.protection ?? []),
-  );
-  const sum = (per: (judge: Judge | SlotJudge, seat: number) => number) =>
-    [
-      seated.reduce((total, { judge, seat }) => total + per(judge, seat), 0),
-    ] as const;
-  costs.set(
-    'judging.availability',
-    sum((judge) =>
-      ctx.slot && 'available' in judge && !judge.available ? 1 : 0,
-    ),
-  );
-  costs.set(
-    'judging.strike',
-    sum((judge) => count(held, judge.strikes)),
-  );
-  costs.set(
-    'judging.conflict',
-    sum((judge) => count(held, judge.conflicts)),
-  );
-  costs.set(
-    'judging.same_school',
-    sum((judge) => {
-      const mine = schoolsOf(judge.protection);
-      return entrySchools.filter((schools) => share(schools, mine)).length;
-    }),
-  );
-  costs.set(
-    'judging.repeat_judge',
-    sum((judge) => count(held, judge.judged)),
-  );
-  costs.set(
-    'judging.unsubmitted_ballot',
-    sum((judge) => (judge.outstandingBallots > 0 ? 1 : 0)),
-  );
-  costs.set(
-    'judging.load_balance',
-    sum((judge) => judge.tabRoundsJudged - ctx.leastLoad),
-  );
-  costs.set(
-    'judging.chair',
-    sum((judge, seat) => (seat === 0 && !judge.chair ? 1 : 0)),
-  );
+  for (const { judge, seat } of seated)
+    for (const [key, cost] of seatCosts(ctx, held, judge, seat))
+      costs.set(key, [(costs.get(key)?.[0] ?? 0) + cost]);
+  if (seated.length === 0)
+    for (const key of seatCosts(ctx, held, nobody, 1).keys())
+      costs.set(key, [0]);
   costs.set('judging.panel_same_school', [
     pairs(seated.map(({ judge }) => schoolsOf(judge.protection))).filter(
       ([a, b]) => share(a, b),
     ).length,
   ]);
+};
+
+/** A judge used only to list the judging keys of an empty panel. */
+const nobody: Judge = {
+  id: '',
+  person: '',
+  protection: [],
+  events: null,
+  conflicts: [],
+  strikes: [],
+  judged: [],
+  tabRoundsJudged: 0,
+  outstandingBallots: 0,
+  chair: true,
 };
 
 /** Each applicable force key's count for one fixture: zero kept, above zero broken. */

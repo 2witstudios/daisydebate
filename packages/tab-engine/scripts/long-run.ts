@@ -5,7 +5,7 @@
  * Usage: bun run simulate:long [count]
  */
 import { simulate } from '../src/simulate';
-import { measure } from './performance-cases';
+import { measure, measureLarge } from './performance-cases';
 
 const count = Number(process.argv[2] ?? 2000);
 const answers: Record<string, number> = {};
@@ -36,7 +36,7 @@ process.stdout.write(
     `draw calls: ${calls}; answers: ${JSON.stringify(answers)}`,
     `slowest tournament: ${slowest} ms; total: ${seconds} s`,
     'performance, best of three (typical size, target):',
-    ...measure().map(
+    ...[...measure(), ...measureLarge()].map(
       (m) => `  ${m.ms} ms (target ${m.targetMs} ms)  ${m.method}`,
     ),
     `rejected by the checker: ${rejected.length}`,

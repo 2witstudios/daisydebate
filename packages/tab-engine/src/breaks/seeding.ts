@@ -11,8 +11,16 @@ import { metricValue } from '../standings/metric-value';
 import { standings } from '../standings/standings';
 import { tallyOf } from '../standings/tally';
 
-/** A candidate in seed order, with the wins a record line reads. */
-export type Seeded = { readonly entry: Id; readonly wins: Rational };
+/**
+ * A candidate in seed order, with the wins a record line reads, and whether
+ * it is still tied with the candidate above (separated only by a lot or a
+ * declared tie, or on an equal rating), which a tie-inclusive line reads.
+ */
+export type Seeded = {
+  readonly entry: Id;
+  readonly wins: Rational;
+  readonly tiedWithAbove: boolean;
+};
 
 /** Break-eligible active entries of the stage's division, or of the event when it has none. */
 export const candidatesOf = (
@@ -39,7 +47,10 @@ const compareRatings = (
   return (a?.status === 'rated' ? 0 : 1) - (b?.status === 'rated' ? 0 : 1);
 };
 
-const byRating = (input: BreaksInput, candidates: readonly Entry[]): Id[] => {
+const byRating = (
+  input: BreaksInput,
+  candidates: readonly Entry[],
+): { readonly entry: Id; readonly tied: boolean }[] => {
   const ratings = new Map(
     input.ratings?.entries.map((r) => [r.entry, r as EntryRating]) ?? [],
   );
@@ -56,9 +67,10 @@ const byRating = (input: BreaksInput, candidates: readonly Entry[]): Id[] => {
     else groups.push([e.id]);
   });
   return groups.flatMap((group) =>
-    group.length > 1
+    (group.length > 1
       ? drawLots('daisy-tab-v1/breaks/lot', input.seed, group)
-      : group,
+      : group
+    ).map((entry, i) => ({ entry, tied: i > 0 })),
   );
 };
 
@@ -82,10 +94,18 @@ export const seedOrder = (
     input.settings['break.seeding'].value === 'rating'
       ? byRating(input, candidates)
       : standings(standingsInput).rows.flatMap((r) =>
-          r.rank === null ? [] : [r.entry],
+          r.rank === null
+            ? []
+            : [
+                {
+                  entry: r.entry,
+                  tied: r.separatedBy === 'shared' || r.separatedBy === 'lot',
+                },
+              ],
         );
-  return order.map((entry) => ({
+  return order.map(({ entry, tied }, i) => ({
     entry,
     wins: metricValue(tally, entry, 'wins')[0]!,
+    tiedWithAbove: i > 0 && tied,
   }));
 };

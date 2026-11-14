@@ -281,12 +281,12 @@ describe('a windowed tab round', () => {
       should:
         'draw with no slot, seat four distinct judges, and record no slot or commitment',
       actual: [
-        d.inputs.slot,
-        d.inputs.commitments,
+        d.inputs.call,
+        'commitments' in d.inputs,
         seated.length,
         new Set(seated).size,
       ],
-      expected: [null, [], 4, 4],
+      expected: ['windowed', false, 4, 4],
     });
   });
 });

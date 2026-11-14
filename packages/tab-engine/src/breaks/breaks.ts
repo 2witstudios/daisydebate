@@ -43,6 +43,8 @@ const resolved = (
  * out first, and anyone still through to two stages without a choice leaves
  * the break undecided.
  */
+export const BREAKS_VERSION = 'breaks@1';
+
 export const breaks = (input: BreaksInput): BreaksAnswer => {
   const rule = input.settings['break.double_qualifier'].value;
   switch (rule) {

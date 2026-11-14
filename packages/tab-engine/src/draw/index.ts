@@ -1,5 +1,10 @@
 import { compareBytes } from '@daisy/seeded-random';
-import { assessPlan, callFacts, type CallContext } from '../assess/assessment';
+import {
+  ASSESS_VERSION,
+  assessPlan,
+  callFacts,
+  type CallContext,
+} from '../assess/assessment';
 import type { Entry, Fixture, Id } from '../shapes/competition';
 import type {
   Draw,
@@ -13,7 +18,7 @@ import type {
 import { entriesOf } from './facts';
 import { FOUR_SIDE_VERSION } from './four-side';
 import { inputsRecord } from './inputs-record';
-import { JUDGES_VERSION, staff, type StaffTask } from './judges';
+import { blockingRules, JUDGES_VERSION, staff, type StaffTask } from './judges';
 import { conflictingRules, placeWith } from './place';
 import type { Placed } from './placement';
 import { prepare, type Prepared } from './prepare';
@@ -39,14 +44,22 @@ const versionOf = (prepared: Prepared): Record<string, string> => {
         return PROGRESSION_VERSION;
     }
   })();
-  return { method, judges: JUDGES_VERSION };
+  return { method, judges: JUDGES_VERSION, assess: ASSESS_VERSION };
 };
 
-/** The call's event requests in canonical order of event id, so their order cannot matter. */
+/** The call's event requests, and each one's existing fixtures, in canonical order of id, so no input order can matter. */
 export const requestsOf = (input: DrawInput): readonly EventRequest[] =>
-  [...(input.call === 'slot' ? input.events : [input.event])].sort((a, b) =>
-    compareBytes(a.event, b.event),
-  );
+  [...(input.call === 'slot' ? input.events : [input.event])]
+    .sort((a, b) => compareBytes(a.event, b.event))
+    .map(
+      (request) =>
+        ({
+          ...request,
+          existing: [...request.existing].sort((a, b) =>
+            compareBytes(a.id, b.id),
+          ),
+        }) as EventRequest,
+    );
 
 export const callContext = (input: DrawInput): CallContext => {
   const judges = input.judges;
@@ -122,11 +135,57 @@ const finish = (
   });
 };
 
+/** The entries a placement seats in a Room; a bye occupies nobody. */
 const fixtureEntries = (prepared: Prepared, placed: Placed): Entry[] => {
   const byId = new Map(prepared.request.entries.map((e) => [e.id, e]));
   return [...placed.kept.map((k) => k.fixture), ...placed.added]
+    .filter((f) => f.kind !== 'bye')
     .flatMap((f) => entriesOf(f))
     .flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+};
+
+/**
+ * A movable fixture whose seated judge may no longer sit there (a judging
+ * rule, their own entry, an event they may not judge) is withdrawn: a rule is
+ * never relaxed to keep a fixture, and a kept fixture's judges stay.
+ */
+const releasedMovable = (
+  p: Prepared,
+  input: DrawInput,
+  leastLoad: number,
+): Set<Id> => {
+  if (input.judges === null) return new Set();
+  const byId = new Map<Id, Judge | SlotJudge>(
+    input.judges.map((j) => [j.id, j]),
+  );
+  const people = peopleOf([p.request]);
+  const released = new Set<Id>();
+  for (const f of p.request.existing) {
+    const fixture = f.fixture as Fixture;
+    if (f.hold !== 'movable' || fixture.kind === 'bye') continue;
+    const competitors = new Set(
+      entriesOf(fixture).flatMap((e) => people.get(e) ?? []),
+    );
+    const task: StaffTask = {
+      facts: p.facts,
+      ref: { kind: 'existing', id: f.id },
+      fixture,
+      size: fixture.panel.length,
+      competitors,
+      slot: input.call === 'slot',
+    };
+    const blocked = fixture.panel.some((id, seat) => {
+      const judge = byId.get(id);
+      return (
+        judge !== undefined &&
+        (competitors.has(judge.person) ||
+          (judge.events !== null && !judge.events.includes(p.request.event)) ||
+          blockingRules(task, seat, judge, leastLoad).length > 0)
+      );
+    });
+    if (blocked) released.add(f.id);
+  }
+  return released;
 };
 
 /**
@@ -142,21 +201,36 @@ export const draw = (input: DrawInput): DrawAnswer => {
     prepare(request, input.seed),
   );
   const placements: Placed[] = [];
+  const leastLoad = callContext(input).leastLoad;
   for (const p of prepared) {
-    const answer = placeWith(p, p.request.settings, input.seed);
+    const released = releasedMovable(p, input, leastLoad);
+    const placing =
+      released.size === 0
+        ? p
+        : ({
+            ...p,
+            request: {
+              ...p.request,
+              existing: p.request.existing.filter((f) => !released.has(f.id)),
+            },
+          } as Prepared);
+    const withReleased = (placed: Placed): Placed => ({
+      ...placed,
+      withdrawn: [...placed.withdrawn, ...released],
+    });
+    const answer = placeWith(placing, p.request.settings, input.seed);
     switch (answer.kind) {
       case 'placed':
-        placements.push(answer.placed);
+        placements.push(withReleased(answer.placed));
         break;
       case 'infeasible': {
-        const conflict = conflictingRules(p, input.seed);
+        const conflict = conflictingRules(placing, input.seed);
         return conflict === null
           ? {
               kind: 'infeasible',
               cause: 'structure',
               event: p.request.event,
               fact: 'no_plan',
-              fixture: null,
             }
           : {
               kind: 'infeasible',
@@ -166,18 +240,25 @@ export const draw = (input: DrawInput): DrawAnswer => {
             };
       }
       case 'structure':
-        return {
-          kind: 'infeasible',
-          cause: 'structure',
-          event: p.request.event,
-          fact: answer.fact,
-          fixture: answer.fixture,
-        };
+        return answer.fact === 'missing_result'
+          ? {
+              kind: 'infeasible',
+              cause: 'structure',
+              event: p.request.event,
+              fact: answer.fact,
+              fixture: answer.fixture,
+            }
+          : {
+              kind: 'infeasible',
+              cause: 'structure',
+              event: p.request.event,
+              fact: answer.fact,
+            };
       case 'unresolved': {
         const attempt = finish(
           input,
           [p],
-          [asPlan(p, answer.placed, new Map())],
+          [asPlan(p, withReleased(answer.placed), new Map())],
         )[0]!;
         return {
           kind: 'unresolved',
@@ -210,6 +291,7 @@ export const draw = (input: DrawInput): DrawAnswer => {
   }
   const panels = new Map<Fixture, readonly Id[]>();
   if (input.judges !== null) {
+    const people = peopleOf(prepared.map((p) => p.request));
     const tasks: StaffTask[] = prepared.flatMap((p, i) => {
       const placed = placements[i]!;
       const size =
@@ -224,7 +306,20 @@ export const draw = (input: DrawInput): DrawAnswer => {
           fixture,
         })),
       ].flatMap(({ ref, fixture }) =>
-        fixture.kind === 'bye' ? [] : [{ facts: p.facts, ref, fixture, size }],
+        fixture.kind === 'bye'
+          ? []
+          : [
+              {
+                facts: p.facts,
+                ref,
+                fixture,
+                size,
+                slot: input.call === 'slot',
+                competitors: new Set(
+                  entriesOf(fixture).flatMap((e) => people.get(e) ?? []),
+                ),
+              },
+            ],
       );
     });
     const committedPeople = new Set(

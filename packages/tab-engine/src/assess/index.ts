@@ -5,6 +5,7 @@ import type { Id } from '../shapes/competition';
 import type {
   Assessment,
   CostKey,
+  Draw,
   DrawInput,
   EventRequest,
   ExistingFixture,
@@ -60,13 +61,10 @@ const totalsOf = (assessment: Assessment) =>
  * difference field by field with every fixture that would change. The pin
  * is a fixed fixture the engine must keep; nothing else about the input moves.
  */
-export const whyNot = (
-  input: DrawInput,
-  event: Id,
-  entries: readonly Id[],
-): WhyNot => {
-  const drawn = draw(input);
-  if (drawn.kind !== 'drawn') return { kind: 'impossible' };
+const PIN = '\u0000pinned';
+
+/** The draw with one fixture pinned, or null when no draw holds it. */
+const drawPinned = (input: DrawInput, event: Id, entries: readonly Id[]) => {
   const pin = (request: EventRequest): EventRequest => {
     if (request.event !== event) return request;
     const fixture =
@@ -74,7 +72,7 @@ export const whyNot = (
         ? { kind: 'pairing', sides: entries, panel: [] }
         : { kind: 'section', speakers: entries, panel: [] };
     const pinned = {
-      id: '\u0000pinned',
+      id: PIN,
       fixture,
       hold: 'fixed',
     } as ExistingFixture<never>;
@@ -83,17 +81,20 @@ export const whyNot = (
       existing: [...request.existing, pinned],
     } as EventRequest;
   };
-  const pinnedInput: DrawInput =
+  const answer = draw(
     input.call === 'slot'
       ? { ...input, events: input.events.map(pin) }
-      : { ...input, event: pin(input.event) };
-  const again = draw(pinnedInput);
-  if (again.kind !== 'drawn') return { kind: 'impossible' };
-  const before = drawn.draws.find((d) => d.event === event)!;
-  const after = again.draws.find((d) => d.event === event)!;
-  const [x, y] = [totalsOf(before.assessment), totalsOf(after.assessment)];
+      : { ...input, event: pin(input.event) },
+  );
+  return answer.kind === 'drawn'
+    ? answer.draws.find((d) => d.event === event)!
+    : null;
+};
+
+const differenceOf = (before: Assessment, after: Assessment) => {
+  const [x, y] = [totalsOf(before), totalsOf(after)];
   const keys = [...new Set([...x.keys(), ...y.keys()])].sort();
-  const difference = keys.flatMap((key) => {
+  return keys.flatMap((key) => {
     const a = x.get(key) ?? [];
     const b = y.get(key) ?? [];
     const diff = Array.from(
@@ -102,11 +103,56 @@ export const whyNot = (
     );
     return diff.some((d) => d !== 0) ? [{ key, cost: diff }] : [];
   });
+};
+
+/**
+ * "Why not A against C": pins that fixture, solves again, and returns the
+ * difference field by field with every fixture that would change. A pair is
+ * pinned as a pair: both orientations are tried and the cheaper kept, so the
+ * question does not choose the sides. The pin comes back as an added
+ * fixture; the engine mints no id.
+ */
+export const whyNot = (
+  input: DrawInput,
+  event: Id,
+  entries: readonly Id[],
+): WhyNot => {
+  const drawn = draw(input);
+  if (drawn.kind !== 'drawn') return { kind: 'impossible' };
+  const before = drawn.draws.find((d) => d.event === event)!;
+  const orders =
+    entries.length === 2 ? [entries, [entries[1]!, entries[0]!]] : [entries];
+  const total = (d: Draw) =>
+    differenceOf(before.assessment, d.assessment).reduce(
+      (sum, t) => sum + t.cost.reduce((a, c) => a + c, 0),
+      0,
+    );
+  const candidates = orders.flatMap((order) => {
+    const d = drawPinned(input, event, order);
+    return d === null ? [] : [d];
+  });
+  const after = [...candidates].sort((a, b) => total(a) - total(b))[0];
+  if (after === undefined) return { kind: 'impossible' };
+  const pinned = after.keep.find((k) => k.id === PIN)!;
+  const plan = {
+    event: after.event,
+    keep: after.keep.filter((k) => k.id !== PIN),
+    add: [
+      ...after.add,
+      { ordinal: after.add.length + 1, fixture: pinned.fixture },
+    ],
+    withdraw: after.withdraw,
+  } as Plan;
   const signature = (f: Parameters<typeof entriesOf>[0]) =>
-    `${f.kind}:${entriesOf(f).join('|')}`;
-  const kept = new Set(placedOf(after).map((p) => signature(p.fixture)));
+    `${f.kind}:${[...entriesOf(f)].sort().join('|')}`;
+  const kept = new Set(placedOf(plan).map((p) => signature(p.fixture)));
   const changed = placedOf(before)
     .filter((p) => !kept.has(signature(p.fixture)))
     .map((p) => p.ref);
-  return { kind: 'answered', difference, changed, pinned: after };
+  return {
+    kind: 'answered',
+    difference: differenceOf(before.assessment, after.assessment),
+    changed,
+    pinned: plan,
+  };
 };

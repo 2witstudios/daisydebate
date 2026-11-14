@@ -11,8 +11,9 @@ const atLeast = (s: Seeded, wins: number) =>
  * - record: everyone on at least `wins`.
  * - record_capped: at least `wins`, at most `cap`; when fewer than `floor`
  *   qualify, the next entries in seed order fill up to `floor`.
- * - tie_inclusive: the top `size`, and every later entry level on wins with
- *   the `size`-th, unless the whole level group would pass `ceiling`.
+ * - tie_inclusive: the top `size`, and the run of later entries still tied
+ *   with the `size`-th in the seed order, unless that run would pass
+ *   `ceiling`.
  */
 export const clearLine = (
   ordered: readonly Seeded[],
@@ -37,9 +38,9 @@ export const clearLine = (
       const top = ordered.slice(0, line.size);
       const last = top[top.length - 1];
       if (last === undefined || top.length < line.size) return top;
-      const level = ordered
-        .slice(line.size)
-        .filter((s) => compareRational(s.wins, last.wins) === 0);
+      const rest = ordered.slice(line.size);
+      const run = rest.findIndex((s) => !s.tiedWithAbove);
+      const level = run === -1 ? rest : rest.slice(0, run);
       return top.length + level.length <= line.ceiling
         ? [...top, ...level]
         : top;

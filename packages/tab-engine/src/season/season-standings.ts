@@ -102,6 +102,8 @@ const best = (events: readonly EventPoints[], count: number | null) => {
  * the last sanctioned event, in input order, that lists them (a competitor
  * with no school is never limited).
  */
+export const SEASON_VERSION = 'season-standings@1';
+
 export const seasonStandings = (
   events: readonly SeasonEvent[],
   formula: SeasonFormula,

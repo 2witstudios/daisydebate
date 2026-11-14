@@ -6,6 +6,7 @@ import type {
   EventRequest,
   ExistingFixture,
 } from '../shapes/draw';
+import { effectiveCutoff } from './context';
 import { countedResults, pastFixtures, pastResults } from './past';
 import type { Violation } from './verdict';
 
@@ -49,6 +50,9 @@ export const resultsDifference = (
   return { missing: sorted(missing), extra: sorted(extra) };
 };
 
+const hex = (bytes: Uint8Array) =>
+  Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+
 /** Fact 9: the inputs record names what the draw was computed from. */
 export const recordViolations = (
   input: DrawInput,
@@ -58,17 +62,55 @@ export const recordViolations = (
   const event = request.event;
   const record = draw.inputs;
   const violations: Violation[] = [];
-  const results = resultsDifference(request, record.cutoff, record.results);
+  if (record.call !== input.call)
+    violations.push({
+      kind: 'inputs_call',
+      event,
+      expected: input.call,
+      actual: record.call,
+    });
+  const cutoff = effectiveCutoff(request);
+  if (record.cutoff !== cutoff)
+    violations.push({
+      kind: 'inputs_cutoff',
+      event,
+      expected: cutoff,
+      actual: record.cutoff,
+    });
+  const results = resultsDifference(request, cutoff, record.results);
   if (results.missing.length > 0 || results.extra.length > 0)
     violations.push({ kind: 'inputs_results', event, ...results });
-  const slot = input.call === 'slot' ? input.slot : null;
-  if (record.slot !== slot)
+  const seed = hex(input.seed);
+  if (record.seed !== seed)
     violations.push({
-      kind: 'inputs_slot',
+      kind: 'inputs_seed',
       event,
-      expected: slot,
-      actual: record.slot,
+      expected: seed,
+      actual: record.seed,
     });
+  if (input.call === 'slot' && record.call === 'slot') {
+    if (record.slot !== input.slot)
+      violations.push({
+        kind: 'inputs_slot',
+        event,
+        expected: input.slot,
+        actual: record.slot,
+      });
+    const commitments = difference(
+      input.commitments.map((c) => c.fixture),
+      record.commitments,
+    );
+    if (commitments.missing.length > 0 || commitments.extra.length > 0)
+      violations.push({ kind: 'inputs_commitments', event, ...commitments });
+    const alongside = difference(
+      input.events
+        .filter((r) => r.event !== event)
+        .map((r) => `${r.event}:${r.tabRound}`),
+      record.alongside.map((a) => `${a.event}:${a.tabRound}`),
+    );
+    if (alongside.missing.length > 0 || alongside.extra.length > 0)
+      violations.push({ kind: 'inputs_alongside', event, ...alongside });
+  }
   const existing = difference(
     (request.existing as readonly ExistingFixture<never>[]).map(
       (e) => `${e.id}:${e.hold}`,
@@ -77,11 +119,28 @@ export const recordViolations = (
   );
   if (existing.missing.length > 0 || existing.extra.length > 0)
     violations.push({ kind: 'inputs_existing', event, ...existing });
-  const commitments = difference(
-    input.call === 'slot' ? input.commitments.map((c) => c.fixture) : [],
-    record.commitments,
-  );
-  if (commitments.missing.length > 0 || commitments.extra.length > 0)
-    violations.push({ kind: 'inputs_commitments', event, ...commitments });
+  const ratings =
+    request.ratings === null
+      ? null
+      : {
+          ladder: request.ratings.ladder,
+          takenAt: request.ratings.takenAt,
+          calculation: request.ratings.calculation,
+        };
+  const recorded =
+    record.ratings === null
+      ? null
+      : {
+          ladder: record.ratings.ladder,
+          takenAt: record.ratings.takenAt,
+          calculation: record.ratings.calculation,
+        };
+  if (JSON.stringify(ratings) !== JSON.stringify(recorded))
+    violations.push({
+      kind: 'inputs_ratings',
+      event,
+      expected: ratings,
+      actual: record.ratings,
+    });
   return violations;
 };

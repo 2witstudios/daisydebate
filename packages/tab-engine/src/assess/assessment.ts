@@ -18,6 +18,8 @@ import { pairingKeys, pairingTerms, forceOf } from '../settings/registry';
 import { compareVectors } from '../solve/lexicographic';
 import { addCost, fixtureTerms, methodCosts } from './costs';
 
+export const ASSESS_VERSION = 'assess@1';
+
 /** What a whole call shares when its plans are costed. */
 export type CallContext = {
   readonly judges: ReadonlyMap<Id, Judge | SlotJudge> | null;
@@ -98,7 +100,13 @@ const structuralFacts = (
     if (before.some((judge, seat) => panelOf(keptAs)[seat] !== judge))
       out.push({ fact: 'seated_judge_removed', event, fixture: existing.id });
   }
+  const members = new Map(
+    prepared.request.entries.map((e) => [e.id, e.members]),
+  );
   for (const { ref, fixture } of placed) {
+    const competing = new Set(
+      entriesOf(fixture).flatMap((e) => members.get(e) ?? []),
+    );
     if (!fitsFormat(prepared, fixture))
       out.push({ fact: 'fixture_kind', event, fixture: ref });
     if (panelOf(fixture).length > panelSize(prepared))
@@ -108,6 +116,8 @@ const structuralFacts = (
       if (judge === undefined) continue;
       if (judge.events !== null && !judge.events.includes(event))
         out.push({ fact: 'judge_not_eligible', judge: id, event });
+      if (competing.has(judge.person))
+        out.push({ fact: 'judge_competing', judge: id, event, fixture: ref });
     }
   }
   return out;
@@ -229,6 +239,7 @@ export const assessPlan = (
         methods.get(index),
         context.judges,
         context.leastLoad,
+        context.slot,
       );
       for (const term of terms) {
         addCost(totals, term.key, term.cost);

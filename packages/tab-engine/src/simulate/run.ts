@@ -41,7 +41,8 @@ type Log = {
   calls: number;
   answers: Record<string, number>;
   rejections: { where: string; violations: readonly unknown[] }[];
-  kept: { digest: string; draw: Draw }[];
+  /** Every call made, with the digest of its answer, to replay after the corrections. */
+  kept: { where: string; digest: string; input: DrawInput }[];
 };
 
 const answerKind = (answer: DrawAnswer) =>
@@ -55,6 +56,16 @@ const drawChecked = (
   overrides: readonly RuleBreak[] = [],
 ): DrawAnswer => {
   const answer = draw(input);
+  // The judge pool grows between calls, so the recorded input keeps its own copy.
+  const recorded = {
+    ...input,
+    judges: input.judges && [...input.judges],
+  } as DrawInput;
+  log.kept.push({
+    where,
+    digest: digestOf(canonicalJson(answer)),
+    input: recorded,
+  });
   log.calls += 1;
   log.answers[answerKind(answer)] = (log.answers[answerKind(answer)] ?? 0) + 1;
   const verdict = check(
@@ -300,6 +311,10 @@ const redraw = (
   cutoff: number,
   dd: Dice,
   seed: Uint8Array,
+  slot: {
+    readonly judges: SlotJudge[];
+    readonly commitments: readonly Commitment[];
+  } | null,
 ) => {
   const published = asHistory(d, `${label}-${plan.id}`);
   const victim = state.entries.find(
@@ -322,18 +337,25 @@ const redraw = (
         ? 'fixed'
         : 'movable',
   }));
-  const input: DrawInput = {
-    call: 'windowed',
-    event: requestFor(
-      { ...plan, settings: d.inputs.settings as ResolvedSettings },
-      state,
-      tabRound,
-      cutoff,
-      existing as never,
-    ),
-    judges: null,
-    seed,
-  };
+  const request = requestFor(
+    { ...plan, settings: d.inputs.settings as ResolvedSettings },
+    state,
+    tabRound,
+    cutoff,
+    existing as never,
+  );
+  /** Sometimes inside the slot, with the panels already seated and the other events as commitments. */
+  const input: DrawInput =
+    slot === null
+      ? { call: 'windowed', event: request, judges: null, seed }
+      : {
+          call: 'slot',
+          slot: label,
+          events: [request],
+          judges: [...slot.judges],
+          commitments: slot.commitments,
+          seed,
+        };
   /** A break the host overrode when the draw was published stays overridden on the same fixture. */
   const carried: RuleBreak[] = d.assessment.broken.map((b) =>
     b.fixture.kind === 'new'
@@ -518,8 +540,8 @@ const eliminations = (
 export const simulate = (
   seed: Uint8Array,
   size: 'small' | 'full' = 'small',
+  scenario: Scenario = scenarioOf(seed, size),
 ): SimulationReport => {
-  const scenario = scenarioOf(seed, size);
   const d = dice(seed, 'run');
   const log: Log = { calls: 0, answers: {}, rejections: [], kept: [] };
   const judges = judgePool(scenario, d, d.chance(25));
@@ -589,8 +611,17 @@ export const simulate = (
           cutoff,
           d,
           seed,
+          d.chance(50)
+            ? {
+                judges,
+                commitments: events
+                  .filter((e) => e.plan.id !== plan.id && drawn.has(e.plan.id))
+                  .flatMap((e) =>
+                    occupying(drawn.get(e.plan.id)!, judges, e.state.entries),
+                  ),
+              }
+            : null,
         );
-      log.kept.push({ digest: digestOf(canonicalJson(dr)), draw: dr });
       const fixtures = fixturesOfDraw(dr, `${plan.id}-r${round}`);
       const results = playFixtures(
         state,
@@ -642,10 +673,15 @@ export const simulate = (
       results: [...state.history.results, ...state.late],
     };
   eliminations(log, scenario, events, judges, seed, scenario.preliminaryRounds);
-  for (const { digest, draw: kept } of log.kept)
-    if (digestOf(canonicalJson(kept)) !== digest)
+  /**
+   * No earlier draw changed by a correction: every call is drawn again from
+   * its recorded input after the corrections have arrived, and must give the
+   * same answer. A correction counts only in draws made after it.
+   */
+  for (const { where, digest, input } of log.kept)
+    if (digestOf(canonicalJson(draw(input))) !== digest)
       log.rejections.push({
-        where: 'correction',
+        where: `replay ${where}`,
         violations: ['an earlier draw changed'],
       });
   return {

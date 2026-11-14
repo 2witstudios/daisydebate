@@ -23,9 +23,10 @@ export type PlacementAnswer =
   | { readonly kind: 'unresolved'; readonly placed: Placed }
   | {
       readonly kind: 'structure';
-      readonly fact: 'missing_result' | 'no_plan';
-      readonly fixture: Id | null;
-    };
+      readonly fact: 'missing_result';
+      readonly fixture: Id;
+    }
+  | { readonly kind: 'structure'; readonly fact: 'no_plan' };
 
 /** The seeded streams of one event: adding a choice in one place shifts no other. */
 export const eventStream = (

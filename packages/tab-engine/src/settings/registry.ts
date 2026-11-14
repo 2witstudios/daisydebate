@@ -171,6 +171,8 @@ export type SeatContext = {
   readonly judge: Judge | SlotJudge;
   /** The least load in the pool, so load counts from the lightest judge. */
   readonly leastLoad: number;
+  /** Only a slot call reads availability. */
+  readonly slot: boolean;
 };
 
 const judgeShares = (context: SeatContext) => {
@@ -192,8 +194,8 @@ type SeatTerm = (context: SeatContext) => number;
 export type SeatKey = Exclude<JudgingForceKey, 'judging.panel_same_school'>;
 
 export const seatTerms: Record<SeatKey, SeatTerm> = {
-  'judging.availability': ({ judge }) =>
-    'available' in judge && !judge.available ? 1 : 0,
+  'judging.availability': ({ judge, slot }) =>
+    slot && 'available' in judge && !judge.available ? 1 : 0,
   'judging.strike': (context) => countIn(context, context.judge.strikes),
   'judging.conflict': (context) => countIn(context, context.judge.conflicts),
   'judging.same_school': judgeShares,

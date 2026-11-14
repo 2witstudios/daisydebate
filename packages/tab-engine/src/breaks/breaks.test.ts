@@ -41,16 +41,43 @@ describe('break lines', () => {
     );
 
   test('tie-inclusive with its ceiling', () => {
+    const line = (
+      size: number,
+      ceiling: number,
+      metrics: 'wins' | 'wins+points',
+    ) =>
+      seedsOf(
+        breaks(
+          breakInput(
+            entries,
+            played,
+            settingsWith({
+              'break.line': {
+                default: { kind: 'tie_inclusive', size, ceiling },
+                byDivision: {},
+              },
+              'standings.tiebreaks': {
+                metrics:
+                  metrics === 'wins' ? ['wins'] : ['wins', 'total_points'],
+                minimumGames: null,
+                terminal: 'shared',
+              },
+            }),
+            [{ id: 'elim', division: null }],
+          ),
+        ),
+      );
     assert({
       given:
-        'a tie-inclusive break of 3, the third seed C on 2 wins level with D and E',
+        'a tie-inclusive break of 3 where the third seed C is tied with D and E on every tiebreak, and then where points separate them',
       should:
-        'take D and E too under a ceiling of 5, and exactly 3 under a ceiling of 4',
+        'take D and E too under a ceiling of 5, exactly 3 under a ceiling of 4, and exactly 3 when points separate C from D',
       actual: [
-        lineBreak({ kind: 'tie_inclusive', size: 3, ceiling: 5 }),
-        lineBreak({ kind: 'tie_inclusive', size: 3, ceiling: 4 }),
+        line(3, 5, 'wins'),
+        line(3, 4, 'wins'),
+        line(3, 5, 'wins+points'),
       ],
-      expected: [['elim: A B C D E'], ['elim: A B C']],
+      expected: [['elim: A B C D E'], ['elim: A B C'], ['elim: A B C']],
     });
   });
 

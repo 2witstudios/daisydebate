@@ -1,7 +1,7 @@
 import type { Rational } from '../shapes/folds';
 
 /** Exact fractions in lowest terms: integers only, never a float. */
-const gcd = (a: number, b: number): number =>
+export const gcd = (a: number, b: number): number =>
   b === 0 ? Math.abs(a) : gcd(b, a % b);
 
 export const rational = (n: number, d = 1): Rational => {

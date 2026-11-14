@@ -107,53 +107,77 @@ export const placeTwoSided = (
     a: Id,
     b: Id,
   ): { fixture: Fixture2; kept: boolean }[] => {
+    /**
+     * A movable fixture for this pair is offered as kept, beside the fresh
+     * orientations: if keeping it breaks a rule it is withdrawn, never the
+     * pair's edge lost.
+     */
     const existing = movableFor.get(pairKey(a, b));
-    if (existing !== undefined)
-      return [{ fixture: existing.fixture, kept: true }];
+    const kept =
+      existing === undefined ? [] : [{ fixture: existing.fixture, kept: true }];
     if (a === BYE || b === BYE)
       return [
+        ...kept,
         { fixture: { kind: 'bye', entry: a === BYE ? b : a }, kept: false },
       ];
     return [
+      ...kept,
       { fixture: { kind: 'pairing', sides: [a, b], panel: [] }, kept: false },
       { fixture: { kind: 'pairing', sides: [b, a], panel: [] }, kept: false },
     ];
   };
 
+  /** Each pair's admissible orientations and their fields, computed once for both passes. */
+  const base = new Map<
+    string,
+    { word: number; options: { fixture: Fixture2; fields: number[] }[] } | null
+  >();
+  const optionsOf = (a: Id, b: Id) => {
+    const key = pairKey(a, b);
+    if (base.has(key)) return base.get(key)!;
+    const made =
+      structure === 'prematched' &&
+      a !== BYE &&
+      b !== BYE &&
+      (facts.meetings.get(key) ?? 0) > 0
+        ? null
+        : {
+            word: tie(a, b),
+            options: orientations(a, b)
+              .filter(({ fixture }) => brokenRules(facts, fixture).length === 0)
+              .map(({ fixture, kept }) => ({
+                fixture,
+                fields: [
+                  kept ? 0 : 1,
+                  ...preferenceFields(
+                    facts,
+                    fixture,
+                    byeRecipientTerm(facts, fixture),
+                  ),
+                ],
+              })),
+          };
+    base.set(key, made);
+    return made;
+  };
+
   const candidate =
     (extra: (fixture: Fixture2) => number) =>
     (a: Id, b: Id): Candidate | null => {
+      const known = optionsOf(a, b);
+      if (known === null) return null;
+      const word = known.word;
+      const options = known.options.map(({ fixture, fields }) => ({
+        fixture,
+        fields: [...fields, extra(fixture), word >>> 16],
+      }));
+      const sorted = options.sort((x, y) => compareVectors(x.fields, y.fields));
       if (
-        structure === 'prematched' &&
-        a !== BYE &&
-        b !== BYE &&
-        (facts.meetings.get(pairKey(a, b)) ?? 0) > 0
+        sorted.length >= 2 &&
+        compareVectors(sorted[0]!.fields, sorted[1]!.fields) === 0
       )
-        return null;
-      const word = tie(a, b);
-      const options = orientations(a, b)
-        .filter(({ fixture }) => brokenRules(facts, fixture).length === 0)
-        .map(({ fixture, kept }) => ({
-          fixture,
-          fields: [
-            kept ? 0 : 1,
-            ...preferenceFields(
-              facts,
-              fixture,
-              byeRecipientTerm(facts, fixture),
-            ),
-            extra(fixture),
-            word >>> 16,
-          ],
-        }));
-      if (
-        options.length === 2 &&
-        compareVectors(options[0]!.fields, options[1]!.fields) === 0
-      )
-        return options[word & 1]!;
-      return (
-        options.sort((x, y) => compareVectors(x.fields, y.fields))[0] ?? null
-      );
+        return sorted[word & 1]!;
+      return sorted[0] ?? null;
     };
 
   const first = solve(

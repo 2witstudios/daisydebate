@@ -47,6 +47,8 @@ const gamesOf = (tournament: Tournament): LadderGame[] => {
  * The games a league's ladder rates, in play order (then result id): its own
  * rooms, and the ratable games of sanctioned tournaments. It rates nothing.
  */
+export const LADDER_INPUT_VERSION = 'ladder-input@1';
+
 export const ladderInput = (input: LadderInput): LadderGame[] =>
   [
     ...input.rooms,

@@ -4,6 +4,7 @@ import type { EventRequest } from '../shapes/draw';
 import type { Metric } from '../shapes/settings';
 import { standings } from '../standings';
 import { effectiveResults } from '../standings/effective-results';
+import { gcd } from '../standings/rational';
 import { eventFacts, type EventFacts, type FactsOrder } from './facts';
 import { eventStream } from './placement';
 
@@ -35,8 +36,6 @@ const recordMetric = (format: FormatDescriptor): Metric | null =>
     : 'sides' in format
       ? 'team_points'
       : null;
-
-const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 
 /** Each entry's record at a cutoff, scaled to integers so equal records are equal. */
 const recordsAt = (request: EventRequest, seed: Uint8Array, cutoff: number) => {
@@ -117,12 +116,17 @@ const chooseMethod = (request: EventRequest): Method => {
   }
 };
 
-/** Times each entry sat below the top record of its fixture, from earlier tab rounds. */
-const pullUps = (request: EventRequest, seed: Uint8Array) => {
+/**
+ * Times each entry sat below the top record of its fixture in an earlier tab
+ * round. A pull-up in tab round r is judged on the records through r - 1, so
+ * only tab rounds through the cutoff + 1 are read: nothing past the cutoff
+ * moves a draw.
+ */
+const pullUps = (request: EventRequest, seed: Uint8Array, cutoff: number) => {
   const history = request.history as StageHistory<FormatDescriptor>;
   const pulled = new Map<Id, number>();
   const rounds = [...new Set(history.fixtures.map((f) => f.tabRound))].filter(
-    (r) => r > 1 && r < request.tabRound,
+    (r) => r > 1 && r < request.tabRound && r - 1 <= cutoff,
   );
   for (const round of rounds) {
     const records = recordsAt(request, seed, round - 1);
@@ -210,7 +214,7 @@ export const prepare = (request: EventRequest, seed: Uint8Array): Prepared => {
   const order: FactsOrder = {
     record,
     strength,
-    pulledUp: readsResults ? pullUps(request, seed) : new Map(),
+    pulledUp: readsResults ? pullUps(request, seed, cutoff) : new Map(),
     byeCost,
   };
   return {

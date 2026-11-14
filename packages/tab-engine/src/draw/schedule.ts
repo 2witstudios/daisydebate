@@ -53,17 +53,16 @@ export const placeRoundRobin = (
   seed: Uint8Array,
 ): PlacementAnswer => {
   /**
-   * The schedule is a function of every active entry, the seed and the tab
-   * round, so a re-draw with fixed fixtures keeps the same circle. A
-   * scheduled fixture that touches a fixed fixture's entry is set aside and
-   * its other entry takes the bye.
+   * The schedule is a function of every entry of the event (withdrawn ones
+   * too), the seed and the tab round, so a drop or a re-draw with fixed
+   * fixtures keeps the same circle. A scheduled fixture with an entry that
+   * is withdrawn or already in a fixed fixture is set aside, and its other
+   * entry takes the bye.
    */
-  const active = canonicalOrder(
-    request.entries.filter((e) => e.status === 'active'),
-  ).map((e) => e.id);
+  const everyone = canonicalOrder(request.entries).map((e) => e.id);
   const pool = new Set(poolOf(request, entriesOf));
   const order = shuffleWith(
-    active,
+    everyone,
     eventStream(seed, request.event, 'schedule'),
   );
   const fixtures = roundRobinRound(order, request.tabRound).flatMap(

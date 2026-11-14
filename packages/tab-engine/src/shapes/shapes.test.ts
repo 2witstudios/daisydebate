@@ -71,7 +71,7 @@ const drawWithoutInputs: DrawOf<TwoSides> = {
 describe('shapes', () => {
   test('the deliberate mistakes are values only so the typecheck sees them', () => {
     assert({
-      given: 'the five mistakes above',
+      given: 'the seven mistakes above',
       should: 'exist as values; the proof is that the typecheck refuses each',
       actual: [
         pullUpAsRule,

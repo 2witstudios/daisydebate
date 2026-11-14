@@ -173,13 +173,12 @@ const breaksAny = (
 
 /** Fact 10: on a small field, no plan that keeps the fixed and breaks no rule is lexicographically better. */
 export const optimalityViolations = (
-  input: DrawInput,
   ctx: CostContext,
   draw: Draw,
   occupied: ReadonlySet<Id>,
 ): Violation[] => {
   const request = ctx.request;
-  if (input.judges !== null) return [];
+  // Panels never change a pairing cost: the pairing fields compare with judges or without.
   if (
     request.settings['pairing.method'].preliminary.structure !== 'powered' &&
     request.tabRound !== 1
@@ -196,9 +195,9 @@ export const optimalityViolations = (
     addInto(base, preferenceFields(request, costs));
   /**
    * Who takes the bye is settled by `bye.recipient` before the other
-   * preferences (only `bye.repeat` comes first), and "lowest" needs the
-   * standings order, which this checker does not restate. So the bye is
-   * taken as drawn and the rest of the plan is compared.
+   * preferences (only `bye.repeat` comes first), and is checked on its own
+   * (`byeViolations`). So the bye is taken as drawn and the rest of the plan
+   * is compared.
    */
   const drawnBye = placedOf(draw).find(
     (p) => p.fixture.kind === 'bye',
@@ -248,10 +247,15 @@ export const infeasibleRulesViolations = (
   const requests = input.call === 'slot' ? input.events : [input.event];
   const request = requests.find((r) => r.event === event);
   if (request === undefined) return [{ kind: 'draw_extra', event }];
+  /**
+   * What the checker cannot brute force it accepts unchecked: a judging rule
+   * (panels are not searched), a field above SMALL, an elimination round, a
+   * four-side or speech event, or a round-robin round.
+   */
   if (rules.some((key) => key.startsWith('judging.'))) return [];
   const field = smallField(request);
   if (field === null) return [];
-  const ctx = costContext(input, request, request.cutoff);
+  const ctx = costContext(input, request);
   const occupied = new Set(
     input.call === 'slot' ? input.commitments.flatMap((c) => c.people) : [],
   );

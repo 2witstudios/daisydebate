@@ -1,10 +1,19 @@
 import { canonicalJson, digestOf } from '@daisy/seeded-random';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Draw, DrawInput } from '../shapes/draw';
-import { roundRobinPreset } from '../simulate/presets';
+import { breaks, BREAKS_VERSION } from '../breaks/breaks';
+import { ladderInput, LADDER_INPUT_VERSION } from '../season/ladder-input';
+import { seasonStandings, SEASON_VERSION } from '../season/season-standings';
+import {
+  randomPreset,
+  roundRobinPreset,
+  swissPower,
+} from '../simulate/presets';
+import { standings, STANDINGS_VERSION } from '../standings/standings';
 import { draw } from './index';
 import {
   drawsOf,
+  fixturesOf,
   entries,
   fourSides,
   judges,
@@ -42,10 +51,14 @@ const lockVerdict = (
   locked: LockEntry | undefined,
   current: LockEntry,
 ): LockVerdict => {
-  const same =
-    locked !== undefined &&
-    canonicalJson(locked.versions) === canonicalJson(current.versions);
-  if (!same) return { kind: 'raised' };
+  if (locked === undefined)
+    return {
+      kind: 'broken',
+      expected: 'nothing locked',
+      actual: current.digest,
+    };
+  if (canonicalJson(locked.versions) !== canonicalJson(current.versions))
+    return { kind: 'raised' };
   return locked.digest === current.digest
     ? { kind: 'held' }
     : { kind: 'broken', expected: locked.digest, actual: current.digest };
@@ -125,9 +138,127 @@ const corpus: Record<string, DrawInput> = {
   },
 };
 
+/** A later tab round of a windowed event, after one drawn and unplayed round. */
+const secondRound = (input: DrawInput & { call: 'windowed' }): DrawInput => {
+  const d = drawsOf(draw(input))[0]!;
+  return {
+    ...input,
+    event: {
+      ...input.event,
+      tabRound: 2,
+      history: {
+        fixtures: fixturesOf(d).map((fixture, i) => ({
+          id: `lock-${i}`,
+          tabRound: 1,
+          fixture: fixture as never,
+        })),
+        results: [],
+      },
+    } as typeof input.event,
+  };
+};
+corpus['prematched second round'] = secondRound({
+  call: 'windowed',
+  event: request(twoSides, { entries: entries(10), settings: randomPreset }),
+  judges: null,
+  seed: seedOf(7),
+});
+corpus['four sides second round'] = secondRound(
+  corpus['four sides'] as DrawInput & { call: 'windowed' },
+);
+corpus['sections second round'] = secondRound(
+  corpus.sections as DrawInput & { call: 'windowed' },
+);
+
 const current = (input: DrawInput): LockEntry => {
   const d: Draw = drawsOf(draw(input))[0]!;
   return { versions: d.inputs.engine, digest: digestOf(canonicalJson(d)) };
+};
+
+const field = entries(11, 4);
+const played = playTwoSided({ fixtures: [], results: [] }, first, 1);
+const fold = {
+  format: twoSides,
+  entries: field,
+  history: played,
+  settings: swissPower,
+  cutoff: 1,
+  ratings: null,
+  division: null,
+  seed: seedOf(8),
+} as const;
+const pairings = played.fixtures.flatMap((f) =>
+  f.fixture.kind === 'pairing' ? [{ id: f.id, fixture: f.fixture }] : [],
+);
+/** Each fold's output under its own version literal. */
+const folds: Record<string, LockEntry> = {
+  standings: {
+    versions: { standings: STANDINGS_VERSION },
+    digest: digestOf(canonicalJson(standings(fold))),
+  },
+  breaks: {
+    versions: { breaks: BREAKS_VERSION },
+    digest: digestOf(
+      canonicalJson(
+        breaks({
+          ...fold,
+          stages: [{ id: 'open', division: null }],
+          choices: {},
+        }),
+      ),
+    ),
+  },
+  'season standings': {
+    versions: { season: SEASON_VERSION },
+    digest: digestOf(
+      canonicalJson(
+        seasonStandings(
+          [
+            {
+              event: 'ev',
+              sanctioned: true,
+              format: twoSides,
+              entries: field.map((e) => ({
+                entry: e.id,
+                competitor: e.members[0]!,
+                school: null,
+              })),
+              preliminary: played,
+              elimination: { fixtures: [], results: [] },
+            },
+          ],
+          {
+            preliminaryWin: { points: 2, cap: null },
+            eliminationRound: { points: 3 },
+            bestEvents: null,
+            topPerSchool: null,
+          },
+        ),
+      ),
+    ),
+  },
+  'ladder input': {
+    versions: { ladder: LADDER_INPUT_VERSION },
+    digest: digestOf(
+      canonicalJson(
+        ladderInput({
+          rooms: [],
+          tournaments: [
+            {
+              event: 'ev',
+              sanctioned: true,
+              entries: field,
+              results: played.results.map((result, i) => ({
+                result,
+                fixture: pairings.find((p) => p.id === result.fixture)!.fixture,
+                playedAt: `2026-11-01T0${i}:00:00.000Z`,
+              })),
+            },
+          ],
+        }),
+      ),
+    ),
+  },
 };
 
 /** Refresh an entry by copying the actual value from a failure. */
@@ -137,48 +268,97 @@ const locked: Record<string, LockEntry> = {
       engine: 'tab-engine@1',
       method: 'pairing-two-sided@1',
       judges: 'judges@1',
+      assess: 'assess@1',
     },
-    digest: '9f990611220e176af2c010d8ae2b5830ec494296434decdd85b055902f2f5d3a',
+    digest: '20f2a7fa3d465ef06488514b226dc5ab1856338868b02ac299ef8695ca4b8763',
   },
   'two-sided powered round': {
     versions: {
       engine: 'tab-engine@1',
       method: 'pairing-two-sided@1',
       judges: 'judges@1',
+      assess: 'assess@1',
     },
-    digest: '81690f0e885dc0923b832f0ef178cf2152ab5749f33253bd4cf426ef08d99148',
+    digest: 'fbfdd1a3d5b6f299527db1128546bcf1578e41402b9d5971716fbf3862f008e7',
   },
   'round robin': {
     versions: {
       engine: 'tab-engine@1',
       method: 'schedule-round-robin@1',
       judges: 'judges@1',
+      assess: 'assess@1',
     },
-    digest: '05cdc4cbb4e9b968abd46e9775cd82e5aaa5310865c75f78ba873ff4f4940917',
+    digest: '3c46b831f16925f19fa7aa9d7c8bdabf679a22ec1489e0dd6ec69f69504171e2',
   },
   'four sides': {
     versions: {
       engine: 'tab-engine@1',
       method: 'pairing-four-side@1',
       judges: 'judges@1',
+      assess: 'assess@1',
     },
-    digest: 'a89dbbda017e6713e047b9627d27970db34ee539ebc4d5747658bf9b80f05e13',
+    digest: '160da40f6fa683e65d1555c124a5999202cea358757d81a46989110ab90688c2',
   },
   sections: {
     versions: {
       engine: 'tab-engine@1',
       method: 'sections@1',
       judges: 'judges@1',
+      assess: 'assess@1',
     },
-    digest: '322021cd6a724d3b477541e98b383df13b7072beb8ba5e88b9eb7ddf6bf3f210',
+    digest: '170cbd7de0f2b2e4d3f61f0633cf8471b031a09d8dd53cb3333c8bee4aff7d9a',
   },
   elimination: {
     versions: {
       engine: 'tab-engine@1',
       method: 'bracket-progression@1',
       judges: 'judges@1',
+      assess: 'assess@1',
     },
-    digest: '3d7fd4b18094b38f7f451c30fb5ffc0f0362d1127b14738e457f754f6297a6dd',
+    digest: '8a4fab2278b6e6a05ad8289bcf307b9b4d118ae820465ab37971cb40e128a08f',
+  },
+  'prematched second round': {
+    versions: {
+      engine: 'tab-engine@1',
+      method: 'pairing-two-sided@1',
+      judges: 'judges@1',
+      assess: 'assess@1',
+    },
+    digest: '5148cdacd1a367dfef82660c355c1241a13b38624a38710d573d4d8cfa85c989',
+  },
+  'four sides second round': {
+    versions: {
+      engine: 'tab-engine@1',
+      method: 'pairing-four-side@1',
+      judges: 'judges@1',
+      assess: 'assess@1',
+    },
+    digest: '26c7121b0ca2537c52cbd1fbd945f334d2c127e444a4e2f3cffacb77779df66a',
+  },
+  'sections second round': {
+    versions: {
+      engine: 'tab-engine@1',
+      method: 'sections@1',
+      judges: 'judges@1',
+      assess: 'assess@1',
+    },
+    digest: '93b63b5d559cbbb730422573004d33a5072a94193e8fdb6b203570c24a79840f',
+  },
+  standings: {
+    versions: { standings: 'standings@1' },
+    digest: '7497a4086e98680a468a13b6b2aea4cc4641c2ce72bf363a6d05d01c16c923a6',
+  },
+  breaks: {
+    versions: { breaks: 'breaks@1' },
+    digest: 'd4b357fa099a84deb92a1295d0d3a9936cd9f52b043d4f8a63794a2bc6e03c1b',
+  },
+  'season standings': {
+    versions: { season: 'season-standings@1' },
+    digest: 'b5aa31ba386d9f3c24c8940edc5a0eaf7b3d0eae2d36e21c132b458ef2f87769',
+  },
+  'ladder input': {
+    versions: { ladder: 'ladder-input@1' },
+    digest: 'fc3631684da2c156d8f06d8825ab0be20a13032d54f7cfcd381106af443ea3a1',
   },
 };
 
@@ -202,10 +382,15 @@ describe('the behaviour lock', () => {
     });
   });
 
-  test('every corpus draw matches its locked digest', () => {
+  test('every corpus draw and fold matches its locked digest', () => {
+    const outputs: Record<string, LockEntry> = {
+      ...Object.fromEntries(
+        Object.entries(corpus).map(([name, input]) => [name, current(input)]),
+      ),
+      ...folds,
+    };
     const outcomes = Object.fromEntries(
-      Object.entries(corpus).map(([name, input]) => {
-        const now = current(input);
+      Object.entries(outputs).map(([name, now]) => {
         const verdict = lockVerdict(locked[name], now);
         return [name, verdict.kind === 'broken' ? now : verdict.kind];
       }),
@@ -216,7 +401,7 @@ describe('the behaviour lock', () => {
         'reproduce every locked digest (a broken entry shows the value to lock after raising its version)',
       actual: outcomes,
       expected: Object.fromEntries(
-        Object.keys(corpus).map((name) => [
+        Object.keys(outputs).map((name) => [
           name,
           'held' as LockVerdict['kind'] | LockEntry,
         ]),

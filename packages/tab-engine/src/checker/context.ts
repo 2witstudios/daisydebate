@@ -65,6 +65,28 @@ export const sidesOf = (request: EventRequest): number | null =>
       ? 4
       : null;
 
+/**
+ * The tab round through which results count, restated from the request: a
+ * powered pairing round after the first reads the standings `lag` rounds
+ * back (never past the caller's cutoff); an elimination round reads every
+ * earlier round of its stage; every other round reads no result at all.
+ */
+export const effectiveCutoff = (request: EventRequest): number => {
+  if (request.stage.kind === 'elimination')
+    return Math.max(0, request.tabRound - 1);
+  const method = request.settings['pairing.method'].preliminary;
+  if (
+    sidesOf(request) !== null &&
+    method.structure === 'powered' &&
+    request.tabRound > 1
+  )
+    return Math.max(
+      0,
+      Math.min(request.cutoff, request.tabRound - 1 - method.lag),
+    );
+  return 0;
+};
+
 /** Whether this tab round weighs pull-ups: a powered preliminary round after the first, of pairings. */
 const weighsPullUp = (request: EventRequest) =>
   request.stage.kind === 'preliminary' &&
@@ -72,12 +94,12 @@ const weighsPullUp = (request: EventRequest) =>
   request.tabRound > 1 &&
   sidesOf(request) !== null;
 
-/** The costs' context for one event, counting results through `cutoff`. */
+/** The costs' context for one event, counting results through its effective cutoff. */
 export const costContext = (
   input: DrawInput,
   request: EventRequest,
-  cutoff: number,
 ): CostContext => {
+  const cutoff = effectiveCutoff(request);
   const fixtures = pastFixtures(request.history);
   const reading = oneReading(
     countedResults(fixtures, pastResults(request.history), cutoff),

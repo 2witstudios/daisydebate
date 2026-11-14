@@ -104,12 +104,17 @@ const resultsFor = (
   id: Id,
   fixture: Fixture,
   next: (below: number) => number,
+  doubleLoss = false,
 ): Result[] => {
   if (fixture.kind === 'bye') return [];
   const held = fixture.kind === 'pairing' ? fixture.sides : fixture.speakers;
   const outcome = (): Result['outcome'] => {
     if (format.outcome === 'winner')
-      return { kind: 'winner', winner: held[next(held.length)]!, ballots: [] };
+      return {
+        kind: 'winner',
+        winner: doubleLoss && next(5) === 0 ? null : held[next(held.length)]!,
+        ballots: [],
+      };
     const order = [...held];
     for (let i = order.length - 1; i >= 1; i -= 1) {
       const j = next(i + 1);
@@ -286,3 +291,64 @@ export const slotCase = (
   ],
   seed: new Uint8Array([3]),
 });
+
+/**
+ * Plays an elimination stage of one windowed event from its bracket, drawing
+ * each tab round with the engine until it stops drawing or `rounds` is
+ * reached. With `doubleLoss`, a two-sided result is now and then a loss to both.
+ */
+export const playBracket = (options: {
+  readonly label: string;
+  readonly seed: number;
+  readonly format: FormatDescriptor;
+  readonly entries: readonly Entry[];
+  readonly settings: ResolvedSettings;
+  readonly judges: readonly Judge[] | null;
+  readonly rounds: number;
+  readonly doubleLoss?: boolean;
+}): Played[] => {
+  const next = numbers(options.label, options.seed);
+  const played: Played[] = [];
+  let history: StageHistory<FormatDescriptor> = { fixtures: [], results: [] };
+  for (let tabRound = 1; tabRound <= options.rounds; tabRound += 1) {
+    const input = windowed(
+      request({
+        event: 'ev',
+        format: options.format as EventRequest['format'],
+        stage: {
+          kind: 'elimination',
+          division: null,
+          bracket: { seeds: options.entries.map((e) => e.id) },
+        },
+        entries: options.entries,
+        settings: options.settings,
+        tabRound,
+        cutoff: tabRound - 1,
+        history: history as EventRequest['history'],
+      }),
+      options.judges,
+      options.seed,
+    );
+    const answer = draw(input);
+    played.push({ input, answer });
+    if (answer.kind !== 'drawn') break;
+    const fixtures = historicOf(answer.draws[0]!);
+    if (fixtures.length === 0) break;
+    history = {
+      fixtures: [...history.fixtures, ...fixtures],
+      results: [
+        ...history.results,
+        ...fixtures.flatMap((f) =>
+          resultsFor(
+            options.format,
+            f.id,
+            f.fixture,
+            next,
+            options.doubleLoss === true,
+          ),
+        ),
+      ],
+    } as StageHistory<FormatDescriptor>;
+  }
+  return played;
+};

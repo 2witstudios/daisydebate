@@ -136,6 +136,13 @@ export type InvalidFact =
       readonly judge: Id;
       readonly event: Id;
     }
+  /** A judge seated on a fixture that holds their own entry. */
+  | {
+      readonly fact: 'judge_competing';
+      readonly judge: Id;
+      readonly event: Id;
+      readonly fixture: FixtureRef;
+    }
   | {
       readonly fact: 'fixture_kind';
       readonly event: Id;
@@ -180,23 +187,17 @@ export type Assessment = {
   readonly invalid: readonly InvalidFact[];
 };
 
-/** What a draw was computed from. The caller stores it with the draw. */
-export type InputsRecord = {
+/** What every draw records, whichever kind of call made it. */
+type RecordedInputs = {
   readonly engine: Readonly<Record<string, string>>;
   readonly settings: Partial<Readonly<Record<SettingKey, unknown>>>;
   readonly settingsDigest: string;
   readonly seed: string;
-  readonly slot: Id | null;
   readonly entriesDigest: string;
   readonly judgesDigest: string;
   readonly existing: readonly {
     readonly id: Id;
     readonly hold: 'fixed' | 'movable';
-  }[];
-  readonly commitments: readonly Id[];
-  readonly alongside: readonly {
-    readonly event: Id;
-    readonly tabRound: number;
   }[];
   readonly ratings: {
     readonly ladder: Id;
@@ -207,6 +208,23 @@ export type InputsRecord = {
   readonly cutoff: number;
   readonly results: readonly Id[];
 };
+
+/**
+ * What a draw was computed from; the caller stores it with the draw. Only a
+ * slot call has a slot, commitments and other events drawn alongside: a
+ * windowed record cannot carry them.
+ */
+export type InputsRecord =
+  | (RecordedInputs & {
+      readonly call: 'slot';
+      readonly slot: Id;
+      readonly commitments: readonly Id[];
+      readonly alongside: readonly {
+        readonly event: Id;
+        readonly tabRound: number;
+      }[];
+    })
+  | (RecordedInputs & { readonly call: 'windowed' });
 
 type KeptFixture<Format extends FormatDescriptor> = {
   readonly id: Id;
@@ -266,11 +284,19 @@ export type DrawAnswer =
       readonly cause: 'rules';
       readonly event: Id;
       /** A set in which dropping any one rule makes a draw possible. */
+      /**
+       * A set in which every rule is needed for the conflict: with the rules
+       * outside it relaxed, dropping any one of these makes a draw possible.
+       */
       readonly rules: readonly ForceKey[];
-      /** What each single relaxation to a preference would cost, as information. */
+      /**
+       * As information, each named rule relaxed alone to a preference against
+       * the real settings: how many fixtures would then break it, or null when
+       * relaxing it alone still leaves no plan (another conflict remains).
+       */
       readonly relaxations: readonly {
         readonly key: ForceKey;
-        readonly breaks: number;
+        readonly breaks: number | null;
       }[];
     }
   | {
@@ -289,8 +315,14 @@ export type DrawAnswer =
       readonly kind: 'infeasible';
       readonly cause: 'structure';
       readonly event: Id;
-      readonly fact: 'missing_result' | 'no_plan';
-      readonly fixture: Id | null;
+      readonly fact: 'missing_result';
+      readonly fixture: Id;
+    }
+  | {
+      readonly kind: 'infeasible';
+      readonly cause: 'structure';
+      readonly event: Id;
+      readonly fact: 'no_plan';
     }
   | {
       readonly kind: 'unresolved';

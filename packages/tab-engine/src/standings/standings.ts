@@ -44,6 +44,8 @@ const rowsOf = (
  * An entry below the minimum games is listed after every ranked entry,
  * unranked, refined among its own kind.
  */
+export const STANDINGS_VERSION = 'standings@1';
+
 export const standings = (input: StandingsInput): Standings => {
   const tally = tallyOf(input);
   const tiebreaks = input.settings['standings.tiebreaks'];
@@ -76,10 +78,9 @@ export const standings = (input: StandingsInput): Standings => {
     rows: [
       ...rowsOf(ranked.order, true, input, tally, ranked.headToHead),
       ...rowsOf(
-        unranked.order.map((o) => ({
-          ...o,
-          separatedBy: 'minimum_games' as const,
-        })),
+        unranked.order.map((o, i) =>
+          i === 0 ? { ...o, separatedBy: 'minimum_games' as const } : o,
+        ),
         false,
         input,
         tally,

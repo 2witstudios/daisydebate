@@ -11,6 +11,7 @@ import type { EventRequest } from '../shapes/draw';
 import { bracketFirstRound } from '../breaks/bracket';
 import { effectiveResults } from '../standings/effective-results';
 import { entriesOf } from './facts';
+import { roomsFor } from './sections';
 
 export const PROGRESSION_VERSION = 'bracket-progression@1';
 
@@ -89,7 +90,7 @@ const roomsOf = (request: EventRequest, going: readonly Id[]): Slots => {
     'sides' in format ? 4 : request.settings['pairing.section_size'].target;
   const byes = 'sides' in format ? going.length % 4 : 0;
   const rest = going.slice(byes);
-  const rooms = Math.max(1, Math.round(rest.length / size));
+  const rooms = roomsFor(rest.length, size);
   return [...going.slice(0, byes).map((e) => [e]), ...snake(rest, rooms)];
 };
 

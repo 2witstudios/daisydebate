@@ -9,6 +9,7 @@ import {
   judgesOf,
   placedOf,
   requestsOf,
+  sameRef,
   sidesOf,
   type Placed,
 } from './context';
@@ -137,16 +138,13 @@ const placementViolations = (
           fixture: ref,
         });
       seen.add(entry);
-      if (seeds !== null) {
-        if (!seeds.has(entry))
-          violations.push({
-            kind: 'entry_not_in_bracket',
-            event,
-            entry,
-            fixture: ref,
-          });
-        continue;
-      }
+      if (seeds !== null && !seeds.has(entry))
+        violations.push({
+          kind: 'entry_not_in_bracket',
+          event,
+          entry,
+          fixture: ref,
+        });
       const known = entries.get(entry);
       if (known === undefined)
         violations.push({ kind: 'entry_unknown', event, entry, fixture: ref });
@@ -217,10 +215,15 @@ export const eventViolations = (
   ];
 };
 
-/** Fact 5: panel sizes, and each judge seated once, where they may judge. */
+/**
+ * Fact 5: panel sizes, and each judge seated once, where they may judge and
+ * never on a fixture holding their own entry. With `short`, a panel may hold
+ * fewer judges than its size (an answer that could not seat them all).
+ */
 export const panelViolations = (
   input: DrawInput,
   matched: readonly Matched[],
+  short = false,
 ): Violation[] => {
   const violations: Violation[] = [];
   const judges = judgesOf(input);
@@ -228,10 +231,17 @@ export const panelViolations = (
   for (const { request, plan } of matched) {
     const event = request.event;
     const size = request.settings['judging.panel'][request.stage.kind].size;
+    const members = new Map(request.entries.map((e) => [e.id, e.members]));
     for (const { ref, fixture } of placedOf(plan)) {
       if (fixture.kind === 'bye') continue;
       const panel = fixture.panel;
-      if (panel.length > size || (judges !== null && panel.length !== size))
+      const competitors = new Set(
+        entriesIn(fixture).flatMap((entry) => members.get(entry) ?? []),
+      );
+      if (
+        panel.length > size ||
+        (!short && judges !== null && panel.length !== size)
+      )
         violations.push({
           kind: 'panel_size',
           event,
@@ -260,6 +270,14 @@ export const panelViolations = (
             fixture: ref,
             judge: id,
           });
+        if (judge !== undefined && competitors.has(judge.person))
+          violations.push({
+            kind: 'judge_competing',
+            event,
+            fixture: ref,
+            judge: id,
+            person: judge.person,
+          });
       }
     }
   }
@@ -281,7 +299,11 @@ export const slotViolations = (
     for (const person of new Set(people))
       holders.set(person, [...(holders.get(person) ?? []), holder]);
   };
-  const competing = new Set<Id>();
+  /** Where each competitor competes; the same fixture is fact 5's. */
+  const competing = new Map<
+    Id,
+    { readonly event: Id; readonly ref: Placed['ref'] }[]
+  >();
   const seated: {
     readonly event: Id;
     readonly ref: Placed['ref'];
@@ -295,7 +317,11 @@ export const slotViolations = (
       const people = entriesIn(fixture).flatMap(
         (entry) => members.get(entry) ?? [],
       );
-      for (const person of people) competing.add(person);
+      for (const person of people)
+        competing.set(person, [
+          ...(competing.get(person) ?? []),
+          { event: request.event, ref },
+        ]);
       const judgePeople = fixture.panel.flatMap((id) => {
         const judge = judges?.get(id);
         if (judge === undefined) return [];
@@ -320,7 +346,11 @@ export const slotViolations = (
     if (at.length > 1)
       violations.push({ kind: 'person_twice_in_slot', person, holders: at });
   for (const s of seated)
-    if (competing.has(s.person))
+    if (
+      (competing.get(s.person) ?? []).some(
+        (at) => !(at.event === s.event && sameRef(at.ref, s.ref)),
+      )
+    )
       violations.push({
         kind: 'judge_competing',
         event: s.event,

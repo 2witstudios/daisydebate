@@ -452,4 +452,40 @@ describe('a round-robin re-draw', () => {
       expected: [['x1'], JSON.stringify(rest.map((a) => a.fixture))],
     });
   });
+
+  test('a withdrawal leaves only its scheduled opponent with a bye', () => {
+    const field = entries(8, 8);
+    const at = (entrants: typeof field) =>
+      drawsOf(
+        draw({
+          call: 'windowed',
+          event: request(twoSides, {
+            entries: entrants,
+            settings: roundRobinPreset,
+            tabRound: 2,
+          }),
+          judges: null,
+          seed: seedOf(5),
+        }),
+      )[0]!;
+    const before = at(field).add.map((a) => a.fixture);
+    const dropped = before.find((f) => f.kind === 'pairing')!;
+    const gone = entriesOf(dropped)[0]!;
+    const after = at(
+      field.map((e) =>
+        e.id === gone ? { ...e, status: 'withdrawn' as const } : e,
+      ),
+    ).add.map((a) => a.fixture);
+    assert({
+      given: 'a round-robin tab round drawn again after one entry withdraws',
+      should:
+        "keep every other pairing and give the withdrawn entry's opponent the bye",
+      actual: JSON.stringify(after),
+      expected: JSON.stringify(
+        before.map((f) =>
+          f === dropped ? { kind: 'bye', entry: entriesOf(dropped)[1] } : f,
+        ),
+      ),
+    });
+  });
 });

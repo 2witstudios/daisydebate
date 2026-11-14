@@ -28,6 +28,10 @@ export type StaffTask = {
   readonly ref: FixtureRef;
   readonly fixture: Exclude<Fixture, { kind: 'bye' }>;
   readonly size: number;
+  /** The people the fixture's entries seat: none of them may judge it. */
+  readonly competitors: ReadonlySet<Id>;
+  /** Availability is a fact of a time slot; a windowed call reads none. */
+  readonly slot: boolean;
 };
 
 export type Staffing =
@@ -56,10 +60,11 @@ const seatContext = (
   seat,
   judge,
   leastLoad,
+  slot: task.slot,
 });
 
 /** The rule keys that keep this judge off this seat. */
-const blockingRules = (
+export const blockingRules = (
   task: StaffTask,
   seat: number,
   judge: Judge | SlotJudge,
@@ -115,6 +120,7 @@ export const staff = (input: {
     const task = tasks[seat.task]!;
     if (judge.events !== null && !judge.events.includes(task.facts.event))
       return false;
+    if (task.competitors.has(judge.person)) return false;
     return blockingRules(task, seat.seat, judge, leastLoad).length === 0;
   };
   const arcs = [
@@ -195,7 +201,15 @@ export const staff = (input: {
   });
   return {
     kind: 'staffed',
-    panels: improvePanels(input, tasks, seats, panels, eligible, columns),
+    panels: improvePanels(
+      input,
+      tasks,
+      seats,
+      panels,
+      eligible,
+      columns,
+      leastLoad,
+    ),
   };
 };
 
@@ -207,6 +221,7 @@ const improvePanels = (
   panels: Id[][],
   eligible: (seat: Seat, judge: Judge | SlotJudge) => boolean,
   columns: readonly (Judge | SlotJudge)[],
+  leastLoad: number,
 ) => {
   const weighs = tasks.some(
     (t) =>
@@ -215,11 +230,35 @@ const improvePanels = (
   );
   if (!weighs) return panels;
   const byId = new Map(input.judges.map((j) => [j.id, j]));
-  const clash = (t: number) =>
-    forceOf(tasks[t]!.facts.settings, 'judging.panel_same_school') ===
-    'preference'
-      ? panelSameSchool({ ...tasks[t]!.fixture, panel: panels[t]! }, byId)
-      : 0;
+  /**
+   * A task's whole lexicographic cost: every weighed judging key in its
+   * event's order, the panel-level term in its ranked place, so a swap that
+   * lowers two-of-a-school never pays for it with a higher field.
+   */
+  const vector = (t: number) => {
+    const task = tasks[t]!;
+    const settings = task.facts.settings;
+    const order = settings['judging.preference_order'].order;
+    const fixture = { ...task.fixture, panel: panels[t]! };
+    return order
+      .filter((key) => forceOf(settings, key) === 'preference')
+      .map((key) =>
+        key === 'judging.panel_same_school'
+          ? panelSameSchool(fixture, byId)
+          : panels[t]!.reduce((sum, id, seat) => {
+              const judge = byId.get(id);
+              return judge === undefined
+                ? sum
+                : sum +
+                    seatTerms[key](seatContext(task, seat, judge, leastLoad));
+            }, 0),
+      );
+  };
+  const pair = (x: number, y: number) => {
+    const [a, b] = [vector(x), vector(y)];
+    const width = Math.max(a.length, b.length);
+    return Array.from({ length: width }, (_, i) => (a[i] ?? 0) + (b[i] ?? 0));
+  };
   for (let round = 0, improved = true; improved && round < 20; round += 1) {
     improved = false;
     for (let a = 0; a < seats.length; a += 1)
@@ -235,11 +274,10 @@ const improvePanels = (
           !eligible(y, jx)
         )
           continue;
-        const before = clash(x.task) + clash(y.task);
+        const before = pair(x.task, y.task);
         panels[x.task]![x.seat] = jy.id;
         panels[y.task]![y.seat] = jx.id;
-        if (compareVectors([clash(x.task) + clash(y.task)], [before]) < 0)
-          improved = true;
+        if (compareVectors(pair(x.task, y.task), before) < 0) improved = true;
         else {
           panels[x.task]![x.seat] = jx.id;
           panels[y.task]![y.seat] = jy.id;

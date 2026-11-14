@@ -52,6 +52,7 @@ export const fixtureTerms = (
   method: number | undefined,
   judges: ReadonlyMap<Id, Judge | SlotJudge> | null,
   leastLoad: number,
+  slot: boolean,
 ): TermCost[] => {
   const terms: TermCost[] = [];
   for (const key of pairingKeys) {
@@ -74,7 +75,7 @@ export const fixtureTerms = (
     if (force === 'off') continue;
     const cost = seated.reduce(
       (sum, { judge, seat }) =>
-        sum + seatTerms[key]({ facts, fixture, seat, judge, leastLoad }),
+        sum + seatTerms[key]({ facts, fixture, seat, judge, leastLoad, slot }),
       0,
     );
     terms.push({ key, force, cost: [cost] });
