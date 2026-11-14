@@ -7,7 +7,7 @@ Amends [ADR 0030](0030-effective-rules-and-growth-paths.md),
 [ADR 0031](0031-realtime-service.md) section 5 and
 [ADR 0019](0019-token-secret-ownership.md), each in its own `## Amendment`
 section. Decisions marked open at the end were made on the owner's behalf and
-stay open until the owner confirms or overrules them. Section 6 is amended by [ADR 0129](0129-tenant-isolation-by-row-level-security.md).
+stay open until the owner confirms or overrules them. Section 6 is amended by [ADR 0129](0129-tenant-isolation-by-row-level-security.md) and superseded by [ADR 0135](0135-leagues-are-organizations.md).
 
 Rating scope amendment: [ADR0090](0090-three-rating-ladders.md) owns the current
 standing identity `(actor, ladder, season)`, with Freestyle, Policy and Value.
@@ -259,7 +259,7 @@ client.
 AZC-3.1 delivers the loader, `authorizeRequest`, identity without
 permissions and the foundation proof.
 
-### 6. Leagues are future tenants, and what they must satisfy
+### 6. Leagues are future tenants, and what they must satisfy (superseded by [ADR 0135](0135-leagues-are-organizations.md))
 
 A league is a tournament tenant: an organizer's private space with its own
 members, rounds and UI. It is operator-created and sold (the operator plane
