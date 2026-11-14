@@ -22,7 +22,10 @@ const seats = [
   seat('ineligible', 'bot', false),
   seat('person', 'human'),
 ] as unknown as Seats;
-const round = { segments: [{ id: 'old' }, { id: 'now' }] } as unknown as Round;
+const round = {
+  segments: [{ id: 'old' }, { id: 'now' }],
+  checkpoint: {},
+} as unknown as Round;
 const now = '2026-10-27T12:00:00.000Z';
 const live = new Date('2026-10-27T12:00:30.000Z');
 const lease = (
@@ -55,5 +58,24 @@ test('a bot seat publishes only on the floor, and hears with or without it (ISSU
       publish: ['floor', 'person'],
       hear: ['floor', 'listening'],
     },
+  });
+});
+
+test('a seat that left the Round holds no media (TAB-6.8)', () => {
+  const left = {
+    ...round,
+    checkpoint: { absent_participant_ids: ['person', 'floor'] },
+  } as unknown as Round;
+  assert({
+    given: 'a human and a floor-holding bot recorded absent by leave',
+    should:
+      'make both ineligible to publish and the bot deaf, leaving every other seat as before',
+    actual: {
+      publish: mediaPublicationParticipants(seats, leases, left, now)
+        .filter((entry) => entry.eligible)
+        .map((entry) => entry.id),
+      hear: mediaHearingSeats(seats, leases, left, now),
+    },
+    expected: { publish: [], hear: ['listening'] },
   });
 });

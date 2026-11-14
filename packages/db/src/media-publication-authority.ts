@@ -1,6 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { isRefusal } from '@daisy/errors';
-import { isJudgeSeat, type RoundCommandAuthority } from '@daisy/protocol';
+import {
+  isAbsentSeat,
+  isJudgeSeat,
+  type RoundCommandAuthority,
+} from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { RoundHydration } from './round-hydration';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -88,16 +92,20 @@ export function mediaPublicationParticipants(
   round: RoundHydration,
   now: string,
 ): Participants {
-  return participants.map((seat) =>
-    seat.kind !== 'bot' || isJudgeSeat(seat.seat)
+  return participants.map((seat) => {
+    // A seat that left the Round is absent from then on (TAB-6.8): it holds
+    // no media, so the next reconcile demotes it and admission refuses it.
+    if (isAbsentSeat(round.checkpoint, seat.id))
+      return { ...seat, eligible: false };
+    return seat.kind !== 'bot' || isJudgeSeat(seat.seat)
       ? seat
       : {
           ...seat,
           eligible:
             seat.eligible &&
             liveLease(leases, seat.id, round, now).some((lease) => lease.floor),
-        },
-  );
+        };
+  });
 }
 
 /**
@@ -117,6 +125,7 @@ export function mediaHearingSeats(
         seat.kind === 'bot' &&
         !isJudgeSeat(seat.seat) &&
         seat.eligible &&
+        !isAbsentSeat(round.checkpoint, seat.id) &&
         liveLease(leases, seat.id, round, now).length > 0,
     )
     .map((seat) => seat.id);
