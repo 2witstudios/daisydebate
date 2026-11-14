@@ -13,7 +13,7 @@ import {
   type LobbyCommandDefinition,
   type LobbyCommandEnvelope,
   type LobbyCommandReceipt,
-} from '@daisy/protocol/lobby-command';
+} from '@daisy/protocol/lobby/command';
 
 /**
  * What a command decides from the facts it was given: a named refusal, or
