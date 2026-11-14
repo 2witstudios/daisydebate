@@ -85,7 +85,7 @@ const canvas: Readonly<Record<string, string>> = {
   'Host: draft draw': 'Why this fixture',
   'Host: standings and break': 'Placed here because',
   'Host: bracket, certify, release': 'Before you certify',
-  'Host: tournament setup': 'How strict is each one?',
+  'Host: tournament setup': 'A host picks a preset.',
   'Host: entries and judges': 'Invite a school or parent',
   'Host: people and roles': 'Roles, highest first',
   'Host: home': 'Your tournaments',
@@ -109,6 +109,14 @@ const canvas: Readonly<Record<string, string>> = {
   'Host: events and schedule': 'Judges are one pool.',
   'Competitor: entered in three events': 'Later today',
   'Coach: entering a school': 'Fix Amari',
+  'Tournaments: index': 'Open to enter',
+  'League: ladder': 'Top of the ladder',
+  'League: season': 'How points count',
+  'League: tournaments': 'All five count toward',
+  'League: create a room': 'People I invite',
+  'Tournament: after': 'Recordings you can watch',
+  'Parent: your family': 'account active',
+  'Host: a speech event, round running': 'all six have spoken',
 };
 
 describe('the sample tournament', () => {
@@ -125,7 +133,7 @@ describe('the sample tournament', () => {
   test('every board on the canvas is reached', () => {
     assert({
       given: 'every screen reached by any viewer at any moment',
-      should: 'include each of the 28 boards',
+      should: 'include each board',
       actual: Object.entries(canvas)
         .filter(([, line]) => !everything.includes(line))
         .map(([board]) => board),
@@ -170,6 +178,85 @@ describe('the sample tournament', () => {
         html?.includes('Locked'),
       ],
       expected: [2, true, true],
+    });
+  });
+
+  test('a template pins the whole ballot', () => {
+    const host = crawls.get('host.prelims')?.html;
+    const setup = host?.get('/host/tournaments/autumn-open/setup') ?? '';
+    const ballot =
+      host?.get('/host/tournaments/autumn-open/events/varsity-debate/ballot') ??
+      '';
+    assert({
+      given: "an event that follows a league's template",
+      should:
+        'hold format, ballot and recording locked on setup, link the ballot to its page, and leave only text screening to choose there',
+      actual: [
+        ['Format', 'Ballot', 'Recording'].map((label) =>
+          new RegExp(
+            `<strong class="font-strong">${label}</strong>(?:(?!</li>).)*Locked`,
+          ).test(setup),
+        ),
+        setup.includes('aria-label="View: Ballot"'),
+        [...ballot.matchAll(/<select[^>]*name="([^"]*)"/g)].map(
+          (match) => match[1],
+        ),
+      ],
+      expected: [[true, true, true], true, ['screening']],
+    });
+  });
+
+  test('a guardian comes back to their family', () => {
+    const parent = crawls.get('parent.prelims')?.html;
+    assert({
+      given: "a minor's account and a tournament waiting to be allowed",
+      should: 'lead back to the family page, which leads to both',
+      actual: [
+        hrefsIn(parent?.get('/family/ada') ?? '').includes('/family'),
+        hrefsIn(
+          parent?.get('/family/ada/allow/capital-city-classic') ?? '',
+        ).includes('/family'),
+        hrefsIn(parent?.get('/family') ?? '').filter((href) =>
+          href.startsWith('/family/'),
+        ),
+      ],
+      expected: [
+        true,
+        true,
+        ['/family/ada/allow/capital-city-classic', '/family/ada'],
+      ],
+    });
+  });
+
+  test("the event picker's other events have a screen", () => {
+    const host = crawls.get('host.prelims')?.html;
+    const impromptu = '/host/tournaments/autumn-open/events/impromptu/rounds/3';
+    assert({
+      given: 'a host on a Varsity debate page while rounds run',
+      should: "reach Impromptu's running round from the picker, and back",
+      actual: [
+        hrefsIn(
+          host?.get('/host/tournaments/autumn-open/setup') ?? '',
+        ).includes(impromptu),
+        hrefsIn(host?.get(impromptu) ?? '').includes(
+          '/host/tournaments/autumn-open/events/varsity-debate/rounds/3',
+        ),
+      ],
+      expected: [true, true],
+    });
+  });
+
+  test('a finished tournament, for someone who took part', () => {
+    const page = (viewer: SampleScene['viewer']) =>
+      crawls
+        .get(`${viewer}.finished`)
+        ?.html.get('/tournaments/autumn-open')
+        ?.includes('Your result');
+    assert({
+      given: 'Autumn Open certified',
+      should: 'show a competitor their result and nobody else one',
+      actual: [page('competitor'), page('judge'), page('visitor')],
+      expected: [true, false, false],
     });
   });
 

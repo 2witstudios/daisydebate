@@ -56,7 +56,10 @@ describe('jsonb columns (ISSUE-24)', () => {
         'include the Room receipt and frozen config alongside every known JSON contract',
       actual: jsonb.map(({ name }) => name).sort(),
       expected: [
+        'action_history.result',
         'agent_runs.configuration_snapshot',
+        'ballot_definition_versions.definition',
+        'ballot_screenings.released_text',
         'ballots.citations',
         'ballots.feedback',
         'ballots.scores',
@@ -69,12 +72,15 @@ describe('jsonb columns (ISSUE-24)', () => {
         'billing_subscriptions.evidence',
         'broadcasts.release_policy',
         'broadcasts.release_skips',
+        'draws.inputs',
         'format_presets.config',
         'format_revisions.definition',
         'media_vendor_mutations.payload',
         'necessary_evidence.original_speaker',
         'operator_command_receipts.result',
         'outbox.payload',
+        'pending_commands.expected',
+        'pending_commands.payload',
         'privacy_jobs.billing_cleanup',
         'recording_processing_jobs.state',
         'recordings.eligibility',
@@ -98,6 +104,8 @@ describe('jsonb columns (ISSUE-24)', () => {
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
         'rounds.runtime_state',
+        'season_standing_rules.rule',
+        'settings.value',
         'usage_reservations.source',
         'usage_reservations.state',
       ],
@@ -113,6 +121,7 @@ describe('jsonb columns (ISSUE-24)', () => {
       expected: jsonb.map(({ name }) => ({
         name,
         refusals:
+          name === 'ballot_screenings.released_text' ||
           name === 'ballots.feedback' ||
           name === 'ballots.citations' ||
           name === 'necessary_evidence.original_speaker' ||

@@ -1,4 +1,5 @@
 import { createAppError, createRefusal } from '@daisy/errors';
+import { daisyOrganizationId } from './daisy-reference';
 import {
   debateSides,
   type DebaterStanding,
@@ -169,7 +170,13 @@ async function rateOnce(
   const [season] = await tx
     .select({ id: seasons.id })
     .from(seasons)
-    .where(eq(seasons.status, 'active'))
+    // Daisy's own season: every organization may have an active one.
+    .where(
+      and(
+        eq(seasons.status, 'active'),
+        eq(seasons.organizationId, daisyOrganizationId),
+      ),
+    )
     .for('share');
   if (!season) throw createAppError('CONFLICT', 'No season is active');
   const seasonId = season.id;

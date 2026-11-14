@@ -1,3 +1,4 @@
+import { daisyOrganizationId } from '../src/daisy-reference';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -29,8 +30,8 @@ const withActiveSeason = async (
 ) => {
   const seasonId = createId();
   await client.unsafe(
-    `insert into seasons (id, name, starts_at, status) values ($1, 'Waiver fixture', '2000-01-01T00:00:00Z', 'active')`,
-    [seasonId],
+    `insert into seasons (id, organization_id, name, starts_at, status) values ($1, $2, 'Waiver fixture', '2000-01-01T00:00:00Z', 'active')`,
+    [seasonId, daisyOrganizationId],
   );
   try {
     await run(seasonId);

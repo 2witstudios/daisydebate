@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { forceKeys, type Force, type ForceKey } from './force';
+import { settingHolds, settingScopeKinds } from './keys';
 import {
   settingKeySchema,
   settingValueSchemas,
@@ -7,18 +8,13 @@ import {
   type SettingValues,
 } from './setting-values';
 
-/** Where a setting is set. There is no stage scope. */
-export const settingScopeKinds = [
-  'organization',
-  'template',
-  'lobby',
-  'event',
-] as const;
+export { settingHolds, settingKeys, settingScopeKinds } from './keys';
+
 export const settingScopeKindSchema = z.enum(settingScopeKinds);
 export type SettingScopeKind = z.infer<typeof settingScopeKindSchema>;
 
 /** Who may change a value below: `default` lets them, `enforced` does not. */
-export const settingHoldSchema = z.enum(['default', 'enforced']);
+export const settingHoldSchema = z.enum(settingHolds);
 export type SettingHold = z.infer<typeof settingHoldSchema>;
 
 /**

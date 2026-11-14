@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
-import { validRules } from '@daisy/db/testing';
+import { validRules, daisyOrganizationId } from '@daisy/db/testing';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { testDatabaseUrl, withSql } from './fixtures';
 
@@ -60,8 +60,10 @@ export async function arena(
     const id = createId();
     seasonIds.push(id);
     await withSql(
-      (sql) => sql`insert into seasons (id, name, starts_at, ends_at, status)
-        values (${id}, 'Season', ${new Date(startsAt)},
+      (
+        sql,
+      ) => sql`insert into seasons (organization_id, id, name, starts_at, ends_at, status)
+        values (${daisyOrganizationId}, ${id}, 'Season', ${new Date(startsAt)},
                 ${status === 'closed' ? new Date('2026-10-01T00:00:00.000Z') : null}, ${status})`,
     );
     return id;

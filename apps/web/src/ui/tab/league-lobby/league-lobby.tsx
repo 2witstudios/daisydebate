@@ -1,16 +1,15 @@
-import Link from 'next/link';
 import type {
   LeagueLobby as Read,
   LeaguePanel,
 } from '../../../features/tab/league';
-import { tabRoutes } from '../../../features/tab/routes';
-import { cn } from '../../cn';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import { TabLinks } from '../../components/tab-links/tab-links';
 import { ActionButton } from '../action-control/action-control';
 import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
-import { SeasonStandings } from '../season-standings/season-standings';
+import { TournamentGroups } from '../tournament-groups/tournament-groups';
+import { LeagueLadder } from './league-ladder';
+import { LeagueSeason } from './league-season';
 
 function Panel({ panel }: { readonly panel: LeaguePanel }) {
   switch (panel.kind) {
@@ -44,58 +43,15 @@ function Panel({ panel }: { readonly panel: LeaguePanel }) {
         </>
       );
     case 'ladder':
-      return (
-        <ListCard label="League ladder">
-          <ol>
-            {panel.rows.map((row) => (
-              <li
-                key={row.place}
-                className={cn(
-                  'flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0',
-                  row.you && 'bg-hue-teal-soft',
-                )}
-              >
-                <span className="text-ink-muted tabular-nums">{row.place}</span>
-                <span className="min-w-0 flex-1">
-                  <strong className="font-strong">{row.name}</strong>
-                  <span className="text-ink-muted"> · {row.school}</span>
-                </span>
-                <span className="tabular-nums">{row.rating}</span>
-              </li>
-            ))}
-          </ol>
-        </ListCard>
-      );
+      return <LeagueLadder ladder={panel} />;
     case 'season':
-      return (
-        <ListCard>
-          <ListHeading>{panel.heading}</ListHeading>
-          <SeasonStandings rows={panel.rows} />
-          <p className="border-t border-border px-4 py-3 text-sm text-ink-muted">
-            {panel.note}
-          </p>
-        </ListCard>
-      );
+      return <LeagueSeason season={panel} />;
     case 'tournaments':
       return (
-        <ListCard label="Tournaments">
-          <ul>
-            {panel.tournaments.map((tournament) => (
-              <ListRow
-                key={tournament.slug}
-                title={
-                  <Link
-                    href={tabRoutes.tournament(tournament.slug)}
-                    className="text-ink"
-                  >
-                    {tournament.name}
-                  </Link>
-                }
-                detail={tournament.detail}
-              />
-            ))}
-          </ul>
-        </ListCard>
+        <>
+          <TournamentGroups label="Tournaments" groups={panel.groups} />
+          <p className="text-sm text-ink-muted">{panel.note}</p>
+        </>
       );
   }
 }

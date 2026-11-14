@@ -27,6 +27,7 @@ export const tabRoutes = {
   room,
   liveRoom: (id: string) => `${room(id)}/live`,
   ballot: (id: string) => `${room(id)}/ballot`,
+  family: '/family',
   minor: (id: string) => `/family/${id}`,
   allowTournament: (minor: string, slug: string) =>
     `/family/${minor}/allow/${slug}`,
@@ -107,7 +108,7 @@ const tabPrefixes = [
   '/tournaments/',
   '/leagues/',
   '/rooms/sample/',
-  '/family/',
+  '/family',
 ];
 
 /**

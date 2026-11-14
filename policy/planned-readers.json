@@ -162,6 +162,429 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan \u00a74).",
       "reviewBy": "2026-12-15"
+    },
+    {
+      "path": "packages/db/src/schema/organizations.ts",
+      "export": "organizations",
+      "task": "TAB-8.1",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Organizations, memberships and Daisy's preset roles are stored before the organization commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/organizations.ts",
+      "export": "memberships",
+      "task": "TAB-8.1",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Organizations, memberships and Daisy's preset roles are stored before the organization commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/organizations.ts",
+      "export": "roles",
+      "task": "TAB-8.1",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Organizations, memberships and Daisy's preset roles are stored before the organization commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/organizations.ts",
+      "export": "rolePermissions",
+      "task": "TAB-8.1",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Organizations, memberships and Daisy's preset roles are stored before the organization commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/grants.ts",
+      "export": "grants",
+      "task": "TAB-8.1",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Grants are stored before the evaluator loader and the give and remove commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/grants.ts",
+      "export": "actionHistory",
+      "task": "TAB-8.7",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Action history is stored before the first lobby command of the wiring slice writes and reads it.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/guardian-links.ts",
+      "export": "guardianLinks",
+      "task": "TAB-8.2",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Guardian links and restrictions exist closed to the runtime role; the counsel-gated wiring task opens and reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/guardian-links.ts",
+      "export": "restrictions",
+      "task": "TAB-8.2",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Guardian links and restrictions exist closed to the runtime role; the counsel-gated wiring task opens and reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/guardian-links.ts",
+      "export": "restrictionLobbies",
+      "task": "TAB-8.2",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Guardian links and restrictions exist closed to the runtime role; the counsel-gated wiring task opens and reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/lobbies.ts",
+      "export": "lobbies",
+      "task": "TAB-8.4",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Lobbies and their tournament extension are stored before tournament setup in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/lobbies.ts",
+      "export": "tournaments",
+      "task": "TAB-8.4",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Lobbies and their tournament extension are stored before tournament setup in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/templates.ts",
+      "export": "templates",
+      "task": "TAB-8.3",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Templates and a standing lobby's offer are stored before the league lobby wiring reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/templates.ts",
+      "export": "lobbyTemplates",
+      "task": "TAB-8.3",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Templates and a standing lobby's offer are stored before the league lobby wiring reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/ladders.ts",
+      "export": "ladders",
+      "task": "TAB-8.3",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): A ladder belongs to a standing lobby before the league ladder wiring reads it.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/settings.ts",
+      "export": "settings",
+      "task": "TAB-8.4",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Settings are stored by scope and key before the settings writer and resolver of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/events.ts",
+      "export": "events",
+      "task": "TAB-8.4",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Events, stages, time slots and tab rounds are stored before tournament setup in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/events.ts",
+      "export": "stages",
+      "task": "TAB-8.4",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Events, stages, time slots and tab rounds are stored before tournament setup in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/events.ts",
+      "export": "timeSlots",
+      "task": "TAB-8.4",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Events, stages, time slots and tab rounds are stored before tournament setup in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/events.ts",
+      "export": "tabRounds",
+      "task": "TAB-8.4",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Events, stages, time slots and tab rounds are stored before tournament setup in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/entries.ts",
+      "export": "entries",
+      "task": "TAB-8.5",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Entries and their members are stored before the entry commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/entries.ts",
+      "export": "entryMembers",
+      "task": "TAB-8.5",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Entries and their members are stored before the entry commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/tournament-judges.ts",
+      "export": "tournamentJudges",
+      "task": "TAB-8.5",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Tournament judges, their availability, events and strikes are stored before the judge commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/tournament-judges.ts",
+      "export": "judgeAvailability",
+      "task": "TAB-8.5",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Tournament judges, their availability, events and strikes are stored before the judge commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/tournament-judges.ts",
+      "export": "judgeEvents",
+      "task": "TAB-8.5",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Tournament judges, their availability, events and strikes are stored before the judge commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/tournament-judges.ts",
+      "export": "judgeStrikes",
+      "task": "TAB-8.5",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Tournament judges, their availability, events and strikes are stored before the judge commands of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/resolution-pools.ts",
+      "export": "resolutionPools",
+      "task": "TAB-8.3",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Resolution pools and their wordings are stored before the league lobby and tab round wiring read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/resolution-pools.ts",
+      "export": "poolResolutions",
+      "task": "TAB-8.3",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Resolution pools and their wordings are stored before the league lobby and tab round wiring read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/draws.ts",
+      "export": "draws",
+      "task": "TAB-8.6",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Draw versions, their fixtures and result inputs are stored before publish-draw in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/draws.ts",
+      "export": "drawFixtures",
+      "task": "TAB-8.6",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Draw versions, their fixtures and result inputs are stored before publish-draw in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/draws.ts",
+      "export": "drawResultInputs",
+      "task": "TAB-8.6",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Draw versions, their fixtures and result inputs are stored before publish-draw in the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/fixtures.ts",
+      "export": "fixtures",
+      "task": "TAB-8.6",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Fixtures, who meets whom and their panels are stored before publish-draw in the wiring slice creates event Rooms from them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/fixtures.ts",
+      "export": "fixtureEntries",
+      "task": "TAB-8.6",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Fixtures, who meets whom and their panels are stored before publish-draw in the wiring slice creates event Rooms from them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/fixtures.ts",
+      "export": "fixtureJudges",
+      "task": "TAB-8.6",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Fixtures, who meets whom and their panels are stored before publish-draw in the wiring slice creates event Rooms from them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/conflicts.ts",
+      "export": "conflicts",
+      "task": "TAB-8.7",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Conflicts and held commands are stored before the conflict handling of the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/conflicts.ts",
+      "export": "pendingCommands",
+      "task": "TAB-8.7",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Conflicts and held commands are stored before the conflict handling of the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/ballot-definitions.ts",
+      "export": "ballotDefinitions",
+      "task": "TAB-8.8",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Ballot definitions and their versions are stored before configured ballots in the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/ballot-definitions.ts",
+      "export": "ballotDefinitionVersions",
+      "task": "TAB-8.8",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Ballot definitions and their versions are stored before configured ballots in the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/ballot-screenings.ts",
+      "export": "ballotScreenings",
+      "task": "TAB-8.9",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Ballot screening is stored before the release reads of the wiring slice redact by it.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/results.ts",
+      "export": "results",
+      "task": "TAB-8.8",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Results and what they gave are stored before the result commands and standings of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/results.ts",
+      "export": "resultEntries",
+      "task": "TAB-8.8",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Results and what they gave are stored before the result commands and standings of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/results.ts",
+      "export": "resultSpeakers",
+      "task": "TAB-8.8",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Results and what they gave are stored before the result commands and standings of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/certifications.ts",
+      "export": "certifications",
+      "task": "TAB-8.11",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Certifications pin results before the season standings of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/certifications.ts",
+      "export": "certificationResults",
+      "task": "TAB-8.11",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Certifications pin results before the season standings of the wiring slice read them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/releases.ts",
+      "export": "releases",
+      "task": "TAB-8.9",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Releases are stored before the audience reads of the wiring slice consult them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/sanctions.ts",
+      "export": "sanctions",
+      "task": "TAB-8.11",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Sanctions and season rules are stored before the season fold of the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/schema/sanctions.ts",
+      "export": "seasonStandingRules",
+      "task": "TAB-8.11",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): Sanctions and season rules are stored before the season fold of the wiring slice reads them.",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "packages/db/src/tenant-scope.ts",
+      "export": "withScope",
+      "task": "TAB-8.1",
+      "owner": "daisy-tab",
+      "adr": "docs/decisions/0128-feature-parent-branch.md",
+      "reason": "Daisy Tab schema lock (TAB-4): the one transaction opener that sets tenant scope ships with the row-level security it serves; the first wiring command opens its transaction through it.",
+      "reviewBy": "2027-01-31"
     }
   ]
 }

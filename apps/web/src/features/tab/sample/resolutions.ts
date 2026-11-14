@@ -1,7 +1,8 @@
 import { choice, linkTo, sampleAction } from '../action';
 import type { PoolResolution, ResolutionPool } from '../resolution-pool';
 import { hostRoutes } from '../routes';
-import { AUTUMN, reached, VARSITY, varsitySwitch } from './moment';
+import { AUTUMN, reached, VARSITY } from './moment';
+import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
 
 const league = "Southeast League's November pool";
@@ -28,7 +29,7 @@ export function sampleResolutionPool(
   const before = !reached(scene, 'prelims');
   const released = reached(scene, 'finished');
   return {
-    event: varsitySwitch,
+    event: varsitySwitch(scene),
     setup: linkTo('Setup', hostRoutes.setup(AUTUMN)),
     lede: before
       ? '18 in the pool, all from the league. Striking from five needs 20.'

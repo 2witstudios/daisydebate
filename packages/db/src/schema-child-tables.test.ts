@@ -75,6 +75,7 @@ describe('competitive schema child tables', () => {
         },
         ballots: {
           checks: [
+            'ballots_ballot_definition_complete',
             'ballots_citations_is_object',
             'ballots_feedback_is_object',
             'ballots_freeze_revision_positive',
@@ -83,6 +84,7 @@ describe('competitive schema child tables', () => {
             'ballots_winner_check',
           ],
           indexes: [
+            'ballots_ballot_definition_idx',
             'ballots_freeze_revision_idx',
             'ballots_judge_round_idx',
             'unique ballots_finalization_reference',
@@ -91,6 +93,7 @@ describe('competitive schema child tables', () => {
           ],
           uniques: [],
           namedKeys: [
+            'ballots_ballot_definition_fk',
             'ballots_freeze_revision_fk',
             'ballots_judge_round_fk',
             'ballots_judge_seat_fk',
