@@ -226,7 +226,7 @@ test('a turn the rules cannot name stays owed (ISSUE-965)', async () => {
     >`select sequence from round_segments where id=${played.answering}`;
     await f.sql.begin(async (tx) => {
       await tx`set local session_replication_role = replica`;
-      await tx`update rounds set rules_snapshot=rules_snapshot #- ${`{segments,${segment!.sequence},side}`}::text[] where id=${played.roundId}`;
+      await tx`update rounds set rules_snapshot=jsonb_set(rules_snapshot, ${`{segments,${segment!.sequence},speak,lead}`}::text[], 'null'::jsonb) where id=${played.roundId}`;
     });
     assert({
       given:

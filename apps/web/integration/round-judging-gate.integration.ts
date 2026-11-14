@@ -4,7 +4,7 @@ import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic, winnerOutcome, negativeSide } from '@daisy/protocol';
 import { recoverRankedResults } from './ranked-room.test-support';
 import {
   readRoundOpening,
@@ -210,7 +210,7 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
       },
       expected: {
         completeness: 'incomplete',
-        done: ['completed', 'negative'],
+        done: ['completed', winnerOutcome(negativeSide)],
         receipt: ['partial', [ai], true],
         jobs: 0,
       },
@@ -347,7 +347,7 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
         },
         expected: {
           waitingOn: { state: 'human_window', deadlineAt: deadline },
-          done: ['completed', 'negative'],
+          done: ['completed', winnerOutcome(negativeSide)],
           ruling: 'partial',
           postings: 2,
         },
@@ -442,7 +442,7 @@ test('a held ballot past the cutoff still decides the Round once attendance sett
       expected: {
         calls: 0,
         job: 'succeeded',
-        done: ['completed', 'negative'],
+        done: ['completed', winnerOutcome(negativeSide)],
       },
     });
   }, judgingOptions);
