@@ -1388,6 +1388,34 @@ FOR EACH ROW EXECUTE FUNCTION public.daisy_refuse_change();
 CREATE TRIGGER ballot_definition_versions_append_only BEFORE UPDATE OR DELETE ON "ballot_definition_versions"
 FOR EACH ROW EXECUTE FUNCTION public.daisy_refuse_change();
 --> statement-breakpoint
+-- TRUNCATE passes row triggers, so a statement trigger refuses it too.
+CREATE TRIGGER action_history_never_truncated BEFORE TRUNCATE ON "action_history"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER results_never_truncated BEFORE TRUNCATE ON "results"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER result_entries_never_truncated BEFORE TRUNCATE ON "result_entries"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER result_speakers_never_truncated BEFORE TRUNCATE ON "result_speakers"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER certifications_never_truncated BEFORE TRUNCATE ON "certifications"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER certification_results_never_truncated BEFORE TRUNCATE ON "certification_results"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER releases_never_truncated BEFORE TRUNCATE ON "releases"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER conflicts_never_truncated BEFORE TRUNCATE ON "conflicts"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
+CREATE TRIGGER ballot_definition_versions_never_truncated BEFORE TRUNCATE ON "ballot_definition_versions"
+FOR EACH STATEMENT EXECUTE FUNCTION public.daisy_refuse_change();
+--> statement-breakpoint
 REVOKE UPDATE, DELETE ON "action_history", "results", "result_entries", "result_speakers",
   "certifications", "certification_results", "releases", "conflicts",
   "ballot_definition_versions" FROM daisy_web;
@@ -1475,14 +1503,20 @@ FOR EACH ROW EXECUTE FUNCTION public.daisy_guard_published_draw();
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_guard_published_draw_list() RETURNS trigger
 LANGUAGE plpgsql AS $guard_published_draw_list$
+DECLARE
+  published boolean;
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM public.draws d
-    WHERE d.status = 'published'
-      AND d.id IN (
-        CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.draw_id END,
-        CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE NEW.draw_id END)
-  ) THEN
+  -- The draw row is locked, so a write that races a publish waits for it
+  -- and then reads the status the publish committed.
+  SELECT bool_or(locked.status = 'published') INTO published
+  FROM (
+    SELECT d.status FROM public.draws d
+    WHERE d.id IN (
+      CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.draw_id END,
+      CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE NEW.draw_id END)
+    FOR SHARE
+  ) locked;
+  IF published THEN
     RAISE EXCEPTION 'What a published draw holds is never changed'
       USING ERRCODE = '23514', CONSTRAINT = TG_TABLE_NAME || '_published_immutable';
   END IF;

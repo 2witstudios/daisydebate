@@ -1,9 +1,22 @@
+import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
 
 type Rows = Record<string, unknown>[];
+
+/**
+ * A row this step just read under the subject scope must be writable under
+ * its own scope; one that is not would leave authority in place silently.
+ */
+const reached = (result: unknown, what: string) => {
+  if ((result as unknown[]).length === 0)
+    throw createAppError(
+      'INVARIANT',
+      `Erasure could not end a ${what} it had read`,
+    );
+};
 
 /**
  * Organization membership and authority (docs/operations/compliance.md).
@@ -37,21 +50,27 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
         organizationId: grant.organization_id ?? undefined,
         lobbyId: grant.lobby_id ?? undefined,
       });
-      await tx.execute(
-        sql`update grants set revoked_at = greatest(${now}::timestamptz, granted_at),
-            revoked_by_user_id = ${subject.userId}
-          where id = ${grant.id} and revoked_at is null`,
+      reached(
+        await tx.execute(
+          sql`update grants set revoked_at = greatest(${now}::timestamptz, granted_at),
+              revoked_by_user_id = ${subject.userId}
+            where id = ${grant.id} and revoked_at is null returning id`,
+        ),
+        'grant',
       );
     }
     for (const { organization_id: organizationId } of memberships) {
       await scopeTransaction(tx, { organizationId });
-      await tx.execute(
-        sql`update memberships set
+      reached(
+        await tx.execute(
+          sql`update memberships set
             status = case when status = 'active' then 'ended' else 'declined' end,
             ended_at = case when status = 'active' then ${now}::timestamptz end,
             updated_at = ${now}::timestamptz, version = version + 1
           where organization_id = ${organizationId} and user_id = ${subject.userId}
-            and status in ('invited', 'active')`,
+            and status in ('invited', 'active') returning user_id`,
+        ),
+        'membership',
       );
     }
     await scopeTransaction(tx, {});

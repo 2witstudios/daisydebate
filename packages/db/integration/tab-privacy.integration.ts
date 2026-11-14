@@ -6,7 +6,8 @@ import { organizationAuthorityPrivacyAdopter } from '../src/organization-authori
 import type { PrivacyAdopter } from '../src/privacy/contracts';
 import { tournamentRecordPrivacyAdopter } from '../src/tournament-record-privacy';
 import { integrationSuite } from './suite.test-support';
-import { sampleInstant as at, withSample } from './tab.test-support';
+import { createId } from '@paralleldrive/cuid2';
+import { insertRow, sampleInstant as at, withSample } from './tab.test-support';
 
 const { databaseUrl: url } = integrationSuite();
 
@@ -39,6 +40,20 @@ test('closing an account ends its authority everywhere and keeps the tournament 
     const member = { userId: debater!.user_id, actorId: ids.debaters[0]! };
     const authority = run(sql, organizationAuthorityPrivacyAdopter, staff);
     const record = run(sql, tournamentRecordPrivacyAdopter, member);
+    // An organization grant as well as the sample's lobby grant.
+    await insertRow(sql, 'grants', {
+      id: createId(),
+      role_id: 'lih2kkdou2a93bd7f8tgciko',
+      user_id: ids.staff,
+      scope_kind: 'organization',
+      organization_id: ids.league,
+      granted_by_user_id: ids.owner,
+      granted_at: at(1),
+    });
+    const [judge] = (await sql.unsafe(
+      'select user_id from actors where id = $1',
+      [ids.judgeActors[0]],
+    )) as Array<{ user_id: string }>;
     const exported = await authority.export();
     await authority.erase();
     await authority.erase();
@@ -68,12 +83,16 @@ test('closing an account ends its authority everywhere and keeps the tournament 
             [ids.staff],
           )
         )[0],
-        grant: (
-          await sql.unsafe(
-            'select revoked_at is not null as revoked, revoked_by_user_id = user_id as by_subject from grants where id = $1',
-            [ids.staffGrant],
-          )
-        )[0],
+        grants: await sql.unsafe(
+          'select scope_kind, revoked_at is not null as revoked, revoked_by_user_id = user_id as by_subject from grants where user_id = $1 order by scope_kind',
+          [ids.staff],
+        ),
+        judgeExport: (
+          await run(sql, tournamentRecordPrivacyAdopter, {
+            userId: judge!.user_id,
+            actorId: ids.judgeActors[0]!,
+          }).export()
+        ).tournament_judges?.map((row) => [row.id, row.status]),
         ownerUntouched: (
           await sql.unsafe(
             'select status from memberships where user_id = $1',
@@ -98,9 +117,19 @@ test('closing an account ends its authority everywhere and keeps the tournament 
         ).export(),
       },
       expected: {
-        exported: { memberships: ['active'], grants: [['lobby', null]] },
+        exported: {
+          memberships: ['active'],
+          grants: [
+            ['lobby', null],
+            ['organization', null],
+          ],
+        },
         membership: { status: 'ended', ended: true, version: 2 },
-        grant: { revoked: true, by_subject: true },
+        grants: [
+          { scope_kind: 'lobby', revoked: true, by_subject: true },
+          { scope_kind: 'organization', revoked: true, by_subject: true },
+        ],
+        judgeExport: [[ids.judges[0], 'accepted']],
         ownerUntouched: { status: 'active' },
         scopeAfter: { organization: null, lobby: null, subject: null },
         recordKept: { entries: 1, results: 1 },

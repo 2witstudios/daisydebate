@@ -520,6 +520,13 @@ views over the operational log store.
 
 ## Gaps
 
+- The tournament record's export returns a member's entries and judging
+  rows. It does not yet return their speaker points and ranks, the action
+  history of commands they ran, conflicts that name them, or commands they
+  proposed for confirmation: those rows are read only under their lobby's
+  scope, and no command writes them yet. The export grows with the first
+  writer of each (Daisy Tab wiring).
+
 - Re-signup after a ban: erasure clears the email, so nothing links a new account
   to an old ban. No digest is kept today; keeping one would be a new data class
   (DEC-298, for counsel under COMP-4).
