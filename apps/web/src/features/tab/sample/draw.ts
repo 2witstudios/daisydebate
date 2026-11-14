@@ -1,3 +1,4 @@
+import { affirmativeSide, negativeSide, twoSideKeys } from '@daisy/protocol';
 import type {
   DrawView,
   DrawViewFixture,
@@ -36,12 +37,12 @@ const plain = (
       {
         entryId: sampleId(`entry${affirmative}`),
         name: affirmative,
-        side: 'affirmative',
+        side: affirmativeSide,
       },
       {
         entryId: sampleId(`entry${negative}`),
         name: negative,
-        side: 'negative',
+        side: negativeSide,
       },
     ],
     judges: [
@@ -64,8 +65,8 @@ const doyleSato: DrawViewFixture = {
     { severity: 'preference_bent', text: 'same school, preference bent' },
   ]),
   entries: [
-    { entryId: sampleId('entryDoyle'), name: 'Doyle', side: 'negative' },
-    { entryId: sampleId('entrySato'), name: 'Sato', side: 'affirmative' },
+    { entryId: sampleId('entryDoyle'), name: 'Doyle', side: negativeSide },
+    { entryId: sampleId('entrySato'), name: 'Sato', side: affirmativeSide },
   ],
   reasons: [
     'Both have 2 wins and have not met. Doyle has been Affirmative twice, so takes Negative.',
@@ -151,7 +152,7 @@ const drawView: DrawView = {
     publishedAt: null,
     basedOn: { drawId: sampleId('drawvarsity4v2'), version: 2 },
   },
-  sides: ['affirmative', 'negative'],
+  sides: [...twoSideKeys],
   resultsThroughRound: 3,
   recordGroups,
   spareJudges: spareJudges.map((name) => ({
