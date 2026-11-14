@@ -2,7 +2,7 @@ import type { Entry, Id } from '../shapes/competition';
 import type { Collision, Commitment, EventRequest } from '../shapes/draw';
 import { panelOf } from './facts';
 
-export type Holder = Collision['holders'][number];
+type Holder = Collision['holders'][number];
 
 /**
  * One person, one fixture per slot. Structural: no force, no override. A

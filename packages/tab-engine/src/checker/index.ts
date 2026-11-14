@@ -22,7 +22,7 @@ import {
 import { verdictOf, type Verdict, type Violation } from './verdict';
 
 export { checkBreaks, checkStandings } from './folds';
-export type { Holder, Verdict, Violation } from './verdict';
+export type { Verdict, Violation } from './verdict';
 
 /** Facts 1–7 over a call's plans. */
 const planViolations = (

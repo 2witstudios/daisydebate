@@ -66,7 +66,7 @@ export const sidesOf = (request: EventRequest): number | null =>
       : null;
 
 /** Whether this tab round weighs pull-ups: a powered preliminary round after the first, of pairings. */
-export const weighsPullUp = (request: EventRequest) =>
+const weighsPullUp = (request: EventRequest) =>
   request.stage.kind === 'preliminary' &&
   request.settings['pairing.method'].preliminary.structure === 'powered' &&
   request.tabRound > 1 &&

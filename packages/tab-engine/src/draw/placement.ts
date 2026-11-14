@@ -72,7 +72,7 @@ export const brokenRules = (
 const widthOf = (key: PairingForceKey) => (key === 'pairing.pull_up' ? 2 : 1);
 
 /** The preference keys in the order they are weighed. */
-export const weighedKeys = (facts: EventFacts): PairingForceKey[] => {
+const weighedKeys = (facts: EventFacts): PairingForceKey[] => {
   const order = facts.settings['pairing.preference_order'].order;
   const listed = [
     ...order,
@@ -110,3 +110,44 @@ export const preferenceFields = (
     fields.push(pairingTerms['pairing.pull_up'](facts, fixture)?.[0] ?? 0);
   return fields;
 };
+
+/** Kept, added and withdrawn, from the movable fixtures a method keeps. */
+export const placedFrom = (
+  request: EventRequest,
+  keptMovable: readonly { readonly id: Id }[],
+  added: readonly Fixture[],
+): Placed => {
+  const keeps = new Set(keptMovable.map((f) => f.id));
+  return {
+    kept: request.existing
+      .filter((f) => f.hold === 'fixed' || keeps.has(f.id))
+      .map((f) => ({ id: f.id, fixture: f.fixture as Fixture })),
+    added,
+    withdrawn: request.existing
+      .filter((f) => f.hold === 'movable' && !keeps.has(f.id))
+      .map((f) => f.id),
+  };
+};
+
+/** A heuristic method's answer: placed, or unresolved when a rule is still broken. */
+export const placedOrUnresolved = (
+  facts: EventFacts,
+  placed: Placed,
+): PlacementAnswer =>
+  placed.added.some((fixture) => brokenRules(facts, fixture).length > 0)
+    ? { kind: 'unresolved', placed }
+    : { kind: 'placed', placed };
+
+/** Rule breaks first, then each named key's cost where it is weighed. */
+export const ruleThenWeighed = (
+  facts: EventFacts,
+  fixture: Fixture,
+  keys: readonly PairingForceKey[],
+) => [
+  brokenRules(facts, fixture).length,
+  ...keys.map((key) =>
+    forceOf(facts.settings, key) === 'preference'
+      ? (pairingTerms[key](facts, fixture)?.[0] ?? 0)
+      : 0,
+  ),
+];

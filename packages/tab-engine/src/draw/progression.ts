@@ -37,7 +37,7 @@ const sameEntries = (a: Fixture, b: Fixture) =>
   [...entriesOf(a)].sort().join() === [...entriesOf(b)].sort().join();
 
 /** Seeds dealt into k rooms by snake: 1..k, then k..1, and so on. */
-export const snake = <T>(items: readonly T[], rooms: number): T[][] => {
+const snake = <T>(items: readonly T[], rooms: number): T[][] => {
   const out: T[][] = Array.from({ length: rooms }, () => []);
   items.forEach((item, i) => {
     const row = Math.floor(i / rooms);

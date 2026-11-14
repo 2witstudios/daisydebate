@@ -8,7 +8,7 @@ import { eventFacts, type EventFacts, type FactsOrder } from './facts';
 import { eventStream } from './placement';
 
 /** How the method was chosen, from the format and the stage, never by the caller. */
-export type Method =
+type Method =
   | {
       readonly kind: 'matched';
       readonly grouped: boolean;

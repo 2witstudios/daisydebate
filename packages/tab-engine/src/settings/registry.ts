@@ -18,7 +18,7 @@ import {
  * asks to avoid: zero is kept, above zero is broken. Null means the key does
  * not apply to that fixture.
  */
-export const allowedForces = forceKeys;
+const allowedForces = forceKeys;
 
 export const forceOf = (settings: ResolvedSettings, key: ForceKey): Force =>
   settings[key].force;

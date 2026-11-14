@@ -45,15 +45,15 @@ const readKeys: Record<SettingKey, true> = {
   'break.seeding': true,
   'break.double_qualifier': true,
 };
-export const engineSettingKeys = (Object.keys(readKeys) as SettingKey[]).sort();
+const engineSettingKeys = (Object.keys(readKeys) as SettingKey[]).sort();
 
 /** Only the keys the engine reads, so a key it does not read changes nothing. */
-export const settingsRead = (settings: ResolvedSettings) =>
+const settingsRead = (settings: ResolvedSettings) =>
   Object.fromEntries(
     engineSettingKeys.map((key) => [key, settings[key]]),
   ) as ResolvedSettings;
 
-export const ENGINE_VERSION = 'tab-engine@1';
+const ENGINE_VERSION = 'tab-engine@1';
 
 export const inputsRecord = (
   prepared: Prepared,

@@ -7,6 +7,7 @@ import type {
 } from '../shapes/competition';
 import type { EventRequest } from '../shapes/draw';
 import type { ResolvedSettings, StageKind } from '../shapes/settings';
+import { entriesOf } from '../standings/games';
 
 /**
  * What one event's history says about its entries, read once per draw. The
@@ -41,17 +42,8 @@ export type EventFacts = {
 export const pairKey = (a: Id, b: Id) =>
   a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
 
-/** The entries a fixture seats; a bye seats one and occupies nobody. */
-export const entriesOf = (fixture: Fixture): readonly Id[] => {
-  switch (fixture.kind) {
-    case 'pairing':
-      return fixture.sides;
-    case 'section':
-      return fixture.speakers;
-    case 'bye':
-      return [fixture.entry];
-  }
-};
+/** The entries a fixture seats (a bye seats one and occupies nobody): one definition, the standings'. */
+export { entriesOf };
 
 export const panelOf = (fixture: Fixture): readonly Id[] =>
   fixture.kind === 'bye' ? [] : fixture.panel;
@@ -69,7 +61,7 @@ const positionCounts = (map: Map<Id, number[]>, entry: Id, index: number) => {
 };
 
 /** Who met whom, sides, positions and byes, from every earlier tab round. */
-export const historyFacts = (
+const historyFacts = (
   fixtures: readonly HistoricFixture<FormatDescriptor>[],
   before: number,
 ) => {

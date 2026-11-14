@@ -30,7 +30,7 @@ export type Entry = {
 };
 
 /** Judge ids in seat order; seat 0 is the chair. */
-export type Panel = readonly Id[];
+type Panel = readonly Id[];
 
 export type TwoSidePairing = {
   readonly kind: 'pairing';
@@ -62,13 +62,13 @@ export type FixtureOf<Format extends FormatDescriptor> = Format extends TwoSides
 export type Fixture = TwoSidePairing | FourSidePairing | Section | Bye;
 
 /** One judge's ballot in a two-sided Round. `winner: null` is a loss to both. */
-export type WinnerBallot = {
+type WinnerBallot = {
   readonly judge: Id;
   readonly winner: Id | null;
   readonly points: readonly { readonly entry: Id; readonly points: number }[];
 };
 /** One judge's ranks in a ranked Round. */
-export type RankBallot = {
+type RankBallot = {
   readonly judge: Id;
   readonly ranks: readonly {
     readonly entry: Id;
@@ -76,19 +76,19 @@ export type RankBallot = {
     readonly points: number;
   }[];
 };
-export type WinnerOutcome = {
+type WinnerOutcome = {
   readonly kind: 'winner';
   /** Null is a double loss. */
   readonly winner: Id | null;
   readonly ballots: readonly WinnerBallot[];
 };
-export type RankingOutcome = {
+type RankingOutcome = {
   readonly kind: 'ranking';
   /** The decided place of each entry, 1 the best. */
   readonly places: readonly { readonly entry: Id; readonly place: number }[];
   readonly ballots: readonly RankBallot[];
 };
-export type OutcomeOf<Format extends FormatDescriptor> = Format extends TwoSides
+type OutcomeOf<Format extends FormatDescriptor> = Format extends TwoSides
   ? WinnerOutcome
   : RankingOutcome;
 

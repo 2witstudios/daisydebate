@@ -4,7 +4,7 @@
  * non-zero, naming each seed, when the checker refused any answer.
  * Usage: bun run simulate:long [count]
  */
-import { simulate } from '../src/simulate/run';
+import { simulate } from '../src/simulate';
 import { measure } from './performance-cases';
 
 const count = Number(process.argv[2] ?? 2000);

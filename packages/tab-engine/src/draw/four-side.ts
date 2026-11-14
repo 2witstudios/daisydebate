@@ -6,7 +6,7 @@ import type {
   Id,
 } from '../shapes/competition';
 import type { RequestOf } from '../shapes/draw';
-import { forceOf, pairingTerms } from '../settings/registry';
+import { forceOf } from '../settings/registry';
 import { minimumCostAssignment } from '../solve/assignment';
 import { compareVectors, packLexicographic } from '../solve/lexicographic';
 import { entriesOf, type EventFacts } from './facts';
@@ -16,6 +16,9 @@ import {
   eventStream,
   poolOf,
   wordFor,
+  placedFrom,
+  placedOrUnresolved,
+  ruleThenWeighed,
   type PlacementAnswer,
 } from './placement';
 
@@ -129,18 +132,11 @@ const roomFixture = (room: Room): FourSidePairing => ({
 });
 
 /** Rule breaks first, then the weighed school and meeting costs. */
-const groupingCost = (facts: EventFacts, room: Room) => {
-  const fixture = roomFixture(room);
-  const weigh = (key: 'pairing.same_school' | 'pairing.rematch') =>
-    forceOf(facts.settings, key) === 'preference'
-      ? (pairingTerms[key](facts, fixture)?.[0] ?? 0)
-      : 0;
-  return [
-    brokenRules(facts, fixture).length,
-    weigh('pairing.same_school'),
-    weigh('pairing.rematch'),
-  ];
-};
+const groupingCost = (facts: EventFacts, room: Room) =>
+  ruleThenWeighed(facts, roomFixture(room), [
+    'pairing.same_school',
+    'pairing.rematch',
+  ]);
 
 /**
  * Where school or meetings are weighed or ruled, a deterministic swap search
@@ -215,14 +211,5 @@ export const placeFourSide = (
   );
   const final = weighsGrouping ? improve(facts, rooms, poolOfRoom) : rooms;
   const added = [...final.map(roomFixture), ...byes];
-  const placed = {
-    kept: request.existing
-      .filter((f) => f.hold === 'fixed' || keptMovable.includes(f))
-      .map((f) => ({ id: f.id, fixture: f.fixture })),
-    added,
-    withdrawn: movable.filter((f) => !keptMovable.includes(f)).map((f) => f.id),
-  };
-  return added.some((fixture) => brokenRules(facts, fixture).length > 0)
-    ? { kind: 'unresolved', placed }
-    : { kind: 'placed', placed };
+  return placedOrUnresolved(facts, placedFrom(request, keptMovable, added));
 };

@@ -142,7 +142,7 @@ const resultsFor = (
 };
 
 /** The fixtures a drawn plan holds, under the ids history will know them by. */
-export const historicOf = (d: Draw): HistoricFixture<FormatDescriptor>[] =>
+const historicOf = (d: Draw): HistoricFixture<FormatDescriptor>[] =>
   [
     ...d.keep.map((k) => ({
       id: k.id,

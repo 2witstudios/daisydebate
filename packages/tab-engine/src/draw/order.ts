@@ -10,7 +10,7 @@ export const byStrength = (facts: EventFacts, entries: readonly Id[]) =>
   );
 
 /** Entries by strength, weakest first. */
-export const weakestFirst = (facts: EventFacts, entries: readonly Id[]) =>
+const weakestFirst = (facts: EventFacts, entries: readonly Id[]) =>
   byStrength(facts, entries).reverse();
 
 /**

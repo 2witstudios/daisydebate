@@ -6,6 +6,7 @@ import {
   brokenRules,
   eventStream,
   poolOf,
+  placedFrom,
   type PlacementAnswer,
 } from './placement';
 
@@ -17,7 +18,7 @@ export const ROUND_ROBIN_VERSION = 'schedule-round-robin@1';
  * function of the entries, the seed and k alone, so every tab round of the
  * stage can be drawn before any is played.
  */
-export const roundRobinRound = (
+const roundRobinRound = (
   entries: readonly Id[],
   tabRound: number,
 ): (TwoSidePairing | Bye)[] => {
@@ -65,14 +66,10 @@ export const placeRoundRobin = (
   );
   return {
     kind: 'placed',
-    placed: {
-      kept: request.existing
-        .filter((f) => f.hold === 'fixed' || kept.includes(f))
-        .map((f) => ({ id: f.id, fixture: f.fixture })),
-      added: fixtures.filter(
-        (fixture) => !kept.some((f) => same(f.fixture, fixture)),
-      ),
-      withdrawn: movable.filter((f) => !kept.includes(f)).map((f) => f.id),
-    },
+    placed: placedFrom(
+      request,
+      kept,
+      fixtures.filter((fixture) => !kept.some((f) => same(f.fixture, fixture))),
+    ),
   };
 };

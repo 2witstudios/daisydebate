@@ -6,9 +6,8 @@
  * engine's own copy of the words, and the wiring proves the two agree.
  */
 
-export const forces = ['rule', 'preference', 'warning', 'off'] as const;
 /** How hard the engine tries: never broken, weighed, reported, or not applied. */
-export type Force = (typeof forces)[number];
+export type Force = 'rule' | 'preference' | 'warning' | 'off';
 
 /** Every key whose value carries a force, with the only forces it accepts. */
 export const forceKeys = {
@@ -39,7 +38,7 @@ export type PairingForceKey = Extract<
 export type JudgingForceKey = Extract<ForceKey, `judging.${string}`>;
 
 /** A force value limited, by type, to the forces its key allows. */
-export type Forced<Key extends ForceKey> = {
+type Forced<Key extends ForceKey> = {
   readonly force: (typeof forceKeys)[Key][number];
 };
 
@@ -53,30 +52,28 @@ export type PreliminaryMethod = {
   readonly lag: number;
 };
 
-export type PanelRule = {
+type PanelRule = {
   readonly size: number;
   readonly decision: 'majority' | 'rank_sum';
 };
 
 /** The version 1 standings metrics, as the catalogue names them. */
-export const metrics = [
-  'wins',
-  'win_percentage',
-  'ballot_count',
-  'total_points',
-  'high_low_points',
-  'opponent_wins',
-  'opponent_points',
-  'head_to_head',
-  'cumulative_rank',
-  'reciprocals',
-  'team_points',
-  'count_back',
-  'rank_truncation',
-  'worst_rank_drop',
-  'rating',
-] as const;
-export type Metric = (typeof metrics)[number];
+export type Metric =
+  | 'wins'
+  | 'win_percentage'
+  | 'ballot_count'
+  | 'total_points'
+  | 'high_low_points'
+  | 'opponent_wins'
+  | 'opponent_points'
+  | 'head_to_head'
+  | 'cumulative_rank'
+  | 'reciprocals'
+  | 'team_points'
+  | 'count_back'
+  | 'rank_truncation'
+  | 'worst_rank_drop'
+  | 'rating';
 
 export type BreakLine =
   | { readonly kind: 'fixed'; readonly size: number }

@@ -3,97 +3,18 @@
  * data. It knows resolved settings as a flat map, entries, results and the
  * fixtures already committed in a slot; nothing about scopes, templates,
  * accounts, Rooms or storage. `check` and `simulate` are their own subpaths.
+ * The wiring (slice H) exports more of the shapes as its commands need them.
  */
-export { assess, whyNot, type WhyNot } from './assess';
+export { assess, whyNot } from './assess';
 export { breaks } from './breaks';
 export { draw } from './draw';
 export { ladderInput, seasonStandings } from './season';
 export { entryRating, standings } from './standings';
-export type {
-  Bracket,
-  Bye,
-  Entry,
-  EntryRating,
-  Fixture,
-  FixtureOf,
-  FormatDescriptor,
-  FourSidePairing,
-  FourSides,
-  HistoricFixture,
-  Id,
-  Panel,
-  ProtectionKey,
-  RankBallot,
-  RankingOutcome,
-  RatingSnapshot,
-  Result,
-  ResultOf,
-  Section,
-  Speakers,
-  Stage,
-  StageHistory,
-  TwoSidePairing,
-  TwoSides,
-  WinnerBallot,
-  WinnerOutcome,
-} from './shapes/competition';
-export type {
-  Assessment,
-  Collision,
-  Commitment,
-  CostKey,
-  Draw,
-  DrawAnswer,
-  DrawInput,
-  DrawOf,
-  EventRequest,
-  Exchange,
-  ExistingFixture,
-  FixtureAssessment,
-  FixtureRef,
-  InputsRecord,
-  InvalidFact,
-  Judge,
-  KeptFixture,
-  NewFixture,
-  Plan,
-  PlanOf,
-  RequestOf,
-  RuleBreak,
-  ShortFixture,
-  SlotJudge,
-  TermCost,
-} from './shapes/draw';
-export type {
-  BreakStage,
-  BreaksAnswer,
-  BreaksInput,
-  LadderGame,
-  LadderInput,
-  Rational,
-  SeasonEvent,
-  SeasonEventOf,
-  SeasonFormula,
-  SeasonStandings,
-  Standings,
-  StandingsInput,
-  StandingsInputOf,
-  StandingsRow,
-} from './shapes/folds';
+export type { Entry } from './shapes/competition';
+export type { DrawInput, Plan, SlotJudge } from './shapes/draw';
+export type { BreaksInput, StandingsInput } from './shapes/folds';
 export {
   forceKeys,
-  forces,
-  metrics,
-  type BreakLine,
-  type Force,
   type ForceKey,
-  type Forced,
-  type JudgingForceKey,
-  type Metric,
-  type PairingForceKey,
-  type PanelRule,
-  type PreliminaryMethod,
   type ResolvedSettings,
-  type SettingKey,
-  type StageKind,
 } from './shapes/settings';

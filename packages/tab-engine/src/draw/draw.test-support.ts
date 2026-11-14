@@ -58,7 +58,7 @@ export const judges = (count: number, prefix = 'j') =>
     judge(`${prefix}${String(i).padStart(2, '0')}`),
   );
 
-export const emptyHistory = { fixtures: [], results: [] } as const;
+const emptyHistory = { fixtures: [], results: [] } as const;
 
 export const request = <Format extends FormatDescriptor>(
   format: Format,

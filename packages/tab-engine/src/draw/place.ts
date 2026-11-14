@@ -10,7 +10,7 @@ import {
 } from '../settings/registry';
 import { entriesOf } from './facts';
 import { placeFourSide } from './four-side';
-import type { PlacementAnswer } from './placement';
+import { placedFrom, type PlacementAnswer } from './placement';
 import type { Prepared } from './prepare';
 import { progression } from './progression';
 import { placeRoundRobin } from './schedule';
@@ -72,17 +72,15 @@ export const placeWith = (
       );
       return {
         kind: 'placed',
-        placed: {
-          kept: request.existing
-            .filter((f) => f.hold === 'fixed' || kept.includes(f))
-            .map((f) => ({ id: f.id, fixture: f.fixture })),
-          added: next.fixtures.filter(
+        placed: placedFrom(
+          request,
+          kept,
+          next.fixtures.filter(
             (x) =>
               !kept.some((f) => key(f.fixture) === key(x)) &&
               !entriesOf(x).some((e) => fixed.has(e)),
           ),
-          withdrawn: movable.filter((f) => !kept.includes(f)).map((f) => f.id),
-        },
+        ),
       };
     }
   }

@@ -1,6 +1,6 @@
 import type { Id, Section, Speakers } from '../shapes/competition';
 import type { RequestOf } from '../shapes/draw';
-import { forceOf, pairingTerms } from '../settings/registry';
+import { forceOf } from '../settings/registry';
 import { minimumCostAssignment } from '../solve/assignment';
 import { compareVectors, packLexicographic } from '../solve/lexicographic';
 import { entriesOf, type EventFacts } from './facts';
@@ -8,13 +8,16 @@ import {
   brokenRules,
   poolOf,
   wordFor,
+  placedFrom,
+  placedOrUnresolved,
+  ruleThenWeighed,
   type PlacementAnswer,
 } from './placement';
 
 export const SECTIONS_VERSION = 'sections@1';
 
 /** Section sizes for a field: as close to the target as possible, differing by at most one. */
-export const sectionSizes = (count: number, target: number): number[] => {
+const sectionSizes = (count: number, target: number): number[] => {
   if (count === 0) return [];
   const sections = Math.max(1, Math.round(count / target));
   const base = Math.floor(count / sections);
@@ -58,18 +61,11 @@ const sectionOf = (speakers: readonly Id[]): Section => ({
 });
 
 /** Rule breaks, then the weighed school and meeting costs, of one section. */
-const sectionCost = (facts: EventFacts, members: readonly Id[]) => {
-  const fixture = sectionOf(members);
-  const weigh = (key: 'pairing.same_school' | 'pairing.section_repeat') =>
-    forceOf(facts.settings, key) === 'preference'
-      ? (pairingTerms[key](facts, fixture)?.[0] ?? 0)
-      : 0;
-  return [
-    brokenRules(facts, fixture).length,
-    weigh('pairing.same_school'),
-    weigh('pairing.section_repeat'),
-  ];
-};
+const sectionCost = (facts: EventFacts, members: readonly Id[]) =>
+  ruleThenWeighed(facts, sectionOf(members), [
+    'pairing.same_school',
+    'pairing.section_repeat',
+  ]);
 
 /** Steepest descent over single swaps between sections, until no swap improves. */
 const improve = (facts: EventFacts, sections: Id[][]) => {
@@ -112,7 +108,7 @@ const improve = (facts: EventFacts, sections: Id[][]) => {
 };
 
 /** Speaker order: one exact assignment of speakers to places against each one's place history. */
-export const speakerOrder = (
+const speakerOrder = (
   facts: EventFacts,
   seed: Uint8Array,
   members: readonly Id[],
@@ -193,14 +189,5 @@ export const placeSections = (
   const added = sections.map((members) =>
     sectionOf(speakerOrder(facts, seed, members)),
   );
-  const placed = {
-    kept: request.existing
-      .filter((f) => f.hold === 'fixed' || keptMovable.includes(f))
-      .map((f) => ({ id: f.id, fixture: f.fixture })),
-    added,
-    withdrawn: movable.filter((f) => !keptMovable.includes(f)).map((f) => f.id),
-  };
-  return added.some((fixture) => brokenRules(facts, fixture).length > 0)
-    ? { kind: 'unresolved', placed }
-    : { kind: 'placed', placed };
+  return placedOrUnresolved(facts, placedFrom(request, keptMovable, added));
 };

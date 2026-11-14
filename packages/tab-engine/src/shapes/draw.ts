@@ -208,7 +208,7 @@ export type InputsRecord = {
   readonly results: readonly Id[];
 };
 
-export type KeptFixture<Format extends FormatDescriptor> = {
+type KeptFixture<Format extends FormatDescriptor> = {
   readonly id: Id;
   readonly fixture: FixtureOf<Format>;
 };
@@ -231,7 +231,7 @@ export type DrawOf<Format extends FormatDescriptor> = {
 export type Draw = DrawOf<TwoSides> | DrawOf<FourSides> | DrawOf<Speakers>;
 
 /** A plan as a person may hand it back: the three lists, without costs. */
-export type PlanOf<Format extends FormatDescriptor> = Pick<
+type PlanOf<Format extends FormatDescriptor> = Pick<
   DrawOf<Format>,
   'event' | 'keep' | 'add' | 'withdraw'
 >;
