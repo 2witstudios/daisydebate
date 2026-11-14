@@ -15,12 +15,12 @@ import type {
   Plan,
   SlotJudge,
 } from '../shapes/draw';
-import { entriesOf } from './facts';
+import { entriesOf, panelOf } from './facts';
 import { FOUR_SIDE_VERSION } from './four-side';
 import { inputsRecord } from './inputs-record';
 import { blockingRules, JUDGES_VERSION, staff, type StaffTask } from './judges';
 import { conflictingRules, placeWith } from './place';
-import type { Placed } from './placement';
+import type { Placed, PlacementAnswer } from './placement';
 import { prepare, type Prepared } from './prepare';
 import { PROGRESSION_VERSION } from './progression';
 import { ROUND_ROBIN_VERSION } from './schedule';
@@ -156,6 +156,8 @@ const releasedMovable = (
   occupied: ReadonlySet<Id>,
   /** People seated on fixtures already kept by earlier events of the call, or on fixed fixtures. */
   taken: ReadonlySet<Id>,
+  /** Movable fixtures placement withdraws anyway: they claim no judge. */
+  unclaimed: ReadonlySet<Id> = new Set(),
 ): Set<Id> => {
   if (input.judges === null) return new Set();
   const byId = new Map<Id, Judge | SlotJudge>(
@@ -192,7 +194,8 @@ const releasedMovable = (
       );
     });
     if (blocked) released.add(f.id);
-    else for (const id of fixture.panel) local.add(byId.get(id)?.person ?? id);
+    else if (!unclaimed.has(f.id))
+      for (const id of fixture.panel) local.add(byId.get(id)?.person ?? id);
   }
   return released;
 };
@@ -242,22 +245,69 @@ export const draw = (input: DrawInput): DrawAnswer => {
     ),
   );
   for (const p of prepared) {
-    const released = releasedMovable(p, input, leastLoad, occupied, taken);
-    const placing =
-      released.size === 0
-        ? p
-        : ({
-            ...p,
-            request: {
-              ...p.request,
-              existing: p.request.existing.filter((f) => !released.has(f.id)),
-            },
-          } as Prepared);
+    /**
+     * Settle the event's keeps before its judge claims bind: when placement
+     * withdraws a movable fixture (a counting proof, a rule), that fixture
+     * stops claiming its judges and the event is placed again. The withdrawn
+     * set only grows, so this ends within the number of movable fixtures.
+     */
+    let unclaimed = new Set<Id>();
+    let forced = new Set<Id>();
+    let released: Set<Id>;
+    let placing: Prepared;
+    let answer: PlacementAnswer;
+    for (;;) {
+      released = releasedMovable(
+        p,
+        input,
+        leastLoad,
+        occupied,
+        taken,
+        unclaimed,
+      );
+      const held = released;
+      placing =
+        held.size === 0
+          ? p
+          : ({
+              ...p,
+              request: {
+                ...p.request,
+                existing: p.request.existing.filter((f) => !held.has(f.id)),
+              },
+            } as Prepared);
+      answer = placeWith(placing, p.request.settings, input.seed);
+      if (answer.kind !== 'placed' && answer.kind !== 'unresolved') break;
+      // A fixture that claimed no judge may still be kept: then a later kept fixture on its judge goes.
+      const seen = new Set(taken);
+      const clash = answer.placed.kept
+        .filter(({ id }) =>
+          p.request.existing.some((f) => f.id === id && f.hold === 'movable'),
+        )
+        .sort((a, b) => compareBytes(a.id, b.id))
+        .find(({ fixture }) => {
+          const people = panelOf(fixture).map(
+            (id) => judgePerson.get(id) ?? id,
+          );
+          const busy = people.some((person) => seen.has(person));
+          for (const person of people) seen.add(person);
+          return busy;
+        });
+      if (clash !== undefined) {
+        forced = new Set([...forced, clash.id]);
+        continue;
+      }
+      const withdrawnByPlacement = answer.placed.withdrawn.filter(
+        (id) => !unclaimed.has(id),
+      );
+      if (withdrawnByPlacement.length === 0 || released.size === 0) break;
+      unclaimed = new Set([...unclaimed, ...withdrawnByPlacement]);
+    }
+    const finalReleased = released;
     const withReleased = (placed: Placed): Placed => ({
       ...placed,
-      withdrawn: [...placed.withdrawn, ...released],
+      withdrawn: [...placed.withdrawn, ...finalReleased],
     });
-    const answer = placeWith(placing, p.request.settings, input.seed);
     switch (answer.kind) {
       case 'placed':
         placements.push(withReleased(answer.placed));

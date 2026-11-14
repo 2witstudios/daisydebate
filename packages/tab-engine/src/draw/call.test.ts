@@ -600,4 +600,43 @@ describe('one judge seated on two movable fixtures', () => {
       expected: [['m2'], ['mb'], true],
     });
   });
+
+  test('a judge claimed by a section the counting proof withdraws stays free for the next section of the event', () => {
+    const section = (id: string, speakers: readonly string[]) => ({
+      id,
+      fixture: { kind: 'section', speakers, panel: ['j00'] },
+      hold: 'movable',
+    });
+    const speech = [
+      ...['x1', 'x2', 'x3', 'x4'].map((id) => entry(id, 'X')),
+      ...['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'].map(
+        (id) => entry(id, id),
+      ),
+    ];
+    const input = slotCall(
+      [
+        request(speakers, {
+          entries: speech,
+          settings: withSettings({
+            'pairing.same_school': { force: 'rule' },
+            'pairing.section_size': { target: 4 },
+          }),
+          existing: [
+            section('a2', ['d', 'e', 'f', 'g']),
+            section('b1', ['x1', 'a', 'b', 'c']),
+          ] as never,
+        }),
+      ],
+      judges(8),
+    );
+    const answer = draw(input);
+    const [d] = drawsOf(answer);
+    assert({
+      given:
+        'two movable sections sharing j00, where the counting proof must release a2',
+      should: 'keep b1 with j00, withdraw only a2, and pass the checker',
+      actual: [d!.keep.map((k) => k.id), d!.withdraw, check(input, answer).ok],
+      expected: [['b1'], ['a2'], true],
+    });
+  });
 });
