@@ -54,6 +54,10 @@ The owner steers product intent; agents own routine execution
    After 50 iterations without convergence the loop emits `BLOCKED` with
    what it needs.
 
+   A slice of a feature with a parent branch runs PR Loop (Feature slice)
+   instead, which has no three-clean-scans condition
+   ([ADR 0128](../decisions/0128-feature-parent-branch.md)).
+
 6. **Async reviews.** `/review`, `/code-review` and the architecture
    reviewer post PR comments during the loop, and the loop consumes them
    ([reviews](reviews.md)).
@@ -121,7 +125,8 @@ an expensive command while its known blocking condition is unchanged.
 - **Scope.** Do not silently cut scope or weaken criteria. A changed product
   outcome goes to the point guard. An in-scope finding is remaining work in
   the same PR. A finding outside the slice is filed in `Issues` in the same
-  session.
+  session (a feature parent slice puts it on the feature's findings list,
+  [ADR 0128](../decisions/0128-feature-parent-branch.md)).
 - **Reporting.** Report meaningful milestones, final delivery and real
   blockers on the Delivery channel or to the spawning parent. Never wait on the
   owner: the point guard answers product, architecture and scope questions.

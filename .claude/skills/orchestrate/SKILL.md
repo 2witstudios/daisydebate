@@ -26,7 +26,8 @@ confirmation and merging within it; planning-only requests stay planning-only.
 5. **Merge.** The flow sweep merges a PR when its builder has emitted `PR_READY`
    and the required checks are green at the exact head, at most two per cycle.
    After a batch, run a local typecheck and knip on main. Only main receives
-   merged PRs.
+   merged PRs, except slices of a feature with a parent branch, which that
+   feature's point guard merges into the parent one at a time (ADR 0128).
 6. **Retire.** When a slice merges, its builder posts `SLICE DONE` or its next plan;
    kill finished sessions and their reviewers.
 

@@ -98,6 +98,8 @@ into its own worktree and asks the architecture reviewer for a pass. No
 review is a required status.
 
 Builders never merge. The point guard's flow sweep merges a PR into main
+(or, for a feature parent slice, the feature's point guard merges it into
+the parent, [ADR 0128](../decisions/0128-feature-parent-branch.md))
 once its builder has emitted `PR_READY` and the required checks are green
 at the exact head. The owner may merge any PR at any time.
 `bun board:stale` lists tasks whose status disagrees with git.

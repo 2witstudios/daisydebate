@@ -123,7 +123,10 @@ A slice of a feature with a parent branch
 ([ADR 0128](../decisions/0128-feature-parent-branch.md)) runs PR Loop
 (Feature slice) `ptq5uh3pf2t654xw2kdmky44` instead. That loop stops at the
 first review with zero blockers and zero majors at the current head. A fix
-that changes product code after a review gets a difference review: one
-reviewer, given the earlier findings and the commits since that verdict.
-Findings that arrive after the first clean verdict, and findings outside
-the slice, go on the feature's findings list.
+that changes product code after a review gets a difference review: the
+builder spawns one reviewer with `/review <PR url>` plus the link to the
+earlier review comment and the range `<reviewed sha>..HEAD`, and that
+reviewer checks the earlier findings and the new commits only. Findings
+that arrive after the first clean verdict, and findings outside the slice,
+go on the feature's findings list in place of `Issues`; the feature's point
+guard files or drops each one at the next slice boundary.

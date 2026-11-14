@@ -17,7 +17,10 @@ planning-only request stays planning-only.
 3. **Build one PR.** Build the whole slice on one branch, carrying inherited
    commits into it, and open one PR with [/pr](../pr/SKILL.md). Hand it to review
    with [/handoff](../handoff/SKILL.md).
-4. **Converge.** Run your harness's PR loop verbatim until it emits `PR_READY`:
+4. **Converge.** A slice of a feature with a parent branch (ADR 0128) opens
+   its PR against the parent and runs PR Loop (Feature slice), PageSpace
+   `ptq5uh3pf2t654xw2kdmky44`, which stops at the first review with no blocker
+   and no major. Every other slice: run your harness's PR loop verbatim until it emits `PR_READY`:
    PR Loop (Ralph Loop), PageSpace `cvslieavdwwkbz8l551hhhsz`, for Claude Code;
    PR Loop (Goal), `asdc6hmpbeyu9ujlqrnes1oc`, for Codex and opencode (both in
    Resources › Universal prompts). Its iterations consume the `/review`,

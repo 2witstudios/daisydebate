@@ -75,7 +75,8 @@ pu kill --agent <agent> && pu clean
     ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)).
   - A red Browser E2E run on main belongs to the merging point guard at once,
     who fixes forward or reverts.
-  - The sweep merges at most two PRs per cycle.
+  - The sweep merges at most two PRs per cycle into main. A feature parent
+    takes one PR at a time (ADR 0128).
   - After a batch, the point guard runs a local typecheck and knip on main.
 - **After a merge.** The tasks the PR names move to Done when its latest
   review verdict approves ([reviews](reviews.md)); otherwise they move to
