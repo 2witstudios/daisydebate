@@ -233,6 +233,18 @@ describe('tenantIsolationProblems', () => {
     });
   });
 
+  test('reports a table listed twice among the owned tables or the exempt', () => {
+    assert({
+      given: 'a manifest that lists one owned table twice',
+      should: 'name it once',
+      actual: tenantIsolationProblems(catalog(small), {
+        tables: [...small.tables, small.tables[0]!],
+        exempt: small.exempt,
+      }),
+      expected: [`${small.tables[0]!.table} is declared more than once`],
+    });
+  });
+
   test('reports a declaration that names no table, or one table twice', () => {
     assert({
       given:

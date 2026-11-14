@@ -258,12 +258,18 @@ export function tenantIsolationProblems(
   const byName = new Map(facts.map((table) => [table.table, table]));
   const owned = new Map(manifest.tables.map((entry) => [entry.table, entry]));
   const exempt = new Set(manifest.exempt.map((entry) => entry.table));
+  // Every entry as written: the map and the set above keep one per table.
+  const written = [...manifest.tables, ...manifest.exempt].map(
+    (entry) => entry.table,
+  );
   const declared = [...owned.keys(), ...exempt];
   return [
-    ...declared
-      .filter((table, index) => declared.indexOf(table) !== index)
-      .map((table) => `${table} is declared more than once`),
-    ...declared
+    ...[
+      ...new Set(
+        written.filter((table, index) => written.indexOf(table) !== index),
+      ),
+    ].map((table) => `${table} is declared more than once`),
+    ...[...new Set(declared)]
       .filter((table) => !byName.has(table))
       .map((table) => `${table} is declared but does not exist`),
     ...facts.flatMap((table) => {
