@@ -11,16 +11,14 @@ const authority: RoundCommandAuthority = {
     {
       id: 'human-seat',
       actorId: 'person',
-      role: 'affirmative',
-      slot: 0,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 },
       kind: 'human',
       eligible: true,
     },
     {
       id: 'bot-seat',
       actorId: 'bot',
-      role: 'negative',
-      slot: 0,
+      seat: { kind: 'side', side: 'negative', slot: 0 },
       kind: 'bot',
       eligible: true,
     },
@@ -89,7 +87,12 @@ test('missing eligibility refuses closed without fabricating an actor', () => {
   for (const participants of [
     [],
     [{ ...authority.participants[0]!, eligible: false }],
-    [{ ...authority.participants[0]!, role: 'judge' as const }],
+    [
+      {
+        ...authority.participants[0]!,
+        seat: { kind: 'judge' as const, slot: 0 },
+      },
+    ],
   ])
     assert({
       given: 'missing, ineligible or judge seat',
