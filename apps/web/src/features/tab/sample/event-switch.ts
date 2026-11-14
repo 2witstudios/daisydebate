@@ -6,8 +6,8 @@ import type { SampleScene } from './scene';
 
 const events = [
   [VARSITY, 'Varsity debate'],
-  ['novice-debate', 'Novice debate'],
   [IMPROMPTU, 'Impromptu'],
+  ['novice-debate', 'Novice debate'],
 ] as const;
 
 /**
