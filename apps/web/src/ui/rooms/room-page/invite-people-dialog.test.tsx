@@ -19,7 +19,7 @@ const pending = [
     ...pendingInvitation,
     id: 'j'.repeat(24),
     invitee: 'rival',
-    seat: 'debater' as const,
+    seat: 'side' as const,
   },
 ];
 type Pending = (typeof pending)[number][];
@@ -56,6 +56,7 @@ async function mountDialog(
         client.createElement(client.InvitePeople, {
           invitations: next,
           action: held,
+          competitor: 'side',
         }),
       ),
     );

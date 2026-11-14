@@ -47,6 +47,7 @@ const storedRound: RoundHydration = {
   startedAt: null,
   completedAt: null,
   outcome: null,
+  judging: null,
   rules: resolved.rules,
   checkpoint: {
     version: 1,
@@ -174,7 +175,7 @@ describe('foundation debate retrieval', () => {
       expected: {
         id: storedRound.id,
         resolution: 'A representative resolution',
-        rules: 2,
+        rules: 3,
         status: 'opening',
       },
     });

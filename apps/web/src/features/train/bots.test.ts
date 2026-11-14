@@ -44,10 +44,10 @@ test('Train reads its opponents and judge from the one roster (train-room)', () 
     should:
       'oppose only bot debaters and judge only with the AI judge (ISSUE-750)',
     actual: [
-      opponents(roster).map((bot) => bot.seatRole),
-      practiceJudge(roster)?.seatRole ?? null,
+      opponents(roster).map((bot) => bot.seatKind),
+      practiceJudge(roster)?.seatKind ?? null,
     ],
-    expected: [['debater', 'debater'], 'judge'],
+    expected: [['side', 'side'], 'judge'],
   });
 });
 

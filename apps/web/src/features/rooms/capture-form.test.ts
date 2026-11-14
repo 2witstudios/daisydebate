@@ -17,8 +17,8 @@ describe('The capture form without script', () => {
       should: 'answer no broadcast, with the recording as ticked',
       actual: [captureFromFields({}), captureFromFields({ recording: 'on' })],
       expected: [
-        { broadcast: null, recording: false },
-        { broadcast: null, recording: true },
+        { broadcast: null, recordingPolicy: 'off' },
+        { broadcast: null, recordingPolicy: 'released' },
       ],
     });
   });
@@ -42,14 +42,14 @@ describe('The capture form without script', () => {
             release: { kind: 'delay', seconds: 10 },
             debatersReadChat: false,
           },
-          recording: false,
+          recordingPolicy: 'off',
         },
         {
           broadcast: {
             release: { kind: 'delay', seconds: 300 },
             debatersReadChat: true,
           },
-          recording: true,
+          recordingPolicy: 'released',
         },
       ],
     });
@@ -116,7 +116,7 @@ describe('The capture form without script', () => {
         type: 'set-capture',
         commandId: 'c'.repeat(24),
         expectedVersion: 3,
-        capture: { broadcast: null, recording: true },
+        capture: { broadcast: null, recordingPolicy: 'released' },
       },
     });
   });
@@ -133,14 +133,29 @@ describe('What participants are told', () => {
             release: { kind: 'delay', seconds: 60 },
             debatersReadChat: false,
           },
-          recording: false,
+          recordingPolicy: 'off',
         }),
-        captureLine({ broadcast: null, recording: true }),
+        captureLine({ broadcast: null, recordingPolicy: 'released' }),
       ],
       expected: [
         'Broadcast with a 60 second delay; debaters cannot read spectator chat during the round. Not recorded.',
         'Not broadcast. Recorded.',
       ],
     });
+  });
+});
+
+test('a Recording kept for the officials reads as theirs alone (TAB-6.15)', () => {
+  assert({
+    given: 'each recording policy without a Broadcast',
+    should: 'say whether, and for whom, the Round is recorded',
+    actual: (['off', 'officials', 'released'] as const).map((recordingPolicy) =>
+      captureLine({ broadcast: null, recordingPolicy }),
+    ),
+    expected: [
+      'Not broadcast. Not recorded.',
+      'Not broadcast. Recorded for the judges, the moderator and the host only.',
+      'Not broadcast. Recorded.',
+    ],
   });
 });

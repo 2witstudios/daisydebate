@@ -22,7 +22,7 @@ test('host cast controls carry actual bot actors and asymmetric declared seats',
           actorId: 't'.repeat(24),
           kind: 'bot',
           label: 'Stored judge bot',
-          seatRole: 'judge',
+          seatKind: 'judge',
           eligible: true,
         },
       ]}
@@ -83,7 +83,7 @@ test('Manage seats shows the AI judge as premium and unselectable for a host wit
           actorId: 'j'.repeat(24),
           kind: 'bot',
           label: 'AI judge',
-          seatRole: 'judge',
+          seatKind: 'judge',
           eligible: true,
         },
       ]}
@@ -113,14 +113,14 @@ test('each seat offers only the AI actors that may hold it', () => {
           actorId: 'd'.repeat(24),
           kind: 'bot',
           label: 'Debater bot',
-          seatRole: 'debater',
+          seatKind: 'side',
           eligible: true,
         },
         {
           actorId: 'j'.repeat(24),
           kind: 'bot',
           label: 'AI judge',
-          seatRole: 'judge',
+          seatKind: 'judge',
           eligible: true,
         },
       ]}
@@ -129,10 +129,10 @@ test('each seat offers only the AI actors that may hold it', () => {
   );
   const seatsOffering = (label: string) =>
     (html.match(new RegExp(`>${label} · AI<`, 'g')) ?? []).length;
-  const judgeSeats = assemblySnapshot.rules.seats.judge;
+  const judgeSeats = assemblySnapshot.rules.seats.judges;
   const sideSeats =
-    assemblySnapshot.rules.seats.affirmative +
-    assemblySnapshot.rules.seats.negative;
+    (assemblySnapshot.rules.seats.sides['affirmative'] ?? 0) +
+    (assemblySnapshot.rules.seats.sides['negative'] ?? 0);
   assert({
     given: 'a bot debater and the AI judge in the cast choices (ISSUE-750)',
     should:
@@ -154,8 +154,7 @@ test('seat pickers show the saved occupant and leave empty seats unselected', ()
             actorId,
             label: 'Saved bot',
             kind: 'bot',
-            role: 'negative',
-            slot: 0,
+            seat: { kind: 'side', side: 'negative', slot: 0 } as const,
             eligible: true,
             needsReady: false,
             ready: 'ready',
@@ -172,7 +171,7 @@ test('seat pickers show the saved occupant and leave empty seats unselected', ()
           actorId,
           label: 'Saved bot',
           kind: 'bot',
-          seatRole: 'debater',
+          seatKind: 'side',
           eligible: true,
         },
       ]}
@@ -211,7 +210,7 @@ test('ranked rooms show their debater bots but mark them unseatable', () => {
           actorId: 'w'.repeat(24),
           kind: 'bot',
           label: 'Ranked bot',
-          seatRole: 'debater',
+          seatKind: 'side',
           eligible: true,
         },
       ]}

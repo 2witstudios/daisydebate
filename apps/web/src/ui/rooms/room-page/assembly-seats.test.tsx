@@ -13,7 +13,7 @@ const bot = {
   actorId: 't'.repeat(24),
   kind: 'bot' as const,
   label: 'Penny',
-  seatRole: 'judge' as const,
+  seatKind: 'judge' as const,
   eligible: true,
 };
 const occupied = {
@@ -25,8 +25,7 @@ const occupied = {
       label: 'Real member',
       consentVersion: 0,
       kind: 'human' as const,
-      role: 'affirmative' as const,
-      slot: 1,
+      seat: { kind: 'side', side: 'affirmative', slot: 1 } as const,
       needsReady: true,
       ready: 'ready' as const,
       eligible: true,
@@ -37,8 +36,7 @@ const occupied = {
       label: 'Judge bot',
       consentVersion: 0,
       kind: 'bot' as const,
-      role: 'judge' as const,
-      slot: 0,
+      seat: { kind: 'judge', slot: 0 } as const,
       needsReady: false,
       ready: 'not-ready' as const,
       eligible: false,
@@ -129,7 +127,9 @@ test('open judge seat offers invite and, to the host, an AI judge', () => {
       host.includes(`href="/rooms/${assemblySnapshot.id}"`),
       host.includes('>AI judge</button>'),
       aiForm.includes(`name="actorId" value="${bot.actorId}"`),
-      aiForm.includes('name="role" value="judge"'),
+      aiForm.includes(
+        `name="seat" value="${JSON.stringify({ kind: 'judge', slot: 0 }).replaceAll('"', '&quot;')}"`,
+      ),
       guest.includes('Take Judge 1'),
       guest.includes('>Invite</a>'),
       guest.includes('AI judge'),
@@ -148,9 +148,8 @@ test('an anonymous human judge (DEC-174)', () => {
         participants: [
           occupied.participants[0]!,
           {
-            role: 'judge',
+            seat: { kind: 'judge', slot: 0 },
             kind: 'human',
-            slot: 0,
             anonymous: true,
             needsReady: true,
             ready: 'ready',
@@ -181,7 +180,7 @@ test('a bot debater is never offered as the AI judge', () => {
       ready={null}
       view={assemblySnapshot}
       viewer={viewer}
-      bots={[{ ...bot, seatRole: 'debater' }]}
+      bots={[{ ...bot, seatKind: 'side' }]}
       {...intents}
     />,
   );
@@ -225,5 +224,49 @@ test("the viewer's own seat row carries their Ready control (RCHAT-11)", () => {
       row(without, 'You').includes('>Ready</span>'),
     ],
     expected: [true, false, 1, true],
+  });
+});
+
+test('a four-team Room lists each bench by its own name, in declared order (TAB-6.17)', () => {
+  const sides = [
+    { key: 'opening_government', label: 'Opening Government', short: 'OG' },
+    { key: 'opening_opposition', label: 'Opening Opposition', short: 'OO' },
+    { key: 'closing_government', label: 'Closing Government', short: 'CG' },
+    { key: 'closing_opposition', label: 'Closing Opposition', short: 'CO' },
+  ];
+  const seats = {
+    sides: Object.fromEntries(sides.map((side) => [side.key, 1])),
+    speakers: 0,
+    judges: 2,
+    moderators: 0 as const,
+  };
+  const html = renderToStaticMarkup(
+    <AssemblySeats
+      ready={null}
+      view={{
+        ...assemblySnapshot,
+        definition: { ...assemblySnapshot.definition, sides, seats },
+        rules: { ...assemblySnapshot.rules, sides, seats },
+      }}
+      viewer={viewer}
+      bots={[]}
+      {...intents}
+    />,
+  );
+  const headings = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map(
+    ([, text]) => text,
+  );
+  assert({
+    given: 'four one-seat benches and a panel of two, all open',
+    should: 'name each seat by the format’s labels, benches first',
+    actual: headings,
+    expected: [
+      'Opening Government 1',
+      'Opening Opposition 1',
+      'Closing Government 1',
+      'Closing Opposition 1',
+      'Judge 1',
+      'Judge 2',
+    ],
   });
 });

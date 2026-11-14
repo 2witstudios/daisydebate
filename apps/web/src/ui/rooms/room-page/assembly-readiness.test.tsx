@@ -8,6 +8,7 @@ import {
   postRoundCallText,
 } from './assembly-readiness';
 import { ContentWaiverForm } from './content-waiver-form';
+import { twoSides } from '@daisy/protocol';
 
 setupRitewayBun();
 const base = {
@@ -25,15 +26,22 @@ const base = {
       label: 'Viewer',
       consentVersion: 8,
       kind: 'human' as const,
-      role: 'judge' as const,
-      slot: 0,
+      seat: { kind: 'judge', slot: 0 } as const,
       needsReady: true,
       ready: 'not-ready' as const,
       eligible: true,
     },
   ],
   readiness: { available: true, version: 7, readyActorIds: [] },
-  definition: { seats: { affirmative: 1, negative: 1, judge: 1 } },
+  definition: {
+    sides: [...twoSides],
+    seats: {
+      sides: { affirmative: 1, negative: 1 },
+      speakers: 0,
+      judges: 1,
+      moderators: 0 as const,
+    },
+  },
   capabilities: { canReady: true, host: true, canStart: false },
   startRefusal: 'not-ready' as const,
 };
@@ -237,7 +245,7 @@ describe('native room readiness and Start round controls', () => {
       participants: [
         {
           ...base.participants[0]!,
-          role: 'affirmative' as const,
+          seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
           ready: 'ready' as const,
         },
       ],
@@ -264,7 +272,7 @@ describe('native room readiness and Start round controls', () => {
       id: role,
       actorId: role,
       kind: 'bot' as const,
-      role,
+      seat: { kind: 'side' as const, side: role, slot: 0 },
       needsReady: false,
     });
     const waiting = controls(props);
@@ -295,7 +303,7 @@ describe('native room readiness and Start round controls', () => {
   test('only the host reads that the Start waits on their device check', () => {
     const debater = {
       ...base.participants[0]!,
-      role: 'affirmative' as const,
+      seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
       ready: 'ready' as const,
     };
     const notice = (host: boolean) =>
@@ -310,14 +318,14 @@ describe('native room readiness and Start round controls', () => {
                 ...debater,
                 actorId: 'bot',
                 kind: 'bot' as const,
-                role: 'negative' as const,
+                seat: { kind: 'side', side: 'negative', slot: 0 } as const,
                 needsReady: false,
               },
               {
                 ...debater,
                 actorId: 'judge-bot',
                 kind: 'bot' as const,
-                role: 'judge' as const,
+                seat: { kind: 'judge', slot: 0 } as const,
                 needsReady: false,
               },
             ],

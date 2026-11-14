@@ -13,8 +13,7 @@ const original = {
   type: 'claim-seat',
   commandId: 'c'.repeat(24),
   expectedVersion: '3',
-  role: 'negative',
-  slot: '0',
+  seat: JSON.stringify({ kind: 'side', side: 'negative', slot: 0 }),
 };
 
 test('the retry of a room command posts exactly the original fields', () => {
@@ -38,7 +37,13 @@ test('the retry of a room command posts exactly the original fields', () => {
       html.includes('type="hidden"'),
       html.includes('>Retry command</button>'),
     ],
-    expected: [original, 5, true, true],
+    expected: [
+      // The seat travels as JSON, which the markup escapes.
+      { ...original, seat: original.seat.replaceAll('"', '&quot;') },
+      4,
+      true,
+      true,
+    ],
   });
   assert({
     given: 'the same retry while it is in flight',

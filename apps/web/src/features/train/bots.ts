@@ -5,14 +5,13 @@ import { trainDestinations } from './actions';
 /** The bot debaters a member can face; the AI judge judges, never opposes (ISSUE-750). */
 export const opponents = (
   bots: readonly RoomCastChoice[],
-): readonly RoomCastChoice[] =>
-  bots.filter((bot) => bot.seatRole === 'debater');
+): readonly RoomCastChoice[] => bots.filter((bot) => bot.seatKind === 'side');
 
 /** The AI judge a practice room seats so its cast completes (DEC-269). */
 export const practiceJudge = (
   bots: readonly RoomCastChoice[],
 ): RoomCastChoice | null =>
-  bots.find((bot) => bot.seatRole === 'judge' && bot.eligible) ?? null;
+  bots.find((bot) => bot.seatKind === 'judge' && bot.eligible) ?? null;
 
 const first = (value: string | readonly string[] | undefined) =>
   typeof value === 'string' ? value : value?.[0];

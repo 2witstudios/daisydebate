@@ -39,7 +39,7 @@ test('full native schedules cross the action cap through the bounded form route'
   for (let i = 2; i < 64; i++)
     draft = changeDraftSchedule(
       draft,
-      i % 2 ? 'add-negative' : 'add-affirmative',
+      i % 2 ? 'add-side:negative' : 'add-side:affirmative',
     );
   const form = new FormData();
   Object.entries(draftFormValues(draft)).forEach(([key, value]) =>

@@ -8,7 +8,7 @@ export const debater = (
   actorId,
   label: `Bot ${actorId.slice(0, 4)}`,
   kind: 'bot',
-  seatRole: 'debater',
+  seatKind: 'side',
   eligible: true,
   ...fields,
 });
@@ -20,7 +20,7 @@ export const judge = (
   actorId: 'judge-actor-id-000000',
   label: 'The Panel',
   kind: 'bot',
-  seatRole: 'judge',
+  seatKind: 'judge',
   eligible: true,
   ...fields,
 });
