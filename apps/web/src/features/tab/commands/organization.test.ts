@@ -555,4 +555,20 @@ describe('decideOrganization', () => {
       ],
     });
   });
+
+  test('transferring ownership to a minor or an unknown age', () => {
+    const transfer = {
+      type: 'transfer-ownership',
+      organizationId,
+      userId: 'member',
+    } as const;
+    assert({
+      given: 'an active member whose age is a minor band or unverified',
+      should: 'refuse ownership without writing any change',
+      actual: (['under-13', '13-15', '16-17', null] as const).map(
+        (personAgeBand) => writesOf(facts({ personAgeBand }), transfer),
+      ),
+      expected: ['age-band', 'age-band', 'age-band', 'age-band'],
+    });
+  });
 });

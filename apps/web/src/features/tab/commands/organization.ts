@@ -507,6 +507,7 @@ export function decideOrganization(
     case 'remove-grant':
       return removeGrant(facts, organization, command.grantId);
     case 'transfer-ownership':
+      if (facts.personAgeBand !== 'adult') return refuse('age-band');
       return membershipOf(facts, command.userId)?.status === 'active'
         ? accepted(organization, [], { ownerUserId: command.userId })
         : refuse('not-a-member');

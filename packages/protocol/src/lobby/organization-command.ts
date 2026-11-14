@@ -160,6 +160,6 @@ export const organizationCommandCatalogue = {
   'transfer-ownership': command({
     gate: ['organization.owner.transfer'],
     versions: ['organization'],
-    refusals: ['not-a-member'],
+    refusals: ['not-a-member', 'age-band'],
   }),
 } as const satisfies LobbyCommandCatalogue<OrganizationCommand>;
