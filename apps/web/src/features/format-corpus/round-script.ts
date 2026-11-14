@@ -1,11 +1,13 @@
 import { mediaGrants } from '@daisy/debate-engine';
 import { roundControlsAt } from '@daisy/debate-engine/position';
-import type {
-  DebateSide,
-  RoundPosition,
-  RoundProjection,
-  RoundRules,
-  RuntimeCheckpoint,
+import {
+  daisyWinnerBallot,
+  isJudgeSeat,
+  type SideKey,
+  type RoundPosition,
+  type RoundProjection,
+  type RoundRules,
+  type RuntimeCheckpoint,
 } from '@daisy/protocol';
 import { attempt, type Recorded } from './refusal';
 import { hydrate, opening, persisted } from './durable';
@@ -16,15 +18,15 @@ type RoundRuntime = ReturnType<typeof hydrate>;
 const iso = (ms: number) => new Date(ms).toISOString();
 
 /** Every judge seat rules for `winner`, inside a human window that has closed. */
-const panelCompletion = (
-  state: ScriptState,
-  winner: DebateSide,
-  now: string,
-) => {
-  const judges = state.seats.filter((s) => s.role === 'judge');
+const panelCompletion = (state: ScriptState, winner: SideKey, now: string) => {
+  const judges = state.seats.filter((s) => isJudgeSeat(s.seat));
   const [first, ...rest] = judges.map((s) => s.id);
   return {
     now,
+    judging: {
+      ballot: daisyWinnerBallot,
+      panel: { decision: 'majority' as const, quorum: 1 },
+    },
     completeness: 'complete' as const,
     ballots: judges.map((s) => ({ judgeParticipantId: s.id, winner })),
     panel: {
@@ -80,7 +82,7 @@ const grantsAt = (state: ScriptState, position: RoundPosition, now: string) =>
 const optionsAt = (state: ScriptState, nowMs: number) =>
   Object.fromEntries(
     state.seats
-      .filter((seat) => seat.role !== 'judge')
+      .filter((seat) => !isJudgeSeat(seat.seat))
       .map((seat) => [
         seat.id,
         roundControlsAt({

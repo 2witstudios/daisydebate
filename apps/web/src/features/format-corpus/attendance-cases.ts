@@ -3,7 +3,12 @@ import {
   attendancePolicy,
   requireAttendanceDecision,
 } from '@daisy/debate-engine';
-import type { RoundRules } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  sideOfSeat,
+  sideSeat,
+  type RoundRules,
+} from '@daisy/protocol';
 import { attempt } from './refusal';
 import {
   corpusStartMs,
@@ -23,11 +28,12 @@ const firstSpeechWindow = (
 ) => ({
   segmentId: 'segment-1',
   openedAtMs,
-  speakerId: seatAt(seats, 'affirmative', 0).id,
+  speakerId: seatAt(seats, sideSeat('affirmative')).id,
   speakerSide: 'affirmative' as const,
+  forfeitsTo: 'negative' as const,
   eligibleSeats: seats
-    .filter((s) => s.role !== 'judge')
-    .map((s) => ({ id: s.id, side: s.role as 'affirmative' | 'negative' })),
+    .filter((s) => !isJudgeSeat(s.seat))
+    .map((s) => ({ id: s.id, side: sideOfSeat(s.seat) })),
   lastSpeech: false,
 });
 
@@ -49,7 +55,7 @@ export const firstSpeechEvidence = (
     },
     botSeatIds: [],
     checkIns: present.map((role) => ({
-      participantId: seatAt(seats, role, 0).id,
+      participantId: seatAt(seats, sideSeat(role)).id,
       receivedAtMs: opensMs + 1_000,
     })),
     finalized: false,

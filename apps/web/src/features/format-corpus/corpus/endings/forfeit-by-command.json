@@ -27,8 +27,20 @@
       "nextSegment": {
         "key": "AC",
         "label": "Affirmative constructive",
+        "lead": {
+          "kind": "side",
+          "side": "affirmative",
+          "slot": 0
+        },
         "sequence": 0,
-        "side": "affirmative",
+        "speak": {
+          "rights": "one",
+          "seat": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          }
+        },
         "type": "speech"
       },
       "openSegment": null,
@@ -111,9 +123,21 @@
         "floorParticipantId": null,
         "key": "AC",
         "label": "Affirmative constructive",
+        "lead": {
+          "kind": "side",
+          "side": "affirmative",
+          "slot": 0
+        },
         "remainingMs": 250000,
         "sequence": 0,
-        "side": "affirmative",
+        "speak": {
+          "rights": "one",
+          "seat": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          }
+        },
         "startedAt": "2026-10-06T09:00:10.000Z",
         "type": "speech"
       },
@@ -163,7 +187,10 @@
       },
       "nextSegment": null,
       "openSegment": null,
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "prep": null,
       "prepBudgetRemainingMs": {
         "affirmative": 240000,
@@ -182,7 +209,11 @@
             "at": "2026-10-06T09:00:10.000Z",
             "key": "AC",
             "kind": "segment_opened",
-            "side": "affirmative",
+            "lead": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            },
             "type": "speech"
           },
           {
@@ -193,7 +224,10 @@
           {
             "at": "2026-10-06T09:01:00.000Z",
             "kind": "round_completed",
-            "outcome": "affirmative"
+            "outcome": {
+              "kind": "winner",
+              "side": "affirmative"
+            }
           }
         ],
         "finalSegmentEndedAt": "2026-10-06T09:01:00.000Z",
@@ -216,7 +250,10 @@
           },
           "completedAt": "2026-10-06T09:01:00.000Z",
           "currentStage": null,
-          "outcome": "affirmative",
+          "outcome": {
+            "kind": "winner",
+            "side": "affirmative"
+          },
           "startedAt": "2026-10-06T09:00:00.000Z",
           "status": "completed"
         },

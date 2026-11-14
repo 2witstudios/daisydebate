@@ -116,17 +116,32 @@ describe('catalogFormats', () => {
       })),
       expected: [
         {
-          seats: { affirmative: 2, negative: 2, judge: 1 },
+          seats: {
+            sides: { affirmative: 2, negative: 2 },
+            speakers: 0,
+            judges: 1,
+            moderators: 0,
+          },
           prepMs: 480_000,
           before: ['speech', 'cross_ex'],
         },
         {
-          seats: { affirmative: 2, negative: 2, judge: 1 },
+          seats: {
+            sides: { affirmative: 2, negative: 2 },
+            speakers: 0,
+            judges: 1,
+            moderators: 0,
+          },
           prepMs: 600_000,
           before: ['speech', 'cross_ex'],
         },
         {
-          seats: { affirmative: 2, negative: 2, judge: 1 },
+          seats: {
+            sides: { affirmative: 2, negative: 2 },
+            speakers: 0,
+            judges: 1,
+            moderators: 0,
+          },
           prepMs: 300_000,
           before: ['speech'],
         },
@@ -175,7 +190,12 @@ describe('catalogFormats', () => {
           .map((s) => s.defaultDurationMs),
       },
       expected: {
-        seats: { affirmative: 1, negative: 1, judge: 1 },
+        seats: {
+          sides: { affirmative: 1, negative: 1 },
+          speakers: 0,
+          judges: 1,
+          moderators: 0,
+        },
         questions: [180_000, 180_000],
       },
     });

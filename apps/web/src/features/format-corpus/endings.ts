@@ -1,5 +1,11 @@
 import { adjudicateAttendance, attendancePolicy } from '@daisy/debate-engine';
-import type { JudgingPanel } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  judgeSeat,
+  sideSeat,
+  type JudgingPanel,
+} from '@daisy/protocol';
+import { majorityJudging } from './panel-decisions';
 import { attendanceCases, firstSpeechEvidence } from './attendance-cases';
 import { corpusAt, seatAt } from './corpus-seats';
 import { harness, oneOnOne, scheduleMs } from './one-on-one';
@@ -59,7 +65,10 @@ const commandForfeit = () => {
     round.record(`${role} forfeits`, corpusAt(60_000), (on) =>
       on.execute({
         command: { type: 'forfeit' },
-        actorId: seatAt(round.seats, role, 0).actorId,
+        actorId: seatAt(
+          round.seats,
+          role === 'judge' ? judgeSeat() : sideSeat(role),
+        ).actorId,
         now: corpusAt(60_000),
       }),
     );
@@ -78,7 +87,7 @@ const panelEnding = (
   const round = harness(rules);
   const endMs = scheduleMs(rules);
   const judgeIds = round.seats
-    .filter((s) => s.role === 'judge')
+    .filter((s) => isJudgeSeat(s.seat))
     .map((s) => s.id);
   const ballots = judgeIds.flatMap((id, index) => {
     const winner = winners[index] ?? null;
@@ -99,6 +108,7 @@ const panelEnding = (
       (on) =>
         on.completePanel({
           now: corpusAt(ms),
+          judging: majorityJudging,
           ballots,
           completeness: 'complete',
           panel,

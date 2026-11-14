@@ -1,5 +1,4 @@
 import {
-  ballotSchema,
   caseMapSchema,
   type CaseMap,
   judgingBallotFields,
@@ -10,6 +9,7 @@ import {
   type JudgingIssueCode,
 } from '@daisy/protocol';
 import type { z } from 'zod';
+import { aiJudgeBallotSchema } from './judge-contract';
 import { modelJson } from './model-json';
 
 type JudgedAnswer =
@@ -117,7 +117,7 @@ function contractAnswer<T>(
 export function judgeAnswer(answer: ModelAnswer): JudgedAnswer {
   const judged = contractAnswer(
     answer,
-    ballotSchema,
+    aiJudgeBallotSchema,
     'The judge answered malformed JSON',
   );
   return judged.ok ? { ok: true, ballot: judged.value } : judged;

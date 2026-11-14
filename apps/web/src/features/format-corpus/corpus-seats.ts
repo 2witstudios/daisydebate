@@ -1,14 +1,10 @@
-import type {
-  DebateRole,
-  RoundParticipantSeat,
-  RoundRules,
+import {
+  everySeatOf,
+  sameSeat,
+  type RoundParticipantSeat,
+  type RoundRules,
+  type SeatRef,
 } from '@daisy/protocol';
-
-const roles = [
-  'affirmative',
-  'negative',
-  'judge',
-] as const satisfies readonly DebateRole[];
 
 /** A seat as the authority reads it: every corpus seat is an eligible human. */
 export type CorpusSeat = RoundParticipantSeat & {
@@ -16,34 +12,34 @@ export type CorpusSeat = RoundParticipantSeat & {
   readonly eligible: true;
 };
 
+/** The id word a seat had as a role: its side, or its kind. */
+const wordOf = (seat: SeatRef): string =>
+  seat.kind === 'side' ? seat.side : seat.kind;
+
 /** A deterministic 24-character id, as the protocol's id grammar requires. */
-const idOf = (prefix: string, role: DebateRole, slot: number) =>
-  `${prefix}${role}${slot}`.padEnd(24, '0');
+const idOf = (prefix: string, seat: SeatRef) =>
+  `${prefix}${wordOf(seat)}${seat.slot}`.padEnd(24, '0');
 
 /** One seat for every slot the rules declare, sides first, then judges. */
 export const seatsOf = (
-  rules: Pick<RoundRules, 'seats'>,
+  rules: Pick<RoundRules, 'sides' | 'seats'>,
 ): readonly CorpusSeat[] =>
-  roles.flatMap((role) =>
-    Array.from({ length: rules.seats[role] }, (_, slot) => ({
-      id: idOf('seat', role, slot),
-      actorId: idOf('user', role, slot),
-      role,
-      slot,
-      kind: 'human' as const,
-      eligible: true as const,
-    })),
-  );
+  everySeatOf(rules).map((seat) => ({
+    id: idOf('seat', seat),
+    actorId: idOf('user', seat),
+    seat,
+    kind: 'human' as const,
+    eligible: true as const,
+  }));
 
-/** The seat holding `role` and `slot`; throws when the rules declared none. */
+/** The participant holding `seat`; throws when the rules declared none. */
 export const seatAt = (
   seats: readonly CorpusSeat[],
-  role: DebateRole,
-  slot: number,
+  seat: SeatRef,
 ): CorpusSeat => {
-  const seat = seats.find((s) => s.role === role && s.slot === slot);
-  if (!seat) throw new Error(`No ${role} seat in slot ${slot}`);
-  return seat;
+  const found = seats.find((s) => sameSeat(s.seat, seat));
+  if (!found) throw new Error(`No ${wordOf(seat)} seat in slot ${seat.slot}`);
+  return found;
 };
 
 /** The corpus's first instant; every other instant is an offset from it. */

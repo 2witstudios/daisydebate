@@ -377,7 +377,7 @@ describe('reference data', () => {
       should:
         'offer no judge seat and hold no preset, so it never reaches a ladder',
       actual: {
-        judge: foundation?.definition.seats.judge,
+        judge: foundation?.definition.seats.judges,
         presets: referencePresets.filter(
           ({ formatId }) => formatId === 'foundation',
         ).length,

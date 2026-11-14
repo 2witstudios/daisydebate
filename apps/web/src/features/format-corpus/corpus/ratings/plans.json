@@ -1,6 +1,9 @@
 [
   {
-    "outcome": "affirmative",
+    "outcome": {
+      "kind": "winner",
+      "side": "affirmative"
+    },
     "plan": {
       "ok": true,
       "value": {
@@ -49,7 +52,10 @@
     "standings": "established"
   },
   {
-    "outcome": "negative",
+    "outcome": {
+      "kind": "winner",
+      "side": "negative"
+    },
     "plan": {
       "ok": true,
       "value": {
@@ -98,7 +104,10 @@
     "standings": "established"
   },
   {
-    "outcome": "affirmative",
+    "outcome": {
+      "kind": "winner",
+      "side": "affirmative"
+    },
     "plan": {
       "ok": true,
       "value": {
@@ -147,7 +156,10 @@
     "standings": "provisional"
   },
   {
-    "outcome": "negative",
+    "outcome": {
+      "kind": "winner",
+      "side": "negative"
+    },
     "plan": {
       "ok": true,
       "value": {
@@ -196,7 +208,10 @@
     "standings": "provisional"
   },
   {
-    "outcome": "affirmative",
+    "outcome": {
+      "kind": "winner",
+      "side": "affirmative"
+    },
     "plan": {
       "ok": true,
       "value": {
@@ -245,7 +260,10 @@
     "standings": "carriedOver"
   },
   {
-    "outcome": "negative",
+    "outcome": {
+      "kind": "winner",
+      "side": "negative"
+    },
     "plan": {
       "ok": true,
       "value": {

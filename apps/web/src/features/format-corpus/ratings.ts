@@ -5,10 +5,12 @@ import {
   ratingAwaited,
   ratingEligibility,
 } from '@daisy/debate-engine';
-import type {
-  DebaterStanding,
-  RatingEligibilityFacts,
-  RoundOutcome,
+import {
+  sideSeat,
+  winnerOutcome,
+  type DebaterStanding,
+  type RatingEligibilityFacts,
+  type WinnerOutcome,
 } from '@daisy/protocol';
 import { attempt } from './refusal';
 
@@ -59,7 +61,7 @@ const standings: Readonly<
   },
 };
 
-const plan = (name: string, outcome: RoundOutcome) => {
+const plan = (name: string, outcome: WinnerOutcome) => {
   const pair = standings[name]!;
   const result = attempt(() =>
     planRating({
@@ -68,8 +70,8 @@ const plan = (name: string, outcome: RoundOutcome) => {
       occurredAt: completedAt,
       seasonId: 'season000000000000000001',
       seats: [
-        { actorId: affirmative, role: 'affirmative' },
-        { actorId: negative, role: 'negative' },
+        { actorId: affirmative, seat: sideSeat('affirmative') },
+        { actorId: negative, seat: sideSeat('negative') },
       ],
       standings: pair,
       changeIds: ['change000000000000000001', 'change000000000000000002'],
@@ -91,7 +93,7 @@ const completed: RatingEligibilityFacts = {
   competitionType: 'ranked',
   ladderId: 'freestyle',
   status: 'completed',
-  outcome: 'affirmative',
+  outcome: winnerOutcome('affirmative'),
   completedAt,
   alreadyRated: false,
   ending: 'judged',
@@ -108,7 +110,7 @@ const completed: RatingEligibilityFacts = {
 const eligibility = () => {
   const cases: readonly (readonly [string, RatingEligibilityFacts])[] = [
     ['rated', completed],
-    ['negative-wins', { ...completed, outcome: 'negative' }],
+    ['negative-wins', { ...completed, outcome: winnerOutcome('negative') }],
     ['null-outcome', { ...completed, outcome: null }],
     ['casual', { ...completed, competitionType: 'casual', ladderId: null }],
     ['abandoned', { ...completed, status: 'abandoned', outcome: null }],
@@ -153,7 +155,7 @@ const eligibility = () => {
 };
 
 /** One debate rated directly, with both sides' idle widening. */
-const direct = (outcome: RoundOutcome) =>
+const direct = (outcome: WinnerOutcome) =>
   rateDebate({
     affirmative: {
       state: { rating: 1500, deviation: 200, volatility: 0.06 },
@@ -173,12 +175,15 @@ export const ratingCases = (): readonly (readonly [string, unknown])[] => [
   [
     'plans',
     Object.keys(standings).flatMap((name) => [
-      plan(name, 'affirmative'),
-      plan(name, 'negative'),
+      plan(name, winnerOutcome('affirmative')),
+      plan(name, winnerOutcome('negative')),
     ]),
   ],
   [
     'rate-debate',
-    { affirmative: direct('affirmative'), negative: direct('negative') },
+    {
+      affirmative: direct(winnerOutcome('affirmative')),
+      negative: direct(winnerOutcome('negative')),
+    },
   ],
 ];

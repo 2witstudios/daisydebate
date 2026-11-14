@@ -1,4 +1,9 @@
-import { ballotSchema, caseMapSchema } from '@daisy/protocol';
+import {
+  ballotSchemaFor,
+  caseMapSchema,
+  daisyWinnerBallot,
+  twoSideKeys,
+} from '@daisy/protocol';
 import { z } from 'zod';
 
 type JsonSchema = { [key: string]: unknown };
@@ -63,11 +68,23 @@ function endpointSubset(input: JsonSchema): JsonSchema {
 }
 
 /**
+ * The ballot the AI judge writes: Daisy's winner ballot over a two-sided
+ * Round, the only Round it judges.
+ */
+export const aiJudgeBallotSchema = ballotSchemaFor(daisyWinnerBallot, {
+  sides: twoSideKeys,
+  speakers: [],
+  segments: [],
+});
+
+/**
  * The request's output schema, derived from the one ballot contract so the two
  * cannot drift. Citations are optional in the contract and never requested.
  */
 export const ballotWireSchema: JsonSchema = endpointSubset(
-  z.toJSONSchema(ballotSchema.omit({ citations: true }), { io: 'input' }),
+  z.toJSONSchema(aiJudgeBallotSchema.omit({ citations: true }), {
+    io: 'input',
+  }),
 );
 
 /** The case map's request schema, derived from its contract the same way. */

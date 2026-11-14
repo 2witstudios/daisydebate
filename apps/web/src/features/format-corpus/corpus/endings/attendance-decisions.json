@@ -28,6 +28,7 @@
             "side": "negative"
           }
         ],
+        "forfeitsTo": "negative",
         "lastSpeech": false,
         "openedAtMs": 1791277210000,
         "segmentId": "segment-1",
@@ -71,6 +72,7 @@
             "side": "negative"
           }
         ],
+        "forfeitsTo": "negative",
         "lastSpeech": false,
         "openedAtMs": 1791277210000,
         "segmentId": "segment-1",
@@ -117,6 +119,7 @@
             "side": "negative"
           }
         ],
+        "forfeitsTo": "negative",
         "lastSpeech": false,
         "openedAtMs": 1791277210000,
         "segmentId": "segment-1",
@@ -166,6 +169,7 @@
             "side": "negative"
           }
         ],
+        "forfeitsTo": "negative",
         "lastSpeech": false,
         "openedAtMs": 1791277210000,
         "segmentId": "segment-1",

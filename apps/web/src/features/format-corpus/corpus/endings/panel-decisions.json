@@ -26,7 +26,10 @@
     "decision": {
       "kind": "complete",
       "noRuling": [],
-      "outcome": "negative",
+      "outcome": {
+        "kind": "winner",
+        "side": "negative"
+      },
       "ruling": "ruled"
     },
     "name": "ruled",
@@ -91,7 +94,10 @@
     "decision": {
       "kind": "complete",
       "noRuling": [],
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "ruling": "ruled"
     },
     "name": "majority",
@@ -150,7 +156,10 @@
         "h2",
         "h3"
       ],
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "ruling": "partial"
     },
     "name": "partial",
@@ -407,7 +416,10 @@
     "decision": {
       "kind": "complete",
       "noRuling": [],
-      "outcome": "negative",
+      "outcome": {
+        "kind": "winner",
+        "side": "negative"
+      },
       "ruling": "ruled"
     },
     "name": "ai-succeeded",
@@ -437,7 +449,10 @@
       "noRuling": [
         "ai1"
       ],
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "ruling": "partial"
     },
     "name": "human-and-failed-ai",

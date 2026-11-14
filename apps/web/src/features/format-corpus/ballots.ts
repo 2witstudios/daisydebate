@@ -1,10 +1,20 @@
 import {
   ballotCategories,
-  ballotSchema,
+  ballotSchemaFor,
+  daisyWinnerBallot,
   isLowPointWin,
   speakerTotal,
-  storedBallotSchema,
+  storedBallotSchemaFor,
 } from '@daisy/protocol';
+
+/** Today's ballot: Daisy's winner ballot over the two-sided preset. */
+const twoSided = {
+  sides: ['affirmative', 'negative'],
+  speakers: [],
+  segments: [],
+};
+const ballotSchema = ballotSchemaFor(daisyWinnerBallot, twoSided);
+const storedBallotSchema = storedBallotSchemaFor(daisyWinnerBallot, twoSided);
 import type { z } from 'zod';
 
 const scores = (
@@ -166,7 +176,10 @@ const parsed = (schema: z.ZodType, value: unknown) => {
 const totals = (value: unknown) => {
   const result = storedBallotSchema.safeParse(value);
   if (!result.success) return null;
-  const { winner, scores: sides } = result.data;
+  const { winner, scores: sides } = result.data as {
+    winner: string;
+    scores: Record<'affirmative' | 'negative', Record<string, number>>;
+  };
   return {
     affirmative: speakerTotal(sides.affirmative),
     negative: speakerTotal(sides.negative),

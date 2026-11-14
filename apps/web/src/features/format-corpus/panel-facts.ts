@@ -1,4 +1,5 @@
 import { judgingPanelOf } from '@daisy/debate-engine';
+import { majorityJudging } from './panel-decisions';
 import { corpusAt, corpusStartMs } from './corpus-seats';
 
 const at = (ms: number) => corpusStartMs + ms;
@@ -80,8 +81,11 @@ export const panelsFromFacts = () => {
     return {
       name,
       input,
-      atStart: judgingPanelOf(input, at(0)),
-      afterDeadlines: judgingPanelOf(input, at(10_000)),
+      atStart: judgingPanelOf({ ...input, judging: majorityJudging }, at(0)),
+      afterDeadlines: judgingPanelOf(
+        { ...input, judging: majorityJudging },
+        at(10_000),
+      ),
     };
   });
 };

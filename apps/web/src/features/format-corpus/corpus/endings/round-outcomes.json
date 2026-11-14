@@ -9,7 +9,10 @@
     "name": "single",
     "outcome": {
       "ok": true,
-      "value": "negative"
+      "value": {
+        "kind": "winner",
+        "side": "negative"
+      }
     },
     "participating": [
       {
@@ -20,7 +23,10 @@
     "seats": [
       {
         "id": "j1",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 0
+        }
       }
     ]
   },
@@ -42,7 +48,10 @@
     "name": "majority",
     "outcome": {
       "ok": true,
-      "value": "affirmative"
+      "value": {
+        "kind": "winner",
+        "side": "affirmative"
+      }
     },
     "participating": [
       {
@@ -61,15 +70,24 @@
     "seats": [
       {
         "id": "j1",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 0
+        }
       },
       {
         "id": "j2",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 1
+        }
       },
       {
         "id": "j3",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 2
+        }
       }
     ]
   },
@@ -102,11 +120,17 @@
     "seats": [
       {
         "id": "j1",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 0
+        }
       },
       {
         "id": "j2",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 1
+        }
       }
     ]
   },
@@ -134,15 +158,24 @@
     "seats": [
       {
         "id": "j1",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 0
+        }
       },
       {
         "id": "j2",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 1
+        }
       },
       {
         "id": "j3",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 2
+        }
       }
     ]
   },
@@ -178,11 +211,17 @@
     "seats": [
       {
         "id": "j1",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 0
+        }
       },
       {
         "id": "j2",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 1
+        }
       }
     ]
   },
@@ -205,7 +244,10 @@
     "seats": [
       {
         "id": "j1",
-        "role": "judge"
+        "seat": {
+          "kind": "judge",
+          "slot": 0
+        }
       }
     ]
   },

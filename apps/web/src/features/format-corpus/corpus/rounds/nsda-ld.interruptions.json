@@ -6,24 +6,32 @@
       "eligible": true,
       "id": "seataffirmative000000000",
       "kind": "human",
-      "role": "affirmative",
-      "slot": 0
+      "seat": {
+        "kind": "side",
+        "side": "affirmative",
+        "slot": 0
+      }
     },
     {
       "actorId": "usernegative000000000000",
       "eligible": true,
       "id": "seatnegative000000000000",
       "kind": "human",
-      "role": "negative",
-      "slot": 0
+      "seat": {
+        "kind": "side",
+        "side": "negative",
+        "slot": 0
+      }
     },
     {
       "actorId": "userjudge000000000000000",
       "eligible": true,
       "id": "seatjudge000000000000000",
       "kind": "human",
-      "role": "judge",
-      "slot": 0
+      "seat": {
+        "kind": "judge",
+        "slot": 0
+      }
     }
   ],
   "settings": {
@@ -125,8 +133,20 @@
         "nextSegment": {
           "key": "AC",
           "label": "Affirmative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 0,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -193,8 +213,20 @@
         "nextSegment": {
           "key": "AC",
           "label": "Affirmative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 0,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -310,9 +342,21 @@
           "floorParticipantId": null,
           "key": "AC",
           "label": "Affirmative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "remainingMs": 360000,
           "sequence": 0,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "startedAt": "2026-10-06T09:00:10.000Z",
           "type": "speech"
         },
@@ -334,7 +378,11 @@
               "at": "2026-10-06T09:00:10.000Z",
               "key": "AC",
               "kind": "segment_opened",
-              "side": "affirmative",
+              "lead": {
+                "kind": "side",
+                "side": "affirmative",
+                "slot": 0
+              },
               "type": "speech"
             }
           ],
@@ -405,9 +453,21 @@
           "floorParticipantId": null,
           "key": "AC",
           "label": "Affirmative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "remainingMs": 359000,
           "sequence": 0,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "startedAt": "2026-10-06T09:00:10.000Z",
           "type": "speech"
         },
@@ -519,9 +579,21 @@
           "floorParticipantId": "seatnegative000000000000",
           "key": "AC",
           "label": "Affirmative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "remainingMs": 349000,
           "sequence": 0,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "startedAt": "2026-10-06T09:00:10.000Z",
           "type": "speech"
         },
@@ -671,9 +743,21 @@
           "floorParticipantId": null,
           "key": "AC",
           "label": "Affirmative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "remainingMs": 344000,
           "sequence": 0,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "startedAt": "2026-10-06T09:00:10.000Z",
           "type": "speech"
         },
@@ -791,8 +875,20 @@
         "nextSegment": {
           "key": "CX1",
           "label": "Cross-examination of the affirmative",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "sequence": 1,
-          "side": "negative",
+          "speak": {
+            "lead": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            },
+            "rights": "all"
+          },
           "type": "cross_ex"
         },
         "openSegment": null,
@@ -897,8 +993,20 @@
         "nextSegment": {
           "key": "CX1",
           "label": "Cross-examination of the affirmative",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "sequence": 1,
-          "side": "negative",
+          "speak": {
+            "lead": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            },
+            "rights": "all"
+          },
           "type": "cross_ex"
         },
         "openSegment": null,
@@ -981,9 +1089,21 @@
           "floorParticipantId": null,
           "key": "CX1",
           "label": "Cross-examination of the affirmative",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "remainingMs": 180000,
           "sequence": 1,
-          "side": "negative",
+          "speak": {
+            "lead": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            },
+            "rights": "all"
+          },
           "startedAt": "2026-10-06T09:06:20.000Z",
           "type": "cross_ex"
         },
@@ -1005,7 +1125,11 @@
               "at": "2026-10-06T09:06:20.000Z",
               "key": "CX1",
               "kind": "segment_opened",
-              "side": "negative",
+              "lead": {
+                "kind": "side",
+                "side": "negative",
+                "slot": 0
+              },
               "type": "cross_ex"
             }
           ],
@@ -1114,8 +1238,20 @@
         "nextSegment": {
           "key": "NC",
           "label": "Negative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "sequence": 2,
-          "side": "negative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -1232,8 +1368,20 @@
         "nextSegment": {
           "key": "NC",
           "label": "Negative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "sequence": 2,
-          "side": "negative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -1363,8 +1511,20 @@
         "nextSegment": {
           "key": "NC",
           "label": "Negative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "sequence": 2,
-          "side": "negative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -1470,9 +1630,21 @@
           "floorParticipantId": null,
           "key": "NC",
           "label": "Negative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "remainingMs": 420000,
           "sequence": 2,
-          "side": "negative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            }
+          },
           "startedAt": "2026-10-06T09:09:53.200Z",
           "type": "speech"
         },
@@ -1494,7 +1666,11 @@
               "at": "2026-10-06T09:09:53.200Z",
               "key": "NC",
               "kind": "segment_opened",
-              "side": "negative",
+              "lead": {
+                "kind": "side",
+                "side": "negative",
+                "slot": 0
+              },
               "type": "speech"
             }
           ],
@@ -1619,8 +1795,20 @@
         "nextSegment": {
           "key": "CX2",
           "label": "Cross-examination of the negative",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 3,
-          "side": "affirmative",
+          "speak": {
+            "lead": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            },
+            "rights": "all"
+          },
           "type": "cross_ex"
         },
         "openSegment": null,
@@ -1725,8 +1913,20 @@
         "nextSegment": {
           "key": "CX2",
           "label": "Cross-examination of the negative",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 3,
-          "side": "affirmative",
+          "speak": {
+            "lead": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            },
+            "rights": "all"
+          },
           "type": "cross_ex"
         },
         "openSegment": null,
@@ -1809,9 +2009,21 @@
           "floorParticipantId": null,
           "key": "CX2",
           "label": "Cross-examination of the negative",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "remainingMs": 180000,
           "sequence": 3,
-          "side": "affirmative",
+          "speak": {
+            "lead": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            },
+            "rights": "all"
+          },
           "startedAt": "2026-10-06T09:13:33.200Z",
           "type": "cross_ex"
         },
@@ -1833,7 +2045,11 @@
               "at": "2026-10-06T09:13:33.200Z",
               "key": "CX2",
               "kind": "segment_opened",
-              "side": "affirmative",
+              "lead": {
+                "kind": "side",
+                "side": "affirmative",
+                "slot": 0
+              },
               "type": "cross_ex"
             }
           ],
@@ -1942,8 +2158,20 @@
         "nextSegment": {
           "key": "1AR",
           "label": "First affirmative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 4,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -2047,8 +2275,20 @@
         "nextSegment": {
           "key": "1AR",
           "label": "First affirmative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 4,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -2139,9 +2379,21 @@
           "floorParticipantId": null,
           "key": "1AR",
           "label": "First affirmative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "remainingMs": 240000,
           "sequence": 4,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "startedAt": "2026-10-06T09:16:43.200Z",
           "type": "speech"
         },
@@ -2163,7 +2415,11 @@
               "at": "2026-10-06T09:16:43.200Z",
               "key": "1AR",
               "kind": "segment_opened",
-              "side": "affirmative",
+              "lead": {
+                "kind": "side",
+                "side": "affirmative",
+                "slot": 0
+              },
               "type": "speech"
             }
           ],
@@ -2271,8 +2527,20 @@
         "nextSegment": {
           "key": "NR",
           "label": "Negative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "sequence": 5,
-          "side": "negative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -2376,8 +2644,20 @@
         "nextSegment": {
           "key": "NR",
           "label": "Negative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "sequence": 5,
-          "side": "negative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -2468,9 +2748,21 @@
           "floorParticipantId": null,
           "key": "NR",
           "label": "Negative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "negative",
+            "slot": 0
+          },
           "remainingMs": 360000,
           "sequence": 5,
-          "side": "negative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "negative",
+              "slot": 0
+            }
+          },
           "startedAt": "2026-10-06T09:20:53.200Z",
           "type": "speech"
         },
@@ -2492,7 +2784,11 @@
               "at": "2026-10-06T09:20:53.200Z",
               "key": "NR",
               "kind": "segment_opened",
-              "side": "negative",
+              "lead": {
+                "kind": "side",
+                "side": "negative",
+                "slot": 0
+              },
               "type": "speech"
             }
           ],
@@ -2600,8 +2896,20 @@
         "nextSegment": {
           "key": "2AR",
           "label": "Second affirmative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 6,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -2705,8 +3013,20 @@
         "nextSegment": {
           "key": "2AR",
           "label": "Second affirmative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 6,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -2797,9 +3117,21 @@
           "floorParticipantId": null,
           "key": "2AR",
           "label": "Second affirmative rebuttal",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "remainingMs": 180000,
           "sequence": 6,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "startedAt": "2026-10-06T09:27:03.200Z",
           "type": "speech"
         },
@@ -2821,7 +3153,11 @@
               "at": "2026-10-06T09:27:03.200Z",
               "key": "2AR",
               "kind": "segment_opened",
-              "side": "affirmative",
+              "lead": {
+                "kind": "side",
+                "side": "affirmative",
+                "slot": 0
+              },
               "type": "speech"
             }
           ],
@@ -3013,7 +3349,10 @@
         },
         "nextSegment": null,
         "openSegment": null,
-        "outcome": "affirmative",
+        "outcome": {
+          "kind": "winner",
+          "side": "affirmative"
+        },
         "prep": null,
         "prepBudgetRemainingMs": {
           "affirmative": 240000,
@@ -3030,7 +3369,10 @@
             {
               "at": "2026-10-06T09:31:03.200Z",
               "kind": "round_completed",
-              "outcome": "affirmative"
+              "outcome": {
+                "kind": "winner",
+                "side": "affirmative"
+              }
             }
           ],
           "releasesRoomMembers": true,
@@ -3052,7 +3394,10 @@
             },
             "completedAt": "2026-10-06T09:31:03.200Z",
             "currentStage": null,
-            "outcome": "affirmative",
+            "outcome": {
+              "kind": "winner",
+              "side": "affirmative"
+            },
             "startedAt": "2026-10-06T09:00:00.000Z",
             "status": "completed"
           },

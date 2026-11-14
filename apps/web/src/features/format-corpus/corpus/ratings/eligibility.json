@@ -7,7 +7,10 @@
         "kind": "rated",
         "ladder": "freestyle",
         "occurredAt": "2026-10-06T10:00:00.000Z",
-        "outcome": "affirmative"
+        "outcome": {
+          "kind": "winner",
+          "side": "affirmative"
+        }
       }
     },
     "facts": {
@@ -23,7 +26,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
       "ladderId": "freestyle",
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "status": "completed"
     },
     "name": "rated"
@@ -36,7 +42,10 @@
         "kind": "rated",
         "ladder": "freestyle",
         "occurredAt": "2026-10-06T10:00:00.000Z",
-        "outcome": "negative"
+        "outcome": {
+          "kind": "winner",
+          "side": "negative"
+        }
       }
     },
     "facts": {
@@ -52,7 +61,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
       "ladderId": "freestyle",
-      "outcome": "negative",
+      "outcome": {
+        "kind": "winner",
+        "side": "negative"
+      },
       "status": "completed"
     },
     "name": "negative-wins"
@@ -106,7 +118,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
       "ladderId": null,
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "status": "completed"
     },
     "name": "casual"
@@ -159,7 +174,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
       "ladderId": "freestyle",
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "status": "completed"
     },
     "name": "already-rated"
@@ -172,7 +190,10 @@
         "kind": "rated",
         "ladder": "freestyle",
         "occurredAt": "2026-10-06T10:00:00.000Z",
-        "outcome": "affirmative"
+        "outcome": {
+          "kind": "winner",
+          "side": "affirmative"
+        }
       }
     },
     "facts": {
@@ -188,7 +209,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "forfeit",
       "ladderId": "freestyle",
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "status": "completed"
     },
     "name": "forfeit"
@@ -215,7 +239,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "unjudged",
       "ladderId": "freestyle",
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "status": "completed"
     },
     "name": "unjudged"
@@ -242,7 +269,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "unrecorded",
       "ladderId": "freestyle",
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "status": "completed"
     },
     "name": "unrecorded"
@@ -269,7 +299,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
       "ladderId": "freestyle",
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "status": "completed"
     },
     "name": "check-in-pending"
@@ -310,7 +343,10 @@
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
       "ladderId": "freestyle",
-      "outcome": "affirmative",
+      "outcome": {
+        "kind": "winner",
+        "side": "affirmative"
+      },
       "status": "completed"
     },
     "name": "attendance-unsettled"

@@ -1,6 +1,10 @@
 import {
+  leadSeatOf,
+  otherSide,
   roundStartPolicy,
-  type DebateSide,
+  sideOfSeat,
+  sideSeat,
+  type SideKey,
   type RoundCommand,
   type RoundPosition,
   type RoundRules,
@@ -17,7 +21,7 @@ export type ScriptAction =
       readonly type: RoundCommand['type'];
       readonly seatId: string;
     }
-  | { readonly kind: 'complete_panel'; readonly winner: DebateSide };
+  | { readonly kind: 'complete_panel'; readonly winner: SideKey };
 
 /** The paths a script exercises, each once, where the rules allow them. */
 export type Exercised =
@@ -41,14 +45,18 @@ export type Planned = {
 type OpenSegment = NonNullable<RoundPosition['openSegment']>;
 type Move = (state: ScriptState, open: OpenSegment) => Planned | null;
 
-const opposite = (side: DebateSide): DebateSide =>
-  side === 'affirmative' ? 'negative' : 'affirmative';
-const speakerOf = (state: ScriptState, sequence: number) => {
-  const segment = state.rules.segments[sequence]!;
-  return seatAt(state.seats, segment.side, segment.slot);
-};
+/** The seat a segment is scheduled to: the speaker, or the asker. */
+const leadOf = (state: ScriptState, sequence: number) =>
+  leadSeatOf(state.rules.segments[sequence]!.speak)!;
+const speakerOf = (state: ScriptState, sequence: number) =>
+  seatAt(state.seats, leadOf(state, sequence));
 const opponentOf = (state: ScriptState, sequence: number) =>
-  seatAt(state.seats, opposite(state.rules.segments[sequence]!.side), 0);
+  seatAt(
+    state.seats,
+    sideSeat(
+      otherSide(state.rules.sides, sideOfSeat(leadOf(state, sequence))!),
+    ),
+  );
 const command = (
   type: RoundCommand['type'],
   seat: CorpusSeat,
@@ -150,7 +158,7 @@ const beforeSegment = (
   if (
     !state.done.has('prep') &&
     next.sequence === prepTarget(state.rules) &&
-    (budget?.[next.side] ?? 0) > 0 &&
+    (budget?.[sideOfSeat(next.lead!)!] ?? 0) > 0 &&
     leftMs > 2_000
   )
     return {

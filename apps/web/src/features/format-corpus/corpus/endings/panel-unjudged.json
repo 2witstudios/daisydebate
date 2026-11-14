@@ -33,8 +33,20 @@
         "nextSegment": {
           "key": "AC",
           "label": "Affirmative constructive",
+          "lead": {
+            "kind": "side",
+            "side": "affirmative",
+            "slot": 0
+          },
           "sequence": 0,
-          "side": "affirmative",
+          "speak": {
+            "rights": "one",
+            "seat": {
+              "kind": "side",
+              "side": "affirmative",
+              "slot": 0
+            }
+          },
           "type": "speech"
         },
         "openSegment": null,
@@ -132,7 +144,11 @@
               "at": "2026-10-06T09:00:10.000Z",
               "key": "AC",
               "kind": "segment_opened",
-              "side": "affirmative",
+              "lead": {
+                "kind": "side",
+                "side": "affirmative",
+                "slot": 0
+              },
               "type": "speech"
             },
             {
@@ -144,7 +160,11 @@
               "at": "2026-10-06T09:05:20.000Z",
               "key": "CX1",
               "kind": "segment_opened",
-              "side": "negative",
+              "lead": {
+                "kind": "side",
+                "side": "negative",
+                "slot": 0
+              },
               "type": "cross_ex"
             },
             {
@@ -156,7 +176,11 @@
               "at": "2026-10-06T09:07:30.000Z",
               "key": "NC",
               "kind": "segment_opened",
-              "side": "negative",
+              "lead": {
+                "kind": "side",
+                "side": "negative",
+                "slot": 0
+              },
               "type": "speech"
             },
             {
@@ -168,7 +192,11 @@
               "at": "2026-10-06T09:13:40.000Z",
               "key": "CX2",
               "kind": "segment_opened",
-              "side": "affirmative",
+              "lead": {
+                "kind": "side",
+                "side": "affirmative",
+                "slot": 0
+              },
               "type": "cross_ex"
             },
             {
@@ -180,7 +208,11 @@
               "at": "2026-10-06T09:15:50.000Z",
               "key": "1AR",
               "kind": "segment_opened",
-              "side": "affirmative",
+              "lead": {
+                "kind": "side",
+                "side": "affirmative",
+                "slot": 0
+              },
               "type": "speech"
             },
             {
@@ -192,7 +224,11 @@
               "at": "2026-10-06T09:19:00.000Z",
               "key": "NR",
               "kind": "segment_opened",
-              "side": "negative",
+              "lead": {
+                "kind": "side",
+                "side": "negative",
+                "slot": 0
+              },
               "type": "speech"
             },
             {
@@ -204,7 +240,11 @@
               "at": "2026-10-06T09:24:10.000Z",
               "key": "2AR",
               "kind": "segment_opened",
-              "side": "affirmative",
+              "lead": {
+                "kind": "side",
+                "side": "affirmative",
+                "slot": 0
+              },
               "type": "speech"
             },
             {

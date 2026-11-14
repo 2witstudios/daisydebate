@@ -19,7 +19,7 @@ export const oneOnOne = (judges = 1): RoundRules => {
   if (!outcome.ok) throw new Error(outcome.refusal.message);
   return {
     ...outcome.rules,
-    seats: { ...outcome.rules.seats, judge: judges },
+    seats: { ...outcome.rules.seats, judges },
   };
 };
 

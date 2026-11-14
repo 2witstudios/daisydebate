@@ -3,7 +3,14 @@ import {
   deriveRoundOutcome,
   participatingRulings,
 } from '@daisy/debate-engine';
-import type { JudgeRuling, JudgingPanel } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  judgeSeat,
+  type JudgeRuling,
+  type JudgingPanel,
+  type RoundJudging,
+  type SeatRef,
+} from '@daisy/protocol';
 import { attempt } from './refusal';
 import { corpusAt, corpusStartMs } from './corpus-seats';
 
@@ -12,6 +19,12 @@ const ruling = (
   winner: 'affirmative' | 'negative',
 ): JudgeRuling => ({ judgeParticipantId, winner });
 const at = (ms: number) => corpusStartMs + ms;
+
+/** Today's judging: Daisy's winner ballot, decided by majority with a quorum of one. */
+export const majorityJudging: NonNullable<RoundJudging> = {
+  ballot: daisyWinnerBallot,
+  panel: { decision: 'majority', quorum: 1 },
+};
 const human = (ids: readonly [string, ...string[]], deadlineMs: number) => ({
   deadlineAt: corpusAt(deadlineMs),
   seatIds: ids,
@@ -181,16 +194,19 @@ const panelDecisions = () => {
   ];
   return cases.map((input) => ({
     ...input,
-    decision: decidePanelCompletion(input),
+    decision: decidePanelCompletion({ ...input, judging: majorityJudging }),
   }));
 };
 
 /** The majority rule and the partial finalizer's filter over hand-built rulings. */
 const outcomeRules = () => {
-  const judges = ['j1', 'j2', 'j3'].map((id) => ({ id, role: 'judge' }));
+  const judges = ['j1', 'j2', 'j3'].map((id, slot) => ({
+    id,
+    seat: judgeSeat(slot),
+  }));
   const cases: readonly {
     readonly name: string;
-    readonly seats: readonly { readonly id: string; readonly role: string }[];
+    readonly seats: readonly { readonly id: string; readonly seat: SeatRef }[];
     readonly ballots: readonly JudgeRuling[];
   }[] = [
     {
@@ -227,7 +243,9 @@ const outcomeRules = () => {
   ];
   return cases.map((input) => ({
     ...input,
-    outcome: attempt(() => deriveRoundOutcome(input.seats, input.ballots)),
+    outcome: attempt(() =>
+      deriveRoundOutcome(majorityJudging, input.seats, input.ballots),
+    ),
     participating: participatingRulings(
       input.seats.map((s) => s.id),
       input.ballots,

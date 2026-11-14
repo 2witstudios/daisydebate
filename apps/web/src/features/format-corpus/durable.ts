@@ -1,6 +1,7 @@
 import { createRoundRuntime } from '@daisy/debate-engine';
 import {
-  emptyRuntimeCheckpoint,
+  emptyRuntimeCheckpointFor,
+  twoSides,
   type HydratedSegment,
   type RoundLifecycle,
   type RoundProjection,
@@ -28,7 +29,7 @@ export const opening: Durable = {
     currentStage: null,
   },
   segments: [],
-  checkpoint: emptyRuntimeCheckpoint,
+  checkpoint: emptyRuntimeCheckpointFor({ sides: twoSides }),
   finalSegmentEndedAt: null,
 };
 
