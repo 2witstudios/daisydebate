@@ -62,9 +62,9 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
       host = await list(f.host);
     await f.sql`delete from room_participants where room_id=${view.id} and actor_id=${f.guest.actorId}`;
     const frozenSeat = await list(f.guest);
-    await f.sql`update rounds set status='completed',current_stage=null,outcome='affirmative',completed_at=statement_timestamp() where id=${roundId}`;
+    await f.sql`update rounds set status='completed',current_stage=null,winning_side='affirmative',completed_at=statement_timestamp() where id=${roundId}`;
     const completed = await list(f.host);
-    await f.sql`update rounds set status='abandoned',current_stage=null,outcome=null where id=${roundId}`;
+    await f.sql`update rounds set status='abandoned',current_stage=null,winning_side=null where id=${roundId}`;
     const abandoned = await list(f.host);
     assert({
       given:
@@ -122,7 +122,7 @@ test('selected Room locks recheck visibility, participant and status races with 
       ).view;
       if (change === 'seat') {
         await f.sql`update rooms set visibility='private' where id=${view.id}`;
-        await f.sql`insert into room_participants(id,room_id,actor_id,role,slot) values (${createId()},${view.id},${f.guest.actorId},'negative',0)`;
+        await f.sql`insert into room_participants(id,room_id,actor_id,seat_kind,side,slot) values (${createId()},${view.id},${f.guest.actorId},'side','negative',0)`;
       }
       await withHeld(async (holder, pid) => {
         await holder`select id from rooms where id=${view.id} for update`;

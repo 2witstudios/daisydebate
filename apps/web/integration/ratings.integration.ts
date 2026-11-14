@@ -4,15 +4,16 @@ import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { inArena, minute } from './ratings-arena';
 import { withSql } from './fixtures';
+import { winnerOutcome, type TwoSideKey } from '@daisy/protocol';
 
 requireTestServices(process.env);
 setupRitewayBun();
 
-const newcomers = (outcome: 'affirmative' | 'negative') =>
+const newcomers = (side: TwoSideKey) =>
   rateDebate({
     affirmative: { state: ratingPolicy.initial, lastRatedAt: null },
     negative: { state: ratingPolicy.initial, lastRatedAt: null },
-    outcome,
+    outcome: winnerOutcome(side),
     occurredAt: minute(30),
   });
 
