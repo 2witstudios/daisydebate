@@ -2,8 +2,8 @@
  * The closed list of setting keys (Daisy Tab architecture, section 4). A
  * setting is a key from this list with a JSON-object value, set at one scope
  * with a hold. `settings.key` is CHECKed against this array, so a new key is
- * a migration. The value schema of each key belongs to the catalogue that
- * the protocol and API slice builds around this list.
+ * a migration. This is the one list: the catalogue's value schemas must
+ * cover exactly these keys, which the type checker holds.
  */
 export const settingKeys = [
   'pairing.preset',
