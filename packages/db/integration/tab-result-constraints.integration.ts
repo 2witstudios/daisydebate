@@ -2,6 +2,8 @@ import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { listSeasonRecords } from '../src/season-record';
 import { Fixture } from './constraint-helpers';
 import { integrationSuite } from './suite.test-support';
 import {
@@ -605,6 +607,10 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
             [daisyOrganizationId],
           )
         )[0],
+        // The league's active season from the sample is not a rating season.
+        ratingSeasons: (await listSeasonRecords(drizzle({ client: sql }))).map(
+          (record) => record.name,
+        ),
         secondActiveForDaisy: await season({}),
         secondActiveForLeague: await season({ organization_id: ids.league }),
         ratingOnDaisysLadder: await rating('policy'),
@@ -643,6 +649,7 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
       expected: {
         daisySeason: null,
         seasonIsDaisys: { rows: 1 },
+        ratingSeasons: ['A season'],
         secondActiveForDaisy: 'seasons_single_active',
         secondActiveForLeague: 'seasons_single_active',
         ratingOnDaisysLadder: null,

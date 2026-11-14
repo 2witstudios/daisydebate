@@ -1,4 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
+import { daisyOrganizationId } from './daisy-reference';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
@@ -20,7 +21,13 @@ const activeSeasonId = async (tx: Tx): Promise<string | null> => {
   const [season] = await tx
     .select({ id: seasons.id })
     .from(seasons)
-    .where(eq(seasons.status, 'active'))
+    // Daisy's own season: every organization may have an active one.
+    .where(
+      and(
+        eq(seasons.status, 'active'),
+        eq(seasons.organizationId, daisyOrganizationId),
+      ),
+    )
     .for('share');
   return season?.id ?? null;
 };

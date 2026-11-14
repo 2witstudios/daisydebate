@@ -1,4 +1,5 @@
 import type { roomCommandTransaction } from './room-command-transaction';
+import { daisyOrganizationId } from './daisy-reference';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { recordCaptureNotice } from './agreement-signatures';
 import type {
@@ -171,7 +172,7 @@ export const roomCreateOperations = ({
         }
         if (input.room.competitionType === 'ranked') {
           const active = await tx.execute(
-            sql`select id from seasons where status='active' for share`,
+            sql`select id from seasons where status='active' and organization_id=${daisyOrganizationId} for share`,
           );
           if (active.length !== 1)
             throw createRefusal('CONFLICT', 'ranked-unavailable');

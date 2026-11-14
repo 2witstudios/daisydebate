@@ -1538,7 +1538,9 @@ BEGIN
     IF NEW.fixture_status = 'draft' THEN RETURN NEW; END IF;
   ELSIF TG_OP = 'DELETE' THEN
     IF OLD.fixture_status = 'draft' THEN RETURN OLD; END IF;
-  ELSIF OLD.fixture_status = 'draft'
+  -- A draft row may change while it stays a draft fixture's; any other
+  -- update must leave who meets whom as it was, which is the cascade.
+  ELSIF (OLD.fixture_status = 'draft' AND NEW.fixture_status = 'draft')
     OR (NEW.fixture_id, NEW.entry_id, NEW."position", NEW.side,
         NEW.tab_round_id, NEW.event_id, NEW.lobby_id)
       IS NOT DISTINCT FROM

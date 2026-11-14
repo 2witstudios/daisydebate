@@ -315,6 +315,27 @@ test('a fixture is one row for life: in every draw version, with its entries fix
             [ids.pairing],
           ),
         ),
+        draftEntryMovedOntoPublished: await refusedBy(sql, async () => {
+          const spare = createId();
+          await insertRow(sql, 'entries', {
+            id: spare,
+            lobby_id: ids.lobby,
+            event_id: ids.debate,
+            name: 'A spare team',
+            status: 'accepted',
+            responsible_kind: 'self',
+          });
+          await insertRow(sql, 'fixture_entries', {
+            fixture_id: draft,
+            ...round1(ids),
+            entry_id: spare,
+            position: 7,
+          });
+          await sql.unsafe(
+            `update fixture_entries set fixture_id = $2, fixture_status = 'published' where fixture_id = $1 and entry_id = $3`,
+            [draft, ids.pairing, spare],
+          );
+        }),
         entryOfAnotherEvent: await refusedBy(sql, () =>
           insertRow(sql, 'fixture_entries', {
             fixture_id: draft,
@@ -370,6 +391,7 @@ test('a fixture is one row for life: in every draw version, with its entries fix
         entryAdded: 'fixture_entries_fixed_once_published',
         entryAddedAsDraft: 'fixture_entries_fixture_status_fk',
         copyWrittenDirectly: 'fixture_entries_fixture_status_fk',
+        draftEntryMovedOntoPublished: 'fixture_entries_fixed_once_published',
         entryOfAnotherEvent: 'fixture_entries_entry_fk',
         backToDraft: 'fixtures_status_forward_only',
         movedTabRound: 'fixtures_published_identity_immutable',

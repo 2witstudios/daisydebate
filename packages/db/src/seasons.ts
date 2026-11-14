@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -34,7 +35,11 @@ const lockSeasonCreation = (tx: Tx) =>
 
 async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
   await lockSeasonCreation(tx);
-  const [earlier] = await tx.select({ id: seasons.id }).from(seasons).limit(1);
+  const [earlier] = await tx
+    .select({ id: seasons.id })
+    .from(seasons)
+    .where(eq(seasons.organizationId, daisyOrganizationId))
+    .limit(1);
   if (earlier)
     throw createAppError(
       'CONFLICT',
@@ -65,6 +70,7 @@ const seasonOperations = (database: BunSQLDatabase) => ({
       const [other] = await tx
         .select({ id: seasons.id })
         .from(seasons)
+        .where(eq(seasons.organizationId, daisyOrganizationId))
         .limit(1);
       if (other)
         throw createAppError(
