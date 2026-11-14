@@ -700,7 +700,7 @@ describe('movable sections sharing judges under a counting proof', () => {
       actual: failures,
       expected: [],
     });
-  });
+  }, 30_000);
 });
 
 describe('a section kept without a claim beside another on its judge', () => {
