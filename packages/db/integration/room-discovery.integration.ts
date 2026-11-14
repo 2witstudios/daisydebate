@@ -1,3 +1,4 @@
+import { publicLobbyId } from '../src/daisy-reference';
 import { requireTestServices } from '@daisy/config';
 import { assert, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -62,15 +63,15 @@ test('discovery work is independent of historical Room and Round volume', async 
     const liveArray = `{${liveIds.join(',')}}`;
     const historyArray = `{${historyIds.join(',')}}`;
     const addHistory = async (array: string) => {
-      await f.sql`insert into rooms(id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
-        select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,'started' from unnest(${array}::text[]) x`;
+      await f.sql`insert into rooms(lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
+        select ${publicLobbyId},x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,'started' from unnest(${array}::text[]) x`;
       await f.sql`insert into rounds(id,room_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility,completed_at)
         select 'r'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'abandoned',${validConfig}::jsonb,'public',statement_timestamp() from unnest(${array}::text[]) x`;
     };
     try {
       await addHistory(`{${historyIds.slice(0, 1000).join(',')}}`);
-      await f.sql`insert into rooms(id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
-        select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,case when right(x,1) in ('0','2','4','6','8') then 'assembling' else 'started' end from unnest(${liveArray}::text[]) x`;
+      await f.sql`insert into rooms(lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
+        select ${publicLobbyId},x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,case when right(x,1) in ('0','2','4','6','8') then 'assembling' else 'started' end from unnest(${liveArray}::text[]) x`;
       await f.sql`insert into rounds(id,room_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility)
         select 'y'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'opening',${validConfig}::jsonb,'public' from unnest(${liveArray}::text[]) x where right(x,1) in ('1','3','5','7','9')`;
       await f.sql`vacuum (analyze) rooms`;

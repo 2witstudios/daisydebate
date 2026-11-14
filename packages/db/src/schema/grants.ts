@@ -19,7 +19,7 @@ import { users } from './users';
 
 /**
  * A role given to a person at exactly one scope, an organization or a
- * lobby, by someone, with an optional expiry. A lobby-scope grant is the
+ * lobby, by someone (or by the operator), with an optional expiry. A lobby-scope grant is the
  * same row whether the lobby is a tournament (tab staff) or standing (a
  * league's moderators). An organization-scope grant needs a membership row.
  * A grant is revoked, never deleted or otherwise changed, by trigger, so
@@ -42,9 +42,14 @@ export const grants = pgTable(
     lobbyId: text('lobby_id').references(() => lobbies.id, {
       onDelete: 'restrict',
     }),
-    grantedByUserId: text('granted_by_user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
+    /**
+     * Who gave it. Null only for a grant given from outside the product:
+     * Daisy's own organization has no owner row (ADR 0043), so its first
+     * grant is the operator's and names no person.
+     */
+    grantedByUserId: text('granted_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
     grantedAt: timestampColumn('granted_at').notNull(),
     expiresAt: timestampColumn('expires_at'),
     revokedAt: timestampColumn('revoked_at'),

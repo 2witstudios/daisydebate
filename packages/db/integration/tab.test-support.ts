@@ -450,6 +450,7 @@ export const loadSampleTournament = async (sql: SQL) => {
           actor_id: actorId,
           event_id: ids.debate,
           lobby_id: ids.lobby,
+          entry_status: 'accepted',
         });
     }
     for (const [index, entryId] of ids.speechEntries.entries()) {
@@ -467,6 +468,7 @@ export const loadSampleTournament = async (sql: SQL) => {
         actor_id: speakers[index],
         event_id: ids.speech,
         lobby_id: ids.lobby,
+        entry_status: 'accepted',
       });
     }
     for (const [index, judgeId] of ids.judges.entries()) {

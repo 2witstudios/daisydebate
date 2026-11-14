@@ -47,7 +47,7 @@ async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
     );
   const [opened] = await tx
     .insert(seasons)
-    .values({ ...input, status: 'active' })
+    .values({ ...input, organizationId: daisyOrganizationId, status: 'active' })
     .returning();
   if (!opened)
     throw createAppError('INTERNAL', 'Season insert returned no row');
@@ -81,6 +81,7 @@ const seasonOperations = (database: BunSQLDatabase) => ({
         .insert(seasons)
         .values({
           id: input.id,
+          organizationId: daisyOrganizationId,
           name: 'Season 1',
           activationKey: 'beta-season-1',
           startsAt: sql`clock_timestamp()`,

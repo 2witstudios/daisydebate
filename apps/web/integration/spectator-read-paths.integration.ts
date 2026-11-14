@@ -127,8 +127,8 @@ test('every public and member read holds a ranked outcome until release', async 
       };
       // A Room the rated host opens while the Round is still held.
       const openRoomId = createId();
-      await f.sql`insert into rooms (id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
-        select ${openRoomId},host_actor_id,title,null,'public',format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,'assembling'
+      await f.sql`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
+        select lobby_id,${openRoomId},host_actor_id,title,null,'public',format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,'assembling'
         from rooms where id=${frozen.room.id}`;
       const listedRating = async () => {
         const page = await f.store.listRoomPage(

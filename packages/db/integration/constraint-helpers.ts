@@ -6,6 +6,7 @@ import {
 } from './round-fixtures';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
+import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { createTestOnlyOperations } from '../src/test-only-operations';
 import {
   admitParticipants,
@@ -83,13 +84,37 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
 
 // jsonb parameters are objects: Bun SQL JSON-encodes a string a second time.
 
+const daisyKeys: Record<string, Row> = {
+  rooms: { lobby_id: publicLobbyId },
+  seasons: { organization_id: daisyOrganizationId },
+};
+
 /**
  * Per-test fixture over one connection. Every inserted key is tracked and
  * deleted in `finally`, so a failing assertion leaves no rows behind.
  */
 export class Fixture {
   readonly tracked = new Map<string, string[]>();
+  private daisyKeyed: Promise<Set<string>> | undefined;
   constructor(readonly sql: SQL) {}
+
+  /**
+   * A fixture Room or season that names no owner is Daisy's, as Daisy's own
+   * writers name it; the columns have no default. Suites that migrate only
+   * part of the history run before the key exists, so it is read once.
+   */
+  private async daisyKey(table: string): Promise<Row> {
+    const key = daisyKeys[table];
+    if (!key) return {};
+    this.daisyKeyed ??= (
+      this.sql.unsafe(
+        `select table_name from information_schema.columns
+         where table_schema = 'public'
+           and (table_name, column_name) in (('rooms', 'lobby_id'), ('seasons', 'organization_id'))`,
+      ) as Promise<Array<{ table_name: string }>>
+    ).then((found) => new Set(found.map((row) => row.table_name)));
+    return (await this.daisyKeyed).has(table) ? key : {};
+  }
 
   track(table: string, key: string) {
     const keys = this.tracked.get(table) ?? [];
@@ -98,7 +123,8 @@ export class Fixture {
   }
 
   /** Inserts one row with positional parameters; the key column is tracked. */
-  insert(table: string, row: Row, key = 'id') {
+  async insert(table: string, given: Row, key = 'id') {
+    const row = { ...(await this.daisyKey(table)), ...given };
     const columns = Object.keys(row);
     const placeholders = columns.map((_, index) => `$${index + 1}`);
     const keyValue = row[key];

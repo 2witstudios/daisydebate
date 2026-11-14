@@ -65,7 +65,10 @@ const either = (
 
 /**
  * Identity rows (organizations, lobbies, tournaments, ladders) are listed
- * across tenants. Definitions (templates, settings, ballot definitions) are
+ * across tenants. Roles and their permissions are read across tenants too:
+ * the preset roles are Daisy's rows and are given in every organization and
+ * lobby, so the evaluator reads them without Daisy's scope, which is also
+ * Daisy's write key. Definitions (templates, settings, ballot definitions) are
  * read across tenants by design: one event's settings chain runs through
  * the organization that owns its template, the league that owns its
  * tournament, the lobby and the event, and a followed template pins another
@@ -76,8 +79,8 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
   tables: [
     organization('organizations', { keyColumn: 'id', openRead: true }),
     organization('memberships', { subject: 'user' }),
-    organization('roles'),
-    organization('role_permissions'),
+    organization('roles', { openRead: true }),
+    organization('role_permissions', { openRead: true }),
     either('grants', { subject: 'user' }),
     { table: 'guardian_links', key: 'person', subject: 'guardian' },
     { table: 'restrictions', key: 'person', subject: 'guardian' },

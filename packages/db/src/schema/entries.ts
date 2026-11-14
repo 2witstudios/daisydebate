@@ -9,6 +9,7 @@ import {
   primaryKey,
   text,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import {
@@ -40,6 +41,12 @@ export const entries = pgTable(
     status: text('status').$type<(typeof entryStatuses)[number]>().notNull(),
     seed: integer('seed'),
     division: text('division'),
+    /**
+     * The division whose break this entry chose, where it qualified for
+     * more than one and the event's `break.double_qualifier` setting is
+     * `choice`. Null is no answer; the same names as `division`.
+     */
+    breakDivision: text('break_division'),
     responsibleKind: text('responsible_kind')
       .$type<(typeof responsibleKinds)[number]>()
       .notNull(),
@@ -59,6 +66,7 @@ export const entries = pgTable(
       table.eventId,
       table.lobbyId,
     ),
+    unique('entries_id_status_unique').on(table.id, table.status),
     index('entries_event_idx').on(table.eventId, table.lobbyId),
     index('entries_school_idx').on(
       table.schoolOrganizationId,
@@ -86,6 +94,10 @@ export const entries = pgTable(
       'entries_division_nonempty',
       sql`${table.division} is null or length(trim(${table.division})) > 0`,
     ),
+    check(
+      'entries_break_division_nonempty',
+      sql`${table.breakDivision} is null or length(trim(${table.breakDivision})) > 0`,
+    ),
     nonEmpty('entries_name_nonempty', table.name),
     versionPositive('entries', table.version),
   ],
@@ -93,7 +105,10 @@ export const entries = pgTable(
 
 /**
  * The people in an entry. Competition references actors, so the record
- * survives an account's erasure. A person is in one entry per event.
+ * survives an account's erasure. A person is in one entry per event that
+ * is not withdrawn: `entry_status` is the entry's status, kept equal to it
+ * by the cascading foreign key and written by nothing else, so the rule is
+ * an index that leaves a withdrawn entry out.
  */
 export const entryMembers = pgTable(
   'entry_members',
@@ -104,13 +119,20 @@ export const entryMembers = pgTable(
       .references(() => actors.id, { onDelete: 'restrict' }),
     eventId: text('event_id').notNull(),
     lobbyId: text('lobby_id').notNull(),
+    entryStatus: text('entry_status')
+      .$type<(typeof entryStatuses)[number]>()
+      .notNull()
+      .default('pending'),
     createdAt: createdAtColumn(),
   },
   (table) => [
     primaryKey({ columns: [table.entryId, table.actorId] }),
-    unique('entry_members_one_entry_per_event').on(
-      table.eventId,
-      table.actorId,
+    uniqueIndex('entry_members_one_entry_per_event')
+      .on(table.eventId, table.actorId)
+      .where(sql`${table.entryStatus} <> 'withdrawn'`),
+    index('entry_members_entry_status_idx').on(
+      table.entryId,
+      table.entryStatus,
     ),
     index('entry_members_entry_idx').on(
       table.entryId,
@@ -123,5 +145,12 @@ export const entryMembers = pgTable(
       columns: [table.entryId, table.eventId, table.lobbyId],
       foreignColumns: [entries.id, entries.eventId, entries.lobbyId],
     }).onDelete('cascade'),
+    foreignKey({
+      name: 'entry_members_entry_status_fk',
+      columns: [table.entryId, table.entryStatus],
+      foreignColumns: [entries.id, entries.status],
+    })
+      .onUpdate('cascade')
+      .onDelete('cascade'),
   ],
 );

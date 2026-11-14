@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "7ed9dc29-ca66-4c5c-b407-8b3e453ea41c",
+  "id": "41ce7810-b95c-49fb-a990-5a9437819ca6",
   "prevIds": [
     "5d9b2236-0dde-4f7f-a84f-98c8d15869f5"
   ],
@@ -6126,6 +6126,19 @@
     {
       "type": "text",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "break_division",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "entries"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -6265,6 +6278,19 @@
       "generated": null,
       "identity": null,
       "name": "lobby_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "entry_members"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'pending'",
+      "generated": null,
+      "identity": null,
+      "name": "entry_status",
       "entityType": "columns",
       "schema": "public",
       "table": "entry_members"
@@ -7097,6 +7123,19 @@
       "generated": null,
       "identity": null,
       "name": "tournament_judge_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "fixture_judges"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "chair",
       "entityType": "columns",
       "schema": "public",
       "table": "fixture_judges"
@@ -8144,7 +8183,7 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -8452,6 +8491,22 @@
       "generated": null,
       "identity": null,
       "name": "minor_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "'parent'",
+        "type": "stored"
+      },
+      "identity": null,
+      "name": "guardian_kind",
       "entityType": "columns",
       "schema": "public",
       "table": "restrictions"
@@ -13397,7 +13452,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'fo05z182lha0a3usciy9wr2r'",
+      "default": null,
       "generated": null,
       "identity": null,
       "name": "organization_id",
@@ -15935,7 +15990,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'rhkgl9vjor1cmyr855wb62ku'",
+      "default": null,
       "generated": null,
       "identity": null,
       "name": "lobby_id",
@@ -23739,6 +23794,62 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "event_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"entry_status\" <> 'withdrawn'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "entry_members_one_entry_per_event",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "entry_members"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "entry_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "entry_status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "entry_members_entry_status_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "entry_members"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "entry_id",
           "isExpression": false,
           "asc": true,
@@ -24210,6 +24321,27 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "fixture_entries"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "fixture_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"chair\"",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "fixture_judges_one_chair",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "fixture_judges"
     },
     {
       "nameExplicit": true,
@@ -25162,6 +25294,48 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "restriction_lobbies"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "guardian_link_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "guardian_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "minor_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "guardian_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "restrictions_guardian_link_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "restrictions"
     },
     {
       "nameExplicit": true,
@@ -33600,6 +33774,25 @@
       "table": "entry_members"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        "entry_id",
+        "entry_status"
+      ],
+      "schemaTo": "public",
+      "tableTo": "entries",
+      "columnsTo": [
+        "id",
+        "status"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE",
+      "name": "entry_members_entry_status_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "entry_members"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "lobby_id"
@@ -34397,14 +34590,16 @@
       "columns": [
         "guardian_link_id",
         "guardian_user_id",
-        "minor_user_id"
+        "minor_user_id",
+        "guardian_kind"
       ],
       "schemaTo": "public",
       "tableTo": "guardian_links",
       "columnsTo": [
         "id",
         "guardian_user_id",
-        "minor_user_id"
+        "minor_user_id",
+        "kind"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
@@ -40506,14 +40701,14 @@
     {
       "nameExplicit": true,
       "columns": [
-        "event_id",
-        "actor_id"
+        "id",
+        "status"
       ],
       "nullsNotDistinct": false,
-      "name": "entry_members_one_entry_per_event",
+      "name": "entries_id_status_unique",
       "entityType": "uniques",
       "schema": "public",
-      "table": "entry_members"
+      "table": "entries"
     },
     {
       "nameExplicit": true,
@@ -40656,10 +40851,11 @@
       "columns": [
         "id",
         "guardian_user_id",
-        "minor_user_id"
+        "minor_user_id",
+        "kind"
       ],
       "nullsNotDistinct": false,
-      "name": "guardian_links_id_people_unique",
+      "name": "guardian_links_id_people_kind_unique",
       "entityType": "uniques",
       "schema": "public",
       "table": "guardian_links"
@@ -42082,6 +42278,13 @@
     {
       "value": "\"division\" is null or length(trim(\"division\")) > 0",
       "name": "entries_division_nonempty",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "entries"
+    },
+    {
+      "value": "\"break_division\" is null or length(trim(\"break_division\")) > 0",
+      "name": "entries_break_division_nonempty",
       "entityType": "checks",
       "schema": "public",
       "table": "entries"

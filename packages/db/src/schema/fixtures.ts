@@ -1,6 +1,7 @@
 import { fixtureKinds, fixtureStatuses } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -194,10 +195,19 @@ export const fixtureJudges = pgTable(
   {
     ...fixtureChild(),
     tournamentJudgeId: text('tournament_judge_id').notNull(),
+    /**
+     * Whether this judge chairs the panel: at most one per fixture. Whether
+     * a fixture needs a chair, and who may be one, is the command's rule
+     * under the `judging.chair` setting.
+     */
+    chair: boolean('chair').notNull().default(false),
     createdAt: createdAtColumn(),
   },
   (table) => [
     primaryKey({ columns: [table.fixtureId, table.tournamentJudgeId] }),
+    uniqueIndex('fixture_judges_one_chair')
+      .on(table.fixtureId)
+      .where(sql`${table.chair}`),
     uniqueIndex('fixture_judges_one_live_per_tab_round')
       .on(table.tabRoundId, table.tournamentJudgeId)
       .where(sql`${table.fixtureStatus} = 'published'`),

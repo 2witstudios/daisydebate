@@ -465,10 +465,22 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
         ballot,
       ])
     )[0];
+    const screenedElsewhere = await refusedBy(sql, () =>
+      insertRow(sql, 'ballot_screenings', {
+        ballot_id: ballot,
+        lobby_id: ids.otherLobby,
+      }),
+    );
     await insertRow(sql, 'ballot_screenings', {
       ballot_id: ballot,
       lobby_id: ids.lobby,
     });
+    const movedElsewhere = await refusedBy(sql, () =>
+      sql.unsafe(
+        'update ballot_screenings set lobby_id = $2 where ballot_id = $1',
+        [ballot, ids.otherLobby],
+      ),
+    );
     await sql.unsafe(
       `update ballot_screenings set status = 'held', screened_at = now(), released_text = '{"reason":"[held]"}'::jsonb where ballot_id = $1`,
       [ballot],
@@ -479,6 +491,8 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
       should:
         'leave the ballot as written, and refuse the missing version and the half pin',
       actual: {
+        screenedElsewhere,
+        movedElsewhere,
         ballotUnchanged:
           JSON.stringify(
             (
@@ -526,6 +540,8 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
       },
       expected: {
         ballotUnchanged: true,
+        screenedElsewhere: 'ballot_screenings_lobby_is_ballots',
+        movedElsewhere: 'ballot_screenings_lobby_is_ballots',
         clearedWithoutInstant: 'ballot_screenings_screened_consistent',
         missingVersion: 'ballot_definitions_current_version_fk',
         halfPin: 'events_ballot_definition_complete',
@@ -593,13 +609,15 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
       organization_id: ids.league,
       name: 'League ladder',
     });
-    const daisySeason = await season({});
+    const unnamedSeason = await season({});
+    const daisySeason = await season({ organization_id: daisyOrganizationId });
     assert({
       given:
         "a season written without an organization, a second active season for one organization, a league's ladder, a league's format, and a tournament recording consent",
       should:
-        "make the unnamed season Daisy's, keep one active season per organization, keep ratings on Daisy's ladders, and scope the consent to a lobby",
+        "refuse the unnamed season rather than make it Daisy's, keep one active season per organization, keep ratings on Daisy's ladders, and scope the consent to a lobby",
       actual: {
+        unnamedSeason,
         daisySeason,
         seasonIsDaisys: (
           await sql.unsafe(
@@ -611,7 +629,9 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
         ratingSeasons: (await listSeasonRecords(drizzle({ client: sql }))).map(
           (record) => record.name,
         ),
-        secondActiveForDaisy: await season({}),
+        secondActiveForDaisy: await season({
+          organization_id: daisyOrganizationId,
+        }),
         secondActiveForLeague: await season({ organization_id: ids.league }),
         ratingOnDaisysLadder: await rating('policy'),
         ratingOnLeagueLadder: await rating(leagueLadder),
@@ -647,6 +667,7 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
         consentForAnotherLobby: await signature({ lobby_id: publicLobbyId }),
       },
       expected: {
+        unnamedSeason: '23502',
         daisySeason: null,
         seasonIsDaisys: { rows: 1 },
         ratingSeasons: ['A season'],

@@ -201,8 +201,41 @@ test('an entry names one kind of responsible adult, a person is in one entry per
             actor_id: ids.debaters[0],
             event_id: ids.speech,
             lobby_id: ids.lobby,
+            entry_status: 'accepted',
           }),
         ),
+        memberStatusNotItsEntrys: await refusedBy(sql, () =>
+          insertRow(sql, 'entry_members', {
+            entry_id: second,
+            actor_id: ids.debaters[0],
+            event_id: ids.debate,
+            lobby_id: ids.lobby,
+            entry_status: 'withdrawn',
+          }),
+        ),
+        // A withdrawn entry no longer holds its people: its status reaches
+        // its members through the key, and the index leaves them out.
+        secondEntryOnceFirstWithdrawn: await refusedBy(sql, async () => {
+          await sql.unsafe(
+            `update entries set status = 'withdrawn'
+             where id = (select entry_id from entry_members where actor_id = $1 and event_id = $2)`,
+            [ids.debaters[0], ids.debate],
+          );
+          await insertRow(sql, 'entry_members', {
+            entry_id: second,
+            actor_id: ids.debaters[0],
+            event_id: ids.debate,
+            lobby_id: ids.lobby,
+          });
+        }),
+        blankBreakChoice: await entry({
+          responsible_kind: 'self',
+          break_division: ' ',
+        }),
+        breakChoice: await entry({
+          responsible_kind: 'self',
+          break_division: 'novice',
+        }),
         entryDivisions: (
           (await sql.unsafe(
             'select division from entries where event_id = $1 order by name',
@@ -232,7 +265,11 @@ test('an entry names one kind of responsible adult, a person is in one entry per
         entryOfAnotherLobby: 'entries_event_fk',
         secondEntryForOnePerson: 'entry_members_one_entry_per_event',
         samePersonInAnotherEvent: null,
-        entryDivisions: [null, null, 'novice', 'novice'],
+        memberStatusNotItsEntrys: 'entry_members_entry_status_fk',
+        secondEntryOnceFirstWithdrawn: null,
+        blankBreakChoice: 'entries_break_division_nonempty',
+        breakChoice: null,
+        entryDivisions: [null, null, null, 'novice', 'novice'],
         stageDivisions: [
           { kind: 'preliminary', division: null },
           { kind: 'elimination', division: 'novice' },
@@ -464,6 +501,7 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
       refusedBy(sql, () =>
         insertRow(sql, 'rooms', {
           id: createId(),
+          lobby_id: publicLobbyId,
           host_actor_id: hostActor,
           title: 'A Room',
           topic: 'A topic',

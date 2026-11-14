@@ -72,14 +72,14 @@ test('the runtime role with no scope reads no row of any scoped table and writes
       should:
         'see no row of any scoped table the sample filled, and insert, update and delete none',
       actual: {
-        // Of the 38 such tables; the rest are the closed guardian tables
+        // Of the 36 such tables; the rest are the closed guardian tables
         // and ballot screenings, which the sample does not fill.
         filledBySample: Object.values(asOwner).filter((count) => count > 0)
           .length,
         ...unscoped,
       },
       expected: {
-        filledBySample: 34,
+        filledBySample: 32,
         visible: [],
         insert: '42501',
         updated: 0,
@@ -208,6 +208,30 @@ test("an event's settings chain reads across three tenants under one lobby scope
         daisyTemplates: 3,
         written: 0,
       },
+    });
+  });
+});
+
+test("the preset roles are read under any scope and written only under Daisy's", async () => {
+  await inRolledBackTransaction(url, async (sql) => {
+    const ids = await loadSampleTournament(sql);
+    const presets = await asRuntime(sql, { lobbyId: ids.lobby }, async () => ({
+      roles: await rows(sql, 'select 1 from roles where preset'),
+      permissions:
+        (await rows(
+          sql,
+          'select 1 from role_permissions p join roles r on r.id = p.role_id where r.preset',
+        )) > 0,
+      renamed: await changed(sql, `update roles set name = name || '!'`),
+      removed: await changed(sql, 'delete from role_permissions'),
+    }));
+    assert({
+      given:
+        "Daisy's preset roles read under a tournament lobby's scope, with no organization scope",
+      should:
+        'read the four roles and their permissions, and change none of them',
+      actual: presets,
+      expected: { roles: 4, permissions: true, renamed: 0, removed: 0 },
     });
   });
 });

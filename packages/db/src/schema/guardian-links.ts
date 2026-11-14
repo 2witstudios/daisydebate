@@ -57,10 +57,11 @@ export const guardianLinks = pgTable(
     version: versionColumn(),
   },
   (table) => [
-    unique('guardian_links_id_people_unique').on(
+    unique('guardian_links_id_people_kind_unique').on(
       table.id,
       table.guardianUserId,
       table.minorUserId,
+      table.kind,
     ),
     uniqueIndex('guardian_links_open_pair_unique')
       .on(table.guardianUserId, table.minorUserId)
@@ -100,7 +101,9 @@ export const guardianLinks = pgTable(
 /**
  * What a guardian sets for a minor: whether the minor is limited to the
  * lobbies listed below, and who may see video of the child. The evaluator
- * reads these rows as facts and derives the rest.
+ * reads these rows as facts and derives the rest. Only a parent's link holds
+ * one: `guardian_kind` is the constant `parent` and the composite key proves
+ * it against the link, so a coach never sets or widens a minor's boundary.
  */
 export const restrictions = pgTable(
   'restrictions',
@@ -108,6 +111,7 @@ export const restrictions = pgTable(
     guardianLinkId: text('guardian_link_id').primaryKey(),
     guardianUserId: text('guardian_user_id').notNull(),
     minorUserId: text('minor_user_id').notNull(),
+    guardianKind: constantText('guardian_kind', 'parent'),
     limitsLobbies: boolean('limits_lobbies').notNull().default(false),
     videoAudienceCap: text('video_audience_cap')
       .$type<(typeof videoAudienceCaps)[number]>()
@@ -123,13 +127,25 @@ export const restrictions = pgTable(
       table.guardianUserId,
       table.minorUserId,
     ),
+    index('restrictions_guardian_link_idx').on(
+      table.guardianLinkId,
+      table.guardianUserId,
+      table.minorUserId,
+      table.guardianKind,
+    ),
     foreignKey({
       name: 'restrictions_guardian_link_fk',
-      columns: [table.guardianLinkId, table.guardianUserId, table.minorUserId],
+      columns: [
+        table.guardianLinkId,
+        table.guardianUserId,
+        table.minorUserId,
+        table.guardianKind,
+      ],
       foreignColumns: [
         guardianLinks.id,
         guardianLinks.guardianUserId,
         guardianLinks.minorUserId,
+        guardianLinks.kind,
       ],
     }).onDelete('cascade'),
     check(

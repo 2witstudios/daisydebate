@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
-import { validRules } from '@daisy/db/testing';
+import { validRules, publicLobbyId } from '@daisy/db/testing';
 import { SQL } from 'bun';
 import { betaAccessTarget } from './beta-access-target';
 
@@ -55,6 +55,7 @@ try {
   const started = clock.started as Date;
   await client`insert into rooms ${client({
     id: roomId,
+    lobby_id: publicLobbyId,
     host_actor_id: hosting?.id ?? account.actor,
     title: 'Audience proof',
     topic: 'A topic',

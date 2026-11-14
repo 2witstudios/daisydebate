@@ -22,7 +22,6 @@ import {
   versionColumn,
   versionPositive,
 } from './columns';
-import { daisyOrganizationId } from '../daisy-reference';
 import { formats } from './formats';
 import { ladders } from './ladders';
 import { organizations } from './organizations';
@@ -55,12 +54,12 @@ export const seasons = pgTable(
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
     /**
-     * The organization whose season this is. Daisy's rating seasons are
-     * Daisy's, and a season written without naming one is Daisy's.
+     * The organization whose season this is, named by every writer: there
+     * is no default. Daisy's rating seasons are Daisy's; those made before
+     * organizations had rows were given to Daisy by the migration.
      */
     organizationId: text('organization_id')
       .notNull()
-      .default(daisyOrganizationId)
       .references(() => organizations.id, { onDelete: 'restrict' }),
   },
   (table) => [

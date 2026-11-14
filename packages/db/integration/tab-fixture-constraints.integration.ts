@@ -176,7 +176,7 @@ test('a Room sits in one lobby, with a host person exactly when that lobby is st
       given:
         'Rooms in no lobby, with a host in a tournament lobby, without one in a standing lobby, claiming the wrong kind for their lobby, and ranked in a tournament lobby',
       should:
-        'refuse each; a Room written without naming a lobby sits in the public one',
+        'refuse each, as it does a Room written without naming a lobby and a Room moved to another lobby',
       actual: {
         noLobby: await room({ lobby_id: null }),
         hostInTournament: await room({ host_actor_id: ids.debaters[0] }),
@@ -189,19 +189,28 @@ test('a Room sits in one lobby, with a host person exactly when that lobby is st
           host_actor_id: ids.debaters[0],
         }),
         rankedInTournament: await room({ competition_type: 'ranked' }),
-        byDefault: await (async () => {
-          const id = createId();
-          await sql.unsafe(
+        // No default: a Room written without its lobby is refused, never
+        // placed in Daisy's.
+        lobbyOmitted: await refusedBy(sql, () =>
+          sql.unsafe(
             `insert into rooms (id, host_actor_id, title, topic, visibility, format_id, format_version, competition_type, config, execution_plan, rules_snapshot, status)
              values ($1, $2, 'A Room', 'A topic', 'public', 'policy', 1, 'casual', $3, '{}'::jsonb, $4, 'assembling')`,
-            [id, ids.debaters[0], validConfig, validRules],
+            [createId(), ids.debaters[0], validConfig, validRules],
+          ),
+        ),
+        movedToAnotherLobby: await (async () => {
+          const id = createId();
+          await sql.unsafe(
+            `insert into rooms (id, lobby_id, host_actor_id, title, topic, visibility, format_id, format_version, competition_type, config, execution_plan, rules_snapshot, status)
+             values ($1, $2, $3, 'A Room', 'A topic', 'public', 'policy', 1, 'casual', $4, '{}'::jsonb, $5, 'assembling')`,
+            [id, publicLobbyId, ids.debaters[0], validConfig, validRules],
           );
-          return (
-            await sql.unsafe(
-              'select lobby_id, lobby_kind, template_id from rooms where id = $1',
-              [id],
-            )
-          )[0];
+          return refusedBy(sql, () =>
+            sql.unsafe(
+              `update rooms set lobby_id = $2, lobby_kind = 'tournament', host_actor_id = null where id = $1`,
+              [id, ids.lobby],
+            ),
+          );
         })(),
         containers: (
           (await sql.unsafe(
@@ -218,11 +227,8 @@ test('a Room sits in one lobby, with a host person exactly when that lobby is st
         hostlessInStanding: 'rooms_host_by_lobby_kind',
         kindNotItsLobbys: 'rooms_lobby_fk',
         rankedInTournament: 'rooms_event_is_casual',
-        byDefault: {
-          lobby_id: publicLobbyId,
-          lobby_kind: 'standing',
-          template_id: null,
-        },
+        lobbyOmitted: '23502',
+        movedToAnotherLobby: 'rooms_lobby_immutable',
         containers: ['lobbies'],
       },
     });
@@ -416,6 +422,7 @@ test('a fixture has a Room of its own lobby exactly when it is published and not
       const id = createId();
       await insertRow(sql, 'rooms', {
         id,
+        lobby_id: publicLobbyId,
         host_actor_id: host!.id,
         title: 'A public Room',
         topic: 'A topic',
@@ -502,6 +509,7 @@ test('a tab round has one live fixture per entry and per judge, results only on 
       fixture_id: rejudged,
       ...round1(ids),
       tournament_judge_id: ids.judges[0],
+      chair: true,
     });
     const draft = await draftFixture(sql, ids, 'bye');
     const result = async (fixtureId: string, rest: Record<string, unknown>) => {
@@ -540,6 +548,15 @@ test('a tab round has one live fixture per entry and per judge, results only on 
       should:
         'refuse each; a fixture with no result is withdrawn, takes no result afterwards, and frees its entries and judge',
       actual: {
+        // The panel says who chairs: one judge at most.
+        secondChair: await refusedBy(sql, () =>
+          insertRow(sql, 'fixture_judges', {
+            fixture_id: rejudged,
+            ...round1(ids),
+            tournament_judge_id: ids.judges[1],
+            chair: true,
+          }),
+        ),
         secondLiveForEntry: await refusedBy(sql, async () =>
           publish(sql, rematch, await eventRoom(sql, ids)),
         ),
@@ -589,6 +606,7 @@ test('a tab round has one live fixture per entry and per judge, results only on 
         }),
       },
       expected: {
+        secondChair: 'fixture_judges_one_chair',
         secondLiveForEntry: 'fixture_entries_one_live_per_tab_round',
         secondLiveForJudge: 'fixture_judges_one_live_per_tab_round',
         resultOnDraft: 'results_live_fixture_fk',

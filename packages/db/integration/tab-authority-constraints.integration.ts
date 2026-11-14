@@ -116,6 +116,14 @@ test('a grant has exactly one scope, is revoked once and never deleted, and acti
         }),
       ),
     };
+    // Daisy's first grant is the operator's and names no granter.
+    const byOperator = await refusedBy(sql, () =>
+      grant({
+        scope_kind: 'lobby',
+        lobby_id: ids.otherLobby,
+        granted_by_user_id: null,
+      }),
+    );
     const expiring = createId();
     await grant({
       id: expiring,
@@ -139,6 +147,7 @@ test('a grant has exactly one scope, is revoked once and never deleted, and acti
         'refuse the first three and a second live grant of one role, keep the expired and revoked rows readable, and refuse any later change or delete',
       actual: {
         ...scopes,
+        byOperator,
         expiredStillThere: (
           await sql.unsafe(
             'select expires_at < now() as expired from grants where id = $1',
@@ -179,6 +188,7 @@ test('a grant has exactly one scope, is revoked once and never deleted, and acti
         neither: 'grants_one_tenant_key',
         mislabelled: 'grants_scope_check',
         duplicate: 'grants_live_unique',
+        byOperator: null,
         expiredStillThere: { expired: true },
         historyResolves: { id: ids.staffGrant, revoked: true },
         unrevoked: 'grants_only_revoked',
@@ -322,6 +332,21 @@ test('a guardian link is two different people, a coach through a school, with on
             minor_user_id: ids.staff,
           }),
         ),
+        // Only a parent's link holds a restriction.
+        coachRestriction: await refusedBy(sql, async () => {
+          const coachLink = createId();
+          await link({
+            id: coachLink,
+            kind: 'coach',
+            minor_user_id: ids.owner,
+            via_organization_id: ids.school,
+          });
+          await insertRow(sql, 'restrictions', {
+            guardian_link_id: coachLink,
+            guardian_user_id: ids.coach,
+            minor_user_id: ids.owner,
+          });
+        }),
         restriction: await refusedBy(sql, () =>
           insertRow(sql, 'restrictions', {
             guardian_link_id: linkId,
@@ -338,6 +363,7 @@ test('a guardian link is two different people, a coach through a school, with on
         coachThroughLeague: 'guardian_links_via_school_fk',
         secondOpen: 'guardian_links_open_pair_unique',
         otherPeople: 'restrictions_guardian_link_fk',
+        coachRestriction: 'restrictions_guardian_link_fk',
         restriction: null,
       },
     });

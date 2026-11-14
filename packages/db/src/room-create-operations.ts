@@ -1,5 +1,5 @@
 import type { roomCommandTransaction } from './room-command-transaction';
-import { daisyOrganizationId } from './daisy-reference';
+import { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { recordCaptureNotice } from './agreement-signatures';
 import type {
@@ -185,6 +185,8 @@ export const roomCreateOperations = ({
         const now = await transactionNow(tx);
         await tx.insert(rooms).values({
           ...newRoomValues(input.room),
+          // A Daisy Round's Room sits in Daisy's public lobby.
+          lobbyId: publicLobbyId,
           capture: input.recording
             ? { broadcast: null, recording: true }
             : null,

@@ -116,11 +116,13 @@ export const rooms = pgTable(
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     /**
-     * The Room's only parent. Every Room made before lobbies had rows, and
-     * every Room a writer makes without naming one, sits in Daisy's public
-     * lobby. `lobby_kind` is the lobby's kind, proved by the composite key.
+     * The Room's only parent, named by every writer: there is no default,
+     * so a Room written without its lobby is refused. Every Room made before
+     * lobbies had rows was placed in Daisy's public lobby by the migration.
+     * `lobby_kind` is the lobby's kind, proved by the composite key. A
+     * trigger refuses moving a Room to another lobby.
      */
-    lobbyId: text('lobby_id').notNull().default(daisyReferenceLobby.id),
+    lobbyId: text('lobby_id').notNull(),
     lobbyKind: text('lobby_kind')
       .$type<(typeof lobbyKinds)[number]>()
       .notNull()

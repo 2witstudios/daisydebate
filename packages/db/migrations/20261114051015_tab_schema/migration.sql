@@ -148,6 +148,7 @@ CREATE TABLE "entries" (
 	"status" text NOT NULL,
 	"seed" integer,
 	"division" text,
+	"break_division" text,
 	"responsible_kind" text NOT NULL,
 	"school_organization_id" text,
 	"school_organization_kind" text GENERATED ALWAYS AS ('school') STORED NOT NULL,
@@ -156,11 +157,13 @@ CREATE TABLE "entries" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
 	CONSTRAINT "entries_id_event_unique" UNIQUE("id","event_id","lobby_id"),
+	CONSTRAINT "entries_id_status_unique" UNIQUE("id","status"),
 	CONSTRAINT "entries_status_check" CHECK ("status" in ('pending', 'accepted', 'withdrawn')),
 	CONSTRAINT "entries_one_responsible_adult" CHECK (("responsible_kind" = 'school' and "school_organization_id" is not null and "guardian_link_id" is null)
         or ("responsible_kind" = 'guardian' and "guardian_link_id" is not null and "school_organization_id" is null)
         or ("responsible_kind" = 'self' and "school_organization_id" is null and "guardian_link_id" is null)),
 	CONSTRAINT "entries_division_nonempty" CHECK ("division" is null or length(trim("division")) > 0),
+	CONSTRAINT "entries_break_division_nonempty" CHECK ("break_division" is null or length(trim("break_division")) > 0),
 	CONSTRAINT "entries_name_nonempty" CHECK (length(trim("name")) > 0),
 	CONSTRAINT "entries_version_positive" CHECK ("version" > 0)
 );
@@ -170,9 +173,9 @@ CREATE TABLE "entry_members" (
 	"actor_id" text,
 	"event_id" text NOT NULL,
 	"lobby_id" text NOT NULL,
+	"entry_status" text DEFAULT 'pending' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "entry_members_pkey" PRIMARY KEY("entry_id","actor_id"),
-	CONSTRAINT "entry_members_one_entry_per_event" UNIQUE("event_id","actor_id")
+	CONSTRAINT "entry_members_pkey" PRIMARY KEY("entry_id","actor_id")
 );
 --> statement-breakpoint
 CREATE TABLE "events" (
@@ -287,6 +290,7 @@ CREATE TABLE "fixture_judges" (
 	"lobby_id" text NOT NULL,
 	"fixture_status" text DEFAULT 'draft' NOT NULL,
 	"tournament_judge_id" text,
+	"chair" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "fixture_judges_pkey" PRIMARY KEY("fixture_id","tournament_judge_id")
 );
@@ -352,7 +356,7 @@ CREATE TABLE "grants" (
 	"scope_kind" text NOT NULL,
 	"organization_id" text,
 	"lobby_id" text,
-	"granted_by_user_id" text NOT NULL,
+	"granted_by_user_id" text,
 	"granted_at" timestamp with time zone NOT NULL,
 	"expires_at" timestamp with time zone,
 	"revoked_at" timestamp with time zone,
@@ -377,7 +381,7 @@ CREATE TABLE "guardian_links" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
-	CONSTRAINT "guardian_links_id_people_unique" UNIQUE("id","guardian_user_id","minor_user_id"),
+	CONSTRAINT "guardian_links_id_people_kind_unique" UNIQUE("id","guardian_user_id","minor_user_id","kind"),
 	CONSTRAINT "guardian_links_kind_check" CHECK ("kind" in ('parent', 'coach')),
 	CONSTRAINT "guardian_links_status_check" CHECK ("status" in ('pending', 'active', 'ended')),
 	CONSTRAINT "guardian_links_two_people" CHECK ("guardian_user_id" <> "minor_user_id"),
@@ -399,6 +403,7 @@ CREATE TABLE "restrictions" (
 	"guardian_link_id" text PRIMARY KEY,
 	"guardian_user_id" text NOT NULL,
 	"minor_user_id" text NOT NULL,
+	"guardian_kind" text GENERATED ALWAYS AS ('parent') STORED NOT NULL,
 	"limits_lobbies" boolean DEFAULT false NOT NULL,
 	"video_audience_cap" text DEFAULT 'lobby' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -824,8 +829,12 @@ ALTER TABLE "agreement_signatures" ADD COLUMN "lobby_id" text;--> statement-brea
 ALTER TABLE "ballots" ADD COLUMN "ballot_definition_id" text;--> statement-breakpoint
 ALTER TABLE "ballots" ADD COLUMN "ballot_definition_version" integer;--> statement-breakpoint
 ALTER TABLE "formats" ADD COLUMN "organization_id" text;--> statement-breakpoint
+-- Stored rows are Daisy's; the default is dropped so a writer that omits the key is refused.
 ALTER TABLE "seasons" ADD COLUMN "organization_id" text DEFAULT 'fo05z182lha0a3usciy9wr2r' NOT NULL;--> statement-breakpoint
+ALTER TABLE "seasons" ALTER COLUMN "organization_id" DROP DEFAULT;--> statement-breakpoint
+-- Stored rows are Daisy's; the default is dropped so a writer that omits the key is refused.
 ALTER TABLE "rooms" ADD COLUMN "lobby_id" text DEFAULT 'rhkgl9vjor1cmyr855wb62ku' NOT NULL;--> statement-breakpoint
+ALTER TABLE "rooms" ALTER COLUMN "lobby_id" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "rooms" ADD COLUMN "lobby_kind" text DEFAULT 'standing' NOT NULL;--> statement-breakpoint
 ALTER TABLE "rooms" ADD COLUMN "template_id" text;--> statement-breakpoint
 ALTER TABLE "rooms" ADD COLUMN "ballot_definition_id" text;--> statement-breakpoint
@@ -865,6 +874,8 @@ CREATE INDEX "draws_based_on_idx" ON "draws" ("based_on_draw_id","tab_round_id",
 CREATE INDEX "entries_event_idx" ON "entries" ("event_id","lobby_id");--> statement-breakpoint
 CREATE INDEX "entries_school_idx" ON "entries" ("school_organization_id","school_organization_kind");--> statement-breakpoint
 CREATE INDEX "entries_guardian_link_idx" ON "entries" ("guardian_link_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "entry_members_one_entry_per_event" ON "entry_members" ("event_id","actor_id") WHERE "entry_status" <> 'withdrawn';--> statement-breakpoint
+CREATE INDEX "entry_members_entry_status_idx" ON "entry_members" ("entry_id","entry_status");--> statement-breakpoint
 CREATE INDEX "entry_members_entry_idx" ON "entry_members" ("entry_id","event_id","lobby_id");--> statement-breakpoint
 CREATE INDEX "entry_members_actor_idx" ON "entry_members" ("actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "events_name_unique" ON "events" ("lobby_id",lower("name"));--> statement-breakpoint
@@ -881,6 +892,7 @@ CREATE UNIQUE INDEX "fixture_entries_one_live_per_tab_round" ON "fixture_entries
 CREATE INDEX "fixture_entries_fixture_idx" ON "fixture_entries" ("fixture_id","tab_round_id","event_id","lobby_id");--> statement-breakpoint
 CREATE INDEX "fixture_entries_fixture_status_idx" ON "fixture_entries" ("fixture_id","fixture_status");--> statement-breakpoint
 CREATE INDEX "fixture_entries_entry_idx" ON "fixture_entries" ("entry_id","event_id","lobby_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "fixture_judges_one_chair" ON "fixture_judges" ("fixture_id") WHERE "chair";--> statement-breakpoint
 CREATE UNIQUE INDEX "fixture_judges_one_live_per_tab_round" ON "fixture_judges" ("tab_round_id","tournament_judge_id") WHERE "fixture_status" = 'published';--> statement-breakpoint
 CREATE INDEX "fixture_judges_fixture_idx" ON "fixture_judges" ("fixture_id","tab_round_id","event_id","lobby_id");--> statement-breakpoint
 CREATE INDEX "fixture_judges_fixture_status_idx" ON "fixture_judges" ("fixture_id","fixture_status");--> statement-breakpoint
@@ -908,6 +920,7 @@ CREATE INDEX "guardian_links_minor_user_idx" ON "guardian_links" ("minor_user_id
 CREATE INDEX "guardian_links_via_organization_idx" ON "guardian_links" ("via_organization_id","via_organization_kind");--> statement-breakpoint
 CREATE INDEX "restriction_lobbies_restriction_idx" ON "restriction_lobbies" ("guardian_link_id","guardian_user_id","minor_user_id");--> statement-breakpoint
 CREATE INDEX "restriction_lobbies_lobby_idx" ON "restriction_lobbies" ("lobby_id");--> statement-breakpoint
+CREATE INDEX "restrictions_guardian_link_idx" ON "restrictions" ("guardian_link_id","guardian_user_id","minor_user_id","guardian_kind");--> statement-breakpoint
 CREATE INDEX "ladders_lobby_organization_idx" ON "ladders" ("lobby_id","organization_id");--> statement-breakpoint
 CREATE INDEX "ladders_lobby_kind_idx" ON "ladders" ("lobby_id","lobby_kind");--> statement-breakpoint
 CREATE UNIQUE INDEX "lobbies_handle_unique" ON "lobbies" (lower("handle"));--> statement-breakpoint
@@ -1002,6 +1015,7 @@ ALTER TABLE "entries" ADD CONSTRAINT "entries_event_fk" FOREIGN KEY ("event_id",
 ALTER TABLE "entries" ADD CONSTRAINT "entries_school_fk" FOREIGN KEY ("school_organization_id","school_organization_kind") REFERENCES "organizations"("id","kind") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "entry_members" ADD CONSTRAINT "entry_members_actor_id_actors_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "entry_members" ADD CONSTRAINT "entry_members_entry_fk" FOREIGN KEY ("entry_id","event_id","lobby_id") REFERENCES "entries"("id","event_id","lobby_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "entry_members" ADD CONSTRAINT "entry_members_entry_status_fk" FOREIGN KEY ("entry_id","entry_status") REFERENCES "entries"("id","status") ON DELETE CASCADE ON UPDATE CASCADE;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_lobby_id_tournaments_lobby_id_fkey" FOREIGN KEY ("lobby_id") REFERENCES "tournaments"("lobby_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_format_revision_fk" FOREIGN KEY ("format_id","format_version") REFERENCES "format_revisions"("format_id","version") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_ballot_definition_fk" FOREIGN KEY ("ballot_definition_id","ballot_definition_version") REFERENCES "ballot_definition_versions"("ballot_definition_id","version") ON DELETE RESTRICT;--> statement-breakpoint
@@ -1037,7 +1051,7 @@ ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_minor_user_id_users_
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_via_school_fk" FOREIGN KEY ("via_organization_id","via_organization_kind") REFERENCES "organizations"("id","kind") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "restriction_lobbies" ADD CONSTRAINT "restriction_lobbies_lobby_id_lobbies_id_fkey" FOREIGN KEY ("lobby_id") REFERENCES "lobbies"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "restriction_lobbies" ADD CONSTRAINT "restriction_lobbies_restriction_fk" FOREIGN KEY ("guardian_link_id","guardian_user_id","minor_user_id") REFERENCES "restrictions"("guardian_link_id","guardian_user_id","minor_user_id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "restrictions" ADD CONSTRAINT "restrictions_guardian_link_fk" FOREIGN KEY ("guardian_link_id","guardian_user_id","minor_user_id") REFERENCES "guardian_links"("id","guardian_user_id","minor_user_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "restrictions" ADD CONSTRAINT "restrictions_guardian_link_fk" FOREIGN KEY ("guardian_link_id","guardian_user_id","minor_user_id","guardian_kind") REFERENCES "guardian_links"("id","guardian_user_id","minor_user_id","kind") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "ladders" ADD CONSTRAINT "ladders_lobby_owner_fk" FOREIGN KEY ("lobby_id","organization_id") REFERENCES "lobbies"("id","owner_organization_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "ladders" ADD CONSTRAINT "ladders_standing_lobby_fk" FOREIGN KEY ("lobby_id","lobby_kind") REFERENCES "lobbies"("id","kind") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "lobbies" ADD CONSTRAINT "lobbies_owner_user_id_users_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
@@ -1157,9 +1171,13 @@ ALTER TABLE "roles" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 CREATE POLICY "roles_scope" ON "roles" FOR ALL USING (organization_id = daisy_organization_scope()) WITH CHECK (organization_id = daisy_organization_scope());
 --> statement-breakpoint
+CREATE POLICY "roles_open_read" ON "roles" FOR SELECT USING (true);
+--> statement-breakpoint
 ALTER TABLE "role_permissions" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 CREATE POLICY "role_permissions_scope" ON "role_permissions" FOR ALL USING (organization_id = daisy_organization_scope()) WITH CHECK (organization_id = daisy_organization_scope());
+--> statement-breakpoint
+CREATE POLICY "role_permissions_open_read" ON "role_permissions" FOR SELECT USING (true);
 --> statement-breakpoint
 ALTER TABLE "grants" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
@@ -1618,6 +1636,44 @@ CREATE TRIGGER pending_commands_guard BEFORE UPDATE OR DELETE ON "pending_comman
 FOR EACH ROW EXECUTE FUNCTION public.daisy_guard_pending_command();
 --> statement-breakpoint
 REVOKE DELETE ON "pending_commands" FROM daisy_web;
+--> statement-breakpoint
+-- A Room stays in the lobby it was made in: the lobby is its isolation key,
+-- and what hangs off the Room (a ballot's screening) reads its lobby from it.
+CREATE FUNCTION public.daisy_guard_room_lobby() RETURNS trigger
+LANGUAGE plpgsql AS $guard_room_lobby$
+BEGIN
+  IF (NEW.lobby_id, NEW.lobby_kind) IS DISTINCT FROM (OLD.lobby_id, OLD.lobby_kind) THEN
+    RAISE EXCEPTION 'A Room keeps its lobby'
+      USING ERRCODE = '23514', CONSTRAINT = 'rooms_lobby_immutable';
+  END IF;
+  RETURN NEW;
+END;
+$guard_room_lobby$;
+--> statement-breakpoint
+CREATE TRIGGER rooms_lobby_immutable BEFORE UPDATE OF "lobby_id", "lobby_kind" ON "rooms"
+FOR EACH ROW EXECUTE FUNCTION public.daisy_guard_room_lobby();
+--> statement-breakpoint
+-- A screening's lobby is its ballot's: the lobby of the Room the ballot's
+-- Round ran in. Ballots carry no lobby column, so this is a trigger, not a
+-- composite key; the Room's lobby cannot change after (above).
+CREATE FUNCTION public.daisy_guard_ballot_screening_lobby() RETURNS trigger
+LANGUAGE plpgsql AS $guard_ballot_screening_lobby$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.ballots b
+    JOIN public.rounds r ON r.id = b.round_id
+    JOIN public.rooms m ON m.id = r.room_id
+    WHERE b.id = NEW.ballot_id AND m.lobby_id = NEW.lobby_id
+  ) THEN
+    RAISE EXCEPTION 'A screening sits in the lobby of its ballot''s Room'
+      USING ERRCODE = '23514', CONSTRAINT = 'ballot_screenings_lobby_is_ballots';
+  END IF;
+  RETURN NEW;
+END;
+$guard_ballot_screening_lobby$;
+--> statement-breakpoint
+CREATE TRIGGER ballot_screenings_lobby_is_ballots BEFORE INSERT OR UPDATE OF "ballot_id", "lobby_id" ON "ballot_screenings"
+FOR EACH ROW EXECUTE FUNCTION public.daisy_guard_ballot_screening_lobby();
 --> statement-breakpoint
 -- Guardian links and restrictions are closed: no minor's data is held until
 -- counsel answers. The runtime role can read its own rows and write none; a
