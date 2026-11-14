@@ -20,6 +20,16 @@ export const flagCatalogue = [
     safeDefault: false,
     dependencies: [],
   },
+  {
+    // Minors' accounts and guardian links, closed until counsel answers.
+    key: 'daisy-tab-minors',
+    kind: 'release',
+    owner: 'Daisy Tab (@2witstudios)',
+    taskCode: 'TAB-8.2',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: ['daisy-tab'],
+  },
 ] as const satisfies readonly FlagDefinition[];
 
 export type ReleaseFlagKey = Extract<

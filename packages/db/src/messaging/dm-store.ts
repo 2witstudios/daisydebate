@@ -22,8 +22,6 @@ import type {
   MessagingDmFrame,
 } from './dm-contracts';
 type DecisionCommand = Parameters<MessagingDmFrame['readDecisionState']>[0];
-const decisionMode = (decision: DecisionCommand['decision']) =>
-  decision === 'cancel' ? 'cancel' : 'decide';
 const resultStates = {
   accept: 'accepted',
   decline: 'declined',
@@ -88,7 +86,7 @@ export function createMessagingDmStore({
                 throw createAppError('NOT_FOUND');
               await authorize(
                 fact.authority.state === 'pending'
-                  ? decisionMode(command.decision)
+                  ? command.decision
                   : 'result',
               )(tx, scope, { fact, accounts });
               const row = await currentRequest();
@@ -123,7 +121,7 @@ export function createMessagingDmStore({
                 observed.decision !== command.decision
               )
                 throw createAppError('CONFLICT');
-              const fact = await fresh(decisionMode(command.decision));
+              const fact = await fresh(command.decision);
               if (fact.authority.kind !== 'dm')
                 throw createAppError('NOT_FOUND');
               const state = resultStates[command.decision];

@@ -95,7 +95,7 @@ export const loadOrganizationPeople = async (
       grants: grants.filter((grant) => grant.userId === row.userId),
     })),
     roles: await loadOfferedRoles(tx, organization.id),
-    authorization: await loadOrganizationAuthorization(tx, {
+    authorization: await loadOrganizationAuthorization(tx, scope, {
       userId: input.viewerUserId,
       organization,
       grants,

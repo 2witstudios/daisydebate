@@ -36,6 +36,7 @@ import {
 import type { TabDatabase } from './tab-transaction';
 
 export type { StoredTabCommand } from './command-record';
+export type { BoundaryAuthority, TabAccount } from './boundary';
 export type { TabDatabase, TabTransaction } from './tab-transaction';
 export type {
   GrantAuthority,
@@ -108,7 +109,7 @@ export const createTabStore = (database: TabDatabase) => ({
           const decision = await loadOrganizationFacts(tx, input, scope);
           return {
             decision,
-            authorization: await loadOrganizationAuthorization(tx, {
+            authorization: await loadOrganizationAuthorization(tx, scope, {
               userId: input.senderUserId,
               organization: decision.organization,
               grants: decision.grants,

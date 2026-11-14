@@ -14,6 +14,13 @@
       "kind": "release",
       "owner": "Daisy Tab (@2witstudios)",
       "taskCode": "TAB-3.13"
+    },
+    {
+      "key": "daisy-tab-minors",
+      "retired": false,
+      "kind": "release",
+      "owner": "Daisy Tab (@2witstudios)",
+      "taskCode": "TAB-8.2"
     }
   ]
 }

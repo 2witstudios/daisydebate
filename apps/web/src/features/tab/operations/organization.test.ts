@@ -38,6 +38,7 @@ const loaded: LoadedOrganizationCommand = {
       beta: { state: 'approved', revision: 1 },
       ageBand: 'adult',
       restricted: false,
+      boundary: null,
     },
     organization: null,
     grants: [],
