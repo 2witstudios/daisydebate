@@ -1,6 +1,12 @@
-import { clockStopsOf, runningMs } from '@daisy/protocol';
+import {
+  clockStopsOf,
+  otherSide,
+  prepConsumedOf,
+  runningMs,
+  winnerOutcome,
+} from '@daisy/protocol';
 import type {
-  DebateSide,
+  SideKey,
   RoundCommand,
   RoundParticipantSeat,
   RoundRules,
@@ -29,6 +35,8 @@ export type Queues = {
     readonly holder: string | null;
   } | null;
   effects: RoundEffect[];
+  /** The actors whose seats left this revision; the Room holds them no longer. */
+  releasedMembers: string[];
 };
 
 /**
@@ -49,7 +57,7 @@ export type CommandContext = {
   /** How many segments have closed: the index of the next one to open. */
   readonly closedCount: () => number;
   readonly seatOf: (actorId: string | null) => RoundParticipantSeat | null;
-  readonly sideOf: (actorId: string | null) => DebateSide | null;
+  readonly sideOf: (actorId: string | null) => SideKey | null;
   readonly participants: readonly RoundParticipantSeat[];
   /** Seat completeness against `rules.seats`; a write-path invariant (ADR 0058 §8). */
   readonly assertSeatCompleteness: () => void;
@@ -57,9 +65,6 @@ export type CommandContext = {
 };
 
 const iso = (ms: number): string => new Date(ms).toISOString();
-
-const other = (side: DebateSide): DebateSide =>
-  side === 'affirmative' ? 'negative' : 'affirmative';
 
 /** Only an opening Round starts; the clock anchors here. */
 export const startRound = (c: CommandContext): void => {
@@ -97,13 +102,14 @@ const startSpeech = (c: CommandContext): void => {
     clockStopsOf(c.on.checkpoint()),
   );
   const budget = c.rules.inRoundPrep?.budgetMsPerSide ?? 0;
-  c.on.setPrepConsumed(
-    side,
-    Math.min(
+  const consumed = c.on.checkpoint().prep_consumed_ms;
+  c.on.setPrepConsumed({
+    ...consumed,
+    [side]: Math.min(
       budget,
-      c.on.checkpoint().prep_consumed_ms[side] + Math.max(0, elapsed),
+      prepConsumedOf(c.on.checkpoint(), side) + Math.max(0, elapsed),
     ),
-  );
+  });
   c.on.endPrep();
   c.on.setPrepEndedAt(iso(c.now));
 };
@@ -119,7 +125,8 @@ export const debateIsOver = (c: CommandContext): boolean =>
   debateHasEnded(stateOf(c), c.rules.segments.length);
 
 /**
- * Forfeiting closes the round with the other side's outcome. Once the debate
+ * Forfeiting closes the round with the other side's win; legality admits it
+ * only in a two-sided Round decided by a winner. Once the debate
  * is over the Round waits for its ballot, so leaving has nothing left to forfeit
  * and must not pre-empt the judges (ADR 0070). The runtime advances the clock
  * first, so a segment that ran out with no tick persisted counts as closed.
@@ -130,7 +137,19 @@ const forfeit = (c: CommandContext): void => {
   // reveal; the record needs a start, so the Round starts and ends here.
   if (c.on.lifecycle().status === 'opening') startRound(c);
   closePlayedRound(c);
-  completeWith(c, other(side));
+  completeWith(c, winnerOutcome(otherSide(c.rules.sides, side)));
+};
+
+/**
+ * Leaving a Round no forfeit ends (TAB-6.8): the seat is absent from now on
+ * and the Room holds its member no longer. Nothing else changes: the clock
+ * runs on, and attendance decides each of its speeches on who is present,
+ * abandoning the Round only once no speaking seat is.
+ */
+const leave = (c: CommandContext): void => {
+  const seat = c.seatOf(c.actorId)!;
+  c.on.markAbsent(seat.id);
+  c.into.releasedMembers.push(seat.actorId);
 };
 
 /** Close actual played capture authority for either terminal decision. */
@@ -191,5 +210,7 @@ export const applyRoundCommand = (
       return interrupt(c);
     case 'forfeit':
       return forfeit(c);
+    case 'leave':
+      return leave(c);
   }
 };

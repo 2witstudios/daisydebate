@@ -118,7 +118,7 @@ export async function readMediaCaptureState(
     .where(
       and(
         eq(roundParticipants.roundId, input.roundId),
-        ne(roundParticipants.role, 'judge'),
+        ne(roundParticipants.seatKind, 'judge'),
       ),
     )
     .orderBy(roundParticipants.id);

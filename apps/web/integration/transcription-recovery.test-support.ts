@@ -19,7 +19,7 @@ export async function readyRecognition(f: EvidenceIngressFixture) {
   if (received.kind !== 'received')
     throw new Error('Original receipt fixture failed');
   await f.f
-    .sql`update rounds set status='active',current_stage='awaiting_ballot',outcome=null,completed_at=null where id=${f.body.roundId}`;
+    .sql`update rounds set status='active',current_stage='awaiting_ballot',winning_side=null,completed_at=null where id=${f.body.roundId}`;
   await f.f
     .sql`update transcription_recovery_contexts set status='queued' where round_id=${f.body.roundId}`;
   return f.f.store.createTranscriptionRecovery(recognitionTestOptions);

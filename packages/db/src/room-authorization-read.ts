@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, type SeatKind } from '@daisy/protocol';
+import { seatOfColumns } from './seat-columns';
 import { createAppError } from '@daisy/errors';
 import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
@@ -9,15 +10,16 @@ import { sharedAccount, type Caller } from './room-command-facts';
 
 type AuthorizationParticipant = {
   readonly actorId: string | null;
-  readonly role: string | null;
+  readonly seatKind: SeatKind | null;
+  readonly side: string | null;
   readonly slot: number | null;
 };
 
 function projectParticipants(rows: readonly AuthorizationParticipant[]) {
-  return rows.flatMap(({ actorId, role, slot }) =>
-    actorId === null || role === null || slot === null
+  return rows.flatMap(({ actorId, seatKind, side, slot }) =>
+    actorId === null || seatKind === null || slot === null
       ? []
-      : [{ actorId, role, slot }],
+      : [{ actorId, seat: seatOfColumns({ seatKind, side, slot }) }],
   );
 }
 
@@ -42,7 +44,8 @@ export function roomAuthorizationRead({
             status: rooms.status,
             revision: rooms.version,
             actorId: roomParticipants.actorId,
-            role: roomParticipants.role,
+            seatKind: roomParticipants.seatKind,
+            side: roomParticipants.side,
             slot: roomParticipants.slot,
           })
           .from(rooms)
@@ -77,7 +80,8 @@ export function roomAuthorizationRead({
             status: rounds.status,
             revision: rounds.version,
             actorId: roundParticipants.actorId,
-            role: roundParticipants.role,
+            seatKind: roundParticipants.seatKind,
+            side: roundParticipants.side,
             slot: roundParticipants.slot,
           })
           .from(rounds)

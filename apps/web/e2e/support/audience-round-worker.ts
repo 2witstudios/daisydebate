@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { validRules, publicLobbyId } from '@daisy/db/testing';
 import { SQL } from 'bun';
+import { affirmativeSide } from '@daisy/protocol';
 import { betaAccessTarget } from './beta-access-target';
 
 /**
@@ -11,7 +12,7 @@ import { betaAccessTarget } from './beta-access-target';
  * the audience proves the audience is not on that timeline. Same isolated e2e
  * boundary as beta approval.
  *
- * `seat <username> <roundId> <role>` puts an account in an existing Round's live
+ * `seat <username> <roundId> <side>` puts an account in an existing Round's live
  * room; `host` names who hosts it, seatless, and `link` makes it unlisted.
  */
 const [username, ...options] = process.argv.slice(2);
@@ -23,14 +24,15 @@ try {
   const [identity] = await client`select current_user as role`;
   if (identity?.role !== 'daisy_e2e') throw new Error('Identity refused');
   if (username === 'seat') {
-    const [name, seatRound, role] = options;
+    const [name, seatRound, side] = options;
     const [seated] =
       await client`select a.id from users u join actors a on a.user_id=u.id where u.username=${name!}`;
     await client`insert into round_participants ${client({
       id: createId(),
       round_id: seatRound!,
       actor_id: seated!.id,
-      role: role!,
+      seat_kind: 'side',
+      side: side!,
       slot: 0,
     })}`;
     process.stdout.write('{}');
@@ -85,7 +87,7 @@ try {
     format_version: format.version,
     rules_snapshot: validRules,
     status: 'completed',
-    outcome: 'affirmative',
+    winning_side: affirmativeSide,
     started_at: started,
     completed_at: started,
   })}`;

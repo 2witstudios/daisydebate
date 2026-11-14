@@ -1,0 +1,287 @@
+[
+  {
+    "afterDeadlines": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1"
+        ]
+      }
+    },
+    "atStart": {
+      "aiSeats": [],
+      "humanWindow": {
+        "deadlineAt": "2026-10-06T09:00:01.000Z",
+        "seatIds": [
+          "h1"
+        ]
+      }
+    },
+    "input": {
+      "aiJudgeSeatIds": [],
+      "ballotDeadlineAt": "2026-10-06T09:00:01.000Z",
+      "ballots": [],
+      "completeness": "complete",
+      "held": {
+        "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
+        "lastAttendanceDecisionAt": null,
+        "lastWriterResolvedAt": null
+      },
+      "humanJudgeSeatIds": [
+        "h1"
+      ],
+      "jobs": []
+    },
+    "name": "human-with-deadline"
+  },
+  {
+    "afterDeadlines": null,
+    "atStart": null,
+    "input": {
+      "aiJudgeSeatIds": [],
+      "ballotDeadlineAt": null,
+      "ballots": [],
+      "completeness": "complete",
+      "held": {
+        "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
+        "lastAttendanceDecisionAt": null,
+        "lastWriterResolvedAt": null
+      },
+      "humanJudgeSeatIds": [
+        "h1"
+      ],
+      "jobs": []
+    },
+    "name": "human-without-deadline"
+  },
+  {
+    "afterDeadlines": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "not_dispatched"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "atStart": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "not_dispatched"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "input": {
+      "aiJudgeSeatIds": [
+        "ai1"
+      ],
+      "ballotDeadlineAt": null,
+      "ballots": [],
+      "completeness": "complete",
+      "held": {
+        "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
+        "lastAttendanceDecisionAt": null,
+        "lastWriterResolvedAt": null
+      },
+      "humanJudgeSeatIds": [],
+      "jobs": []
+    },
+    "name": "ai-not-dispatched"
+  },
+  {
+    "afterDeadlines": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "recovering"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "atStart": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "deadlineAt": "2026-10-06T09:00:05.000Z",
+            "state": "generating"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "input": {
+      "aiJudgeSeatIds": [
+        "ai1"
+      ],
+      "ballotDeadlineAt": null,
+      "ballots": [],
+      "completeness": "complete",
+      "held": {
+        "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
+        "lastAttendanceDecisionAt": null,
+        "lastWriterResolvedAt": null
+      },
+      "humanJudgeSeatIds": [],
+      "jobs": [
+        {
+          "generationDeadlineAt": "2026-10-06T09:00:05.000Z",
+          "holdsBallot": false,
+          "judgeParticipantId": "ai1",
+          "status": "queued"
+        }
+      ]
+    },
+    "name": "ai-queued"
+  },
+  {
+    "afterDeadlines": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "holding_ballot"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "atStart": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "holding_ballot"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "input": {
+      "aiJudgeSeatIds": [
+        "ai1"
+      ],
+      "ballotDeadlineAt": null,
+      "ballots": [],
+      "completeness": "complete",
+      "held": {
+        "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
+        "lastAttendanceDecisionAt": null,
+        "lastWriterResolvedAt": null
+      },
+      "humanJudgeSeatIds": [],
+      "jobs": [
+        {
+          "generationDeadlineAt": "2026-10-06T09:00:05.000Z",
+          "holdsBallot": true,
+          "judgeParticipantId": "ai1",
+          "status": "queued"
+        }
+      ]
+    },
+    "name": "ai-holding"
+  },
+  {
+    "afterDeadlines": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "ended"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "atStart": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "ended"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "input": {
+      "aiJudgeSeatIds": [
+        "ai1"
+      ],
+      "ballotDeadlineAt": null,
+      "ballots": [],
+      "completeness": "complete",
+      "held": {
+        "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
+        "lastAttendanceDecisionAt": null,
+        "lastWriterResolvedAt": null
+      },
+      "humanJudgeSeatIds": [],
+      "jobs": [
+        {
+          "generationDeadlineAt": "2026-10-06T09:00:05.000Z",
+          "holdsBallot": false,
+          "judgeParticipantId": "ai1",
+          "status": "failed"
+        }
+      ]
+    },
+    "name": "ai-failed"
+  },
+  {
+    "afterDeadlines": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "succeeded"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "atStart": {
+      "aiSeats": [
+        {
+          "id": "ai1",
+          "standing": {
+            "state": "succeeded"
+          }
+        }
+      ],
+      "humanWindow": null
+    },
+    "input": {
+      "aiJudgeSeatIds": [
+        "ai1"
+      ],
+      "ballotDeadlineAt": null,
+      "ballots": [],
+      "completeness": "complete",
+      "held": {
+        "attendanceCutoffAt": "2026-10-06T10:00:00.000Z",
+        "lastAttendanceDecisionAt": null,
+        "lastWriterResolvedAt": null
+      },
+      "humanJudgeSeatIds": [],
+      "jobs": [
+        {
+          "generationDeadlineAt": "2026-10-06T09:00:05.000Z",
+          "holdsBallot": false,
+          "judgeParticipantId": "ai1",
+          "status": "succeeded"
+        }
+      ]
+    },
+    "name": "ai-succeeded"
+  }
+]

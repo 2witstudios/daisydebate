@@ -1,6 +1,8 @@
 import {
+  affirmativeSide,
   roundMediaAdmissionSchema,
   roundMediaStateSchema,
+  sideOfSeat,
 } from '@daisy/protocol';
 import { createMediaService } from '@daisy/media';
 import { test, expect, openPage } from './support/fixtures';
@@ -235,7 +237,7 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     const fresh = await readBallotRound(debaters[0]!.context.request, round.id);
     const seat = fresh.participants.find(
       (participant) =>
-        participant.role === 'affirmative' && 'id' in participant,
+        sideOfSeat(participant.seat) === affirmativeSide && 'id' in participant,
     );
     if (!seat || !('id' in seat))
       throw new Error('Actual debater seat missing');
@@ -294,7 +296,7 @@ test('a media read held across a real Round transition is superseded without tou
     const view = await readBallotRound(speaker!.context.request, round.id);
     const seat = view.participants.find(
       (participant) =>
-        participant.role === 'affirmative' && 'id' in participant,
+        sideOfSeat(participant.seat) === affirmativeSide && 'id' in participant,
     );
     if (!seat || !('id' in seat))
       throw new Error('Actual debater seat missing');
@@ -511,7 +513,8 @@ for (const [name, tickOnly] of [
       const view = await readBallotRound(speaker!.context.request, round.id);
       const seat = view.participants.find(
         (participant) =>
-          participant.role === 'affirmative' && 'id' in participant,
+          sideOfSeat(participant.seat) === affirmativeSide &&
+          'id' in participant,
       );
       if (!seat || !('id' in seat))
         throw new Error('Actual debater seat missing');

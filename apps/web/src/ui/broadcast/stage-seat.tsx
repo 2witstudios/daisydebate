@@ -2,11 +2,6 @@ import type { StageSeatView } from '../../features/stage-capture/stage-access';
 import { Icon } from '../components/icon/icon';
 import type { SeatMedia } from './stage-subscriptions';
 
-const sideCopy: Record<StageSeatView['side'], string> = {
-  affirmative: 'Affirmative',
-  negative: 'Negative',
-};
-
 /** What a tile says in place of a camera. */
 function SeatState({ media }: { readonly media: Exclude<SeatMedia, 'video'> }) {
   switch (media) {
@@ -57,7 +52,7 @@ export function StageSeat(props: {
           <p>{seat.label}</p>
           {seat.floor ? <em>Speaking</em> : null}
         </div>
-        <span>{sideCopy[seat.side]}</span>
+        <span>{seat.columnLabel}</span>
       </div>
     </li>
   );

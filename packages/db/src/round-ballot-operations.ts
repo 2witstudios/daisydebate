@@ -37,6 +37,7 @@ import {
 } from './round-write-authority';
 import type { RoundHydration } from './round-hydration';
 import { ballots } from './schema/ballots';
+import { outcomeJson } from './round-outcome-sql';
 import { rounds } from './schema/rounds';
 import { roundCommands } from './schema/round-commands';
 import {
@@ -50,6 +51,8 @@ import {
   requireFrozenRevision,
   requireJudgingRun,
   requireAgentBallotCapture,
+  requireRoundBallot,
+  ballotDecisionColumns,
 } from './round-ballot-decisions';
 
 type RoundBallotLeaseContext = {
@@ -230,7 +233,7 @@ async function persistBallotResult(
       commandId: input.envelope.commandId,
       type: 'submit_ballot',
       payloadDigest: input.payloadDigest,
-      result: { ...receipt },
+      result: { ...receipt, outcome: outcomeJson(receipt.outcome) },
     },
     resultingVersion,
     { before: current.status, projection },
@@ -251,7 +254,9 @@ async function insertFrozenBallot(
   context: LockedRoundBallotContext,
 ) {
   const ballotId = input.nextBallotId();
-  const body = input.envelope.ballot;
+  const body = requireRoundBallot(context.round, input.envelope.ballot);
+  if (body.speakerRanks !== undefined)
+    throw createAppError('INVARIANT', 'Speaker ranks have no stored home');
   const [stored] = await tx
     .insert(ballots)
     .values({
@@ -260,9 +265,9 @@ async function insertFrozenBallot(
       judgeParticipantId: input.envelope.judgeParticipantId,
       freezeRevision: context.frozen.revision,
       rubricVersion: body.rubricVersion,
-      winner: body.winner,
-      scores: body.scores,
-      reason: body.reason,
+      ...ballotDecisionColumns(body),
+      scores: body.scores ?? null,
+      reason: body.reason ?? '',
       feedback: body.feedback,
       citations: body.citations ?? null,
       submittedAt: new Date(context.now),

@@ -168,7 +168,7 @@ test('exporting a member includes their competitive record and nothing of anothe
     });
     const judgedRound = await fixture.round({
       status: 'completed',
-      outcome: 'affirmative',
+      winning_side: 'affirmative',
       started_at: at(3, 11),
       completed_at: at(3),
     });

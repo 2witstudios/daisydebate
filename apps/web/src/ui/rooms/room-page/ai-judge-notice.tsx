@@ -18,7 +18,7 @@ export function AiJudgeNotice({
     'aiJudgeSeating' | 'definition' | 'competitionType'
   >;
 }) {
-  if (view.definition.seats.judge === 0) return null;
+  if (view.definition.seats.judges === 0) return null;
   if (view.aiJudgeSeating === 'free')
     return (
       <p role="status" className="py-3 text-sm text-ink-muted">

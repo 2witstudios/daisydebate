@@ -1,5 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
-import { attendanceTimingPolicy } from '@daisy/protocol';
+import { attendanceTimingPolicy, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   emptyCheckpoint,
@@ -57,7 +57,7 @@ test('verified attendance forfeit uses actual speech authority and closes the ac
     },
     expected: {
       status: 'completed',
-      outcome: 'negative',
+      outcome: winnerOutcome('negative'),
       final: roundAt(55_000),
       closes: [{ id: 'actual-speech', endedAt: roundAt(55_000) }],
     },
@@ -130,7 +130,7 @@ test('historical speech absence remains tied to its speaker after another seat h
       projection.segmentCloses,
     ],
     expected: [
-      'negative',
+      winnerOutcome('negative'),
       roundAt(375_000),
       [{ id: 'later-cx', endedAt: roundAt(375_000) }],
     ],
@@ -161,7 +161,7 @@ test('a settled absence still forfeits after the debate is over', () => {
     given: 'an attendance decision that settles after the final segment closed',
     should: 'still forfeit the absent speaker, unlike a debater leaving',
     actual: [projection.round?.status, projection.round?.outcome],
-    expected: ['completed', 'negative'],
+    expected: ['completed', winnerOutcome('negative')],
   });
 });
 test('early, foreign, wrong-side and final-speech attendance decisions refuse atomically', async () => {

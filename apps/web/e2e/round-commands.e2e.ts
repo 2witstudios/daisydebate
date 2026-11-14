@@ -6,7 +6,15 @@ import {
   currentRoundForfeit,
   readBallotRound,
 } from './support/human-ballot-round';
-import { roomViewSchema, roundViewSchema, isNamedSeat } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  isNamedSeat,
+  negativeSide,
+  roomViewSchema,
+  roundViewSchema,
+  sideOfSeat,
+  winnerOutcome,
+} from '@daisy/protocol';
 import { origin } from './support/accounts';
 import { expect, test } from './support/live-room-documents';
 import { openPage } from './support/fixtures';
@@ -40,7 +48,7 @@ test('native Start affirmative constructive and enhanced round controls retain c
         exact: true,
       }),
     ).toBeVisible();
-    expect((await read()).checkpoint?.active_prep?.side).toBe('affirmative');
+    expect((await read()).checkpoint?.active_prep?.side).toBe(affirmativeSide);
     await formPage
       .getByRole('button', {
         name: 'Start affirmative constructive',
@@ -129,7 +137,9 @@ test('native Start affirmative constructive and enhanced round controls retain c
     const interrupted = await read();
     const human = interrupted.participants
       .filter(isNamedSeat)
-      .find((p) => p.kind === 'human' && p.role === 'affirmative')!;
+      .find(
+        (p) => p.kind === 'human' && sideOfSeat(p.seat) === affirmativeSide,
+      )!;
     expect(interrupted.checkpoint?.floor?.holder_participant_id).toBe(human.id);
     await expect(
       page.getByRole('button', { name: 'End speech', exact: true }),
@@ -181,7 +191,7 @@ test('native Start affirmative constructive and enhanced round controls retain c
     await expect(formPage).toHaveURL(`/rounds/${roundId}`);
     const final = await read();
     expect(final.status).toBe('completed');
-    expect(final.outcome).toBe('negative');
+    expect(final.outcome).toEqual(winnerOutcome(negativeSide));
     expect(new URL(formPage.url()).search).toBe('');
   } finally {
     await native.close();
@@ -283,7 +293,7 @@ for (const javaScriptEnabled of [false, true])
         .toBeGreaterThan(live.version);
       const seat = live.participants
         .filter(isNamedSeat)
-        .find((p) => p.role === 'affirmative')!;
+        .find((p) => sideOfSeat(p.seat) === affirmativeSide)!;
       const ended = await currentRoundForfeit(host.request, live.id, seat.id);
       context = await browser.newContext({
         baseURL: origin,

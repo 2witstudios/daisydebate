@@ -3,7 +3,9 @@
  * decided, did the final ballot keep the first pass's winner, and how did the
  * scores move? Read from staging by `bun judge:bench passes`.
  */
-type Side = 'affirmative' | 'negative';
+import { twoSideKeys, twoSides, type TwoSideKey } from '@daisy/protocol';
+
+type Side = TwoSideKey;
 type Scores = Record<Side, Record<string, number>>;
 
 export type PassRow = {
@@ -14,8 +16,9 @@ export type PassRow = {
   readonly final: { readonly winner: Side; readonly scores: Scores };
 };
 
-const sides: readonly Side[] = ['affirmative', 'negative'];
-const short = (side: Side) => (side === 'affirmative' ? 'AFF' : 'NEG');
+const sides: readonly Side[] = twoSideKeys;
+const short = (side: Side) =>
+  (twoSides.find(({ key }) => key === side)?.short ?? side).toUpperCase();
 const signed = (value: number) =>
   `${value > 0 ? '+' : ''}${Number.isInteger(value) ? value : value.toFixed(2)}`;
 

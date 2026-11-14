@@ -1,4 +1,10 @@
-import { roundStartPolicy } from '@daisy/protocol';
+import {
+  isJudgeSeat,
+  roundStartPolicy,
+  sameSeat,
+  sideSeat,
+  type SeatRef,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { HydratedSegment, RuntimeCheckpoint } from '@daisy/protocol';
 import { mediaGrants } from './media-grants';
@@ -18,6 +24,9 @@ setupRitewayBun();
 
 const rules = oneOnOneRules();
 const first = rules.segments[0]!;
+/** The seat the first speech belongs to. */
+const firstSeat: SeatRef =
+  first.speak.rights === 'one' ? first.speak.seat : first.speak.lead!;
 const secondMs = 1_000;
 const START = 10 * secondMs;
 
@@ -204,7 +213,7 @@ test('resuming gives the speech its time back', () => {
           segmentId: 'segment-1',
           at: roundAt(55_000),
           participantIds: [
-            oneOnOneSeats.find((seat) => seat.role === first.side)!.id,
+            oneOnOneSeats.find((seat) => sameSeat(seat.seat, firstSeat))!.id,
           ],
         },
       ],
@@ -430,9 +439,9 @@ test('commands are refused while held', () => {
 
 test("only the speaker's microphone stays open, for capture to confirm", () => {
   const runtime = runtimeOf([speech()]);
-  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const seat = oneOnOneSeats.find((row) => sameSeat(row.seat, firstSeat))!;
   const other = oneOnOneSeats.find(
-    (row) => row.role !== first.side && row.role !== 'judge',
+    (row) => !sameSeat(row.seat, firstSeat) && !isJudgeSeat(row.seat),
   )!;
   const publish = (now: string, participantId = seat.id) =>
     mediaGrants({
@@ -465,7 +474,7 @@ test("only the speaker's microphone stays open, for capture to confirm", () => {
 
 test("the speaker's microphone opens for the countdown, so it is ready when the clock restarts", () => {
   const runtime = runtimeOf([speech()]);
-  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const seat = oneOnOneSeats.find((row) => sameSeat(row.seat, firstSeat))!;
   runtime.applyIncident(pause(40_000, 37_000));
   runtime.applyIncident(beginResume(50_000));
   const now = roundAt(50_000 + 1_000);
@@ -557,7 +566,7 @@ test('opening strikes and prep obey the same stop', () => {
       [
         {
           actorId: 'actor',
-          role: 'affirmative',
+          seat: sideSeat('affirmative'),
           kind: 'human',
           eligible: true,
         },
@@ -614,7 +623,7 @@ test('the runtime says what happened to an incident, for its row', () => {
 });
 
 test('a speech starts when capture has its speaker, or a short bound passes', () => {
-  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const seat = oneOnOneSeats.find((row) => sameSeat(row.seat, firstSeat))!;
   const due = rules.countdownMs;
   const opens = (run: ReturnType<typeof runtimeOf>, atMs: number) =>
     run.tick(roundAt(atMs)).segmentInserts.map(({ startedAt }) => startedAt);
@@ -699,7 +708,7 @@ test('a speech starts when capture has its speaker, or a short bound passes', ()
 });
 
 test('prep taken inside the lead leaves the next start to gate afresh', () => {
-  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const seat = oneOnOneSeats.find((row) => sameSeat(row.seat, firstSeat))!;
   const due = rules.countdownMs;
   const run = runtimeOf([]);
   run.applyStartGate({
@@ -727,7 +736,7 @@ test('prep taken inside the lead leaves the next start to gate afresh', () => {
 });
 
 test('an incident spends a start gate, so a stale report moves nothing', () => {
-  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const seat = oneOnOneSeats.find((row) => sameSeat(row.seat, firstSeat))!;
   const due = rules.countdownMs;
   const run = runtimeOf([]);
   run.applyStartGate({
@@ -751,7 +760,7 @@ test('an incident spends a start gate, so a stale report moves nothing', () => {
 });
 
 test('a start gate does not move the microphone it waits for', () => {
-  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const seat = oneOnOneSeats.find((row) => sameSeat(row.seat, firstSeat))!;
   const due = rules.countdownMs;
   const run = runtimeOf([]);
   run.applyStartGate({
@@ -789,9 +798,9 @@ test('a start gate does not move the microphone it waits for', () => {
 });
 
 test('the microphone opens just before the clock, for the next human speaker only', () => {
-  const seat = oneOnOneSeats.find((row) => row.role === first.side)!;
+  const seat = oneOnOneSeats.find((row) => sameSeat(row.seat, firstSeat))!;
   const other = oneOnOneSeats.find(
-    (row) => row.role !== first.side && row.role !== 'judge',
+    (row) => !sameSeat(row.seat, firstSeat) && !isJudgeSeat(row.seat),
   )!;
   const due = rules.countdownMs;
   const publish = (atMs: number, participantId: string, kind = 'human') => {

@@ -118,16 +118,20 @@ describe('standings reads', () => {
     });
     assert({
       given: 'ledger rows with seats and outcomes',
-      should: 'carry the role, outcome and ISO posting time',
-      actual: read.changes.map(({ role, outcome, occurredAt }) => [
-        role,
+      should: 'carry the side, the winning side and ISO posting time',
+      actual: read.changes.map(({ side, outcome, occurredAt }) => [
+        side,
         outcome,
         occurredAt,
       ]),
       expected: [
-        ['affirmative', 'affirmative', at.toISOString()],
-        ['negative', 'affirmative', at.toISOString()],
-        ['affirmative', 'negative', at.toISOString()],
+        [
+          'affirmative',
+          { kind: 'winner', side: 'affirmative' },
+          at.toISOString(),
+        ],
+        ['negative', { kind: 'winner', side: 'affirmative' }, at.toISOString()],
+        ['affirmative', { kind: 'winner', side: 'negative' }, at.toISOString()],
       ],
     });
   });
@@ -151,9 +155,9 @@ describe('standings reads', () => {
   });
 
   test('refuses a posting that cannot be rated', async () => {
-    for (const [given, role, outcome] of [
-      ['a judge seat', 'judge', 'affirmative'],
-      ['an abandoned outcome', 'affirmative', 'abandoned'],
+    for (const [given, side, winningSide] of [
+      ['a judge seat', null, 'affirmative'],
+      ['an unknown winning side', 'affirmative', 'abandoned'],
       ['no outcome', 'negative', null],
     ] as const) {
       const { database } = createTestDatabase([
@@ -170,8 +174,8 @@ describe('standings reads', () => {
             290,
             0.06,
             at,
-            role,
-            outcome,
+            side,
+            winningSide,
             true,
           ],
         ],

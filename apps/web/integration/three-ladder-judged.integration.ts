@@ -12,7 +12,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { withSeasons } from '@daisy/db/seasons';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ratingLadders } from '@daisy/protocol';
+import { ratingLadders, sideOfSeat, type SeatRef } from '@daisy/protocol';
 import {
   withRoomRuntime,
   launchRuntimeRound,
@@ -36,6 +36,8 @@ import { readRoundRatings } from '../src/features/ratings/read-round';
 import { botAdmissionForTests } from './bot-admission.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+/** The stored seat order a Round reads in: by side, else by seat kind (as before TAB-6). */
+const storedOrderKey = (seat: SeatRef) => sideOfSeat(seat) ?? seat.kind;
 
 for (const ladder of ratingLadders)
   for (const judgeKind of ['human', 'ai'] as const)
@@ -136,7 +138,7 @@ for (const ladder of ratingLadders)
                 username: `u-${f.host.userId}`,
                 now,
               });
-              const seatRoles = roundView.participants.map((p) => p.role);
+              const seats = roundView.participants.map((p) => p.seat);
               const hostPost = ledger.find(
                 (r: { actor_id: string }) => r.actor_id === f.host.actorId,
               )!;
@@ -179,7 +181,8 @@ for (const ladder of ratingLadders)
                   posting: display?.posting,
                   deltas: display?.rows.every((r) => r.delta !== null),
                   seatsInOrder:
-                    seatRoles.join() === [...seatRoles].sort().join(),
+                    seats.map(storedOrderKey).join() ===
+                    seats.map(storedOrderKey).sort().join(),
                   resolution:
                     roundView.topic !== null &&
                     (room.topic === null || roundView.topic === room.topic),

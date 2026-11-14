@@ -5,6 +5,7 @@ import type {
   RoomCommand,
   RoomConsent,
   RoomMutationOutcome,
+  RecordingPolicy,
 } from '@daisy/protocol';
 import { acceptedRoomMutation, type Edges } from './room-assembly-facts';
 import { debatersReadChat, resolveReleasePolicy } from './broadcast-release';
@@ -14,7 +15,9 @@ const refuse = (
 ): RoomMutationOutcome => ({ ok: false, refusal });
 
 const chosen = (capture: RoomCapture): RoomCapture | null =>
-  capture.broadcast === null && !capture.recording ? null : capture;
+  capture.broadcast === null && capture.recordingPolicy === 'off'
+    ? null
+    : capture;
 
 /**
  * The host's capture choice (WATCH-8). The grant is read under the host's
@@ -65,6 +68,11 @@ export const plannedBroadcast = (
   };
 };
 
-/** Ranked is always recorded; a casual Round only by the host's choice. */
-export const plannedRecording = (room: CaptureFacts): boolean =>
-  room.competitionType === 'ranked' || room.capture?.recording === true;
+/**
+ * Who a Round's Recording is for: a ranked Round's is always released; a
+ * casual Round's is the host's choice, and none without one.
+ */
+export const plannedRecording = (room: CaptureFacts): RecordingPolicy =>
+  room.competitionType === 'ranked'
+    ? 'released'
+    : (room.capture?.recordingPolicy ?? 'off');

@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { caseMapSchema } from '@daisy/protocol';
+import {
+  caseMapSchema,
+  daisyWinnerBallot,
+  sideSeat,
+  twoSides,
+} from '@daisy/protocol';
 import { caseMapAnswer } from './judge';
 import { caseMapWireSchema } from './judge-contract';
 import { judgingStageMessages } from './staged-judge';
@@ -15,8 +20,7 @@ const evidence: TranscriptEvidenceInput = {
   gaps: [
     {
       sequence: 1,
-      side: 'negative',
-      slot: 0,
+      seat: sideSeat('negative'),
       fromOffsetMs: 59_900,
       untilOffsetMs: 60_000,
       cause: 'edge',
@@ -26,8 +30,7 @@ const evidence: TranscriptEvidenceInput = {
     {
       segmentSequence: 1,
       sequence: 0,
-      side: 'negative',
-      slot: 0,
+      seat: sideSeat('negative'),
       text: 'Costs displace other services.',
       complete: true,
       interrupted: true,
@@ -35,8 +38,7 @@ const evidence: TranscriptEvidenceInput = {
     {
       segmentSequence: 0,
       sequence: 0,
-      side: 'affirmative',
-      slot: 0,
+      seat: sideSeat('affirmative'),
       text: 'Access improves.',
       complete: true,
       interrupted: false,
@@ -47,7 +49,14 @@ const user = (messages: { role: string; content: string }[]) =>
   messages.find((message) => message.role === 'user')!.content;
 
 test('the case map reads numbered lines and only the transcript', () => {
-  const content = user(judgingStageMessages(evidence, { stage: 'map' }));
+  const content = user(
+    judgingStageMessages(
+      evidence,
+      { stage: 'map' },
+      daisyWinnerBallot,
+      twoSides,
+    ),
+  );
   assert({
     given: 'a frozen transcript with an interrupted line and an edge gap',
     should:
@@ -63,10 +72,12 @@ test('the case map reads numbered lines and only the transcript', () => {
 });
 
 test('the final judge decides from the map, in dependency order', () => {
-  const [system, final] = judgingStageMessages(evidence, {
-    stage: 'final',
-    caseMap: stubCaseMap,
-  });
+  const [system, final] = judgingStageMessages(
+    evidence,
+    { stage: 'final', caseMap: stubCaseMap },
+    daisyWinnerBallot,
+    twoSides,
+  );
   assert({
     given: 'a stored case map',
     should:
@@ -83,7 +94,12 @@ test('the final judge decides from the map, in dependency order', () => {
 });
 
 test('the first pass is the single-call judge on the current rubric', () => {
-  const [system, first] = judgingStageMessages(evidence, { stage: 'first' });
+  const [system, first] = judgingStageMessages(
+    evidence,
+    { stage: 'first' },
+    daisyWinnerBallot,
+    twoSides,
+  );
   assert({
     given: 'the first stage',
     should: 'send the frozen evidence and the coherency anchors, and no map',

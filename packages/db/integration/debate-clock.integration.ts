@@ -92,7 +92,7 @@ test('Round and interval stamps persist the injected PostgreSQL instant exactly 
               status: 'completed',
               currentStage: null,
               completedAt: now,
-              outcome: 'affirmative',
+              outcome: { kind: 'winner', side: 'affirmative' },
             },
             segmentInserts: [],
             segmentCloses: [{ id: segmentId, endedAt: now }],

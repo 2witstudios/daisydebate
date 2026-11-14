@@ -1,8 +1,15 @@
 import { launchEvidence } from './room-launch-evidence';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
+  affirmativeSide,
+  aiRoleFits,
   isNamedSeat,
+  judgeSeat,
+  negativeSide,
   roomCastChoiceSchema,
+  sameSeat,
+  sideSeat,
+  type SeatRef,
   roomViewSchema,
   type RoomView,
 } from '@daisy/protocol';
@@ -157,10 +164,25 @@ export async function closeRoom(
   expect(response.status()).toBe(200);
 }
 
-export async function claim(page: Page, view: RoomView, seat: string) {
+/** "Negative 1", "Judge 1": the seat a numbered seat label names in this Room's format. */
+const seatFromLabel = (view: RoomView, label: string): SeatRef => {
+  const at = label.lastIndexOf(' ');
+  const name = label.slice(0, at);
+  const slot = Number(label.slice(at + 1)) - 1;
+  const side = view.rules.sides.find((candidate) => candidate.label === name);
+  if (side) return sideSeat(side.key, slot);
+  const kind = name.toLowerCase();
+  if (kind === 'speaker' || kind === 'judge' || kind === 'moderator')
+    return { kind, slot };
+  throw new Error(`No seat is labelled ${label}`);
+};
+
+export async function claim(page: Page, view: RoomView, label: string) {
   await page.goto(`/rooms/${view.id}`);
-  await page.getByRole('button', { name: `Take ${seat}`, exact: true }).click();
-  const [role, number] = seat.toLowerCase().split(' ');
+  await page
+    .getByRole('button', { name: `Take ${label}`, exact: true })
+    .click();
+  const seat = seatFromLabel(view, label);
   await expect(async () => {
     view = await reread(page.request, view.id);
     expect(
@@ -168,9 +190,7 @@ export async function claim(page: Page, view: RoomView, seat: string) {
         .filter(isNamedSeat)
         .some(
           (participant) =>
-            participant.kind === 'human' &&
-            participant.role === role &&
-            participant.slot === Number(number) - 1,
+            participant.kind === 'human' && sameSeat(participant.seat, seat),
         ),
     ).toBe(true);
   }).toPass({ timeout: 10_000 });
@@ -178,11 +198,11 @@ export async function claim(page: Page, view: RoomView, seat: string) {
 }
 
 const seats = ['Affirmative 1', 'Negative 1', 'Judge 1'] as const;
-const seatRole = {
-  'Affirmative 1': 'affirmative',
-  'Negative 1': 'negative',
-  'Judge 1': 'judge',
-} as const;
+const seatOf: Record<(typeof seats)[number], SeatRef> = {
+  'Affirmative 1': sideSeat(affirmativeSide),
+  'Negative 1': sideSeat(negativeSide),
+  'Judge 1': judgeSeat(),
+};
 
 /** Real actors from the authenticated catalog: bots in every seat but the member's own. */
 export async function prepareRoomAs(
@@ -211,9 +231,8 @@ export async function prepareRoomAs(
   expect(eligible.length).toBeGreaterThanOrEqual(2);
   // Each seat takes an AI actor of its own kind: bot debaters for sides, the AI judge for the judge seat (ISSUE-750).
   const ofRole = (seat: (typeof seats)[number]) =>
-    eligible.filter(
-      (bot: ReturnType<typeof roomCastChoiceSchema.parse>) =>
-        bot.seatRole === (seatRole[seat] === 'judge' ? 'judge' : 'debater'),
+    eligible.filter((bot: ReturnType<typeof roomCastChoiceSchema.parse>) =>
+      aiRoleFits(bot.aiRole, seatOf[seat]),
     );
   await page.getByText('Manage seats', { exact: true }).click();
   for (const [index, seat] of seats.filter((s) => s !== own).entries()) {
@@ -232,8 +251,7 @@ export async function prepareRoomAs(
           .some(
             (participant) =>
               participant.actorId === actor.actorId &&
-              participant.role === seatRole[seat] &&
-              participant.slot === 0,
+              sameSeat(participant.seat, seatOf[seat]),
           ),
       ).toBe(true);
     }).toPass({ timeout: 10_000 });

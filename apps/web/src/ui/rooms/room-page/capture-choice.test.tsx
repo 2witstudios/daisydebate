@@ -52,7 +52,7 @@ describe('The capture choice', () => {
   test('a host who lost the entitlement can still turn capture off', () => {
     const html = render('premium', {
       broadcast: null,
-      recording: true,
+      recordingPolicy: 'released',
     });
     assert({
       given: 'capture set and no entitlement any more',
@@ -92,7 +92,7 @@ describe('The capture choice', () => {
         release: { kind: 'delay', seconds: 300 },
         debatersReadChat: false,
       },
-      recording: true,
+      recordingPolicy: 'released',
     });
     assert({
       given: 'a stored broadcast on a 5 minute delay, chat off, recorded',
@@ -115,7 +115,9 @@ describe('The summary before Ready', () => {
       should: 'state it, then render nothing',
       actual: [
         renderToStaticMarkup(
-          <CaptureSummary capture={{ broadcast: null, recording: true }} />,
+          <CaptureSummary
+            capture={{ broadcast: null, recordingPolicy: 'released' }}
+          />,
         ).includes('Not broadcast. Recorded.'),
         renderToStaticMarkup(<CaptureSummary capture={null} />),
       ],

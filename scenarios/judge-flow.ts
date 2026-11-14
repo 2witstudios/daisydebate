@@ -1,3 +1,4 @@
+import { negativeSide } from '@daisy/protocol';
 import type { DebateScenario, ScenarioAction } from '../scripts/scenario';
 
 /** Advances the clock to `atMs`, then acts as the 1-based seat `actor`. */
@@ -57,7 +58,7 @@ const scenario: DebateScenario = {
       type: 'expect-rejection',
       operation: {
         type: 'ballots',
-        rulings: [{ judge: 3, winner: 'negative' }],
+        rulings: [{ judge: 3, winner: negativeSide }],
       },
       invariantId: 'round.complete.panel-played-round',
     },
@@ -70,13 +71,13 @@ const scenario: DebateScenario = {
     ...at(305_000, 'yield', 2),
     { type: 'tick', atMs: 315_000 }, // 2AR opens
     ...at(345_000, 'yield', 1), // the final segment ends
-    { type: 'ballots', rulings: [{ judge: 3, winner: 'negative' }] },
+    { type: 'ballots', rulings: [{ judge: 3, winner: negativeSide }] },
   ],
   expect: {
     id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
     status: 'completed',
     stage: null,
-    outcome: 'negative',
+    outcome: { kind: 'winner', side: negativeSide },
     opened: ['AC', 'CX1', 'NC', 'CX2', '1AR', 'NR', '2AR'],
   },
 };

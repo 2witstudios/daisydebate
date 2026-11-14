@@ -2,14 +2,11 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { JudgeRoomStage } from '../../features/judge/judge-room-stage';
 import type { ObservedRound } from '../../features/round-runtime/observed-round';
-import { sideName } from '../../features/round-runtime/round-reading';
 import { formatCountdown } from '../../lib/clock-display';
 import { RoundClock } from '../debate-room/round-clock';
 import { cn } from '../cn';
-import {
-  observedActivityLabel,
-  observedSideInk,
-} from '../round-observed/observed-labels';
+import { observedActivityLabel } from '../round-observed/observed-labels';
+import { toneInk } from '../debate-room/side-tone';
 
 export const judgeNowHeadingId = 'judge-now';
 const judgeNowDetailId = 'judge-now-detail';
@@ -102,7 +99,7 @@ export function JudgeNow({
         <ul aria-label="Debaters" className="grid grid-cols-2 gap-3 text-sm">
           {observed.seats.map((seat) => (
             <li
-              key={seat.side}
+              key={seat.key}
               className={cn(
                 'flex flex-col rounded-lg bg-surface px-3 py-2',
                 (seat.activity === 'speaking' || seat.activity === 'asking') &&
@@ -113,13 +110,11 @@ export function JudgeNow({
                 {seat.label}
                 {seat.bot ? ' · Bot' : ''}
               </span>
-              <span className={observedSideInk[seat.side]}>
-                {sideName[seat.side]}
-              </span>
+              <span className={toneInk[seat.tone]}>{seat.sideLabel}</span>
               <span className="text-ink-muted">
                 {observedActivityLabel[seat.activity]}
-                {observed.prepMs
-                  ? ` · ${formatCountdown(observed.prepMs[seat.side])} prep left`
+                {observed.prepMs && seat.side !== null
+                  ? ` · ${formatCountdown(observed.prepMs[seat.side] ?? 0)} prep left`
                   : ''}
               </span>
             </li>

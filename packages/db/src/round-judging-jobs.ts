@@ -1,8 +1,9 @@
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
-  ballotSchema,
+  ballotRecordSchema,
   caseMapSchema,
+  isJudgeSeat,
   judgingAttemptDiagnosticSchema,
   type JudgingStage,
   type JudgingAttemptDiagnostic,
@@ -43,6 +44,7 @@ import {
   requireNextStage,
   requireUndispatched,
 } from './round-judging-decisions';
+import { requireRoundBallot } from './round-ballot-decisions';
 export type { JudgingScope } from './round-judging-context';
 /** Whether a dispatch may go ahead, or why the job ended instead. */
 export type ModelCallBegun =
@@ -58,10 +60,14 @@ export type AnswerSaved = { readonly kind: 'held' };
 export type StageRecord =
   | { readonly stage: 'first'; readonly ballot: unknown }
   | { readonly stage: 'map'; readonly caseMap: unknown };
-/** A stage record validated by its own contract, as the job's columns it fills. */
+/**
+ * A stage record validated by its own contract, as the job's columns it
+ * fills: the first pass is a ballot in any definition's structure (the
+ * Round's own schema judges the final one), the case map its own.
+ */
 function storedStage(record: StageRecord) {
   if (record.stage === 'first') {
-    const ballot = ballotSchema.safeParse(record.ballot);
+    const ballot = ballotRecordSchema.safeParse(record.ballot);
     if (!ballot.success) throw createAppError('VALIDATION');
     return (now: Date) => ({
       firstBallot: ballot.data,
@@ -200,7 +206,8 @@ export function createRoundJudgingJobs(input: {
         scope.roundId,
         scope.judgeParticipantId,
       );
-      if (context.seat.role !== 'judge') throw createAppError('AUTHORIZATION');
+      if (!isJudgeSeat(context.seat.seat))
+        throw createAppError('AUTHORIZATION');
       const lease = await assertLockedJudgingLease(tx, scope, token);
       return work(tx, { ...lease, round: context.round });
     });
@@ -274,12 +281,12 @@ export function createRoundJudgingJobs(input: {
       usage: { readonly inputTokens: number; readonly outputTokens: number },
     ) => {
       await recordJudgingUsage(input.run, scope, token, usage);
-      const parsed = ballotSchema.safeParse(response);
-      if (!parsed.success) throw createAppError('VALIDATION');
       return withLease(
         scope,
         token,
-        async (tx, { run, job, now }): Promise<AnswerSaved> => {
+        async (tx, { run, job, now, round }): Promise<AnswerSaved> => {
+          // The final ballot fits the Round's own frozen definition (TAB-6.11).
+          const parsed = { data: requireRoundBallot(round, response) };
           const attempt = await attemptOfRun(tx, run.id);
           if (attempt && attempt.stage !== 'final')
             throw createAppError('CONFLICT', 'Not a final-stage call');

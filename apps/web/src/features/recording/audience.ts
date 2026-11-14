@@ -3,6 +3,7 @@ import { audienceAdmits } from '../audience-link/audience-link';
 import {
   SPECTATOR_MARGIN_MS,
   type CompetitionType,
+  type RecordingPolicy,
   type RecordingStatus,
 } from '@daisy/protocol';
 
@@ -36,7 +37,31 @@ export type RecordingRound = {
   readonly hostActorId: string | null;
   readonly completedAtMs: number | null;
   readonly seatedActorIds: readonly string[];
+  /** Who the Recording is for, as every participant was told at Launch (TAB-6.15). */
+  readonly recordingPolicy: RecordingPolicy;
+  /** The actors in the Round's judge and moderator seats. */
+  readonly officialActorIds: readonly string[];
 };
+
+/**
+ * How long a Recording kept for the officials lasts after its Round ends:
+ * 14 days, provisional (TAB-6.15; compliance records the period).
+ */
+export const OFFICIALS_RECORDING_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** When an officials' Recording is deleted; null for any other Recording. */
+export const recordingDeletionDueMs = (
+  round: Pick<RecordingRound, 'recordingPolicy' | 'completedAtMs'>,
+): number | null =>
+  round.recordingPolicy === 'officials' && round.completedAtMs !== null
+    ? round.completedAtMs + OFFICIALS_RECORDING_RETENTION_MS
+    : null;
+
+/** An officials' Recording is for its judge and moderator seats and its host. */
+const official = (round: RecordingRound, viewer: RecordingViewer): boolean =>
+  viewer.kind === 'account' &&
+  (round.officialActorIds.includes(viewer.actorId) ||
+    round.hostActorId === viewer.actorId);
 
 const seated = (round: RecordingRound, viewer: RecordingViewer): boolean =>
   viewer.kind === 'account' && round.seatedActorIds.includes(viewer.actorId);
@@ -76,7 +101,41 @@ const NOTHING: RoundEvidencePermissions = {
   result: false,
 };
 
+/**
+ * Under the officials policy only the officials and the host see the video, and
+ * only until its deletion date; a debater keeps the rest of their own record,
+ * and the audience learns nothing of the Round. `nowMs` is the caller's clock.
+ */
 export const roundEvidencePermissions = (
+  round: RecordingRound,
+  release: BroadcastRelease,
+  viewer: RecordingViewer,
+  presentedLinkHash: string | null,
+  nowMs: number,
+): RoundEvidencePermissions => {
+  const permissions = releasedPermissions(
+    round,
+    release,
+    viewer,
+    presentedLinkHash,
+  );
+  switch (round.recordingPolicy) {
+    case 'off':
+    case 'released':
+      return permissions;
+    case 'officials': {
+      if (!seated(round, viewer) && !official(round, viewer)) return NOTHING;
+      const due = recordingDeletionDueMs(round);
+      const kept = due === null || nowMs < due;
+      return {
+        ...permissions,
+        media: permissions.media && kept && official(round, viewer),
+      };
+    }
+  }
+};
+
+const releasedPermissions = (
   round: RecordingRound,
   release: BroadcastRelease,
   viewer: RecordingViewer,

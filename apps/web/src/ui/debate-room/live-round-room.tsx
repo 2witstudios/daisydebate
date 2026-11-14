@@ -173,11 +173,22 @@ export function LiveRoundRoom({
             participantId: intent.participantId,
           },
         }
-      : {
-          ...leave,
-          freed: intent.kind === 'freed',
-          held: intent.kind === 'held',
-        };
+      : intent.kind === 'leave'
+        ? {
+            ...leave,
+            forfeit: {
+              action: leaveAction,
+              commandId: ids.leave,
+              expectedVersion: intent.expectedVersion,
+              participantId: intent.participantId,
+              type: 'leave',
+            },
+          }
+        : {
+            ...leave,
+            freed: intent.kind === 'freed',
+            held: intent.kind === 'held',
+          };
   const notices = (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />

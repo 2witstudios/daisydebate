@@ -1,5 +1,5 @@
 import type { Browser, BrowserContext } from '@playwright/test';
-import { roundBallotReadSchema } from '@daisy/protocol';
+import { isJudgeSeat, roundBallotReadSchema } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
@@ -16,7 +16,7 @@ export async function proveUnjudgedJourney(browser: Browser) {
       (typeof accounts.members)[number],
     ];
     const view = await playActualSpeeches(accounts.members, 0);
-    expect(view.participants.some((p) => p.role === 'judge')).toBe(false);
+    expect(view.participants.some((p) => isJudgeSeat(p.seat))).toBe(false);
     const room = await openPage(aff.context, 'enhanced unjudged debater');
     await room.goto(`/rounds/${view.id}/room`);
     await expect(

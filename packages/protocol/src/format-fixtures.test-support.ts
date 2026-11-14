@@ -1,4 +1,10 @@
 import type { FormatDefinition, FormatSettings, RoomConfig } from './index';
+import { sideSeat, twoSides, type SeatRef } from './seats';
+
+/** A speech by one seat. */
+const speech = (seat: SeatRef) => ({ rights: 'one' as const, seat });
+/** Cross-examination: every debater speaks, `asker` leads. */
+const crossEx = (asker: SeatRef) => ({ rights: 'all' as const, lead: asker });
 
 /** Format settings with no prep, timing overrides, interruptions or yielding. */
 export const plainFormatSettings: FormatSettings = {
@@ -31,63 +37,63 @@ export const oneOnOneSettingsFixture: FormatSettings = {
 
 /** Shared one-on-one format fixture for protocol and engine contract tests. */
 export const oneOnOneFormatFixture: FormatDefinition = {
-  version: 1,
-  seats: { affirmative: 1, negative: 1, judge: 1 },
+  version: 2,
+  sides: [...twoSides],
+  seats: {
+    sides: { affirmative: 1, negative: 1 },
+    speakers: 0,
+    judges: 1,
+    moderators: 0,
+  },
+  outcome: { kind: 'winner' },
   segments: [
     {
       key: 'AC',
       label: 'Affirmative constructive',
       type: 'speech',
-      side: 'affirmative',
-      slot: 0,
+      speak: speech(sideSeat('affirmative')),
       defaultDurationMs: 300_000,
     },
     {
       key: 'CX1',
       label: 'Cross-examination of the affirmative',
       type: 'cross_ex',
-      side: 'negative',
-      slot: 0,
+      speak: crossEx(sideSeat('negative')),
       defaultDurationMs: 120_000,
     },
     {
       key: 'NC',
       label: 'Negative constructive',
       type: 'speech',
-      side: 'negative',
-      slot: 0,
+      speak: speech(sideSeat('negative')),
       defaultDurationMs: 360_000,
     },
     {
       key: 'CX2',
       label: 'Cross-examination of the negative',
       type: 'cross_ex',
-      side: 'affirmative',
-      slot: 0,
+      speak: crossEx(sideSeat('affirmative')),
       defaultDurationMs: 120_000,
     },
     {
       key: '1AR',
       label: 'First affirmative rebuttal',
       type: 'speech',
-      side: 'affirmative',
-      slot: 0,
+      speak: speech(sideSeat('affirmative')),
       defaultDurationMs: 300_000,
     },
     {
       key: 'NR',
       label: 'Negative rebuttal',
       type: 'speech',
-      side: 'negative',
-      slot: 0,
+      speak: speech(sideSeat('negative')),
       defaultDurationMs: 300_000,
     },
     {
       key: '2AR',
       label: 'Second affirmative rebuttal',
       type: 'speech',
-      side: 'affirmative',
-      slot: 0,
+      speak: speech(sideSeat('affirmative')),
       defaultDurationMs: 180_000,
     },
   ],
@@ -132,7 +138,9 @@ export const invalidFormatDefinitions: ReadonlyArray<
     {
       ...oneOnOneFormatFixture,
       segments: oneOnOneFormatFixture.segments.map((segment, index) =>
-        index === 0 ? { ...segment, slot: 99 } : segment,
+        index === 0
+          ? { ...segment, speak: speech(sideSeat('affirmative', 99)) }
+          : segment,
       ),
     },
   ],
@@ -179,7 +187,12 @@ function onlySideSegments(
   definition: FormatDefinition,
   side: 'affirmative' | 'negative',
 ): FormatDefinition {
-  const segments = definition.segments.filter((s) => s.side === side);
+  const segments = definition.segments.filter(
+    (s) =>
+      s.speak.rights === 'one' &&
+      s.speak.seat.kind === 'side' &&
+      s.speak.seat.side === side,
+  );
   return {
     ...definition,
     segments,
@@ -198,71 +211,75 @@ function onlySideSegments(
   };
 }
 
+const withSeats = (
+  seats: Partial<FormatDefinition['seats']>,
+  definition: FormatDefinition = oneOnOneFormatFixture,
+): FormatDefinition => ({
+  ...definition,
+  seats: { ...oneOnOneFormatFixture.seats, ...seats },
+});
+
 export const unsafeFormatDefinitions: ReadonlyArray<
   readonly [string, FormatDefinition]
 > = [
-  ...(['affirmative', 'negative', 'judge'] as const).map(
-    (role) =>
+  ...(['affirmative', 'negative'] as const).map(
+    (side) =>
       [
-        `billion ${role} seats`,
-        {
-          ...oneOnOneFormatFixture,
-          seats: { ...oneOnOneFormatFixture.seats, [role]: 1_000_000_000 },
-        },
+        `billion ${side} seats`,
+        withSeats({
+          sides: {
+            ...oneOnOneFormatFixture.seats.sides,
+            [side]: 1_000_000_000,
+          },
+        }),
       ] as const,
   ),
+  ['billion judge seats', withSeats({ judges: 1_000_000_000 })],
   [
-    'over total with individually bounded roles',
-    {
-      ...oneOnOneFormatFixture,
-      seats: { affirmative: 128, negative: 128, judge: 1 },
-    },
+    'over total with individually bounded seats',
+    withSeats({ sides: { affirmative: 128, negative: 128 }, judges: 1 }),
   ],
   [
     'no negative seats',
-    {
-      ...onlySideSegments(oneOnOneFormatFixture, 'affirmative'),
-      seats: { affirmative: 1, negative: 0, judge: 0 },
-    },
+    withSeats(
+      { sides: { affirmative: 1, negative: 0 }, judges: 0 },
+      onlySideSegments(oneOnOneFormatFixture, 'affirmative'),
+    ),
   ],
   [
     'negative seats without speaking opportunity',
     onlySideSegments(oneOnOneFormatFixture, 'affirmative'),
   ],
-  ...(['affirmative', 'negative', 'judge'] as const).map(
-    (role) =>
+  ...(['affirmative', 'negative'] as const).map(
+    (side) =>
       [
-        `one over the role work bound: ${role}`,
-        {
-          ...oneOnOneFormatFixture,
-          seats: { ...oneOnOneFormatFixture.seats, [role]: 257 },
-        },
+        `one over the seat work bound: ${side}`,
+        withSeats({
+          sides: { ...oneOnOneFormatFixture.seats.sides, [side]: 257 },
+        }),
       ] as const,
   ),
+  ['one over the seat work bound: judges', withSeats({ judges: 257 })],
   [
     'no affirmative seats',
-    {
-      ...onlySideSegments(oneOnOneFormatFixture, 'negative'),
-      seats: { affirmative: 0, negative: 1, judge: 0 },
-    },
+    withSeats(
+      { sides: { affirmative: 0, negative: 1 }, judges: 0 },
+      onlySideSegments(oneOnOneFormatFixture, 'negative'),
+    ),
   ],
   [
     'affirmative seats without speaking opportunity',
     onlySideSegments(oneOnOneFormatFixture, 'negative'),
   ],
-  [
-    'missing negative count',
-    {
-      ...oneOnOneFormatFixture,
-      seats: { affirmative: 1, judge: 0 } as FormatDefinition['seats'],
-    },
-  ],
+  ['missing negative count', withSeats({ sides: { affirmative: 1 } })],
 ];
 
 /** Rules resolved from a definition at its default timing. */
 export const fixtureRules = (definition: FormatDefinition) => ({
-  version: 2,
+  version: 3 as const,
+  sides: definition.sides,
   seats: definition.seats,
+  outcome: definition.outcome,
   segments: definition.segments.map(({ defaultDurationMs, ...s }) => ({
     ...s,
     durationMs: defaultDurationMs,

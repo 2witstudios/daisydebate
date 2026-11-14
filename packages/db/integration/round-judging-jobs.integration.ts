@@ -4,7 +4,23 @@ import { judgingJobRules } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
-import { ballotCategories, ballotSchema } from '@daisy/protocol';
+import {
+  ballotCategories,
+  ballotSchemaFor,
+  daisyWinnerBallot,
+  twoSideKeys,
+  type Ballot,
+} from '@daisy/protocol';
+
+/** Today's two-sided Round's ballot: Daisy's winner ballot over the preset's sides. */
+const twoSidedBallot = ballotSchemaFor(daisyWinnerBallot, {
+  sides: twoSideKeys,
+  speakers: [],
+  segments: [],
+});
+const ballotSchema = {
+  parse: (value: unknown): Ballot => twoSidedBallot.parse(value) as Ballot,
+};
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';

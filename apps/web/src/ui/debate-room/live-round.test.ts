@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  twoSides,
+  type RoundView,
+} from '@daisy/protocol';
 import { postRoundCallPolicy } from '@daisy/protocol';
 import {
   isCallDebater,
@@ -24,6 +28,18 @@ import {
 } from './live-round.test-support';
 
 setupRitewayBun();
+
+/** A speech's scheduled seat as `side:slot`; '' for a segment of several speakers. */
+const sideSlotOf = (segment: (typeof rules)[number]) =>
+  segment.speak.rights === 'one' && segment.speak.seat.kind === 'side'
+    ? `${segment.speak.seat.side}:${segment.speak.seat.slot}`
+    : '';
+
+/** Each side's prep left, by side key. */
+const prepOf = (room: ReturnType<typeof liveRoundOf>) =>
+  room?.prep
+    ? Object.fromEntries(room.prep.map((p) => [p.side, p.remainingMs]))
+    : room?.prep;
 
 describe('isLiveDebater', () => {
   test('who the round room is for', () => {
@@ -53,10 +69,10 @@ describe('liveRoundOf before the start', () => {
         'seat you and the bot opposite, and list the judge without a name',
       actual: {
         self: room?.self,
-        opponent: room?.opponent.side,
+        others: room?.others.map((other) => other.side),
         judge: room?.judge,
         ballots: room?.ballots,
-        names: room?.people.map((p) => `${p.role}:${p.name}:${p.bot}`),
+        names: room?.people.map((p) => `${p.group}:${p.name}:${p.bot}`),
         leaked: JSON.stringify(room).includes('Riley'),
       },
       expected: {
@@ -64,15 +80,19 @@ describe('liveRoundOf before the start', () => {
           id: aff.actorId,
           name: 'Sam Reyes',
           initials: 'SR',
-          side: 'aff',
+          seat: { kind: 'side', side: 'affirmative', slot: 0 },
+          side: 'affirmative',
+          sideLabel: 'Affirmative',
+          sideShort: 'Aff',
+          tone: 'sky',
           rating: null,
         },
-        opponent: 'neg',
+        others: ['negative'],
         judge: 'human',
         ballots: { judge: 'human', ai: null },
         names: [
-          'aff:Sam Reyes:false',
-          'neg:Practice bot:true',
+          'affirmative:Sam Reyes:false',
+          'negative:Practice bot:true',
           'judge:Judge:false',
         ],
         leaked: false,
@@ -89,7 +109,7 @@ describe('liveRoundOf before the start', () => {
         phase: room?.phase,
         liveIndex: room?.liveIndex,
         clock: room?.clock,
-        prepMs: room?.prepMs,
+        prepMs: prepOf(room),
         micLive: room?.micLive,
       },
       expected: {
@@ -99,7 +119,7 @@ describe('liveRoundOf before the start', () => {
           label: `${first.key} · ${first.label}`,
           remainingMs: first.durationMs,
         },
-        prepMs: { aff: 240_000, neg: 240_000 },
+        prepMs: { affirmative: 240_000, negative: 240_000 },
         micLive: false,
       },
     });
@@ -185,8 +205,8 @@ describe('liveRoundOf during the round', () => {
       should: 'tell only the seat that speaks, never its partner',
       actual: notes(seated(speech), speech),
       expected: [
-        rules[speech]!.side === 'affirmative' && rules[speech]!.slot === 0,
-        rules[speech]!.side === 'negative',
+        sideSlotOf(rules[speech]!) === 'affirmative:0',
+        sideSlotOf(rules[speech]!).startsWith('negative'),
         false,
       ],
     });
@@ -222,13 +242,15 @@ describe('liveRoundOf during the round', () => {
 
   test('a seat in its own prep is told its microphone opens when prep ends', () => {
     const closed = rules.findIndex(
-      ({ type, side }, index) =>
-        index > 0 && type === 'speech' && side === 'affirmative',
+      (segment, index) =>
+        index > 0 &&
+        segment.type === 'speech' &&
+        sideSlotOf(segment).startsWith('affirmative'),
     );
     const prepping: RoundView = {
       ...ran(closed, true),
       checkpoint: {
-        ...emptyRuntimeCheckpoint,
+        ...emptyRuntimeCheckpointFor({ sides: twoSides }),
         active_prep: { side: 'affirmative', started_at: at(startOf(closed)) },
       },
     };
@@ -327,7 +349,7 @@ describe('liveRoundOf during the round', () => {
     const prepping: RoundView = {
       ...ran(4, true),
       checkpoint: {
-        ...emptyRuntimeCheckpoint,
+        ...emptyRuntimeCheckpointFor({ sides: twoSides }),
         active_prep: { side: 'affirmative', started_at: at(startOf(4)) },
       },
     };
@@ -341,7 +363,7 @@ describe('liveRoundOf during the round', () => {
         mine?.phase,
         mine?.clock,
         mine?.liveIndex,
-        mine?.prepMs,
+        prepOf(mine),
         theirs?.phase,
         theirs?.clock?.label,
       ],
@@ -353,7 +375,7 @@ describe('liveRoundOf during the round', () => {
           note: 'Your microphone goes live when this prep ends.',
         },
         4,
-        { aff: 220_000, neg: 240_000 },
+        { affirmative: 220_000, negative: 240_000 },
         'waiting',
         'Affirmative prep',
       ],
@@ -456,7 +478,7 @@ describe('liveRoundOf during the round', () => {
       given: 'an active round whose stored checkpoint could not be read',
       should:
         'still open the room, waiting with nothing lit, no clock and no prep, rather than guess',
-      actual: [room?.phase, room?.liveIndex, room?.clock, room?.prepMs],
+      actual: [room?.phase, room?.liveIndex, room?.clock, prepOf(room)],
       expected: ['waiting', -1, null, null],
     });
   });
@@ -522,6 +544,40 @@ describe('the post-round call', () => {
         postRoundCallRoundOf(asCompleted(view), aff.actorId, origin),
       ],
       expected: [null, null],
+    });
+  });
+});
+
+describe('liveRoundOf over the format’s own seats (TAB-6.17)', () => {
+  const named: RoundView = {
+    ...view,
+    rules: {
+      ...view.rules,
+      sides: [
+        { key: 'affirmative', label: 'Government', short: 'Gov' },
+        { key: 'negative', label: 'Opposition', short: 'Opp' },
+      ],
+    },
+  };
+  const room = liveRoundOf(named, aff.actorId, origin);
+
+  test('names and prep from the declared sides', () => {
+    assert({
+      given: 'a format that names its sides Government and Opposition',
+      should:
+        'label the seat, every other seat, the Room tab and each side’s prep by those names',
+      actual: {
+        self: [room?.self.sideLabel, room?.self.sideShort],
+        others: room?.others.map((other) => [other.name, other.sideLabel]),
+        groups: room?.groups.map((group) => group.title),
+        prep: room?.prep?.map((side) => side.label),
+      },
+      expected: {
+        self: ['Government', 'Gov'],
+        others: [['Practice bot', 'Opposition']],
+        groups: ['Government', 'Opposition', 'Judge'],
+        prep: ['Government', 'Opposition'],
+      },
     });
   });
 });

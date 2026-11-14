@@ -28,7 +28,7 @@ const setup = async (f: Harness, capture: { readonly broadcast: boolean }) => {
       kind: 'custom',
       definition: {
         ...oneOnOneDefinition,
-        seats: { affirmative: 1, negative: 1, judge: 0 },
+        seats: { ...oneOnOneDefinition.seats, judges: 0 },
       },
       competitionType: 'casual',
       config: oneOnOneSettings,
@@ -36,7 +36,7 @@ const setup = async (f: Harness, capture: { readonly broadcast: boolean }) => {
   });
   const { roundId } = await launchRuntimeRound(f, room);
   await f.sql`update rounds set capture=${JSON.stringify({
-    recording: true,
+    recordingPolicy: 'released',
     broadcast: capture.broadcast
       ? { release: { kind: 'delay', seconds: 60 }, debatersReadChat: false }
       : null,

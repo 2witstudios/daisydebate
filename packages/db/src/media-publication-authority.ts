@@ -1,6 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { isRefusal } from '@daisy/errors';
-import type { RoundCommandAuthority } from '@daisy/protocol';
+import {
+  isAbsentSeat,
+  isJudgeSeat,
+  type RoundCommandAuthority,
+} from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { RoundHydration } from './round-hydration';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -39,7 +43,7 @@ export async function readMediaBotLeases(
     .from(roundBotPublications)
     .where(eq(roundBotPublications.roundId, roundId));
   for (const seat of participants.filter(
-    (seat) => seat.kind === 'bot' && seat.role !== 'judge' && seat.eligible,
+    (seat) => seat.kind === 'bot' && !isJudgeSeat(seat.seat) && seat.eligible,
   )) {
     const claim = claims.find((claim) => claim.participantId === seat.id);
     if (!claim) continue;
@@ -89,7 +93,7 @@ export function mediaPublicationParticipants(
   now: string,
 ): Participants {
   return participants.map((seat) =>
-    seat.kind !== 'bot' || seat.role === 'judge'
+    seat.kind !== 'bot' || isJudgeSeat(seat.seat)
       ? seat
       : {
           ...seat,
@@ -115,9 +119,24 @@ export function mediaHearingSeats(
     .filter(
       (seat) =>
         seat.kind === 'bot' &&
-        seat.role !== 'judge' &&
+        !isJudgeSeat(seat.seat) &&
         seat.eligible &&
+        !isAbsentSeat(round.checkpoint, seat.id) &&
         liveLease(leases, seat.id, round, now).length > 0,
     )
     .map((seat) => seat.id);
 }
+
+/**
+ * The seats whose media grants are withdrawn in place: those that lost
+ * participant access (ISSUE-714) and those that left the Round, which is
+ * absent from then on (TAB-6.8). A withdrawn seat is demoted where it is;
+ * it never reads as revoked, so leaving never rotates the room under the
+ * seats that stay.
+ */
+export const mediaWithdrawnSeats = (
+  revoked: readonly string[],
+  round: Pick<RoundHydration, 'checkpoint'>,
+): readonly string[] => [
+  ...new Set([...revoked, ...(round.checkpoint.absent_participant_ids ?? [])]),
+];

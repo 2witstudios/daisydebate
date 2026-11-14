@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { resolutionCategories } from '@daisy/protocol/resolution-draw';
-import { isOpenRoom, isOpenRoomStatus } from '@daisy/protocol';
+import { isOpenRoom, isOpenRoomStatus, seatOrder } from '@daisy/protocol';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -189,11 +189,14 @@ const withoutHostList = (room: RoomAssemblyState): RoomAssemblyState => {
   };
 };
 
-const heirRank = { affirmative: 0, negative: 1, judge: 2 } as const;
-const heirOrder = (
-  a: RoomAssemblyState['participants'][number],
-  b: RoomAssemblyState['participants'][number],
-) => heirRank[a.role] - heirRank[b.role] || a.slot - b.slot;
+/** Heirs in seat order: debaters by side and slot, then the moderator, then judges. */
+const heirOrder =
+  (room: RoomAssemblyState) =>
+  (
+    a: RoomAssemblyState['participants'][number],
+    b: RoomAssemblyState['participants'][number],
+  ) =>
+    seatOrder(room.rules.sides)(a.seat, b.seat);
 
 /**
  * A restriction on a member before Start round (DEC-331): their seats go and
@@ -210,7 +213,7 @@ export const releaseRestrictedMember = (
   if (freed.hostActorId !== actorId) return freed;
   const [heir] = freed.participants
     .filter((p) => p.kind === 'human' && p.eligible)
-    .sort(heirOrder);
+    .sort(heirOrder(freed));
   return heir
     ? {
         ...withoutHostList(freed),

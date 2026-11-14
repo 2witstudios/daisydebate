@@ -1,3 +1,4 @@
+import { type SeatRef, affirmativeSide, sideSeat } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorize, type AuthorizationInput } from './authorization';
 setupRitewayBun();
@@ -43,7 +44,7 @@ describe('canonical authorization', () => {
           ...input,
           resource: {
             ...resource,
-            participants: [{ actorId: 'a', role: 'debater', slot: 0 }],
+            participants: [{ actorId: 'a', seat: sideSeat(affirmativeSide) }],
           },
         }).allow,
       ],
@@ -94,7 +95,7 @@ describe('canonical authorization', () => {
             capability: capability as AuthorizationInput['capability'],
             resource: {
               ...resource,
-              participants: [{ actorId: 'a', role: 'debater', slot: 0 }],
+              participants: [{ actorId: 'a', seat: sideSeat(affirmativeSide) }],
             },
           }).allow,
       ),
@@ -130,7 +131,7 @@ test('persisted Round reads use their own canonical authority', () => {
         capability: 'round.read',
         resource: {
           ...resource,
-          participants: [{ actorId: 'a', role: 'debater', slot: 0 }],
+          participants: [{ actorId: 'a', seat: sideSeat(affirmativeSide) }],
         },
       }).allow,
       authorize({
@@ -157,14 +158,14 @@ test('live Round reads and the undelayed observer', () => {
     visibility: 'public' as const,
     status: 'active',
     revision: 1,
-    participants: [] as { actorId: string; role: string; slot: number }[],
+    participants: [] as { actorId: string; seat: SeatRef }[],
   };
   const allow = (
     capability: 'round.read' | 'round.observe.undelayed',
     resource: typeof round,
   ) => authorize({ ...input, capability, resource }).allow;
   const asHost = { ...round, createdByActorId: 'a' };
-  const seated = [{ actorId: 'a', role: 'affirmative', slot: 0 }];
+  const seated = [{ actorId: 'a', seat: sideSeat(affirmativeSide) }];
   assert({
     given: 'a member with no seat on a public or an unlisted Round',
     should: 'grant no live read and no undelayed observation',

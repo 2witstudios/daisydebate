@@ -1,7 +1,13 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roomCreateSchema } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  judgeSeat,
+  negativeSide,
+  roomCreateSchema,
+  sideSeat,
+} from '@daisy/protocol';
 import { createRoomDraft } from '../src/features/rooms/create-room-draft';
 import { draftFormValues } from '../src/features/rooms/create-room-fields';
 import { prepareRoomDraft } from '../src/features/rooms/prepare-room-draft';
@@ -135,16 +141,15 @@ test('publication replacement cannot alter existing Room or frozen Round wording
     let room = created.view;
     const judge = await f.member();
     const seats = [
-      { caller: f.host, role: 'affirmative' },
-      { caller: f.guest, role: 'negative' },
-      { caller: judge, role: 'judge' },
+      { caller: f.host, seat: sideSeat(affirmativeSide) },
+      { caller: f.guest, seat: sideSeat(negativeSide) },
+      { caller: judge, seat: judgeSeat() },
     ] as const;
     for (const seat of seats)
       room = (
         await f.command(seat.caller, room, {
           type: 'claim-seat',
-          role: seat.role,
-          slot: 0,
+          seat: seat.seat,
         })
       ).view;
     for (const seat of seats)

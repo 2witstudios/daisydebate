@@ -1,5 +1,11 @@
 import { requireTestServices } from '@daisy/config';
-import { isNamedSeat } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  isNamedSeat,
+  judgeSeat,
+  negativeSide,
+  sideSeat,
+} from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { casualCaptureNotice } from '../src/features/legal/agreements';
@@ -21,7 +27,7 @@ const both = {
     release: { kind: 'delay' as const, seconds: 60 },
     debatersReadChat: false,
   },
-  recording: true,
+  recordingPolicy: 'released' as const,
 };
 
 test('a beta host’s capture choice is stored and every seat is told before Ready', async () => {
@@ -101,8 +107,7 @@ test('Launch freezes the choice on the Round, and refuses a host who lost the gr
       await f.command(f.host, view, {
         type: 'assign-seat',
         actorId: judgeId,
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
       })
     ).view;
     view = (
@@ -136,12 +141,11 @@ test('a ready that read no notice is refused once the host opts in', async () =>
     const open = await f.create({ selection: casualValue });
     const claimed = await f.command(f.host, open.view, {
       type: 'claim-seat',
-      role: 'affirmative',
-      slot: 0,
+      seat: sideSeat(affirmativeSide),
     });
     const chosen = await f.command(f.host, claimed.view, {
       type: 'set-capture',
-      capture: { broadcast: null, recording: true },
+      capture: { broadcast: null, recordingPolicy: 'released' },
     });
     const refusal = await f.operations
       .command(f.host, chosen.view.id, {
@@ -168,14 +172,14 @@ test('creation saves recording atomically, replays it, and refuses a host withou
     const commandId = createId();
     const open = await f.create({
       commandId,
-      recording: true,
+      recordingPolicy: 'released',
       noticeVersion: notice.version,
       selection: casualValue,
     });
     const before = await f.snapshot(open.view.id);
     const replay = await f.create({
       commandId,
-      recording: true,
+      recordingPolicy: 'released',
       noticeVersion: notice.version,
       selection: casualValue,
     });
@@ -193,8 +197,8 @@ test('creation saves recording atomically, replays it, and refuses a host withou
         await f.snapshot(open.view.id),
       ],
       expected: [
-        { broadcast: null, recording: true },
-        { broadcast: null, recording: true },
+        { broadcast: null, recordingPolicy: 'released' },
+        { broadcast: null, recordingPolicy: 'released' },
         casualCaptureNotice,
         true,
         before,
@@ -210,7 +214,7 @@ test('creation saves recording atomically, replays it, and refuses a host withou
     });
     const unshownHost = await f.member();
     const unshown = await f.create(
-      { recording: true, selection: casualValue },
+      { recordingPolicy: 'released', selection: casualValue },
       unshownHost,
     );
     const unshownNotices =
@@ -219,7 +223,7 @@ test('creation saves recording atomically, replays it, and refuses a host withou
       given: 'a casual recording create stating no notice',
       should: 'create without recording unseen notice words',
       actual: [unshown.view.capture, unshownNotices],
-      expected: [{ broadcast: null, recording: true }, []],
+      expected: [{ broadcast: null, recordingPolicy: 'released' }, []],
     });
     const host = await f.member();
     const bot = await f.bot();
@@ -227,10 +231,10 @@ test('creation saves recording atomically, replays it, and refuses a host withou
     const refusal = await f
       .create(
         {
-          recording: true,
+          recordingPolicy: 'released',
           noticeVersion: notice.version,
           selection: casualValue,
-          cast: [{ actorId: bot.actorId, role: 'negative', slot: 0 }],
+          cast: [{ actorId: bot.actorId, seat: sideSeat(negativeSide) }],
         },
         host,
       )

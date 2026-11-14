@@ -2,7 +2,8 @@ import {
   caseMapAnswer,
   isDefiniteProviderFailure,
   isUnhealableProviderRefusal,
-  judgeAnswer,
+  aiJudgeFor,
+  type AiJudge,
   type OpenRouter,
 } from '@daisy/ai-voice';
 import type {
@@ -44,6 +45,15 @@ const providerFailure = (
       : 'provider_error';
   return { category, finish: 'none', issueCount: 0, issues: [] };
 };
+/** The Round's AI judge: its frozen ballot definition over its sides (TAB-6.13). */
+const roundAiJudge = (round: Claim['round']): AiJudge => {
+  if (!round.judging)
+    throw createAppError(
+      'INVARIANT',
+      'A Round judged by nobody has no AI judge',
+    );
+  return aiJudgeFor(round.judging.ballot, round.rules);
+};
 /** What one attempt left to do. */
 type AttemptOutcome = 'ballot_held' | 'concluded';
 /** Durable response caching precedes shared submission; attendance rollback never repeats a cached model call. */
@@ -59,6 +69,7 @@ export function createRoundJudgingOperations(input: {
   return {
     async executeClaim(claim: Claim, signal: AbortSignal) {
       const { scope, token } = claim;
+      const judge = roundAiJudge(claim.round);
       const verify = () => input.store.verifyRoundJudgingJob(scope, token);
       /** Durable first, then the reason the store returned. */
       const attemptFailed = async (
@@ -74,7 +85,7 @@ export function createRoundJudgingOperations(input: {
         return 'concluded';
       };
       type Usage = { inputTokens: number; outputTokens: number };
-      type Answer = Parameters<typeof judgeAnswer>[0];
+      type Answer = Parameters<AiJudge['judgeAnswer']>[0];
       /** A validated answer is stored as its stage's record; anything else is a durable failure. */
       const keepAnswer = async (
         stage: JudgingStage,
@@ -92,7 +103,7 @@ export function createRoundJudgingOperations(input: {
           );
           return 'concluded';
         }
-        const judged = judgeAnswer(answer);
+        const judged = judge.judgeAnswer(answer);
         if (!judged.ok) return attemptFailed(judged.diagnostic, false);
         if (stage === 'first') {
           await input.store.saveRoundJudgingStage(
@@ -121,7 +132,7 @@ export function createRoundJudgingOperations(input: {
         const { progress } = await verify();
         if (progress.kind === 'ballot_held') return 'ballot_held';
         const { stage } = progress.due;
-        const request = frozenStageRequest(claim, progress.due);
+        const request = frozenStageRequest(judge, claim, progress.due);
         const voice = input.voice();
         const begun = await input.store.beginRoundJudgingModelCall(
           scope,

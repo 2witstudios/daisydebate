@@ -26,7 +26,13 @@
  * write.
  */
 import { SQL } from 'bun';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { applyDevSeed } from '@daisy/db/dev-seed';
+import {
+  foundationDefinition,
+  foundationSettings,
+} from '@daisy/db/reference-formats';
+import { affirmativeSide, negativeSide } from '@daisy/protocol';
 import { refusalForActualName, refusalForStagingSeed } from './restore-guard';
 import { emailedLinkIdentifier, randomSeedToken } from './restore-seed-token';
 
@@ -59,7 +65,13 @@ const people = [
 const roundId = 'n9o0p1q2r3s4t5u6v7w8x9y0';
 const resolution =
   'Resolved: AUTH-7.6 needs a representative debate to prove a restore.';
-const createdAt = '2026-01-01T00:00:00.000Z';
+/** The seeded Round resolves as a casual foundation Room would. */
+const resolved = resolveRoomConfiguration(
+  foundationDefinition,
+  foundationSettings,
+);
+if (!resolved.ok)
+  throw new Error(`Seed round refuses to resolve: ${resolved.refusal.message}`);
 
 const probe = new SQL(url, { max: 1 });
 try {
@@ -78,30 +90,25 @@ await applyDevSeed({
     name: 'restore-rehearsal',
     version: restoreSeedVersion,
     people: [...people],
-    debate: {
+    round: {
       id: roundId,
-      createdBy: people[0].actorId,
+      createdByActorId: people[0].actorId,
       resolution,
-      format: 'foundation',
-      mode: 'casual',
-      visibility: 'private',
-      snapshot: {
-        version: 1,
-        id: roundId,
-        resolution,
-        format: 'foundation',
-        rules: {
-          version: 1,
-          seats: { affirmative: 1, negative: 1, judge: 0 },
-          clock: { speechMs: 240_000, prepMs: 120_000 },
+      formatId: 'foundation',
+      formatVersion: 1,
+      rules: resolved.rules,
+      seats: [
+        {
+          id: 'w2x3y4z5a6b7c8d9e0f1g2h3',
+          actorId: people[0].actorId,
+          seat: { kind: 'side', side: affirmativeSide, slot: 0 },
         },
-        phase: 'waiting',
-        createdAt,
-        participants: [
-          { id: people[0].actorId, side: 'affirmative', ready: false },
-          { id: people[1].actorId, side: 'negative', ready: false },
-        ],
-      },
+        {
+          id: 'j4k5l6m7n8o9p0q1r2s3t4u5',
+          actorId: people[1].actorId,
+          seat: { kind: 'side', side: negativeSide, slot: 0 },
+        },
+      ],
     },
   },
 });

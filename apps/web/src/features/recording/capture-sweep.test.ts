@@ -27,7 +27,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 });
 const casualOwn = {
   competitionType: 'casual',
-  roundCapture: { broadcast: null, recording: true },
+  roundCapture: { broadcast: null, recordingPolicy: 'released' },
   broadcast: null,
 };
 
@@ -121,7 +121,7 @@ describe('discovery', () => {
           roundId: 'round',
           competitionType: 'casual',
           hostActorId: 'host',
-          capture: { broadcast: null, recording: true },
+          capture: { broadcast: null, recordingPolicy: 'released' },
           hostGrants: [],
         },
       ],

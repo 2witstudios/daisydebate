@@ -78,7 +78,12 @@ export async function observeAc3Downloads(
       const issue = (viewer: RecordingViewer = host) =>
         openDownload(
           { store, inputs, objects: transport.objects },
-          { recordingId: record.id, viewer, presentedLinkHashOf: () => null },
+          {
+            recordingId: record.id,
+            viewer,
+            presentedLinkHashOf: () => null,
+            nowMs: Date.now(),
+          },
         );
       await assertRejects({
         given:

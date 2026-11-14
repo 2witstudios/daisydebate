@@ -31,18 +31,24 @@ test('custom format admission rejects invalid seats, defaults, bounds and unused
 });
 
 const refusalPaths = [
-  [['seats', 'affirmative'], ['seats']],
-  [['seats', 'negative'], ['seats']],
-  [['seats', 'judge'], ['seats']],
+  [['seats', 'sides', 'affirmative'], ['seats']],
+  [['seats', 'sides', 'negative'], ['seats']],
+  [['seats', 'judges'], ['seats']],
   [['seats']],
-  [['seats', 'negative'], ['segments']],
+  [['seats', 'sides', 'negative'], ['segments']],
   [['segments']],
-  [['seats', 'affirmative'], ['seats']],
-  [['seats', 'negative'], ['seats']],
-  [['seats', 'judge'], ['seats']],
-  [['seats', 'affirmative'], ['segments']],
+  [['seats', 'sides', 'affirmative'], ['seats']],
+  [['seats', 'sides', 'negative'], ['seats']],
+  [['seats', 'judges'], ['seats']],
+  [['seats', 'sides', 'affirmative'], ['segments']],
   [['segments']],
-  [['seats', 'negative']],
+  [
+    ['seats', 'sides'],
+    ['segments', 1, 'speak', 'lead'],
+    ['segments', 2, 'speak', 'seat'],
+    ['segments', 5, 'speak', 'seat'],
+    ['segments'],
+  ],
 ];
 
 for (const [index, [name, definition]] of unsafeFormatDefinitions.entries()) {
@@ -66,11 +72,13 @@ for (const [index, [name, definition]] of unsafeFormatDefinitions.entries()) {
 }
 
 test('resource boundary accepts unequal sides and optional judges with speech or cross-ex opportunity', () => {
-  const variants = [
-    { affirmative: 255, negative: 1, judge: 0 },
-    { affirmative: 1, negative: 1, judge: 254 },
-    { affirmative: 2, negative: 3, judge: 0 },
-  ];
+  const seatsOf = (affirmative: number, negative: number, judges: number) => ({
+    sides: { affirmative, negative },
+    speakers: 0,
+    judges,
+    moderators: 0 as const,
+  });
+  const variants = [seatsOf(255, 1, 0), seatsOf(1, 1, 254), seatsOf(2, 3, 0)];
   assert({
     given:
       '256 total seats and a side whose only speaking interval is cross-ex',
@@ -81,7 +89,15 @@ test('resource boundary accepts unequal sides and optional judges with speech or
         ...oneOnOneFormatFixture,
         seats,
         segments: oneOnOneFormatFixture.segments.map((s) =>
-          s.side === 'negative' ? { ...s, type: 'cross_ex' as const } : s,
+          s.speak.rights === 'one' &&
+          s.speak.seat.kind === 'side' &&
+          s.speak.seat.side === 'negative'
+            ? {
+                ...s,
+                type: 'cross_ex' as const,
+                speak: { rights: 'all' as const, lead: s.speak.seat },
+              }
+            : s,
         ),
       };
       return [

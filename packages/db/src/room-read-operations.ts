@@ -18,6 +18,7 @@ import {
 import { and, asc, eq, isNotNull, isNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
 import { roundLifecycleOfRow, segmentRows } from './round-hydration';
+import { seatOfColumns, seatRowOrder } from './seat-columns';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
@@ -97,7 +98,7 @@ export async function launchedRoundRows(
     .select()
     .from(roundParticipants)
     .where(eq(roundParticipants.roundId, roundId))
-    .orderBy(asc(roundParticipants.role), asc(roundParticipants.slot));
+    .orderBy(...seatRowOrder(roundParticipants));
   const participants = await Promise.all(
     seats.map(async (p) => {
       const actor = await actorFact(tx, p.actorId);
@@ -107,8 +108,7 @@ export async function launchedRoundRows(
         actorId: actor.actorId,
         kind: actor.kind,
         label: actor.label,
-        role: p.role,
-        slot: p.slot,
+        seat: seatOfColumns(p),
       };
     }),
   );

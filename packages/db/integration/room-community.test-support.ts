@@ -48,7 +48,7 @@ export const seat = (
   actorId: string,
   role: 'affirmative' | 'negative' | 'judge' = 'affirmative',
 ) =>
-  f.sql`insert into room_participants(id,room_id,actor_id,role,slot) values(${createId()},${roomId},${actorId},${role},0)`;
+  f.sql`insert into room_participants(id,room_id,actor_id,seat_kind,side,slot) values(${createId()},${roomId},${actorId},${role === 'judge' ? 'judge' : 'side'},${role === 'judge' ? null : role},0)`;
 /** A Room with its host and an opened chat; `room` overrides the Room row. */
 export const prepared = async (
   f: Fixture,

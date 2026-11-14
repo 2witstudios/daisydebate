@@ -1,3 +1,9 @@
+import {
+  affirmativeSide,
+  judgeSeat,
+  negativeSide,
+  sideSeat,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { authorize, type AuthorizationInput } from './authorization';
 setupRitewayBun();
@@ -33,10 +39,12 @@ test('transcript audience is private and independent of general Round visibility
     actual: [
       request.resource,
       { ...request.resource, createdByActorId: 'reader' },
-      ...['affirmative', 'negative', 'judge'].map((role) => ({
-        ...request.resource,
-        participants: [{ actorId: 'reader', role, slot: 0 }],
-      })),
+      ...[sideSeat(affirmativeSide), sideSeat(negativeSide), judgeSeat()].map(
+        (seat) => ({
+          ...request.resource,
+          participants: [{ actorId: 'reader', seat }],
+        }),
+      ),
     ].map(
       (resource) =>
         authorize({ ...request, resource } as AuthorizationInput).allow,
@@ -47,7 +55,7 @@ test('transcript audience is private and independent of general Round visibility
 test('fresh account admission dominates a historical seat', () => {
   const resource = {
     ...request.resource,
-    participants: [{ actorId: 'reader', role: 'judge', slot: 0 }],
+    participants: [{ actorId: 'reader', seat: judgeSeat() }],
   };
   assert({
     given: 'revoked, erased, underage and mismatched seated accounts',

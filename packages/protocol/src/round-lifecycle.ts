@@ -1,4 +1,4 @@
-import type { RoundOutcome } from './primitives';
+import type { RoundOutcome } from './round-outcome';
 import type { RoundStatus } from './round';
 
 /**

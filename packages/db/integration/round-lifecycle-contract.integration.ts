@@ -12,7 +12,10 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 const started = '2026-01-01T00:00:00.000Z';
 const ended = '2026-01-01T00:30:00.000Z';
-const outcomes: readonly (RoundOutcome | null)[] = [null, 'affirmative'];
+const outcomes: readonly (RoundOutcome | null)[] = [
+  null,
+  { kind: 'winner', side: 'affirmative' },
+];
 
 /** Every way the four lifecycle columns can be filled. */
 const combinations = roundStatuses.flatMap((status) =>
@@ -27,7 +30,7 @@ const named = (round: (typeof combinations)[number]) =>
     round.status,
     round.startedAt === null ? '-' : 'started',
     round.completedAt === null ? '-' : 'ended',
-    round.outcome ?? '-',
+    round.outcome?.kind ?? '-',
   ].join('/');
 
 test('every Round row the database can hold is a lifecycle the contract holds', async () => {
@@ -42,7 +45,8 @@ test('every Round row the database can hold is a lifecycle the contract holds', 
           current_stage: round.status === 'active' ? 'countdown' : null,
           started_at: round.startedAt,
           completed_at: round.completedAt,
-          outcome: round.outcome,
+          winning_side:
+            round.outcome?.kind === 'winner' ? round.outcome.side : null,
         }),
       );
       if (!refused) stored.push(named(round));

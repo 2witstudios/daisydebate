@@ -1,5 +1,6 @@
 import type { FormatDefinition } from './index';
 import { oneOnOneFormatFixture } from './format-fixtures.test-support';
+import { sideSeat } from './seats';
 
 /** The one-on-one fixture with part of its capabilities replaced. */
 function withConfigurable(
@@ -27,8 +28,10 @@ export function formatWithSegments(count: number): FormatDefinition {
     key: `S${index}`,
     label: `Speech ${index + 1}`,
     type: 'speech' as const,
-    side: index % 2 === 0 ? ('affirmative' as const) : ('negative' as const),
-    slot: 0,
+    speak: {
+      rights: 'one' as const,
+      seat: sideSeat(index % 2 === 0 ? 'affirmative' : 'negative'),
+    },
     defaultDurationMs: 60_000,
   }));
   const bounds = { min: 60_000, max: 60_000 };

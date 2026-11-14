@@ -10,9 +10,10 @@ import {
 } from '@daisy/debate-engine';
 import {
   SPECTATOR_MARGIN_MS,
+  sideSeat,
   spectatorTimelineSchema,
-  type DebateRole,
-  type RoundOutcome,
+  winnerOutcome,
+  winningSideOf,
   type RoundStatus,
 } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -154,10 +155,10 @@ test('every public and member read holds a ranked outcome until release', async 
           spectatorClockAt(now),
         );
         const { wins, losses } = tallyRecord(
-          cards.records.map(({ status, outcome, role, rounds }) => ({
+          cards.records.map(({ status, outcome, seat, rounds }) => ({
             status: status as RoundStatus,
-            outcome: outcome as RoundOutcome | null,
-            role: role as DebateRole,
+            outcome,
+            seat,
             rounds,
           })),
         );
@@ -169,10 +170,10 @@ test('every public and member read holds a ranked outcome until release', async 
           losses,
         };
       };
-      const [{ role: ledgerRole }] =
-        (await f.sql`select role from round_participants
+      const [{ side: ledgerSide }] =
+        (await f.sql`select side from round_participants
         where round_id=${roundId} and actor_id=${f.host.actorId}`) as [
-          { role: DebateRole },
+          { side: string },
         ];
       const emptyRecord = tallyRecord([]);
       const reads = async () => {
@@ -360,7 +361,7 @@ test('every public and member read holds a ranked outcome until release', async 
           'release winner, scores, reason and ratings, on a cacheable answer',
         actual: {
           stage: out.timeline.stage,
-          winner: out.timeline.result?.winner,
+          winner: winningSideOf(out.timeline.result?.outcome ?? null),
           reasons: out.timeline.result?.ballots.map((b) => b.reason),
           ratings: out.timeline.result?.ratings.length,
         },
@@ -401,8 +402,8 @@ test('every public and member read holds a ranked outcome until release', async 
         expected: tallyRecord([
           {
             status: 'completed',
-            outcome: 'affirmative',
-            role: ledgerRole,
+            outcome: winnerOutcome('affirmative'),
+            seat: sideSeat(ledgerSide),
             rounds: 1,
           },
         ]),
@@ -416,7 +417,7 @@ test('every public and member read holds a ranked outcome until release', async 
         },
         expected: {
           rating: ledger[0]!.rating_after,
-          record: ledgerRole === 'affirmative' ? [1, 0] : [0, 1],
+          record: ledgerSide === 'affirmative' ? [1, 0] : [0, 1],
         },
       });
       await f.sql`delete from rooms where id=${openRoomId}`;

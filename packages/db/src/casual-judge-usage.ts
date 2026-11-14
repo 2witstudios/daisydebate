@@ -70,7 +70,7 @@ export async function settleCasualJudgeUsageLocked(tx: Tx, roundId: string) {
     count(*) filter(where j.status is null or j.status in ('queued','leased','recovering','blocked'))::int as open
     from round_participants p join actors a on a.id=p.actor_id and a.kind='bot'
     left join round_judging_jobs j on j.round_id=p.round_id and j.judge_participant_id=p.id
-    where p.round_id=${roundId} and p.role='judge'`);
+    where p.round_id=${roundId} and p.seat_kind='judge'`);
   if (!isRoundOver(round.status) && (!jobs?.total || jobs.open !== 0)) return;
   const reservation = await judgeReservation(tx, roundId);
   if (!reservation) return;
@@ -82,7 +82,7 @@ export async function settleCasualJudgeUsageLocked(tx: Tx, roundId: string) {
     count(*) filter(where t.answered_at is null and t.category='provider_refused')::int as failed
     from agent_runs a join round_participants p on p.id=a.round_participant_id
     left join round_judging_attempts t on t.agent_run_id=a.id
-    where p.round_id=${roundId} and p.role='judge' and a.kind='judging' and a.requests>0`);
+    where p.round_id=${roundId} and p.seat_kind='judge' and a.kind='judging' and a.requests>0`);
   const outcome =
     !calls?.total ||
     Number(calls.received) + Number(calls.failed) !== calls.total

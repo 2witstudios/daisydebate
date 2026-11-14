@@ -47,23 +47,23 @@ const holdOf = (
 };
 
 /**
- * The human actors a Room holds as its active members (ADR 0070): the host
- * and every seated human while it assembles or its Round is live. Bots hold
- * no membership. A closed Room and a finished Round hold no one, so every
- * terminal state frees its members for a new Room.
+ * The human actors a Room holds as its active members (ADR 0070, TAB-6):
+ * every seated human while it assembles or its Round is live. A seat is what
+ * holds a person; a host without one is not held. Bots hold no membership. A
+ * closed Room and a finished Round hold no one, so every terminal state frees
+ * its members for a new Room.
  */
 export const activeRoomMembers = (
-  room: Holding & Pick<RoomAssemblyState, 'hostActorId' | 'participants'>,
+  room: Holding & Pick<RoomAssemblyState, 'participants'>,
 ): readonly string[] =>
   holdOf(room) === null
     ? []
     : [
-        ...new Set([
-          room.hostActorId,
-          ...room.participants
+        ...new Set(
+          room.participants
             .filter((p) => p.kind === 'human')
             .map((p) => p.actorId),
-        ]),
+        ),
       ];
 
 /** The member's own read of their active Room, or null once it holds them no longer. */
@@ -72,14 +72,7 @@ export function projectActiveRoom(
   actorId: string,
 ): ActiveRoom | null {
   const hold = holdOf(facts);
-  const role =
-    facts.room.hostActorId === actorId
-      ? 'host'
-      : facts.seatRole === null
-        ? null
-        : facts.seatRole === 'judge'
-          ? 'judge'
-          : 'debater';
+  const role = facts.room.hostActorId === actorId ? 'host' : facts.seatKind;
   if (hold === null || role === null) return null;
   return {
     version: 1,
@@ -87,7 +80,7 @@ export function projectActiveRoom(
     title: facts.room.title,
     phase: hold.phase,
     role,
-    seated: facts.seatRole !== null,
+    seated: facts.seatKind !== null,
     href: activeRoomHref({ ...hold, roomId: facts.room.id }),
   };
 }

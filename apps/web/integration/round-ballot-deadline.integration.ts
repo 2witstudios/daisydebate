@@ -13,7 +13,13 @@ import { withSeasons } from '@daisy/db/seasons';
 import { recoverRankedResults } from './ranked-room.test-support';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
-import { buildRoundTopic, type Ballot } from '@daisy/protocol';
+import {
+  buildRoundTopic,
+  type Ballot,
+  isSideSeat,
+  sideOfSeat,
+  winnerOutcome,
+} from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
@@ -124,8 +130,8 @@ const completeDirectly = (
   f.sql
     .begin((tx) =>
       completedAt === 'now'
-        ? tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=clock_timestamp() where id=${roundId}`
-        : tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=ballot_deadline_at where id=${roundId}`,
+        ? tx`update rounds set status='completed',current_stage=null,winning_side=null,completed_at=clock_timestamp() where id=${roundId}`
+        : tx`update rounds set status='completed',current_stage=null,winning_side=null,completed_at=ballot_deadline_at where id=${roundId}`,
     )
     .then(
       () => 'accepted',
@@ -189,7 +195,7 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
         waiting: ['active', null],
         late: 'CONFLICT round-decided',
         ballots: 1,
-        done: ['completed', 'negative'],
+        done: ['completed', winnerOutcome('negative')],
         receipts: 1,
         ruling: 'partial',
         noRuling: [seats[1]!.id],
@@ -352,7 +358,7 @@ for (const captured of [true, false])
             posting: roundReceipt?.posting,
           },
           expected: {
-            done: ['completed', 'negative'],
+            done: ['completed', winnerOutcome('negative')],
             ruling: 'partial',
             awaited: true,
             postings: 2,
@@ -572,9 +578,10 @@ async function proveFirstSpeakerAbsent(f: Fixture, roundId: string) {
   const rule = round.rules.segments.find(
     (s) => s.key === segment.rulesSegmentKey,
   )!;
-  if (rule.type !== 'speech') throw Error('Expected a speech');
+  if (rule.speak.rights !== 'one') throw Error('Expected a speech');
+  const scheduled = rule.speak.seat;
   const opponent = round.participants.find(
-    (p) => p.role !== rule.side && p.role !== 'judge',
+    (p) => isSideSeat(p.seat) && sideOfSeat(p.seat) !== sideOfSeat(scheduled),
   )!;
   const commandId = createId();
   await f.sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at)

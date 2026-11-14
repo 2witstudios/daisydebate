@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { ballotCategories } from './ballot';
 import type { CaseMap } from './case-map';
 
-const sides = ['affirmative', 'negative'] as const;
+import { twoSideKeys } from './seats';
+
+/** The AI judge rules two-sided Rounds only: its ballot fields name the preset's sides. */
+const sides = twoSideKeys;
 const UNKNOWN_FIELD = 'unknown_field';
 
 /**

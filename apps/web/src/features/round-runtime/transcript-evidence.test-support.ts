@@ -2,7 +2,12 @@
 export const round = {
   id: 'round',
   resolution: 'Transit should be free',
-  participants: [{ id: 'seat', role: 'affirmative' as const, slot: 1 }],
+  participants: [
+    {
+      id: 'seat',
+      seat: { kind: 'side' as const, side: 'affirmative', slot: 1 },
+    },
+  ],
   segments: [{ id: 'segment', sequence: 0 }],
 };
 export const frozen = {

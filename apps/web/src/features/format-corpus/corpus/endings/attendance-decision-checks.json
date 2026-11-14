@@ -1,0 +1,58 @@
+[
+  {
+    "name": "agrees",
+    "result": {
+      "ok": true
+    }
+  },
+  {
+    "name": "disagrees",
+    "result": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": "debate.adjudication.timestamp-decides"
+      }
+    }
+  },
+  {
+    "name": "cross-ex",
+    "result": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": "debate.adjudication.speech-turns-only"
+      }
+    }
+  },
+  {
+    "name": "last speech",
+    "result": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": "debate.adjudication.last-speech-never-forfeits"
+      }
+    }
+  },
+  {
+    "name": "finalized",
+    "result": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": "debate.adjudication.finalized-irreversible"
+      }
+    }
+  },
+  {
+    "name": "unsettled",
+    "result": {
+      "ok": false,
+      "refusal": {
+        "code": "INVARIANT",
+        "invariantId": "debate.adjudication.failure-postpones-only"
+      }
+    }
+  }
+]

@@ -6,27 +6,43 @@ import {
   type AttendanceWindow,
 } from '@daisy/debate-engine';
 import {
+  isDebatingSeat,
+  otherSide,
+  sameSeat,
+  sideOfSeat,
+} from '@daisy/protocol';
+import {
   foundationScenarioIds,
   type DebateScenario,
   type ScenarioFacts,
 } from '../scripts/scenario';
 
-/** Injected receipt/sample facts; actual openings and scheduled seats come from the shared runtime. */
-function verifyDisconnectRejoin(facts: ScenarioFacts): void {
+/** The first speech the runtime opened, and the sided seat it is scheduled to. */
+function openedSpeech(facts: ScenarioFacts) {
   const actual = facts.segments.find((segment) => segment.type === 'speech');
   const rule = facts.rules.segments.find(
-    (rule) => rule.key === actual?.rulesSegmentKey,
+    (candidate) => candidate.key === actual?.rulesSegmentKey,
   );
-  if (!actual || rule?.type !== 'speech')
+  if (!actual || rule?.type !== 'speech' || rule.speak.rights !== 'one')
     throw new Error(
       'Disconnect scenario requires actual shared speech opening',
     );
-  const speaker = facts.participants.find(
-    (seat) => seat.role === rule.side && seat.slot === rule.slot,
+  const speakerSeat = rule.speak.seat;
+  const speakerSide = sideOfSeat(speakerSeat);
+  if (speakerSide === null)
+    throw new Error('Disconnect scenario requires a sided speaker');
+  const speaker = facts.participants.find(({ seat }) =>
+    sameSeat(seat, speakerSeat),
   )!;
   const opponent = facts.participants.find(
-    (seat) => seat.role !== 'judge' && seat.role !== rule.side,
+    ({ seat }) => isDebatingSeat(seat) && sideOfSeat(seat) !== speakerSide,
   )!;
+  return { actual, speakerSide, speaker, opponent };
+}
+
+/** Injected receipt/sample facts; actual openings and scheduled seats come from the shared runtime. */
+function verifyDisconnectRejoin(facts: ScenarioFacts): void {
+  const { actual, speakerSide, speaker, opponent } = openedSpeech(facts);
   const opening = Date.parse(actual.startedAt);
   const samples = Array.from({ length: 64 }, (_, index) => ({
     atMs: opening + (index - 1) * 1000,
@@ -37,13 +53,11 @@ function verifyDisconnectRejoin(facts: ScenarioFacts): void {
     segmentId: actual.id,
     openedAtMs: opening,
     speakerId: speaker.id,
-    speakerSide: rule.side,
+    speakerSide,
+    forfeitsTo: otherSide(facts.rules.sides, speakerSide),
     eligibleSeats: facts.participants
-      .filter((seat) => seat.role !== 'judge')
-      .map((seat) => ({
-        id: seat.id,
-        side: seat.role as 'affirmative' | 'negative',
-      })),
+      .filter(({ seat }) => isDebatingSeat(seat))
+      .map(({ id, seat }) => ({ id, side: sideOfSeat(seat) })),
     lastSpeech:
       actual.rulesSegmentKey ===
       facts.rules.segments.filter((segment) => segment.type === 'speech').at(-1)

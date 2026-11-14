@@ -44,7 +44,7 @@ test('acquisition reconciliation replaces execution without reauthorizing origin
       if (!cutoffPassed)
         throw new Error('Immutable database cutoff did not pass');
       const [before] =
-        await f.sql`select version,outcome from rounds where id=${roundId}`;
+        await f.sql`select version,winning_side from rounds where id=${roundId}`;
       const captureRefusal = await store.reserveCaptureEvidence(original).then(
         (reply) => reply.kind,
         (error: { code: string }) => error.code,
@@ -57,7 +57,7 @@ test('acquisition reconciliation replaces execution without reauthorizing origin
       const [row] =
         await f.sql`select worker_id,capture_epoch,execution_worker_id,execution_epoch,binding_digest from necessary_evidence where id=${id}`;
       const [after] =
-        await f.sql`select version,outcome from rounds where id=${roundId}`;
+        await f.sql`select version,winning_side from rounds where id=${roundId}`;
       const [competitive] = await f.sql`select
         (select count(*)::integer from round_transcript_freezes where round_id=${roundId}) as freezes,
         (select count(*)::integer from round_judging_jobs where round_id=${roundId}) as jobs,

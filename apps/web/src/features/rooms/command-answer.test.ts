@@ -151,7 +151,7 @@ test('a hydrated room command answers with the canonical view instead of navigat
 test('a hydrated refusal stays on the room with its reason', () => {
   const form = new FormData();
   form.set('type', 'claim-seat');
-  form.set('role', 'negative');
+  form.set('seat', JSON.stringify({ kind: 'side', side: 'negative', slot: 0 }));
   const answer = (result: Parameters<typeof commandAnswer>[0]) =>
     commandAnswer(result, assemblySnapshot.id, form, {
       hydrated: true,
@@ -171,7 +171,10 @@ test('a hydrated refusal stays on the room with its reason', () => {
     expected: [
       {
         kind: 'refused',
-        values: { type: 'claim-seat', role: 'negative' },
+        values: {
+          type: 'claim-seat',
+          seat: JSON.stringify({ kind: 'side', side: 'negative', slot: 0 }),
+        },
         error: 'The room changed. Review the latest room and try again.',
       },
       'That seat just went: someone has it, or it is held for another member.',

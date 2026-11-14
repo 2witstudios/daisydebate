@@ -2,20 +2,18 @@
 
 import { startSpeechLabel } from '../../features/debate-room/vocabulary';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { formatCountdown } from '../../lib/clock-display';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import type { RoundSnapshot } from './round';
 import { RoundClock } from './round-clock';
+import { toneInk } from './side-tone';
 
 const button =
   'inline-flex h-room-target shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm border px-4 text-sm font-strong whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-60';
 const quiet = `${button} border-border-strong bg-transparent text-ink hover:bg-surface-raised`;
 const primary = `${button} border-transparent bg-accent text-accent-ink hover:bg-accent-strong`;
-
-const sideInk = { aff: 'text-hue-sky', neg: 'text-hue-clay' } as const;
-const sideName = { aff: 'Affirmative', neg: 'Negative' } as const;
 
 type Props = {
   readonly round: RoundSnapshot;
@@ -69,20 +67,25 @@ function TechIssue({
   );
 }
 
-/** Both sides' prep left, until the speeches end. */
+/** Every side's prep left, your own first, until the speeches end. */
 function PrepClocks({ round }: { readonly round: RoundSnapshot }) {
-  const prep = round.prepMs;
+  const prep = round.prep;
   if (!prep || round.phase === 'judging') return null;
+  const own = prep.filter((side) => side.side === round.self.side);
+  const others = prep.filter((side) => side.side !== round.self.side);
   return (
     <span className="text-sm text-ink-muted tabular-nums">
-      Your prep{' '}
-      <strong className={sideInk[round.self.side]}>
-        {formatCountdown(prep[round.self.side])}
-      </strong>{' '}
-      · {sideName[round.opponent.side]} prep{' '}
-      <strong className={sideInk[round.opponent.side]}>
-        {formatCountdown(prep[round.opponent.side])}
-      </strong>
+      {[...own.map((side) => ({ ...side, label: 'Your' })), ...others].map(
+        (side, index) => (
+          <Fragment key={side.side}>
+            {index > 0 ? ' · ' : null}
+            {side.label} prep{' '}
+            <strong className={toneInk[side.tone]}>
+              {formatCountdown(side.remainingMs)}
+            </strong>
+          </Fragment>
+        ),
+      )}
     </span>
   );
 }

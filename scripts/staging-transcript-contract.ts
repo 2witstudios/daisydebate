@@ -1,3 +1,5 @@
+import { twoSideKeys } from '@daisy/protocol';
+
 export const STAGING_TRANSCRIPT_ORIGIN = 'https://beta.daisydebate.com';
 
 /** Every guard runs before fixture writes; the server's database name is checked separately. */
@@ -36,7 +38,8 @@ export function stagingTranscriptConfiguration(
 }
 
 export type TranscriptProofStream = {
-  readonly role: string;
+  /** The speaking seat's side; null for an unsided seat. */
+  readonly side: string | null;
   readonly state: string;
   /** Lines the bot authored and played whole (ADR 0122). */
   readonly authoredLines: number;
@@ -52,8 +55,9 @@ export function transcriptProofProblems(input: {
   const problems: string[] = [];
   if (input.completeness !== 'complete') problems.push('freeze');
   if (!input.decisive || !input.aiBallot) problems.push('judging');
-  const roles = input.streams.map((stream) => stream.role).sort();
-  if (roles.join(',') !== 'affirmative,negative') problems.push('seats');
+  const sides = input.streams.map((stream) => stream.side).sort();
+  if (sides.join(',') !== [...twoSideKeys].sort().join(','))
+    problems.push('seats');
   for (const stream of input.streams) {
     if (stream.state !== 'complete' || stream.authoredLines < 1)
       problems.push('speech');

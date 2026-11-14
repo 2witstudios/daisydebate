@@ -13,8 +13,7 @@ test('a strike is a seated action, never host management', () => {
       capabilityOf({
         ...envelope,
         type: 'claim-seat',
-        role: 'negative',
-        slot: 0,
+        seat: { kind: 'side', side: 'negative', slot: 0 } as const,
       }),
       capabilityOf({ ...envelope, type: 'ready', expectedConsentVersion: 0 }),
       capabilityOf({ ...envelope, type: 'start-round' }),

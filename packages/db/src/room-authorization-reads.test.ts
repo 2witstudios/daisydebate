@@ -66,10 +66,11 @@ test('Room authority projection keeps collection fields minimal and omits an emp
         'ready',
         7,
         caller.actorId,
+        'side',
         'affirmative',
         0,
       ],
-      [room.id, caller.actorId, 'private', 'ready', 7, null, null, null],
+      [room.id, caller.actorId, 'private', 'ready', 7, null, null, null, null],
     ],
   ]);
 
@@ -89,7 +90,10 @@ test('Room authority projection keeps collection fields minimal and omits an emp
         status: 'ready',
         revision: 7,
         participants: [
-          { actorId: caller.actorId, role: 'affirmative', slot: 0 },
+          {
+            actorId: caller.actorId,
+            seat: { kind: 'side', side: 'affirmative', slot: 0 },
+          },
         ],
       },
     },
@@ -107,10 +111,21 @@ test('Round authority projection returns only frozen audience and seat facts', a
         'opening',
         4,
         caller.actorId,
+        'side',
         'affirmative',
         0,
       ],
-      [roundId, caller.actorId, 'private', 'opening', 4, null, null, null],
+      [
+        roundId,
+        caller.actorId,
+        'private',
+        'opening',
+        4,
+        null,
+        null,
+        null,
+        null,
+      ],
     ],
   ]);
 
@@ -130,7 +145,10 @@ test('Round authority projection returns only frozen audience and seat facts', a
         status: 'opening',
         revision: 4,
         participants: [
-          { actorId: caller.actorId, role: 'affirmative', slot: 0 },
+          {
+            actorId: caller.actorId,
+            seat: { kind: 'side', side: 'affirmative', slot: 0 },
+          },
         ],
       },
     },
@@ -198,6 +216,7 @@ test('Round read returns only the stored receipt and current participant identit
         'c6d4e2f8h1j3k5m7n9p2r4t6',
         'c3a1d5f7h9j2k4m6n8p1r3t5',
         caller.actorId,
+        'side',
         'affirmative',
         0,
       ],
@@ -233,13 +252,19 @@ test('Round read returns only the stored receipt and current participant identit
       view.participants.map((participant) =>
         'anonymous' in participant
           ? []
-          : [participant.actorId, participant.label, participant.role],
+          : [participant.actorId, participant.label, participant.seat],
       ),
     ],
     expected: [
       room.topic,
       'active',
-      [[caller.actorId, 'current-host', 'affirmative']],
+      [
+        [
+          caller.actorId,
+          'current-host',
+          { kind: 'side', side: 'affirmative', slot: 0 },
+        ],
+      ],
     ],
   });
 });

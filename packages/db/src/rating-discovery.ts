@@ -8,6 +8,7 @@ import {
   type RoundOutcome,
   type RoundStatus,
 } from '@daisy/protocol';
+import { roundOutcomeSql } from './round-outcome-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
@@ -47,7 +48,7 @@ const readCandidates = async (
 ): Promise<readonly RatingCandidate[]> => {
   const rows = (await db.execute(sql`select r.id as "roundId",
       r.competition_type as "competitionType", r.ladder_id as "ladderId",
-      r.status, r.outcome,
+      r.status, ${roundOutcomeSql('r')} as outcome,
       to_char(r.completed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "completedAt",
       exists(select 1 from rating_changes l where l.round_id=r.id) as "alreadyRated",
       ${recordedEnding} as ending,

@@ -2,16 +2,39 @@ import {
   roundPositionAt,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
-import type { DebateSide, RoundView } from '@daisy/protocol';
+import {
+  leadSeatOf,
+  seatKey,
+  sideOfSeat,
+  type RoundView,
+  type SeatRef,
+  type SegmentType,
+  type SideKey,
+} from '@daisy/protocol';
+import { seatName, sideName } from '../debate-room/seat-names';
+import { sideToneOf, type SideTone } from '../debate-room/speeches';
 import { judgingClockOf } from './judging-window';
-import { floorSideOf, isSeat, judgeKindOf, sideName } from './round-reading';
+import {
+  floorSeatOf,
+  judgeKindOf,
+  sameTeam,
+  seatsOf,
+  type Seat,
+} from './round-reading';
 
 /** What one side is doing at one instant, as anyone watching can see it. */
 export type ObservedActivity =
   'speaking' | 'listening' | 'asking' | 'answering' | 'preparing' | 'waiting';
 
 export type ObservedSeat = {
-  readonly side: DebateSide;
+  /** The seat's stable key: one card per side, or per unsided speaker. */
+  readonly key: string;
+  readonly seat: SeatRef;
+  /** The seat's side; null for an unsided speaker. */
+  readonly side: SideKey | null;
+  /** "Affirmative", or "Speaker 2" for an unsided seat. */
+  readonly sideLabel: string;
+  readonly tone: SideTone;
   readonly label: string;
   readonly bot: boolean;
   readonly activity: ObservedActivity;
@@ -22,8 +45,10 @@ export type ObservedSpeechState = 'done' | 'now' | 'next' | 'upcoming';
 export type ObservedSpeech = {
   readonly key: string;
   readonly label: string;
-  readonly side: DebateSide;
-  readonly kind: 'speech' | 'cross-ex';
+  /** The seat the segment is scheduled to; null for an open floor. */
+  readonly lead: SeatRef | null;
+  readonly tone: SideTone;
+  readonly kind: 'speech' | 'cross-ex' | 'open';
   readonly durationMs: number;
   readonly state: ObservedSpeechState;
 };
@@ -58,22 +83,31 @@ export type ObservedClock = {
 export type ObservedRound = {
   readonly stage: ObservedStage;
   readonly clock: ObservedClock | null;
-  /** Affirmative first, then negative. */
+  /** Each side in declared order, then each unsided speaker. */
   readonly seats: readonly ObservedSeat[];
   readonly speeches: readonly ObservedSpeech[];
-  /** Each side's in-round prep left; null when none is kept or the Round has not begun. */
-  readonly prepMs: Readonly<Record<DebateSide, number>> | null;
+  /** Each side's in-round prep left, by side key; null when none is kept or the Round has not begun. */
+  readonly prepMs: Readonly<Record<SideKey, number>> | null;
   readonly judge: 'ai' | 'human' | null;
 };
 
 function stageOf(view: RoundView, position: RoundPosition): ObservedStage {
   if (position.stage === 'awaiting_ballot') return 'judging';
   if (position.openSegment)
-    return position.openSegment.type === 'cross_ex' ? 'cross-ex' : 'speech';
+    return position.openSegment.type === 'speech' ? 'speech' : 'cross-ex';
   if (position.prep) return 'prep';
   if (position.countdownRemainingMs !== null) return 'countdown';
   return view.status === 'opening' ? 'starting' : 'between';
 }
+
+/** The scheduled seat's side by name, or the seat's own name unsided. */
+const leadName = (view: RoundView, lead: SeatRef | null): string => {
+  if (lead === null) return 'Everyone';
+  const side = sideOfSeat(lead);
+  return side === null
+    ? seatName(view.rules, lead)
+    : sideName(view.rules.sides, side);
+};
 
 function clockOf(
   view: RoundView,
@@ -87,13 +121,13 @@ function clockOf(
     return {
       label:
         open.type === 'cross_ex'
-          ? `Cross-examination · ${sideName[open.side]} asks`
+          ? `Cross-examination · ${leadName(view, open.lead)} asks`
           : `${open.key} · ${open.label}`,
       remainingMs: open.remainingMs,
     };
   if (position.prep)
     return {
-      label: `${sideName[position.prep.side]} prep`,
+      label: `${sideName(view.rules.sides, position.prep.side)} prep`,
       remainingMs: position.prep.remainingMs,
     };
   if (position.countdownRemainingMs !== null)
@@ -104,13 +138,15 @@ function clockOf(
 function activityOf(
   view: RoundView,
   position: RoundPosition | null,
-  side: DebateSide,
+  seat: SeatRef,
 ): ObservedActivity {
   const open = position?.openSegment;
-  if (open?.type === 'cross_ex')
-    return open.side === side ? 'asking' : 'answering';
-  if (open) return floorSideOf(view, open) === side ? 'speaking' : 'listening';
-  if (position?.prep?.side === side) return 'preparing';
+  if (open && open.type !== 'speech')
+    return sameTeam(open.lead, seat) ? 'asking' : 'answering';
+  if (open)
+    return sameTeam(floorSeatOf(view, open), seat) ? 'speaking' : 'listening';
+  const side = sideOfSeat(seat);
+  if (side !== null && position?.prep?.side === side) return 'preparing';
   return view.opening?.step.step === 'prep' ? 'preparing' : 'waiting';
 }
 
@@ -138,15 +174,43 @@ function speechMarks(view: RoundView, position: RoundPosition | null): Marks {
   return { now: null, next, done: next ?? 0 };
 }
 
+const observedKind = (type: SegmentType): ObservedSpeech['kind'] => {
+  switch (type) {
+    case 'speech':
+      return 'speech';
+    case 'cross_ex':
+      return 'cross-ex';
+    case 'open':
+      return 'open';
+  }
+};
+
+/**
+ * One card per side, its first seat by slot, as a two-sided Round has
+ * always shown; an unsided format shows every speaker.
+ */
+const cardSeatsOf = (view: RoundView): readonly Seat[] =>
+  seatsOf(view).filter((p, index, seats) => {
+    const side = sideOfSeat(p.seat);
+    return (
+      side === null ||
+      seats.findIndex((q) => sideOfSeat(q.seat) === side) === index
+    );
+  });
+
 function speechesOf(view: RoundView, marks: Marks): readonly ObservedSpeech[] {
-  return view.rules.segments.map((segment, sequence) => ({
-    key: segment.key,
-    label: segment.label,
-    side: segment.side,
-    kind: segment.type === 'cross_ex' ? 'cross-ex' : 'speech',
-    durationMs: segment.durationMs,
-    state: speechState(sequence, marks),
-  }));
+  return view.rules.segments.map((segment, sequence) => {
+    const lead = leadSeatOf(segment.speak);
+    return {
+      key: segment.key,
+      label: segment.label,
+      lead,
+      tone: sideToneOf(view.rules.sides, lead && sideOfSeat(lead)),
+      kind: observedKind(segment.type),
+      durationMs: segment.durationMs,
+      state: speechState(sequence, marks),
+    };
+  });
 }
 
 /** The opening's own stages, which the live position does not describe. */
@@ -188,17 +252,21 @@ const positionAt = (view: RoundView, nowMs: number): RoundPosition | null =>
 export function observedRoundOf(view: RoundView, nowMs: number): ObservedRound {
   const position = positionAt(view, nowMs);
   const opening = openingOf(view, nowMs);
-  const seats = (['affirmative', 'negative'] as const).flatMap((side) => {
-    const seat = view.participants.filter(isSeat).find((p) => p.role === side);
-    if (!seat) return [];
-    return [
-      {
-        side,
-        label: seat.label,
-        bot: seat.kind === 'bot',
-        activity: activityOf(view, position, side),
-      } satisfies ObservedSeat,
-    ];
+  const seats = cardSeatsOf(view).map((p): ObservedSeat => {
+    const side = sideOfSeat(p.seat);
+    return {
+      key: side ?? seatKey(p.seat),
+      seat: p.seat,
+      side,
+      sideLabel:
+        side === null
+          ? seatName(view.rules, p.seat)
+          : sideName(view.rules.sides, side),
+      tone: sideToneOf(view.rules.sides, side),
+      label: p.label,
+      bot: p.kind === 'bot',
+      activity: activityOf(view, position, p.seat),
+    };
   });
   const budget = position?.prepBudgetRemainingMs ?? null;
   return {
@@ -213,7 +281,9 @@ export function observedRoundOf(view: RoundView, nowMs: number): ObservedRound {
       budget &&
       view.status === 'active' &&
       position?.stage !== 'awaiting_ballot'
-        ? { affirmative: budget.affirmative, negative: budget.negative }
+        ? Object.fromEntries(
+            view.rules.sides.map((side) => [side.key, budget[side.key] ?? 0]),
+          )
         : null,
     judge: judgeKindOf(view),
   };

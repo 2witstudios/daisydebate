@@ -2,9 +2,14 @@ import { AssemblyCommandForm } from './assembly-command-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import {
+  aiRoleFits,
+  isJudgeSeat,
   isNamedSeat,
+  sameSeat,
+  seatKey,
   type RoomCastChoice,
   type RoomView,
+  type SeatRef,
 } from '@daisy/protocol';
 import { aiJudgeSeatable } from './ai-judge-notice';
 import { declaredSeats, seatLabel } from './assembly-controls';
@@ -12,7 +17,17 @@ import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../../components/form-field/form-field-class';
 
-type Seat = ReturnType<typeof declaredSeats>[number];
+type Seat = SeatRef;
+
+/**
+ * The AI actors a seat may hold: a bot debater for a side's or a speaker's
+ * seat, the AI judge for a judge's, and none for a moderator's.
+ */
+export const botsForSeat = (
+  bots: readonly RoomCastChoice[],
+  seat: SeatRef,
+): readonly RoomCastChoice[] =>
+  bots.filter((bot) => aiRoleFits(bot.aiRole, seat));
 export type IntentIds = {
   readonly claim: string;
   readonly assign: string;
@@ -37,9 +52,11 @@ function SeatActions({
   readonly ids: IntentIds;
 }) {
   const { view, action } = props;
-  const occupant = view.participants.find(
-    (member) => member.role === seat.role && member.slot === seat.slot,
+  const occupant = view.participants.find((member) =>
+    sameSeat(member.seat, seat),
   );
+  const label = seatLabel(view.rules.sides, seat);
+  const fieldId = `assign-${seatKey(seat).replace(':', '-')}`;
   const targets = [
     ...new Map(
       [
@@ -52,7 +69,7 @@ function SeatActions({
   ];
   return (
     <fieldset className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
-      <legend>{seatLabel(seat.role, seat.slot)}</legend>
+      <legend>{label}</legend>
       {view.capabilities.host ? (
         <AssemblyCommandForm
           key={
@@ -78,20 +95,16 @@ function SeatActions({
                   version={view.version}
                   commandId={ids.assign}
                 />
-                <input type="hidden" name="role" value={seat.role} />
-                <input type="hidden" name="slot" value={String(seat.slot)} />
-                <label
-                  className="sr-only"
-                  htmlFor={`assign-${seat.role}-${seat.slot}`}
-                >
-                  Assign {seatLabel(seat.role, seat.slot)}
+                <input type="hidden" name="seat" value={JSON.stringify(seat)} />
+                <label className="sr-only" htmlFor={fieldId}>
+                  Assign {label}
                 </label>
                 <select
                   key={selected}
                   defaultValue={selected}
                   required
                   disabled={Boolean(occupant && !isNamedSeat(occupant))}
-                  id={`assign-${seat.role}-${seat.slot}`}
+                  id={fieldId}
                   name="actorId"
                   className={controlClass}
                 >
@@ -118,36 +131,29 @@ function SeatActions({
                       {member.label}
                     </option>
                   ))}
-                  {props.bots
-                    .filter(
-                      (bot) =>
-                        bot.seatRole ===
-                        (seat.role === 'judge' ? 'judge' : 'debater'),
-                    )
-                    .map((bot) => {
-                      const premium =
-                        bot.seatRole === 'judge' &&
-                        !aiJudgeSeatable(view.aiJudgeSeating);
-                      const ranked =
-                        view.competitionType === 'ranked' &&
-                        bot.seatRole === 'debater';
-                      return (
-                        <option
-                          key={bot.actorId}
-                          value={bot.actorId}
-                          disabled={!bot.eligible || premium || ranked}
-                        >
-                          {bot.label} · AI
-                          {premium
-                            ? ' · premium'
-                            : ranked
-                              ? ' · ranked rooms seat people'
-                              : !bot.eligible
-                                ? ' · unavailable'
-                                : ''}
-                        </option>
-                      );
-                    })}
+                  {botsForSeat(props.bots, seat).map((bot) => {
+                    const premium =
+                      isJudgeSeat(seat) &&
+                      !aiJudgeSeatable(view.aiJudgeSeating);
+                    const ranked =
+                      view.competitionType === 'ranked' && !isJudgeSeat(seat);
+                    return (
+                      <option
+                        key={bot.actorId}
+                        value={bot.actorId}
+                        disabled={!bot.eligible || premium || ranked}
+                      >
+                        {bot.label} · AI
+                        {premium
+                          ? ' · premium'
+                          : ranked
+                            ? ' · ranked rooms seat people'
+                            : !bot.eligible
+                              ? ' · unavailable'
+                              : ''}
+                      </option>
+                    );
+                  })}
                 </select>
                 <button
                   type="submit"
@@ -182,12 +188,12 @@ function SeatActions({
 export function AssemblyCast(props: CastProps) {
   return (
     <section aria-label="Seat controls" className="flex flex-col gap-3">
-      {declaredSeats(props.view.definition.seats).map((seat, index) => {
+      {declaredSeats(props.view.rules).map((seat, index) => {
         const ids = props.commandIds[index];
         if (!ids) throw new Error('Missing Room seat command identities');
         return (
           <SeatActions
-            key={`${seat.role}:${seat.slot}`}
+            key={seatKey(seat)}
             props={props}
             seat={seat}
             ids={ids}

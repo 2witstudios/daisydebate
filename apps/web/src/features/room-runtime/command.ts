@@ -1,15 +1,16 @@
 import type { Store, Caller } from './operations';
-import { aiSeatOf } from './ai-seat';
+import { aiServesSeat } from './ai-seat';
 import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { castSeatsBotDebater, executeRoomCommand } from '@daisy/debate-engine';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
-import type {
-  RoomAssemblyState,
-  RoomCommand,
-  RoomCommandResponse,
+import {
+  judgeSeat,
+  type RoomAssemblyState,
+  type RoomCommand,
+  type RoomCommandResponse,
 } from '@daisy/protocol';
 import { can, capabilityOf, digest } from './authority';
 import { hostHoldsCasualCapture } from './capture-offer';
@@ -147,10 +148,10 @@ export function roomCommandOperation({
           if (!can(caller, capabilityOf(command), account, raw))
             throw createAppError('AUTHORIZATION');
           const state = eligible(raw);
-          const role =
+          const seat =
             command.type === 'claim-seat' || command.type === 'assign-seat'
-              ? command.role
-              : 'judge';
+              ? command.seat
+              : judgeSeat();
           const outcome = executeRoomCommand(
             state,
             caller.actorId,
@@ -173,11 +174,11 @@ export function roomCommandOperation({
                     ...target,
                     id: '',
                     consentVersion: 0,
-                    role,
-                    slot: 0,
+                    seat,
                     eligible:
                       target.eligible &&
-                      (target.kind === 'human' || aiSeats()[aiSeatOf(role)]),
+                      (target.kind === 'human' ||
+                        aiServesSeat(aiSeats(), seat.kind)),
                   }
                 : null,
               drawStart: secrets

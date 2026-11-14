@@ -1,0 +1,185 @@
+[
+  {
+    "decision": {
+      "decision": "abandoned",
+      "effectiveDeadlineMs": 1791277250000,
+      "evidence": "settled_availability",
+      "settledHorizonMs": 1791277255000
+    },
+    "evidence": {
+      "availability": {
+        "historyStartsAtMs": 1791277200000,
+        "intervals": [],
+        "settledHorizonMs": 1791277255000
+      },
+      "botSeatIds": [],
+      "checkIns": [],
+      "cutoffAtMs": null,
+      "finalized": false,
+      "nowMs": 1791277255000,
+      "window": {
+        "eligibleSeats": [
+          {
+            "id": "seataffirmative000000000",
+            "side": "affirmative"
+          },
+          {
+            "id": "seatnegative000000000000",
+            "side": "negative"
+          }
+        ],
+        "forfeitsTo": "negative",
+        "lastSpeech": false,
+        "openedAtMs": 1791277210000,
+        "segmentId": "segment-1",
+        "speakerId": "seataffirmative000000000",
+        "speakerSide": "affirmative"
+      }
+    },
+    "present": []
+  },
+  {
+    "decision": {
+      "decision": "attended",
+      "evidence": "on_time_receipt",
+      "participantId": "seataffirmative000000000",
+      "receivedAtMs": 1791277211000
+    },
+    "evidence": {
+      "availability": {
+        "historyStartsAtMs": 1791277200000,
+        "intervals": [],
+        "settledHorizonMs": 1791277255000
+      },
+      "botSeatIds": [],
+      "checkIns": [
+        {
+          "participantId": "seataffirmative000000000",
+          "receivedAtMs": 1791277211000
+        }
+      ],
+      "cutoffAtMs": null,
+      "finalized": false,
+      "nowMs": 1791277255000,
+      "window": {
+        "eligibleSeats": [
+          {
+            "id": "seataffirmative000000000",
+            "side": "affirmative"
+          },
+          {
+            "id": "seatnegative000000000000",
+            "side": "negative"
+          }
+        ],
+        "forfeitsTo": "negative",
+        "lastSpeech": false,
+        "openedAtMs": 1791277210000,
+        "segmentId": "segment-1",
+        "speakerId": "seataffirmative000000000",
+        "speakerSide": "affirmative"
+      }
+    },
+    "present": [
+      "affirmative"
+    ]
+  },
+  {
+    "decision": {
+      "decision": "forfeit",
+      "effectiveDeadlineMs": 1791277250000,
+      "evidence": "settled_availability",
+      "settledHorizonMs": 1791277255000,
+      "winner": "negative"
+    },
+    "evidence": {
+      "availability": {
+        "historyStartsAtMs": 1791277200000,
+        "intervals": [],
+        "settledHorizonMs": 1791277255000
+      },
+      "botSeatIds": [],
+      "checkIns": [
+        {
+          "participantId": "seatnegative000000000000",
+          "receivedAtMs": 1791277211000
+        }
+      ],
+      "cutoffAtMs": null,
+      "finalized": false,
+      "nowMs": 1791277255000,
+      "window": {
+        "eligibleSeats": [
+          {
+            "id": "seataffirmative000000000",
+            "side": "affirmative"
+          },
+          {
+            "id": "seatnegative000000000000",
+            "side": "negative"
+          }
+        ],
+        "forfeitsTo": "negative",
+        "lastSpeech": false,
+        "openedAtMs": 1791277210000,
+        "segmentId": "segment-1",
+        "speakerId": "seataffirmative000000000",
+        "speakerSide": "affirmative"
+      }
+    },
+    "present": [
+      "negative"
+    ]
+  },
+  {
+    "decision": {
+      "decision": "attended",
+      "evidence": "on_time_receipt",
+      "participantId": "seataffirmative000000000",
+      "receivedAtMs": 1791277211000
+    },
+    "evidence": {
+      "availability": {
+        "historyStartsAtMs": 1791277200000,
+        "intervals": [],
+        "settledHorizonMs": 1791277255000
+      },
+      "botSeatIds": [],
+      "checkIns": [
+        {
+          "participantId": "seataffirmative000000000",
+          "receivedAtMs": 1791277211000
+        },
+        {
+          "participantId": "seatnegative000000000000",
+          "receivedAtMs": 1791277211000
+        }
+      ],
+      "cutoffAtMs": null,
+      "finalized": false,
+      "nowMs": 1791277255000,
+      "window": {
+        "eligibleSeats": [
+          {
+            "id": "seataffirmative000000000",
+            "side": "affirmative"
+          },
+          {
+            "id": "seatnegative000000000000",
+            "side": "negative"
+          }
+        ],
+        "forfeitsTo": "negative",
+        "lastSpeech": false,
+        "openedAtMs": 1791277210000,
+        "segmentId": "segment-1",
+        "speakerId": "seataffirmative000000000",
+        "speakerSide": "affirmative"
+      }
+    },
+    "present": [
+      "affirmative",
+      "negative"
+    ]
+  }
+]

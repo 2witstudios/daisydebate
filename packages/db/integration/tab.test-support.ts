@@ -5,6 +5,8 @@ import { daisyOrganizationId } from '../src/daisy-reference';
 import { scopeTransaction, type TenantScope } from '../src/tenant-scope';
 import { Fixture, digest } from './constraint-helpers';
 import { validConfig, validRules } from './round-fixtures';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { frozenJudgingFor } from '../src/round-judging-freeze';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 type Row = Readonly<Record<string, unknown>>;
@@ -611,6 +613,8 @@ export const loadSampleTournament = async (sql: SQL) => {
         config: validConfig,
         execution_plan: {},
         rules_snapshot: validRules,
+        // An event Room's Recording is kept for its officials (TAB-6).
+        capture: { broadcast: null, recordingPolicy: 'officials' },
         status: 'assembling',
       });
     await eventRoom(ids.room, 'policy');
@@ -673,6 +677,8 @@ export const loadSampleTournament = async (sql: SQL) => {
       format_id: 'policy',
       format_version: 1,
       rules_snapshot: validRules,
+      runtime_state: emptyRuntimeCheckpointFor(validRules),
+      judging: frozenJudgingFor(validRules),
       status: 'opening',
     });
     await command(ids.commands.decide, 'record-result', ids.pairing);

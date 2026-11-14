@@ -12,9 +12,23 @@ import {
   admitParticipants,
   removeUnowedBetaDigests,
 } from '../src/beta-access-testing';
-import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol';
+import {
+  buildRoundTopic,
+  buildUserInboxTopic,
+  emptyRuntimeCheckpointFor,
+} from '@daisy/protocol';
+import { frozenJudgingFor } from '../src/round-judging-freeze';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
+
+/**
+ * A fixture seat's columns: a seat kind other than a side's, or else the
+ * side a side's seat belongs to.
+ */
+export const seatColumnsOf = (seat: string): Row =>
+  seat === 'judge' || seat === 'speaker' || seat === 'moderator'
+    ? { seat_kind: seat, side: null }
+    : { seat_kind: 'side', side: seat };
 
 /**
  * The constraint PostgreSQL named when refusing the statement (SQLSTATE class
@@ -229,6 +243,61 @@ export class Fixture {
     return version;
   }
 
+  /** Which of `names` the table has now: a proof migrates the same database on. */
+  private async present(table: string, names: readonly string[]) {
+    const found = (await this
+      .sql`select column_name from information_schema.columns
+      where table_schema = 'public' and table_name = ${table}
+        and column_name in ${this.sql([...names])}`) as {
+      column_name: string;
+    }[];
+    return new Set(found.map((row) => row.column_name));
+  }
+
+  /**
+   * Whether this database seats by kind and side (TAB-6): a predecessor
+   * migration proof runs before the columns exist and still says role and
+   * outcome.
+   */
+  private async seatsByKind() {
+    return (await this.present('round_participants', ['seat_kind'])).has(
+      'seat_kind',
+    );
+  }
+
+  /**
+   * The column a Round's winning side is stored in: `outcome` on a
+   * predecessor a migration proof seeds (TAB-6 backfills from it), else
+   * `winning_side`.
+   */
+  async winningSideColumn() {
+    return (await this.present('rounds', ['outcome'])).has('outcome')
+      ? 'outcome'
+      : 'winning_side';
+  }
+
+  /** Whether this database still defaults a Round's checkpoint (before TAB-6). */
+  private async checkpointHasDefault() {
+    const [column] = (await this
+      .sql`select column_default from information_schema.columns
+      where table_schema = 'public' and table_name = 'rounds' and column_name = 'runtime_state'`) as {
+      column_default: string | null;
+    }[];
+    return column?.column_default != null;
+  }
+
+  /** A seat's columns as this database stores them: by role, by kind and side, or both while a proof lends the new ones. */
+  private async seatColumnsFor(seat: string): Promise<Row> {
+    const columns = await this.present('round_participants', [
+      'role',
+      'seat_kind',
+    ]);
+    return {
+      ...(columns.has('role') ? { role: seat } : {}),
+      ...(columns.has('seat_kind') ? seatColumnsOf(seat) : {}),
+    };
+  }
+
   /** The not-yet-started status of this database: a predecessor still says scheduled. */
   private async unstartedStatus() {
     const [column] = await this.sql`select 1 from information_schema.columns
@@ -242,6 +311,11 @@ export class Fixture {
    */
   async round(overrides: Row = {}) {
     const id = createId();
+    const columns = await this.present('rounds', [
+      'outcome',
+      'winning_side',
+      'judging',
+    ]);
     await this.insert('rounds', {
       id,
       room_id: null,
@@ -254,7 +328,18 @@ export class Fixture {
       rules_snapshot: validRules,
       status: await this.unstartedStatus(),
       current_stage: null,
-      outcome: null,
+      // TAB-6 dropped the column's two-sided default; a predecessor keeps its own.
+      ...((await this.checkpointHasDefault())
+        ? {}
+        : { runtime_state: emptyRuntimeCheckpointFor(validRules) }),
+      // A proof may lend the TAB-6 columns to a predecessor beside its own.
+      ...(columns.has('outcome') ? { outcome: null } : {}),
+      ...(columns.has('winning_side')
+        ? { winning_side: null, ranking: null }
+        : {}),
+      ...(columns.has('judging')
+        ? { judging: frozenJudgingFor(validRules) }
+        : {}),
       ladder_id: null,
       started_at: null,
       completed_at: null,
@@ -277,15 +362,19 @@ export class Fixture {
     await admitParticipants(this.sql, [(userId ??= await this.user())]);
     return this.actor(userId);
   }
-  /** The authoritative participant row, with its surrogate seat id. */
-  async seat(roundId: string, role: string, slot = 0, actorId?: string) {
+  /**
+   * The authoritative participant row, with its surrogate seat id. `seat`
+   * names a seat kind other than a side's ('judge', 'speaker', 'moderator')
+   * or else the side a side's seat belongs to.
+   */
+  async seat(roundId: string, seat: string, slot = 0, actorId?: string) {
     const seated = actorId ?? (await this.seatedHuman());
     const id = createId();
     await this.insert('round_participants', {
       id,
       round_id: roundId,
       actor_id: seated,
-      role,
+      ...(await this.seatColumnsFor(seat)),
       slot,
     });
     return { id, actorId: seated };

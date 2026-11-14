@@ -1,6 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
+  isAbsentSeat,
   type MediaPhase,
   type MediaWindowFacts,
   type RoundCommandAuthority,
@@ -9,7 +10,7 @@ import { eq } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import type { BoundedTransactionContext } from './transaction-context';
 import { actorFact } from './room-command-facts';
-import { hydrateRoundRows } from './round-hydration';
+import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import { rounds } from './schema/rounds';
 import { mediaSessions } from './schema/media-sessions';
 import { roundParticipants } from './schema/round-participants';
@@ -43,6 +44,7 @@ function boundCaller(
   participants: RoundCommandAuthority['participants'],
   accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
   mediaCaller: MediaCaller,
+  checkpoint: RoundHydration['checkpoint'],
 ) {
   const seat = participants.find(
     (candidate) =>
@@ -50,7 +52,9 @@ function boundCaller(
       candidate.kind === 'human' &&
       candidate.eligible,
   );
-  if (!seat) throw unseatedRefusal();
+  // A seat that left the Round holds no live seat from then on (TAB-6.8), so
+  // it is refused before anything is bound for it.
+  if (!seat || isAbsentSeat(checkpoint, seat.id)) throw unseatedRefusal();
   requireAdmittedPrincipal(mediaCaller.admits, accounts, mediaCaller.actorId);
   return seat;
 }
@@ -100,7 +104,7 @@ export async function lockMediaRound(
     }),
   );
   const caller = mediaCaller
-    ? boundCaller(participants, accounts, mediaCaller)
+    ? boundCaller(participants, accounts, mediaCaller, round.checkpoint)
     : null;
   return { participants, caller, accounts };
 }

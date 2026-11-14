@@ -97,12 +97,23 @@ function streamedGeneration(
         execution: 'execution',
         model: 'model',
         profile: { name: 'Bot', persona: '', difficulty: 'easy' },
-        seat: { role: 'affirmative', slot: 0 },
+        seat: { seat: { kind: 'side', side: 'affirmative', slot: 0 } },
         utterances: [],
         round: {
           resolution: 'Resolved.',
           participants: [],
-          rules: { segments: [{ key: 'AC', label: 'Constructive' }] },
+          rules: {
+            segments: [
+              {
+                key: 'AC',
+                label: 'Constructive',
+                speak: {
+                  rights: 'one',
+                  seat: { kind: 'side', side: 'affirmative', slot: 0 },
+                },
+              },
+            ],
+          },
           segments: [
             {
               id: scope.segmentId,

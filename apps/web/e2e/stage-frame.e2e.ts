@@ -1,3 +1,5 @@
+import { affirmativeSide, negativeSide } from '@daisy/protocol';
+import type { StageSeatView } from '../src/features/stage-capture/stage-access';
 import { expect, test } from './support/fixtures';
 
 /**
@@ -6,16 +8,18 @@ import { expect, test } from './support/fixtures';
  * Round or capture is needed; without a room the link stays reconnecting, which is
  * the frame a speech shows until its room is joined.
  */
-const seats = [
+const seats: readonly StageSeatView[] = [
   {
-    side: 'affirmative',
+    column: affirmativeSide,
+    columnLabel: 'Affirmative',
     label: 'Ann',
     kind: 'human',
     identity: 'aff',
     floor: true,
   },
   {
-    side: 'negative',
+    column: negativeSide,
+    columnLabel: 'Negative',
     label: 'Ned',
     kind: 'human',
     identity: 'neg',

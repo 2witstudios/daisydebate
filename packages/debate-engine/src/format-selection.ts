@@ -1,4 +1,8 @@
-import { canonicalRatingLadder } from '@daisy/protocol';
+import {
+  canonicalRatingLadder,
+  daisyBallotFor,
+  daisyWinnerBallot,
+} from '@daisy/protocol';
 import type {
   FormatDefinition,
   FormatSelectionFacts,
@@ -69,8 +73,18 @@ const isCurrent = (facts: FormatSelectionFacts) =>
   facts.preset.current &&
   facts.preset.formatVersion === facts.format.currentVersion;
 
-const oneOnOneSeats = ({ seats }: FormatDefinition) =>
-  seats.affirmative === 1 && seats.negative === 1 && seats.judge === 1;
+/**
+ * The shape a rating compares: two sides of one seat each and one judge,
+ * decided by a winner on Daisy's speaker-10 ballot (TAB-6.2).
+ */
+const oneOnOneSeats = (definition: FormatDefinition) =>
+  definition.sides.length === 2 &&
+  definition.sides.every((side) => definition.seats.sides[side.key] === 1) &&
+  definition.seats.speakers === 0 &&
+  definition.seats.moderators === 0 &&
+  definition.seats.judges === 1 &&
+  definition.outcome.kind === 'winner' &&
+  daisyBallotFor(definition.outcome)?.key === daisyWinnerBallot.key;
 
 /** Ranked admission: the current eligible preset of a 1/1/1 format, no picker role needed. */
 const rankedAdmits = (facts: FormatSelectionFacts) =>

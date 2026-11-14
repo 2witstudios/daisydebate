@@ -1,6 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import type { JudgingPanel } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  isJudgeSeat,
+  winnerOutcome,
+  type JudgingPanel,
+  type RoundOutcome,
+} from '@daisy/protocol';
 import {
   decidePanelCompletion,
   freezeJudgingPlan,
@@ -14,6 +20,10 @@ import {
 } from './runtime.test-support';
 
 setupRitewayBun();
+const judging = {
+  ballot: daisyWinnerBallot,
+  panel: { decision: 'majority', quorum: 1 },
+} as const;
 const judges = ['j'.repeat(24), 'k'.repeat(24), 'l'.repeat(24)];
 const ballot = (
   judgeParticipantId: string,
@@ -43,6 +53,7 @@ const running = (id: string) => ({
 });
 const at = (nowMs: number, ballots: ReturnType<typeof ballot>[] = []) =>
   decidePanelCompletion({
+    judging,
     completeness: 'complete',
     panel: { humanWindow: window(judges), aiSeats: [] },
     ballots,
@@ -56,6 +67,7 @@ test('recoverable AI work cannot complete a played Round without its ruling', ()
       should:
         'remain pending instead of becoming an unsupported no-result completion',
       actual: decidePanelCompletion({
+        judging,
         completeness: 'complete',
         panel: {
           humanWindow: null,
@@ -74,11 +86,33 @@ test('recoverable AI work cannot complete a played Round without its ruling', ()
   }
 });
 
+test('a Round with nothing to judge completes at once as unjudged (TAB-6.18)', () => {
+  assert({
+    given:
+      'a frozen Round whose outcome nobody decides, so it froze no judging',
+    should: 'complete at once as unjudged with no outcome',
+    actual: decidePanelCompletion({
+      judging: null,
+      completeness: 'complete',
+      panel: { humanWindow: null, aiSeats: [] },
+      ballots: [],
+      nowMs: 1_000,
+    }),
+    expected: {
+      kind: 'complete',
+      ruling: 'unjudged',
+      outcome: null,
+      noRuling: [],
+    },
+  });
+});
+
 test('the ballot deadline decides when a Round without a full ruling completes (DEC-201)', () => {
   assert({
     given: 'no judge seats',
     should: 'complete at once as unjudged',
     actual: decidePanelCompletion({
+      judging,
       completeness: 'complete',
       panel: { humanWindow: null, aiSeats: [] },
       ballots: [],
@@ -109,7 +143,7 @@ test('the ballot deadline decides when a Round without a full ruling completes (
       {
         kind: 'complete',
         ruling: 'ruled',
-        outcome: 'affirmative',
+        outcome: winnerOutcome('affirmative'),
         noRuling: [],
       },
     ],
@@ -143,7 +177,7 @@ test('the ballot deadline decides when a Round without a full ruling completes (
       {
         kind: 'complete',
         ruling: 'partial',
-        outcome: 'negative',
+        outcome: winnerOutcome('negative'),
         noRuling: [judges[1]],
       },
       {
@@ -157,7 +191,7 @@ test('the ballot deadline decides when a Round without a full ruling completes (
 });
 
 const rules = oneOnOneRules();
-const judge = oneOnOneSeats.find((seat) => seat.role === 'judge')!;
+const judge = oneOnOneSeats.find((seat) => isJudgeSeat(seat.seat))!;
 const total = rules.segments.reduce(
   (sum, s) => sum + s.durationMs + rules.countdownMs,
   0,
@@ -170,6 +204,7 @@ const judged = () => {
 };
 const completion = (nowMs: number) => ({
   now: roundAt(nowMs),
+  judging,
   ballots: [],
   completeness: 'complete' as const,
   panel: {
@@ -261,6 +296,7 @@ test('a freeze of unmeasured loss dispatches no AI judge and, with no human judg
     humanJudges: boolean,
   ) =>
     decidePanelCompletion({
+      judging,
       completeness,
       panel: humanJudges
         ? { humanWindow: window([judges[0]!]), aiSeats: [] }
@@ -298,6 +334,7 @@ test('an incomplete freeze completes once every human judge has ruled decisively
     aiSeats: JudgingPanel['aiSeats'] = [noJob],
   ) =>
     decidePanelCompletion({
+      judging,
       completeness: 'incomplete',
       panel: { humanWindow: window(humans), aiSeats },
       ballots,
@@ -322,7 +359,7 @@ test('an incomplete freeze completes once every human judge has ruled decisively
       {
         kind: 'complete',
         ruling: 'partial',
-        outcome: 'negative',
+        outcome: winnerOutcome('negative'),
         noRuling: [ai],
       },
       { kind: 'pending', waiting: window_ },
@@ -354,6 +391,7 @@ test('the panel decides from each seat: every mode ends, and only a judge who ca
     readonly deadline?: number;
   }) =>
     decidePanelCompletion({
+      judging,
       completeness: input.completeness ?? 'complete',
       panel: {
         humanWindow: window(input.humans ?? [], iso(input.deadline ?? later)),
@@ -367,8 +405,10 @@ test('the panel decides from each seat: every mode ends, and only a judge who ca
       ballots: input.ballots ?? [],
       nowMs: 1_000,
     });
+  const sideOf = (outcome: RoundOutcome | null) =>
+    outcome?.kind === 'winner' ? outcome.side : outcome;
   const summary = (d: ReturnType<typeof decide>) =>
-    d.kind === 'pending' ? 'pending' : `${d.ruling}:${d.outcome}`;
+    d.kind === 'pending' ? 'pending' : `${d.ruling}:${sideOf(d.outcome)}`;
   const cases: [string, Parameters<typeof decide>[0], string][] = [
     ['AI-only, job running', { running: [ai] }, 'pending'],
     ['AI-only, holding a ballot', { held: [ai] }, 'pending'],
@@ -445,6 +485,7 @@ test('the panel decides from each seat: every mode ends, and only a judge who ca
 
 test('a seat with a human judge and no deadline has no panel', () => {
   const facts = {
+    judging,
     completeness: 'complete' as const,
     humanJudgeSeatIds: [judges[0]!],
     aiJudgeSeatIds: [judges[1]!],
@@ -480,6 +521,7 @@ test('a tied panel ends one way, however it was reached (ISSUE-996, ISSUE-997)',
   const split = [ballot(human, 'negative'), ballot(other, 'affirmative')];
   const decide = (aiSeats: JudgingPanel['aiSeats'], nowMs = 1_000) =>
     decidePanelCompletion({
+      judging,
       completeness: 'complete',
       panel: { humanWindow: window([human, other]), aiSeats },
       ballots: split,
@@ -512,5 +554,59 @@ test('a tied panel ends one way, however it was reached (ISSUE-996, ISSUE-997)',
     should: 'wait for the seat that can still break it',
     actual: decide([running(ai)]).kind,
     expected: 'pending',
+  });
+});
+
+test('a panel below its quorum, or with a tie vote short of a majority, ends with no outcome (TAB-6.11)', () => {
+  const [first, second, third] = judges as [string, string, string];
+  const decide = (
+    quorum: number,
+    ballots: readonly ReturnType<typeof tieOr>[],
+  ) =>
+    decidePanelCompletion({
+      judging: { ...judging, panel: { decision: 'majority', quorum } },
+      completeness: 'complete',
+      panel: { humanWindow: window(judges), aiSeats: [] },
+      ballots,
+      nowMs: 61_000,
+    });
+  const tieOr = (
+    judgeParticipantId: string,
+    winner: 'affirmative' | 'negative' | null,
+  ) => ({ judgeParticipantId, winner });
+  assert({
+    given:
+      'the deadline passed with one ballot of a quorum of two, and a full panel with one tie vote between two sides',
+    should:
+      'record the shortfall as below quorum, and the split as having no winner',
+    actual: [
+      decide(2, [tieOr(first, 'affirmative')]),
+      decide(1, [
+        tieOr(first, 'affirmative'),
+        tieOr(second, 'negative'),
+        tieOr(third, null),
+      ]),
+      decide(2, [tieOr(first, 'affirmative'), tieOr(second, 'affirmative')]),
+    ],
+    expected: [
+      {
+        kind: 'complete',
+        ruling: 'below-quorum',
+        outcome: null,
+        noRuling: [second, third],
+      },
+      {
+        kind: 'complete',
+        ruling: 'judges-split',
+        outcome: null,
+        noRuling: [],
+      },
+      {
+        kind: 'complete',
+        ruling: 'partial',
+        outcome: winnerOutcome('affirmative'),
+        noRuling: [third],
+      },
+    ],
   });
 });

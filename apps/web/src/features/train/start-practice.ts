@@ -1,8 +1,10 @@
-import type {
-  PublishedResolution,
-  RoomCatalogChoice,
-  RoomCastChoice,
-  RoomCreate,
+import {
+  judgeSeat,
+  sideSeat,
+  type PublishedResolution,
+  type RoomCatalogChoice,
+  type RoomCastChoice,
+  type RoomCreate,
 } from '@daisy/protocol';
 import {
   field,
@@ -86,6 +88,9 @@ export function preparePractice(
       return { kind: 'refused', error: formatUnavailable };
     resolution = { kind: format.formatId, id: publication.id };
   }
+  // The bot takes the last declared side, so the member opens the round.
+  const botSide = format.definition.sides.at(-1);
+  if (!botSide) return { kind: 'refused', error: formatUnavailable };
   return {
     kind: 'ready',
     body: {
@@ -95,10 +100,8 @@ export function preparePractice(
       visibility: defaultRoomVisibility,
       selection: casualSelection(format),
       cast: [
-        { actorId: bot.actorId, role: 'negative', slot: 0 },
-        ...(judge
-          ? [{ actorId: judge.actorId, role: 'judge' as const, slot: 0 }]
-          : []),
+        { actorId: bot.actorId, seat: sideSeat(botSide.key) },
+        ...(judge ? [{ actorId: judge.actorId, seat: judgeSeat() }] : []),
       ],
     },
   };

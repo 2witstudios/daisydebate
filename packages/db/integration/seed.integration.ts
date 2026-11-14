@@ -136,11 +136,11 @@ describe('agent seed', () => {
       await database`
         insert into utterances (id, round_id, segment_id, round_participant_id, sequence, text)
         select 'seed-spoken-line', round_id, 'seed-segment-0', id, 0, 'Previous speech'
-        from round_participants where round_id = ${seedIds[2]} and role = 'affirmative'
+        from round_participants where round_id = ${seedIds[2]} and side = 'affirmative'
       `;
       await runSeed();
       const [reset] = await database`
-        select status, current_stage, started_at, completed_at, outcome,
+        select status, current_stage, started_at, completed_at, winning_side, ranking,
                runtime_state->'active_prep' as active_prep,
                jsonb_typeof(rules_snapshot) as rules_type,
                jsonb_typeof(runtime_state) as runtime_type,
@@ -158,7 +158,8 @@ describe('agent seed', () => {
           current_stage: null,
           started_at: null,
           completed_at: null,
-          outcome: null,
+          winning_side: null,
+          ranking: null,
           active_prep: null,
           // Not a double-encoded JSON string: the runtime must read it back.
           rules_type: 'object',

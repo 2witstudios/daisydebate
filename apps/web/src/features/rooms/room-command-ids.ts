@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import { seatTotalOf, type RoomView } from '@daisy/protocol';
 
 /** One idempotency key per room form, so a replayed post is recognized. */
 export type RoomCommandIds = {
@@ -45,8 +45,7 @@ export function roomCommandIds(
     'start-round': nextId(),
   };
   const settings = nextId();
-  const { affirmative, negative, judge } = view.definition.seats;
-  const seats = Array.from({ length: affirmative + negative + judge }, () => ({
+  const seats = Array.from({ length: seatTotalOf(view.rules) }, () => ({
     claim: nextId(),
     assign: nextId(),
     remove: nextId(),

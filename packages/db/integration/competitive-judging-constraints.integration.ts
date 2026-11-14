@@ -49,7 +49,7 @@ describe('ballots (DATA-3.1)', () => {
       const otherJudge = await fixture.seat(roundId, 'judge', 1);
       const badWinner = await fixture.rejects(
         'ballots',
-        ballot(otherJudge.id, roundId, { winner: 'abstain' }),
+        ballot(otherJudge.id, roundId, { winner: 'Abstain' }),
       );
       assert({
         given: 'ballots for two judge seats',

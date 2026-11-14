@@ -2,6 +2,7 @@ import {
   foundationDefinition,
   foundationSettings,
 } from '@daisy/db/reference-formats';
+import { sideSeat, twoSideKeys } from '@daisy/protocol';
 
 /** A format may have no more (DEC-131), and one Round gives one deadline fewer. */
 const MAX_SPEECHES = 64;
@@ -20,8 +21,7 @@ export const floorSelection = (input: {
     key: `S${index}`,
     label: `Speech ${index + 1}`,
     type: 'speech' as const,
-    side: index % 2 === 0 ? ('affirmative' as const) : ('negative' as const),
-    slot: 0,
+    speak: { rights: 'one' as const, seat: sideSeat(twoSideKeys[index % 2]!) },
     defaultDurationMs: SPEECH_MS,
   }));
   return {
@@ -29,7 +29,7 @@ export const floorSelection = (input: {
     competitionType: 'casual' as const,
     definition: {
       ...foundationDefinition,
-      seats: { affirmative: 1, negative: 1, judge: 0 },
+      seats: { ...foundationDefinition.seats, judges: 0 },
       segments,
       configurable: {
         ...foundationDefinition.configurable,

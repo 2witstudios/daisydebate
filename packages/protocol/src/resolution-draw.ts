@@ -1,6 +1,18 @@
 import type { ClockStop } from './clock-stops';
 import { z } from 'zod';
-import { debateSideSchema, idSchema } from './primitives';
+import { idSchema } from './primitives';
+import {
+  affirmativeSide,
+  negativeSide,
+  twoSideKeys,
+  type TwoSideKey,
+} from './seats';
+
+/**
+ * The strike is a pair's (TAB-6.2): only a two-sided format has a draw, so
+ * its sides are the two-sided preset's.
+ */
+const strikeSideSchema = z.enum(twoSideKeys);
 
 /**
  * The pre-round resolution draw (FMT-7): the debaters strike alternately
@@ -79,7 +91,7 @@ const drawChoice = {
   enabled: z.literal(true),
   drawSize: drawSizeSchema,
   strikeWindowMs: z.int().min(MIN_STRIKE_WINDOW_MS).max(MAX_STRIKE_WINDOW_MS),
-  firstStriker: debateSideSchema,
+  firstStriker: strikeSideSchema,
 };
 const declined = z.strictObject({ enabled: z.literal(false) });
 
@@ -140,8 +152,8 @@ const strikeKinds = ['debater', 'timeout', 'automatic'] as const;
 const strikeKindSchema = z.enum(strikeKinds);
 const sideControllers = ['human', 'automatic'] as const;
 const sideControllersSchema = z.strictObject({
-  affirmative: z.enum(sideControllers),
-  negative: z.enum(sideControllers),
+  [affirmativeSide]: z.enum(sideControllers),
+  [negativeSide]: z.enum(sideControllers),
 });
 
 const timestamp = z.iso.datetime({ offset: true });
@@ -149,13 +161,13 @@ const digestSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 const publicStrikeSchema = z.strictObject({
   ordinal: z.int().min(0),
-  side: debateSideSchema,
+  side: strikeSideSchema,
   kind: strikeKindSchema,
 });
 const turnSchema = z
   .strictObject({
     ordinal: z.int().min(0),
-    side: debateSideSchema,
+    side: strikeSideSchema,
     dueAt: timestamp,
     /** Time left on the turn as of the read: a page without scripts shows it as is. */
     remainingMs: z.int().min(0).max(MAX_STRIKE_WINDOW_MS),
@@ -241,7 +253,7 @@ export const resolutionDrawManifestSchema = z.strictObject({
     z.strictObject({ kind: z.literal('host'), count: z.int().min(2).max(20) }),
   ]),
   drawSize: drawSizeSchema,
-  firstStriker: debateSideSchema,
+  firstStriker: strikeSideSchema,
   strikeWindowMs: z.int().min(MIN_STRIKE_WINDOW_MS).max(MAX_STRIKE_WINDOW_MS),
   controllers: sideControllersSchema,
   inputCommitment: digestSchema,
@@ -263,7 +275,7 @@ export type ResolutionDrawItem = {
 export type ResolutionStrike = {
   readonly ordinal: number;
   readonly position: number;
-  readonly side: 'affirmative' | 'negative';
+  readonly side: TwoSideKey;
   readonly kind: (typeof strikeKinds)[number];
   readonly actorId: string | null;
   readonly commandId: string | null;

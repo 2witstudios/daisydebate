@@ -1,18 +1,24 @@
+import {
+  aiRoleFits,
+  isDebatingSeat,
+  type AiRole,
+  type SeatRef,
+} from '@daisy/protocol';
+
 type ActorFact = {
   readonly kind: 'human' | 'bot';
   readonly eligible: boolean;
-  /** Which seat an AI actor may hold (ISSUE-750); null for a human. */
-  readonly seatRole: 'debater' | 'judge' | null;
+  /** Which AI the actor is (ISSUE-750); null for a human. */
+  readonly aiRole: AiRole | null;
 } | null;
 
 /**
- * ISSUE-750: a bot debater fits only a side seat and the AI judge only the
- * judge seat, whenever and however it was seated.
+ * ISSUE-750: a bot debater fits only a competitor's seat (a side's or an
+ * unsided speaker's) and the AI judge only a judge seat, whenever and however
+ * it was seated.
  */
-export const aiSeatFits = (
-  seatRole: 'debater' | 'judge' | null,
-  role: string,
-) => seatRole === (role === 'judge' ? 'judge' : 'debater');
+export const aiSeatFits = (aiRole: AiRole | null, seat: SeatRef) =>
+  aiRoleFits(aiRole, seat);
 type AccountFact = {
   readonly actorId: string | null;
   readonly member: boolean;
@@ -37,13 +43,13 @@ export const humanSeatEligible = (
 export function seatEligibility(
   actor: ActorFact,
   accounts: readonly AccountFact[],
-  seat: { readonly actorId: string; readonly role: string },
+  seat: { readonly actorId: string; readonly seat: SeatRef },
 ): { readonly kind: 'human' | 'bot'; readonly eligible: boolean } {
   if (!actor) return { kind: 'human', eligible: false };
   if (actor.kind === 'bot')
     return {
       kind: 'bot',
-      eligible: actor.eligible && aiSeatFits(actor.seatRole, seat.role),
+      eligible: actor.eligible && aiSeatFits(actor.aiRole, seat.seat),
     };
   return {
     kind: 'human',
@@ -65,14 +71,14 @@ export const fencedActorIds = (
   ]),
 ];
 
-/** Eligible debating seats; judges never check in or forfeit. */
+/** Eligible competitors' seats; judges and moderators never check in or forfeit. */
 export const eligibleCompetitorIds = (
   seats: readonly {
     readonly id: string;
-    readonly role: string;
+    readonly seat: SeatRef;
     readonly eligible: boolean;
   }[],
 ) =>
   seats
-    .filter((seat) => seat.eligible && seat.role !== 'judge')
+    .filter((seat) => seat.eligible && isDebatingSeat(seat.seat))
     .map((seat) => seat.id);

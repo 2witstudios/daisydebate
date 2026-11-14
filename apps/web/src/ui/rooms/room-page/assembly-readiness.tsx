@@ -6,6 +6,7 @@ import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import {
   freezePostRoundCall,
+  isJudgeSeat,
   isNamedSeat,
   type RoomView,
 } from '@daisy/protocol';
@@ -34,7 +35,7 @@ type View = Pick<
   | 'capture'
   | 'postRoundCall'
 > & {
-  readonly definition: Pick<RoomView['definition'], 'seats'>;
+  readonly definition: Pick<RoomView['definition'], 'sides' | 'seats'>;
   readonly capabilities: Pick<
     RoomView['capabilities'],
     'canReady' | 'host' | 'canStart'
@@ -58,7 +59,9 @@ function startFence(
   const own = view.participants
     .filter(isNamedSeat)
     .find((seat) => seat.actorId === actorId);
-  return own?.kind === 'human' && own.role !== 'judge' && !local.devicesPassed;
+  return (
+    own?.kind === 'human' && !isJudgeSeat(own.seat) && !local.devicesPassed
+  );
 }
 
 /** One native versioned room command; CAP validates every value again. */

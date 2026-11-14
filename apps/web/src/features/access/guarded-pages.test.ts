@@ -109,6 +109,7 @@ mock.module(
   join(import.meta.dir, '../../app/(shell)/lobby/actions.ts'),
   () => ({
     roomListing: async () => ({ kind: 'found', rooms: [] }),
+    hostedRoomsRead: async () => [],
   }),
 );
 

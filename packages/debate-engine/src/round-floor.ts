@@ -1,4 +1,10 @@
-import { segmentDueAtMs } from '@daisy/protocol';
+import {
+  leadSeatOf,
+  prepConsumedOf,
+  sameSeat,
+  segmentDueAtMs,
+  sideOfSeat,
+} from '@daisy/protocol';
 import type { CommandContext } from './round-commands';
 
 const iso = (ms: number): string => new Date(ms).toISOString();
@@ -12,8 +18,8 @@ export const yieldFloor = (c: CommandContext): void => {
   const open = c.on.openRow()!;
   const seat = c.seatOf(c.actorId)!;
   const returnsTime = c.rules.interaction.yield?.returnsTime === true;
-  const scheduled = c.rules.segments[open.sequence]!;
-  if (seat.role !== scheduled.side || seat.slot !== scheduled.slot) {
+  const lead = leadSeatOf(c.rules.segments[open.sequence]!.speak);
+  if (lead === null || !sameSeat(seat.seat, lead)) {
     c.on.clearFloor();
     c.into.floorChange = {
       sequence: open.sequence,
@@ -23,11 +29,14 @@ export const yieldFloor = (c: CommandContext): void => {
     return;
   }
   const unused = segmentDueAtMs(open) - c.now;
-  if (returnsTime && c.rules.inRoundPrep !== null && unused > 0)
-    c.on.setPrepConsumed(
-      scheduled.side,
-      Math.max(0, c.on.checkpoint().prep_consumed_ms[scheduled.side] - unused),
-    );
+  const side = sideOfSeat(lead);
+  if (returnsTime && c.rules.inRoundPrep !== null && unused > 0 && side) {
+    const checkpoint = c.on.checkpoint();
+    c.on.setPrepConsumed({
+      ...checkpoint.prep_consumed_ms,
+      [side]: Math.max(0, prepConsumedOf(checkpoint, side) - unused),
+    });
+  }
   c.closeRowAt(open.sequence, c.now);
 };
 

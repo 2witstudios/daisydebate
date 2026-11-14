@@ -1,3 +1,4 @@
+import { daisyWinnerBallot, sideSeat, twoSides } from '@daisy/protocol';
 import { transcriptEvidence } from './transcript-evidence';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundJudgeMessages } from './round-judge';
@@ -7,42 +8,43 @@ test('shared judging prompt uses only scoped sides and honest frozen coverage', 
   const negative = {
     segmentSequence: 1,
     sequence: 1,
-    side: 'negative' as const,
-    slot: 1,
+    seat: sideSeat('negative', 1),
     text: 'Costs displace other services.',
     complete: false,
     interrupted: false,
     actorId: 'private-actor-identity',
     actorKind: 'bot',
   };
-  const messages = roundJudgeMessages({
-    resolution: 'Transit should be free',
-    revision: 2,
-    completeness: 'incomplete',
-    gaps: [],
-    coverage: [
-      {
-        sequence: 1,
-        side: 'affirmative',
-        slot: 0,
-        state: 'partial',
-        chunkCount: 2,
-        sealedChunkCount: 1,
-      },
-    ],
-    utterances: [
-      negative,
-      {
-        segmentSequence: 0,
-        sequence: 0,
-        side: 'affirmative',
-        slot: 0,
-        text: 'Access improves.',
-        complete: true,
-        interrupted: false,
-      },
-    ],
-  });
+  const messages = roundJudgeMessages(
+    {
+      resolution: 'Transit should be free',
+      revision: 2,
+      completeness: 'incomplete',
+      gaps: [],
+      coverage: [
+        {
+          sequence: 1,
+          seat: sideSeat('affirmative'),
+          state: 'partial',
+          chunkCount: 2,
+          sealedChunkCount: 1,
+        },
+      ],
+      utterances: [
+        negative,
+        {
+          segmentSequence: 0,
+          sequence: 0,
+          seat: sideSeat('affirmative'),
+          text: 'Access improves.',
+          complete: true,
+          interrupted: false,
+        },
+      ],
+    },
+    daisyWinnerBallot,
+    twoSides,
+  );
   const evidence = JSON.parse(
     messages[1]!.content.split('Frozen evidence:\n')[1]!.split('\n\n')[0]!,
   );
@@ -86,8 +88,7 @@ test('a capture gap reaches the judge in plain words', () => {
     gaps: [
       {
         sequence: 2,
-        side: 'negative',
-        slot: 0,
+        seat: sideSeat('negative'),
         fromOffsetMs: 40_000,
         untilOffsetMs: 52_000,
         cause: 'platform',
@@ -122,8 +123,7 @@ test('a gap says what is known about it', () => {
         gaps: [
           {
             sequence: 0,
-            side: 'affirmative',
-            slot: 0,
+            seat: sideSeat('affirmative'),
             fromOffsetMs: 0,
             untilOffsetMs: 700,
             cause,

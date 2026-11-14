@@ -1,0 +1,56 @@
+{
+  "affirmative": {
+    "affirmative": {
+      "after": {
+        "deviation": 185.68876485064465,
+        "rating": 1648.4236439531983,
+        "volatility": 0.060002847085557566
+      },
+      "before": {
+        "deviation": 200,
+        "rating": 1500,
+        "volatility": 0.06
+      }
+    },
+    "calculationVersion": "glicko2-v1",
+    "negative": {
+      "after": {
+        "deviation": 50.76997670267669,
+        "rating": 1691.0433349668363,
+        "volatility": 0.06000294352507785
+      },
+      "before": {
+        "deviation": 50,
+        "rating": 1700,
+        "volatility": 0.06
+      }
+    }
+  },
+  "negative": {
+    "affirmative": {
+      "after": {
+        "deviation": 185.68873846102943,
+        "rating": 1452.3917973269022,
+        "volatility": 0.059998565869826166
+      },
+      "before": {
+        "deviation": 200,
+        "rating": 1500,
+        "volatility": 0.06
+      }
+    },
+    "calculationVersion": "glicko2-v1",
+    "negative": {
+      "after": {
+        "deviation": 50.76983393614608,
+        "rating": 1703.4265511687138,
+        "volatility": 0.05999884346257201
+      },
+      "before": {
+        "deviation": 50,
+        "rating": 1700,
+        "volatility": 0.06
+      }
+    }
+  }
+}

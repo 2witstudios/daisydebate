@@ -1,9 +1,14 @@
 import { createAppError } from '@daisy/errors';
 import {
+  affirmativeSide,
   dueAfterStops,
+  negativeSide,
+  otherSide,
+  sideOfSeat,
+  twoSides,
   type ClockStop,
-  type DebateSide,
   type RoomAssemblyState,
+  type TwoSideKey,
 } from '@daisy/protocol';
 import { canonicalOrder } from '@daisy/seeded-random';
 import { automaticChoice, shuffle } from './draw-random';
@@ -68,20 +73,24 @@ export function drawResolutions(input: {
   };
 }
 
-const otherSide = (side: DebateSide): DebateSide =>
-  side === 'affirmative' ? 'negative' : 'affirmative';
+/**
+ * The strike is a pair's: a draw exists only in a two-sided format, so the
+ * other striker is the preset's other side.
+ */
+const otherStriker = (side: TwoSideKey): TwoSideKey =>
+  otherSide(twoSides, side) as TwoSideKey;
 
 /** One controller per side: automatic only when every debater seat is a bot. */
 export const sideControllers = (
   participants: RoomAssemblyState['participants'],
 ): SideControllers => {
-  const controller = (side: DebateSide) =>
-    participants.some((p) => p.role === side && p.kind === 'human')
+  const controller = (side: TwoSideKey) =>
+    participants.some((p) => sideOfSeat(p.seat) === side && p.kind === 'human')
       ? ('human' as const)
       : ('automatic' as const);
   return {
-    affirmative: controller('affirmative'),
-    negative: controller('negative'),
+    [affirmativeSide]: controller(affirmativeSide),
+    [negativeSide]: controller(negativeSide),
   };
 };
 
@@ -104,7 +113,7 @@ export const turnOf = (
   const side =
     ordinal % 2 === 0
       ? draw.manifest.firstStriker
-      : otherSide(draw.manifest.firstStriker);
+      : otherStriker(draw.manifest.firstStriker);
   const opensAt = Date.parse(
     ordinal === 0 ? draw.startedAt : draw.strikes[ordinal - 1]!.at,
   );

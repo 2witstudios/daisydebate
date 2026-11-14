@@ -73,6 +73,7 @@ export function composeRoomRoutes(app: App) {
     },
     list: (request: Request) => run(request, (h) => h.list(request)),
     active: (request: Request) => run(request, (h) => h.active(request)),
+    hosted: (request: Request) => run(request, (h) => h.hosted(request)),
     catalog: (request: Request) => run(request, (h) => h.catalog(request)),
     read: (request: Request, roomId: string) =>
       run(request, (h) => h.read(request, roomId)),

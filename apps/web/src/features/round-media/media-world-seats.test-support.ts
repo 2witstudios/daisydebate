@@ -20,19 +20,16 @@ export const seats = [
   {
     id: fixedId('seataff'),
     actorId: fixedId('actoraff'),
-    role: 'affirmative',
-    slot: 0,
+    seat: { kind: 'side', side: 'affirmative', slot: 0 },
   },
   {
     id: fixedId('seatneg'),
     actorId: fixedId('actorneg'),
-    role: 'negative',
-    slot: 0,
+    seat: { kind: 'side', side: 'negative', slot: 0 },
   },
   {
     id: fixedId('seatjudge'),
     actorId: fixedId('actorjudge'),
-    role: 'judge',
-    slot: 0,
+    seat: { kind: 'judge', slot: 0 },
   },
 ] as const;

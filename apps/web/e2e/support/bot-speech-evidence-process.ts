@@ -9,19 +9,19 @@ if (import.meta.main) {
   try {
     const roundId = idSchema.parse(Bun.argv[2]);
     const runs = await readLaunchDatabase(
-      (tx) => tx`select p.role,a.kind,
+      (tx) => tx`select p.seat_kind as "seatKind",p.side,p.slot,a.kind,
         case when a.kind='judging'
           then (case when t.answered_at is not null then 'received' end)
           else a.configuration_snapshot->>'providerOutcome' end as outcome,
         a.requests,a.input_tokens as "inputTokens",a.output_tokens as "outputTokens",a.characters
         from agent_runs a join round_participants p on p.id=a.round_participant_id
         left join round_judging_attempts t on t.agent_run_id=a.id
-        where p.round_id=${roundId} order by p.role,a.kind,a.started_at`,
+        where p.round_id=${roundId} order by p.seat_kind,p.side,p.slot,a.kind,a.started_at`,
     );
     const lines = await readLaunchDatabase(
       (
         tx,
-      ) => tx`select p.role,char_length(u.text) as characters,u.complete,u.interrupted
+      ) => tx`select p.seat_kind as "seatKind",p.side,p.slot,char_length(u.text) as characters,u.complete,u.interrupted
         from utterances u join round_participants p on p.id=u.round_participant_id
         join round_segments s on s.id=u.segment_id
         where u.round_id=${roundId} and u.bot_phrase_id is not null

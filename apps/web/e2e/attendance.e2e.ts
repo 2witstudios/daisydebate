@@ -1,4 +1,6 @@
+import { negativeSide, winnerOutcome } from '@daisy/protocol';
 import { test, expect } from './support/fixtures';
+import { leadSideOf } from './support/segment-lead';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { attendanceEvidence } from './support/attendance-evidence';
 import {
@@ -92,15 +94,14 @@ test('actual speech check-in survives refresh and a real browser network disconn
               segment.id !== speaker!.receipt.segmentId,
           );
           target = speech?.id;
-          return speech
-            ? next.rules.segments.find(
-                (rule) => rule.key === speech.rulesSegmentKey,
-              )?.side
-            : null;
+          const rule = next.rules.segments.find(
+            (entry) => entry.key === speech?.rulesSegmentKey,
+          );
+          return speech && rule ? leadSideOf(rule.speak) : null;
         },
         { timeout: 10_000 },
       )
-      .toBe('negative');
+      .toBe(negativeSide);
     if (!target) throw new Error('Actual opponent speech missing');
     const joined = speaker!.page.waitForResponse(
       (response) =>
@@ -156,8 +157,8 @@ for (const attendance of ['opponent-only', 'neither'] as const)
         )
         .toBe(attendance === 'neither' ? 'abandoned' : 'completed');
       const completed = await readBallotRound(host.request, round.id);
-      expect(completed.outcome).toBe(
-        attendance === 'neither' ? null : 'negative',
+      expect(completed.outcome).toEqual(
+        attendance === 'neither' ? null : winnerOutcome(negativeSide),
       );
       expect(completed.segments.at(-1)?.endedAt).toEqual(expect.any(String));
       const facts = await attendanceEvidence(round.id);

@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { isJudgeSeat } from '@daisy/protocol';
 import {
   oneOnOneCast,
   oneOnOneSeats,
@@ -25,7 +26,7 @@ test('Custom POI permits both sides to speak without transferring the scheduled 
     ),
     expected: [0, 1].map(() =>
       oneOnOneSeats
-        .filter((seat) => seat.role !== 'judge')
+        .filter((seat) => !isJudgeSeat(seat.seat))
         .map((seat) => seat.id),
     ),
   });
@@ -52,7 +53,7 @@ test('cross-examination keeps both microphones open and refuses every interrupti
       should: 'grant both debaters and not the judge',
       actual: grant?.kind === 'open' ? grant.participantIds : [],
       expected: oneOnOneSeats
-        .filter((seat) => seat.role !== 'judge')
+        .filter((seat) => !isJudgeSeat(seat.seat))
         .map((seat) => seat.id),
     });
     const before = world.position(at(331_000));

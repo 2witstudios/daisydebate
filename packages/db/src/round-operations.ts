@@ -1,4 +1,10 @@
-import type { CompetitionType, RoundRules } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpointFor,
+  roundRulesSchema,
+  type CompetitionType,
+  type RoundRules,
+} from '@daisy/protocol';
+import { frozenJudgingFor } from './round-judging-freeze';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -42,6 +48,15 @@ export const roundOperations = ({
     readonly rules: RoundRules;
   }): Promise<void> {
     await instrumented(eventSink, 'createRound', async () => {
+      // The checkpoint and judging are read from the rules, so the rules are
+      // checked first: a malformed body is a typed refusal, never a crash.
+      const parsed = roundRulesSchema.safeParse(input.rules);
+      if (!parsed.success)
+        throw createAppError(
+          'VALIDATION',
+          'Invalid value for jsonb column rules_snapshot',
+          parsed.error,
+        );
       try {
         await database.insert(rounds).values({
           id: input.id,
@@ -52,6 +67,8 @@ export const roundOperations = ({
           formatVersion: input.formatVersion,
           presetVersion: input.presetVersion,
           rulesSnapshot: input.rules,
+          judging: frozenJudgingFor(input.rules),
+          runtimeState: emptyRuntimeCheckpointFor(input.rules),
           status: 'opening',
           ladderId: roundLadder(input.competitionType, input.formatId),
         });

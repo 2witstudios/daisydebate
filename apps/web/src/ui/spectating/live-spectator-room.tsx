@@ -16,10 +16,8 @@ import {
 } from '../../features/round-runtime/observed-round';
 import { RoundClock } from '../debate-room/round-clock';
 import { ObservedSpeechOrder } from '../round-observed/speech-order';
-import {
-  observedActivityLabel,
-  observedSideInk,
-} from '../round-observed/observed-labels';
+import { observedActivityLabel } from '../round-observed/observed-labels';
+import { toneInk } from '../debate-room/side-tone';
 import { RoundEndedNotice } from '../debate-room/round-ended';
 import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
@@ -37,8 +35,6 @@ const spectatorKindLabel: Readonly<Record<SpectatorKind, string>> = {
 const spectatorKindRoster: Readonly<Record<SpectatorKind, string>> = {
   'undelayed-observer': 'host, watching',
 };
-
-const sideLabel = { affirmative: 'Affirmative', negative: 'Negative' } as const;
 
 const eyebrowClass = 'text-xs font-bold tracking-wide text-ink-muted uppercase';
 const cardClass = 'rounded-xl border border-border bg-surface-raised';
@@ -73,7 +69,7 @@ function SeatTile({ seat }: { readonly seat: ObservedSeat }) {
       <span>
         <span className="block font-strong wrap-anywhere">{seat.label}</span>
         <span className="text-sm text-stage-ink-muted">
-          {sideLabel[seat.side]}
+          {seat.sideLabel}
           {seat.bot ? ' · Bot' : ''}
         </span>
       </span>
@@ -183,7 +179,7 @@ export function LiveSpectatorRoom(props: {
         className="grid grid-cols-2 gap-4 max-narrow:gap-3"
       >
         {watched.seats.map((seat) => (
-          <SeatTile key={seat.side} seat={seat} />
+          <SeatTile key={seat.key} seat={seat} />
         ))}
       </ul>
       <p className="text-sm text-ink-muted">
@@ -202,11 +198,9 @@ export function LiveSpectatorRoom(props: {
         </h2>
         <ul className="flex flex-col gap-2">
           {watched.seats.map((seat) => (
-            <li key={seat.side}>
+            <li key={seat.key}>
               <span className="font-strong">{seat.label}</span>{' '}
-              <span className={observedSideInk[seat.side]}>
-                · {sideLabel[seat.side]}
-              </span>
+              <span className={toneInk[seat.tone]}>· {seat.sideLabel}</span>
             </li>
           ))}
           {watched.judge ? (

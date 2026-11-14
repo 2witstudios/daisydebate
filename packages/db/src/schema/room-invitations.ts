@@ -1,4 +1,8 @@
-import { roomInvitationStates, roomSeatKinds } from '@daisy/protocol';
+import {
+  roomInvitationStates,
+  seatKinds,
+  type SeatKind,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAtColumn, oneOf, timestampColumn } from './columns';
@@ -25,7 +29,7 @@ export const roomInvitations = pgTable(
     inviterActorId: text('inviter_actor_id')
       .notNull()
       .references(() => actors.id, { onDelete: 'cascade' }),
-    seat: text('seat').notNull(),
+    seat: text('seat').$type<SeatKind>().notNull(),
     state: text('state').notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
     endedAt: timestampColumn('ended_at'),
@@ -41,7 +45,7 @@ export const roomInvitations = pgTable(
     index('room_invitations_ended_idx')
       .on(table.endedAt)
       .where(sql`${table.endedAt} is not null`),
-    check('room_invitations_seat_check', oneOf(table.seat, roomSeatKinds)),
+    check('room_invitations_seat_check', oneOf(table.seat, seatKinds)),
     check(
       'room_invitations_state_check',
       oneOf(table.state, roomInvitationStates),

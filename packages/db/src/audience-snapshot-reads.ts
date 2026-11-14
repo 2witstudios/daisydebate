@@ -1,6 +1,7 @@
 import {
   isRoundOver,
   type RoundStatus,
+  type SeatKind,
   SPECTATOR_CHAT_WINDOW,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -72,13 +73,13 @@ export const audienceSnapshotReads = ({
   }) {
     return instrumented(eventSink, 'readLiveRoomStanding', async () => {
       const [row] = await rowsOf<{
-        role: string | null;
+        seat_kind: SeatKind | null;
         competition_type: 'ranked' | 'casual';
         status: RoundStatus;
         debaters_read_chat: boolean | null;
       }>(
         database,
-        sql`select p.role,r.competition_type,r.status,b.debaters_read_chat
+        sql`select p.seat_kind,r.competition_type,r.status,b.debaters_read_chat
           from rounds r
           left join round_participants p on p.round_id=r.id and p.actor_id=${input.actorId}
           left join broadcasts b on b.round_id=r.id
@@ -87,11 +88,11 @@ export const audienceSnapshotReads = ({
           limit 1`,
       );
       if (!row) return null;
-      return row.role === null
+      return row.seat_kind === null
         ? ({ kind: 'seatless-host' } as const)
         : ({
             kind: 'seat',
-            role: row.role,
+            seatKind: row.seat_kind,
             competitionType: row.competition_type,
             roundEnded: isRoundOver(row.status),
             debatersReadChat: row.debaters_read_chat === true,
