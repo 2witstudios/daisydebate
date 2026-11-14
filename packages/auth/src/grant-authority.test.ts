@@ -397,6 +397,43 @@ describe('giving a role', () => {
       ],
     });
   });
+  test('authority the giver is too young to use does not outrank', () => {
+    const teen = { ageBand: '16-17' as const };
+    const junior = lobbyGrant(
+      'hosted',
+      ['organization.roles.manage', 'lobby.announce'],
+      { roleRank: 1, staffMinimumBand: '16-17' },
+    );
+    const gives = (
+      actorId: string,
+      grants: Asker['grants'],
+      roleRank: number,
+      account: Asker['account'] = teen,
+    ) =>
+      ask('organization.roles.manage', target, {
+        actorId,
+        account,
+        grants,
+        roleGiven: { permissions: ['lobby.announce'], roleRank },
+      }).allow;
+    const seniorAdultOnly = lobbyGrant('hosted', [], {
+      grantId: 'grant-2',
+      roleRank: 50,
+    });
+    assert({
+      given:
+        'a 16-17 with a usable rank 1 role: as the lobby’s owner, with an adult-only rank 50 role beside it, and an adult with the same two roles',
+      should:
+        'refuse the 16-17 a rank 20 role both ways, and allow the adult, who may use the senior role',
+      actual: [
+        gives('host', [junior], 20),
+        gives('person', [junior, seniorAdultOnly], 20),
+        gives('person', [junior, seniorAdultOnly], 20, { ageBand: 'adult' }),
+        gives('person', [junior], 0),
+      ],
+      expected: [false, false, true, true],
+    });
+  });
   test('no chain of gifts yields a permission the first giver lacks', () => {
     const held: readonly Permission[] = [
       'organization.roles.manage',

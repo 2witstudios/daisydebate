@@ -70,6 +70,7 @@ export type {
   OrganizationAuthorizationFact,
   RoleGivenFact,
   RoomOwnerFact,
+  TournamentScopeFact,
   VideoSubjectsFact,
   ViewerAudience,
   ViewingFact,
@@ -221,17 +222,23 @@ function serviceDecision(
     : deny('missing-capability');
 }
 /** The sole pure decision. Load under producer locks and reevaluate after waits. */
-export function authorize({
-  principal,
-  capability,
-  resource,
-  context,
-}: AuthorizationInput): AuthorizationDecision {
+export function authorize(input: AuthorizationInput): AuthorizationDecision {
+  const { capability, resource } = input;
   if (
     !authorizationCapabilitySchema.safeParse(capability).success ||
     !validResourceKind(capability, resource)
   )
     return deny('denied');
+  // Every answer about a fixture's resource carries the conflict, a deny
+  // made before the member's own rule included.
+  return withConflict(capability, resource, askedDecision(input));
+}
+function askedDecision({
+  principal,
+  capability,
+  resource,
+  context,
+}: AuthorizationInput): AuthorizationDecision {
   if (context.account?.erased) return deny('account-erased');
   const serviceRouted = serviceRoute(principal, capability, resource, context);
   if (serviceRouted) return serviceRouted;
@@ -241,7 +248,7 @@ export function authorize({
     return deny('missing-capability');
   if (!boundaryAdmits(principal.actorId, capability, resource, context))
     return deny('restricted');
-  return memberDecision(principal.actorId, capability, resource, context);
+  return unconflictedDecision(principal.actorId, capability, resource, context);
 }
 /**
  * A bound member holds a capability only with participant access (ADR
@@ -331,19 +338,28 @@ type MemberResource = Exclude<
   }
 >;
 /**
- * The member's answer, carrying their conflict with the resource's fixture
- * when they have one.
+ * The answer to a held command's own question, asked for the person
+ * confirming it. A held command is a stored row: a capability the
+ * vocabulary no longer names is denied, and a minor's boundary bounds it
+ * like any other question.
  */
-function memberDecision(
+function heldDecision(
   actorId: string,
-  capability: AuthorizationCapability,
-  resource: MemberResource,
+  held: AuthorizationCapability,
+  target: MemberResource,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
+  if (
+    !authorizationCapabilitySchema.safeParse(held).success ||
+    !validResourceKind(held, target)
+  )
+    return deny('denied');
   return withConflict(
-    capability,
-    resource,
-    unconflictedDecision(actorId, capability, resource, context),
+    held,
+    target,
+    boundaryAdmits(actorId, held, target, context)
+      ? unconflictedDecision(actorId, held, target, context)
+      : deny('restricted'),
   );
 }
 function unconflictedDecision(
@@ -361,10 +377,7 @@ function unconflictedDecision(
       capability,
       resource,
       context,
-      (held, target) =>
-        validResourceKind(held, target)
-          ? memberDecision(actorId, held, target, context)
-          : deny('denied'),
+      (held, target) => heldDecision(actorId, held, target, context),
     );
   if (resource.kind === 'channel_reaction') {
     if (

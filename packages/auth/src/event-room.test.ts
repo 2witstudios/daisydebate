@@ -4,9 +4,11 @@ import { capabilityMetadata } from '@daisy/protocol/capability-metadata';
 import { allowFixed, allowUnder, deny } from './authorization-decision';
 import { roomAllowed, roundAllowed } from './authorization-room';
 import {
+  asEventScope,
   ask,
   eventRoom,
   eventRound,
+  leagueTournament,
   lobbyGrant,
   organizationGrant,
   permissions,
@@ -179,6 +181,67 @@ describe('an ordinary Room', () => {
           ? allowFixed
           : deny('missing-capability'),
       ),
+    });
+  });
+});
+
+describe('an event Room outside a tournament', () => {
+  test('cannot be written, and is refused if a loader writes it anyway', () => {
+    const officiator = {
+      grants: [organizationGrant('league', ['tournament.rooms.officiate'])],
+    };
+    const misplaced = eventRoom({
+      // @ts-expect-error an event Room's lobby is a tournament: a standing lobby does not typecheck.
+      scope: standing,
+    });
+    assert({
+      given:
+        'a league officiator asked about an event Room and Round placed in the league’s standing lobby, and in its tournament',
+      should:
+        'deny every question about the misplaced ones and still allow the tournament’s',
+      actual: [
+        ask('room.manage', misplaced, officiator),
+        ask('room.read', misplaced, officiator),
+        ask(
+          'round.observe.undelayed',
+          eventRound({ scope: asEventScope(standing) }),
+          officiator,
+        ),
+        ask('room.manage', eventRoom({ scope: leagueTournament }), officiator)
+          .allow,
+      ],
+      expected: [
+        ...Array(3).fill({ allow: false, reason: 'denied', conflict: null }),
+        true,
+      ],
+    });
+  });
+  test('an officiator is an official for a guardian’s video cap', () => {
+    const capped = {
+      video: { minorSeated: true, guardianCap: 'officials' as const },
+    };
+    const officiator = {
+      grants: [lobbyGrant('hosted', ['tournament.rooms.officiate'])],
+    };
+    assert({
+      given:
+        'a Room whose seated ward is capped at officials, read by an officiator and by a stranger it is released to',
+      should: 'show it to the officiator who runs it and not to the stranger',
+      actual: [
+        ask('room.read', eventRoom(capped), officiator).allow,
+        ask('round.read', eventRound(capped), officiator).allow,
+        ask(
+          'room.read',
+          eventRoom({
+            ...capped,
+            viewing: {
+              audiences: [],
+              releases: [{ thing: 'video', audience: 'public' }],
+            },
+          }),
+        ).allow,
+      ],
+      expected: [true, true, false],
     });
   });
 });

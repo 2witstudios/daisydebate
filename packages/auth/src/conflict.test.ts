@@ -245,3 +245,68 @@ describe('confirming a held command', () => {
     });
   });
 });
+
+describe('a decision made before the person’s own rule', () => {
+  test('still carries the conflict', () => {
+    const seatedOutside = {
+      actorId: 'seat',
+      account: {
+        boundary: {
+          allowedLobbyIds: ['standing'],
+          entryLobbyIds: [],
+          revision: 1,
+        },
+      },
+    };
+    assert({
+      given:
+        'a connected, bounded minor asking about a fixture and an event Room outside the boundary, and an erased account',
+      should: 'deny each and return the conflict with it',
+      actual: [
+        ask(
+          'result.read',
+          fixture(hosted, { conflict: connected('flagged') }),
+          seatedOutside,
+        ),
+        ask(
+          'room.read',
+          eventRoom({ conflict: connected('flagged') }),
+          seatedOutside,
+        ),
+        ask(
+          'result.read',
+          fixture(hosted, { conflict: connected('flagged') }),
+          {
+            account: { erased: true },
+          },
+        ),
+      ].map((decision) => [
+        decision.allow ? 'allow' : decision.reason,
+        decision.conflict?.connections.join(),
+      ]),
+      expected: [
+        ['restricted', 'school_entry'],
+        ['restricted', 'school_entry'],
+        ['account-erased', 'school_entry'],
+      ],
+    });
+  });
+  test('denies a held command whose capability is no longer in the vocabulary', () => {
+    assert({
+      given: 'a stored held command naming a capability that was since removed',
+      should: 'deny the confirmation instead of throwing',
+      actual: ask(
+        'command.confirm',
+        {
+          kind: 'pending_command',
+          proposerActorId: 'proposer',
+          // @ts-expect-error a stored row can outlive the capability it names.
+          capability: 'tournament.results.retired',
+          target: fixture(hosted),
+        },
+        staff,
+      ),
+      expected: { allow: false, reason: 'denied', conflict: null },
+    });
+  });
+});

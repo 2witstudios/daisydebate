@@ -58,7 +58,10 @@ export type OrganizationKind = z.infer<typeof organizationKindSchema>;
 
 /**
  * How far a capability reaches for a minor whose guardian limits their
- * lobbies: into a lobby, to another person, or neither.
+ * lobbies: into a lobby, to another person, or neither. Every permission and
+ * everything decided through one reaches into the lobby it is used in, so a
+ * role never opens a lobby the guardian has not. The ways out (declining,
+ * withdrawing, leaving, blocking, reporting) reach nothing.
  */
 export type CapabilityReach = 'lobby' | 'person' | null;
 
@@ -128,16 +131,16 @@ const rows: Record<AuthorizationCapability, Row> = {
   'foundation.create': on(['foundation'], null),
   'foundation.read': on(['foundation'], null, read),
   'round.read': on(['round'], 'lobby', read),
-  'round.observe.undelayed': on(['round'], null, { ...read, ...conflicted }),
+  'round.observe.undelayed': on(['round'], 'lobby', { ...read, ...conflicted }),
   'round.transcript.read': on(['round'], null, read),
   'round.analysis.read': on(['round'], null, read),
   'round.analysis.request': on(['round'], null),
   'member.history.read': on(['member_history'], 'person', read),
-  'room.create': on(['room_collection'], null),
+  'room.create': on(['room_collection'], 'lobby'),
   'room.list': on(['room_collection', 'lobby'], 'lobby', read),
   'room.read': on(['room'], 'lobby', read),
   'room.join': on(['room'], 'lobby'),
-  'room.manage': on(['room'], null, conflicted),
+  'room.manage': on(['room'], 'lobby', conflicted),
   'room.ready': on(['room'], null),
   'room.leave': on(['room'], null),
   'channel.inbox.read': on(['messaging_collection'], null, read),
@@ -190,41 +193,41 @@ const rows: Record<AuthorizationCapability, Row> = {
   'moderation.collection.read': on(['account_collection'], null, read),
   'moderation.lift': on(['account_collection'], null),
 
-  'organization.manage': on(['organization', 'template'], null),
-  'organization.roles.manage': on(['organization', 'lobby'], null),
-  'lobby.setup.manage': on(['organization', 'lobby'], null),
-  'lobby.announce': on(['lobby'], null),
-  'action_history.read': on(['organization', 'lobby'], null, read),
-  'tournament.entries.manage': on(['lobby'], null, tournament),
-  'tournament.draw.edit': on(['tab_round', 'draw', 'fixture'], null, {
+  'organization.manage': on(['organization', 'template'], 'lobby'),
+  'organization.roles.manage': on(['organization', 'lobby'], 'lobby'),
+  'lobby.setup.manage': on(['organization', 'lobby'], 'lobby'),
+  'lobby.announce': on(['lobby'], 'lobby'),
+  'action_history.read': on(['organization', 'lobby'], 'lobby', read),
+  'tournament.entries.manage': on(['lobby'], 'lobby', tournament),
+  'tournament.draw.edit': on(['tab_round', 'draw', 'fixture'], 'lobby', {
     ...tournament,
     ...conflicted,
   }),
-  'tournament.draw.publish': on(['draw'], null, tournament),
-  'tournament.rooms.officiate': on(['fixture'], null, {
+  'tournament.draw.publish': on(['draw'], 'lobby', tournament),
+  'tournament.rooms.officiate': on(['fixture'], 'lobby', {
     ...tournament,
     ...conflicted,
   }),
-  'tournament.results.enter': on(['fixture'], null, {
+  'tournament.results.enter': on(['fixture'], 'lobby', {
     ...tournament,
     ...conflicted,
   }),
-  'tournament.results.release': on(['lobby', 'tab_round'], null, tournament),
-  'tournament.ballots.read_unreleased': on(['fixture', 'ballot'], null, {
+  'tournament.results.release': on(['lobby', 'tab_round'], 'lobby', tournament),
+  'tournament.ballots.read_unreleased': on(['fixture', 'ballot'], 'lobby', {
     ...tournamentRead,
     ...conflicted,
   }),
   'tournament.resolutions.read_unreleased': on(
     ['tab_round'],
-    null,
+    'lobby',
     tournamentRead,
   ),
-  'school.roster.manage': on(['organization'], null, school),
-  'school.ballots.read': on(['organization'], null, { ...school, ...read }),
+  'school.roster.manage': on(['organization'], 'lobby', school),
+  'school.ballots.read': on(['organization'], 'lobby', { ...school, ...read }),
 
   'organization.create': on(['organization_collection'], null),
   'organization.read': on(['organization'], null, read),
-  'organization.host.read': on(['organization'], null, read),
+  'organization.host.read': on(['organization'], 'lobby', read),
   'organization.membership.respond': on(['membership'], null),
   'organization.membership.leave': on(['membership'], null),
   'organization.owner.transfer': on(['organization'], null),
@@ -233,14 +236,14 @@ const rows: Record<AuthorizationCapability, Row> = {
   'guardian.link.read': on(['guardian_link'], null, read),
   'lobby.create': on(['lobby_collection'], null),
   'lobby.read': on(['lobby'], 'lobby', read),
-  'lobby.host.read': on(['lobby'], null, read),
+  'lobby.host.read': on(['lobby'], 'lobby', read),
   'lobby.room.create': on(['lobby'], 'lobby', { lobbyKind: 'standing' }),
   'template.read': on(['template'], null, read),
   'entry.submit': on(['entry'], null, tournament),
   'entry.withdraw': on(['entry'], null, tournament),
   'entry.read': on(['entry'], null, tournamentRead),
-  'judge.invitation.respond': on(['judge'], null, tournament),
-  'judge.availability.update': on(['judge'], null, tournament),
+  'judge.invitation.respond': on(['judge'], 'lobby', tournament),
+  'judge.availability.update': on(['judge'], 'lobby', tournament),
   'posting.read': on(['draw'], 'lobby', tournamentRead),
   'result.read': on(['fixture'], 'lobby', tournamentRead),
   'ballot.read': on(['ballot'], 'lobby', tournamentRead),
@@ -248,7 +251,7 @@ const rows: Record<AuthorizationCapability, Row> = {
   'resolution.read': on(['tab_round'], 'lobby', tournamentRead),
   'command.confirm': on(['pending_command'], null),
   'command.withdraw': on(['pending_command'], null),
-  'sanction.read': on(['sanction'], null, read),
+  'sanction.read': on(['sanction'], 'lobby', tournamentRead),
 };
 
 const grantable: readonly string[] = permissionSchema.options;

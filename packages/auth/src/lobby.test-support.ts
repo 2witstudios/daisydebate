@@ -11,9 +11,11 @@ import { authorize, type AuthorizationInput } from './authorization';
 import type {
   ConflictFact,
   GrantFact,
+  LeagueAuthorizationFact,
   LobbyAuthorizationFact,
   LobbyScopeFact,
   OrganizationAuthorizationFact,
+  TournamentScopeFact,
   ViewingFact,
 } from './authorization-lobby-facts';
 
@@ -36,7 +38,7 @@ export const organization = (
 });
 export const league = organization('league', {
   standingLobbyIds: ['standing'],
-});
+}) as LeagueAuthorizationFact;
 export const school = organization('school', { organizationKind: 'school' });
 /** A league's standing lobby, a person's tournament and the league's tournament. */
 export const standing: LobbyScopeFact = {
@@ -44,17 +46,24 @@ export const standing: LobbyScopeFact = {
   lobbyKind: 'standing',
   owner: { kind: 'organization', organization: league },
 };
-export const hosted: LobbyScopeFact = {
+export const hosted: TournamentScopeFact = {
   lobbyId: 'hosted',
   lobbyKind: 'tournament',
   owner: { kind: 'person', actorId: 'host' },
 };
-export const leagueTournament: LobbyScopeFact = {
+export const leagueTournament: TournamentScopeFact = {
   lobbyId: 'league-tournament',
   lobbyKind: 'tournament',
   owner: { kind: 'organization', organization: league },
 };
 export const scopes = [standing, hosted, leagueTournament];
+/**
+ * Any lobby written as the lobby of an event's thing. The fact types refuse
+ * a standing lobby there; the cast is what a wrong loader would hand over,
+ * so a test can show the evaluator refuses it too.
+ */
+export const asEventScope = (scope: LobbyScopeFact) =>
+  scope as TournamentScopeFact;
 
 export const grant = (over: Partial<GrantFact> = {}): GrantFact => ({
   grantId: 'grant-1',
@@ -105,7 +114,7 @@ export const fixture = (
 ): Extract<Resource, { kind: 'fixture' }> => ({
   kind: 'fixture',
   fixtureId: 'fixture',
-  scope,
+  scope: asEventScope(scope),
   conflict: noConflict,
   viewing: noViewing,
   ...over,
@@ -117,21 +126,22 @@ export function permissionResource(
   scope: LobbyScopeFact,
   owner: OrganizationAuthorizationFact,
 ): Resource {
+  const event = asEventScope(scope);
   const resources: Partial<Record<AuthorizationResourceKind, Resource>> = {
     organization: owner,
     template: { kind: 'template', organization: owner },
     lobby: lobbyFact(scope),
     tab_round: {
       kind: 'tab_round',
-      scope,
+      scope: event,
       viewing: noViewing,
       resolutionReleased: false,
     },
-    draw: { kind: 'draw', scope, viewing: noViewing },
+    draw: { kind: 'draw', scope: event, viewing: noViewing },
     fixture: fixture(scope),
     ballot: {
       kind: 'ballot',
-      scope,
+      scope: event,
       conflict: noConflict,
       viewing: noViewing,
       part: 'decision',
@@ -162,6 +172,7 @@ export type Asker = {
   /** Left out, the question asks only whether the person manages roles. */
   readonly roleGiven?: AuthorizationInput['context']['roleGiven'] | 'omitted';
   readonly counterparts?: AuthorizationInput['context']['counterparts'];
+  readonly answer?: AuthorizationInput['context']['answer'];
 };
 /** An admitted adult asking, unless the asker says otherwise. */
 export function ask(
@@ -192,6 +203,7 @@ export function ask(
         ? {}
         : { roleGiven: asker.roleGiven ?? null }),
       ...(asker.counterparts ? { counterparts: asker.counterparts } : {}),
+      ...(asker.answer ? { answer: asker.answer } : {}),
     },
   });
 }

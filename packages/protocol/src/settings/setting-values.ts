@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { conflictHandlingSchema } from '../authorization';
-import { interruptionModeSchema, MAX_PRE_ROUND_PREP_MS } from '../format';
+import { MAX_PRE_ROUND_PREP_MS } from '../format';
+import { formatSettingsFields } from '../format-settings';
 import { idSchema } from '../primitives';
 import {
   MAX_DRAW_SIZE,
@@ -63,13 +64,23 @@ export const standingsMetricSchema = z.enum([
 const breakLine = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('fixed'), size }),
   z.strictObject({ kind: z.literal('record'), wins: count }),
-  z.strictObject({
-    kind: z.literal('record_capped'),
-    wins: count,
-    cap: size,
-    floor: size,
-  }),
-  z.strictObject({ kind: z.literal('tie_inclusive'), size, ceiling: size }),
+  z
+    .strictObject({
+      kind: z.literal('record_capped'),
+      wins: count,
+      cap: size,
+      floor: size,
+    })
+    .refine((line) => line.floor <= line.cap, {
+      message: 'The floor is at most the cap.',
+      path: ['floor'],
+    }),
+  z
+    .strictObject({ kind: z.literal('tie_inclusive'), size, ceiling: size })
+    .refine((line) => line.size <= line.ceiling, {
+      message: 'The ceiling is at least the size.',
+      path: ['ceiling'],
+    }),
 ]);
 const divisionKey = z.string().regex(/^[a-z][a-z0-9_]{0,31}$/);
 const division = z.strictObject({
@@ -208,15 +219,13 @@ export const settingValueSchemas = {
     inRoundPrepMsPerSide: count,
     countdownMs: count,
   }),
+  /**
+   * The format's own two schemas: null exactly where the format forbids
+   * interruptions or yielding, so no value is invented for it.
+   */
   'room.floor': z.strictObject({
-    interruptions: z.strictObject({
-      mode: interruptionModeSchema,
-      minRemainingMs: count,
-    }),
-    yielding: z.strictObject({
-      allowed: z.boolean(),
-      returnsTime: z.boolean(),
-    }),
+    interruptions: formatSettingsFields.interruptions,
+    yielding: formatSettingsFields.yielding,
   }),
   'staff.minimum_band': choice(['adult', '16-17']),
 } satisfies Record<keyof typeof forceKeys, z.ZodType> &

@@ -222,6 +222,42 @@ describe('guardian links', () => {
       ],
     });
   });
+  test('made through a school are also the roster manager’s to end', () => {
+    const coachLink: Resource = {
+      kind: 'guardian_link',
+      guardianActorId: 'coach',
+      wardActorId: 'ward',
+      via: school,
+    };
+    assert({
+      given:
+        'a link a school made naming a coach, managed by the coach, the school’s roster manager, a stranger, and a roster manager asked of a parent’s link',
+      should:
+        'let the coach and the roster manager manage it, and leave a parent’s link to the parent',
+      actual: [
+        reason(ask('guardian.link.manage', coachLink, { actorId: 'coach' })),
+        ask('guardian.link.manage', coachLink, rosterManager),
+        reason(ask('guardian.link.manage', coachLink, {})),
+        reason(
+          ask(
+            'guardian.link.manage',
+            { ...coachLink, via: null },
+            rosterManager,
+          ),
+        ),
+      ],
+      expected: [
+        'allow',
+        {
+          allow: true,
+          authority: { kind: 'grant', grantId: 'grant-1' },
+          conflict: null,
+        },
+        'missing-capability',
+        'missing-capability',
+      ],
+    });
+  });
 });
 
 describe('lobbies', () => {

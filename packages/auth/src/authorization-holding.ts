@@ -107,6 +107,24 @@ export const coveringGrants = (
     .filter((grant) => live(grant, holder.now) && covers(grant, target))
     .sort(narrowestFirst);
 
+/** Ownership the person is old enough to use: an owner acts as an adult. */
+export const usableOwner = (
+  holder: Holder,
+  target: AuthorityTarget,
+): DecisionAuthority | null =>
+  bandAtLeast(holder.ageBand, 'adult')
+    ? ownerAuthority(holder.actorId, target)
+    : null;
+
+/** The covering grants the person is old enough to use. */
+export const usableGrants = (
+  holder: Holder,
+  target: AuthorityTarget,
+): readonly GrantFact[] =>
+  coveringGrants(holder, target).filter((grant) =>
+    bandAtLeast(holder.ageBand, grant.staffMinimumBand),
+  );
+
 export type Holding =
   | { readonly held: true; readonly authority: DecisionAuthority }
   | {
@@ -161,10 +179,8 @@ export function hostAuthority(
   holder: Holder,
   target: AuthorityTarget,
 ): DecisionAuthority | null {
-  const owner = ownerAuthority(holder.actorId, target);
-  if (owner && bandAtLeast(holder.ageBand, 'adult')) return owner;
-  const grant = coveringGrants(holder, target).find((candidate) =>
-    bandAtLeast(holder.ageBand, candidate.staffMinimumBand),
-  );
+  const owner = usableOwner(holder, target);
+  if (owner) return owner;
+  const [grant] = usableGrants(holder, target);
   return grant ? { kind: 'grant', grantId: grant.grantId } : null;
 }

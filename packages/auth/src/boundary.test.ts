@@ -10,8 +10,13 @@ import {
   insideBoundary,
   type BoundaryFilter,
 } from './authorization-boundary';
-import type { BoundaryFact, LobbyScopeFact } from './authorization-lobby-facts';
+import type {
+  BoundaryFact,
+  LobbyScopeFact,
+  TournamentScopeFact,
+} from './authorization-lobby-facts';
 import {
+  asEventScope,
   ask,
   eventRoom,
   fixture,
@@ -19,6 +24,7 @@ import {
   league,
   leagueTournament,
   lobbyFact,
+  lobbyGrant,
   noConflict,
   noViewing,
   organization,
@@ -38,7 +44,7 @@ const otherStanding: LobbyScopeFact = {
   lobbyKind: 'standing',
   owner: { kind: 'organization', organization: otherLeague },
 };
-const otherTournament: LobbyScopeFact = {
+const otherTournament: TournamentScopeFact = {
   lobbyId: 'other-tournament',
   lobbyKind: 'tournament',
   owner: { kind: 'organization', organization: otherLeague },
@@ -71,36 +77,77 @@ const boundary = (
 });
 const everyone = { audiences: [], releases: [] };
 
-/** One resource in a lobby for each capability that reaches into a lobby. */
-const inLobby = (scope: LobbyScopeFact): Record<string, Resource> => ({
-  'round.read': round({
+/**
+ * One resource in a lobby for each capability that can be asked of a thing
+ * in one. A tournament capability is asked only of tournaments below.
+ */
+const inLobby = (scope: LobbyScopeFact): Record<string, Resource> => {
+  const event = asEventScope(scope);
+  const ownedRoom = room({
     visibility: 'public',
     owner: { kind: 'person', scope },
-  }),
-  'room.list': lobbyFact(scope, { postingAudiences: ['public'] }),
-  'room.read': room({ visibility: 'public', owner: { kind: 'person', scope } }),
-  'room.join': room({ visibility: 'public', owner: { kind: 'person', scope } }),
-  'lobby.read': lobbyFact(scope, { postingAudiences: ['public'] }),
-  'lobby.room.create': lobbyFact(scope, {
-    viewing: { audiences: ['participants'], releases: [] },
-  }),
-  'posting.read': { kind: 'draw', scope, viewing: everyone },
-  'result.read': fixture(scope),
-  'ballot.read': {
-    kind: 'ballot',
-    scope,
-    conflict: noConflict,
-    viewing: noViewing,
-    part: 'scores',
-  },
-  'standings.read': lobbyFact(scope),
-  'resolution.read': {
+  });
+  const ownedRound = round({
+    visibility: 'public',
+    owner: { kind: 'person', scope },
+  });
+  const lobby = lobbyFact(scope, { postingAudiences: ['public'] });
+  const draw: Resource = { kind: 'draw', scope: event, viewing: everyone };
+  const tabRound: Resource = {
     kind: 'tab_round',
-    scope,
+    scope: event,
     viewing: everyone,
     resolutionReleased: true,
-  },
-});
+  };
+  const judge: Resource = { kind: 'judge', scope: event, actorId: 'person' };
+  return {
+    'round.read': ownedRound,
+    'round.observe.undelayed': ownedRound,
+    'room.list': lobby,
+    'room.read': ownedRoom,
+    'room.join': ownedRoom,
+    'room.manage': ownedRoom,
+    'lobby.read': lobby,
+    'lobby.host.read': lobby,
+    'lobby.room.create': lobbyFact(scope, {
+      viewing: { audiences: ['participants'], releases: [] },
+    }),
+    'organization.roles.manage': lobby,
+    'lobby.setup.manage': lobby,
+    'lobby.announce': lobby,
+    'action_history.read': lobby,
+    'tournament.entries.manage': lobby,
+    'tournament.draw.edit': draw,
+    'tournament.draw.publish': draw,
+    'tournament.rooms.officiate': fixture(scope),
+    'tournament.results.enter': fixture(scope),
+    'tournament.results.release': lobby,
+    'tournament.ballots.read_unreleased': fixture(scope),
+    'tournament.resolutions.read_unreleased': tabRound,
+    'judge.invitation.respond': judge,
+    'judge.availability.update': judge,
+    'sanction.read': { kind: 'sanction', league, scope: event },
+    'posting.read': draw,
+    'result.read': fixture(scope),
+    'ballot.read': {
+      kind: 'ballot',
+      scope: event,
+      conflict: noConflict,
+      viewing: noViewing,
+      part: 'scores',
+    },
+    'standings.read': lobbyFact(scope),
+    'resolution.read': tabRound,
+  };
+};
+/** Lobby-reach capabilities asked of no lobby: an organization, or nothing. */
+const outsideAnyLobby = [
+  'room.create',
+  'organization.manage',
+  'school.roster.manage',
+  'school.ballots.read',
+  'organization.host.read',
+];
 const lobbyReach = authorizationCapabilitySchema.options.filter(
   (capability) => capabilityMetadata[capability].reach === 'lobby',
 );
@@ -145,18 +192,20 @@ describe('a minor’s boundary', () => {
   });
 
   test('denies every lobby capability outside it and none inside it', () => {
-    const cases = lobbyReach.flatMap((capability) =>
-      lobbies
-        .map((scope) => ({
-          capability,
-          scope,
-          resource: inLobby(scope)[capability]!,
-        }))
-        .filter(({ capability, scope }) => {
-          const kind = capabilityMetadata[capability].lobbyKind;
-          return kind === null || kind === scope.lobbyKind;
-        }),
-    );
+    const cases = lobbyReach
+      .filter((capability) => !outsideAnyLobby.includes(capability))
+      .flatMap((capability) =>
+        lobbies
+          .map((scope) => ({
+            capability,
+            scope,
+            resource: inLobby(scope)[capability]!,
+          }))
+          .filter(({ capability, scope }) => {
+            const kind = capabilityMetadata[capability].lobbyKind;
+            return kind === null || kind === scope.lobbyKind;
+          }),
+      );
     assert({
       given:
         'every lobby-reach capability in every lobby, for every boundary over five lobbies',
@@ -175,8 +224,9 @@ describe('a minor’s boundary', () => {
     });
     assert({
       given: 'the lobby-reach capabilities the cases cover',
-      should: 'be every one the protocol names',
-      actual: Object.keys(inLobby(standing)).sort(),
+      should:
+        'be every one the protocol names, but those asked of an organization or of no lobby',
+      actual: [...Object.keys(inLobby(standing)), ...outsideAnyLobby].sort(),
       expected: [...lobbyReach].sort(),
     });
   });
@@ -218,6 +268,149 @@ describe('a minor’s boundary', () => {
           }),
         ),
       ),
+      expected: ['restricted', 'allow'],
+    });
+  });
+
+  test('is not opened by a role, a host view or a judging invitation', () => {
+    const teenStaff = (allowedLobbyIds: readonly string[]) => ({
+      account: { ageBand: '16-17' as const, ...boundary(allowedLobbyIds) },
+      grants: [
+        lobbyGrant('hosted', ['tournament.entries.manage', 'lobby.announce'], {
+          staffMinimumBand: '16-17',
+        }),
+      ],
+    });
+    const asked = (allowedLobbyIds: readonly string[]) => [
+      ...(
+        [
+          'lobby.host.read',
+          'tournament.entries.manage',
+          'lobby.announce',
+        ] as const
+      ).map((capability) =>
+        reason(ask(capability, lobbyFact(hosted), teenStaff(allowedLobbyIds))),
+      ),
+      reason(
+        ask(
+          'judge.invitation.respond',
+          { kind: 'judge', scope: hosted, actorId: 'person' },
+          teenStaff(allowedLobbyIds),
+        ),
+      ),
+    ];
+    assert({
+      given:
+        'a bounded 16-17 with a usable role at a tournament and a judging invitation there, the tournament outside the boundary and then inside it',
+      should: 'restrict all four outside and allow all four inside',
+      actual: [asked(['standing']), asked(['hosted'])],
+      expected: [Array(4).fill('restricted'), Array(4).fill('allow')],
+    });
+  });
+
+  test('never stops a decline', () => {
+    const outside = { account: boundary(['standing']) };
+    const judge: Resource = {
+      kind: 'judge',
+      scope: hosted,
+      actorId: 'person',
+    };
+    assert({
+      given:
+        'a bounded minor answering a judging invitation outside the boundary: no answer named, an accept, a decline',
+      should: 'bound the first two as an accept and never the decline',
+      actual: [undefined, 'accept' as const, 'decline' as const].map((answer) =>
+        reason(ask('judge.invitation.respond', judge, { ...outside, answer })),
+      ),
+      expected: ['restricted', 'restricted', 'allow'],
+    });
+    assert({
+      given: 'a decline named under a capability that is not an answer',
+      should: 'bound it all the same',
+      actual: reason(
+        ask('lobby.read', lobbyFact(hosted, { postingAudiences: ['public'] }), {
+          ...outside,
+          answer: 'decline',
+        }),
+      ),
+      expected: 'restricted',
+    });
+  });
+
+  test('bounds an organization by membership or an allowed lobby, and making a Room by its lobby', () => {
+    const teen = (member: boolean, organizationId: string) =>
+      reason(
+        ask(
+          'organization.host.read',
+          organization(organizationId, {
+            member,
+            standingLobbyIds: [`${organizationId}-standing`],
+          }),
+          {
+            account: { ageBand: '16-17', ...boundary(['league-standing']) },
+            grants: [
+              {
+                ...lobbyGrant('unused', [], { staffMinimumBand: '16-17' }),
+                scope: { kind: 'organization', organizationId },
+              },
+            ],
+          },
+        ),
+      );
+    assert({
+      given:
+        'a bounded 16-17 with a role at a league whose lobby is allowed, at one they belong to, and at one that is neither',
+      should: 'restrict the host view of the last only',
+      actual: [
+        teen(false, 'league'),
+        teen(true, 'other-league'),
+        teen(false, 'other-league'),
+      ],
+      expected: ['allow', 'allow', 'restricted'],
+    });
+    assert({
+      given: 'a bounded minor and an adult making a Room in no lobby',
+      should: 'restrict the minor, like every other way into such a Room',
+      actual: [
+        reason(
+          ask(
+            'room.create',
+            { kind: 'room_collection' },
+            { account: boundary(['standing']) },
+          ),
+        ),
+        reason(ask('room.create', { kind: 'room_collection' })),
+      ],
+      expected: ['restricted', 'allow'],
+    });
+  });
+
+  test('bounds the held command a minor confirms', () => {
+    const confirm = (allowedLobbyIds: readonly string[]) =>
+      reason(
+        ask(
+          'command.confirm',
+          {
+            kind: 'pending_command',
+            proposerActorId: 'proposer',
+            capability: 'tournament.results.enter',
+            target: fixture(hosted),
+          },
+          {
+            account: { ageBand: '16-17', ...boundary(allowedLobbyIds) },
+            grants: [
+              lobbyGrant('hosted', ['tournament.results.enter'], {
+                staffMinimumBand: '16-17',
+              }),
+            ],
+          },
+        ),
+      );
+    assert({
+      given:
+        'a bounded 16-17 holding the held command’s permission, its tournament outside the boundary and then inside',
+      should: 'restrict the first and allow the second',
+      actual: [confirm(['standing']), confirm(['hosted'])],
       expected: ['restricted', 'allow'],
     });
   });
@@ -359,6 +552,18 @@ describe('a minor reaching another person', () => {
         restricted('channel.request.decide', request, []),
       ],
       expected: [false, true, true, false, false, true],
+    });
+    assert({
+      given:
+        'a bounded minor declining a message request from a person outside the boundary',
+      should: 'not restrict the decline',
+      actual: reason(
+        ask('channel.request.decide', request, {
+          account: boundary(['standing']),
+          answer: 'decline',
+        }),
+      ),
+      expected: 'missing-capability',
     });
   });
   test('never stops blocking, reporting or ending', () => {

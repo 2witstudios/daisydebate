@@ -344,3 +344,51 @@ describe('a setting row', () => {
     });
   });
 });
+
+describe('a value as its schema reads it', () => {
+  test('is what a parsed row carries', () => {
+    const padded = settingRowSchema.parse(
+      row(scope('event'), 'entry.divisions', {
+        items: [
+          { key: 'open', label: '  Open  ', eligibility: { kind: 'open' } },
+        ],
+      }),
+    );
+    assert({
+      given: 'a division label written with spaces around it',
+      should: 'store the trimmed label, so the same value compares equal',
+      actual: padded.value,
+      expected: {
+        items: [{ key: 'open', label: 'Open', eligibility: { kind: 'open' } }],
+      },
+    });
+  });
+  test('says what a format forbids on the floor without inventing a value', () => {
+    assert({
+      given:
+        'a floor for a format that forbids interruptions and yielding, and one with a field missing',
+      should: 'accept null for what is forbidden and refuse a missing field',
+      actual: [
+        parses('room.floor', { interruptions: null, yielding: null }),
+        parses('room.floor', { interruptions: null }),
+      ],
+      expected: [true, false],
+    });
+  });
+  test('refuses a break line whose bounds cross', () => {
+    const line = (value: unknown) =>
+      parses('break.line', { default: value, byDivision: {} });
+    assert({
+      given:
+        'a capped record line with its floor above its cap and at it, and a tie-inclusive line with its size above its ceiling and at it',
+      should: 'refuse the crossed bounds only',
+      actual: [
+        line({ kind: 'record_capped', wins: 3, cap: 2, floor: 8 }),
+        line({ kind: 'record_capped', wins: 3, cap: 8, floor: 8 }),
+        line({ kind: 'tie_inclusive', size: 16, ceiling: 8 }),
+        line({ kind: 'tie_inclusive', size: 8, ceiling: 8 }),
+      ],
+      expected: [false, true, false, true],
+    });
+  });
+});

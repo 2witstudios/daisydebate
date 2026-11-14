@@ -105,7 +105,7 @@ describe('capability metadata', () => {
     assert({
       given: 'the reach column',
       should:
-        'put every lobby read and join under the lobby, and every approach to another person under the person',
+        'put every lobby read and join, every permission and everything decided through one under the lobby, and every approach to another person under the person',
       actual: {
         lobby: where(
           (capability) => capabilityMetadata[capability].reach === 'lobby',
@@ -117,16 +117,25 @@ describe('capability metadata', () => {
       expected: {
         lobby: [
           'round.read',
+          'round.observe.undelayed',
+          'room.create',
           'room.list',
           'room.read',
           'room.join',
+          'room.manage',
+          ...permissionSchema.options,
+          'organization.host.read',
           'lobby.read',
+          'lobby.host.read',
           'lobby.room.create',
+          'judge.invitation.respond',
+          'judge.availability.update',
           'posting.read',
           'result.read',
           'ballot.read',
           'standings.read',
           'resolution.read',
+          'sanction.read',
         ],
         person: [
           'social.friend.request',

@@ -235,7 +235,9 @@ export type SettingScope = z.infer<typeof scope>;
 /**
  * A setting as stored: a catalogue key with a value, set at a scope, with a
  * hold. The value fits the key, the scope is one the key allows, and
- * `enforced` is accepted only above the event, for a key that may be.
+ * `enforced` is accepted only above the event, for a key that may be. The
+ * row parsed carries the value as its schema reads it (a trimmed label, not
+ * the padded input), so two rows that mean the same value compare equal.
  */
 export const settingRowSchema = z
   .strictObject({
@@ -268,7 +270,13 @@ export const settingRowSchema = z
         message: 'The value may not be enforced here.',
         path: ['hold'],
       });
-  });
+  })
+  .transform((row) => ({
+    ...row,
+    value: (settingsCatalogue[row.key] as SettingDefinition).value.parse(
+      row.value,
+    ) as unknown,
+  }));
 export type SettingRow<Key extends SettingKey = SettingKey> = {
   readonly scope: SettingScope;
   readonly key: Key;

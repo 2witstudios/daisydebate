@@ -334,6 +334,13 @@ export type AuthorizationInput = {
     /** The role being given or removed, for `organization.roles.manage`. */
     readonly roleGiven?:
       import('./authorization-lobby-facts').RoleGivenFact | null;
+    /**
+     * The answer given under a capability that is both answers
+     * (`channel.request.decide`, `judge.invitation.respond`). A decline is a
+     * way out and no boundary stops it; left out, the answer is bounded as
+     * an accept.
+     */
+    readonly answer?: 'accept' | 'decline';
     /** The other people the action reaches, for a minor with a boundary. */
     readonly counterparts?: readonly import('./authorization-lobby-facts').CounterpartFact[];
   };

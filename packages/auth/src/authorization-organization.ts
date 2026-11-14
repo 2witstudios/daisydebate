@@ -1,6 +1,8 @@
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
+import { organizationInside } from './authorization-boundary';
 import {
   allowRelated,
+  allowUnder,
   decide,
   deny,
   type AuthorizationDecision,
@@ -27,19 +29,10 @@ import type { OrganizationAuthorizationFact } from './authorization-lobby-facts'
  * Anyone admitted may read an organization. A minor with a boundary reads
  * the ones they belong to and the ones with a standing lobby inside it.
  */
-export function organizationReadable(
+export const organizationReadable = (
   fact: OrganizationAuthorizationFact,
   context: Context,
-): boolean {
-  const boundary = context.account?.boundary;
-  return (
-    !boundary ||
-    fact.member ||
-    fact.standingLobbyIds.some((lobbyId) =>
-      boundary.allowedLobbyIds.includes(lobbyId),
-    )
-  );
-}
+): boolean => organizationInside(context.account?.boundary, fact);
 
 export function organizationDecision(
   holder: Holder,
@@ -83,7 +76,9 @@ export function membershipDecision(
 
 /**
  * A guardian link is a relationship between two people. An adult makes
- * their own; a link through a school is made by whoever manages its roster.
+ * their own; a link through a school is made by whoever manages its roster,
+ * and whoever manages that roster may change or end it, so a link does not
+ * outlive the school's say when the adult it names leaves.
  */
 export function guardianLinkDecision(
   holder: Holder,
@@ -95,9 +90,14 @@ export function guardianLinkDecision(
     return guardian || resource.wardActorId === holder.actorId
       ? allowRelated(guardian ? 'guardian' : 'ward')
       : deny('missing-capability');
-  if (capability === 'guardian.link.create' && resource.via !== null)
-    return holdingDecision(
-      holds(holder, 'school.roster.manage', organization(resource.via)),
+  if (resource.via !== null) {
+    const roster = holds(
+      holder,
+      'school.roster.manage',
+      organization(resource.via),
     );
+    if (capability === 'guardian.link.create') return holdingDecision(roster);
+    if (roster.held) return allowUnder(roster.authority);
+  }
   return adultRelation(holder, guardian, 'guardian');
 }

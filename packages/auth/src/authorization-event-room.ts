@@ -30,6 +30,10 @@ export const isEventRoom = (
  * its fixture. Its seats read it; an official or an officiator not stopped
  * by a conflict reads it; anyone else reads it when its video is released
  * to them. Every other capability is the seat's own, as in any Room.
+ *
+ * An officiator runs the Room, so for a guardian's video cap of `officials`
+ * an officiator is an official: the cap never stops the people managing the
+ * Room a ward is seated in from reading it.
  */
 export function eventRoomDecision(
   holder: Holder,

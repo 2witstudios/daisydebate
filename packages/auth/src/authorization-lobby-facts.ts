@@ -50,6 +50,19 @@ export type LobbyScopeFact =
       readonly lobbyKind: 'tournament';
       readonly owner: LobbyOwnerFact;
     };
+/**
+ * The lobby of an event's things. Fixtures exist only in a tournament, so a
+ * fixture, a ballot, a draw, an entry or an event Room in a standing lobby
+ * cannot be written.
+ */
+export type TournamentScopeFact = Extract<
+  LobbyScopeFact,
+  { readonly lobbyKind: 'tournament' }
+>;
+/** A league: the only kind of organization that sanctions an event. */
+export type LeagueAuthorizationFact = OrganizationAuthorizationFact & {
+  readonly organizationKind: 'league';
+};
 
 /** A role given to the principal at an organization or a lobby. */
 export type GrantFact = {
@@ -126,7 +139,7 @@ export type RoomOwnerFact =
   | {
       readonly kind: 'event';
       readonly fixtureId: string;
-      readonly scope: LobbyScopeFact;
+      readonly scope: TournamentScopeFact;
       readonly conflict: ConflictFact;
       readonly viewing: ViewingFact;
       readonly video: VideoSubjectsFact;
@@ -172,7 +185,7 @@ type LobbyCollectionAuthorizationFact = {
 };
 type EntryAuthorizationFact = {
   readonly kind: 'entry';
-  readonly scope: LobbyScopeFact;
+  readonly scope: TournamentScopeFact;
   /** Who answers for the entry. */
   readonly responsible:
     | {
@@ -184,30 +197,30 @@ type EntryAuthorizationFact = {
 };
 type JudgeAuthorizationFact = {
   readonly kind: 'judge';
-  readonly scope: LobbyScopeFact;
+  readonly scope: TournamentScopeFact;
   readonly actorId: string;
 };
 type TabRoundAuthorizationFact = {
   readonly kind: 'tab_round';
-  readonly scope: LobbyScopeFact;
+  readonly scope: TournamentScopeFact;
   readonly viewing: ViewingFact;
   readonly resolutionReleased: boolean;
 };
 type DrawAuthorizationFact = {
   readonly kind: 'draw';
-  readonly scope: LobbyScopeFact;
+  readonly scope: TournamentScopeFact;
   readonly viewing: ViewingFact;
 };
 export type FixtureAuthorizationFact = {
   readonly kind: 'fixture';
   readonly fixtureId: string;
-  readonly scope: LobbyScopeFact;
+  readonly scope: TournamentScopeFact;
   readonly conflict: ConflictFact;
   readonly viewing: ViewingFact;
 };
 export type BallotAuthorizationFact = {
   readonly kind: 'ballot';
-  readonly scope: LobbyScopeFact;
+  readonly scope: TournamentScopeFact;
   readonly conflict: ConflictFact;
   readonly viewing: ViewingFact;
   /** The part of the ballot asked for; each opens by its own setting. */
@@ -230,9 +243,9 @@ type PendingCommandAuthorizationFact = {
 };
 type SanctionAuthorizationFact = {
   readonly kind: 'sanction';
-  readonly league: OrganizationAuthorizationFact;
+  readonly league: LeagueAuthorizationFact;
   /** The lobby of the event the sanction is for. */
-  readonly scope: LobbyScopeFact;
+  readonly scope: TournamentScopeFact;
 };
 
 /** Every resource the lobby rules decide. */
