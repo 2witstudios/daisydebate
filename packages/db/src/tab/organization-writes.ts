@@ -7,6 +7,11 @@ import type {
 import { grants } from '../schema/grants';
 import { memberships, organizations } from '../schema/organizations';
 import { users } from '../schema/users';
+import type { TenantScope } from '../tenant-scope';
+import {
+  loadOrganizationGrantRows,
+  underLobbyScope,
+} from './organization-grant-rows';
 import type { TabTransaction } from './tab-transaction';
 
 /** The rows an accepted organization or grant command writes, as data. */
@@ -104,9 +109,49 @@ const exactlyOne = (
   if (changed.length !== 1) throw new UnappliedWrite(write);
 };
 
+/** The lobby of a grant at one of the organization's lobbies, or null. */
+const lobbyOfGrant = async (
+  tx: TabTransaction,
+  scope: TenantScope,
+  grantId: string,
+): Promise<string | null> => {
+  if (scope.organizationId === undefined) return null;
+  const [grant] = await loadOrganizationGrantRows(tx, scope, {
+    organizationId: scope.organizationId,
+    userIds: [],
+    grantIds: [grantId],
+  });
+  return grant?.lobbyId ?? null;
+};
+
+/** Revokes a grant, under its lobby's scope when it is a lobby grant. */
+const revokeGrant = async (
+  tx: TabTransaction,
+  write: Extract<OrganizationWrite, { table: 'grants'; op: 'update' }>,
+  scope: TenantScope,
+): Promise<void> => {
+  const revoke = async () =>
+    exactlyOne(
+      write,
+      await tx
+        .update(grants)
+        .set({
+          revokedAt: new Date(write.set.revokedAt),
+          revokedByUserId: write.set.revokedByUserId,
+        })
+        .where(and(eq(grants.id, write.id), isNull(grants.revokedAt)))
+        .returning({ id: grants.id }),
+    );
+  const lobbyId = await lobbyOfGrant(tx, scope, write.id);
+  return lobbyId === null
+    ? revoke()
+    : underLobbyScope(tx, scope, lobbyId, revoke);
+};
+
 const applyOne = async (
   tx: TabTransaction,
   write: OrganizationWrite,
+  scope: TenantScope,
 ): Promise<void> => {
   switch (write.table) {
     case 'organizations':
@@ -164,17 +209,7 @@ const applyOne = async (
         });
         return;
       }
-      return exactlyOne(
-        write,
-        await tx
-          .update(grants)
-          .set({
-            revokedAt: new Date(write.set.revokedAt),
-            revokedByUserId: write.set.revokedByUserId,
-          })
-          .where(and(eq(grants.id, write.id), isNull(grants.revokedAt)))
-          .returning({ id: grants.id }),
-      );
+      return revokeGrant(tx, write, scope);
     case 'users':
       return exactlyOne(
         write,
@@ -188,12 +223,14 @@ const applyOne = async (
 };
 
 /**
- * Applies an accepted command's writes in order. An update that changes no
- * row throws, so the transaction ends without the command.
+ * Applies an accepted command's writes in order, in the transaction the
+ * fence scoped to `scope`. An update that changes no row throws, so the
+ * transaction ends without the command.
  */
 export const applyOrganizationWrites = async (
   tx: TabTransaction,
   writes: readonly OrganizationWrite[],
+  scope: TenantScope,
 ): Promise<void> => {
-  for (const write of writes) await applyOne(tx, write);
+  for (const write of writes) await applyOne(tx, write, scope);
 };

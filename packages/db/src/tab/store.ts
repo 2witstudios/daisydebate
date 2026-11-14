@@ -7,6 +7,8 @@ import {
   storedCommand,
   type StoredTabCommand,
 } from './command-record';
+
+export { CommandIdTaken } from './command-record';
 import {
   fenceOrganizationCommand,
   fenceOrganizationRead,
@@ -22,6 +24,7 @@ import {
   type OrganizationCommandFacts,
   type OrganizationCommandInput,
 } from './organization-facts';
+import { findOrganizationByHandle } from './organization-handle';
 import {
   loadOrganizationPeople,
   type OrganizationPeopleFacts,
@@ -88,7 +91,9 @@ const roleNamedOf = (
 /**
  * The Tab store: each aggregate's commands run in one transaction fenced to
  * their tenant, reading the command record, loading facts under the
- * aggregate's lock, and applying the writes with one history entry.
+ * aggregate's lock, and applying the writes with one history entry. A
+ * command id another tenant already recorded throws `CommandIdTaken` from
+ * `apply`, and the transaction ends without the command.
  */
 export const createTabStore = (database: TabDatabase) => ({
   organizationCommand: <Answer>(
@@ -96,11 +101,11 @@ export const createTabStore = (database: TabDatabase) => ({
     work: (session: OrganizationCommandSession) => Promise<Answer>,
   ): Promise<Answer> =>
     database.transaction(async (tx) => {
-      await fenceOrganizationCommand(tx, input);
+      const scope = await fenceOrganizationCommand(tx, input);
       return work({
         stored: (commandId) => storedCommand(tx, commandId),
         load: async () => {
-          const decision = await loadOrganizationFacts(tx, input);
+          const decision = await loadOrganizationFacts(tx, input, scope);
           return {
             decision,
             authorization: await loadOrganizationAuthorization(tx, {
@@ -114,7 +119,7 @@ export const createTabStore = (database: TabDatabase) => ({
           };
         },
         apply: async (writes, history, receipt) => {
-          await applyOrganizationWrites(tx, writes);
+          await applyOrganizationWrites(tx, writes, scope);
           await appendHistory(tx, history, receipt);
         },
       });
@@ -124,9 +129,11 @@ export const createTabStore = (database: TabDatabase) => ({
     readonly organizationId: string;
   }): Promise<OrganizationPeopleFacts | null> =>
     database.transaction(async (tx) => {
-      await fenceOrganizationRead(tx, input);
-      return loadOrganizationPeople(tx, input);
+      const scope = await fenceOrganizationRead(tx, input);
+      return loadOrganizationPeople(tx, input, scope);
     }),
+  organizationIdOfHandle: (handle: string): Promise<string | null> =>
+    database.transaction((tx) => findOrganizationByHandle(tx, handle)),
 });
 
 export type TabStore = ReturnType<typeof createTabStore>;

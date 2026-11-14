@@ -3,6 +3,7 @@ import { mock } from 'bun:test';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { participantPathOf } from './routes';
+import { LEAGUE } from './sample/moment';
 import type { SampleScene } from './sample/scene';
 
 setupRitewayBun();
@@ -24,14 +25,22 @@ const sample: Readonly<Record<string, string>> = {
   slot: '1200',
 };
 
-/** `(host)/host/tournaments/[slug]/setup/page.tsx` → its address for the sample. */
-const addressOf = (file: string): string =>
-  `/${file
+/**
+ * `(host)/host/tournaments/[slug]/setup/page.tsx` → its address for the
+ * sample. A league page is the sample league's: any other league address is
+ * a stored organization, which answers a viewer it denies as not found.
+ */
+const sampleFor = (file: string): Readonly<Record<string, string>> =>
+  file.includes('/leagues/') ? { ...sample, slug: LEAGUE } : sample;
+const addressOf = (file: string): string => {
+  const values = sampleFor(file);
+  return `/${file
     .replace(/\/?page\.tsx$/, '')
     .split('/')
     .filter((segment) => !/^\(.*\)$/.test(segment))
-    .map((segment) => sample[segment.replace(/^\[(.*)\]$/, '$1')] ?? segment)
+    .map((segment) => values[segment.replace(/^\[(.*)\]$/, '$1')] ?? segment)
     .join('/')}`;
+};
 
 type Page = (props: {
   params: Promise<Record<string, string>>;
@@ -77,7 +86,7 @@ async function redirectOf(file: string): Promise<string | null> {
   try {
     const page = (await loaders[file]?.()) as { default: Page };
     await page.default({
-      params: Promise.resolve(sample),
+      params: Promise.resolve(sampleFor(file)),
       searchParams: Promise.resolve({}),
     });
     return null;

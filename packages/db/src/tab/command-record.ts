@@ -6,6 +6,7 @@ import {
   type StoredOutcome,
 } from '@daisy/protocol/lobby/command';
 import { actionHistory } from '../schema/grants';
+import { isUniqueViolationOf } from '../unique-violation';
 import type { TabTransaction } from './tab-transaction';
 
 /**
@@ -97,11 +98,32 @@ export const storedCommand = async (
   return row === undefined ? null : storedCommandOf(row);
 };
 
+/**
+ * A command id the record already holds in a tenant this transaction's
+ * fence cannot see: `stored` answered it as new, and only the primary key
+ * knew. The transaction it is thrown from ends without the command; the
+ * operation answers it as a command conflict, naming nothing of the other
+ * tenant.
+ */
+export class CommandIdTaken extends Error {
+  constructor() {
+    super('The command id is already recorded');
+  }
+}
+
+/** The constraint a command id already in the record violates. */
+const commandIdKey = 'action_history_pkey';
+
 /** Appends the one history entry of an accepted command. */
 export const appendHistory = async (
   tx: TabTransaction,
   entry: ActionHistoryEntry,
   receipt: LobbyCommandReceipt,
 ): Promise<void> => {
-  await tx.insert(actionHistory).values(historyRowOf(entry, receipt));
+  try {
+    await tx.insert(actionHistory).values(historyRowOf(entry, receipt));
+  } catch (error) {
+    if (isUniqueViolationOf(error, commandIdKey)) throw new CommandIdTaken();
+    throw error;
+  }
 };

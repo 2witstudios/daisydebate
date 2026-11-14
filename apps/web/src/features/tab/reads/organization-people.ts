@@ -10,15 +10,16 @@ import type {
 import {
   organizationReadCatalogue,
   type OrganizationPeopleView,
+  type OrganizationPerson,
 } from '@daisy/protocol/lobby/organization-read';
 import type { TabPrincipal } from '../tab-principal';
 import { gatedRead } from './gated-read';
 
 /**
  * The `OrganizationPeopleView` read: an organization's members with the
- * grants they hold at it, the roles it may give, and what the viewer may do
- * about them. Lobby grants and recorded conflicts belong to the lobby's own
- * people read.
+ * live grants they hold at it and at its lobbies, the roles it may give, and
+ * what the viewer may do about them. Recorded conflicts belong to the
+ * lobby's own people read.
  */
 
 const live = (grant: GrantRow, now: string): boolean =>
@@ -28,6 +29,18 @@ const live = (grant: GrantRow, now: string): boolean =>
 /** The highest rank (1 is the highest) among grants; none ranks below every role. */
 const highestRank = (grants: readonly GrantRow[]): number =>
   Math.min(...grants.map((grant) => grant.role.rank));
+
+/** Where a grant holds, as the view names it. */
+const scopeOf = (
+  grant: GrantRow,
+): OrganizationPerson['grants'][number]['scope'] =>
+  grant.scopeKind === 'lobby' && grant.lobbyId !== null
+    ? {
+        kind: 'lobby',
+        lobbyId: grant.lobbyId,
+        name: grant.lobbyName ?? grant.lobbyId,
+      }
+    : { kind: 'organization' };
 
 /** The one projection, from stored state and the viewer's answers. */
 export const organizationPeopleOf = (
@@ -40,11 +53,12 @@ export const organizationPeopleOf = (
   const held = (userId: string) =>
     facts.people
       .find((person) => person.userId === userId)
-      ?.grants.filter(
-        (grant) => grant.scopeKind === 'organization' && live(grant, now),
-      ) ?? [];
+      ?.grants.filter((grant) => live(grant, now)) ?? [];
   const viewerOwns = organization.ownerUserId === viewerUserId;
-  const viewerRank = highestRank(held(viewerUserId));
+  // Only a grant at the whole organization covers every grant here.
+  const viewerRank = highestRank(
+    held(viewerUserId).filter((grant) => grant.scopeKind === 'organization'),
+  );
   return {
     organizationId: organization.id,
     name: organization.name,
@@ -59,7 +73,7 @@ export const organizationPeopleOf = (
         grants: grants.map((grant) => ({
           grantId: grant.id,
           roleId: grant.role.id,
-          scope: { kind: 'organization' as const },
+          scope: scopeOf(grant),
           expiresAt: grant.expiresAt,
         })),
         conflicts: [],

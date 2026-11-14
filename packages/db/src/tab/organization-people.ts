@@ -2,7 +2,9 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { MembershipStatus } from '@daisy/protocol/lobby';
 import { memberships, organizations } from '../schema/organizations';
 import { users } from '../schema/users';
-import { loadGrantRows, type GrantRow } from './grant-rows';
+import type { TenantScope } from '../tenant-scope';
+import type { GrantRow } from './grant-rows';
+import { loadOrganizationGrantRows } from './organization-grant-rows';
 import {
   loadOrganizationAuthorization,
   type OrganizationAuthorization,
@@ -37,11 +39,13 @@ const present: readonly MembershipStatus[] = ['invited', 'active'];
 /**
  * An organization's people, in the transaction the fence scoped to it:
  * invited and active members by username, their live and ended grants at
- * the organization, the roles it may give, and the viewer's authority.
+ * the organization and its lobbies, the roles it may give, and the
+ * viewer's authority.
  */
 export const loadOrganizationPeople = async (
   tx: TabTransaction,
   input: { readonly viewerUserId: string; readonly organizationId: string },
+  scope: TenantScope,
 ): Promise<OrganizationPeopleFacts | null> => {
   const [organization] = await tx
     .select({
@@ -75,7 +79,7 @@ export const loadOrganizationPeople = async (
   const userIds = [
     ...new Set([input.viewerUserId, ...members.map((row) => row.userId)]),
   ];
-  const grants = await loadGrantRows(tx, {
+  const grants = await loadOrganizationGrantRows(tx, scope, {
     organizationId: organization.id,
     userIds,
   });

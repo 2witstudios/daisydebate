@@ -51,24 +51,31 @@ const organizationScope = async (
   return { ...subject, organizationId: organization.id, lobbyId: lobby?.id };
 };
 
-/** Fences the open transaction to the command's tenant before anything is read. */
+/**
+ * Fences the open transaction to the command's tenant before anything is
+ * read, and answers the scope it set, for the steps that visit a lobby's.
+ */
 export const fenceOrganizationCommand = async (
   tx: TabTransaction,
   input: Parameters<typeof organizationScope>[1],
-): Promise<void> => {
+): Promise<TenantScope> => {
   // Organizations and lobbies are open to read, so the rows are found
   // under the subject alone before the scope widens to them.
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
-  await scopeTransaction(tx, await organizationScope(tx, input));
+  const scope = await organizationScope(tx, input);
+  await scopeTransaction(tx, scope);
+  return scope;
 };
 
-/** Fences a read of one organization to it, once its row is found. */
+/** Fences a read of one organization to it, once its row is found; answers the scope. */
 export const fenceOrganizationRead = async (
   tx: TabTransaction,
   input: { readonly viewerUserId: string; readonly organizationId: string },
-): Promise<void> => {
+): Promise<TenantScope> => {
   const subject = { subjectUserId: input.viewerUserId };
   await scopeTransaction(tx, subject);
   const organization = await foundOrganization(tx, input.organizationId);
-  await scopeTransaction(tx, { ...subject, organizationId: organization?.id });
+  const scope = { ...subject, organizationId: organization?.id };
+  await scopeTransaction(tx, scope);
+  return scope;
 };

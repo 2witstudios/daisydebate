@@ -5,12 +5,14 @@ import { loadAuthorizationAccount } from '../authorization';
 import { lobbies } from '../schema/lobbies';
 import { memberships, organizations } from '../schema/organizations';
 import { settings } from '../schema/settings';
-import { loadGrantRows, type GrantRow } from './grant-rows';
+import type { GrantRow } from './grant-rows';
+import { loadOrganizationGrantRows } from './organization-grant-rows';
 import { loadRoles, type RoleRow } from './role-rows';
 import {
   staffMinimumBandOf,
   type StaffMinimumBand,
 } from './staff-minimum-band';
+import type { TenantScope } from '../tenant-scope';
 import type { TabTransaction } from './tab-transaction';
 
 /** An `organizations` row, as the commands read it. */
@@ -177,6 +179,7 @@ export const loadMemberships = async (
 /** The people's memberships and grants in an organization that exists. */
 const peopleRows = async (
   tx: TabTransaction,
+  scope: TenantScope,
   organization: OrganizationRow | null,
   people: readonly string[],
   command: OrganizationCommand,
@@ -185,7 +188,7 @@ const peopleRows = async (
     ? { memberships: [], grants: [] }
     : {
         memberships: await loadMemberships(tx, organization.id, people),
-        grants: await loadGrantRows(tx, {
+        grants: await loadOrganizationGrantRows(tx, scope, {
           organizationId: organization.id,
           userIds: people,
           grantIds: command.type === 'remove-grant' ? [command.grantId] : [],
@@ -203,11 +206,13 @@ const roleNamedOf = async (
 
 /**
  * Loads the facts one organization or grant command decides from, in the
- * transaction the fence already scoped, with the organization's row locked.
+ * transaction the fence already scoped to `scope`, with the organization's
+ * row locked.
  */
 export const loadOrganizationFacts = async (
   tx: TabTransaction,
   input: OrganizationCommandInput,
+  scope: TenantScope,
 ): Promise<OrganizationCommandFacts> => {
   const { command, senderUserId } = input;
   const organizationId = organizationIdOf(input);
@@ -226,7 +231,13 @@ export const loadOrganizationFacts = async (
     handleTaken:
       command.type === 'create-organization' &&
       (await handleTaken(tx, command.handle, organizationId)),
-    ...(await peopleRows(tx, organization, [...new Set(people)], command)),
+    ...(await peopleRows(
+      tx,
+      scope,
+      organization,
+      [...new Set(people)],
+      command,
+    )),
     role: await roleNamedOf(tx, command),
     lobbyOwnerOrganizationId: await lobbyOwnerOf(tx, command),
     personAgeBand: account?.ageBand ?? null,

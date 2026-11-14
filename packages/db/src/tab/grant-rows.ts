@@ -12,6 +12,8 @@ export type GrantRow = {
   readonly scopeKind: GrantScopeKind;
   readonly organizationId: string | null;
   readonly lobbyId: string | null;
+  /** The lobby's name, for a lobby-scope grant. */
+  readonly lobbyName: string | null;
   readonly grantedAt: string;
   readonly expiresAt: string | null;
   readonly revokedAt: string | null;
@@ -28,6 +30,7 @@ const iso = (at: Date | null): string | null =>
  * organization and the lobbies it owns, and any grant named by id. The
  * tenant fence decides which rows the transaction can see: the
  * organization's own grants, the subject's, and its lobby's when one is set.
+ * `loadOrganizationGrantRows` visits every lobby's.
  */
 export const loadGrantRows = async (
   tx: TabTransaction,
@@ -59,6 +62,7 @@ export const loadGrantRows = async (
       scopeKind: grants.scopeKind,
       organizationId: grants.organizationId,
       lobbyId: grants.lobbyId,
+      lobbyName: lobbies.name,
       roleId: grants.roleId,
       grantedAt: grants.grantedAt,
       expiresAt: grants.expiresAt,
@@ -83,6 +87,7 @@ export const loadGrantRows = async (
         scopeKind: row.scopeKind,
         organizationId: row.organizationId,
         lobbyId: row.lobbyId,
+        lobbyName: row.lobbyName,
         grantedAt: row.grantedAt.toISOString(),
         expiresAt: iso(row.expiresAt),
         revokedAt: iso(row.revokedAt),

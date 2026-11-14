@@ -151,6 +151,7 @@ const OPERATION_NAMES = [
   'round.media.session',
   'round.read',
   'round.view',
+  'tab.organization.people',
 ] as const;
 
 export type OperationName = (typeof OPERATION_NAMES)[number];

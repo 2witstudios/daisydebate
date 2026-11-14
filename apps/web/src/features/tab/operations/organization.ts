@@ -2,7 +2,11 @@ import type {
   AuthorizationDecision,
   AuthorizationInput,
 } from '@daisy/auth/authorization';
-import type { LoadedOrganizationCommand, TabStore } from '@daisy/db/tab';
+import {
+  CommandIdTaken,
+  type LoadedOrganizationCommand,
+  type TabStore,
+} from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import {
@@ -42,6 +46,22 @@ const neverHeld = (): never => {
 };
 
 /**
+ * A command id another tenant already recorded is a conflict like any
+ * reused id; the transaction it ended has already changed nothing.
+ */
+const conflictWhenIdTaken = async (
+  run: () => Promise<OrganizationCommandAnswer>,
+): Promise<OrganizationCommandAnswer> => {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof CommandIdTaken)
+      return { kind: 'refused', refusal: 'command-conflict' };
+    throw error;
+  }
+};
+
+/**
  * Runs one organization or grant command (TAB-5.9) for a signed-in person:
  * the envelope is validated here, then replay, the gate, the version check,
  * the decision and the writes with their history entry run in one
@@ -60,44 +80,46 @@ export const organizationCommand =
     const now = dependencies.now();
     const newId = dependencies.newId();
     const hostingPlan = await dependencies.hostingPlan(principal.userId);
-    return runLobbyCommand<
-      OrganizationCommand,
-      LoadedOrganizationCommand,
-      OrganizationRefusal | 'not-found',
-      OrganizationWrite
-    >(
-      {
-        transaction: (work) =>
-          dependencies.store.organizationCommand(
-            { senderUserId: principal.userId, command, newId, now },
-            (session) =>
-              work({
-                stored: session.stored,
-                facts: session.load,
-                authority: (loaded) =>
-                  organizationAuthorityOf(principal, command, loaded, {
-                    now,
-                    hostingPlan,
+    return conflictWhenIdTaken(() =>
+      runLobbyCommand<
+        OrganizationCommand,
+        LoadedOrganizationCommand,
+        OrganizationRefusal | 'not-found',
+        OrganizationWrite
+      >(
+        {
+          transaction: (work) =>
+            dependencies.store.organizationCommand(
+              { senderUserId: principal.userId, command, newId, now },
+              (session) =>
+                work({
+                  stored: session.stored,
+                  facts: session.load,
+                  authority: (loaded) =>
+                    organizationAuthorityOf(principal, command, loaded, {
+                      now,
+                      hostingPlan,
+                    }),
+                  versions: ({ decision }) =>
+                    decision.organization === null
+                      ? {}
+                      : { organization: decision.organization.version },
+                  scope: ({ decision }) => ({
+                    kind: 'organization',
+                    organizationId: decision.organization?.id ?? newId,
                   }),
-                versions: ({ decision }) =>
-                  decision.organization === null
-                    ? {}
-                    : { organization: decision.organization.version },
-                scope: ({ decision }) => ({
-                  kind: 'organization',
-                  organizationId: decision.organization?.id ?? newId,
+                  recordConflict: neverHeld,
+                  holdForConfirmation: neverHeld,
+                  apply: session.apply,
                 }),
-                recordConflict: neverHeld,
-                holdForConfirmation: neverHeld,
-                apply: session.apply,
-              }),
-          ),
-        authorize: dependencies.authorize,
-        digest: commandDigest,
-        now: () => now,
-      },
-      envelope,
-      organizationCommandCatalogue[command.type],
-      (loaded, decided) => decideOrganization(loaded.decision, decided),
+            ),
+          authorize: dependencies.authorize,
+          digest: commandDigest,
+          now: () => now,
+        },
+        envelope,
+        organizationCommandCatalogue[command.type],
+        (loaded, decided) => decideOrganization(loaded.decision, decided),
+      ),
     );
   };

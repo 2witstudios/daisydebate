@@ -11,6 +11,7 @@ const grant: GrantRow = {
   scopeKind: 'organization',
   organizationId: id('o'),
   lobbyId: null,
+  lobbyName: null,
   grantedAt: '2027-03-06T08:00:00.000Z',
   expiresAt: null,
   revokedAt: null,

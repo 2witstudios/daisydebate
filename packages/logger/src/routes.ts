@@ -175,6 +175,7 @@ const appRoutes = [
   '/api/rounds/[roundId]/media/session',
   '/api/rounds/[roundId]/round-analysis',
   '/api/rounds/[roundId]/transcript',
+  '/api/tab/organization-people',
   '/api/webhooks/resend',
   '/api/webhooks/stripe',
   '/audit',

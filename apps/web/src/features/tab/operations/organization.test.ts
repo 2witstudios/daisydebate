@@ -1,9 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorize } from '@daisy/auth/authorization';
-import type {
-  LoadedOrganizationCommand,
-  OrganizationCommandSession,
-  TabStore,
+import {
+  CommandIdTaken,
+  type LoadedOrganizationCommand,
+  type OrganizationCommandSession,
+  type TabStore,
 } from '@daisy/db/tab';
 import type { ActionHistoryEntry } from '@daisy/protocol/lobby/command';
 import { organizationCommand } from './organization';
@@ -45,7 +46,7 @@ const loaded: LoadedOrganizationCommand = {
   roleNamed: null,
 };
 
-const harness = () => {
+const harness = (idTakenElsewhere = false) => {
   const applied: { writes: unknown[]; history: ActionHistoryEntry }[] = [];
   const asked: unknown[] = [];
   const store: Pick<TabStore, 'organizationCommand'> = {
@@ -55,6 +56,7 @@ const harness = () => {
         stored: async () => null,
         load: async () => loaded,
         apply: async (writes, history) => {
+          if (idTakenElsewhere) throw new CommandIdTaken();
           applied.push({ writes: [...writes], history });
         },
       };
@@ -124,6 +126,16 @@ describe('organizationCommand', () => {
         digest: true,
         appliedAt: now,
       },
+    });
+  });
+  test('a command id another tenant recorded', async () => {
+    const { send, applied } = harness(true);
+    assert({
+      given:
+        'a new-looking command id the record already holds behind another fence',
+      should: 'answer a command conflict and apply nothing',
+      actual: [await send(principal, create), applied.length],
+      expected: [{ kind: 'refused', refusal: 'command-conflict' }, 0],
     });
   });
 });

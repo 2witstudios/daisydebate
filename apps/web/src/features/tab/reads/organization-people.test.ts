@@ -24,6 +24,7 @@ const grant = (
   scopeKind: 'organization',
   organizationId: id('o'),
   lobbyId: null,
+  lobbyName: null,
   grantedAt: now,
   expiresAt: null,
   revokedAt: null,
@@ -123,6 +124,60 @@ describe('organizationPeopleOf', () => {
       should: 'offer no giving and no removal',
       actual: [view.capabilities.give, view.people.map((one) => one.removable)],
       expected: [false, [false, false]],
+    });
+  });
+  test('a grant at one of its lobbies', () => {
+    const lobbyGrant = grant(id('s'), 2, {
+      id: id('l'),
+      scopeKind: 'lobby',
+      organizationId: null,
+      lobbyId: id('b'),
+      lobbyName: 'Spring Open',
+    });
+    const view = organizationPeopleOf(
+      facts([owner, person(id('s'), [lobbyGrant])]),
+      id('w'),
+      now,
+      true,
+    );
+    assert({
+      given: 'a member whose only grant is at a lobby the league owns',
+      should: 'show it at that lobby, removable by the owner',
+      actual: [view.people[1]?.grants, view.people[1]?.removable],
+      expected: [
+        [
+          {
+            grantId: id('l'),
+            roleId: id('2'),
+            scope: { kind: 'lobby', lobbyId: id('b'), name: 'Spring Open' },
+            expiresAt: null,
+          },
+        ],
+        true,
+      ],
+    });
+  });
+  test('a viewer whose grant is at one lobby only', () => {
+    const viewer = person(id('v'), [
+      grant(id('v'), 1, {
+        id: id('m'),
+        scopeKind: 'lobby',
+        organizationId: null,
+        lobbyId: id('b'),
+        lobbyName: 'Spring Open',
+      }),
+    ]);
+    const view = organizationPeopleOf(
+      facts([viewer, staff]),
+      id('v'),
+      now,
+      true,
+    );
+    assert({
+      given: 'a viewer ranked above Staff, but only at one lobby',
+      should: 'not let them remove a grant at the whole league',
+      actual: view.people[1]?.removable,
+      expected: false,
     });
   });
 });

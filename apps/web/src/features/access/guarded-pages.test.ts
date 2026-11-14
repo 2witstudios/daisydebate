@@ -36,6 +36,8 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
   requestIdentity: async () => ({ state: 'anonymous' }),
+  // A stored league's people page words time by the process clock.
+  requestNow: () => '2027-03-06T08:00:00.000Z',
   // The sample Room pages reach the release reader through their form action.
   requestReleaseEnabled: async () => false,
   requestMemberDrive: () => null,
