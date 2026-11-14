@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { twoSideKeys } from './seats';
+import { affirmativeSide, negativeSide, twoSideKeys } from './seats';
 
 /** The AI judge maps two-sided Rounds only: each line is by one of the preset's sides. */
 const bySideSchema = z.enum(twoSideKeys);
@@ -42,13 +42,13 @@ const caseSchema = z.strictObject({
   burdens: z.array(burdenSchema).max(12),
 });
 const perSide = <T extends z.ZodType>(schema: T) =>
-  z.strictObject({ affirmative: schema, negative: schema });
+  z.strictObject({ [affirmativeSide]: schema, [negativeSide]: schema });
 
 export const caseMapSchema = z.strictObject({
   about: z.strictObject({
     question: text(600),
-    affirmative: text(600),
-    negative: text(600),
+    [affirmativeSide]: text(600),
+    [negativeSide]: text(600),
   }),
   cases: perSide(caseSchema),
   framework: z.strictObject({

@@ -1,9 +1,32 @@
 // Repository gate for the seat vocabulary (TAB-6.2): a side is a key a format
 // declares, so the two-sided preset's keys are written as literals only in
 // the protocol's seat preset. Everywhere else reads a seat through the
-// protocol's seat predicates or imports the preset's named constants.
+// protocol's seat predicates or imports the preset's named constants
+// (`affirmativeSide`, `negativeSide`; a computed key `[affirmativeSide]:`).
+//
+// It matches a quoted key ('affirmative'), an unquoted object key or
+// parameter (`affirmative:`) and a property read (`.affirmative`).
+//
+// Allow-list: code that is pairwise by construction and names the two-sided
+// preset's sides as its own fields. Today that is the rating code, since a
+// rating compares exactly two sides (ratings are admitted only for the
+// two-sided winner shape, TAB-6.14):
+//   - packages/debate-engine/src/rating.ts
+//   - packages/debate-engine/src/rating-decision.ts
+//   - apps/web/src/features/ratings/read-round.ts
+// Every other file, the resolution strike included, reads its sides through
+// the protocol preset. Tests, their fixtures and test-support modules are
+// exempt.
 
-const sideLiteral = /(['"`])(affirmative|negative)\1/;
+const sideLiteral =
+  /(['"`])(affirmative|negative)\1|\b(affirmative|negative)\s*:|\.(affirmative|negative)\b/;
+
+/** The pairwise files named in the header, which may spell the two sides. */
+const pairwise: readonly RegExp[] = [
+  /^packages\/debate-engine\/src\/rating\.ts$/,
+  /^packages\/debate-engine\/src\/rating-decision\.ts$/,
+  /^apps\/web\/src\/features\/ratings\/read-round\.ts$/,
+];
 
 /** Paths allowed to spell a side key: the preset itself, tests and their fixtures. */
 const exempt: readonly RegExp[] = [
@@ -13,9 +36,10 @@ const exempt: readonly RegExp[] = [
   /(^|\/)e2e\//,
   /(^|\/)integration\//,
   /\.integration\.tsx?$/,
-  /(^|\/)testing\.ts$/,
+  /(^|\/)testing(-[a-z-]+)?\.ts$/,
   /^apps\/web\/src\/features\/format-corpus\//,
   /^scripts\/check-side-literals\.ts$/,
+  ...pairwise,
 ];
 
 const checked = /\.(ts|tsx)$/;

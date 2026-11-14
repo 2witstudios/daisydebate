@@ -31,4 +31,35 @@ describe('sideLiteralIssues', () => {
       expected: [],
     });
   });
+  test('an unquoted key, a parameter and a property read', () => {
+    assert({
+      given:
+        'a product module with an object key, a parameter and a property read of a side',
+      should: 'report each line',
+      actual: sideLiteralIssues([
+        {
+          path: 'packages/db/src/x.ts',
+          text: 'const a = { affirmative: 1 };\nconst f = (negative: string) => negative;\nrated.affirmative;\nconst y = { [affirmativeSide]: 1 };',
+        },
+      ]).map((issue) => issue.split(':')[1]),
+      expected: ['1', '2', '3'],
+    });
+  });
+  test('the pairwise rating code', () => {
+    assert({
+      given: 'the rating modules the header allow-lists',
+      should: 'report nothing',
+      actual: sideLiteralIssues([
+        {
+          path: 'packages/debate-engine/src/rating.ts',
+          text: 'affirmative: 1',
+        },
+        {
+          path: 'apps/web/src/features/ratings/read-round.ts',
+          text: 'rated.negative',
+        },
+      ]),
+      expected: [],
+    });
+  });
 });

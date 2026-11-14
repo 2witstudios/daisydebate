@@ -230,7 +230,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       status: 'active',
       checkpoint: {
         version: 1,
-        prep_consumed_ms: { affirmative: 240_000, negative: 0 },
+        prep_consumed_ms: { [affirmativeSide]: 240_000, [negativeSide]: 0 },
         active_prep: null,
         floor: null,
         incident: { phase: 'none' },
@@ -263,11 +263,11 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     }),
   'rating-state-bounded': () =>
     rateDebate({
-      affirmative: {
+      [affirmativeSide]: {
         state: { rating: 1500, deviation: 0, volatility: 0.06 },
         lastRatedAt: null,
       },
-      negative: {
+      [negativeSide]: {
         state: { rating: 1500, deviation: 350, volatility: 0.06 },
         lastRatedAt: null,
       },
