@@ -7,7 +7,7 @@ Amends [ADR 0030](0030-effective-rules-and-growth-paths.md),
 [ADR 0031](0031-realtime-service.md) section 5 and
 [ADR 0019](0019-token-secret-ownership.md), each in its own `## Amendment`
 section. Decisions marked open at the end were made on the owner's behalf and
-stay open until the owner confirms or overrules them.
+stay open until the owner confirms or overrules them. Section 6 is amended by [ADR 0129](0129-tenant-isolation-by-row-level-security.md).
 
 Rating scope amendment: [ADR0090](0090-three-rating-ladders.md) owns the current
 standing identity `(actor, ladder, season)`, with Freestyle, Policy and Value.

@@ -5,7 +5,7 @@ Status: accepted product direction (owner instruction, 2026-10-28;
 Implemented by the ratings slice; deployed beta activation evidence remains a
 post-deploy acceptance item. Amends the ladder vocabulary in [ADR 0055](0055-glicko-2-calculation-ladders-and-seasons.md)
 and reconciles the ratedness authority in [ADR 0058](0058-one-round-model.md).
-Calculation calibration still open under DEC-111 is not accepted by this record.
+Calculation calibration still open under DEC-111 is not accepted by this record. Amended by [ADR 0131](0131-the-lobby-is-the-one-container.md): a ladder belongs to a standing lobby.
 
 ## Context
 

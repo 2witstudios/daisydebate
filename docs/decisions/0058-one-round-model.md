@@ -6,7 +6,7 @@ Status: accepted (owner request, 2026-10-06). `crossExModes[]` is retired by
 [ADR 0054](0054-debate-room-workspace.md) and
 [ADR 0055](0055-glicko-2-calculation-ladders-and-seasons.md).
 Extends [ADR 0013](0013-knip-dead-code-gate.md)'s decision via
-[ADR 0057](0057-planned-readers.md).
+[ADR 0057](0057-planned-readers.md). Section 7 is amended by [ADR 0131](0131-the-lobby-is-the-one-container.md): a Room has a parent lobby.
 
 The DEC183/DEC186 allowance and free-judge accounting descriptions below are
 historical. [ADR 0117](0117-premium-billing.md) supersedes those passages with
