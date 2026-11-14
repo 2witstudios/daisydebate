@@ -353,6 +353,71 @@ describe('generate-draw', () => {
   });
 });
 
+describe('generate-draw, unchanged and short', () => {
+  const keeping = (ids: readonly string[]) =>
+    engineReturning({
+      kind: 'drawn',
+      draws: [
+        engineDraw({
+          keep: ids.map((kept) => ({
+            id: kept,
+            fixture: { kind: 'pairing', sides: [a, b], panel: [] },
+          })),
+        }),
+      ],
+    }).engine;
+
+  test('a draw equal to the latest published set makes no version', () => {
+    assert({
+      given:
+        'a newer draft, and an engine keeping exactly the published fixtures',
+      should: 'refuse draw-unchanged',
+      actual: refusalOf(
+        decideDraw(keeping([id('f2'), id('f1')]))(facts(), generate),
+      ),
+      expected: 'draw-unchanged',
+    });
+  });
+
+  test('a repeated id is not the same set as two ids', () => {
+    assert({
+      given: 'an engine keeping one published fixture twice',
+      should: 'not treat it as the published pair',
+      actual: refusalOf(
+        decideDraw(keeping([id('f1'), id('f1')]))(
+          facts({ versions: [published1] }),
+          generate,
+        ),
+      ),
+      expected: 'accepted',
+    });
+  });
+
+  test('too few fresh ids refuse by name, never throw', () => {
+    const adding = engineReturning({
+      kind: 'drawn',
+      draws: [
+        engineDraw({
+          add: [
+            {
+              ordinal: 1,
+              fixture: { kind: 'pairing', sides: [a, b], panel: [] },
+            },
+          ],
+        }),
+      ],
+    }).engine;
+    assert({
+      given: 'one fresh id for a version and a new fixture',
+      should: 'refuse fresh-ids-short',
+      actual: refusalOf(
+        decideDraw(adding)(facts({ freshIds: [id('fresh0')] }), generate),
+      ),
+      expected: 'fresh-ids-short',
+    });
+  });
+});
+
 describe('assign-judges', () => {
   const assign: DrawCommand = { type: 'assign-judges', drawId: id('draw1') };
   const judge = {
@@ -392,7 +457,10 @@ describe('assign-judges', () => {
       ],
     });
     const decision = decideDraw(engine)(
-      facts({ engine: { ...facts().engine, judges: [judge] } }),
+      facts({
+        versions: [published1],
+        engine: { ...facts().engine, judges: [judge] },
+      }),
       assign,
     );
     const input = calls[0];
@@ -446,7 +514,12 @@ describe('assign-judges', () => {
 
   test('short panels and double bookings refuse by name', () => {
     const run = (answer: EngineDrawAnswer) =>
-      refusalOf(decideDraw(engineReturning(answer).engine)(facts(), assign));
+      refusalOf(
+        decideDraw(engineReturning(answer).engine)(
+          facts({ versions: [published1] }),
+          assign,
+        ),
+      );
     assert({
       given: 'too few judges, a slot collision and a judge seated twice',
       should: 'name each refusal',
@@ -467,6 +540,117 @@ describe('assign-judges', () => {
         'judge-double-booked',
         'judge-double-booked',
       ],
+    });
+  });
+
+  const keepingWith = (
+    keep: readonly { readonly id: string; readonly panel: readonly string[] }[],
+  ) =>
+    engineReturning({
+      kind: 'drawn',
+      draws: [
+        engineDraw({
+          keep: keep.map((kept) => ({
+            id: kept.id,
+            fixture: { kind: 'pairing', sides: [a, b], panel: kept.panel },
+          })),
+        }),
+      ],
+    }).engine;
+  const seatedOn = (decision: DrawDecision) =>
+    writesOf(decision).flatMap((write) =>
+      write.table === 'fixture_judges' && write.op === 'insert'
+        ? [[write.row.fixtureId, write.row.tournamentJudgeId, write.row.chair]]
+        : [],
+    );
+
+  test('only the latest draw version takes judges', () => {
+    assert({
+      given: 'the published version while a newer draft exists',
+      should: 'refuse draw-superseded',
+      actual: refusalOf(decideDraw(unused)(facts(), assign)),
+      expected: 'draw-superseded',
+    });
+  });
+
+  test('judges are seated only where the state table allows', () => {
+    const published = decideDraw(
+      keepingWith([
+        { id: id('f1'), panel: [id('judge1')] },
+        { id: id('f2'), panel: [id('judge2')] },
+      ]),
+    )(
+      facts({
+        versions: [published1],
+        fixtures: [
+          fixture('f1', [a, b], { state: 'has_result' }),
+          fixture('f2', [c, d], { state: 'round_live' }),
+        ],
+      }),
+      assign,
+    );
+    const mixed = version('draw2', 2, [id('f1'), id('f3')], {
+      status: 'draft',
+      basedOnDrawId: id('draw1'),
+    });
+    const draft = decideDraw(
+      keepingWith([
+        { id: id('f1'), panel: [id('judge1')] },
+        { id: id('f3'), panel: [id('judge2')] },
+      ]),
+    )(facts({ versions: [published1, mixed] }), {
+      type: 'assign-judges',
+      drawId: id('draw2'),
+    });
+    assert({
+      given: 'a published fixture with a result and one with a live Round',
+      should: 'seat a judge only on the live one',
+      actual: seatedOn(published),
+      expected: [[id('f2'), id('judge2'), true]],
+    });
+    assert({
+      given: 'a draft keeping a published fixture beside its own draft fixture',
+      should:
+        'seat a judge only on the draft fixture, with no officiated change or slot bump',
+      actual: {
+        seated: seatedOn(draft),
+        tables: tablesOf(draft),
+        changes: draft.kind === 'accepted' ? draft.fixtureChanges : null,
+      },
+      expected: {
+        seated: [[id('f3'), id('judge2'), true]],
+        tables: ['fixture_judges.insert'],
+        changes: [],
+      },
+    });
+  });
+
+  test('a panel without a chair takes its first added judge as chair', () => {
+    const decision = decideDraw(
+      keepingWith([{ id: id('f1'), panel: [id('judge0'), id('judge1')] }]),
+    )(
+      facts({
+        versions: [published1],
+        fixtures: [
+          fixture('f1', [a, b], {
+            judges: [
+              {
+                tournamentJudgeId: id('judge0'),
+                person: id('judge0person'),
+                chair: false,
+              },
+            ],
+          }),
+          fixture('f2', [c, d]),
+        ],
+      }),
+      assign,
+    );
+    assert({
+      given: 'a seated judge who is not chair at seat 0 and one judge added',
+      should: 'make the added judge chair',
+      actual: seatedOn(decision),
+      expected: [[id('f1'), id('judge1'), true]],
     });
   });
 });
@@ -581,7 +765,119 @@ describe('edit-draw', () => {
   });
 });
 
+describe('edit-draw, restoring content', () => {
+  const edit = (
+    edits: Extract<DrawCommand, { type: 'edit-draw' }>['edits'],
+  ): DrawCommand => ({ type: 'edit-draw', basedOnDrawId: id('draw2'), edits });
+  const engine = engineReturning({ kind: 'drawn', draws: [] }).engine;
+
+  test('an edit that restores the stored content keeps the stored fixture', () => {
+    const twice = decideDraw(engine)(
+      facts(),
+      edit([
+        { type: 'swap-sides', fixtureId: id('f3') },
+        { type: 'swap-sides', fixtureId: id('f3') },
+      ]),
+    );
+    const one = decideDraw(engine)(
+      facts(),
+      edit([
+        { type: 'swap-sides', fixtureId: id('f3') },
+        { type: 'swap-sides', fixtureId: id('f3') },
+        { type: 'swap-sides', fixtureId: id('f4') },
+      ]),
+    );
+    assert({
+      given: 'two side swaps of one fixture',
+      should: 'refuse draw-unchanged',
+      actual: refusalOf(twice),
+      expected: 'draw-unchanged',
+    });
+    assert({
+      given: 'two side swaps of one fixture and one of another',
+      should: 'keep the restored fixture and replace only the other',
+      actual: writesOf(one).flatMap((write) =>
+        write.table === 'draw_fixtures' || write.table === 'fixtures'
+          ? [
+              write.table === 'fixtures' && write.op === 'insert'
+                ? 'new fixture'
+                : write.table === 'draw_fixtures'
+                  ? write.row.fixtureId
+                  : 'other',
+            ]
+          : [],
+      ),
+      expected: ['new fixture', id('f3'), id('fresh1')],
+    });
+  });
+
+  test('too few fresh ids refuse by name', () => {
+    assert({
+      given: 'no fresh ids for an edit that makes a fixture',
+      should: 'refuse fresh-ids-short',
+      actual: refusalOf(
+        decideDraw(engine)(
+          facts({ freshIds: [] }),
+          edit([{ type: 'swap-sides', fixtureId: id('f3') }]),
+        ),
+      ),
+      expected: 'fresh-ids-short',
+    });
+  });
+});
+
 describe('publish-draw', () => {
+  test('publishing a first version withdraws nothing and adds each fixture', () => {
+    const first = version('draw1', 1, [id('f3'), id('f4')], {
+      status: 'draft',
+    });
+    const decision = decideDraw(unused)(
+      facts({ versions: [first], fixtures: fixtures.slice(2) }),
+      publish({ drawId: id('draw1') }),
+    );
+    assert({
+      given: 'a draft with no published version before it',
+      should: 'open a Room per fixture and answer each as added',
+      actual: {
+        tables: tablesOf(decision).filter(
+          (t) => t !== 'room_participants.insert',
+        ),
+        changes:
+          decision.kind === 'accepted'
+            ? decision.fixtureChanges.map((change) => [
+                change.kind,
+                change.fixtureId,
+              ])
+            : [],
+      },
+      expected: {
+        tables: [
+          'rooms.insert',
+          'fixtures.update',
+          'rooms.insert',
+          'fixtures.update',
+          'draws.update',
+          'time_slots.update',
+        ],
+        changes: [
+          ['added', id('f3')],
+          ['added', id('f4')],
+        ],
+      },
+    });
+  });
+
+  test('too few fresh ids for the Rooms and releases refuse by name', () => {
+    assert({
+      given: 'one fresh id for two Rooms',
+      should: 'refuse fresh-ids-short',
+      actual: refusalOf(
+        decideDraw(unused)(facts({ freshIds: [id('fresh0')] }), publish()),
+      ),
+      expected: 'fresh-ids-short',
+    });
+  });
+
   test('withdraws what it leaves out, publishes the new fixtures and answers exactly the changes', () => {
     const decision = decideDraw(unused)(
       facts({

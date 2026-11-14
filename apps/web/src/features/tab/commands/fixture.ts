@@ -244,7 +244,7 @@ export const fixtureStateOf = (
 };
 
 /** What the state table refuses a judge command, or a forfeit or restart. */
-const officiatingRefusal = (
+export const officiatingRefusal = (
   state: FixtureState,
   kind: FixtureRow['kind'],
   needsRoom: 'published' | 'any',

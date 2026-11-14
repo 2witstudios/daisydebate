@@ -101,6 +101,10 @@ export const drawRefusals = [
   'reason-required',
   'slot-clash',
   'slot-unset',
+  /** Judges are assigned only to the tab round's latest draw version. */
+  'draw-superseded',
+  /** The store gave fewer fresh ids than the version needs: a wiring fault, refused, never thrown. */
+  'fresh-ids-short',
 ] as const;
 export type DrawRefusal = (typeof drawRefusals)[number];
 export const drawRefusalSchema = z.enum(drawRefusals);
@@ -119,6 +123,7 @@ export const drawCommandCatalogue = {
       'settings-incomplete',
       'choices-pending',
       'draw-unchanged',
+      'fresh-ids-short',
     ],
   },
   'assign-judges': {
@@ -129,13 +134,19 @@ export const drawCommandCatalogue = {
       'judges-insufficient',
       'judge-double-booked',
       'settings-incomplete',
+      'draw-superseded',
     ],
   },
   'edit-draw': {
     ...onDraw,
     gate: ['tournament.draw.edit'],
     versions: ['draw'],
-    refusals: ['stale-draft', 'fixture-started'],
+    refusals: [
+      'stale-draft',
+      'fixture-started',
+      'draw-unchanged',
+      'fresh-ids-short',
+    ],
   },
   'publish-draw': {
     ...onDraw,
@@ -151,6 +162,7 @@ export const drawCommandCatalogue = {
       'judge-double-booked',
       'slot-clash',
       'slot-unset',
+      'fresh-ids-short',
     ],
   },
   'discard-draft': {

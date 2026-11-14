@@ -18,6 +18,7 @@ import type {
   DrawRefusal,
 } from '@daisy/protocol/lobby/draw-command';
 import { fixtureChangesOf, type PublishedVersion } from './fixture-changes';
+import { officiatingRefusal, type FixtureState } from './fixture';
 import {
   refuse,
   type CommandDecision,
@@ -75,6 +76,33 @@ export const isRepairable = (state: LiveFixtureState): boolean => {
   }
 };
 
+/**
+ * A draw fixture's row of the state table, as the officiating commands read
+ * it (`officiatingRefusal` in fixture.ts), so a draw-level judge assignment
+ * follows the same table as a fixture-level one.
+ */
+const fixtureStateOfDraw = (fixture: DrawFixtureFacts): FixtureState => {
+  switch (fixture.status) {
+    case 'draft':
+      return 'draft';
+    case 'withdrawn':
+      return 'withdrawn';
+    case 'published':
+      switch (fixture.state) {
+        case null:
+        case 'not_open':
+        case 'open':
+          return 'not_started';
+        case 'round_live':
+          return 'round_started';
+        case 'ballot_in':
+          return 'ballot_in';
+        case 'has_result':
+          return 'has_result';
+      }
+  }
+};
+
 /** What a draw version records in its `inputs` beside the engine's record. */
 export type DrawInputs = {
   /** The engine's inputs record; null for a typed draw never computed. */
@@ -125,7 +153,8 @@ export type DrawFixtureFacts = {
  * version of the tab round's draw and every fixture they hold, the event's
  * settings resolved now, the engine's inputs as loaded, and the slot.
  * `freshIds` are ids minted at the edge, used in order; the store gives at
- * least one per entry of the event plus one per release, and two more.
+ * least one per entry of the event plus one per release, and two more. A
+ * command needing more than it gives is refused `fresh-ids-short`.
  */
 export type DrawFacts = {
   readonly commandId: string;
@@ -357,16 +386,12 @@ const child = (facts: DrawFacts): DrawChild => ({
   lobbyId: facts.event.lobbyId,
 });
 
-/** Fresh ids in the order they are taken; running out is a wiring bug. */
-const idSource = (ids: readonly string[]) => {
-  let next = 0;
-  return (): string => {
-    const id = ids[next++];
-    if (id === undefined)
-      throw new RangeError('The store gave too few fresh ids');
-    return id;
-  };
-};
+/** The first `count` fresh ids, or null when the store gave too few. */
+const freshIdsFor = (
+  facts: DrawFacts,
+  count: number,
+): readonly string[] | null =>
+  facts.freshIds.length < count ? null : facts.freshIds.slice(0, count);
 
 const latest = (versions: readonly DrawVersionFacts[]) =>
   versions.reduce<DrawVersionFacts | null>(
@@ -377,8 +402,13 @@ const latest = (versions: readonly DrawVersionFacts[]) =>
 const latestPublished = (versions: readonly DrawVersionFacts[]) =>
   latest(versions.filter((version) => version.status === 'published'));
 
-const sameSet = (a: readonly string[], b: readonly string[]) =>
-  a.length === b.length && new Set([...a, ...b]).size === a.length;
+const sameSet = (a: readonly string[], b: readonly string[]) => {
+  const left = new Set(a);
+  const right = new Set(b);
+  return (
+    left.size === right.size && new Set([...left, ...right]).size === left.size
+  );
+};
 
 const fixtureById = (facts: DrawFacts) =>
   new Map(facts.fixtures.map((fixture) => [fixture.id, fixture]));
@@ -395,6 +425,15 @@ const entriesOf = (fixture: EngineFixture): readonly string[] => {
 };
 const panelOf = (fixture: EngineFixture): readonly string[] =>
   fixture.kind === 'bye' ? [] : fixture.panel;
+
+const sameList = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((item, index) => item === b[index]);
+
+/** Same kind, same entries in the same order, same panel in seat order. */
+const sameFixture = (a: EngineFixture, b: EngineFixture) =>
+  a.kind === b.kind &&
+  sameList(entriesOf(a), entriesOf(b)) &&
+  sameList(panelOf(a), panelOf(b));
 
 /** The engine's view of a stored fixture: entries in position order, chair first. */
 export const engineFixtureOf = (fixture: DrawFixtureFacts): EngineFixture => {
@@ -507,10 +546,12 @@ type DraftFixture =
   | { readonly kind: 'kept'; readonly id: string }
   | { readonly kind: 'new'; readonly fixture: EngineFixture };
 
-/** The writes of a new draft version holding these fixtures. */
+/**
+ * The writes of a new draft version holding these fixtures: one fresh id for
+ * the version and one per new fixture, or null when the facts give too few.
+ */
 const draftWrites = (
   facts: DrawFacts,
-  take: () => string,
   draft: {
     readonly method: DrawMethod;
     readonly engineVersion: string | null;
@@ -523,14 +564,17 @@ const draftWrites = (
   readonly drawId: string;
   readonly version: number;
   readonly writes: DrawWrite[];
-} => {
-  const drawId = take();
+} | null => {
+  const added = draft.fixtures.filter((fixture) => fixture.kind === 'new');
+  const ids = freshIdsFor(facts, 1 + added.length);
+  if (ids === null) return null;
+  const drawId = ids[0]!;
   const version = (latest(facts.versions)?.version ?? 0) + 1;
   const base = child(facts);
   const placed = draft.fixtures.map((fixture) =>
     fixture.kind === 'kept'
       ? { id: fixture.id, fixture: null }
-      : { id: take(), fixture: fixture.fixture },
+      : { id: ids[1 + added.indexOf(fixture)]!, fixture: fixture.fixture },
   );
   const fixtureRows = placed.flatMap(({ id, fixture }): DrawWrite[] => {
     if (fixture === null) return [];
@@ -659,17 +703,15 @@ const generateDraw = (
       fixture: added.fixture,
     })),
   ];
-  const current = latest(facts.versions);
+  const keptIds = drawn.keep.map((kept) => kept.id);
+  const holds = (version: DrawVersionFacts | null) =>
+    version !== null && sameSet(version.fixtureIds, keptIds);
   if (
     drawn.add.length === 0 &&
-    current !== null &&
-    sameSet(
-      current.fixtureIds,
-      drawn.keep.map((kept) => kept.id),
-    )
+    (holds(latest(facts.versions)) || holds(latestPublished(facts.versions)))
   )
     return refuse('draw-unchanged');
-  const draft = draftWrites(facts, idSource(facts.freshIds), {
+  const draft = draftWrites(facts, {
     method: 'computed',
     engineVersion: engineVersionOf(drawn.inputs),
     basedOnDrawId: latestPublished(facts.versions)?.id ?? null,
@@ -682,6 +724,7 @@ const generateDraw = (
     fixtures,
     resultIds: drawn.inputs.results,
   });
+  if (draft === null) return refuse('fresh-ids-short');
   return onDraw(
     draft.drawId,
     draft.version,
@@ -719,10 +762,31 @@ const assignJudges = (
 ): DrawDecision => {
   const draw = facts.versions.find((version) => version.id === command.drawId);
   if (draw === undefined) return refuse('not-found');
+  if (draw.id !== latest(facts.versions)?.id) return refuse('draw-superseded');
   if (facts.settings.kind === 'incomplete')
     return refuse('settings-incomplete');
   const byId = fixtureById(facts);
   const held = draw.fixtureIds.flatMap((id) => byId.get(id) ?? []);
+  /**
+   * The fixtures this command may seat judges on: those the state table lets
+   * a judge join; on a draft, only its own unpublished fixtures, since a live
+   * fixture's panel changes only by officiating on the published version.
+   */
+  const seatable = new Set(
+    held
+      .filter(
+        (fixture) =>
+          (draw.status === 'published' || fixture.status === 'draft') &&
+          officiatingRefusal(
+            fixtureStateOfDraw(fixture),
+            fixture.kind,
+            'any',
+          ) === null,
+      )
+      .map((fixture) => fixture.id),
+  );
+  // Every held fixture goes in fixed: the engine keeps a fixed fixture's
+  // entries and seated judges and fills its empty seats up to the panel size.
   const answer = engine.draw(
     drawInput(
       facts,
@@ -758,19 +822,20 @@ const assignJudges = (
     facts.engine.judges.map((judge) => [judge.id, judge.person]),
   );
   const seatings = drawn.keep.flatMap((kept) => {
-    const stored = byId.get(kept.id);
+    const stored = seatable.has(kept.id) ? byId.get(kept.id) : undefined;
     if (stored === undefined) return [];
     const seated = new Set(
       stored.judges.map((judge) => judge.tournamentJudgeId),
     );
     const added = panelOf(kept.fixture)
-      .map((judgeId, seat) => ({ judgeId, seat }))
-      .filter(({ judgeId }) => !seated.has(judgeId));
+      .filter((judgeId) => !seated.has(judgeId))
+      .map((judgeId) => ({ judgeId }));
     return added.length === 0 ? [] : [{ stored, added }];
   });
   const base = child(facts);
+  // A panel with no chair takes its first added judge as chair.
   const writes = seatings.flatMap(({ stored, added }) =>
-    added.map(({ judgeId, seat }): DrawWrite => ({
+    added.map(({ judgeId }, index): DrawWrite => ({
       table: 'fixture_judges',
       op: 'insert',
       row: {
@@ -778,7 +843,7 @@ const assignJudges = (
         fixtureId: stored.id,
         fixtureStatus: stored.status,
         tournamentJudgeId: judgeId,
-        chair: seat === 0 && !stored.judges.some((judge) => judge.chair),
+        chair: index === 0 && !stored.judges.some((judge) => judge.chair),
       },
     })),
   );
@@ -963,12 +1028,27 @@ const editDraw = (
       ? []
       : [{ key: id, keptId: id, fixture: engineFixtureOf(stored) }];
   });
-  const edited = applyEdits(facts, start, command.edits);
-  if (edited.kind === 'refused') return refuse(edited.refusal);
-  // Every edit replaces a fixture or removes one, so the set always changes.
+  const applied = applyEdits(facts, start, command.edits);
+  if (applied.kind === 'refused') return refuse(applied.refusal);
+  // An edit that restores a stored fixture's content keeps that fixture.
+  const edited = {
+    fixtures: applied.fixtures.map((item): Working => {
+      const stored = start.find((origin) => origin.key === item.key);
+      return item.keptId === null &&
+        stored !== undefined &&
+        sameFixture(item.fixture, stored.fixture)
+        ? { ...item, keptId: stored.key }
+        : item;
+    }),
+  };
   const keptIds = edited.fixtures.flatMap((item) =>
     item.keptId === null ? [] : [item.keptId],
   );
+  if (
+    keptIds.length === edited.fixtures.length &&
+    sameSet(keptIds, based.fixtureIds)
+  )
+    return refuse('draw-unchanged');
   const live = new Set(
     facts.fixtures
       .filter((fixture) => fixture.status === 'published')
@@ -1003,7 +1083,7 @@ const editDraw = (
           ],
         )[0]
       : undefined;
-  const draft = draftWrites(facts, idSource(facts.freshIds), {
+  const draft = draftWrites(facts, {
     method: 'typed',
     engineVersion: null,
     basedOnDrawId:
@@ -1019,6 +1099,7 @@ const editDraw = (
     ),
     resultIds: based.inputs.engine?.results ?? [],
   });
+  if (draft === null) return refuse('fresh-ids-short');
   return onDraw(
     draft.drawId,
     draft.version,
@@ -1102,7 +1183,12 @@ const publishDraw = (
   const booked = doubleBooked(held, new Set(facts.slotElsewhere));
   if (booked.judges) return refuse('judge-double-booked');
   if (booked.entries) return refuse('slot-clash');
-  const take = idSource(facts.freshIds);
+  const unpublished = held.filter((fixture) => fixture.status === 'draft');
+  const roomed = unpublished.filter((fixture) => fixture.kind !== 'bye');
+  const ids = freshIdsFor(facts, roomed.length + facts.releasesAtOnce.length);
+  if (ids === null) return refuse('fresh-ids-short');
+  const roomIdOf = (fixture: DrawFixtureFacts) =>
+    fixture.kind === 'bye' ? null : ids[roomed.indexOf(fixture)]!;
   const base = child(facts);
   const now = facts.now;
   const withdrawals = leftOut.flatMap((fixture): DrawWrite[] => [
@@ -1123,53 +1209,51 @@ const publishDraw = (
           } as const,
         ]),
   ]);
-  const publications = held
-    .filter((fixture) => fixture.status === 'draft')
-    .flatMap((fixture): DrawWrite[] => {
-      const roomId = fixture.kind === 'bye' ? null : take();
-      return [
-        ...(roomId === null
-          ? []
-          : [
-              {
-                table: 'rooms',
-                op: 'insert',
-                row: {
-                  id: roomId,
-                  lobbyId: facts.event.lobbyId,
-                  lobbyKind: 'tournament',
-                  title: roomTitle(facts),
-                  status: 'assembling',
-                  formatId: facts.event.formatId,
-                  formatVersion: facts.event.formatVersion,
-                  templateId: facts.event.templateId,
-                  ballotDefinitionId: facts.event.ballotDefinitionId,
-                  ballotDefinitionVersion: facts.event.ballotDefinitionVersion,
-                },
-              } as const,
-              ...[...new Set(peopleOf(fixture))].map(
-                (actorId) =>
-                  ({
-                    table: 'room_participants',
-                    op: 'insert',
-                    row: { roomId, actorId },
-                  }) as const,
-              ),
-            ]),
-        {
-          table: 'fixtures',
-          op: 'update',
-          where: { id: fixture.id },
-          set: { status: 'published', publishedAt: now, roomId },
-        },
-      ];
-    });
-  const releases = facts.releasesAtOnce.map((release): DrawWrite => ({
+  const publications = unpublished.flatMap((fixture): DrawWrite[] => {
+    const roomId = roomIdOf(fixture);
+    return [
+      ...(roomId === null
+        ? []
+        : [
+            {
+              table: 'rooms',
+              op: 'insert',
+              row: {
+                id: roomId,
+                lobbyId: facts.event.lobbyId,
+                lobbyKind: 'tournament',
+                title: roomTitle(facts),
+                status: 'assembling',
+                formatId: facts.event.formatId,
+                formatVersion: facts.event.formatVersion,
+                templateId: facts.event.templateId,
+                ballotDefinitionId: facts.event.ballotDefinitionId,
+                ballotDefinitionVersion: facts.event.ballotDefinitionVersion,
+              },
+            } as const,
+            ...[...new Set(peopleOf(fixture))].map(
+              (actorId) =>
+                ({
+                  table: 'room_participants',
+                  op: 'insert',
+                  row: { roomId, actorId },
+                }) as const,
+            ),
+          ]),
+      {
+        table: 'fixtures',
+        op: 'update',
+        where: { id: fixture.id },
+        set: { status: 'published', publishedAt: now, roomId },
+      },
+    ];
+  });
+  const releases = facts.releasesAtOnce.map((release, index): DrawWrite => ({
     table: 'releases',
     op: 'insert',
     row: {
       ...base,
-      id: take(),
+      id: ids[roomed.length + index]!,
       thing: release.thing,
       audience: release.audience,
       cause: 'at_once',
