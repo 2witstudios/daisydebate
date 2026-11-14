@@ -43,7 +43,10 @@ export function speechRound(
       'View as participant',
       tabRoutes.tournament(AUTUMN),
     ),
-    next: sampleAction("Open the final's draw", true),
+    next:
+      running || reached(scene, 'elims')
+        ? null
+        : sampleAction("Open the final's draw", true),
     groups: running
       ? [
           {

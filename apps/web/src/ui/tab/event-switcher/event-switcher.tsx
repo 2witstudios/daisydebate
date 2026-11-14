@@ -25,7 +25,8 @@ function Other({ event }: { readonly event: TabAction }) {
  */
 export function EventSwitcher({ event }: { readonly event: EventSwitch }) {
   return (
-    <details className="relative self-start">
+    // Keyed by event, so switching to another event arrives closed.
+    <details key={event.current} className="relative self-start">
       <summary
         className={`${buttonClass('secondary')} list-none bg-surface-raised`}
       >

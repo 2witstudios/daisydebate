@@ -1,13 +1,14 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { landingStop } from '../tournament';
 import { sampleJudgeBallot } from './ballot';
-import { AUTUMN, VARSITY } from './moment';
+import { sampleLeagueLobby } from './league-lobby';
+import { AUTUMN, IMPROMPTU, LEAGUE, VARSITY } from './moment';
 import { sampleTimelineRail } from './rail';
 import { sampleRoom } from './rooms';
 import type { SampleScene } from './scene';
 import { sampleSetup } from './setup';
 import { sampleRunningRound } from './tab-round';
-import { sampleTournamentPage } from './tournament';
+import { sampleTournamentPage, sampleTournamentsIndex } from './tournament';
 
 setupRitewayBun();
 
@@ -69,6 +70,52 @@ describe('the sample reads', () => {
       should: 'land on its results',
       actual: rail === null ? null : landingStop(rail),
       expected: '/host/tournaments/autumn-open/results',
+    });
+  });
+
+  test('a visitor reads Autumn Open by whether it has begun', () => {
+    const groupOf = (scene: SampleScene) =>
+      sampleTournamentsIndex(scene).groups.find((group) =>
+        group.rows.some((row) => row.name === 'Autumn Open'),
+      )?.heading ?? null;
+    assert({
+      given: 'a visitor before the tournament and during prelims',
+      should: 'list it as open to enter, then as on now',
+      actual: [
+        groupOf({ viewer: 'visitor', moment: 'before' }),
+        groupOf({ viewer: 'visitor', moment: 'prelims' }),
+      ],
+      expected: ['Open to enter', 'On now'],
+    });
+  });
+
+  test("the speech round offers the final's draw only between rounds and elims", () => {
+    const next = (moment: SampleScene['moment']) =>
+      sampleRunningRound(AUTUMN, IMPROMPTU, '3', { viewer: 'host', moment })
+        ?.next?.label ?? null;
+    assert({
+      given:
+        'Impromptu round 3 while running, at the break, in elims and finished',
+      should: "offer the final's draw at the break alone",
+      actual: [next('prelims'), next('break'), next('elims'), next('finished')],
+      expected: [null, "Open the final's draw", null, null],
+    });
+  });
+
+  test('a season event the league does not have', () => {
+    const event = (name: string | null) => {
+      const panel = sampleLeagueLobby(
+        LEAGUE,
+        { tab: 'season', event: name },
+        host,
+      )?.panel;
+      return panel?.kind === 'season' ? panel.event : null;
+    };
+    assert({
+      given: 'no event, and an event name the league does not run',
+      should: 'show the default event rather than no lobby',
+      actual: [event(null), event('lincoln-douglas')],
+      expected: [VARSITY, VARSITY],
     });
   });
 });

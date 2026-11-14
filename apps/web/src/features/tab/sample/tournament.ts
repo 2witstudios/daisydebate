@@ -203,7 +203,7 @@ export function sampleTournamentsIndex(scene: SampleScene): TournamentsIndex {
           ),
         ];
   const today =
-    scene.viewer === 'visitor' && autumn.when !== 'finished'
+    scene.viewer === 'visitor' && autumn.when === 'today'
       ? [
           row(
             'Autumn Open',
@@ -213,6 +213,15 @@ export function sampleTournamentsIndex(scene: SampleScene): TournamentsIndex {
         ]
       : [];
   const enter = [
+    ...(scene.viewer === 'visitor' && autumn.when === 'coming'
+      ? [
+          row(
+            'Autumn Open',
+            `${when} · ${LEAGUE_NAME} · ${autumn.fact}`,
+            view(AUTUMN),
+          ),
+        ]
+      : []),
     row(
       'Friday scrimmage',
       'Fri 20 Nov, 18:00 · hosted by jono · 9 of 16 places taken',

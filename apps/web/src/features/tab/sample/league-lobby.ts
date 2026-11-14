@@ -198,7 +198,8 @@ const seasons: Readonly<
 };
 
 function seasonPanel(event: string | null): LeaguePanel | null {
-  const slug = event ?? VARSITY;
+  // An unknown event reads as the default one, as an unknown tab does.
+  const slug = event !== null && own(seasons, event) !== null ? event : VARSITY;
   const chosen = own(seasons, slug);
   if (chosen === null) return null;
   return {
