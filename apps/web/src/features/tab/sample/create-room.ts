@@ -52,7 +52,7 @@ export function sampleCreateRoom(
       enforced(
         ['recording.capture', 'audience.video'],
         'Recording',
-        'Recorded · video for officials only',
+        'Recorded · video for the people in each round',
       ),
     ],
     defaults: [
