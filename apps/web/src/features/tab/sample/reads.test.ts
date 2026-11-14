@@ -1,14 +1,17 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { landingStop } from '../tournament';
+import {
+  landingStop,
+  readTimelineRail,
+  readTournamentPage,
+  readTournamentsIndex,
+} from '../tournament';
 import { sampleJudgeBallot } from './ballot';
-import { sampleLeagueLobby } from './league-lobby';
+import { readLeagueLobby } from '../league';
 import { AUTUMN, IMPROMPTU, LEAGUE, VARSITY } from './moment';
-import { sampleTimelineRail } from './rail';
-import { sampleRoom } from './rooms';
+import { readRoom } from '../room';
 import type { SampleScene } from './scene';
-import { sampleSetup } from './setup';
-import { sampleRunningRound } from './tab-round';
-import { sampleTournamentPage, sampleTournamentsIndex } from './tournament';
+import { readSetup } from '../setup';
+import { readRunningRound } from '../tab-round';
 
 setupRitewayBun();
 
@@ -22,8 +25,8 @@ describe('the sample reads', () => {
       given: 'a round, a Room and a ballot named constructor and the like',
       should: 'answer that there is no such thing',
       actual: inherited.flatMap((name) => [
-        sampleRunningRound(AUTUMN, VARSITY, name, host),
-        sampleRoom(name, host),
+        readRunningRound(AUTUMN, VARSITY, name, host),
+        readRoom(name, host),
         sampleJudgeBallot(name, judge),
       ]),
       expected: inherited.flatMap(() => [null, null, null]),
@@ -32,7 +35,7 @@ describe('the sample reads', () => {
 
   test('a round or an event the tournament does not have', () => {
     const page = (event: string, round: string) =>
-      sampleTournamentPage(AUTUMN, { kind: 'round', event, round }, host)
+      readTournamentPage(AUTUMN, { kind: 'round', event, round }, host)
         ?.kind ?? null;
     assert({
       given: 'the posting of round 3, of round 99 and of another event',
@@ -43,7 +46,7 @@ describe('the sample reads', () => {
   });
 
   test('what the league enforces on a tournament', () => {
-    const locked = sampleSetup(AUTUMN, host)
+    const locked = readSetup(AUTUMN, host)
       ?.settings.filter((setting) => setting.control.kind === 'locked')
       .map((setting) => [setting.label, setting.source.scope]);
     assert({
@@ -61,7 +64,7 @@ describe('the sample reads', () => {
   });
 
   test('opening a certified tournament', () => {
-    const rail = sampleTimelineRail(AUTUMN, {
+    const rail = readTimelineRail(AUTUMN, {
       viewer: 'host',
       moment: 'finished',
     });
@@ -75,7 +78,7 @@ describe('the sample reads', () => {
 
   test('a visitor reads Autumn Open by whether it has begun', () => {
     const groupOf = (scene: SampleScene) =>
-      sampleTournamentsIndex(scene).groups.find((group) =>
+      readTournamentsIndex(scene).groups.find((group) =>
         group.rows.some((row) => row.name === 'Autumn Open'),
       )?.heading ?? null;
     assert({
@@ -91,7 +94,7 @@ describe('the sample reads', () => {
 
   test("the speech round offers the final's draw only between rounds and elims", () => {
     const next = (moment: SampleScene['moment']) =>
-      sampleRunningRound(AUTUMN, IMPROMPTU, '3', { viewer: 'host', moment })
+      readRunningRound(AUTUMN, IMPROMPTU, '3', { viewer: 'host', moment })
         ?.next?.label ?? null;
     assert({
       given:
@@ -104,7 +107,7 @@ describe('the sample reads', () => {
 
   test('a season event the league does not have', () => {
     const event = (name: string | null) => {
-      const panel = sampleLeagueLobby(
+      const panel = readLeagueLobby(
         LEAGUE,
         { tab: 'season', event: name },
         host,

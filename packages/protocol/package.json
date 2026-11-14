@@ -50,6 +50,7 @@
     "./lobby/lobby-read": "./src/lobby/lobby-read.ts",
     "./lobby/posting-read": "./src/lobby/posting-read.ts",
     "./lobby/day-read": "./src/lobby/day-read.ts",
+    "./lobby/event-room-read": "./src/lobby/event-room-read.ts",
     "./lobby/organization-read": "./src/lobby/organization-read.ts",
     "./lobby/resolved-settings-read": "./src/lobby/resolved-settings-read.ts",
     "./lobby/template-read": "./src/lobby/template-read.ts",
