@@ -24,7 +24,12 @@ import {
 } from './support/room-launch-flow';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { displayDeltaMs } from './support/round-clock';
-import { roundMediaStateSchema, roundViewSchema } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  roundMediaStateSchema,
+  roundViewSchema,
+  sideOfSeat,
+} from '@daisy/protocol';
 
 const TWO_MINUTE_SKEW_MS = 120_000;
 /** m:ss reads whole seconds; this journey allows one sweep of the clock face. */
@@ -268,7 +273,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     const segment = view.segments[0]!;
     const deadline = Date.parse(segment.startedAt) + segment.durationMs;
     const seat = view.participants.find(
-      (participant) => participant.role === 'affirmative',
+      (participant) => sideOfSeat(participant.seat) === affirmativeSide,
     );
     if (!seat || !('label' in seat))
       throw new Error('Actual affirmative seat missing');

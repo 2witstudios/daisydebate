@@ -1,5 +1,10 @@
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
-import { activeRoomReadSchema, isNamedSeat } from '@daisy/protocol';
+import {
+  activeRoomReadSchema,
+  isNamedSeat,
+  isSideSeat,
+  type SeatRef,
+} from '@daisy/protocol';
 import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
 
 const ATTEMPTS = 3;
@@ -20,7 +25,7 @@ const leftRoundId = async (request: APIRequestContext) => {
 export async function forfeitOwnSeat(
   request: APIRequestContext,
   roundId: string,
-  matches: (seat: { role: string; slot: number; label: string }) => boolean,
+  matches: (seat: { seat: SeatRef; label: string }) => boolean,
 ) {
   const view = await readBallotRound(request, roundId);
   if (view.status !== 'opening' && view.status !== 'active') return;
@@ -52,9 +57,7 @@ async function settleLeftRound(member: {
         await forfeitOwnSeat(
           request,
           roundId,
-          (seat) =>
-            seat.label === member.username &&
-            (seat.role === 'affirmative' || seat.role === 'negative'),
+          (seat) => seat.label === member.username && isSideSeat(seat.seat),
         );
       return;
     } catch (error) {

@@ -1,3 +1,4 @@
+import { judgeSeat, negativeSide, sideSeat } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -40,9 +41,9 @@ test('without JavaScript, a member without the casual AI judge practises with a 
     const page = await openPage(context, 'Casual host without the AI judge');
     const roster = await readRoomBotRoster(page.request);
     const opponent = roster.find(
-      (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
+      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
     );
-    const judge = roster.find((bot) => bot.seatRole === 'judge');
+    const judge = roster.find((bot) => bot.seatKind === 'judge');
     expect(opponent?.eligible).toBe(true);
 
     await page.goto(`/train?bot=${opponent!.actorId}`);
@@ -54,8 +55,8 @@ test('without JavaScript, a member without the casual AI judge practises with a 
     const roomId = new URL(page.url()).pathname.split('/').at(-1)!;
 
     const room = await reread(page.request, roomId);
-    expect(room.participants.map((p) => [p.role, p.kind])).toEqual([
-      ['negative', 'bot'],
+    expect(room.participants.map((p) => [p.seat, p.kind])).toEqual([
+      [sideSeat(negativeSide), 'bot'],
     ]);
     expect(room.aiJudgeSeating).toBe('premium');
     await expect(
@@ -75,8 +76,7 @@ test('without JavaScript, a member without the casual AI judge practises with a 
         commandId: createId(),
         expectedVersion: room.version,
         actorId: judge!.actorId,
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
       },
     });
     expect(forged.status()).toBe(409);

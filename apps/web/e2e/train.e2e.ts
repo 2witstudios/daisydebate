@@ -1,7 +1,16 @@
 import { createId } from '@paralleldrive/cuid2';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  isJudgeSeat,
+  isNamedSeat,
+  judgeSeat,
+  negativeSide,
+  seatKey,
+  sideSeat,
+  type RoomView,
+} from '@daisy/protocol';
 import type { Response } from '@playwright/test';
 import { expect, test, openPage } from './support/fixtures';
 import { readRoomBotRoster, startTrainPractice } from './support/ai-cast';
@@ -13,6 +22,9 @@ import {
   reread,
   submitCreateRoom,
 } from './support/room-launch-flow';
+
+const affirmativeSeat = sideSeat(affirmativeSide);
+const negativeSeat = sideSeat(negativeSide);
 
 /** The seated participant an actor id names; anonymous judges name nobody. */
 const seated = (view: RoomView, actorId: string) =>
@@ -33,7 +45,7 @@ test('Train seats the chosen bot in a durable, editable Room', async ({
     const page = await openPage(context, 'Train host');
     const roster = await readRoomBotRoster(page.request);
     const wren = roster.find(
-      (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
+      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
     );
     expect(wren?.eligible).toBe(true);
     await page.goto('/train');
@@ -47,27 +59,28 @@ test('Train seats the chosen bot in a durable, editable Room', async ({
     // and the Room waits for its human: assembling, never readiness.
     expect(seated(view, wren!.actorId)).toMatchObject({
       kind: 'bot',
-      role: 'negative',
-      slot: 0,
+      seat: negativeSeat,
     });
-    expect(view.participants.find((p) => p.role === 'judge')?.kind).toBe('bot');
+    expect(view.participants.find((p) => isJudgeSeat(p.seat))?.kind).toBe(
+      'bot',
+    );
     expect(view.status).toBe('assembling');
     // The choice survives a reload because the Room holds it.
     await page.reload();
     view = await reread(page.request, roomId);
-    expect(seated(view, wren!.actorId)?.role).toBe('negative');
+    expect(seated(view, wren!.actorId)?.seat).toEqual(negativeSeat);
     const hostActorId = view.hostActorId;
     if (!hostActorId) throw new Error('Host identity was redacted to itself');
     // The host claims their own side in the ordinary Room. Train does not
     // synthesize readiness or jump past the existing Room gates.
     view = await claim(page, view, 'Affirmative 1');
-    expect(seated(view, hostActorId)?.role).toBe('affirmative');
-    expect(seated(view, wren!.actorId)?.role).toBe('negative');
+    expect(seated(view, hostActorId)?.seat).toEqual(affirmativeSeat);
+    expect(seated(view, wren!.actorId)?.seat).toEqual(negativeSeat);
     expect(view.status).toBe('ready');
     await page.reload();
     view = await reread(page.request, roomId);
-    expect(seated(view, wren!.actorId)?.role).toBe('negative');
-    expect(seated(view, hostActorId)?.role).toBe('affirmative');
+    expect(seated(view, wren!.actorId)?.seat).toEqual(negativeSeat);
+    expect(seated(view, hostActorId)?.seat).toEqual(affirmativeSeat);
     await info.attach('train-room-evidence', {
       body: JSON.stringify({ candidate: process.env.GIT_COMMIT, roomId }),
       contentType: 'application/json',
@@ -91,7 +104,7 @@ test('native Train Start practice creates a Room and recovers an active Room wit
     const page = await openPage(context, 'Native Train host');
     const roster = await readRoomBotRoster(page.request);
     const opponent = roster.find(
-      (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
+      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
     );
     expect(opponent?.eligible).toBe(true);
     const nativePosts: Response[] = [];
@@ -113,7 +126,7 @@ test('native Train Start practice creates a Room and recovers an active Room wit
     );
     const created = await reread(page.request, roomId);
     expect(seated(created, opponent!.actorId)).toMatchObject({
-      role: 'negative',
+      seat: negativeSeat,
       kind: 'bot',
     });
 
@@ -153,8 +166,8 @@ for (const javaScriptEnabled of [true, false]) {
       const host = await openPage(hostContext, 'Manage host');
       const outsider = await openPage(outsiderContext, 'Manage outsider');
       const roster = await readRoomBotRoster(host.request);
-      const debater = roster.find((bot) => bot.seatRole === 'debater');
-      const judge = roster.find((bot) => bot.seatRole === 'judge');
+      const debater = roster.find((bot) => bot.seatKind === 'side');
+      const judge = roster.find((bot) => bot.seatKind === 'judge');
       let view = await createFromPlay(
         host,
         `Manage bots ${createId().slice(0, 8)}`,
@@ -193,22 +206,19 @@ for (const javaScriptEnabled of [true, false]) {
       // cast, then the first takes it back the same way.
       const understudy = roster.find(
         (bot) =>
-          bot.seatRole === 'debater' &&
+          bot.seatKind === 'side' &&
           bot.eligible &&
           bot.actorId !== debater!.actorId,
       );
       await seatBot('Negative 1', understudy!.actorId);
       view = await reread(host.request, view.id);
-      expect(seated(view, understudy!.actorId)).toMatchObject({
-        role: 'negative',
-        slot: 0,
-      });
+      expect(seated(view, understudy!.actorId)?.seat).toEqual(negativeSeat);
       expect(seated(view, debater!.actorId)).toBeUndefined();
-      expect(seated(view, hostId)?.role).toBe('affirmative');
+      expect(seated(view, hostId)?.seat).toEqual(affirmativeSeat);
       await seatBot('Negative 1', debater!.actorId);
       view = await reread(host.request, view.id);
       expect(seated(view, understudy!.actorId)).toBeUndefined();
-      expect(seated(view, debater!.actorId)?.role).toBe('negative');
+      expect(seated(view, debater!.actorId)?.seat).toEqual(negativeSeat);
       // The cast is durable: a reload still shows both bots seated.
       await host.reload();
       await host.getByText('Manage seats', { exact: true }).click();
@@ -219,34 +229,26 @@ for (const javaScriptEnabled of [true, false]) {
         host.getByLabel('Assign Judge 1', { exact: true }),
       ).toHaveValue(judge!.actorId);
       view = await reread(host.request, view.id);
-      expect(seated(view, debater!.actorId)).toMatchObject({
-        role: 'negative',
-        slot: 0,
-      });
-      expect(seated(view, judge!.actorId)).toMatchObject({
-        role: 'judge',
-        slot: 0,
-      });
+      expect(seated(view, debater!.actorId)?.seat).toEqual(negativeSeat);
+      expect(seated(view, judge!.actorId)?.seat).toEqual(judgeSeat());
       const castOf = (v: RoomView) =>
         v.participants
           .filter(isNamedSeat)
-          .map((p) => [p.actorId, p.role, p.slot])
+          .map((p) => [p.actorId, seatKey(p.seat)])
           .sort();
       const managed = await reread(host.request, view.id);
       // A nonhost commands nothing here.
       const nonhost = await deniedCommand(outsider.request, view, {
         type: 'assign-seat',
         actorId: debater!.actorId,
-        role: 'affirmative',
-        slot: 0,
+        seat: affirmativeSeat,
       });
       expect(nonhost.status()).toBe(403);
       // A bot debater never judges (ISSUE-750).
       const wrongRole = await deniedCommand(host.request, view, {
         type: 'assign-seat',
         actorId: debater!.actorId,
-        role: 'judge',
-        slot: 0,
+        seat: judgeSeat(),
       });
       expect(wrongRole.status()).toBe(409);
       expect(((await wrongRole.json()) as { refusal: string }).refusal).toBe(
@@ -294,8 +296,7 @@ for (const javaScriptEnabled of [true, false]) {
             commandId: createId(),
             expectedVersion: rankedView.version,
             actorId: debater!.actorId,
-            role: 'affirmative',
-            slot: 0,
+            seat: affirmativeSeat,
           },
         },
       );

@@ -3,7 +3,11 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { oneOnOneSettings } from '@daisy/db/reference-formats';
-import { roundTranscriptReadSchema } from '@daisy/protocol';
+import {
+  roundTranscriptReadSchema,
+  sideOfSeat,
+  twoSideKeys,
+} from '@daisy/protocol';
 import type { Page } from '@playwright/test';
 import {
   ballotRoundCommand,
@@ -11,6 +15,7 @@ import {
   readBallotRound,
 } from './support/human-ballot-round';
 import { oneOnOneChoice } from './support/human-round-selection';
+import { leadSideOf } from './support/segment-lead';
 import { drillEvidence } from './support/node-kill-drill-evidence';
 import { expect, openPage, test } from './support/fixtures';
 import { nowMs } from './support/node-kill-drill-nodes';
@@ -201,18 +206,18 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
       );
       const { segments } = oneOnOneChoice.definition;
       const seats = await Promise.all(
-        (['affirmative', 'negative'] as const).map(async (role, seatIndex) => {
+        twoSideKeys.map(async (side, seatIndex) => {
           const member = accounts.members[seatIndex]!;
           const own = round.participants.find(
-            (entry) => entry.role === role && 'id' in entry,
+            (entry) => sideOfSeat(entry.seat) === side && 'id' in entry,
           );
           if (!own || !('id' in own)) throw new Error('Seat missing');
-          const page = await openPage(member.context, `${role} first word`);
+          const page = await openPage(member.context, `${side} first word`);
           await installSpeaker(
             page,
             await Promise.all(
               segments
-                .filter((segment) => segment.side === role)
+                .filter((segment) => leadSideOf(segment.speak) === side)
                 .map(async (segment) => ({
                   key: segment.key,
                   shows: clockLabel(segment),
@@ -223,7 +228,7 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
           );
           await page.goto(`/rounds/${round.id}/room`);
           await expectConnected(page);
-          return { role, member, id: own.id, page };
+          return { side, member, id: own.id, page };
         }),
       );
       const deadline = nowMs() + PLAY_OUT_LIMIT_MS;
@@ -236,7 +241,8 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
           (segment) => segment.type === 'speech' && segment.endedAt === null,
         );
         const next = segments[view.segments.length];
-        const nextSeat = seats.find((entry) => entry.role === next?.side);
+        const nextSeat =
+          next && seats.find((entry) => entry.side === leadSideOf(next.speak));
         if (
           prep &&
           next &&
@@ -271,10 +277,12 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
           open?.startedAt &&
           nowMs() - Date.parse(open.startedAt) >= HOLD_SPEECH_MS
         ) {
-          const side = segments.find(
+          const rule = segments.find(
             (segment) => segment.key === open.rulesSegmentKey,
-          )?.side;
-          const seat = seats.find((entry) => entry.role === side)!;
+          );
+          const seat = seats.find(
+            (entry) => rule && entry.side === leadSideOf(rule.speak),
+          )!;
           await ballotRoundCommand(
             seat.member.context.request,
             await readBallotRound(seat.member.context.request, round.id),
@@ -319,7 +327,9 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
         const rule = segments.find(
           (entry) => entry.key === segment.rulesSegmentKey,
         );
-        const seat = seats.find((entry) => entry.role === rule?.side);
+        const seat = seats.find(
+          (entry) => rule && entry.side === leadSideOf(rule.speak),
+        );
         if (!rule || !seat) return [];
         const lines = read.utterances
           .filter(

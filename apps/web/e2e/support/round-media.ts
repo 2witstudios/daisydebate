@@ -1,6 +1,11 @@
 import type { BrowserContext, Page } from '@playwright/test';
 import { expect, openPage } from './fixtures';
-import { roomViewSchema, roundMediaStateSchema } from '@daisy/protocol';
+import {
+  roomViewSchema,
+  roundMediaStateSchema,
+  sideSeat,
+  twoSideKeys,
+} from '@daisy/protocol';
 import {
   createFoundationRoom,
   claimSeat,
@@ -216,10 +221,7 @@ export async function openCheckedMediaRound(
     humanRoundSelection(choice, 0),
   );
   for (const [index, member] of members.entries())
-    room = await claimSeat(member, room, {
-      role: index === 0 ? 'affirmative' : 'negative',
-      slot: 0,
-    });
+    room = await claimSeat(member, room, sideSeat(twoSideKeys[index]!));
   const pages = await Promise.all(
     members.map((member, index) =>
       openPage(member.context, `checked media debater ${index + 1}`),

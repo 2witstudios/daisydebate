@@ -5,9 +5,15 @@ import { proveNoScriptFormatChoice } from './support/room-format-no-script';
 import { proveHumanLaunch } from './support/room-launch-human';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  affirmativeSide,
+  isJudgeSeat,
   isNamedSeat,
+  judgeSeat,
+  negativeSide,
   roomViewSchema,
   roundViewSchema,
+  sideOfSeat,
+  sideSeat,
   type RoomView,
 } from '@daisy/protocol';
 import { expect, test, openPage } from './support/fixtures';
@@ -167,7 +173,7 @@ test('native judge Ready and eligible stored bot debaters start one frozen Round
         .getByRole('button', { name: 'I’m ready', exact: true })
         .click();
       view = await reread(native.request, view.id);
-      expect(view.participants.find((p) => p.role === 'judge')!.ready).toBe(
+      expect(view.participants.find((p) => isJudgeSeat(p.seat))!.ready).toBe(
         'ready',
       );
       expect(view.capabilities.canStart).toBe(true);
@@ -240,24 +246,25 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
     const page = await openPage(context, 'Train scheduled-round host');
     const bots = await readRoomBotRoster(page.request);
     const opponent = bots.find(
-      (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
+      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
     );
     expect(opponent?.eligible).toBe(true);
     const roomId = await startTrainPractice(page, opponent!.actorId, 'Wren');
     let view = await reread(page.request, roomId);
     expect(seated(view, opponent!.actorId)).toMatchObject({
       kind: 'bot',
-      role: 'negative',
-      slot: 0,
+      seat: sideSeat(negativeSide),
     });
     expect(
-      seated(view, bots.find((bot) => bot.seatRole === 'judge')!.actorId),
-    ).toMatchObject({ role: 'judge', kind: 'bot' });
+      seated(view, bots.find((bot) => bot.seatKind === 'judge')!.actorId),
+    ).toMatchObject({ seat: judgeSeat(), kind: 'bot' });
     expect(view.status).toBe('assembling');
 
     await page.reload();
     view = await reread(page.request, roomId);
-    expect(seated(view, opponent!.actorId)?.role).toBe('negative');
+    expect(seated(view, opponent!.actorId)?.seat).toEqual(
+      sideSeat(negativeSide),
+    );
     expect(view.status).toBe('assembling');
     await turnOffPreRoundPrep(page);
     view = await reread(page.request, roomId);
@@ -265,10 +272,7 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
 
     // The human host explicitly Readies through the normal Room command;
     // Train itself mints no consent.
-    view = await readyOwnSeat(member, view, {
-      role: 'affirmative',
-      slot: 0,
-    });
+    view = await readyOwnSeat(member, view, sideSeat(affirmativeSide));
     const readyAtReceipt = [...view.readiness.readyActorIds];
     const startRound = await page.request.post(
       `/api/rooms/${roomId}/commands`,
@@ -343,7 +347,7 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
               type: 'strike_resolution',
               participantId: round.participants
                 .filter(isNamedSeat)
-                .find((p) => p.role === 'affirmative')!.id,
+                .find((p) => sideOfSeat(p.seat) === affirmativeSide)!.id,
               ordinal: draw.turn.ordinal,
               position,
             },
@@ -358,7 +362,9 @@ test('Train carries its chosen bot through the durable Room into one shared Roun
       expect(round.topic).not.toBeNull();
       expect(round.status).toBe('active');
     }).toPass({ timeout: 30_000 });
-    expect(seated(view, opponent!.actorId)?.role).toBe('negative');
+    expect(seated(view, opponent!.actorId)?.seat).toEqual(
+      sideSeat(negativeSide),
+    );
 
     // The member still holds this Room. A repeated Train create returns to
     // the same Round rather than opening another Room (ADR 0070).
@@ -390,7 +396,7 @@ test('a Ready made in one tab survives a mounted tab and a reload that never che
     const readyTab = await openPage(context, 'Checked Ready tab');
     const uncheckedTab = await openPage(context, 'Unchecked tab');
     const opponent = (await readRoomBotRoster(readyTab.request)).find(
-      (bot) => bot.label === 'Wren' && bot.seatRole === 'debater',
+      (bot) => bot.label === 'Wren' && bot.seatKind === 'side',
     );
     const roomId = await startTrainPractice(
       readyTab,
@@ -479,14 +485,13 @@ test('canonical browser custom-create preserves declared unequal seats and order
     expect(
       view.rules.segments.map((segment) => [
         segment.key,
-        segment.side,
-        segment.slot,
+        segment.speak,
         segment.durationMs,
       ]),
     ).toEqual([
-      ['N1', 'negative', 0, 41000],
-      ['A2', 'affirmative', 1, 53000],
-      ['A1', 'affirmative', 0, 47000],
+      ['N1', { rights: 'one', seat: sideSeat(negativeSide) }, 41000],
+      ['A2', { rights: 'one', seat: sideSeat(affirmativeSide, 1) }, 53000],
+      ['A1', { rights: 'one', seat: sideSeat(affirmativeSide) }, 47000],
     ]);
     await page.goto(`/rooms/${view.id}`);
     await page.getByText('Manage seats', { exact: true }).click();
