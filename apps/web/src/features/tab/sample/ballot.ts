@@ -1,15 +1,19 @@
-import { linkTo } from '../action';
 import type {
-  BallotDefinition,
-  BallotSettings,
-  JudgeBallot,
-} from '../ballot-definition';
-import { hostRoutes } from '../routes';
-import { lockedSetting, type ResolvedSetting } from '../settings';
+  EventBallotView,
+  JudgeBallotView,
+} from '@daisy/protocol/lobby/ballot-read';
+import type { BallotDefinition } from '../ballot-definition';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import { own } from './own';
-import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
+
+/** A sample record's id: its name, as a 24-character cuid2-shaped id. */
+const sampleId = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .padEnd(24, '0')
+    .slice(0, 24);
 
 const varsity: BallotDefinition = {
   version: 2,
@@ -48,141 +52,112 @@ const fourSides: BallotDefinition = {
   written: { reason: 'required', feedback: 'optional', privateNote: 'off' },
 };
 
-/** One part of the ballot definition the league's template pins. */
-const pinned = (label: string, value: string): ResolvedSetting => ({
-  keys: ['ballot.definition'],
-  label,
-  value,
-  source: { scope: 'organization', name: LEAGUE_NAME },
-  control: lockedSetting,
-  attention: null,
-});
-
-export function sampleBallotSettings(
+export function sampleEventBallot(
   slug: string,
   event: string,
   scene: SampleScene,
-): BallotSettings | null {
+): EventBallotView | null {
   if (slug !== AUTUMN || event !== VARSITY) return null;
   return {
-    event: varsitySwitch(scene),
-    setup: linkTo('Setup', hostRoutes.setup(AUTUMN)),
-    lede: reached(scene, 'prelims')
-      ? `Version 2, used in rounds 1 to 3 · pinned by ${LEAGUE_NAME}'s template`
-      : `Version 2 · pinned by ${LEAGUE_NAME}'s template`,
-    saveLabel: 'Save screening',
-    sections: [
-      {
-        heading: 'Points',
-        locked: [
-          pinned('Point scale', '20 to 30'),
-          pinned('Step', 'Halves'),
-          pinned('Winner may have fewer points', 'No'),
-          pinned('Ranks', 'Off'),
-          pinned('Criteria', 'None, one score each'),
-        ],
-        options: [],
-      },
-      {
-        heading: 'Outcomes',
-        locked: [pinned('Double loss', 'Prelims only')],
-        options: [],
-      },
-      {
-        heading: 'Written',
-        locked: [
-          pinned('Reason for decision', 'Required'),
-          pinned('Feedback to each debater', 'Optional'),
-          pinned('Private note to tab', 'Optional'),
-        ],
-        options: [],
-      },
-      {
-        heading: 'Screening',
-        locked: [],
-        options: [
-          {
-            id: 'screening',
-            label: 'Written text',
-            detail:
-              "Phone numbers, links and flagged language. The judge's original is kept.",
-            options: [
-              { value: 'hold', label: 'Hold for your review' },
-              { value: 'release', label: 'Release unscreened' },
-            ],
-            value: 'hold',
-          },
-        ],
-      },
-    ],
+    lobbyId: sampleId('autumnopen'),
+    eventId: sampleId('eventvarsity'),
     definition: varsity,
-    preview: {
-      lede: 'A prelim round, with sample names',
-      subjects: [
-        { id: 'jensen', name: 'Jensen', role: 'Affirmative' },
-        { id: 'doyle', name: 'Doyle', role: 'Negative' },
-      ],
-      draft: {
-        winner: 'jensen',
-        points: { jensen: 28.5, doyle: 27 },
-        reason: '',
-      },
+    pin: {
+      kind: 'template',
+      templateId: sampleId('templatesoutheast'),
+      organizationName: LEAGUE_NAME,
     },
+    usedIn: reached(scene, 'prelims') ? { first: 1, last: 3 } : null,
+    screening: 'hold',
+    capabilities: { setScreening: true },
   };
 }
 
-const ballots: Readonly<Record<string, JudgeBallot>> = {
+const debaters = (affirmative: string, negative: string) =>
+  [
+    { key: affirmative.toLowerCase(), name: affirmative, role: 'Affirmative' },
+    { key: negative.toLowerCase(), name: negative, role: 'Negative' },
+  ] as const;
+
+/** Both debaters and their coaches read the reason. */
+const reasonAudiences = ['responsible_adults', 'competitors'] as const;
+
+const ballots: Readonly<Record<string, JudgeBallotView>> = {
   'semifinal-room-1': {
-    context: 'Autumn Open · Semifinal · Room 1 · 1 of 3 judges',
-    resolution: 'Cities should charge drivers to enter the centre.',
+    fixtureId: sampleId('fixturesemifinalroom1'),
+    tournamentName: 'Autumn Open',
+    eventName: null,
+    tabRoundName: 'Semifinal',
+    placeName: 'Room 1',
+    panel: { size: 3, position: 1, chair: false },
+    resolution: {
+      kind: 'released',
+      text: 'Cities should charge drivers to enter the centre.',
+    },
     definition: elimination,
-    subjects: [
-      { id: 'jensen', name: 'Jensen', role: 'Affirmative' },
-      { id: 'doyle', name: 'Doyle', role: 'Negative' },
-    ],
+    subjectKind: 'debater',
+    subjects: [...debaters('Jensen', 'Doyle')],
     draft: {
       winner: 'jensen',
       points: { jensen: 28.5, doyle: 29 },
       reason:
         "Jensen carried the cost argument; Doyle's congestion data went unanswered until the last speech.",
     },
-    reasonReaders: 'Both debaters and their coaches read this.',
+    reasonAudiences: [...reasonAudiences],
   },
   'round-4-room-5': {
-    context: 'Autumn Open · Round 4 · Room 5 · the only judge',
-    resolution: null,
+    fixtureId: sampleId('fixtureround4room5'),
+    tournamentName: 'Autumn Open',
+    eventName: null,
+    tabRoundName: 'Round 4',
+    placeName: 'Room 5',
+    panel: { size: 1, position: 1, chair: true },
+    resolution: { kind: 'not_released' },
     definition: varsity,
-    subjects: [
-      { id: 'sato', name: 'Sato', role: 'Affirmative' },
-      { id: 'doyle', name: 'Doyle', role: 'Negative' },
-    ],
+    subjectKind: 'debater',
+    subjects: [...debaters('Sato', 'Doyle')],
     draft: { winner: null, points: { sato: 27, doyle: 27 }, reason: '' },
-    reasonReaders: 'Both debaters and their coaches read this.',
+    reasonAudiences: [...reasonAudiences],
   },
   'impromptu-section-c': {
-    context: 'Winter Classic · Impromptu · Round 1 · Section C · 1 of 2 judges',
-    resolution: null,
+    fixtureId: sampleId('fixtureimpromptusectionc'),
+    tournamentName: 'Winter Classic',
+    eventName: 'Impromptu',
+    tabRoundName: 'Round 1',
+    placeName: 'Section C',
+    panel: { size: 2, position: 1, chair: false },
+    resolution: { kind: 'not_released' },
     definition: speech,
+    subjectKind: 'speaker',
     subjects: [
-      { id: 'ruiz', name: 'Tomas Ruiz', role: 'Lakeside' },
-      { id: 'kim', name: 'Hana Kim', role: 'Hartwell' },
-      { id: 'nair', name: 'Priya Nair', role: 'Ridgeview' },
-      { id: 'okafor', name: 'Ada Okafor', role: 'Okafor family' },
-      { id: 'wu', name: 'Wu', role: 'Hartwell' },
-      { id: 'brandt', name: 'Leo Brandt', role: 'Hartwell' },
+      { key: 'ruiz', name: 'Tomas Ruiz', role: 'Lakeside' },
+      { key: 'kim', name: 'Hana Kim', role: 'Hartwell' },
+      { key: 'nair', name: 'Priya Nair', role: 'Ridgeview' },
+      { key: 'okafor', name: 'Ada Okafor', role: 'Okafor family' },
+      { key: 'wu', name: 'Wu', role: 'Hartwell' },
+      { key: 'brandt', name: 'Leo Brandt', role: 'Hartwell' },
     ],
     draft: { winner: null, points: {}, reason: '' },
-    reasonReaders: 'Each speaker and their coach read this.',
+    reasonAudiences: [...reasonAudiences],
   },
   'championship-round-2-room-4': {
-    context: 'Championship · Round 2 · Room 4 · you chair 3 judges',
-    resolution: 'This house would make public transport free.',
+    fixtureId: sampleId('fixturechampionshipr2r4'),
+    tournamentName: 'Championship',
+    eventName: null,
+    tabRoundName: 'Round 2',
+    placeName: 'Room 4',
+    panel: { size: 3, position: 1, chair: true },
+    resolution: {
+      kind: 'released',
+      text: 'This house would make public transport free.',
+    },
     definition: fourSides,
+    subjectKind: 'team',
     subjects: [
-      { id: 'og', name: 'Hartwell A', role: 'Opening Government' },
-      { id: 'oo', name: 'Ridgeview B', role: 'Opening Opposition' },
-      { id: 'cg', name: 'Lakeside A', role: 'Closing Government' },
-      { id: 'co', name: 'Ridgeview C', role: 'Closing Opposition' },
+      { key: 'og', name: 'Hartwell A', role: 'Opening Government' },
+      { key: 'oo', name: 'Ridgeview B', role: 'Opening Opposition' },
+      { key: 'cg', name: 'Lakeside A', role: 'Closing Government' },
+      { key: 'co', name: 'Ridgeview C', role: 'Closing Opposition' },
     ],
     draft: {
       winner: null,
@@ -196,7 +171,7 @@ const ballots: Readonly<Record<string, JudgeBallot>> = {
       ),
       reason: '',
     },
-    reasonReaders: 'All four teams and their coaches read this.',
+    reasonAudiences: [...reasonAudiences],
   },
 };
 
@@ -204,6 +179,7 @@ const ballots: Readonly<Record<string, JudgeBallot>> = {
 export const sampleJudgeBallot = (
   room: string,
   scene: SampleScene,
-): JudgeBallot | null => (scene.viewer === 'judge' ? own(ballots, room) : null);
+): JudgeBallotView | null =>
+  scene.viewer === 'judge' ? own(ballots, room) : null;
 
 export const sampleBallotRooms = Object.keys(ballots);
