@@ -1,0 +1,337 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  authorizationCapabilitySchema,
+  type AuthorizationCapability,
+} from '@daisy/protocol/authorization';
+import { capabilityMetadata } from '@daisy/protocol/capability-metadata';
+import type { AuthorizationInput } from './authorization';
+import {
+  boundaryFilter,
+  insideBoundary,
+  type BoundaryFilter,
+} from './authorization-boundary';
+import type { BoundaryFact, LobbyScopeFact } from './authorization-lobby-facts';
+import {
+  ask,
+  eventRoom,
+  fixture,
+  hosted,
+  league,
+  leagueTournament,
+  lobbyFact,
+  noConflict,
+  noViewing,
+  organization,
+  room,
+  round,
+  standing,
+} from './lobby.test-support';
+
+setupRitewayBun();
+
+type Resource = AuthorizationInput['resource'];
+const otherLeague = organization('other-league', {
+  standingLobbyIds: ['other-standing'],
+});
+const otherStanding: LobbyScopeFact = {
+  lobbyId: 'other-standing',
+  lobbyKind: 'standing',
+  owner: { kind: 'organization', organization: otherLeague },
+};
+const otherTournament: LobbyScopeFact = {
+  lobbyId: 'other-tournament',
+  lobbyKind: 'tournament',
+  owner: { kind: 'organization', organization: otherLeague },
+};
+const lobbies = [
+  standing,
+  hosted,
+  leagueTournament,
+  otherStanding,
+  otherTournament,
+];
+const lobbyIds = lobbies.map((scope) => scope.lobbyId);
+const subsets = <Item>(items: readonly Item[]): Item[][] =>
+  Array.from({ length: 2 ** items.length }, (_, bits) =>
+    items.filter((_item, index) => (bits >> index) & 1),
+  );
+const boundaries: readonly BoundaryFact[] = subsets(lobbyIds).flatMap(
+  (allowedLobbyIds) =>
+    subsets(lobbyIds).map((entryLobbyIds) => ({
+      allowedLobbyIds,
+      entryLobbyIds,
+      revision: 1,
+    })),
+);
+const boundary = (
+  allowedLobbyIds: readonly string[],
+  entryLobbyIds: readonly string[] = [],
+) => ({
+  boundary: { allowedLobbyIds, entryLobbyIds, revision: 1 },
+});
+const everyone = { audiences: [], releases: [] };
+
+/** One resource in a lobby for each capability that reaches into a lobby. */
+const inLobby = (scope: LobbyScopeFact): Record<string, Resource> => ({
+  'round.read': round({
+    visibility: 'public',
+    owner: { kind: 'person', scope },
+  }),
+  'room.list': lobbyFact(scope, { postingAudiences: ['public'] }),
+  'room.read': room({ visibility: 'public', owner: { kind: 'person', scope } }),
+  'room.join': room({ visibility: 'public', owner: { kind: 'person', scope } }),
+  'lobby.read': lobbyFact(scope, { postingAudiences: ['public'] }),
+  'lobby.room.create': lobbyFact(scope, {
+    viewing: { audiences: ['participants'], releases: [] },
+  }),
+  'posting.read': { kind: 'draw', scope, viewing: everyone },
+  'result.read': fixture(scope),
+  'ballot.read': {
+    kind: 'ballot',
+    scope,
+    conflict: noConflict,
+    viewing: noViewing,
+    part: 'scores',
+  },
+  'standings.read': lobbyFact(scope),
+  'resolution.read': {
+    kind: 'tab_round',
+    scope,
+    viewing: everyone,
+    resolutionReleased: true,
+  },
+});
+const lobbyReach = authorizationCapabilitySchema.options.filter(
+  (capability) => capabilityMetadata[capability].reach === 'lobby',
+);
+const reason = (decision: ReturnType<typeof ask>) =>
+  decision.allow ? 'allow' : decision.reason;
+
+/** A listing's `where` clause, read as SQL would read it over lobby rows. */
+const listed = (filter: BoundaryFilter, row: LobbyScopeFact): boolean =>
+  filter.kind === 'unbounded' ||
+  filter.lobbyIds.includes(row.lobbyId) ||
+  (row.lobbyKind === 'tournament' &&
+    (filter.tournamentLobbyIds.includes(row.lobbyId) ||
+      (row.owner.kind === 'organization' &&
+        row.owner.organization.standingLobbyIds.some((lobbyId) =>
+          filter.ownerStandingLobbyIds.includes(lobbyId),
+        ))));
+
+describe('a minor’s boundary', () => {
+  test('puts a lobby inside by the guardian’s list, an entry, or the league’s lobby', () => {
+    const allowed = boundary(['standing'], ['hosted']).boundary;
+    assert({
+      given:
+        'a guardian who allows one league’s standing lobby, and a minor entered in a hosted tournament',
+      should:
+        'put inside that lobby, the tournament entered, and the league’s tournaments, and nothing else',
+      actual: lobbies
+        .filter((scope) => insideBoundary(allowed, scope))
+        .map((scope) => scope.lobbyId),
+      expected: ['standing', 'hosted', 'league-tournament'],
+    });
+    assert({
+      given:
+        'an entry recorded against a standing lobby, and no boundary at all',
+      should:
+        'not widen a standing lobby by entry, and put everything inside without a boundary',
+      actual: [
+        insideBoundary(boundary([], ['standing']).boundary, standing),
+        lobbies.every((scope) => insideBoundary(null, scope)),
+      ],
+      expected: [false, true],
+    });
+  });
+
+  test('denies every lobby capability outside it and none inside it', () => {
+    const cases = lobbyReach.flatMap((capability) =>
+      lobbies
+        .map((scope) => ({
+          capability,
+          scope,
+          resource: inLobby(scope)[capability]!,
+        }))
+        .filter(({ capability, scope }) => {
+          const kind = capabilityMetadata[capability].lobbyKind;
+          return kind === null || kind === scope.lobbyKind;
+        }),
+    );
+    assert({
+      given:
+        'every lobby-reach capability in every lobby, for every boundary over five lobbies',
+      should:
+        'be denied as restricted exactly when the lobby is outside the boundary',
+      actual: boundaries.flatMap((bounds) =>
+        cases.filter(({ capability, scope, resource }) => {
+          const restricted =
+            reason(
+              ask(capability, resource, { account: { boundary: bounds } }),
+            ) === 'restricted';
+          return restricted === insideBoundary(bounds, scope);
+        }),
+      ).length,
+      expected: 0,
+    });
+    assert({
+      given: 'the lobby-reach capabilities the cases cover',
+      should: 'be every one the protocol names',
+      actual: Object.keys(inLobby(standing)).sort(),
+      expected: [...lobbyReach].sort(),
+    });
+  });
+
+  test('treats a lobby whose facts were not loaded as outside', () => {
+    assert({
+      given:
+        'a bounded minor reading a Room with no lobby fact, listing with no lobby, and an adult doing the same',
+      should: 'restrict the minor and leave the adult as before',
+      actual: [
+        reason(
+          ask('room.read', room({ visibility: 'public' }), {
+            account: boundary(['standing']),
+          }),
+        ),
+        reason(
+          ask(
+            'room.list',
+            { kind: 'room_collection' },
+            { account: boundary(['standing']) },
+          ),
+        ),
+        reason(ask('room.read', room({ visibility: 'public' }))),
+        reason(ask('room.list', { kind: 'room_collection' })),
+      ],
+      expected: ['restricted', 'restricted', 'allow', 'allow'],
+    });
+  });
+
+  test('lets a minor leave what they are already in', () => {
+    assert({
+      given: 'a bounded minor seated in an event Room outside the boundary',
+      should: 'refuse to read it and still let them leave',
+      actual: (['room.read', 'room.leave'] as const).map((capability) =>
+        reason(
+          ask(capability, eventRoom({ scope: otherTournament }), {
+            actorId: 'seat',
+            account: boundary(['standing']),
+          }),
+        ),
+      ),
+      expected: ['restricted', 'allow'],
+    });
+  });
+
+  test('a listing filtered in SQL admits exactly the lobbies the evaluator admits', () => {
+    assert({
+      given: 'every boundary over five lobbies, and no boundary',
+      should:
+        'list by the exported filter exactly the lobbies `lobby.read` allows',
+      actual: [...boundaries, null].flatMap((bounds) =>
+        lobbies.filter(
+          (scope) =>
+            listed(boundaryFilter({ boundary: bounds }), scope) !==
+            ask(
+              'lobby.read',
+              lobbyFact(scope, { postingAudiences: ['public'] }),
+              {
+                account: { boundary: bounds },
+              },
+            ).allow,
+        ),
+      ).length,
+      expected: 0,
+    });
+    assert({
+      given: 'an account with no boundary and no account',
+      should: 'filter nothing',
+      actual: [
+        boundaryFilter({ boundary: null }),
+        boundaryFilter({}),
+        boundaryFilter(null),
+      ],
+      expected: Array(3).fill({ kind: 'unbounded' }),
+    });
+  });
+});
+
+describe('a minor reaching another person', () => {
+  const pair: Resource = {
+    kind: 'contact_pair',
+    lowActorId: 'other',
+    highActorId: 'person',
+    blocked: false,
+    revision: 1,
+  };
+  const reach = (
+    capability: AuthorizationCapability,
+    lobbiesShared: readonly LobbyScopeFact[] | null,
+  ) =>
+    reason(
+      ask(capability, pair, {
+        account: boundary(['standing']),
+        counterparts: lobbiesShared
+          ? [{ actorId: 'other', lobbies: lobbiesShared }]
+          : undefined,
+      }),
+    ) === 'restricted';
+  test('needs a lobby inside the boundary that both are in', () => {
+    assert({
+      given:
+        'a friend request to a person met in an allowed lobby, in a lobby outside, and with no fact loaded',
+      should: 'restrict the last two only',
+      actual: [
+        reach('social.friend.request', [otherStanding, standing]),
+        reach('social.friend.request', [otherStanding]),
+        reach('social.friend.request', null),
+        reach('social.challenge.send', [leagueTournament]),
+      ],
+      expected: [false, true, true, false],
+    });
+  });
+  test('never stops blocking, reporting or ending', () => {
+    assert({
+      given: 'a bounded minor and a person outside the boundary',
+      should: 'never restrict the ways out',
+      actual: (
+        [
+          'social.block',
+          'social.report',
+          'social.friend.end',
+          'social.challenge.decline',
+        ] as const
+      ).map((capability) => reach(capability, [])),
+      expected: [false, false, false, false],
+    });
+  });
+  test('reads only organizations they belong to or whose lobby is allowed', () => {
+    assert({
+      given:
+        'a bounded minor reading the allowed league, another league, their own school, and an adult reading any',
+      should: 'allow the first and third, and the adult',
+      actual: [
+        ask('organization.read', league, { account: boundary(['standing']) })
+          .allow,
+        ask('organization.read', otherLeague, {
+          account: boundary(['standing']),
+        }).allow,
+        ask(
+          'organization.read',
+          organization('school', { organizationKind: 'school', member: true }),
+          {
+            account: boundary(['standing']),
+          },
+        ).allow,
+        ask('organization.read', otherLeague).allow,
+        ask(
+          'template.read',
+          { kind: 'template', organization: otherLeague },
+          {
+            account: boundary(['standing']),
+          },
+        ).allow,
+      ],
+      expected: [true, false, true, true, false],
+    });
+  });
+});

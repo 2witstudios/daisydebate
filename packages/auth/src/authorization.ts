@@ -2,6 +2,11 @@ export { subscriptionAccess, subscriptionGrants } from './subscription-policy';
 export { canManageBilling, canPurchasePremium } from './billing-policy';
 export { admitAllowance, canUseAiAllowance } from './allowance';
 export { canReleaseFreeJudgeBinding } from './free-judge-binding';
+import {
+  allowFixed as allow,
+  decide as decision,
+  deny,
+} from './authorization-decision';
 import { admitsCapability } from './participant-access';
 import { validResourceKind } from './authorization-resource-kind';
 import { operatorDecision, operatorResource } from './authorization-operator';
@@ -10,6 +15,11 @@ import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
 import { roomAllowed, roundAllowed } from './authorization-room';
+import { boundaryAdmits } from './authorization-boundary';
+import { withConflict } from './authorization-conflict';
+import { eventRoomDecision, isEventRoom } from './authorization-event-room';
+import { holderOf } from './authorization-holding';
+import { isLobbyResource, lobbyDecision } from './authorization-lobby';
 import { groupInvitationCreationAllowed } from './authorization-group-invite';
 import { groupSafetyAllowed } from './authorization-group-safety';
 import { groupCommandResultAllowed } from './authorization-group-result';
@@ -39,6 +49,31 @@ export {
   participantAccess,
 } from './participant-access';
 export type { ContactPairCapability } from './authorization-contact';
+export {
+  boundaryFilter,
+  insideBoundary,
+  type BoundaryFilter,
+} from './authorization-boundary';
+export type {
+  AuthorityRelation,
+  Conflict,
+  DecisionAuthority,
+} from './authorization-decision';
+export type {
+  BoundaryFact,
+  ConflictFact,
+  CounterpartFact,
+  GrantFact,
+  LobbyAuthorizationFact,
+  LobbyResourceFact,
+  LobbyScopeFact,
+  OrganizationAuthorizationFact,
+  RoleGivenFact,
+  RoomOwnerFact,
+  VideoSubjectsFact,
+  ViewerAudience,
+  ViewingFact,
+} from './authorization-lobby-facts';
 export type {
   AuthorizationPrincipal,
   AuthorizationCapability,
@@ -62,11 +97,6 @@ export type {
   GroupCommandResultAuthorizationFact,
   GroupInvitationCreationAuthorizationFact,
 } from './authorization-facts';
-const deny = (
-  reason: Extract<AuthorizationDecision, { allow: false }>['reason'],
-): AuthorizationDecision => ({ allow: false, reason });
-const allow: AuthorizationDecision = { allow: true };
-
 const positiveRevision = (value: number) =>
   Number.isSafeInteger(value) && value > 0;
 type UserPrincipal = Extract<AuthorizationPrincipal, { kind: 'user' }>;
@@ -209,6 +239,8 @@ export function authorize({
   if (principal.kind !== 'user') return deny('unauthenticated');
   if (!admittedMember(principal, capability, context.account))
     return deny('missing-capability');
+  if (!boundaryAdmits(principal.actorId, capability, resource, context))
+    return deny('restricted');
   return memberDecision(principal.actorId, capability, resource, context);
 }
 /**
@@ -224,8 +256,6 @@ function admittedMember(
     boundMember(principal, account) && admitsCapability(capability, account)
   );
 }
-const decision = (allowed: boolean): AuthorizationDecision =>
-  allowed ? allow : deny('missing-capability');
 function resolveMemberResource(
   actorId: string,
   capability: AuthorizationCapability,
@@ -239,7 +269,8 @@ function resolveMemberResource(
         | 'content_moderation'
         | 'flag_control'
         | 'channel_reaction'
-        | 'member_history';
+        | 'member_history'
+        | import('./authorization-lobby-facts').LobbyResourceFact['kind'];
     }
   >,
   context: AuthorizationInput['context'],
@@ -288,25 +319,53 @@ function resolveMemberResource(
       return resource;
   }
 }
+type MemberResource = Exclude<
+  AuthorizationInput['resource'],
+  {
+    kind:
+      | 'foundation'
+      | 'account'
+      | 'account_collection'
+      | 'content_moderation'
+      | 'flag_control';
+  }
+>;
+/**
+ * The member's answer, carrying their conflict with the resource's fixture
+ * when they have one.
+ */
 function memberDecision(
   actorId: string,
   capability: AuthorizationCapability,
-  resource: Exclude<
-    AuthorizationInput['resource'],
-    {
-      kind:
-        | 'foundation'
-        | 'account'
-        | 'account_collection'
-        | 'content_moderation'
-        | 'flag_control';
-    }
-  >,
+  resource: MemberResource,
+  context: AuthorizationInput['context'],
+): AuthorizationDecision {
+  return withConflict(
+    capability,
+    resource,
+    unconflictedDecision(actorId, capability, resource, context),
+  );
+}
+function unconflictedDecision(
+  actorId: string,
+  capability: AuthorizationCapability,
+  resource: MemberResource,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   // A member's private history is theirs alone (ISSUE-600).
   if (resource.kind === 'member_history')
     return decision(resource.actorId === actorId);
+  if (isLobbyResource(resource))
+    return lobbyDecision(
+      holderOf(actorId, context),
+      capability,
+      resource,
+      context,
+      (held, target) =>
+        validResourceKind(held, target)
+          ? memberDecision(actorId, held, target, context)
+          : deny('denied'),
+    );
   if (resource.kind === 'channel_reaction') {
     if (
       !reactionAssociationOwned(actorId, resource) ||
@@ -323,9 +382,13 @@ function memberDecision(
   );
   if ('allow' in resolved) return resolved;
   if (!positiveRevision(resolved.revision)) return deny('denied');
-  if (resolved.kind === 'round')
-    return decision(roundAllowed(actorId, capability, resolved));
-  return resolved.kind === 'room'
-    ? decision(roomAllowed(actorId, capability, resolved))
-    : channelDecision(actorId, capability, resolved, context);
+  if (resolved.kind === 'channel')
+    return channelDecision(actorId, capability, resolved, context);
+  if (isEventRoom(resolved))
+    return eventRoomDecision(holderOf(actorId, context), capability, resolved);
+  return decision(
+    resolved.kind === 'round'
+      ? roundAllowed(actorId, capability, resolved)
+      : roomAllowed(actorId, capability, resolved),
+  );
 }

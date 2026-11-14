@@ -78,7 +78,7 @@ describe('canonical authorization', () => {
       given: 'channel capability on a room',
       should: 'deny the invalid pair',
       actual: authorize({ ...input, capability: 'channel.read' }),
-      expected: { allow: false, reason: 'denied' },
+      expected: { allow: false, reason: 'denied', conflict: null },
     });
   });
   test('seating never gives host authority', () => {
