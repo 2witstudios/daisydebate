@@ -8,14 +8,16 @@ import type {
 } from '../tab-round';
 import {
   AUTUMN,
+  IMPROMPTU,
   postedRounds,
   reached,
   VARSITY,
-  varsitySwitch,
   WINTER,
 } from './moment';
 import { own } from './own';
+import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
+import { speechRound } from './speech-round';
 
 const room = (
   title: string,
@@ -109,6 +111,7 @@ export function sampleRunningRound(
   round: string,
   scene: SampleScene,
 ): RunningRound | null {
+  if (slug === AUTUMN && event === IMPROMPTU) return speechRound(round, scene);
   if (slug !== AUTUMN || event !== VARSITY || own(finished, round) === null)
     return null;
   if (!reached(scene, 'prelims')) return null;
@@ -122,7 +125,7 @@ export function sampleRunningRound(
     '4': '15:20',
   };
   return {
-    event: varsitySwitch,
+    event: varsitySwitch(scene),
     title: `Round ${round}`,
     lede: running
       ? '24 rooms · started 13:40 · running 20 minutes late'

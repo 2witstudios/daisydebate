@@ -9,6 +9,7 @@ import type {
 } from '../tournament';
 import { AUTUMN, LEAGUE_NAME, postedRounds, reached, VARSITY } from './moment';
 import { closed, posting } from './posting';
+import { autumnAfter } from './tournament-after';
 import { sampleBracket } from './results';
 import type { SampleScene } from './scene';
 import { sampleStandings } from './standings';
@@ -213,7 +214,7 @@ const autumnAdult = (scene: SampleScene): TournamentPage => {
         }
       : null,
     manage: parent
-      ? linkTo("Manage Chidi's and Ada's accounts", tabRoutes.minor('ada'))
+      ? linkTo("Manage Chidi's and Ada's accounts", tabRoutes.family)
       : linkTo("Manage Hartwell's entries", tabRoutes.entries(AUTUMN)),
   };
 };
@@ -272,6 +273,12 @@ export function autumnPage(
     view.kind === 'home'
   )
     return autumnAdult(scene);
+  if (
+    scene.viewer === 'competitor' &&
+    view.kind === 'home' &&
+    reached(scene, 'finished')
+  )
+    return autumnAfter;
   const visitor = scene.viewer === 'visitor';
   const finished = reached(scene, 'finished');
   return {

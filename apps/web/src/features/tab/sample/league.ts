@@ -1,14 +1,7 @@
-import { choice, linkTo, sampleAction, type TabAction } from '../action';
-import type {
-  CreateRoom,
-  HostLeague,
-  LeagueLobby,
-  LeaguePanel,
-  SeasonRow,
-} from '../league';
-import { hostRoutes, tabRoutes, type LeagueTab } from '../routes';
+import { linkTo, sampleAction, type TabAction } from '../action';
+import type { HostLeague, SeasonRow } from '../league';
+import { hostRoutes, tabRoutes } from '../routes';
 import {
-  lockedSetting,
   openSetting,
   type ResolvedSetting,
   type SettingScope,
@@ -17,7 +10,6 @@ import type { RailItem, RailStanding, TimelineRail } from '../tournament';
 import { AUTUMN, LEAGUE, LEAGUE_NAME, reached, WINTER } from './moment';
 import { done, said } from './rail';
 import type { SampleScene } from './scene';
-import { sampleTournaments } from './tournament';
 
 const stop = (
   id: string,
@@ -104,10 +96,18 @@ const setting = (
   attention: null,
 });
 
-const season: readonly SeasonRow[] = [
-  { place: 1, entry: 'Jensen · Hartwell', points: 18 },
-  { place: 2, entry: 'Castillo · Ridgeview', points: 15 },
-  { place: 3, entry: 'Amari · Lakeside', points: 14 },
+export const seasonRow = (
+  place: number,
+  name: string,
+  school: string,
+  points: number,
+  you = false,
+): SeasonRow => ({ place, name, school, points, you });
+
+export const topOfSeason: readonly SeasonRow[] = [
+  seasonRow(1, 'Jensen', 'Hartwell', 18),
+  seasonRow(2, 'Castillo', 'Ridgeview', 15),
+  seasonRow(3, 'Amari', 'Lakeside', 14),
 ];
 
 const seasonNote =
@@ -167,7 +167,7 @@ export function sampleHostLeague(
     },
     season: {
       heading: 'Season standings · Varsity',
-      rows: season,
+      rows: topOfSeason,
       note: seasonNote,
       rule: sampleAction('How points are counted'),
     },
@@ -202,189 +202,5 @@ export function sampleHostLeague(
         change,
       ),
     ],
-  };
-}
-
-const tabs: readonly (readonly [LeagueTab, string])[] = [
-  ['rooms', 'Rooms'],
-  ['ladder', 'Ladder'],
-  ['season', 'Season'],
-  ['tournaments', 'Tournaments'],
-];
-
-function panelOf(tab: LeagueTab): LeaguePanel {
-  switch (tab) {
-    case 'rooms':
-      return {
-        kind: 'rooms',
-        pool: {
-          title: "November's pool:",
-          detail:
-            '30 resolutions on cities and transport. Every room strikes from five of them.',
-        },
-        groups: [
-          {
-            heading: 'Open',
-            rooms: [
-              {
-                title: "Castillo's room",
-                detail: 'Ridgeview · 1655 · needs an opponent and a judge',
-                action: sampleAction('Join', true),
-              },
-              {
-                title: 'Practice before Winter Classic',
-                detail: 'Hartwell · needs a judge · waiting 4 min',
-                action: sampleAction('Judge', true),
-              },
-            ],
-          },
-          {
-            heading: 'Live now',
-            rooms: [
-              {
-                title: 'Jensen v Wu',
-                detail: 'Third speech · judged by Okoye',
-                action: sampleAction('Watch'),
-              },
-              {
-                title: 'Amari v Petrov',
-                detail: 'Preparing · judged by Brooks',
-                action: sampleAction('Watch'),
-              },
-            ],
-          },
-        ],
-        note: "Rooms here use the league's format and count for the league ladder. Only members can see them.",
-      };
-    case 'ladder':
-      return {
-        kind: 'ladder',
-        rows: [
-          {
-            place: 1,
-            name: 'Jensen',
-            school: 'Hartwell',
-            rating: 1712,
-            you: false,
-          },
-          {
-            place: 2,
-            name: 'Castillo',
-            school: 'Ridgeview',
-            rating: 1655,
-            you: false,
-          },
-          {
-            place: 3,
-            name: 'Amari',
-            school: 'Lakeside',
-            rating: 1641,
-            you: false,
-          },
-          {
-            place: 4,
-            name: 'Wu',
-            school: 'Lakeside',
-            rating: 1622,
-            you: false,
-          },
-          {
-            place: 31,
-            name: 'You',
-            school: 'Ridgeview',
-            rating: 1548,
-            you: true,
-          },
-        ],
-      };
-    case 'season':
-      return {
-        kind: 'season',
-        heading: 'Season standings · Varsity',
-        rows: season,
-        note: seasonNote,
-      };
-    case 'tournaments':
-      return {
-        kind: 'tournaments',
-        tournaments: sampleTournaments.filter((tournament) =>
-          tournament.detail.startsWith(LEAGUE_NAME),
-        ),
-      };
-  }
-}
-
-/** Everyone signed in is a member of the sample league; a visitor is not. */
-const isMember = (scene: SampleScene): boolean => scene.viewer !== 'visitor';
-
-export function sampleLeagueLobby(
-  slug: string,
-  tab: LeagueTab,
-  scene: SampleScene,
-): LeagueLobby | null {
-  if (slug !== LEAGUE) return null;
-  return {
-    name: LEAGUE_NAME,
-    lede: 'League rating 1548 · 31st of 148',
-    create: isMember(scene)
-      ? linkTo('New room', tabRoutes.newLeagueRoom(LEAGUE), true)
-      : null,
-    tabs: tabs.map(([id, label]) => ({
-      id,
-      label,
-      href: tabRoutes.league(LEAGUE, id),
-      selected: id === tab,
-    })),
-    panel: panelOf(tab),
-  };
-}
-
-export function sampleCreateRoom(
-  slug: string,
-  scene: SampleScene,
-): CreateRoom | null {
-  if (slug !== LEAGUE || !isMember(scene)) return null;
-  const enforced = (
-    keys: readonly string[],
-    label: string,
-    value: string,
-  ): ResolvedSetting => ({
-    ...setting(keys, label, value, 'enforced'),
-    control: lockedSetting,
-  });
-  return {
-    lobby: { name: LEAGUE_NAME, href: tabRoutes.league(LEAGUE) },
-    template: choice('Template', [
-      'Varsity debate',
-      'Novice debate',
-      'Impromptu',
-    ]),
-    locked: [
-      enforced(['format'], 'Format', 'One-on-one, limited prep'),
-      enforced(
-        ['ballot.definition'],
-        'Ballot',
-        '20 to 30 in halves, no low-point wins',
-      ),
-      enforced(
-        ['resolution.rule'],
-        'Resolution',
-        "Struck from five drawn from November's pool",
-      ),
-      enforced(
-        ['recording.capture', 'audience.video'],
-        'Recording',
-        'Recorded · video for officials only',
-      ),
-    ],
-    defaults: [
-      choice('Judge', ['A member judges', 'No judge, not rated']),
-      choice('Counts for the league ladder', ['Yes', 'No']),
-      choice('Who can watch', [
-        'Members of the league',
-        'Only the people in the room',
-      ]),
-    ],
-    open: sampleAction('Open room', true),
   };
 }

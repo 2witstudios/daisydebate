@@ -8,7 +8,8 @@ import type {
   TournamentJudgeRow,
 } from '../entries';
 import { tabRoutes } from '../routes';
-import { AUTUMN, reached, varsitySwitch, WINTER } from './moment';
+import { AUTUMN, reached, WINTER } from './moment';
+import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
 
 const entry = (
@@ -24,7 +25,7 @@ export function sampleHostEntries(
   if (slug !== AUTUMN) return null;
   const before = !reached(scene, 'prelims');
   return {
-    event: varsitySwitch,
+    event: varsitySwitch(scene),
     lede: before
       ? '24 debaters accepted, 7 still to answer. 11 judges; 12 rooms need 12.'
       : '48 debaters accepted. 12 judges; 12 rooms need 12.',

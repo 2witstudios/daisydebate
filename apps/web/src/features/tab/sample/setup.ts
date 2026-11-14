@@ -2,12 +2,14 @@ import { choice, linkTo, sampleAction, type TabAction } from '../action';
 import { hostRoutes } from '../routes';
 import {
   lockedSetting,
+  lockedWithView,
   openSetting,
   type ResolvedSetting,
   type SettingScope,
 } from '../settings';
 import type { TournamentSetup } from '../setup';
-import { AUTUMN, LEAGUE_NAME, reached, VARSITY, varsitySwitch } from './moment';
+import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
+import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
 import { tiebreaks } from './standings';
 
@@ -37,12 +39,13 @@ const enforced = (
   keys: readonly string[],
   label: string,
   value: string,
+  view: TabAction | null = null,
 ): ResolvedSetting => ({
   keys,
   label,
   value,
   source: { scope: 'organization', name: LEAGUE_NAME },
-  control: lockedSetting,
+  control: view === null ? lockedSetting : lockedWithView(view),
   attention: null,
 });
 
@@ -53,8 +56,8 @@ export function sampleSetup(
   if (slug !== AUTUMN) return null;
   const before = !reached(scene, 'prelims');
   return {
-    event: varsitySwitch,
-    lede: `Varsity debate. Started from ${LEAGUE_NAME}'s template; rooms inherit all of this and can't change it.`,
+    event: varsitySwitch(scene),
+    lede: `Varsity debate. Follows ${LEAGUE_NAME}'s template; rooms inherit all of this and can't change it.`,
     settings: [
       enforced(
         ['format'],
@@ -71,6 +74,8 @@ export function sampleSetup(
         ['ballot.definition'],
         'Ballot',
         'One score per speaker, 20 to 30 in halves · no low-point wins · no ties · double loss allowed in prelims',
+        // The template pins the whole ballot, so its page is there to read.
+        linkTo('View', hostRoutes.ballot(AUTUMN, VARSITY)),
       ),
       setting(
         ['judging.panel', 'judging.ai'],
@@ -92,7 +97,7 @@ export function sampleSetup(
       setting(
         ['pairing.preset'],
         'Pairing',
-        'Seeded by rating, then by record · 3 rules, 3 preferences, 1 warning',
+        'Power-matched preset · 3 rules, 3 preferences, 1 warning',
         'event',
         linkTo('Open', hostRoutes.setup(AUTUMN, 'pairing')),
       ),
@@ -109,16 +114,15 @@ export function sampleSetup(
         'daisy',
       ),
       setting(
-        ['audience.posting', 'audience.video'],
+        ['audience.posting'],
         'Who can see it',
-        'Postings: anyone with the link · Results: public · Video: participants',
+        'Postings: anyone with the link · Results: public',
         'lobby',
       ),
-      setting(
-        ['recording.capture'],
+      enforced(
+        ['recording.capture', 'audience.video'],
         'Recording',
-        'Recorded and released to participants',
-        'event',
+        'Recorded · video for officials only',
       ),
       setting(
         ['conflict.handling'],
@@ -139,14 +143,11 @@ export function sampleSetup(
     ],
     pairing: {
       preset: choice('Pairing preset', [
-        'Seeded by rating, then by record',
-        'Random, then by record',
+        'Power-matched',
+        'Random',
+        'Round robin',
       ]),
-      firstRound: choice('Round 1', [`Seeded by ${LEAGUE_NAME} rating`]),
-      laterRounds: choice('Later rounds use results through', [
-        'The round before',
-        'Two rounds before (start sooner)',
-      ]),
+      summary: `Round 1 is seeded by ${LEAGUE_NAME} rating. Later rounds pair by record through the round before.`,
       policies: [
         {
           key: 'pairing.no_rematch',
@@ -191,6 +192,7 @@ export function sampleSetup(
           rank: null,
         },
       ],
+      forceNote: `A host picks a preset. ${LEAGUE_NAME} can set each of these individually in its template.`,
       save: sampleAction('Save pairing', true),
     },
   };

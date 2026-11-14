@@ -1,10 +1,73 @@
-import { sampleAction } from '../action';
-import type { MinorAccount, TournamentRequest } from '../guardian';
+import { linkTo, sampleAction } from '../action';
+import type { Family, MinorAccount, TournamentRequest } from '../guardian';
 import { tabRoutes } from '../routes';
-import { AUTUMN } from './moment';
+import { AUTUMN, WINTER } from './moment';
 import type { SampleScene } from './scene';
 
-const family = { label: 'Your family', href: tabRoutes.tournament(AUTUMN) };
+const family = { label: 'Your family', href: tabRoutes.family };
+
+const CAPITAL = 'capital-city-classic';
+
+/** Only a guardian has a family page. */
+export function sampleFamily(scene: SampleScene): Family | null {
+  if (scene.viewer !== 'parent') return null;
+  const open = (slug: string) => linkTo('Open', tabRoutes.tournament(slug));
+  return {
+    waiting: [
+      {
+        title: 'Allow Capital City Classic for Ada?',
+        detail:
+          'Entered by her coach, Marta Silva · Sat 5 Dec · her entry waits for you',
+        review: linkTo(
+          'Review',
+          tabRoutes.allowTournament('ada', CAPITAL),
+          true,
+        ),
+      },
+    ],
+    minors: [
+      {
+        name: 'Ada',
+        detail: 'Age 13 · account active · 2 lobbies allowed',
+        account: linkTo('Account', tabRoutes.minor('ada')),
+        entries: [
+          {
+            tournament: 'Autumn Open',
+            detail: 'Impromptu · Round 3, Section B opens 17:10',
+            open: open(AUTUMN),
+          },
+          {
+            tournament: 'Winter Classic',
+            detail: 'Sat 12 Dec · Impromptu',
+            open: open(WINTER),
+          },
+          {
+            tournament: 'Capital City Classic',
+            detail: 'Sat 5 Dec · Impromptu',
+            open: null,
+          },
+        ],
+      },
+      {
+        name: 'Chidi',
+        detail: 'Age 16 · account active · 3 lobbies allowed',
+        account: sampleAction('Account'),
+        entries: [
+          {
+            tournament: 'Autumn Open',
+            detail: 'Varsity debate · quarterfinal v Haddad, speaking now',
+            open: open(AUTUMN),
+          },
+          {
+            tournament: 'Winter Classic',
+            detail: 'Sat 12 Dec · Parli with Leo Brandt',
+            open: open(WINTER),
+          },
+        ],
+      },
+    ],
+  };
+}
 
 /** Only a guardian manages a minor's account. */
 export function sampleMinorAccount(
@@ -46,7 +109,7 @@ export function sampleTournamentRequest(
   slug: string,
   scene: SampleScene,
 ): TournamentRequest | null {
-  if (minor !== 'ada' || slug !== 'capital-city-classic') return null;
+  if (minor !== 'ada' || slug !== CAPITAL) return null;
   if (scene.viewer !== 'parent') return null;
   return {
     back: family,

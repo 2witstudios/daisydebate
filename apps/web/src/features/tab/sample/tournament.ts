@@ -1,11 +1,20 @@
-import { linkTo, sampleAction } from '../action';
-import { tabRoutes } from '../routes';
+import { linkTo, sampleAction, type TabAction } from '../action';
+import { hostRoutes, tabRoutes } from '../routes';
 import type {
+  TournamentGroup,
   TournamentPage,
-  TournamentSummary,
+  TournamentRow,
+  TournamentsIndex,
   TournamentView,
 } from '../tournament';
-import { AUTUMN, CHAMPIONSHIP, LEAGUE_NAME, SCRIMMAGE, WINTER } from './moment';
+import {
+  AUTUMN,
+  CHAMPIONSHIP,
+  LEAGUE_NAME,
+  reached,
+  SCRIMMAGE,
+  WINTER,
+} from './moment';
 import { closed, posting } from './posting';
 import type { SampleScene } from './scene';
 import { autumnPage } from './tournament-autumn';
@@ -122,25 +131,139 @@ export function sampleTournamentPage(
   return null;
 }
 
-export const sampleTournaments: readonly TournamentSummary[] = [
-  {
-    slug: AUTUMN,
-    name: 'Autumn Open',
-    detail: `${LEAGUE_NAME} · Saturday 14 Nov`,
-  },
-  {
-    slug: SCRIMMAGE,
-    name: 'Friday scrimmage',
-    detail: 'Friday 20 Nov · hosted by jono',
-  },
-  {
-    slug: WINTER,
-    name: 'Winter Classic',
-    detail: `${LEAGUE_NAME} · Saturday 12 Dec`,
-  },
-  {
-    slug: CHAMPIONSHIP,
-    name: 'Championship',
-    detail: `${LEAGUE_NAME} · March`,
-  },
-];
+const row = (
+  name: string,
+  detail: string,
+  action: TabAction,
+): TournamentRow => ({
+  name,
+  detail,
+  action,
+});
+
+/** Where Autumn Open stands in a list, and the one fact that says so. */
+export function autumnStanding(scene: SampleScene): {
+  readonly when: 'coming' | 'today' | 'finished';
+  readonly fact: string;
+} {
+  if (!reached(scene, 'prelims'))
+    return { when: 'coming', fact: 'entry closes Thursday 17:00' };
+  if (reached(scene, 'finished'))
+    return {
+      when: 'finished',
+      fact:
+        scene.viewer === 'competitor'
+          ? 'you finished 3rd of 48'
+          : 'won by Jensen',
+    };
+  return {
+    when: 'today',
+    fact: reached(scene, 'elims')
+      ? 'semifinals live'
+      : reached(scene, 'break')
+        ? 'the break is announced at 16:45'
+        : 'Round 4 opens 15:20',
+  };
+}
+
+/** What ties each sample viewer to the tournaments they are in. */
+const part: Readonly<
+  Record<Exclude<SampleScene['viewer'], 'visitor'>, readonly [string, string]>
+> = {
+  competitor: ['Varsity debate', 'Parli and Impromptu'],
+  judge: ['judging Varsity debate', 'judging Parli'],
+  coach: ["Hartwell's entries", "Hartwell's entries"],
+  parent: ['Chidi and Ada', 'Chidi and Ada'],
+  host: ['you are the host', 'you are the host'],
+};
+
+export function sampleTournamentsIndex(scene: SampleScene): TournamentsIndex {
+  const autumn = autumnStanding(scene);
+  const open = (slug: string, primary = false) =>
+    linkTo('Open', tabRoutes.tournament(slug), primary);
+  const view = (slug: string) => linkTo('View', tabRoutes.tournament(slug));
+  const when = autumn.when === 'today' ? 'Today' : 'Sat 14 Nov';
+  const yours =
+    scene.viewer === 'visitor'
+      ? []
+      : [
+          ...(autumn.when === 'finished'
+            ? []
+            : [
+                row(
+                  'Autumn Open',
+                  `${when} · ${part[scene.viewer][0]} · ${autumn.fact}`,
+                  open(AUTUMN, true),
+                ),
+              ]),
+          row(
+            'Winter Classic',
+            `Sat 12 Dec · ${LEAGUE_NAME} · ${part[scene.viewer][1]}`,
+            open(WINTER),
+          ),
+        ];
+  const today =
+    scene.viewer === 'visitor' && autumn.when !== 'finished'
+      ? [
+          row(
+            'Autumn Open',
+            `${when} · ${LEAGUE_NAME} · ${autumn.fact}`,
+            view(AUTUMN),
+          ),
+        ]
+      : [];
+  const enter = [
+    row(
+      'Friday scrimmage',
+      'Fri 20 Nov, 18:00 · hosted by jono · 9 of 16 places taken',
+      view(SCRIMMAGE),
+    ),
+    ...(scene.viewer === 'visitor'
+      ? []
+      : [
+          row(
+            'Ridgeview Invitational',
+            `Sat 28 Nov · ${LEAGUE_NAME} members · entry closes 25 Nov`,
+            sampleAction('View'),
+          ),
+        ]),
+  ];
+  const recent = [
+    ...(autumn.when === 'finished'
+      ? [
+          row(
+            'Autumn Open',
+            `14 Nov · ${LEAGUE_NAME} · ${autumn.fact}`,
+            linkTo('Results', tabRoutes.tournament(AUTUMN)),
+          ),
+        ]
+      : []),
+    row(
+      'September Opener',
+      `12 Sept · ${LEAGUE_NAME} · ${scene.viewer === 'competitor' ? 'you finished 9th of 40' : 'won by Castillo'}`,
+      sampleAction('Results'),
+    ),
+    row(
+      'Public Beta Open',
+      '3 Oct · Daisy · won by mira_k',
+      sampleAction('Results'),
+    ),
+  ];
+  const group = (
+    heading: string,
+    rows: readonly TournamentRow[],
+    more: TabAction | null = null,
+  ): TournamentGroup[] => (rows.length === 0 ? [] : [{ heading, rows, more }]);
+  return {
+    groups: [
+      ...group("You're in", yours),
+      ...group('On now', today),
+      ...group('Open to enter', enter),
+      ...group('Recent', recent, sampleAction('All past tournaments')),
+    ],
+    host:
+      scene.viewer === 'visitor'
+        ? null
+        : linkTo('Host a tournament', hostRoutes.home),
+  };
+}

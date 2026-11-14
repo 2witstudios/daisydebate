@@ -47,12 +47,14 @@ describe('the sample reads', () => {
       .map((setting) => [setting.label, setting.source.scope]);
     assert({
       given: 'setup of a tournament started from an enforcing template',
-      should: 'hold format, ballot and tiebreaks locked, set by the league',
+      should:
+        'hold format, ballot, tiebreaks and recording locked, set by the league',
       actual: locked,
       expected: [
         ['Format', 'organization'],
         ['Ballot', 'organization'],
         ['Tiebreaks', 'organization'],
+        ['Recording', 'organization'],
       ],
     });
   });

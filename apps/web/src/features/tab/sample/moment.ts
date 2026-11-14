@@ -10,14 +10,8 @@ export const SCRIMMAGE = 'friday-scrimmage';
 export const CHAMPIONSHIP = 'championship';
 export const LEAGUE = 'southeast';
 export const VARSITY = 'varsity-debate';
+export const IMPROMPTU = 'impromptu';
 export const LEAGUE_NAME = 'Southeast League';
 
 /** The rounds a participant has a posting for: the one running and the next. */
 export const postedRounds: readonly string[] = ['3', '4'];
-
-/** The canvas draws one event of three in depth; the others have no reads yet. */
-export const varsitySwitch = {
-  current: 'Varsity debate',
-  position: '1 of 3 events',
-  others: ['Novice debate', 'Impromptu'],
-} as const;
