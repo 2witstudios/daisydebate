@@ -14,6 +14,7 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
   ranked: false,
   date: '2026-11-02',
   visibility: 'unlisted',
+  deletesOn: null,
   media: {
     state: 'watch',
     playlistHref: '/api/recordings/rec/playback/master.m3u8',

@@ -1,3 +1,4 @@
+import { twoSides } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   credentialHash,
@@ -42,24 +43,34 @@ test('observerAccess follows revocation, so a reconnect cannot bypass it', () =>
   });
 });
 
+const seating = {
+  sides: twoSides,
+  seats: {
+    sides: { affirmative: 1, negative: 1 },
+    speakers: 0,
+    judges: 1,
+    moderators: 0,
+  },
+};
+
 describe('stageSnapshot', () => {
   const seats = [
     {
-      role: 'negative',
+      seat: { kind: 'side', side: 'negative', slot: 0 } as const,
       label: 'Ned',
       kind: 'bot' as const,
       identity: 'neg',
       participantId: 'p2',
     },
     {
-      role: 'affirmative',
+      seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
       label: 'Ann',
       kind: 'human' as const,
       identity: 'aff',
       participantId: 'p1',
     },
     {
-      role: 'judge',
+      seat: { kind: 'judge', slot: 0 } as const,
       label: 'Secret Judge',
       kind: 'human' as const,
       identity: 'j',
@@ -76,12 +87,12 @@ describe('stageSnapshot', () => {
     openSegment: {
       label: 'Constructive',
       endsAt: '2026-11-02T00:01:00.000Z',
-      side: 'affirmative' as const,
+      lead: { kind: 'side', side: 'affirmative', slot: 0 } as const,
       floorParticipantId: null,
     },
   };
   test('a speech shows clock, phase, names and floor, and never a judge', () => {
-    const snapshot = stageSnapshot({ position, seats });
+    const snapshot = stageSnapshot({ position, seating, seats });
     assert({
       given: 'an open speech with a seated human judge',
       should:
@@ -98,14 +109,16 @@ describe('stageSnapshot', () => {
         { label: 'Constructive', endsAt: '2026-11-02T00:01:00.000Z' },
         [
           {
-            side: 'affirmative',
+            column: 'affirmative',
+            columnLabel: 'Affirmative',
             label: 'Ann',
             kind: 'human',
             identity: 'aff',
             floor: true,
           },
           {
-            side: 'negative',
+            column: 'negative',
+            columnLabel: 'Negative',
             label: 'Ned',
             kind: 'bot',
             identity: 'neg',
@@ -124,6 +137,7 @@ describe('stageSnapshot', () => {
     ) => {
       const snapshot = stageSnapshot({
         position: { ...waiting, ...changed },
+        seating,
         seats,
       });
       return {
@@ -173,9 +187,57 @@ describe('stageSnapshot', () => {
       should: 'mark no seat as speaking',
       actual: stageSnapshot({
         position: { ...position, openSegment: null, nextSegment: null },
+        seating,
         seats,
       }).seats.some((s) => s.floor),
       expected: false,
+    });
+  });
+});
+
+describe('stageSnapshot for an unsided format (TAB-6.17)', () => {
+  test('each speaker is a column of their own, by seat', () => {
+    const unsided = {
+      sides: [],
+      seats: { sides: {}, speakers: 2, judges: 0, moderators: 0 },
+    };
+    const snapshot = stageSnapshot({
+      position: {
+        status: 'active',
+        stage: null,
+        prep: null,
+        nextSegment: null,
+        countdownRemainingMs: null,
+        incident: { phase: 'none' },
+        openSegment: {
+          label: 'Opening',
+          endsAt: '2026-11-02T00:01:00.000Z',
+          lead: { kind: 'speaker', slot: 1 },
+          floorParticipantId: null,
+        },
+      },
+      seating: unsided,
+      seats: [1, 0].map((slot) => ({
+        seat: { kind: 'speaker', slot } as const,
+        label: `S${slot}`,
+        kind: 'human' as const,
+        identity: `s${slot}`,
+        participantId: `p${slot}`,
+      })),
+    });
+    assert({
+      given: 'two speakers read out of order, the second holding the floor',
+      should:
+        'order them by seat, name each column by its seat, and mark the lead',
+      actual: snapshot.seats.map((seat) => [
+        seat.column,
+        seat.columnLabel,
+        seat.floor,
+      ]),
+      expected: [
+        ['speaker:0', 'Speaker 1', false],
+        ['speaker:1', 'Speaker 2', true],
+      ],
     });
   });
 });

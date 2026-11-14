@@ -1,4 +1,13 @@
-import type { CompetitionType, RecordingStatus } from '@daisy/protocol';
+import {
+  isDebatingSeat,
+  sideOfSeat,
+  type CompetitionType,
+  type RecordingStatus,
+  type RoundOutcome,
+  type SeatRef,
+  type Side,
+} from '@daisy/protocol';
+import { sideName } from '../debate-room/seat-names';
 import type { spectatorClockAt } from '../spectating/spectator-clock';
 import { replayHref } from '../watch/routes';
 import type { RecordingsQuery } from './archive-query';
@@ -25,9 +34,11 @@ export type ArchiveRound = Omit<RecordingRound, 'audienceLinkHash'> & {
   readonly status: RecordingStatus | null;
   readonly durationMs: number | null;
   readonly hasTranscript: boolean;
-  readonly outcome: string | null;
+  /** The format's declared sides, in order; none for an unsided format. */
+  readonly sides: readonly Side[];
+  readonly outcome: RoundOutcome | null;
   readonly debaters: readonly {
-    readonly role: string;
+    readonly seat: SeatRef;
     readonly label: string | null;
   }[];
 };
@@ -57,8 +68,8 @@ export type ArchiveEntry = {
   readonly ranked: boolean;
   readonly date: string;
   readonly length: string | null;
-  readonly aff: string;
-  readonly neg: string;
+  /** Who debated, one line per side in declared order (or per seat, unsided). */
+  readonly seats: readonly string[];
   /** Null unless this viewer may read the result. */
   readonly result: string | null;
   /** `withheld` is ready video this viewer may not play, as its page says. */
@@ -68,19 +79,48 @@ export type ArchiveEntry = {
   readonly ownVisibility: RecordingRound['visibility'] | null;
 };
 
-const seatNames = (round: ArchiveRound, role: string): string =>
-  round.debaters
-    .filter((seat) => seat.role === role)
+type Debater = ArchiveRound['debaters'][number];
+
+const namesOf = (debaters: readonly Debater[]): string =>
+  debaters
     .map((seat) => (seat.label === null ? 'A closed seat' : `@${seat.label}`))
     .join(', ') || 'Unknown';
 
-/** Ties are null: there is no draw to report (DEC-116). */
-export const resultHeadline = (outcome: string | null): string =>
-  outcome === 'affirmative'
-    ? 'Affirmative wins'
-    : outcome === 'negative'
-      ? 'Negative wins'
-      : 'No winner';
+/**
+ * Who debated: each side's debaters on one line, in the format's declared
+ * order; an unsided format's speakers one each.
+ */
+export const debaterLines = (round: {
+  readonly sides: readonly Side[];
+  readonly debaters: readonly Debater[];
+}): readonly string[] =>
+  round.sides.length > 0
+    ? round.sides.map((side) =>
+        namesOf(
+          round.debaters.filter((seat) => sideOfSeat(seat.seat) === side.key),
+        ),
+      )
+    : round.debaters
+        .filter((seat) => isDebatingSeat(seat.seat))
+        .map((seat) => namesOf([seat]));
+
+/** "Affirmative wins", "Ranked: Opening Government first". Ties are null: there is no draw to report (DEC-116). */
+export const resultHeadline = (
+  outcome: RoundOutcome | null,
+  sides: readonly Side[],
+): string => {
+  if (outcome === null) return 'No winner';
+  switch (outcome.kind) {
+    case 'winner':
+      return `${sideName(sides, outcome.side)} wins`;
+    case 'ranking': {
+      const first = outcome.places[0] ?? [];
+      return outcome.of === 'sides'
+        ? `${first.map((key) => sideName(sides, key)).join(' and ')} first`
+        : 'Speakers ranked';
+    }
+  }
+};
 
 const day = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
@@ -105,6 +145,7 @@ const listed = (
 export const archiveEntries = (
   page: ArchivePage,
   viewer: RecordingViewer,
+  nowMs: number,
 ): readonly ArchiveEntry[] =>
   page.rows.flatMap((round): readonly ArchiveEntry[] => {
     // A list carries no link: an unlisted Round is listed only to its insiders.
@@ -113,6 +154,7 @@ export const archiveEntries = (
       round.release,
       viewer,
       null,
+      nowMs,
     );
     const stored = recordingMediaState(round.status);
     const media =
@@ -133,9 +175,10 @@ export const archiveEntries = (
           media === 'watch' && round.durationMs !== null
             ? minutes(round.durationMs)
             : null,
-        aff: seatNames(round, 'affirmative'),
-        neg: seatNames(round, 'negative'),
-        result: permissions.result ? resultHeadline(round.outcome) : null,
+        seats: debaterLines(round),
+        result: permissions.result
+          ? resultHeadline(round.outcome, round.sides)
+          : null,
         media,
         transcript,
         ownVisibility: own ? round.visibility : null,

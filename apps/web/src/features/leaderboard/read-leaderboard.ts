@@ -86,7 +86,9 @@ export async function readLadder(
               rating: c.ratingAfter,
               deviation: c.deviationAfter,
               result:
-                c.outcome === c.role ? ('won' as const) : ('lost' as const),
+                c.outcome.side === c.side
+                  ? ('won' as const)
+                  : ('lost' as const),
               opponent:
                 summaries.find(
                   (r) =>

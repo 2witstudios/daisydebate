@@ -8,6 +8,10 @@ import { Lobby } from '../../../ui/lobby/lobby';
 import { roomListing } from './actions';
 import { requestActiveRoom } from '../active-room';
 import { ResumeRound } from '../../../ui/active-room/resume-round';
+import {
+  HostedRooms,
+  hostedWithoutSeat,
+} from '../../../ui/active-room/hosted-rooms';
 import { LobbyViews, OnlineCount } from '../../../ui/people/lobby-views';
 import { PeoplePanel } from '../../../ui/people/people-rail';
 import { personActions } from '../people/people-shell';
@@ -32,6 +36,7 @@ export default async function LobbyPage({
   const rooms = (
     <>
       <ResumeRound room={activeRoom} actorId={actorId} />
+      <HostedRooms rooms={hostedWithoutSeat(listing.rooms, actorId)} />
       <Lobby
         query={query.data}
         rooms={listing.rooms}

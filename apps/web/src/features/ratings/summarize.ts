@@ -26,8 +26,8 @@ type Posting = StandingsRead['changes'][number];
 const keyOf = (row: { seasonId: string; actorId: string }) =>
   `${row.seasonId}:${row.actorId}`;
 
-const resultOf = ({ role, outcome }: Posting) =>
-  outcome === role ? 'wins' : 'losses';
+const resultOf = ({ side, outcome }: Posting) =>
+  outcome.side === side ? 'wins' : 'losses';
 
 /**
  * Each debater's season line from the `ratings` rows and the ledger: played,

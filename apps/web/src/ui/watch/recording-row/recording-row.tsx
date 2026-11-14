@@ -55,11 +55,18 @@ export function RecordingRow({ row }: RecordingRowProps) {
         ) : null}
       </div>
       <div className="col-span-3 flex flex-col gap-1 text-base max-compact:col-span-2">
-        <span className="text-ink">{row.aff}</span>
-        <span className="flex items-baseline gap-2">
-          <span className="text-xs text-ink-faint">vs</span>
-          <span className="text-ink">{row.neg}</span>
-        </span>
+        {row.seats.map((names, index) =>
+          index === 0 ? (
+            <span key={index} className="text-ink">
+              {names}
+            </span>
+          ) : (
+            <span key={index} className="flex items-baseline gap-2">
+              <span className="text-xs text-ink-faint">vs</span>
+              <span className="text-ink">{names}</span>
+            </span>
+          ),
+        )}
       </div>
       <p className="col-span-2 text-sm text-ink-muted max-compact:col-span-2">
         {row.result ?? ''}

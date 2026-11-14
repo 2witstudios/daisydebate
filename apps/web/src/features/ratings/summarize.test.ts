@@ -21,8 +21,8 @@ const posting = (
   deviationBefore: 150,
   deviationAfter: 100,
   occurredAt,
-  role,
-  outcome,
+  side: role,
+  outcome: { kind: 'winner' as const, side: outcome },
 });
 
 const read: StandingsRead = {

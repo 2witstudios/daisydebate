@@ -16,7 +16,7 @@ export const completed: RoundBallotRead = {
   round: {
     ...played,
     status: 'completed',
-    outcome: 'affirmative',
+    outcome: { kind: 'winner', side: 'affirmative' },
     completedAt: at(startOf(2)),
   },
   own: null,

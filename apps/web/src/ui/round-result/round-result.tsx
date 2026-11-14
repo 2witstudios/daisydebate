@@ -1,5 +1,5 @@
 import type { RoundBallotRead } from '@daisy/protocol';
-import { ballotDebaters } from '../../features/round-ballots/presentation';
+import { ballotPlanOf } from '../../features/round-ballots/presentation';
 import { ballotEyebrowClass } from '../ballot/ballot-class';
 import { ReportForm } from '../content-moderation/report-form';
 import { BallotSummary } from '../ballot/ballot-summary/ballot-summary';
@@ -48,7 +48,7 @@ export function RoundResult({
               <BallotSummary
                 title={entry.title}
                 ballot={entry.ballot}
-                debaters={ballotDebaters(view)}
+                plan={ballotPlanOf(view)}
                 feedbackTitle={entry.feedbackTitle}
               />
               {entry.reportableFeedbackId ? (
@@ -62,7 +62,7 @@ export function RoundResult({
               <StoredBallotScores
                 title={`${entry.title} scores`}
                 ballot={entry.ballot}
-                debaters={ballotDebaters(view)}
+                plan={ballotPlanOf(view)}
               />
             </section>
           ))}

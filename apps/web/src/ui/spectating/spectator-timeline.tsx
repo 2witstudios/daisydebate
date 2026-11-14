@@ -1,10 +1,27 @@
-import { speakerTotal, type SpectatorTimeline } from '@daisy/protocol';
+import { pointsTotal, seatKey, type SpectatorTimeline } from '@daisy/protocol';
+import { sideName } from '../../features/debate-room/seat-names';
 import { formatCountdown } from '../../lib/clock-display';
 import {
   resultSentence,
-  sideLabel,
+  seatLabelIn,
   stageSentence,
 } from './spectator-timeline-copy';
+
+type Ballot = NonNullable<SpectatorTimeline['result']>['ballots'][number];
+
+/** "Affirmative 34, Negative 31": sides in declared order, then any other subject. */
+const scoresLine = (sides: SpectatorTimeline['sides'], ballot: Ballot) => {
+  const keys = sides.map((side) => side.key);
+  return [
+    ...keys.filter((key) => key in ballot.scores),
+    ...Object.keys(ballot.scores).filter((key) => !keys.includes(key)),
+  ]
+    .map(
+      (key) =>
+        `${sideName(sides, key)} ${pointsTotal(ballot.scores[key] ?? 0)}`,
+    )
+    .join(', ');
+};
 
 /** The released facts as text: what the video shows, for anyone who cannot see it. */
 export function SpectatorFacts({
@@ -20,13 +37,14 @@ export function SpectatorFacts({
       </h1>
       <ul className="text-base text-ink">
         {timeline.seats.map((seat) => (
-          <li key={seat.side}>
-            {sideLabel[seat.side]}: {seat.label ?? 'Unnamed debater'}
+          <li key={seatKey(seat.seat)}>
+            {seatLabelIn(timeline, seat.seat)}:{' '}
+            {seat.label ?? 'Unnamed debater'}
           </li>
         ))}
       </ul>
       <p aria-live="polite" className="text-base text-ink-muted">
-        {stageSentence(timeline.stage)}
+        {stageSentence(timeline, timeline.stage)}
       </p>
       {timeline.stage.kind === 'floor' ? (
         <p role="timer" className="font-display text-xl font-bold tabular-nums">
@@ -35,22 +53,23 @@ export function SpectatorFacts({
       ) : null}
       {result ? (
         <div aria-live="polite">
-          <p>{resultSentence(result.winner)}</p>
+          <p>{resultSentence(timeline.sides, result.outcome)}</p>
           {result.ratings.map((rating) => (
             <p key={rating.side}>
-              {sideLabel[rating.side]} rating: {rating.before} to {rating.after}
+              {sideName(timeline.sides, rating.side)} rating: {rating.before} to{' '}
+              {rating.after}
             </p>
           ))}
           <ol>
             {result.ballots.map((ballot, index) => (
               <li key={index}>
                 <p>
-                  Ballot {index + 1}: {sideLabel[ballot.winner]}
+                  Ballot {index + 1}:{' '}
+                  {ballot.winner === null
+                    ? 'No winner'
+                    : sideName(timeline.sides, ballot.winner)}
                 </p>
-                <p>
-                  Scores: Affirmative {speakerTotal(ballot.scores.affirmative)},
-                  Negative {speakerTotal(ballot.scores.negative)}
-                </p>
+                <p>Scores: {scoresLine(timeline.sides, ballot)}</p>
                 <p>{ballot.reason}</p>
               </li>
             ))}
@@ -61,7 +80,7 @@ export function SpectatorFacts({
         <ol aria-label="Captions" className="flex flex-col gap-1 text-base">
           {timeline.captions.map((caption) => (
             <li key={caption.id}>
-              {sideLabel[caption.side]}: {caption.text}
+              {seatLabelIn(timeline, caption.seat)}: {caption.text}
             </li>
           ))}
         </ol>
