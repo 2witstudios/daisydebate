@@ -71,7 +71,7 @@ type PairingTerm = (
   fixture: Fixture,
 ) => readonly number[] | null;
 
-export const pairingTerms: Record<PairingForceKey, PairingTerm> = {
+const everyPairingTerm: Record<PairingForceKey, PairingTerm> = {
   'pairing.rematch': (facts, fixture) =>
     fixture.kind === 'pairing'
       ? [
@@ -145,6 +145,19 @@ export const pairingTerms: Record<PairingForceKey, PairingTerm> = {
   'bye.repeat': (facts, fixture) =>
     fixture.kind === 'bye' ? [facts.byes.get(fixture.entry) ?? 0] : null,
 };
+
+/**
+ * An elimination tab round is arithmetic: the bracket and the results fix
+ * it, so no pairing or bye policy applies there (bracket breaking for
+ * schoolmates is a later version). Judging policies still apply.
+ */
+export const pairingTerms = Object.fromEntries(
+  Object.entries(everyPairingTerm).map(([key, term]) => [
+    key,
+    (facts: EventFacts, fixture: Fixture) =>
+      facts.stage === 'elimination' ? null : term(facts, fixture),
+  ]),
+) as Record<PairingForceKey, PairingTerm>;
 
 /** `bye.recipient` is plain: the cost of this entry taking the bye. */
 export const byeRecipientTerm = (facts: EventFacts, fixture: Fixture) =>

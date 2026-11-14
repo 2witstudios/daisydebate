@@ -10,6 +10,7 @@ import {
   request,
   seedOf,
   twoSides,
+  withSettings,
 } from './draw.test-support';
 
 setupRitewayBun();
@@ -102,6 +103,86 @@ describe('bracket progression', () => {
           ? answer.fact
           : answer.kind,
       expected: 'missing_result',
+    });
+  });
+
+  test('a double loss keeps its bracket place, and the survivor of that pair takes a bye', () => {
+    const eight = entries(8, 8);
+    const seeds8 = eight.map((e) => e.id);
+    const stage8 = {
+      kind: 'elimination',
+      division: null,
+      bracket: { seeds: seeds8 },
+    } as const;
+    const at = (tabRound: number, history: StageHistory<TwoSides>) =>
+      drawsOf(
+        draw({
+          call: 'windowed',
+          event: request(twoSides, {
+            entries: eight,
+            stage: stage8,
+            tabRound,
+            history,
+          }),
+          judges: null,
+          seed: seedOf(1),
+        }),
+      )[0]!;
+    const first = at(1, { fixtures: [], results: [] });
+    const played = playTwoSided(
+      { fixtures: [], results: [] },
+      first,
+      1,
+      (sides) => (seeds8.indexOf(sides[0]) < seeds8.indexOf(sides[1]) ? 0 : 1),
+    );
+    const doubleLoss = {
+      ...played,
+      results: played.results.map((r, i) =>
+        i === 0 ? { ...r, outcome: { ...r.outcome, winner: null } } : r,
+      ),
+    };
+    const n = (id: string) => seeds8.indexOf(id) + 1;
+    assert({
+      given: 'eight seeds where 1 and 8 both lose',
+      should:
+        'give seed 4 a bye in the place 1-8 would have filled, and pair 2 with 3',
+      actual: fixturesOf(at(2, doubleLoss)).map((f) =>
+        entriesOf(f).map(n).join('-'),
+      ),
+      expected: ['4', '3-2'].map((x) =>
+        x
+          .split('-')
+          .map(Number)
+          .sort((a, b) => a - b)
+          .join('-'),
+      ),
+    });
+  });
+
+  test('no pairing policy applies to an elimination round: the bracket fixes it', () => {
+    const schoolmates = entries(4, 1);
+    const d = drawsOf(
+      draw({
+        call: 'windowed',
+        event: request(twoSides, {
+          entries: schoolmates,
+          stage: {
+            kind: 'elimination',
+            division: null,
+            bracket: { seeds: schoolmates.map((e) => e.id) },
+          },
+          settings: withSettings({ 'pairing.same_school': { force: 'rule' } }),
+        }),
+        judges: null,
+        seed: seedOf(1),
+      }),
+    )[0]!;
+    assert({
+      given:
+        'four entries of one school in a bracket, under a same-school rule',
+      should: 'draw the bracket and report no pairing policy broken',
+      actual: [fixturesOf(d).length, d.assessment.broken],
+      expected: [2, []],
     });
   });
 });

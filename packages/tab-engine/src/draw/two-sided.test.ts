@@ -419,3 +419,37 @@ describe('a rule no plan can satisfy', () => {
     });
   });
 });
+
+describe('a round-robin re-draw', () => {
+  test('keeps the circle: a fixed fixture leaves every other fixture as scheduled', () => {
+    const field = entries(8, 8);
+    const at = (existing: readonly unknown[]) =>
+      drawsOf(
+        draw({
+          call: 'windowed',
+          event: request(twoSides, {
+            entries: field,
+            settings: roundRobinPreset,
+            tabRound: 3,
+            existing: existing as never,
+          }),
+          judges: null,
+          seed: seedOf(5),
+        }),
+      )[0]!;
+    const scheduled = at([]);
+    const [pinned, ...rest] = scheduled.add;
+    const redrawn = at([{ id: 'x1', fixture: pinned!.fixture, hold: 'fixed' }]);
+    assert({
+      given:
+        'a round-robin tab round re-drawn with one of its own fixtures fixed',
+      should:
+        'keep that fixture and schedule every other pair exactly as before',
+      actual: [
+        redrawn.keep.map((k) => k.id),
+        JSON.stringify(redrawn.add.map((a) => a.fixture)),
+      ],
+      expected: [['x1'], JSON.stringify(rest.map((a) => a.fixture))],
+    });
+  });
+});

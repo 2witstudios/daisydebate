@@ -140,7 +140,7 @@ const judgingCosts = (
 };
 
 /** Each applicable force key's count for one fixture: zero kept, above zero broken. */
-export const fixtureCosts = (
+const everyCost = (
   ctx: CostContext,
   fixture: Fixture,
 ): ReadonlyMap<ForceKey, readonly number[]> => {
@@ -179,3 +179,16 @@ export const forceOf = (request: EventRequest, key: ForceKey) =>
 
 export const isBroken = (cost: readonly number[]) =>
   cost.some((field) => field > 0);
+
+/**
+ * An elimination tab round is fixed by the bracket and the results, so no
+ * pairing or bye policy applies to its fixtures; judging policies still do.
+ */
+export const fixtureCosts = (
+  ctx: CostContext,
+  fixture: Fixture,
+): ReadonlyMap<ForceKey, readonly number[]> => {
+  const costs = everyCost(ctx, fixture);
+  if (ctx.request.stage.kind !== 'elimination') return costs;
+  return new Map([...costs].filter(([key]) => key.startsWith('judging.')));
+};

@@ -178,7 +178,7 @@ const locked: Record<string, LockEntry> = {
       method: 'bracket-progression@1',
       judges: 'judges@1',
     },
-    digest: 'e6963fbebbf0e0a1c3ae09b14692b3ed512bce54f6b9edf9321f26be45a08a37',
+    digest: '3d7fd4b18094b38f7f451c30fb5ffc0f0362d1127b14738e457f754f6297a6dd',
   },
 };
 

@@ -1,4 +1,4 @@
-import { shuffleWith } from '@daisy/seeded-random';
+import { canonicalOrder, shuffleWith } from '@daisy/seeded-random';
 import type { Bye, Id, TwoSidePairing, TwoSides } from '../shapes/competition';
 import type { RequestOf } from '../shapes/draw';
 import { entriesOf, type EventFacts } from './facts';
@@ -52,9 +52,29 @@ export const placeRoundRobin = (
   facts: EventFacts,
   seed: Uint8Array,
 ): PlacementAnswer => {
-  const pool = poolOf(request, entriesOf);
-  const order = shuffleWith(pool, eventStream(seed, request.event, 'schedule'));
-  const fixtures = roundRobinRound(order, request.tabRound);
+  /**
+   * The schedule is a function of every active entry, the seed and the tab
+   * round, so a re-draw with fixed fixtures keeps the same circle. A
+   * scheduled fixture that touches a fixed fixture's entry is set aside and
+   * its other entry takes the bye.
+   */
+  const active = canonicalOrder(
+    request.entries.filter((e) => e.status === 'active'),
+  ).map((e) => e.id);
+  const pool = new Set(poolOf(request, entriesOf));
+  const order = shuffleWith(
+    active,
+    eventStream(seed, request.event, 'schedule'),
+  );
+  const fixtures = roundRobinRound(order, request.tabRound).flatMap(
+    (fixture): (TwoSidePairing | Bye)[] => {
+      const seated = entriesOf(fixture);
+      if (seated.every((e) => pool.has(e))) return [fixture];
+      return seated
+        .filter((e) => pool.has(e))
+        .map((entry) => ({ kind: 'bye', entry }));
+    },
+  );
   if (fixtures.some((fixture) => brokenRules(facts, fixture).length > 0))
     return { kind: 'infeasible' };
   const movable = request.existing.filter((f) => f.hold === 'movable');
